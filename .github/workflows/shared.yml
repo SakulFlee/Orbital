@@ -20,10 +20,10 @@ jobs:
     - uses: actions/checkout@v3
 
     - name: Install Rust on Windows 
-      if: ${{ matrix.os }} == windows-latest
+      if: ${{ matrix.os == 'windows-latest' }}
       run: Invoke-WebRequest https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe -OutFile rustup-init.exe; ./rustup-init.exe --default-toolchain stable --profile complete -y
     - name: Install Rust on UNIX (Linux & macOS)
-      if: ${{ matrix.os }} != windows-latest
+      if: ${{ matrix.os != 'windows-latest' }}
       run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
 
     - name: Check
