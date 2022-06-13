@@ -31,3 +31,8 @@ jobs:
       run: cargo xcodebuild build --verbose --package platform_ios
     - name: Run tests
       run: cargo xcodebuild test --verbose --package platform_ios
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: platform_ios
+        path: target/

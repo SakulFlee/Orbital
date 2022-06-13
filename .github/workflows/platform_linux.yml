@@ -28,3 +28,8 @@ jobs:
       run: cargo build --verbose --package platform_linux
     - name: Run tests
       run: cargo test --verbose --package platform_linux
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: platform_linux
+        path: target/

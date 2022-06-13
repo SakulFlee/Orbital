@@ -28,3 +28,8 @@ jobs:
       run: cargo build --verbose --package platform_macos
     - name: Run tests
       run: cargo test --verbose --package platform_macos
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: platform_macos
+        path: target/

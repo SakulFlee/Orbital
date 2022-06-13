@@ -32,3 +32,8 @@ jobs:
       run: cargo build --verbose --package shared
     - name: Run tests
       run: cargo test --verbose --package shared
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: shared
+        path: target/
