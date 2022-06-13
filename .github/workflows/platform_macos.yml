@@ -1,0 +1,30 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [macos-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install Rust
+      run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile full -y
+
+    - name: Check
+      run: cargo check --verbose --package platform_macos
+    - name: Build
+      run: cargo build --verbose --package platform_macos
+    - name: Run tests
+      run: cargo test --verbose --package platform_macos
