@@ -31,3 +31,8 @@ jobs:
       run: cargo apk build --verbose --package platform_android
     - name: Run tests
       run: cargo apk test --verbose --package platform_android
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: platform_android
+        path: target/
