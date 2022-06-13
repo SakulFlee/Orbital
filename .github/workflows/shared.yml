@@ -10,12 +10,10 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build_matrix:
+  build:
     strategy:
       matrix:
         os: [macos-latest, windows-latest, ubuntu-latest]
-
-  build:
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -29,8 +27,8 @@ jobs:
       run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile full -y
 
     - name: Check
-      run: cargo check --verbose --package platform_macos
+      run: cargo check --verbose --package shared
     - name: Build
-      run: cargo build --verbose --package platform_macos
+      run: cargo build --verbose --package shared
     - name: Run tests
-      run: cargo test --verbose --package platform_macos
+      run: cargo test --verbose --package shared
