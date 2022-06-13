@@ -14,12 +14,12 @@
 | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | - |
 | ./                                     | Workspace root; `Cargo.toml` contains all project folders (internal crates)                                                         |
 | [platform/](platform/)                 | Platform projects root. Contains every platform this demonstration is supported on incl. instructions on how to build and use them. | |
-| [platform/android/](platform/android/) | Contains the Android platform project and instructions on how to build this project for Android and run it.                         | [![Rust](actions/workflows/platform_android.yml/badge.svg)](actions/workflows/platform_android.yml) |
-| [platform/ios/](platform/ios/)         | Contains the iOS platform project and instructions on how to build this project for iOS and run it.                                 | [![Rust](actions/workflows/platform_ios.yml/badge.svg)](actions/workflows/platform_ios.yml) |
-| [platform/linux/](platform/linux/)     | Contains the Linux platform project and instructions on how to build this project for Linux and run it.                             | [![Rust](actions/workflows/platform_linux.yml/badge.svg)](actions/workflows/platform_linux.yml) |
-| [platform/macos/](platform/macos/)     | Contains the macOS platform project and instructions on how to build this project for macOS and run it.                             | [![Rust](actions/workflows/platform_macos.yml/badge.svg)](actions/workflows/platform_macos.yml) |
-| [platform/windows/](platform/windows/) | Contains the Windows platform project and instructions on how to build this project for Windows and run it.                         | [![Rust](actions/workflows/platform_windows.yml/badge.svg)](actions/workflows/platform_windows.yml) |
-| [shared/](shared/)                     | Contains the **shared** code between **all** projects.                                                                              | [![Rust](actions/workflows/shared.yml/badge.svg)](actions/workflows/shared.yml) |
+| [platform/android/](platform/android/) | Contains the Android platform project and instructions on how to build this project for Android and run it.                         | [![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_android.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_android.yml) |
+| [platform/ios/](platform/ios/)         | Contains the iOS platform project and instructions on how to build this project for iOS and run it.                                 | [![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_ios.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_ios.yml) |
+| [platform/linux/](platform/linux/)     | Contains the Linux platform project and instructions on how to build this project for Linux and run it.                             | [![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_linux.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_linux.yml) |
+| [platform/macos/](platform/macos/)     | Contains the macOS platform project and instructions on how to build this project for macOS and run it.                             | [![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_macos.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_macos.yml) |
+| [platform/windows/](platform/windows/) | Contains the Windows platform project and instructions on how to build this project for Windows and run it.                         | [![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_windows.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_windows.yml) |
+| [shared/](shared/)                     | Contains the **shared** code between **all** projects.                                                                              | [![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/shared.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/shared.yml) |
 
 To break this down:  
 The [shared/](shared/) folder contains our **cross/multi-platform code**.  
@@ -103,7 +103,7 @@ This can be simply done by following [rustup.rs](https://rustup.rs/) (check the 
 Something like:
 
 ```shell
-curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
+curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile full -y
 ```
 
 should work for most platforms.
