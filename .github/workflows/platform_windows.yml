@@ -24,6 +24,8 @@ jobs:
       run: Invoke-WebRequest https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe -OutFile rustup-init.exe; ./rustup-init.exe --default-toolchain stable --profile complete -y
 
     - name: Install target ${{ matrix.target }}
+      run: rustup target add ${{ matrix.target }}
+
     - name: Check
       run: cargo check --verbose --package platform_windows --target ${{ matrix.target }}
     - name: Build
