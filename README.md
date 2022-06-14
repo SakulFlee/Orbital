@@ -10,16 +10,16 @@
 
 ## Project layout
 
-| Folder                                 | Description                                                                                                                         | GitHub Actions | Circle CI |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | - | - |
-| ./                                     | Workspace root; `Cargo.toml` contains all project folders (internal crates)                                                         | |
-| [platform/](platform/)                 | Platform projects root. Contains every platform this demonstration is supported on incl. instructions on how to build and use them. | | |
-| [platform/android/](platform/android/) | Contains the Android platform project and instructions on how to build this project for Android and run it.                         | [![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_android.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_android.yml) | |
-| [platform/ios/](platform/ios/)         | Contains the iOS platform project and instructions on how to build this project for iOS and run it.                                 | [![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_ios.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_ios.yml) | |
-| [platform/linux/](platform/linux/)     | Contains the Linux platform project and instructions on how to build this project for Linux and run it.                             | [![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_linux.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_linux.yml) | [![CircleCI](https://circleci.com/gh/rust-multiplatform/Base-Project-Template/tree/main.svg?style=svg)](https://circleci.com/gh/rust-multiplatform/Base-Project-Template/tree/main) |
-| [platform/macos/](platform/macos/)     | Contains the macOS platform project and instructions on how to build this project for macOS and run it.                             | [![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_macos.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_macos.yml) | |
-| [platform/windows/](platform/windows/) | Contains the Windows platform project and instructions on how to build this project for Windows and run it.                         | [![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_windows.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_windows.yml) | |
-| [shared/](shared/)                     | Contains the **shared** code between **all** projects.                                                                              | [![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/shared.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/shared.yml) | |
+| Folder                                 | Description                                                                                                                         | GitHub Actions                                                                                                                                                                                                              | Circle CI                                                                                                                                                                           |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ./                                     | Workspace root; `Cargo.toml` contains all project folders (internal crates)                                                         |                                                                                                                                                                                                                             |
+| [platform/](platform/)                 | Platform projects root. Contains every platform this demonstration is supported on incl. instructions on how to build and use them. |                                                                                                                                                                                                                             |                                                                                                                                                                                     |
+| [platform/android/](platform/android/) | Contains the Android platform project and instructions on how to build this project for Android and run it.                         | [![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_android.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_android.yml) |                                                                                                                                                                                     |
+| [platform/ios/](platform/ios/)         | Contains the iOS platform project and instructions on how to build this project for iOS and run it.                                 | [![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_ios.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_ios.yml)         |                                                                                                                                                                                     |
+| [platform/linux/](platform/linux/)     | Contains the Linux platform project and instructions on how to build this project for Linux and run it.                             | [![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_linux.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_linux.yml)     | [![CircleCI](https://circleci.com/gh/rust-multiplatform/Base-Project-Template/tree/main.svg?style=svg)](https://circleci.com/gh/rust-multiplatform/Base-Project-Template/tree/main) |
+| [platform/macos/](platform/macos/)     | Contains the macOS platform project and instructions on how to build this project for macOS and run it.                             | [![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_macos.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_macos.yml)     |                                                                                                                                                                                     |
+| [platform/windows/](platform/windows/) | Contains the Windows platform project and instructions on how to build this project for Windows and run it.                         | [![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_windows.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_windows.yml) |                                                                                                                                                                                     |
+| [shared/](shared/)                     | Contains the **shared** code between **all** projects.                                                                              | [![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/shared.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/shared.yml)                     |                                                                                                                                                                                     |
 
 To break this down:  
 The [shared/](shared/) folder contains our **cross/multi-platform code**.  
@@ -42,12 +42,12 @@ Rust tier policies can be found [here](https://doc.rust-lang.org/rustc/target-ti
 
 ### Windows Targets
 
-| Target | Tier Support |
-| - | - |
-| i686-pc-windows-msvc | Tier 1 |
-| x86_64-pc-windows-msvc | Tier 1 |
-| aarch64-pc-windows-msvc | Tier 2 |
-| i586-pc-windows-msvc | Tier 2 |
+| Target                  | Tier Support |
+| ----------------------- | ------------ |
+| i686-pc-windows-msvc    | Tier 1       |
+| x86_64-pc-windows-msvc  | Tier 1       |
+| aarch64-pc-windows-msvc | Tier 2       |
+| i586-pc-windows-msvc    | Tier 2       |
 
 > The `-gnu` versions (instead of the `-msvc` versions) are the same architecture.  
 > The difference is that `-msvc` uses `MSVC`, while `-gnu` uses `GCC`.  
@@ -56,47 +56,47 @@ Rust tier policies can be found [here](https://doc.rust-lang.org/rustc/target-ti
 
 ### Linux Targets
 
-| Target | Tier Support |
-| - | - |
-| aarch64-unknown-linux-gnu | Tier 1 |
-| i686-unknown-linux-gnu | Tier 1 |
-| x86_64-unknown-linux-gnu | Tier 1 |
-| aarch64-unknown-linux-musl | Tier 2 |
-| arm-linux-androideabi | Tier 2 |
-| arm-unknown-linux-gnueabi | Tier 2 |
-| arm-unknown-linux-gnueabihf | Tier 2 |
-| arm-unknown-linux-musleabi | Tier 2 |
-| arm-unknown-linux-musleabihf | Tier 2 |
-| armv5te-unknown-linux-gnueabi | Tier 2 |
-| armv7-linux-androideabi | Tier 2 |
-| armv7-unknown-linux-gnueabihf | Tier 2 |
-| armv7-unknown-linux-musleabihf | Tier 2 |
-| i586-unknown-linux-gnu | Tier 2 |
-| i586-unknown-linux-musl | Tier 2 |
-| i686-unknown-linux-musl | Tier 2 |
-| mips-unknown-linux-gnu | Tier 2 |
-| mips-unknown-linux-musl | Tier 2 |
-| mips64-unknown-linux-gnuabi64 | Tier 2 |
-| mips64el-unknown-linux-gnuabi64 | Tier 2 |
-| mipsel-unknown-linux-gnu | Tier 2 |
-| mipsel-unknown-linux-musl | Tier 2 |
-| powerpc-unknown-linux-gnu | Tier 2 |
-| powerpc64-unknown-linux-gnu | Tier 2 |
-| powerpc64le-unknown-linux-gnu | Tier 2 |
-| s390x-unknown-linux-gnu | Tier 2 |
-| sparc64-unknown-linux-gnu | Tier 2 |
-| x86_64-unknown-linux-gnux32 | Tier 2 |
-| x86_64-unknown-linux-musl | Tier 2 |
+| Target                          | Tier Support |
+| ------------------------------- | ------------ |
+| aarch64-unknown-linux-gnu       | Tier 1       |
+| i686-unknown-linux-gnu          | Tier 1       |
+| x86_64-unknown-linux-gnu        | Tier 1       |
+| aarch64-unknown-linux-musl      | Tier 2       |
+| arm-linux-androideabi           | Tier 2       |
+| arm-unknown-linux-gnueabi       | Tier 2       |
+| arm-unknown-linux-gnueabihf     | Tier 2       |
+| arm-unknown-linux-musleabi      | Tier 2       |
+| arm-unknown-linux-musleabihf    | Tier 2       |
+| armv5te-unknown-linux-gnueabi   | Tier 2       |
+| armv7-linux-androideabi         | Tier 2       |
+| armv7-unknown-linux-gnueabihf   | Tier 2       |
+| armv7-unknown-linux-musleabihf  | Tier 2       |
+| i586-unknown-linux-gnu          | Tier 2       |
+| i586-unknown-linux-musl         | Tier 2       |
+| i686-unknown-linux-musl         | Tier 2       |
+| mips-unknown-linux-gnu          | Tier 2       |
+| mips-unknown-linux-musl         | Tier 2       |
+| mips64-unknown-linux-gnuabi64   | Tier 2       |
+| mips64el-unknown-linux-gnuabi64 | Tier 2       |
+| mipsel-unknown-linux-gnu        | Tier 2       |
+| mipsel-unknown-linux-musl       | Tier 2       |
+| powerpc-unknown-linux-gnu       | Tier 2       |
+| powerpc64-unknown-linux-gnu     | Tier 2       |
+| powerpc64le-unknown-linux-gnu   | Tier 2       |
+| s390x-unknown-linux-gnu         | Tier 2       |
+| sparc64-unknown-linux-gnu       | Tier 2       |
+| x86_64-unknown-linux-gnux32     | Tier 2       |
+| x86_64-unknown-linux-musl       | Tier 2       |
 
 > Targets ending with `-gnu` use GNU's `libc`, while `-musl` use MUSL's `libc` bindings.  
 > Both are a common standard used by many linux operating systems.
 
 ### macOS Targets
 
-| Target | Tier Support |
-| - | - |
-| x86_64-apple-darwin | Tier 1 |
-| aarch64-apple-darwin | Tier 2 |
+| Target               | Tier Support |
+| -------------------- | ------------ |
+| x86_64-apple-darwin  | Tier 1       |
+| aarch64-apple-darwin | Tier 2       |
 
 > The new M1 & M2 chips from Apple are based on AARCH64.  
 > Thus, x86_64 = "legacy" / old macs; aarch64 = new M1 macs.
@@ -114,19 +114,19 @@ Rust tier policies can be found [here](https://doc.rust-lang.org/rustc/target-ti
 
 ### Android Targets
 
-| Target | Tier Support |
-| - | - |
-| x86_64-linux-android | Tier 2 |
-| aarch64-linux-android | Tier 2 |
-| i686-linux-android | Tier 2 |
-| armv7-linux-androideabi | Tier 2 |
+| Target                  | Tier Support |
+| ----------------------- | ------------ |
+| x86_64-linux-android    | Tier 2       |
+| aarch64-linux-android   | Tier 2       |
+| i686-linux-android      | Tier 2       |
+| armv7-linux-androideabi | Tier 2       |
 
 ### WebAssembly
 
-| Target | Tier Support |
-| - | - |
-| wasm32-unknown-unknown | Tier 2 |
-| wasm32-wasi | Tier 2 |
+| Target                 | Tier Support |
+| ---------------------- | ------------ |
+| wasm32-unknown-unknown | Tier 2       |
+| wasm32-wasi            | Tier 2       |
 
 ### Other architectures
 
@@ -145,13 +145,13 @@ However, we can build and run individual parts (`packages`) matching our host pl
 
 Host (top) vs. Target (left) compatibility matrix:  
 
-|                     | Host: Windows                                                                                                                                                                                                                                  | Host: Linux | Host: macOS |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ----------- |
-| **Target: Windows** | ✅: [Visual Studio](https://visualstudio.com/)                                                                                                                                                                                                  | 🔀: [MinGW](https://www.mingw-w64.org/)           | 🔀: [MinGW](https://www.mingw-w64.org/)           |
-| **Target: Linux**   | ⚠️: [WSL](https://docs.microsoft.com/en-us/windows/wsl/) or VM or Docker                                                                                                                                                                                  | ✅: [GCC](https://gcc.gnu.org/) or [Clang](https://clang.llvm.org/)           | 🔀: Docker or VM           |
-| **Target: macOS**   | ⚠️: [Docker-OSX (inside WSL with Docker)](https://github.com/sickcodes/Docker-OSX) or [OSX-KVM (inside WSL or VM)](https://github.com/kholia/OSX-KVM) or [macOS-VirtualBox (inside/with WSL and/or MSYS2/MinGW)](https://github.com/myspaghetti/macos-virtualbox) | ⚠️: [Docker-OSX](https://github.com/sickcodes/Docker-OSX) or [OSX-KVM](https://github.com/kholia/OSX-KVM) or [macOS-VirtualBox](https://github.com/myspaghetti/macos-virtualbox)           | ✅: [XCode](https://developer.apple.com/xcode/)           |
-| **Target: Android** | 🔀: [Android Studio](https://developer.android.com/studio/) or [Android CommandLine-Tools](https://developer.android.com/studio/#command-tools)                                                                                                                                                                                                                                              | 🔀: [Android Studio](https://developer.android.com/studio/) or [Android CommandLine-Tools](https://developer.android.com/studio/#command-tools)           | 🔀: [Android Studio](https://developer.android.com/studio/) or [Android CommandLine-Tools](https://developer.android.com/studio/#command-tools)           |
-| **Target: iOS**     | ⚠️: [Docker-OSX (inside WSL with Docker)](https://github.com/sickcodes/Docker-OSX) or [OSX-KVM (inside WSL or VM)](https://github.com/kholia/OSX-KVM) or [macOS-VirtualBox (inside/with WSL and/or MSYS2/MinGW)](https://github.com/myspaghetti/macos-virtualbox)                                                                                                                                                                                                                                              | ⚠️: [Docker-OSX](https://github.com/sickcodes/Docker-OSX) or [OSX-KVM](https://github.com/kholia/OSX-KVM) or [macOS-VirtualBox](https://github.com/myspaghetti/macos-virtualbox)           | ✅: [XCode](https://developer.apple.com/xcode/)           |
+|                     | Host: Windows                                                                                                                                                                                                                                                    | Host: Linux                                                                                                                                                                     | Host: macOS                                                                                                                                    |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Target: Windows** | ✅: [Visual Studio](https://visualstudio.com/)                                                                                                                                                                                                                    | 🔀: [MinGW](https://www.mingw-w64.org/)                                                                                                                                          | 🔀: [MinGW](https://www.mingw-w64.org/)                                                                                                         |
+| **Target: Linux**   | ⚠️: [WSL](https://docs.microsoft.com/en-us/windows/wsl/) or VM or Docker                                                                                                                                                                                          | ✅: [GCC](https://gcc.gnu.org/) or [Clang](https://clang.llvm.org/)                                                                                                              | 🔀: Docker or VM                                                                                                                                |
+| **Target: macOS**   | ⚠️: [Docker-OSX (inside WSL with Docker)](https://github.com/sickcodes/Docker-OSX) or [OSX-KVM (inside WSL or VM)](https://github.com/kholia/OSX-KVM) or [macOS-VirtualBox (inside/with WSL and/or MSYS2/MinGW)](https://github.com/myspaghetti/macos-virtualbox) | ⚠️: [Docker-OSX](https://github.com/sickcodes/Docker-OSX) or [OSX-KVM](https://github.com/kholia/OSX-KVM) or [macOS-VirtualBox](https://github.com/myspaghetti/macos-virtualbox) | ✅: [XCode](https://developer.apple.com/xcode/)                                                                                                 |
+| **Target: Android** | 🔀: [Android Studio](https://developer.android.com/studio/) or [Android CommandLine-Tools](https://developer.android.com/studio/#command-tools)                                                                                                                   | 🔀: [Android Studio](https://developer.android.com/studio/) or [Android CommandLine-Tools](https://developer.android.com/studio/#command-tools)                                  | 🔀: [Android Studio](https://developer.android.com/studio/) or [Android CommandLine-Tools](https://developer.android.com/studio/#command-tools) |
+| **Target: iOS**     | ⚠️: [Docker-OSX (inside WSL with Docker)](https://github.com/sickcodes/Docker-OSX) or [OSX-KVM (inside WSL or VM)](https://github.com/kholia/OSX-KVM) or [macOS-VirtualBox (inside/with WSL and/or MSYS2/MinGW)](https://github.com/myspaghetti/macos-virtualbox) | ⚠️: [Docker-OSX](https://github.com/sickcodes/Docker-OSX) or [OSX-KVM](https://github.com/kholia/OSX-KVM) or [macOS-VirtualBox](https://github.com/myspaghetti/macos-virtualbox) | ✅: [XCode](https://developer.apple.com/xcode/)                                                                                                 |
 
 ✅ = Natively supported.  
 🔀 = Cross-Compilation & Toolchain needed.  
