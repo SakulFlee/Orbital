@@ -34,6 +34,9 @@ jobs:
     - name: Install cargo-xcodebuild
       run: cargo install cargo-xcodebuild
 
+    - name: Install XCodeGen
+      run: brew install xcodegen
+
     - name: Check
       run: cargo xcodebuild check --verbose --package platform_ios
     - name: Build
