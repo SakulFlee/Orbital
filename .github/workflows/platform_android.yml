@@ -47,11 +47,6 @@ jobs:
 
     - uses: actions/upload-artifact@v3
       with:
-        name: "platform_android_${{ matrix.target }}_debug"
-        path: target/debug/platform_*
-        if-no-files-found: error 
-    - uses: actions/upload-artifact@v3
-      with:
-        name: "platform_android_${{ matrix.target }}_release"
-        path: target/debug/platform_*
+        name: "platform_android_${{ matrix.target }}"
+        path: target/
         if-no-files-found: error 
