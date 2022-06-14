@@ -1,22 +1,32 @@
+# To save on build minutes and to reduce complexity 
+# we are **only** building for the current architecture.
+#
+# We could of course add all of our target architectures
+# by simply adding the `--target <rust target>` to the build commands.
+# However, there is no build-matrix feature like in GitHub Actions.
+# Thus, each target architecture would need their own job.
 version: 2.1
 jobs:
-  platform_linux:
+  build:
     docker:
-      - image: cimg/rust:1.61
+      - image: cimg/rust:1.61 # Use the CircleCI ready-to-be-used Docker image for Rust
     steps:
       - checkout
       - run: cargo --version
+      # Build
       - run:
           name: Build (debug)
           command: cargo build --package platform_linux
       - run:
           name: Build (release)
           command: cargo build --package platform_linux --release
+      # Tests
       - run:
           name: Run Tests (debug)
           command: cargo test --package platform_linux
       - run:
           name: Run Tests (release)
           command: cargo test --package platform_linux --release
+      # Upload Artifacts
       - store_artifacts:
         path: target/
