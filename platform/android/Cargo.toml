@@ -7,4 +7,94 @@ edition = "2021"
 crate-type = ["cdylib", "staticlib", "rlib"]
 
 [dependencies]
+# Internal Crates
 shared = { path = "../../shared" }
+
+# External Crates
+ndk-glue = { version = "0.5", features = ["logger"] }
+
+[package.metadata.android]
+# Specifies the package property of the manifest.
+package = "de.sakulflee.rust_multiplatform_app"
+
+# Specifies the array of targets to build for.
+build_targets = [ 
+    "armv7-linux-androideabi", 
+    "aarch64-linux-android", 
+    "i686-linux-android", 
+    "x86_64-linux-android",
+    "arm-linux-androideabi"
+]
+
+# Path to your application's resources folder.
+# If not specified, resources will not be included in the APK.
+resources = "resources/"
+
+# Path to the folder containing your application's assets.
+# If not specified, assets will not be included in the APK.
+assets = "assets/"
+
+# Name for final APK file.
+# Defaults to package name.
+apk_name = "Hello-Rust"
+
+# Folder containing extra shared libraries intended to be dynamically loaded at runtime.
+# Files matching `libs_folder/${android_abi}/*.so` are added to the apk
+# according to the specified build_targets.
+# runtime_libs = "path/to/libs_folder"
+
+# See https://developer.android.com/guide/topics/manifest/uses-sdk-element
+#
+# Defaults to a `min_sdk_version` of 23 and `target_sdk_version` of 30 (or lower if the detected NDK doesn't support this).
+[package.metadata.android.sdk]
+min_sdk_version = 23
+target_sdk_version = 30
+max_sdk_version = 29
+
+# See https://developer.android.com/guide/topics/manifest/uses-feature-element
+#
+# Note: there can be multiple .uses_feature entries.
+[[package.metadata.android.uses_feature]]
+name = "android.hardware.vulkan.level"
+required = true
+version = 1
+
+# See https://developer.android.com/guide/topics/manifest/application-element#debug
+#
+# Defaults to false.
+debuggable = false
+
+# See https://developer.android.com/guide/topics/manifest/application-element#theme
+#
+# Example shows setting the theme of an application to fullscreen.
+theme = "@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen"
+
+# Virtual path your application's icon for any mipmap level.
+# If not specified, an icon will not be included in the APK.
+icon = "@mipmap/ic_launcher"
+
+# See https://developer.android.com/guide/topics/manifest/application-element#label
+#
+# Defaults to the compiled artifact's name.
+label = "Hello-Rust"
+
+# See https://developer.android.com/guide/topics/manifest/activity-element#config
+#
+# Defaults to "orientation|keyboardHidden|screenSize".
+config_changes = "orientation"
+
+# See https://developer.android.com/guide/topics/manifest/activity-element#lmode
+#
+# Defaults to "standard".
+launch_mode = "singleTop"
+
+# See https://developer.android.com/guide/topics/manifest/activity-element#screen
+#
+# Defaults to "unspecified".
+orientation = "landscape"
+
+# See https://developer.android.com/guide/topics/manifest/activity-element#exported
+#
+# Unset by default, or "true" when targeting Android >= 31 (S and up).
+exported = "true"
+
