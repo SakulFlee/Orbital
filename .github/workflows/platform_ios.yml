@@ -34,6 +34,13 @@ jobs:
     - name: Install cargo-xcodebuild
       run: cargo install cargo-xcodebuild
 
+    - name: Test brew
+      run: whereis brew || true
+    - name: Test brew
+      run: which brew || true
+    - name: Install XCodeGen
+      run: brew install -y xcodegen
+
     - name: Test xcodebuild
       run: cargo xcodebuild
     - name: Test xcodegen
