@@ -21,10 +21,10 @@ jobs:
 
     - name: Install Rust on Windows 
       if: ${{ matrix.os == 'windows-latest' }}
-      run: Invoke-WebRequest https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe -OutFile rustup-init.exe; ./rustup-init.exe --default-toolchain stable --profile complete -y
+      run: Invoke-WebRequest https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe -OutFile rustup-init.exe; ./rustup-init.exe --default-toolchain stable --profile minimal -y
     - name: Install Rust on UNIX (Linux & macOS)
       if: ${{ matrix.os != 'windows-latest' }}
-      run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
+      run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
 
     - name: Check
       run: cargo check --verbose --package shared
