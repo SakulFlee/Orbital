@@ -1,4 +1,4 @@
-name: Rust
+name: Platform iOS
 
 on:
   push:
