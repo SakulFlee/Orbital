@@ -34,25 +34,8 @@ jobs:
     - name: Install cargo-xcodebuild
       run: cargo install cargo-xcodebuild
 
-    - name: Test brew
-      run: whereis brew || true
-    - name: Test brew
-      run: which brew || true
     - name: Install XCodeGen
-      run: brew install -y xcodegen
-
-    - name: Test xcodebuild
-      run: cargo xcodebuild
-    - name: Test xcodegen
-      run: whereis xcodegen || true
-    - name: Test xcodegen
-      run: which xcodegen || true
-    - name: Test xcodebuild
-      run: whereis xcodebuild || true
-    - name: Test xcodebuild
-      run: which xcodebuild || true
-    - name: Find xcode
-      run: find / -type f -name xcode
+      run: brew install xcodegen
 
     - name: Check
       run: cargo xcodebuild check --verbose --package platform_ios
