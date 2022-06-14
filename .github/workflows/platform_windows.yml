@@ -41,5 +41,6 @@ jobs:
 
     - uses: actions/upload-artifact@v3
       with:
-        name: platform_windows_${{ matrix.target }}
+        name: "platform_windows_${{ matrix.target }}"
         path: target/
+        if-no-files-found: error 

@@ -39,5 +39,6 @@ jobs:
 
     - uses: actions/upload-artifact@v3
       with:
-        name: shared
+        name: "shared_${{ matrix.os }}"
         path: target/
+        if-no-files-found: error 
