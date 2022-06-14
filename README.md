@@ -155,7 +155,7 @@ Host (top) vs. Target (left) compatibility matrix:
 
 ✅ = Natively supported.  
 🔀 = Cross-Compilation & Toolchain needed.  
-⚠️ = Possible, but takes some more advanced setup or VM. Check the footnotes.  
+⚠️ = Possible, but takes some more effort and/or special setups or VM to work.
 
 Building can be done via:
 
