@@ -5,9 +5,7 @@
 # by simply adding the `--target <rust target>` to the build commands.
 # However, there is no build-matrix feature like in GitHub Actions.
 # Thus, each target architecture would need their own job.
-
 version: 2.1
-
 jobs:
   platform_linux:
     docker:
@@ -15,7 +13,6 @@ jobs:
     steps:
       - checkout
       - run: cargo --version
-
       # Build
       - run:
           name: Build (debug)
@@ -23,7 +20,6 @@ jobs:
       - run:
           name: Build (release)
           command: cargo build --package platform_linux --release
-
       # Tests
       - run:
           name: Run Tests (debug)
@@ -31,7 +27,6 @@ jobs:
       - run:
           name: Run Tests (release)
           command: cargo test --package platform_linux --release
-
       # Upload Artifacts
       - store_artifacts:
         path: target/
