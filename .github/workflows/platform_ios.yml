@@ -14,6 +14,7 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest]
+        target: [x86_64-apple-ios, aarch64-apple-ios, aarch64-apple-ios-sim]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -22,6 +23,9 @@ jobs:
     - name: Install Rust
       run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
 
+    - name: Install target ${{ matrix.target }}
+      run: rustup target add ${{ matrix.target }}
+
     - name: Install cargo-xcodebuild
       run: cargo install cargo-xcodebuild
 
@@ -29,8 +33,8 @@ jobs:
       run: cargo xcodebuild check --verbose --package platform_ios
     - name: Build
       run: cargo xcodebuild build --verbose --package platform_ios
-    - name: Run tests
-      run: cargo xcodebuild test --verbose --package platform_ios
+    # Testing can't be done on iOS.
+    # However, we are testing on the `shared` code and other architectures.
 
     - uses: actions/upload-artifact@v3
       with:
