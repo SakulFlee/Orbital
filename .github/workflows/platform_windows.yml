@@ -41,10 +41,10 @@ jobs:
 
     - uses: actions/upload-artifact@v3
       with:
-        name: platform_linux_debug
+        name: "platform_windows_${{ matrix.target }}_debug"
         path: target/debug/platform_*
     - uses: actions/upload-artifact@v3
       with:
-        name: platform_linux_release
+        name: "platform_windows_${{ matrix.target }}_release"
         path: target/debug/platform_*
 
