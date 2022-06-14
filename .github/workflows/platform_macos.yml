@@ -14,6 +14,7 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest]
+        target: [x86_64-apple-darwin, aarch64-apple-darwin]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -22,11 +23,15 @@ jobs:
     - name: Install Rust
       run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
 
+    - name: Install target ${{ matrix.target }}
+      run: rustup target add ${{ matrix.target }}
+
     - name: Check
       run: cargo check --verbose --package platform_macos
     - name: Build
       run: cargo build --verbose --package platform_macos
     - name: Run tests
+      if: ${{ matrix.target == 'x86_64-apple-darwin' }} # Testing can only be done on the host architecture. It should work across all architectures though!
       run: cargo test --verbose --package platform_macos
 
     - uses: actions/upload-artifact@v3
