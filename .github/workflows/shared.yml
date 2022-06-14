@@ -39,11 +39,6 @@ jobs:
 
     - uses: actions/upload-artifact@v3
       with:
-        name: "shared_${{ matrix.os }}_debug"
-        path: target/debug/libshared*
-        if-no-files-found: error 
-    - uses: actions/upload-artifact@v3
-      with:
-        name: "shared_${{ matrix.os }}_release"
-        path: target/release/libshared*
+        name: "shared_${{ matrix.os }}"
+        path: target/
         if-no-files-found: error 
