@@ -28,10 +28,14 @@ jobs:
 
     - name: Check
       run: cargo check --verbose --package shared
-    - name: Build
+    - name: Build (Debug)
       run: cargo build --verbose --package shared
-    - name: Run tests
+    - name: Build (Release)
+      run: cargo build --verbose --package shared --release
+    - name: Run Tests (Debug)
       run: cargo test --verbose --package shared
+    - name: Run Tests (Release)
+      run: cargo test --verbose --package shared --release
 
     - uses: actions/upload-artifact@v3
       with:
