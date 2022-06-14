@@ -120,7 +120,6 @@ Rust tier policies can be found [here](https://doc.rust-lang.org/rustc/target-ti
 | aarch64-linux-android | Tier 2 |
 | i686-linux-android | Tier 2 |
 | armv7-linux-androideabi | Tier 2 |
-| arm-linux-androideabi | Tier 2 |
 
 ### WebAssembly
 
