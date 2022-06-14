@@ -30,9 +30,9 @@ jobs:
       run: cargo install cargo-apk
 
     - name: Check
-      run: cargo apk check --verbose --package platform_android
+      run: cargo apk check --verbose --package platform_android --target ${{ matrix.target }}
     - name: Build
-      run: cargo apk build --verbose --package platform_android
+      run: cargo apk build --verbose --package platform_android --target ${{ matrix.target }}
     # Testing can't be done on iOS.
     # However, we are testing on the `shared` code and other architectures.
 
