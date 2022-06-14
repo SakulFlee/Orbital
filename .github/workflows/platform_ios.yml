@@ -48,5 +48,6 @@ jobs:
 
     - uses: actions/upload-artifact@v3
       with:
-        name: platform_ios
+        name: "platform_ios_${{ matrix.target }}"
         path: target/
+        if-no-files-found: error 
