@@ -39,8 +39,10 @@ jobs:
 
     - name: Check
       run: cargo xcodebuild check --verbose --package platform_ios
-    - name: Build
+    - name: Build (Debug)
       run: cargo xcodebuild build --verbose --package platform_ios
+    - name: Build (Release)
+      run: cargo xcodebuild build --verbose --package platform_ios --release
     # Testing can't be done on iOS.
     # However, we are testing on the `shared` code and other architectures.
 
