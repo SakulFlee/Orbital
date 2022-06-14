@@ -31,7 +31,7 @@ jobs:
     - name: Build
       run: cargo build --verbose --package platform_windows --target ${{ matrix.target }}
     - name: Run tests
-      if: ${{ matrix.target == 'x86_64-pc-windows-msvc' }}
+      if: ${{ matrix.target == 'x86_64-pc-windows-msvc' }} # Testing can only be done on the host architecture. It should work across all architectures though!
       run: cargo test --verbose --package platform_windows --target ${{ matrix.target }}
 
     - uses: actions/upload-artifact@v3
