@@ -1,6 +1,6 @@
 use shared::entrypoint;
 
-#[allow(dead_code)]
-fn main_rs() {
+#[no_mangle]
+pub extern "C" fn main_rs() {
     entrypoint();
 }
