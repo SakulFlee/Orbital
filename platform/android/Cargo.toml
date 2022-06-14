@@ -11,7 +11,7 @@ crate-type = ["cdylib", "staticlib", "rlib"]
 shared = { path = "../../shared" }
 
 # External Crates
-ndk-glue = { version = "0.5", features = ["logger"] }
+ndk-glue = { version = "0.6", features = ["logger"] }
 
 [package.metadata.android]
 # Specifies the package property of the manifest.
