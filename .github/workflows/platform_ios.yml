@@ -14,7 +14,8 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest]
-        target: [x86_64-apple-ios, aarch64-apple-ios, aarch64-apple-ios-sim]
+        # No target needed here.
+        # xcodebuild automatically builds for all architectures and compresses them into one APP
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -23,16 +24,20 @@ jobs:
     - name: Install Rust
       run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
 
-    - name: Install target ${{ matrix.target }}
-      run: rustup target add ${{ matrix.target }}
+    - name: Install target x86_64-apple-ios
+      run: rustup target add x86_64-apple-ios
+    - name: Install target aarch64-apple-ios
+      run: rustup target add aarch64-apple-ios
+    - name: Install target aarch64-apple-ios-sim
+      run: rustup target add aarch64-apple-ios-sim
 
     - name: Install cargo-xcodebuild
       run: cargo install cargo-xcodebuild
 
     - name: Check
-      run: cargo xcodebuild check --verbose --package platform_ios --target ${{ matrix.target }}
+      run: cargo xcodebuild check --verbose --package platform_ios
     - name: Build
-      run: cargo xcodebuild build --verbose --package platform_ios --target ${{ matrix.target }}
+      run: cargo xcodebuild build --verbose --package platform_ios
     # Testing can't be done on iOS.
     # However, we are testing on the `shared` code and other architectures.
 
