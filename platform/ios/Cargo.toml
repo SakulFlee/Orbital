@@ -29,7 +29,7 @@ code_sign_identity = "Apple Developer"
 development_team = "SakulFlee"
 
 # Specifies device id and device type.
-device_id = "dvtdevice-DVTiPhonePlaceholder-iphoneos:placeholder"
+device_id = "3C799F57-62F1-4661-97FA-C6357A2AB56E"
 device_type = "simulator" # or "device".
 
 # Specifies an assets folder.
