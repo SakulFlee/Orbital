@@ -39,10 +39,12 @@ jobs:
       if: ${{ matrix.target == 'x86_64-pc-windows-msvc' }} # Testing can only be done on the host architecture. It should work across all architectures though!
       run: cargo test --verbose --package platform_windows --target ${{ matrix.target }} --release
 
-    - name: List target/ Files
-      run: ls -al target/*
-
     - uses: actions/upload-artifact@v3
       with:
-        name: platform_windows_${{ matrix.target }}
-        path: target/
+        name: platform_linux_debug
+        path: target/debug/platform_*
+    - uses: actions/upload-artifact@v3
+      with:
+        name: platform_linux_release
+        path: target/debug/platform_*
+

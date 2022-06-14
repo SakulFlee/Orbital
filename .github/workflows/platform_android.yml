@@ -45,10 +45,11 @@ jobs:
     # Testing can't be done on iOS.
     # However, we are testing on the `shared` code and other architectures.
 
-    - name: List target/ Files
-      run: ls -al target/*
-
     - uses: actions/upload-artifact@v3
       with:
-        name: platform_android
-        path: target/
+        name: platform_linux_debug
+        path: target/debug/platform_*
+    - uses: actions/upload-artifact@v3
+      with:
+        name: platform_linux_release
+        path: target/debug/platform_*

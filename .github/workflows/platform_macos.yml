@@ -39,10 +39,12 @@ jobs:
       if: ${{ matrix.target == 'x86_64-apple-darwin' }} # Testing can only be done on the host architecture. It should work across all architectures though!
       run: cargo test --verbose --package platform_macos --release
 
-    - name: List target/ Files
-      run: ls -al target/*
-
     - uses: actions/upload-artifact@v3
       with:
-        name: platform_macos
-        path: target/
+        name: platform_linux_debug
+        path: target/debug/platform_*
+    - uses: actions/upload-artifact@v3
+      with:
+        name: platform_linux_release
+        path: target/debug/platform_*
+
