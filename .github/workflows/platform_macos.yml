@@ -20,7 +20,7 @@ jobs:
     - uses: actions/checkout@v3
 
     - name: Install Rust
-      run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
+      run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
 
     - name: Check
       run: cargo check --verbose --package platform_macos
