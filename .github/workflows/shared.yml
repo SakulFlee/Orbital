@@ -37,6 +37,9 @@ jobs:
     - name: Run Tests (Release)
       run: cargo test --verbose --package shared --release
 
+    - name: List target/ Files
+      run: ls -al target/*
+
     - uses: actions/upload-artifact@v3
       with:
         name: shared

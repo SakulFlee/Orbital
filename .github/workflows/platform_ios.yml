@@ -46,6 +46,9 @@ jobs:
     # Testing can't be done on iOS.
     # However, we are testing on the `shared` code and other architectures.
 
+    - name: List target/ Files
+      run: ls -al target/*
+
     - uses: actions/upload-artifact@v3
       with:
         name: platform_ios
