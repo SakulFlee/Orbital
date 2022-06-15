@@ -8,6 +8,9 @@
 
 version: 2.1
 
+orbs:
+  win: circleci/windows@2.2.0 
+
 executors:
   linux:
     docker:
@@ -16,7 +19,7 @@ executors:
     macos:
       xcode: 12.5.1
   windows:
-    win: circleci/windows@2.2.0
+    machine: win/server-2022
   android:
     docker:      
       - image: androidsdk/android-30
