@@ -1,18 +1,46 @@
 # To save on build minutes and to reduce complexity 
-# we are **only** building for the current architecture.
+# we are **only** building for the current host architecture for Windows, Linux and macOS.
+# Android and iOS are exceptions here.
 #
 # We could of course add all of our target architectures
 # by simply adding the `--target <rust target>` to the build commands.
-# However, there is no build-matrix feature like in GitHub Actions.
-# Thus, each target architecture would need their own job.
+# Alternatively, use a build matrix like we did with GitHub.
+
 version: 2.1
-jobs:
-  build:
+
+executors:
+  linux:
     docker:
-      - image: cimg/rust:1.61 # Use the CircleCI ready-to-be-used Docker image for Rust
+      - image: cimg/rust:1.61
+  macos:
+    macos:
+      xcode: 12.5.1
+  windows:
+    win: circleci/windows@2.2.0
+  android:
+    docker:      
+      - image: androidsdk/android-30
+  ios:
+    macos:
+      xcode: 12.5.1
+
+workflows:
+  build:
+    jobs:
+      - platform_linux
+      - platform_macos
+      - platform_windows
+      - platform_android
+      - platform_ios
+      - shared
+
+jobs:
+  platform_linux:
+    executor: linux
     steps:
       - checkout
       - run: cargo --version
+
       # Build
       - run:
           name: Build (debug)
@@ -20,6 +48,7 @@ jobs:
       - run:
           name: Build (release)
           command: cargo build --package platform_linux --release
+
       # Tests
       - run:
           name: Run Tests (debug)
@@ -27,6 +56,140 @@ jobs:
       - run:
           name: Run Tests (release)
           command: cargo test --package platform_linux --release
+
+      # Upload Artifacts
+      - store_artifacts:
+          path: target/
+  platform_macos:
+    executor: macos
+    steps:
+      - checkout
+      - run: cargo --version
+
+      # Build
+      - run:
+          name: Build (debug)
+          command: cargo build --package platform_macos
+      - run:
+          name: Build (release)
+          command: cargo build --package platform_macos --release
+
+      # Tests
+      - run:
+          name: Run Tests (debug)
+          command: cargo test --package platform_macos
+      - run:
+          name: Run Tests (release)
+          command: cargo test --package platform_macos --release
+
+      # Upload Artifacts
+      - store_artifacts:
+          path: target/
+
+  platform_windows:
+    executor: windows
+    steps:
+      - checkout
+      - run: cargo --version
+
+      # Build
+      - run:
+          name: Build (debug)
+          command: cargo build --package platform_windows
+      - run:
+          name: Build (release)
+          command: cargo build --package platform_windows --release
+
+      # Tests
+      - run:
+          name: Run Tests (debug)
+          command: cargo test --package platform_windows
+      - run:
+          name: Run Tests (release)
+          command: cargo test --package platform_windows --release
+
+      # Upload Artifacts
+      - store_artifacts:
+          path: target/
+
+  platform_android:
+    executor: android
+    steps:
+      - checkout
+      - run: cargo --version
+
+      - run: 
+          name: Install GCC
+          command: apt-get update && apt-get install -y gcc
+      - run: 
+          name: Install Android SDKs, NDKs and tools
+          command: sdkmanager 'platforms;android-30' 'platform-tools' 'ndk;24.0.8215888' 'build-tools;33.0.0'
+      - run: 
+          name: Install Rust
+          command: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
+      - run: 
+          name: Install Rust targets
+          command: source $HOME/.cargo/env && rustup target add armv7-linux-androideabi aarch64-linux-android i686-linux-android x86_64-linux-android
+      - run: 
+          name: Install cargo-apk
+          command: source $HOME/.cargo/env && cargo install cargo-apk
+      
+      # Build
+      - run: 
+          name: Build (debug)
+          command: unset ANDROID_HOME && export ANDROID_NDK_ROOT="$ANDROID_SDK_ROOT/ndk/24.0.8215888" && source $HOME/.cargo/env && cd ./hello-rust && cargo apk build --verbose
+      - run: 
+          name: Build (release)
+          command: unset ANDROID_HOME && export ANDROID_NDK_ROOT="$ANDROID_SDK_ROOT/ndk/24.0.8215888" && source $HOME/.cargo/env && cd ./hello-rust && cargo apk build --verbose --release
+
+      # There are no tests we can run on android like this
+
+      # Upload Artifacts
+      - store_artifacts:
+          path: target/
+
+  platform_ios:
+    executor: ios
+    steps:
+      - checkout
+      - run: cargo --version
+
+      # Build
+      - run:
+          name: Build (debug)
+          command: cargo build --package platform_linux
+      - run:
+          name: Build (release)
+          command: cargo build --package platform_linux --release
+
+      # There are no tests we can run on android like this
+
+      # Upload Artifacts
+      - store_artifacts:
+          path: target/
+
+  shared:
+    executor: linux
+    steps:
+      - checkout
+      - run: cargo --version
+
+      # Build
+      - run:
+          name: Build (debug)
+          command: cargo build --package shared
+      - run:
+          name: Build (release)
+          command: cargo build --package shared --release
+
+      # Tests
+      - run:
+          name: Run Tests (debug)
+          command: cargo test --package shared
+      - run:
+          name: Run Tests (release)
+          command: cargo test --package shared --release
+
       # Upload Artifacts
       - store_artifacts:
           path: target/
