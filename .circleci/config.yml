@@ -8,8 +8,8 @@
 
 version: 2.1
 
-orbs:
-  win: circleci/windows@2.2.0 
+orbs: 
+  windows: circleci/windows@4.1.1
 
 workflows:
   build:
@@ -79,7 +79,8 @@ jobs:
           path: target/
 
   platform_windows:
-    executor: win/server-2022
+    executor: 
+      name: win/default
 
     steps:
       - checkout
