@@ -28,5 +28,9 @@ code_sign_identity = "Apple Developer"
 # Specifies DEVELOPMENT_TEAM.
 development_team = "SakulFlee"
 
+# Specifies device id and device type.
+device_id = "41554342-C18F-4E17-AE0F-BAC67419EE73"
+device_type = "simulator" # or "device".
+
 # Specifies an assets folder.
 assets = ["assets/"]
