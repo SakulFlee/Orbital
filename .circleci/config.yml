@@ -98,17 +98,25 @@ jobs:
       - run:
           name: Build (debug)
           command: cargo build --package platform_windows
+          environment:
+            CARGO_NET_GIT_FETCH_WITH_CLI: "true"
       - run:
           name: Build (release)
           command: cargo build --package platform_windows --release
+          environment:
+            CARGO_NET_GIT_FETCH_WITH_CLI: "true"
 
       # Tests
       - run:
           name: Run Tests (debug)
           command: cargo test --package platform_windows
+          environment:
+            CARGO_NET_GIT_FETCH_WITH_CLI: "true"
       - run:
           name: Run Tests (release)
           command: cargo test --package platform_windows --release
+          environment:
+            CARGO_NET_GIT_FETCH_WITH_CLI: "true"
 
       # Upload Artifacts
       - store_artifacts:
