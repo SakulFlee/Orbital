@@ -133,8 +133,8 @@ jobs:
 
     steps:
       - checkout
-      - run: cargo --version
 
+      # Setup
       - run: 
           name: Install GCC
           command: apt-get update && apt-get install -y gcc
@@ -144,12 +144,13 @@ jobs:
       - run: 
           name: Install Rust
           command: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
+      - run: cargo --version
       - run: 
           name: Install Rust targets
-          command: source $HOME/.cargo/env && rustup target add armv7-linux-androideabi aarch64-linux-android i686-linux-android x86_64-linux-android
+          command: rustup target add armv7-linux-androideabi aarch64-linux-android i686-linux-android x86_64-linux-android
       - run: 
           name: Install cargo-apk
-          command: source $HOME/.cargo/env && cargo install cargo-apk
+          command: cargo install cargo-apk
       
       # Build
       - run: 
