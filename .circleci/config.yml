@@ -172,15 +172,32 @@ jobs:
 
     steps:
       - checkout
+      
+      # Setup
+      - run:
+          name: Install Brew
+          command: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+      - run:
+          name: Install XCodeGen
+          command: brew install xcodegen
+      - run: 
+          name: Install Rust
+          command: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
+      - run:
+          name: Install Rust targets
+          command: rustup target add x86_64-apple-ios aarch64-apple-ios aarch64-apple-ios-sim
+      - run:
+          name: Install Cargo-XCodeBuild
+          command: cargo install cargo-xcodebuild
       - run: cargo --version
 
       # Build
       - run:
           name: Build (debug)
-          command: cargo build --package platform_linux
+          command: cargo xcodebuild build --package platform_ios
       - run:
           name: Build (release)
-          command: cargo build --package platform_linux --release
+          command: cargo xcodebuild build --package platform_ios --release
 
       # There are no tests we can run on android like this
 
