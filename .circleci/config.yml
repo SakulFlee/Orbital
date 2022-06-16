@@ -155,10 +155,10 @@ jobs:
       # Build
       - run: 
           name: Build (debug)
-          command: unset ANDROID_HOME && export ANDROID_NDK_ROOT="$ANDROID_SDK_ROOT/ndk/24.0.8215888" && source $HOME/.cargo/env && cd ./hello-rust && cargo apk build --verbose
+          command: unset ANDROID_HOME && export ANDROID_NDK_ROOT="$ANDROID_SDK_ROOT/ndk/24.0.8215888" && source $HOME/.cargo/env && cargo apk build --verbose
       - run: 
           name: Build (release)
-          command: unset ANDROID_HOME && export ANDROID_NDK_ROOT="$ANDROID_SDK_ROOT/ndk/24.0.8215888" && source $HOME/.cargo/env && cd ./hello-rust && cargo apk build --verbose --release
+          command: unset ANDROID_HOME && export ANDROID_NDK_ROOT="$ANDROID_SDK_ROOT/ndk/24.0.8215888" && source $HOME/.cargo/env && cargo apk build --verbose --release
 
       # There are no tests we can run on android like this
 
