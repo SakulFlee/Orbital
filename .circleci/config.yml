@@ -56,6 +56,11 @@ jobs:
 
     steps:
       - checkout
+
+      # Setup
+      - run: 
+          name: Install Rust
+          command: curl https://sh1.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
       - run: cargo --version
 
       # Build
