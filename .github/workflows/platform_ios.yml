@@ -48,7 +48,7 @@ jobs:
     - name: Change Device ID
       run: DEVICE_ID=$(xcrun simctl list devices available --json ios | jq '.devices | to_entries | map(select(.key | match(".*iOS.*"))) | map(.value)[0][0].udid'); cat platform/ios/Cargo.toml | sed "s/device_id = .*/device_id = $DEVICE_ID/g" | tee platform/ios/Cargo.toml
     - name: Diff changes in Cargo.toml
-      run: diff platform/ios/Cargo.toml platform/ios/Cargo.toml.original
+      run: diff platform/ios/Cargo.toml platform/ios/Cargo.toml.original || true
 
     - name: Check
       run: cargo xcodebuild check --verbose --package platform_ios
