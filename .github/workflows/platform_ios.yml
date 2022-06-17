@@ -13,7 +13,7 @@ jobs:
   platform_ios:
     strategy:
       matrix:
-        os: [macos-12]
+        os: [macos-latest]
         # No target needed here.
         # xcodebuild automatically builds for all architectures and compresses them into one APP
     runs-on: ${{ matrix.os }}
