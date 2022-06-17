@@ -36,6 +36,15 @@ jobs:
 
     - name: Install XCodeGen
       run: brew install xcodegen
+    - name: Install JQ
+      run: brew install jq
+
+    - name: Available Device IDs
+      run: xcrun simctl list devices available --json
+    - name: Selected Device ID
+      run: xcrun simctl list devices available --json | jq '.devices."com.apple.CoreSimulator.SimRuntime.iOS-14-4"[0]'
+    - name: Change Device ID
+      run: DEVICE_ID=$(xcrun simctl list devices available --json | jq '.devices."com.apple.CoreSimulator.SimRuntime.iOS-14-4"[0].udid'); cat platform/ios/Cargo.toml | sed "s/device_id = .*/device_id = $DEVICE_ID/g" > platform/ios/Cargo.toml
 
     - name: Check
       run: cargo xcodebuild check --verbose --package platform_ios
