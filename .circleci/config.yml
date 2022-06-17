@@ -48,7 +48,9 @@ jobs:
 
       # Upload Artifacts
       - store_artifacts:
-          path: target/
+          path: target/debug/platform_linux
+      - store_artifacts:
+          path: target/release/platform_linux
 
   platform_macos:
     macos:
@@ -81,7 +83,9 @@ jobs:
 
       # Upload Artifacts
       - store_artifacts:
-          path: target/
+          path: target/debug/platform_macos
+      - store_artifacts:
+          path: target/release/platform_macos
 
   platform_windows:
     executor: 
@@ -125,7 +129,9 @@ jobs:
 
       # Upload Artifacts
       - store_artifacts:
-          path: target/
+          path: target/debug/platform_windows.exe
+      - store_artifacts:
+          path: target/release/platform_windows.exe
 
   platform_android:
     docker:      
@@ -164,7 +170,9 @@ jobs:
 
       # Upload Artifacts
       - store_artifacts:
-          path: target/
+          path: target/debug/apk/
+      - store_artifacts:
+          path: target/release/apk/
 
   platform_ios:
     macos:
@@ -222,7 +230,9 @@ jobs:
 
       # Upload Artifacts
       - store_artifacts:
-          path: target/
+          path: target/xcodegen/platform_ios/build/Build/Products/Debug-iphonesimulator
+      - store_artifacts:
+          path: target/xcodegen/platform_ios/build/Build/Products/Release-iphonesimulator
 
   shared:
     docker:
@@ -250,4 +260,10 @@ jobs:
 
       # Upload Artifacts
       - store_artifacts:
-          path: target/
+          path: target/debug/libshare*
+      - store_artifacts:
+          path: target/debug/share*
+      - store_artifacts:
+          path: target/release/libshare*
+      - store_artifacts:
+          path: target/release/share*
