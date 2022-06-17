@@ -103,9 +103,11 @@ Rust tier policies can be found [here](https://doc.rust-lang.org/rustc/target-ti
 
 ### iOS Targets
 
-| x86_64-apple-ios | Tier 2 |
-| aarch64-apple-ios | Tier 2 |
-| aarch64-apple-ios-sim | Tier 2 |
+| Target                | Tier Support |
+| --------------------- | ------------ |
+| x86_64-apple-ios      | Tier 2       |
+| aarch64-apple-ios     | Tier 2       |
+| aarch64-apple-ios-sim | Tier 2       |
 
 > The new M1 & M2 chips from Apple are based on AARCH64.  
 > Thus, x86_64 = "legacy" / old macs; aarch64 = new M1 macs.
