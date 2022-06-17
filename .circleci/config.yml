@@ -195,6 +195,9 @@ jobs:
       - run: cargo --version
 
       - run:
+          name: Copy original Cargo.toml
+          command: diff platform/ios/Cargo.toml platform/ios/Cargo.toml.original
+      - run:
           name: Available Device IDs
           command: xcrun simctl list devices available --json ios | jq '.devices | to_entries | map(select(.key | match(".*iOS.*"))) | map(.value)[0]'
       - run:
@@ -203,6 +206,9 @@ jobs:
       - run:
           name: Change Device ID
           command: DEVICE_ID=$(xcrun simctl list devices available --json ios | jq '.devices | to_entries | map(select(.key | match(".*iOS.*"))) | map(.value)[0][0].udid'); cat platform/ios/Cargo.toml | sed "s/device_id = .*/device_id = $DEVICE_ID/g" > platform/ios/Cargo.toml
+      - run:
+          name: Diff changes in Cargo.toml
+          command: diff platform/ios/Cargo.toml platform/ios/Cargo.toml.original
 
       # Build
       - run:
