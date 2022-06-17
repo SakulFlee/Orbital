@@ -196,13 +196,13 @@ jobs:
 
       - run:
           name: Available Device IDs
-          command: xcrun simctl list devices available --json
+          command: xcrun simctl list devices available --json ios | jq '.devices | to_entries | map(select(.key | match(".*iOS.*"))) | map(.value)[0]'
       - run:
           name: Selected Device ID
-          command: xcrun simctl list devices available --json | jq '.devices."com.apple.CoreSimulator.SimRuntime.iOS-14-4"[0]'
+          command: xcrun simctl list devices available --json ios | jq '.devices | to_entries | map(select(.key | match(".*iOS.*"))) | map(.value)[0][0]'
       - run:
           name: Change Device ID
-          command: DEVICE_ID=$(xcrun simctl list devices available --json | jq '.devices."com.apple.CoreSimulator.SimRuntime.iOS-14-4"[0].udid'); cat platform/ios/Cargo.toml | sed "s/device_id = .*/device_id = $DEVICE_ID/g" > platform/ios/Cargo.toml
+          command: DEVICE_ID=$(xcrun simctl list devices available --json ios | jq '.devices | to_entries | map(select(.key | match(".*iOS.*"))) | map(.value)[0][0].udid'); cat platform/ios/Cargo.toml | sed "s/device_id = .*/device_id = $DEVICE_ID/g" > platform/ios/Cargo.toml
 
       # Build
       - run:
