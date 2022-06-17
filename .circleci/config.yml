@@ -196,7 +196,7 @@ jobs:
 
       - run:
           name: Copy original Cargo.toml
-          command: diff platform/ios/Cargo.toml platform/ios/Cargo.toml.original
+          command: cp platform/ios/Cargo.toml platform/ios/Cargo.toml.original
       - run:
           name: Available Device IDs
           command: xcrun simctl list devices available --json ios | jq '.devices | to_entries | map(select(.key | match(".*iOS.*"))) | map(.value)[0]'
