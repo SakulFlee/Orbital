@@ -39,6 +39,9 @@ jobs:
     - name: Install JQ
       run: brew install jq
 
+    - name: CAT CONFIG
+      run: cat platform/ios/Cargo.toml
+
     - name: Available Device IDs
       run: xcrun simctl list devices available --json ios | jq '.devices | to_entries | map(select(.key | match(".*iOS.*"))) | map(.value)[0]'
     - name: Selected Device ID
