@@ -180,6 +180,9 @@ jobs:
       - run:
           name: Install XCodeGen
           command: brew install xcodegen
+      - run:
+          name: Install JQ
+          command: brew install jq
       - run: 
           name: Install Rust
           command: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
@@ -190,6 +193,16 @@ jobs:
           name: Install Cargo-XCodeBuild
           command: cargo install cargo-xcodebuild
       - run: cargo --version
+
+      - run:
+          name: Available Device IDs
+          command: xcrun simctl list devices available --json
+      - run:
+          name: Selected Device ID
+          command: xcrun simctl list devices available --json | jq '.devices."com.apple.CoreSimulator.SimRuntime.iOS-14-4"[0]'
+      - run:
+          name: Change Device ID
+          command: DEVICE_ID=$(xcrun simctl list devices available --json | jq '.devices."com.apple.CoreSimulator.SimRuntime.iOS-14-4"[0].udid'); cat platform/ios/Cargo.toml | sed "s/device_id = .*/device_id = $DEVICE_ID/g" > platform/ios/Cargo.toml
 
       # Build
       - run:
