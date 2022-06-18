@@ -1,4 +1,4 @@
-name: Platform Linux
+name: Platform WebAssembly
 
 on:
   push:
@@ -25,8 +25,6 @@ jobs:
     - name: Install WASM-Pack
       run:  curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh 
 
-    - name: Check
-      run: wasm-pack check --verbose platform/webassembly/
     - name: Build (Debug)
       run: wasm-pack build --verbose platform/webassembly/
     - name: Run Tests (Debug)
