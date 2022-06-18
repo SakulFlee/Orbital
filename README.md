@@ -35,81 +35,14 @@ Simply said: For those special platforms we will use some cargo extensions which
 
 ## Targets & Architectures
 
-Below are the individual targets and architectures.  
+This project is aiming to work across all platforms **and targets**.  
+All **Tier 1** targets are tested in CI's of this repository.  
+Additionally, _some_ **Tier 2** targets are tested.
 
-They are grouped by tiers.
-Rust tier policies can be found [here](https://doc.rust-lang.org/rustc/target-tier-policy.html).
+However, this should work on all targets. If you find an issue please report it.
 
-### Windows Targets
-
-| Target                  | Tier Support |
-| ----------------------- | ------------ |
-| i686-pc-windows-msvc    | Tier 1       |
-| x86_64-pc-windows-msvc  | Tier 1       |
-| aarch64-pc-windows-msvc | Tier 2       |
-| i586-pc-windows-msvc    | Tier 2       |
-
-> The `-gnu` versions (instead of the `-msvc` versions) are the same architecture.  
-> The difference is that `-msvc` uses `MSVC`, while `-gnu` uses `GCC`.  
-> `MSVC` is Microsoft Visual Studio's build tool.  
-> `GCC` is GNU's C-Compiler-Collection.
-
-### Linux Targets
-
-| Target                    | Tier Support |
-| ------------------------- | ------------ |
-| x86_64-unknown-linux-gnu  | Tier 1       |
-| aarch64-unknown-linux-gnu | Tier 1       |
-| i686-unknown-linux-gnu    | Tier 1       |
-
-> Targets ending with `-gnu` use GNU's `libc`, while `-musl` use MUSL's `libc` bindings.  
-> Both are a common standard used by many linux operating systems.
-
-### macOS Targets
-
-| Target               | Tier Support |
-| -------------------- | ------------ |
-| x86_64-apple-darwin  | Tier 1       |
-| aarch64-apple-darwin | Tier 2       |
-
-> The new M1 & M2 chips from Apple are based on AARCH64.  
-> Thus, x86_64 = "legacy" / old macs; aarch64 = new M1 macs.
-
-### iOS Targets
-
-| Target                | Tier Support |
-| --------------------- | ------------ |
-| x86_64-apple-ios      | Tier 2       |
-| aarch64-apple-ios     | Tier 2       |
-| aarch64-apple-ios-sim | Tier 2       |
-
-> The new M1 & M2 chips from Apple are based on AARCH64.  
-> Thus, x86_64 = "legacy" / old macs; aarch64 = new M1 macs.
->  
-> `-sim` is a custom architecture for the iOS Simulator.
-
-### Android Targets
-
-| Target                  | Tier Support |
-| ----------------------- | ------------ |
-| x86_64-linux-android    | Tier 2       |
-| aarch64-linux-android   | Tier 2       |
-| i686-linux-android      | Tier 2       |
-| armv7-linux-androideabi | Tier 2       |
-
-### WebAssembly
-
-| Target                 | Tier Support |
-| ---------------------- | ------------ |
-| wasm32-unknown-unknown | Tier 2       |
-| wasm32-wasi            | Tier 2       |
-
-### Other architectures
-
-Rust supports a lot of architectures, a list can be found [here](https://doc.rust-lang.org/rustc/platform-support.html).
-
-Other architectures **should** work, but aren't tested in this repository at the moment.  
-Feel free to contribute and open an issue for them!
+[Rust's Tier Policies](https://doc.rust-lang.org/rustc/target-tier-policy.html)  
+[Rust's Platform Support & Targets](https://doc.rust-lang.org/rustc/platform-support.html)
 
 ## Building & Running
 
