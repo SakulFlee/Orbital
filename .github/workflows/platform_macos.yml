@@ -27,20 +27,25 @@ jobs:
       run: rustup target add ${{ matrix.target }}
 
     - name: Check
-      run: cargo check --verbose --package platform_macos
+      run: cargo check --verbose --package platform_macos --target ${{ matrix.target }}
     - name: Build (Debug)
-      run: cargo build --verbose --package platform_macos
+      run: cargo build --verbose --package platform_macos --target ${{ matrix.target }}
     - name: Build (Release)
-      run: cargo build --verbose --package platform_macos --release
+      run: cargo build --verbose --package platform_macos --target ${{ matrix.target }} --release
     - name: Run Tests (Debug)
       if: ${{ matrix.target == 'x86_64-apple-darwin' }} # Testing can only be done on the host architecture. It should work across all architectures though!
-      run: cargo test --verbose --package platform_macos
+      run: cargo test --verbose --package platform_macos --target ${{ matrix.target }}
     - name: Run Tests (Release)
       if: ${{ matrix.target == 'x86_64-apple-darwin' }} # Testing can only be done on the host architecture. It should work across all architectures though!
-      run: cargo test --verbose --package platform_macos --release
+      run: cargo test --verbose --package platform_macos --target ${{ matrix.target }} --release
 
     - uses: actions/upload-artifact@v3
       with:
-        name: "platform_macos_${{ matrix.target }}"
-        path: target/
+        name: "platform_macos_debug_${{ matrix.target }}"
+        path: target/${{ matrix.target }}/debug/platform_macos
+        if-no-files-found: error 
+    - uses: actions/upload-artifact@v3
+      with:
+        name: "platform_macos_release_${{ matrix.target }}"
+        path: target/${{ matrix.target }}/release/platform_macos
         if-no-files-found: error 
