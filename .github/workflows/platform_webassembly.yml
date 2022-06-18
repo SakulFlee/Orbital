@@ -28,7 +28,7 @@ jobs:
     - name: Build (Debug)
       run: wasm-pack build platform/webassembly/ --package platform_webassembly
     - name: Run Tests (Debug)
-      run: wasm-pack test platform/webassembly/ --package platform_webassembly
+      run: wasm-pack test --node platform/webassembly/ --package platform_webassembly
     - uses: actions/upload-artifact@v3
       with:
         name: "platform_webassembly_debug"
@@ -39,7 +39,7 @@ jobs:
     - name: Build (Release)
       run: wasm-pack build --release platform/webassembly/ --package platform_webassembly
     - name: Run Tests (Release)
-      run: wasm-pack test --release platform/webassembly/ --package platform_webassembly
+      run: wasm-pack test --node --release platform/webassembly/ --package platform_webassembly
     - uses: actions/upload-artifact@v3
       with:
         name: "platform_webassembly_release"
