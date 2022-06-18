@@ -56,37 +56,11 @@ Rust tier policies can be found [here](https://doc.rust-lang.org/rustc/target-ti
 
 ### Linux Targets
 
-| Target                          | Tier Support |
-| ------------------------------- | ------------ |
-| aarch64-unknown-linux-gnu       | Tier 1       |
-| i686-unknown-linux-gnu          | Tier 1       |
-| x86_64-unknown-linux-gnu        | Tier 1       |
-| aarch64-unknown-linux-musl      | Tier 2       |
-| arm-linux-androideabi           | Tier 2       |
-| arm-unknown-linux-gnueabi       | Tier 2       |
-| arm-unknown-linux-gnueabihf     | Tier 2       |
-| arm-unknown-linux-musleabi      | Tier 2       |
-| arm-unknown-linux-musleabihf    | Tier 2       |
-| armv5te-unknown-linux-gnueabi   | Tier 2       |
-| armv7-linux-androideabi         | Tier 2       |
-| armv7-unknown-linux-gnueabihf   | Tier 2       |
-| armv7-unknown-linux-musleabihf  | Tier 2       |
-| i586-unknown-linux-gnu          | Tier 2       |
-| i586-unknown-linux-musl         | Tier 2       |
-| i686-unknown-linux-musl         | Tier 2       |
-| mips-unknown-linux-gnu          | Tier 2       |
-| mips-unknown-linux-musl         | Tier 2       |
-| mips64-unknown-linux-gnuabi64   | Tier 2       |
-| mips64el-unknown-linux-gnuabi64 | Tier 2       |
-| mipsel-unknown-linux-gnu        | Tier 2       |
-| mipsel-unknown-linux-musl       | Tier 2       |
-| powerpc-unknown-linux-gnu       | Tier 2       |
-| powerpc64-unknown-linux-gnu     | Tier 2       |
-| powerpc64le-unknown-linux-gnu   | Tier 2       |
-| s390x-unknown-linux-gnu         | Tier 2       |
-| sparc64-unknown-linux-gnu       | Tier 2       |
-| x86_64-unknown-linux-gnux32     | Tier 2       |
-| x86_64-unknown-linux-musl       | Tier 2       |
+| Target                    | Tier Support |
+| ------------------------- | ------------ |
+| x86_64-unknown-linux-gnu  | Tier 1       |
+| aarch64-unknown-linux-gnu | Tier 1       |
+| i686-unknown-linux-gnu    | Tier 1       |
 
 > Targets ending with `-gnu` use GNU's `libc`, while `-musl` use MUSL's `libc` bindings.  
 > Both are a common standard used by many linux operating systems.
