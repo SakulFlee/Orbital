@@ -19,6 +19,7 @@ workflows:
       - platform_windows
       - platform_android
       - platform_ios
+      - platform_webassembly
       - shared
 
 jobs:
@@ -233,6 +234,40 @@ jobs:
           path: target/xcodegen/platform_ios/build/Build/Products/Debug-iphonesimulator
       - store_artifacts:
           path: target/xcodegen/platform_ios/build/Build/Products/Release-iphonesimulator
+  
+  platform_webassembly:
+    docker:
+      - image: cimg/rust:1.61
+
+    steps:
+      - checkout
+      - run: cargo --version
+
+      # Setup
+      - run:
+        name: Install WASM-Pack
+        command: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh 
+      - run: wasm-pack --version
+
+      # DEBUG Build -> Test -> Upload
+      - run:
+          name: Build (debug)
+          command: wasm-pack build --package platform_webassembly
+      - run:
+          name: Run Tests (debug)
+          command: wasm-pack test --package platform_webassembly
+      - store_artifacts:
+          path: ./platform/webassembly/pkg
+
+      # RELEASE Build -> Test -> Upload
+      - run:
+          name: Build (release)
+          command: wasm-pack build --package platform_webassembly --release
+      - run:
+          name: Run Tests (release)
+          command: wasm-pack test --package platform_webassembly --release
+      - store_artifacts:
+          path: ./platform/webassembly/pkg
 
   shared:
     docker:
