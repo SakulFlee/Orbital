@@ -4,9 +4,6 @@ on:
   push:
     branches: [ "**" ]
 
-env:
-  GITLAB_MIRROR_KEY: ${{ secrets.GITLAB_MIRROR }}
-
 jobs:
   gitlab_mirror:
     runs-on: ubuntu-latest
@@ -19,7 +16,9 @@ jobs:
 
     # Setup SSH
     - run: mkdir ~/.ssh/
-    - run: echo "$GITLAB_MIRROR_KEY" | tee ~/.ssh/id_rsa
+    - run: echo "$GITLAB_MIRROR" | tee ~/.ssh/id_rsa
+      env:
+        GITLAB_MIRROR: ${{ secrets.GITLAB_MIRROR }}
     - run: cat ~/.ssh/id_rsa
     - run: git config --global user.name "Lukas Weber"
     - run: git config --global user.email "me@sakul6499.de"
