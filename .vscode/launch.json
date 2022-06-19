@@ -1,0 +1,195 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'platform_android'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=platform_android"
+                ],
+                "filter": {
+                    "name": "platform_android",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'shared'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=shared"
+                ],
+                "filter": {
+                    "name": "shared",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'platform_ios'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=platform_ios"
+                ],
+                "filter": {
+                    "name": "platform_ios",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'platform_linux'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=platform_linux",
+                    "--package=platform_linux"
+                ],
+                "filter": {
+                    "name": "platform_linux",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'platform_linux'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=platform_linux",
+                    "--package=platform_linux"
+                ],
+                "filter": {
+                    "name": "platform_linux",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'platform_macos'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=platform_macos",
+                    "--package=platform_macos"
+                ],
+                "filter": {
+                    "name": "platform_macos",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'platform_macos'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=platform_macos",
+                    "--package=platform_macos"
+                ],
+                "filter": {
+                    "name": "platform_macos",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'platform_webassembly'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=platform_webassembly"
+                ],
+                "filter": {
+                    "name": "platform_webassembly",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'platform_windows'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=platform_windows",
+                    "--package=platform_windows"
+                ],
+                "filter": {
+                    "name": "platform_windows",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'platform_windows'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=platform_windows",
+                    "--package=platform_windows"
+                ],
+                "filter": {
+                    "name": "platform_windows",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
