@@ -252,20 +252,20 @@ jobs:
       # DEBUG Build -> Test -> Upload
       - run:
           name: Build (debug)
-          command: wasm-pack build platform/webassembly/ --package platform_webassembly
+          command: wasm-pack build --dev platform/webassembly/ --package platform_webassembly
       - run:
           name: Run Tests (debug)
-          command: wasm-pack test --node platform/webassembly/ --package platform_webassembly
+          command: wasm-pack test --node --dev platform/webassembly/ --package platform_webassembly
       - store_artifacts:
           path: ./platform/webassembly/pkg
 
       # RELEASE Build -> Test -> Upload
       - run:
           name: Build (release)
-          command: wasm-pack build platform/webassembly/ --package platform_webassembly --release
+          command: wasm-pack build platform/webassembly/ --package platform_webassembly
       - run:
           name: Run Tests (release)
-          command: wasm-pack test --node platform/webassembly/ --package platform_webassembly --release
+          command: wasm-pack test --node platform/webassembly/ --package platform_webassembly
       - store_artifacts:
           path: ./platform/webassembly/pkg
 
