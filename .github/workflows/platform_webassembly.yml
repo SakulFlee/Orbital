@@ -41,7 +41,6 @@ jobs:
         path: ./platform/webassembly/pkg
         if-no-files-found: error 
 
-
     - name: Build (Release)
       run: wasm-pack build --release platform/webassembly/ --package platform_webassembly
     - name: Run Tests (Release)
