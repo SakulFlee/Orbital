@@ -22,6 +22,8 @@ jobs:
     # Setup SSH
     - run: mkdir ~/.ssh/
     - run: echo "$GITLAB_MIRROR_KEY" | tee ~/.ssh/id_rsa
+    - run: git config --global user.name "GitHub Action @SakulFlee"
+    - run: git config --global user.email "me@sakul6499.de"
 
     # Setup Mirror
     - run: git remote set-url origin https://gitlab.com/rust-multiplatform/base-project-template
