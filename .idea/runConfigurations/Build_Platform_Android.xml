@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Run Platform Windows" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
-    <option name="command" value="run --package platform_windows" />
+  <configuration default="false" name="Build Platform Android" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+    <option name="command" value="apk build --package platform_android" />
     <option name="workingDirectory" value="file://$PROJECT_DIR$" />
     <option name="channel" value="DEFAULT" />
     <option name="requiredFeatures" value="true" />
