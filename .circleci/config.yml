@@ -249,25 +249,24 @@ jobs:
           command: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh 
       - run: wasm-pack --version
 
-      # DEBUG Build -> Test -> Upload
+      # DEBUG Build -> Upload
       - run:
           name: Build (debug)
           command: wasm-pack build --dev platform/webassembly/ --package platform_webassembly
-      - run:
-          name: Run Tests (debug)
-          command: wasm-pack test --node --dev platform/webassembly/ --package platform_webassembly
       - store_artifacts:
           path: ./platform/webassembly/pkg
 
-      # RELEASE Build -> Test -> Upload
+      # RELEASE Build -> Upload
       - run:
           name: Build (release)
           command: wasm-pack build platform/webassembly/ --package platform_webassembly
-      - run:
-          name: Run Tests (release)
-          command: wasm-pack test --node platform/webassembly/ --package platform_webassembly
       - store_artifacts:
           path: ./platform/webassembly/pkg
+
+      # Tests
+      - run:
+          name: Run Tests 
+          command: wasm-pack test --node platform/webassembly/ --package platform_webassembly
 
   shared:
     docker:
