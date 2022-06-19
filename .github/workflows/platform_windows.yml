@@ -20,6 +20,13 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Cache target/
+      id: cache-primes
+      uses: actions/cache@v3
+      with:
+        path: prime-numbers
+        key: platform_windows-${{ runner.os }}-${{ matrix.target }}-target
+
     - name: Install Rust
       run: Invoke-WebRequest https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe -OutFile rustup-init.exe; ./rustup-init.exe --default-toolchain stable --profile minimal -y
 
