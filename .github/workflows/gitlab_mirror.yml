@@ -24,7 +24,7 @@ jobs:
     - run: git config --global user.email "me@sakul6499.de"
 
     # Setup Mirror
-    - run: git remote set-url origin https://sakul6499:gitlab.com/rust-multiplatform/base-project-template
+    - run: git remote set-url origin git@gitlab.com:rust-multiplatform/base-project-template.git
 
     # Push to Mirror
     - run: git push origin --all
