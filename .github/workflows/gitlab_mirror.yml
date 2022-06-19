@@ -1,0 +1,30 @@
+name: GitLab Mirror
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+
+env:
+  GITLAB_MIRROR_KEY: ${{ secrets.GITLAB_MIRROR }}
+
+jobs:
+  gitlab_mirror:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    # Fetch all
+    - run: git fetch --all
+
+    # Setup SSH
+    - run: mkdir ~/.ssh/
+    - run: echo "$GITLAB_MIRROR_KEY" | tee ~/.ssh/id_rsa
+
+    # Setup Mirror
+    - run: git remote set-url origin https://gitlab.com/rust-multiplatform/base-project-template
+
+    # Push to Mirror
+    - run: git push origin --all
