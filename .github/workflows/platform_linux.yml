@@ -20,6 +20,13 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Cache target/
+      id: cache-primes
+      uses: actions/cache@v3
+      with:
+        path: prime-numbers
+        key: platform_linux-${{ runner.os }}-${{ matrix.target }}-target
+
     - name: Install GCC and dependencies
       run: sudo apt-get install -y build-essential gcc gcc-multilib
 
