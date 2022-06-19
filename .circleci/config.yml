@@ -245,8 +245,8 @@ jobs:
 
       # Setup
       - run:
-        name: Install WASM-Pack
-        command: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh 
+          name: Install WASM-Pack
+          command: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh 
       - run: wasm-pack --version
 
       # DEBUG Build -> Test -> Upload
