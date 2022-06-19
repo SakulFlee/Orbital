@@ -21,10 +21,10 @@ jobs:
     - uses: actions/checkout@v3
 
     - name: Cache target/
-      id: cache-primes
+      id: target-cache
       uses: actions/cache@v3
       with:
-        path: prime-numbers
+        path: target
         key: platform_windows-${{ runner.os }}-${{ matrix.target }}-target
 
     - name: Install Rust
