@@ -14,17 +14,14 @@ jobs:
     # Fetch all
     - run: git fetch --all
 
-    # Setup SSH
-    - run: mkdir ~/.ssh/
-    - run: echo "$GITLAB_MIRROR" | tee ~/.ssh/id_rsa
-      env:
-        GITLAB_MIRROR: ${{ secrets.GITLAB_MIRROR }}
-    - run: cat ~/.ssh/id_rsa
+    # Setup Git
     - run: git config --global user.name "Lukas Weber"
     - run: git config --global user.email "me@sakul6499.de"
 
     # Setup Mirror
-    - run: git remote set-url origin git@gitlab.com:rust-multiplatform/base-project-template.git
+    - run: git remote set-url origin "https://$GITLAB_TOKEN:gitlab.com/rust-multiplatform/base-project-template.git"
+      env:
+        GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
 
     # Push to Mirror
     - run: GIT_SSH_COMMAND='ssh -i ~/.ssh/id_rsa' git push origin --all
