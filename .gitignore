@@ -1,6 +1,10 @@
 # Rust & Cargo
-target/
+target/*
 *.lock
 
 # Wasm-Pack
 pkg/
+
+# IDEA (except run configurations)
+.idea/*
+!.idea/runConfigurations/
