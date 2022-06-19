@@ -20,7 +20,7 @@ jobs:
     # Setup SSH
     - run: mkdir ~/.ssh/
     - run: echo "$GITLAB_MIRROR_KEY" | tee ~/.ssh/id_rsa
-    - run: ssh-agent -L
+    - run: exec $(ssh-agent)
     - run: ssh-add ~/.ssh/id_rsa
     - run: git config --global user.name "Lukas Weber"
     - run: git config --global user.email "me@sakul6499.de"
