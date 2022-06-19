@@ -1,0 +1,16 @@
+image: "rust:latest"
+
+check:cargo:
+  script:
+    - rustc --version && cargo --version  # Print version info for debugging
+    - cargo check --workspace --verbose
+
+build:cargo:
+  script:
+    - rustc --version && cargo --version  # Print version info for debugging
+    - cargo build --workspace --verbose
+
+test:cargo:
+  script:
+    - rustc --version && cargo --version  # Print version info for debugging
+    - cargo test --workspace --verbose
