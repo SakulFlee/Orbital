@@ -20,8 +20,6 @@ jobs:
     # Setup SSH
     - run: mkdir ~/.ssh/
     - run: echo "$GITLAB_MIRROR_KEY" | tee ~/.ssh/id_rsa
-    - run: eval ssh-agent &
-    - run: ssh-add ~/.ssh/id_rsa
     - run: git config --global user.name "Lukas Weber"
     - run: git config --global user.email "me@sakul6499.de"
 
@@ -29,4 +27,4 @@ jobs:
     - run: git remote set-url origin git@gitlab.com:rust-multiplatform/base-project-template.git
 
     # Push to Mirror
-    - run: git push origin --all
+    - run: GIT_SSH_COMMAND='ssh -i ~/.ssh/id_rsa' git push origin --all
