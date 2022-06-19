@@ -24,4 +24,4 @@ jobs:
         GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
 
     # Push to Mirror
-    - run: GIT_SSH_COMMAND='ssh -i ~/.ssh/id_rsa' git push origin --all
+    - run: git push origin --all
