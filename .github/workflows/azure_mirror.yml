@@ -13,8 +13,15 @@ jobs:
     - run: |
         git clone --mirror https://github.com/rust-multiplatform/Base-Project-Template mirror_repo
         cd mirror_repo
-        git config remote.origin.fetch '+refs/heads/*:refs/heads/* +refs/tags/*:refs/tags/*'
-        git config remote.origin.push '+refs/heads/*:refs/heads/* +refs/tags/*:refs/tags/*'
+        
+        git config --unset-all remote.origin.fetch
+        git config --unset-all remote.origin.push
+
+        git config --add remote.origin.fetch +refs/heads/*:refs/heads/*
+        git config --add remote.origin.fetch +refs/tags/*:refs/tags/*
+        git config --add remote.origin.push +refs/heads/*:refs/heads/*
+        git config --add remote.origin.push +refs/tags/*:refs/tags/*
+
         git fetch origin --all
         git push --mirror "https://me:$AZURE_TOKEN@dev.azure.com/Rust-Multiplatform/Base%20Project%20Template/_git/Base%20Project%20Template"
       env:
