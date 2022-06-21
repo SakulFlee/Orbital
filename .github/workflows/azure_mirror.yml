@@ -10,10 +10,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    
+
     # Download a mirror and push it to GitLab
     - run: |
-        cd mirror_repo
         git fetch origin --all
         git remote add mirror "https://me:$AZURE_TOKEN@dev.azure.com/Rust-Multiplatform/Base%20Project%20Template/_git/Base%20Project%20Template"
         git push mirror --all
