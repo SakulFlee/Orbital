@@ -134,6 +134,10 @@ Additionally we have templates for other CI platforms.
 Please note that some platforms are just a basic example on how to build part of this project, e.g. building only the `platform_linux` package.  
 This is done to save on build costs/minutes.
 
+> Please note, that if just one CI platform is failing, it is most likely linked to a plan or build credit issue on said platform.  
+> GitHub Actions is **NOT** limited for open source repositories.  
+> If GitHub Actions succeed, all other CI platforms _should_ succeed as well.
+
 ### CI Platform: GitHub Actions
 
 On GitHub Actions we have a workflow file per package (platforms & shared).  
@@ -173,6 +177,12 @@ To use GitLab CI we mirror our repository from GitHub to GitLab.
 Currently, we are only building `platform_linux`. Other platforms should be possible.
 
 [![pipeline status](https://gitlab.com/rust-multiplatform/base-project-template/badges/main/pipeline.svg)](https://gitlab.com/rust-multiplatform/base-project-template/-/commits/main)
+
+### CI Platform: BitBucket Pipeline
+
+Unfortunately, BitBucket Pipelines don't have status badges.
+
+The pipelines are available at: [BitBucket Mirror](https://bitbucket.org/rust-multiplatform/base-project-template/)
 
 ## Contributing & Getting Help
 
