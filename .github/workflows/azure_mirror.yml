@@ -1,0 +1,20 @@
+name: Azure Mirror
+
+on:
+  push:
+    branches: [ "**" ]
+
+jobs:
+  azure_mirror:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    # Download a mirror and push it to GitLab
+    - run: |
+        git fetch origin --unshallow
+        git remote add mirror "https://me:$AZURE_TOKEN@dev.azure.com/Rust-Multiplatform/Base%20Project%20Template/_git/Base%20Project%20Template"
+        git push mirror --all
+      env:
+        AZURE_TOKEN: ${{ secrets.AZURE_TOKEN }}
