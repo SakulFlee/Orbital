@@ -13,8 +13,9 @@ jobs:
     - run: |
         git clone --mirror https://github.com/rust-multiplatform/Base-Project-Template mirror_repo
         cd mirror_repo
-        git config --get-regex remote.origin.fetch +refs/heads/*:refs/heads/* +refs/tags/*:refs/tags/*
-        git config --get-regex remote.origin.push +refs/heads/*:refs/heads/* +refs/tags/*:refs/tags/*
+        git config --get-regex remote.origin.fetch '+refs/heads/*:refs/heads/* +refs/tags/*:refs/tags/*'
+        git config --get-regex remote.origin.push '+refs/heads/*:refs/heads/* +refs/tags/*:refs/tags/*'
+        git fetch origin --all
         git push --mirror "https://me:$AZURE_TOKEN@dev.azure.com/Rust-Multiplatform/Base%20Project%20Template/_git/Base%20Project%20Template"
       env:
         AZURE_TOKEN: ${{ secrets.AZURE_TOKEN }}
