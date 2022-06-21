@@ -1,0 +1,22 @@
+image: "rust:latest"
+
+pipelines:
+  default:
+    - parallel:
+        - step:
+            name: check
+            script:
+              - rustc --version && cargo --version  # Print version info for debugging
+              - cargo check --verbose --package platform_linux
+
+        - step:
+            name: build
+            script:
+              - rustc --version && cargo --version  # Print version info for debugging
+              - cargo build --verbose --package platform_linux
+
+        - step:
+            name: test
+            script:
+              - rustc --version && cargo --version  # Print version info for debugging
+              - cargo test --verbose --package platform_linux
