@@ -13,6 +13,6 @@ jobs:
     - run: |
         git clone --mirror https://github.com/rust-multiplatform/Base-Project-Template mirror_repo
         cd mirror_repo
-        git push --mirror https://sakul6499:$BITBUCKET_TOKEN@sakul6499@bitbucket.org/sakul6499/base-project-template.git
+        git push --mirror https://sakul6499:$BITBUCKET_TOKEN@bitbucket.org/sakul6499/base-project-template.git
       env:
         BITBUCKET_TOKEN: ${{ secrets.BITBUCKET_TOKEN }}
