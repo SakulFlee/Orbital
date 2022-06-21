@@ -9,20 +9,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - uses: actions/checkout@v3
+    
     # Download a mirror and push it to GitLab
     - run: |
-        git clone --mirror https://github.com/rust-multiplatform/Base-Project-Template mirror_repo
         cd mirror_repo
-        
-        git config --unset-all remote.origin.fetch
-        git config --unset-all remote.origin.push
-
-        git config --add remote.origin.fetch +refs/heads/*:refs/heads/*
-        git config --add remote.origin.fetch +refs/tags/*:refs/tags/*
-        git config --add remote.origin.push +refs/heads/*:refs/heads/*
-        git config --add remote.origin.push +refs/tags/*:refs/tags/*
-
         git fetch origin --all
-        git push --mirror "https://me:$AZURE_TOKEN@dev.azure.com/Rust-Multiplatform/Base%20Project%20Template/_git/Base%20Project%20Template"
+        git remote add mirror "https://me:$AZURE_TOKEN@dev.azure.com/Rust-Multiplatform/Base%20Project%20Template/_git/Base%20Project%20Template"
+        git push mirror --all
       env:
         AZURE_TOKEN: ${{ secrets.AZURE_TOKEN }}
