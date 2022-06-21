@@ -3,14 +3,14 @@ image: "rust:latest"
 check:cargo:
   script:
     - rustc --version && cargo --version  # Print version info for debugging
-    - cargo check --workspace --verbose
+    - cargo check --verbose --package platform_linux
 
 build:cargo:
   script:
     - rustc --version && cargo --version  # Print version info for debugging
-    - cargo build --workspace --verbose
+    - cargo build --verbose --package platform_linux
 
 test:cargo:
   script:
     - rustc --version && cargo --version  # Print version info for debugging
-    - cargo test --workspace --verbose
+    - cargo test --verbose --package platform_linux
