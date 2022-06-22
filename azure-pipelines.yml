@@ -21,13 +21,13 @@ stages:
         dependsOn: Install-Rust
         steps:
           - bash: cargo build --verbose --package platform_linux
-            displayName: build
+            displayName: Cargo Build
 
       - job: Cargo-Test
         dependsOn: Install-Rust
         steps:
           - bash: cargo test --verbose --package platform_linux
-            displayName: test
+            displayName: Cargo Test
 
   - stage: Windows
     pool: 
@@ -54,10 +54,10 @@ stages:
         dependsOn: Install-Rust
         steps:
           - pwsh: cargo build --verbose --package platform_windows
-            displayName: build
+            displayName: Cargo Build
 
       - job: Cargo-Test
         dependsOn: Install-Rust
         steps:
           - pwsh: cargo test --verbose --package platform_windows
-            displayName: test
+            displayName: Cargo Test
