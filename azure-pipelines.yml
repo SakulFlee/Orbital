@@ -11,23 +11,41 @@ stages:
           - bash: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
       
-      - job: Cargo-Check
+      - job: Cargo-Check-Debug
         dependsOn: Install-Rust
         steps:
           - bash: cargo check --verbose --package platform_linux
-            displayName: Cargo Check
+            displayName: Cargo Check (Debug)
 
-      - job: Cargo-Build
+      - job: Cargo-Check-Release
+        dependsOn: Install-Rust
+        steps:
+          - bash: cargo check --verbose --package platform_linux --release
+            displayName: Cargo Check (Release)
+
+      - job: Cargo-Build-Debug
         dependsOn: Install-Rust
         steps:
           - bash: cargo build --verbose --package platform_linux
-            displayName: Cargo Build
+            displayName: Cargo Build (Debug)
 
-      - job: Cargo-Test
+      - job: Cargo-Build-Release
+        dependsOn: Install-Rust
+        steps:
+          - bash: cargo build --verbose --package platform_linux --release
+            displayName: Cargo Build (Release)
+
+      - job: Cargo-Test-Debug
         dependsOn: Install-Rust
         steps:
           - bash: cargo test --verbose --package platform_linux
-            displayName: Cargo Test
+            displayName: Cargo Test (Debug)
+
+      - job: Cargo-Test-Release
+        dependsOn: Install-Rust
+        steps:
+          - bash: cargo test --verbose --package platform_linux --release
+            displayName: Cargo Test (Release)
 
   - stage: Windows
     pool: 
@@ -44,20 +62,38 @@ stages:
           - pwsh: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
       
-      - job: Cargo-Check
+      - job: Cargo-Check-Debug
         dependsOn: Install-Rust
         steps:
           - pwsh: cargo check --verbose --package platform_windows
-            displayName: Cargo Check
+            displayName: Cargo Check (Debug)
 
-      - job: Cargo-Build
+      - job: Cargo-Check-Release
+        dependsOn: Install-Rust
+        steps:
+          - pwsh: cargo check --verbose --package platform_windows --release
+            displayName: Cargo Check (Release)
+
+      - job: Cargo-Build-Debug
         dependsOn: Install-Rust
         steps:
           - pwsh: cargo build --verbose --package platform_windows
-            displayName: Cargo Build
+            displayName: Cargo Build (Debug)
 
-      - job: Cargo-Test
+      - job: Cargo-Build-Release
+        dependsOn: Install-Rust
+        steps:
+          - pwsh: cargo build --verbose --package platform_windows --release
+            displayName: Cargo Build (Release)
+
+      - job: Cargo-Test-Debug
         dependsOn: Install-Rust
         steps:
           - pwsh: cargo test --verbose --package platform_windows
-            displayName: Cargo Test
+            displayName: Cargo Test (Debug)
+
+      - job: Cargo-Test-Release
+        dependsOn: Install-Rust
+        steps:
+          - pwsh: cargo test --verbose --package platform_windows --release
+            displayName: Cargo Test (Release)
