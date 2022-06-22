@@ -1,26 +1,26 @@
-pool:
-  vmImage: ubuntu-latest
+stages:
+  - stage: Linux
+    pool: ubuntu-latest
+    jobs:
+      - job: Install_Rust
+        steps:
+          - script: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
+            displayName: Install Rust
+          
+          - script: rustc --version && cargo --version
+            displayName: Print Rust & Cargo versions
+      
+      - job: Cargo_Check
+        steps:
+          - script: cargo check --verbose --package platform_linux
+            displayName: Cargo Check
 
-steps:
-- script: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
-  displayName: Install Rust
+      - job: Cargo_Build
+        steps:
+          - script: cargo build --verbose --package platform_linux
+            displayName: build
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
-
-- script: |
-    rustct --version && cargo --version  # Print version info for debugging
-    cargo check --verbose --package platform_linux
-  displayName: check
-
-- script: |
-    rustct --version && cargo --version  # Print version info for debugging
-    cargo build --verbose --package platform_linux
-  displayName: build
-
-- script: |
-    rustct --version && cargo --version  # Print version info for debugging
-    cargo test --verbose --package platform_linux
-  displayName: test
+      - job: Cargo_Test
+        steps:
+          - script: cargo test --verbose --package platform_linux
+            displayName: test
