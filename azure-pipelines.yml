@@ -287,10 +287,13 @@ stages:
             displayName: Print Rust & Cargo versions
 
           - bash: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+            displayName: Install brew.sh
           
           - bash: brew install xcodegen
+            displayName: Install XCodeGen
 
           - bash: cargo install cargo-xcodebuild
+            displayName: Install XCodeBuild
 
           - pwsh: cargo xcodebuild check --verbose --package platform_ios
             displayName: Cargo Check (Debug)
@@ -305,10 +308,13 @@ stages:
             displayName: Print Rust & Cargo versions
 
           - bash: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+            displayName: Install brew.sh
           
           - bash: brew install xcodegen
+            displayName: Install XCodeGen
 
           - bash: cargo install cargo-xcodebuild
+            displayName: Install XCodeBuild
 
           - pwsh: cargo xcodebuild check --verbose --package platform_ios --release
             displayName: Cargo Check (Release)
@@ -323,10 +329,13 @@ stages:
             displayName: Print Rust & Cargo versions
 
           - bash: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+            displayName: Install brew.sh
           
           - bash: brew install xcodegen
+            displayName: Install XCodeGen
 
           - bash: cargo install cargo-xcodebuild
+            displayName: Install XCodeBuild
 
           - pwsh: cargo xcodebuild build --verbose --package platform_ios
             displayName: Cargo Build (Debug)
@@ -344,14 +353,17 @@ stages:
             displayName: Print Rust & Cargo versions
 
           - bash: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+            displayName: Install brew.sh
           
           - bash: brew install xcodegen
+            displayName: Install XCodeGen
 
           - bash: cargo install cargo-xcodebuild
+            displayName: Install XCodeBuild
 
           - pwsh: cargo xcodebuild build --verbose --package platform_ios --release
             displayName: Cargo Build (Release)
-            
+
           - publish: target/
             artifact: Upload macOS Artifacts (Release)
 
@@ -365,10 +377,13 @@ stages:
             displayName: Print Rust & Cargo versions
 
           - bash: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+            displayName: Install brew.sh
           
           - bash: brew install xcodegen
+            displayName: Install XCodeGen
 
           - bash: cargo install cargo-xcodebuild
+            displayName: Install XCodeBuild
 
           - pwsh: cargo xcodebuild test --verbose --package platform_ios
             displayName: Cargo Test (Debug)
@@ -383,10 +398,13 @@ stages:
             displayName: Print Rust & Cargo versions
 
           - bash: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+            displayName: Install brew.sh
           
           - bash: brew install xcodegen
+            displayName: Install XCodeGen
 
           - bash: cargo install cargo-xcodebuild
+            displayName: Install XCodeBuild
 
           - pwsh: cargo xcodebuild test --verbose --package platform_ios --release
             displayName: Cargo Test (Release)
