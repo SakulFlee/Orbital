@@ -283,7 +283,7 @@ stages:
           - bash: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
             displayName: Install Rust
           
-  bash pwsh: rustc --version && cargo --version
+          - bash: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
 
           - bash: rustup target add x86_64-apple-ios aarch64-apple-ios aarch64-apple-ios-sim
