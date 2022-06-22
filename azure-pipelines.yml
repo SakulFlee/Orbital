@@ -194,7 +194,7 @@ stages:
           - Install_Rust
           - Install_XCodeGen
         steps:
-          - bash: cargo install xcodebuild
+          - bash: cargo install cargo-xcodebuild
 
       - job: Cargo_Check_Debug
         dependsOn: 
