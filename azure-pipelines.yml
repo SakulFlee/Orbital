@@ -164,3 +164,86 @@ stages:
         steps:
           - pwsh: cargo test --verbose --package platform_macos --release
             displayName: Cargo Test (Release)
+
+
+
+  - stage: iOS
+    dependsOn: macOS
+    pool: 
+      vmImage: macos-latest
+    jobs:
+      - job: Install_Rust
+        steps:
+          - bash: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
+            displayName: Install Rust
+          
+          - pwsh: rustc --version && cargo --version
+            displayName: Print Rust & Cargo versions
+      
+      - job: Install_Brew
+        steps:
+          - bash: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+      - job: Install_XCodeGen
+        dependsOn: Install_Brew
+        steps:
+          - bash: brew install xcodegen
+
+      - job: Install_XCodeBuild
+        dependsOn: 
+          - Install_Rust
+          - Install_XCodeGen
+        steps:
+          - bash: cargo install xcodebuild
+
+      - job: Cargo_Check_Debug
+        dependsOn: 
+          - Install_Rust
+          - Install_XCodeBuild
+        steps:
+          - pwsh: cargo xcodebuild check --verbose --package platform_ios
+            displayName: Cargo Check (Debug)
+
+      - job: Cargo_Check_Release
+        dependsOn: 
+          - Install_Rust
+          - Install_XCodeBuild
+        steps:
+          - pwsh: cargo xcodebuild check --verbose --package platform_ios --release
+            displayName: Cargo Check (Release)
+
+      - job: Cargo_Build_Debug
+        dependsOn: 
+          - Install_Rust
+          - Install_XCodeBuild
+        steps:
+          - pwsh: cargo xcodebuild build --verbose --package platform_ios
+            displayName: Cargo Build (Debug)
+          - publish: target/
+            artifact: Upload macOS Artifacts (Debug)
+
+      - job: Cargo_Build_Release
+        dependsOn: 
+          - Install_Rust
+          - Install_XCodeBuild
+        steps:
+          - pwsh: cargo xcodebuild build --verbose --package platform_ios --release
+            displayName: Cargo Build (Release)
+          - publish: target/
+            artifact: Upload macOS Artifacts (Release)
+
+      - job: Cargo_Test_Debug
+        dependsOn: 
+          - Install_Rust
+          - Install_XCodeBuild
+        steps:
+          - pwsh: cargo xcodebuild test --verbose --package platform_ios
+            displayName: Cargo Test (Debug)
+
+      - job: Cargo_Test_Release
+        dependsOn: 
+          - Install_Rust
+          - Install_XCodeBuild
+        steps:
+          - pwsh: cargo xcodebuild test --verbose --package platform_ios --release
+            displayName: Cargo Test (Release)
