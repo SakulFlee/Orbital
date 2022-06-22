@@ -29,12 +29,16 @@ stages:
         steps:
           - bash: cargo build --verbose --package platform_linux
             displayName: Cargo Build (Debug)
+          - publish: target/
+            artifact: Upload Linux Artifacts (Debug)
 
       - job: Cargo_Build_Release
         dependsOn: Install_Rust
         steps:
           - bash: cargo build --verbose --package platform_linux --release
             displayName: Cargo Build (Release)
+          - publish: target/
+            artifact: Upload Linux Artifacts (Release)
 
       - job: Cargo_Test_Debug
         dependsOn: Install_Rust
@@ -47,18 +51,6 @@ stages:
         steps:
           - bash: cargo test --verbose --package platform_linux --release
             displayName: Cargo Test (Release)
-
-      - job: Upload_Artifacts
-        dependsOn: 
-          - Cargo_Check_Debug
-          - Cargo_Check_Release
-          - Cargo_Build_Debug
-          - Cargo_Build_Release
-          - Cargo_Test_Debug
-          - Cargo_Test_Release
-        steps:
-          - publish: target/
-            artifact: Linux-Artifacts
 
 
 
@@ -95,12 +87,16 @@ stages:
         steps:
           - pwsh: cargo build --verbose --package platform_windows
             displayName: Cargo Build (Debug)
+          - publish: target/
+            artifact: Upload Windows Artifacts (Debug)
 
       - job: Cargo_Build_Release
         dependsOn: Install_Rust
         steps:
           - pwsh: cargo build --verbose --package platform_windows --release
             displayName: Cargo Build (Release)
+          - publish: target/
+            artifact: Upload Windows Artifacts (Release)
 
       - job: Cargo_Test_Debug
         dependsOn: Install_Rust
@@ -113,15 +109,3 @@ stages:
         steps:
           - pwsh: cargo test --verbose --package platform_windows --release
             displayName: Cargo Test (Release)
-
-      - job: Upload_Artifacts
-        dependsOn: 
-          - Cargo_Check_Debug
-          - Cargo_Check_Release
-          - Cargo_Build_Debug
-          - Cargo_Build_Release
-          - Cargo_Test_Debug
-          - Cargo_Test_Release
-        steps:
-          - publish: target/
-            artifact: Windows-Artifacts
