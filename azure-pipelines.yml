@@ -198,10 +198,10 @@ stages:
           - bash: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
             displayName: Install Rust
           
-          - pwsh: rustc --version && cargo --version
+          - bash: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
 
-          - pwsh: cargo check --verbose --package platform_macos
+          - bash: cargo check --verbose --package platform_macos
             displayName: Cargo Check (Debug)
 
       - job: Cargo_Check_Release
@@ -210,10 +210,10 @@ stages:
           - bash: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
             displayName: Install Rust
           
-          - pwsh: rustc --version && cargo --version
+          - bash: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
 
-          - pwsh: cargo check --verbose --package platform_macos --release
+          - bash: cargo check --verbose --package platform_macos --release
             displayName: Cargo Check (Release)
 
       - job: Cargo_Build_Debug
@@ -222,10 +222,10 @@ stages:
           - bash: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
             displayName: Install Rust
           
-          - pwsh: rustc --version && cargo --version
+          - bash: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
 
-          - pwsh: cargo build --verbose --package platform_macos
+          - bash: cargo build --verbose --package platform_macos
             displayName: Cargo Build (Debug)
             
           - publish: target/
@@ -237,10 +237,10 @@ stages:
           - bash: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
             displayName: Install Rust
           
-          - pwsh: rustc --version && cargo --version
+          - bash: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
 
-          - pwsh: cargo build --verbose --package platform_macos --release
+          - bash: cargo build --verbose --package platform_macos --release
             displayName: Cargo Build (Release)
 
           - publish: target/
@@ -252,10 +252,10 @@ stages:
           - bash: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
             displayName: Install Rust
           
-          - pwsh: rustc --version && cargo --version
+          - bash: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
 
-          - pwsh: cargo test --verbose --package platform_macos
+          - bash: cargo test --verbose --package platform_macos
             displayName: Cargo Test (Debug)
 
       - job: Cargo_Test_Release
@@ -264,10 +264,10 @@ stages:
           - bash: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
             displayName: Install Rust
           
-          - pwsh: rustc --version && cargo --version
+          - bash: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
 
-          - pwsh: cargo test --verbose --package platform_macos --release
+          - bash: cargo test --verbose --package platform_macos --release
             displayName: Cargo Test (Release)
 
 
@@ -283,8 +283,11 @@ stages:
           - bash: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
             displayName: Install Rust
           
-          - pwsh: rustc --version && cargo --version
+  bash pwsh: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
+
+          - bash: rustup target add x86_64-apple-ios aarch64-apple-ios aarch64-apple-ios-sim
+            displayName: Install Rust targets
 
           - bash: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
             displayName: Install brew.sh
@@ -304,8 +307,11 @@ stages:
           - bash: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
             displayName: Install Rust
           
-          - pwsh: rustc --version && cargo --version
+          - bash: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
+
+          - bash: rustup target add x86_64-apple-ios aarch64-apple-ios aarch64-apple-ios-sim
+            displayName: Install Rust targets
 
           - bash: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
             displayName: Install brew.sh
@@ -325,8 +331,11 @@ stages:
           - bash: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
             displayName: Install Rust
           
-          - pwsh: rustc --version && cargo --version
+          - bash: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
+
+          - bash: rustup target add x86_64-apple-ios aarch64-apple-ios aarch64-apple-ios-sim
+            displayName: Install Rust targets
 
           - bash: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
             displayName: Install brew.sh
@@ -349,8 +358,11 @@ stages:
           - bash: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
             displayName: Install Rust
           
-          - pwsh: rustc --version && cargo --version
+          - bash: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
+
+          - bash: rustup target add x86_64-apple-ios aarch64-apple-ios aarch64-apple-ios-sim
+            displayName: Install Rust targets
 
           - bash: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
             displayName: Install brew.sh
@@ -373,8 +385,11 @@ stages:
           - bash: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
             displayName: Install Rust
           
-          - pwsh: rustc --version && cargo --version
+          - bash: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
+
+          - bash: rustup target add x86_64-apple-ios aarch64-apple-ios aarch64-apple-ios-sim
+            displayName: Install Rust targets
 
           - bash: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
             displayName: Install brew.sh
@@ -394,8 +409,11 @@ stages:
           - bash: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
             displayName: Install Rust
           
-          - pwsh: rustc --version && cargo --version
+          - bash: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
+
+          - bash: rustup target add x86_64-apple-ios aarch64-apple-ios aarch64-apple-ios-sim
+            displayName: Install Rust targets
 
           - bash: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
             displayName: Install brew.sh
