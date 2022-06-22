@@ -47,6 +47,14 @@ stages:
           - bash: cargo test --verbose --package platform_linux --release
             displayName: Cargo Test (Release)
 
+      - job: Upload-Artifacts
+        dependsOn: Cargo-Check-Debug Cargo-Check-Release Cargo-Build-Debug Cargo-Build-Release Cargo-Test-Debug Cargo-Test-Release
+        steps:
+          - publish: target/
+            artifact: Linux-Artifacts
+
+
+
   - stage: Windows
     pool: 
       vmImage: windows-latest
@@ -97,3 +105,9 @@ stages:
         steps:
           - pwsh: cargo test --verbose --package platform_windows --release
             displayName: Cargo Test (Release)
+
+      - job: Upload-Artifacts
+        dependsOn: Cargo-Check-Debug Cargo-Check-Release Cargo-Build-Debug Cargo-Build-Release Cargo-Test-Debug Cargo-Test-Release
+        steps:
+          - publish: target/
+            artifact: Windows-Artifacts
