@@ -1,6 +1,7 @@
 stages:
   - stage: Linux
-    pool: ubuntu-latest
+    pool: 
+      vmImage: ubuntu-latest
     jobs:
       - job: Install_Rust
         steps:
