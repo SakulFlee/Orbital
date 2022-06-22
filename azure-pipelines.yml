@@ -28,3 +28,36 @@ stages:
         steps:
           - script: cargo test --verbose --package platform_linux
             displayName: test
+
+  - stage: Windows
+    pool: 
+      vmImage: windows-latest
+    jobs:
+      - job: Install_Rust
+        steps:
+          - script: Invoke-WebRequest https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe -OutFile rustup-init.exe
+            displayName: Download Rustup
+
+          - script: ./rustup-init.exe --default-toolchain stable --profile complete -y
+            displayName: Install Rust
+          
+          - script: rustc --version && cargo --version
+            displayName: Print Rust & Cargo versions
+      
+      - job: Cargo_Check
+        dependsOn: Install_Rust
+        steps:
+          - script: cargo check --verbose --package platform_windows
+            displayName: Cargo Check
+
+      - job: Cargo_Build
+        dependsOn: Install_Rust
+        steps:
+          - script: cargo build --verbose --package platform_windows
+            displayName: build
+
+      - job: Cargo_Test
+        dependsOn: Install_Rust
+        steps:
+          - script: cargo test --verbose --package platform_windows
+            displayName: test
