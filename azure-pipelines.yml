@@ -3,7 +3,7 @@ stages:
     pool: 
       vmImage: ubuntu-latest
     jobs:
-      - job: Install-Rust
+      - job: Install_Rust        
         steps:
           - bash: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
             displayName: Install Rust
@@ -11,44 +11,44 @@ stages:
           - bash: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
       
-      - job: Cargo-Check-Debug
+      - job: Cargo_Check_Debug
         dependsOn: Install-Rust
         steps:
           - bash: cargo check --verbose --package platform_linux
             displayName: Cargo Check (Debug)
 
-      - job: Cargo-Check-Release
+      - job: Cargo_Check_Release
         dependsOn: Install-Rust
         steps:
           - bash: cargo check --verbose --package platform_linux --release
             displayName: Cargo Check (Release)
 
-      - job: Cargo-Build-Debug
+      - job: Cargo_Build_Debug
         dependsOn: Install-Rust
         steps:
           - bash: cargo build --verbose --package platform_linux
             displayName: Cargo Build (Debug)
 
-      - job: Cargo-Build-Release
+      - job: Cargo_Build_Release
         dependsOn: Install-Rust
         steps:
           - bash: cargo build --verbose --package platform_linux --release
             displayName: Cargo Build (Release)
 
-      - job: Cargo-Test-Debug
+      - job: Cargo_Test_Debug
         dependsOn: Install-Rust
         steps:
           - bash: cargo test --verbose --package platform_linux
             displayName: Cargo Test (Debug)
 
-      - job: Cargo-Test-Release
+      - job: Cargo_Test_Release
         dependsOn: Install-Rust
         steps:
           - bash: cargo test --verbose --package platform_linux --release
             displayName: Cargo Test (Release)
 
-      - job: Upload-Artifacts
-        dependsOn: Cargo-Check-Debug Cargo-Check-Release Cargo-Build-Debug Cargo-Build-Release Cargo-Test-Debug Cargo-Test-Release
+      - job: Upload_Artifacts
+        dependsOn: Cargo_Check_Debug Cargo_Check_Release Cargo_Build_Debug Cargo_Build_Release Cargo_Test_Debug Cargo_Test_Release
         steps:
           - publish: target/
             artifact: Linux-Artifacts
@@ -59,7 +59,7 @@ stages:
     pool: 
       vmImage: windows-latest
     jobs:
-      - job: Install-Rust
+      - job: Install_Rust
         steps:
           - pwsh: Invoke-WebRequest https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe -OutFile rustup-init.exe
             displayName: Download Rustup
@@ -70,44 +70,44 @@ stages:
           - pwsh: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
       
-      - job: Cargo-Check-Debug
+      - job: Cargo_Check_Debug
         dependsOn: Install-Rust
         steps:
           - pwsh: cargo check --verbose --package platform_windows
             displayName: Cargo Check (Debug)
 
-      - job: Cargo-Check-Release
+      - job: Cargo_Check_Release
         dependsOn: Install-Rust
         steps:
           - pwsh: cargo check --verbose --package platform_windows --release
             displayName: Cargo Check (Release)
 
-      - job: Cargo-Build-Debug
+      - job: Cargo_Build_Debug
         dependsOn: Install-Rust
         steps:
           - pwsh: cargo build --verbose --package platform_windows
             displayName: Cargo Build (Debug)
 
-      - job: Cargo-Build-Release
+      - job: Cargo_Build_Release
         dependsOn: Install-Rust
         steps:
           - pwsh: cargo build --verbose --package platform_windows --release
             displayName: Cargo Build (Release)
 
-      - job: Cargo-Test-Debug
+      - job: Cargo_Test_Debug
         dependsOn: Install-Rust
         steps:
           - pwsh: cargo test --verbose --package platform_windows
             displayName: Cargo Test (Debug)
 
-      - job: Cargo-Test-Release
+      - job: Cargo_Test_Release
         dependsOn: Install-Rust
         steps:
           - pwsh: cargo test --verbose --package platform_windows --release
             displayName: Cargo Test (Release)
 
-      - job: Upload-Artifacts
-        dependsOn: Cargo-Check-Debug Cargo-Check-Release Cargo-Build-Debug Cargo-Build-Release Cargo-Test-Debug Cargo-Test-Release
+      - job: Upload_Artifacts
+        dependsOn: Cargo_Check_Debug Cargo_Check_Release Cargo_Build_Debug Cargo_Build_Release Cargo_Test_Debug Cargo_Test_Release
         steps:
           - publish: target/
             artifact: Windows-Artifacts
