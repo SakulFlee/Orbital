@@ -5,28 +5,28 @@ stages:
     jobs:
       - job: Install_Rust
         steps:
-          - script: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
+          - bash: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
             displayName: Install Rust
           
-          - script: rustc --version && cargo --version
+          - bash: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
       
       - job: Cargo_Check
         dependsOn: Install_Rust
         steps:
-          - script: cargo check --verbose --package platform_linux
+          - bash: cargo check --verbose --package platform_linux
             displayName: Cargo Check
 
       - job: Cargo_Build
         dependsOn: Install_Rust
         steps:
-          - script: cargo build --verbose --package platform_linux
+          - bash: cargo build --verbose --package platform_linux
             displayName: build
 
       - job: Cargo_Test
         dependsOn: Install_Rust
         steps:
-          - script: cargo test --verbose --package platform_linux
+          - bash: cargo test --verbose --package platform_linux
             displayName: test
 
   - stage: Windows
@@ -35,29 +35,29 @@ stages:
     jobs:
       - job: Install_Rust
         steps:
-          - script: Invoke-WebRequest https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe -OutFile rustup-init.exe
+          - pwsh: Invoke-WebRequest https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe -OutFile rustup-init.exe
             displayName: Download Rustup
 
-          - script: ./rustup-init.exe --default-toolchain stable --profile complete -y
+          - pwsh: ./rustup-init.exe --default-toolchain stable --profile complete -y
             displayName: Install Rust
           
-          - script: rustc --version && cargo --version
+          - pwsh: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
       
       - job: Cargo_Check
         dependsOn: Install_Rust
         steps:
-          - script: cargo check --verbose --package platform_windows
+          - pwsh: cargo check --verbose --package platform_windows
             displayName: Cargo Check
 
       - job: Cargo_Build
         dependsOn: Install_Rust
         steps:
-          - script: cargo build --verbose --package platform_windows
+          - pwsh: cargo build --verbose --package platform_windows
             displayName: build
 
       - job: Cargo_Test
         dependsOn: Install_Rust
         steps:
-          - script: cargo test --verbose --package platform_windows
+          - pwsh: cargo test --verbose --package platform_windows
             displayName: test
