@@ -1,5 +1,6 @@
 stages:
   - stage: Linux
+    dependsOn: [] # Clears dependencies and allows parallel execution
     pool: 
       vmImage: ubuntu-latest
     jobs:
@@ -48,7 +49,13 @@ stages:
             displayName: Cargo Test (Release)
 
       - job: Upload_Artifacts
-        dependsOn: Cargo_Check_Debug Cargo_Check_Release Cargo_Build_Debug Cargo_Build_Release Cargo_Test_Debug Cargo_Test_Release
+        dependsOn: 
+          - Cargo_Check_Debug
+          - Cargo_Check_Release
+          - Cargo_Build_Debug
+          - Cargo_Build_Release
+          - Cargo_Test_Debug
+          - Cargo_Test_Release
         steps:
           - publish: target/
             artifact: Linux-Artifacts
@@ -56,6 +63,7 @@ stages:
 
 
   - stage: Windows
+    dependsOn: [] # Clears dependencies and allows parallel execution
     pool: 
       vmImage: windows-latest
     jobs:
@@ -107,7 +115,13 @@ stages:
             displayName: Cargo Test (Release)
 
       - job: Upload_Artifacts
-        dependsOn: Cargo_Check_Debug Cargo_Check_Release Cargo_Build_Debug Cargo_Build_Release Cargo_Test_Debug Cargo_Test_Release
+        dependsOn: 
+          - Cargo_Check_Debug
+          - Cargo_Check_Release
+          - Cargo_Build_Debug
+          - Cargo_Build_Release
+          - Cargo_Test_Debug
+          - Cargo_Test_Release
         steps:
           - publish: target/
             artifact: Windows-Artifacts
