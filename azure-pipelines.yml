@@ -12,16 +12,19 @@ stages:
             displayName: Print Rust & Cargo versions
       
       - job: Cargo_Check
+        dependsOn: Install_Rust
         steps:
           - script: cargo check --verbose --package platform_linux
             displayName: Cargo Check
 
       - job: Cargo_Build
+        dependsOn: Install_Rust
         steps:
           - script: cargo build --verbose --package platform_linux
             displayName: build
 
       - job: Cargo_Test
+        dependsOn: Install_Rust
         steps:
           - script: cargo test --verbose --package platform_linux
             displayName: test
