@@ -3,7 +3,7 @@ stages:
     pool: 
       vmImage: ubuntu-latest
     jobs:
-      - job: Install_Rust
+      - job: Install-Rust
         steps:
           - bash: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
             displayName: Install Rust
@@ -11,20 +11,20 @@ stages:
           - bash: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
       
-      - job: Cargo_Check
-        dependsOn: Install_Rust
+      - job: Cargo-Check
+        dependsOn: Install-Rust
         steps:
           - bash: cargo check --verbose --package platform_linux
             displayName: Cargo Check
 
-      - job: Cargo_Build
-        dependsOn: Install_Rust
+      - job: Cargo-Build
+        dependsOn: Install-Rust
         steps:
           - bash: cargo build --verbose --package platform_linux
             displayName: build
 
-      - job: Cargo_Test
-        dependsOn: Install_Rust
+      - job: Cargo-Test
+        dependsOn: Install-Rust
         steps:
           - bash: cargo test --verbose --package platform_linux
             displayName: test
@@ -33,7 +33,7 @@ stages:
     pool: 
       vmImage: windows-latest
     jobs:
-      - job: Install_Rust
+      - job: Install-Rust
         steps:
           - pwsh: Invoke-WebRequest https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe -OutFile rustup-init.exe
             displayName: Download Rustup
@@ -44,20 +44,20 @@ stages:
           - pwsh: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
       
-      - job: Cargo_Check
-        dependsOn: Install_Rust
+      - job: Cargo-Check
+        dependsOn: Install-Rust
         steps:
           - pwsh: cargo check --verbose --package platform_windows
             displayName: Cargo Check
 
-      - job: Cargo_Build
-        dependsOn: Install_Rust
+      - job: Cargo-Build
+        dependsOn: Install-Rust
         steps:
           - pwsh: cargo build --verbose --package platform_windows
             displayName: build
 
-      - job: Cargo_Test
-        dependsOn: Install_Rust
+      - job: Cargo-Test
+        dependsOn: Install-Rust
         steps:
           - pwsh: cargo test --verbose --package platform_windows
             displayName: test
