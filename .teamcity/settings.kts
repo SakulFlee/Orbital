@@ -17,6 +17,8 @@ project {
 object Check : BuildType({
     name = "Check"
 
+    artifactRules = "target/**/*"
+
     vcs {
         root(HttpsGithubComRustMultiplatformBaseProjectTemplateRefsHeadsMain1)
     }
@@ -40,6 +42,8 @@ object Check : BuildType({
 object Build : BuildType({
     name = "Build"
 
+    artifactRules = "target/**/*"
+
     vcs {
         root(HttpsGithubComRustMultiplatformBaseProjectTemplateRefsHeadsMain1)
     }
@@ -62,6 +66,8 @@ object Build : BuildType({
 
 object Test : BuildType({
     name = "Test"
+
+    artifactRules = "target/**/*"
 
     vcs {
         root(HttpsGithubComRustMultiplatformBaseProjectTemplateRefsHeadsMain1)
