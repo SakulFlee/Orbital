@@ -79,6 +79,9 @@ object Build : BuildType({
 object Test : BuildType({
     name = "Test"
 
+    allowExternalStatus = true
+    artifactRules = "target/**/*"
+
     vcs {
         root(DslContext.settingsRoot)
     }
@@ -107,6 +110,12 @@ object Test : BuildType({
 
     triggers {
         vcs {
+        }
+        schedule {
+            schedulingPolicy = daily {
+                hour = 3
+            }
+            triggerBuild = always()
         }
     }
 })
