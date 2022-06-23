@@ -1,4 +1,5 @@
 import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.triggers.schedule
 import jetbrains.buildServer.configs.kotlin.triggers.vcs
 
 /*
@@ -62,6 +63,12 @@ object Build : BuildType({
 
     triggers {
         vcs {
+        }
+        schedule {
+            schedulingPolicy = daily {
+                hour = 3
+            }
+            triggerBuild = always()
         }
     }
 })
