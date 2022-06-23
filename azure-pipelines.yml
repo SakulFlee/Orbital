@@ -395,7 +395,7 @@ stages:
             displayName: Cargo Build (Debug)
 
           - publish: target/
-            artifact: Upload macOS Artifacts (Debug)
+            artifact: Upload iOS Artifacts (Debug)
 
       - job: Cargo_Build_Release
         dependsOn: [] 
@@ -437,4 +437,4 @@ stages:
             displayName: Cargo Build (Release)
 
           - publish: target/
-            artifact: Upload macOS Artifacts (Release)
+            artifact: Upload iOS Artifacts (Release)
