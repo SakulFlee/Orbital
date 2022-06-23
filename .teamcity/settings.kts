@@ -1,4 +1,6 @@
 import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.triggers.schedule
+import jetbrains.buildServer.configs.kotlin.triggers.vcs
 
 /*
 The settings script is an entry point for defining a TeamCity
@@ -25,4 +27,100 @@ To debug in IntelliJ Idea, open the 'Maven Projects' tool window (View
 version = "2022.04"
 
 project {
+
+    buildType(Test)
+    buildType(Build)
 }
+
+object Build : BuildType({
+    name = "Build"
+
+    allowExternalStatus = true
+    artifactRules = "target/**/*"
+
+    vcs {
+        root(DslContext.settingsRoot)
+    }
+
+    steps {
+        step {
+            name = "Build (Debug)"
+            type = "cargo"
+            executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
+            param("cargo-build-package", "platform_linux")
+            param("cargo-toolchain", "stable")
+            param("cargo-verbosity", "--verbose")
+            param("cargo-bench-package", "platform_linux")
+            param("cargo-command", "build")
+        }
+        step {
+            name = "Build (Release)"
+            type = "cargo"
+            executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
+            param("cargo-build-package", "platform_linux")
+            param("cargo-build-release", "true")
+            param("cargo-toolchain", "stable")
+            param("cargo-verbosity", "--verbose")
+            param("cargo-bench-package", "platform_linux")
+            param("cargo-bench-arguments", "--release")
+            param("cargo-command", "build")
+        }
+    }
+
+    triggers {
+        vcs {
+        }
+        schedule {
+            schedulingPolicy = daily {
+                hour = 3
+            }
+            triggerBuild = always()
+        }
+    }
+})
+
+object Test : BuildType({
+    name = "Test"
+
+    allowExternalStatus = true
+    artifactRules = "target/**/*"
+
+    vcs {
+        root(DslContext.settingsRoot)
+    }
+
+    steps {
+        step {
+            name = "Test (Debug)"
+            type = "cargo"
+            executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
+            param("cargo-test-no-fail-fast", "true")
+            param("cargo-test-package", "platform_linux")
+            param("cargo-toolchain", "stable")
+            param("cargo-verbosity", "--verbose")
+            param("cargo-command", "test")
+        }
+        step {
+            name = "Test (Release)"
+            type = "cargo"
+            executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
+            param("cargo-test-no-fail-fast", "true")
+            param("cargo-test-package", "platform_linux")
+            param("cargo-toolchain", "stable")
+            param("cargo-verbosity", "--verbose")
+            param("cargo-test-release", "true")
+            param("cargo-command", "test")
+        }
+    }
+
+    triggers {
+        vcs {
+        }
+        schedule {
+            schedulingPolicy = daily {
+                hour = 3
+            }
+            triggerBuild = always()
+        }
+    }
+})
