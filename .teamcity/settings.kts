@@ -56,11 +56,12 @@ object Build : BuildType({
             name = "Build (Release)"
             type = "cargo"
             executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
+            param("cargo-build-release", "true")
             param("cargo-toolchain", "stable")
             param("cargo-verbosity", "--verbose")
             param("cargo-bench-package", "platform_linux")
             param("cargo-bench-arguments", "--release")
-            param("cargo-command", "bench")
+            param("cargo-command", "build")
         }
     }
 
