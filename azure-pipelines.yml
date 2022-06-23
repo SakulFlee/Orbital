@@ -547,3 +547,76 @@ stages:
 
           - publish: target/
             artifact: Upload Android Artifacts (Release)
+
+
+
+  - stage: WebAssembly
+    dependsOn: Linux
+    pool: 
+      vmImage: ubuntu-latest
+    jobs:
+      - job: Cargo_Check_Debug
+        dependsOn: []
+        steps:
+          - bash: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
+            displayName: Install Rust
+          
+          - bash: rustc --version && cargo --version
+            displayName: Print Rust & Cargo versions
+
+          - bash: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh 
+            displayName: Install WASM-Pack
+
+          - bash: cargo wasm-pack check --verbose --package platform_webassembly --dev
+            displayName: Cargo Check (Debug)
+
+      - job: Cargo_Check_Release
+        dependsOn: []
+        steps:
+          - bash: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
+            displayName: Install Rust
+          
+          - bash: rustc --version && cargo --version
+            displayName: Print Rust & Cargo versions
+
+          - bash: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh 
+            displayName: Install WASM-Pack
+            
+          - bash: cargo wasm-pack check --verbose --package platform_webassembly
+            displayName: Cargo Check (Release)
+
+      - job: Cargo_Build_Debug
+        dependsOn: []
+        steps:
+          - bash: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
+            displayName: Install Rust
+          
+          - bash: rustc --version && cargo --version
+            displayName: Print Rust & Cargo versions
+
+          - bash: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh 
+            displayName: Install WASM-Pack
+            
+          - bash: cargo wasm-pack build --verbose --package platform_webassembly --dev
+            displayName: Cargo Build (Debug)
+          
+          - publish: target/
+            artifact: Upload Android Artifacts (Debug)
+
+      - job: Cargo_Build_Release
+        dependsOn: []
+        steps:
+          - bash: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
+            displayName: Install Rust
+          
+          - bash: rustc --version && cargo --version
+            displayName: Print Rust & Cargo versions
+
+          - bash: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh 
+            displayName: Install WASM-Pack
+            
+          - bash: cargo wasm-pack build --verbose --package platform_webassembly
+            displayName: Cargo Build (Release)
+
+          - publish: target/
+            artifact: Upload Android Artifacts (Release)
