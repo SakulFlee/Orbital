@@ -50,7 +50,7 @@ object Build : BuildType({
             param("cargo-toolchain", "stable")
             param("cargo-verbosity", "--verbose")
             param("cargo-bench-package", "platform_linux")
-            param("cargo-command", "bench")
+            param("cargo-command", "build")
         }
         step {
             name = "Build (Release)"
