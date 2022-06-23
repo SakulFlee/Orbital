@@ -36,6 +36,7 @@ object Build : BuildType({
     name = "Build"
 
     allowExternalStatus = true
+    artifactRules = "target/**/*"
 
     vcs {
         root(DslContext.settingsRoot)
