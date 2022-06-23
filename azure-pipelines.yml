@@ -567,8 +567,11 @@ stages:
           - bash: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh 
             displayName: Install WASM-Pack
 
-          - bash: cargo wasm-pack check --verbose --package platform_webassembly --dev
-            displayName: Cargo Check (Debug)
+          - bash: wasm-pack --version
+            displayName: Wasm-Pack version
+
+          - bash: wasm-pack check --dev platform/webassembly/ --package platform_webassembly
+            displayName: Wasm-Pack Check (Debug)
 
       - job: Cargo_Check_Release
         dependsOn: []
@@ -581,9 +584,12 @@ stages:
 
           - bash: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh 
             displayName: Install WASM-Pack
+
+          - bash: wasm-pack --version
+            displayName: Wasm-Pack version
             
-          - bash: cargo wasm-pack check --verbose --package platform_webassembly
-            displayName: Cargo Check (Release)
+          - bash: wasm-pack check platform/webassembly/ --package platform_webassembly
+            displayName: Wasm-Pack Check (Release)
 
       - job: Cargo_Build_Debug
         dependsOn: []
@@ -596,11 +602,14 @@ stages:
 
           - bash: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh 
             displayName: Install WASM-Pack
+
+          - bash: wasm-pack --version
+            displayName: Wasm-Pack version
             
-          - bash: cargo wasm-pack build --verbose --package platform_webassembly --dev
-            displayName: Cargo Build (Debug)
+          - bash: wasm-pack build --dev platform/webassembly/ --package platform_webassembly
+            displayName: Wasm-Pack Build (Debug)
           
-          - publish: target/
+          - publish: ./platform/webassembly/pkg
             artifact: Upload Android Artifacts (Debug)
 
       - job: Cargo_Build_Release
@@ -614,9 +623,12 @@ stages:
 
           - bash: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh 
             displayName: Install WASM-Pack
-            
-          - bash: cargo wasm-pack build --verbose --package platform_webassembly
-            displayName: Cargo Build (Release)
 
-          - publish: target/
+          - bash: wasm-pack --version
+            displayName: Wasm-Pack version
+            
+          - bash: wasm-pack build  platform/webassembly/ --package platform_webassembly
+            displayName: Wasm-Pack Build (Release)
+
+          - publish: ./platform/webassembly/pkg
             artifact: Upload Android Artifacts (Release)
