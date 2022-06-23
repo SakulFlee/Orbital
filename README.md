@@ -172,7 +172,6 @@ The Android SDK and iOS SDK must be installed, xcode tool, cross compilers, etc.
 
 Additionally, we want to save on build credits here.
 
-
 > Note a failure or unknown status may be linked to used up credits and/or plan.
 
 ### CI Platform: GitLab CI
