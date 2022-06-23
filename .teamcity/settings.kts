@@ -56,6 +56,7 @@ object Build : BuildType({
             name = "Build (Release)"
             type = "cargo"
             executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
+            param("cargo-build-package", "platform_linux")
             param("cargo-build-release", "true")
             param("cargo-toolchain", "stable")
             param("cargo-verbosity", "--verbose")
