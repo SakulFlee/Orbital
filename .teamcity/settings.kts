@@ -83,6 +83,15 @@ object Test : BuildType({
             param("cargo-verbosity", "--verbose")
             param("cargo-command", "test")
         }
+        step {
+            name = "Test (Debug) (1)"
+            type = "cargo"
+            executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
+            param("cargo-test-package", "platform_linux")
+            param("cargo-toolchain", "stable")
+            param("cargo-verbosity", "--verbose")
+            param("cargo-command", "test")
+        }
     }
 
     triggers {
