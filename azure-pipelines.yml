@@ -453,6 +453,9 @@ stages:
             displayName: Install Rust
           
           - bash: rustc --version && cargo --version
+
+        - bash: cargo install cargo-apk
+          displayName: Install Cargo-APK
             displayName: Print Rust & Cargo versions
 
           - bash: rustup target add x86_64-linux-android
@@ -479,6 +482,9 @@ stages:
           - bash: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
 
+          - bash: cargo install cargo-apk
+            displayName: Install Cargo-APK
+
           - bash: rustup target add x86_64-linux-android
             displayName: Install Rust target x86_64-linux-android
             
@@ -502,6 +508,9 @@ stages:
           
           - bash: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
+
+          - bash: cargo install cargo-apk
+            displayName: Install Cargo-APK
 
           - bash: rustup target add x86_64-linux-android
             displayName: Install Rust target x86_64-linux-android
@@ -529,6 +538,9 @@ stages:
           
           - bash: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
+
+          - bash: cargo install cargo-apk
+            displayName: Install Cargo-APK
 
           - bash: rustup target add x86_64-linux-android
             displayName: Install Rust target x86_64-linux-android
