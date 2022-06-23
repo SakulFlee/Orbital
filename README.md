@@ -11,6 +11,9 @@ This project is supported by the following platforms:
 - [ ] Platform: iOS  
 - [ ] Platform: WebAssembly (WASM)
 
+To use this project simply fork it (button in top right corner) into your own namespace.  
+If you need some more advanced setup check out the [forking guide](FORKING.md).
+
 ## Project layout
 
 | Folder                                         | Description                                                                                                                         | GitHub Actions                                                                                                                                                                                                                      |
