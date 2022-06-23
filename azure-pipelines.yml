@@ -555,42 +555,6 @@ stages:
     pool: 
       vmImage: ubuntu-latest
     jobs:
-      - job: Cargo_Check_Debug
-        dependsOn: []
-        steps:
-          - bash: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
-            displayName: Install Rust
-          
-          - bash: rustc --version && cargo --version
-            displayName: Print Rust & Cargo versions
-
-          - bash: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh 
-            displayName: Install WASM-Pack
-
-          - bash: wasm-pack --version
-            displayName: Wasm-Pack version
-
-          - bash: wasm-pack check --dev platform/webassembly/ --package platform_webassembly
-            displayName: Wasm-Pack Check (Debug)
-
-      - job: Cargo_Check_Release
-        dependsOn: []
-        steps:
-          - bash: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
-            displayName: Install Rust
-          
-          - bash: rustc --version && cargo --version
-            displayName: Print Rust & Cargo versions
-
-          - bash: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh 
-            displayName: Install WASM-Pack
-
-          - bash: wasm-pack --version
-            displayName: Wasm-Pack version
-            
-          - bash: wasm-pack check platform/webassembly/ --package platform_webassembly
-            displayName: Wasm-Pack Check (Release)
-
       - job: Cargo_Build_Debug
         dependsOn: []
         steps:
@@ -632,3 +596,39 @@ stages:
 
           - publish: ./platform/webassembly/pkg
             artifact: Upload Android Artifacts (Release)
+
+      - job: Cargo_Test_Debug
+        dependsOn: []
+        steps:
+          - bash: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
+            displayName: Install Rust
+          
+          - bash: rustc --version && cargo --version
+            displayName: Print Rust & Cargo versions
+
+          - bash: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh 
+            displayName: Install WASM-Pack
+
+          - bash: wasm-pack --version
+            displayName: Wasm-Pack version
+            
+          - bash: wasm-pack test --dev platform/webassembly/ --package platform_webassembly
+            displayName: Wasm-Pack Build (Debug)
+
+      - job: Cargo_Test_Release
+        dependsOn: []
+        steps:
+          - bash: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
+            displayName: Install Rust
+          
+          - bash: rustc --version && cargo --version
+            displayName: Print Rust & Cargo versions
+
+          - bash: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh 
+            displayName: Install WASM-Pack
+
+          - bash: wasm-pack --version
+            displayName: Wasm-Pack version
+            
+          - bash: wasm-pack test  platform/webassembly/ --package platform_webassembly
+            displayName: Wasm-Pack Build (Release)
