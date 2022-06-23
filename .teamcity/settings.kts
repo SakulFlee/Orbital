@@ -20,7 +20,7 @@ object Check : BuildType({
     artifactRules = "target/**/*"
 
     vcs {
-        root(HttpsGithubComRustMultiplatformBaseProjectTemplateRefsHeadsMain1)
+        root(HttpsGithubComRustMultiplatformBaseProjectTemplateRefsHeadsMain)
     }
 
     steps {
@@ -45,7 +45,7 @@ object Build : BuildType({
     artifactRules = "target/**/*"
 
     vcs {
-        root(HttpsGithubComRustMultiplatformBaseProjectTemplateRefsHeadsMain1)
+        root(HttpsGithubComRustMultiplatformBaseProjectTemplateRefsHeadsMain)
     }
 
     steps {
@@ -70,7 +70,7 @@ object Test : BuildType({
     artifactRules = "target/**/*"
 
     vcs {
-        root(HttpsGithubComRustMultiplatformBaseProjectTemplateRefsHeadsMain1)
+        root(HttpsGithubComRustMultiplatformBaseProjectTemplateRefsHeadsMain)
     }
 
     steps {
