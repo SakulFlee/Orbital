@@ -48,12 +48,13 @@ object Build : BuildType({
             param("cargo-command", "bench")
         }
         step {
-            name = "Build (Debug) (1)"
+            name = "Build (Release)"
             type = "cargo"
             executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
             param("cargo-toolchain", "stable")
             param("cargo-verbosity", "--verbose")
             param("cargo-bench-package", "platform_linux")
+            param("cargo-bench-arguments", "--release")
             param("cargo-command", "bench")
         }
     }
