@@ -574,7 +574,7 @@ stages:
             displayName: Wasm-Pack Build (Debug)
           
           - publish: ./platform/webassembly/pkg
-            artifact: Upload Android Artifacts (Debug)
+            artifact: Upload WebAssembly Artifacts (Debug)
 
       - job: Cargo_Build_Release
         dependsOn: []
@@ -595,7 +595,7 @@ stages:
             displayName: Wasm-Pack Build (Release)
 
           - publish: ./platform/webassembly/pkg
-            artifact: Upload Android Artifacts (Release)
+            artifact: Upload WebAssembly Artifacts (Release)
 
       - job: Cargo_Test_Debug
         dependsOn: []
