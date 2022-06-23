@@ -298,7 +298,22 @@ stages:
           - bash: cargo install cargo-xcodebuild
             displayName: Install XCodeBuild
 
-          - pwsh: cargo xcodebuild check --verbose --package platform_ios
+          - bash: cp platform/ios/Cargo.toml platform/ios/Cargo.toml.original
+            displayName: Copy original Cargo.toml
+
+          - bash: xcrun simctl list devices available --json ios | jq '.devices | to_entries | map(select(.key | match(".*iOS.*"))) | map(.value)[0]'
+            displayName: Available Device IDs
+
+          - bash: xcrun simctl list devices available --json ios | jq '.devices | to_entries | map(select(.key | match(".*iOS.*"))) | map(.value)[0][0]'
+            displayName: Selected Device ID
+
+          - bash: DEVICE_ID=$(xcrun simctl list devices available --json ios | jq '.devices | to_entries | map(select(.key | match(".*iOS.*"))) | map(.value)[0][0].udid'); cat platform/ios/Cargo.toml | sed "s/device_id = .*/device_id = $DEVICE_ID/g" | tee platform/ios/Cargo.toml
+            displayName: Change Device ID
+              
+          - bash: diff platform/ios/Cargo.toml platform/ios/Cargo.toml.original || true
+            displayName: Diff changes in Cargo.toml
+
+          - bash: cargo xcodebuild check --verbose --package platform_ios
             displayName: Cargo Check (Debug)
 
       - job: Cargo_Check_Release
@@ -322,7 +337,22 @@ stages:
           - bash: cargo install cargo-xcodebuild
             displayName: Install XCodeBuild
 
-          - pwsh: cargo xcodebuild check --verbose --package platform_ios --release
+          - bash: cp platform/ios/Cargo.toml platform/ios/Cargo.toml.original
+            displayName: Copy original Cargo.toml
+
+          - bash: xcrun simctl list devices available --json ios | jq '.devices | to_entries | map(select(.key | match(".*iOS.*"))) | map(.value)[0]'
+            displayName: Available Device IDs
+
+          - bash: xcrun simctl list devices available --json ios | jq '.devices | to_entries | map(select(.key | match(".*iOS.*"))) | map(.value)[0][0]'
+            displayName: Selected Device ID
+
+          - bash: DEVICE_ID=$(xcrun simctl list devices available --json ios | jq '.devices | to_entries | map(select(.key | match(".*iOS.*"))) | map(.value)[0][0].udid'); cat platform/ios/Cargo.toml | sed "s/device_id = .*/device_id = $DEVICE_ID/g" | tee platform/ios/Cargo.toml
+            displayName: Change Device ID
+              
+          - bash: diff platform/ios/Cargo.toml platform/ios/Cargo.toml.original || true
+            displayName: Diff changes in Cargo.toml
+
+          - bash: cargo xcodebuild check --verbose --package platform_ios --release
             displayName: Cargo Check (Release)
 
       - job: Cargo_Build_Debug
@@ -346,7 +376,22 @@ stages:
           - bash: cargo install cargo-xcodebuild
             displayName: Install XCodeBuild
 
-          - pwsh: cargo xcodebuild build --verbose --package platform_ios
+          - bash: cp platform/ios/Cargo.toml platform/ios/Cargo.toml.original
+            displayName: Copy original Cargo.toml
+
+          - bash: xcrun simctl list devices available --json ios | jq '.devices | to_entries | map(select(.key | match(".*iOS.*"))) | map(.value)[0]'
+            displayName: Available Device IDs
+
+          - bash: xcrun simctl list devices available --json ios | jq '.devices | to_entries | map(select(.key | match(".*iOS.*"))) | map(.value)[0][0]'
+            displayName: Selected Device ID
+
+          - bash: DEVICE_ID=$(xcrun simctl list devices available --json ios | jq '.devices | to_entries | map(select(.key | match(".*iOS.*"))) | map(.value)[0][0].udid'); cat platform/ios/Cargo.toml | sed "s/device_id = .*/device_id = $DEVICE_ID/g" | tee platform/ios/Cargo.toml
+            displayName: Change Device ID
+              
+          - bash: diff platform/ios/Cargo.toml platform/ios/Cargo.toml.original || true
+            displayName: Diff changes in Cargo.toml
+
+          - bash: cargo xcodebuild build --verbose --package platform_ios
             displayName: Cargo Build (Debug)
 
           - publish: target/
@@ -373,7 +418,22 @@ stages:
           - bash: cargo install cargo-xcodebuild
             displayName: Install XCodeBuild
 
-          - pwsh: cargo xcodebuild build --verbose --package platform_ios --release
+          - bash: cp platform/ios/Cargo.toml platform/ios/Cargo.toml.original
+            displayName: Copy original Cargo.toml
+
+          - bash: xcrun simctl list devices available --json ios | jq '.devices | to_entries | map(select(.key | match(".*iOS.*"))) | map(.value)[0]'
+            displayName: Available Device IDs
+
+          - bash: xcrun simctl list devices available --json ios | jq '.devices | to_entries | map(select(.key | match(".*iOS.*"))) | map(.value)[0][0]'
+            displayName: Selected Device ID
+
+          - bash: DEVICE_ID=$(xcrun simctl list devices available --json ios | jq '.devices | to_entries | map(select(.key | match(".*iOS.*"))) | map(.value)[0][0].udid'); cat platform/ios/Cargo.toml | sed "s/device_id = .*/device_id = $DEVICE_ID/g" | tee platform/ios/Cargo.toml
+            displayName: Change Device ID
+              
+          - bash: diff platform/ios/Cargo.toml platform/ios/Cargo.toml.original || true
+            displayName: Diff changes in Cargo.toml
+
+          - bash: cargo xcodebuild build --verbose --package platform_ios --release
             displayName: Cargo Build (Release)
 
           - publish: target/
