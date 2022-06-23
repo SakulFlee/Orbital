@@ -37,6 +37,13 @@ object Build : BuildType({
         root(DslContext.settingsRoot)
     }
 
+    steps {
+        step {
+            type = "cargo"
+            param("cargo-command", "build")
+        }
+    }
+
     triggers {
         vcs {
         }
