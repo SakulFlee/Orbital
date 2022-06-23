@@ -27,6 +27,7 @@ version = "2022.04"
 
 project {
 
+    buildType(Test)
     buildType(Build)
 }
 
@@ -57,6 +58,19 @@ object Build : BuildType({
             param("cargo-bench-arguments", "--release")
             param("cargo-command", "bench")
         }
+    }
+
+    triggers {
+        vcs {
+        }
+    }
+})
+
+object Test : BuildType({
+    name = "Test"
+
+    vcs {
+        root(DslContext.settingsRoot)
     }
 
     triggers {
