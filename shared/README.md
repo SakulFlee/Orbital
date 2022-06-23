@@ -1,4 +1,5 @@
 # Crate/Library: Shared
+
 [![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/shared.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/shared.yml)
 
 This is our **one** crate that holds all the shared code for our Cross/Multi-platform apps.  
