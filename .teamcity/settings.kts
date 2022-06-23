@@ -39,8 +39,13 @@ object Build : BuildType({
 
     steps {
         step {
+            name = "Build (Debug)"
             type = "cargo"
-            param("cargo-command", "build")
+            executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
+            param("cargo-toolchain", "stable")
+            param("cargo-verbosity", "--verbose")
+            param("cargo-bench-package", "platform_linux")
+            param("cargo-command", "bench")
         }
     }
 
