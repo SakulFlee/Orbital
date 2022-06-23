@@ -491,7 +491,6 @@ stages:
           - bash: rustup target add armv7-linux-androideabi
             displayName: Install Rust target armv7-linux-androideabi
             
-
           - bash: cargo check --verbose --package platform_android --release
             displayName: Cargo Check (Release)
 
@@ -516,7 +515,6 @@ stages:
           - bash: rustup target add armv7-linux-androideabi
             displayName: Install Rust target armv7-linux-androideabi
             
-
           - bash: cargo build --verbose --package platform_android
             displayName: Cargo Build (Debug)
           
@@ -544,7 +542,6 @@ stages:
           - bash: rustup target add armv7-linux-androideabi
             displayName: Install Rust target armv7-linux-androideabi
             
-
           - bash: cargo build --verbose --package platform_android --release
             displayName: Cargo Build (Release)
 
