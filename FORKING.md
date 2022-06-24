@@ -51,3 +51,25 @@ Furthermore, there is currently no way of checking (or getting a notification) _
 To automate this process we could make a CI/GitHub Action that runs hourly or daily (or whenever) (note that on-push won't work since changes are happening on the base repository, not yours!) and does the latter steps automatically.  
 However, this will fail if even a single merge conflict arises in the forked repository.  
 This then would have to be solved manually.
+
+## What is important to do after forking?
+
+Here's a checklist:
+
+- Licenses:
+  - Check which license you want to use. We recommend dual-licensing but chose what ever fits you best.
+  - Add your name(s) to the Copy-Right notices.
+  - Update the `Cargo.toml` with the license of your choosing.
+- README's:
+  - Make notice of the base project template and/or the GitHub Organization.
+  - Rename the title to your project name (also check for mentions inside the README's!).
+  - Update CI URLs, otherwise your fork will reflect the CI Badges from the base template.
+  - Update the goal & description of your project.
+    - Also make sure to include screenshots of the goal for each platform (if applicable)
+- CI's:
+  - Enable/Disable whatever CI's you want to use:
+    - Inside the organization all CI's should work effortlessly, you may need to enlist it manually though.
+    - Outside the organization you may not have access to all CI's. You can disable CI's or remove them fully (note that this will create merge conflicts when updating from the base!).
+- Cargo.toml:
+  - For each `Cargo.toml` (shared & platform specific) there is a mention of the repository.
+  - For each `Cargo.toml` there also is a notice about the license.
