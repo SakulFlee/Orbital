@@ -70,6 +70,7 @@ Here's a checklist:
   - Enable/Disable whatever CI's you want to use:
     - Inside the organization all CI's should work effortlessly, you may need to enlist it manually though.
     - Outside the organization you may not have access to all CI's. You can disable CI's or remove them fully (note that this will create merge conflicts when updating from the base!).
+    - You may also want to adjust your CI's based on for which platforms you are building. It's enough to build on one CI platform for all platforms.
 - Cargo.toml:
   - For each `Cargo.toml` (shared & platform specific) there is a mention of the repository.
   - For each `Cargo.toml` there also is a notice about the license.
