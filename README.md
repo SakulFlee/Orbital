@@ -11,6 +11,20 @@ This project is supported by the following platforms:
 - [ ] Platform: iOS  
 - [ ] Platform: WebAssembly (WASM)
 
+To use this project simply fork it (button in top right corner) into your own namespace.  
+If you need some more advanced setup check out the [forking guide](FORKING.md).
+We also include a checklist for [what to do after forking](FORKING.md#what-is-important-to-do-after-forking).
+
+## Licenses
+
+This project is dual licensed in Rust's fashion:
+
+- [MIT License](https://spdx.org/licenses/MIT.html)
+- [Apache License 2.0](https://spdx.org/licenses/Apache-2.0.html)
+
+For your own project you can chose whichever fits you better.  
+For templates/examples we recommend to also dual-licensing.
+
 ## Project layout
 
 | Folder                                         | Description                                                                                                                         | GitHub Actions                                                                                                                                                                                                                      |
