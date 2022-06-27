@@ -17,7 +17,7 @@ You've just forked our repository!
 Every time we update the base repository, you will find a banner and button on your forked repository stating that the base got updated and that you can merge it into your fork.
 **To stay up to date and avoid future problems we recommend to always merge!**
 
-## Native forking (works unlimited)
+## Git-Native forking (works unlimited)
 
 However, when working on a project internally (in the same namespace/organization) we can't easily fork as the project already exists there.  
 Weird limitation, but we can get around it:
@@ -28,20 +28,14 @@ Weird limitation, but we can get around it:
 
 First, we need to create a full copy (mirror) of the base:  
 
-1. Create a new empty repository in the namespace you want it to.
-2. Clone the [base template/example](https://github.com/rust-multiplatform/Base-Project-Template) in **mirror** mode: `git clone --mirror https://github.com/rust-multiplatform/Base-Project-Template Base-Project-Template`
-3. Go into your project folder and push to your project in **mirror** mode: `git push --mirror <your git url>`
+> Note, that the following steps are only required to be done by one person (e.g head-dev/team-lead) to merge changes from the base repository.
+> Not every member of the project needs this!
 
-Next, we modify the new repository to work like "forks":  
-
-> Note that if you already have a repository setup (mirrored) and are just cloning your repository on a new machine or something similar: these following steps have to be repeated for forking to properly work!  
-> Although, having this on ONE machine (e.g. your head-developer) is enough.
-> Not every member using the repository must do this.
-
-1. Clone your repository normally (`git clone <your git url> <folder name>`)
-2. Add a secondary remote commonly called `upstream` with the base project url: `git remote add upstream https://github.com/rust-multiplatform/Base-Project-Template`
-3. Now, using `git fetch --all` (or `git fetch upstream`) will update your mirror repository with the base projects changes.
-4. With `git pull upstream (<branch>)` you can pull the changes from the base repository. This will automatically start a merge and may prompt you with merge conflicts if you've changed any of the files. Resolve those, commit the merge and you are done updating your fork/mirror!
+1. Create a new empty repository in the namespace you want it to be in _or_ have an existing repository.
+2. Clone your repository normally (`git clone <your git url> <folder name>`)
+3. Add a secondary remote commonly called `upstream` with the base project url: `git remote add upstream https://github.com/rust-multiplatform/Base-Project-Template`
+4. Now, using `git fetch --all` (or `git fetch upstream`) will update your mirror repository with the base projects changes.
+5. With `git pull upstream (<branch>)` you can pull the changes from the base repository. This will automatically start a merge and may prompt you with merge conflicts if you've changed any of the files. Resolve those, commit the merge and you are done updating your fork/mirror!
 
 Unfortunately, this is harder to automate as merge conflicts usually require user interaction.  
 Furthermore, there is currently no way of checking (or getting a notification) _if_ the base updated, except for manually checking and/or pulling from upstream.
