@@ -101,7 +101,7 @@ Use one fitting for your needs (`bundler` bundles it together, `nodejs` creates 
 ## Testing
 
 There are no tests! `wasm-pack` does not support testing.  
-We could still use `cargo` to test, but testing on WebAssembly isn't really needed.
+We could still use `cargo` or make an NodeJS/NPM Module out of it and test it via `npm`.
 
 ## Running
 
