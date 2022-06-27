@@ -29,15 +29,21 @@ In this case we have _some_ non-shared/platform-specific code but overall this s
 
 ## What does this crate do?
 
-We implement the standard Rust Binary-Entrypoint:
+For Android we can't use the standard Rust-Entrypoint (`src/main.rs ::  fn main() { ... }`), but have to define a library (`src/lib.rs`) and have it have a main function:
 
 ```rust
+#[allow(dead_code)]
 fn main() {
     // OUR CODE HERE
 }
 ```
 
-And simply call the entrypoint defined by our shared library.  
+> Note that Rust will warn you that `lib.rs::main` is unused.  
+> Thus, we make use of `#[allow(dead_code)]` to allow this to happen.  
+> We are building a **native library** that will be linked together with the Android NDK. Rust can't see that part.  
+> In some sense we are doing the same thing here as we are doing with the shared library entrypoint.
+
+Within the main function we call our entrypoint of the shared library.
 Check out the shared crate for more on how this is working and what it is doing.
 
 This is the most basic of examples: A simple `"Hello World"` or better yet: `"Hello from Rust!"` to the standard output.  
@@ -83,6 +89,9 @@ cargo apk build --package platform_android --release
 
 > Optionally add `--verbose` to see what is happening.  
 > Floods your console with message though possibly, use when there are build errors.
+
+Take a look into the `Cargo.toml` and see all the different fields.  
+Android relies a lot on Meta-Data. Check [Android-NDK-rs/NDK-Glue](https://github.com/rust-windowing/android-ndk-rs) for more on those fields.
 
 ## Testing
 
