@@ -146,3 +146,11 @@ cargo apk run --package platform_android --release
 
 > Optionally add `--verbose` to see what is happening.  
 > Floods your console with message though possibly, use when there are build errors.
+
+To retrieve logs you need to use:
+
+```shell
+adb logcat RustStdoutStderr:D *:S
+```
+
+> Note: to capture app crashes either _first_ launch this command in a shell _or_ relaunch the app after having adb up.
