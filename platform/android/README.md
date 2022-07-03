@@ -29,17 +29,18 @@ In this case we have _some_ non-shared/platform-specific code but overall this s
 
 ## What does this crate do?
 
-For Android we can't use the standard Rust-Entrypoint (`src/main.rs ::  fn main() { ... }`), but have to define a library (`src/lib.rs`) and have it have a main function:
+For Android we can't use the standard Rust-Entrypoint (`src/main.rs ::  fn main() { ... }`), but have to define a library (`src/lib.rs`) and have it have a `pub fn main()` function:
 
 ```rust
-#[allow(dead_code)]
-fn main() {
+#[cfg_attr(target_os = "android", ndk_glue::main(backtrace = "on"))]
+pub fn main() {
     // OUR CODE HERE
 }
+
 ```
 
 > Note that Rust will warn you that `lib.rs::main` is unused.  
-> Thus, we make use of `#[allow(dead_code)]` to allow this to happen.  
+> Thus, we may use `#[allow(dead_code)]` to allow this to happen.  
 > We are building a **native library** that will be linked together with the Android NDK. Rust can't see that part.  
 > In some sense we are doing the same thing here as we are doing with the shared library entrypoint.
 
