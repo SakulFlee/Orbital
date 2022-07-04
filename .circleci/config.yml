@@ -136,7 +136,7 @@ jobs:
 
   platform_android:
     docker:      
-      - image: androidsdk/android-33
+      - image: androidsdk/android-30
 
     steps:
       - checkout
