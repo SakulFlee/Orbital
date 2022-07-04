@@ -205,7 +205,10 @@ The pipelines are available at: [BitBucket Mirror](https://bitbucket.org/rust-mu
 
 ### CI Platform: TeamCity
 
-[![Build Status](https://teamcity.jetbrains.com/app/rest/builds/project:(id:OpenSourceProjects_RustMultiplatform_BaseProjectTemplate)/statusIcon)](https://teamcity.jetbrains.com/viewType.html?projectId=projectId=OpenSourceProjects_RustMultiplatform_BaseProjectTemplate)
+| Pipeline | Status Badge |
+| - | - |
+| Build | ![TeamCity build status](https://teamcity.jetbrains.com/app/rest/builds/buildType:id:OpenSourceProjects_RustMultiplatform_BaseProjectTemplate_Build/statusIcon.svg) |
+| Test | ![TeamCity test status](https://teamcity.jetbrains.com/app/rest/builds/buildType:id:OpenSourceProjects_RustMultiplatform_BaseProjectTemplate_Test/statusIcon.svg) |
 
 To use [TeamCity](https://www.jetbrains.com/teamcity/) you either have to host your own Server, subscribe for a hosted (TeamCity Cloud) server or apply for your [OSS project being added for free](https://blog.jetbrains.com/teamcity/2016/10/hosted-teamcity-for-open-source-a-new-home/).
 
