@@ -1,4 +1,7 @@
 # Operating systems to run on
+# Note that other platforms are possible, but we want to save on build credits here.
+# For windows list `- windows` and `- osx` for macOS.
+# Note that for target platforms Android and iOS you may need to install additional tools.
 os:
   - linux
 
