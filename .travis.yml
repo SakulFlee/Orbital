@@ -1,8 +1,6 @@
 # Operating systems to run on
 os:
-  - osx
   - linux
-  - windows
 
 # What tools should be present
 compiler:
@@ -21,12 +19,14 @@ cache: cargo
 
 # Tasks
 script:
+  # Debug
   - cargo check --verbose --package shared
   - cargo build --verbose --package shared
   - cargo test --verbose --package shared
   - cargo check --verbose --package platform_${TRAVIS_OS_NAME}
   - cargo build --verbose --package platform_${TRAVIS_OS_NAME}
   - cargo test --verbose --package platform_${TRAVIS_OS_NAME}
+  # Release
   - cargo check --release --verbose --package shared
   - cargo build --release --verbose --package shared
   - cargo test --release --verbose --package shared
