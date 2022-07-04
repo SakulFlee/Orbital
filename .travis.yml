@@ -32,7 +32,4 @@ script:
   - cargo test --release --verbose --package shared
   - cargo check --release --verbose --package platform_${TRAVIS_OS_NAME}
   - cargo build --release --verbose --package platform_${TRAVIS_OS_NAME}
-  - cargo test --release--verbose --package platform_${TRAVIS_OS_NAME}
-
-# There is no easy way of building iOS and Android without requiring the Android SDK and iOS SDK on all platforms.
-# Docker could be used here, but a more advanced setup is required which would just clutter this config.
+  - cargo test --release --verbose --package platform_${TRAVIS_OS_NAME}
