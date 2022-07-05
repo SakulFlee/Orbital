@@ -174,7 +174,7 @@ Each hast their own badge.
 [![Build Status](https://dev.azure.com/Rust-Multiplatform/Base%20Project%20Template/_apis/build/status/Base%20Project%20Template?branchName=main)](https://dev.azure.com/Rust-Multiplatform/Base%20Project%20Template/_build/latest?definitionId=1&branchName=main)
 
 Azure DevOps is an amazing platform which includes not only CI/CDs (pipelines), but you can host your Git repository there too, do planning, and much more.
-The Azure Pipelines are suprisingly extensive and feature rich, next to GitHub defineteley a good choice!
+The Azure Pipelines are surprisingly extensive and feature rich, next to GitHub definitely a good choice!
 
 We also do build for all platforms, however please note that you either have to pay for a subscription (might be included with an Visual Studio/MSDN subscription!) or, if applicable, apply for a shared pipeline runner.
 This is possible for not only public, but also private projects.
