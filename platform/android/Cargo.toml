@@ -3,7 +3,7 @@ name = "platform_android"
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/rust-multiplatform/Base-Project-Template.git"
+repository = "https://github.com/rust-multiplatform/Windowing-Template.git"
 
 [lib]
 crate-type = ["cdylib", "staticlib", "rlib"]
@@ -53,8 +53,11 @@ max_sdk_version = 30
 # Defaults to `$HOME/.android/debug.keystore` for the `dev` profile. Will ONLY generate a new
 # debug.keystore if this file does NOT exist.
 # A keystore path is always required on the `release` profile.
+[package.metadata.android.signing.dev]
+path = ".android/debug.keystore"
+keystore_password = "android"
 [package.metadata.android.signing.release]
-path = "$HOME/.android/debug.keystore"
+path = ".android/release.keystore"
 keystore_password = "android"
 
 # See https://developer.android.com/guide/topics/manifest/uses-feature-element
@@ -82,7 +85,7 @@ icon = "@mipmap/ic_launcher"
 # See https://developer.android.com/guide/topics/manifest/application-element#label
 #
 # Defaults to the compiled artifact's name.
-label = "Hello-World-Android"
+label = "platform-android"
 
 # See https://developer.android.com/guide/topics/manifest/activity-element#config
 #
@@ -103,24 +106,3 @@ orientation = "landscape"
 #
 # Unset by default, or "true" when targeting Android >= 31 (S and up).
 exported = "true"
-
-# See https://developer.android.com/guide/topics/manifest/intent-filter-element
-#
-# Note: there can be several .intent_filter entries.
-[[package.metadata.android.application.activity.intent_filter]]
-# See https://developer.android.com/guide/topics/manifest/action-element
-actions = ["android.intent.action.VIEW", "android.intent.action.WEB_SEARCH"]
-# See https://developer.android.com/guide/topics/manifest/category-element
-categories = ["android.intent.category.DEFAULT", "android.intent.category.BROWSABLE"]
-
-# See https://developer.android.com/guide/topics/manifest/data-element
-#
-# Note: there can be several .data entries.
-# Note: not specifying an attribute excludes it from the final data specification.
-[[package.metadata.android.application.activity.intent_filter.data]]
-scheme = "https"
-host = "github.com"
-port = "8080"
-path = "/rust-windowing/android-ndk-rs/tree/master/cargo-apk"
-path_prefix = "/rust-windowing/"
-mime_type = "image/jpeg"
