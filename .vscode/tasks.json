@@ -463,5 +463,23 @@
             ],
             "group": "test"
         },
+        {
+            "label": "Debug Android (GDB)",
+            "command": "cargo apk gdb --package platform_android",
+            "type": "shell",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "options": {
+                "cwd": "platform/android/"
+            },
+            "presentation": {
+                "reveal": "always"
+            },
+            "dependsOn":[
+                "Build Platform Android (Debug)"
+            ],
+            "group": "test"
+        }
     ]
 }
