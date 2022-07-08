@@ -415,6 +415,17 @@
             "type": "shell",
             "dependsOn": "Create AVD",
             "problemMatcher": []
+        },
+        {
+            "label": "Attach Android Logs (ADB LogCat)",
+            "command": "adb logcat RustStdoutStderr:D *:S",
+            "type": "shell",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            }
         }
     ]
 }
