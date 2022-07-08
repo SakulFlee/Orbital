@@ -398,7 +398,8 @@
         {
             "label": "Install Android SDK & NDK",
             "type": "shell",
-            "command": "sdkmanager 'platforms;android-30' 'system-images;android-30;google_apis;x86_64' 'platform-tools' 'emulator' 'ndk;24.0.8215888' 'build-tools;33.0.0'"
+            "command": "sdkmanager 'platforms;android-30' 'system-images;android-30;google_apis;x86_64' 'platform-tools' 'emulator' 'ndk;24.0.8215888' 'build-tools;33.0.0'",
+            "problemMatcher": []
         },
         {
             "label": "Create AVD",
