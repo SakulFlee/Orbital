@@ -429,7 +429,7 @@
         },
         {
             "label": "Run Android (Debug)",
-            "command": "cargo apk run --package rust_game_platform_android",
+            "command": "cargo apk run --package platform_android",
             "type": "shell",
             "problemMatcher": [
                 "$rustc"
@@ -447,7 +447,7 @@
         },
         {
             "label": "Run Android (Release)",
-            "command": "cargo apk run --release --package rust_game_platform_android",
+            "command": "cargo apk run --release --package platform_android",
             "type": "shell",
             "problemMatcher": [
                 "$rustc"
