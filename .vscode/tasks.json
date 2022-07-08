@@ -441,10 +441,9 @@
                 "reveal": "always"
             },
             "dependsOn":[
-                "Build Platform Android (Debug)",
-                "Start Android Emulator"
+                "Build Platform Android (Debug)"
             ],
-            "dependsOrder": "parallel",
+            "dependsOrder": "sequence",
             "group": "test"
         },
         {
@@ -461,10 +460,9 @@
                 "reveal": "always"
             },
             "dependsOn":[
-                "Build Platform Android (Release)",
-                "Start Android Emulator"
+                "Build Platform Android (Release)"
             ],
-            "dependsOrder": "parallel",
+            "dependsOrder": "sequence",
             "group": "test"
         },
     ]
