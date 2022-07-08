@@ -441,7 +441,7 @@
                 "reveal": "always"
             },
             "dependsOn":[
-                "Build Android (Debug)"
+                "Build Platform Android (Debug)"
             ],
             "dependsOrder": "sequence",
             "group": "test"
@@ -460,7 +460,7 @@
                 "reveal": "always"
             },
             "dependsOn":[
-                "Build Android (Release)"
+                "Build Platform Android (Release)"
             ],
             "dependsOrder": "sequence",
             "group": "test"
