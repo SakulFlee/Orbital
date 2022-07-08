@@ -6,7 +6,7 @@
         {
             "label": "General Notice",
             "type": "shell",
-            "command": "echo 'Please note that you rarely can run all the tasks on one given platform. Doing so requires lots of setup and cross-toolchains.'",
+            "command": "echo 'Please note that you rarely can run all the tasks on one given platform. Doing so requires lots of setup and cross-toolchains.'"
         },
         {
             "label": "Clean Workspace (removes build artifacts; Useful for clean builds)",
@@ -399,6 +399,14 @@
             "label": "Install Android SDK & NDK",
             "type": "shell",
             "command": "sdkmanager 'platforms;android-30' 'system-images;android-30;google_apis;x86_64' 'platform-tools' 'emulator' 'ndk;24.0.8215888' 'build-tools;33.0.0'"
+        },
+        {
+            "label": "Create AVD",
+            "type": "shell",
+            // The '; exit' is to prevent the command from failing due to existing AVD.
+            "command": "avdmanager --silent create avd -n avd_30 -k 'system-images;android-30;google_apis;x86_64'; exit",
+            "dependsOn": "Install Android SDK & NDK",
+            "problemMatcher": []
         }
     ]
 }
