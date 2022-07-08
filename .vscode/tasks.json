@@ -426,6 +426,44 @@
             "presentation": {
                 "reveal": "always"
             }
-        }
+        },
+        {
+            "label": "Run Android (Debug)",
+            "command": "cargo apk run --package rust_game_platform_android",
+            "type": "shell",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "options": {
+                "cwd": "android/"
+            },
+            "presentation": {
+                "reveal": "always"
+            },
+            "dependsOn":[
+                "Build Android (Debug)"
+            ],
+            "dependsOrder": "sequence",
+            "group": "test"
+        },
+        {
+            "label": "Run Android (Release)",
+            "command": "cargo apk run --release --package rust_game_platform_android",
+            "type": "shell",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "options": {
+                "cwd": "android/"
+            },
+            "presentation": {
+                "reveal": "always"
+            },
+            "dependsOn":[
+                "Build Android (Release)"
+            ],
+            "dependsOrder": "sequence",
+            "group": "test"
+        },
     ]
 }
