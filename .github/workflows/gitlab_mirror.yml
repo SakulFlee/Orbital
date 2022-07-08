@@ -9,12 +9,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # Download a mirror and push it to GitLab
-    - run: |
-        git clone https://github.com/rust-multiplatform/Base-Project-Template mirror_repo
-        cd mirror_repo
-        git fetch --all
-        git remote add gitlab https://sakul6499:$GITLAB_TOKEN@gitlab.com/rust-multiplatform/base-project-template.git
-        git push gitlab --all
+    - run: git fetch --all --prune
+    - run: git push --prune https://sakul6499:$GITLAB_TOKEN@gitlab.com/rust-multiplatform/base-project-template.git +refs/remotes/origin/*:refs/heads/* +refs/tags/*:refs/tags/*
       env:
         GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
