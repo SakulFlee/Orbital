@@ -435,7 +435,7 @@
                 "$rustc"
             ],
             "options": {
-                "cwd": "android/"
+                "cwd": "platform/android/"
             },
             "presentation": {
                 "reveal": "always"
@@ -454,7 +454,7 @@
                 "$rustc"
             ],
             "options": {
-                "cwd": "android/"
+                "cwd": "platform/android/"
             },
             "presentation": {
                 "reveal": "always"
