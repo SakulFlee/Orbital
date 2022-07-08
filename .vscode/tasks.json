@@ -408,6 +408,13 @@
             "command": "avdmanager --silent create avd -n avd_30 -k 'system-images;android-30;google_apis;x86_64'; exit",
             "dependsOn": "Install Android SDK & NDK",
             "problemMatcher": []
+        },
+        {
+            "label": "Start Android Emulator",
+            "command": "emulator -avd avd_30",
+            "type": "shell",
+            "dependsOn": "Create AVD",
+            "problemMatcher": []
         }
     ]
 }
