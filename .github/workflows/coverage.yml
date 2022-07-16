@@ -16,10 +16,10 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    # Setup nightly toolchain
+    # Setup stable toolchain
     - uses: actions-rs/toolchain@v1
       with:
-        toolchain: nightly
+        toolchain: stable
         override: true
 
     # Clean workspace
