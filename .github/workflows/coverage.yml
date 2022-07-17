@@ -16,16 +16,6 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    # Setup stable toolchain
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        override: true
-
-    # Run grcov once to install with stable
-    - id: coverage-install
-      uses: actions-rs/grcov@v0.1
-
     # Setup nightly toolchain
     - uses: actions-rs/toolchain@v1
       with:
@@ -47,8 +37,14 @@ jobs:
         RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
         RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
 
+    # Setup stable toolchain
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+
     # Run grcov
-    - id: coverage-run
+    - id: coverage
       uses: actions-rs/grcov@v0.1
 
     # Codecov.io upload
