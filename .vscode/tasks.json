@@ -480,6 +480,96 @@
                 "Build Platform Android (Debug)"
             ],
             "group": "test"
+        },
+        {
+            "label": "Run Platform Windows (Debug)",
+            "command": "cargo run --package platform_windows",
+            "type": "shell",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "dependsOn":[
+                "Build Platform Windows (Debug)"
+            ],
+            "group": "test"
+        },
+        {
+            "label": "Run Platform Windows (Release)",
+            "command": "cargo run --package platform_windows --release",
+            "type": "shell",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "dependsOn":[
+                "Build Platform Windows (Release)"
+            ],
+            "group": "test"
+        },
+        {
+            "label": "Run Platform Linux (Debug)",
+            "command": "cargo run --package platform_linux",
+            "type": "shell",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "dependsOn":[
+                "Build Platform Linux (Debug)"
+            ],
+            "group": "test"
+        },
+        {
+            "label": "Run Platform Linux (Release)",
+            "command": "cargo run --package platform_linux --release",
+            "type": "shell",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "dependsOn":[
+                "Build Platform Linux (Release)"
+            ],
+            "group": "test"
+        },
+        {
+            "label": "Run Platform macOS (Debug)",
+            "command": "cargo run --package platform_macos",
+            "type": "shell",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "dependsOn":[
+                "Build Platform macOS (Debug)"
+            ],
+            "group": "test"
+        },
+        {
+            "label": "Run Platform macOS (Release)",
+            "command": "cargo run --package platform_macos --release",
+            "type": "shell",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "dependsOn":[
+                "Build Platform macOS (Release)"
+            ],
+            "group": "test"
         }
     ]
 }
