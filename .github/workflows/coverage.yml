@@ -22,6 +22,16 @@ jobs:
         toolchain: stable
         override: true
 
+    # Run grcov once to install with stable
+    - id: coverage  
+      uses: actions-rs/grcov@v0.1
+
+    # Setup nightly toolchain
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        override: true
+
     # Clean workspace
     - uses: actions-rs/cargo@v1
       with:
