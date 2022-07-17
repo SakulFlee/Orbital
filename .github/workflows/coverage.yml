@@ -23,7 +23,7 @@ jobs:
         override: true
 
     # Run grcov once to install with stable
-    - id: coverage  
+    - id: coverage-install
       uses: actions-rs/grcov@v0.1
 
     # Setup nightly toolchain
@@ -48,7 +48,7 @@ jobs:
         RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
 
     # Run grcov
-    - id: coverage  
+    - id: coverage-run
       uses: actions-rs/grcov@v0.1
 
     # Codecov.io upload
