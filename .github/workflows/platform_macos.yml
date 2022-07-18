@@ -40,20 +40,22 @@ jobs:
     - name: Build (Release)
       run: cargo build --verbose --package platform_macos --target ${{ matrix.target }} --release
     - name: Run Tests (Debug)
-      if: ${{ matrix.target == 'x86_64-apple-darwin' }} # Testing can only be done on the host architecture. It should work across all architectures though!
+      if: ${{ matrix.target == 'x86_64-apple-darwin' && always() }} # Testing can only be done on the host architecture. It should work across all architectures though!
       run: cargo test --verbose --package platform_macos --target ${{ matrix.target }}
       continue-on-error: true
     - name: Run Tests (Release)
-      if: ${{ matrix.target == 'x86_64-apple-darwin' }} # Testing can only be done on the host architecture. It should work across all architectures though!
+      if: ${{ matrix.target == 'x86_64-apple-darwin' && always() }} # Testing can only be done on the host architecture. It should work across all architectures though!
       run: cargo test --verbose --package platform_macos --target ${{ matrix.target }} --release
       continue-on-error: true
 
     - uses: actions/upload-artifact@v3
+      if: always()
       with:
         name: "platform_macos_debug_${{ matrix.target }}"
         path: target/${{ matrix.target }}/debug/platform_macos
         if-no-files-found: error 
     - uses: actions/upload-artifact@v3
+      if: always()
       with:
         name: "platform_macos_release_${{ matrix.target }}"
         path: target/${{ matrix.target }}/release/platform_macos
