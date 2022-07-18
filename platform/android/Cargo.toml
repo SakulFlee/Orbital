@@ -5,6 +5,11 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/rust-multiplatform/Windowing-Template.git"
 
+[features]
+default = ["all-tests"]
+ui-tests = []
+all-tests = ["ui-tests"]
+
 [lib]
 crate-type = ["cdylib", "staticlib", "rlib"]
 
