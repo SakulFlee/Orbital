@@ -40,9 +40,9 @@ jobs:
     - name: Build (Release)
       run: cargo build --verbose --package shared --release
     - name: Run Tests (Debug)
-      run: cargo test --verbose --package shared
+      run: cargo test --verbose --no-default-features --no-fail-fast --package shared
     - name: Run Tests (Release)
-      run: cargo test --verbose --package shared --release
+      run: cargo test --verbose --no-default-features --no-fail-fast --package shared --release
 
     - uses: actions/upload-artifact@v3
       with:
