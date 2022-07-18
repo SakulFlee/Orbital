@@ -67,7 +67,7 @@ stages:
           - bash: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
 
-          - bash: cargo test --verbose --package platform_linux
+          - bash: cargo test --verbose --no-default-features --no-fail-fast --package platform_linux
             displayName: Cargo Test (Debug)
 
       - job: Cargo_Test_Release
@@ -79,7 +79,7 @@ stages:
           - bash: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
 
-          - bash: cargo test --verbose --package platform_linux --release
+          - bash: cargo test --verbose --no-default-features --no-fail-fast --package platform_linux --release
             displayName: Cargo Test (Release)
 
 
@@ -167,7 +167,7 @@ stages:
           - pwsh: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
             
-          - pwsh: cargo test --verbose --package platform_windows
+          - pwsh: cargo test --verbose --no-default-features --no-fail-fast --package platform_windows
             displayName: Cargo Test (Debug)
 
       - job: Cargo_Test_Release
@@ -182,7 +182,7 @@ stages:
           - pwsh: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
             
-          - pwsh: cargo test --verbose --package platform_windows --release
+          - pwsh: cargo test --verbose --no-default-features --no-fail-fast --package platform_windows --release
             displayName: Cargo Test (Release)
 
 
@@ -255,7 +255,7 @@ stages:
           - bash: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
 
-          - bash: cargo test --verbose --package platform_macos
+          - bash: cargo test --verbose --no-default-features --no-fail-fast --package platform_macos
             displayName: Cargo Test (Debug)
 
       - job: Cargo_Test_Release
@@ -267,7 +267,7 @@ stages:
           - bash: rustc --version && cargo --version
             displayName: Print Rust & Cargo versions
 
-          - bash: cargo test --verbose --package platform_macos --release
+          - bash: cargo test --verbose --no-default-features --no-fail-fast --package platform_macos --release
             displayName: Cargo Test (Release)
 
 
