@@ -48,6 +48,7 @@ object Build : BuildType({
             type = "cargo"
             executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
             param("cargo-build-package", "platform_linux")
+            param("cargo-test-no-default-features", "true")
             param("cargo-toolchain", "stable")
             param("cargo-verbosity", "--verbose")
             param("cargo-bench-package", "platform_linux")
@@ -58,6 +59,7 @@ object Build : BuildType({
             type = "cargo"
             executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
             param("cargo-build-package", "platform_linux")
+            param("cargo-test-no-default-features", "true")
             param("cargo-build-release", "true")
             param("cargo-toolchain", "stable")
             param("cargo-verbosity", "--verbose")
@@ -96,6 +98,7 @@ object Test : BuildType({
             executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
             param("cargo-test-no-fail-fast", "true")
             param("cargo-test-package", "platform_linux")
+            param("cargo-test-no-default-features", "true")
             param("cargo-toolchain", "stable")
             param("cargo-verbosity", "--verbose")
             param("cargo-command", "test")
