@@ -42,10 +42,10 @@ jobs:
       # Tests
       - run:
           name: Run Tests (debug)
-          command: cargo test --package platform_linux
+          command: cargo test --no-default-features --no-fail-fast --package platform_linux
       - run:
           name: Run Tests (release)
-          command: cargo test --package platform_linux --release
+          command: cargo test --no-default-features --no-fail-fast --package platform_linux --release
 
       # Upload Artifacts
       - store_artifacts:
@@ -77,10 +77,10 @@ jobs:
       # Tests
       - run:
           name: Run Tests (debug)
-          command: cargo test --package platform_macos
+          command: cargo test --no-default-features --no-fail-fast --package platform_macos
       - run:
           name: Run Tests (release)
-          command: cargo test --package platform_macos --release
+          command: cargo test --no-default-features --no-fail-fast --package platform_macos --release
 
       # Upload Artifacts
       - store_artifacts:
@@ -119,12 +119,12 @@ jobs:
       # Tests
       - run:
           name: Run Tests (debug)
-          command: cargo test --package platform_windows
+          command: cargo test --no-default-features --no-fail-fast --package platform_windows
           environment:
             CARGO_NET_GIT_FETCH_WITH_CLI: "true"
       - run:
           name: Run Tests (release)
-          command: cargo test --package platform_windows --release
+          command: cargo test --no-default-features --no-fail-fast --package platform_windows --release
           environment:
             CARGO_NET_GIT_FETCH_WITH_CLI: "true"
 
@@ -295,10 +295,10 @@ jobs:
       # Tests
       - run:
           name: Run Tests (debug)
-          command: cargo test --package shared
+          command: cargo test --no-default-features --no-fail-fast --package shared
       - run:
           name: Run Tests (release)
-          command: cargo test --package shared --release
+          command: cargo test --no-default-features --no-fail-fast --package shared --release
 
       # Upload Artifacts
       - store_artifacts:
