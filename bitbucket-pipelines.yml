@@ -19,4 +19,4 @@ pipelines:
             name: test
             script:
               - rustc --version && cargo --version  # Print version info for debugging
-              - cargo test --verbose --package platform_linux
+              - cargo test --verbose --no-default-features --no-fail-fast --package platform_linux
