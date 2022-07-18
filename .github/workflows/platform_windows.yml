@@ -41,11 +41,11 @@ jobs:
       run: cargo build --verbose --package platform_windows --target ${{ matrix.target }} --release
     - name: Run Tests (Debug)
       if: ${{ matrix.target == 'x86_64-pc-windows-msvc' }} # Testing can only be done on the host architecture. It should work across all architectures though!
-      run: cargo test --verbose --package platform_windows --no-default-features --target ${{ matrix.target }}
+      run: cargo test --verbose --package platform_windows --no-default-features --no-fail-fast --target ${{ matrix.target }}
       continue-on-error: true
     - name: Run Tests (Release)
       if: ${{ matrix.target == 'x86_64-pc-windows-msvc' }} # Testing can only be done on the host architecture. It should work across all architectures though!
-      run: cargo test --verbose --package platform_windows --no-default-features --target ${{ matrix.target }} --release
+      run: cargo test --verbose --package platform_windows --no-default-features --no-fail-fast --target ${{ matrix.target }} --release
       continue-on-error: true
 
     - uses: actions/upload-artifact@v3
