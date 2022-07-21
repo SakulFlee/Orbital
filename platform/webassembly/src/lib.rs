@@ -1,4 +1,7 @@
+#![allow(clippy::all)]
+
 use wasm_bindgen::prelude::*;
+
 use shared::entrypoint;
 
 #[cfg(test)]
