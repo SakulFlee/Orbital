@@ -18,7 +18,7 @@ shared = { path = "../../shared" }
 
 # This dependency will only be included when targeting Android
 [target.'cfg(target_os = "android")'.dependencies]
-ndk-glue = { version = "0.5", features = ["logger"] }
+ndk-glue = { version = "0.7", features = ["logger"] }
 
 [package.metadata.android]
 # Specifies the package property of the manifest.
