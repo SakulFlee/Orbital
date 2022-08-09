@@ -94,6 +94,8 @@ jobs:
 
     steps:
       - checkout
+
+      - run: printenv
       
       # Setup
       - run:
