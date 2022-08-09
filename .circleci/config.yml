@@ -124,7 +124,7 @@ jobs:
           command: cargo test --no-default-features --no-fail-fast --package platform_windows
           environment:
             CARGO_NET_GIT_FETCH_WITH_CLI: "true"
-            PATH: "%PATH%;%USERHOME%/.cargo/bin"
+            PATH: "$PATH;$HOME/.cargo/bin"
       - run:
           name: Run Tests (release)
           command: cargo test --no-default-features --no-fail-fast --package platform_windows --release
