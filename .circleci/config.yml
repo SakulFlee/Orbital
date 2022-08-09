@@ -105,11 +105,6 @@ jobs:
       - run: 
           name: Cargo version
           command: |
-            printenv;
-            echo "$HOME";
-            echo "$USERPROFILE";
-            echo "$ENV:HOME";
-            echo "$ENV:USERPROFILE";
             & "$HOME/.cargo/bin/cargo.exe" --version
 
       # Build
