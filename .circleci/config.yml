@@ -106,8 +106,7 @@ jobs:
           name: Cargo version
           command: cargo --version
           environment:
-            PATH: "$PATH; $HOME/.cargo/bin/"
-
+            PATH: "$HOME/.cargo/bin/"
 
       # Build
       - run:
@@ -115,13 +114,13 @@ jobs:
           command: cargo build --package platform_windows
           environment:
             CARGO_NET_GIT_FETCH_WITH_CLI: "true"
-            PATH: "$PATH; $HOME/.cargo/bin/"
+            PATH: "$HOME/.cargo/bin/"
       - run:
           name: Build (release)
           command: cargo build --package platform_windows --release
           environment:
             CARGO_NET_GIT_FETCH_WITH_CLI: "true"
-            PATH: "$PATH; $HOME/.cargo/bin/"
+            PATH: "$HOME/.cargo/bin/"
 
       # Tests
       - run:
@@ -129,13 +128,13 @@ jobs:
           command: cargo test --no-default-features --no-fail-fast --package platform_windows
           environment:
             CARGO_NET_GIT_FETCH_WITH_CLI: "true"
-            PATH: "$PATH; $HOME/.cargo/bin/"
+            PATH: "$HOME/.cargo/bin/"
       - run:
           name: Run Tests (release)
           command: cargo test --no-default-features --no-fail-fast --package platform_windows --release
           environment:
             CARGO_NET_GIT_FETCH_WITH_CLI: "true"
-            PATH: "$PATH; $HOME/.cargo/bin/"
+            PATH: "$HOME/.cargo/bin/"
 
       # Upload Artifacts
       - store_artifacts:
