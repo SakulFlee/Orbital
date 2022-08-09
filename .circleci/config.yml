@@ -102,29 +102,36 @@ jobs:
       - run:
           name: Install Rust
           command: ./rustup-init.exe --default-toolchain stable --profile complete -y
-      - run: cargo --version
+      - run: 
+          name: Cargo version
+          command: |
+            & "$HOME/.cargo/bin/cargo.exe" --version
 
       # Build
       - run:
           name: Build (debug)
-          command: cargo build --package platform_windows
+          command: |
+            & "$HOME/.cargo/bin/cargo.exe" build --package platform_windows
           environment:
             CARGO_NET_GIT_FETCH_WITH_CLI: "true"
       - run:
           name: Build (release)
-          command: cargo build --package platform_windows --release
+          command: |
+            & "$HOME/.cargo/bin/cargo.exe" build --package platform_windows --release
           environment:
             CARGO_NET_GIT_FETCH_WITH_CLI: "true"
 
       # Tests
       - run:
           name: Run Tests (debug)
-          command: cargo test --no-default-features --no-fail-fast --package platform_windows
+          command: |
+            & "$HOME/.cargo/bin/cargo.exe" test --no-default-features --no-fail-fast --package platform_windows
           environment:
             CARGO_NET_GIT_FETCH_WITH_CLI: "true"
       - run:
           name: Run Tests (release)
-          command: cargo test --no-default-features --no-fail-fast --package platform_windows --release
+          command: |
+            & "$HOME/.cargo/bin/cargo.exe" test --no-default-features --no-fail-fast --package platform_windows --release
           environment:
             CARGO_NET_GIT_FETCH_WITH_CLI: "true"
 
