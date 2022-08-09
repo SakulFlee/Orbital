@@ -105,6 +105,7 @@ jobs:
       - run: 
           name: Cargo version
           command: |
+            printenv;
             echo "$HOME";
             echo "$USERPROFILE";
             echo "$ENV:HOME";
