@@ -104,22 +104,19 @@ jobs:
           command: ./rustup-init.exe --default-toolchain stable --profile complete -y
       - run: cargo --version
 
-      # Reload shell to pick up cargo & rustup
-      - run:
-          name: Reload Shell
-          command: '& $profile'
-
       # Build
       - run:
           name: Build (debug)
           command: cargo build --package platform_windows
           environment:
             CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+            PATH: "%PATH%;%USERHOME%/.cargo/bin"
       - run:
           name: Build (release)
           command: cargo build --package platform_windows --release
           environment:
             CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+            PATH: "%PATH%;%USERHOME%/.cargo/bin"
 
       # Tests
       - run:
@@ -127,11 +124,13 @@ jobs:
           command: cargo test --no-default-features --no-fail-fast --package platform_windows
           environment:
             CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+            PATH: "%PATH%;%USERHOME%/.cargo/bin"
       - run:
           name: Run Tests (release)
           command: cargo test --no-default-features --no-fail-fast --package platform_windows --release
           environment:
             CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+            PATH: "%PATH%;%USERHOME%/.cargo/bin"
 
       # Upload Artifacts
       - store_artifacts:
