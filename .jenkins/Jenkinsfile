@@ -3,7 +3,7 @@ pipeline {
         label 'docker'
     }
     stages {
-        stage('Test') {
+        stage('Rust Versions') {
             agent {
                 docker { 
                     image 'rust:latest' 
@@ -14,6 +14,43 @@ pipeline {
                 sh 'rustc --version'
                 sh 'cargo --version'
                 sh 'rustup --version'
+            }
+        }
+        stage('Rust Check') {
+            agent {
+                docker { 
+                    image 'rust:latest' 
+                    reuseNode true
+                }
+            }
+            steps {
+                sh 'cargo check'
+            }
+        }
+        stage('Rust Build') {
+            parallel {
+                stage('Rust Build (Debug)') {
+                    agent {
+                        docker { 
+                            image 'rust:latest' 
+                            reuseNode true
+                        }
+                    }
+                    steps {
+                        sh 'cargo build'
+                    }
+                }
+                stage('Rust Build (Release)') {
+                    agent {
+                        docker { 
+                            image 'rust:latest' 
+                            reuseNode true
+                        }
+                    }
+                    steps {
+                        sh 'cargo build --release'
+                    }
+                }
             }
         }
     }
