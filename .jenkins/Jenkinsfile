@@ -3,52 +3,54 @@ pipeline {
         label 'docker'
     }
     stages {
-        stage('Rust Versions') {
-            agent {
-                docker { 
-                    image 'rust:latest' 
-                    reuseNode true
+        stage('Docker') {
+            stage('Rust Versions') {
+                agent {
+                    docker { 
+                        image 'rust:latest' 
+                        reuseNode true
+                    }
+                }
+                steps {
+                    sh 'rustc --version'
+                    sh 'cargo --version'
+                    sh 'rustup --version'
                 }
             }
-            steps {
-                sh 'rustc --version'
-                sh 'cargo --version'
-                sh 'rustup --version'
-            }
-        }
-        stage('Rust Check') {
-            agent {
-                docker { 
-                    image 'rust:latest' 
-                    reuseNode true
+            stage('Rust Check') {
+                agent {
+                    docker { 
+                        image 'rust:latest' 
+                        reuseNode true
+                    }
+                }
+                steps {
+                    sh 'cargo check'
                 }
             }
-            steps {
-                sh 'cargo check'
-            }
-        }
-        stage('Rust Build') {
-            parallel {
-                stage('Rust Build (Debug)') {
-                    agent {
-                        docker { 
-                            image 'rust:latest' 
-                            reuseNode true
+            stage('Rust Build') {
+                parallel {
+                    stage('Rust Build (Debug)') {
+                        agent {
+                            docker { 
+                                image 'rust:latest' 
+                                reuseNode true
+                            }
+                        }
+                        steps {
+                            sh 'cargo build'
                         }
                     }
-                    steps {
-                        sh 'cargo build'
-                    }
-                }
-                stage('Rust Build (Release)') {
-                    agent {
-                        docker { 
-                            image 'rust:latest' 
-                            reuseNode true
+                    stage('Rust Build (Release)') {
+                        agent {
+                            docker { 
+                                image 'rust:latest' 
+                                reuseNode true
+                            }
                         }
-                    }
-                    steps {
-                        sh 'cargo build --release'
+                        steps {
+                            sh 'cargo build --release'
+                        }
                     }
                 }
             }
