@@ -16,12 +16,6 @@ language: rust
 # Version and channel of rust
 rust:
   - stable
-  - beta
-  - nightly
-  - 1.62.1
-  - 1.62.0
-  - 1.61.0
-  - 1.60.0
 
 # Use a cache for cargo
 cache: cargo
