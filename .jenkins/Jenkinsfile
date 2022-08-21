@@ -61,6 +61,7 @@ pipeline {
                 label 'docker'
             }
             steps {
+                sh '. "$HOME/.cargo/env"'
                 sh 'rustc --version'
                 sh 'cargo --version'
                 sh 'rustup --version'
@@ -71,6 +72,7 @@ pipeline {
                 label 'docker'
             }
             steps {
+                sh '. "$HOME/.cargo/env"'
                 sh 'cargo check'
             }
         }
@@ -81,6 +83,7 @@ pipeline {
                         label 'docker'
                     }
                     steps {
+                        sh '. "$HOME/.cargo/env"'
                         sh 'cargo build'
                     }
                 }
@@ -89,6 +92,7 @@ pipeline {
                         label 'docker'
                     }
                     steps {
+                        sh '. "$HOME/.cargo/env"'
                         sh 'cargo build --release'
                     }
                 }
