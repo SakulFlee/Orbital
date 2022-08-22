@@ -1,7 +1,5 @@
 pipeline {
-    agent {
-        label 'docker'
-    }
+    agent any
     options {
         disableConcurrentBuilds()
     }
@@ -10,6 +8,7 @@ pipeline {
             agent {
                 docker { 
                     image 'rust:latest' 
+                    label 'docker'
                     reuseNode true
                 }
             }
@@ -23,6 +22,7 @@ pipeline {
             agent {
                 docker { 
                     image 'rust:latest' 
+                    label 'docker'
                     reuseNode true
                 }
             }
@@ -36,6 +36,7 @@ pipeline {
                     agent {
                         docker { 
                             image 'rust:latest' 
+                            label 'docker'
                             reuseNode true
                         }
                     }
@@ -47,6 +48,7 @@ pipeline {
                     agent {
                         docker { 
                             image 'rust:latest' 
+                            label 'docker'
                             reuseNode true
                         }
                     }
