@@ -30,30 +30,26 @@ pipeline {
                 sh 'cargo check'
             }
         }
-        stage('Docker :: Rust Build') {
-            parallel {
-                stage('Docker :: Rust Build (Debug)') {
-                    agent {
-                        docker { 
-                            image 'rust:latest' 
-                            reuseNode true
-                        }
-                    }
-                    steps {
-                        sh 'cargo build'
-                    }
+        stage('Docker :: Rust Build (Debug)') {
+            agent {
+                docker { 
+                    image 'rust:latest' 
+                    reuseNode true
                 }
-                stage('Docker :: Rust Build (Release)') {
-                    agent {
-                        docker { 
-                            image 'rust:latest' 
-                            reuseNode true
-                        }
-                    }
-                    steps {
-                        sh 'cargo build --release'
-                    }
+            }
+            steps {
+                sh 'cargo build'
+            }
+        }
+        stage('Docker :: Rust Build (Release)') {
+            agent {
+                docker { 
+                    image 'rust:latest' 
+                    reuseNode true
                 }
+            }
+            steps {
+                sh 'cargo build --release'
             }
         }
         stage('Rust :: Rust Versions') {
@@ -74,24 +70,20 @@ pipeline {
                 sh '. "$HOME/.cargo/env" && cargo check'
             }
         }
-        stage('Rust :: Rust Build') {
-            parallel {
-                stage('Rust :: Rust Build (Debug)') {
-                    agent {
-                        label 'docker'
-                    }
-                    steps {
-                        sh '. "$HOME/.cargo/env" && cargo build'
-                    }
-                }
-                stage('Rust :: Rust Build (Release)') {
-                    agent {
-                        label 'docker'
-                    }
-                    steps {
-                        sh '. "$HOME/.cargo/env" && cargo build --release'
-                    }
-                }
+        stage('Rust :: Rust Build (Debug)') {
+            agent {
+                label 'docker'
+            }
+            steps {
+                sh '. "$HOME/.cargo/env" && cargo build'
+            }
+        }
+        stage('Rust :: Rust Build (Release)') {
+            agent {
+                label 'docker'
+            }
+            steps {
+                sh '. "$HOME/.cargo/env" && cargo build --release'
             }
         }
     }
