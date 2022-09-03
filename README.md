@@ -232,6 +232,13 @@ There is the [Docker-OSX](https://github.com/sickcodes/Docker-OSX) project which
 
 Windows builds would also be much easier if we'd have an agent for it.
 
+### CI Platform: AppVeyor
+
+[![Build status](https://ci.appveyor.com/api/projects/status/nsffumoc868yqsrj/branch/main?svg=true)](https://ci.appveyor.com/project/Sakul6499/base-project-template/branch/main)
+
+Simple pipeline to showcase the usage of Rust on AppVeyor.  
+Linux only currently, but [Windows](https://www.appveyor.com/docs/windows-images-software/) and [macOS](https://www.appveyor.com/docs/macos-images-software/) are possible.
+
 ### CI Platform: Jenkins
 
 [![Build Status](https://jenkins.sakul6499.de/job/Rust-Multiplatform/job/Base-Project-Template/job/main/badge/icon)](https://jenkins.sakul6499.de/job/Rust-Multiplatform/job/Base-Project-Template/job/main/)
@@ -240,7 +247,6 @@ Windows builds would also be much easier if we'd have an agent for it.
 
 The configuration file can be found under `.jenkins/Jenkinsfile` and includes both: A Docker build version using the official [Rust Docker Image](https://hub.docker.com/_/rust) and a native installation (local Agent with [Rustup.rs](https://rustup.rs/) installed).  
 **You won't need both**, exclude whatever configuration you won't need.
-
 
 ## Coverage
 
