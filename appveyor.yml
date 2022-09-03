@@ -2,6 +2,7 @@ image: Ubuntu
 
 install:
   - sh: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
+  - sh: source "$HOME/.cargo/env"
 
 before_build:
   - sh: cargo check
