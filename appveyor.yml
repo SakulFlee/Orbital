@@ -1,0 +1,17 @@
+image: Ubuntu
+build: false
+
+install_dependencies:
+  - sh: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile complete -y
+
+cargo_check:
+  - sh: cargo check
+  - sh: cargo check --release
+
+cargo_build:
+  - sh: cargo build
+  - sh: cargo build --release
+
+cargo_test:
+  - sh: cargo test
+  - sh: cargo test --release
