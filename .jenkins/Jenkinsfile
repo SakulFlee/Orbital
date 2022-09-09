@@ -76,7 +76,7 @@ pipeline {
             }
             steps {
                 // Debug Test
-                sh 'cargo test'
+                sh 'cargo test --no-default-features'
             }
         }
         stage('Rust Test (Release)') {
@@ -88,7 +88,7 @@ pipeline {
             }
             steps {
                 // Release Test
-                sh 'cargo test --release'
+                sh 'cargo test --no-default-features --release'
             }
         }
     }
