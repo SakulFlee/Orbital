@@ -241,7 +241,7 @@ Linux only currently, but [Windows](https://www.appveyor.com/docs/windows-images
 
 ### CI Platform: Jenkins
 
-[![Build Status](https://jenkins.sakul6499.de/job/Rust-Multiplatform/job/Base-Project-Template/job/main/badge/icon)](https://jenkins.sakul6499.de/job/Rust-Multiplatform/job/Base-Project-Template/job/main/)
+[![Build Status](https://jenkins.sakul-flee.de/buildStatus/icon?job=github_rust_multiplatform%2FBase-Project-Template%2Fmain)](https://jenkins.sakul-flee.de/job/github_rust_multiplatform/job/Base-Project-Template/job/main/)
 
 [Jenkins](https://www.jenkins.io/) is another multi-purpose self-hosted CI platform.
 
