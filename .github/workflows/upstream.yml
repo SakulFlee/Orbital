@@ -13,6 +13,9 @@ jobs:
       - name: Add upstream
         run: git remote add upstream https://github.com/rust-multiplatform/Base-Engine-Library
 
+      - name: Set merge mode
+        run: git config pull.rebase false
+
       - name: Attempt merge
         run: git pull upstream main
 
