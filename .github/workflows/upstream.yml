@@ -1,0 +1,20 @@
+name: Upstream merger
+on:
+  schedule:
+    - cron: "*/30 * * * *" # every 30 minutes
+  workflow_dispatch: # on button click
+
+jobs:
+  merge-upstream:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Add upstream
+        run: git remote add upstream https://github.com/rust-multiplatform/Base-Engine-Library
+
+      - name: Attempt merge
+        run: git pull upstream main
+
+      - name: Push changes
+        run: git push origin main
