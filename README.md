@@ -1,5 +1,7 @@
 # Rust Multi-Platform Base Project Template
 
+Trigger test
+
 > ⚠️ THIS IS A TEMPLATE. ⚠️
 
 This project is supported by the following platforms:
