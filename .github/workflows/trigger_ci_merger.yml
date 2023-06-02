@@ -13,4 +13,4 @@ jobs:
     steps:
       - name: Trigger Merger-CI workflow 
         run: |
-          curl --fail-with-body -L -X POST -H "Accept:application/vnd.github" -H "Authorization: Bearer ${{ secrets.TRIGGER_TOKEN }}" -H "X-GitHub-Api-Version: 2022-11-28" https://api.github.com/repos/rust-multiplatform/CI-Merger/dispatches -d '{"event_type":"upstream-trigger","client_payload":{"ci":true}}'
+          curl --fail-with-body -L -X POST -H "Accept:application/vnd.github" -H "Authorization: Bearer ${{ secrets.TRIGGER_TOKEN }}" https://api.github.com/repos/rust-multiplatform/CI-Merger/dispatches -d '{"event_type":"upstream-trigger","client_payload":{"ci":true}}'
