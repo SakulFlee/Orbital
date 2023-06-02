@@ -13,4 +13,4 @@ jobs:
     steps:
       - name: Trigger Merger-CI workflow 
         run: |
-          curl -XPOST -u "${{ secrets.TRIGGER_CREDENTIALS }}" -H "Accept:application/vnd.github" -H "Content-Type:application/json" https://api.github.com/repos/rust-multiplatform/CI-Merger/blob/main/.github/workflows/merger.yml/dispatches --data '{"ref": "main" }'
+          curl -XPOST -u "${{ secrets.TRIGGER_CREDENTIALS }}" -H "Accept:application/vnd.github" -H "Content-Type:application/json" https://api.github.com/repos/rust-multiplatform/CI-Merger/dispatches --data '{"ref": "main" }'
