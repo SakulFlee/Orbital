@@ -1,4 +1,4 @@
-name: Trigger Merger
+name: Upstream Merger
 
 on:
   push:
@@ -7,10 +7,40 @@ on:
     branches: ["main"]
 
 jobs:
-  trigger:
+  upstream_merger:
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        repository: [rust-multiplatform/Windowing-Template, rust-multiplatform/SlintUI-Template, rust-multiplatform/Base-Engine-Library, rust-multiplatform/Bevy-Template, rust-multiplatform/Graphical-Engine-Template, rust-multiplatform/Compute-Engine-Template]
+
     steps:
-      - name: Trigger Merger-CI workflow 
+      - name: Merge upstream
         run: |
-          curl --fail-with-body -L -X POST -u "${{ secrets.TRIGGER_CREDENTIALS }}" -H "Accept:application/vnd.github" https://api.github.com/repos/rust-multiplatform/CI-Merger/dispatches -d '{"event_type":"upstream-trigger","client_payload":{"ci":true}}'
+          echo ">>> ${{ matrix.repository }}"
+
+          echo "> Setting git ..."
+          git config --global user.name "GitHub CI"
+          git config --global user.email "dev@sakul-flee.de"
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/key
+          chmod 0700 ~/.ssh
+          chmod 0600 ~/.ssh/key
+          eval `ssh-agent -s`
+          ssh-add ~/.ssh/key
+          
+          echo "> Clone repository"
+          git clone --recursive git@github.com:${{ matrix.repository }} ${{ matrix.repository }}
+          cd '${{ matrix.repository }}'
+          
+          echo "> Adding upstream"
+          git remote add upstream https://github.com/rust-multiplatform/Base-Project-Template
+
+          echo "> Fetching ..."
+          git fetch --all
+
+          echo "> Merging ..."
+          git merge -s ours upstream/main
+
+          echo "> Pushing ..."
+          git push origin main
