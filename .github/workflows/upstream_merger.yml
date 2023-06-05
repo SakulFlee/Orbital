@@ -49,6 +49,6 @@ jobs:
           git merge upstream/main || true
 
           echo "> Pushing ..."
-          git add .
-          git commit -m "Upstream merge"
+          git add . || true
+          git commit -m "Upstream merge ($(date +%d.%m.%Y %H:%M:%S))" || true
           git push origin $BRANCH
