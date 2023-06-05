@@ -43,7 +43,7 @@ jobs:
           git fetch --all
 
           echo "> Creating merge branch"
-          BRANCH="merge-$(date +%d_%m_%Y-%H_%M_%S)"
+          BRANCH="merge-$(date +%d.%m.%Y-%H:%M:%S)"
           git checkout -b $BRANCH
 
           echo "> Merging ..."
