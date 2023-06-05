@@ -46,7 +46,9 @@ jobs:
 
           echo "> Merging ..."
           git config --global pull.rebase false  
-          git pull upstream main
+          git merge upstream/main || true
 
           echo "> Pushing ..."
+          git add .
+          git commit -m "Upstream merge"
           git push origin $BRANCH
