@@ -44,6 +44,7 @@ jobs:
           git checkout -b $BRANCH
 
           echo "> Merging ..."
+          git config --global pull.rebase false  
           git pull upstream main
 
           echo "> Pushing ..."
