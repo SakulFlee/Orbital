@@ -39,8 +39,12 @@ jobs:
           echo "> Fetching ..."
           git fetch --all
 
+          echo "> Creating merge branch"
+          BRANCH="merge-$(date +%d-%m-%Y_%H-%M-%S)"
+          git checkout -b $BRANCH
+
           echo "> Merging ..."
-          git merge -s ours upstream/main
+          git pull upstream main
 
           echo "> Pushing ..."
-          git push origin main
+          git push origin $BRANCH
