@@ -33,6 +33,8 @@ jobs:
           echo "> Clone repository"
           git clone --recursive git@github.com:${{ matrix.repository }} ${{ matrix.repository }}
           cd '${{ matrix.repository }}'
+          git checkout main
+          git pull origin main
           
           echo "> Adding upstream"
           git remote add upstream https://github.com/rust-multiplatform/Base-Project-Template
@@ -41,7 +43,7 @@ jobs:
           git fetch --all
 
           echo "> Creating merge branch"
-          BRANCH="merge-$(date +%d-%m-%Y_%H-%M-%S)"
+          BRANCH="merge-$(date +%d_%m_%Y-%H_%M_%S)"
           git checkout -b $BRANCH
 
           echo "> Merging ..."
