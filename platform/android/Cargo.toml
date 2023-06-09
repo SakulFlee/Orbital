@@ -25,11 +25,11 @@ ndk-glue = { version = "0.7", features = ["logger"] }
 package = "de.sakulflee.rust_multiplatform_app"
 
 # Specifies the array of targets to build for.
-build_targets = [ 
-    "armv7-linux-androideabi", 
-    "aarch64-linux-android", 
-    "i686-linux-android", 
-    "x86_64-linux-android"
+build_targets = [
+    "armv7-linux-androideabi",
+    "aarch64-linux-android",
+    "i686-linux-android",
+    "x86_64-linux-android",
 ]
 
 # Path to your application's resources folder.
