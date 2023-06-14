@@ -23,6 +23,7 @@ jobs:
           echo "> Setting git ..."
           git config --global user.name "GitHub CI"
           git config --global user.email "dev@sakul-flee.de"
+          git config --global pull.rebase false
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_KEY }}" > ~/.ssh/key
           chmod 0700 ~/.ssh
@@ -43,14 +44,13 @@ jobs:
           git fetch --all
 
           echo "> Creating merge branch"
-          BRANCH="upstream-merge/$(date +%d.%m.%Y-%H-%M-%S)"
-          git checkout -b $BRANCH
+          git checkout -b upstream || true
+          git switch upstream
 
           echo "> Merging ..."
-          git config --global pull.rebase false  
-          git merge upstream/main || true
+          git merge upstream/main origin/upstream || true
 
           echo "> Pushing ..."
           git add . || true
           git commit -m "Upstream merge ($(date +%d.%m.%Y_%H:%M:%S))" || true
-          git push origin $BRANCH
+          git push origin upstream
