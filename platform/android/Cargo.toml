@@ -16,10 +16,9 @@ crate-type = ["cdylib", "staticlib", "rlib"]
 [dependencies]
 shared = { path = "../../shared" }
 
-# This dependency will only be included when targeting Android
-[target.'cfg(target_os = "android")'.dependencies]
-android-activity = "0.4"
-android_logger = "0.13"
+log = "0.4"
+android_logger = "0.11"
+android-activity = { version = "0.4", features = ["native-activity"] }
 
 [package.metadata.android]
 # Specifies the package property of the manifest.
@@ -53,8 +52,8 @@ apk_name = "Hello-Rust"
 # See https://developer.android.com/guide/topics/manifest/uses-sdk-element
 [package.metadata.android.sdk]
 min_sdk_version = 23
-target_sdk_version = 30
-max_sdk_version = 30
+target_sdk_version = 33
+max_sdk_version = 33
 
 # Defaults to `$HOME/.android/debug.keystore` for the `dev` profile. Will ONLY generate a new
 # debug.keystore if this file does NOT exist.
