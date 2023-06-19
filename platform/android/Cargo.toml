@@ -200,7 +200,7 @@ launch_mode = "singleTop"
 # See https://developer.android.com/guide/topics/manifest/activity-element#screen
 #
 # Defaults to "unspecified".
-orientation = "landscape"
+orientation = "portrait"
 
 # See https://developer.android.com/guide/topics/manifest/activity-element#exported
 #
