@@ -1,0 +1,19 @@
+name: GitLab Mirror
+
+on:
+  push:
+    branches: ["**"]
+
+jobs:
+  gitlab_mirror:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - run: git fetch --unshallow origin
+      - run: git fetch --prune --all
+      - run: git push --prune https://sakul6499:$GITLAB_TOKEN@gitlab.com/rust-multiplatform/base-project-template.git +refs/remotes/origin/*:refs/heads/* +refs/tags/*:refs/tags/*
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
