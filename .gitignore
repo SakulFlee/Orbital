@@ -1,0 +1,18 @@
+# Rust & Cargo
+target/*
+*.lock
+
+# Wasm-Pack
+pkg/
+
+# TeamCity (except actual configurations)
+.teamcity/*
+!.teamcity/pom.xml
+!.teamcity/settings.kts
+
+# IDEA (except run configurations)
+.idea/*
+!.idea/runConfigurations/
+
+# Android
+platform/android/.android
