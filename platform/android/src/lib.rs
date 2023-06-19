@@ -1,12 +1,17 @@
 #![allow(clippy::all)]
 
+#[cfg(target_os = "android")]
 use android_activity::{AndroidApp, InputStatus, MainEvent, PollEvent};
+
+#[cfg(target_os = "android")]
 use shared::entrypoint;
 
 #[cfg(test)]
+#[cfg(target_os = "android")]
 mod tests;
 
 #[no_mangle]
+#[cfg(target_os = "android")]
 fn android_main(app: AndroidApp) {
     #[cfg(debug_assertions)]
     android_logger::init_once(
