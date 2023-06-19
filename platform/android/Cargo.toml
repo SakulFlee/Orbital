@@ -15,8 +15,6 @@ crate-type = ["cdylib", "staticlib", "rlib"]
 
 [dependencies]
 shared = { path = "../../shared" }
-
-[target.'cfg(target_os = "android")'.dependencies]
 jni = "0.20"
 libc = "0.2"
 log = "0.4.14"
