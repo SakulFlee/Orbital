@@ -27,7 +27,7 @@ android-activity = { version = "0.4", features = ["native-activity"] }
 
 [package.metadata.android]
 # Specifies the package property of the manifest.
-package = "de.rust-multiplatform.example"
+package = "de.rust_multiplatform.example"
 
 # Specifies the array of targets to build for.
 build_targets = [
