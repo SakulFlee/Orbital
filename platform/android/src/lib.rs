@@ -8,7 +8,14 @@ mod tests;
 
 #[no_mangle]
 fn android_main(app: AndroidApp) {
-    android_logger::init_once(android_logger::Config::default().with_min_level(log::Level::Info));
+    #[cfg(debug_assertions)]
+    android_logger::init_once(
+        android_logger::Config::default().with_max_level(log::LevelFilter::Debug),
+    );
+    #[cfg(not(debug_assertions))]
+    android_logger::init_once(
+        android_logger::Config::default().with_max_level(log::LevelFilter::Debug),
+    );
 
     loop {
         app.poll_events(
