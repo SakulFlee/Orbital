@@ -3,8 +3,6 @@ name: Upstream Merger
 on:
   push:
     branches: ["main"]
-  pull_request:
-    branches: ["main"]
 
 jobs:
   upstream_merger:
