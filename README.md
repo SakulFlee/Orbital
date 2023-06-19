@@ -1,5 +1,12 @@
 # Rust Multi-Platform Base Project Template
 
+[![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_android.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_android.yml)
+[![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_ios.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_ios.yml)
+[![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_linux.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_linux.yml)
+[![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_macos.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_macos.yml)
+[![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_windows.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_windows.yml)
+[![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/shared.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/shared.yml)
+
 > ⚠️ THIS IS A TEMPLATE. ⚠️
 
 This project is supported by the following platforms:
@@ -149,25 +156,17 @@ Additionally, often we have to `source` the profile changes. Something like:
 source $HOME/.cargo/env
 ```
 
-Additionally we have templates for other CI platforms.
-Please note that some platforms are just a basic example on how to build part of this project, e.g. building only the `platform_linux` package.
-This is done to save on build costs/minutes.
+Furthermore, we have templates for many other CI platforms if you prefer those.
 
-> Please note, that if just one CI platform is failing, it is most likely linked to a plan or build credit issue on said platform.
+> Please note, that some CI platforms only showcase how to build a single platform (such as `platform_linux`). This is done to save on costs and time.
+> 
+> Furthermore, that if just one CI platform is failing, it is most likely linked to a plan or build credit issue on said platform.
 > GitHub Actions is **NOT** limited for open source repositories.
 > If GitHub Actions succeed, all other CI platforms _should_ succeed as well.
 
-### CI Platform: GitHub Actions
+List of CI Examples/Templates:
 
-[![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_android.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_android.yml)
-[![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_ios.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_ios.yml)
-[![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_linux.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_linux.yml)
-[![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_macos.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_macos.yml)
-[![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_windows.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_windows.yml)
-[![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/shared.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/shared.yml)
-
-On GitHub Actions we have a workflow file per package (platforms & shared).
-Each hast their own badge.
+- [Rust-Multiplatform / CircleCI Example](https://github.com/rust-multiplatform/CI-Example-CircleCI)
 
 ### CI Platform: Azure DevOps
 
@@ -179,14 +178,6 @@ The Azure Pipelines are surprisingly extensive and feature rich, next to GitHub 
 We also do build for all platforms, however please note that you either have to pay for a subscription (might be included with an Visual Studio/MSDN subscription!) or, if applicable, apply for a shared pipeline runner.
 This is possible for not only public, but also private projects.
 In fact I do have private projects on there.
-
-### CI Platform: CircleCI
-
-On CircleCI we also support each package, but we only have one badge for the whole pipeline.
-
-[![CircleCI](https://circleci.com/gh/rust-multiplatform/Base-Project-Template/tree/main.svg?style=svg)](https://circleci.com/gh/rust-multiplatform/Base-Project-Template/tree/main)
-
-> Note that a failure here can also mean we run out of credits. Happens too often unfortunately!
 
 ### CI Platform: Travis
 
