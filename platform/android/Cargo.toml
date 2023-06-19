@@ -71,7 +71,7 @@ strip = "strip"
 # Folder containing extra shared libraries intended to be dynamically loaded at runtime.
 # Files matching `libs_folder/${android_abi}/*.so` are added to the apk
 # according to the specified build_targets.
-runtime_libs = "libs"
+# runtime_libs = "libs"
 
 [package.metadata.android.signing.dev]
 # Defaults to `$HOME/.android/debug.keystore` for the `dev` profile. Will ONLY
