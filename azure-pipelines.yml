@@ -163,8 +163,6 @@ stages:
             displayName: Print Rust & Cargo versions
 
           # KeyStore Setup
-          - bash: cd platform/android/.android && echo -e "android\nandroid\n\n\n\n\n\n\nyes" | keytool -genkey -v -keystore debug.keystore -alias release -keyalg RSA -keysize 2048 -validity 10000
-            displayName: Generate Debug KeyStore
           - bash: cd platform/android/.android && echo -e "android\nandroid\n\n\n\n\n\n\nyes" | keytool -genkey -v -keystore release.keystore -alias release -keyalg RSA -keysize 2048 -validity 10000
             displayName: Generate Release KeyStore
 
