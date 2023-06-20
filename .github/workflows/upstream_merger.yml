@@ -42,7 +42,7 @@ jobs:
           git fetch --all
 
           echo "> Merging ..."
-          git merge -s ort -Xours upstream/main origin/main
+          git merge -s ort -Xtheirs upstream/main origin/main
 
           echo "> Pushing ..."
           git add --all || true
