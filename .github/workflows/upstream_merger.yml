@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        repository: [rust-multiplatform/Windowing-Template, rust-multiplatform/SlintUI-Template, rust-multiplatform/Base-Engine-Library, rust-multiplatform/Bevy-Template, rust-multiplatform/Graphical-Engine-Template, rust-multiplatform/Compute-Engine-Template]
+        repository: [rust-multiplatform/Windowing-Template, rust-multiplatform/SlintUI-Template, rust-multiplatform/Base-Engine-Library, rust-multiplatform/Bevy-Template, rust-multiplatform/Graphical-Engine-Template, rust-multiplatform/Compute-Engine-Template, rust-multiplatform/Base-Engine-Template]
 
     steps:
       - name: Merge upstream
