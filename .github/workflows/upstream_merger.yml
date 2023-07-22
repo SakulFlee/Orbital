@@ -43,13 +43,18 @@ jobs:
 
           echo "> Merging ..."
           # https://stackoverflow.com/a/4912267
-          git switch -c tmp upstream/main
-          git merge -s ours origin/main   # ignoring all changes from origin/main
-          git switch origin/main
-          git merge tmp            # fast-forward to tmp HEAD, which is upstream/main
-          git branch -D tmp        # deleting tmp
+          # Temporary branch as a clone of upstream/main
+          git switch -c tmp upstream/main 
+          # Merge origin/main into tmp, ignoring changes not made by 'ours'
+          git merge -s ours origin/main
+          # Switch back to main
+          git switch main
+          # Fast-Forward merge tmp (upstream/main, but merged above) into main
+          git merge tmp
+          # Delete tmp
+          git branch -D tmp
 
           echo "> Pushing ..."
           git add --all || true
           git commit -m "Upstream merge ($(date +%d.%m.%Y_%H:%M:%S))" || true
-          git push origin/main
+          git push origin main
