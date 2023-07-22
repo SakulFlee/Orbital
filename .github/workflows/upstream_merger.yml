@@ -42,9 +42,14 @@ jobs:
           git fetch --all
 
           echo "> Merging ..."
-          git merge -s theirs upstream/main origin/main
+          # https://stackoverflow.com/a/4912267
+          git switch -c tmp upstream/main
+          git merge -s ours origin/main   # ignoring all changes from origin/main
+          git switch origin/main
+          git merge tmp            # fast-forward to tmp HEAD, which is upstream/main
+          git branch -D tmp        # deleting tmp
 
           echo "> Pushing ..."
           git add --all || true
           git commit -m "Upstream merge ($(date +%d.%m.%Y_%H:%M:%S))" || true
-          git push origin main
+          git push origin/main
