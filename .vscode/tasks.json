@@ -570,6 +570,36 @@
                 "Build Platform macOS (Release)"
             ],
             "group": "test"
+        },
+        {
+            "label": "Run Platform WebAssembly (Debug)",
+            "command": "cd platform/webassembly && miniserve .",
+            "type": "shell",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "dependsOn": [
+                "Build Platform WebAssembly (Debug)"
+            ],
+            "group": "test"
+        },
+        {
+            "label": "Run Platform WebAssembly (Release)",
+            "command": "cd platform/webassembly && miniserve .",
+            "type": "shell",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "dependsOn": [
+                "Build Platform WebAssembly (Release)"
+            ],
+            "group": "test"
         }
     ]
 }
