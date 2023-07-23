@@ -118,10 +118,10 @@ We will go with a simple `index.html` for simplicity:
 <html>
   <head>
     <meta charset="utf-8">
-    <title>@Rust-Multiplatform - Base Project Templaet</title>
+    <title>@Rust-Multiplatform - Base Project Template</title>
   </head>
   <body>
-    <noscript>This page contains webassembly and javascript content, please enable javascript in your browser.</noscript>
+    <noscript>This page contains WebAssembly and JavaScript content, please enable javascript in your browser.</noscript>
     <script src="./platform_webassembly.js"></script>
   </body>
 </html>
