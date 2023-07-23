@@ -42,17 +42,8 @@ jobs:
           git fetch --all
 
           echo "> Merging ..."
-          # https://stackoverflow.com/a/4912267
-          # Temporary branch as a clone of upstream/main
-          git switch -c tmp upstream/main 
-          # Merge origin/main into tmp, ignoring changes not made by 'ours'
-          git merge -s ours origin/main
-          # Switch back to main
-          git switch main
-          # Fast-Forward merge tmp (upstream/main, but merged above) into main
-          git merge tmp
-          # Delete tmp
-          git branch -D tmp
+          git switch main 
+          git merge -s ours upstream/main
 
           echo "> Pushing ..."
           git add --all || true
