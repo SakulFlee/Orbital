@@ -113,16 +113,18 @@ First, follow the [build steps](#building).
 Next, create a website. This can be a simple `index.html` (easiest), a NodeJS website or even something like ReactJS.  
 We will go with a simple `index.html` for simplicity:  
 
+> Checkout `platform/webassembly/index.html`!
+
 ```html
 <!DOCTYPE html>
 <html>
   <head>
     <meta charset="utf-8">
-    <title>@Rust-Multiplatform - Base Project Template</title>
+    <title>@Rust-Multiplatform</title>
   </head>
   <body>
     <noscript>This page contains WebAssembly and JavaScript content, please enable javascript in your browser.</noscript>
-    <script src="./platform_webassembly.js"></script>
+    <script src="/pkg/platform_webassembly.js"></script>
   </body>
 </html>
 ```
@@ -139,3 +141,25 @@ Even better would be utilize HTML5 Canvases with e.g. WGPU.
 Though, this requires a lot more resources and code.
 
 Alternatively, you can use Rust for everything else. Write your library code (e.g. REST API) in it, do some calculations, whatever you need you can do here!
+
+Once a `index.html` has been created, install `miniserve`:
+
+```shell
+cargo install miniserve
+```
+
+Then compile the package:
+
+```shell
+cd platform/webassembly && wasm-pack build . --package platform_webassembly
+```
+
+Which creates a `pkg/` directory.  
+Next, use `miniserve`:
+
+```shell
+miniserve .
+```
+
+And open your browser at [http://[::1]:8080/index.html](http://[::1]:8080/index.html).  
+Done 🎉
