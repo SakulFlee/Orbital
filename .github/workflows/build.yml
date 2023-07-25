@@ -1,0 +1,378 @@
+name: Build
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  shared:
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Cache target/
+        id: target-cache
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: shared-${{ runner.os }}-target
+
+      - name: Install Rust on Windows
+        if: ${{ matrix.os == 'windows-latest' }}
+        run: Invoke-WebRequest https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe -OutFile rustup-init.exe; ./rustup-init.exe --default-toolchain stable --profile minimal -y
+      - name: Install Rust on UNIX (Linux & macOS)
+        if: ${{ matrix.os != 'windows-latest' }}
+        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+
+      - name: Check
+        run: cargo check --verbose --package shared
+      - name: Build (Debug)
+        run: cargo build --verbose --package shared
+      - name: Build (Release)
+        run: cargo build --verbose --package shared --release
+      - name: Run Tests (Debug)
+        run: cargo test --verbose --no-default-features --no-fail-fast --package shared
+      - name: Run Tests (Release)
+        run: cargo test --verbose --no-default-features --no-fail-fast --package shared --release
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: "shared_debug_${{ matrix.os }}"
+          path: |
+            target/debug/libshare*
+            target/debug/share*
+      - uses: actions/upload-artifact@v3
+        with:
+          name: "shared_release_${{ matrix.os }}"
+          path: |
+            target/release/libshare*
+            target/release/share*
+
+  clippy:
+    needs: shared
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Cache target/
+        id: target-cache
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: shared-${{ runner.os }}-target
+
+      - name: Install Rust on UNIX (Linux & macOS)
+        if: ${{ matrix.os != 'windows-latest' }}
+        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+
+      - name: Install Clippy
+        run: rustup component add clippy
+
+      - name: Run Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings -W clippy::all
+
+
+  platform_linux:
+    needs: shared
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        target: [x86_64-unknown-linux-gnu]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Cache target/
+        id: target-cache
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: platform_linux-${{ runner.os }}-${{ matrix.target }}-target
+
+      - name: Install GCC and dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential gcc gcc-multilib
+
+      - name: Install Rust
+        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+
+      - name: Install target ${{ matrix.target }}
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Build
+        run: cargo build --verbose --package platform_linux --target ${{ matrix.target }} --release
+
+      - name: Run Tests
+        if: ${{ matrix.target == 'x86_64-unknown-linux-gnu' }} # Testing can only be done on the host architecture. It should work across all architectures though!
+        run: cargo test --verbose --package platform_linux --no-default-features --no-fail-fast --target ${{ matrix.target }} --release
+        continue-on-error: true
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: "platform_linux_debug_${{ matrix.target }}"
+          path: target/${{ matrix.target }}/debug/platform_linux
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v3
+        with:
+          name: "platform_linux_release_${{ matrix.target }}"
+          path: target/${{ matrix.target }}/release/platform_linux
+          if-no-files-found: error
+
+  platform_macos:
+    needs: shared
+    strategy:
+      matrix:
+        os: [macos-latest]
+        target: [x86_64-apple-darwin, aarch64-apple-darwin]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Cache target/
+        id: target-cache
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: platform_macos-${{ runner.os }}-${{ matrix.target }}-target
+
+      - name: Install Rust
+        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+
+      - name: Install target ${{ matrix.target }}
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Build
+        run: cargo build --verbose --package platform_macos --target ${{ matrix.target }} --release
+
+      - name: Run Tests
+        if: ${{ matrix.target == 'x86_64-apple-darwin' }} # Testing can only be done on the host architecture. It should work across all architectures though!
+        run: cargo test --verbose --package platform_macos --no-default-features --no-fail-fast --target ${{ matrix.target }} --release
+        continue-on-error: true
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: "platform_macos_debug_${{ matrix.target }}"
+          path: target/${{ matrix.target }}/debug/platform_macos
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v3
+        with:
+          name: "platform_macos_release_${{ matrix.target }}"
+          path: target/${{ matrix.target }}/release/platform_macos
+          if-no-files-found: error
+
+  platform_windows:
+    needs: shared
+    strategy:
+      matrix:
+        os: [windows-latest]
+        target: [x86_64-pc-windows-msvc]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Cache target/
+        id: target-cache
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: platform_windows-${{ runner.os }}-${{ matrix.target }}-target
+
+      - name: Install Rust
+        run: Invoke-WebRequest https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe -OutFile rustup-init.exe; ./rustup-init.exe --default-toolchain stable --profile minimal -y
+
+      - name: Install target ${{ matrix.target }}
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Build
+        run: cargo build --verbose --package platform_windows --target ${{ matrix.target }} --release
+      
+      - name: Run Tests
+        if: ${{ matrix.target == 'x86_64-pc-windows-msvc' }} # Testing can only be done on the host architecture. It should work across all architectures though!
+        run: cargo test --verbose --package platform_windows --no-default-features --no-fail-fast --target ${{ matrix.target }} --release
+        continue-on-error: true
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: "platform_windows_debug_${{ matrix.target }}"
+          path: target/${{ matrix.target }}/debug/platform_windows.exe
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v3
+        with:
+          name: "platform_windows_release_${{ matrix.target }}"
+          path: target/${{ matrix.target }}/release/platform_windows.exe
+          if-no-files-found: error
+
+  platform_webassembly:
+    needs: platform_linux
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Cache target/
+        id: target-cache
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: platform_webassembly-${{ runner.os }}-target
+
+      - name: Install Rust
+        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+      - name: Install WASM-Pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Build
+        run: wasm-pack build platform/webassembly/ --package platform_webassembly
+      - uses: actions/upload-artifact@v3
+        with:
+          name: "platform_webassembly_release"
+          path: ./platform/webassembly/pkg
+          if-no-files-found: error
+
+      - name: Run Tests
+        run: wasm-pack test --node platform/webassembly/ --package platform_webassembly
+        
+  platform_android:
+    needs: platform_linux
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        # No target needed here.
+        # cargo-apk automatically will build "Universal APKs"
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Cache target/
+        id: target-cache
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: platform_android-${{ runner.os }}-target
+
+      - name: Install Rust
+        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+
+      - name: Install target x86_64-linux-android
+        run: rustup target add x86_64-linux-android
+      - name: Install target aarch64-linux-android
+        run: rustup target add aarch64-linux-android
+      - name: Install target i686-linux-android
+        run: rustup target add i686-linux-android
+      - name: Install target armv7-linux-androideabi
+        run: rustup target add armv7-linux-androideabi
+
+      - name: Install cargo-apk
+        run: cargo install cargo-apk
+
+      # KeyStore Setup
+      - name: Generate Release KeyStore
+        run: cd platform/android/.android && echo -e "android\nandroid\n\n\n\n\n\n\nyes" | keytool -genkey -v -keystore release.keystore -alias release -keyalg RSA -keysize 2048 -validity 10000
+
+      - name: Build
+        run: cargo apk build --package platform_android --release
+      
+      # Testing can't be done on Android.
+      # However, we are testing on the `shared` code and other architectures.
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: "platform_android_release_multi"
+          path: target/release/apk/
+          if-no-files-found: error
+
+  platform_ios:
+    needs: platform_macos
+    strategy:
+      matrix:
+        os: [macos-latest]
+        # No target needed here.
+        # xcodebuild automatically builds for all architectures and compresses them into one APP
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Cache target/
+        id: target-cache
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: platform_ios-${{ runner.os }}-target
+
+      - name: Install Rust
+        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+
+      - name: Install target x86_64-apple-ios
+        run: rustup target add x86_64-apple-ios
+      - name: Install target aarch64-apple-ios
+        run: rustup target add aarch64-apple-ios
+      - name: Install target aarch64-apple-ios-sim
+        run: rustup target add aarch64-apple-ios-sim
+
+      - name: Install cargo-xcodebuild
+        run: cargo install cargo-xcodebuild
+
+      - name: Install XCodeGen
+        run: brew install xcodegen
+      - name: Install JQ
+        run: brew install jq
+
+      - name: Make a copy of original Cargo.toml
+        run: cp platform/ios/Cargo.toml platform/ios/Cargo.toml.original
+      - name: Available Device IDs
+        run: xcrun simctl list devices available --json ios | jq '.devices | to_entries | map(select(.key | match(".*iOS.*"))) | map(.value)[0]'
+      - name: Selected Device ID
+        run: xcrun simctl list devices available --json ios | jq '.devices | to_entries | map(select(.key | match(".*iOS.*"))) | map(.value)[0][0]'
+      - name: Change Device ID
+        run: DEVICE_ID=$(xcrun simctl list devices available --json ios | jq '.devices | to_entries | map(select(.key | match(".*iOS.*"))) | map(.value)[0][0].udid'); cat platform/ios/Cargo.toml | sed "s/device_id = .*/device_id = $DEVICE_ID/g" | tee platform/ios/Cargo.toml
+      - name: Diff changes in Cargo.toml
+        run: diff platform/ios/Cargo.toml platform/ios/Cargo.toml.original || true
+
+      - name: Build
+        run: cargo xcodebuild build --verbose --package platform_ios --release
+      # Testing can't be done on iOS.
+      # However, we are testing on the `shared` code and other architectures.
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: "platform_ios_debug_multi"
+          path: target/xcodegen/platform_ios/build/Build/Products/Debug-iphonesimulator
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v3
+        with:
+          name: "platform_ios_release_multi"
+          path: target/xcodegen/platform_ios/build/Build/Products/Release-iphonesimulator
+          if-no-files-found: error
