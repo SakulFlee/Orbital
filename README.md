@@ -1,11 +1,6 @@
 # Rust Multi-Platform Base Project Template
 
-[![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_android.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_android.yml)
-[![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_ios.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_ios.yml)
-[![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_linux.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_linux.yml)
-[![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_macos.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_macos.yml)
-[![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_windows.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_windows.yml)
-[![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/shared.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/shared.yml)
+[![Multiplatform Build](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/multiplatform-build.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/multiplatform-build.yml)
 
 > ⚠️ THIS IS A TEMPLATE. ⚠️
 
@@ -34,19 +29,17 @@ For templates/examples we recommend to also dual-licensing.
 
 ## Project layout
 
-| Folder                                         | Description                                                                                                                         | GitHub Actions                                                                                                                                                                                                                      | Coverage                                                                                                                                                                                  |
-| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ./                                             | Workspace root; `Cargo.toml` contains all project folders (internal crates)                                                         |                                                                                                                                                                                                                                     |                                                                                                                                                                                           |  |
-| [platform/](platform/)                         | Platform projects root. Contains every platform this demonstration is supported on incl. instructions on how to build and use them. |                                                                                                                                                                                                                                     |                                                                                                                                                                                           |
-| [platform/android/](platform/android/)         | Contains the Android platform project and instructions on how to build this project for Android and run it.                         | [![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_android.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_android.yml)         | [![codecov](https://codecov.io/gh/rust-multiplatform/Base-Project-Template/branch/main/graph/badge.svg?token=XpGvuQVirP)](https://codecov.io/gh/rust-multiplatform/Base-Project-Template) |
-| [platform/ios/](platform/ios/)                 | Contains the iOS platform project and instructions on how to build this project for iOS and run it.                                 | [![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_ios.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_ios.yml)                 | [![codecov](https://codecov.io/gh/rust-multiplatform/Base-Project-Template/branch/main/graph/badge.svg?token=XpGvuQVirP)](https://codecov.io/gh/rust-multiplatform/Base-Project-Template) |
-| [platform/linux/](platform/linux/)             | Contains the Linux platform project and instructions on how to build this project for Linux and run it.                             | [![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_linux.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_linux.yml)             | [![codecov](https://codecov.io/gh/rust-multiplatform/Base-Project-Template/branch/main/graph/badge.svg?token=XpGvuQVirP)](https://codecov.io/gh/rust-multiplatform/Base-Project-Template) |
-| [platform/macos/](platform/macos/)             | Contains the macOS platform project and instructions on how to build this project for macOS and run it.                             | [![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_macos.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_macos.yml)             | [![codecov](https://codecov.io/gh/rust-multiplatform/Base-Project-Template/branch/main/graph/badge.svg?token=XpGvuQVirP)](https://codecov.io/gh/rust-multiplatform/Base-Project-Template) |
-| [platform/windows/](platform/windows/)         | Contains the Windows platform project and instructions on how to build this project for Windows and run it.                         | [![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_windows.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_windows.yml)         | [![codecov](https://codecov.io/gh/rust-multiplatform/Base-Project-Template/branch/main/graph/badge.svg?token=XpGvuQVirP)](https://codecov.io/gh/rust-multiplatform/Base-Project-Template) |
-| [platform/webassembly/](platform/webassembly/) | Contains the WebAssembly platform project and instructions on how to build this project for Websites and run it.                    | [![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_webassembly.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/platform_webassembly.yml) | [![codecov](https://codecov.io/gh/rust-multiplatform/Base-Project-Template/branch/main/graph/badge.svg?token=XpGvuQVirP)](https://codecov.io/gh/rust-multiplatform/Base-Project-Template) |
-| [shared/](shared/)                             | Contains the **shared** code between **all** projects.                                                                              | [![Rust](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/shared.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/shared.yml)                             | [![codecov](https://codecov.io/gh/rust-multiplatform/Base-Project-Template/branch/main/graph/badge.svg?token=XpGvuQVirP)](https://codecov.io/gh/rust-multiplatform/Base-Project-Template) |
-
-> Note that some pipelines don't cover all platforms/projects, but are building a specific project like `platform_linux`.
+| Folder                                         | Description                                                                                                                         |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| ./                                             | Workspace root; `Cargo.toml` contains all project folders (internal crates)                                                         |  |
+| [platform/](platform/)                         | Platform projects root. Contains every platform this demonstration is supported on incl. instructions on how to build and use them. |
+| [platform/android/](platform/android/)         | Contains the Android platform project and instructions on how to build this project for Android and run it.                         |
+| [platform/ios/](platform/ios/)                 | Contains the iOS platform project and instructions on how to build this project for iOS and run it.                                 |
+| [platform/linux/](platform/linux/)             | Contains the Linux platform project and instructions on how to build this project for Linux and run it.                             |
+| [platform/macos/](platform/macos/)             | Contains the macOS platform project and instructions on how to build this project for macOS and run it.                             |
+| [platform/windows/](platform/windows/)         | Contains the Windows platform project and instructions on how to build this project for Windows and run it.                         |
+| [platform/webassembly/](platform/webassembly/) | Contains the WebAssembly platform project and instructions on how to build this project for Websites and run it.                    |
+| [shared/](shared/)                             | Contains the **shared** code between **all** projects.                                                                              |
 
 To break this down:
 The [shared/](shared/) folder contains our **cross/multi-platform code**.
@@ -136,6 +129,8 @@ Check [Continuous Integration](#Continuous-Integration) for more.
 
 ## Continuous Integration
 
+[![Multiplatform Build](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/multiplatform-build.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/multiplatform-build.yml)
+
 This project utilizes the GitHub Actions CI (= Continuous Integration) to showcase how to build for all platforms.
 For most platforms we just need a runner on the target platform (Windows, Linux or macOS) and install Rust.
 This can be simply done by following [rustup.rs](https://rustup.rs/) (check the [other install options](https://rust-lang.github.io/rustup/installation/other.html) for automatically installing inside an CI).
@@ -156,15 +151,7 @@ Additionally, often we have to `source` the profile changes. Something like:
 source $HOME/.cargo/env
 ```
 
-Furthermore, we have templates for many other CI platforms if you prefer those.
-
-> Please note, that some CI platforms only showcase how to build a single platform (such as `platform_linux`). This is done to save on costs and time.
-> 
-> Furthermore, that if just one CI platform is failing, it is most likely linked to a plan or build credit issue on said platform.
-> GitHub Actions is **NOT** limited for open source repositories.
-> If GitHub Actions succeed, all other CI platforms _should_ succeed as well.
-
-List of CI Examples/Templates:
+Furthermore, we have templates for many other CI platforms if you prefer those:
 
 - [Rust-Multiplatform / CircleCI Example](https://github.com/rust-multiplatform/CI-Example-CircleCI)
 - [Rust Multiplatform / TeamCity Example](https://github.com/rust-multiplatform/CI-Example-TeamCity)
