@@ -200,7 +200,7 @@
         {
             "label": "Build Platform WebAssembly (Debug)",
             "type": "shell",
-            "command": "wasm-pack build --package platform_webassembly",
+            "command": "cd platform/webassembly && wasm-pack build --package platform_webassembly",
             "dependsOn": [
                 "General Notice"
             ],
@@ -263,7 +263,7 @@
         {
             "label": "Build Platform WebAssembly (Release)",
             "type": "shell",
-            "command": "wasm-pack build --release --package platform_webassembly",
+            "command": "cd platform/webassembly && wasm-pack build --release --package platform_webassembly",
             "dependsOn": [
                 "General Notice"
             ],
@@ -568,6 +568,36 @@
             },
             "dependsOn": [
                 "Build Platform macOS (Release)"
+            ],
+            "group": "test"
+        },
+        {
+            "label": "Run Platform WebAssembly (Debug)",
+            "command": "cd platform/webassembly && miniserve .",
+            "type": "shell",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "dependsOn": [
+                "Build Platform WebAssembly (Debug)"
+            ],
+            "group": "test"
+        },
+        {
+            "label": "Run Platform WebAssembly (Release)",
+            "command": "cd platform/webassembly && miniserve .",
+            "type": "shell",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "dependsOn": [
+                "Build Platform WebAssembly (Release)"
             ],
             "group": "test"
         }
