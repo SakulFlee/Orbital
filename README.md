@@ -11,7 +11,7 @@ This project is supported by the following platforms:
 - ✅ Platform: macOS
 - ✅ Platform: Android
 - ✅ Platform: iOS
-- ✅ Platform: WebAssembly (⚠️ Only the WASM & JS side, still needs a web-server or bundler and HTML/CSS part)
+- ✅ Platform: WebAssembly
 
 To use this project simply fork it (button in top right corner) into your own namespace.
 If you need some more advanced setup check out the [forking guide](FORKING.md).
