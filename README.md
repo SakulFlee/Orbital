@@ -1,4 +1,4 @@
-# Rust Multi-Platform Base Project Template
+# Rust Multi-Platform: Base Project Template
 
 [![Multiplatform Build](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/multiplatform-build.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/multiplatform-build.yml)
 
