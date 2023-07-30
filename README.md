@@ -1,8 +1,9 @@
 # Rust Multi-Platform: Base Project Template
 
-[![Multiplatform Build](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/multiplatform-build.yml/badge.svg)](https://github.com/rust-multiplatform/Base-Project-Template/actions/workflows/multiplatform-build.yml)
+[![Multiplatform Build](https://github.com/Sakul6499/Rust-Multi-Platform-Project-Template/actions/workflows/multiplatform-build.yml/badge.svg)](https://github.com/Sakul6499/Rust-Multi-Platform-Project-Template/actions/workflows/multiplatform-build.yml)
 
-> ⚠️ THIS IS A TEMPLATE. ⚠️
+This repository is a template.
+It's main purpose is to make it easier to get started with [Rust](https://www.rust-lang.org/) for multiple platforms.
 
 This project is supported by the following platforms:
 
@@ -13,7 +14,7 @@ This project is supported by the following platforms:
 - ✅ Platform: iOS
 - ✅ Platform: WebAssembly
 
-To use this project simply fork it (button in top right corner) into your own namespace.
+To use this template simply fork it (button in top right corner) into your own namespace.
 If you need some more advanced setup check out the [forking guide](FORKING.md).
 We also include a checklist for [what to do after forking](FORKING.md#what-is-important-to-do-after-forking).
 
@@ -150,16 +151,6 @@ Additionally, often we have to `source` the profile changes. Something like:
 ```shell
 source $HOME/.cargo/env
 ```
-
-Furthermore, we have templates for many other CI platforms if you prefer those:
-
-- [Rust-Multiplatform / CircleCI Example](https://github.com/rust-multiplatform/CI-Example-CircleCI)
-- [Rust Multiplatform / TeamCity Example](https://github.com/rust-multiplatform/CI-Example-TeamCity)
-- [Rust Multiplatform / GitLab Example](https://github.com/rust-multiplatform/CI-Example-GitLab-CI)
-- [Rust Multiplatform / BItBucket Example](https://github.com/rust-multiplatform/CI-Example-BitBucket-Pipelines)
-- [Rust Multiplatform / Travis Example](https://github.com/rust-multiplatform/CI-Example-Travis)
-- [Rust Multiplatform / Azure DevOps Example](https://github.com/rust-multiplatform/CI-Example-Azure-Pipelines)
-- [Rust Multiplatform / AppVeyor Example](https://github.com/rust-multiplatform/CI-Example-AppVeyor)
 
 ## Coverage
 
