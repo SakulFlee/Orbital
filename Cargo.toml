@@ -3,6 +3,14 @@ name = "wgpu_engine"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = []
+64-threads = []
+32-threads = []
+16-threads = []
+8-threads = []
+4-threads = []
+
 [dependencies]
 log = "0.4"
 tokio = { version = "1", features = ["full"] }
