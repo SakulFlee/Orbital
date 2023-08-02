@@ -1,0 +1,175 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'wgpu_engine'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=wgpu_engine"
+                ],
+                "filter": {
+                    "name": "wgpu_engine",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug",
+                "CARGO_TERM_COLOR": "always",
+                "CARGO_TERM_PROGRESS_WHEN": "always"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "001_engine_init @ 1 thread",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=001_engine_init",
+                    "--package=wgpu_engine"
+                ],
+                "filter": {
+                    "name": "001_engine_init",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug",
+                "CARGO_TERM_COLOR": "always",
+                "CARGO_TERM_PROGRESS_WHEN": "always"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "001_engine_init @ 4 threads",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=001_engine_init",
+                    "--package=wgpu_engine",
+                    "--features=4-threads"
+                ],
+                "filter": {
+                    "name": "001_engine_init",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug",
+                "CARGO_TERM_COLOR": "always",
+                "CARGO_TERM_PROGRESS_WHEN": "always"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "001_engine_init @ 8 threads",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=001_engine_init",
+                    "--package=wgpu_engine",
+                    "--features=8-threads"
+                ],
+                "filter": {
+                    "name": "001_engine_init",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug",
+                "CARGO_TERM_COLOR": "always",
+                "CARGO_TERM_PROGRESS_WHEN": "always"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "001_engine_init @ 16 threads",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=001_engine_init",
+                    "--package=wgpu_engine",
+                    "--features=16-threads"
+                ],
+                "filter": {
+                    "name": "001_engine_init",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug",
+                "CARGO_TERM_COLOR": "always",
+                "CARGO_TERM_PROGRESS_WHEN": "always"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "001_engine_init @ 32 threads",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=001_engine_init",
+                    "--package=wgpu_engine",
+                    "--features=32-threads"
+                ],
+                "filter": {
+                    "name": "001_engine_init",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug",
+                "CARGO_TERM_COLOR": "always",
+                "CARGO_TERM_PROGRESS_WHEN": "always"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "001_engine_init @ 64 threads",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=001_engine_init",
+                    "--package=wgpu_engine",
+                    "--features=64-threads"
+                ],
+                "filter": {
+                    "name": "001_engine_init",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug",
+                "CARGO_TERM_COLOR": "always",
+                "CARGO_TERM_PROGRESS_WHEN": "always"
+            }
+        }
+    ]
+}
