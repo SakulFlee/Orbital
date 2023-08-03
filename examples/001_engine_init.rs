@@ -1,3 +1,6 @@
+use wgpu_engine::Window;
+use winit::{dpi::PhysicalSize, event, event_loop::EventLoop};
+
 #[cfg_attr(
     all(
         feature = "64-threads",
@@ -126,4 +129,20 @@ async fn print_thread_feature() {
     } else {
         log::debug!("1-threads (Default): Disabled");
     }
+
+    let event_loop = EventLoop::new();
+    let window = Window::build_and_open(
+        "001_Engine-Init",
+        PhysicalSize::new(1280, 720),
+        false,
+        true,
+        None,
+        None,
+        None,
+        &event_loop,
+    );
+
+    event_loop.run(|event, target, control_flow| {
+        log::debug!("Call");
+    });
 }
