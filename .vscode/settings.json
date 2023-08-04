@@ -3,5 +3,7 @@
         "fullscreen",
         "Fullscreen",
         "tokio"
-    ]
+    ],
+    "rust-analyzer.cargo.features": "all",
+    "rust-analyzer.check.features": "all"
 }
