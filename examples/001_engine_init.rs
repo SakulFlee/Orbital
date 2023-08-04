@@ -1,5 +1,12 @@
+use std::time::Instant;
+
 use wgpu_engine::Window;
-use winit::{dpi::PhysicalSize, event, event_loop::EventLoop};
+use winit::{
+    dpi::PhysicalSize,
+    event_loop::{ControlFlow, EventLoop},
+};
+
+const EXAMPLE_NAME: &'static str = "001 - Engine Init";
 
 #[cfg_attr(
     all(
@@ -132,7 +139,7 @@ async fn print_thread_feature() {
 
     let event_loop = EventLoop::new();
     let window = Window::build_and_open(
-        "001_Engine-Init",
+        EXAMPLE_NAME,
         PhysicalSize::new(1280, 720),
         false,
         true,
@@ -142,7 +149,41 @@ async fn print_thread_feature() {
         &event_loop,
     );
 
-    event_loop.run(|event, target, control_flow| {
-        log::debug!("Call");
+    // How many cycles have been completed
+    let mut cycle_count = 0;
+    // How much time has passed since the last cycle
+    let mut cycle_time = Instant::now();
+    // Delta difference between "now" and "then" per cycle
+    let mut delta_time = 0.0;
+
+    event_loop.run(move |event, target, control_flow| {
+        // Immediately start a new cycle once a loop is completed.
+        // Ideal for games, but more resource intensive.
+        *control_flow = ControlFlow::Poll;
+
+        // Increase cycle count and take "now time"
+        cycle_count += 1;
+        let now_time = Instant::now();
+        // Calculate duration since last cycle time
+        let duration = now_time.duration_since(cycle_time);
+        // Add difference to delta time
+        delta_time = delta_time + duration.as_secs_f64();
+
+        // If delta time is over a second, end the cycle
+        if delta_time >= 1.0 {
+            // Update performance outputs
+            let performance_str = format!("UPS: {cycle_count}/s (Δ{delta_time}s)");
+            log::debug!("{performance_str}");
+            window
+                .get_window()
+                .set_title(&format!("{EXAMPLE_NAME} - {performance_str}"));
+
+            // One second has past, subtract that
+            delta_time -= 1.0;
+            // Reset cycle
+            cycle_count = 0;
+        }
+        // Update cycle time with now time
+        cycle_time = now_time;
     });
 }
