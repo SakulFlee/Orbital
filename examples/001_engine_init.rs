@@ -1,6 +1,6 @@
-use std::time::Instant;
+use std::{sync::Arc, time::Instant};
 
-use wgpu_engine::Window;
+use wgpu_engine::{Engine, Window};
 use winit::{
     dpi::PhysicalSize,
     event::{Event, WindowEvent},
@@ -139,7 +139,7 @@ async fn print_thread_feature() {
     }
 
     let event_loop = EventLoop::new();
-    let window = Window::build_and_open(
+    let window = Arc::new(Window::build_and_open(
         EXAMPLE_NAME,
         PhysicalSize::new(1280, 720),
         false,
@@ -148,7 +148,26 @@ async fn print_thread_feature() {
         None,
         None,
         &event_loop,
-    );
+    ));
+
+    let engine = Engine::initialize(window.clone());
+
+    let gl_backend = if cfg!(feature = "gl_vulkan") {
+        "Vulkan"
+    } else if cfg!(feature = "gl_metal") {
+        "Metal"
+    } else if cfg!(feature = "gl_dx12") {
+        "Dx12"
+    } else if cfg!(feature = "gl_dx11") {
+        "Dx11"
+    } else if cfg!(feature = "gl_opengl") {
+        "Opengl"
+    } else if cfg!(feature = "gl_browser_webgpu") {
+        "Browser WebGPU"
+    } else {
+        "None"
+    };
+    log::info!("GL Backend: {gl_backend}");
 
     // How many cycles have been completed
     let mut cycle_count = 0;
@@ -176,9 +195,9 @@ async fn print_thread_feature() {
             // Update performance outputs
             let performance_str = format!("UPS: {cycle_count}/s (Δ{delta_time}s)");
             log::debug!("{performance_str}");
-            window
-                .get_window()
-                .set_title(&format!("{EXAMPLE_NAME} - {performance_str}"));
+            window.get_window().set_title(&format!(
+                "{EXAMPLE_NAME} - @{gl_backend} - {performance_str}"
+            ));
 
             // One second has past, subtract that
             delta_time -= 1.0;
