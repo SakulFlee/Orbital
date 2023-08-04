@@ -157,7 +157,7 @@ async fn print_thread_feature() {
     // Delta difference between "now" and "then" per cycle
     let mut delta_time = 0.0;
 
-    event_loop.run(move |event, target, control_flow| {
+    event_loop.run(move |event, _target, control_flow| {
         // Immediately start a new cycle once a loop is completed.
         // Ideal for games, but more resource intensive.
         *control_flow = ControlFlow::Poll;
