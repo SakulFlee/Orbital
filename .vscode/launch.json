@@ -26,7 +26,8 @@
                 "RUST_LOG": "debug",
                 "CARGO_TERM_COLOR": "always",
                 "CARGO_TERM_PROGRESS_WHEN": "always"
-            }
+            },
+            "terminal": "integrated"
         },
         {
             "type": "lldb",
@@ -49,7 +50,8 @@
                 "RUST_LOG": "debug",
                 "CARGO_TERM_COLOR": "always",
                 "CARGO_TERM_PROGRESS_WHEN": "always"
-            }
+            },
+            "terminal": "integrated"
         },
         {
             "type": "lldb",
@@ -73,7 +75,8 @@
                 "RUST_LOG": "debug",
                 "CARGO_TERM_COLOR": "always",
                 "CARGO_TERM_PROGRESS_WHEN": "always"
-            }
+            },
+            "terminal": "integrated"
         },
         {
             "type": "lldb",
@@ -97,7 +100,8 @@
                 "RUST_LOG": "debug",
                 "CARGO_TERM_COLOR": "always",
                 "CARGO_TERM_PROGRESS_WHEN": "always"
-            }
+            },
+            "terminal": "integrated"
         },
         {
             "type": "lldb",
@@ -121,7 +125,8 @@
                 "RUST_LOG": "debug",
                 "CARGO_TERM_COLOR": "always",
                 "CARGO_TERM_PROGRESS_WHEN": "always"
-            }
+            },
+            "terminal": "integrated"
         },
         {
             "type": "lldb",
@@ -145,7 +150,8 @@
                 "RUST_LOG": "debug",
                 "CARGO_TERM_COLOR": "always",
                 "CARGO_TERM_PROGRESS_WHEN": "always"
-            }
+            },
+            "terminal": "integrated"
         },
         {
             "type": "lldb",
@@ -169,7 +175,8 @@
                 "RUST_LOG": "debug",
                 "CARGO_TERM_COLOR": "always",
                 "CARGO_TERM_PROGRESS_WHEN": "always"
-            }
+            },
+            "terminal": "integrated"
         }
     ]
 }
