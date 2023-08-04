@@ -193,6 +193,13 @@ async fn print_thread_feature() {
             Event::WindowEvent { window_id, event } => {
                 log::debug!("Window Event :: Window ID: {window_id:?}, Event: {event:?}");
 
+                // Validate that the window ID match.
+                // Should only be different if multiple windows are used.
+                if window_id != window.get_window().id() {
+                    log::warn!("Invalid window ID for above's Event!");
+                    return;
+                }
+
                 match event {
                     WindowEvent::CloseRequested => {
                         log::info!("Close requested! Exiting ...");
@@ -215,6 +222,14 @@ async fn print_thread_feature() {
             }
             Event::RedrawRequested(window_id) => {
                 log::debug!("Redraw Requested :: Window ID: {window_id:?}");
+
+                // Validate that the window ID match.
+                // Should only be different if multiple windows are used.
+                if window_id != window.get_window().id() {
+                    log::warn!("Invalid window ID for above's Event!");
+                    return;
+                }
+
                 // TODO: Rendering goes here
             }
             Event::RedrawEventsCleared => {
