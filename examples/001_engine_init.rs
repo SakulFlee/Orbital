@@ -3,6 +3,7 @@ use std::time::Instant;
 use wgpu_engine::Window;
 use winit::{
     dpi::PhysicalSize,
+    event::Event,
     event_loop::{ControlFlow, EventLoop},
 };
 
@@ -161,6 +162,7 @@ async fn print_thread_feature() {
         // Ideal for games, but more resource intensive.
         *control_flow = ControlFlow::Poll;
 
+        // <<< Cycle Calculation >>>
         // Increase cycle count and take "now time"
         cycle_count += 1;
         let now_time = Instant::now();
@@ -185,5 +187,29 @@ async fn print_thread_feature() {
         }
         // Update cycle time with now time
         cycle_time = now_time;
+
+        // <<< Events >>>
+        match event {
+            Event::WindowEvent { window_id, event } => {
+                log::debug!("Window Event :: Window ID: {window_id:?}, Event: {event:?}");
+            }
+            Event::DeviceEvent { device_id, event } => {
+                log::debug!("Device Event :: Device ID: {device_id:?}, Event: {event:?}");
+            }
+            Event::Suspended => {
+                log::debug!("Suspended");
+            }
+            Event::Resumed => {
+                log::debug!("Resumed");
+            }
+            Event::RedrawRequested(window_id) => {
+                log::debug!("Redraw Requested :: Window ID: {window_id:?}");
+            }
+            Event::RedrawEventsCleared => {
+                log::debug!("Redraw Events Cleared -> Redraw Request");
+                window.get_window().request_redraw();
+            }
+            _ => (),
+        }
     });
 }
