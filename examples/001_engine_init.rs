@@ -3,7 +3,7 @@ use std::time::Instant;
 use wgpu_engine::Window;
 use winit::{
     dpi::PhysicalSize,
-    event::Event,
+    event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
 };
 
@@ -192,21 +192,33 @@ async fn print_thread_feature() {
         match event {
             Event::WindowEvent { window_id, event } => {
                 log::debug!("Window Event :: Window ID: {window_id:?}, Event: {event:?}");
+
+                match event {
+                    WindowEvent::CloseRequested => {
+                        log::info!("Close requested! Exiting ...");
+                        *control_flow = ControlFlow::ExitWithCode(0);
+                    }
+                    _ => (),
+                }
             }
             Event::DeviceEvent { device_id, event } => {
                 log::debug!("Device Event :: Device ID: {device_id:?}, Event: {event:?}");
+                // TODO
             }
             Event::Suspended => {
                 log::debug!("Suspended");
+                // TODO
             }
             Event::Resumed => {
                 log::debug!("Resumed");
+                // TODO
             }
             Event::RedrawRequested(window_id) => {
                 log::debug!("Redraw Requested :: Window ID: {window_id:?}");
+                // TODO: Rendering goes here
             }
             Event::RedrawEventsCleared => {
-                log::debug!("Redraw Events Cleared -> Redraw Request");
+                // If redrawing finished -> request to redraw next cycle
                 window.get_window().request_redraw();
             }
             _ => (),
