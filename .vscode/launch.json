@@ -1602,5 +1602,804 @@
                 "RUST_LOG": "debug"
             }
         },
+        // <<< 003 Window FPS Counter >>>
+        // 1x Thread
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 1 thread - Vulkan",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_vulkan"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 1 thread - Metal",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_metal"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 1 thread - DX12",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_dx12"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 1 thread - DX11",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_dx11"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 1 thread - OpenGL",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_opengl"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 1 thread - Browser GPU",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_browser_webgpu"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        // 4x Threads
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 4 threads - Vulkan",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_vulkan,4-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 4 threads - Metal",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_metal,4-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 4 threads - DX12",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_dx12,4-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 4 threads - DX11",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_dx11,4-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 4 threads - OpenGL",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_opengl,4-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 4 threads - Browser GPU",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_browser_webgpu,4-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        // 8x Threads
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 8 threads - Vulkan",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_vulkan,8-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 8 threads - Metal",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_metal,8-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 8 threads - DX12",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_dx12,8-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 8 threads - DX11",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_dx11,8-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 8 threads - OpenGL",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_opengl,8-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 8 threads - Browser GPU",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_browser_webgpu,8-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        // 16x Threads
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 16 threads - Vulkan",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_vulkan,16-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 16 threads - Metal",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_metal,16-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 16 threads - DX12",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_dx12,16-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 16 threads - DX11",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_dx11,16-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 16 threads - OpenGL",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_opengl,16-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 16 threads - Browser GPU",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_browser_webgpu,16-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        // 32x Threads
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 32 threads - Vulkan",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_vulkan,32-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 32 threads - Metal",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_metal,32-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 32 threads - DX12",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_dx12,32-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 32 threads - DX11",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_dx11,32-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 32 threads - OpenGL",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_opengl,32-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 32 threads - Browser GPU",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_browser_webgpu,32-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        // 64x Threads
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 64 threads - Vulkan",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_vulkan,64-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 64 threads - Metal",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_metal,64-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 64 threads - DX12",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_dx12,64-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 64 threads - DX11",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_dx11,64-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 64 threads - OpenGL",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_opengl,64-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "003_window_fps_counter @ 64 threads - Browser GPU",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=003_window_fps_counter",
+                    "--package=wgpu_engine",
+                    "--features=gl_browser_webgpu,64-threads"
+                ],
+                "filter": {
+                    "name": "003_window_fps_counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug"
+            }
+        },
     ]
 }
