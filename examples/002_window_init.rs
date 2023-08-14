@@ -1,9 +1,13 @@
 use std::sync::Arc;
 
 use wgpu_engine::{Engine, Window};
-use winit::{dpi::PhysicalSize, event_loop::EventLoop};
+use winit::{
+    dpi::PhysicalSize,
+    event::{Event, WindowEvent},
+    event_loop::{ControlFlow, EventLoop},
+};
 
-const EXAMPLE_NAME: &'static str = "001 - Engine Init";
+const EXAMPLE_NAME: &'static str = "002 - Window Init";
 
 #[cfg_attr(
     all(
@@ -165,4 +169,33 @@ async fn print_thread_feature() {
         "None"
     };
     log::info!("GL Backend: {gl_backend}");
+
+    event_loop.run(move |event, _target, control_flow| {
+        // Immediately start a new cycle once a loop is completed.
+        // Ideal for games, but more resource intensive.
+        *control_flow = ControlFlow::Poll;
+
+        // <<< Events >>>
+        match event {
+            Event::WindowEvent { window_id, event } => {
+                log::debug!("Window Event :: Window ID: {window_id:?}, Event: {event:?}");
+
+                // Validate that the window ID match.
+                // Should only be different if multiple windows are used.
+                if window_id != window.get_window().id() {
+                    log::warn!("Invalid window ID for above's Event!");
+                    return;
+                }
+
+                match event {
+                    WindowEvent::CloseRequested => {
+                        log::info!("Close requested! Exiting ...");
+                        *control_flow = ControlFlow::ExitWithCode(0);
+                    }
+                    _ => (),
+                }
+            }
+            _ => (),
+        }
+    });
 }
