@@ -2,8 +2,14 @@
     "cSpell.words": [
         "fullscreen",
         "Fullscreen",
-        "tokio"
+        "tokio",
+        "wgpu",
+        "winit"
     ],
-    "rust-analyzer.cargo.features": "all",
-    "rust-analyzer.check.features": "all"
+    "rust-analyzer.cargo.features": [
+        "gl_vulkan"
+    ],
+    "rust-analyzer.check.features": [
+        "gl_vulkan"
+    ]
 }
