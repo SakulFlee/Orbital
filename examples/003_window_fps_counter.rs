@@ -227,7 +227,7 @@ async fn print_thread_feature() {
                     }
                     _ => (),
                 }
-            },
+            }
             Event::RedrawRequested(window_id) => {
                 log::debug!("Redraw Requested :: Window ID: {window_id:?}");
 
