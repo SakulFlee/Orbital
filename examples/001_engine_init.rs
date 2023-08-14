@@ -88,7 +88,7 @@ async fn log_init() {
 
     print_thread_feature().await;
 
-    log::info!("001 - Engine Init");
+    log::info!("{EXAMPLE_NAME}");
 }
 
 async fn print_thread_feature() {
