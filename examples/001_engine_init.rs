@@ -1,11 +1,7 @@
-use std::{sync::Arc, time::Instant};
+use std::sync::Arc;
 
 use wgpu_engine::{Engine, Window};
-use winit::{
-    dpi::PhysicalSize,
-    event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-};
+use winit::{dpi::PhysicalSize, event_loop::EventLoop};
 
 const EXAMPLE_NAME: &'static str = "001 - Engine Init";
 
@@ -150,7 +146,8 @@ async fn print_thread_feature() {
         &event_loop,
     ));
 
-    let engine = Engine::initialize(window.clone());
+    let engine = Engine::initialize(window.clone()).await;
+    engine.configure().await;
 
     let gl_backend = if cfg!(feature = "gl_vulkan") {
         "Vulkan"
@@ -168,94 +165,4 @@ async fn print_thread_feature() {
         "None"
     };
     log::info!("GL Backend: {gl_backend}");
-
-    // How many cycles have been completed
-    let mut cycle_count = 0;
-    // How much time has passed since the last cycle
-    let mut cycle_time = Instant::now();
-    // Delta difference between "now" and "then" per cycle
-    let mut delta_time = 0.0;
-
-    event_loop.run(move |event, _target, control_flow| {
-        // Immediately start a new cycle once a loop is completed.
-        // Ideal for games, but more resource intensive.
-        *control_flow = ControlFlow::Poll;
-
-        // <<< Cycle Calculation >>>
-        // Increase cycle count and take "now time"
-        cycle_count += 1;
-        let now_time = Instant::now();
-        // Calculate duration since last cycle time
-        let duration = now_time.duration_since(cycle_time);
-        // Add difference to delta time
-        delta_time = delta_time + duration.as_secs_f64();
-
-        // If delta time is over a second, end the cycle
-        if delta_time >= 1.0 {
-            // Update performance outputs
-            let performance_str = format!("UPS: {cycle_count}/s (Δ{delta_time}s)");
-            log::debug!("{performance_str}");
-            window.get_window().set_title(&format!(
-                "{EXAMPLE_NAME} - @{gl_backend} - {performance_str}"
-            ));
-
-            // One second has past, subtract that
-            delta_time -= 1.0;
-            // Reset cycle
-            cycle_count = 0;
-        }
-        // Update cycle time with now time
-        cycle_time = now_time;
-
-        // <<< Events >>>
-        match event {
-            Event::WindowEvent { window_id, event } => {
-                log::debug!("Window Event :: Window ID: {window_id:?}, Event: {event:?}");
-
-                // Validate that the window ID match.
-                // Should only be different if multiple windows are used.
-                if window_id != window.get_window().id() {
-                    log::warn!("Invalid window ID for above's Event!");
-                    return;
-                }
-
-                match event {
-                    WindowEvent::CloseRequested => {
-                        log::info!("Close requested! Exiting ...");
-                        *control_flow = ControlFlow::ExitWithCode(0);
-                    }
-                    _ => (),
-                }
-            }
-            Event::DeviceEvent { device_id, event } => {
-                log::debug!("Device Event :: Device ID: {device_id:?}, Event: {event:?}");
-                // TODO
-            }
-            Event::Suspended => {
-                log::debug!("Suspended");
-                // TODO
-            }
-            Event::Resumed => {
-                log::debug!("Resumed");
-                // TODO
-            }
-            Event::RedrawRequested(window_id) => {
-                log::debug!("Redraw Requested :: Window ID: {window_id:?}");
-
-                // Validate that the window ID match.
-                // Should only be different if multiple windows are used.
-                if window_id != window.get_window().id() {
-                    log::warn!("Invalid window ID for above's Event!");
-                    return;
-                }
-
-                // TODO: Rendering goes here
-            }
-            Event::RedrawEventsCleared => {
-                // If redrawing finished -> request to redraw next cycle
-                window.get_window().request_redraw();
-            }
-            _ => (),
-        }
-    });
 }
