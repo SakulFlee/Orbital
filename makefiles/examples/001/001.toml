@@ -1,0 +1,31 @@
+# Example 001
+extend = [
+    { path = "vulkan.toml" },
+    { path = "metal.toml" },
+    { path = "dx12.toml" },
+    { path = "dx11.toml" },
+    { path = "opengl.toml" },
+    { path = "browser_webgpu.toml" },
+]
+
+[tasks.build-example-001-all]
+category = "build"
+dependencies = [
+    "build-example-001-vulkan",
+    "build-example-001-metal",
+    "build-example-001-dx12",
+    "build-example-001-dx11",
+    "build-example-001-opengl",
+    "build-example-001-browser_webgpu",
+]
+
+[tasks.release-build-example-001-all]
+category = "release-build"
+dependencies = [
+    "release-build-example-001-vulkan",
+    "release-build-example-001-metal",
+    "release-build-example-001-dx12",
+    "release-build-example-001-dx11",
+    "release-build-example-001-opengl",
+    "release-build-example-001-browser_webgpu",
+]
