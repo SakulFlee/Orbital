@@ -1,0 +1,5 @@
+extend = [
+    { path = "./makefiles/helpers.toml" },
+    { path = "./makefiles/build-library.toml" },
+    { path = "./makefiles/examples/examples.toml" },
+]
