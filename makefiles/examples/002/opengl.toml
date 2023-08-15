@@ -1,0 +1,65 @@
+# Example 002 - OpenGL
+[tasks.cargo_build-example-002-opengl]
+command = "cargo"
+args = ["build", "--example=002_window_init", "--features=gl_opengl"]
+
+[tasks.windows_build-example-002-opengl]
+command = "cp"
+args = [
+    "target/debug/examples/002_window_init.exe",
+    "target/debug/examples/002_window_init_opengl.exe",
+]
+dependencies = ["cargo_build-example-002-opengl"]
+
+[tasks.non-windows_build-example-002-opengl]
+command = "cp"
+args = [
+    "target/debug/examples/002_window_init",
+    "target/debug/examples/002_window_init_opengl",
+]
+dependencies = ["cargo_build-example-002-opengl"]
+
+[tasks.build-example-002-opengl]
+category = "build"
+windows_alias = "windows_build-example-002-opengl"
+linux_alias = "non-windows_build-example-002-opengl"
+mac_alias = "non-windows_build-example-002-opengl"
+
+[tasks.run-example-002-opengl]
+category = "run"
+command = "cargo"
+args = ["run", "--example=002_window_init", "--features=gl_opengl"]
+dependencies = ["cargo_build-example-002-opengl"]
+
+# --- Release ---
+[tasks.release-cargo_build-example-002-opengl]
+command = "cargo"
+args = ["build", "--example=002_window_init", "--features=gl_opengl"]
+
+[tasks.release-windows_build-example-002-opengl]
+command = "cp"
+args = [
+    "target/release/examples/002_window_init.exe",
+    "target/release/examples/002_window_init_opengl.exe",
+]
+dependencies = ["release-cargo_build-example-002-opengl"]
+
+[tasks.release-non-windows_build-example-002-opengl]
+command = "cp"
+args = [
+    "target/release/examples/002_window_init",
+    "target/release/examples/002_window_init_opengl",
+]
+dependencies = ["release-cargo_build-example-002-opengl"]
+
+[tasks.release-build-example-002-opengl]
+category = "release-build"
+windows_alias = "windows_build-example-002-opengl"
+linux_alias = "non-windows_build-example-002-opengl"
+mac_alias = "non-windows_build-example-002-opengl"
+
+[tasks.release-run-example-002-opengl]
+category = "release-run"
+command = "cargo"
+args = ["run", "--release", "--example=002_window_init", "--features=gl_opengl"]
+dependencies = ["release-cargo_build-example-002-opengl"]

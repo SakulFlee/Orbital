@@ -1,0 +1,11 @@
+# Helpers
+[tasks.format]
+install_crate = "rustfmt"
+command = "cargo"
+args = ["fmt", "--", "--emit=files"]
+category = "helper"
+
+[tasks.clean]
+command = "cargo"
+args = ["clean"]
+category = "helper"

@@ -1,0 +1,70 @@
+# Example 003 - Vulkan
+[tasks.cargo_build-example-003-vulkan]
+command = "cargo"
+args = ["build", "--example=003_window_fps_counter", "--features=gl_vulkan"]
+
+[tasks.windows_build-example-003-vulkan]
+command = "cp"
+args = [
+    "target/debug/examples/003_window_fps_counter.exe",
+    "target/debug/examples/003_window_fps_counter_vulkan.exe",
+]
+dependencies = ["cargo_build-example-003-vulkan"]
+
+[tasks.non-windows_build-example-003-vulkan]
+command = "cp"
+args = [
+    "target/debug/examples/003_window_fps_counter",
+    "target/debug/examples/003_window_fps_counter_vulkan",
+]
+dependencies = ["cargo_build-example-003-vulkan"]
+
+[tasks.build-example-003-vulkan]
+category = "build"
+windows_alias = "windows_build-example-003-vulkan"
+linux_alias = "non-windows_build-example-003-vulkan"
+mac_alias = "non-windows_build-example-003-vulkan"
+
+[tasks.run-example-003-vulkan]
+category = "run"
+command = "cargo"
+args = ["run", "--example=003_window_fps_counter", "--features=gl_vulkan"]
+dependencies = ["cargo_build-example-003-vulkan"]
+
+# --- Release ---
+[tasks.release-cargo_build-example-003-vulkan]
+command = "cargo"
+args = ["build", "--example=003_window_fps_counter", "--features=gl_vulkan"]
+
+[tasks.release-windows_build-example-003-vulkan]
+command = "cp"
+args = [
+    "target/release/examples/003_window_fps_counter.exe",
+    "target/release/examples/003_window_fps_counter_vulkan.exe",
+]
+dependencies = ["release-cargo_build-example-003-vulkan"]
+
+[tasks.release-non-windows_build-example-003-vulkan]
+command = "cp"
+args = [
+    "target/release/examples/003_window_fps_counter",
+    "target/release/examples/003_window_fps_counter_vulkan",
+]
+dependencies = ["release-cargo_build-example-003-vulkan"]
+
+[tasks.release-build-example-003-vulkan]
+category = "release-build"
+windows_alias = "windows_build-example-003-vulkan"
+linux_alias = "non-windows_build-example-003-vulkan"
+mac_alias = "non-windows_build-example-003-vulkan"
+
+[tasks.release-run-example-003-vulkan]
+category = "release-run"
+command = "cargo"
+args = [
+    "run",
+    "--release",
+    "--example=003_window_fps_counter",
+    "--features=gl_vulkan",
+]
+dependencies = ["release-cargo_build-example-003-vulkan"]
