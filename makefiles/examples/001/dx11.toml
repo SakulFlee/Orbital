@@ -1,0 +1,65 @@
+# Example 001 - DX11
+[tasks.cargo_build-example-001-dx11]
+command = "cargo"
+args = ["build", "--example=001_engine_init", "--features=gl_dx11"]
+
+[tasks.windows_build-example-001-dx11]
+command = "cp"
+args = [
+    "target/debug/examples/001_engine_init.exe",
+    "target/debug/examples/001_engine_init_dx11.exe",
+]
+dependencies = ["cargo_build-example-001-dx11"]
+
+[tasks.non-windows_build-example-001-dx11]
+command = "cp"
+args = [
+    "target/debug/examples/001_engine_init",
+    "target/debug/examples/001_engine_init_dx11",
+]
+dependencies = ["cargo_build-example-001-dx11"]
+
+[tasks.build-example-001-dx11]
+category = "build"
+windows_alias = "windows_build-example-001-dx11"
+linux_alias = "non-windows_build-example-001-dx11"
+mac_alias = "non-windows_build-example-001-dx11"
+
+[tasks.run-example-001-dx11]
+category = "run"
+command = "cargo"
+args = ["run", "--example=001_engine_init", "--features=gl_dx11"]
+dependencies = ["cargo_build-example-001-dx11"]
+
+# --- Release ---
+[tasks.release-cargo_build-example-001-dx11]
+command = "cargo"
+args = ["build", "--example=001_engine_init", "--features=gl_dx11"]
+
+[tasks.release-windows_build-example-001-dx11]
+command = "cp"
+args = [
+    "target/release/examples/001_engine_init.exe",
+    "target/release/examples/001_engine_init_dx11.exe",
+]
+dependencies = ["release-cargo_build-example-001-dx11"]
+
+[tasks.release-non-windows_build-example-001-dx11]
+command = "cp"
+args = [
+    "target/release/examples/001_engine_init",
+    "target/release/examples/001_engine_init_dx11",
+]
+dependencies = ["release-cargo_build-example-001-dx11"]
+
+[tasks.release-build-example-001-dx11]
+category = "release-build"
+windows_alias = "windows_build-example-001-dx11"
+linux_alias = "non-windows_build-example-001-dx11"
+mac_alias = "non-windows_build-example-001-dx11"
+
+[tasks.release-run-example-001-dx11]
+category = "release-run"
+command = "cargo"
+args = ["run", "--release", "--example=001_engine_init", "--features=gl_dx11"]
+dependencies = ["release-cargo_build-example-001-dx11"]

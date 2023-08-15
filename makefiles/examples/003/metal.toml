@@ -1,0 +1,70 @@
+# Example 003 - Metal
+[tasks.cargo_build-example-003-metal]
+command = "cargo"
+args = ["build", "--example=003_window_fps_counter", "--features=gl_metal"]
+
+[tasks.windows_build-example-003-metal]
+command = "cp"
+args = [
+    "target/debug/examples/003_window_fps_counter.exe",
+    "target/debug/examples/003_window_fps_counter_metal.exe",
+]
+dependencies = ["cargo_build-example-003-metal"]
+
+[tasks.non-windows_build-example-003-metal]
+command = "cp"
+args = [
+    "target/debug/examples/003_window_fps_counter",
+    "target/debug/examples/003_window_fps_counter_metal",
+]
+dependencies = ["cargo_build-example-003-metal"]
+
+[tasks.build-example-003-metal]
+category = "build"
+windows_alias = "windows_build-example-003-metal"
+linux_alias = "non-windows_build-example-003-metal"
+mac_alias = "non-windows_build-example-003-metal"
+
+[tasks.run-example-003-metal]
+category = "run"
+command = "cargo"
+args = ["run", "--example=003_window_fps_counter", "--features=gl_metal"]
+dependencies = ["cargo_build-example-003-metal"]
+
+# --- Release ---
+[tasks.release-cargo_build-example-003-metal]
+command = "cargo"
+args = ["build", "--example=003_window_fps_counter", "--features=gl_metal"]
+
+[tasks.release-windows_build-example-003-metal]
+command = "cp"
+args = [
+    "target/release/examples/003_window_fps_counter.exe",
+    "target/release/examples/003_window_fps_counter_metal.exe",
+]
+dependencies = ["release-cargo_build-example-003-metal"]
+
+[tasks.release-non-windows_build-example-003-metal]
+command = "cp"
+args = [
+    "target/release/examples/003_window_fps_counter",
+    "target/release/examples/003_window_fps_counter_metal",
+]
+dependencies = ["release-cargo_build-example-003-metal"]
+
+[tasks.release-build-example-003-metal]
+category = "release-build"
+windows_alias = "windows_build-example-003-metal"
+linux_alias = "non-windows_build-example-003-metal"
+mac_alias = "non-windows_build-example-003-metal"
+
+[tasks.release-run-example-003-metal]
+category = "release-run"
+command = "cargo"
+args = [
+    "run",
+    "--release",
+    "--example=003_window_fps_counter",
+    "--features=gl_metal",
+]
+dependencies = ["release-cargo_build-example-003-metal"]
