@@ -1,31 +1,12 @@
 use std::sync::Arc;
 
 use wgpu::{
-    Adapter, CompositeAlphaMode, Device, DeviceDescriptor, Features, Limits, PowerPreference,
-    PresentMode, Queue, RequestAdapterOptions, Surface, SurfaceConfiguration, TextureFormat,
-    TextureUsages,
+    Adapter, Backends, CompositeAlphaMode, Device, DeviceDescriptor, Features, Instance,
+    InstanceDescriptor, Limits, PowerPreference, PresentMode, Queue, RequestAdapterOptions,
+    Surface, SurfaceConfiguration, TextureFormat, TextureUsages,
 };
-#[cfg(any(
-    feature = "gl_vulkan",
-    feature = "gl_metal",
-    feature = "gl_dx12",
-    feature = "gl_dx11",
-    feature = "gl_opengl",
-    feature = "gl_browser_webgpu",
-))]
-use wgpu::{Backends, Instance, InstanceDescriptor};
 
 use crate::Window;
-
-#[cfg(all(
-    not(feature = "gl_vulkan"),
-    not(feature = "gl_metal"),
-    not(feature = "gl_dx12"),
-    not(feature = "gl_dx11"),
-    not(feature = "gl_opengl"),
-    not(feature = "gl_browser_webgpu"),
-))]
-compile_error!("No graphics backend was selected! Check feature flags and recompile ...");
 
 pub struct Engine {
     window: Arc<Window>,
@@ -36,6 +17,8 @@ pub struct Engine {
 }
 
 impl Engine {
+    /// Initializes the `[Engine]`.
+    /// Creates a bunch of critical internal components while doing so.
     pub async fn initialize(window: Arc<Window>) -> Self {
         let instance = Engine::make_instance().await;
         log::debug!("{instance:?}");
@@ -59,7 +42,8 @@ impl Engine {
         }
     }
 
-    pub async fn configure(&self) {
+    /// Configures the local `[Surface]`.
+    pub async fn configure_surface(&self) {
         self.surface.configure(
             &self.device,
             &SurfaceConfiguration {
@@ -74,6 +58,7 @@ impl Engine {
         )
     }
 
+    /// Creates a new `[Device]` and, as a by-product a `[Queue]` of that `[Device]`.
     async fn make_device(adapter: &Adapter) -> (Device, Queue) {
         adapter
             .request_device(
@@ -88,6 +73,7 @@ impl Engine {
             .expect("failed requesting device")
     }
 
+    /// Creates a new `[Adapter]`.
     async fn make_adapter(instance: &Instance, surface: &Surface) -> Adapter {
         instance
             .request_adapter(&RequestAdapterOptions {
@@ -99,122 +85,50 @@ impl Engine {
             .expect("failed requesting adapter")
     }
 
+    /// Creates a new `[Surface]`.
     async fn make_surface(instance: &Instance, window: Arc<Window>) -> Surface {
         unsafe { instance.create_surface(&window.get_window()) }
             .expect("failed creating surface from window")
     }
 
     /// Creates an `[Instance]` given the graphics library.
-    /// Valid graphics libraries are (feature flags!)
-    /// - Vulkan (`gl_vulkan`)
-    /// - Metal (`gl_metal`)
-    /// - Dx12 (`gl_dx12`)
-    /// - Dx11 (`gl_dx11`)
-    /// - OpenGL (`gl_opengl`)
-    /// - Browser WebGPU (`gl_browser_webgpu`)
+    /// The `[Instance]` will automatically pick which graphics
+    /// backend will be used.
+    /// Currently supported are:
+    /// - Vulkan
+    /// - Metal
+    /// - DX12
+    /// - DX11
+    /// - OpenGL (and WebGL)
+    /// - WebGPU (virtual GPU used in Browsers)
     async fn make_instance() -> Instance {
-        #[cfg(all(
-            feature = "gl_vulkan",
-            not(any(
-                feature = "gl_metal",
-                feature = "gl_dx12",
-                feature = "gl_dx11",
-                feature = "gl_opengl",
-                feature = "gl_browser_webgpu",
-            ))
-        ))]
-        return Instance::new(InstanceDescriptor {
-            backends: Backends::VULKAN,
+        Instance::new(InstanceDescriptor {
+            backends: Backends::all(),
             ..Default::default()
-        });
-        #[cfg(all(
-            feature = "gl_metal",
-            not(any(
-                feature = "gl_vulkan",
-                feature = "gl_dx12",
-                feature = "gl_dx11",
-                feature = "gl_opengl",
-                feature = "gl_browser_webgpu",
-            ))
-        ))]
-        return Instance::new(InstanceDescriptor {
-            backends: Backends::METAL,
-            ..Default::default()
-        });
-        #[cfg(all(
-            feature = "gl_dx12",
-            not(any(
-                feature = "gl_vulkan",
-                feature = "gl_metal",
-                feature = "gl_dx11",
-                feature = "gl_opengl",
-                feature = "gl_browser_webgpu",
-            ))
-        ))]
-        return Instance::new(InstanceDescriptor {
-            backends: Backends::DX12,
-            ..Default::default()
-        });
-        #[cfg(all(
-            feature = "gl_dx11",
-            not(any(
-                feature = "gl_vulkan",
-                feature = "gl_metal",
-                feature = "gl_dx12",
-                feature = "gl_opengl",
-                feature = "gl_browser_webgpu",
-            ))
-        ))]
-        return Instance::new(InstanceDescriptor {
-            backends: Backends::DX11,
-            ..Default::default()
-        });
-        #[cfg(all(
-            feature = "gl_opengl",
-            not(any(
-                feature = "gl_vulkan",
-                feature = "gl_metal",
-                feature = "gl_dx12",
-                feature = "gl_dx11",
-                feature = "gl_browser_webgpu",
-            ))
-        ))]
-        return Instance::new(InstanceDescriptor {
-            backends: Backends::GL,
-            ..Default::default()
-        });
-        #[cfg(all(
-            feature = "gl_browser_webgpu",
-            not(any(
-                feature = "gl_vulkan",
-                feature = "gl_metal",
-                feature = "gl_dx12",
-                feature = "gl_dx11",
-                feature = "gl_opengl",
-            ))
-        ))]
-        return Instance::new(InstanceDescriptor {
-            backends: Backends::BROWSER_WEBGPU,
-            ..Default::default()
-        });
+        })
     }
 
+    /// Returns a new `[Arc]` of `[Window]`.
     pub fn get_window(&self) -> Arc<Window> {
         self.window.clone()
     }
 
+    /// Returns the local `[&Surface]`.
     pub fn get_surface(&self) -> &Surface {
         &self.surface
     }
 
+    /// Returns the local `[&Adapter]`.
     pub fn get_adapter(&self) -> &Adapter {
         &self.adapter
     }
 
+    /// Returns the local `[&Device]`.
     pub fn get_device(&self) -> &Device {
         &self.device
     }
 
+    /// Returns the local `[&Queue]`.
     pub fn get_queue(&self) -> &Queue {
         &self.queue
     }
