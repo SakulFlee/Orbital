@@ -1,22 +1,20 @@
 use winit::{
-    dpi::{Position, Size},
+    dpi::PhysicalSize,
     event_loop::EventLoop,
-    window::{Fullscreen, Window as WWindow, WindowBuilder, WindowButtons},
+    window::{Fullscreen, Window, WindowBuilder},
 };
 
-pub struct Window {
-    window: WWindow,
+pub struct AppWindow {
+    window: Window,
 }
 
-impl Window {
-    pub fn build_and_open<S: Into<Size>>(
+impl AppWindow {
+    pub fn build_and_open(
         title: &str,
-        size: S,
+        size: PhysicalSize<u32>,
         maximized: bool,
         resizable: bool,
         fullscreen: Option<Fullscreen>,
-        position: Option<Position>,
-        buttons: Option<WindowButtons>,
         event_loop: &EventLoop<()>,
     ) -> Self {
         let mut builder = WindowBuilder::new();
@@ -29,14 +27,8 @@ impl Window {
 
         if fullscreen.is_some() {
             builder = builder.with_fullscreen(fullscreen);
-        }
 
-        if position.is_some() {
-            builder = builder.with_position(position.unwrap());
-        }
-
-        if buttons.is_some() {
-            builder = builder.with_enabled_buttons(buttons.unwrap());
+            // builder.with_fullscreen(Some(Fullscreen::Exclusive(VideoMode)));
         }
 
         let window = match builder.build(&event_loop) {
@@ -47,7 +39,7 @@ impl Window {
         Self { window }
     }
 
-    pub fn get_window(&self) -> &WWindow {
+    pub fn get_window(&self) -> &Window {
         &self.window
     }
 }
