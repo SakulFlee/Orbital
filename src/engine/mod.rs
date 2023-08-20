@@ -6,10 +6,10 @@ use wgpu::{
     Surface, SurfaceConfiguration, TextureFormat, TextureUsages,
 };
 
-use crate::Window;
+use crate::AppWindow;
 
 pub struct Engine {
-    window: Arc<Window>,
+    window: Arc<AppWindow>,
     surface: Surface,
     adapter: Adapter,
     device: Device,
@@ -19,7 +19,7 @@ pub struct Engine {
 impl Engine {
     /// Initializes the `[Engine]`.
     /// Creates a bunch of critical internal components while doing so.
-    pub async fn initialize(window: Arc<Window>) -> Self {
+    pub async fn initialize(window: Arc<AppWindow>) -> Self {
         let instance = Engine::make_instance().await;
         log::debug!("{instance:?}");
 
@@ -86,7 +86,7 @@ impl Engine {
     }
 
     /// Creates a new `[Surface]`.
-    async fn make_surface(instance: &Instance, window: Arc<Window>) -> Surface {
+    async fn make_surface(instance: &Instance, window: Arc<AppWindow>) -> Surface {
         unsafe { instance.create_surface(&window.get_window()) }
             .expect("failed creating surface from window")
     }
@@ -109,7 +109,7 @@ impl Engine {
     }
 
     /// Returns a new `[Arc]` of `[Window]`.
-    pub fn get_window(&self) -> Arc<Window> {
+    pub fn get_window(&self) -> Arc<AppWindow> {
         self.window.clone()
     }
 
