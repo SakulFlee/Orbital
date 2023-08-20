@@ -2,6 +2,7 @@
     "cSpell.words": [
         "fullscreen",
         "Fullscreen",
+        "millihertz",
         "tokio",
         "wgpu",
         "winit"
