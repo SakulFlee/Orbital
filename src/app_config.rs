@@ -12,9 +12,9 @@ pub struct AppConfig {
     pub width: u32,
     pub height: u32,
     pub fullscreen: Option<FullscreenWrapper>,
-    pub last_monitor_x: i32,
-    pub last_monitor_y: i32,
-    pub last_monitor_refresh_rate: u32,
+    pub monitor_x: i32,
+    pub monitor_y: i32,
+    pub monitor_refresh_rate: u32,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -103,8 +103,8 @@ impl AppConfig {
 
     pub fn get_last_monitor_physical_position(&self) -> PhysicalPosition<i32> {
         PhysicalPosition {
-            x: self.last_monitor_x,
-            y: self.last_monitor_y,
+            x: self.monitor_x,
+            y: self.monitor_y,
         }
     }
 
@@ -123,7 +123,7 @@ impl AppConfig {
         let matching_video_mode = monitor_handle
             .video_modes()
             .find(|x| {
-                x.refresh_rate_millihertz() == self.last_monitor_refresh_rate
+                x.refresh_rate_millihertz() == self.monitor_refresh_rate
                     && x.size() == self.get_physical_size()
             })
             .unwrap_or(
@@ -145,13 +145,27 @@ impl AppConfig {
 
 impl Default for AppConfig {
     fn default() -> Self {
-        Self {
-            width: 1080,
-            height: 1920,
-            fullscreen: Some(FullscreenWrapper::Exclusive),
-            last_monitor_x: 0,
-            last_monitor_y: 0,
-            last_monitor_refresh_rate: 60,
+        #[cfg(not(debug_assertions))]
+        {
+            Self {
+                width: 1920,
+                height: 1080,
+                fullscreen: Some(FullscreenWrapper::Exclusive),
+                monitor_x: 0,
+                monitor_y: 0,
+                monitor_refresh_rate: 60,
+            }
+        }
+        #[cfg(debug_assertions)]
+        {
+            Self {
+                width: 1280,
+                height: 720,
+                fullscreen: None,
+                monitor_x: 0,
+                monitor_y: 0,
+                monitor_refresh_rate: 60,
+            }
         }
     }
 }
