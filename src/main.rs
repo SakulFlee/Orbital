@@ -51,6 +51,7 @@ async fn main() {
 
     // App
     let app = App::from_app_config_default_path();
+    app.start();
 }
 
 async fn log_init() {
