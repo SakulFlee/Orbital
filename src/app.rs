@@ -5,7 +5,7 @@ use wgpu::{
 };
 use winit::{
     dpi::PhysicalSize,
-    event::{Event, WindowEvent},
+    event::{Event, WindowEvent, KeyboardInput, ElementState, VirtualKeyCode},
     event_loop::{ControlFlow, EventLoop},
 };
 
@@ -94,10 +94,16 @@ impl App {
         let mut cycle_count: u32 = 0;
 
         self.event_loop.run(move |event, _target, control_flow| {
-            // << Poll >>
-            // Immediately start a new cycle once a loop is completed.
-            // Ideal for games, but more resource intensive.
-            *control_flow = ControlFlow::Poll;
+            // << Control Flow >>
+            if self.should_run {
+                // Immediately start a new cycle once a loop is completed.
+                // Ideal for games, but more resource intensive.
+                *control_flow = ControlFlow::Poll;
+            } else {
+                // Exit is requested.
+                *control_flow = ControlFlow::ExitWithCode(0);
+                return;
+            }
 
             // << Cycle Calculation >>
             // Increase delta count and take "now time"
@@ -133,20 +139,26 @@ impl App {
             // << Events >>
             match event {
                 Event::WindowEvent { window_id, event } => {
-                    log::debug!("Window Event :: Window ID: {window_id:?}, Event: {event:?}");
+                    
+                    // log::debug!("Window Event :: Window ID: {window_id:?}, Event: {event:?}");
 
                     // Validate that the window ID match.
                     // Should only be different if multiple windows are used.
                     if window_id != self.window.get_window().id() {
-                        log::warn!("Invalid window ID for above's Event!");
+                        log::warn!("Invalid window ID for 'Window Event :: Window ID: {window_id:?}, Event: {event:?}'");
                         return;
                     }
 
                     match event {
-                        WindowEvent::CloseRequested => {
-                            log::info!("Close requested! Exiting ...");
-                            *control_flow = ControlFlow::ExitWithCode(0);
-                        }
+                        WindowEvent::CloseRequested => self.should_run = false,
+                        WindowEvent::KeyboardInput {  
+                            input: KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::Escape),
+                                ..
+                            },
+                            ..
+                        } => self.should_run = false,
                         _ => (),
                     }
                 }
