@@ -2,8 +2,7 @@ use std::sync::Arc;
 
 use wgpu::{
     Adapter, Backend, Backends, CompositeAlphaMode, Device, DeviceDescriptor, Features, Instance,
-    InstanceDescriptor, Limits, PresentMode, Queue, Surface, SurfaceConfiguration, TextureFormat,
-    TextureUsages,
+    InstanceDescriptor, Limits, PresentMode, Queue, Surface, SurfaceConfiguration,     TextureUsages,
 };
 
 use crate::app::app_window::AppWindow;
@@ -43,7 +42,7 @@ impl Engine {
     }
 
     /// Configures the local [Surface].
-    pub async fn configure_surface(&self) {
+    pub fn configure_surface(&self) {
         let surface_caps = self.surface.get_capabilities(&self.adapter);
         let surface_format = surface_caps
             .formats

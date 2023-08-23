@@ -1,5 +1,5 @@
 // << Imports >>
-use app::App;
+use app::{app_config::AppConfig, App};
 
 // << Modules >>
 pub mod app;
