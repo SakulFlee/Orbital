@@ -9,7 +9,10 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
 };
 
-use crate::{app_window::AppWindow, engine::Engine, AppConfig, APP_NAME};
+use crate::{engine::Engine, app::{app_window::AppWindow, app_config::AppConfig}, APP_NAME};
+
+pub mod app_config;
+pub mod app_window;
 
 pub struct App {
     event_loop: EventLoop<()>,
@@ -54,12 +57,20 @@ impl App {
 
     pub async fn from_app_config(app_config: AppConfig) -> Self {
         let event_loop = EventLoop::new();
+
+        let fullscreen = match app_config.monitor_config {
+            Some(x) => {
+                Some(x.fullscreen.to_winit_fullscreen(&event_loop, &x))
+            },
+            None => None,
+        };
+        
         let window = Arc::new(AppWindow::build_and_open(
             "WGPU",
-            app_config.get_physical_size(),
+            app_config.window_config.to_physical_size(),
             false,
             true,
-            app_config.convert_fullscreen(&event_loop),
+            fullscreen,
             &event_loop,
         ));
 
