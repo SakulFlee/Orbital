@@ -1,7 +1,8 @@
-use std::{fs, path::Path};
+use std::{fs, path::Path, env::var};
 
 use serde::{Deserialize, Serialize};
 
+use crate::APP_NAME;
 use self::{
     config_adapter::ConfigAdapter, config_monitor::ConfigMonitor, config_window::ConfigWindow,
 };
@@ -23,6 +24,26 @@ pub struct AppConfig {
 }
 
 impl AppConfig {
+    pub fn request_default_path() -> String {
+        #[cfg(target_os = "windows")]
+        let mut default_config_path = var("APPDATA")
+            .and_then(|x| Ok(format!("{x}/{APP_NAME}")))
+            .expect("Failed finding default configuration directory!");
+
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        let mut default_config_path = var("XDG_CONFIG_HOME")
+            .or_else(|_| var("HOME").map(|home| format!("{home}/.config/{APP_NAME}")))
+            .expect("Failed finding default configuration directory!");
+
+        #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
+        compile_error!("::: FIXME ::: OTHER PLATFORMS OTHER THAN WINDOWS, LINUX, MACOS DON'T HAVE A DEFAULT CONFIG PATH CONFIGURED YET! ::: FIXME :::");
+
+        default_config_path = format!("{default_config_path}/app_config.toml");
+        log::debug!("Default config path: {default_config_path}");
+
+        return default_config_path;
+    }
+
     pub fn read_or_write_default(config_path: &str) -> Self {
         match Self::read_from_path(config_path) {
             Some(config) => config,
@@ -115,10 +136,7 @@ impl Default for AppConfig {
         #[cfg(debug_assertions)]
         {
             Self {
-                window_config: ConfigWindow {
-                    width: 1280,
-                    height: 720,
-                },
+                window_config: ConfigWindow { size: (1280, 720) },
                 monitor_config: None,
                 adapter_config: None,
             }

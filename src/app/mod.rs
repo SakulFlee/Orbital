@@ -1,4 +1,4 @@
-use std::{env::var, sync::Arc, time::Instant};
+use std::{sync::Arc, time::Instant};
 use wgpu::{
     Color, CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment,
     RenderPassDescriptor, TextureViewDescriptor,
@@ -9,12 +9,13 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
 };
 
-use crate::{engine::Engine, app::{app_window::AppWindow, app_config::AppConfig}, APP_NAME};
+use crate::{engine::Engine, app::{app_window::AppWindow, app_config::AppConfig}};
 
 pub mod app_config;
 pub mod app_window;
 
 pub struct App {
+    app_config: AppConfig,
     event_loop: EventLoop<()>,
     window: Arc<AppWindow>,
     engine: Arc<Engine>,
@@ -28,22 +29,7 @@ pub struct App {
 
 impl App {
     pub async fn from_app_config_default_path() -> Self {
-        #[cfg(target_os = "windows")]
-        let mut default_config_path = var("APPDATA")
-            .and_then(|x| Ok(format!("{x}/{APP_NAME}")))
-            .expect("Failed finding default configuration directory!");
-
-        #[cfg(any(target_os = "linux", target_os = "macos"))]
-        let mut default_config_path = var("XDG_CONFIG_HOME")
-            .or_else(|_| var("HOME").map(|home| format!("{home}/.config/{APP_NAME}")))
-            .expect("Failed finding default configuration directory!");
-
-        #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
-        compile_error!("::: FIXME ::: OTHER PLATFORMS OTHER THAN WINDOWS, LINUX, MACOS DON'T HAVE A DEFAULT CONFIG PATH CONFIGURED YET! ::: FIXME :::");
-
-        default_config_path = format!("{default_config_path}/app_config.toml");
-        log::debug!("Default config path: {default_config_path}");
-
+        let default_config_path = AppConfig::request_default_path();
         let app_config = AppConfig::read_or_write_default(&default_config_path);
 
         App::from_app_config(app_config).await
@@ -58,16 +44,17 @@ impl App {
     pub async fn from_app_config(app_config: AppConfig) -> Self {
         let event_loop = EventLoop::new();
 
-        let fullscreen = match app_config.monitor_config {
+        let fullscreen = match &app_config.monitor_config {
             Some(x) => {
                 Some(x.fullscreen.to_winit_fullscreen(&event_loop, &x))
             },
             None => None,
         };
         
+        let size = app_config.window_config.to_physical_size();
         let window = Arc::new(AppWindow::build_and_open(
             "WGPU",
-            app_config.window_config.to_physical_size(),
+            size,
             false,
             true,
             fullscreen,
@@ -75,9 +62,10 @@ impl App {
         ));
 
         let engine = Arc::new(Engine::initialize(window.clone()).await);
-        engine.configure_surface().await;
+        engine.configure_surface();
 
         Self {
+            app_config,
             event_loop,
             window,
             engine,
@@ -113,7 +101,6 @@ impl App {
             } else {
                 // Exit is requested.
                 *control_flow = ControlFlow::ExitWithCode(0);
-                return;
             }
 
             // << Cycle Calculation >>
@@ -147,6 +134,9 @@ impl App {
             // Update cycle time with now time
             last_cycle_time = now_cycle_time;
 
+            // << Variables >>
+            let mut reconfigure_surface = false;
+
             // << Events >>
             match event {
                 Event::WindowEvent { window_id, event } => {
@@ -162,6 +152,19 @@ impl App {
 
                     match event {
                         WindowEvent::CloseRequested => self.should_run = false,
+                        WindowEvent::Resized(new_size) => {
+                            log::debug!("Resize detected! Changing from {}x{} to {}x{}", self.app_config.window_config.size.0, self.app_config.window_config.size.1, &new_size.width, &new_size.height);
+
+                            // Update config
+                            self.app_config.window_config.size = new_size.into();
+                            if self.app_config.monitor_config.is_some() {
+                                self.app_config.monitor_config.as_mut().unwrap().size = new_size.into();
+                            }
+                            self.app_config.write_to_path(&AppConfig::request_default_path());
+
+                            // Configure surface
+                            reconfigure_surface = true;
+                        },
                         WindowEvent::KeyboardInput {  
                             input: KeyboardInput {
                                 state: ElementState::Pressed,
@@ -277,12 +280,26 @@ impl App {
                         _ => (),
                     }
 
-                    // If redrawing finished -> request to redraw next cycle
-                    self.window.get_window().request_redraw();
+                    if reconfigure_surface {
+                        reconfigure_surface = false;
+                        
+                        // Skip redrawing and reconfigure the surface
+                        self.engine.configure_surface();
+                    } else {
+                        // Request to redraw the next cycle
+                        self.window.get_window().request_redraw();
+                    }
                 }
                 _ => (),
             }
         });
+
+        // Return self since this function takes ownership.
+        // This is required to access data **after** execution.
+        //
+        // Note: Rust thinks this line is unreachable, but it actually is.
+        // #[allow(unreachable_code)]
+        // return self;
     }
 
     pub fn resize(&mut self, new_size: PhysicalSize<u32>) {
@@ -299,5 +316,9 @@ impl App {
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         todo!()
+    }
+
+    pub fn get_app_config(&self) -> &AppConfig {
+        &self.app_config
     }
 }
