@@ -1,25 +1,9 @@
-// <<< Imports >>>
-use crate::AppWindow;
+// << Imports >>
+use app::App;
 
-// <<< Modules >>>
-/// Everything the engine needs.
-/// This is the rendering (and computation?) backend.
-/// The engine will receive an update from `World` and render it.
-mod engine;
-pub use engine::*;
-
-/// Windowing (if needed; Exception -> WASM).
-/// Displays whatever the `Engine` returns onto the screen.
-mod app_window;
-pub use app_window::*;
-
-/// Our Application
-mod app;
-pub use app::*;
-
-// Our Application's configuration
-mod app_config;
-pub use app_config::*;
+// << Modules >>
+pub mod app;
+pub mod engine;
 
 // << Constants >>
 pub const APP_NAME: &'static str = "WGPU-Engine";
