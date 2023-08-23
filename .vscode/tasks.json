@@ -23,8 +23,8 @@
             "group": "build"
         },
         {
-            "label": "Debug Run",
-            "command": "cargo run",
+            "label": "Release Run",
+            "command": "cargo run --release",
             "type": "shell",
             "problemMatcher": [
                 "$rustc"
@@ -32,16 +32,10 @@
             "group": {
                 "kind": "test",
                 "isDefault": true
-            }
-        },
-        {
-            "label": "Release Run",
-            "command": "cargo run --release",
-            "type": "shell",
-            "problemMatcher": [
-                "$rustc"
-            ],
-            "group": "test"
+            },
+            "dependsOn": [
+                "Release Build"
+            ]
         },
     ]
 }
