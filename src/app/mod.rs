@@ -132,8 +132,8 @@ impl App {
 
                 // Update Window Title
                 self.window.get_window().set_title(&format!(
-                    "WGPU - UPS: {}/s (Δ {}s)",
-                    self.fps, self.delta_time
+                    "WGPU @ {} - UPS: {}/s (Δ {}s)",
+                    self.engine.get_adapter().get_info().backend.to_str(), self.fps, self.delta_time
                 ));
 
                 // Update performance outputs
