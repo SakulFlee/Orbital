@@ -13,10 +13,6 @@ pub use engine::*;
 mod app_window;
 pub use app_window::*;
 
-/// Game World with all it's objects and states.
-mod world;
-pub use world::*;
-
 /// Our Application
 mod app;
 pub use app::*;
