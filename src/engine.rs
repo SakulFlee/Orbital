@@ -44,18 +44,25 @@ impl Engine {
 
     /// Configures the local [Surface].
     pub async fn configure_surface(&self) {
-        self.surface.configure(
-            &self.device,
-            &SurfaceConfiguration {
-                usage: TextureUsages::RENDER_ATTACHMENT,
-                format: TextureFormat::Bgra8UnormSrgb,
-                width: self.window.get_window().inner_size().width,
-                height: self.window.get_window().inner_size().height,
-                present_mode: PresentMode::Fifo,
-                alpha_mode: CompositeAlphaMode::Auto,
-                view_formats: vec![TextureFormat::Bgra8UnormSrgb],
-            },
-        )
+        let surface_caps = self.surface.get_capabilities(&self.adapter);
+        let surface_format = surface_caps
+            .formats
+            .iter()
+            .copied()
+            .find(|f| f.is_srgb())
+            .unwrap_or(surface_caps.formats[0]);
+
+        let surface_config = SurfaceConfiguration {
+            usage: TextureUsages::RENDER_ATTACHMENT,
+            format: surface_format,
+            width: self.window.get_window().inner_size().width,
+            height: self.window.get_window().inner_size().height,
+            present_mode: PresentMode::AutoVsync,
+            alpha_mode: CompositeAlphaMode::Auto,
+            view_formats: vec![],
+        };
+
+        self.surface.configure(&self.device, &surface_config)
     }
 
     /// Creates a new [Device] and, as a by-product a [Queue] of that [Device].
