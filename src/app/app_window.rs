@@ -27,8 +27,6 @@ impl AppWindow {
 
         if fullscreen.is_some() {
             builder = builder.with_fullscreen(fullscreen);
-
-            // builder.with_fullscreen(Some(Fullscreen::Exclusive(VideoMode)));
         }
 
         let window = match builder.build(&event_loop) {
