@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use wgpu::{
     Adapter, Backend, Backends, CompositeAlphaMode, Device, DeviceDescriptor, Features, Instance,
-    InstanceDescriptor, Limits, PresentMode, Queue, Surface, SurfaceConfiguration,     TextureUsages,
+    InstanceDescriptor, Limits, PresentMode, Queue, Surface, SurfaceConfiguration, TextureUsages,
 };
 
 use crate::app::app_window::AppWindow;
