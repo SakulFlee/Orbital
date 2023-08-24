@@ -140,7 +140,7 @@ impl App {
             last_cycle_time = now_cycle_time;
 
             // << Variables >>
-            let mut reconfigure_surface = false;
+            let mut resize_to: Option<PhysicalSize<u32>> = None;
 
             // << Events >>
             match event {
@@ -158,18 +158,11 @@ impl App {
                     match event {
                         WindowEvent::CloseRequested => self.should_run = false,
                         WindowEvent::Resized(new_size) => {
-                            log::debug!("Resize detected! Changing from {}x{} to {}x{}", self.app_config.window_config.size.0, self.app_config.window_config.size.1, &new_size.width, &new_size.height);
-
-                            // Update config
-                            self.app_config.window_config.size = new_size.into();
-                            if self.app_config.monitor_config.is_some() {
-                                self.app_config.monitor_config.as_mut().unwrap().size = new_size.into();
-                            }
-                            self.app_config.write_to_path(&AppConfig::request_default_path());
-
-                            // Configure surface
-                            reconfigure_surface = true;
+                            resize_to = Some(new_size);
                         },
+                        WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                            resize_to = Some(*new_inner_size);
+                        }
                         WindowEvent::KeyboardInput {  
                             input: KeyboardInput {
                                 state: ElementState::Pressed,
@@ -285,11 +278,21 @@ impl App {
                         _ => (),
                     }
 
-                    if reconfigure_surface {
-                        reconfigure_surface = false;
-                        
-                        // Skip redrawing and reconfigure the surface
-                        self.engine.configure_surface();
+                    if resize_to.is_some() {
+                        let new_size = resize_to.unwrap();
+                        resize_to = None;
+
+                        log::debug!("Resize detected! Changing from {}x{} to {}x{}", self.app_config.window_config.size.0, self.app_config.window_config.size.1, &new_size.width, &new_size.height);
+
+                            // Update config
+                            self.app_config.window_config.size = new_size.into();
+                            if self.app_config.monitor_config.is_some() {
+                                self.app_config.monitor_config.as_mut().unwrap().size = new_size.into();
+                            }
+                            self.app_config.write_to_path(&AppConfig::request_default_path());
+
+                            // Skip redrawing and reconfigure the surface
+                            self.engine.configure_surface();
                     } else {
                         // Request to redraw the next cycle
                         self.window.get_window().request_redraw();
