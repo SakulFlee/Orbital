@@ -5,13 +5,19 @@ use wgpu::{
 };
 use winit::{
     dpi::PhysicalSize,
-    event::{Event, WindowEvent, KeyboardInput, ElementState, VirtualKeyCode},
+    event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
 };
 
-use crate::{engine::Engine, app::{app_window::AppWindow, app_config::AppConfig}};
+use crate::{
+    app::{app_config::AppConfig, app_window::AppWindow},
+    engine::Engine,
+};
+
+use self::app_context::AppContext;
 
 pub mod app_config;
+pub mod app_context;
 pub mod app_window;
 
 pub struct App {
@@ -22,9 +28,7 @@ pub struct App {
     should_run: bool,
     fps: u32,
     delta_time: f64,
-    clear_colour: Color,
-    clear_colour_index: u32,
-    clear_colour_increasing: bool,
+    app_context: AppContext,
 }
 
 impl App {
@@ -45,12 +49,10 @@ impl App {
         let event_loop = EventLoop::new();
 
         let fullscreen = match &app_config.monitor_config {
-            Some(x) => {
-                Some(x.fullscreen.to_winit_fullscreen(&event_loop, &x))
-            },
+            Some(x) => Some(x.fullscreen.to_winit_fullscreen(&event_loop, &x)),
             None => None,
         };
-        
+
         let size = app_config.window_config.to_physical_size();
         let window = Arc::new(AppWindow::build_and_open(
             "WGPU",
@@ -64,6 +66,16 @@ impl App {
         let engine = Arc::new(Engine::initialize(window.clone()).await);
         engine.configure_surface();
 
+        let mut app_context = AppContext::default();
+        app_context.clear_colour = Color {
+            r: 0.0,
+            g: 0.0,
+            b: 0.0,
+            a: 1.0,
+        };
+        app_context.clear_colour_index = 0;
+        app_context.clear_colour_increasing = true;
+
         Self {
             app_config,
             event_loop,
@@ -72,14 +84,7 @@ impl App {
             should_run: false,
             fps: 0,
             delta_time: 0.0,
-            clear_colour: Color {
-                r: 0.0,
-                g: 0.0,
-                b: 0.0,
-                a: 1.0,
-            },
-            clear_colour_index: 0,
-            clear_colour_increasing: true,
+            app_context,
         }
     }
 
@@ -209,7 +214,7 @@ impl App {
                             view: &output_surface_texture_view,
                             resolve_target: None,
                             ops: Operations {
-                                load: LoadOp::Clear(self.clear_colour),
+                                load: LoadOp::Clear(self.app_context.clear_colour),
                                 store: true,
                             },
                         })],
@@ -225,56 +230,56 @@ impl App {
                 Event::RedrawEventsCleared => {
                     // Update colour variable
                     const INCREASE_RATE: f64 = 0.005;
-                    match self.clear_colour_index {
+                    match self.app_context.clear_colour_index {
                         0 => {
-                            if self.clear_colour_increasing {
-                                self.clear_colour.r += INCREASE_RATE;
+                            if self.app_context.clear_colour_increasing {
+                                self.app_context.clear_colour.r += INCREASE_RATE;
                             } else {
-                                self.clear_colour.r -= INCREASE_RATE;
+                                self.app_context.clear_colour.r -= INCREASE_RATE;
                             }
 
-                            if self.clear_colour.r >= 1.0 || self.clear_colour.r <= 0.0 {
-                                self.clear_colour_increasing = !self.clear_colour_increasing;
+                            if self.app_context.clear_colour.r >= 1.0 || self.app_context.clear_colour.r <= 0.0 {
+                                self.app_context.clear_colour_increasing = !self.app_context.clear_colour_increasing;
                             }
 
-                            if self.clear_colour.r <= 0.1 && !self.clear_colour_increasing {
-                                self.clear_colour_index = 1;
-                                self.clear_colour_increasing = true;
-                                self.clear_colour.r = 0.0;
+                            if self.app_context.clear_colour.r <= 0.1 && !self.app_context.clear_colour_increasing {
+                                self.app_context.clear_colour_index = 1;
+                                self.app_context.clear_colour_increasing = true;
+                                self.app_context.clear_colour.r = 0.0;
                             }
                         }
                         1 => {
-                            if self.clear_colour_increasing {
-                                self.clear_colour.g += INCREASE_RATE;
+                            if self.app_context.clear_colour_increasing {
+                                self.app_context.clear_colour.g += INCREASE_RATE;
                             } else {
-                                self.clear_colour.g -= INCREASE_RATE;
+                                self.app_context.clear_colour.g -= INCREASE_RATE;
                             }
 
-                            if self.clear_colour.g >= 1.0 || self.clear_colour.g <= 0.0 {
-                                self.clear_colour_increasing = !self.clear_colour_increasing;
+                            if self.app_context.clear_colour.g >= 1.0 || self.app_context.clear_colour.g <= 0.0 {
+                                self.app_context.clear_colour_increasing = !self.app_context.clear_colour_increasing;
                             }
 
-                            if self.clear_colour.g <= 0.1 && !self.clear_colour_increasing {
-                                self.clear_colour_index = 2;
-                                self.clear_colour_increasing = true;
-                                self.clear_colour.g = 0.0;
+                            if self.app_context.clear_colour.g <= 0.1 && !self.app_context.clear_colour_increasing {
+                                self.app_context.clear_colour_index = 2;
+                                self.app_context.clear_colour_increasing = true;
+                                self.app_context.clear_colour.g = 0.0;
                             }
                         }
                         2 => {
-                            if self.clear_colour_increasing {
-                                self.clear_colour.b += INCREASE_RATE;
+                            if self.app_context.clear_colour_increasing {
+                                self.app_context.clear_colour.b += INCREASE_RATE;
                             } else {
-                                self.clear_colour.b -= INCREASE_RATE;
+                                self.app_context.clear_colour.b -= INCREASE_RATE;
                             }
 
-                            if self.clear_colour.b >= 1.0 || self.clear_colour.b <= 0.0 {
-                                self.clear_colour_increasing = !self.clear_colour_increasing;
+                            if self.app_context.clear_colour.b >= 1.0 || self.app_context.clear_colour.b <= 0.0 {
+                                self.app_context.clear_colour_increasing = !self.app_context.clear_colour_increasing;
                             }
 
-                            if self.clear_colour.b <= 0.1 && !self.clear_colour_increasing {
-                                self.clear_colour_index = 0;
-                                self.clear_colour_increasing = true;
-                                self.clear_colour.b = 0.0;
+                            if self.app_context.clear_colour.b <= 0.1 && !self.app_context.clear_colour_increasing {
+                                self.app_context.clear_colour_index = 0;
+                                self.app_context.clear_colour_increasing = true;
+                                self.app_context.clear_colour.b = 0.0;
                             }
                         }
                         _ => (),
@@ -300,22 +305,6 @@ impl App {
         // Note: Rust thinks this line is unreachable, but it actually is.
         // #[allow(unreachable_code)]
         // return self;
-    }
-
-    pub fn resize(&mut self, new_size: PhysicalSize<u32>) {
-        todo!()
-    }
-
-    pub fn input(&mut self, event: &WindowEvent) -> bool {
-        todo!()
-    }
-
-    pub fn update(&mut self) {
-        todo!()
-    }
-
-    pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        todo!()
     }
 
     pub fn get_app_config(&self) -> &AppConfig {

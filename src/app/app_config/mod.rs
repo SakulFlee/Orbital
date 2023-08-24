@@ -1,11 +1,11 @@
-use std::{fs, path::Path, env::var};
+use std::{env::var, fs, path::Path};
 
 use serde::{Deserialize, Serialize};
 
-use crate::APP_NAME;
 use self::{
     config_adapter::ConfigAdapter, config_monitor::ConfigMonitor, config_window::ConfigWindow,
 };
+use crate::APP_NAME;
 
 #[cfg(not(debug_assertions))]
 use self::wrapper_fullscreen::WrapperFullscreen;
