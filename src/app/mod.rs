@@ -1,4 +1,3 @@
-use std::{sync::Arc};
 use wgpu::{
     Color, CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment,
     RenderPassDescriptor, TextureViewDescriptor,
@@ -25,7 +24,6 @@ pub struct App {
     app_config: AppConfig,
     app_cycle_counter: AppCycleCounter,
     app_context: AppContext,
-    should_run: bool,
 }
 
 impl App {
@@ -57,14 +55,10 @@ impl App {
             app_config,
             app_cycle_counter: AppCycleCounter::default(),
             app_context,
-            should_run: false,
         }
     }
 
     pub async fn hijack_thread_and_run(mut self) {
-        // Set `should_run` to true which will act as an exit condition
-        self.should_run = true;
-
         // Event Loop
         let event_loop = EventLoop::new();
 
@@ -91,17 +85,9 @@ impl App {
         self.app_cycle_counter.reset();
 
         event_loop.run(move |event, _target, control_flow| {
-            // << Control Flow >>
-            if self.should_run {
-                // Immediately start a new cycle once a loop is completed.
-                // Ideal for games, but more resource intensive.
-                *control_flow = ControlFlow::Poll;
-            } else {
-                // Exit is requested.
-                *control_flow = ControlFlow::ExitWithCode(0);
-            }
-
-            self.handle_frame_counter();
+            // Immediately start a new cycle once a loop is completed.
+            // Ideal for games, but more resource intensive.
+            *control_flow = ControlFlow::Poll;
 
             self.app_cycle_counter.tick(&(|delta_time, ups| {
                 // Update Window Title
@@ -113,9 +99,6 @@ impl App {
                 // Update performance outputs
                 log::debug!("UPS: {}/s (delta time: {}s)", ups, delta_time);
             }));
-
-            // << Variables >>
-            let mut resize_to: Option<PhysicalSize<u32>> = None;
 
             // << Events >>
             match event {
@@ -131,13 +114,9 @@ impl App {
                     }
 
                     match event {
-                        WindowEvent::CloseRequested => self.should_run = false,
-                        WindowEvent::Resized(new_size) => {
-                            resize_to = Some(new_size);
-                        },
-                        WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                            resize_to = Some(*new_inner_size);
-                        }
+                        WindowEvent::CloseRequested => *control_flow = ControlFlow::ExitWithCode(0),
+                        WindowEvent::Resized(new_size) => self.resize(new_size, &engine),
+                        WindowEvent::ScaleFactorChanged { new_inner_size, .. } => self.resize(*new_inner_size, &engine),
                         WindowEvent::KeyboardInput {  
                             input: KeyboardInput {
                                 state: ElementState::Pressed,
@@ -145,7 +124,7 @@ impl App {
                                 ..
                             },
                             ..
-                        } => self.should_run = false,
+                        } => *control_flow = ControlFlow::ExitWithCode(0),
                         _ => (),
                     }
                 }
@@ -252,25 +231,8 @@ impl App {
                         _ => (),
                     }
 
-                    if resize_to.is_some() {
-                        let new_size = resize_to.unwrap();
-                        resize_to = None;
-
-                        log::debug!("Resize detected! Changing from {}x{} to {}x{}", self.app_config.window_config.size.0, self.app_config.window_config.size.1, &new_size.width, &new_size.height);
-
-                            // Update config
-                            self.app_config.window_config.size = new_size.into();
-                            if self.app_config.monitor_config.is_some() {
-                                self.app_config.monitor_config.as_mut().unwrap().size = new_size.into();
-                            }
-                            self.app_config.write_to_path(&AppConfig::request_default_path());
-
-                            // Skip redrawing and reconfigure the surface
-                            engine.configure_surface();
-                    } else {
                         // Request to redraw the next cycle
                         window.get_window().request_redraw();
-                    }
                 }
                 _ => (),
             }
@@ -284,8 +246,18 @@ impl App {
         // return self;
     }
 
-    fn handle_frame_counter(&mut self) {
+    fn resize(&mut self, new_size: PhysicalSize<u32>, engine: &Engine) {
+        log::debug!("Resize detected! Changing from {}x{} to {}x{}", self.app_config.window_config.size.0, self.app_config.window_config.size.1, &new_size.width, &new_size.height);
 
+        // Update config
+        self.app_config.window_config.size = new_size.into();
+        if self.app_config.monitor_config.is_some() {
+            self.app_config.monitor_config.as_mut().unwrap().size = new_size.into();
+        }
+        self.app_config.write_to_path(&AppConfig::request_default_path());
+
+        // Skip redrawing and reconfigure the surface
+        engine.configure_surface();
     }
 
     pub fn get_app_config(&self) -> &AppConfig {
