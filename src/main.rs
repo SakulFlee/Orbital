@@ -1,5 +1,5 @@
 // << Imports >>
-use app::{app_config::AppConfig, App};
+use app::App;
 
 // << Modules >>
 pub mod app;
@@ -20,7 +20,7 @@ async fn main() {
 
     // App
     let app = App::from_app_config_default_path().await;
-    app.start();
+    app.hijack_thread_and_run().await;
 }
 
 async fn log_init() {

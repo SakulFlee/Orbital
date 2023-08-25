@@ -250,6 +250,8 @@ impl Engine {
             i += 1;
         }
 
+        // TODO: Check app config for preferred adapter
+
         // Pick the last adapter.
         // After scoring and sorting, the higest score should be the
         // best option
