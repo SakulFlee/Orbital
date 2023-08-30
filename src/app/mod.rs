@@ -117,8 +117,8 @@ impl App {
 
                     match event {
                         WindowEvent::CloseRequested => *control_flow = ControlFlow::ExitWithCode(0),
-                        WindowEvent::Resized(new_size) => self.resize(new_size, &engine),
-                        WindowEvent::ScaleFactorChanged { new_inner_size, .. } => self.resize(*new_inner_size, &engine),
+                        WindowEvent::Resized(new_size) => self.handle_resize(new_size, &engine),
+                        WindowEvent::ScaleFactorChanged { new_inner_size, .. } => self.handle_resize(*new_inner_size, &engine),
                         WindowEvent::KeyboardInput {  
                             input: KeyboardInput {
                                 state: ElementState::Pressed,
@@ -233,15 +233,15 @@ impl App {
                         _ => (),
                     }
 
-                        // Request to redraw the next cycle
-                        window.get_window().request_redraw();
+                    // Request to redraw the next cycle
+                    window.get_window().request_redraw();
                 }
                 _ => (),
             }
         });
     }
 
-    fn resize(&mut self, new_size: PhysicalSize<u32>, engine: &Engine) {
+    fn handle_resize(&mut self, new_size: PhysicalSize<u32>, engine: &Engine) {
         log::debug!("Resize detected! Changing from {}x{} to {}x{}", self.app_config.window_config.size.0, self.app_config.window_config.size.1, &new_size.width, &new_size.height);
 
         // Update config
