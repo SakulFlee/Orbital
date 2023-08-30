@@ -237,13 +237,6 @@ impl App {
                 _ => (),
             }
         });
-
-        // Return self since this function takes ownership.
-        // This is required to access data **after** execution.
-        //
-        // Note: Rust thinks this line is unreachable, but it actually is.
-        // #[allow(unreachable_code)]
-        // return self;
     }
 
     fn resize(&mut self, new_size: PhysicalSize<u32>, engine: &Engine) {
