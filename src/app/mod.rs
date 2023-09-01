@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use wgpu::{
-    Color, CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment,
-    RenderPassDescriptor, TextureViewDescriptor,
+    Color, CommandBuffer, CommandEncoder, CommandEncoderDescriptor, LoadOp, Operations,
+    RenderPassColorAttachment, RenderPassDescriptor, TextureView, TextureViewDescriptor,
 };
 use winit::{
     dpi::PhysicalSize,
-    event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
+    event::{DeviceId, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
 };
 
@@ -15,17 +15,23 @@ use crate::{
     engine::Engine,
 };
 
-use self::{app_context::AppContext, app_cycle_counter::AppCycleCounter};
+use self::{
+    app_context::AppContext,
+    app_cycle_counter::AppCycleCounter,
+    app_input_handler::{keyboard_input_handler::AppKeyboardInputHandler, AppInputHandler},
+};
 
 pub mod app_config;
 pub mod app_context;
-pub mod app_window;
 pub mod app_cycle_counter;
+pub mod app_input_handler;
+pub mod app_window;
 
 pub struct App {
     app_config: AppConfig,
     app_cycle_counter: AppCycleCounter,
     app_context: AppContext,
+    app_input_handler: AppInputHandler,
 }
 
 impl App {
@@ -57,6 +63,7 @@ impl App {
             app_config,
             app_cycle_counter: AppCycleCounter::default(),
             app_context,
+            app_input_handler: AppInputHandler::new(),
         }
     }
 
@@ -86,6 +93,9 @@ impl App {
         // << Cycle Calculation >>
         self.app_cycle_counter.reset();
 
+        // TODO: FPS Limit cycle calculation
+        // I.e. Update every cycle, but render only after delta time is past
+
         event_loop.run(move |event, _target, control_flow| {
             // Immediately start a new cycle once a loop is completed.
             // Ideal for games, but more resource intensive.
@@ -105,9 +115,6 @@ impl App {
             // << Events >>
             match event {
                 Event::WindowEvent { window_id, event } => {
-                    
-                    // log::debug!("Window Event :: Window ID: {window_id:?}, Event: {event:?}");
-
                     // Validate that the window ID match.
                     // Should only be different if multiple windows are used.
                     if window_id != window.get_window().id() {
@@ -119,14 +126,13 @@ impl App {
                         WindowEvent::CloseRequested => *control_flow = ControlFlow::ExitWithCode(0),
                         WindowEvent::Resized(new_size) => self.handle_resize(new_size, &engine),
                         WindowEvent::ScaleFactorChanged { new_inner_size, .. } => self.handle_resize(*new_inner_size, &engine),
-                        WindowEvent::KeyboardInput {  
-                            input: KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::Escape),
-                                ..
-                            },
-                            ..
-                        } => *control_flow = ControlFlow::ExitWithCode(0),
+                        WindowEvent::KeyboardInput {
+                            device_id,
+                            input,
+                            is_synthetic
+                        } => {
+                            self.handle_keyboard_input(device_id, input, is_synthetic);
+                        }
                         _ => (),
                     }
                 }
@@ -136,44 +142,11 @@ impl App {
                     // Validate that the window ID match.
                     // Should only be different if multiple windows are used.
                     if window_id != window.get_window().id() {
-                        log::warn!("Invalid window ID for above's Event!");
+                        log::warn!("A window with an ID not matching our window wants to be redrawn by us ... Skipping?");
                         return;
                     }
 
-                    // TODO: Rendering goes here
-                    let output_surface_texture = engine
-                        .get_surface()
-                        .get_current_texture()
-                        .expect("failed acquiring current texture of target window");
-
-                    let output_surface_texture_view = output_surface_texture
-                        .texture
-                        .create_view(&TextureViewDescriptor::default());
-
-                    let mut command_encoder = engine.get_device().create_command_encoder(
-                        &CommandEncoderDescriptor {
-                            label: Some("Render Encoder"),
-                        },
-                    );
-
-                    command_encoder.begin_render_pass(&RenderPassDescriptor {
-                        label: Some("Render Pass"),
-                        color_attachments: &[Some(RenderPassColorAttachment {
-                            view: &output_surface_texture_view,
-                            resolve_target: None,
-                            ops: Operations {
-                                load: LoadOp::Clear(self.app_context.clear_colour),
-                                store: true,
-                            },
-                        })],
-                        depth_stencil_attachment: None,
-                    });
-
-                    let command_buffer = command_encoder.finish();
-
-                    // Submit command buffer
-                    engine.get_queue().submit(vec![command_buffer]);
-                    output_surface_texture.present();
+                    self.handle_redraw(engine.clone());
                 }
                 Event::RedrawEventsCleared => {
                     // Update colour variable
@@ -238,18 +211,46 @@ impl App {
                 }
                 _ => (),
             }
+
+            // Updates!
+            if let Some(r_control_flow) = self.handle_update() {
+                if *control_flow != r_control_flow {
+                    log::warn!("Switching control flow from {:?} to {:?}", *control_flow, r_control_flow);
+                    *control_flow = r_control_flow;
+                }
+            }
         });
     }
 
+    fn handle_keyboard_input(
+        &mut self,
+        _device_id: DeviceId,
+        input: KeyboardInput,
+        _is_synthetic: bool,
+    ) {
+        let input_handler: &mut AppInputHandler = &mut self.app_input_handler;
+        let keyboard_handler: &mut AppKeyboardInputHandler =
+            input_handler.get_keyboard_input_handler();
+
+        keyboard_handler.handle_keyboard_input(input);
+    }
+
     fn handle_resize(&mut self, new_size: PhysicalSize<u32>, engine: &Engine) {
-        log::debug!("Resize detected! Changing from {}x{} to {}x{}", self.app_config.window_config.size.0, self.app_config.window_config.size.1, &new_size.width, &new_size.height);
+        log::debug!(
+            "Resize detected! Changing from {}x{} to {}x{}",
+            self.app_config.window_config.size.0,
+            self.app_config.window_config.size.1,
+            &new_size.width,
+            &new_size.height
+        );
 
         // Update config
         self.app_config.window_config.size = new_size.into();
         if self.app_config.monitor_config.is_some() {
             self.app_config.monitor_config.as_mut().unwrap().size = new_size.into();
         }
-        self.app_config.write_to_path(&AppConfig::request_default_path());
+        self.app_config
+            .write_to_path(&AppConfig::request_default_path());
 
         // Skip redrawing and reconfigure the surface
         engine.configure_surface();
@@ -257,5 +258,70 @@ impl App {
 
     pub fn get_app_config(&self) -> &AppConfig {
         &self.app_config
+    }
+
+    fn handle_update(&self) -> Option<ControlFlow> {
+        // Exit condition
+        if self
+            .app_input_handler
+            .are_all_keys_pressed(&vec![VirtualKeyCode::LAlt, VirtualKeyCode::F4])
+            || self
+                .app_input_handler
+                .is_key_pressed(&VirtualKeyCode::Escape)
+        {
+            log::warn!("Exit condition reached!");
+            return Some(ControlFlow::Exit);
+        }
+
+        None
+    }
+
+    fn handle_redraw(&self, engine: Arc<Engine>) {
+        let output_surface_texture = engine
+            .get_surface()
+            .get_current_texture()
+            .expect("failed acquiring current texture of target window");
+
+        let output_surface_texture_view = output_surface_texture
+            .texture
+            .create_view(&TextureViewDescriptor::default());
+
+        let command_encoder =
+            engine
+                .get_device()
+                .create_command_encoder(&CommandEncoderDescriptor {
+                    label: Some("Render Encoder"),
+                });
+
+        fn make_clear_screen(
+            mut command_encoder: CommandEncoder,
+            output_texture_view: &TextureView,
+            clear_colour: Color,
+        ) -> CommandBuffer {
+            command_encoder.begin_render_pass(&RenderPassDescriptor {
+                label: Some("Render Pass"),
+                color_attachments: &[Some(RenderPassColorAttachment {
+                    view: &output_texture_view,
+                    resolve_target: None,
+                    ops: Operations {
+                        load: LoadOp::Clear(clear_colour),
+                        store: true,
+                    },
+                })],
+                depth_stencil_attachment: None,
+            });
+
+            command_encoder.finish()
+        }
+
+        let command_buffer = make_clear_screen(
+            command_encoder,
+            &output_surface_texture_view,
+            self.app_context.clear_colour,
+        );
+
+        // Submit command buffer
+        engine.get_queue().submit(vec![command_buffer]);
+        output_surface_texture.present();
     }
 }
