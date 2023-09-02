@@ -19,6 +19,7 @@ use self::{
     app_context::AppContext,
     app_cycle_counter::AppCycleCounter,
     app_input_handler::{keyboard_input_handler::AppKeyboardInputHandler, AppInputHandler},
+    app_world::{clear_screen_object::ClearScreenObject, AppWorld},
 };
 
 pub mod app_config;
@@ -26,12 +27,13 @@ pub mod app_context;
 pub mod app_cycle_counter;
 pub mod app_input_handler;
 pub mod app_window;
+pub mod app_world;
 
 pub struct App {
     app_config: AppConfig,
     app_cycle_counter: AppCycleCounter,
-    app_context: AppContext,
     app_input_handler: AppInputHandler,
+    app_world: AppWorld,
 }
 
 impl App {
@@ -49,21 +51,11 @@ impl App {
     }
 
     pub async fn from_app_config(app_config: AppConfig) -> Self {
-        let mut app_context = AppContext::default();
-        app_context.clear_colour = Color {
-            r: 0.0,
-            g: 0.0,
-            b: 0.0,
-            a: 1.0,
-        };
-        app_context.clear_colour_index = 0;
-        app_context.clear_colour_increasing = true;
-
         Self {
             app_config,
             app_cycle_counter: AppCycleCounter::default(),
-            app_context,
             app_input_handler: AppInputHandler::new(),
+            app_world: AppWorld::new(),
         }
     }
 
@@ -96,12 +88,23 @@ impl App {
         // TODO: FPS Limit cycle calculation
         // I.e. Update every cycle, but render only after delta time is past
 
+        // App Context
+        let mut app_context = AppContext::default();
+        app_context.clear_colour = Color {
+            r: 0.0,
+            g: 0.0,
+            b: 0.0,
+            a: 1.0,
+        };
+        app_context.clear_colour_index = 0;
+        app_context.clear_colour_increasing = true;
+
         event_loop.run(move |event, _target, control_flow| {
             // Immediately start a new cycle once a loop is completed.
             // Ideal for games, but more resource intensive.
             *control_flow = ControlFlow::Poll;
 
-            self.app_cycle_counter.tick(&(|delta_time, ups| {
+            if let Some((delta_time, ups)) = self.app_cycle_counter.tick() {
                 // Update Window Title
                 window.get_window().set_title(&format!(
                     "WGPU @ {} - UPS: {}/s (Δ {}s)",
@@ -110,7 +113,7 @@ impl App {
 
                 // Update performance outputs
                 log::debug!("UPS: {}/s (delta time: {}s)", ups, delta_time);
-            }));
+            }
 
             // << Events >>
             match event {
@@ -137,8 +140,6 @@ impl App {
                     }
                 }
                 Event::RedrawRequested(window_id) => {
-                    log::debug!("Redraw Requested :: Window ID: {window_id:?}");
-
                     // Validate that the window ID match.
                     // Should only be different if multiple windows are used.
                     if window_id != window.get_window().id() {
@@ -149,74 +150,75 @@ impl App {
                     self.handle_redraw(engine.clone());
                 }
                 Event::RedrawEventsCleared => {
+                    // Request to redraw the next cycle
+                    window.get_window().request_redraw();
+
+                    // TODO: Below shouldn't even be here but in updates
                     // Update colour variable
                     const INCREASE_RATE: f64 = 0.005;
-                    match self.app_context.clear_colour_index {
+                    match app_context.clear_colour_index {
                         0 => {
-                            if self.app_context.clear_colour_increasing {
-                                self.app_context.clear_colour.r += INCREASE_RATE;
+                            if app_context.clear_colour_increasing {
+                                app_context.clear_colour.r += INCREASE_RATE;
                             } else {
-                                self.app_context.clear_colour.r -= INCREASE_RATE;
+                                app_context.clear_colour.r -= INCREASE_RATE;
                             }
 
-                            if self.app_context.clear_colour.r >= 1.0 || self.app_context.clear_colour.r <= 0.0 {
-                                self.app_context.clear_colour_increasing = !self.app_context.clear_colour_increasing;
+                            if app_context.clear_colour.r >= 1.0 || app_context.clear_colour.r <= 0.0 {
+                                app_context.clear_colour_increasing = !app_context.clear_colour_increasing;
                             }
 
-                            if self.app_context.clear_colour.r <= 0.1 && !self.app_context.clear_colour_increasing {
-                                self.app_context.clear_colour_index = 1;
-                                self.app_context.clear_colour_increasing = true;
-                                self.app_context.clear_colour.r = 0.0;
+                            if app_context.clear_colour.r <= 0.1 && !app_context.clear_colour_increasing {
+                                app_context.clear_colour_index = 1;
+                                app_context.clear_colour_increasing = true;
+                                app_context.clear_colour.r = 0.0;
                             }
                         }
                         1 => {
-                            if self.app_context.clear_colour_increasing {
-                                self.app_context.clear_colour.g += INCREASE_RATE;
+                            if app_context.clear_colour_increasing {
+                                app_context.clear_colour.g += INCREASE_RATE;
                             } else {
-                                self.app_context.clear_colour.g -= INCREASE_RATE;
+                                app_context.clear_colour.g -= INCREASE_RATE;
                             }
 
-                            if self.app_context.clear_colour.g >= 1.0 || self.app_context.clear_colour.g <= 0.0 {
-                                self.app_context.clear_colour_increasing = !self.app_context.clear_colour_increasing;
+                            if app_context.clear_colour.g >= 1.0 || app_context.clear_colour.g <= 0.0 {
+                                app_context.clear_colour_increasing = !app_context.clear_colour_increasing;
                             }
 
-                            if self.app_context.clear_colour.g <= 0.1 && !self.app_context.clear_colour_increasing {
-                                self.app_context.clear_colour_index = 2;
-                                self.app_context.clear_colour_increasing = true;
-                                self.app_context.clear_colour.g = 0.0;
+                            if app_context.clear_colour.g <= 0.1 && !app_context.clear_colour_increasing {
+                                app_context.clear_colour_index = 2;
+                                app_context.clear_colour_increasing = true;
+                                app_context.clear_colour.g = 0.0;
                             }
                         }
                         2 => {
-                            if self.app_context.clear_colour_increasing {
-                                self.app_context.clear_colour.b += INCREASE_RATE;
+                            if app_context.clear_colour_increasing {
+                                app_context.clear_colour.b += INCREASE_RATE;
                             } else {
-                                self.app_context.clear_colour.b -= INCREASE_RATE;
+                                app_context.clear_colour.b -= INCREASE_RATE;
                             }
 
-                            if self.app_context.clear_colour.b >= 1.0 || self.app_context.clear_colour.b <= 0.0 {
-                                self.app_context.clear_colour_increasing = !self.app_context.clear_colour_increasing;
+                            if app_context.clear_colour.b >= 1.0 || app_context.clear_colour.b <= 0.0 {
+                                app_context.clear_colour_increasing = !app_context.clear_colour_increasing;
                             }
 
-                            if self.app_context.clear_colour.b <= 0.1 && !self.app_context.clear_colour_increasing {
-                                self.app_context.clear_colour_index = 0;
-                                self.app_context.clear_colour_increasing = true;
-                                self.app_context.clear_colour.b = 0.0;
+                            if app_context.clear_colour.b <= 0.1 && !app_context.clear_colour_increasing {
+                                app_context.clear_colour_index = 0;
+                                app_context.clear_colour_increasing = true;
+                                app_context.clear_colour.b = 0.0;
                             }
                         }
                         _ => (),
                     }
-
-                    // Request to redraw the next cycle
-                    window.get_window().request_redraw();
                 }
                 _ => (),
             }
-
+            
             // Updates!
-            if let Some(r_control_flow) = self.handle_update() {
-                if *control_flow != r_control_flow {
+            if let Some(r_control_flow) = &self.handle_update() {
+                if *control_flow != *r_control_flow {
                     log::warn!("Switching control flow from {:?} to {:?}", *control_flow, r_control_flow);
-                    *control_flow = r_control_flow;
+                    *control_flow = *r_control_flow;
                 }
             }
         });
@@ -244,6 +246,11 @@ impl App {
             &new_size.height
         );
 
+        if !engine.get_device().poll(wgpu::MaintainBase::Wait) {
+            log::error!("Failed to poll device before resizing!");
+            return;
+        }
+
         // Update config
         self.app_config.window_config.size = new_size.into();
         if self.app_config.monitor_config.is_some() {
@@ -252,7 +259,7 @@ impl App {
         self.app_config
             .write_to_path(&AppConfig::request_default_path());
 
-        // Skip redrawing and reconfigure the surface
+        // Reconfigure the surface
         engine.configure_surface();
     }
 
@@ -260,7 +267,7 @@ impl App {
         &self.app_config
     }
 
-    fn handle_update(&self) -> Option<ControlFlow> {
+    fn handle_update(&mut self) -> Option<ControlFlow> {
         // Exit condition
         if self
             .app_input_handler
@@ -273,10 +280,26 @@ impl App {
             return Some(ControlFlow::Exit);
         }
 
+        // World Spawn
+        if self
+            .app_input_handler
+            .is_key_pressed(&VirtualKeyCode::Space)
+        {
+            let object = ClearScreenObject::new();
+            let object_boxed = Box::new(object);
+            self.app_world.spawn_object(object_boxed);
+
+            log::debug!("Object: {}", self.app_world.count_object());
+            log::debug!("Updateable: {}", self.app_world.count_updateable());
+            log::debug!("Renderable: {}", self.app_world.count_renderable());
+        }
+
+        self.app_world.call_updateables();
+
         None
     }
 
-    fn handle_redraw(&self, engine: Arc<Engine>) {
+    fn handle_redraw(&mut self, engine: Arc<Engine>) {
         let output_surface_texture = engine
             .get_surface()
             .get_current_texture()
@@ -317,11 +340,17 @@ impl App {
         let command_buffer = make_clear_screen(
             command_encoder,
             &output_surface_texture_view,
-            self.app_context.clear_colour,
+            // app_context.clear_colour,
+            Color::BLACK, // TODO
         );
 
+        let mut command_buffers = self.app_world.call_renderables(engine.clone());
+
+        // TODO
+        command_buffers.push(command_buffer);
+
         // Submit command buffer
-        engine.get_queue().submit(vec![command_buffer]);
+        engine.get_queue().submit(command_buffers);
         output_surface_texture.present();
     }
 }
