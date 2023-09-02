@@ -6,7 +6,7 @@ pub mod controller_input_handler;
 pub mod keyboard_input_handler;
 pub mod mouse_input_handler;
 
-#[derive(Debug, Default, Hash)]
+#[derive(Debug, Default)]
 pub struct AppInputHandler {
     keyboard_input_handler: AppKeyboardInputHandler,
 }
