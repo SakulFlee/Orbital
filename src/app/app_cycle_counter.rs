@@ -8,14 +8,14 @@ pub struct AppCycleCounter {
 }
 
 impl AppCycleCounter {
-    pub fn reset(&mut self)  {
+    pub fn reset(&mut self) {
         self.last_cycle_time = Instant::now();
         self.current_cycle_count = 0;
         self.delta_time = 0.0;
         self.cycles_per_second = 0;
     }
 
-    pub fn tick(&mut self, on_delta_tick: &dyn Fn(f64, u32) -> ()) {
+    pub fn tick(&mut self) -> Option<(f64, u32)> {
         // Take now time
         let now = Instant::now();
 
@@ -37,12 +37,14 @@ impl AppCycleCounter {
             self.cycles_per_second = self.current_cycle_count;
             self.current_cycle_count = 0;
 
-            // Call callable
-            on_delta_tick(self.delta_time, self.cycles_per_second);
-
             // Decrease delta time
+            let current_delta_time = self.delta_time;
             self.delta_time -= 1.0;
+
+            return Some((current_delta_time, self.cycles_per_second));
         }
+
+        return None;
     }
 }
 

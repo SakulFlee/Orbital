@@ -3,7 +3,13 @@
         "fullscreen",
         "Fullscreen",
         "millihertz",
+        "renderable",
+        "Renderable",
+        "renderables",
         "tokio",
+        "updateable",
+        "Updateable",
+        "updateables",
         "wgpu",
         "winit"
     ],

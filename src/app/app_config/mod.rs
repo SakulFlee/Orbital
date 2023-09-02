@@ -120,10 +120,7 @@ impl Default for AppConfig {
         #[cfg(not(debug_assertions))]
         {
             Self {
-                window_config: Some(ConfigWindow {
-                    width: 1920,
-                    height: 1080,
-                }),
+                window_config: ConfigWindow { size: (1920, 1080) },
                 monitor_config: Some(ConfigMonitor {
                     fullscreen: WrapperFullscreen::Exclusive,
                     position: (0, 0),
