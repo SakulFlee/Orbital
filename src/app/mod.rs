@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
 use wgpu::{
-    Color, CommandBuffer, CommandEncoder, CommandEncoderDescriptor, LoadOp, Operations,
-    RenderPassColorAttachment, RenderPassDescriptor, TextureView, TextureViewDescriptor,
+    Color, TextureViewDescriptor,
 };
 use winit::{
     dpi::PhysicalSize,
@@ -59,6 +58,12 @@ impl App {
         }
     }
 
+    pub async fn spawn_world(&mut self) {
+        let clear_screen = ClearScreenObject::new();
+        let clear_screen_boxed = Box::new(clear_screen);
+        self.app_world.spawn_object(clear_screen_boxed);
+    }
+
     pub async fn hijack_thread_and_run(mut self) {
         // Event Loop
         let event_loop = EventLoop::new();
@@ -85,6 +90,8 @@ impl App {
         // << Cycle Calculation >>
         self.app_cycle_counter.reset();
 
+        self.spawn_world().await;
+
         // TODO: FPS Limit cycle calculation
         // I.e. Update every cycle, but render only after delta time is past
 
@@ -98,6 +105,8 @@ impl App {
         };
         app_context.clear_colour_index = 0;
         app_context.clear_colour_increasing = true;
+
+        
 
         event_loop.run(move |event, _target, control_flow| {
             // Immediately start a new cycle once a loop is completed.
@@ -152,64 +161,6 @@ impl App {
                 Event::RedrawEventsCleared => {
                     // Request to redraw the next cycle
                     window.get_window().request_redraw();
-
-                    // TODO: Below shouldn't even be here but in updates
-                    // Update colour variable
-                    const INCREASE_RATE: f64 = 0.005;
-                    match app_context.clear_colour_index {
-                        0 => {
-                            if app_context.clear_colour_increasing {
-                                app_context.clear_colour.r += INCREASE_RATE;
-                            } else {
-                                app_context.clear_colour.r -= INCREASE_RATE;
-                            }
-
-                            if app_context.clear_colour.r >= 1.0 || app_context.clear_colour.r <= 0.0 {
-                                app_context.clear_colour_increasing = !app_context.clear_colour_increasing;
-                            }
-
-                            if app_context.clear_colour.r <= 0.1 && !app_context.clear_colour_increasing {
-                                app_context.clear_colour_index = 1;
-                                app_context.clear_colour_increasing = true;
-                                app_context.clear_colour.r = 0.0;
-                            }
-                        }
-                        1 => {
-                            if app_context.clear_colour_increasing {
-                                app_context.clear_colour.g += INCREASE_RATE;
-                            } else {
-                                app_context.clear_colour.g -= INCREASE_RATE;
-                            }
-
-                            if app_context.clear_colour.g >= 1.0 || app_context.clear_colour.g <= 0.0 {
-                                app_context.clear_colour_increasing = !app_context.clear_colour_increasing;
-                            }
-
-                            if app_context.clear_colour.g <= 0.1 && !app_context.clear_colour_increasing {
-                                app_context.clear_colour_index = 2;
-                                app_context.clear_colour_increasing = true;
-                                app_context.clear_colour.g = 0.0;
-                            }
-                        }
-                        2 => {
-                            if app_context.clear_colour_increasing {
-                                app_context.clear_colour.b += INCREASE_RATE;
-                            } else {
-                                app_context.clear_colour.b -= INCREASE_RATE;
-                            }
-
-                            if app_context.clear_colour.b >= 1.0 || app_context.clear_colour.b <= 0.0 {
-                                app_context.clear_colour_increasing = !app_context.clear_colour_increasing;
-                            }
-
-                            if app_context.clear_colour.b <= 0.1 && !app_context.clear_colour_increasing {
-                                app_context.clear_colour_index = 0;
-                                app_context.clear_colour_increasing = true;
-                                app_context.clear_colour.b = 0.0;
-                            }
-                        }
-                        _ => (),
-                    }
                 }
                 _ => (),
             }
@@ -221,6 +172,8 @@ impl App {
                     *control_flow = *r_control_flow;
                 }
             }
+
+            window.get_window().request_redraw();
         });
     }
 
@@ -309,45 +262,8 @@ impl App {
             .texture
             .create_view(&TextureViewDescriptor::default());
 
-        let command_encoder =
-            engine
-                .get_device()
-                .create_command_encoder(&CommandEncoderDescriptor {
-                    label: Some("Render Encoder"),
-                });
-
-        fn make_clear_screen(
-            mut command_encoder: CommandEncoder,
-            output_texture_view: &TextureView,
-            clear_colour: Color,
-        ) -> CommandBuffer {
-            command_encoder.begin_render_pass(&RenderPassDescriptor {
-                label: Some("Render Pass"),
-                color_attachments: &[Some(RenderPassColorAttachment {
-                    view: &output_texture_view,
-                    resolve_target: None,
-                    ops: Operations {
-                        load: LoadOp::Clear(clear_colour),
-                        store: true,
-                    },
-                })],
-                depth_stencil_attachment: None,
-            });
-
-            command_encoder.finish()
-        }
-
-        let command_buffer = make_clear_screen(
-            command_encoder,
-            &output_surface_texture_view,
-            // app_context.clear_colour,
-            Color::BLACK, // TODO
-        );
-
-        let mut command_buffers = self.app_world.call_renderables(engine.clone());
-
-        // TODO
-        command_buffers.push(command_buffer);
+        // Build command buffers for frame
+        let command_buffers = self.app_world.call_renderables(engine.clone(), &output_surface_texture_view);
 
         // Submit command buffer
         engine.get_queue().submit(command_buffers);
