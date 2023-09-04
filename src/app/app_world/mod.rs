@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use wgpu::{CommandBuffer, CommandEncoderDescriptor};
+use wgpu::{CommandBuffer, CommandEncoderDescriptor, TextureView};
 
 use crate::engine::Engine;
 
@@ -47,7 +47,11 @@ impl AppWorld {
             .for_each(|updateable| updateable.update());
     }
 
-    pub fn call_renderables(&mut self, engine: Arc<Engine>) -> Vec<CommandBuffer> {
+    pub fn call_renderables(
+        &mut self,
+        engine: Arc<Engine>,
+        output_texture_view: &TextureView,
+    ) -> Vec<CommandBuffer> {
         // Index for [`CommandEncoder`] label
         let mut index = 0;
 
@@ -68,7 +72,7 @@ impl AppWorld {
                 index += 1;
 
                 // Call render function
-                x.render(engine.clone(), command_encoder)
+                x.render(command_encoder, output_texture_view)
             })
             .collect();
 
@@ -89,7 +93,7 @@ impl AppWorld {
                 index += 1;
 
                 // Call render function
-                x.render(engine.clone(), command_encoder)
+                x.render(command_encoder, output_texture_view)
             })
             .collect();
 
