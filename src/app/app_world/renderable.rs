@@ -1,11 +1,11 @@
-use std::sync::Arc;
-
-use wgpu::{CommandBuffer, CommandEncoder};
-
-use crate::engine::Engine;
+use wgpu::{CommandBuffer, CommandEncoder, TextureView};
 
 pub trait Renderable {
-    fn render(&mut self, engine: Arc<Engine>, command_encoder: CommandEncoder) -> CommandBuffer;
+    fn render(
+        &mut self,
+        command_encoder: CommandEncoder,
+        texture_view: &TextureView,
+    ) -> CommandBuffer;
 
     fn do_render(&self) -> bool;
 }
