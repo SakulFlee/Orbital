@@ -37,5 +37,13 @@
                 "Release Build"
             ]
         },
+        {
+            "label": "Format Code",
+            "command": "cargo fmt",
+            "type": "shell",
+            "problemMatcher": [
+                "$rustc"
+            ],
+        }
     ]
 }
