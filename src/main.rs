@@ -52,6 +52,12 @@ async fn log_init() {
         fs::rename(log_path_0, log_path_1).expect("failed renaming game-0.log to game-1.log");
     }
 
+    let default_log_level = if cfg!(debug_assertions) {
+        log::LevelFilter::Trace
+    } else {
+        log::LevelFilter::Info
+    };
+
     fern::Dispatch::new()
         // Setup formation
         .format(|out, message, record| {
@@ -66,7 +72,7 @@ async fn log_init() {
         .chain(
             fern::Dispatch::new()
                 // Default level to accept
-                .level(log::LevelFilter::Trace)
+                .level(default_log_level)
                 // WGPU Overwrite
                 .level_for("wgpu_core", log::LevelFilter::Info)
                 .level_for("wgpu_hal", log::LevelFilter::Info)
