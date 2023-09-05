@@ -4,7 +4,11 @@ use wgpu::{CommandBuffer, CommandEncoderDescriptor, TextureView};
 
 use crate::engine::Engine;
 
-use self::{object::Object, renderable::Renderable, updateable::Updateable};
+use self::{
+    object::Object,
+    renderable::Renderable,
+    updateable::{UpdateFrequency, Updateable},
+};
 
 pub mod clear_screen_object;
 pub mod object;
@@ -38,13 +42,36 @@ impl AppWorld {
         self.only_renderable.push(renderable);
     }
 
-    pub fn call_updateables(&mut self) {
+    /// Calls all registered updateables if their [`UpdateFrequency`]
+    /// is set to [`UpdateFrequency::OnSecond`]
+    pub fn call_updateables_on_second(&mut self, delta_time: f64) {
+        // Update all `updateables` with `OnSecond` frequency
         self.only_updateable
             .iter_mut()
-            .for_each(|updateable| updateable.update());
+            .filter(|x| x.update_frequency() == UpdateFrequency::OnSecond)
+            .for_each(|x| x.update(delta_time));
+
+        // Update all `objects` with OnSecond frequency
         self.objects
             .iter_mut()
-            .for_each(|updateable| updateable.update());
+            .filter(|x| x.update_frequency() == UpdateFrequency::OnSecond)
+            .for_each(|x| x.update(delta_time));
+    }
+
+    /// Calls all registered updateables if their [`UpdateFrequency`]
+    /// is set to [`UpdateFrequency::OnCycle`]
+    pub fn call_updateables_on_cycle(&mut self, delta_time: f64) {
+        // Update all `updateables` with `OnCycle` frequency
+        self.only_updateable
+            .iter_mut()
+            .filter(|x| x.update_frequency() == UpdateFrequency::OnCycle)
+            .for_each(|x| x.update(delta_time));
+
+        // Update all `objects` with OnCycle frequency
+        self.objects
+            .iter_mut()
+            .filter(|x| x.update_frequency() == UpdateFrequency::OnCycle)
+            .for_each(|x| x.update(delta_time));
     }
 
     pub fn call_renderables(
