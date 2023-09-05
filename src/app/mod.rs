@@ -1,10 +1,11 @@
 use std::{sync::Arc, time::Instant};
 
-use wgpu::{Color, TextureViewDescriptor};
+use wgpu::TextureViewDescriptor;
 use winit::{
     dpi::PhysicalSize,
     event::{DeviceId, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
+    window::WindowId,
 };
 
 use crate::{
@@ -13,7 +14,6 @@ use crate::{
 };
 
 use self::{
-    app_context::AppContext,
     app_input_handler::{keyboard_input_handler::AppKeyboardInputHandler, AppInputHandler},
     app_world::{clear_screen_object::ClearScreenObject, AppWorld},
 };
@@ -94,17 +94,6 @@ impl App {
         // World
         self.spawn_world().await;
 
-        // App Context
-        let mut app_context = AppContext::default();
-        app_context.clear_colour = Color {
-            r: 0.0,
-            g: 0.0,
-            b: 0.0,
-            a: 1.0,
-        };
-        app_context.clear_colour_index = 0;
-        app_context.clear_colour_increasing = true;
-
         // << Cycle Calculation >>
         self.last_time = Instant::now();
         self.delta_time = 0.0;
@@ -133,30 +122,21 @@ impl App {
                             device_id,
                             input,
                             is_synthetic
-                        } => {
-                            self.handle_keyboard_input(device_id, input, is_synthetic);
-                        }
+                        } => self.handle_keyboard_input(device_id, input, is_synthetic),
                         _ => (),
                     }
                 }
-                Event::RedrawRequested(window_id) => {
-                    // Validate that the window ID match.
-                    // Should only be different if multiple windows are used.
-                    if window_id != window.get_window().id() {
-                        log::warn!("A window with an ID not matching our window wants to be redrawn by us ... Skipping?");
-                        return;
-                    }
-
-                    self.handle_redraw(engine.clone());
-                }
-                Event::RedrawEventsCleared => {
-                    // Request to redraw the next cycle
-                    window.get_window().request_redraw();
-                },
+                Event::RedrawRequested(window_id) => self.handle_redraw(engine.clone(), window_id, &window),
+                Event::RedrawEventsCleared => self.handle_redraw_events_cleared(&window),
                 Event::MainEventsCleared => self.handle_main_events_cleared(&engine_backend, &window, control_flow),
                 _ => (),
             }
         });
+    }
+
+    fn handle_redraw_events_cleared(&mut self, window: &AppWindow) {
+        // Request to redraw the next cycle
+        window.get_window().request_redraw();
     }
 
     /// Handles the main events cleared event.
@@ -267,7 +247,14 @@ impl App {
         engine.configure_surface();
     }
 
-    fn handle_redraw(&mut self, engine: Arc<Engine>) {
+    fn handle_redraw(&mut self, engine: Arc<Engine>, window_id: WindowId, window: &AppWindow) {
+        // Validate that the window ID match.
+        // Should only be different if multiple windows are used.
+        if window_id != window.get_window().id() {
+            log::warn!("A window with an ID not matching our window wants to be redrawn by us ... Skipping?");
+            return;
+        }
+
         let output_surface_texture = engine
             .get_surface()
             .get_current_texture()
