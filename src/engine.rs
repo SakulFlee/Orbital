@@ -4,11 +4,10 @@ use wgpu::{
     Adapter, Backend, Backends, CompositeAlphaMode, Device, DeviceDescriptor, Features, Instance,
     InstanceDescriptor, Limits, PresentMode, Queue, Surface, SurfaceConfiguration, TextureUsages,
 };
-
-use crate::app::app_window::AppWindow;
+use winit::window::Window;
 
 pub struct Engine {
-    window: Arc<AppWindow>,
+    window: Arc<Window>,
     surface: Surface,
     adapter: Adapter,
     device: Device,
@@ -18,7 +17,7 @@ pub struct Engine {
 impl Engine {
     /// Initializes the [Engine].
     /// Creates a bunch of critical internal components while doing so.
-    pub async fn initialize(window: Arc<AppWindow>) -> Self {
+    pub async fn initialize(window: Arc<Window>) -> Self {
         let instance = Engine::make_instance().await;
         log::debug!("{instance:?}");
 
@@ -54,8 +53,8 @@ impl Engine {
         let surface_config = SurfaceConfiguration {
             usage: TextureUsages::RENDER_ATTACHMENT,
             format: surface_format,
-            width: self.window.get_window().inner_size().width,
-            height: self.window.get_window().inner_size().height,
+            width: self.window.inner_size().width,
+            height: self.window.inner_size().height,
             present_mode: PresentMode::AutoVsync,
             alpha_mode: CompositeAlphaMode::Auto,
             view_formats: vec![],
@@ -266,8 +265,8 @@ impl Engine {
     }
 
     /// Creates a new [`Surface`].
-    async fn make_surface(instance: &Instance, window: Arc<AppWindow>) -> Surface {
-        unsafe { instance.create_surface(&window.get_window()) }
+    async fn make_surface(instance: &Instance, window: Arc<Window>) -> Surface {
+        unsafe { instance.create_surface(window.as_ref()) }
             .expect("failed creating surface from window")
     }
 
@@ -286,11 +285,6 @@ impl Engine {
             backends: Backends::all(),
             dx12_shader_compiler: Default::default(),
         })
-    }
-
-    /// Returns a new [`Arc<AppWindow>`].
-    pub fn get_window(&self) -> Arc<AppWindow> {
-        self.window.clone()
     }
 
     /// Returns the local [`&Surface`].
