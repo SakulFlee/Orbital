@@ -5,13 +5,10 @@ use winit::{
     dpi::PhysicalSize,
     event::{DeviceId, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::WindowId,
+    window::{Window, WindowBuilder, WindowId},
 };
 
-use crate::{
-    app::{app_config::AppConfig, app_window::AppWindow},
-    engine::Engine,
-};
+use crate::{app::app_config::AppConfig, engine::Engine, APP_NAME};
 
 use self::{
     app_input_handler::{keyboard_input_handler::AppKeyboardInputHandler, AppInputHandler},
@@ -21,13 +18,13 @@ use self::{
 pub mod app_config;
 pub mod app_context;
 pub mod app_input_handler;
-pub mod app_window;
 pub mod app_world;
 
 pub struct App {
     app_config: AppConfig,
     app_input_handler: AppInputHandler,
     app_world: AppWorld,
+    app_window: Option<Arc<Window>>,
 
     last_time: Instant,
     delta_time: f64,
@@ -53,6 +50,7 @@ impl App {
             app_config,
             app_input_handler: AppInputHandler::new(),
             app_world: AppWorld::new(),
+            app_window: None,
             last_time: Instant::now(),
             delta_time: 0.0,
             ups: 0,
@@ -66,26 +64,13 @@ impl App {
     }
 
     pub async fn hijack_thread_and_run(mut self) {
-        // Event Loop
+        // Event Loop & Window creation
         let event_loop = EventLoop::new();
-
-        // Window creation
-        let fullscreen = match &self.app_config.monitor_config {
-            Some(x) => Some(x.fullscreen.to_winit_fullscreen(&event_loop, &x)),
-            None => None,
-        };
-        let size = self.app_config.window_config.to_physical_size();
-        let window = Arc::new(AppWindow::build_and_open(
-            "WGPU",
-            size,
-            false,
-            true,
-            fullscreen,
-            &event_loop,
-        ));
+        let window_arc = Arc::new(self.build_window(&event_loop));
+        self.app_window = Some(window_arc.clone());
 
         // Engine creation
-        let engine = Arc::new(Engine::initialize(window.clone()).await);
+        let engine = Arc::new(Engine::initialize(window_arc.clone()).await);
         engine.configure_surface();
 
         let engine_backend = engine.get_adapter().get_info().backend.to_str();
@@ -109,7 +94,7 @@ impl App {
                 Event::WindowEvent { window_id, event } => {
                     // Validate that the window ID match.
                     // Should only be different if multiple windows are used.
-                    if window_id != window.get_window().id() {
+                    if window_id != window_arc.clone().id() {
                         log::warn!("Invalid window ID for 'Window Event :: Window ID: {window_id:?}, Event: {event:?}'");
                         return;
                     }
@@ -126,17 +111,17 @@ impl App {
                         _ => (),
                     }
                 }
-                Event::RedrawRequested(window_id) => self.handle_redraw(engine.clone(), window_id, &window),
-                Event::RedrawEventsCleared => self.handle_redraw_events_cleared(&window),
-                Event::MainEventsCleared => self.handle_main_events_cleared(&engine_backend, &window, control_flow),
+                Event::RedrawRequested(window_id) => self.handle_redraw(engine.clone(), window_id),
+                Event::RedrawEventsCleared => self.handle_redraw_events_cleared(),
+                Event::MainEventsCleared => self.handle_main_events_cleared(&engine_backend, control_flow),
                 _ => (),
             }
         });
     }
 
-    fn handle_redraw_events_cleared(&mut self, window: &AppWindow) {
+    fn handle_redraw_events_cleared(&mut self) {
         // Request to redraw the next cycle
-        window.get_window().request_redraw();
+        self.app_window.clone().unwrap().request_redraw();
     }
 
     /// Handles the main events cleared event.
@@ -147,12 +132,7 @@ impl App {
     /// - Updateables
     /// - UPS & Delta calculation
     /// - Performance outputs
-    fn handle_main_events_cleared(
-        &mut self,
-        backend_name: &str,
-        window: &AppWindow,
-        control_flow: &mut ControlFlow,
-    ) {
+    fn handle_main_events_cleared(&mut self, backend_name: &str, control_flow: &mut ControlFlow) {
         // Take now time
         let now = Instant::now();
         // Get the duration of elapsed time since last update
@@ -176,7 +156,7 @@ impl App {
                 log::debug!("UPS: {}/s (delta time: {}s)", self.ups, self.delta_time);
 
                 // Update Window Title
-                window.get_window().set_title(&format!(
+                self.app_window.clone().unwrap().set_title(&format!(
                     "WGPU @ {} - UPS: {}/s (Δ {}s)",
                     backend_name, self.ups, self.delta_time
                 ));
@@ -247,10 +227,10 @@ impl App {
         engine.configure_surface();
     }
 
-    fn handle_redraw(&mut self, engine: Arc<Engine>, window_id: WindowId, window: &AppWindow) {
+    fn handle_redraw(&mut self, engine: Arc<Engine>, window_id: WindowId) {
         // Validate that the window ID match.
         // Should only be different if multiple windows are used.
-        if window_id != window.get_window().id() {
+        if window_id != self.app_window.clone().unwrap().id() {
             log::warn!("A window with an ID not matching our window wants to be redrawn by us ... Skipping?");
             return;
         }
@@ -272,6 +252,32 @@ impl App {
         // Submit command buffer
         engine.get_queue().submit(command_buffers);
         output_surface_texture.present();
+    }
+
+    fn build_window(&self, event_loop: &EventLoop<()>) -> Window {
+        let fullscreen = match &self.app_config.monitor_config {
+            Some(x) => Some(x.fullscreen.to_winit_fullscreen(&event_loop, &x)),
+            None => None,
+        };
+
+        let size = self.app_config.window_config.to_physical_size();
+
+        let mut builder = WindowBuilder::new();
+        builder = builder.with_active(true);
+        builder = builder.with_visible(true);
+        builder = builder.with_title(APP_NAME);
+        builder = builder.with_inner_size(size);
+        builder = builder.with_maximized(false);
+        builder = builder.with_resizable(true);
+
+        if fullscreen.is_some() {
+            builder = builder.with_fullscreen(fullscreen);
+        }
+
+        match builder.build(&event_loop) {
+            Ok(window) => window,
+            Err(err) => panic!("Window building failed! {:#?}", err),
+        }
     }
 
     pub fn get_app_config(&self) -> &AppConfig {
