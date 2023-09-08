@@ -2,7 +2,9 @@
     "cSpell.words": [
         "fullscreen",
         "Fullscreen",
+        "humantime",
         "millihertz",
+        "Multisample",
         "renderable",
         "Renderable",
         "renderables",
@@ -11,6 +13,7 @@
         "Updateable",
         "updateables",
         "wgpu",
+        "wgsl",
         "winit"
     ],
     "rust-analyzer.cargo.features": [
