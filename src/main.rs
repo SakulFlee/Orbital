@@ -22,14 +22,14 @@ pub const APP_NAME: &'static str = "WGPU-Engine";
 #[tokio::main(worker_threads = 16)]
 async fn main() {
     // Log initialization
-    log_init().await;
+    log_init();
 
     // App
     let app = App::from_app_config_default_path().await;
     app.hijack_thread_and_run().await;
 }
 
-async fn log_init() {
+fn log_init() {
     // Log files for log rotation
     let log_path_0 = Path::new("game-0.log");
     let log_path_1 = Path::new("game-1.log");
