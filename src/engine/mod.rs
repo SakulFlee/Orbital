@@ -1,17 +1,29 @@
 use std::sync::Arc;
 
 use wgpu::{
-    Adapter, Backend, Backends, CompositeAlphaMode, Device, DeviceDescriptor, Features, Instance,
-    InstanceDescriptor, Limits, PresentMode, Queue, Surface, SurfaceConfiguration, TextureUsages,
+    include_wgsl, Adapter, Backend, Backends, BlendState, Buffer, ColorTargetState, ColorWrites,
+    CompositeAlphaMode, Device, DeviceDescriptor, Face, Features, FragmentState, FrontFace,
+    Instance, InstanceDescriptor, Limits, MultisampleState, PipelineLayoutDescriptor, PolygonMode,
+    PresentMode, PrimitiveState, PrimitiveTopology, Queue, RenderPipeline,
+    RenderPipelineDescriptor, ShaderModule, Surface, SurfaceConfiguration, TextureFormat,
+    TextureUsages, VertexState,
 };
 use winit::window::Window;
+
+use self::vertex::Vertex;
+
+pub mod vertex;
 
 pub struct Engine {
     window: Arc<Window>,
     surface: Surface,
+    surface_texture_format: Option<TextureFormat>,
     adapter: Adapter,
     device: Device,
     queue: Queue,
+    render_pipeline: Option<RenderPipeline>,
+    vertex_buffer: Option<Buffer>,
+    vertices_number: u32,
 }
 
 impl Engine {
@@ -34,14 +46,26 @@ impl Engine {
         Self {
             window,
             surface,
+            surface_texture_format: None,
             adapter,
             device,
             queue,
+            render_pipeline: None,
+            vertex_buffer: None,
+            vertices_number: 0,
         }
     }
 
+    pub fn configure(&mut self) {
+        self.configure_surface();
+
+        let render_pipeline = self.make_render_pipeline();
+        log::debug!("{render_pipeline:?}");
+        self.render_pipeline = Some(render_pipeline);
+    }
+
     /// Configures the local [Surface].
-    pub fn configure_surface(&self) {
+    pub fn configure_surface(&mut self) {
         let surface_caps = self.surface.get_capabilities(&self.adapter);
         let surface_format = surface_caps
             .formats
@@ -49,6 +73,7 @@ impl Engine {
             .copied()
             .find(|f| f.is_srgb())
             .unwrap_or(surface_caps.formats[0]);
+        self.surface_texture_format = Some(surface_format.clone());
 
         let surface_config = SurfaceConfiguration {
             usage: TextureUsages::RENDER_ATTACHMENT,
@@ -252,7 +277,7 @@ impl Engine {
         // TODO: Check app config for preferred adapter
 
         // Pick the last adapter.
-        // After scoring and sorting, the higest score should be the
+        // After scoring and sorting, the highest score should be the
         // best option
         let (chosen_adapter, chosen_score) = adapters.pop().expect("no adapters found");
         log::info!(
@@ -305,5 +330,101 @@ impl Engine {
     /// Returns the local [`&Queue`].
     pub fn get_queue(&self) -> &Queue {
         &self.queue
+    }
+
+    pub fn get_render_pipeline(&self) -> &RenderPipeline {
+        self.render_pipeline
+            .as_ref()
+            .expect("Engine::get_render_pipeline called before Engine::configure!")
+    }
+
+    fn make_shader(device: &Device) -> ShaderModule {
+        device.create_shader_module(include_wgsl!("../shaders/main.wgsl"))
+    }
+
+    fn make_render_pipeline(&self) -> RenderPipeline {
+        let main_shader = Self::make_shader(&self.device);
+
+        let render_pipeline_layout =
+            self.device
+                .create_pipeline_layout(&PipelineLayoutDescriptor {
+                    label: Some("Render Pipeline Layout"),
+                    bind_group_layouts: &[],
+                    push_constant_ranges: &[],
+                });
+
+        let render_pipeline = self
+            .device
+            .create_render_pipeline(&RenderPipelineDescriptor {
+                label: Some("Render Pipeline"),
+                layout: Some(&render_pipeline_layout),
+                // Vertex shader
+                vertex: VertexState {
+                    module: &main_shader,
+                    entry_point: "vs_main",
+                    // Vertex buffers
+                    buffers: &[Vertex::descriptor()],
+                },
+                // Fragment shader
+                fragment: Some(FragmentState {
+                    module: &main_shader,
+                    entry_point: "fs_main",
+                    // Store the resulting colours in a format
+                    // that is equal to the surface format
+                    targets: &[Some(ColorTargetState {
+                        // Match the surface format
+                        format: self.surface_texture_format.unwrap(),
+                        // Replace pixels
+                        blend: Some(BlendState::REPLACE),
+                        // Use all colour channels
+                        write_mask: ColorWrites::ALL,
+                    })],
+                }),
+                // How to interpret the vertices
+                primitive: PrimitiveState {
+                    // Every three vertices form a triangle
+                    topology: PrimitiveTopology::TriangleList,
+                    strip_index_format: None,
+                    // A given triangle is is facing "forward" if it's arranged counter-clockwise
+                    front_face: FrontFace::Ccw,
+                    // Cull the triangle if it's the backside
+                    cull_mode: Some(Face::Back),
+                    // Fill the triangle
+                    // Note: requires Features::NON_FILL_POLYGON_MODE if not Fill
+                    polygon_mode: PolygonMode::Fill,
+                    // Note: requires Features::DEPTH_CLIP_CONTROL
+                    unclipped_depth: false,
+                    // Note: requires Features::CONSERVATIVE_RASTERIZATION
+                    conservative: false,
+                },
+                depth_stencil: None,
+                multisample: MultisampleState {
+                    count: 1,
+                    mask: !0,
+                    alpha_to_coverage_enabled: false,
+                },
+                multiview: None,
+            });
+
+        return render_pipeline;
+    }
+
+    pub fn set_vertex_buffer(&mut self, vertex_buffer: Buffer, vertices_number: u32) {
+        self.vertex_buffer = Some(vertex_buffer);
+        self.vertices_number = vertices_number;
+    }
+
+    pub fn get_vertex_buffer(&self) -> &Buffer {
+        self.vertex_buffer
+            .as_ref()
+            .expect("Engine::get_vertex_buffer called before Engine::set_vertex_buffer")
+    }
+
+    pub fn get_vertices_number(&self) -> u32 {
+        self.vertices_number
+    }
+
+    pub(crate) fn has_vertex_buffer(&self) -> bool {
+        self.vertex_buffer.is_some()
     }
 }
