@@ -1,11 +1,7 @@
-use wgpu::{CommandBuffer, CommandEncoder, TextureView};
+use crate::engine::vertex::Vertex;
 
 pub trait Renderable {
-    fn render(
-        &mut self,
-        command_encoder: CommandEncoder,
-        texture_view: &TextureView,
-    ) -> CommandBuffer;
+    fn vertices(&self) -> &[Vertex];
 
     fn do_render(&self) -> bool;
 }
