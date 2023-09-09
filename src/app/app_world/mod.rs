@@ -1,6 +1,7 @@
-use std::sync::Arc;
-
-use wgpu::{CommandBuffer, CommandEncoderDescriptor, TextureView};
+use wgpu::{
+    util::{BufferInitDescriptor, DeviceExt},
+    Buffer, BufferUsages,
+};
 
 use crate::engine::Engine;
 
@@ -10,8 +11,8 @@ use self::{
     updateable::{UpdateFrequency, Updateable},
 };
 
-pub mod clear_screen_object;
 pub mod object;
+pub mod objects;
 pub mod renderable;
 pub mod updateable;
 
@@ -74,60 +75,47 @@ impl AppWorld {
             .for_each(|x| x.update(delta_time));
     }
 
-    pub fn call_renderables(
-        &mut self,
-        engine: Arc<Engine>,
-        output_texture_view: &TextureView,
-    ) -> Vec<CommandBuffer> {
-        // Index for [`CommandEncoder`] label
-        let mut index = 0;
+    pub fn call_renderables(&mut self, engine: &mut Engine) {
+        // TODO: Fix for now ...
+        if engine.has_vertex_buffer() {
+            return;
+        }
 
         // Process only renderable objects
-        let command_buffers_0: Vec<CommandBuffer> = self
+        let mut vertex_buffers: Vec<(Buffer, u32)> = self
+            // Retrieve vertices from Renderables
             .only_renderable
             .iter_mut()
             .filter(|x| x.do_render())
+            .map(|x| x.vertices())
+            .chain(
+                // Retrieve vertices from Object
+                self.objects
+                    .iter_mut()
+                    .filter(|x| x.do_render())
+                    .map(|x| x.vertices()),
+            )
+            // Make Vertex Buffers
             .map(|x| {
-                // Create new [`CommandEncoder`]
-                let command_encoder =
+                let number = x.len() as u32;
+                (
                     engine
                         .get_device()
-                        .create_command_encoder(&CommandEncoderDescriptor {
-                            label: Some(&format!("REnc#{index}")),
-                        });
-                // Increment index after being used
-                index += 1;
-
-                // Call render function
-                x.render(command_encoder, output_texture_view)
+                        .create_buffer_init(&BufferInitDescriptor {
+                            label: Some("Vertex Buffer"),
+                            contents: bytemuck::cast_slice(x),
+                            usage: BufferUsages::VERTEX,
+                        }),
+                    number,
+                )
             })
             .collect();
 
-        // Process full objects
-        let command_buffers_1: Vec<CommandBuffer> = self
-            .objects
-            .iter_mut()
-            .filter(|x| x.do_render())
-            .map(|x| {
-                // Create new [`CommandEncoder`]
-                let command_encoder =
-                    engine
-                        .get_device()
-                        .create_command_encoder(&CommandEncoderDescriptor {
-                            label: Some(&format!("REnc#{index}")),
-                        });
-                // Increment index after being used
-                index += 1;
-
-                // Call render function
-                x.render(command_encoder, output_texture_view)
-            })
-            .collect();
-
-        let mut command_buffers: Vec<CommandBuffer> = Vec::new();
-        command_buffers.extend(command_buffers_0);
-        command_buffers.extend(command_buffers_1);
-        command_buffers
+        // TODO: Only takes the last buffer!
+        if !vertex_buffers.is_empty() {
+            let (buffer, number) = vertex_buffers.pop().expect("got no vertex buffers");
+            engine.set_vertex_buffer(buffer, number);
+        }
     }
 
     pub fn count_object(&self) -> usize {
