@@ -82,7 +82,11 @@ impl App {
         let mut engine: Engine = Engine::initialize(window_arc.clone()).await;
         engine.configure();
 
-        let engine_backend = engine.get_adapter().get_info().backend.to_str();
+        // Get the engine backend and capitalize it
+        let engine_backend = {
+            let mut raw_chars = engine.get_adapter().get_info().backend.to_str().chars();
+            raw_chars.next().unwrap().to_uppercase().collect::<String>() + raw_chars.as_str()
+        };
         log::info!("Engine Backend: {engine_backend}");
 
         // World
