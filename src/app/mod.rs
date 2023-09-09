@@ -1,6 +1,9 @@
 use std::{sync::Arc, time::Instant};
 
-use wgpu::TextureViewDescriptor;
+use wgpu::{
+    CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor,
+    TextureViewDescriptor,
+};
 use winit::{
     dpi::PhysicalSize,
     event::{DeviceId, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
@@ -12,7 +15,7 @@ use crate::{app::app_config::AppConfig, engine::Engine, APP_NAME};
 
 use self::{
     app_input_handler::{keyboard_input_handler::AppKeyboardInputHandler, AppInputHandler},
-    app_world::{clear_screen_object::ClearScreenObject, AppWorld},
+    app_world::{objects::triangle::Triangle, AppWorld},
 };
 
 pub mod app_config;
@@ -57,10 +60,10 @@ impl App {
         }
     }
 
-    pub async fn spawn_world(&mut self) {
-        let clear_screen = ClearScreenObject::new();
-        let clear_screen_boxed = Box::new(clear_screen);
-        self.app_world.spawn_object(clear_screen_boxed);
+    pub fn spawn_world(&mut self) {
+        let triangle = Triangle {};
+        let boxed_triangle = Box::new(triangle);
+        self.app_world.spawn_renderable(boxed_triangle);
     }
 
     pub async fn hijack_thread_and_run(mut self) {
@@ -70,14 +73,14 @@ impl App {
         self.app_window = Some(window_arc.clone());
 
         // Engine creation
-        let engine = Arc::new(Engine::initialize(window_arc.clone()).await);
-        engine.configure_surface();
+        let mut engine: Engine = Engine::initialize(window_arc.clone()).await;
+        engine.configure();
 
         let engine_backend = engine.get_adapter().get_info().backend.to_str();
         log::info!("Engine Backend: {engine_backend}");
 
         // World
-        self.spawn_world().await;
+        self.spawn_world();
 
         // << Cycle Calculation >>
         self.last_time = Instant::now();
@@ -101,8 +104,8 @@ impl App {
 
                     match event {
                         WindowEvent::CloseRequested => *control_flow = ControlFlow::ExitWithCode(0),
-                        WindowEvent::Resized(new_size) => self.handle_resize(new_size, &engine),
-                        WindowEvent::ScaleFactorChanged { new_inner_size, .. } => self.handle_resize(*new_inner_size, &engine),
+                        WindowEvent::Resized(new_size) => self.handle_resize(new_size, &mut engine),
+                        WindowEvent::ScaleFactorChanged { new_inner_size, .. } => self.handle_resize(*new_inner_size, &mut engine),
                         WindowEvent::KeyboardInput {
                             device_id,
                             input,
@@ -111,7 +114,7 @@ impl App {
                         _ => (),
                     }
                 }
-                Event::RedrawRequested(window_id) => self.handle_redraw(engine.clone(), window_id),
+                Event::RedrawRequested(window_id) => self.handle_redraw(&mut engine, window_id),
                 Event::RedrawEventsCleared => self.handle_redraw_events_cleared(),
                 Event::MainEventsCleared => self.handle_main_events_cleared(&engine_backend, control_flow),
                 _ => (),
@@ -196,7 +199,7 @@ impl App {
         keyboard_handler.handle_keyboard_input(input);
     }
 
-    fn handle_resize(&mut self, new_size: PhysicalSize<u32>, engine: &Engine) {
+    fn handle_resize(&mut self, new_size: PhysicalSize<u32>, engine: &mut Engine) {
         log::info!(
             "Resize detected! Changing from {}x{} to {}x{}",
             self.app_config.window_config.size.0,
@@ -224,10 +227,10 @@ impl App {
             .write_to_path(&AppConfig::request_default_path());
 
         // Reconfigure the surface
-        engine.configure_surface();
+        engine.configure();
     }
 
-    fn handle_redraw(&mut self, engine: Arc<Engine>, window_id: WindowId) {
+    fn handle_redraw(&mut self, engine: &mut Engine, window_id: WindowId) {
         // Validate that the window ID match.
         // Should only be different if multiple windows are used.
         if window_id != self.app_window.clone().unwrap().id() {
@@ -244,13 +247,46 @@ impl App {
             .texture
             .create_view(&TextureViewDescriptor::default());
 
-        // Build command buffers for frame
-        let command_buffers = self
-            .app_world
-            .call_renderables(engine.clone(), &output_surface_texture_view);
+        // Call renderables
+        // TODO: Only one is picked atm
+        self.app_world.call_renderables(engine);
+
+        // Make command encoder
+        let mut command_encoder =
+            engine
+                .get_device()
+                .create_command_encoder(&CommandEncoderDescriptor {
+                    label: Some("Command Encoder"),
+                });
+        {
+            // Start RenderPass
+            let mut render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
+                label: Some("Render Pass"),
+                color_attachments: &[Some(RenderPassColorAttachment {
+                    view: &output_surface_texture_view,
+                    resolve_target: None,
+                    ops: Operations {
+                        load: LoadOp::Clear(wgpu::Color {
+                            // Sky blue - ish
+                            r: 0.0,
+                            g: 0.61176,
+                            b: 0.77647,
+                            a: 1.0,
+                        }),
+                        store: true,
+                    },
+                })],
+                depth_stencil_attachment: None,
+            });
+            render_pass.set_pipeline(engine.get_render_pipeline());
+            render_pass.set_vertex_buffer(0, engine.get_vertex_buffer().slice(..));
+            render_pass.draw(0..engine.get_vertices_number(), 0..1);
+        }
+
+        let command_buffer = command_encoder.finish();
 
         // Submit command buffer
-        engine.get_queue().submit(command_buffers);
+        engine.get_queue().submit(vec![command_buffer]);
         output_surface_texture.present();
     }
 
