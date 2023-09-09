@@ -7,17 +7,17 @@ impl Triangle {
         // A
         Vertex {
             position: [0.0, 0.35, 0.0],
-            color: [1.0, 0.0, 0.0],
+            tex_coords: [1.0, 1.0],
         },
         // B
         Vertex {
             position: [-0.35, -0.35, 0.0],
-            color: [0.0, 1.0, 0.0],
+            tex_coords: [-1.0, 0.0],
         },
         // C
         Vertex {
             position: [0.35, -0.35, 0.0],
-            color: [0.0, 0.0, 1.0],
+            tex_coords: [0.0, -1.0],
         },
     ];
 

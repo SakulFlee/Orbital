@@ -288,7 +288,10 @@ impl App {
                 })],
                 depth_stencil_attachment: None,
             });
+
             render_pass.set_pipeline(engine.get_render_pipeline());
+
+            render_pass.set_bind_group(0, &engine.get_diffuse_group(), &[]);
 
             let vertex_buffer = engine.get_vertex_buffer();
             let (index_buffer, index_num) = engine.get_index_buffer();
