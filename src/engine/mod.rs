@@ -23,7 +23,7 @@ pub struct Engine {
     queue: Queue,
     render_pipeline: Option<RenderPipeline>,
     vertex_buffer: Option<Buffer>,
-    vertices_number: u32,
+    index_buffer: Option<(Buffer, u32)>,
 }
 
 impl Engine {
@@ -52,7 +52,7 @@ impl Engine {
             queue,
             render_pipeline: None,
             vertex_buffer: None,
-            vertices_number: 0,
+            index_buffer: None,
         }
     }
 
@@ -409,9 +409,8 @@ impl Engine {
         return render_pipeline;
     }
 
-    pub fn set_vertex_buffer(&mut self, vertex_buffer: Buffer, vertices_number: u32) {
+    pub fn set_vertex_buffer(&mut self, vertex_buffer: Buffer) {
         self.vertex_buffer = Some(vertex_buffer);
-        self.vertices_number = vertices_number;
     }
 
     pub fn get_vertex_buffer(&self) -> &Buffer {
@@ -420,8 +419,14 @@ impl Engine {
             .expect("Engine::get_vertex_buffer called before Engine::set_vertex_buffer")
     }
 
-    pub fn get_vertices_number(&self) -> u32 {
-        self.vertices_number
+    pub fn set_index_buffer(&mut self, index_buffer: Buffer, indices_count: u32) {
+        self.index_buffer = Some((index_buffer, indices_count));
+    }
+
+    pub fn get_index_buffer(&self) -> &(Buffer, u32) {
+        self.index_buffer
+            .as_ref()
+            .expect("Engine::get_index_buffer called before Engine::set_index_buffer")
     }
 
     pub(crate) fn has_vertex_buffer(&self) -> bool {

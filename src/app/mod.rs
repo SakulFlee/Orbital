@@ -1,21 +1,21 @@
 use std::{sync::Arc, time::Instant};
 
 use wgpu::{
-    CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor,
-    TextureViewDescriptor,
+    CommandEncoderDescriptor, IndexFormat, LoadOp, Operations, RenderPassColorAttachment,
+    RenderPassDescriptor, TextureViewDescriptor,
 };
 use winit::{
     dpi::PhysicalSize,
     event::{DeviceId, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::{Window, WindowBuilder, WindowId},
+    window::{UserAttentionType, Window, WindowBuilder, WindowId},
 };
 
 use crate::{app::app_config::AppConfig, engine::Engine, APP_NAME};
 
 use self::{
     app_input_handler::{keyboard_input_handler::AppKeyboardInputHandler, AppInputHandler},
-    app_world::{objects::triangle::Triangle, AppWorld},
+    app_world::{objects::pentagon::Pentagon, AppWorld},
 };
 
 pub mod app_config;
@@ -61,9 +61,15 @@ impl App {
     }
 
     pub fn spawn_world(&mut self) {
-        let triangle = Triangle {};
-        let boxed_triangle = Box::new(triangle);
-        self.app_world.spawn_renderable(boxed_triangle);
+        // Triangle example
+        // let triangle = Triangle {};
+        // let boxed_triangle = Box::new(triangle);
+        // self.app_world.spawn_renderable(boxed_triangle);
+
+        // Pentagon example
+        let pentagon = Pentagon {};
+        let boxed_pentagon = Box::new(pentagon);
+        self.app_world.spawn_renderable(boxed_pentagon);
     }
 
     pub async fn hijack_thread_and_run(mut self) {
@@ -279,8 +285,14 @@ impl App {
                 depth_stencil_attachment: None,
             });
             render_pass.set_pipeline(engine.get_render_pipeline());
-            render_pass.set_vertex_buffer(0, engine.get_vertex_buffer().slice(..));
-            render_pass.draw(0..engine.get_vertices_number(), 0..1);
+
+            let vertex_buffer = engine.get_vertex_buffer();
+            let (index_buffer, index_num) = engine.get_index_buffer();
+
+            render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+            render_pass.set_index_buffer(index_buffer.slice(..), IndexFormat::Uint16);
+
+            render_pass.draw_indexed(0..*index_num, 0, 0..1);
         }
 
         let command_buffer = command_encoder.finish();
@@ -311,7 +323,11 @@ impl App {
         }
 
         match builder.build(&event_loop) {
-            Ok(window) => window,
+            Ok(window) => {
+                window.request_user_attention(Some(UserAttentionType::Informational));
+                window.focus_window();
+                window
+            }
             Err(err) => panic!("Window building failed! {:#?}", err),
         }
     }
