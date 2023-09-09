@@ -82,39 +82,48 @@ impl AppWorld {
         }
 
         // Process only renderable objects
-        let mut vertex_buffers: Vec<(Buffer, u32)> = self
+        let mut buffers: Vec<(Buffer, Buffer, u32)> = self
             // Retrieve vertices from Renderables
             .only_renderable
             .iter_mut()
             .filter(|x| x.do_render())
-            .map(|x| x.vertices())
+            .map(|x| (x.vertices(), x.indices()))
             .chain(
                 // Retrieve vertices from Object
                 self.objects
                     .iter_mut()
                     .filter(|x| x.do_render())
-                    .map(|x| x.vertices()),
+                    .map(|x| (x.vertices(), x.indices())),
             )
             // Make Vertex Buffers
-            .map(|x| {
-                let number = x.len() as u32;
-                (
-                    engine
-                        .get_device()
-                        .create_buffer_init(&BufferInitDescriptor {
-                            label: Some("Vertex Buffer"),
-                            contents: bytemuck::cast_slice(x),
-                            usage: BufferUsages::VERTEX,
-                        }),
-                    number,
-                )
+            .map(|(vertices, indices)| {
+                let indices_num = indices.len() as u32;
+
+                let vertex_buffer = engine
+                    .get_device()
+                    .create_buffer_init(&BufferInitDescriptor {
+                        label: Some("Vertex Buffer"),
+                        contents: bytemuck::cast_slice(vertices),
+                        usage: BufferUsages::VERTEX,
+                    });
+                let index_buffer = engine
+                    .get_device()
+                    .create_buffer_init(&BufferInitDescriptor {
+                        label: Some("Vertex Buffer"),
+                        contents: bytemuck::cast_slice(indices),
+                        usage: BufferUsages::INDEX,
+                    });
+
+                (vertex_buffer, index_buffer, indices_num)
             })
             .collect();
 
         // TODO: Only takes the last buffer!
-        if !vertex_buffers.is_empty() {
-            let (buffer, number) = vertex_buffers.pop().expect("got no vertex buffers");
-            engine.set_vertex_buffer(buffer, number);
+        if !buffers.is_empty() {
+            let (vertex_buffer, index_buffer, index_num) =
+                buffers.pop().expect("got no vertex buffers");
+            engine.set_vertex_buffer(vertex_buffer);
+            engine.set_index_buffer(index_buffer, index_num);
         }
     }
 
