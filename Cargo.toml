@@ -3,39 +3,6 @@ name = "wgpu_engine"
 version = "0.1.0"
 edition = "2021"
 
-[features]
-default = []
-
-# Threads (Tokio/Async processing)
-64-threads = []
-32-threads = []
-16-threads = []
-8-threads = []
-4-threads = []
-
-# Graphics Backend
-## High performance graphics library.
-## Vulkan (Supported on Windows, Linux, macOS (MoltenVK) and Android).
-## Switch and Xbox also support Vulkan, but other things may break.
-gl_vulkan = []
-## High performance graphics library.
-## Metal (Supported on macOS & iOS).
-gl_metal = []
-## High performance graphics library.
-## DirectX 12 (Supported on Windows & Xbox).
-gl_dx12 = []
-## Compatability graphics library.
-## DirectX 11 (Supported on Windows)
-gl_dx11 = []
-## Compatability graphics library.
-## OpenGL (Supported on ... basically everything? Consoles may break)
-gl_opengl = []
-## Web graphics library.
-## "Browser WebGPU" are an abstract, virtual, GPU used to 
-## render things inside a browser window.
-## WebGL uses the same concept.
-gl_browser_webgpu = []
-
 [dependencies]
 log = "0.4"
 winit = "0.28"
