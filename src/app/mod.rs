@@ -15,7 +15,7 @@ use crate::{app::app_config::AppConfig, engine::Engine, APP_NAME};
 
 use self::{
     app_input_handler::{keyboard_input_handler::AppKeyboardInputHandler, AppInputHandler},
-    app_world::{objects::pentagon::Pentagon, AppWorld},
+    app_world::{objects::{pentagon::Pentagon, Square}, AppWorld},
 };
 
 pub mod app_config;
@@ -67,9 +67,14 @@ impl App {
         // self.app_world.spawn_renderable(boxed_triangle);
 
         // Pentagon example
-        let pentagon = Pentagon {};
-        let boxed_pentagon = Box::new(pentagon);
-        self.app_world.spawn_renderable(boxed_pentagon);
+        // let pentagon = Pentagon {};
+        // let boxed_pentagon = Box::new(pentagon);
+        // self.app_world.spawn_renderable(boxed_pentagon);
+
+        // Square example
+        let square = Square {};
+        let boxed_square = Box::new(square);
+        self.app_world.spawn_renderable(boxed_square);
     }
 
     pub async fn hijack_thread_and_run(mut self) {
