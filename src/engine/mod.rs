@@ -1,22 +1,21 @@
 use std::sync::Arc;
 
-use image::GenericImageView;
 use wgpu::{
-    include_wgsl, Adapter, AddressMode, Backend, Backends, BindGroup, BindGroupDescriptor,
+    include_wgsl, Adapter, Backend, Backends, BindGroup, BindGroupDescriptor,
     BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
     BindingResource, BindingType, BlendState, Buffer, ColorTargetState, ColorWrites,
-    CompositeAlphaMode, Device, DeviceDescriptor, Extent3d, Face, Features, FilterMode,
-    FragmentState, FrontFace, ImageCopyTexture, ImageDataLayout, Instance, InstanceDescriptor,
-    Limits, MultisampleState, Origin3d, PipelineLayoutDescriptor, PolygonMode, PresentMode,
+    CompositeAlphaMode, Device, DeviceDescriptor, Face, Features, FragmentState, FrontFace, Instance, InstanceDescriptor,
+    Limits, MultisampleState, PipelineLayoutDescriptor, PolygonMode, PresentMode,
     PrimitiveState, PrimitiveTopology, Queue, RenderPipeline, RenderPipelineDescriptor,
-    SamplerBindingType, SamplerDescriptor, ShaderModule, ShaderStages, Surface,
-    SurfaceConfiguration, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat,
-    TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension, VertexState,
+    SamplerBindingType, ShaderModule, ShaderStages, Surface,
+    SurfaceConfiguration, TextureFormat,
+    TextureSampleType, TextureUsages, TextureViewDimension, VertexState,
 };
 use winit::window::Window;
 
-use self::vertex::Vertex;
+use self::{texture::Texture, vertex::Vertex};
 
+pub mod texture;
 pub mod vertex;
 
 pub struct Engine {
@@ -31,6 +30,7 @@ pub struct Engine {
     index_buffer: Option<(Buffer, u32)>,
     diffuse_bind_group: Option<BindGroup>,
     texture_bind_group_layout: Option<BindGroupLayout>,
+    diffuse_texture: Option<Texture>,
 }
 
 impl Engine {
@@ -62,69 +62,32 @@ impl Engine {
             index_buffer: None,
             diffuse_bind_group: None,
             texture_bind_group_layout: None,
+            diffuse_texture: None,
         }
     }
 
     pub fn configure(&mut self) {
         self.configure_surface();
 
-        self.textures();
+        if self.diffuse_texture.is_none() {
+            self.textures();
+        }
 
-        let render_pipeline = self.make_render_pipeline();
-        log::debug!("{render_pipeline:?}");
-        self.render_pipeline = Some(render_pipeline);
+        if self.render_pipeline.is_none() {
+            let render_pipeline = self.make_render_pipeline();
+            log::debug!("{render_pipeline:?}");
+            self.render_pipeline = Some(render_pipeline);
+        }
     }
 
     pub fn textures(&mut self) {
+        if self.diffuse_texture.is_some() {
+            return;
+        }
+
         let diffuse_bytes = include_bytes!("../../res/test.png");
-        let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
-        let diffuse_rgba = diffuse_image.to_rgba8();
-
-        let dimensions = diffuse_image.dimensions();
-
-        let texture_size = Extent3d {
-            width: dimensions.0,
-            height: dimensions.1,
-            depth_or_array_layers: 1,
-        };
-        let diffuse_texture = self.device.create_texture(&TextureDescriptor {
-            label: Some("Diffuse Texture"),
-            size: texture_size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: TextureDimension::D2,
-            format: TextureFormat::Rgba8UnormSrgb,
-            usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
-            view_formats: &[],
-        });
-
-        self.queue.write_texture(
-            ImageCopyTexture {
-                texture: &diffuse_texture,
-                mip_level: 0,
-                origin: Origin3d::ZERO,
-                aspect: TextureAspect::All,
-            },
-            &diffuse_rgba,
-            ImageDataLayout {
-                offset: 0,
-                bytes_per_row: Some(4 * dimensions.0),
-                rows_per_image: Some(dimensions.1),
-            },
-            texture_size,
-        );
-
-        let diffuse_texture_view = diffuse_texture.create_view(&TextureViewDescriptor::default());
-        let diffuse_sampler = self.device.create_sampler(&SamplerDescriptor {
-            label: Some("Diffuse Sampler"),
-            address_mode_u: AddressMode::ClampToEdge,
-            address_mode_v: AddressMode::ClampToEdge,
-            address_mode_w: AddressMode::ClampToEdge,
-            mag_filter: FilterMode::Linear, // TODO: Maybe should be Linear for that pixel look
-            min_filter: FilterMode::Nearest,
-            mipmap_filter: FilterMode::Nearest,
-            ..Default::default()
-        });
+        let diffuse_texture =
+            Texture::from_bytes(&self.device, &self.queue, diffuse_bytes, "Test Texture").unwrap();
 
         let texture_bind_group_layout =
             self.device
@@ -156,15 +119,16 @@ impl Engine {
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureView(&diffuse_texture_view),
+                    resource: BindingResource::TextureView(diffuse_texture.get_view()),
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::Sampler(&diffuse_sampler),
+                    resource: BindingResource::Sampler(diffuse_texture.get_sampler()),
                 },
             ],
         });
 
+        self.diffuse_texture = Some(diffuse_texture);
         self.diffuse_bind_group = Some(diffuse_bind_group);
         self.texture_bind_group_layout = Some(texture_bind_group_layout);
     }
