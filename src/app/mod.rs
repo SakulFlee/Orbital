@@ -15,7 +15,7 @@ use crate::{app::app_config::AppConfig, engine::Engine, APP_NAME};
 
 use self::{
     app_input_handler::{keyboard_input_handler::AppKeyboardInputHandler, AppInputHandler},
-    app_world::{objects::{pentagon::Pentagon, Square}, AppWorld},
+    app_world::{objects::Square, AppWorld},
 };
 
 pub mod app_config;
