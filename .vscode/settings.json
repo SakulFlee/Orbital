@@ -1,16 +1,20 @@
 {
     "cSpell.words": [
         "bytemuck",
+        "cgmath",
+        "fovy",
         "fullscreen",
         "Fullscreen",
         "humantime",
         "millihertz",
         "mipmap",
         "Multisample",
+        "OPENGL",
         "renderable",
         "Renderable",
         "renderables",
         "repr",
+        "rustfmt",
         "tokio",
         "Unorm",
         "updateable",
@@ -19,12 +23,8 @@
         "wgpu",
         "wgsl",
         "winit",
-        "Zeroable"
-    ],
-    "rust-analyzer.cargo.features": [
-        "gl_vulkan" // Vulkan is supported on any Desktop platforms, thus the perfect canditate for validations. WGPU should be feature-complete on any other graphics api, this is just to give Rust-Analyzer a feature to work on for code completions, checks, intellisense, etc.
-    ],
-    "rust-analyzer.check.features": [
-        "gl_vulkan" // Vulkan is supported on any Desktop platforms, thus the perfect canditate for validations. WGPU should be feature-complete on any other graphics api, this is just to give Rust-Analyzer a feature to work on for code completions, checks, intellisense, etc.
+        "Zeroable",
+        "zfar",
+        "znear"
     ]
 }
