@@ -1,8 +1,9 @@
 use std::{sync::Arc, time::Instant};
 
 use wgpu::{
-    CommandEncoderDescriptor, IndexFormat, LoadOp, Operations, RenderPassColorAttachment,
-    RenderPassDescriptor, TextureViewDescriptor,
+    util::{BufferInitDescriptor, DeviceExt},
+    Buffer, BufferUsages, CommandEncoderDescriptor, IndexFormat, LoadOp, Operations,
+    RenderPassColorAttachment, RenderPassDescriptor, TextureViewDescriptor,
 };
 use winit::{
     dpi::PhysicalSize,
@@ -11,69 +12,58 @@ use winit::{
     window::{UserAttentionType, Window, WindowBuilder, WindowId},
 };
 
-use crate::{app::app_config::AppConfig, engine::Engine, APP_NAME};
-
-use self::{
-    app_input_handler::{keyboard_input_handler::AppKeyboardInputHandler, AppInputHandler},
-    app_world::{objects::Square, AppWorld},
-};
+use crate::{engine::Engine, APP_NAME};
 
 pub mod app_config;
+pub use app_config::*;
+
 pub mod app_input_handler;
-pub mod app_world;
+pub use app_input_handler::*;
+
+pub mod app_object;
+pub use app_object::*;
+
+pub mod app_objects;
+pub use app_objects::*;
+
+use self::keyboard_input_handler::AppKeyboardInputHandler;
 
 pub struct App {
     app_config: AppConfig,
     app_input_handler: AppInputHandler,
-    app_world: AppWorld,
     app_window: Option<Arc<Window>>,
 
     last_time: Instant,
     delta_time: f64,
     ups: u64,
+
+    objects: Vec<Box<dyn AppObject>>,
 }
 
 impl App {
-    pub async fn from_app_config_default_path() -> Self {
+    pub fn from_app_config_default_path() -> Self {
         let default_config_path = AppConfig::request_default_path();
         let app_config = AppConfig::read_or_write_default(&default_config_path);
 
-        App::from_app_config(app_config).await
+        App::from_app_config(app_config)
     }
 
-    pub async fn from_app_config_path(app_config_path: &str) -> Self {
+    pub fn from_app_config_path(app_config_path: &str) -> Self {
         let app_config = AppConfig::read_or_write_default(app_config_path);
 
-        Self::from_app_config(app_config).await
+        Self::from_app_config(app_config)
     }
 
-    pub async fn from_app_config(app_config: AppConfig) -> Self {
+    pub fn from_app_config(app_config: AppConfig) -> Self {
         Self {
             app_config,
             app_input_handler: AppInputHandler::new(),
-            app_world: AppWorld::new(),
             app_window: None,
             last_time: Instant::now(),
             delta_time: 0.0,
             ups: 0,
+            objects: Vec::new(),
         }
-    }
-
-    pub fn spawn_world(&mut self) {
-        // Triangle example
-        // let triangle = Triangle {};
-        // let boxed_triangle = Box::new(triangle);
-        // self.app_world.spawn_renderable(boxed_triangle);
-
-        // Pentagon example
-        // let pentagon = Pentagon {};
-        // let boxed_pentagon = Box::new(pentagon);
-        // self.app_world.spawn_renderable(boxed_pentagon);
-
-        // Square example
-        let square = Square {};
-        let boxed_square = Box::new(square);
-        self.app_world.spawn_renderable(boxed_square);
     }
 
     pub async fn hijack_thread_and_run(mut self) {
@@ -92,9 +82,6 @@ impl App {
             raw_chars.next().unwrap().to_uppercase().collect::<String>() + raw_chars.as_str()
         };
         log::info!("Engine Backend: {engine_backend}");
-
-        // World
-        self.spawn_world();
 
         // << Cycle Calculation >>
         self.last_time = Instant::now();
@@ -163,7 +150,7 @@ impl App {
         self.ups += 1;
 
         // Call updateables
-        self.app_world.call_updateables_on_cycle(self.delta_time);
+        self.call_on_dynamic_update(self.delta_time);
 
         // If a second has past, call updates
         if self.delta_time >= 1.0 {
@@ -192,7 +179,7 @@ impl App {
             }
 
             // Call updateables
-            self.app_world.call_updateables_on_second(self.delta_time);
+            self.call_on_second_update(self.delta_time);
 
             // Reset counters
             self.ups = 0;
@@ -263,7 +250,7 @@ impl App {
 
         // Call renderables
         // TODO: Only one is picked atm
-        self.app_world.call_renderables(engine);
+        self.call_draw(engine);
 
         // Make command encoder
         let mut command_encoder =
@@ -346,5 +333,81 @@ impl App {
 
     pub fn get_app_config(&self) -> &AppConfig {
         &self.app_config
+    }
+
+    pub fn spawn(&mut self, object: Box<dyn AppObject>) {
+        self.objects.push(object);
+    }
+
+    /// Calls all registered updateables if their [`UpdateFrequency`]
+    /// is set to [`UpdateFrequency::OnSecond`]
+    pub fn call_on_second_update(&mut self, delta_time: f64) {
+        // Call the main update function for each object
+        self.objects
+            .iter_mut()
+            .filter(|x| x.do_second_update())
+            .for_each(|x| x.on_second_update(delta_time));
+    }
+
+    /// Calls all registered updateables if their [`UpdateFrequency`]
+    /// is set to [`UpdateFrequency::OnCycle`]
+    pub fn call_on_dynamic_update(&mut self, delta_time: f64) {
+        // Call the main update function for each object
+        self.objects
+            .iter_mut()
+            .filter(|x| x.do_dynamic_update())
+            .for_each(|x| x.on_dynamic_update(delta_time));
+
+        // -- Call other update functions:
+
+        // Call input handling
+        self.objects
+            .iter_mut()
+            .filter(|x| x.do_input())
+            .for_each(|x| x.on_input(delta_time, &self.app_input_handler));
+    }
+
+    pub fn call_draw(&mut self, engine: &mut Engine) {
+        // TODO: Fix for now ...
+        if engine.has_vertex_buffer() {
+            return;
+        }
+
+        // Retrieve vertices from Object
+        let mut buffers: Vec<(Buffer, Buffer, u32)> = self
+            .objects
+            .iter_mut()
+            .filter(|x| x.do_render())
+            .map(|x| (x.vertices(), x.indices()))
+            // Make Vertex Buffers
+            .map(|(vertices, indices)| {
+                let indices_num = indices.len() as u32;
+
+                let vertex_buffer = engine
+                    .get_device()
+                    .create_buffer_init(&BufferInitDescriptor {
+                        label: Some("Vertex Buffer"),
+                        contents: bytemuck::cast_slice(vertices),
+                        usage: BufferUsages::VERTEX,
+                    });
+                let index_buffer = engine
+                    .get_device()
+                    .create_buffer_init(&BufferInitDescriptor {
+                        label: Some("Index Buffer"),
+                        contents: bytemuck::cast_slice(indices),
+                        usage: BufferUsages::INDEX,
+                    });
+
+                (vertex_buffer, index_buffer, indices_num)
+            })
+            .collect();
+
+        // TODO: Only takes the last buffer!
+        if !buffers.is_empty() {
+            let (vertex_buffer, index_buffer, index_num) =
+                buffers.pop().expect("got no vertex buffers");
+            engine.set_vertex_buffer(vertex_buffer);
+            engine.set_index_buffer(index_buffer, index_num);
+        }
     }
 }
