@@ -1,4 +1,4 @@
-use crate::{app::app_world::renderable::Renderable, engine::vertex::Vertex};
+use crate::{engine::vertex::Vertex, app::AppObject};
 
 pub struct Square;
 
@@ -29,12 +29,16 @@ impl Square {
     const INDICES: &[u16] = &[0, 1, 3, 1, 2, 3];
 }
 
-impl Renderable for Square {
+impl AppObject for Square {
     fn vertices(&self) -> &[Vertex] {
         &Self::VERTICES
     }
 
     fn indices(&self) -> &[u16] {
         &Self::INDICES
+    }
+
+    fn do_render(&self) -> bool {
+        true
     }
 }
