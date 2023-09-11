@@ -19,7 +19,6 @@ use self::{
 };
 
 pub mod app_config;
-pub mod app_context;
 pub mod app_input_handler;
 pub mod app_world;
 
