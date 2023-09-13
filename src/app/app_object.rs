@@ -1,17 +1,17 @@
 use crate::{app::app_input_handler::AppInputHandler, engine::vertex::Vertex};
 
 pub trait AppObject {
-    fn on_dynamic_update(&mut self, delta_time: f64) {}
+    fn on_dynamic_update(&mut self, _delta_time: f64) {}
     fn do_dynamic_update(&self) -> bool {
         false
     }
 
-    fn on_second_update(&mut self, delta_time: f64) {}
+    fn on_second_update(&mut self, _delta_time: f64) {}
     fn do_second_update(&self) -> bool {
         false
     }
 
-    fn on_input(&mut self, delta_time: f64, input_handler: &AppInputHandler) {}
+    fn on_input(&mut self, _delta_time: f64, _input_handler: &AppInputHandler) {}
     fn do_input(&self) -> bool {
         false
     }
