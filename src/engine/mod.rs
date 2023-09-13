@@ -1,47 +1,39 @@
 use std::sync::Arc;
 
-use cgmath::Vector3;
 use wgpu::{
-    include_wgsl,
-    util::{BufferInitDescriptor, DeviceExt},
-    Adapter, Backend, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
-    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendState,
-    Buffer, BufferBindingType, BufferUsages, ColorTargetState, ColorWrites, CompositeAlphaMode,
-    Device, DeviceDescriptor, Face, Features, FragmentState, FrontFace, Instance,
-    InstanceDescriptor, Limits, MultisampleState, PipelineLayoutDescriptor, PolygonMode,
-    PresentMode, PrimitiveState, PrimitiveTopology, Queue, RenderPipeline,
-    RenderPipelineDescriptor, SamplerBindingType, ShaderModule, ShaderStages, Surface,
-    SurfaceConfiguration, TextureFormat, TextureSampleType, TextureUsages, TextureViewDimension,
-    VertexState,
+    include_wgsl, Adapter, Backend, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry,
+    BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
+    BlendState, Buffer, ColorTargetState, ColorWrites, CompositeAlphaMode, Device,
+    DeviceDescriptor, Face, Features, FragmentState, FrontFace, Instance, InstanceDescriptor,
+    Limits, MultisampleState, PipelineLayoutDescriptor, PolygonMode, PresentMode, PrimitiveState,
+    PrimitiveTopology, Queue, RenderPipeline, RenderPipelineDescriptor, SamplerBindingType,
+    ShaderModule, ShaderStages, Surface, SurfaceConfiguration, TextureFormat, TextureSampleType,
+    TextureUsages, TextureViewDimension, VertexState,
 };
 use winit::window::Window;
 
-use crate::engine::camera::CameraUniform;
+use crate::Camera;
 
-use self::{camera::Camera, texture::Texture, vertex::Vertex};
+use self::{texture::Texture, vertex::Vertex};
 
-pub mod camera;
 pub mod texture;
 pub mod vertex;
 
 pub struct Engine {
     window: Arc<Window>,
-    surface: Surface,
+    surface: Arc<Surface>,
     surface_texture_format: Option<TextureFormat>,
-    adapter: Adapter,
-    device: Device,
-    queue: Queue,
+    instance: Arc<Instance>,
+    adapter: Arc<Adapter>,
+    device: Arc<Device>,
+    queue: Arc<Queue>,
+    camera: Camera,
     render_pipeline: Option<RenderPipeline>,
     vertex_buffer: Option<Buffer>,
     index_buffer: Option<(Buffer, u32)>,
     diffuse_bind_group: Option<BindGroup>,
     texture_bind_group_layout: Option<BindGroupLayout>,
     diffuse_texture: Option<Texture>,
-    camera: Camera,
-    camera_uniform: CameraUniform,
-    camera_buffer: Buffer,
-    camera_bind_group: BindGroup,
-    camera_bind_group_layout: BindGroupLayout,
 }
 
 impl Engine {
@@ -49,77 +41,40 @@ impl Engine {
     /// Creates a bunch of critical internal components while doing so.
     pub async fn initialize(window: Arc<Window>) -> Self {
         let instance = Engine::make_instance().await;
-        log::debug!("{instance:?}");
+        let instance_arc = Arc::new(instance);
+        log::debug!("{instance_arc:?}");
 
-        let surface = Engine::make_surface(&instance, window.clone()).await;
-        log::debug!("{surface:?}");
+        let surface = Engine::make_surface(&instance_arc, window.clone()).await;
+        let surface_arc = Arc::new(surface);
+        log::debug!("{surface_arc:?}");
 
-        let adapter = Engine::make_adapter(&instance, &surface).await;
-        log::debug!("{adapter:?}");
+        let adapter = Engine::make_adapter(&instance_arc, &surface_arc).await;
+        let adapter_arc = Arc::new(adapter);
+        log::debug!("{adapter_arc:?}");
 
-        let (device, queue) = Engine::make_device(&adapter).await;
-        log::debug!("{device:?}");
-        log::debug!("{queue:?}");
+        let (device, queue) = Engine::make_device(&adapter_arc).await;
+        let device_arc = Arc::new(device);
+        let queue_arc = Arc::new(queue);
+        log::debug!("{device_arc:?}");
+        log::debug!("{queue_arc:?}");
 
-        let camera = Camera {
-            eye: (0.0, 1.0, 2.0).into(),
-            target: (0.0, 0.0, 0.0).into(),
-            up: Vector3::unit_y(),
-            aspect: window.inner_size().width as f32 / window.inner_size().height as f32, // Note: Might need to be adjusted!
-            fovy: 45.0,
-            znear: 0.1,
-            zfar: 100.0,
-        };
-        let mut camera_uniform = CameraUniform::new();
-        camera_uniform.update_view_proj(&camera);
-
-        let camera_buffer = device.create_buffer_init(&BufferInitDescriptor {
-            label: Some("Camera Buffer"),
-            contents: bytemuck::cast_slice(&[camera_uniform]),
-            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-        });
-
-        let camera_bind_group_layout =
-            device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("Camera Bind Group Layout"),
-                entries: &[BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::VERTEX,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-            });
-        let camera_bind_group = device.create_bind_group(&BindGroupDescriptor {
-            label: Some("Camera Bind Group"),
-            layout: &camera_bind_group_layout,
-            entries: &[BindGroupEntry {
-                binding: 0,
-                resource: camera_buffer.as_entire_binding(),
-            }],
-        });
+        let camera = Camera::new(device_arc.clone(), queue_arc.clone());
 
         Self {
             window,
-            surface,
+            surface: surface_arc,
             surface_texture_format: None,
-            adapter,
-            device,
-            queue,
+            instance: instance_arc,
+            adapter: adapter_arc,
+            device: device_arc,
+            queue: queue_arc,
+            camera,
             render_pipeline: None,
             vertex_buffer: None,
             index_buffer: None,
             diffuse_bind_group: None,
             texture_bind_group_layout: None,
             diffuse_texture: None,
-            camera,
-            camera_uniform,
-            camera_buffer,
-            camera_bind_group,
-            camera_bind_group_layout,
         }
     }
 
@@ -438,24 +393,29 @@ impl Engine {
         })
     }
 
-    /// Returns the local [`&Surface`].
-    pub fn get_surface(&self) -> &Surface {
-        &self.surface
+    /// Returns the local [`Arc<Instance>`]
+    pub fn get_instance(&self) -> Arc<Instance> {
+        self.instance.clone()
     }
 
-    /// Returns the local [`&Adapter`].
-    pub fn get_adapter(&self) -> &Adapter {
-        &self.adapter
+    /// Returns the local [`Arc<Surface>`]
+    pub fn get_surface(&self) -> Arc<Surface> {
+        self.surface.clone()
     }
 
-    /// Returns the local [`&Device`].
-    pub fn get_device(&self) -> &Device {
-        &self.device
+    /// Returns the local [`Arc<Adapter>`].
+    pub fn get_adapter(&self) -> Arc<Adapter> {
+        self.adapter.clone()
     }
 
-    /// Returns the local [`&Queue`].
-    pub fn get_queue(&self) -> &Queue {
-        &self.queue
+    /// Returns the local [`Arc<Device>`].
+    pub fn get_device(&self) -> Arc<Device> {
+        self.device.clone()
+    }
+
+    /// Returns the local [`Arc<Queue>`].
+    pub fn get_queue(&self) -> Arc<Queue> {
+        self.queue.clone()
     }
 
     pub fn get_render_pipeline(&self) -> &RenderPipeline {
@@ -468,7 +428,7 @@ impl Engine {
         device.create_shader_module(include_wgsl!("../shaders/main.wgsl"))
     }
 
-    fn make_render_pipeline(&self) -> RenderPipeline {
+    fn make_render_pipeline(&mut self) -> RenderPipeline {
         let main_shader = Self::make_shader(&self.device);
 
         let render_pipeline_layout =
@@ -479,7 +439,7 @@ impl Engine {
                         self.texture_bind_group_layout
                             .as_ref()
                             .expect("texture_bind_group_layout used before Engine::configure"),
-                        &self.camera_bind_group_layout,
+                        &self.get_camera().get_bind_group_layout(),
                     ],
                     push_constant_ranges: &[],
                 });
@@ -570,7 +530,16 @@ impl Engine {
             .expect("Engine::get_diffuse_group called before Engine::configure!")
     }
 
-    pub fn get_camera_group(&self) -> &BindGroup {
-        &self.camera_bind_group
+    pub fn get_camera(&self) -> &Camera {
+        &self.camera
+    }
+
+    pub fn get_camera_mut(&mut self) -> &mut Camera {
+        &mut self.camera
+    }
+
+    pub fn get_backend_name(&self) -> String {
+        let mut raw_chars = self.get_adapter().get_info().backend.to_str().chars();
+        raw_chars.next().unwrap().to_uppercase().collect::<String>() + raw_chars.as_str()
     }
 }

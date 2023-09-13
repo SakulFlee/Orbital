@@ -1,4 +1,4 @@
-use crate::{engine::vertex::Vertex, app::AppObject};
+use crate::{app::AppObject, engine::vertex::Vertex};
 
 pub struct Square;
 

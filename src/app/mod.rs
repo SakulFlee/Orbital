@@ -77,11 +77,10 @@ impl App {
         engine.configure();
 
         // Get the engine backend and capitalize it
-        let engine_backend = {
-            let mut raw_chars = engine.get_adapter().get_info().backend.to_str().chars();
-            raw_chars.next().unwrap().to_uppercase().collect::<String>() + raw_chars.as_str()
-        };
+        let engine_backend = engine.get_backend_name();
         log::info!("Engine Backend: {engine_backend}");
+
+        // Add Engine camera to objects
 
         // << Cycle Calculation >>
         self.last_time = Instant::now();
@@ -117,7 +116,7 @@ impl App {
                 }
                 Event::RedrawRequested(window_id) => self.handle_redraw(&mut engine, window_id),
                 Event::RedrawEventsCleared => self.handle_redraw_events_cleared(),
-                Event::MainEventsCleared => self.handle_main_events_cleared(&engine_backend, control_flow),
+                Event::MainEventsCleared => self.handle_main_events_cleared(&engine_backend, control_flow, &mut engine),
                 _ => (),
             }
         });
@@ -136,7 +135,12 @@ impl App {
     /// - Updateables
     /// - UPS & Delta calculation
     /// - Performance outputs
-    fn handle_main_events_cleared(&mut self, backend_name: &str, control_flow: &mut ControlFlow) {
+    fn handle_main_events_cleared(
+        &mut self,
+        backend_name: &str,
+        control_flow: &mut ControlFlow,
+        engine: &mut Engine,
+    ) {
         // Take now time
         let now = Instant::now();
         // Get the duration of elapsed time since last update
@@ -150,7 +154,7 @@ impl App {
         self.ups += 1;
 
         // Call updateables
-        self.call_on_dynamic_update(self.delta_time);
+        self.call_on_dynamic_update(self.delta_time, engine);
 
         // If a second has past, call updates
         if self.delta_time >= 1.0 {
@@ -283,7 +287,7 @@ impl App {
             render_pass.set_pipeline(engine.get_render_pipeline());
 
             render_pass.set_bind_group(0, &engine.get_diffuse_group(), &[]);
-            render_pass.set_bind_group(1, &engine.get_camera_group(), &[]);
+            render_pass.set_bind_group(1, &engine.get_camera().get_bind_group(), &[]);
 
             let vertex_buffer = engine.get_vertex_buffer();
             let (index_buffer, index_num) = engine.get_index_buffer();
@@ -351,7 +355,7 @@ impl App {
 
     /// Calls all registered updateables if their [`UpdateFrequency`]
     /// is set to [`UpdateFrequency::OnCycle`]
-    pub fn call_on_dynamic_update(&mut self, delta_time: f64) {
+    pub fn call_on_dynamic_update(&mut self, delta_time: f64, engine: &mut Engine) {
         // Call the main update function for each object
         self.objects
             .iter_mut()
@@ -359,6 +363,15 @@ impl App {
             .for_each(|x| x.on_dynamic_update(delta_time));
 
         // -- Call other update functions:
+
+        // Special case: Camera
+        let camera = engine.get_camera_mut();
+        if camera.do_dynamic_update() {
+            camera.on_dynamic_update(delta_time);
+        }
+        if camera.do_input() {
+            camera.on_input(delta_time, &self.app_input_handler);
+        }
 
         // Call input handling
         self.objects
