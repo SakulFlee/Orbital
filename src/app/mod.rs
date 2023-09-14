@@ -293,9 +293,10 @@ impl App {
             let (index_buffer, index_num) = engine.get_index_buffer();
 
             render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+            render_pass.set_vertex_buffer(1, engine.get_instance_buffer().slice(..));
             render_pass.set_index_buffer(index_buffer.slice(..), IndexFormat::Uint16);
 
-            render_pass.draw_indexed(0..*index_num, 0, 0..1);
+            render_pass.draw_indexed(0..*index_num, 0, engine.get_instance_count());
         }
 
         let command_buffer = command_encoder.finish();
