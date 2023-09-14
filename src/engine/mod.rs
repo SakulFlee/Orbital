@@ -1,14 +1,18 @@
-use std::sync::Arc;
+use std::{ops::Range, sync::Arc};
 
+use cgmath::{Deg, InnerSpace, Quaternion, Rotation3, Vector3, Zero};
 use wgpu::{
-    include_wgsl, Adapter, Backend, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry,
-    BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
-    BlendState, Buffer, ColorTargetState, ColorWrites, CompositeAlphaMode, Device,
-    DeviceDescriptor, Face, Features, FragmentState, FrontFace, Instance, InstanceDescriptor,
-    Limits, MultisampleState, PipelineLayoutDescriptor, PolygonMode, PresentMode, PrimitiveState,
-    PrimitiveTopology, Queue, RenderPipeline, RenderPipelineDescriptor, SamplerBindingType,
-    ShaderModule, ShaderStages, Surface, SurfaceConfiguration, TextureFormat, TextureSampleType,
-    TextureUsages, TextureViewDimension, VertexState,
+    include_wgsl,
+    util::{BufferInitDescriptor, DeviceExt},
+    Adapter, Backend, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
+    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendState,
+    Buffer, BufferUsages, ColorTargetState, ColorWrites, CompositeAlphaMode, Device,
+    DeviceDescriptor, Face, Features, FragmentState, FrontFace, Instance as WInstance,
+    InstanceDescriptor, Limits, MultisampleState, PipelineLayoutDescriptor, PolygonMode,
+    PresentMode, PrimitiveState, PrimitiveTopology, Queue, RenderPipeline,
+    RenderPipelineDescriptor, SamplerBindingType, ShaderModule, ShaderStages, Surface,
+    SurfaceConfiguration, TextureFormat, TextureSampleType, TextureUsages, TextureViewDimension,
+    VertexState,
 };
 use winit::window::Window;
 
@@ -17,13 +21,23 @@ use crate::Camera;
 use self::{texture::Texture, vertex::Vertex};
 
 pub mod texture;
+pub use texture::*;
+
 pub mod vertex;
+pub use vertex::*;
+
+pub mod instance;
+pub use instance::*;
+
+const INSTANCES_ROWS: u32 = 10;
+const INSTANCES_COLUMNS: u32 = 10;
+const INSTANCES_DISPLACEMENT: Vector3<f32> = Vector3::new(1.0, 0.0, 1.0);
 
 pub struct Engine {
     window: Arc<Window>,
     surface: Arc<Surface>,
     surface_texture_format: Option<TextureFormat>,
-    instance: Arc<Instance>,
+    instance: Arc<WInstance>,
     adapter: Arc<Adapter>,
     device: Arc<Device>,
     queue: Arc<Queue>,
@@ -34,6 +48,8 @@ pub struct Engine {
     diffuse_bind_group: Option<BindGroup>,
     texture_bind_group_layout: Option<BindGroupLayout>,
     diffuse_texture: Option<Texture>,
+    instances: Option<Vec<Instance>>,
+    instance_buffer: Option<Buffer>,
 }
 
 impl Engine {
@@ -75,6 +91,8 @@ impl Engine {
             diffuse_bind_group: None,
             texture_bind_group_layout: None,
             diffuse_texture: None,
+            instances: None,
+            instance_buffer: None,
         }
     }
 
@@ -85,6 +103,8 @@ impl Engine {
             self.textures();
         }
 
+        self.instances();
+
         if self.render_pipeline.is_none() {
             let render_pipeline = self.make_render_pipeline();
             log::debug!("{render_pipeline:?}");
@@ -92,9 +112,44 @@ impl Engine {
         }
     }
 
+    pub fn instances(&mut self) {
+        if self.instances.is_none() {
+            let instances = (0..INSTANCES_ROWS)
+                .flat_map(|x| {
+                    (0..INSTANCES_COLUMNS).map(move |z| {
+                        let position = Vector3::new(x as f32, 0.0, z as f32);
+
+                        let rotation = if position.is_zero() {
+                            Quaternion::from_axis_angle(Vector3::unit_z(), Deg(0.0))
+                        } else {
+                            Quaternion::from_axis_angle(position.normalize(), Deg(45.0))
+                        };
+
+                        Instance::new(position, rotation)
+                    })
+                })
+                .collect::<Vec<_>>();
+            self.instances = Some(instances);
+        }
+
+        let instance_data = self
+            .instances
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(Instance::to_uniform)
+            .collect::<Vec<_>>();
+        let instance_buffer = self.get_device().create_buffer_init(&BufferInitDescriptor {
+            label: Some("Instance Buffer"),
+            contents: bytemuck::cast_slice(&instance_data),
+            usage: BufferUsages::VERTEX,
+        });
+        self.instance_buffer = Some(instance_buffer);
+    }
+
     pub fn textures(&mut self) {
         if self.diffuse_texture.is_some() {
-            return;
+            return; // TODO
         }
 
         let diffuse_bytes = include_bytes!("../../res/test.png");
@@ -287,7 +342,7 @@ impl Engine {
     /// > In these cases we can't really use WGPU unfortunately (yet?) and
     /// > a negative score will be returned to put that [Adapter] at the
     /// > lowest possible score.
-    pub async fn rank_adapters(instance: &Instance, surface: &Surface) -> Vec<(Adapter, i32)> {
+    pub async fn rank_adapters(instance: &WInstance, surface: &Surface) -> Vec<(Adapter, i32)> {
         let mut adapters: Vec<(Adapter, i32)> = instance
             .enumerate_adapters(Backends::all())
             .map(|x| {
@@ -345,7 +400,7 @@ impl Engine {
     /// will be ranked based on a score in [`Self::rank_adapters`].  
     /// The [`Adapter`] with the highest scoring will be returned
     /// in this case.
-    async fn make_adapter(instance: &Instance, surface: &Surface) -> Adapter {
+    async fn make_adapter(instance: &WInstance, surface: &Surface) -> Adapter {
         let mut adapters = Self::rank_adapters(instance, surface).await;
 
         log::debug!("The following adapters are compatible:");
@@ -371,7 +426,7 @@ impl Engine {
     }
 
     /// Creates a new [`Surface`].
-    async fn make_surface(instance: &Instance, window: Arc<Window>) -> Surface {
+    async fn make_surface(instance: &WInstance, window: Arc<Window>) -> Surface {
         unsafe { instance.create_surface(window.as_ref()) }
             .expect("failed creating surface from window")
     }
@@ -386,15 +441,15 @@ impl Engine {
     /// - DX11
     /// - OpenGL (and WebGL)
     /// - WebGPU (virtual GPU used in Browsers)
-    async fn make_instance() -> Instance {
-        Instance::new(InstanceDescriptor {
+    async fn make_instance() -> WInstance {
+        WInstance::new(InstanceDescriptor {
             backends: Backends::all(),
             dx12_shader_compiler: Default::default(),
         })
     }
 
-    /// Returns the local [`Arc<Instance>`]
-    pub fn get_instance(&self) -> Arc<Instance> {
+    /// Returns the local [`Arc<WInstance>`]
+    pub fn get_instance(&self) -> Arc<WInstance> {
         self.instance.clone()
     }
 
@@ -454,7 +509,7 @@ impl Engine {
                     module: &main_shader,
                     entry_point: "vs_main",
                     // Vertex buffers
-                    buffers: &[Vertex::descriptor()],
+                    buffers: &[Vertex::descriptor(), InstanceUniform::descriptor()],
                 },
                 // Fragment shader
                 fragment: Some(FragmentState {
@@ -541,5 +596,22 @@ impl Engine {
     pub fn get_backend_name(&self) -> String {
         let mut raw_chars = self.get_adapter().get_info().backend.to_str().chars();
         raw_chars.next().unwrap().to_uppercase().collect::<String>() + raw_chars.as_str()
+    }
+
+    pub fn get_instance_buffer(&self) -> &Buffer {
+        &self
+            .instance_buffer
+            .as_ref()
+            .expect("Called Engine::get_instance_buffer before Engine::configure")
+    }
+
+    pub(crate) fn get_instance_count(&self) -> Range<u32> {
+        let instance_count = self
+            .instances
+            .as_ref()
+            .expect("Called Engine::get_instance_count before Engine::configure")
+            .len() as u32;
+
+        0..instance_count
     }
 }
