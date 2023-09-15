@@ -31,7 +31,6 @@ pub use instance::*;
 
 const INSTANCES_ROWS: u32 = 10;
 const INSTANCES_COLUMNS: u32 = 10;
-const INSTANCES_DISPLACEMENT: Vector3<f32> = Vector3::new(1.0, 0.0, 1.0);
 
 pub struct Engine {
     window: Arc<Window>,
