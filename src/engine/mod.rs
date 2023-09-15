@@ -6,13 +6,13 @@ use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     Adapter, Backend, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendState,
-    Buffer, BufferUsages, ColorTargetState, ColorWrites, CompositeAlphaMode, Device,
-    DeviceDescriptor, Face, Features, FragmentState, FrontFace, Instance as WInstance,
-    InstanceDescriptor, Limits, MultisampleState, PipelineLayoutDescriptor, PolygonMode,
-    PresentMode, PrimitiveState, PrimitiveTopology, Queue, RenderPipeline,
-    RenderPipelineDescriptor, SamplerBindingType, ShaderModule, ShaderStages, Surface,
-    SurfaceConfiguration, TextureFormat, TextureSampleType, TextureUsages, TextureViewDimension,
-    VertexState,
+    Buffer, BufferUsages, ColorTargetState, ColorWrites, CompareFunction, CompositeAlphaMode,
+    DepthBiasState, DepthStencilState, Device, DeviceDescriptor, Face, Features, FragmentState,
+    FrontFace, Instance as WInstance, InstanceDescriptor, Limits, MultisampleState,
+    PipelineLayoutDescriptor, PolygonMode, PresentMode, PrimitiveState, PrimitiveTopology, Queue,
+    RenderPipeline, RenderPipelineDescriptor, SamplerBindingType, ShaderModule, ShaderStages,
+    StencilState, Surface, SurfaceConfiguration, TextureFormat, TextureSampleType, TextureUsages,
+    TextureViewDimension, VertexState,
 };
 use winit::window::Window;
 
@@ -35,6 +35,7 @@ const INSTANCES_COLUMNS: u32 = 10;
 pub struct Engine {
     window: Arc<Window>,
     surface: Arc<Surface>,
+    surface_config: Option<SurfaceConfiguration>,
     surface_texture_format: Option<TextureFormat>,
     instance: Arc<WInstance>,
     adapter: Arc<Adapter>,
@@ -49,6 +50,7 @@ pub struct Engine {
     diffuse_texture: Option<Texture>,
     instances: Option<Vec<Instance>>,
     instance_buffer: Option<Buffer>,
+    depth_texture: Option<Texture>,
 }
 
 impl Engine {
@@ -78,6 +80,7 @@ impl Engine {
         Self {
             window,
             surface: surface_arc,
+            surface_config: None,
             surface_texture_format: None,
             instance: instance_arc,
             adapter: adapter_arc,
@@ -92,15 +95,14 @@ impl Engine {
             diffuse_texture: None,
             instances: None,
             instance_buffer: None,
+            depth_texture: None,
         }
     }
 
     pub fn configure(&mut self) {
         self.configure_surface();
 
-        if self.diffuse_texture.is_none() {
-            self.textures();
-        }
+        self.textures();
 
         self.instances();
 
@@ -147,10 +149,20 @@ impl Engine {
     }
 
     pub fn textures(&mut self) {
-        if self.diffuse_texture.is_some() {
-            return; // TODO
-        }
+        self.diffuse_textures();
+        self.depth_textures();
+    }
 
+    pub fn depth_textures(&mut self) {
+        let depth_texture = Texture::make_depth_texture(
+            &self.device,
+            self.get_surface_config(),
+            Some("Depth Texture"),
+        );
+        self.depth_texture = Some(depth_texture);
+    }
+
+    pub fn diffuse_textures(&mut self) {
         let diffuse_bytes = include_bytes!("../../res/test.png");
         let diffuse_texture =
             Texture::from_bytes(&self.device, &self.queue, diffuse_bytes, "Test Texture").unwrap();
@@ -220,7 +232,8 @@ impl Engine {
             view_formats: vec![],
         };
 
-        self.surface.configure(&self.device, &surface_config)
+        self.surface.configure(&self.device, &surface_config);
+        self.surface_config = Some(surface_config);
     }
 
     /// Creates a new [Device] and, as a by-product a [Queue] of that [Device].
@@ -542,7 +555,13 @@ impl Engine {
                     // Note: requires Features::CONSERVATIVE_RASTERIZATION
                     conservative: false,
                 },
-                depth_stencil: None,
+                depth_stencil: Some(DepthStencilState {
+                    format: Texture::DEPTH_FORMAT,
+                    depth_write_enabled: true,
+                    depth_compare: CompareFunction::Less,
+                    stencil: StencilState::default(),
+                    bias: DepthBiasState::default(),
+                }),
                 multisample: MultisampleState {
                     count: 1,
                     mask: !0,
@@ -612,5 +631,18 @@ impl Engine {
             .len() as u32;
 
         0..instance_count
+    }
+
+    fn get_surface_config(&self) -> &SurfaceConfiguration {
+        &self
+            .surface_config
+            .as_ref()
+            .expect("Called Engine::get_surface_config before Engine::configure")
+    }
+
+    pub fn get_depth_texture(&self) -> &Texture {
+        self.depth_texture
+            .as_ref()
+            .expect("Called Engine::get_depth_texture before Engine::configure")
     }
 }
