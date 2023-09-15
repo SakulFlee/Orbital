@@ -15,7 +15,10 @@
                 "RUST_BACKTRACE": "full"
             },
             "cwd": "${workspaceFolder}",
-            "preLaunchTask": "Debug Build"
+            "preLaunchTask": "Debug Build",
+            "sourceLanguages": [
+                "rust"
+            ]
         }
     ]
 }
