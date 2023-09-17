@@ -60,18 +60,6 @@ impl Cube {
 
         #[rustfmt::skip]
         let indices = vec![
-            // 1,  7,  5,
-            // 1,  3,  7,
-            // 1,  4,  3,
-            // 1,  2,  4,
-            // 3,  8,  7,
-            // 3,  4,  8,
-            // 5,  7,  8,
-            // 5,  8,  6,
-            // 1,  5,  6,
-            // 1,  6,  2,
-            // 2,  6,  8,
-            // 2,  8,  4,
             0, 6, 4, 
             0, 2, 6, 
             0, 3, 2, 
@@ -85,39 +73,6 @@ impl Cube {
             1, 5, 7, 
             1, 7, 3, 
         ];
-
-        // let vertices = [
-        //     // A
-        //     ModelVertex {
-        //         position: [-0.5, -0.5, 0.0],
-        //         tex_coords: [1.0, 1.0],
-        //         normal: [0.0, 0.0, 1.0],
-        //     },
-        //     // B
-        //     ModelVertex {
-        //         position: [0.5, -0.5, 0.0],
-        //         tex_coords: [0.0, 1.0],
-        //         normal: [0.0, 0.0, 1.0],
-        //     },
-        //     // C
-        //     ModelVertex {
-        //         position: [0.5, 0.5, 0.0],
-        //         tex_coords: [0.0, 0.0],
-        //         normal: [0.0, 0.0, 1.0],
-        //     },
-        //     // D
-        //     ModelVertex {
-        //         position: [-0.5, 0.5, 0.0],
-        //         tex_coords: [1.0, 0.0],
-        //         normal: [0.0, 0.0, 1.0],
-        //     },
-        // ];
-
-        // #[rustfmt::skip]
-        // let indices = vec![
-        //     0, 1, 3, 
-        //     1, 2, 3
-        // ];
 
         let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Cube Vertex Buffer"),
