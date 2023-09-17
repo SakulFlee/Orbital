@@ -1,4 +1,4 @@
-use crate::{app::app_input_handler::AppInputHandler, engine::vertex::Vertex};
+use crate::{app::app_input_handler::AppInputHandler, Model};
 
 pub trait AppObject {
     fn on_dynamic_update(&mut self, _delta_time: f64) {}
@@ -16,13 +16,10 @@ pub trait AppObject {
         false
     }
 
-    fn vertices(&self) -> &[Vertex] {
-        &[]
-    }
-    fn indices(&self) -> &[u16] {
-        &[]
+    fn model(&self) -> Option<&Model> {
+        None
     }
     fn do_render(&self) -> bool {
-        true
+        false
     }
 }
