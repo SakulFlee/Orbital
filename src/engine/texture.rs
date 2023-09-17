@@ -1,9 +1,14 @@
+use std::path::Path;
+
 use image::{DynamicImage, GenericImageView};
 use wgpu::{
-    Device, Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, Queue, Sampler,
-    SamplerDescriptor, SurfaceConfiguration, Texture as WTexture, TextureAspect, TextureDescriptor,
-    TextureDimension, TextureFormat, TextureUsages, TextureView, TextureViewDescriptor, AddressMode, FilterMode, CompareFunction,
+    AddressMode, CompareFunction, Device, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout,
+    Origin3d, Queue, Sampler, SamplerDescriptor, SurfaceConfiguration, Texture as WTexture,
+    TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
+    TextureViewDescriptor,
 };
+
+// TODO: "from_path" should be ... from path, not string >_>
 
 pub struct Texture {
     texture: WTexture,
@@ -13,6 +18,24 @@ pub struct Texture {
 
 impl Texture {
     pub const DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
+
+    pub fn from_path(device: &Device, queue: &Queue, file_name: &str) -> Result<Self, String> {
+        let resource_folder = if cfg!(debug_assertions) {
+            Path::new(env!("OUT_DIR")).join("res")
+        } else {
+            Path::new(".").join("res")
+        };
+        // TODO: Resource Manager
+
+        let file_path = resource_folder.join(file_name);
+        let file_path_str = file_path
+            .to_str()
+            .ok_or("Couldn't convert file path to string")?;
+
+        let bytes = std::fs::read(&file_path).map_err(|x| format!("Failed to read file: {}", x))?;
+
+        Self::from_bytes(device, queue, &bytes, file_path_str)
+    }
 
     pub fn from_bytes(
         device: &Device,

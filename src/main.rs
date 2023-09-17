@@ -19,11 +19,6 @@ async fn main() {
     log::log_init();
 
     // App
-    let mut app = App::from_app_config_default_path();
-
-    let square = Square {};
-    let square_boxed = Box::new(square);
-    app.spawn(square_boxed);
-
+    let app = App::from_app_config_default_path();
     app.hijack_thread_and_run().await;
 }
