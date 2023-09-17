@@ -15,3 +15,7 @@ humantime = "2.1"
 bytemuck = { version = "1.14", features = ["derive"] }
 image = "0.24"
 cgmath = "0.18"
+tobj = "4.0.0"
+
+[build-dependencies]
+fs_extra = "1.3"

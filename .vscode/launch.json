@@ -12,13 +12,48 @@
             "args": [],
             "env": {
                 "RUST_LOG": "debug",
-                "RUST_BACKTRACE": "full"
+                "RUST_BACKTRACE": "0"
             },
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "Debug Build",
             "sourceLanguages": [
                 "rust"
             ]
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "RenderDoc",
+            "program": "echo",
+            "args": [
+                "Only works on Windows currently!"
+            ],
+            "windows": {
+                "program": "C:/Program Files/RenderDoc/renderdoccmd.exe",
+                "args": [
+                    "capture",
+                    "--working-dir",
+                    "${workspaceFolder}",
+                    "--capture-file",
+                    "${workspaceFolder}/target/debug/renderdoc/",
+                    "--opt-api-validation",
+                    "--opt-capture-callstacks",
+                    "--opt-verify-buffer-access",
+                    "--opt-hook-children",
+                    "--opt-ref-all-resources",
+                    "--opt-capture-all-cmd-lists",
+                    "${workspaceFolder}/target/debug/wgpu_engine.exe"
+                ],
+            },
+            "env": {
+                "RUST_LOG": "debug",
+                "RUST_BACKTRACE": "0"
+            },
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Debug Build",
+            "sourceLanguages": [
+                "rust"
+            ],
         }
     ]
 }

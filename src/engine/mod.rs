@@ -18,7 +18,7 @@ use winit::window::Window;
 
 use crate::Camera;
 
-use self::{texture::Texture, vertex::Vertex};
+use self::texture::Texture;
 
 pub mod texture;
 pub use texture::*;
@@ -28,6 +28,9 @@ pub use vertex::*;
 
 pub mod instance;
 pub use instance::*;
+
+pub mod model;
+pub use model::*;
 
 const INSTANCES_ROWS: u32 = 10;
 const INSTANCES_COLUMNS: u32 = 10;
@@ -43,10 +46,8 @@ pub struct Engine {
     queue: Arc<Queue>,
     camera: Camera,
     render_pipeline: Option<RenderPipeline>,
-    vertex_buffer: Option<Buffer>,
-    index_buffer: Option<(Buffer, u32)>,
     diffuse_bind_group: Option<BindGroup>,
-    texture_bind_group_layout: Option<BindGroupLayout>,
+    default_texture_bind_group_layout: Option<BindGroupLayout>,
     diffuse_texture: Option<Texture>,
     instances: Option<Vec<Instance>>,
     instance_buffer: Option<Buffer>,
@@ -88,10 +89,8 @@ impl Engine {
             queue: queue_arc,
             camera,
             render_pipeline: None,
-            vertex_buffer: None,
-            index_buffer: None,
             diffuse_bind_group: None,
-            texture_bind_group_layout: None,
+            default_texture_bind_group_layout: None,
             diffuse_texture: None,
             instances: None,
             instance_buffer: None,
@@ -118,7 +117,7 @@ impl Engine {
             let instances = (0..INSTANCES_ROWS)
                 .flat_map(|x| {
                     (0..INSTANCES_COLUMNS).map(move |z| {
-                        let position = Vector3::new(x as f32, 0.0, z as f32);
+                        let position = Vector3::new(x as f32 * 2.0, 0.0, z as f32 * 2.0);
 
                         let rotation = if position.is_zero() {
                             Quaternion::from_axis_angle(Vector3::unit_z(), Deg(0.0))
@@ -208,7 +207,7 @@ impl Engine {
 
         self.diffuse_texture = Some(diffuse_texture);
         self.diffuse_bind_group = Some(diffuse_bind_group);
-        self.texture_bind_group_layout = Some(texture_bind_group_layout);
+        self.default_texture_bind_group_layout = Some(texture_bind_group_layout);
     }
 
     /// Configures the local [Surface].
@@ -503,7 +502,7 @@ impl Engine {
                 .create_pipeline_layout(&PipelineLayoutDescriptor {
                     label: Some("Render Pipeline Layout"),
                     bind_group_layouts: &[
-                        self.texture_bind_group_layout
+                        self.default_texture_bind_group_layout
                             .as_ref()
                             .expect("texture_bind_group_layout used before Engine::configure"),
                         &self.get_camera().get_bind_group_layout(),
@@ -521,7 +520,7 @@ impl Engine {
                     module: &main_shader,
                     entry_point: "vs_main",
                     // Vertex buffers
-                    buffers: &[Vertex::descriptor(), InstanceUniform::descriptor()],
+                    buffers: &[ModelVertex::descriptor(), InstanceUniform::descriptor()],
                 },
                 // Fragment shader
                 fragment: Some(FragmentState {
@@ -573,30 +572,6 @@ impl Engine {
         return render_pipeline;
     }
 
-    pub fn set_vertex_buffer(&mut self, vertex_buffer: Buffer) {
-        self.vertex_buffer = Some(vertex_buffer);
-    }
-
-    pub fn get_vertex_buffer(&self) -> &Buffer {
-        self.vertex_buffer
-            .as_ref()
-            .expect("Engine::get_vertex_buffer called before Engine::set_vertex_buffer")
-    }
-
-    pub fn set_index_buffer(&mut self, index_buffer: Buffer, indices_count: u32) {
-        self.index_buffer = Some((index_buffer, indices_count));
-    }
-
-    pub fn get_index_buffer(&self) -> &(Buffer, u32) {
-        self.index_buffer
-            .as_ref()
-            .expect("Engine::get_index_buffer called before Engine::set_index_buffer")
-    }
-
-    pub fn has_vertex_buffer(&self) -> bool {
-        self.vertex_buffer.is_some()
-    }
-
     pub fn get_diffuse_group(&self) -> &BindGroup {
         self.diffuse_bind_group
             .as_ref()
@@ -644,5 +619,12 @@ impl Engine {
         self.depth_texture
             .as_ref()
             .expect("Called Engine::get_depth_texture before Engine::configure")
+    }
+
+    pub(crate) fn get_default_texture_layout(&self) -> &BindGroupLayout {
+        &self
+            .default_texture_bind_group_layout
+            .as_ref()
+            .expect("No default texture layout set")
     }
 }
