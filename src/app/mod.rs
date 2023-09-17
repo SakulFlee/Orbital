@@ -1,10 +1,8 @@
 use std::{sync::Arc, time::Instant};
 
 use wgpu::{
-    util::{BufferInitDescriptor, DeviceExt},
-    Buffer, BufferUsages, CommandEncoderDescriptor, IndexFormat, LoadOp, Operations,
-    RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor,
-    TextureViewDescriptor,
+    CommandEncoderDescriptor, IndexFormat, LoadOp, Operations, RenderPassColorAttachment,
+    RenderPassDepthStencilAttachment, RenderPassDescriptor, TextureViewDescriptor,
 };
 use winit::{
     dpi::PhysicalSize,
@@ -13,7 +11,7 @@ use winit::{
     window::{UserAttentionType, Window, WindowBuilder, WindowId},
 };
 
-use crate::{engine::Engine, APP_NAME};
+use crate::{engine::Engine, Model, APP_NAME};
 
 pub mod app_config;
 pub use app_config::*;
@@ -76,6 +74,17 @@ impl App {
         // Engine creation
         let mut engine: Engine = Engine::initialize(window_arc.clone()).await;
         engine.configure();
+
+        // Spawn world
+        // TODO: Must be move to the outside into Main!
+        let cube = Cube::new(
+            &engine.get_device(),
+            &engine.get_queue(),
+            engine.get_default_texture_layout(),
+        )
+        .expect("failed to make cube ...");
+        let cube_boxed = Box::new(cube);
+        self.spawn(cube_boxed);
 
         // Get the engine backend and capitalize it
         let engine_backend = engine.get_backend_name();
@@ -253,9 +262,15 @@ impl App {
             .texture
             .create_view(&TextureViewDescriptor::default());
 
-        // Call renderables
-        // TODO: Only one is picked atm
-        self.call_draw(engine);
+        // Retrieve models
+        let models: Vec<&Model> = self
+            .objects
+            .iter_mut()
+            .filter(|x| x.do_render())
+            .map(|x| x.model())
+            .filter(|x| x.is_some())
+            .map(|x| x.unwrap())
+            .collect();
 
         // Make command encoder
         let mut command_encoder =
@@ -264,6 +279,14 @@ impl App {
                 .create_command_encoder(&CommandEncoderDescriptor {
                     label: Some("Command Encoder"),
                 });
+
+        // let cube = Cube::new(
+        //     &engine.get_device(),
+        //     &engine.get_queue(),
+        //     engine.get_default_texture_layout(),
+        // )
+        // .expect("cube failed");
+        // let cube_model = cube.model().expect("model failed");
         {
             // Start RenderPass
             let mut render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
@@ -297,14 +320,29 @@ impl App {
             render_pass.set_bind_group(0, &engine.get_diffuse_group(), &[]);
             render_pass.set_bind_group(1, &engine.get_camera().get_bind_group(), &[]);
 
-            let vertex_buffer = engine.get_vertex_buffer();
-            let (index_buffer, index_num) = engine.get_index_buffer();
-
-            render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+            // Instances
             render_pass.set_vertex_buffer(1, engine.get_instance_buffer().slice(..));
-            render_pass.set_index_buffer(index_buffer.slice(..), IndexFormat::Uint16);
 
-            render_pass.draw_indexed(0..*index_num, 0, engine.get_instance_count());
+            // render_pass.set_vertex_buffer(
+            //     0,
+            //     cube_model.meshes.first().unwrap().vertex_buffer.slice(..),
+            // );
+            // render_pass.set_index_buffer(
+            //     cube_model.meshes.first().unwrap().index_buffer.slice(..),
+            //     IndexFormat::Uint32,
+            // );
+            // render_pass.draw_indexed(0..cube_model.meshes.first().unwrap().num_elements, 0, 0..1);
+
+            models.iter().for_each(|x| {
+                let y = x.meshes.first().unwrap();
+                // x.meshes.iter().for_each(|y| {
+                render_pass.set_vertex_buffer(0, y.vertex_buffer.slice(..));
+                render_pass.set_index_buffer(y.index_buffer.slice(..), IndexFormat::Uint32);
+
+                // render_pass.draw_indexed(0..y.num_elements, 0, y.instance_range.clone());
+                render_pass.draw_indexed(0..y.num_elements, 0, engine.get_instance_count());
+                // TODO: Instances must be moved into Model
+            });
         }
 
         let command_buffer = command_encoder.finish();
@@ -387,49 +425,5 @@ impl App {
             .iter_mut()
             .filter(|x| x.do_input())
             .for_each(|x| x.on_input(delta_time, &self.app_input_handler));
-    }
-
-    pub fn call_draw(&mut self, engine: &mut Engine) {
-        // TODO: Fix for now ...
-        if engine.has_vertex_buffer() {
-            return;
-        }
-
-        // Retrieve vertices from Object
-        let mut buffers: Vec<(Buffer, Buffer, u32)> = self
-            .objects
-            .iter_mut()
-            .filter(|x| x.do_render())
-            .map(|x| (x.vertices(), x.indices()))
-            // Make Vertex Buffers
-            .map(|(vertices, indices)| {
-                let indices_num = indices.len() as u32;
-
-                let vertex_buffer = engine
-                    .get_device()
-                    .create_buffer_init(&BufferInitDescriptor {
-                        label: Some("Vertex Buffer"),
-                        contents: bytemuck::cast_slice(vertices),
-                        usage: BufferUsages::VERTEX,
-                    });
-                let index_buffer = engine
-                    .get_device()
-                    .create_buffer_init(&BufferInitDescriptor {
-                        label: Some("Index Buffer"),
-                        contents: bytemuck::cast_slice(indices),
-                        usage: BufferUsages::INDEX,
-                    });
-
-                (vertex_buffer, index_buffer, indices_num)
-            })
-            .collect();
-
-        // TODO: Only takes the last buffer!
-        if !buffers.is_empty() {
-            let (vertex_buffer, index_buffer, index_num) =
-                buffers.pop().expect("got no vertex buffers");
-            engine.set_vertex_buffer(vertex_buffer);
-            engine.set_index_buffer(index_buffer, index_num);
-        }
     }
 }
