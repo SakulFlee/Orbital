@@ -6,3 +6,6 @@ game-*.log
 
 # Syncthing
 .stfolder/
+
+# Blender
+.blend*
