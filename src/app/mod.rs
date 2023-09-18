@@ -77,14 +77,22 @@ impl App {
 
         // Spawn world
         // TODO: Must be move to the outside into Main!
-        let cube = Cube::new(
+        // let cube = Cube::new(
+        //     &engine.get_device(),
+        //     &engine.get_queue(),
+        //     engine.get_default_texture_layout(),
+        // )
+        // .expect("failed to make cube ...");
+        // let cube_boxed = Box::new(cube);
+        // self.spawn(cube_boxed);
+        let round_cube = RoundCube::new(
             &engine.get_device(),
             &engine.get_queue(),
             engine.get_default_texture_layout(),
         )
         .expect("failed to make cube ...");
-        let cube_boxed = Box::new(cube);
-        self.spawn(cube_boxed);
+        let round_cube_boxed = Box::new(round_cube);
+        self.spawn(round_cube_boxed);
 
         // Get the engine backend and capitalize it
         let engine_backend = engine.get_backend_name();
