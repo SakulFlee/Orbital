@@ -1,4 +1,4 @@
-# Rust Multi-Platform: Base Project Template
+# Akimo Engine
 
 [![Multiplatform Build](https://github.com/Sakul6499/Rust-Multi-Platform-Project-Template/actions/workflows/multiplatform-build.yml/badge.svg)](https://github.com/Sakul6499/Rust-Multi-Platform-Project-Template/actions/workflows/multiplatform-build.yml)
 
