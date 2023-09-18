@@ -9,3 +9,6 @@ pub use square::*;
 
 pub mod cube;
 pub use cube::*;
+
+pub mod round_cube;
+pub use round_cube::*;
