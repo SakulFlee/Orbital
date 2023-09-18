@@ -1,9 +1,6 @@
-use wgpu::{
-    util::{BufferInitDescriptor, DeviceExt},
-    BindGroupLayout, BufferUsages, Device, Queue,
-};
+use wgpu::{BindGroupLayout, Device, Queue};
 
-use crate::{AppObject, Mesh, Model, ModelVertex};
+use crate::{AppObject, Model};
 
 pub struct Cube {
     model: Model,
