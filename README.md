@@ -1,24 +1,36 @@
 # Akimo Engine
 
-[![Multiplatform Build](https://github.com/Sakul6499/Rust-Multi-Platform-Project-Template/actions/workflows/multiplatform-build.yml/badge.svg)](https://github.com/Sakul6499/Rust-Multi-Platform-Project-Template/actions/workflows/multiplatform-build.yml)
+[![Multiplatform Build](https://github.com/Sakul6499/Akimo-Engine/actions/workflows/multiplatform-build.yml/badge.svg?branch=main)](https://github.com/Sakul6499/Akimo-Engine/actions/workflows/multiplatform-build.yml)
 
-This repository is a template.
-It's main purpose is to make it easier to get started with [Rust](https://www.rust-lang.org/) for multiple platforms.
+The _Akimo Engine_ is a multi-purpose rendering engine created by myself to make indie-games.  
+We currently support 2D, as well as, 3D games, but this library can also be used for computational tasks.
+The main goal of this project is to create an easy way of rendering, where a given developer only has to care about their _game world_ and nothing else.
+However, the engine is also modularly build and highly customizable & extensible.
+
+This engine is written fully in [Rust].
+However, bindings for other languages are [planned](#planned-features).
+
+_Akimo_ is a very old project I've been working on for years.  
+If you are interested in finding out more checkout the [history](#history) section.
 
 This project is supported by the following platforms:
 
 - ✅ Platform: Windows
 - ✅ Platform: Linux
-- ✅ Platform: macOS
-- ✅ Platform: Android
-- ✅ Platform: iOS
-- ✅ Platform: WebAssembly
+- ❓ Platform: macOS
+- ❓ Platform: Android
+- ❓ Platform: iOS
+- ❓ Platform: WebAssembly
 
-To use this template simply fork it (button in top right corner) into your own namespace.
-If you need some more advanced setup check out the [forking guide](FORKING.md).
-We also include a checklist for [what to do after forking](FORKING.md#what-is-important-to-do-after-forking).
+To use this engine include the following into your `Cargo.toml`:
 
-## Licenses
+```toml
+akimo_engine = {git = "https://github.com/Sakul6499/Akimo-Engine/fork", branch = "main"}
+```
+
+Alternatively, you can [fork] this repository and directly add your own sub-crates for your game!
+
+## License
 
 This project is dual licensed in Rust's fashion:
 
@@ -28,31 +40,49 @@ This project is dual licensed in Rust's fashion:
 For your own project you can chose whichever fits you better.
 For templates/examples we recommend to also dual-licensing.
 
+> We highly encourage everyone to share their sub-crates with the community so that others can benefit from it too!
+
 ## Project layout
 
-| Folder                                         | Description                                                                                                                         |
-| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| ./                                             | Workspace root; `Cargo.toml` contains all project folders (internal crates)                                                         |  |
-| [platform/](platform/)                         | Platform projects root. Contains every platform this demonstration is supported on incl. instructions on how to build and use them. |
-| [platform/android/](platform/android/)         | Contains the Android platform project and instructions on how to build this project for Android and run it.                         |
-| [platform/ios/](platform/ios/)                 | Contains the iOS platform project and instructions on how to build this project for iOS and run it.                                 |
-| [platform/linux/](platform/linux/)             | Contains the Linux platform project and instructions on how to build this project for Linux and run it.                             |
-| [platform/macos/](platform/macos/)             | Contains the macOS platform project and instructions on how to build this project for macOS and run it.                             |
-| [platform/windows/](platform/windows/)         | Contains the Windows platform project and instructions on how to build this project for Windows and run it.                         |
-| [platform/webassembly/](platform/webassembly/) | Contains the WebAssembly platform project and instructions on how to build this project for Websites and run it.                    |
-| [shared/](shared/)                             | Contains the **shared** code between **all** projects.                                                                              |
+| Folder                                       | Description                                                                                                                                                                                                   |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ./                                           | Workspace root; `Cargo.toml` contains all project folders (internal crates)                                                                                                                                   |  |
+| [crates/](crates/)                           | All sub crates life here.                                                                                                                                                                                     |
+| [crates/akimo_engine/](crates/akimo_engine/) | The engine with all mandatory features included.                                                                                                                                                              |
+| [crates/*/](crates/*/)                       | Any sub-crate that extends the Engine's functionality or offer structures to make things easier. **Some of these may depend on each other and may be included (and re-exported!) in the _Akimo Engine_ crate. |
 
 To break this down:
-The [shared/](shared/) folder contains our **cross/multi-platform code**.
-99.9% of what we do in this project will happen there.
+You are most likely interested in the [crates/akimo_engine/](crates/akimo_engine/) folder.  
+It contains the base engine which you want to use in your own projects.
 
-Each of the projects inside [platform/](platform/) are representing a **platform specific project**.
-In most cases, like for Windows, Linux and macOS, there is nothing else to do but call our shared code and compile a **binary**.
-However, on certain platforms, like Android and iOS, we have to use some special commands and tools to get an e.g. .APK (Android) or .APP (iOS) file.
-Furthermore, on those systems resources/assets may need to be specially loaded and their `Cargo.toml` will be much more extensive.
-Simply said: For those special platforms we will use some cargo extensions which will automatically generate a native project in the background. Values from `Cargo.toml` will be used to generate those.
+Further additions and helpers may be included under [crates/*/](crates/*/).
 
-**Please check the `README.md` inside each platform to see how each platform is build, run and what you will need to do so.**
+## Planned features
+
+> Ticked items are implemented.  
+> Unticked items are not yet implemented.
+
+- [ ] Basic rendering capabilities including full handling of:
+  - [ ] Window
+  - [ ] Render Backend
+  - [ ] App World and Objects
+- [ ] Config extension support
+- [ ] Input handling
+  - [ ] Keyboard
+  - [ ] Mouse
+  - [ ] Controller
+- [ ] Platform support
+  - [ ] Windows
+  - [ ] Linux
+  - [ ] macOS
+  - [ ] Android
+  - [ ] iOS
+  - [ ] WebAssembly / WASM (Web)
+- [ ] Language bindings
+  - [ ] C#
+  - [ ] C++
+  - [ ] Java
+  - [ ] JavaScript
 
 ## Targets & Architectures
 
@@ -152,6 +182,93 @@ Additionally, often we have to `source` the profile changes. Something like:
 source $HOME/.cargo/env
 ```
 
+## Contributing & Getting Help
+
+We welcome any help we get and try to answer questions as good as possible!
+Generally speaking, please open an [issue here on GitHub](issues/new) or contact me directly.
+No matter the problem or question.
+
+In case you've got an idea/request for an example/template, please do open an [issue here on GitHub](issues/new).
+
+Want to add your own example/template project to the organization and use our CI's?
+Please open an [issue here on GitHub](issues/new).
+
+## History
+
+_Akimo_ is a very old project made by myself.  
+
+_Akimo_ originally was written in [Java] and was intended to be a full game.  
+However, back then I was still very much at the beginning of learning rendering, and thus v1.0 ended up being a CPU-renderer.
+
+The concept was incredibly simple:  
+The Engine had only one job: to make the singular Game I had in mind run.
+Said game was basically similar to [The Binding of Issac].
+A simple 2D "shooter" where you have limited hearts, lots of enemies ("monsters") attacking you with dodge-able bullets and lastly boss fights.
+Items, of course, where also a thing which enhanced your abilities, gave you new abilities, movements or even could help you by healing you, giving you more hearts, or many other things.
+
+After getting the basics working I noticed that my renderer is quite slow and could use some power-ups ... so I began optimizing my code heavily to the point where I would even outperform a later [OpenGL] based renderer.  
+The engine managed to, similar like to how a GPU does it, find what objects are in visible and upfront and only would colour in pixels for these, while ignoring everything off-camera, out of view and hidden behind something.
+Multiple layers where used to split the game rendering into multiple steps of which many could also be buffered and only needed to be updated (i.e. "re-rendered") in rare scenarios.
+
+With all of this I had a very basic game ready:  
+You had a character that was controlled by the `WASD` keys.
+Your mouse cursor would draw in a circle around your character and on `LMB` (left-mouse-button) press you would shoot.  
+Items could be used with `RMB` (right-mouse-button) and picked up by walking over them.
+Each level would be a random connection of multiple rooms which I had predefined (i.e. no full procedural generation per-room, but the whole level would be procedurally generated).
+Each room also had different enemies spawning, which all attacked and moved differently.
+
+Which all sounds a bit complex, but compared to [The Binding of Issac] I had 4x different room types, 3x enemy types, 3x items and not even bosses.
+Finding the exit of a level would just re-generate a new set of rooms and spawn you in that level.
+
+At this point I noticed that I am very much interested in finding out how to _"actually"_ render something.
+Not just CPU-Rendered but utilizing the GPU!
+At this point I would switch to [LWJGL], which at this point only supported OpenGL as a backend.
+After lots of studying I eventually got the same version of the game going in [OpenGL], but surprisingly it was running slower (i.e. less FPS) than my CPU-Renderer.
+
+Unfortunately, at this point in my life school has became much more stressful and I never really progressed from this point on.
+Furthermore, the source code of this Engine+Game project got lost over time.
+However, the ideas and principles behind it still remained!
+
+Much later [Vulkan] was released and I wanted to step up from [OpenGL] to [Vulkan].
+At the same time [LWJGL] also added support for [Vulkan] so I started learning again and ported this "Game" over to [Vulkan].
+After a lot of time I had it all working finally and running better than my CPU-Renderer this time!
+
+However, at this time I was also very interested in native development with [C++]. I also heard that [C++] is so much faster than [Java] and that [LWJGL] is rather slow.
+_Which turned out now to be true in the end, but that's what I heard!_
+So ... I began rewriting the whole thing, mostly the engine part, in [C++].
+Took a lot of time again but eventually I succeeded.
+However, this time it felt like my engine has gotten well enough to go beyond 2D: So I tried some 3D stuff.
+Nothing every really came out of it and the [Vulkan] based engine once again got abandoned for a while.
+
+In between here I was also toying around a lot with existing Engines like [Unity], [UnrealEngine] and eventually [Godot].
+I tried to make multiple games, all called "Akimo", but neither reached publishing/ready status.  
+On this node, what does "Akimo" even stand for?  
+Nothing! That's the simple answer.  
+When starting a new project I pick a random letter that comes to mind, 'A' in this case.
+I then start adding letters to it until I find a name that I like.
+Eventually I arrived at 'Akimo'.
+In some sense this means something like "Game" or "Game Engine" for me and I may even call a finished game "Akimo" at some point.  
+Thus, "Akimo" and "Akimo Engine" are two separate things!  
+One is a game, never released, one is an Engine released with this repo :)
+
+Eventually, [Rust] was published and I loved it so much.
+Native, that is much easier and more powerful than [C++], while also having a lot more security and being cross-platform checks so many boxes for me.
+With that, I decided to _once again_ rewrite _Akimo_ but in [Rust] this time.
+Unfortunately, the source code of the old engine ([Java] and [C++] version!) has been lost at this point so I was going off memory.
+Eventually my engine was back, but I had no idea what to do with it as my original "[The Binding of Issac] clone" wasn't cutting it for me anymore.
+
+At this moment (relatively recently as of writing this actually!) I learned about [WGPU].
+[WGPU] gives you a HAL (Hardware Abstract Layer) that works across basically any modern graphics API backend.
+[Vulkan] (universal), [DirectX] (Windows), [Metal] (macOS/Apple) and even older backends like [OpenGL] are supported.
+Furthermore, [WGPU] is supposed to replace [WebGL] (a [OpenGL] fork for the web), so browser native rendering is also supported!
+
+Soooo ... once again I started rewriting my engine, from scratch, while preserving the initial concepts of it.
+Though, arguably, some concepts I was using in [Java] aren't applicable in [Rust] so they got changed, but the essence is still the same!  
+This time I am also, once again, purposefully building this engine for a game I have in mind.
+
+This is now. Basically.  
+I plan on extending the engine a lot, however keeping in mind that I am making a game this time.
+
 ## Coverage
 
 A combination of [grcov](https://github.com/mozilla/grcov) and [codecov.io](https://codecov.io) is used to provide code-to-test coverage.  
@@ -173,13 +290,15 @@ Below are several charts showing/highlighting the distribution of **all platform
 
 ![Icicle](https://codecov.io/gh/rust-multiplatform/Base-Project-Template/branch/main/graphs/icicle.svg?token=XpGvuQVirP)
 
-## Contributing & Getting Help
-
-We welcome any help we get and try to answer questions as good as possible!
-Generally speaking, please open an [issue here on GitHub](issues/new) or contact me directly.
-No matter the problem or question.
-
-In case you've got an idea/request for an example/template, please do open an [issue here on GitHub](issues/new).
-
-Want to add your own example/template project to the organization and use our CI's?
-Please open an [issue here on GitHub](issues/new).
+[Rust]: https://www.rust-lang.org/
+[fork]: https://github.com/Sakul6499/Akimo-Engine/fork
+[java]: https://www.java.com/en/
+[The Binding of Issac]: https://store.steampowered.com/app/113200/The_Binding_of_Isaac/
+[OpenGL]: https://www.opengl.org/
+[LWJGL]: https://www.lwjgl.org/
+[Vulkan]: https://vulkan.org/
+[C++]: https://cplusplus.com/
+[WGPU]: https://wgpu.rs/
+[DirectX]: https://support.microsoft.com/en-us/topic/how-to-install-the-latest-version-of-directx-d1f5ffa5-dae2-246c-91b1-ee1e973ed8c2
+[Metal]: <https://developer.apple.com/metal/>
+[WebGL]: https://www.khronos.org/webgl/
