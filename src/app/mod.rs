@@ -317,11 +317,7 @@ impl App {
 
             render_pass.set_pipeline(engine.get_render_pipeline());
 
-            render_pass.set_bind_group(0, &engine.get_diffuse_group(), &[]);
             render_pass.set_bind_group(1, &engine.get_camera().get_bind_group(), &[]);
-
-            // Instances
-            render_pass.set_vertex_buffer(1, engine.get_instance_buffer().slice(..));
 
             // render_pass.set_vertex_buffer(
             //     0,
@@ -334,14 +330,21 @@ impl App {
             // render_pass.draw_indexed(0..cube_model.meshes.first().unwrap().num_elements, 0, 0..1);
 
             models.iter().for_each(|x| {
-                let y = x.meshes.first().unwrap();
-                // x.meshes.iter().for_each(|y| {
-                render_pass.set_vertex_buffer(0, y.vertex_buffer.slice(..));
-                render_pass.set_index_buffer(y.index_buffer.slice(..), IndexFormat::Uint32);
+                x.meshes.iter().for_each(|y| {
+                    render_pass.set_vertex_buffer(0, y.vertex_buffer.slice(..));
+                    render_pass.set_index_buffer(y.index_buffer.slice(..), IndexFormat::Uint32);
 
-                // render_pass.draw_indexed(0..y.num_elements, 0, y.instance_range.clone());
-                render_pass.draw_indexed(0..y.num_elements, 0, engine.get_instance_count());
-                // TODO: Instances must be moved into Model
+                    // Instances
+                    render_pass.set_vertex_buffer(1, engine.get_instance_buffer().slice(..));
+
+                    // Texture
+                    let material = &x.materials[y.material];
+                    render_pass.set_bind_group(0, &material.bind_group, &[]);
+
+                    // render_pass.draw_indexed(0..y.num_elements, 0, y.instance_range.clone());
+                    render_pass.draw_indexed(0..y.num_elements, 0, engine.get_instance_count());
+                    // TODO: Instances must be moved into Model
+                });
             });
         }
 
