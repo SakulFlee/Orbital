@@ -138,8 +138,7 @@ impl Mesh {
                     model.mesh.positions[i * 3 + 2],
                 ],
                 // Texture coordinates are 2D and not 3D like position & normals
-                // tex_coords: [model.mesh.texcoords[i * 2], model.mesh.texcoords[i * 2 + 1]],  // TODO: Crashes if there are no texture
-                tex_coords: [0.0, 1.0],
+                tex_coords: [model.mesh.texcoords[i * 2], model.mesh.texcoords[i * 2 + 1]], // TODO: Crashes if there are no texture
                 // Similar to the position of each vertex we have a normal point at that location, which needs to be extracted in the same way
                 normal: [
                     model.mesh.normals[i * 3],
