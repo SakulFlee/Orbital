@@ -11,7 +11,7 @@ use winit::{
     window::{UserAttentionType, Window, WindowBuilder, WindowId},
 };
 
-use crate::{engine::Engine, Model, APP_NAME};
+use crate::{_engine::Engine, Model, APP_NAME};
 
 pub mod app_config;
 pub use app_config::*;

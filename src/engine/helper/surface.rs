@@ -1,6 +1,6 @@
 use wgpu::{Adapter, Surface, TextureFormat};
 
-use crate::{EngineError, EngineResult};
+use crate::engine::{EngineError, EngineResult};
 
 pub trait SurfaceHelper {
     fn get_surface_texture_formats(&self, adapter: &Adapter) -> Vec<TextureFormat>;

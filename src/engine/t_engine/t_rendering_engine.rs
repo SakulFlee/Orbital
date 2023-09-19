@@ -1,8 +1,13 @@
-use wgpu::{CompositeAlphaMode, PresentMode, Surface, SurfaceConfiguration, TextureFormat};
+use wgpu::{
+    CompositeAlphaMode, PresentMode, RenderPipeline, Surface, SurfaceConfiguration, SurfaceTexture,
+    TextureFormat, TextureView,
+};
 
-use crate::ComputingEngine;
+use crate::engine::{EngineError, EngineResult, SurfaceTextureHelper};
 
-pub trait RenderingEngine: ComputingEngine {
+use super::TComputingEngine;
+
+pub trait TRenderingEngine: TComputingEngine {
     fn configure_surface(&mut self);
     fn reconfigure_surface(&mut self) {
         self.configure_surface()
@@ -40,4 +45,17 @@ pub trait RenderingEngine: ComputingEngine {
     fn get_surface_configuration(&self) -> &SurfaceConfiguration;
     fn set_surface_configuration(&mut self, surface_configuration: SurfaceConfiguration);
     fn get_surface_texture_format(&self) -> &TextureFormat;
+
+    fn get_surface_texture(&self) -> EngineResult<SurfaceTexture> {
+        Ok(self
+            .get_surface()
+            .get_current_texture()
+            .map_err(|e| EngineError::SurfaceError(e))?)
+    }
+
+    fn get_surface_texture_view(&self) -> EngineResult<TextureView> {
+        Ok(self.get_surface_texture()?.make_texture_view())
+    }
+
+    fn get_render_pipeline(&self) -> &RenderPipeline;
 }
