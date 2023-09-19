@@ -6,13 +6,13 @@ use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     Adapter, Backend, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendState,
-    Buffer, BufferUsages, ColorTargetState, ColorWrites, CompareFunction, CompositeAlphaMode,
-    DepthBiasState, DepthStencilState, Device, DeviceDescriptor, Face, Features, FragmentState,
-    FrontFace, Instance as WInstance, InstanceDescriptor, Limits, MultisampleState,
-    PipelineLayoutDescriptor, PolygonMode, PresentMode, PrimitiveState, PrimitiveTopology, Queue,
-    RenderPipeline, RenderPipelineDescriptor, SamplerBindingType, ShaderModule, ShaderStages,
-    StencilState, Surface, SurfaceConfiguration, TextureFormat, TextureSampleType, TextureUsages,
-    TextureViewDimension, VertexState,
+    Buffer, BufferBindingType, BufferUsages, ColorTargetState, ColorWrites, CompareFunction,
+    CompositeAlphaMode, DepthBiasState, DepthStencilState, Device, DeviceDescriptor, Face,
+    Features, FragmentState, FrontFace, Instance as WInstance, InstanceDescriptor, Limits,
+    MultisampleState, PipelineLayoutDescriptor, PolygonMode, PresentMode, PrimitiveState,
+    PrimitiveTopology, Queue, RenderPipeline, RenderPipelineDescriptor, SamplerBindingType,
+    ShaderModule, ShaderStages, StencilState, Surface, SurfaceConfiguration, TextureFormat,
+    TextureSampleType, TextureUsages, TextureViewDimension, VertexState,
 };
 use winit::window::Window;
 
@@ -31,6 +31,9 @@ pub use instance::*;
 
 pub mod model;
 pub use model::*;
+
+pub mod light;
+pub use light::*;
 
 const INSTANCES_ROWS: u32 = 10;
 const INSTANCES_COLUMNS: u32 = 10;
@@ -52,6 +55,14 @@ pub struct Engine {
     instances: Option<Vec<Instance>>,
     instance_buffer: Option<Buffer>,
     depth_texture: Option<Texture>,
+    ambient_light_uniform: Option<AmbientLightUniform>,
+    ambient_light_buffer: Option<Buffer>,
+    ambient_light_bind_group_layout: Option<BindGroupLayout>,
+    ambient_light_bind_group: Option<BindGroup>,
+    point_light_uniform: Option<PointLightUniform>,
+    point_light_buffer: Option<Buffer>,
+    point_light_bind_group_layout: Option<BindGroupLayout>,
+    point_light_bind_group: Option<BindGroup>,
 }
 
 impl Engine {
@@ -95,6 +106,14 @@ impl Engine {
             instances: None,
             instance_buffer: None,
             depth_texture: None,
+            ambient_light_uniform: None,
+            ambient_light_buffer: None,
+            ambient_light_bind_group_layout: None,
+            ambient_light_bind_group: None,
+            point_light_uniform: None,
+            point_light_buffer: None,
+            point_light_bind_group_layout: None,
+            point_light_bind_group: None,
         }
     }
 
@@ -105,11 +124,121 @@ impl Engine {
 
         self.instances();
 
+        self.light();
+
         if self.render_pipeline.is_none() {
             let render_pipeline = self.make_render_pipeline();
             log::debug!("{render_pipeline:?}");
             self.render_pipeline = Some(render_pipeline);
         }
+    }
+
+    pub fn update(&mut self) {
+        // Update the light
+        let point_light = self.point_light_uniform.as_mut().unwrap();
+
+        let old_position: Vector3<f32> = point_light.position.into();
+        point_light.position =
+            (Quaternion::from_axis_angle((0.0, 1.0, 0.0).into(), Deg(1.0)) * old_position).into();
+
+        let point_light = self.point_light_uniform.unwrap();
+        self.queue.write_buffer(
+            self.point_light_buffer.as_ref().unwrap(),
+            0,
+            bytemuck::cast_slice(&[point_light]),
+        );
+    }
+
+    pub fn light(&mut self) {
+        // Ambient Light
+        self.ambient_light_uniform = Some(AmbientLightUniform {
+            color: [1.0, 1.0, 1.0],
+            _spacer_1: 0,
+        });
+
+        self.ambient_light_buffer =
+            Some(self.get_device().create_buffer_init(&BufferInitDescriptor {
+                label: Some("Light Buffer"),
+                contents: bytemuck::cast_slice(&[self.ambient_light_uniform.unwrap()]),
+                usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+            }));
+
+        self.ambient_light_bind_group_layout = Some(self.get_device().create_bind_group_layout(
+            &BindGroupLayoutDescriptor {
+                label: Some("Light Bing Group Layout"),
+                entries: &[BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+            },
+        ));
+
+        self.ambient_light_bind_group = Some(
+            self.get_device().create_bind_group(&BindGroupDescriptor {
+                label: Some("Light Bind Group"),
+                layout: &self.ambient_light_bind_group_layout.as_ref().unwrap(),
+                entries: &[BindGroupEntry {
+                    binding: 0,
+                    resource: self
+                        .ambient_light_buffer
+                        .as_ref()
+                        .unwrap()
+                        .as_entire_binding(),
+                }],
+            }),
+        );
+
+        // Point Light
+        self.point_light_uniform = Some(PointLightUniform {
+            position: [2.0, 2.0, 2.0],
+            _spacer_0: 0,
+            color: [1.0, 0.6, 0.2],
+            _spacer_1: 0,
+        });
+
+        self.point_light_buffer =
+            Some(self.get_device().create_buffer_init(&BufferInitDescriptor {
+                label: Some("Light Buffer"),
+                contents: bytemuck::cast_slice(&[self.point_light_uniform.unwrap()]),
+                usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+            }));
+
+        self.point_light_bind_group_layout = Some(self.get_device().create_bind_group_layout(
+            &BindGroupLayoutDescriptor {
+                label: Some("Light Bing Group Layout"),
+                entries: &[BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+            },
+        ));
+
+        self.point_light_bind_group = Some(
+            self.get_device().create_bind_group(&BindGroupDescriptor {
+                label: Some("Light Bind Group"),
+                layout: &self.point_light_bind_group_layout.as_ref().unwrap(),
+                entries: &[BindGroupEntry {
+                    binding: 0,
+                    resource: self
+                        .point_light_buffer
+                        .as_ref()
+                        .unwrap()
+                        .as_entire_binding(),
+                }],
+            }),
+        );
     }
 
     pub fn instances(&mut self) {
@@ -506,6 +635,8 @@ impl Engine {
                             .as_ref()
                             .expect("texture_bind_group_layout used before Engine::configure"),
                         &self.get_camera().get_bind_group_layout(),
+                        &self.ambient_light_bind_group_layout.as_ref().unwrap(),
+                        &self.point_light_bind_group_layout.as_ref().unwrap(),
                     ],
                     push_constant_ranges: &[],
                 });
@@ -626,5 +757,13 @@ impl Engine {
             .default_texture_bind_group_layout
             .as_ref()
             .expect("No default texture layout set")
+    }
+
+    pub(crate) fn get_ambient_light_bind_group(&self) -> &BindGroup {
+        &self.ambient_light_bind_group.as_ref().unwrap()
+    }
+
+    pub(crate) fn get_point_light_bind_group(&self) -> &BindGroup {
+        &self.point_light_bind_group.as_ref().unwrap()
     }
 }

@@ -174,6 +174,9 @@ impl App {
         // Call updateables
         self.call_on_dynamic_update(self.delta_time, engine);
 
+        // TODO: Move out ...
+        engine.update();
+
         // If a second has past, call updates
         if self.delta_time >= 1.0 {
             #[cfg(debug_assertions)]
@@ -326,6 +329,8 @@ impl App {
             render_pass.set_pipeline(engine.get_render_pipeline());
 
             render_pass.set_bind_group(1, &engine.get_camera().get_bind_group(), &[]);
+            render_pass.set_bind_group(2, &engine.get_ambient_light_bind_group(), &[]);
+            render_pass.set_bind_group(3, &engine.get_point_light_bind_group(), &[]);
 
             // render_pass.set_vertex_buffer(
             //     0,

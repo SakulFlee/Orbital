@@ -2,6 +2,19 @@ struct CameraUniform {
     view_proj: mat4x4<f32>,
 }
 
+struct AmbientLight {
+    color: vec3<f32>,
+}
+@group(2) @binding(0) 
+var<uniform> ambient_light: AmbientLight;
+
+struct PointLight {
+    position: vec3<f32>,
+    color: vec3<f32>,
+}
+@group(3) @binding(0) 
+var<uniform> point_light: PointLight;
+
 struct InstanceInput {
     @location(5) model_matrix_0: vec4<f32>,
     @location(6) model_matrix_1: vec4<f32>,
@@ -19,6 +32,8 @@ struct VertexInput {
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) tex_coords: vec2<f32>,
+    @location(1) world_normal: vec3<f32>,
+    @location(2) world_position: vec3<f32>,
 };
 
 @group(0) @binding(0)
@@ -49,7 +64,13 @@ fn vs_main(
     var out: VertexOutput;
 
     out.tex_coords = model.tex_coords;
-    out.clip_position = camera.view_proj * model_matrix * vec4<f32>(model.position, 1.0);
+
+    out.world_normal = model.normal;
+
+    var world_position: vec4<f32> = model_matrix * vec4<f32>(model.position, 1.0);
+    out.world_position = world_position.xyz;
+
+    out.clip_position = camera.view_proj * world_position;
 
     return out;
 }
@@ -59,5 +80,21 @@ fn vs_main(
 // Gets called per pixel and vertex and returns a colour for that pixel.
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return textureSample(t_diffuse, s_diffuse, in.tex_coords);
+    // Texture
+    let object_color = textureSample(t_diffuse, s_diffuse, in.tex_coords);
+
+    // Ambient Light
+    let ambient_strength = 0.1;
+    let ambient_color = ambient_light.color * ambient_strength;
+
+    // Point Light
+    let light_dir = normalize(point_light.position - in.world_position);
+
+    let diffuse_strength = max(dot(in.world_normal, light_dir), 0.0);
+    let diffuse_color = point_light.color * diffuse_strength;
+
+    // Combine lights and textures!
+    let result = (ambient_color + diffuse_color) * object_color.xyz;
+
+    return vec4<f32>(result, object_color.a);
 }
