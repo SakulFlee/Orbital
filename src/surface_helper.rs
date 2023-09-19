@@ -11,7 +11,7 @@ pub trait SurfaceHelper {
     ) -> EngineResult<TextureFormat>
     where
         P: Fn(&&TextureFormat) -> bool;
-    fn find_srga_surface_texture_format(&self, adapter: &Adapter) -> EngineResult<TextureFormat>;
+    fn find_srgb_surface_texture_format(&self, adapter: &Adapter) -> EngineResult<TextureFormat>;
 }
 
 impl SurfaceHelper for Surface {
@@ -35,7 +35,7 @@ impl SurfaceHelper for Surface {
             .ok_or(EngineError::NoMatch)?)
     }
 
-    fn find_srga_surface_texture_format(&self, adapter: &Adapter) -> EngineResult<TextureFormat> {
+    fn find_srgb_surface_texture_format(&self, adapter: &Adapter) -> EngineResult<TextureFormat> {
         self.find_surface_texture_format(adapter, |x| x.is_srgb())
     }
 }
