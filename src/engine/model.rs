@@ -65,8 +65,9 @@ impl Model {
         };
         // TODO: Resource Manager
 
+        let file_path = resource_folder.join(file_name);
         let (obj_models, obj_materials) = tobj::load_obj(
-            resource_folder.join(file_name),
+            file_path,
             &LoadOptions {
                 // Single index mesh (optimized for real-time GPU rendering)
                 single_index: true,
