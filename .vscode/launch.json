@@ -12,7 +12,7 @@
             "args": [],
             "env": {
                 "RUST_LOG": "debug",
-                "RUST_BACKTRACE": "0"
+                "RUST_BACKTRACE": "full"
             },
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "Debug Build",
@@ -47,7 +47,7 @@
             },
             "env": {
                 "RUST_LOG": "debug",
-                "RUST_BACKTRACE": "0"
+                "RUST_BACKTRACE": "full"
             },
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "Debug Build",
