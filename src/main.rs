@@ -12,6 +12,8 @@ pub use camera::*;
 
 pub const APP_NAME: &'static str = "WGPU-Engine";
 
+// TODO: Remove Tokio
+
 /// Main function
 #[tokio::main(worker_threads = 16)]
 async fn main() {
