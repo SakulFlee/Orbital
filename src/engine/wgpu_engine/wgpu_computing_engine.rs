@@ -3,7 +3,7 @@ use wgpu::{
     Limits, Queue,
 };
 
-use crate::{ComputingEngine, EngineError, EngineResult};
+use crate::engine::{EngineError, EngineResult, TComputingEngine};
 
 pub struct WGPUComputingEngine {
     instance: Instance,
@@ -142,7 +142,7 @@ impl WGPUComputingEngine {
     }
 }
 
-impl ComputingEngine for WGPUComputingEngine {
+impl TComputingEngine for WGPUComputingEngine {
     fn get_instance(&self) -> &Instance {
         &self.instance
     }
