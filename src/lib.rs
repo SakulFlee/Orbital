@@ -13,4 +13,7 @@ pub use camera::*;
 pub mod engine_error;
 pub use engine_error::*;
 
+pub mod engine_result;
+pub use engine_result::*;
+
 pub const APP_NAME: &'static str = "WGPU-Engine";
