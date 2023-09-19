@@ -30,7 +30,7 @@ impl WGPURenderingEngine {
         })?;
 
         let surface_texture_format =
-            surface.find_srga_surface_texture_format(computing_engine.get_adapter())?;
+            surface.find_srgb_surface_texture_format(computing_engine.get_adapter())?;
 
         let surface_configuration = SurfaceConfiguration::from_window(
             surface_texture_format,
