@@ -23,12 +23,17 @@ impl AbstractTexture {
         queue: &Queue,
         format: TextureFormat,
         sampler_descriptor: &SamplerDescriptor,
-        file_name: P,
+        file_path: P,
     ) -> EngineResult<Self>
     where
         P: AsRef<Path>,
     {
-        let bytes = ResourceManager::read_resource_binary(file_name)?;
+        let file_name = file_path
+            .as_ref()
+            .clone()
+            .to_str()
+            .map_or(None, |x| Some(x));
+        let bytes = ResourceManager::read_resource_binary(file_path.as_ref().clone())?;
 
         Ok(Self::from_bytes(
             device,
@@ -36,7 +41,7 @@ impl AbstractTexture {
             &bytes,
             format,
             sampler_descriptor,
-            file_name.as_ref().to_str().map_or(None, |x| Some(x)),
+            file_name,
         )?)
     }
 
