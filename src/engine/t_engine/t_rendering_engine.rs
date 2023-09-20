@@ -44,7 +44,7 @@ pub trait TRenderingEngine: TComputingEngine {
     fn get_surface(&self) -> &Surface;
     fn get_surface_configuration(&self) -> &SurfaceConfiguration;
     fn set_surface_configuration(&mut self, surface_configuration: SurfaceConfiguration);
-    fn get_surface_texture_format(&self) -> &TextureFormat;
+    fn get_surface_texture_format(&self) -> TextureFormat;
 
     fn get_surface_texture(&self) -> EngineResult<SurfaceTexture> {
         Ok(self

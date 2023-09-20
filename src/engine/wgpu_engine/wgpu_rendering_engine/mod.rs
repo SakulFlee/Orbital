@@ -1,24 +1,22 @@
 use wgpu::{
     include_wgsl, Adapter, BlendState, ColorTargetState, ColorWrites, CompareFunction,
-    CompositeAlphaMode, DepthBiasState, DepthStencilState, Device, Face, FragmentState, FrontFace,
-    Instance, MultisampleState, PipelineLayoutDescriptor, PolygonMode, PresentMode, PrimitiveState,
-    PrimitiveTopology, Queue, RenderPipeline, RenderPipelineDescriptor, ShaderModule, StencilState,
-    Surface, SurfaceConfiguration, TextureFormat, VertexState,
+    DepthBiasState, DepthStencilState, Device, Face, FragmentState, FrontFace, Instance,
+    MultisampleState, PipelineLayoutDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology,
+    Queue, RenderPipeline, RenderPipelineDescriptor, ShaderModule, StencilState,
+    Surface as WGPUSurface, SurfaceConfiguration, TextureFormat, VertexState,
 };
 use winit::window::Window;
 
-use crate::engine::{
-    EngineError, EngineResult, SurfaceConfigurationHelper, SurfaceHelper, TComputingEngine,
-    TRenderingEngine,
-};
+use crate::engine::{EngineResult, TComputingEngine, TRenderingEngine};
 
 use super::wgpu_computing_engine::WGPUComputingEngine;
+
+mod surface;
+pub use surface::*;
 
 pub struct WGPURenderingEngine {
     computing_engine: WGPUComputingEngine,
     surface: Surface,
-    surface_texture_format: TextureFormat,
-    surface_configuration: SurfaceConfiguration,
     render_pipeline: RenderPipeline,
 }
 
@@ -26,49 +24,22 @@ impl WGPURenderingEngine {
     pub const DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
     pub fn new(window: &Window) -> EngineResult<Self> {
-        let instance = WGPUComputingEngine::make_instance();
-        let surface = Self::make_surface(&instance, window)?;
+        let (computing_engine, surface) = Surface::from_window(window)?;
 
-        let computing_engine = WGPUComputingEngine::from_instance(instance, |x| {
-            if x.is_surface_supported(&surface) {
-                5000
-            } else {
-                i32::MIN
-            }
-        })?;
-
-        let surface_texture_format =
-            surface.find_srgb_surface_texture_format(computing_engine.get_adapter())?;
-
-        let surface_configuration = SurfaceConfiguration::from_window(
-            surface_texture_format,
-            window,
-            PresentMode::AutoVsync,
-            CompositeAlphaMode::Auto,
-        );
-
-        let render_pipeline =
-            Self::make_render_pipeline(computing_engine.get_device(), surface_texture_format)?;
+        let render_pipeline = Self::make_render_pipeline(
+            computing_engine.get_device(),
+            surface.get_surface_texture_format(),
+        )?;
 
         Ok(Self {
             computing_engine,
             surface,
-            surface_texture_format,
-            surface_configuration,
             render_pipeline,
         })
     }
 
-    fn make_surface(instance: &Instance, window: &Window) -> EngineResult<Surface> {
-        let surface = unsafe { instance.create_surface(window) }
-            .map_err(|_| EngineError::CreateSurfaceError)?;
-        log::debug!("Surface: {:#?}", surface);
-
-        Ok(surface)
-    }
-
     fn make_shader(device: &Device) -> ShaderModule {
-        device.create_shader_module(include_wgsl!("../shaders/main.wgsl"))
+        device.create_shader_module(include_wgsl!("../../shaders/main.wgsl"))
     }
 
     fn make_render_pipeline(
@@ -162,24 +133,25 @@ impl TComputingEngine for WGPURenderingEngine {
 
 impl TRenderingEngine for WGPURenderingEngine {
     fn configure_surface(&mut self) {
-        self.surface
+        self.get_surface()
             .configure(self.get_device(), self.get_surface_configuration());
     }
 
-    fn get_surface(&self) -> &Surface {
-        &self.surface
+    fn get_surface(&self) -> &WGPUSurface {
+        &self.surface.get_surface()
     }
 
     fn set_surface_configuration(&mut self, surface_configuration: SurfaceConfiguration) {
-        self.surface_configuration = surface_configuration;
+        self.surface
+            .set_surface_configuration(surface_configuration);
     }
 
     fn get_surface_configuration(&self) -> &SurfaceConfiguration {
-        &self.surface_configuration
+        self.surface.get_surface_configuration()
     }
 
-    fn get_surface_texture_format(&self) -> &TextureFormat {
-        &self.surface_texture_format
+    fn get_surface_texture_format(&self) -> TextureFormat {
+        self.surface.get_surface_texture_format()
     }
 
     fn get_render_pipeline(&self) -> &RenderPipeline {
