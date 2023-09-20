@@ -17,13 +17,18 @@ pub struct DiffuseTexture {
 impl DiffuseTexture {
     pub const TEXTURE_FORMAT: TextureFormat = TextureFormat::Rgba8Unorm;
     pub const SAMPLER_DESCRIPTOR: SamplerDescriptor<'static> = SamplerDescriptor {
+        label: Some("Diffuse Texture Sampler Descriptor"),
         address_mode_u: AddressMode::ClampToEdge,
         address_mode_v: AddressMode::ClampToEdge,
         address_mode_w: AddressMode::ClampToEdge,
         mag_filter: FilterMode::Linear,
         min_filter: FilterMode::Nearest,
         mipmap_filter: FilterMode::Nearest,
-        ..Default::default()
+        lod_min_clamp: 0.0,  // Default
+        lod_max_clamp: 32.0, // Default
+        compare: None,       // Default
+        anisotropy_clamp: 1, // Default
+        border_color: None,  // Default
     };
 
     pub fn from_path<P>(device: &Device, queue: &Queue, file_name: P) -> EngineResult<Self>
