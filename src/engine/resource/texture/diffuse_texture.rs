@@ -31,7 +31,7 @@ impl DiffuseTexture {
         border_color: None,  // Default
     };
 
-    pub fn from_path<P>(device: &Device, queue: &Queue, file_name: P) -> EngineResult<Self>
+    pub fn from_path<P>(device: &Device, queue: &Queue, file_path: P) -> EngineResult<Self>
     where
         P: AsRef<Path>,
     {
@@ -41,7 +41,7 @@ impl DiffuseTexture {
                 queue,
                 Self::TEXTURE_FORMAT,
                 &Self::SAMPLER_DESCRIPTOR,
-                file_name,
+                file_path,
             )?,
         })
     }
@@ -101,12 +101,12 @@ impl ResourceManager {
     pub fn diffuse_texture_from_path<P>(
         device: &Device,
         queue: &Queue,
-        file_name: P,
+        file_path: P,
     ) -> EngineResult<DiffuseTexture>
     where
         P: AsRef<Path>,
     {
-        DiffuseTexture::from_path(device, queue, file_name)
+        DiffuseTexture::from_path(device, queue, file_path)
     }
 
     pub fn diffuse_texture_from_bytes(
