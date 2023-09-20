@@ -1,11 +1,8 @@
 use wgpu::{SurfaceTexture, TextureView, TextureViewDescriptor};
 
-pub trait SurfaceTextureHelper {
-    fn make_texture_view(&self) -> TextureView;
-    fn make_texture_view_descriptor(&self, descriptor: &TextureViewDescriptor) -> TextureView;
-}
+use super::TextureHelper;
 
-impl SurfaceTextureHelper for SurfaceTexture {
+impl TextureHelper for SurfaceTexture {
     fn make_texture_view(&self) -> TextureView {
         self.make_texture_view_descriptor(&TextureViewDescriptor::default())
     }
