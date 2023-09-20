@@ -3,7 +3,7 @@ use wgpu::{
     TextureFormat, TextureView,
 };
 
-use crate::engine::{EngineError, EngineResult, SurfaceTextureHelper};
+use crate::engine::{EngineError, EngineResult, TextureHelper};
 
 use super::TComputingEngine;
 

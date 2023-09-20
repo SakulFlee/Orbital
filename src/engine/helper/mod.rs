@@ -6,3 +6,6 @@ pub use surface_texture::*;
 
 mod surface;
 pub use surface::*;
+
+mod texture;
+pub use texture::*;
