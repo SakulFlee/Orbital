@@ -22,6 +22,7 @@
         "texcoords",
         "tobj",
         "tokio",
+        "Uninit",
         "Unorm",
         "updateable",
         "Updateable",
@@ -33,5 +34,8 @@
         "Zeroable",
         "zfar",
         "znear"
+    ],
+    "rust-analyzer.linkedProjects": [
+        ".\\Cargo.toml"
     ]
 }
