@@ -17,6 +17,7 @@ pub struct DepthTexture {
 impl DepthTexture {
     pub const TEXTURE_FORMAT: TextureFormat = TextureFormat::Depth32Float;
     pub const SAMPLER_DESCRIPTOR: SamplerDescriptor<'static> = SamplerDescriptor {
+        label: Some("Depth Texture Sampler Descriptor"),
         address_mode_u: AddressMode::ClampToEdge,
         address_mode_v: AddressMode::ClampToEdge,
         address_mode_w: AddressMode::ClampToEdge,
@@ -26,7 +27,8 @@ impl DepthTexture {
         compare: Some(CompareFunction::LessEqual),
         lod_min_clamp: 0.0,
         lod_max_clamp: 100.0,
-        ..Default::default()
+        anisotropy_clamp: 1, // Default
+        border_color: None,  // Default
     };
 
     pub fn from_path<P>(device: &Device, queue: &Queue, file_name: P) -> EngineResult<Self>
