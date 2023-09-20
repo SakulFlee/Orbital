@@ -1,4 +1,4 @@
-use wgpu_engine::{log_init};
+use wgpu_engine::{engine::WGPURenderingEngine, log_init};
 use winit::{event_loop::EventLoop, window::WindowBuilder};
 
 fn main() {
