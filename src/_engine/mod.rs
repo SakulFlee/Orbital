@@ -620,7 +620,7 @@ impl Engine {
     }
 
     fn make_shader(device: &Device) -> ShaderModule {
-        device.create_shader_module(include_wgsl!("../shaders/main.wgsl"))
+        device.create_shader_module(include_wgsl!("../engine/shaders/main.wgsl"))
     }
 
     fn make_render_pipeline(&mut self) -> RenderPipeline {
