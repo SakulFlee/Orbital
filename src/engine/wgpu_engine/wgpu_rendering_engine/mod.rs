@@ -1,13 +1,12 @@
 use wgpu::{
-    include_wgsl, Adapter, BlendState, ColorTargetState, ColorWrites, CompareFunction,
-    DepthBiasState, DepthStencilState, Device, Face, FragmentState, FrontFace, Instance,
-    MultisampleState, PipelineLayoutDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology,
-    Queue, RenderPipeline, RenderPipelineDescriptor, ShaderModule, StencilState,
-    Surface as WGPUSurface, SurfaceConfiguration, TextureFormat, VertexState,
+    include_wgsl, Adapter, BlendState, ColorTargetState, ColorWrites, Device, Face, FragmentState,
+    FrontFace, Instance, MultisampleState, PipelineLayoutDescriptor, PolygonMode, PrimitiveState,
+    PrimitiveTopology, Queue, RenderPipeline, RenderPipelineDescriptor, ShaderModule,
+    SurfaceConfiguration, TextureFormat, VertexState,
 };
 use winit::window::Window;
 
-use crate::engine::{EngineResult, TComputingEngine, TRenderingEngine};
+use crate::engine::{EngineResult, TComputingEngine, TRenderingEngine, TVertex, VertexPoint};
 
 use super::wgpu_computing_engine::WGPUComputingEngine;
 
@@ -39,7 +38,7 @@ impl WGPURenderingEngine {
     }
 
     fn make_shader(device: &Device) -> ShaderModule {
-        device.create_shader_module(include_wgsl!("../../shaders/main.wgsl"))
+        device.create_shader_module(include_wgsl!("../../shaders/new_engine.wgsl"))
     }
 
     fn make_render_pipeline(
@@ -50,7 +49,12 @@ impl WGPURenderingEngine {
 
         let render_pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: Some("Render Pipeline Layout"),
-            bind_group_layouts: &[],
+            bind_group_layouts: &[
+                // TODO: Diffuse Bind Group
+                // TODO: Camera Bind Group
+                // TODO: Ambient Light Bind Group
+                // TODO: Point Light Bind Group
+            ],
             push_constant_ranges: &[],
         });
 
@@ -62,7 +66,7 @@ impl WGPURenderingEngine {
                 module: &main_shader,
                 entry_point: "vs_main",
                 // Vertex buffers
-                buffers: &[],
+                buffers: &[VertexPoint::descriptor::<VertexPoint>()], // TODO: Instance Buffer Descriptor
             },
             // Fragment shader
             fragment: Some(FragmentState {
@@ -96,13 +100,15 @@ impl WGPURenderingEngine {
                 // Note: requires Features::CONSERVATIVE_RASTERIZATION
                 conservative: false,
             },
-            depth_stencil: Some(DepthStencilState {
-                format: Self::DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::Less,
-                stencil: StencilState::default(),
-                bias: DepthBiasState::default(),
-            }),
+            // TODO: Depth Buffer
+            depth_stencil: None,
+            // depth_stencil: Some(DepthStencilState {
+            //     format: Self::DEPTH_FORMAT,
+            //     depth_write_enabled: true,
+            //     depth_compare: CompareFunction::Less,
+            //     stencil: StencilState::default(),
+            //     bias: DepthBiasState::default(),
+            // }),
             multisample: MultisampleState {
                 count: 1,
                 mask: !0,
@@ -137,7 +143,7 @@ impl TRenderingEngine for WGPURenderingEngine {
             .configure(self.get_device(), self.get_surface_configuration());
     }
 
-    fn get_surface(&self) -> &WGPUSurface {
+    fn get_surface(&self) -> &wgpu::Surface {
         &self.surface.get_surface()
     }
 
