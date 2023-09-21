@@ -1,7 +1,4 @@
-use wgpu::{
-    CompositeAlphaMode, Instance, PresentMode, Surface as WGPUSurface, SurfaceConfiguration,
-    TextureFormat,
-};
+use wgpu::{CompositeAlphaMode, Instance, PresentMode, SurfaceConfiguration, TextureFormat};
 use winit::window::Window;
 
 use crate::engine::{
@@ -10,7 +7,7 @@ use crate::engine::{
 };
 
 pub struct Surface {
-    surface: WGPUSurface,
+    surface: wgpu::Surface,
     surface_texture_format: TextureFormat,
     surface_configuration: SurfaceConfiguration,
 }
@@ -46,6 +43,8 @@ impl Surface {
             CompositeAlphaMode::Auto,
         );
 
+        surface.configure(computing_engine.get_device(), &surface_configuration);
+
         Ok((
             computing_engine,
             Self {
@@ -56,7 +55,7 @@ impl Surface {
         ))
     }
 
-    fn make_surface(instance: &Instance, window: &Window) -> EngineResult<WGPUSurface> {
+    fn make_surface(instance: &Instance, window: &Window) -> EngineResult<wgpu::Surface> {
         let surface = unsafe { instance.create_surface(window) }
             .map_err(|_| EngineError::CreateSurfaceError)?;
         log::debug!("Surface: {:#?}", surface);
@@ -64,7 +63,7 @@ impl Surface {
         Ok(surface)
     }
 
-    pub fn get_surface(&self) -> &WGPUSurface {
+    pub fn get_surface(&self) -> &wgpu::Surface {
         &self.surface
     }
 
