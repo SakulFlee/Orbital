@@ -4,6 +4,7 @@ pub mod app;
 
 pub mod log;
 
+// TODO: Camera
 // pub mod camera;
 // pub use camera::*;
 
