@@ -1,5 +1,6 @@
 use wgpu_engine::{
     app::{App, World},
+    entities_components::entities::Cube,
     log::log_init,
 };
 
@@ -7,7 +8,12 @@ fn main() {
     // Log initialization
     log_init();
 
-    let world = World::new();
+    let mut world = World::new();
+
+    let cube = Box::new(Cube {});
+
+    world.add_entity(cube);
+
     App::run("WGPU", world).expect("App failed");
 
     //         Event::RedrawRequested(..) => {

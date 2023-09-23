@@ -1,11 +1,16 @@
-use std::any::Any;
+use std::any::{Any, TypeId};
 
 pub trait Component {
+    fn type_id(&self) -> TypeId {
+        self.as_any().type_id()
+    }
+
     fn as_any(&self) -> &dyn Any;
+
     fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
-macro_rules! component {
+macro_rules! impl_component {
     ($struct_name:ident) => {
         impl crate::app::Component for $struct_name {
             fn as_any(&self) -> &dyn std::any::Any {
@@ -18,24 +23,11 @@ macro_rules! component {
         }
     };
 }
+pub(crate) use impl_component;
+
+macro_rules! component {
+    ($name: expr, $value: expr) => {
+        ($name, std::boxed::Box::new($value))
+    };
+}
 pub(crate) use component;
-
-macro_rules! component_default {
-    ($name: ident) => {
-        (
-            stringify!($name).to_string(),
-            std::boxed::Box::new(crate::entities_components::components::$name::default()),
-        )
-    };
-}
-pub(crate) use component_default;
-
-macro_rules! component_value {
-    ($name: ident, $value: expr) => {
-        (
-            stringify!($name).to_string(),
-            std::boxed::Box::new(crate::entities_components::components::$name::new($value)),
-        )
-    };
-}
-pub(crate) use component_value;

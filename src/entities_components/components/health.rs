@@ -1,4 +1,4 @@
-use crate::app::component;
+use crate::app::impl_component;
 
 #[derive(Debug, Default)]
 pub struct Health {
@@ -19,4 +19,4 @@ impl Health {
     }
 }
 
-component!(Health);
+impl_component!(Health);
