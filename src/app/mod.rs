@@ -1,9 +1,7 @@
-use std::time::Instant;
-
 use wgpu::MaintainBase;
 use winit::{
     dpi::{PhysicalSize, Size},
-    event::{Event, KeyboardInput, WindowEvent},
+    event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
