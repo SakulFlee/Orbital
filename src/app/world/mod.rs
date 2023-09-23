@@ -1,6 +1,6 @@
-pub struct AppWorld {}
+pub struct World {}
 
-impl AppWorld {
+impl World {
     pub fn new() -> Self {
         Self {}
     }

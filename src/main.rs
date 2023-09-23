@@ -1,32 +1,15 @@
-use wgpu_engine::{app::App, log::log_init};
+use wgpu_engine::{
+    app::{App, World},
+    log::log_init,
+};
 
 fn main() {
     // Log initialization
     log_init();
 
-    // App
-    // let app = App::from_app_config_default_path();
-    // app.hijack_thread_and_run().await;
-
-    let world = AppWorld::new();
+    let world = World::new();
     App::run("WGPU", world).expect("App failed");
 
-    // let event_loop = EventLoop::new();
-    // let window = WindowBuilder::new()
-    //     .build(&event_loop)
-    //     .expect("Window creation failed");
-
-    // let engine = WGPURenderingEngine::new(&window).expect("Engine creation failed");
-
-    // event_loop.run(move |event, _target, control_flow| {
-    //     *control_flow = ControlFlow::Poll;
-
-    //     match event {
-    //         Event::WindowEvent {
-    //             event: WindowEvent::CloseRequested,
-    //             window_id,
-    //         } if window_id == window.id() => *control_flow = ControlFlow::Exit,
-    //         Event::RedrawEventsCleared => window.request_redraw(),
     //         Event::RedrawRequested(..) => {
     //             // Note: DO NOT concat like `engine.get_surface_texture().unwrap().make_texture_view()`!
     //             // It drops _something_ which makes WGPU crash!
