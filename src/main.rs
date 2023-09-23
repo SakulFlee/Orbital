@@ -1,6 +1,6 @@
 use wgpu_engine::{
     app::{App, World},
-    entities_components::entities::Cube,
+    entities::Cube,
     log::log_init,
 };
 

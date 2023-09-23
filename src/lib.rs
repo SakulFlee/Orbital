@@ -4,7 +4,7 @@ pub mod app;
 
 pub mod log;
 
-pub mod entities_components;
+pub mod entities;
 
 // TODO: Camera
 // pub mod camera;

@@ -18,9 +18,6 @@ pub use input::*;
 mod timer;
 pub use timer::*;
 
-mod entity_component_system;
-pub use entity_component_system::*;
-
 mod world;
 pub use world::*;
 
