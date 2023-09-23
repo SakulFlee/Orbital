@@ -12,23 +12,28 @@ use crate::engine::{
     EngineError, EngineResult, TComputingEngine, TRenderingEngine, WGPURenderingEngine,
 };
 
-mod app_object;
-pub use app_object::*;
+mod input;
+pub use input::*;
 
-mod app_world;
-pub use app_world::*;
+mod timer;
+pub use timer::*;
+
+mod object;
+pub use object::*;
+
+mod world;
+pub use world::*;
 
 pub struct App {
     name: String,
-    world: AppWorld,
+    world: World,
     rendering_engine: WGPURenderingEngine,
-    last_time: Instant,
-    current_cycle_count: u64,
-    current_delta_time: f64,
+    timer: Timer,
+    input_handler: InputHandler,
 }
 
 impl App {
-    pub fn run<S>(name: S, world: AppWorld) -> EngineResult<()>
+    pub fn run<S>(name: S, world: World) -> EngineResult<()>
     where
         S: Into<String>,
     {
@@ -47,13 +52,16 @@ impl App {
 
         let rendering_engine = WGPURenderingEngine::new(&window)?;
 
+        let timer = Timer::new();
+
+        let input_handler = InputHandler::new();
+
         let mut app = Self {
             name,
             world,
             rendering_engine,
-            last_time: Instant::now(),
-            current_cycle_count: 0,
-            current_delta_time: 0.0,
+            timer,
+            input_handler,
         };
 
         event_loop.run(move |event, _, control_flow| {
@@ -69,11 +77,14 @@ impl App {
                         new_inner_size: new_size,
                         ..
                     } => app.handle_resize(new_size, &window),
-                    WindowEvent::KeyboardInput { input, .. } => app.handle_keyboard_input(input),
+                    WindowEvent::KeyboardInput { input, .. } => app
+                        .input_handler
+                        .get_keyboard_input_handler()
+                        .handle_keyboard_input(input),
                     _ => (),
                 },
                 Event::RedrawRequested(..) => app.handle_redraw(),
-                Event::RedrawEventsCleared => app.handle_redraw_events_cleared(),
+                Event::RedrawEventsCleared => window.request_redraw(),
                 Event::MainEventsCleared => app.handle_main_events_cleared(&window),
                 _ => (),
             }
@@ -108,10 +119,6 @@ impl App {
             .map_err(|e| EngineError::WinitOSError(e))?)
     }
 
-    pub fn get_name(&self) -> &String {
-        &self.name
-    }
-
     fn handle_resize(&mut self, new_size: &PhysicalSize<u32>, window: &Window) {
         log::info!(
             "Resize detected! Changing from {:?} to {:?} (if valid)!",
@@ -138,54 +145,34 @@ impl App {
         self.rendering_engine.reconfigure_surface();
     }
 
-    fn handle_keyboard_input(&mut self, input: KeyboardInput) {
-        // TODO
-    }
-
     fn handle_redraw(&mut self) {
         // TODO
     }
 
-    fn handle_redraw_events_cleared(&mut self) {
-        // TODO
-    }
-
     fn handle_main_events_cleared(&mut self, window: &Window) {
-        let elapsed = self.last_time.elapsed();
-        self.last_time = Instant::now();
-
-        self.current_delta_time += elapsed.as_secs_f64();
-        self.current_cycle_count += 1;
-
         // TODO: Fast/Dynamic updates
 
-        if self.current_delta_time >= 1.0 {
+        if let Some((delta_time, ups)) = self.timer.tick() {
             #[cfg(debug_assertions)]
             {
                 // Update performance outputs
-                log::debug!(
-                    "UPS: {}/s (delta time: {}s)",
-                    self.current_cycle_count,
-                    self.current_delta_time
-                );
+                log::debug!("UPS: {}/s (delta time: {}s)", ups, delta_time);
 
                 // Update Window Title
                 window.set_title(&format!(
-                    "WGPU @ {} - UPS: {}/s (Δ {}s)",
+                    "{} @ {} - UPS: {}/s (Δ {}s)",
+                    self.name,
                     self.rendering_engine
                         .get_adapter()
                         .get_info()
                         .backend
                         .to_str(),
-                    self.current_cycle_count,
-                    self.current_delta_time
+                    ups,
+                    delta_time
                 ));
             }
 
             // TODO: Slow updates
-
-            self.current_cycle_count = 0;
-            self.current_delta_time -= 1.0;
         }
     }
 }
