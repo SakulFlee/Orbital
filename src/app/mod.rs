@@ -150,7 +150,11 @@ impl App {
     }
 
     fn handle_main_events_cleared(&mut self, window: &Window) {
-        // TODO: Fast/Dynamic updates
+        // Fast (i.e. by-cycle) updates
+        self.world
+            .get_updateable_mut(UpdateFrequency::Fast)
+            .iter_mut()
+            .for_each(|x| x.update(self.timer.get_current_delta_time(), &self.input_handler));
 
         if let Some((delta_time, ups)) = self.timer.tick() {
             #[cfg(debug_assertions)]
@@ -172,7 +176,11 @@ impl App {
                 ));
             }
 
-            // TODO: Slow updates
+            // Slow (i.e. by-second) updates
+            self.world
+                .get_updateable_mut(UpdateFrequency::Slow)
+                .iter_mut()
+                .for_each(|x| x.update(delta_time, &self.input_handler));
         }
     }
 }
