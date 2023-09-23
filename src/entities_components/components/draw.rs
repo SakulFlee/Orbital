@@ -1,10 +1,3 @@
-use crate::app::component;
-
-#[derive(Debug, Default)]
-pub struct Draw {}
-
-impl Draw {
-    pub fn draw() {}
+pub trait Draw {
+    fn draw(&self) {}
 }
-
-component!(Draw);
