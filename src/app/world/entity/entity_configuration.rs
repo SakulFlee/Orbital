@@ -1,4 +1,4 @@
-use super::{update_frequency, UpdateFrequency};
+use super::UpdateFrequency;
 
 pub struct EntityConfiguration {
     tag: String,

@@ -20,7 +20,7 @@ impl World {
         match self
             .entities
             .iter()
-            .position(|(config, entity)| config.get_tag() == tag)
+            .position(|(config, _)| config.get_tag() == tag)
         {
             Some(index) => Some(self.entities.remove(index).1),
             None => None,
@@ -30,20 +30,20 @@ impl World {
     pub fn has_entity(&self, tag: &str) -> bool {
         self.entities
             .iter()
-            .any(|(config, entity)| config.get_tag() == tag)
+            .any(|(config, _)| config.get_tag() == tag)
     }
 
     pub fn get_entity(&self, tag: &str) -> Option<&BoxedEntity> {
         self.entities
             .iter()
-            .find(|(config, entry)| config.get_tag() == tag)
+            .find(|(config, _)| config.get_tag() == tag)
             .map(|(_, entity)| entity)
     }
 
     pub fn get_entity_mut(&mut self, tag: &str) -> Option<&mut BoxedEntity> {
         self.entities
             .iter_mut()
-            .find(|(config, entry)| config.get_tag() == tag)
+            .find(|(config, _)| config.get_tag() == tag)
             .map(|(_, entity)| entity)
     }
 
