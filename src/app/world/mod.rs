@@ -1,5 +1,8 @@
 mod entity;
+
 pub use entity::*;
+
+use super::InputHandler;
 
 pub struct World {
     entities: Vec<(EntityConfiguration, BoxedEntity)>,
@@ -77,5 +80,39 @@ impl World {
             .filter(|(config, _)| config.get_render())
             .map(|(_, entity)| entity)
             .collect()
+    }
+
+    pub fn call_updateable(
+        &mut self,
+        frequency: UpdateFrequency,
+        delta_time: f64,
+        input_handler: &InputHandler,
+    ) {
+        let entity_actions = self
+            .get_updateable_mut(frequency)
+            .iter_mut()
+            .map(|x| x.update(delta_time, input_handler))
+            .filter(|x| *x != EntityAction::Keep)
+            .collect::<Vec<_>>();
+
+        for entity_action in entity_actions {
+            match entity_action {
+                EntityAction::Spawn(entities) => {
+                    for entity in entities {
+                        self.add_entity(entity);
+                    }
+                }
+                EntityAction::Remove(tags) => {
+                    for tag in tags {
+                        self.remove_entity(&tag);
+                    }
+                }
+                EntityAction::Keep => (),
+            }
+        }
+    }
+
+    pub fn call_renderables(&self) {
+        self.get_renderable().iter().for_each(|x| x.render());
     }
 }

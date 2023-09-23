@@ -1,6 +1,9 @@
 mod t_entity;
 pub use t_entity::*;
 
+mod entity_action;
+pub use entity_action::*;
+
 mod boxed_entity;
 pub use boxed_entity::*;
 
