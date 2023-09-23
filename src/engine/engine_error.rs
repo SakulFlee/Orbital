@@ -12,4 +12,6 @@ pub enum EngineError {
     IOError(std::io::Error),
     ImageError(image::ImageError),
     WinitOSError(OsError),
+    ComponentTagMissing,
+    ComponentCastFailure,
 }
