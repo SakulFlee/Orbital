@@ -36,6 +36,7 @@
         "znear"
     ],
     "rust-analyzer.linkedProjects": [
+        ".\\Cargo.toml",
         ".\\Cargo.toml"
     ]
 }

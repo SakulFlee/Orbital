@@ -1,4 +1,5 @@
 use wgpu::SurfaceError;
+use winit::error::OsError;
 
 #[derive(Debug)]
 pub enum EngineError {
@@ -10,4 +11,5 @@ pub enum EngineError {
     ResourceMissing,
     IOError(std::io::Error),
     ImageError(image::ImageError),
+    WinitOSError(OsError),
 }
