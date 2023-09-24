@@ -1,0 +1,6 @@
+[book]
+authors = ["Lukas Weber"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Akimo-Engine"
