@@ -12,3 +12,6 @@ pub use update_frequency::*;
 
 mod entity_configuration;
 pub use entity_configuration::*;
+
+mod entity_container;
+pub use entity_container::*;

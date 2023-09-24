@@ -11,6 +11,7 @@
 - A entity may at most contain everything about **itself**.
 - Entity interop isn't supported (atm and maybe never?)
 - A entity configuration is ONCE requested after adding the entity. Changing this configuration after spawning **is not possible** unless de-spawning and re-spawning the entity
+- A `prepare_render` function is called _one time_ before the first rendering. Said function should prepare the object with e.g. vertex buffers and similar things.
 
 ## One-Shot Entity
 
