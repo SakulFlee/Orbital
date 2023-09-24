@@ -1,8 +1,8 @@
 use std::iter::once;
 
 use wgpu::{
-    CommandEncoderDescriptor, LoadOp, MaintainBase, Operations, RenderPassColorAttachment,
-    RenderPassDescriptor,
+    CommandEncoderDescriptor, IndexFormat, LoadOp, MaintainBase, Operations,
+    RenderPassColorAttachment, RenderPassDescriptor,
 };
 use winit::{
     dpi::{PhysicalSize, Size},
@@ -177,6 +177,21 @@ impl App {
             });
 
             render_pass.set_pipeline(self.rendering_engine.get_render_pipeline());
+
+            // TODO: Uniform buffers like Depth Buffer, Camera, etc. (AS NEEDED)
+
+            // Call entity renderables
+            let meshes = self.world.prepare_render_and_collect_meshes(
+                self.rendering_engine.get_device(),
+                self.rendering_engine.get_queue(),
+            );
+
+            meshes.iter().for_each(|x| {
+                render_pass.set_vertex_buffer(0, x.get_vertex_buffer().slice(..));
+                render_pass.set_index_buffer(x.get_index_buffer().slice(..), IndexFormat::Uint32);
+
+                render_pass.draw(0..3, 0..1);
+            });
         }
 
         let command_buffer = command_encoder.finish();

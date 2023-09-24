@@ -14,7 +14,7 @@ impl EmptyEntity {
 }
 
 impl TEntity for EmptyEntity {
-    fn get_entity_config(&self) -> EntityConfiguration {
+    fn get_entity_configuration(&self) -> EntityConfiguration {
         EntityConfiguration::new(self.tag.clone(), UpdateFrequency::Slow, false)
     }
 
