@@ -10,6 +10,7 @@
 - "Slow" means, that the update function gets called roughly every second. Note, that lag can happen. Say we have lag for 5s, this function doesn't get called 5x times but _once_ with a delta time of 5s.
 - A entity may at most contain everything about **itself**.
 - Entity interop isn't supported (atm and maybe never?)
+- A entity configuration is ONCE requested after adding the entity. Changing this configuration after spawning **is not possible** unless de-spawning and re-spawning the entity
 
 ## One-Shot Entity
 
