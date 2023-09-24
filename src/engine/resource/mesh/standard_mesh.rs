@@ -1,8 +1,7 @@
-use std::ops::Range;
-
+use cgmath::{Quaternion, Vector3, Zero};
 use wgpu::{Buffer, BufferUsages, Device};
 
-use crate::engine::{BufferHelper, TMaterial, TMesh, VertexPoint};
+use crate::engine::{BufferHelper, StandardInstance, TInstance, TMaterial, TMesh, VertexPoint};
 
 #[derive(Debug)]
 pub struct StandardMesh {
@@ -10,17 +9,41 @@ pub struct StandardMesh {
     vertex_buffer: Buffer,
     index_buffer: Buffer,
     index_count: u32,
-    instance_range: Range<u32>,
+    instances: Vec<StandardInstance>,
+    instance_buffer: Buffer,
     material: Option<Box<dyn TMaterial>>,
 }
 
 impl StandardMesh {
+    pub fn from_raw_single(
+        name: Option<&str>,
+        device: &Device,
+        vertices: Vec<VertexPoint>,
+        indices: Vec<u32>,
+        material: Option<Box<dyn TMaterial>>,
+    ) -> Self {
+        Self::from_raw(
+            name,
+            device,
+            vertices,
+            indices,
+            vec![StandardInstance::new(
+                Vector3::zero(),
+                Quaternion {
+                    v: Vector3::zero(),
+                    s: 0.0,
+                },
+            )],
+            material,
+        )
+    }
+
     pub fn from_raw(
         name: Option<&str>,
         device: &Device,
         vertices: Vec<VertexPoint>,
         indices: Vec<u32>,
-        instances: Range<u32>,
+        instances: Vec<StandardInstance>,
         material: Option<Box<dyn TMaterial>>,
     ) -> Self {
         let label = name.unwrap_or("Unknown");
@@ -36,12 +59,23 @@ impl StandardMesh {
             BufferUsages::INDEX,
         );
 
+        let instance_uniform = instances
+            .iter()
+            .map(|x| x.to_instance_uniform())
+            .collect::<Vec<_>>();
+        let instance_buffer = device.make_buffer(
+            Some(&format!("{} Instance Buffer", label)),
+            &instance_uniform,
+            BufferUsages::VERTEX,
+        );
+
         Self {
             name: name.map_or(None, |x| Some(x.to_string())),
             vertex_buffer,
             index_buffer,
             index_count: indices.len() as u32,
-            instance_range: instances,
+            instances,
+            instance_buffer,
             material,
         }
     }
@@ -60,12 +94,16 @@ impl TMesh for StandardMesh {
         self.index_count
     }
 
-    fn get_instance_range(&self) -> Range<u32> {
-        self.instance_range.clone()
+    fn get_instances(&mut self) -> &mut Vec<StandardInstance> {
+        &mut self.instances
     }
 
-    fn set_instance_range(&mut self, range: Range<u32>) {
-        self.instance_range = range;
+    fn get_instance_count(&self) -> u32 {
+        self.instances.len() as u32
+    }
+
+    fn get_instance_buffer(&self) -> &Buffer {
+        &self.instance_buffer
     }
 
     fn get_material(&self) -> Option<&Box<dyn TMaterial>> {

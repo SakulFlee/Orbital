@@ -6,7 +6,10 @@ use wgpu::{
 };
 use winit::window::Window;
 
-use crate::engine::{EngineResult, TComputingEngine, TRenderingEngine, TVertex, VertexPoint};
+use crate::engine::{
+    EngineResult, StandardInstance, TComputingEngine, TInstance, TRenderingEngine, TVertex,
+    VertexPoint,
+};
 
 use super::wgpu_computing_engine::WGPUComputingEngine;
 
@@ -66,7 +69,10 @@ impl WGPURenderingEngine {
                 module: &main_shader,
                 entry_point: "vs_main",
                 // Vertex buffers
-                buffers: &[VertexPoint::descriptor::<VertexPoint>()], // TODO: Instance Buffer Descriptor
+                buffers: &[
+                    VertexPoint::descriptor::<VertexPoint>(),
+                    StandardInstance::descriptor(),
+                ],
             },
             // Fragment shader
             fragment: Some(FragmentState {

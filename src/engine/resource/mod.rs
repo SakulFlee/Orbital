@@ -13,3 +13,5 @@ pub use mesh::*;
 mod vertex;
 pub use vertex::*;
 
+mod instance;
+pub use instance::*;
