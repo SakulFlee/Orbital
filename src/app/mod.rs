@@ -1,7 +1,7 @@
 use std::iter::once;
 
 use wgpu::{
-    Color, CommandEncoderDescriptor, LoadOp, MaintainBase, Operations, RenderPassColorAttachment,
+    CommandEncoderDescriptor, LoadOp, MaintainBase, Operations, RenderPassColorAttachment,
     RenderPassDescriptor,
 };
 use winit::{
@@ -165,23 +165,14 @@ impl App {
         {
             let mut render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
                 label: Some("Render Pass"),
-                color_attachments: &[Some(
-                    (RenderPassColorAttachment {
-                        view: &surface_texture_view,
-                        resolve_target: None,
-                        ops: Operations {
-                            load: LoadOp::Clear(Color {
-                                // Sky blue - ish
-                                // TODO: Move to World
-                                r: 0.0,
-                                g: 0.61176,
-                                b: 0.77647,
-                                a: 1.0,
-                            }),
-                            store: true,
-                        },
-                    }),
-                )],
+                color_attachments: &[Some(RenderPassColorAttachment {
+                    view: &surface_texture_view,
+                    resolve_target: None,
+                    ops: Operations {
+                        load: LoadOp::Clear(self.world.get_clear_color()),
+                        store: true,
+                    },
+                })],
                 depth_stencil_attachment: None,
             });
 

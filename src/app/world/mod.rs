@@ -1,16 +1,26 @@
 mod entity;
 
 pub use entity::*;
+use wgpu::Color;
 
 use super::InputHandler;
 
 pub struct World {
+    clear_color: Color,
     entities: Vec<(EntityConfiguration, BoxedEntity)>,
 }
 
 impl World {
+    pub const SKY_BLUE_ISH_COLOR: Color = Color {
+        r: 0.0,
+        g: 0.61176,
+        b: 0.77647,
+        a: 1.0,
+    };
+
     pub fn new() -> Self {
         Self {
+            clear_color: Color::BLACK,
             entities: Vec::new(),
         }
     }
@@ -82,6 +92,10 @@ impl World {
             .collect()
     }
 
+    pub fn get_clear_color(&self) -> Color {
+        self.clear_color
+    }
+
     pub fn call_updateable(
         &mut self,
         frequency: UpdateFrequency,
@@ -97,6 +111,9 @@ impl World {
 
         for entity_action in entity_actions {
             match entity_action {
+                EntityAction::ClearColorAdjustment(color) => {
+                    self.clear_color = color;
+                }
                 EntityAction::Spawn(entities) => {
                     for entity in entities {
                         self.add_entity(entity);
