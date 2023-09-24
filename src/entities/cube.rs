@@ -60,12 +60,11 @@ impl TEntity for Cube {
     }
 
     fn prepare_render(&mut self, device: &Device, _queue: &Queue) {
-        let mesh = StandardMesh::from_raw(
+        let mesh = StandardMesh::from_raw_single(
             Some(&Self::TAG),
             device,
             Self::VERTICES.into(),
             Self::INDICES.into(),
-            0..1,
             None,
         );
 
