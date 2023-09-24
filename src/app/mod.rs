@@ -1,4 +1,9 @@
-use wgpu::MaintainBase;
+use std::iter::once;
+
+use wgpu::{
+    Color, CommandEncoderDescriptor, LoadOp, MaintainBase, Operations, RenderPassColorAttachment,
+    RenderPassDescriptor,
+};
 use winit::{
     dpi::{PhysicalSize, Size},
     event::{Event, WindowEvent},
@@ -7,7 +12,8 @@ use winit::{
 };
 
 use crate::engine::{
-    EngineError, EngineResult, TComputingEngine, TRenderingEngine, WGPURenderingEngine,
+    EngineError, EngineResult, TComputingEngine, TRenderingEngine, TextureHelper,
+    WGPURenderingEngine,
 };
 
 mod input;
@@ -78,7 +84,12 @@ impl App {
                         .handle_keyboard_input(input),
                     _ => (),
                 },
-                Event::RedrawRequested(..) => app.handle_redraw(),
+                Event::RedrawRequested(..) => {
+                    if let Err(e) = app.handle_redraw() {
+                        log::error!("An error has occurred while rendering!\nThe error encountered was:\n{:?}", e);
+                        log::warn!("Engine potentially unstable. Restart app if further issues occur!");
+                    }
+                },
                 Event::RedrawEventsCleared => window.request_redraw(),
                 Event::MainEventsCleared => app.handle_main_events_cleared(&window),
                 _ => (),
@@ -140,8 +151,50 @@ impl App {
         self.rendering_engine.reconfigure_surface();
     }
 
-    fn handle_redraw(&mut self) {
-        // TODO
+    fn handle_redraw(&mut self) -> EngineResult<()> {
+        let surface_texture = self.rendering_engine.get_surface_texture()?;
+        let surface_texture_view = surface_texture.make_texture_view();
+
+        let mut command_encoder =
+            self.rendering_engine
+                .get_device()
+                .create_command_encoder(&CommandEncoderDescriptor {
+                    label: Some("Command Encoder"),
+                });
+
+        {
+            let mut render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
+                label: Some("Render Pass"),
+                color_attachments: &[Some(
+                    (RenderPassColorAttachment {
+                        view: &surface_texture_view,
+                        resolve_target: None,
+                        ops: Operations {
+                            load: LoadOp::Clear(Color {
+                                // Sky blue - ish
+                                // TODO: Move to World
+                                r: 0.0,
+                                g: 0.61176,
+                                b: 0.77647,
+                                a: 1.0,
+                            }),
+                            store: true,
+                        },
+                    }),
+                )],
+                depth_stencil_attachment: None,
+            });
+
+            render_pass.set_pipeline(self.rendering_engine.get_render_pipeline());
+        }
+
+        let command_buffer = command_encoder.finish();
+        self.rendering_engine
+            .get_queue()
+            .submit(once(command_buffer));
+        surface_texture.present();
+
+        Ok(())
     }
 
     fn handle_main_events_cleared(&mut self, window: &Window) {
