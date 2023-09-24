@@ -1,13 +1,10 @@
 use std::ops::Range;
 
-use bytemuck::NoUninit;
-use wgpu::{
-    util::{BufferInitDescriptor, DeviceExt},
-    Buffer, BufferUsages, Device,
-};
+use wgpu::{Buffer, BufferUsages, Device};
 
-use crate::engine::{TMaterial, TMesh, VertexPoint};
+use crate::engine::{BufferHelper, TMaterial, TMesh, VertexPoint};
 
+#[derive(Debug)]
 pub struct StandardMesh {
     name: Option<String>,
     vertex_buffer: Buffer,
@@ -19,8 +16,8 @@ pub struct StandardMesh {
 
 impl StandardMesh {
     pub fn from_raw(
-        device: &Device,
         name: Option<&str>,
+        device: &Device,
         vertices: Vec<VertexPoint>,
         indices: Vec<u32>,
         instances: Range<u32>,
@@ -28,14 +25,12 @@ impl StandardMesh {
     ) -> Self {
         let label = name.unwrap_or("Unknown");
 
-        let vertex_buffer = Self::make_buffer(
-            device,
+        let vertex_buffer = device.make_buffer(
             Some(&format!("{} Vertex Buffer", label)),
             &vertices,
             BufferUsages::VERTEX,
         );
-        let index_buffer = Self::make_buffer(
-            device,
+        let index_buffer = device.make_buffer(
             Some(&format!("{} Index Buffer", label)),
             &indices,
             BufferUsages::INDEX,
@@ -49,26 +44,6 @@ impl StandardMesh {
             instance_range: instances,
             material,
         }
-    }
-
-    fn make_buffer<A>(
-        device: &Device,
-        label: Option<&str>,
-        content: &[A],
-        usage: BufferUsages,
-    ) -> Buffer
-    where
-        A: NoUninit,
-    {
-        device.create_buffer_init(&BufferInitDescriptor {
-            label,
-            contents: bytemuck::cast_slice(&content),
-            usage,
-        })
-    }
-
-    pub fn get_name(&self) -> Option<String> {
-        self.name.clone()
     }
 }
 
@@ -95,5 +70,9 @@ impl TMesh for StandardMesh {
 
     fn get_material(&self) -> Option<&Box<dyn TMaterial>> {
         self.material.as_ref()
+    }
+
+    fn get_name(&self) -> Option<String> {
+        self.name.clone()
     }
 }
