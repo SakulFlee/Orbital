@@ -9,3 +9,6 @@ game-*.log
 
 # Blender
 .blend*
+
+# MDBook
+docs/book/
