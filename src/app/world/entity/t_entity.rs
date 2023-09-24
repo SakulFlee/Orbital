@@ -1,4 +1,4 @@
-use crate::app::{InputHandler, World};
+use crate::app::InputHandler;
 
 use super::{EntityAction, EntityConfiguration};
 
