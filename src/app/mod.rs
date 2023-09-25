@@ -2,7 +2,7 @@ use std::iter::once;
 
 use wgpu::{
     CommandEncoderDescriptor, IndexFormat, LoadOp, MaintainBase, Operations,
-    RenderPassColorAttachment, RenderPassDescriptor,
+    RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor,
 };
 use winit::{
     dpi::{PhysicalSize, Size},
@@ -12,7 +12,7 @@ use winit::{
 };
 
 use crate::engine::{
-    EngineError, EngineResult, TComputingEngine, TRenderingEngine, TextureHelper,
+    EngineError, EngineResult, TComputingEngine, TRenderingEngine, TTexture, TextureHelper,
     WGPURenderingEngine,
 };
 
@@ -173,7 +173,18 @@ impl App {
                         store: true,
                     },
                 })],
-                depth_stencil_attachment: None,
+                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                    view: self
+                        .rendering_engine
+                        .get_depth_texture()
+                        .expect("Depth Texture gone missing!")
+                        .get_view(),
+                    depth_ops: Some(Operations {
+                        load: LoadOp::Clear(1.0),
+                        store: true,
+                    }),
+                    stencil_ops: None,
+                }),
             });
 
             render_pass.set_pipeline(self.rendering_engine.get_render_pipeline());

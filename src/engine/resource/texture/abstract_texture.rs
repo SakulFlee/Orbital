@@ -23,6 +23,7 @@ impl AbstractTexture {
         queue: &Queue,
         format: TextureFormat,
         sampler_descriptor: &SamplerDescriptor,
+        usage: TextureUsages,
         file_path: P,
     ) -> EngineResult<Self>
     where
@@ -41,6 +42,7 @@ impl AbstractTexture {
             &bytes,
             format,
             sampler_descriptor,
+            usage,
             file_name,
         )?)
     }
@@ -51,11 +53,20 @@ impl AbstractTexture {
         bytes: &Vec<u8>,
         format: TextureFormat,
         sampler_descriptor: &SamplerDescriptor,
+        usage: TextureUsages,
         label: Option<&str>,
     ) -> EngineResult<Self> {
         let image = image::load_from_memory(bytes).map_err(|e| EngineError::ImageError(e))?;
 
-        Self::from_image(device, queue, &image, format, sampler_descriptor, label)
+        Self::from_image(
+            device,
+            queue,
+            &image,
+            format,
+            sampler_descriptor,
+            usage,
+            label,
+        )
     }
 
     pub fn from_image(
@@ -64,6 +75,7 @@ impl AbstractTexture {
         image: &DynamicImage,
         format: TextureFormat,
         sampler_descriptor: &SamplerDescriptor,
+        usage: TextureUsages,
         label: Option<&str>,
     ) -> EngineResult<Self> {
         let dimensions = image.dimensions();
@@ -73,7 +85,8 @@ impl AbstractTexture {
             depth_or_array_layers: 1,
         };
 
-        let abstract_texture = Self::from_empty(device, size, format, sampler_descriptor, label)?;
+        let abstract_texture =
+            Self::from_empty(device, size, format, sampler_descriptor, usage, label)?;
 
         // Convert the image into something useable
         let rgba = image.to_rgba8();
@@ -103,6 +116,7 @@ impl AbstractTexture {
         size: Extent3d,
         format: TextureFormat,
         sampler_descriptor: &SamplerDescriptor,
+        usage: TextureUsages,
         label: Option<&str>,
     ) -> EngineResult<Self> {
         // Make texture
@@ -113,7 +127,7 @@ impl AbstractTexture {
             sample_count: 1,
             dimension: TextureDimension::D2,
             format,
-            usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+            usage,
             view_formats: &[],
         });
 

@@ -3,7 +3,7 @@ use wgpu::{
     TextureFormat, TextureView,
 };
 
-use crate::engine::{EngineError, EngineResult, TextureHelper};
+use crate::engine::{DepthTexture, EngineError, EngineResult, TextureHelper};
 
 use super::TComputingEngine;
 
@@ -56,6 +56,8 @@ pub trait TRenderingEngine: TComputingEngine {
     fn get_surface_texture_view(&self) -> EngineResult<TextureView> {
         Ok(self.get_surface_texture()?.make_texture_view())
     }
+
+    fn get_depth_texture(&self) -> Option<&DepthTexture>;
 
     fn get_render_pipeline(&self) -> &RenderPipeline;
 }
