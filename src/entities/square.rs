@@ -13,7 +13,7 @@ pub struct Square {
 }
 
 impl Square {
-    pub const TAG: &str = "Cube";
+    pub const TAG: &str = "Square";
 
     /// A square looks like this:
     /// +---+
