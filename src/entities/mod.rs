@@ -1,5 +1,5 @@
-mod cube;
-pub use cube::*;
+mod square;
+pub use square::*;
 
 mod empty_entity;
 pub use empty_entity::*;
