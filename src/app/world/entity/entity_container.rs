@@ -19,8 +19,12 @@ impl EntityContainer {
     }
 
     pub fn prepare_entity(&mut self, device: &Device, queue: &Queue) {
-        self.entity.prepare_render(device, queue);
-        self.is_prepared = true;
+        match self.entity.prepare_render(device, queue) {
+            Ok(_) => self.is_prepared = true,
+            Err(e) => {
+                log::error!("Error encountered while preparing Entity for rendering! ({e:?})")
+            }
+        }
     }
 
     pub fn get_entity_configuration(&self) -> &EntityConfiguration {

@@ -7,8 +7,8 @@ use wgpu::{
 use winit::window::Window;
 
 use crate::engine::{
-    EngineResult, StandardInstance, TComputingEngine, TInstance, TRenderingEngine, TVertex,
-    VertexPoint,
+    EngineResult, StandardInstance, StandardMaterial, TComputingEngine, TInstance, TMaterial,
+    TRenderingEngine, TVertex, VertexPoint,
 };
 
 use super::wgpu_computing_engine::WGPUComputingEngine;
@@ -53,7 +53,7 @@ impl WGPURenderingEngine {
         let render_pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: Some("Render Pipeline Layout"),
             bind_group_layouts: &[
-                // TODO: Diffuse Bind Group
+                &StandardMaterial::get_bind_group_layout(device),
                 // TODO: Camera Bind Group
                 // TODO: Ambient Light Bind Group
                 // TODO: Point Light Bind Group

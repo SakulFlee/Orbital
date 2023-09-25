@@ -3,7 +3,7 @@ use winit::event::VirtualKeyCode;
 
 use crate::{
     app::{EntityAction, EntityConfiguration, InputHandler, TEntity, UpdateFrequency},
-    engine::{StandardMesh, TMesh, VertexPoint},
+    engine::{EngineResult, StandardMesh, TMesh, VertexPoint},
     entities::{EmptyEntity, OneShotEntity},
 };
 
@@ -62,25 +62,25 @@ impl Square {
         // A
         VertexPoint {
             position_coordinates: [-0.5, 0.5, 0.0],
-            texture_coordinates: [1.0, 1.0],
+            texture_coordinates: [0.0, 0.0],
             normal_coordinates: [0.0, 0.0, 0.0],
         },
         // B
         VertexPoint {
             position_coordinates: [-0.5, -0.5, 0.0],
-            texture_coordinates: [-1.0, 0.0],
+            texture_coordinates: [0.0, 1.0],
             normal_coordinates: [0.0, 0.0, 0.0],
         },
         // C
         VertexPoint {
             position_coordinates: [0.5, -0.5, 0.0],
-            texture_coordinates: [0.0, -1.0],
+            texture_coordinates: [1.0, 1.0],
             normal_coordinates: [0.0, 0.0, 0.0],
         },
         // D
         VertexPoint {
             position_coordinates: [0.5, 0.5, 0.0],
-            texture_coordinates: [0.0, -1.0],
+            texture_coordinates: [1.0, 0.0],
             normal_coordinates: [0.0, 0.0, 0.0],
         },
     ];
@@ -154,16 +154,18 @@ impl TEntity for Square {
         EntityAction::Keep
     }
 
-    fn prepare_render(&mut self, device: &Device, _queue: &Queue) {
+    fn prepare_render(&mut self, device: &Device, queue: &Queue) -> EngineResult<()> {
         let mesh = StandardMesh::from_raw_single(
             Some(&Self::TAG),
             device,
+            queue,
             Self::VERTICES.into(),
             Self::INDICES.into(),
             None,
-        );
+        )?;
 
         self.mesh = Some(mesh);
+        Ok(())
     }
 
     fn get_meshes(&self) -> Vec<&dyn TMesh> {
