@@ -10,4 +10,6 @@ pub mod entities;
 // pub mod camera;
 // pub use camera::*;
 
+// TODO: GLTF Loader
+
 pub const APP_NAME: &'static str = "WGPU-Engine";
