@@ -39,5 +39,6 @@
     "rust-analyzer.linkedProjects": [
         ".\\Cargo.toml",
         ".\\Cargo.toml"
-    ]
+    ],
+    "todo-tree.tree.showBadges": true
 }
