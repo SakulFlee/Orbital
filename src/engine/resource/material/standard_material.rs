@@ -32,7 +32,7 @@ impl StandardMaterial {
                     count: None,
                 },
                 BindGroupLayoutEntry {
-                    binding: 0,
+                    binding: 1,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
@@ -73,7 +73,7 @@ impl StandardMaterial {
                     resource: BindingResource::TextureView(&diffuse_texture.get_view()),
                 },
                 BindGroupEntry {
-                    binding: 0,
+                    binding: 1,
                     resource: BindingResource::Sampler(&diffuse_texture.get_sampler()),
                 },
             ],

@@ -1,7 +1,10 @@
 use cgmath::{Quaternion, Vector3, Zero};
-use wgpu::{Buffer, BufferUsages, Device};
+use wgpu::{Buffer, BufferUsages, Device, Queue};
 
-use crate::engine::{BufferHelper, StandardInstance, TInstance, TMaterial, TMesh, VertexPoint};
+use crate::engine::{
+    BufferHelper, EngineResult, StandardInstance, StandardMaterial, TInstance, TMaterial, TMesh,
+    VertexPoint,
+};
 
 #[derive(Debug)]
 pub struct StandardMesh {
@@ -11,20 +14,24 @@ pub struct StandardMesh {
     index_count: u32,
     instances: Vec<StandardInstance>,
     instance_buffer: Buffer,
-    material: Option<Box<dyn TMaterial>>,
+    material: Box<dyn TMaterial>,
 }
 
 impl StandardMesh {
+    pub const MISSING_TEXTURE: &str = "missing_texture.png";
+
     pub fn from_raw_single(
         name: Option<&str>,
         device: &Device,
+        queue: &Queue,
         vertices: Vec<VertexPoint>,
         indices: Vec<u32>,
         material: Option<Box<dyn TMaterial>>,
-    ) -> Self {
+    ) -> EngineResult<Self> {
         Self::from_raw(
             name,
             device,
+            queue,
             vertices,
             indices,
             vec![StandardInstance::new(
@@ -41,11 +48,12 @@ impl StandardMesh {
     pub fn from_raw(
         name: Option<&str>,
         device: &Device,
+        queue: &Queue,
         vertices: Vec<VertexPoint>,
         indices: Vec<u32>,
         instances: Vec<StandardInstance>,
         material: Option<Box<dyn TMaterial>>,
-    ) -> Self {
+    ) -> EngineResult<Self> {
         let label = name.unwrap_or("Unknown");
 
         let vertex_buffer = device.make_buffer(
@@ -69,7 +77,16 @@ impl StandardMesh {
             BufferUsages::VERTEX,
         );
 
-        Self {
+        let material = match material {
+            Some(material) => material,
+            None => Box::new(StandardMaterial::from_texture(
+                device,
+                queue,
+                &Self::MISSING_TEXTURE,
+            )?),
+        };
+
+        Ok(Self {
             name: name.map_or(None, |x| Some(x.to_string())),
             vertex_buffer,
             index_buffer,
@@ -77,7 +94,7 @@ impl StandardMesh {
             instances,
             instance_buffer,
             material,
-        }
+        })
     }
 }
 
@@ -106,8 +123,8 @@ impl TMesh for StandardMesh {
         &self.instance_buffer
     }
 
-    fn get_material(&self) -> Option<&Box<dyn TMaterial>> {
-        self.material.as_ref()
+    fn get_material(&self) -> &Box<dyn TMaterial> {
+        &self.material
     }
 
     fn get_name(&self) -> Option<String> {
