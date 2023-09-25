@@ -191,7 +191,6 @@ impl App {
                 render_pass.set_index_buffer(x.get_index_buffer().slice(..), IndexFormat::Uint32);
                 render_pass.set_vertex_buffer(1, x.get_instance_buffer().slice(..));
 
-                // TODO: Shader needs to use instance matrix :)
                 render_pass.draw_indexed(0..x.get_index_count(), 0, 0..x.get_instance_count());
             });
         }
