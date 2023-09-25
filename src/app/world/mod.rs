@@ -28,6 +28,7 @@ impl World {
     }
 
     pub fn add_entity(&mut self, entity: BoxedEntity) {
+        // TODO: Check for Tag being used multiple times
         let entity_container = EntityContainer::from_boxed_entity(entity);
 
         self.entities.push(entity_container);
