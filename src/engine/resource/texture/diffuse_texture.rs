@@ -3,7 +3,7 @@ use std::path::Path;
 use image::DynamicImage;
 use wgpu::{
     AddressMode, Device, FilterMode, Queue, Sampler, SamplerDescriptor, Texture, TextureFormat,
-    TextureView,
+    TextureUsages, TextureView,
 };
 
 use crate::engine::{EngineResult, ResourceManager};
@@ -41,6 +41,7 @@ impl DiffuseTexture {
                 queue,
                 Self::TEXTURE_FORMAT,
                 &Self::SAMPLER_DESCRIPTOR,
+                TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
                 file_path,
             )?,
         })
@@ -59,6 +60,7 @@ impl DiffuseTexture {
                 bytes,
                 Self::TEXTURE_FORMAT,
                 &Self::SAMPLER_DESCRIPTOR,
+                TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
                 label,
             )?,
         })
@@ -77,6 +79,7 @@ impl DiffuseTexture {
                 image,
                 Self::TEXTURE_FORMAT,
                 &Self::SAMPLER_DESCRIPTOR,
+                TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
                 label,
             )?,
         })
