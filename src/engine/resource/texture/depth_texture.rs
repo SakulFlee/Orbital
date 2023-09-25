@@ -3,7 +3,7 @@ use std::path::Path;
 use image::DynamicImage;
 use wgpu::{
     AddressMode, CompareFunction, Device, Extent3d, FilterMode, Queue, Sampler, SamplerDescriptor,
-    Texture, TextureFormat, TextureView,
+    Texture, TextureFormat, TextureUsages, TextureView,
 };
 
 use crate::engine::EngineResult;
@@ -41,6 +41,7 @@ impl DepthTexture {
                 queue,
                 Self::TEXTURE_FORMAT,
                 &Self::SAMPLER_DESCRIPTOR,
+                TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_DST,
                 file_name,
             )?,
         })
@@ -59,6 +60,7 @@ impl DepthTexture {
                 bytes,
                 Self::TEXTURE_FORMAT,
                 &Self::SAMPLER_DESCRIPTOR,
+                TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_DST,
                 label,
             )?,
         })
@@ -77,6 +79,7 @@ impl DepthTexture {
                 image,
                 Self::TEXTURE_FORMAT,
                 &Self::SAMPLER_DESCRIPTOR,
+                TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_DST,
                 label,
             )?,
         })
@@ -95,6 +98,7 @@ impl DepthTexture {
                 size,
                 format,
                 sampler_descriptor,
+                TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_DST,
                 label,
             )?,
         })
