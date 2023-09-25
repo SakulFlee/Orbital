@@ -1,14 +1,15 @@
 use wgpu::{
-    include_wgsl, Adapter, BlendState, ColorTargetState, ColorWrites, Device, Face, FragmentState,
-    FrontFace, Instance, MultisampleState, PipelineLayoutDescriptor, PolygonMode, PrimitiveState,
-    PrimitiveTopology, Queue, RenderPipeline, RenderPipelineDescriptor, ShaderModule,
+    include_wgsl, Adapter, BlendState, ColorTargetState, ColorWrites, CompareFunction,
+    DepthBiasState, DepthStencilState, Device, Extent3d, Face, FragmentState, FrontFace, Instance,
+    MultisampleState, PipelineLayoutDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology,
+    Queue, RenderPipeline, RenderPipelineDescriptor, ShaderModule, StencilState,
     SurfaceConfiguration, TextureFormat, VertexState,
 };
 use winit::window::Window;
 
 use crate::engine::{
-    EngineResult, StandardInstance, StandardMaterial, TComputingEngine, TInstance, TMaterial,
-    TRenderingEngine, TVertex, VertexPoint,
+    DepthTexture, EngineResult, StandardInstance, StandardMaterial, TComputingEngine, TInstance,
+    TMaterial, TRenderingEngine, TVertex, VertexPoint,
 };
 
 use super::wgpu_computing_engine::WGPUComputingEngine;
@@ -20,11 +21,10 @@ pub struct WGPURenderingEngine {
     computing_engine: WGPUComputingEngine,
     surface: Surface,
     render_pipeline: RenderPipeline,
+    depth_texture: DepthTexture,
 }
 
 impl WGPURenderingEngine {
-    pub const DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
-
     pub fn new(window: &Window) -> EngineResult<Self> {
         let (computing_engine, surface) = Surface::from_window(window)?;
 
@@ -33,10 +33,23 @@ impl WGPURenderingEngine {
             surface.get_surface_texture_format(),
         )?;
 
+        let depth_texture = DepthTexture::from_empty(
+            computing_engine.get_device(),
+            Extent3d {
+                width: window.inner_size().width,
+                height: window.inner_size().height,
+                depth_or_array_layers: 1,
+            },
+            DepthTexture::TEXTURE_FORMAT,
+            &DepthTexture::SAMPLER_DESCRIPTOR,
+            Some("Depth Texture"),
+        )?;
+
         Ok(Self {
             computing_engine,
             surface,
             render_pipeline,
+            depth_texture,
         })
     }
 
@@ -106,15 +119,13 @@ impl WGPURenderingEngine {
                 // Note: requires Features::CONSERVATIVE_RASTERIZATION
                 conservative: false,
             },
-            // TODO: Depth Buffer
-            depth_stencil: None,
-            // depth_stencil: Some(DepthStencilState {
-            //     format: Self::DEPTH_FORMAT,
-            //     depth_write_enabled: true,
-            //     depth_compare: CompareFunction::Less,
-            //     stencil: StencilState::default(),
-            //     bias: DepthBiasState::default(),
-            // }),
+            depth_stencil: Some(DepthStencilState {
+                format: DepthTexture::TEXTURE_FORMAT,
+                depth_write_enabled: true,
+                depth_compare: CompareFunction::Less,
+                stencil: StencilState::default(),
+                bias: DepthBiasState::default(),
+            }),
             multisample: MultisampleState {
                 count: 1,
                 mask: !0,
@@ -164,6 +175,10 @@ impl TRenderingEngine for WGPURenderingEngine {
 
     fn get_surface_texture_format(&self) -> TextureFormat {
         self.surface.get_surface_texture_format()
+    }
+
+    fn get_depth_texture(&self) -> Option<&DepthTexture> {
+        Some(&self.depth_texture)
     }
 
     fn get_render_pipeline(&self) -> &RenderPipeline {
