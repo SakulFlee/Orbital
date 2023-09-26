@@ -189,6 +189,12 @@ impl App {
 
             render_pass.set_pipeline(self.rendering_engine.get_render_pipeline());
 
+            render_pass.set_bind_group(
+                1,
+                &self.rendering_engine.get_camera().get_bind_group(),
+                &[],
+            );
+
             // TODO: Uniform buffers like Depth Buffer, Camera, etc. (AS NEEDED)
 
             // Call entity renderables
