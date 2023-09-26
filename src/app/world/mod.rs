@@ -1,8 +1,11 @@
 use wgpu::{Color, Device, Queue};
 
-use crate::engine::{Camera, TMesh};
+use crate::engine::{Camera, StandardAmbientLight, TMesh};
 
 use super::InputHandler;
+
+mod world_builder;
+pub use world_builder::*;
 
 mod entity;
 pub use entity::*;
@@ -14,6 +17,7 @@ pub struct World {
     clear_color: Color,
     entity_tag_duplication_behaviour: EntityTagDuplicationBehaviour,
     entities: Vec<EntityContainer>,
+    ambient_light: StandardAmbientLight,
 }
 
 impl World {
@@ -24,12 +28,8 @@ impl World {
         a: 1.0,
     };
 
-    pub fn new(entity_tag_duplication_behaviour: EntityTagDuplicationBehaviour) -> Self {
-        Self {
-            clear_color: Color::BLACK,
-            entity_tag_duplication_behaviour,
-            entities: Vec::new(),
-        }
+    pub fn from_builder(builder: WorldBuilder, device: &Device, queue: &Queue) -> Self {
+        builder.build(device, queue)
     }
 
     pub fn add_entity(&mut self, entity: BoxedEntity) {
@@ -61,13 +61,13 @@ impl World {
                 }
 
                 self.entities.push(entity_container);
-            },
+            }
             EntityTagDuplicationBehaviour::IgnoreEntityOnDuplication => {
                 // Only spawn the entity if the tag isn't used yet
                 if !self.has_entity(entity_container.get_entity_configuration().get_tag()) {
                     self.entities.push(entity_container);
                 }
-            },
+            }
             EntityTagDuplicationBehaviour::OverwriteEntityOnDuplication => {
                 // If the entity tag already exists remove it, then spawn the new entity, otherwise just spawn the entity
                 if self.has_entity(entity_container.get_entity_configuration().get_tag()) {
@@ -75,7 +75,7 @@ impl World {
                 }
 
                 self.entities.push(entity_container);
-            },
+            }
         }
     }
 
@@ -197,20 +197,23 @@ impl World {
         }
     }
 
-    pub fn prepare_render_and_collect_meshes(
+    pub fn prepare_render_and_collect_data(
         &mut self,
         device: &Device,
         queue: &Queue,
-    ) -> Vec<&dyn TMesh> {
+    ) -> (Vec<&dyn TMesh>, &StandardAmbientLight) {
         // Prepare rendere where needed
         self.get_unprepared_renderable()
             .iter_mut()
             .for_each(|x| x.prepare_entity(device, queue));
 
         // Retrieve meshes
-        self.get_prepared_renderable()
-            .iter()
-            .flat_map(|x| x.get_meshes())
-            .collect::<Vec<_>>()
+        (
+            self.get_prepared_renderable()
+                .iter()
+                .flat_map(|x| x.get_meshes())
+                .collect::<Vec<_>>(),
+            &self.ambient_light,
+        )
     }
 }
