@@ -125,7 +125,7 @@ impl World {
         let entity_actions = self
             .get_updateable_mut(frequency)
             .iter_mut()
-            .map(|x| x.update(delta_time, input_handler))
+            .flat_map(|x| x.update(delta_time, input_handler))
             .filter(|x| *x != EntityAction::Keep)
             .collect::<Vec<_>>();
 
