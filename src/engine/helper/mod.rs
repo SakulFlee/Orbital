@@ -12,3 +12,6 @@ pub use texture::*;
 
 mod buffer;
 pub use buffer::*;
+
+mod color;
+pub use color::*;

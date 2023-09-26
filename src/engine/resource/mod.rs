@@ -15,3 +15,6 @@ pub use vertex::*;
 
 mod instance;
 pub use instance::*;
+
+mod light;
+pub use light::*;

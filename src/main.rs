@@ -1,5 +1,6 @@
 use wgpu_engine::{
-    app::{App, EntityTagDuplicationBehaviour, World},
+    app::{App, EntityTagDuplicationBehaviour, World, WorldBuilder},
+    engine::rgb_to_f32_color,
     entities::{CameraControllingEntity, ClearScreenEntity, Square},
     log::log_init,
 };
@@ -7,11 +8,15 @@ use wgpu_engine::{
 fn main() {
     log_init();
 
-    let mut world = World::new(EntityTagDuplicationBehaviour::PanicOnDuplication);
+    let world_builder = WorldBuilder::new()
+        .with_clear_color(World::SKY_BLUE_ISH_COLOR)
+        .with_entity_tag_duplication_behaviour(EntityTagDuplicationBehaviour::WarnOnDuplication)
+        .with_ambient_light(rgb_to_f32_color(255u8, 50u8, 50u8), 0.1)
+        .with_entities(vec![
+            Box::new(CameraControllingEntity::new()),
+            Box::new(ClearScreenEntity {}),
+            Box::new(Square::default()),
+        ]);
 
-    world.add_entity(Box::new(CameraControllingEntity::new()));
-    world.add_entity(Box::new(ClearScreenEntity {}));
-    world.add_entity(Box::new(Square::default()));
-
-    App::run("WGPU", world).expect("App failed");
+    App::run("WGPU", world_builder).expect("App failed");
 }
