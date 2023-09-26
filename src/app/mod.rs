@@ -12,8 +12,8 @@ use winit::{
 };
 
 use crate::engine::{
-    Camera, EngineError, EngineResult, TComputingEngine, TRenderingEngine, TTexture, TextureHelper,
-    WGPURenderingEngine,
+    Camera, EngineError, EngineResult, TAmbientLight, TComputingEngine, TRenderingEngine, TTexture,
+    TextureHelper, WGPURenderingEngine,
 };
 
 mod input;
@@ -35,7 +35,7 @@ pub struct App {
 }
 
 impl App {
-    pub fn run<S>(name: S, world: World) -> EngineResult<()>
+    pub fn run<S>(name: S, world_builder: WorldBuilder) -> EngineResult<()>
     where
         S: Into<String>,
     {
@@ -53,6 +53,9 @@ impl App {
         )?;
 
         let rendering_engine = WGPURenderingEngine::new(&window)?;
+
+        let world =
+            world_builder.build(rendering_engine.get_device(), rendering_engine.get_queue());
 
         let timer = Timer::new();
 
@@ -197,13 +200,8 @@ impl App {
 
             render_pass.set_pipeline(self.rendering_engine.get_render_pipeline());
 
-            render_pass.set_bind_group(1, &self.camera.get_bind_group(), &[]);
-
-            // TODO: Uniform buffer for Ambient Lights
-            // TODO: Uniform buffer for Point Lights
-
             // Call entity renderables
-            let meshes = self.world.prepare_render_and_collect_meshes(
+            let (meshes, ambient_light) = self.world.prepare_render_and_collect_data(
                 self.rendering_engine.get_device(),
                 self.rendering_engine.get_queue(),
             );
@@ -218,6 +216,14 @@ impl App {
 
                 // Texture / Material
                 render_pass.set_bind_group(0, &x.get_material().get_bind_group(), &[]);
+
+                // Camera
+                render_pass.set_bind_group(1, &self.camera.get_bind_group(), &[]);
+
+                // Ambient Light
+                render_pass.set_bind_group(2, &ambient_light.get_bind_group(), &[]);
+
+                // TODO: Uniform buffer for Point Lights
 
                 render_pass.draw_indexed(0..x.get_index_count(), 0, 0..x.get_instance_count());
             });
