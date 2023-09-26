@@ -8,7 +8,7 @@ fn main() -> Result<(), String> {
 
     let copy_options = CopyOptions::new().overwrite(true);
     copy_items(
-        &vec!["res/"],
+        &["res/"],
         var("OUT_DIR").map_err(|x| x.to_string())?,
         &copy_options,
     )

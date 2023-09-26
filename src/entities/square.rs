@@ -156,7 +156,7 @@ impl TEntity for Square {
 
     fn prepare_render(&mut self, device: &Device, queue: &Queue) -> EngineResult<()> {
         let mesh = StandardMesh::from_raw_single(
-            Some(&Self::TAG),
+            Some(Self::TAG),
             device,
             queue,
             Self::VERTICES.into(),

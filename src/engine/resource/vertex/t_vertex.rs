@@ -10,7 +10,7 @@ pub trait TVertex {
     fn descriptor<T>() -> VertexBufferLayout<'static>
     where
         Self: Sized,
-        T: TVertex
+        T: TVertex,
     {
         VertexBufferLayout {
             array_stride: size_of::<T>() as BufferAddress,

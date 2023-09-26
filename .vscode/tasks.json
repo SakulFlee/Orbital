@@ -46,6 +46,14 @@
             ],
         },
         {
+            "label": "Clippy",
+            "command": "cargo clippy --fix --all-targets --all-features -- -D warnings -W clippy::all",
+            "type": "shell",
+            "problemMatcher": [
+                "$rustc"
+            ],
+        },
+        {
             "label": "Build Book",
             "command": "mdbook build",
             "options": {

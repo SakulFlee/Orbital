@@ -143,7 +143,7 @@ impl App {
             new_size
         );
 
-        if new_size.width <= 0 || new_size.height <= 0 {
+        if new_size.width == 0 || new_size.height == 0 {
             log::error!("Invalid new window size received!");
             return;
         }
@@ -215,19 +215,19 @@ impl App {
                 render_pass.set_index_buffer(x.get_index_buffer().slice(..), IndexFormat::Uint32);
 
                 // Texture / Material
-                render_pass.set_bind_group(0, &x.get_material().get_bind_group(), &[]);
+                render_pass.set_bind_group(0, x.get_material().get_bind_group(), &[]);
 
                 // Camera
-                render_pass.set_bind_group(1, &self.camera.get_bind_group(), &[]);
+                render_pass.set_bind_group(1, self.camera.get_bind_group(), &[]);
 
                 // Ambient Light
-                render_pass.set_bind_group(2, &ambient_light.get_bind_group(), &[]);
+                render_pass.set_bind_group(2, ambient_light.get_bind_group(), &[]);
 
                 // Point Light
-                render_pass.set_bind_group(3, &point_lights[0].get_bind_group(), &[]);
-                render_pass.set_bind_group(4, &point_lights[1].get_bind_group(), &[]);
-                render_pass.set_bind_group(5, &point_lights[2].get_bind_group(), &[]);
-                render_pass.set_bind_group(6, &point_lights[3].get_bind_group(), &[]);
+                render_pass.set_bind_group(3, point_lights[0].get_bind_group(), &[]);
+                render_pass.set_bind_group(4, point_lights[1].get_bind_group(), &[]);
+                render_pass.set_bind_group(5, point_lights[2].get_bind_group(), &[]);
+                render_pass.set_bind_group(6, point_lights[3].get_bind_group(), &[]);
 
                 render_pass.draw_indexed(0..x.get_index_count(), 0, 0..x.get_instance_count());
             });

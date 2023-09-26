@@ -13,6 +13,8 @@ impl TEntity for ClearScreenEntity {
     }
 
     fn update(&mut self, _delta_time: f64, _input_handler: &InputHandler) -> Vec<EntityAction> {
-        vec![EntityAction::ClearColorAdjustment(World::SKY_BLUE_ISH_COLOR)]
+        vec![EntityAction::ClearColorAdjustment(
+            World::SKY_BLUE_ISH_COLOR,
+        )]
     }
 }
