@@ -25,7 +25,6 @@ pub struct WGPURenderingEngine {
     surface: Surface,
     render_pipeline: RenderPipeline,
     depth_texture: DepthTexture,
-    camera: Camera,
 }
 
 impl WGPURenderingEngine {
@@ -49,18 +48,11 @@ impl WGPURenderingEngine {
             Some("Depth Texture"),
         )?;
 
-        let camera = Camera::from_window_size(
-            computing_engine.get_device(),
-            computing_engine.get_queue(),
-            window.inner_size().into(),
-        );
-
         Ok(Self {
             computing_engine,
             surface,
             render_pipeline,
             depth_texture,
-            camera,
         })
     }
 
@@ -144,10 +136,6 @@ impl WGPURenderingEngine {
             },
             multiview: None,
         }))
-    }
-
-    pub fn get_camera(&self) -> &Camera {
-        &self.camera
     }
 }
 
