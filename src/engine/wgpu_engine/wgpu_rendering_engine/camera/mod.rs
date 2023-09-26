@@ -132,28 +132,56 @@ impl Camera {
         self.eye
     }
 
+    pub fn set_eye(&mut self, eye: Point3<f32>) {
+        self.eye = eye;
+    }
+
     pub fn get_target(&self) -> Point3<f32> {
         self.target
+    }
+
+    pub fn set_target(&mut self, target: Point3<f32>) {
+        self.target = target;
     }
 
     pub fn get_up(&self) -> Vector3<f32> {
         self.up
     }
 
+    pub fn set_up(&mut self, up: Vector3<f32>) {
+        self.up = up;
+    }
+
     pub fn get_aspect(&self) -> f32 {
         self.aspect
+    }
+
+    pub fn set_aspect(&mut self, aspect: f32) {
+        self.aspect = aspect;
     }
 
     pub fn get_fovy(&self) -> f32 {
         self.fovy
     }
 
+    pub fn set_fovy(&mut self, fovy: f32) {
+        self.fovy = fovy;
+    }
+
     pub fn get_znear(&self) -> f32 {
         self.znear
     }
 
+    pub fn set_znear(&mut self, znear: f32) {
+        self.znear = znear;
+    }
+
     pub fn get_zfar(&self) -> f32 {
         self.zfar
+    }
+
+    pub fn set_zfar(&mut self, zfar: f32) {
+        self.zfar = zfar;
     }
 
     pub fn get_view_projection(&self) -> Matrix4<f32> {
