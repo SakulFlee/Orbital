@@ -1,5 +1,5 @@
 use wgpu_engine::{
-    app::{App, World},
+    app::{App, EntityTagDuplicationBehaviour, World},
     entities::{CameraControllingEntity, ClearScreenEntity, Square},
     log::log_init,
 };
@@ -7,7 +7,7 @@ use wgpu_engine::{
 fn main() {
     log_init();
 
-    let mut world = World::new();
+    let mut world = World::new(EntityTagDuplicationBehaviour::PanicOnDuplication);
 
     world.add_entity(Box::new(CameraControllingEntity::new()));
     world.add_entity(Box::new(ClearScreenEntity {}));
