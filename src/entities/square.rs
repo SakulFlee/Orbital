@@ -138,20 +138,20 @@ impl TEntity for Square {
         EntityConfiguration::new(Self::TAG, UpdateFrequency::Slow, true)
     }
 
-    fn update(&mut self, delta_time: f64, input_handler: &InputHandler) -> EntityAction {
+    fn update(&mut self, delta_time: f64, input_handler: &InputHandler) -> Vec<EntityAction> {
         log::debug!("Tick! d: {delta_time}ms");
 
         if input_handler.is_key_pressed(&VirtualKeyCode::Space) {
             // Note: [`UpdateFrequency::Slow`] means we have to hold down Space
             log::debug!("SPACE! We are going to SPACEEEEEEEE!");
 
-            return EntityAction::Spawn(vec![
+            return vec![EntityAction::Spawn(vec![
                 Box::new(EmptyEntity::new("empty")),
                 Box::new(OneShotEntity::new("one-shot")),
-            ]);
+            ])];
         }
 
-        EntityAction::Keep
+        vec![]
     }
 
     fn prepare_render(&mut self, device: &Device, queue: &Queue) -> EngineResult<()> {

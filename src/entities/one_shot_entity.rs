@@ -18,10 +18,10 @@ impl TEntity for OneShotEntity {
         EntityConfiguration::new(self.tag.clone(), UpdateFrequency::Slow, false)
     }
 
-    fn update(&mut self, delta_time: f64, _input_handler: &InputHandler) -> EntityAction {
+    fn update(&mut self, delta_time: f64, _input_handler: &InputHandler) -> Vec<EntityAction> {
         log::debug!(
             "I am a one-shot entity and will be deleted after this! (delta: {delta_time}ms)"
         );
-        EntityAction::Remove(vec![self.tag.clone()])
+        vec![EntityAction::Remove(vec![self.tag.clone()])]
     }
 }

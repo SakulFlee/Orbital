@@ -24,7 +24,7 @@ impl TEntity for CameraControllingEntity {
         EntityConfiguration::new("Camera Controlling Entity", UpdateFrequency::Fast, false)
     }
 
-    fn update(&mut self, delta_time: f64, input_handler: &InputHandler) -> EntityAction {
+    fn update(&mut self, delta_time: f64, input_handler: &InputHandler) -> Vec<EntityAction> {
         if input_handler.is_key_pressed(&VirtualKeyCode::W) {
             self.eye_position += Vector3::new(0.0, 0.0, (0.1 * delta_time) as f32);
         }
@@ -41,6 +41,6 @@ impl TEntity for CameraControllingEntity {
             self.eye_position += Vector3::new((-0.1 * delta_time) as f32, 0.0, 0.0);
         }
 
-        EntityAction::CameraChange(CameraChange::new().with_eye(self.eye_position))
+        vec![EntityAction::CameraChange(CameraChange::new().with_eye(self.eye_position))]
     }
 }
