@@ -1,3 +1,5 @@
+// --- Structures ---
+
 struct VertexPoint {
     @location(0) position_coordinates: vec3<f32>,
     @location(1) texture_coordinates: vec2<f32>,
@@ -22,6 +24,13 @@ struct VertexOutput {
     @location(2) world_position: vec4<f32>,
 };
 
+struct AmbientLight {
+    color: vec3<f32>,
+    strength: f32,
+};
+
+// --- Bindings ---
+
 @group(0) @binding(0)
 var t_diffuse: texture_2d<f32>;
 
@@ -30,6 +39,11 @@ var s_diffuse: sampler;
 
 @group(1) @binding(0)
 var<uniform> camera: CameraUniform;
+
+@group(2) @binding(0) 
+var<uniform> ambient_light: AmbientLight;
+
+// --- Vertex ---
 
 @vertex
 fn vs_main(
@@ -62,9 +76,18 @@ fn vs_main(
     return out;
 }
 
+// --- Fragment ---
+
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    var texture = textureSample(t_diffuse, s_diffuse, in.texture_coordinates);
+    // Get texel from texture
+    let texture = textureSample(t_diffuse, s_diffuse, in.texture_coordinates);
 
-    return texture;
+    // Ambient Light
+    let ambient_color = ambient_light.color * ambient_light.strength;
+
+    // Combine light and colors
+    let result = ambient_color * texture.xyz;
+
+    return vec4<f32>(result, texture.a);
 }
