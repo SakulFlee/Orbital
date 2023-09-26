@@ -19,6 +19,14 @@ impl CameraControllingEntity {
     }
 }
 
+impl Default for CameraControllingEntity {
+    fn default() -> Self {
+        Self {
+            eye_position: Default::default(),
+        }
+    }
+}
+
 impl TEntity for CameraControllingEntity {
     fn get_entity_configuration(&self) -> EntityConfiguration {
         EntityConfiguration::new("Camera Controlling Entity", UpdateFrequency::Fast, false)
@@ -41,6 +49,8 @@ impl TEntity for CameraControllingEntity {
             self.eye_position += Vector3::new((-0.1 * delta_time) as f32, 0.0, 0.0);
         }
 
-        vec![EntityAction::CameraChange(CameraChange::new().with_eye(self.eye_position))]
+        vec![EntityAction::CameraChange(
+            CameraChange::new().with_eye(self.eye_position),
+        )]
     }
 }

@@ -15,4 +15,3 @@ pub use wgpu_engine::*;
 
 mod resource;
 pub use resource::*;
-
