@@ -1,14 +1,18 @@
-mod entity;
-pub use entity::*;
-
 use wgpu::{Color, Device, Queue};
 
 use crate::engine::{Camera, TMesh};
 
 use super::InputHandler;
 
+mod entity;
+pub use entity::*;
+
+mod entity_tag_duplication_behaviour;
+pub use entity_tag_duplication_behaviour::*;
+
 pub struct World {
     clear_color: Color,
+    entity_tag_duplication_behaviour: EntityTagDuplicationBehaviour,
     entities: Vec<EntityContainer>,
 }
 
@@ -20,18 +24,59 @@ impl World {
         a: 1.0,
     };
 
-    pub fn new() -> Self {
+    pub fn new(entity_tag_duplication_behaviour: EntityTagDuplicationBehaviour) -> Self {
         Self {
             clear_color: Color::BLACK,
+            entity_tag_duplication_behaviour,
             entities: Vec::new(),
         }
     }
 
     pub fn add_entity(&mut self, entity: BoxedEntity) {
-        // TODO: Check for Tag being used multiple times
         let entity_container = EntityContainer::from_boxed_entity(entity);
 
-        self.entities.push(entity_container);
+        match self.entity_tag_duplication_behaviour {
+            EntityTagDuplicationBehaviour::AllowDuplication => {
+                // No special behaviour, just add
+                self.entities.push(entity_container);
+            }
+            EntityTagDuplicationBehaviour::WarnOnDuplication => {
+                // Warn if the tag exists, spawn otherwise
+                if self.has_entity(entity_container.get_entity_configuration().get_tag()) {
+                    log::warn!(
+                        "Entity with a duplicated tag '{}' added!",
+                        entity_container.get_entity_configuration().get_tag()
+                    );
+                }
+
+                self.entities.push(entity_container);
+            }
+            EntityTagDuplicationBehaviour::PanicOnDuplication => {
+                // Panic if the tag exists, spawn otherwise
+                if self.has_entity(entity_container.get_entity_configuration().get_tag()) {
+                    panic!(
+                        "Entity with a duplicated tag '{}' added!",
+                        entity_container.get_entity_configuration().get_tag()
+                    );
+                }
+
+                self.entities.push(entity_container);
+            },
+            EntityTagDuplicationBehaviour::IgnoreEntityOnDuplication => {
+                // Only spawn the entity if the tag isn't used yet
+                if !self.has_entity(entity_container.get_entity_configuration().get_tag()) {
+                    self.entities.push(entity_container);
+                }
+            },
+            EntityTagDuplicationBehaviour::OverwriteEntityOnDuplication => {
+                // If the entity tag already exists remove it, then spawn the new entity, otherwise just spawn the entity
+                if self.has_entity(entity_container.get_entity_configuration().get_tag()) {
+                    self.remove_entity(entity_container.get_entity_configuration().get_tag());
+                }
+
+                self.entities.push(entity_container);
+            },
+        }
     }
 
     pub fn remove_entity(&mut self, tag: &str) -> Option<BoxedEntity> {
