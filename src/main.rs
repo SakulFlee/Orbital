@@ -1,6 +1,6 @@
 use wgpu_engine::{
     app::{App, World},
-    entities::{ClearScreenEntity, Square},
+    entities::{CameraControllingEntity, ClearScreenEntity, Square},
     log::log_init,
 };
 
@@ -9,8 +9,9 @@ fn main() {
 
     let mut world = World::new();
 
-    world.add_entity(Box::new(Square::default()));
+    world.add_entity(Box::new(CameraControllingEntity::new()));
     world.add_entity(Box::new(ClearScreenEntity {}));
+    world.add_entity(Box::new(Square::default()));
 
     App::run("WGPU", world).expect("App failed");
 }
