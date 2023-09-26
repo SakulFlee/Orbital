@@ -12,7 +12,7 @@ use winit::{
 };
 
 use crate::engine::{
-    EngineError, EngineResult, TComputingEngine, TRenderingEngine, TTexture, TextureHelper,
+    Camera, EngineError, EngineResult, TComputingEngine, TRenderingEngine, TTexture, TextureHelper,
     WGPURenderingEngine,
 };
 
@@ -31,6 +31,7 @@ pub struct App {
     rendering_engine: WGPURenderingEngine,
     timer: Timer,
     input_handler: InputHandler,
+    camera: Camera,
 }
 
 impl App {
@@ -57,12 +58,19 @@ impl App {
 
         let input_handler = InputHandler::new();
 
+        let camera = Camera::from_window_size(
+            rendering_engine.get_device(),
+            rendering_engine.get_queue(),
+            window.inner_size().into(),
+        );
+
         let mut app = Self {
             name,
             world,
             rendering_engine,
             timer,
             input_handler,
+            camera,
         };
 
         event_loop.run(move |event, _, control_flow| {
@@ -189,11 +197,7 @@ impl App {
 
             render_pass.set_pipeline(self.rendering_engine.get_render_pipeline());
 
-            render_pass.set_bind_group(
-                1,
-                &self.rendering_engine.get_camera().get_bind_group(),
-                &[],
-            );
+            render_pass.set_bind_group(1, &self.camera.get_bind_group(), &[]);
 
             // TODO: Uniform buffers like Depth Buffer, Camera, etc. (AS NEEDED)
 
@@ -233,6 +237,8 @@ impl App {
             UpdateFrequency::Fast,
             self.timer.get_current_delta_time(),
             &self.input_handler,
+            &mut self.camera,
+            self.rendering_engine.get_queue(),
         );
 
         if let Some((delta_time, ups)) = self.timer.tick() {
@@ -256,8 +262,13 @@ impl App {
             }
 
             // Slow (i.e. by-second) updates
-            self.world
-                .call_updateable(UpdateFrequency::Slow, delta_time, &self.input_handler);
+            self.world.call_updateable(
+                UpdateFrequency::Slow,
+                delta_time,
+                &self.input_handler,
+                &mut self.camera,
+                self.rendering_engine.get_queue(),
+            );
         }
     }
 }

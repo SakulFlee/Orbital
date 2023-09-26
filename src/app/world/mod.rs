@@ -3,7 +3,7 @@ pub use entity::*;
 
 use wgpu::{Color, Device, Queue};
 
-use crate::engine::TMesh;
+use crate::engine::{Camera, TMesh};
 
 use super::InputHandler;
 
@@ -119,6 +119,8 @@ impl World {
         frequency: UpdateFrequency,
         delta_time: f64,
         input_handler: &InputHandler,
+        camera: &mut Camera,
+        queue: &Queue,
     ) {
         let entity_actions = self
             .get_updateable_mut(frequency)
@@ -141,6 +143,9 @@ impl World {
                     for tag in tags {
                         self.remove_entity(&tag);
                     }
+                }
+                EntityAction::CameraChange(camera_change) => {
+                    camera.apply_camera_change(queue, camera_change);
                 }
                 EntityAction::Keep => (),
             }

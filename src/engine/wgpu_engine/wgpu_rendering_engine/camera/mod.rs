@@ -1,5 +1,3 @@
-mod camera_uniform;
-pub use camera_uniform::*;
 use cgmath::{perspective, Deg, Matrix4, Point3, SquareMatrix, Vector3};
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
@@ -7,6 +5,12 @@ use wgpu::{
     BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferUsages, Device, Queue,
     ShaderStages,
 };
+
+mod camera_uniform;
+pub use camera_uniform::*;
+
+mod camera_change;
+pub use camera_change::*;
 
 pub struct Camera {
     eye: Point3<f32>,
@@ -30,6 +34,8 @@ impl Camera {
         0.0, 0.0, 0.0, 1.0,
     );
 
+    pub const DEFAULT_CAMERA_EYE_POSITION: (f32, f32, f32) = (0.0, 1.0, 2.0);
+
     pub const BIND_GROUP_LAYOUT_DESCRIPTOR: BindGroupLayoutDescriptor<'static> =
         BindGroupLayoutDescriptor {
             label: Some("Camera Bind Group Layout"),
@@ -49,7 +55,7 @@ impl Camera {
         Self::new(
             device,
             queue,
-            (0.0, 1.0, 2.0).into(),
+            Self::DEFAULT_CAMERA_EYE_POSITION.into(),
             (0.0, 0.0, 0.0).into(),
             Vector3::unit_y(),
             window_size.0 as f32 / window_size.1 as f32,
@@ -126,6 +132,38 @@ impl Camera {
 
     pub fn to_uniform(&self) -> CameraUniform {
         CameraUniform::from_camera(self)
+    }
+
+    pub fn apply_camera_change(&mut self, queue: &Queue, camera_change: CameraChange) {
+        if let Some(eye) = camera_change.get_eye() {
+            self.set_eye(eye);
+        }
+
+        if let Some(target) = camera_change.get_target() {
+            self.set_target(target);
+        }
+
+        if let Some(up) = camera_change.get_up() {
+            self.set_up(up);
+        }
+
+        if let Some(aspect) = camera_change.get_aspect() {
+            self.set_aspect(aspect);
+        }
+
+        if let Some(fovy) = camera_change.get_fovy() {
+            self.set_fovy(fovy);
+        }
+
+        if let Some(znear) = camera_change.get_znear() {
+            self.set_znear(znear);
+        }
+
+        if let Some(zfar) = camera_change.get_zfar() {
+            self.set_zfar(zfar);
+        }
+
+        self.update_buffer(queue);
     }
 
     pub fn get_eye(&self) -> Point3<f32> {
