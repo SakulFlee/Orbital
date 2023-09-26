@@ -23,7 +23,10 @@ impl Timer {
         self.current_cycle_count += 1;
 
         if self.current_delta_time >= 1.0 {
-            let output = Some((self.get_current_delta_time(), self.get_current_cycle_count()));
+            let output = Some((
+                self.get_current_delta_time(),
+                self.get_current_cycle_count(),
+            ));
 
             self.current_cycle_count = 0;
             self.current_delta_time -= 1.0;
