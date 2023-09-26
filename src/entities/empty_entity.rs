@@ -18,8 +18,8 @@ impl TEntity for EmptyEntity {
         EntityConfiguration::new(self.tag.clone(), UpdateFrequency::Slow, false)
     }
 
-    fn update(&mut self, delta_time: f64, _input_handler: &InputHandler) -> EntityAction {
+    fn update(&mut self, delta_time: f64, _input_handler: &InputHandler) -> Vec<EntityAction> {
         log::debug!("I am an empty entity! (delta: {delta_time}ms)");
-        EntityAction::Keep
+        vec![EntityAction::Keep]
     }
 }
