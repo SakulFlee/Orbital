@@ -6,10 +6,6 @@ pub mod log;
 
 pub mod entities;
 
-// TODO: Camera
-// pub mod camera;
-// pub use camera::*;
-
 // TODO: GLTF Loader
 
 // TODO: Bind Group Wrapper
