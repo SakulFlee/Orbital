@@ -199,7 +199,8 @@ impl App {
 
             render_pass.set_bind_group(1, &self.camera.get_bind_group(), &[]);
 
-            // TODO: Uniform buffers like Depth Buffer, Camera, etc. (AS NEEDED)
+            // TODO: Uniform buffer for Ambient Lights
+            // TODO: Uniform buffer for Point Lights
 
             // Call entity renderables
             let meshes = self.world.prepare_render_and_collect_meshes(
