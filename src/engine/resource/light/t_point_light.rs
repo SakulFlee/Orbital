@@ -1,9 +1,27 @@
 use cgmath::Vector3;
-use wgpu::{BindGroup, BindGroupLayout, Buffer, Device, Queue};
+use wgpu::{
+    BindGroup, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
+    Buffer, BufferBindingType, Device, Queue, ShaderStages,
+};
 
 use super::PointLightUniform;
 
 pub trait TPointLight {
+    const BIND_GROUP_LAYOUT_DESCRIPTOR: BindGroupLayoutDescriptor<'static> =
+        BindGroupLayoutDescriptor {
+            label: Some("Point Light Bind Group Layout"),
+            entries: &[BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStages::VERTEX_FRAGMENT,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+        };
+
     fn update_buffer(&mut self, queue: &Queue) {
         queue.write_buffer(
             &self.get_buffer(),
@@ -30,7 +48,9 @@ pub trait TPointLight {
 
     fn set_enabled(&mut self, enabled: bool);
 
-    fn get_bind_group_layout(device: &Device) -> BindGroupLayout;
+    fn get_bind_group_layout(device: &Device) -> BindGroupLayout {
+        device.create_bind_group_layout(&Self::BIND_GROUP_LAYOUT_DESCRIPTOR)
+    }
 
     fn get_buffer(&self) -> &Buffer;
 

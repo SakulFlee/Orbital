@@ -1,6 +1,7 @@
+use cgmath::Vector3;
 use wgpu::{Color, Device, Queue};
 
-use crate::engine::StandardAmbientLight;
+use crate::engine::{StandardAmbientLight, StandardPointLight};
 
 use super::{BoxedEntity, EntityTagDuplicationBehaviour, World};
 
@@ -9,6 +10,7 @@ pub struct WorldBuilder {
     entity_tag_duplication_behaviour: Option<EntityTagDuplicationBehaviour>,
     entities: Vec<BoxedEntity>,
     ambient_light: Option<((f32, f32, f32), f32)>,
+    point_light: [Option<([f32; 3], [f32; 3], f32)>; 4],
 }
 
 impl WorldBuilder {
@@ -18,6 +20,7 @@ impl WorldBuilder {
             entity_tag_duplication_behaviour: None,
             entities: vec![],
             ambient_light: None,
+            point_light: [None, None, None, None],
         }
     }
 
@@ -30,6 +33,21 @@ impl WorldBuilder {
             ambient_light_raw.1,
         );
 
+        let mut point_lights = vec![];
+        for point_light in self.point_light {
+            let point_light_data = point_light.unwrap_or_default();
+
+            let point_light = StandardPointLight::new(
+                device,
+                queue,
+                point_light_data.0.into(),
+                point_light_data.1.into(),
+                point_light_data.2,
+                point_light.is_some(),
+            );
+            point_lights.push(point_light);
+        }
+
         let mut world = World {
             clear_color: self.clear_color.unwrap_or(Color::BLACK),
             entity_tag_duplication_behaviour: self
@@ -37,6 +55,13 @@ impl WorldBuilder {
                 .unwrap_or(EntityTagDuplicationBehaviour::WarnOnDuplication),
             entities: vec![],
             ambient_light: ambient_light,
+            point_lights: [
+                // Take 4x times the zero'th entry. Assumes there are 4 lights.
+                point_lights.remove(0),
+                point_lights.remove(0),
+                point_lights.remove(0),
+                point_lights.remove(0),
+            ],
         };
 
         for entity in self.entities {
@@ -66,6 +91,17 @@ impl WorldBuilder {
 
     pub fn with_ambient_light(mut self, color: (f32, f32, f32), strength: f32) -> Self {
         self.ambient_light = Some((color, strength));
+        self
+    }
+
+    pub fn with_point_light(
+        mut self,
+        slot: usize,
+        color: Vector3<f32>,
+        position: Vector3<f32>,
+        strength: f32,
+    ) -> Self {
+        self.point_light[slot] = Some((color.into(), position.into(), strength));
         self
     }
 }
