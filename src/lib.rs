@@ -8,6 +8,8 @@ pub mod entities;
 
 // TODO: Clippy
 
+// TODO: Logical/Physical Device (Device + Queue)
+
 // TODO: "* Uniforms" should be "u_" like "t_" for traits
 
 // TODO: GLTF Loader

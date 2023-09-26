@@ -1,9 +1,27 @@
 use cgmath::Vector3;
-use wgpu::{BindGroup, BindGroupLayout, Buffer, Device, Queue};
+use wgpu::{
+    BindGroup, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
+    Buffer, BufferBindingType, Device, Queue, ShaderStages,
+};
 
 use super::AmbientLightUniform;
 
 pub trait TAmbientLight {
+    const BIND_GROUP_LAYOUT_DESCRIPTOR: BindGroupLayoutDescriptor<'static> =
+        BindGroupLayoutDescriptor {
+            label: Some("Ambient Light Bind Group Layout"),
+            entries: &[BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStages::VERTEX_FRAGMENT,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+        };
+
     fn update_buffer(&self, queue: &Queue) {
         queue.write_buffer(
             &self.get_buffer(),

@@ -9,7 +9,8 @@ use winit::window::Window;
 
 use crate::engine::{
     DepthTexture, EngineResult, StandardAmbientLight, StandardInstance, StandardMaterial,
-    TAmbientLight, TComputingEngine, TInstance, TMaterial, TRenderingEngine, TVertex, VertexPoint,
+    StandardPointLight, TAmbientLight, TComputingEngine, TInstance, TMaterial, TPointLight,
+    TRenderingEngine, TVertex, VertexPoint,
 };
 
 use super::wgpu_computing_engine::WGPUComputingEngine;
@@ -72,7 +73,10 @@ impl WGPURenderingEngine {
                 &StandardMaterial::get_bind_group_layout(device),
                 &Camera::get_bind_group_layout(device),
                 &StandardAmbientLight::get_bind_group_layout(device),
-                // TODO: Point Light Bind Group
+                &StandardPointLight::get_bind_group_layout(device),
+                &StandardPointLight::get_bind_group_layout(device),
+                &StandardPointLight::get_bind_group_layout(device),
+                &StandardPointLight::get_bind_group_layout(device),
             ],
             push_constant_ranges: &[],
         });

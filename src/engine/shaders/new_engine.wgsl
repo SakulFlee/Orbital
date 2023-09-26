@@ -21,13 +21,20 @@ struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) texture_coordinates: vec2<f32>,
     @location(1) world_normal: vec3<f32>,
-    @location(2) world_position: vec4<f32>,
+    @location(2) world_position: vec3<f32>,
 };
 
 struct AmbientLight {
     color: vec3<f32>,
     strength: f32,
 };
+
+struct PointLight {
+    color: vec4<f32>,
+    position: vec4<f32>,
+    strength: f32,
+    enabled: u32,
+}
 
 // --- Bindings ---
 
@@ -42,6 +49,16 @@ var<uniform> camera: CameraUniform;
 
 @group(2) @binding(0) 
 var<uniform> ambient_light: AmbientLight;
+
+// Point Lights
+@group(3) @binding(0) 
+var<uniform> point_light_0: PointLight;
+@group(4) @binding(0) 
+var<uniform> point_light_1: PointLight;
+@group(5) @binding(0) 
+var<uniform> point_light_2: PointLight;
+@group(6) @binding(0) 
+var<uniform> point_light_3: PointLight;
 
 // --- Vertex ---
 
@@ -67,7 +84,7 @@ fn vs_main(
 
     // Calculate world position
     var world_position: vec4<f32> = model_space_matrix * vec4<f32>(vertex_point.position_coordinates, 1.0);
-    out.world_position = world_position;
+    out.world_position = world_position.xyz;
 
     // Calculate clip position
     var clip_position = camera.view_projection_matrix * world_position;
@@ -86,8 +103,43 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // Ambient Light
     let ambient_color = ambient_light.color * ambient_light.strength;
 
+    // Point Light
+    var light_color = ambient_color;
+
+    if point_light_0.enabled == u32(1) {
+        let light_dir = normalize(point_light_0.position.xyz - in.world_position);
+        let diffuse_strength = max(dot(in.world_normal, light_dir), 0.0);
+        let diffuse_color = point_light_0.color.xyz * diffuse_strength;
+
+        light_color += diffuse_color;
+    }
+
+    if point_light_1.enabled == u32(1) {
+        let light_dir = normalize(point_light_1.position.xyz - in.world_position);
+        let diffuse_strength = max(dot(in.world_normal, light_dir), 0.0);
+        let diffuse_color = point_light_1.color.xyz * diffuse_strength;
+
+        light_color += diffuse_color;
+    }
+
+    if point_light_2.enabled == u32(1) {
+        let light_dir = normalize(point_light_2.position.xyz - in.world_position);
+        let diffuse_strength = max(dot(in.world_normal, light_dir), 0.0);
+        let diffuse_color = point_light_2.color.xyz * diffuse_strength;
+
+        light_color += diffuse_color;
+    }
+
+    if point_light_3.enabled == u32(1) {
+        let light_dir = normalize(point_light_3.position.xyz - in.world_position);
+        let diffuse_strength = max(dot(in.world_normal, light_dir), 0.0);
+        let diffuse_color = point_light_3.color.xyz * diffuse_strength;
+
+        light_color += diffuse_color;
+    }
+
     // Combine light and colors
-    let result = ambient_color * texture.xyz;
+    let result = light_color * texture.xyz;
 
     return vec4<f32>(result, texture.a);
 }

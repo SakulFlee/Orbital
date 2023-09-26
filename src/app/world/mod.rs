@@ -1,6 +1,6 @@
 use wgpu::{Color, Device, Queue};
 
-use crate::engine::{Camera, StandardAmbientLight, TMesh};
+use crate::engine::{Camera, StandardAmbientLight, StandardPointLight, TMesh};
 
 use super::InputHandler;
 
@@ -18,6 +18,7 @@ pub struct World {
     entity_tag_duplication_behaviour: EntityTagDuplicationBehaviour,
     entities: Vec<EntityContainer>,
     ambient_light: StandardAmbientLight,
+    point_lights: [StandardPointLight; 4],
 }
 
 impl World {
@@ -201,7 +202,11 @@ impl World {
         &mut self,
         device: &Device,
         queue: &Queue,
-    ) -> (Vec<&dyn TMesh>, &StandardAmbientLight) {
+    ) -> (
+        Vec<&dyn TMesh>,
+        &StandardAmbientLight,
+        &[StandardPointLight; 4],
+    ) {
         // Prepare rendere where needed
         self.get_unprepared_renderable()
             .iter_mut()
@@ -214,6 +219,7 @@ impl World {
                 .flat_map(|x| x.get_meshes())
                 .collect::<Vec<_>>(),
             &self.ambient_light,
+            &self.point_lights,
         )
     }
 }

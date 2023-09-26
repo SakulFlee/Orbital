@@ -125,11 +125,14 @@ impl WGPUComputingEngine {
     }
 
     fn make_device_and_queue(adapter: &Adapter) -> EngineResult<(Device, Queue)> {
+        let mut limits = Limits::default();
+        limits.max_bind_groups = 7;
+
         let (device, queue) = pollster::block_on(adapter.request_device(
             &DeviceDescriptor {
                 label: Some("Main Device"),
                 features: Features::empty(),
-                limits: Limits::default(),
+                limits,
             },
             None,
         ))

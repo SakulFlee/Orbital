@@ -1,9 +1,8 @@
 use cgmath::Vector3;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
-    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferUsages, Device, Queue,
-    ShaderStages,
+    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, Buffer, BufferUsages, Device,
+    Queue,
 };
 
 use super::{AmbientLightUniform, TAmbientLight};
@@ -16,21 +15,6 @@ pub struct StandardAmbientLight {
 }
 
 impl StandardAmbientLight {
-    pub const BIND_GROUP_LAYOUT_DESCRIPTOR: BindGroupLayoutDescriptor<'static> =
-        BindGroupLayoutDescriptor {
-            label: Some("Ambient Light Bind Group Layout"),
-            entries: &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::VERTEX_FRAGMENT,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-        };
-
     pub fn new(device: &Device, queue: &Queue, color: Vector3<f32>, strength: f32) -> Self {
         let empty_uniform = AmbientLightUniform::empty();
         let buffer = device.create_buffer_init(&BufferInitDescriptor {
