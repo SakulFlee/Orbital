@@ -12,8 +12,8 @@ use winit::{
 };
 
 use crate::engine::{
-    Camera, EngineError, EngineResult, TAmbientLight, TComputingEngine, TRenderingEngine, TTexture,
-    TextureHelper, WGPURenderingEngine,
+    Camera, EngineError, EngineResult, StandardPointLight, TAmbientLight, TComputingEngine,
+    TPointLight, TRenderingEngine, TTexture, TextureHelper, WGPURenderingEngine,
 };
 
 mod input;
@@ -201,7 +201,7 @@ impl App {
             render_pass.set_pipeline(self.rendering_engine.get_render_pipeline());
 
             // Call entity renderables
-            let (meshes, ambient_light) = self.world.prepare_render_and_collect_data(
+            let (meshes, ambient_light, point_lights) = self.world.prepare_render_and_collect_data(
                 self.rendering_engine.get_device(),
                 self.rendering_engine.get_queue(),
             );
@@ -223,7 +223,11 @@ impl App {
                 // Ambient Light
                 render_pass.set_bind_group(2, &ambient_light.get_bind_group(), &[]);
 
-                // TODO: Uniform buffer for Point Lights
+                // Point Light
+                render_pass.set_bind_group(3, &point_lights[0].get_bind_group(), &[]);
+                render_pass.set_bind_group(4, &point_lights[1].get_bind_group(), &[]);
+                render_pass.set_bind_group(5, &point_lights[2].get_bind_group(), &[]);
+                render_pass.set_bind_group(6, &point_lights[3].get_bind_group(), &[]);
 
                 render_pass.draw_indexed(0..x.get_index_count(), 0, 0..x.get_instance_count());
             });
