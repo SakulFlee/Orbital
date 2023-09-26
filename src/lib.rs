@@ -12,4 +12,8 @@ pub mod entities;
 
 // TODO: GLTF Loader
 
+// TODO: Bind Group Wrapper
+
+// TODO: Config
+
 pub const APP_NAME: &'static str = "WGPU-Engine";
