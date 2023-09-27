@@ -6,8 +6,6 @@ pub mod log;
 
 pub mod entities;
 
-// TODO: Logical/Physical Device (Device + Queue)
-
 // TODO: [RFC#344](https://github.com/rust-lang/rfcs/blob/master/text/0344-conventions-galore.md#gettersetter-apis) compliance
 
 // TODO: "* Uniforms" should be "u_" like "t_" for traits
