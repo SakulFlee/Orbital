@@ -134,7 +134,7 @@ impl Square {
     ];
 }
 impl TEntity for Square {
-    fn get_entity_configuration(&self) -> EntityConfiguration {
+    fn entity_configuration(&self) -> EntityConfiguration {
         EntityConfiguration::new(Self::TAG, UpdateFrequency::Slow, true)
     }
 
@@ -167,7 +167,7 @@ impl TEntity for Square {
         Ok(())
     }
 
-    fn get_meshes(&self) -> Vec<&dyn TMesh> {
+    fn meshes(&self) -> Vec<&dyn TMesh> {
         vec![self.mesh.as_ref().unwrap()]
     }
 }
