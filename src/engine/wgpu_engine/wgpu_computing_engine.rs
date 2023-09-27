@@ -1,3 +1,5 @@
+use std::default;
+
 use wgpu::{
     Adapter, Backend, Backends, Device, DeviceDescriptor, Features, Instance, InstanceDescriptor,
     Limits, Queue,
@@ -125,8 +127,10 @@ impl WGPUComputingEngine {
     }
 
     fn make_device_and_queue(adapter: &Adapter) -> EngineResult<(Device, Queue)> {
-        let mut limits = Limits::default();
-        limits.max_bind_groups = 7;
+        let limits = Limits {
+            max_bind_groups: 7,
+            ..Default::default()
+        };
 
         let (device, queue) = pollster::block_on(adapter.request_device(
             &DeviceDescriptor {
