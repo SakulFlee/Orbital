@@ -43,10 +43,10 @@ impl World {
             }
             EntityTagDuplicationBehaviour::WarnOnDuplication => {
                 // Warn if the tag exists, spawn otherwise
-                if self.has_entity(entity_container.get_entity_configuration().get_tag()) {
+                if self.has_entity(entity_container.entity_configuration().tag()) {
                     log::warn!(
                         "Entity with a duplicated tag '{}' added!",
-                        entity_container.get_entity_configuration().get_tag()
+                        entity_container.entity_configuration().tag()
                     );
                 }
 
@@ -54,10 +54,10 @@ impl World {
             }
             EntityTagDuplicationBehaviour::PanicOnDuplication => {
                 // Panic if the tag exists, spawn otherwise
-                if self.has_entity(entity_container.get_entity_configuration().get_tag()) {
+                if self.has_entity(entity_container.entity_configuration().tag()) {
                     panic!(
                         "Entity with a duplicated tag '{}' added!",
-                        entity_container.get_entity_configuration().get_tag()
+                        entity_container.entity_configuration().tag()
                     );
                 }
 
@@ -65,14 +65,14 @@ impl World {
             }
             EntityTagDuplicationBehaviour::IgnoreEntityOnDuplication => {
                 // Only spawn the entity if the tag isn't used yet
-                if !self.has_entity(entity_container.get_entity_configuration().get_tag()) {
+                if !self.has_entity(entity_container.entity_configuration().tag()) {
                     self.entities.push(entity_container);
                 }
             }
             EntityTagDuplicationBehaviour::OverwriteEntityOnDuplication => {
                 // If the entity tag already exists remove it, then spawn the new entity, otherwise just spawn the entity
-                if self.has_entity(entity_container.get_entity_configuration().get_tag()) {
-                    self.remove_entity(entity_container.get_entity_configuration().get_tag());
+                if self.has_entity(entity_container.entity_configuration().tag()) {
+                    self.remove_entity(entity_container.entity_configuration().tag());
                 }
 
                 self.entities.push(entity_container);
@@ -86,7 +86,7 @@ impl World {
             .iter()
             .position(|container| container.is_tag(tag))
         {
-            Some(index) => Some(self.entities.remove(index).get_and_move_entity()),
+            Some(index) => Some(self.entities.remove(index).and_move_entity()),
             None => None,
         }
     }
@@ -95,68 +95,64 @@ impl World {
         self.entities.iter().any(|container| container.is_tag(tag))
     }
 
-    pub fn get_entity(&self, tag: &str) -> Option<&BoxedEntity> {
+    pub fn entity(&self, tag: &str) -> Option<&BoxedEntity> {
         self.entities
             .iter()
             .find(|container| container.is_tag(tag))
-            .map(|container| container.get_entity())
+            .map(|container| container.entity())
     }
 
-    pub fn get_entity_mut(&mut self, tag: &str) -> Option<&mut BoxedEntity> {
+    pub fn entity_mut(&mut self, tag: &str) -> Option<&mut BoxedEntity> {
         self.entities
             .iter_mut()
             .find(|container| container.is_tag(tag))
-            .map(|container| container.get_entity_mut())
+            .map(|container| container.entity_mut())
     }
 
-    pub fn get_updateable(&self, frequency: UpdateFrequency) -> Vec<&BoxedEntity> {
+    pub fn updateable(&self, frequency: UpdateFrequency) -> Vec<&BoxedEntity> {
         if frequency == UpdateFrequency::None {
             return vec![];
         }
 
         self.entities
             .iter()
-            .filter(|container| {
-                *container.get_entity_configuration().get_update_frequency() == frequency
-            })
-            .map(|container| container.get_entity())
+            .filter(|container| *container.entity_configuration().update_frequency() == frequency)
+            .map(|container| container.entity())
             .collect()
     }
 
-    pub fn get_updateable_mut(&mut self, frequency: UpdateFrequency) -> Vec<&mut BoxedEntity> {
+    pub fn updateable_mut(&mut self, frequency: UpdateFrequency) -> Vec<&mut BoxedEntity> {
         if frequency == UpdateFrequency::None {
             return vec![];
         }
 
         self.entities
             .iter_mut()
-            .filter(|container| {
-                *container.get_entity_configuration().get_update_frequency() == frequency
-            })
-            .map(|container| container.get_entity_mut())
+            .filter(|container| *container.entity_configuration().update_frequency() == frequency)
+            .map(|container| container.entity_mut())
             .collect()
     }
 
-    pub fn get_prepared_renderable(&self) -> Vec<&BoxedEntity> {
+    pub fn prepared_renderable(&self) -> Vec<&BoxedEntity> {
         self.entities
             .iter()
             .filter(|container| {
-                container.is_prepared() && container.get_entity_configuration().get_do_render()
+                container.is_prepared() && container.entity_configuration().do_render()
             })
-            .map(|container| container.get_entity())
+            .map(|container| container.entity())
             .collect()
     }
 
-    pub fn get_unprepared_renderable(&mut self) -> Vec<&mut EntityContainer> {
+    pub fn unprepared_renderable(&mut self) -> Vec<&mut EntityContainer> {
         self.entities
             .iter_mut()
             .filter(|container| {
-                !container.is_prepared() && container.get_entity_configuration().get_do_render()
+                !container.is_prepared() && container.entity_configuration().do_render()
             })
             .collect()
     }
 
-    pub fn get_clear_color(&self) -> Color {
+    pub fn clear_color(&self) -> Color {
         self.clear_color
     }
 
@@ -169,7 +165,7 @@ impl World {
         logical_device: &LogicalDevice,
     ) {
         let entity_actions = self
-            .get_updateable_mut(frequency)
+            .updateable_mut(frequency)
             .iter_mut()
             .flat_map(|x| x.update(delta_time, input_handler))
             .filter(|x| *x != EntityAction::Keep)
@@ -207,15 +203,15 @@ impl World {
         &[StandardPointLight; 4],
     ) {
         // Prepare rendere where needed
-        self.get_unprepared_renderable()
+        self.unprepared_renderable()
             .iter_mut()
             .for_each(|x| x.prepare_entity(logical_device));
 
         // Retrieve meshes
         (
-            self.get_prepared_renderable()
+            self.prepared_renderable()
                 .iter()
-                .flat_map(|x| x.get_meshes())
+                .flat_map(|x| x.meshes())
                 .collect::<Vec<_>>(),
             &self.ambient_light,
             &self.point_lights,
