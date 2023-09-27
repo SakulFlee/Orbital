@@ -2,11 +2,11 @@ use std::path::Path;
 
 use image::DynamicImage;
 use wgpu::{
-    AddressMode, Device, FilterMode, Queue, Sampler, SamplerDescriptor, Texture, TextureFormat,
-    TextureUsages, TextureView,
+    AddressMode, FilterMode, Sampler, SamplerDescriptor, Texture, TextureFormat, TextureUsages,
+    TextureView,
 };
 
-use crate::engine::{EngineResult, ResourceManager};
+use crate::engine::{EngineResult, LogicalDevice, ResourceManager};
 
 use super::{AbstractTexture, TTexture};
 
@@ -31,14 +31,13 @@ impl DiffuseTexture {
         border_color: None,  // Default
     };
 
-    pub fn from_path<P>(device: &Device, queue: &Queue, file_path: P) -> EngineResult<Self>
+    pub fn from_path<P>(logical_device: &LogicalDevice, file_path: P) -> EngineResult<Self>
     where
         P: AsRef<Path>,
     {
         Ok(Self {
             internal_texture: AbstractTexture::from_path(
-                device,
-                queue,
+                logical_device,
                 Self::TEXTURE_FORMAT,
                 &Self::SAMPLER_DESCRIPTOR,
                 TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
@@ -48,15 +47,13 @@ impl DiffuseTexture {
     }
 
     pub fn from_bytes(
-        device: &Device,
-        queue: &Queue,
+        logical_device: &LogicalDevice,
         bytes: &[u8],
         label: Option<&str>,
     ) -> EngineResult<Self> {
         Ok(Self {
             internal_texture: AbstractTexture::from_bytes(
-                device,
-                queue,
+                logical_device,
                 bytes,
                 Self::TEXTURE_FORMAT,
                 &Self::SAMPLER_DESCRIPTOR,
@@ -67,15 +64,13 @@ impl DiffuseTexture {
     }
 
     pub fn from_image(
-        device: &Device,
-        queue: &Queue,
+        logical_device: &LogicalDevice,
         image: &DynamicImage,
         label: Option<&str>,
     ) -> EngineResult<Self> {
         Ok(Self {
             internal_texture: AbstractTexture::from_image(
-                device,
-                queue,
+                logical_device,
                 image,
                 Self::TEXTURE_FORMAT,
                 &Self::SAMPLER_DESCRIPTOR,
@@ -102,31 +97,28 @@ impl TTexture for DiffuseTexture {
 
 impl ResourceManager {
     pub fn diffuse_texture_from_path<P>(
-        device: &Device,
-        queue: &Queue,
+        logical_device: &LogicalDevice,
         file_path: P,
     ) -> EngineResult<DiffuseTexture>
     where
         P: AsRef<Path>,
     {
-        DiffuseTexture::from_path(device, queue, file_path)
+        DiffuseTexture::from_path(logical_device, file_path)
     }
 
     pub fn diffuse_texture_from_bytes(
-        device: &Device,
-        queue: &Queue,
+        logical_device: &LogicalDevice,
         bytes: &[u8],
         label: Option<&str>,
     ) -> EngineResult<DiffuseTexture> {
-        DiffuseTexture::from_bytes(device, queue, bytes, label)
+        DiffuseTexture::from_bytes(logical_device, bytes, label)
     }
 
     pub fn diffuse_texture_from_image(
-        device: &Device,
-        queue: &Queue,
+        logical_device: &LogicalDevice,
         image: &DynamicImage,
         label: Option<&str>,
     ) -> EngineResult<DiffuseTexture> {
-        DiffuseTexture::from_image(device, queue, image, label)
+        DiffuseTexture::from_image(logical_device, image, label)
     }
 }

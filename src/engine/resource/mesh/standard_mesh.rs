@@ -1,9 +1,9 @@
 use cgmath::{Quaternion, Vector3, Zero};
-use wgpu::{Buffer, BufferUsages, Device, Queue};
+use wgpu::{Buffer, BufferUsages};
 
 use crate::engine::{
-    BufferHelper, EngineResult, StandardInstance, StandardMaterial, TInstance, TMaterial, TMesh,
-    VertexPoint,
+    BufferHelper, EngineResult, LogicalDevice, StandardInstance, StandardMaterial, TInstance,
+    TMaterial, TMesh, VertexPoint,
 };
 
 #[derive(Debug)]
@@ -22,16 +22,14 @@ impl StandardMesh {
 
     pub fn from_raw_single(
         name: Option<&str>,
-        device: &Device,
-        queue: &Queue,
+        logical_device: &LogicalDevice,
         vertices: Vec<VertexPoint>,
         indices: Vec<u32>,
         material: Option<Box<dyn TMaterial>>,
     ) -> EngineResult<Self> {
         Self::from_raw(
             name,
-            device,
-            queue,
+            logical_device,
             vertices,
             indices,
             vec![StandardInstance::new(
@@ -47,8 +45,7 @@ impl StandardMesh {
 
     pub fn from_raw(
         name: Option<&str>,
-        device: &Device,
-        queue: &Queue,
+        logical_device: &LogicalDevice,
         vertices: Vec<VertexPoint>,
         indices: Vec<u32>,
         instances: Vec<StandardInstance>,
@@ -56,12 +53,12 @@ impl StandardMesh {
     ) -> EngineResult<Self> {
         let label = name.unwrap_or("Unknown");
 
-        let vertex_buffer = device.make_buffer(
+        let vertex_buffer = logical_device.make_buffer(
             Some(&format!("{} Vertex Buffer", label)),
             &vertices,
             BufferUsages::VERTEX,
         );
-        let index_buffer = device.make_buffer(
+        let index_buffer = logical_device.make_buffer(
             Some(&format!("{} Index Buffer", label)),
             &indices,
             BufferUsages::INDEX,
@@ -71,7 +68,7 @@ impl StandardMesh {
             .iter()
             .map(|x| x.to_instance_uniform())
             .collect::<Vec<_>>();
-        let instance_buffer = device.make_buffer(
+        let instance_buffer = logical_device.make_buffer(
             Some(&format!("{} Instance Buffer", label)),
             &instance_uniform,
             BufferUsages::VERTEX,
@@ -80,8 +77,7 @@ impl StandardMesh {
         let material = match material {
             Some(material) => material,
             None => Box::new(StandardMaterial::from_texture(
-                device,
-                queue,
+                logical_device,
                 Self::MISSING_TEXTURE,
             )?),
         };

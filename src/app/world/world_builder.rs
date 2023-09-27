@@ -1,7 +1,7 @@
 use cgmath::Vector3;
-use wgpu::{Color, Device, Queue};
+use wgpu::Color;
 
-use crate::engine::{StandardAmbientLight, StandardPointLight};
+use crate::engine::{LogicalDevice, StandardAmbientLight, StandardPointLight};
 
 use super::{BoxedEntity, EntityTagDuplicationBehaviour, World};
 
@@ -111,11 +111,10 @@ impl WorldBuilder {
         }
     }
 
-    pub fn build(self, device: &Device, queue: &Queue) -> World {
+    pub fn build(self, logical_device: &LogicalDevice) -> World {
         let ambient_light_raw = self.ambient_light.unwrap_or(((1.0, 1.0, 1.0), 0.1).into());
         let ambient_light = StandardAmbientLight::new(
-            device,
-            queue,
+            logical_device,
             ambient_light_raw.color.into(),
             ambient_light_raw.strength,
         );
@@ -125,8 +124,7 @@ impl WorldBuilder {
             let point_light_data = point_light.unwrap_or_default();
 
             let point_light = StandardPointLight::new(
-                device,
-                queue,
+                logical_device,
                 point_light_data.color.into(),
                 point_light_data.position.into(),
                 point_light_data.strength,

@@ -54,16 +54,14 @@ impl App {
 
         let rendering_engine = WGPURenderingEngine::new(&window)?;
 
-        let world =
-            world_builder.build(rendering_engine.get_device(), rendering_engine.get_queue());
+        let world = world_builder.build(rendering_engine.get_logical_device());
 
         let timer = Timer::new();
 
         let input_handler = InputHandler::new();
 
         let camera = Camera::from_window_size(
-            rendering_engine.get_device(),
-            rendering_engine.get_queue(),
+            rendering_engine.get_logical_device(),
             window.inner_size().into(),
         );
 
@@ -201,10 +199,9 @@ impl App {
             render_pass.set_pipeline(self.rendering_engine.get_render_pipeline());
 
             // Call entity renderables
-            let (meshes, ambient_light, point_lights) = self.world.prepare_render_and_collect_data(
-                self.rendering_engine.get_device(),
-                self.rendering_engine.get_queue(),
-            );
+            let (meshes, ambient_light, point_lights) = self
+                .world
+                .prepare_render_and_collect_data(self.rendering_engine.get_logical_device());
 
             meshes.iter().for_each(|x| {
                 // Vertex & Instance Buffer
@@ -249,7 +246,7 @@ impl App {
             self.timer.get_current_delta_time(),
             &self.input_handler,
             &mut self.camera,
-            self.rendering_engine.get_queue(),
+            self.rendering_engine.get_logical_device(),
         );
 
         if let Some((delta_time, ups)) = self.timer.tick() {
@@ -278,7 +275,7 @@ impl App {
                 delta_time,
                 &self.input_handler,
                 &mut self.camera,
-                self.rendering_engine.get_queue(),
+                self.rendering_engine.get_logical_device(),
             );
         }
     }

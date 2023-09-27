@@ -1,4 +1,4 @@
-use wgpu::{Device, Queue};
+use crate::engine::LogicalDevice;
 use winit::event::VirtualKeyCode;
 
 use crate::{
@@ -154,11 +154,10 @@ impl TEntity for Square {
         vec![]
     }
 
-    fn prepare_render(&mut self, device: &Device, queue: &Queue) -> EngineResult<()> {
+    fn prepare_render(&mut self, logical_device: &LogicalDevice) -> EngineResult<()> {
         let mesh = StandardMesh::from_raw_single(
             Some(Self::TAG),
-            device,
-            queue,
+            logical_device,
             Self::VERTICES.into(),
             Self::INDICES.into(),
             None,

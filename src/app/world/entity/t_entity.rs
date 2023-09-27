@@ -1,8 +1,6 @@
-use wgpu::{Device, Queue};
-
 use crate::{
     app::InputHandler,
-    engine::{EngineResult, TMesh},
+    engine::{EngineResult, LogicalDevice, TMesh},
 };
 
 use super::{EntityAction, EntityConfiguration};
@@ -14,7 +12,7 @@ pub trait TEntity {
         vec![EntityAction::Keep]
     }
 
-    fn prepare_render(&mut self, _device: &Device, _queue: &Queue) -> EngineResult<()> {
+    fn prepare_render(&mut self, _logical_device: &LogicalDevice) -> EngineResult<()> {
         Ok(())
     }
 

@@ -15,3 +15,6 @@ pub use wgpu_engine::*;
 
 mod resource;
 pub use resource::*;
+
+mod logical_device;
+pub use logical_device::*;

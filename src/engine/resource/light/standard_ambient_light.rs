@@ -1,9 +1,10 @@
 use cgmath::Vector3;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
-    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, Buffer, BufferUsages, Device,
-    Queue,
+    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, Buffer, BufferUsages,
 };
+
+use crate::engine::LogicalDevice;
 
 use super::{AmbientLightUniform, TAmbientLight};
 
@@ -15,23 +16,27 @@ pub struct StandardAmbientLight {
 }
 
 impl StandardAmbientLight {
-    pub fn new(device: &Device, queue: &Queue, color: Vector3<f32>, strength: f32) -> Self {
-        let empty_uniform = AmbientLightUniform::empty();
-        let buffer = device.create_buffer_init(&BufferInitDescriptor {
-            label: Some("Ambient Light Buffer"),
-            contents: bytemuck::cast_slice(&[empty_uniform]),
-            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-        });
+    pub fn new(logical_device: &LogicalDevice, color: Vector3<f32>, strength: f32) -> Self {
+        let empty_uniform: AmbientLightUniform = AmbientLightUniform::empty();
+        let buffer = logical_device
+            .device()
+            .create_buffer_init(&BufferInitDescriptor {
+                label: Some("Ambient Light Buffer"),
+                contents: bytemuck::cast_slice(&[empty_uniform]),
+                usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+            });
 
-        let bind_group_layout = Self::get_bind_group_layout(device);
-        let bind_group = device.create_bind_group(&BindGroupDescriptor {
-            label: Some("Ambient Light Bind Group"),
-            layout: &bind_group_layout,
-            entries: &[BindGroupEntry {
-                binding: 0,
-                resource: buffer.as_entire_binding(),
-            }],
-        });
+        let bind_group_layout = Self::get_bind_group_layout(logical_device);
+        let bind_group = logical_device
+            .device()
+            .create_bind_group(&BindGroupDescriptor {
+                label: Some("Ambient Light Bind Group"),
+                layout: &bind_group_layout,
+                entries: &[BindGroupEntry {
+                    binding: 0,
+                    resource: buffer.as_entire_binding(),
+                }],
+            });
 
         let light = Self {
             color,
@@ -40,7 +45,7 @@ impl StandardAmbientLight {
             bind_group,
         };
 
-        light.update_buffer(queue);
+        light.update_buffer(logical_device);
 
         light
     }
@@ -67,8 +72,10 @@ impl TAmbientLight for StandardAmbientLight {
         self.strength = strength;
     }
 
-    fn get_bind_group_layout(device: &Device) -> BindGroupLayout {
-        device.create_bind_group_layout(&Self::BIND_GROUP_LAYOUT_DESCRIPTOR)
+    fn get_bind_group_layout(logical_device: &LogicalDevice) -> BindGroupLayout {
+        logical_device
+            .device()
+            .create_bind_group_layout(&Self::BIND_GROUP_LAYOUT_DESCRIPTOR)
     }
 
     fn get_buffer(&self) -> &Buffer {

@@ -1,6 +1,6 @@
-use wgpu::{Color, Device, Queue};
+use wgpu::Color;
 
-use crate::engine::{Camera, StandardAmbientLight, StandardPointLight, TMesh};
+use crate::engine::{Camera, LogicalDevice, StandardAmbientLight, StandardPointLight, TMesh};
 
 use super::InputHandler;
 
@@ -29,8 +29,8 @@ impl World {
         a: 1.0,
     };
 
-    pub fn from_builder(builder: WorldBuilder, device: &Device, queue: &Queue) -> Self {
-        builder.build(device, queue)
+    pub fn from_builder(builder: WorldBuilder, logical_device: &LogicalDevice) -> Self {
+        builder.build(logical_device)
     }
 
     pub fn add_entity(&mut self, entity: BoxedEntity) {
@@ -166,7 +166,7 @@ impl World {
         delta_time: f64,
         input_handler: &InputHandler,
         camera: &mut Camera,
-        queue: &Queue,
+        logical_device: &LogicalDevice,
     ) {
         let entity_actions = self
             .get_updateable_mut(frequency)
@@ -191,7 +191,7 @@ impl World {
                     }
                 }
                 EntityAction::CameraChange(camera_change) => {
-                    camera.apply_camera_change(queue, camera_change);
+                    camera.apply_camera_change(logical_device, camera_change);
                 }
                 EntityAction::Keep => (),
             }
@@ -200,8 +200,7 @@ impl World {
 
     pub fn prepare_render_and_collect_data(
         &mut self,
-        device: &Device,
-        queue: &Queue,
+        logical_device: &LogicalDevice,
     ) -> (
         Vec<&dyn TMesh>,
         &StandardAmbientLight,
@@ -210,7 +209,7 @@ impl World {
         // Prepare rendere where needed
         self.get_unprepared_renderable()
             .iter_mut()
-            .for_each(|x| x.prepare_entity(device, queue));
+            .for_each(|x| x.prepare_entity(logical_device));
 
         // Retrieve meshes
         (

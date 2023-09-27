@@ -1,15 +1,13 @@
 use wgpu::{
-    Adapter, Backend, Backends, Device, DeviceDescriptor, Features, Instance, InstanceDescriptor,
-    Limits, Queue,
+    Adapter, Backend, Backends, DeviceDescriptor, Features, Instance, InstanceDescriptor, Limits,
 };
 
-use crate::engine::{EngineError, EngineResult, TComputingEngine};
+use crate::engine::{EngineError, EngineResult, LogicalDevice, TComputingEngine};
 
 pub struct WGPUComputingEngine {
     instance: Instance,
     adapter: Adapter,
-    device: Device,
-    queue: Queue,
+    logical_device: LogicalDevice,
 }
 
 impl WGPUComputingEngine {
@@ -31,13 +29,12 @@ impl WGPUComputingEngine {
         score_adapter: impl Fn(&Adapter) -> i32,
     ) -> Result<Self, EngineError> {
         let adapter = Self::make_adapter(&instance, score_adapter)?;
-        let (device, queue) = Self::make_device_and_queue(&adapter)?;
+        let logical_device = Self::make_device_and_queue(&adapter)?;
 
         Ok(Self {
             instance,
             adapter,
-            device,
-            queue,
+            logical_device,
         })
     }
 
@@ -122,7 +119,8 @@ impl WGPUComputingEngine {
         adapters
     }
 
-    fn make_device_and_queue(adapter: &Adapter) -> EngineResult<(Device, Queue)> {
+    fn make_device_and_queue(adapter: &Adapter) -> EngineResult<LogicalDevice> {
+        // TODO: Parameterize
         let limits = Limits {
             max_bind_groups: 7,
             ..Default::default()
@@ -141,7 +139,8 @@ impl WGPUComputingEngine {
         log::debug!("Device: {:#?}", device);
         log::debug!("Queue: {:#?}", queue);
 
-        Ok((device, queue))
+        let logical_device = LogicalDevice::new(device, queue);
+        Ok(logical_device)
     }
 }
 
@@ -154,11 +153,7 @@ impl TComputingEngine for WGPUComputingEngine {
         &self.adapter
     }
 
-    fn get_device(&self) -> &Device {
-        &self.device
-    }
-
-    fn get_queue(&self) -> &Queue {
-        &self.queue
+    fn get_logical_device(&self) -> &LogicalDevice {
+        &self.logical_device
     }
 }

@@ -3,9 +3,10 @@ use std::{mem::size_of, ops::Range, path::Path};
 use bytemuck::{Pod, Zeroable};
 use tobj::LoadOptions;
 use wgpu::{
+    logical_device,
     util::{BufferInitDescriptor, DeviceExt},
-    BindGroup, BindGroupLayout, BufferAddress, BufferUsages, Device, Queue, VertexAttribute,
-    VertexBufferLayout, VertexFormat, VertexStepMode,
+    BindGroup, BindGroupLayout, BufferAddress, BufferUsages, VertexAttribute, VertexBufferLayout,
+    VertexFormat, VertexStepMode,
 };
 
 use crate::{texture::Texture, Vertex};
@@ -54,8 +55,7 @@ pub struct Model {
 impl Model {
     pub fn from_path(
         file_name: &str,
-        device: &Device,
-        queue: &Queue,
+        logical_device: &LogicalDevice,
         bind_group_layout: &BindGroupLayout,
     ) -> Result<Self, String> {
         let resource_folder = if cfg!(debug_assertions) {
@@ -102,7 +102,7 @@ impl Model {
             texture_path += &obj_material.diffuse_texture.unwrap();
 
             let diffuse_material =
-                Material::from_path(&texture_path, device, queue, bind_group_layout);
+                Material::from_path(&texture_path, logical_device, bind_group_layout);
 
             if diffuse_material.is_err() {
                 return Err(format!(
@@ -191,7 +191,7 @@ impl Material {
         queue: &wgpu::Queue,
         bind_group_layout: &wgpu::BindGroupLayout,
     ) -> Result<Self, String> {
-        let texture = Texture::from_path(device, queue, file_name)?;
+        let texture = Texture::from_path(logical_device, file_name)?;
 
         Ok(Self::from_texture(
             file_name,

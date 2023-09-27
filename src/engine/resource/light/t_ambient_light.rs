@@ -1,8 +1,10 @@
 use cgmath::Vector3;
 use wgpu::{
     BindGroup, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
-    Buffer, BufferBindingType, Device, Queue, ShaderStages,
+    Buffer, BufferBindingType, ShaderStages,
 };
+
+use crate::engine::LogicalDevice;
 
 use super::AmbientLightUniform;
 
@@ -22,8 +24,8 @@ pub trait TAmbientLight {
             }],
         };
 
-    fn update_buffer(&self, queue: &Queue) {
-        queue.write_buffer(
+    fn update_buffer(&self, logical_device: &LogicalDevice) {
+        logical_device.queue().write_buffer(
             self.get_buffer(),
             0,
             bytemuck::cast_slice(&[self.to_uniform()]),
@@ -40,7 +42,7 @@ pub trait TAmbientLight {
 
     fn set_strength(&mut self, strength: f32);
 
-    fn get_bind_group_layout(device: &Device) -> BindGroupLayout;
+    fn get_bind_group_layout(logical_device: &LogicalDevice) -> BindGroupLayout;
 
     fn get_buffer(&self) -> &Buffer;
 
