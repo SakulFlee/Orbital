@@ -1,13 +1,13 @@
 use core::fmt::{Debug, Formatter, Result};
 
-use wgpu::{BindGroup, BindGroupLayout, Device};
+use wgpu::{BindGroup, BindGroupLayout};
 
-use crate::engine::DiffuseTexture;
+use crate::engine::{DiffuseTexture, LogicalDevice};
 
 pub trait TMaterial {
     fn get_name(&self) -> &str;
     fn get_diffuse_texture(&self) -> &DiffuseTexture;
-    fn get_bind_group_layout(device: &Device) -> BindGroupLayout
+    fn get_bind_group_layout(logical_device: &LogicalDevice) -> BindGroupLayout
     where
         Self: Sized;
     fn get_bind_group(&self) -> &BindGroup;
