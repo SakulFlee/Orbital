@@ -63,8 +63,8 @@ impl WGPUComputingEngine {
         // Print out debug information
         log::debug!("The following adapters are compatible:");
         let mut i = 0;
-        for (adapter, num) in &adapters {
-            log::debug!("#{}, Score: {} - {:?}", i, num, adapter.get_info());
+        for (adapter, score) in &adapters {
+            log::debug!("#{}, Score: {} - {:?}", i, score, adapter.get_info());
             i += 1;
         }
 
