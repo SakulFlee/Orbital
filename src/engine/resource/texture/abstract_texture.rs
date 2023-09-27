@@ -49,7 +49,7 @@ impl AbstractTexture {
     pub fn from_bytes(
         device: &Device,
         queue: &Queue,
-        bytes: &Vec<u8>,
+        bytes: &[u8],
         format: TextureFormat,
         sampler_descriptor: &SamplerDescriptor,
         usage: TextureUsages,
