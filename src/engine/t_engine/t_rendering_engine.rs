@@ -14,7 +14,7 @@ pub trait TRenderingEngine: TComputingEngine {
     }
 
     fn change_window_size(&mut self, size: (u32, u32)) {
-        let mut new_surface_configuration = self.get_surface_configuration().clone();
+        let mut new_surface_configuration = self.surface_configuration().clone();
 
         new_surface_configuration.width = size.0;
         new_surface_configuration.height = size.1;
@@ -24,7 +24,7 @@ pub trait TRenderingEngine: TComputingEngine {
     }
 
     fn change_vsync(&mut self, present_mode: PresentMode) {
-        let mut new_surface_configuration = self.get_surface_configuration().clone();
+        let mut new_surface_configuration = self.surface_configuration().clone();
 
         new_surface_configuration.present_mode = present_mode;
 
@@ -33,7 +33,7 @@ pub trait TRenderingEngine: TComputingEngine {
     }
 
     fn change_composite_alpha(&mut self, alpha_mode: CompositeAlphaMode) {
-        let mut new_surface_configuration = self.get_surface_configuration().clone();
+        let mut new_surface_configuration = self.surface_configuration().clone();
 
         new_surface_configuration.alpha_mode = alpha_mode;
 
@@ -41,23 +41,22 @@ pub trait TRenderingEngine: TComputingEngine {
         self.reconfigure_surface();
     }
 
-    fn get_surface(&self) -> &Surface;
-    fn get_surface_configuration(&self) -> &SurfaceConfiguration;
+    fn surface(&self) -> &Surface;
+    fn surface_configuration(&self) -> &SurfaceConfiguration;
     fn set_surface_configuration(&mut self, surface_configuration: SurfaceConfiguration);
-    fn get_surface_texture_format(&self) -> TextureFormat;
+    fn surface_texture_format(&self) -> TextureFormat;
 
-    fn get_surface_texture(&self) -> EngineResult<SurfaceTexture> {
-        self
-            .get_surface()
+    fn surface_texture(&self) -> EngineResult<SurfaceTexture> {
+        self.surface()
             .get_current_texture()
             .map_err(EngineError::SurfaceError)
     }
 
-    fn get_surface_texture_view(&self) -> EngineResult<TextureView> {
-        Ok(self.get_surface_texture()?.make_texture_view())
+    fn surface_texture_view(&self) -> EngineResult<TextureView> {
+        Ok(self.surface_texture()?.make_texture_view())
     }
 
-    fn get_depth_texture(&self) -> Option<&DepthTexture>;
+    fn depth_texture(&self) -> Option<&DepthTexture>;
 
-    fn get_render_pipeline(&self) -> &RenderPipeline;
+    fn render_pipeline(&self) -> &RenderPipeline;
 }
