@@ -115,7 +115,7 @@ impl ResourceManager {
     pub fn diffuse_texture_from_bytes(
         device: &Device,
         queue: &Queue,
-        bytes: &Vec<u8>,
+        bytes: &[u8],
         label: Option<&str>,
     ) -> EngineResult<DiffuseTexture> {
         DiffuseTexture::from_bytes(device, queue, bytes, label)
