@@ -47,10 +47,10 @@ pub trait TRenderingEngine: TComputingEngine {
     fn get_surface_texture_format(&self) -> TextureFormat;
 
     fn get_surface_texture(&self) -> EngineResult<SurfaceTexture> {
-        Ok(self
+        self
             .get_surface()
             .get_current_texture()
-            .map_err(|e| EngineError::SurfaceError(e))?)
+            .map_err(EngineError::SurfaceError)
     }
 
     fn get_surface_texture_view(&self) -> EngineResult<TextureView> {

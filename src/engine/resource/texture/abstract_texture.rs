@@ -32,11 +32,10 @@ impl AbstractTexture {
         let file_name = file_path
             .as_ref()
             .clone()
-            .to_str()
-            .map_or(None, |x| Some(x));
+            .to_str();
         let bytes = ResourceManager::read_resource_binary(file_path.as_ref().clone())?;
 
-        Ok(Self::from_bytes(
+        Self::from_bytes(
             device,
             queue,
             &bytes,
@@ -44,7 +43,7 @@ impl AbstractTexture {
             sampler_descriptor,
             usage,
             file_name,
-        )?)
+        )
     }
 
     pub fn from_bytes(
@@ -56,7 +55,7 @@ impl AbstractTexture {
         usage: TextureUsages,
         label: Option<&str>,
     ) -> EngineResult<Self> {
-        let image = image::load_from_memory(bytes).map_err(|e| EngineError::ImageError(e))?;
+        let image = image::load_from_memory(bytes).map_err(EngineError::ImageError)?;
 
         Self::from_image(
             device,
@@ -95,7 +94,7 @@ impl AbstractTexture {
         queue.write_texture(
             ImageCopyTexture {
                 aspect: TextureAspect::All,
-                texture: &abstract_texture.get_texture(),
+                texture: abstract_texture.get_texture(),
                 mip_level: 0,
                 origin: Origin3d::ZERO,
             },

@@ -168,7 +168,7 @@ impl TRenderingEngine for WGPURenderingEngine {
     }
 
     fn get_surface(&self) -> &wgpu::Surface {
-        &self.surface.get_surface()
+        self.surface.get_surface()
     }
 
     fn set_surface_configuration(&mut self, surface_configuration: SurfaceConfiguration) {

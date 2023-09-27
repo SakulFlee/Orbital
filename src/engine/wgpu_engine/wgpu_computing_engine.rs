@@ -23,7 +23,7 @@ impl WGPUComputingEngine {
         let instance = Self::make_instance();
         log::debug!("Instance: {:#?}", instance);
 
-        Ok(Self::from_instance(instance, score_adapter)?)
+        Self::from_instance(instance, score_adapter)
     }
 
     pub fn from_instance(
