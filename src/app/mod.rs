@@ -12,8 +12,8 @@ use winit::{
 };
 
 use crate::engine::{
-    Camera, EngineError, EngineResult, StandardPointLight, TAmbientLight, TComputingEngine,
-    TPointLight, TRenderingEngine, TTexture, TextureHelper, WGPURenderingEngine,
+    Camera, EngineError, EngineResult, TAmbientLight, TComputingEngine, TPointLight,
+    TRenderingEngine, TTexture, TextureHelper, WGPURenderingEngine,
 };
 
 mod input;
