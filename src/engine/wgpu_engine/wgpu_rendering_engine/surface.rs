@@ -34,7 +34,7 @@ impl Surface {
         })?;
 
         let surface_texture_format =
-            surface.find_srgb_surface_texture_format(computing_engine.get_adapter())?;
+            surface.find_srgb_surface_texture_format(computing_engine.adapter())?;
 
         let surface_configuration = SurfaceConfiguration::from_window(
             surface_texture_format,
@@ -43,7 +43,7 @@ impl Surface {
             CompositeAlphaMode::Auto,
         );
 
-        surface.configure(computing_engine.get_device(), &surface_configuration);
+        surface.configure(computing_engine.device(), &surface_configuration);
 
         Ok((
             computing_engine,
@@ -63,15 +63,15 @@ impl Surface {
         Ok(surface)
     }
 
-    pub fn get_surface(&self) -> &wgpu::Surface {
+    pub fn surface(&self) -> &wgpu::Surface {
         &self.surface
     }
 
-    pub fn get_surface_texture_format(&self) -> TextureFormat {
+    pub fn surface_texture_format(&self) -> TextureFormat {
         self.surface_texture_format
     }
 
-    pub fn get_surface_configuration(&self) -> &SurfaceConfiguration {
+    pub fn surface_configuration(&self) -> &SurfaceConfiguration {
         &self.surface_configuration
     }
 
