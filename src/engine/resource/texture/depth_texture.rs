@@ -101,15 +101,15 @@ impl DepthTexture {
 }
 
 impl TTexture for DepthTexture {
-    fn get_texture(&self) -> &Texture {
-        self.internal_texture.get_texture()
+    fn texture(&self) -> &Texture {
+        self.internal_texture.texture()
     }
 
-    fn get_view(&self) -> &TextureView {
-        self.internal_texture.get_view()
+    fn view(&self) -> &TextureView {
+        self.internal_texture.view()
     }
 
-    fn get_sampler(&self) -> &Sampler {
-        self.internal_texture.get_sampler()
+    fn sampler(&self) -> &Sampler {
+        self.internal_texture.sampler()
     }
 }
