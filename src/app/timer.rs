@@ -23,10 +23,7 @@ impl Timer {
         self.current_cycle_count += 1;
 
         if self.current_delta_time >= 1.0 {
-            let output = Some((
-                self.get_current_delta_time(),
-                self.get_current_cycle_count(),
-            ));
+            let output = Some((self.current_delta_time(), self.current_cycle_count()));
 
             self.current_cycle_count = 0;
             self.current_delta_time -= 1.0;
@@ -37,11 +34,11 @@ impl Timer {
         None
     }
 
-    pub fn get_current_cycle_count(&self) -> u64 {
+    pub fn current_cycle_count(&self) -> u64 {
         self.current_cycle_count
     }
 
-    pub fn get_current_delta_time(&self) -> f64 {
+    pub fn current_delta_time(&self) -> f64 {
         self.current_delta_time
     }
 }
