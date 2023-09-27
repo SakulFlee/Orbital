@@ -3,15 +3,15 @@ use wgpu::{Adapter, Device, Instance, Queue};
 use crate::engine::LogicalDevice;
 
 pub trait TComputingEngine {
-    fn get_instance(&self) -> &Instance;
-    fn get_adapter(&self) -> &Adapter;
-    fn get_logical_device(&self) -> &LogicalDevice;
+    fn instance(&self) -> &Instance;
+    fn adapter(&self) -> &Adapter;
+    fn logical_device(&self) -> &LogicalDevice;
 
-    fn get_device(&self) -> &Device {
-        self.get_logical_device().device()
+    fn device(&self) -> &Device {
+        self.logical_device().device()
     }
 
-    fn get_queue(&self) -> &Queue {
-        self.get_logical_device().queue()
+    fn queue(&self) -> &Queue {
+        self.logical_device().queue()
     }
 }
