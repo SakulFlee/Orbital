@@ -15,7 +15,7 @@ fn main() {
         .with_entities(vec![
             Box::new(CameraControllingEntity::new()),
             Box::new(ClearScreenEntity {}),
-            Box::new(Square::default()),
+            Box::<Square>::default(),
         ]);
 
     App::run("WGPU", world_builder).expect("App failed");

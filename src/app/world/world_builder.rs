@@ -5,12 +5,99 @@ use crate::engine::{StandardAmbientLight, StandardPointLight};
 
 use super::{BoxedEntity, EntityTagDuplicationBehaviour, World};
 
+// TODO: Move out
+#[derive(Debug, Clone, Copy, Default)]
+pub struct WColor {
+    pub r: f32,
+    pub b: f32,
+    pub g: f32,
+}
+
+impl From<(f32, f32, f32)> for WColor {
+    fn from(value: (f32, f32, f32)) -> Self {
+        Self {
+            r: value.0,
+            b: value.1,
+            g: value.2,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct WPosition {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
+
+impl From<(f32, f32, f32)> for WPosition {
+    fn from(value: (f32, f32, f32)) -> Self {
+        Self {
+            x: value.0,
+            y: value.1,
+            z: value.2,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct WAmbientLight {
+    pub color: WColor,
+    pub strength: f32,
+}
+
+impl From<((f32, f32, f32), f32)> for WAmbientLight {
+    fn from(value: ((f32, f32, f32), f32)) -> Self {
+        Self {
+            color: value.0.into(),
+            strength: value.1,
+        }
+    }
+}
+
+impl Into<Vector3<f32>> for WColor {
+    fn into(self) -> Vector3<f32> {
+        Vector3 {
+            x: self.r,
+            y: self.g,
+            z: self.b,
+        }
+    }
+}
+
+impl Into<Vector3<f32>> for WPosition {
+    fn into(self) -> Vector3<f32> {
+        Vector3 {
+            x: self.x,
+            y: self.y,
+            z: self.z,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct WPointLight {
+    pub color: WColor,
+    pub position: WPosition,
+    pub strength: f32,
+}
+
+impl From<((f32, f32, f32), (f32, f32, f32), f32)> for WPointLight {
+    fn from(value: ((f32, f32, f32), (f32, f32, f32), f32)) -> Self {
+        Self {
+            color: value.0.into(),
+            position: value.1.into(),
+            strength: value.2,
+        }
+    }
+}
+
 pub struct WorldBuilder {
     clear_color: Option<Color>,
     entity_tag_duplication_behaviour: Option<EntityTagDuplicationBehaviour>,
     entities: Vec<BoxedEntity>,
-    ambient_light: Option<((f32, f32, f32), f32)>,
-    point_light: [Option<([f32; 3], [f32; 3], f32)>; 4],
+    ambient_light: Option<WAmbientLight>,
+    point_light: [Option<WPointLight>; 4],
 }
 
 impl WorldBuilder {
@@ -25,12 +112,12 @@ impl WorldBuilder {
     }
 
     pub fn build(self, device: &Device, queue: &Queue) -> World {
-        let ambient_light_raw = self.ambient_light.unwrap_or(((1.0, 1.0, 1.0), 0.1));
+        let ambient_light_raw = self.ambient_light.unwrap_or(((1.0, 1.0, 1.0), 0.1).into());
         let ambient_light = StandardAmbientLight::new(
             device,
             queue,
-            ambient_light_raw.0.into(),
-            ambient_light_raw.1,
+            ambient_light_raw.color.into(),
+            ambient_light_raw.strength,
         );
 
         let mut point_lights = vec![];
@@ -40,9 +127,9 @@ impl WorldBuilder {
             let point_light = StandardPointLight::new(
                 device,
                 queue,
-                point_light_data.0.into(),
-                point_light_data.1.into(),
-                point_light_data.2,
+                point_light_data.color.into(),
+                point_light_data.position.into(),
+                point_light_data.strength,
                 point_light.is_some(),
             );
             point_lights.push(point_light);
@@ -90,7 +177,7 @@ impl WorldBuilder {
     }
 
     pub fn with_ambient_light(mut self, color: (f32, f32, f32), strength: f32) -> Self {
-        self.ambient_light = Some((color, strength));
+        self.ambient_light = Some((color, strength).into());
         self
     }
 
@@ -101,7 +188,13 @@ impl WorldBuilder {
         position: Vector3<f32>,
         strength: f32,
     ) -> Self {
-        self.point_light[slot] = Some((color.into(), position.into(), strength));
+        self.point_light[slot] = Some((color.into(), position.into(), strength).into());
         self
+    }
+}
+
+impl Default for WorldBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
