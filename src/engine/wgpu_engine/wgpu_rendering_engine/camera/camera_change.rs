@@ -86,3 +86,9 @@ impl CameraChange {
         self.zfar
     }
 }
+
+impl Default for CameraChange {
+    fn default() -> Self {
+        Self::new()
+    }
+}
