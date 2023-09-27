@@ -37,6 +37,6 @@ impl ResourceManager {
     {
         let path = Self::get_resource_path(file_name)?;
 
-        Ok(read(&path).map_err(|e| EngineError::IOError(e))?)
+        read(path).map_err(EngineError::IOError)
     }
 }

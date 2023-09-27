@@ -125,15 +125,15 @@ impl App {
         T: Into<String>,
         S: Into<Size>,
     {
-        Ok(WindowBuilder::new()
+        WindowBuilder::new()
             .with_active(active)
             .with_visible(visible)
             .with_title(title)
             .with_inner_size(size)
             .with_maximized(maximized)
             .with_resizable(resizable)
-            .build(&event_loop)
-            .map_err(|e| EngineError::WinitOSError(e))?)
+            .build(event_loop)
+            .map_err(EngineError::WinitOSError)
     }
 
     fn handle_resize(&mut self, new_size: &PhysicalSize<u32>, window: &Window) {

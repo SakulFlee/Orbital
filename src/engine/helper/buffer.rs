@@ -20,7 +20,7 @@ pub trait BufferHelper {
     {
         device.create_buffer_init(&BufferInitDescriptor {
             label,
-            contents: bytemuck::cast_slice(&content),
+            contents: bytemuck::cast_slice(content),
             usage,
         })
     }
@@ -31,6 +31,6 @@ impl BufferHelper for Device {
     where
         A: NoUninit,
     {
-        Self::make_buffer_(label, content, usage, &self)
+        Self::make_buffer_(label, content, usage, self)
     }
 }

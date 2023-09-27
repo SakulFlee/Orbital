@@ -82,12 +82,12 @@ impl StandardMesh {
             None => Box::new(StandardMaterial::from_texture(
                 device,
                 queue,
-                &Self::MISSING_TEXTURE,
+                Self::MISSING_TEXTURE,
             )?),
         };
 
         Ok(Self {
-            name: name.map_or(None, |x| Some(x.to_string())),
+            name: name.map(|x| x.to_string()),
             vertex_buffer,
             index_buffer,
             index_count: indices.len() as u32,

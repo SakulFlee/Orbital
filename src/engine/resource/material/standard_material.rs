@@ -70,11 +70,11 @@ impl StandardMaterial {
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureView(&diffuse_texture.get_view()),
+                    resource: BindingResource::TextureView(diffuse_texture.get_view()),
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::Sampler(&diffuse_texture.get_sampler()),
+                    resource: BindingResource::Sampler(diffuse_texture.get_sampler()),
                 },
             ],
         })

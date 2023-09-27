@@ -24,7 +24,7 @@ pub trait TPointLight {
 
     fn update_buffer(&mut self, queue: &Queue) {
         queue.write_buffer(
-            &self.get_buffer(),
+            self.get_buffer(),
             0,
             bytemuck::cast_slice(&[self.to_uniform()]),
         )
