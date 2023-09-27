@@ -85,7 +85,7 @@ impl Camera {
                 usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             });
 
-        let bind_group_layout = Self::get_bind_group_layout(logical_device);
+        let bind_group_layout = Self::bind_group_layout(logical_device);
 
         let bind_group = logical_device
             .device()
@@ -145,38 +145,38 @@ impl Camera {
         logical_device: &LogicalDevice,
         camera_change: CameraChange,
     ) {
-        if let Some(eye) = camera_change.get_eye() {
+        if let Some(eye) = camera_change.eye() {
             self.set_eye(eye);
         }
 
-        if let Some(target) = camera_change.get_target() {
+        if let Some(target) = camera_change.target() {
             self.set_target(target);
         }
 
-        if let Some(up) = camera_change.get_up() {
+        if let Some(up) = camera_change.up() {
             self.set_up(up);
         }
 
-        if let Some(aspect) = camera_change.get_aspect() {
+        if let Some(aspect) = camera_change.aspect() {
             self.set_aspect(aspect);
         }
 
-        if let Some(fovy) = camera_change.get_fovy() {
+        if let Some(fovy) = camera_change.fovy() {
             self.set_fovy(fovy);
         }
 
-        if let Some(znear) = camera_change.get_znear() {
+        if let Some(znear) = camera_change.znear() {
             self.set_znear(znear);
         }
 
-        if let Some(zfar) = camera_change.get_zfar() {
+        if let Some(zfar) = camera_change.zfar() {
             self.set_zfar(zfar);
         }
 
         self.update_buffer(logical_device);
     }
 
-    pub fn get_eye(&self) -> Point3<f32> {
+    pub fn eye(&self) -> Point3<f32> {
         self.eye
     }
 
@@ -184,7 +184,7 @@ impl Camera {
         self.eye = eye;
     }
 
-    pub fn get_target(&self) -> Point3<f32> {
+    pub fn target(&self) -> Point3<f32> {
         self.target
     }
 
@@ -192,7 +192,7 @@ impl Camera {
         self.target = target;
     }
 
-    pub fn get_up(&self) -> Vector3<f32> {
+    pub fn up(&self) -> Vector3<f32> {
         self.up
     }
 
@@ -200,7 +200,7 @@ impl Camera {
         self.up = up;
     }
 
-    pub fn get_aspect(&self) -> f32 {
+    pub fn aspect(&self) -> f32 {
         self.aspect
     }
 
@@ -208,7 +208,7 @@ impl Camera {
         self.aspect = aspect;
     }
 
-    pub fn get_fovy(&self) -> f32 {
+    pub fn fovy(&self) -> f32 {
         self.fovy
     }
 
@@ -216,7 +216,7 @@ impl Camera {
         self.fovy = fovy;
     }
 
-    pub fn get_znear(&self) -> f32 {
+    pub fn znear(&self) -> f32 {
         self.znear
     }
 
@@ -224,7 +224,7 @@ impl Camera {
         self.znear = znear;
     }
 
-    pub fn get_zfar(&self) -> f32 {
+    pub fn zfar(&self) -> f32 {
         self.zfar
     }
 
@@ -232,21 +232,21 @@ impl Camera {
         self.zfar = zfar;
     }
 
-    pub fn get_view_projection(&self) -> Matrix4<f32> {
+    pub fn view_projection(&self) -> Matrix4<f32> {
         self.view_projection
     }
 
-    pub fn get_buffer(&self) -> &Buffer {
+    pub fn buffer(&self) -> &Buffer {
         &self.buffer
     }
 
-    pub fn get_bind_group_layout(logical_device: &LogicalDevice) -> BindGroupLayout {
+    pub fn bind_group_layout(logical_device: &LogicalDevice) -> BindGroupLayout {
         logical_device
             .device()
             .create_bind_group_layout(&Self::BIND_GROUP_LAYOUT_DESCRIPTOR)
     }
 
-    pub fn get_bind_group(&self) -> &BindGroup {
+    pub fn bind_group(&self) -> &BindGroup {
         &self.bind_group
     }
 }
