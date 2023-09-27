@@ -123,8 +123,8 @@ impl TMesh for StandardMesh {
         &self.instance_buffer
     }
 
-    fn get_material(&self) -> &Box<dyn TMaterial> {
-        &self.material
+    fn get_material(&self) -> &dyn TMaterial {
+        self.material.as_ref()
     }
 
     fn get_name(&self) -> Option<String> {
