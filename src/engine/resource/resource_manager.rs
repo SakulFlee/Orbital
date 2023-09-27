@@ -10,7 +10,7 @@ pub struct ResourceManager;
 impl ResourceManager {
     pub const RESOURCE_FOLDER_NAME: &'static str = "res";
 
-    pub fn get_resource_folder_path() -> PathBuf {
+    pub fn resource_folder_path() -> PathBuf {
         if cfg!(debug_assertions) {
             Path::new(env!("OUT_DIR")).join(Self::RESOURCE_FOLDER_NAME)
         } else {
@@ -18,11 +18,11 @@ impl ResourceManager {
         }
     }
 
-    pub fn get_resource_path<P>(file_name: P) -> EngineResult<PathBuf>
+    pub fn resource_path<P>(file_name: P) -> EngineResult<PathBuf>
     where
         P: AsRef<Path>,
     {
-        let path = Self::get_resource_folder_path().join(file_name);
+        let path = Self::resource_folder_path().join(file_name);
 
         if !path.exists() {
             Err(EngineError::ResourceMissing)
@@ -35,7 +35,7 @@ impl ResourceManager {
     where
         P: AsRef<Path>,
     {
-        let path = Self::get_resource_path(file_name)?;
+        let path = Self::resource_path(file_name)?;
 
         read(path).map_err(EngineError::IOError)
     }
