@@ -65,6 +65,7 @@ impl Camera {
         )
     }
 
+    #[allow(clippy::too_many_arguments)] // TODO: Check clippy again after Logical/Physical Device split
     pub fn new(
         device: &Device,
         queue: &Queue,
