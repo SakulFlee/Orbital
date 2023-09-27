@@ -13,7 +13,7 @@ impl TInstance for StandardInstance {
         Self { position, rotation }
     }
 
-    fn get_position(&self) -> Vector3<f32> {
+    fn position(&self) -> Vector3<f32> {
         self.position
     }
 
@@ -21,7 +21,7 @@ impl TInstance for StandardInstance {
         self.position = postion;
     }
 
-    fn get_rotation(&self) -> Quaternion<f32> {
+    fn rotation(&self) -> Quaternion<f32> {
         self.rotation
     }
 
