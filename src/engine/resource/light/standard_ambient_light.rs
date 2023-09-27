@@ -26,7 +26,7 @@ impl StandardAmbientLight {
                 usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             });
 
-        let bind_group_layout = Self::get_bind_group_layout(logical_device);
+        let bind_group_layout = Self::bind_group_layout(logical_device);
         let bind_group = logical_device
             .device()
             .create_bind_group(&BindGroupDescriptor {
@@ -56,7 +56,7 @@ impl TAmbientLight for StandardAmbientLight {
         AmbientLightUniform::new(self.color.into(), self.strength)
     }
 
-    fn get_color(&self) -> Vector3<f32> {
+    fn color(&self) -> Vector3<f32> {
         self.color
     }
 
@@ -64,7 +64,7 @@ impl TAmbientLight for StandardAmbientLight {
         self.color = color;
     }
 
-    fn get_strength(&self) -> f32 {
+    fn strength(&self) -> f32 {
         self.strength
     }
 
@@ -72,17 +72,17 @@ impl TAmbientLight for StandardAmbientLight {
         self.strength = strength;
     }
 
-    fn get_bind_group_layout(logical_device: &LogicalDevice) -> BindGroupLayout {
+    fn bind_group_layout(logical_device: &LogicalDevice) -> BindGroupLayout {
         logical_device
             .device()
             .create_bind_group_layout(&Self::BIND_GROUP_LAYOUT_DESCRIPTOR)
     }
 
-    fn get_buffer(&self) -> &Buffer {
+    fn buffer(&self) -> &Buffer {
         &self.buffer
     }
 
-    fn get_bind_group(&self) -> &BindGroup {
+    fn bind_group(&self) -> &BindGroup {
         &self.bind_group
     }
 }
