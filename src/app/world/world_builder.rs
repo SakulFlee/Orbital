@@ -55,22 +55,22 @@ impl From<((f32, f32, f32), f32)> for WAmbientLight {
     }
 }
 
-impl Into<Vector3<f32>> for WColor {
-    fn into(self) -> Vector3<f32> {
+impl From<WColor> for Vector3<f32> {
+    fn from(val: WColor) -> Self {
         Vector3 {
-            x: self.r,
-            y: self.g,
-            z: self.b,
+            x: val.r,
+            y: val.g,
+            z: val.b,
         }
     }
 }
 
-impl Into<Vector3<f32>> for WPosition {
-    fn into(self) -> Vector3<f32> {
+impl From<WPosition> for Vector3<f32> {
+    fn from(val: WPosition) -> Self {
         Vector3 {
-            x: self.x,
-            y: self.y,
-            z: self.z,
+            x: val.x,
+            y: val.y,
+            z: val.z,
         }
     }
 }
