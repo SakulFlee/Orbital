@@ -34,7 +34,7 @@ impl StandardPointLight {
                 usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             });
 
-        let bind_group_layout = Self::get_bind_group_layout(logical_device);
+        let bind_group_layout = Self::bind_group_layout(logical_device);
         let bind_group = logical_device
             .device()
             .create_bind_group(&BindGroupDescriptor {
@@ -71,7 +71,7 @@ impl TPointLight for StandardPointLight {
         )
     }
 
-    fn get_color(&self) -> Vector3<f32> {
+    fn color(&self) -> Vector3<f32> {
         self.color
     }
 
@@ -79,7 +79,7 @@ impl TPointLight for StandardPointLight {
         self.color = color;
     }
 
-    fn get_position(&self) -> Vector3<f32> {
+    fn position(&self) -> Vector3<f32> {
         self.position
     }
 
@@ -87,7 +87,7 @@ impl TPointLight for StandardPointLight {
         self.position = position;
     }
 
-    fn get_strength(&self) -> f32 {
+    fn strength(&self) -> f32 {
         self.strength
     }
 
@@ -95,7 +95,7 @@ impl TPointLight for StandardPointLight {
         self.strength = strength;
     }
 
-    fn get_enabled(&self) -> bool {
+    fn enabled(&self) -> bool {
         self.enabled
     }
 
@@ -103,11 +103,11 @@ impl TPointLight for StandardPointLight {
         self.enabled = enabled;
     }
 
-    fn get_buffer(&self) -> &Buffer {
+    fn buffer(&self) -> &Buffer {
         &self.buffer
     }
 
-    fn get_bind_group(&self) -> &BindGroup {
+    fn bind_group(&self) -> &BindGroup {
         &self.bind_group
     }
 }
