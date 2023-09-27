@@ -6,18 +6,18 @@ use super::InstanceUniform;
 pub trait TInstance {
     fn new(position: Vector3<f32>, rotation: Quaternion<f32>) -> Self;
 
-    fn get_position(&self) -> Vector3<f32>;
+    fn position(&self) -> Vector3<f32>;
 
     fn set_position(&mut self, postion: Vector3<f32>);
 
-    fn get_rotation(&self) -> Quaternion<f32>;
+    fn rotation(&self) -> Quaternion<f32>;
 
     fn set_rotation(&mut self, rotation: Quaternion<f32>);
 
     fn to_instance_uniform(&self) -> InstanceUniform {
         InstanceUniform {
-            model_space_matrix: (Matrix4::from_translation(self.get_position())
-                * Matrix4::from(self.get_rotation()))
+            model_space_matrix: (Matrix4::from_translation(self.position())
+                * Matrix4::from(self.rotation()))
             .into(),
         }
     }
