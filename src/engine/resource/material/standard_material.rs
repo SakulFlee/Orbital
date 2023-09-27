@@ -62,7 +62,7 @@ impl StandardMaterial {
         diffuse_texture: &DiffuseTexture,
         logical_device: &LogicalDevice,
     ) -> BindGroup {
-        let bind_group_layout = Self::get_bind_group_layout(logical_device);
+        let bind_group_layout = Self::bind_group_layout(logical_device);
 
         logical_device
             .device()
@@ -72,11 +72,11 @@ impl StandardMaterial {
                 entries: &[
                     BindGroupEntry {
                         binding: 0,
-                        resource: BindingResource::TextureView(diffuse_texture.get_view()),
+                        resource: BindingResource::TextureView(diffuse_texture.view()),
                     },
                     BindGroupEntry {
                         binding: 1,
-                        resource: BindingResource::Sampler(diffuse_texture.get_sampler()),
+                        resource: BindingResource::Sampler(diffuse_texture.sampler()),
                     },
                 ],
             })
@@ -84,21 +84,21 @@ impl StandardMaterial {
 }
 
 impl TMaterial for StandardMaterial {
-    fn get_name(&self) -> &str {
+    fn name(&self) -> &str {
         &self.name
     }
 
-    fn get_diffuse_texture(&self) -> &DiffuseTexture {
+    fn diffuse_texture(&self) -> &DiffuseTexture {
         &self.diffuse_texture
     }
 
-    fn get_bind_group_layout(logical_device: &LogicalDevice) -> BindGroupLayout {
+    fn bind_group_layout(logical_device: &LogicalDevice) -> BindGroupLayout {
         logical_device
             .device()
             .create_bind_group_layout(&Self::BIND_GROUP_LAYOUT_DESCRIPTOR)
     }
 
-    fn get_bind_group(&self) -> &BindGroup {
+    fn bind_group(&self) -> &BindGroup {
         &self.bind_group
     }
 }
