@@ -50,7 +50,7 @@ impl DepthTexture {
     pub fn from_bytes(
         device: &Device,
         queue: &Queue,
-        bytes: &Vec<u8>,
+        bytes: &[u8],
         label: Option<&str>,
     ) -> EngineResult<Self> {
         Ok(Self {
