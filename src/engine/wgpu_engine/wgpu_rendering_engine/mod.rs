@@ -34,12 +34,12 @@ impl WGPURenderingEngine {
         let (computing_engine, surface) = Surface::from_window(window)?;
 
         let render_pipeline = Self::make_render_pipeline(
-            computing_engine.get_logical_device(),
-            surface.get_surface_texture_format(),
+            computing_engine.logical_device(),
+            surface.surface_texture_format(),
         )?;
 
         let depth_texture = DepthTexture::from_empty(
-            computing_engine.get_logical_device(),
+            computing_engine.logical_device(),
             Extent3d {
                 width: window.inner_size().width,
                 height: window.inner_size().height,
@@ -74,13 +74,13 @@ impl WGPURenderingEngine {
                 .create_pipeline_layout(&PipelineLayoutDescriptor {
                     label: Some("Render Pipeline Layout"),
                     bind_group_layouts: &[
-                        &StandardMaterial::get_bind_group_layout(logical_device),
-                        &Camera::get_bind_group_layout(logical_device),
-                        &StandardAmbientLight::get_bind_group_layout(logical_device),
-                        &StandardPointLight::get_bind_group_layout(logical_device),
-                        &StandardPointLight::get_bind_group_layout(logical_device),
-                        &StandardPointLight::get_bind_group_layout(logical_device),
-                        &StandardPointLight::get_bind_group_layout(logical_device),
+                        &StandardMaterial::bind_group_layout(logical_device),
+                        &Camera::bind_group_layout(logical_device),
+                        &StandardAmbientLight::bind_group_layout(logical_device),
+                        &StandardPointLight::bind_group_layout(logical_device),
+                        &StandardPointLight::bind_group_layout(logical_device),
+                        &StandardPointLight::bind_group_layout(logical_device),
+                        &StandardPointLight::bind_group_layout(logical_device),
                     ],
                     push_constant_ranges: &[],
                 });
@@ -150,27 +150,27 @@ impl WGPURenderingEngine {
 }
 
 impl TComputingEngine for WGPURenderingEngine {
-    fn get_instance(&self) -> &Instance {
-        self.computing_engine.get_instance()
+    fn instance(&self) -> &Instance {
+        self.computing_engine.instance()
     }
 
-    fn get_adapter(&self) -> &Adapter {
-        self.computing_engine.get_adapter()
+    fn adapter(&self) -> &Adapter {
+        self.computing_engine.adapter()
     }
 
-    fn get_logical_device(&self) -> &LogicalDevice {
-        self.computing_engine.get_logical_device()
+    fn logical_device(&self) -> &LogicalDevice {
+        self.computing_engine.logical_device()
     }
 }
 
 impl TRenderingEngine for WGPURenderingEngine {
     fn configure_surface(&mut self) {
-        self.get_surface()
-            .configure(self.get_device(), self.get_surface_configuration());
+        self.surface()
+            .configure(self.device(), self.surface_configuration());
     }
 
-    fn get_surface(&self) -> &wgpu::Surface {
-        self.surface.get_surface()
+    fn surface(&self) -> &wgpu::Surface {
+        self.surface.surface()
     }
 
     fn set_surface_configuration(&mut self, surface_configuration: SurfaceConfiguration) {
@@ -178,19 +178,19 @@ impl TRenderingEngine for WGPURenderingEngine {
             .set_surface_configuration(surface_configuration);
     }
 
-    fn get_surface_configuration(&self) -> &SurfaceConfiguration {
-        self.surface.get_surface_configuration()
+    fn surface_configuration(&self) -> &SurfaceConfiguration {
+        self.surface.surface_configuration()
     }
 
-    fn get_surface_texture_format(&self) -> TextureFormat {
-        self.surface.get_surface_texture_format()
+    fn surface_texture_format(&self) -> TextureFormat {
+        self.surface.surface_texture_format()
     }
 
-    fn get_depth_texture(&self) -> Option<&DepthTexture> {
+    fn depth_texture(&self) -> Option<&DepthTexture> {
         Some(&self.depth_texture)
     }
 
-    fn get_render_pipeline(&self) -> &RenderPipeline {
+    fn render_pipeline(&self) -> &RenderPipeline {
         &self.render_pipeline
     }
 }
