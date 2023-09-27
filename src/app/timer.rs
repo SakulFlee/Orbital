@@ -45,3 +45,9 @@ impl Timer {
         self.current_delta_time
     }
 }
+
+impl Default for Timer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
