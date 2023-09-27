@@ -28,7 +28,7 @@ impl Default for CameraControllingEntity {
 }
 
 impl TEntity for CameraControllingEntity {
-    fn get_entity_configuration(&self) -> EntityConfiguration {
+    fn entity_configuration(&self) -> EntityConfiguration {
         EntityConfiguration::new("Camera Controlling Entity", UpdateFrequency::Fast, false)
     }
 
