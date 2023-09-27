@@ -8,7 +8,7 @@ pub struct ClearScreenEntity {}
 impl ClearScreenEntity {}
 
 impl TEntity for ClearScreenEntity {
-    fn get_entity_configuration(&self) -> EntityConfiguration {
+    fn entity_configuration(&self) -> EntityConfiguration {
         EntityConfiguration::new("Clear Screen Entity", UpdateFrequency::Slow, false)
     }
 
