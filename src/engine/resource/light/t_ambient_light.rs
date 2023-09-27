@@ -26,7 +26,7 @@ pub trait TAmbientLight {
 
     fn update_buffer(&self, logical_device: &LogicalDevice) {
         logical_device.queue().write_buffer(
-            self.get_buffer(),
+            self.buffer(),
             0,
             bytemuck::cast_slice(&[self.to_uniform()]),
         )
@@ -34,17 +34,17 @@ pub trait TAmbientLight {
 
     fn to_uniform(&self) -> AmbientLightUniform;
 
-    fn get_color(&self) -> Vector3<f32>;
+    fn color(&self) -> Vector3<f32>;
 
     fn set_color(&mut self, color: Vector3<f32>);
 
-    fn get_strength(&self) -> f32;
+    fn strength(&self) -> f32;
 
     fn set_strength(&mut self, strength: f32);
 
-    fn get_bind_group_layout(logical_device: &LogicalDevice) -> BindGroupLayout;
+    fn bind_group_layout(logical_device: &LogicalDevice) -> BindGroupLayout;
 
-    fn get_buffer(&self) -> &Buffer;
+    fn buffer(&self) -> &Buffer;
 
-    fn get_bind_group(&self) -> &BindGroup;
+    fn bind_group(&self) -> &BindGroup;
 }
