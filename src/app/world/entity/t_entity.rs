@@ -6,7 +6,7 @@ use crate::{
 use super::{EntityAction, EntityConfiguration};
 
 pub trait TEntity {
-    fn get_entity_configuration(&self) -> EntityConfiguration;
+    fn entity_configuration(&self) -> EntityConfiguration;
 
     fn update(&mut self, _delta_time: f64, _input_handler: &InputHandler) -> Vec<EntityAction> {
         vec![EntityAction::Keep]
@@ -16,7 +16,7 @@ pub trait TEntity {
         Ok(())
     }
 
-    fn get_meshes(&self) -> Vec<&dyn TMesh> {
+    fn meshes(&self) -> Vec<&dyn TMesh> {
         vec![]
     }
 }
