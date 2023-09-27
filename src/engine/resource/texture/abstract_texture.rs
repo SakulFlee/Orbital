@@ -121,8 +121,8 @@ impl AbstractTexture {
     ) -> EngineResult<Self> {
         // Make texture
         let texture = device.create_texture(&TextureDescriptor {
-            label: label,
-            size: size,
+            label,
+            size,
             mip_level_count: 1,
             sample_count: 1,
             dimension: TextureDimension::D2,

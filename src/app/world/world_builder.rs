@@ -54,7 +54,7 @@ impl WorldBuilder {
                 .entity_tag_duplication_behaviour
                 .unwrap_or(EntityTagDuplicationBehaviour::WarnOnDuplication),
             entities: vec![],
-            ambient_light: ambient_light,
+            ambient_light,
             point_lights: [
                 // Take 4x times the zero'th entry. Assumes there are 4 lights.
                 point_lights.remove(0),

@@ -16,4 +16,4 @@ pub mod entities;
 
 // TODO: Config
 
-pub const APP_NAME: &'static str = "WGPU-Engine";
+pub const APP_NAME: &str = "WGPU-Engine";

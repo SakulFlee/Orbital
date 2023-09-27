@@ -22,7 +22,7 @@ impl CameraControllingEntity {
 impl Default for CameraControllingEntity {
     fn default() -> Self {
         Self {
-            eye_position: Default::default(),
+            eye_position: Camera::DEFAULT_CAMERA_EYE_POSITION.into(),
         }
     }
 }
