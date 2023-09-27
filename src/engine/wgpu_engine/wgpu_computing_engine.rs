@@ -145,15 +145,15 @@ impl WGPUComputingEngine {
 }
 
 impl TComputingEngine for WGPUComputingEngine {
-    fn get_instance(&self) -> &Instance {
+    fn instance(&self) -> &Instance {
         &self.instance
     }
 
-    fn get_adapter(&self) -> &Adapter {
+    fn adapter(&self) -> &Adapter {
         &self.adapter
     }
 
-    fn get_logical_device(&self) -> &LogicalDevice {
+    fn logical_device(&self) -> &LogicalDevice {
         &self.logical_device
     }
 }
