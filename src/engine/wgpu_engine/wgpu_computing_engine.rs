@@ -1,5 +1,3 @@
-
-
 use wgpu::{
     Adapter, Backend, Backends, Device, DeviceDescriptor, Features, Instance, InstanceDescriptor,
     Limits, Queue,
@@ -62,10 +60,8 @@ impl WGPUComputingEngine {
 
         // Print out debug information
         log::debug!("The following adapters are compatible:");
-        let mut i = 0;
-        for (adapter, score) in &adapters {
+        for (i, (adapter, score)) in adapters.iter().enumerate() {
             log::debug!("#{}, Score: {} - {:?}", i, score, adapter.get_info());
-            i += 1;
         }
 
         // Pick the last adapter.
