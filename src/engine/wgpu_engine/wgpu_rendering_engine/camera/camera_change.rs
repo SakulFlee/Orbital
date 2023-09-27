@@ -58,31 +58,31 @@ impl CameraChange {
         self
     }
 
-    pub fn get_eye(&self) -> Option<Point3<f32>> {
+    pub fn eye(&self) -> Option<Point3<f32>> {
         self.eye
     }
 
-    pub fn get_target(&self) -> Option<Point3<f32>> {
+    pub fn target(&self) -> Option<Point3<f32>> {
         self.target
     }
 
-    pub fn get_up(&self) -> Option<Vector3<f32>> {
+    pub fn up(&self) -> Option<Vector3<f32>> {
         self.up
     }
 
-    pub fn get_aspect(&self) -> Option<f32> {
+    pub fn aspect(&self) -> Option<f32> {
         self.aspect
     }
 
-    pub fn get_fovy(&self) -> Option<f32> {
+    pub fn fovy(&self) -> Option<f32> {
         self.fovy
     }
 
-    pub fn get_znear(&self) -> Option<f32> {
+    pub fn znear(&self) -> Option<f32> {
         self.znear
     }
 
-    pub fn get_zfar(&self) -> Option<f32> {
+    pub fn zfar(&self) -> Option<f32> {
         self.zfar
     }
 }
