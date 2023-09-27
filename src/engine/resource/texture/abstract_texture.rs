@@ -91,7 +91,7 @@ impl AbstractTexture {
         logical_device.queue().write_texture(
             ImageCopyTexture {
                 aspect: TextureAspect::All,
-                texture: abstract_texture.get_texture(),
+                texture: abstract_texture.texture(),
                 mip_level: 0,
                 origin: Origin3d::ZERO,
             },
@@ -142,15 +142,15 @@ impl AbstractTexture {
 }
 
 impl TTexture for AbstractTexture {
-    fn get_texture(&self) -> &Texture {
+    fn texture(&self) -> &Texture {
         &self.texture
     }
 
-    fn get_view(&self) -> &TextureView {
+    fn view(&self) -> &TextureView {
         &self.view
     }
 
-    fn get_sampler(&self) -> &Sampler {
+    fn sampler(&self) -> &Sampler {
         &self.sampler
     }
 }
