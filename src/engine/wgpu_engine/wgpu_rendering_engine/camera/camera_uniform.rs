@@ -27,7 +27,7 @@ impl CameraUniform {
 
     pub fn from_camera(camera: &Camera) -> Self {
         Self {
-            view_projection_matrix: camera.get_view_projection().into(),
+            view_projection_matrix: camera.view_projection().into(),
         }
     }
 }
