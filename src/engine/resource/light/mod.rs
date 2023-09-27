@@ -1,5 +1,5 @@
-mod ambient_light_uniform;
-pub use ambient_light_uniform::*;
+mod u_ambient_light;
+pub use u_ambient_light::*;
 
 mod point_light_uniform;
 pub use point_light_uniform::*;
