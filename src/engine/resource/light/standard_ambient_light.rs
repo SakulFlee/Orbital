@@ -6,7 +6,7 @@ use wgpu::{
 
 use crate::engine::LogicalDevice;
 
-use super::{AmbientLightUniform, TAmbientLight};
+use super::{TAmbientLight, UAmbientLight};
 
 pub struct StandardAmbientLight {
     color: Vector3<f32>,
@@ -17,7 +17,7 @@ pub struct StandardAmbientLight {
 
 impl StandardAmbientLight {
     pub fn new(logical_device: &LogicalDevice, color: Vector3<f32>, strength: f32) -> Self {
-        let empty_uniform: AmbientLightUniform = AmbientLightUniform::empty();
+        let empty_uniform: UAmbientLight = UAmbientLight::empty();
         let buffer = logical_device
             .device()
             .create_buffer_init(&BufferInitDescriptor {
@@ -52,8 +52,8 @@ impl StandardAmbientLight {
 }
 
 impl TAmbientLight for StandardAmbientLight {
-    fn to_uniform(&self) -> AmbientLightUniform {
-        AmbientLightUniform::new(self.color.into(), self.strength)
+    fn to_uniform(&self) -> UAmbientLight {
+        UAmbientLight::new(self.color.into(), self.strength)
     }
 
     fn color(&self) -> Vector3<f32> {

@@ -2,7 +2,7 @@ use bytemuck::{Pod, Zeroable};
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
-pub struct AmbientLightUniform {
+pub struct UAmbientLight {
     /// Color of the ambient light
     color: [f32; 3],
 
@@ -10,7 +10,7 @@ pub struct AmbientLightUniform {
     strength: f32,
 }
 
-impl AmbientLightUniform {
+impl UAmbientLight {
     pub fn empty() -> Self {
         Self::new([0.0, 0.0, 0.0], 0.0)
     }

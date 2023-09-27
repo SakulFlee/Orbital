@@ -6,7 +6,7 @@ use wgpu::{
 
 use crate::engine::LogicalDevice;
 
-use super::AmbientLightUniform;
+use super::UAmbientLight;
 
 pub trait TAmbientLight {
     const BIND_GROUP_LAYOUT_DESCRIPTOR: BindGroupLayoutDescriptor<'static> =
@@ -32,7 +32,7 @@ pub trait TAmbientLight {
         )
     }
 
-    fn to_uniform(&self) -> AmbientLightUniform;
+    fn to_uniform(&self) -> UAmbientLight;
 
     fn color(&self) -> Vector3<f32>;
 
