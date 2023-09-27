@@ -3,7 +3,7 @@ use wgpu::{Adapter, Surface, TextureFormat};
 use crate::engine::{EngineError, EngineResult};
 
 pub trait SurfaceHelper {
-    fn get_surface_texture_formats(&self, adapter: &Adapter) -> Vec<TextureFormat>;
+    fn surface_texture_formats(&self, adapter: &Adapter) -> Vec<TextureFormat>;
     fn find_surface_texture_format<P>(
         &self,
         adapter: &Adapter,
@@ -15,7 +15,7 @@ pub trait SurfaceHelper {
 }
 
 impl SurfaceHelper for Surface {
-    fn get_surface_texture_formats(&self, adapter: &Adapter) -> Vec<TextureFormat> {
+    fn surface_texture_formats(&self, adapter: &Adapter) -> Vec<TextureFormat> {
         self.get_capabilities(adapter).formats
     }
 
@@ -27,8 +27,7 @@ impl SurfaceHelper for Surface {
     where
         P: Fn(&&TextureFormat) -> bool,
     {
-        self
-            .get_surface_texture_formats(adapter)
+        self.surface_texture_formats(adapter)
             .iter()
             .find(predicate)
             .cloned()
