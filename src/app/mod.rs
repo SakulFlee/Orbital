@@ -54,14 +54,14 @@ impl App {
 
         let rendering_engine = WGPURenderingEngine::new(&window)?;
 
-        let world = world_builder.build(rendering_engine.get_logical_device());
+        let world = world_builder.build(rendering_engine.logical_device());
 
         let timer = Timer::new();
 
         let input_handler = InputHandler::new();
 
         let camera = Camera::from_window_size(
-            rendering_engine.get_logical_device(),
+            rendering_engine.logical_device(),
             window.inner_size().into(),
         );
 
@@ -89,7 +89,7 @@ impl App {
                     } => app.handle_resize(new_size, &window),
                     WindowEvent::KeyboardInput { input, .. } => app
                         .input_handler
-                        .get_keyboard_input_handler()
+                        .keyboard_input_handler()
                         .handle_keyboard_input(input),
                     _ => (),
                 },
@@ -146,13 +146,13 @@ impl App {
             return;
         }
 
-        if !self.rendering_engine.get_device().poll(MaintainBase::Wait) {
+        if !self.rendering_engine.device().poll(MaintainBase::Wait) {
             log::error!("Failed to poll device before resizing!");
             return;
         }
 
         // Apply config changes and reconfigure surface
-        let mut current_config = self.rendering_engine.get_surface_configuration().clone();
+        let mut current_config = self.rendering_engine.surface_configuration().clone();
         current_config.width = new_size.width;
         current_config.height = new_size.height;
         self.rendering_engine
@@ -161,12 +161,12 @@ impl App {
     }
 
     fn handle_redraw(&mut self) -> EngineResult<()> {
-        let surface_texture = self.rendering_engine.get_surface_texture()?;
+        let surface_texture = self.rendering_engine.surface_texture()?;
         let surface_texture_view = surface_texture.make_texture_view();
 
         let mut command_encoder =
             self.rendering_engine
-                .get_device()
+                .device()
                 .create_command_encoder(&CommandEncoderDescriptor {
                     label: Some("Command Encoder"),
                 });
@@ -178,16 +178,16 @@ impl App {
                     view: &surface_texture_view,
                     resolve_target: None,
                     ops: Operations {
-                        load: LoadOp::Clear(self.world.get_clear_color()),
+                        load: LoadOp::Clear(self.world.clear_color()),
                         store: true,
                     },
                 })],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: self
                         .rendering_engine
-                        .get_depth_texture()
+                        .depth_texture()
                         .expect("Depth Texture gone missing!")
-                        .get_view(),
+                        .view(),
                     depth_ops: Some(Operations {
                         load: LoadOp::Clear(1.0),
                         store: true,
@@ -196,44 +196,42 @@ impl App {
                 }),
             });
 
-            render_pass.set_pipeline(self.rendering_engine.get_render_pipeline());
+            render_pass.set_pipeline(self.rendering_engine.render_pipeline());
 
             // Call entity renderables
             let (meshes, ambient_light, point_lights) = self
                 .world
-                .prepare_render_and_collect_data(self.rendering_engine.get_logical_device());
+                .prepare_render_and_collect_data(self.rendering_engine.logical_device());
 
             meshes.iter().for_each(|x| {
                 // Vertex & Instance Buffer
-                render_pass.set_vertex_buffer(0, x.get_vertex_buffer().slice(..));
-                render_pass.set_vertex_buffer(1, x.get_instance_buffer().slice(..));
+                render_pass.set_vertex_buffer(0, x.vertex_buffer().slice(..));
+                render_pass.set_vertex_buffer(1, x.instance_buffer().slice(..));
 
                 // Index Buffer
-                render_pass.set_index_buffer(x.get_index_buffer().slice(..), IndexFormat::Uint32);
+                render_pass.set_index_buffer(x.index_buffer().slice(..), IndexFormat::Uint32);
 
                 // Texture / Material
-                render_pass.set_bind_group(0, x.get_material().get_bind_group(), &[]);
+                render_pass.set_bind_group(0, x.material().bind_group(), &[]);
 
                 // Camera
-                render_pass.set_bind_group(1, self.camera.get_bind_group(), &[]);
+                render_pass.set_bind_group(1, self.camera.bind_group(), &[]);
 
                 // Ambient Light
-                render_pass.set_bind_group(2, ambient_light.get_bind_group(), &[]);
+                render_pass.set_bind_group(2, ambient_light.bind_group(), &[]);
 
                 // Point Light
-                render_pass.set_bind_group(3, point_lights[0].get_bind_group(), &[]);
-                render_pass.set_bind_group(4, point_lights[1].get_bind_group(), &[]);
-                render_pass.set_bind_group(5, point_lights[2].get_bind_group(), &[]);
-                render_pass.set_bind_group(6, point_lights[3].get_bind_group(), &[]);
+                render_pass.set_bind_group(3, point_lights[0].bind_group(), &[]);
+                render_pass.set_bind_group(4, point_lights[1].bind_group(), &[]);
+                render_pass.set_bind_group(5, point_lights[2].bind_group(), &[]);
+                render_pass.set_bind_group(6, point_lights[3].bind_group(), &[]);
 
-                render_pass.draw_indexed(0..x.get_index_count(), 0, 0..x.get_instance_count());
+                render_pass.draw_indexed(0..x.index_count(), 0, 0..x.instance_count());
             });
         }
 
         let command_buffer = command_encoder.finish();
-        self.rendering_engine
-            .get_queue()
-            .submit(once(command_buffer));
+        self.rendering_engine.queue().submit(once(command_buffer));
         surface_texture.present();
 
         Ok(())
@@ -243,10 +241,10 @@ impl App {
         // Fast (i.e. by-cycle) updates
         self.world.call_updateable(
             UpdateFrequency::Fast,
-            self.timer.get_current_delta_time(),
+            self.timer.current_delta_time(),
             &self.input_handler,
             &mut self.camera,
-            self.rendering_engine.get_logical_device(),
+            self.rendering_engine.logical_device(),
         );
 
         if let Some((delta_time, ups)) = self.timer.tick() {
@@ -259,11 +257,7 @@ impl App {
                 window.set_title(&format!(
                     "{} @ {} - UPS: {}/s (Δ {}s)",
                     self.name,
-                    self.rendering_engine
-                        .get_adapter()
-                        .get_info()
-                        .backend
-                        .to_str(),
+                    self.rendering_engine.adapter().get_info().backend.to_str(),
                     ups,
                     delta_time
                 ));
@@ -275,7 +269,7 @@ impl App {
                 delta_time,
                 &self.input_handler,
                 &mut self.camera,
-                self.rendering_engine.get_logical_device(),
+                self.rendering_engine.logical_device(),
             );
         }
     }
