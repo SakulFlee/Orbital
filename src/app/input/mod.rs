@@ -18,7 +18,7 @@ impl InputHandler {
         }
     }
 
-    pub fn get_keyboard_input_handler(&mut self) -> &mut KeyboardInputHandler {
+    pub fn keyboard_input_handler(&mut self) -> &mut KeyboardInputHandler {
         &mut self.keyboard_input_handler
     }
 
