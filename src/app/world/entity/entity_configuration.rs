@@ -18,15 +18,15 @@ impl EntityConfiguration {
         }
     }
 
-    pub fn get_tag(&self) -> &str {
+    pub fn tag(&self) -> &str {
         self.tag.as_ref()
     }
 
-    pub fn get_update_frequency(&self) -> &UpdateFrequency {
+    pub fn update_frequency(&self) -> &UpdateFrequency {
         &self.update_frequency
     }
 
-    pub fn get_do_render(&self) -> bool {
+    pub fn do_render(&self) -> bool {
         self.do_render
     }
 }
