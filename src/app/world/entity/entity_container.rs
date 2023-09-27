@@ -10,7 +10,7 @@ pub struct EntityContainer {
 
 impl EntityContainer {
     pub fn from_boxed_entity(entity: BoxedEntity) -> Self {
-        let entity_configuration = entity.get_entity_configuration();
+        let entity_configuration = entity.entity_configuration();
         Self {
             entity_configuration,
             entity,
@@ -27,19 +27,19 @@ impl EntityContainer {
         }
     }
 
-    pub fn get_entity_configuration(&self) -> &EntityConfiguration {
+    pub fn entity_configuration(&self) -> &EntityConfiguration {
         &self.entity_configuration
     }
 
-    pub fn get_entity(&self) -> &BoxedEntity {
+    pub fn entity(&self) -> &BoxedEntity {
         &self.entity
     }
 
-    pub fn get_entity_mut(&mut self) -> &mut BoxedEntity {
+    pub fn entity_mut(&mut self) -> &mut BoxedEntity {
         &mut self.entity
     }
 
-    pub fn get_and_move_entity(self) -> BoxedEntity {
+    pub fn and_move_entity(self) -> BoxedEntity {
         self.entity
     }
 
@@ -48,6 +48,6 @@ impl EntityContainer {
     }
 
     pub fn is_tag(&self, tag: &str) -> bool {
-        self.entity_configuration.get_tag() == tag
+        self.entity_configuration.tag() == tag
     }
 }
