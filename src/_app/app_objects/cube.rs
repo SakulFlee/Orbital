@@ -1,4 +1,4 @@
-use wgpu::{BindGroupLayout, Device, Queue};
+use wgpu::{logical_device, BindGroupLayout};
 
 use crate::{AppObject, Model};
 
@@ -8,12 +8,11 @@ pub struct Cube {
 
 impl Cube {
     pub fn new(
-        device: &Device,
-        queue: &Queue,
+        logical_device: &LogicalDevice,
         bind_group_layout: &BindGroupLayout,
     ) -> Result<Self, String> {
         Ok(Self {
-            model: Model::from_path("cube/cube.obj", device, queue, bind_group_layout)?,
+            model: Model::from_path("cube/cube.obj", logical_device, bind_group_layout)?,
         })
     }
 }

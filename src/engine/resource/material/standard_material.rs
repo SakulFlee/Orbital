@@ -2,11 +2,11 @@ use std::path::Path;
 
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingResource, BindingType, Device, Queue, SamplerBindingType,
-    ShaderStages, TextureSampleType, TextureViewDimension,
+    BindGroupLayoutEntry, BindingResource, BindingType, SamplerBindingType, ShaderStages,
+    TextureSampleType, TextureViewDimension,
 };
 
-use crate::engine::{DiffuseTexture, EngineResult, ResourceManager, TTexture};
+use crate::engine::{DiffuseTexture, EngineResult, LogicalDevice, ResourceManager, TTexture};
 
 use super::TMaterial;
 
@@ -40,15 +40,15 @@ impl StandardMaterial {
             ],
         };
 
-    pub fn from_texture<P>(device: &Device, queue: &Queue, file_path: P) -> EngineResult<Self>
+    pub fn from_texture<P>(logical_device: &LogicalDevice, file_path: P) -> EngineResult<Self>
     where
         P: AsRef<Path>,
     {
         let file_name = file_path.as_ref().clone().to_str();
         let diffuse_texture =
-            ResourceManager::diffuse_texture_from_path(device, queue, file_path.as_ref().clone())?;
+            ResourceManager::diffuse_texture_from_path(logical_device, file_path.as_ref().clone())?;
 
-        let bind_group = Self::make_bind_group(file_name, &diffuse_texture, device);
+        let bind_group = Self::make_bind_group(file_name, &diffuse_texture, logical_device);
 
         Ok(Self {
             name: format!("StandardMaterial@{}", file_name.unwrap_or("Unknown")),
@@ -60,24 +60,26 @@ impl StandardMaterial {
     fn make_bind_group(
         label: Option<&str>,
         diffuse_texture: &DiffuseTexture,
-        device: &Device,
+        logical_device: &LogicalDevice,
     ) -> BindGroup {
-        let bind_group_layout = Self::get_bind_group_layout(device);
+        let bind_group_layout = Self::get_bind_group_layout(logical_device);
 
-        device.create_bind_group(&BindGroupDescriptor {
-            label,
-            layout: &bind_group_layout,
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureView(diffuse_texture.get_view()),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::Sampler(diffuse_texture.get_sampler()),
-                },
-            ],
-        })
+        logical_device
+            .device()
+            .create_bind_group(&BindGroupDescriptor {
+                label,
+                layout: &bind_group_layout,
+                entries: &[
+                    BindGroupEntry {
+                        binding: 0,
+                        resource: BindingResource::TextureView(diffuse_texture.get_view()),
+                    },
+                    BindGroupEntry {
+                        binding: 1,
+                        resource: BindingResource::Sampler(diffuse_texture.get_sampler()),
+                    },
+                ],
+            })
     }
 }
 
@@ -90,8 +92,10 @@ impl TMaterial for StandardMaterial {
         &self.diffuse_texture
     }
 
-    fn get_bind_group_layout(device: &Device) -> BindGroupLayout {
-        device.create_bind_group_layout(&Self::BIND_GROUP_LAYOUT_DESCRIPTOR)
+    fn get_bind_group_layout(logical_device: &LogicalDevice) -> BindGroupLayout {
+        logical_device
+            .device()
+            .create_bind_group_layout(&Self::BIND_GROUP_LAYOUT_DESCRIPTOR)
     }
 
     fn get_bind_group(&self) -> &BindGroup {

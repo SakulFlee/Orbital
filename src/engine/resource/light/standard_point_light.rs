@@ -1,8 +1,10 @@
 use cgmath::Vector3;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
-    BindGroup, BindGroupDescriptor, BindGroupEntry, Buffer, BufferUsages, Device, Queue,
+    BindGroup, BindGroupDescriptor, BindGroupEntry, Buffer, BufferUsages,
 };
+
+use crate::engine::LogicalDevice;
 
 use super::{PointLightUniform, TPointLight};
 
@@ -17,29 +19,32 @@ pub struct StandardPointLight {
 
 impl StandardPointLight {
     pub fn new(
-        device: &Device,
-        queue: &Queue,
+        logical_device: &LogicalDevice,
         color: Vector3<f32>,
         position: Vector3<f32>,
         strength: f32,
         enabled: bool,
     ) -> Self {
         let empty_uniform = PointLightUniform::empty();
-        let buffer = device.create_buffer_init(&BufferInitDescriptor {
-            label: Some("Point Light Buffer"),
-            contents: bytemuck::cast_slice(&[empty_uniform]),
-            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-        });
+        let buffer = logical_device
+            .device()
+            .create_buffer_init(&BufferInitDescriptor {
+                label: Some("Point Light Buffer"),
+                contents: bytemuck::cast_slice(&[empty_uniform]),
+                usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+            });
 
-        let bind_group_layout = Self::get_bind_group_layout(device);
-        let bind_group = device.create_bind_group(&BindGroupDescriptor {
-            label: Some("Point Light Bind Group"),
-            layout: &bind_group_layout,
-            entries: &[BindGroupEntry {
-                binding: 0,
-                resource: buffer.as_entire_binding(),
-            }],
-        });
+        let bind_group_layout = Self::get_bind_group_layout(logical_device);
+        let bind_group = logical_device
+            .device()
+            .create_bind_group(&BindGroupDescriptor {
+                label: Some("Point Light Bind Group"),
+                layout: &bind_group_layout,
+                entries: &[BindGroupEntry {
+                    binding: 0,
+                    resource: buffer.as_entire_binding(),
+                }],
+            });
 
         let mut light = Self {
             color,
@@ -50,7 +55,7 @@ impl StandardPointLight {
             bind_group,
         };
 
-        light.update_buffer(queue);
+        light.update_buffer(logical_device);
 
         light
     }

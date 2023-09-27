@@ -1,8 +1,10 @@
 use bytemuck::NoUninit;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
-    Buffer, BufferUsages, Device,
+    Buffer, BufferUsages,
 };
+
+use crate::engine::LogicalDevice;
 
 pub trait BufferHelper {
     fn make_buffer<A>(&self, label: Option<&str>, content: &[A], usage: BufferUsages) -> Buffer
@@ -13,20 +15,22 @@ pub trait BufferHelper {
         label: Option<&str>,
         content: &[A],
         usage: BufferUsages,
-        device: &Device,
+        logical_device: &LogicalDevice,
     ) -> Buffer
     where
         A: NoUninit,
     {
-        device.create_buffer_init(&BufferInitDescriptor {
-            label,
-            contents: bytemuck::cast_slice(content),
-            usage,
-        })
+        logical_device
+            .device()
+            .create_buffer_init(&BufferInitDescriptor {
+                label,
+                contents: bytemuck::cast_slice(content),
+                usage,
+            })
     }
 }
 
-impl BufferHelper for Device {
+impl BufferHelper for LogicalDevice {
     fn make_buffer<A>(&self, label: Option<&str>, content: &[A], usage: BufferUsages) -> Buffer
     where
         A: NoUninit,

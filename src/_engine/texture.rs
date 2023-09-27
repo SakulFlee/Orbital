@@ -19,7 +19,7 @@ pub struct Texture {
 impl Texture {
     pub const DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
-    pub fn from_path(device: &Device, queue: &Queue, file_name: &str) -> Result<Self, String> {
+    pub fn from_path(logical_device: &LogicalDevice, file_name: &str) -> Result<Self, String> {
         let resource_folder = if cfg!(debug_assertions) {
             Path::new(env!("OUT_DIR")).join("res")
         } else {
@@ -34,22 +34,20 @@ impl Texture {
 
         let bytes = std::fs::read(&file_path).map_err(|x| format!("Failed to read file: {}", x))?;
 
-        Self::from_bytes(device, queue, &bytes, file_path_str)
+        Self::from_bytes(logical_device, &bytes, file_path_str)
     }
 
     pub fn from_bytes(
-        device: &Device,
-        queue: &Queue,
+        logical_device: &LogicalDevice,
         bytes: &[u8],
         label: &str,
     ) -> Result<Self, String> {
         let image = image::load_from_memory(bytes).map_err(|e| e.to_string())?;
-        Self::from_image(device, queue, &image, Some(label))
+        Self::from_image(logical_device, &image, Some(label))
     }
 
     pub fn from_image(
-        device: &Device,
-        queue: &Queue,
+        logical_device: &LogicalDevice,
         image: &DynamicImage,
         label: Option<&str>,
     ) -> Result<Self, String> {
