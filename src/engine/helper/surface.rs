@@ -27,12 +27,12 @@ impl SurfaceHelper for Surface {
     where
         P: Fn(&&TextureFormat) -> bool,
     {
-        Ok(self
+        self
             .get_surface_texture_formats(adapter)
             .iter()
             .find(predicate)
             .cloned()
-            .ok_or(EngineError::NoMatch)?)
+            .ok_or(EngineError::NoMatch)
     }
 
     fn find_srgb_surface_texture_format(&self, adapter: &Adapter) -> EngineResult<TextureFormat> {

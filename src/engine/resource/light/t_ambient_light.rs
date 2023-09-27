@@ -24,7 +24,7 @@ pub trait TAmbientLight {
 
     fn update_buffer(&self, queue: &Queue) {
         queue.write_buffer(
-            &self.get_buffer(),
+            self.get_buffer(),
             0,
             bytemuck::cast_slice(&[self.to_uniform()]),
         )
