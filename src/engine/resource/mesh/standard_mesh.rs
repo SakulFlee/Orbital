@@ -95,35 +95,35 @@ impl StandardMesh {
 }
 
 impl TMesh for StandardMesh {
-    fn get_vertex_buffer(&self) -> &Buffer {
+    fn vertex_buffer(&self) -> &Buffer {
         &self.vertex_buffer
     }
 
-    fn get_index_buffer(&self) -> &Buffer {
+    fn index_buffer(&self) -> &Buffer {
         &self.index_buffer
     }
 
-    fn get_index_count(&self) -> u32 {
+    fn index_count(&self) -> u32 {
         self.index_count
     }
 
-    fn get_instances(&mut self) -> &mut Vec<StandardInstance> {
+    fn instances(&mut self) -> &mut Vec<StandardInstance> {
         &mut self.instances
     }
 
-    fn get_instance_count(&self) -> u32 {
+    fn instance_count(&self) -> u32 {
         self.instances.len() as u32
     }
 
-    fn get_instance_buffer(&self) -> &Buffer {
+    fn instance_buffer(&self) -> &Buffer {
         &self.instance_buffer
     }
 
-    fn get_material(&self) -> &dyn TMaterial {
+    fn material(&self) -> &dyn TMaterial {
         self.material.as_ref()
     }
 
-    fn get_name(&self) -> Option<String> {
+    fn name(&self) -> Option<String> {
         self.name.clone()
     }
 }
