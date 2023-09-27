@@ -26,7 +26,7 @@ pub trait TPointLight {
 
     fn update_buffer(&mut self, logical_device: &LogicalDevice) {
         logical_device.queue().write_buffer(
-            self.get_buffer(),
+            self.buffer(),
             0,
             bytemuck::cast_slice(&[self.to_uniform()]),
         )
@@ -34,29 +34,29 @@ pub trait TPointLight {
 
     fn to_uniform(&self) -> PointLightUniform;
 
-    fn get_color(&self) -> Vector3<f32>;
+    fn color(&self) -> Vector3<f32>;
 
     fn set_color(&mut self, color: Vector3<f32>);
 
-    fn get_position(&self) -> Vector3<f32>;
+    fn position(&self) -> Vector3<f32>;
 
     fn set_position(&mut self, position: Vector3<f32>);
 
-    fn get_strength(&self) -> f32;
+    fn strength(&self) -> f32;
 
     fn set_strength(&mut self, strength: f32);
 
-    fn get_enabled(&self) -> bool;
+    fn enabled(&self) -> bool;
 
     fn set_enabled(&mut self, enabled: bool);
 
-    fn get_bind_group_layout(logical_device: &LogicalDevice) -> BindGroupLayout {
+    fn bind_group_layout(logical_device: &LogicalDevice) -> BindGroupLayout {
         logical_device
             .device()
             .create_bind_group_layout(&Self::BIND_GROUP_LAYOUT_DESCRIPTOR)
     }
 
-    fn get_buffer(&self) -> &Buffer;
+    fn buffer(&self) -> &Buffer;
 
-    fn get_bind_group(&self) -> &BindGroup;
+    fn bind_group(&self) -> &BindGroup;
 }
