@@ -81,7 +81,7 @@ impl Engine {
         let adapter_arc = Arc::new(adapter);
         log::debug!("{adapter_arc:?}");
 
-        let (device, queue) = Engine::make_device(&adapter_arc).await;
+        let (logical_device) = Engine::make_device(&adapter_arc).await;
         let device_arc = Arc::new(device);
         let queue_arc = Arc::new(queue);
         log::debug!("{device_arc:?}");
@@ -365,7 +365,7 @@ impl Engine {
     }
 
     /// Creates a new [Device] and, as a by-product a [Queue] of that [Device].
-    async fn make_device(adapter: &Adapter) -> (Device, Queue) {
+    async fn make_device(adapter: &Adapter) -> (logical_device) {
         adapter
             .request_device(
                 &DeviceDescriptor {

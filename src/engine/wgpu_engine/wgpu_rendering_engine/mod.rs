@@ -1,16 +1,17 @@
+use logical_device::LogicalDevice;
 use wgpu::{
     include_wgsl, Adapter, BlendState, ColorTargetState, ColorWrites, CompareFunction,
     DepthBiasState, DepthStencilState, Device, Extent3d, Face, FragmentState, FrontFace, Instance,
     MultisampleState, PipelineLayoutDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology,
-    Queue, RenderPipeline, RenderPipelineDescriptor, ShaderModule, StencilState,
-    SurfaceConfiguration, TextureFormat, VertexState,
+    RenderPipeline, RenderPipelineDescriptor, ShaderModule, StencilState, SurfaceConfiguration,
+    TextureFormat, VertexState,
 };
 use winit::window::Window;
 
 use crate::engine::{
-    DepthTexture, EngineResult, StandardAmbientLight, StandardInstance, StandardMaterial,
-    StandardPointLight, TAmbientLight, TComputingEngine, TInstance, TMaterial, TPointLight,
-    TRenderingEngine, TVertex, VertexPoint,
+    logical_device, DepthTexture, EngineResult, StandardAmbientLight, StandardInstance,
+    StandardMaterial, StandardPointLight, TAmbientLight, TComputingEngine, TInstance, TMaterial,
+    TPointLight, TRenderingEngine, TVertex, VertexPoint,
 };
 
 use super::wgpu_computing_engine::WGPUComputingEngine;
@@ -33,12 +34,12 @@ impl WGPURenderingEngine {
         let (computing_engine, surface) = Surface::from_window(window)?;
 
         let render_pipeline = Self::make_render_pipeline(
-            computing_engine.get_device(),
+            computing_engine.get_logical_device(),
             surface.get_surface_texture_format(),
         )?;
 
         let depth_texture = DepthTexture::from_empty(
-            computing_engine.get_device(),
+            computing_engine.get_logical_device(),
             Extent3d {
                 width: window.inner_size().width,
                 height: window.inner_size().height,
@@ -62,84 +63,89 @@ impl WGPURenderingEngine {
     }
 
     fn make_render_pipeline(
-        device: &Device,
+        logical_device: &LogicalDevice,
         surface_texture_format: TextureFormat,
     ) -> EngineResult<RenderPipeline> {
-        let main_shader = Self::make_shader(device);
+        let main_shader = Self::make_shader(logical_device.device());
 
-        let render_pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
-            label: Some("Render Pipeline Layout"),
-            bind_group_layouts: &[
-                &StandardMaterial::get_bind_group_layout(device),
-                &Camera::get_bind_group_layout(device),
-                &StandardAmbientLight::get_bind_group_layout(device),
-                &StandardPointLight::get_bind_group_layout(device),
-                &StandardPointLight::get_bind_group_layout(device),
-                &StandardPointLight::get_bind_group_layout(device),
-                &StandardPointLight::get_bind_group_layout(device),
-            ],
-            push_constant_ranges: &[],
-        });
+        let render_pipeline_layout =
+            logical_device
+                .device()
+                .create_pipeline_layout(&PipelineLayoutDescriptor {
+                    label: Some("Render Pipeline Layout"),
+                    bind_group_layouts: &[
+                        &StandardMaterial::get_bind_group_layout(logical_device),
+                        &Camera::get_bind_group_layout(logical_device),
+                        &StandardAmbientLight::get_bind_group_layout(logical_device),
+                        &StandardPointLight::get_bind_group_layout(logical_device),
+                        &StandardPointLight::get_bind_group_layout(logical_device),
+                        &StandardPointLight::get_bind_group_layout(logical_device),
+                        &StandardPointLight::get_bind_group_layout(logical_device),
+                    ],
+                    push_constant_ranges: &[],
+                });
 
-        Ok(device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
-            layout: Some(&render_pipeline_layout),
-            // Vertex shader
-            vertex: VertexState {
-                module: &main_shader,
-                entry_point: "vs_main",
-                // Vertex buffers
-                buffers: &[
-                    VertexPoint::descriptor::<VertexPoint>(),
-                    StandardInstance::descriptor(),
-                ],
-            },
-            // Fragment shader
-            fragment: Some(FragmentState {
-                module: &main_shader,
-                entry_point: "fs_main",
-                // Store the resulting colours in a format
-                // that is equal to the surface format
-                targets: &[Some(ColorTargetState {
-                    // Match the surface format
-                    format: surface_texture_format,
-                    // Replace pixels
-                    blend: Some(BlendState::REPLACE),
-                    // Use all colour channels
-                    write_mask: ColorWrites::ALL,
-                })],
-            }),
-            // How to interpret the vertices
-            primitive: PrimitiveState {
-                // Every three vertices form a triangle
-                topology: PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                // A given triangle is is facing "forward" if it's arranged counter-clockwise
-                front_face: FrontFace::Ccw,
-                // Cull the triangle if it's the backside
-                cull_mode: Some(Face::Back),
-                // Fill the triangle
-                // Note: requires Features::NON_FILL_POLYGON_MODE if not Fill
-                polygon_mode: PolygonMode::Fill,
-                // Note: requires Features::DEPTH_CLIP_CONTROL
-                unclipped_depth: false,
-                // Note: requires Features::CONSERVATIVE_RASTERIZATION
-                conservative: false,
-            },
-            depth_stencil: Some(DepthStencilState {
-                format: DepthTexture::TEXTURE_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::Less,
-                stencil: StencilState::default(),
-                bias: DepthBiasState::default(),
-            }),
-            multisample: MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-            multiview: None,
-        }))
+        Ok(logical_device
+            .device()
+            .create_render_pipeline(&RenderPipelineDescriptor {
+                label: Some("Render Pipeline"),
+                layout: Some(&render_pipeline_layout),
+                // Vertex shader
+                vertex: VertexState {
+                    module: &main_shader,
+                    entry_point: "vs_main",
+                    // Vertex buffers
+                    buffers: &[
+                        VertexPoint::descriptor::<VertexPoint>(),
+                        StandardInstance::descriptor(),
+                    ],
+                },
+                // Fragment shader
+                fragment: Some(FragmentState {
+                    module: &main_shader,
+                    entry_point: "fs_main",
+                    // Store the resulting colours in a format
+                    // that is equal to the surface format
+                    targets: &[Some(ColorTargetState {
+                        // Match the surface format
+                        format: surface_texture_format,
+                        // Replace pixels
+                        blend: Some(BlendState::REPLACE),
+                        // Use all colour channels
+                        write_mask: ColorWrites::ALL,
+                    })],
+                }),
+                // How to interpret the vertices
+                primitive: PrimitiveState {
+                    // Every three vertices form a triangle
+                    topology: PrimitiveTopology::TriangleList,
+                    strip_index_format: None,
+                    // A given triangle is is facing "forward" if it's arranged counter-clockwise
+                    front_face: FrontFace::Ccw,
+                    // Cull the triangle if it's the backside
+                    cull_mode: Some(Face::Back),
+                    // Fill the triangle
+                    // Note: requires Features::NON_FILL_POLYGON_MODE if not Fill
+                    polygon_mode: PolygonMode::Fill,
+                    // Note: requires Features::DEPTH_CLIP_CONTROL
+                    unclipped_depth: false,
+                    // Note: requires Features::CONSERVATIVE_RASTERIZATION
+                    conservative: false,
+                },
+                depth_stencil: Some(DepthStencilState {
+                    format: DepthTexture::TEXTURE_FORMAT,
+                    depth_write_enabled: true,
+                    depth_compare: CompareFunction::Less,
+                    stencil: StencilState::default(),
+                    bias: DepthBiasState::default(),
+                }),
+                multisample: MultisampleState {
+                    count: 1,
+                    mask: !0,
+                    alpha_to_coverage_enabled: false,
+                },
+                multiview: None,
+            }))
     }
 }
 
@@ -152,12 +158,8 @@ impl TComputingEngine for WGPURenderingEngine {
         self.computing_engine.get_adapter()
     }
 
-    fn get_device(&self) -> &Device {
-        self.computing_engine.get_device()
-    }
-
-    fn get_queue(&self) -> &Queue {
-        self.computing_engine.get_queue()
+    fn get_logical_device(&self) -> &LogicalDevice {
+        self.computing_engine.get_logical_device()
     }
 }
 

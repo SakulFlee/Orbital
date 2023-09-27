@@ -1,8 +1,10 @@
 use cgmath::Vector3;
 use wgpu::{
     BindGroup, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
-    Buffer, BufferBindingType, Device, Queue, ShaderStages,
+    Buffer, BufferBindingType, ShaderStages,
 };
+
+use crate::engine::LogicalDevice;
 
 use super::PointLightUniform;
 
@@ -22,8 +24,8 @@ pub trait TPointLight {
             }],
         };
 
-    fn update_buffer(&mut self, queue: &Queue) {
-        queue.write_buffer(
+    fn update_buffer(&mut self, logical_device: &LogicalDevice) {
+        logical_device.queue().write_buffer(
             self.get_buffer(),
             0,
             bytemuck::cast_slice(&[self.to_uniform()]),
@@ -48,8 +50,10 @@ pub trait TPointLight {
 
     fn set_enabled(&mut self, enabled: bool);
 
-    fn get_bind_group_layout(device: &Device) -> BindGroupLayout {
-        device.create_bind_group_layout(&Self::BIND_GROUP_LAYOUT_DESCRIPTOR)
+    fn get_bind_group_layout(logical_device: &LogicalDevice) -> BindGroupLayout {
+        logical_device
+            .device()
+            .create_bind_group_layout(&Self::BIND_GROUP_LAYOUT_DESCRIPTOR)
     }
 
     fn get_buffer(&self) -> &Buffer;

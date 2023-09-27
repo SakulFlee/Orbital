@@ -1,4 +1,4 @@
-use wgpu::{Device, Queue};
+use crate::engine::LogicalDevice;
 
 use super::{BoxedEntity, EntityConfiguration};
 
@@ -18,8 +18,8 @@ impl EntityContainer {
         }
     }
 
-    pub fn prepare_entity(&mut self, device: &Device, queue: &Queue) {
-        match self.entity.prepare_render(device, queue) {
+    pub fn prepare_entity(&mut self, logical_device: &LogicalDevice) {
+        match self.entity.prepare_render(logical_device) {
             Ok(_) => self.is_prepared = true,
             Err(e) => {
                 log::error!("Error encountered while preparing Entity for rendering! ({e:?})")

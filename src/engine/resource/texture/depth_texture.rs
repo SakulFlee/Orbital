@@ -2,11 +2,11 @@ use std::path::Path;
 
 use image::DynamicImage;
 use wgpu::{
-    AddressMode, CompareFunction, Device, Extent3d, FilterMode, Queue, Sampler, SamplerDescriptor,
-    Texture, TextureFormat, TextureUsages, TextureView,
+    AddressMode, CompareFunction, Extent3d, FilterMode, Sampler, SamplerDescriptor, Texture,
+    TextureFormat, TextureUsages, TextureView,
 };
 
-use crate::engine::EngineResult;
+use crate::engine::{EngineResult, LogicalDevice};
 
 use super::{AbstractTexture, TTexture};
 
@@ -31,14 +31,13 @@ impl DepthTexture {
         border_color: None,  // Default
     };
 
-    pub fn from_path<P>(device: &Device, queue: &Queue, file_name: P) -> EngineResult<Self>
+    pub fn from_path<P>(logical_device: &LogicalDevice, file_name: P) -> EngineResult<Self>
     where
         P: AsRef<Path>,
     {
         Ok(Self {
             internal_texture: AbstractTexture::from_path(
-                device,
-                queue,
+                logical_device,
                 Self::TEXTURE_FORMAT,
                 &Self::SAMPLER_DESCRIPTOR,
                 TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_DST,
@@ -48,15 +47,13 @@ impl DepthTexture {
     }
 
     pub fn from_bytes(
-        device: &Device,
-        queue: &Queue,
+        logical_device: &LogicalDevice,
         bytes: &[u8],
         label: Option<&str>,
     ) -> EngineResult<Self> {
         Ok(Self {
             internal_texture: AbstractTexture::from_bytes(
-                device,
-                queue,
+                logical_device,
                 bytes,
                 Self::TEXTURE_FORMAT,
                 &Self::SAMPLER_DESCRIPTOR,
@@ -67,15 +64,13 @@ impl DepthTexture {
     }
 
     pub fn from_image(
-        device: &Device,
-        queue: &Queue,
+        logical_device: &LogicalDevice,
         image: &DynamicImage,
         label: Option<&str>,
     ) -> EngineResult<Self> {
         Ok(Self {
             internal_texture: AbstractTexture::from_image(
-                device,
-                queue,
+                logical_device,
                 image,
                 Self::TEXTURE_FORMAT,
                 &Self::SAMPLER_DESCRIPTOR,
@@ -86,7 +81,7 @@ impl DepthTexture {
     }
 
     pub fn from_empty(
-        device: &Device,
+        logical_device: &LogicalDevice,
         size: Extent3d,
         format: TextureFormat,
         sampler_descriptor: &SamplerDescriptor,
@@ -94,7 +89,7 @@ impl DepthTexture {
     ) -> EngineResult<Self> {
         Ok(Self {
             internal_texture: AbstractTexture::from_empty(
-                device,
+                logical_device,
                 size,
                 format,
                 sampler_descriptor,

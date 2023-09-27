@@ -2,8 +2,7 @@ use cgmath::{perspective, Deg, Matrix4, Point3, SquareMatrix, Vector3};
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferUsages, Device, Queue,
-    ShaderStages,
+    BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferUsages, ShaderStages,
 };
 
 mod camera_uniform;
@@ -11,6 +10,8 @@ pub use camera_uniform::*;
 
 mod camera_change;
 pub use camera_change::*;
+
+use crate::engine::LogicalDevice;
 
 pub struct Camera {
     eye: Point3<f32>,
@@ -51,10 +52,9 @@ impl Camera {
             }],
         };
 
-    pub fn from_window_size(device: &Device, queue: &Queue, window_size: (u32, u32)) -> Self {
+    pub fn from_window_size(logical_device: &LogicalDevice, window_size: (u32, u32)) -> Self {
         Self::new(
-            device,
-            queue,
+            logical_device,
             Self::DEFAULT_CAMERA_EYE_POSITION.into(),
             (0.0, 0.0, 0.0).into(),
             Vector3::unit_y(),
@@ -67,8 +67,7 @@ impl Camera {
 
     #[allow(clippy::too_many_arguments)] // TODO: Check clippy again after Logical/Physical Device split
     pub fn new(
-        device: &Device,
-        queue: &Queue,
+        logical_device: &LogicalDevice,
         eye: Point3<f32>,
         target: Point3<f32>,
         up: Vector3<f32>,
@@ -78,22 +77,26 @@ impl Camera {
         zfar: f32,
     ) -> Self {
         let empty_uniform = CameraUniform::empty();
-        let buffer = device.create_buffer_init(&BufferInitDescriptor {
-            label: Some("Camera Buffer"),
-            contents: bytemuck::cast_slice(&[empty_uniform]),
-            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-        });
+        let buffer = logical_device
+            .device()
+            .create_buffer_init(&BufferInitDescriptor {
+                label: Some("Camera Buffer"),
+                contents: bytemuck::cast_slice(&[empty_uniform]),
+                usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+            });
 
-        let bind_group_layout = Self::get_bind_group_layout(device);
+        let bind_group_layout = Self::get_bind_group_layout(logical_device);
 
-        let bind_group = device.create_bind_group(&BindGroupDescriptor {
-            label: Some("Camera Bind Group"),
-            layout: &bind_group_layout,
-            entries: &[BindGroupEntry {
-                binding: 0,
-                resource: buffer.as_entire_binding(),
-            }],
-        });
+        let bind_group = logical_device
+            .device()
+            .create_bind_group(&BindGroupDescriptor {
+                label: Some("Camera Bind Group"),
+                layout: &bind_group_layout,
+                entries: &[BindGroupEntry {
+                    binding: 0,
+                    resource: buffer.as_entire_binding(),
+                }],
+            });
 
         let mut camera = Self {
             eye,
@@ -108,7 +111,7 @@ impl Camera {
             bind_group,
         };
 
-        camera.update_buffer(queue);
+        camera.update_buffer(logical_device);
 
         camera
     }
@@ -120,7 +123,7 @@ impl Camera {
         self.view_projection = Camera::OPENGL_TO_WGPU_MATRIX * projection_matrix * view_matrix;
     }
 
-    pub fn update_buffer(&mut self, queue: &Queue) {
+    pub fn update_buffer(&mut self, logical_device: &LogicalDevice) {
         // Make sure the view matrix is up-to-date
         self.update_view_projection_matrix();
 
@@ -128,14 +131,20 @@ impl Camera {
         let uniform = self.to_uniform();
 
         // Write uniform into buffer
-        queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[uniform]))
+        logical_device
+            .queue()
+            .write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[uniform]))
     }
 
     pub fn to_uniform(&self) -> CameraUniform {
         CameraUniform::from_camera(self)
     }
 
-    pub fn apply_camera_change(&mut self, queue: &Queue, camera_change: CameraChange) {
+    pub fn apply_camera_change(
+        &mut self,
+        logical_device: &LogicalDevice,
+        camera_change: CameraChange,
+    ) {
         if let Some(eye) = camera_change.get_eye() {
             self.set_eye(eye);
         }
@@ -164,7 +173,7 @@ impl Camera {
             self.set_zfar(zfar);
         }
 
-        self.update_buffer(queue);
+        self.update_buffer(logical_device);
     }
 
     pub fn get_eye(&self) -> Point3<f32> {
@@ -231,8 +240,10 @@ impl Camera {
         &self.buffer
     }
 
-    pub fn get_bind_group_layout(device: &Device) -> BindGroupLayout {
-        device.create_bind_group_layout(&Self::BIND_GROUP_LAYOUT_DESCRIPTOR)
+    pub fn get_bind_group_layout(logical_device: &LogicalDevice) -> BindGroupLayout {
+        logical_device
+            .device()
+            .create_bind_group_layout(&Self::BIND_GROUP_LAYOUT_DESCRIPTOR)
     }
 
     pub fn get_bind_group(&self) -> &BindGroup {
