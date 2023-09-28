@@ -6,8 +6,6 @@ pub mod log;
 
 pub mod entities;
 
-// TODO: "* Uniforms" should be "u_" like "t_" for traits
-
 // TODO: GLTF Loader
 
 // TODO: Config
