@@ -3,6 +3,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use gltf::Gltf;
+
 use crate::engine::{EngineError, EngineResult};
 
 pub struct ResourceManager;
@@ -38,5 +40,14 @@ impl ResourceManager {
         let path = Self::resource_path(file_name)?;
 
         read(path).map_err(EngineError::IOError)
+    }
+
+    pub fn read_resource_gltf<P>(file_name: P) -> EngineResult<Gltf>
+    where
+        P: AsRef<Path>,
+    {
+        let path = Self::resource_path(file_name)?;
+
+        Ok(Gltf::open(path).map_err(|e| EngineError::GltfError(e))?)
     }
 }

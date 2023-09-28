@@ -14,4 +14,5 @@ pub enum EngineError {
     WinitOSError(OsError),
     ComponentTagMissing,
     ComponentCastFailure,
+    GltfError(gltf::Error),
 }
