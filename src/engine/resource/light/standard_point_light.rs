@@ -6,7 +6,7 @@ use wgpu::{
 
 use crate::engine::LogicalDevice;
 
-use super::{PointLightUniform, TPointLight};
+use super::{TPointLight, UPointLight};
 
 pub struct StandardPointLight {
     color: Vector3<f32>,
@@ -25,7 +25,7 @@ impl StandardPointLight {
         strength: f32,
         enabled: bool,
     ) -> Self {
-        let empty_uniform = PointLightUniform::empty();
+        let empty_uniform = UPointLight::empty();
         let buffer = logical_device
             .device()
             .create_buffer_init(&BufferInitDescriptor {
@@ -62,8 +62,8 @@ impl StandardPointLight {
 }
 
 impl TPointLight for StandardPointLight {
-    fn to_uniform(&self) -> PointLightUniform {
-        PointLightUniform::new(
+    fn to_uniform(&self) -> UPointLight {
+        UPointLight::new(
             self.color.into(),
             self.position.into(),
             self.strength,

@@ -6,7 +6,7 @@ use wgpu::{
 
 use crate::engine::LogicalDevice;
 
-use super::PointLightUniform;
+use super::UPointLight;
 
 pub trait TPointLight {
     const BIND_GROUP_LAYOUT_DESCRIPTOR: BindGroupLayoutDescriptor<'static> =
@@ -32,7 +32,7 @@ pub trait TPointLight {
         )
     }
 
-    fn to_uniform(&self) -> PointLightUniform;
+    fn to_uniform(&self) -> UPointLight;
 
     fn color(&self) -> Vector3<f32>;
 
