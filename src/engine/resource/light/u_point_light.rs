@@ -2,7 +2,7 @@ use bytemuck::{Pod, Zeroable};
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
-pub struct PointLightUniform {
+pub struct UPointLight {
     /// Color of the point light
     ///
     /// Vec4 to avoid spacing and padding issues!
@@ -48,7 +48,7 @@ pub struct PointLightUniform {
     _padding: [u32; 2],
 }
 
-impl PointLightUniform {
+impl UPointLight {
     pub fn new(color: [f32; 3], position: [f32; 3], strength: f32, enabled: bool) -> Self {
         Self {
             color: [color[0], color[1], color[2], 0.0],
