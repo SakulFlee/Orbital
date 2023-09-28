@@ -4,11 +4,11 @@ use super::Camera;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
-pub struct CameraUniform {
+pub struct UCamera {
     view_projection_matrix: [[f32; 4]; 4],
 }
 
-impl CameraUniform {
+impl UCamera {
     pub fn new(view_projection_matrix: [[f32; 4]; 4]) -> Self {
         Self {
             view_projection_matrix,

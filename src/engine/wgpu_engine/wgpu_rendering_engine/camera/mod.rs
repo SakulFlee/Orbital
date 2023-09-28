@@ -5,8 +5,8 @@ use wgpu::{
     BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferUsages, ShaderStages,
 };
 
-mod camera_uniform;
-pub use camera_uniform::*;
+mod u_camera;
+pub use u_camera::*;
 
 mod camera_change;
 pub use camera_change::*;
@@ -76,7 +76,7 @@ impl Camera {
         znear: f32,
         zfar: f32,
     ) -> Self {
-        let empty_uniform = CameraUniform::empty();
+        let empty_uniform = UCamera::empty();
         let buffer = logical_device
             .device()
             .create_buffer_init(&BufferInitDescriptor {
@@ -136,8 +136,8 @@ impl Camera {
             .write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[uniform]))
     }
 
-    pub fn to_uniform(&self) -> CameraUniform {
-        CameraUniform::from_camera(self)
+    pub fn to_uniform(&self) -> UCamera {
+        UCamera::from_camera(self)
     }
 
     pub fn apply_camera_change(
