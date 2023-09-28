@@ -1,9 +1,11 @@
+use std::path::Path;
+
 use cgmath::{Quaternion, Vector3, Zero};
 use wgpu::{Buffer, BufferUsages};
 
 use crate::engine::{
-    BufferHelper, EngineResult, LogicalDevice, StandardInstance, StandardMaterial, TInstance,
-    TMaterial, TMesh, VertexPoint,
+    BufferHelper, EngineError, EngineResult, LogicalDevice, ResourceManager, StandardInstance,
+    StandardMaterial, TInstance, TMaterial, TMesh, ToStandardMesh, VertexPoint,
 };
 
 #[derive(Debug)]
@@ -19,6 +21,62 @@ pub struct StandardMesh {
 
 impl StandardMesh {
     pub const MISSING_TEXTURE: &str = "missing_texture.png";
+
+    pub fn from_gltf_single<P>(logical_device: &LogicalDevice, path: P) -> EngineResult<Self>
+    where
+        P: AsRef<Path>,
+    {
+        Self::from_gltf_instanced(
+            logical_device,
+            path,
+            vec![StandardInstance::new(
+                Vector3::zero(),
+                Quaternion {
+                    v: Vector3::zero(),
+                    s: 0.0,
+                },
+            )],
+        )
+    }
+
+    pub fn from_gltf_instanced<P>(
+        logical_device: &LogicalDevice,
+        path: P,
+        instances: Vec<StandardInstance>,
+    ) -> EngineResult<Self>
+    where
+        P: AsRef<Path>,
+    {
+        let scenes = ResourceManager::read_resource_gltf(&path)?;
+
+        if scenes.len() == 0 {
+            return Err(EngineError::GltfNoScene);
+        }
+        if scenes.len() > 1 {
+            log::warn!(
+                "GLTF '{:?}' has multiple scenes. Only the first one will be used!",
+                path.as_ref()
+            );
+        }
+
+        let scene = scenes.first().unwrap();
+
+        if scene.models.len() == 0 {
+            return Err(EngineError::GltfNoModel);
+        }
+        if scene.models.len() > 1 {
+            log::warn!(
+                "GLTF '{:?}' has multiple models. Only the first one will be used!",
+                path.as_ref()
+            );
+        }
+
+        Ok(scene
+            .models
+            .first()
+            .unwrap()
+            .to_instanced_mesh(logical_device, instances)?)
+    }
 
     pub fn from_raw_single(
         name: Option<&str>,
@@ -76,7 +134,7 @@ impl StandardMesh {
 
         let material = match material {
             Some(material) => material,
-            None => Box::new(StandardMaterial::from_texture(
+            None => Box::new(StandardMaterial::from_path(
                 logical_device,
                 Self::MISSING_TEXTURE,
             )?),
@@ -91,6 +149,10 @@ impl StandardMesh {
             instance_buffer,
             material,
         })
+    }
+
+    pub fn set_material(&mut self, material: Box<dyn TMaterial>) {
+        self.material = material;
     }
 }
 
@@ -125,5 +187,28 @@ impl TMesh for StandardMesh {
 
     fn name(&self) -> Option<String> {
         self.name.clone()
+    }
+}
+
+impl ResourceManager {
+    pub fn gltf_mesh_from_path<P>(
+        logical_device: &LogicalDevice,
+        file_path: P,
+    ) -> EngineResult<StandardMesh>
+    where
+        P: AsRef<Path>,
+    {
+        StandardMesh::from_gltf_single(logical_device, file_path)
+    }
+
+    pub fn gltf_instanced_mesh_from_path<P>(
+        logical_device: &LogicalDevice,
+        file_path: P,
+        instance: Vec<StandardInstance>,
+    ) -> EngineResult<StandardMesh>
+    where
+        P: AsRef<Path>,
+    {
+        StandardMesh::from_gltf_instanced(logical_device, file_path, instance)
     }
 }

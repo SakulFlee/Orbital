@@ -40,18 +40,28 @@ impl StandardMaterial {
             ],
         };
 
-    pub fn from_texture<P>(logical_device: &LogicalDevice, file_path: P) -> EngineResult<Self>
+    pub fn from_path<P>(logical_device: &LogicalDevice, file_path: P) -> EngineResult<Self>
     where
         P: AsRef<Path>,
     {
-        let file_name = file_path.as_ref().clone().to_str();
         let diffuse_texture =
             ResourceManager::diffuse_texture_from_path(logical_device, file_path.as_ref().clone())?;
 
-        let bind_group = Self::make_bind_group(file_name, &diffuse_texture, logical_device);
+        Self::from_texture(logical_device, diffuse_texture)
+    }
+
+    pub fn from_texture(
+        logical_device: &LogicalDevice,
+        diffuse_texture: DiffuseTexture,
+    ) -> EngineResult<Self> {
+        let bind_group = Self::make_bind_group(
+            Some("StandardMaterialBindGroup"),
+            &diffuse_texture,
+            logical_device,
+        );
 
         Ok(Self {
-            name: format!("StandardMaterial@{}", file_name.unwrap_or("Unknown")),
+            name: String::from("StandardMaterial"),
             diffuse_texture,
             bind_group,
         })

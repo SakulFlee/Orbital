@@ -3,6 +3,7 @@
         "bytemuck",
         "cgmath",
         "despawn",
+        "failable",
         "fovy",
         "fullscreen",
         "Fullscreen",

@@ -3,9 +3,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use gltf::Gltf;
+use easy_gltf::Scene;
 
-use crate::engine::{EngineError, EngineResult};
+use crate::engine::{logical_device, EngineError, EngineResult};
 
 pub struct ResourceManager;
 
@@ -42,12 +42,12 @@ impl ResourceManager {
         read(path).map_err(EngineError::IOError)
     }
 
-    pub fn read_resource_gltf<P>(file_name: P) -> EngineResult<Gltf>
+    pub fn read_resource_gltf<P>(file_name: P) -> EngineResult<Vec<Scene>>
     where
         P: AsRef<Path>,
     {
         let path = Self::resource_path(file_name)?;
 
-        Ok(Gltf::open(path).map_err(|e| EngineError::GltfError(e))?)
+        Ok(easy_gltf::load(path).map_err(|e| EngineError::GltfBadMode(e))?)
     }
 }

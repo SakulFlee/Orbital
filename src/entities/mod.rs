@@ -12,3 +12,6 @@ pub use clear_screen_entity::*;
 
 mod camera_controlling_entity;
 pub use camera_controlling_entity::*;
+
+mod cube;
+pub use cube::*;

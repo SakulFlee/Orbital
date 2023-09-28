@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use wgpu::SurfaceError;
 use winit::error::OsError;
 
@@ -14,5 +16,8 @@ pub enum EngineError {
     WinitOSError(OsError),
     ComponentTagMissing,
     ComponentCastFailure,
-    GltfError(gltf::Error),
+    GltfBadMode(Box<dyn Error + Send + Sync>),
+    GltfNoIndices,
+    GltfNoScene,
+    GltfNoModel,
 }
