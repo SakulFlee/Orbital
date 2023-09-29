@@ -20,4 +20,5 @@ pub enum EngineError {
     GltfNoIndices,
     GltfNoScene,
     GltfNoModel,
+    GltfNoOrFailedMaterial,
 }
