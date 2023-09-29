@@ -8,6 +8,8 @@ use crate::engine::{
     StandardMaterial, TInstance, TMaterial, TMesh, ToStandardMesh, VertexPoint,
 };
 
+use super::MaterialLoading;
+
 #[derive(Debug)]
 pub struct StandardMesh {
     name: Option<String>,
@@ -22,7 +24,11 @@ pub struct StandardMesh {
 impl StandardMesh {
     pub const MISSING_TEXTURE: &str = "missing_texture.png";
 
-    pub fn from_gltf_single<P>(logical_device: &LogicalDevice, path: P) -> EngineResult<Self>
+    pub fn from_gltf_single<P>(
+        logical_device: &LogicalDevice,
+        path: P,
+        material_loading: MaterialLoading,
+    ) -> EngineResult<Self>
     where
         P: AsRef<Path>,
     {
@@ -36,6 +42,7 @@ impl StandardMesh {
                     s: 0.0,
                 },
             )],
+            material_loading,
         )
     }
 
@@ -43,6 +50,7 @@ impl StandardMesh {
         logical_device: &LogicalDevice,
         path: P,
         instances: Vec<StandardInstance>,
+        material_loading: MaterialLoading,
     ) -> EngineResult<Self>
     where
         P: AsRef<Path>,
@@ -71,11 +79,11 @@ impl StandardMesh {
             );
         }
 
-        Ok(scene
-            .models
-            .first()
-            .unwrap()
-            .to_instanced_mesh(logical_device, instances)?)
+        Ok(scene.models.first().unwrap().to_instanced_mesh(
+            logical_device,
+            material_loading,
+            instances,
+        )?)
     }
 
     pub fn from_raw_single(
@@ -194,21 +202,23 @@ impl ResourceManager {
     pub fn gltf_mesh_from_path<P>(
         logical_device: &LogicalDevice,
         file_path: P,
+        material_loading: MaterialLoading,
     ) -> EngineResult<StandardMesh>
     where
         P: AsRef<Path>,
     {
-        StandardMesh::from_gltf_single(logical_device, file_path)
+        StandardMesh::from_gltf_single(logical_device, file_path, material_loading)
     }
 
     pub fn gltf_instanced_mesh_from_path<P>(
         logical_device: &LogicalDevice,
         file_path: P,
         instance: Vec<StandardInstance>,
+        material_loading: MaterialLoading,
     ) -> EngineResult<StandardMesh>
     where
         P: AsRef<Path>,
     {
-        StandardMesh::from_gltf_instanced(logical_device, file_path, instance)
+        StandardMesh::from_gltf_instanced(logical_device, file_path, instance, material_loading)
     }
 }

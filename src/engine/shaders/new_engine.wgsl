@@ -52,13 +52,7 @@ var<uniform> ambient_light: AmbientLight;
 
 // Point Lights
 @group(3) @binding(0) 
-var<uniform> point_light_0: PointLight;
-@group(4) @binding(0) 
-var<uniform> point_light_1: PointLight;
-@group(5) @binding(0) 
-var<uniform> point_light_2: PointLight;
-@group(6) @binding(0) 
-var<uniform> point_light_3: PointLight;
+var<uniform> point_light: PointLight;
 
 // --- Vertex ---
 
@@ -106,36 +100,19 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // Point Light
     var light_color = ambient_color;
 
-    if point_light_0.enabled == u32(1) {
-        let light_dir = normalize(point_light_0.position.xyz - in.world_position);
-        let diffuse_strength = max(dot(in.world_normal, light_dir), 0.0);
-        let diffuse_color = point_light_0.color.xyz * diffuse_strength;
+    if point_light.enabled == u32(1) {
+        let distance_vec = abs(in.world_position - point_light.position.xyz);
 
-        light_color += diffuse_color;
-    }
+        let distance = pow(in.world_position.x - point_light.position.x, 2.0) + pow(in.world_position.y - point_light.position.y, 2.0) + pow(in.world_position.z - point_light.position.z, 2.0);
+        let radius_squared = pow(point_light.strength, 2.0);
 
-    if point_light_1.enabled == u32(1) {
-        let light_dir = normalize(point_light_1.position.xyz - in.world_position);
-        let diffuse_strength = max(dot(in.world_normal, light_dir), 0.0);
-        let diffuse_color = point_light_1.color.xyz * diffuse_strength;
+        if distance <= radius_squared {
+            let light_dir = normalize(point_light.position.xyz - in.world_position);
+            let diffuse_strength = max(dot(in.world_normal, light_dir), 0.0);
+            let diffuse_color = (point_light.color.xyz * diffuse_strength);
 
-        light_color += diffuse_color;
-    }
-
-    if point_light_2.enabled == u32(1) {
-        let light_dir = normalize(point_light_2.position.xyz - in.world_position);
-        let diffuse_strength = max(dot(in.world_normal, light_dir), 0.0);
-        let diffuse_color = point_light_2.color.xyz * diffuse_strength;
-
-        light_color += diffuse_color;
-    }
-
-    if point_light_3.enabled == u32(1) {
-        let light_dir = normalize(point_light_3.position.xyz - in.world_position);
-        let diffuse_strength = max(dot(in.world_normal, light_dir), 0.0);
-        let diffuse_color = point_light_3.color.xyz * diffuse_strength;
-
-        light_color += diffuse_color;
+            light_color += diffuse_color;
+        }
     }
 
     // Combine light and colors

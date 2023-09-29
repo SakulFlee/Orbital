@@ -78,9 +78,6 @@ impl WGPURenderingEngine {
                         &Camera::bind_group_layout(logical_device),
                         &StandardAmbientLight::bind_group_layout(logical_device),
                         &StandardPointLight::bind_group_layout(logical_device),
-                        &StandardPointLight::bind_group_layout(logical_device),
-                        &StandardPointLight::bind_group_layout(logical_device),
-                        &StandardPointLight::bind_group_layout(logical_device),
                     ],
                     push_constant_ranges: &[],
                 });

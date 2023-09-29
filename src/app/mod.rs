@@ -222,9 +222,6 @@ impl App {
 
                 // Point Light
                 render_pass.set_bind_group(3, point_lights[0].bind_group(), &[]);
-                render_pass.set_bind_group(4, point_lights[1].bind_group(), &[]);
-                render_pass.set_bind_group(5, point_lights[2].bind_group(), &[]);
-                render_pass.set_bind_group(6, point_lights[3].bind_group(), &[]);
 
                 render_pass.draw_indexed(0..x.index_count(), 0, 0..x.instance_count());
             });

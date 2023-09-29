@@ -3,14 +3,19 @@ use easy_gltf::Model;
 use logical_device::LogicalDevice;
 
 use crate::engine::{
-    logical_device, DiffuseTexture, EngineError, EngineResult, StandardInstance, StandardMaterial,
-    StandardMesh, TInstance, TMaterial, VertexPoint,
+    logical_device, DiffuseTexture, EngineError, EngineResult, MaterialLoading, StandardInstance,
+    StandardMaterial, StandardMesh, TInstance, TMaterial, VertexPoint,
 };
 
 pub trait ToStandardMesh {
-    fn to_mesh(&self, logical_device: &LogicalDevice) -> EngineResult<StandardMesh> {
+    fn to_mesh(
+        &self,
+        logical_device: &LogicalDevice,
+        material_loading: MaterialLoading,
+    ) -> EngineResult<StandardMesh> {
         self.to_instanced_mesh(
             logical_device,
+            material_loading,
             vec![StandardInstance::new(
                 Vector3::zero(),
                 Quaternion {
@@ -24,6 +29,7 @@ pub trait ToStandardMesh {
     fn to_instanced_mesh(
         &self,
         logical_device: &LogicalDevice,
+        material_loading: MaterialLoading,
         instances: Vec<StandardInstance>,
     ) -> EngineResult<StandardMesh>;
 }
@@ -32,6 +38,7 @@ impl ToStandardMesh for Model {
     fn to_instanced_mesh(
         &self,
         logical_device: &LogicalDevice,
+        material_loading: MaterialLoading,
         instances: Vec<StandardInstance>,
     ) -> EngineResult<StandardMesh> {
         let vertices: Vec<VertexPoint> = self.vertices().iter().map(|x| x.into()).collect();
@@ -41,19 +48,29 @@ impl ToStandardMesh for Model {
             .map(|x| Ok(x.iter().cloned().collect()))
             .unwrap_or(Err(EngineError::GltfNoIndices))?;
 
-        let material: Option<Box<dyn TMaterial>> = match &self.material().pbr.base_color_texture {
-            Some(base_color_texture) => {
-                match DiffuseTexture::from_bytes(logical_device, &base_color_texture, None) {
-                    Ok(diffuse_texture) => {
-                        match StandardMaterial::from_texture(logical_device, diffuse_texture) {
-                            Ok(material) => Some(Box::new(material)),
+        let material: Option<Box<dyn TMaterial>> = match material_loading {
+            MaterialLoading::Ignore => None,
+            MaterialLoading::Try => {
+                match &self.material().pbr.base_color_texture {
+                    Some(base_color_texture) => {
+                        match DiffuseTexture::from_bytes(logical_device, &base_color_texture, None)
+                        {
+                            Ok(diffuse_texture) => {
+                                match StandardMaterial::from_texture(
+                                    logical_device,
+                                    diffuse_texture,
+                                ) {
+                                    Ok(material) => Some(Box::new(material)),
+                                    Err(_) => None,
+                                }
+                            }
                             Err(_) => None,
                         }
                     }
-                    Err(_) => None,
+                    None => None,
                 }
             }
-            None => None,
+            MaterialLoading::Replace(material) => Some(Box::new(material)),
         };
 
         Ok(StandardMesh::from_raw(
