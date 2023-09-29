@@ -33,9 +33,8 @@ impl TEntity for Cheese {
         let material = StandardMaterial::from_path(logical_device, "cheese.jpg")?;
 
         let instances: Vec<StandardInstance> = (-100..=100)
-            .into_iter()
             .flat_map(|x| {
-                (-100..=100).into_iter().map(move |z| {
+                (-100..=100).map(move |z| {
                     StandardInstance::new(
                         Vector3::new(x as f32 * 2.5, -1.0, z as f32 * 2.5),
                         Quaternion::new(0.0, 0.0, 0.0, 0.0),

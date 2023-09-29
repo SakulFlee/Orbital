@@ -5,7 +5,7 @@ use std::{
 
 use easy_gltf::Scene;
 
-use crate::engine::{logical_device, EngineError, EngineResult};
+use crate::engine::{EngineError, EngineResult};
 
 pub struct ResourceManager;
 
@@ -48,6 +48,6 @@ impl ResourceManager {
     {
         let path = Self::resource_path(file_name)?;
 
-        Ok(easy_gltf::load(path).map_err(|e| EngineError::GltfBadMode(e))?)
+        easy_gltf::load(path).map_err(|e| EngineError::GltfBadMode(e))
     }
 }

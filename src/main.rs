@@ -1,7 +1,7 @@
 use cgmath::Vector3;
 use wgpu::Color;
 use wgpu_engine::{
-    app::{App, EntityTagDuplicationBehaviour, World, WorldBuilder},
+    app::{App, EntityTagDuplicationBehaviour, WorldBuilder},
     engine::rgb_to_f32_color,
     entities::{CameraControllingEntity, Cheese, ClearScreenEntity, Square},
     log::log_init,

@@ -1,9 +1,8 @@
 use std::{
-    io::{BufReader, Cursor},
     path::Path,
 };
 
-use image::{io::Reader, DynamicImage, GenericImageView, ImageFormat};
+use image::{DynamicImage, GenericImageView};
 use wgpu::{
     Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, Sampler, SamplerDescriptor, Texture,
     TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
@@ -57,7 +56,7 @@ impl AbstractTexture {
 
         // let image = reader.decode().map_err(|e| EngineError::ImageError(e))?;
 
-        let image = image::load_from_memory(bytes).map_err(|e| EngineError::ImageError(e))?;
+        let image = image::load_from_memory(bytes).map_err(EngineError::ImageError)?;
 
         Self::from_image(
             logical_device,

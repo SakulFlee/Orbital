@@ -57,7 +57,7 @@ impl StandardMesh {
     {
         let scenes = ResourceManager::read_resource_gltf(&path)?;
 
-        if scenes.len() == 0 {
+        if scenes.is_empty() {
             return Err(EngineError::GltfNoScene);
         }
         if scenes.len() > 1 {
@@ -69,7 +69,7 @@ impl StandardMesh {
 
         let scene = scenes.first().unwrap();
 
-        if scene.models.len() == 0 {
+        if scene.models.is_empty() {
             return Err(EngineError::GltfNoModel);
         }
         if scene.models.len() > 1 {
@@ -79,11 +79,11 @@ impl StandardMesh {
             );
         }
 
-        Ok(scene.models.first().unwrap().to_instanced_mesh(
+        scene.models.first().unwrap().to_instanced_mesh(
             logical_device,
             material_loading,
             instances,
-        )?)
+        )
     }
 
     pub fn from_raw_single(
