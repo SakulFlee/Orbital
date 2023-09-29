@@ -45,7 +45,7 @@ impl ToStandardMesh for Model {
 
         let indices = self
             .indices()
-            .map(|x| Ok(x.iter().cloned().collect()))
+            .map(|x| Ok(x.to_vec()))
             .unwrap_or(Err(EngineError::GltfNoIndices))?;
 
         let material: Option<Box<dyn TMaterial>> = match material_loading {
@@ -53,7 +53,7 @@ impl ToStandardMesh for Model {
             MaterialLoading::Try => {
                 match &self.material().pbr.base_color_texture {
                     Some(base_color_texture) => {
-                        match DiffuseTexture::from_bytes(logical_device, &base_color_texture, None)
+                        match DiffuseTexture::from_bytes(logical_device, base_color_texture, None)
                         {
                             Ok(diffuse_texture) => {
                                 match StandardMaterial::from_texture(
@@ -73,13 +73,13 @@ impl ToStandardMesh for Model {
             MaterialLoading::Replace(material) => Some(Box::new(material)),
         };
 
-        Ok(StandardMesh::from_raw(
+        StandardMesh::from_raw(
             None,
             logical_device,
             vertices,
             indices,
             instances,
             material,
-        )?)
+        )
     }
 }
