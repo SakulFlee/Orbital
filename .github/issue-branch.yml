@@ -11,6 +11,8 @@ branches:
     skip: true
   - label: Won't fix
     skip: true
+  - label: Delayed
+    skip: true
 openPR: true
 copyIssueDescriptionToPR: true
 copyIssueLabelsToPR: true
