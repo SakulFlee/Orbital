@@ -11,7 +11,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  libary:
+  build:
     strategy:
       matrix:
         os: [macos-latest, windows-latest, ubuntu-latest]
@@ -52,7 +52,6 @@ jobs:
             target/debug/wgpu_engine*
 
   clippy:
-    needs: libary
     runs-on: ubuntu-latest
 
     steps:
