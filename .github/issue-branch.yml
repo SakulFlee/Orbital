@@ -5,7 +5,11 @@ branchName: full
 autoCloseIssue: true
 defaultBranch: 'main'
 branches:
-  - label: question
+  - label: Question
+    skip: true
+  - label: Invalid
+    skip: true
+  - label: Won't fix
     skip: true
 openPR: true
 copyIssueDescriptionToPR: true
