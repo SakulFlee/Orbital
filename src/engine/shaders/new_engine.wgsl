@@ -4,6 +4,8 @@ struct VertexPoint {
     @location(0) position_coordinates: vec3<f32>,
     @location(1) texture_coordinates: vec2<f32>,
     @location(2) normal_coordinates: vec3<f32>,
+    @location(3) tangent: vec3<f32>,
+    @location(4) bitangent: vec3<f32>,
 }
 
 struct InstanceUniform {
@@ -11,6 +13,9 @@ struct InstanceUniform {
     @location(6) model_space_matrix_1: vec4<f32>,
     @location(7) model_space_matrix_2: vec4<f32>,
     @location(8) model_space_matrix_3: vec4<f32>,
+    @location(9) normal_space_matrix_0: vec3<f32>,
+    @location(10) normal_space_matrix_1: vec3<f32>,
+    @location(11) normal_space_matrix_2: vec3<f32>,
 }
 
 struct CameraUniform {
@@ -21,8 +26,9 @@ struct CameraUniform {
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) texture_coordinates: vec2<f32>,
-    @location(1) world_normal: vec3<f32>,
-    @location(2) world_position: vec3<f32>,
+    @location(1) tangent_position: vec3<f32>,
+    @location(2) tangent_light_position: vec3<f32>,
+    @location(3) tangent_view_position: vec3<f32>,
 };
 
 struct AmbientLight {
@@ -75,22 +81,30 @@ fn vs_main(
         instance.model_space_matrix_3,
     );
 
+    let normal_matrix = mat3x3<f32>(
+        instance.normal_space_matrix_0,
+        instance.normal_space_matrix_1,
+        instance.normal_space_matrix_2,
+    );
+
+    // Make tangent matrix
+    let world_normal = normalize(normal_matrix * vertex_point.normal_coordinates);
+    let world_tangent = normalize(normal_matrix * vertex_point.tangent);
+    let world_bitangent = normalize(normal_matrix * vertex_point.bitangent);
+    let tangent_matrix = transpose(mat3x3<f32>(
+        world_tangent,
+        world_bitangent,
+        world_normal
+    ));
+
+    let world_position = model_space_matrix * vec4<f32>(vertex_point.position_coordinates, 1.0);
+
     var out: VertexOutput;
-
-    // Pass Texture Coordinates along
+    out.clip_position = camera.view_projection_matrix * world_position;
     out.texture_coordinates = vertex_point.texture_coordinates;
-
-    // Pass Normals along
-    out.world_normal = vertex_point.normal_coordinates;
-
-    // Calculate world position
-    var world_position: vec4<f32> = model_space_matrix * vec4<f32>(vertex_point.position_coordinates, 1.0);
-    out.world_position = world_position.xyz;
-
-    // Calculate clip position
-    var clip_position = camera.view_projection_matrix * world_position;
-    out.clip_position = clip_position;
-
+    out.tangent_position = tangent_matrix * world_position.xyz;
+    out.tangent_view_position = tangent_matrix * camera.position.xyz;
+    out.tangent_light_position = tangent_matrix * point_light.position.xyz;
     return out;
 }
 
@@ -117,8 +131,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
         // if distance <= radius_squared {
         let tangent_normal = object_normal_map.xyz * 2.0 - 1.0;
-        let light_dir = normalize(point_light.position.xyz - in.world_position);
-        let view_dir = normalize(camera.position.xyz - in.world_position);
+        let light_dir = normalize(in.tangent_light_position - in.tangent_position);
+        let view_dir = normalize(in.tangent_view_position - in.tangent_position);
         let half_dir = normalize(view_dir + light_dir);
 
         let diffuse_strength = max(dot(tangent_normal, light_dir), 0.0);

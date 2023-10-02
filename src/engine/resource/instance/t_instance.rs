@@ -1,4 +1,4 @@
-use cgmath::{Matrix4, Quaternion, Vector3};
+use cgmath::{Matrix3, Matrix4, Quaternion, Vector3};
 use wgpu::{BufferAddress, VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode};
 
 use super::InstanceUniform;
@@ -19,6 +19,7 @@ pub trait TInstance {
             model_space_matrix: (Matrix4::from_translation(self.position())
                 * Matrix4::from(self.rotation()))
             .into(),
+            normal_space_matrix: Matrix3::from(self.rotation()).into(),
         }
     }
 
@@ -47,6 +48,21 @@ pub trait TInstance {
                     offset: std::mem::size_of::<[f32; 12]>() as BufferAddress,
                     shader_location: 8,
                     format: VertexFormat::Float32x4,
+                },
+                VertexAttribute {
+                    offset: std::mem::size_of::<[f32; 16]>() as BufferAddress,
+                    shader_location: 9,
+                    format: VertexFormat::Float32x3,
+                },
+                VertexAttribute {
+                    offset: std::mem::size_of::<[f32; 19]>() as BufferAddress,
+                    shader_location: 10,
+                    format: VertexFormat::Float32x3,
+                },
+                VertexAttribute {
+                    offset: std::mem::size_of::<[f32; 22]>() as BufferAddress,
+                    shader_location: 11,
+                    format: VertexFormat::Float32x3,
                 },
             ],
         }
