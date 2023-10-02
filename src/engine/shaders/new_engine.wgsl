@@ -19,7 +19,7 @@ struct InstanceUniform {
 }
 
 struct CameraUniform {
-    position: vec4<f32>, // TODO
+    position: vec4<f32>,
     view_projection_matrix: mat4x4<f32>,
 }
 
@@ -112,41 +112,35 @@ fn vs_main(
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    // var result: vec4<f32>;
+
     // Get texel from texture
     let object_diffuse_map = textureSample(t_diffuse, s_diffuse, in.texture_coordinates);
     let object_normal_map = textureSample(t_normal, s_normal, in.texture_coordinates);
 
+    // result = object_diffuse_map;
+
     // Ambient Light
     let ambient_color = ambient_light.color * ambient_light.strength;
+    // result *= vec4<f32>(ambient_color, 1.0);
 
     // Point Light
-    var light_color = ambient_color;
-
-    if point_light.enabled == u32(1) {
-        // Stage Point Light:
-        // let distance_vec = abs(in.world_position - point_light.position.xyz);
-
-        // let distance = pow(in.world_position.x - point_light.position.x, 2.0) + pow(in.world_position.y - point_light.position.y, 2.0) + pow(in.world_position.z - point_light.position.z, 2.0);
-        // let radius_squared = pow(point_light.strength, 2.0);
-
-        // if distance <= radius_squared {
+    // if point_light.enabled == u32(1) {
         let tangent_normal = object_normal_map.xyz * 2.0 - 1.0;
         let light_dir = normalize(in.tangent_light_position - in.tangent_position);
         let view_dir = normalize(in.tangent_view_position - in.tangent_position);
         let half_dir = normalize(view_dir + light_dir);
 
         let diffuse_strength = max(dot(tangent_normal, light_dir), 0.0);
-        let diffuse_color = (point_light.color.xyz * diffuse_strength);
+        let diffuse_color = point_light.color.xyz * diffuse_strength;
+        // result *= vec4<f32>(diffuse_color, 1.0);
 
         let specular_strength = pow(max(dot(tangent_normal, half_dir), 0.0), 32.0);
         let specular_color = specular_strength * point_light.color.xyz;
+        // result *= vec4<f32>(specular_color, 1.0);
+    // }
 
-        light_color += (diffuse_color + specular_color);
-        // }
-    }
-
-    // Combine light and colors
-    let result = light_color * object_diffuse_map.xyz;
-
+    // return vec4<f32>(result);
+    let result = (ambient_color + diffuse_color + specular_color) * object_diffuse_map.xyz;
     return vec4<f32>(result, object_diffuse_map.a);
 }
