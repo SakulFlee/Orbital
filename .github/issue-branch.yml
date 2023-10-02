@@ -1,7 +1,7 @@
 # https://github.com/robvanderleek/create-issue-branch
 mode: auto
 silent: false
-branchName: full
+branchName: tiny
 autoCloseIssue: true
 defaultBranch: 'main'
 branches:
