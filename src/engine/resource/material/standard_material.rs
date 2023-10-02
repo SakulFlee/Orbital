@@ -6,13 +6,16 @@ use wgpu::{
     TextureSampleType, TextureViewDimension,
 };
 
-use crate::engine::{DiffuseTexture, EngineResult, LogicalDevice, ResourceManager, TTexture};
+use crate::engine::{
+    DiffuseTexture, EngineResult, LogicalDevice, NormalTexture, ResourceManager, TTexture,
+};
 
 use super::TMaterial;
 
 pub struct StandardMaterial {
     name: String,
     diffuse_texture: DiffuseTexture,
+    normal_texture: NormalTexture,
     bind_group: BindGroup,
 }
 
@@ -37,32 +40,62 @@ impl StandardMaterial {
                     ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
                 },
+                BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                    count: None,
+                },
             ],
         };
 
-    pub fn from_path<P>(logical_device: &LogicalDevice, file_path: P) -> EngineResult<Self>
+    pub fn from_path<P>(
+        logical_device: &LogicalDevice,
+        diffuse_path: P,
+        normal_path: P,
+    ) -> EngineResult<Self>
     where
         P: AsRef<Path>,
     {
-        let diffuse_texture =
-            ResourceManager::diffuse_texture_from_path(logical_device, file_path.as_ref().clone())?;
+        let diffuse_texture = ResourceManager::diffuse_texture_from_path(
+            logical_device,
+            diffuse_path.as_ref().clone(),
+        )?;
 
-        Self::from_texture(logical_device, diffuse_texture)
+        let normal_texture = ResourceManager::normal_texture_from_path(
+            logical_device,
+            normal_path.as_ref().clone(),
+        )?;
+
+        Self::from_texture(logical_device, diffuse_texture, normal_texture)
     }
 
     pub fn from_texture(
         logical_device: &LogicalDevice,
         diffuse_texture: DiffuseTexture,
+        normal_texture: NormalTexture,
     ) -> EngineResult<Self> {
         let bind_group = Self::make_bind_group(
             Some("StandardMaterialBindGroup"),
             &diffuse_texture,
+            &normal_texture,
             logical_device,
         );
 
         Ok(Self {
             name: String::from("StandardMaterial"),
             diffuse_texture,
+            normal_texture,
             bind_group,
         })
     }
@@ -70,6 +103,7 @@ impl StandardMaterial {
     fn make_bind_group(
         label: Option<&str>,
         diffuse_texture: &DiffuseTexture,
+        normal_texture: &NormalTexture,
         logical_device: &LogicalDevice,
     ) -> BindGroup {
         let bind_group_layout = Self::bind_group_layout(logical_device);
@@ -88,6 +122,14 @@ impl StandardMaterial {
                         binding: 1,
                         resource: BindingResource::Sampler(diffuse_texture.sampler()),
                     },
+                    BindGroupEntry {
+                        binding: 2,
+                        resource: BindingResource::TextureView(normal_texture.view()),
+                    },
+                    BindGroupEntry {
+                        binding: 3,
+                        resource: BindingResource::Sampler(normal_texture.sampler()),
+                    },
                 ],
             })
     }
@@ -100,6 +142,10 @@ impl TMaterial for StandardMaterial {
 
     fn diffuse_texture(&self) -> &DiffuseTexture {
         &self.diffuse_texture
+    }
+
+    fn normal_texture(&self) -> &NormalTexture {
+        &self.normal_texture
     }
 
     fn bind_group_layout(logical_device: &LogicalDevice) -> BindGroupLayout {

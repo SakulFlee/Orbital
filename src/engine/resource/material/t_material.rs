@@ -2,11 +2,15 @@ use core::fmt::{Debug, Formatter, Result};
 
 use wgpu::{BindGroup, BindGroupLayout};
 
-use crate::engine::{DiffuseTexture, LogicalDevice};
+use crate::engine::{DiffuseTexture, LogicalDevice, NormalTexture};
 
 pub trait TMaterial {
     fn name(&self) -> &str;
+
     fn diffuse_texture(&self) -> &DiffuseTexture;
+
+    fn normal_texture(&self) -> &NormalTexture;
+
     fn bind_group_layout(logical_device: &LogicalDevice) -> BindGroupLayout
     where
         Self: Sized;

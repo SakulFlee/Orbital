@@ -6,6 +6,8 @@ pub trait TVertex {
     fn position_coordinates(&self) -> [f32; 3];
     fn texture_coordinates(&self) -> [f32; 2];
     fn normal_coordinates(&self) -> [f32; 3];
+    fn tangent(&self) -> [f32; 3];
+    fn bitangent(&self) -> [f32; 3];
 
     fn descriptor<T>() -> VertexBufferLayout<'static>
     where
@@ -29,6 +31,16 @@ pub trait TVertex {
                 VertexAttribute {
                     offset: size_of::<[f32; 5]>() as BufferAddress,
                     shader_location: 2,
+                    format: VertexFormat::Float32x3,
+                },
+                VertexAttribute {
+                    offset: size_of::<[f32; 8]>() as BufferAddress,
+                    shader_location: 3,
+                    format: VertexFormat::Float32x3,
+                },
+                VertexAttribute {
+                    offset: size_of::<[f32; 11]>() as BufferAddress,
+                    shader_location: 4,
                     format: VertexFormat::Float32x3,
                 },
             ],
