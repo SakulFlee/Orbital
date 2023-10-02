@@ -15,7 +15,7 @@ pub struct DiffuseTexture {
 }
 
 impl DiffuseTexture {
-    pub const TEXTURE_FORMAT: TextureFormat = TextureFormat::Rgba8Unorm;
+    pub const TEXTURE_FORMAT: TextureFormat = TextureFormat::Rgba8UnormSrgb;
     pub const SAMPLER_DESCRIPTOR: SamplerDescriptor<'static> = SamplerDescriptor {
         label: Some("Diffuse Texture Sampler Descriptor"),
         address_mode_u: AddressMode::ClampToEdge,
