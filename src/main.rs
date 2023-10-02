@@ -20,7 +20,7 @@ fn main() {
             // TODO: Spawn cube for debugging at location
             0,
             rgb_to_f32_color(255u8, 255u8, 255u8).into(),
-            Vector3::new(2.0, 2.0, 2.0),
+            Vector3::new(0.0, 2.0, 0.0),
             1.0, // TODO
         )
         .with_entities(vec![
