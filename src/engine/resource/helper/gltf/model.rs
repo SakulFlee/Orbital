@@ -4,7 +4,8 @@ use logical_device::LogicalDevice;
 
 use crate::engine::{
     logical_device, DiffuseTexture, EngineError, EngineResult, MaterialLoading, NormalTexture,
-    StandardInstance, StandardMaterial, StandardMesh, TInstance, TMaterial, VertexPoint, NORMAL_TEXTURE_FORMAT,
+    StandardInstance, StandardMaterial, StandardMesh, TInstance, TMaterial, VertexPoint,
+    NORMAL_TEXTURE_FORMAT,
 };
 
 pub trait ToStandardMesh {
@@ -109,20 +110,24 @@ impl ToStandardMesh for Model {
             MaterialLoading::Ignore => None,
             MaterialLoading::Try => match &self.material().pbr.base_color_texture {
                 Some(base_color_texture) => {
-                    match DiffuseTexture::from_bytes(logical_device, base_color_texture, None ,None) {
-                        Ok(diffuse_texture) => match NormalTexture::empty(logical_device, Some(NORMAL_TEXTURE_FORMAT)) {
-                            Ok(normal_texture) => {
-                                match StandardMaterial::from_texture(
-                                    logical_device,
-                                    diffuse_texture,
-                                    normal_texture,
-                                ) {
-                                    Ok(material) => Some(Box::new(material)),
-                                    Err(_) => None,
+                    match DiffuseTexture::from_bytes(logical_device, base_color_texture, None, None)
+                    {
+                        Ok(diffuse_texture) => {
+                            match NormalTexture::empty(logical_device, Some(NORMAL_TEXTURE_FORMAT))
+                            {
+                                Ok(normal_texture) => {
+                                    match StandardMaterial::from_texture(
+                                        logical_device,
+                                        diffuse_texture,
+                                        normal_texture,
+                                    ) {
+                                        Ok(material) => Some(Box::new(material)),
+                                        Err(_) => None,
+                                    }
                                 }
+                                Err(_) => None,
                             }
-                            Err(_) => None,
-                        },
+                        }
                         Err(_) => None,
                     }
                 }
