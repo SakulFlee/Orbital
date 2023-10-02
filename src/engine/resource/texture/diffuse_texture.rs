@@ -2,8 +2,8 @@ use std::path::Path;
 
 use image::DynamicImage;
 use wgpu::{
-    AddressMode, FilterMode, Sampler, SamplerDescriptor, Texture, TextureFormat, TextureUsages,
-    TextureView,
+    AddressMode, Extent3d, FilterMode, Sampler, SamplerDescriptor, Texture, TextureFormat,
+    TextureUsages, TextureView,
 };
 
 use crate::engine::{EngineResult, LogicalDevice, ResourceManager};
@@ -30,6 +30,23 @@ impl DiffuseTexture {
         anisotropy_clamp: 1, // Default
         border_color: None,  // Default
     };
+
+    pub fn empty(logical_device: &LogicalDevice) -> EngineResult<Self> {
+        Ok(Self {
+            internal_texture: AbstractTexture::from_empty(
+                logical_device,
+                Extent3d {
+                    width: 512,
+                    height: 512,
+                    depth_or_array_layers: 1,
+                },
+                Self::TEXTURE_FORMAT,
+                &Self::SAMPLER_DESCRIPTOR,
+                TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+                Some("Empty"),
+            )?,
+        })
+    }
 
     pub fn from_path<P>(logical_device: &LogicalDevice, file_path: P) -> EngineResult<Self>
     where
