@@ -1,4 +1,4 @@
-use cgmath::{Quaternion, Vector3, Zero};
+use cgmath::{Quaternion, Vector2, Vector3, Zero};
 use easy_gltf::Model;
 use logical_device::LogicalDevice;
 
@@ -52,17 +52,17 @@ impl ToStandardMesh for Model {
 
         // Calculate tangent & bitangent
         for index in indices.chunks_mut(3) {
-            let mut vertex_0 = vertices[index[0] as usize];
-            let mut vertex_1 = vertices[index[1] as usize];
-            let mut vertex_2 = vertices[index[2] as usize];
+            let vertex_0 = vertices[index[0] as usize];
+            let vertex_1 = vertices[index[1] as usize];
+            let vertex_2 = vertices[index[2] as usize];
 
             let position_0: Vector3<_> = vertex_0.position_coordinates.into();
             let position_1: Vector3<_> = vertex_1.position_coordinates.into();
             let position_2: Vector3<_> = vertex_2.position_coordinates.into();
 
-            let uv_0: Vector3<_> = vertex_0.normal_coordinates.into();
-            let uv_1: Vector3<_> = vertex_1.normal_coordinates.into();
-            let uv_2: Vector3<_> = vertex_2.normal_coordinates.into();
+            let uv_0: Vector2<_> = vertex_0.texture_coordinates.into();
+            let uv_1: Vector2<_> = vertex_1.texture_coordinates.into();
+            let uv_2: Vector2<_> = vertex_2.texture_coordinates.into();
 
             // Calculate edges of triangle
             let delta_pos_1 = position_1 - position_0;
@@ -83,12 +83,12 @@ impl ToStandardMesh for Model {
             let bitangent = (delta_pos_2 * delta_uv_1.x - delta_pos_1 * delta_uv_2.x) * -r;
 
             // Set tangent & bitangent
-            vertex_0.tangent = tangent.into();
-            vertex_1.tangent = tangent.into();
-            vertex_2.tangent = tangent.into();
-            vertex_0.bitangent = bitangent.into();
-            vertex_1.bitangent = bitangent.into();
-            vertex_2.bitangent = bitangent.into();
+            vertices[index[0] as usize].tangent = tangent.into();
+            vertices[index[1] as usize].tangent = tangent.into();
+            vertices[index[2] as usize].tangent = tangent.into();
+            vertices[index[0] as usize].bitangent = bitangent.into();
+            vertices[index[1] as usize].bitangent = bitangent.into();
+            vertices[index[2] as usize].bitangent = bitangent.into();
 
             // Used below
             position_counter[index[0] as usize] += 1;

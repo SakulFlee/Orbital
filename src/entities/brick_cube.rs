@@ -1,4 +1,4 @@
-use cgmath::{Quaternion, Vector3};
+use cgmath::{Deg, InnerSpace, Quaternion, Rotation3, Vector3};
 
 use crate::engine::{
     LogicalDevice, MaterialLoading, ResourceManager, StandardInstance, StandardMaterial, TInstance,
@@ -39,9 +39,11 @@ impl TEntity for BrickCube {
         let instances: Vec<StandardInstance> = (-100..=100)
             .flat_map(|x| {
                 (-100..=100).map(move |z| {
+                    let position = Vector3::new(x as f32 * 0.5, -1.0, z as f32 * 0.5);
                     StandardInstance::new(
-                        Vector3::new(x as f32 * 2.5, -1.0, z as f32 * 2.5),
-                        Quaternion::new(0.0, 0.0, 0.0, 0.0),
+                        position,
+                        // Quaternion::from_axis_angle(position.normalize(), Deg(45.0)),
+                        Quaternion::new(0.0, 0.0, 0.0, 0.0)
                     )
                 })
             })
