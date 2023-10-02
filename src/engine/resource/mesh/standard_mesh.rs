@@ -79,11 +79,11 @@ impl StandardMesh {
             );
         }
 
-        scene.models.first().unwrap().to_instanced_mesh(
-            logical_device,
-            material_loading,
-            instances,
-        )
+        scene
+            .models
+            .first()
+            .unwrap()
+            .to_instanced_mesh(logical_device, material_loading, instances)
     }
 
     pub fn from_raw_single(
@@ -144,6 +144,7 @@ impl StandardMesh {
             Some(material) => material,
             None => Box::new(StandardMaterial::from_path(
                 logical_device,
+                Self::MISSING_TEXTURE,
                 Self::MISSING_TEXTURE,
             )?),
         };

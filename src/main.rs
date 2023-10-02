@@ -3,7 +3,7 @@ use wgpu::Color;
 use wgpu_engine::{
     app::{App, EntityTagDuplicationBehaviour, WorldBuilder},
     engine::rgb_to_f32_color,
-    entities::{CameraControllingEntity, Cheese, ClearScreenEntity, Square},
+    entities::{BrickCube, CameraControllingEntity, Cheese, ClearScreenEntity, Square},
     log::log_init,
 };
 
@@ -27,7 +27,7 @@ fn main() {
             Box::new(CameraControllingEntity::new()),
             Box::new(ClearScreenEntity {}),
             Box::<Square>::default(),
-            Box::<Cheese>::default(),
+            Box::<BrickCube>::default(),
         ]);
 
     App::run("WGPU", world_builder).expect("App failed");
