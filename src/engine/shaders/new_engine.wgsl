@@ -14,6 +14,7 @@ struct InstanceUniform {
 }
 
 struct CameraUniform {
+    position: vec4<f32>, // TODO
     view_projection_matrix: mat4x4<f32>,
 }
 
@@ -43,6 +44,12 @@ var t_diffuse: texture_2d<f32>;
 
 @group(0) @binding(1)
 var s_diffuse: sampler;
+
+@group(0) @binding(2)
+var t_normal: texture_2d<f32>;
+
+@group(0) @binding(3)
+var s_normal: sampler;
 
 @group(1) @binding(0)
 var<uniform> camera: CameraUniform;
@@ -92,7 +99,8 @@ fn vs_main(
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // Get texel from texture
-    let texture = textureSample(t_diffuse, s_diffuse, in.texture_coordinates);
+    let object_diffuse_map = textureSample(t_diffuse, s_diffuse, in.texture_coordinates);
+    let object_normal_map = textureSample(t_normal, s_normal, in.texture_coordinates);
 
     // Ambient Light
     let ambient_color = ambient_light.color * ambient_light.strength;
@@ -101,22 +109,30 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var light_color = ambient_color;
 
     if point_light.enabled == u32(1) {
-        let distance_vec = abs(in.world_position - point_light.position.xyz);
+        // Stage Point Light:
+        // let distance_vec = abs(in.world_position - point_light.position.xyz);
 
-        let distance = pow(in.world_position.x - point_light.position.x, 2.0) + pow(in.world_position.y - point_light.position.y, 2.0) + pow(in.world_position.z - point_light.position.z, 2.0);
-        let radius_squared = pow(point_light.strength, 2.0);
+        // let distance = pow(in.world_position.x - point_light.position.x, 2.0) + pow(in.world_position.y - point_light.position.y, 2.0) + pow(in.world_position.z - point_light.position.z, 2.0);
+        // let radius_squared = pow(point_light.strength, 2.0);
 
-        if distance <= radius_squared {
-            let light_dir = normalize(point_light.position.xyz - in.world_position);
-            let diffuse_strength = max(dot(in.world_normal, light_dir), 0.0);
-            let diffuse_color = (point_light.color.xyz * diffuse_strength);
+        // if distance <= radius_squared {
+        let tangent_normal = object_normal_map.xyz * 2.0 - 1.0;
+        let light_dir = normalize(point_light.position.xyz - in.world_position);
+        let view_dir = normalize(camera.position.xyz - in.world_position);
+        let half_dir = normalize(view_dir + light_dir);
 
-            light_color += diffuse_color;
-        }
+        let diffuse_strength = max(dot(tangent_normal, light_dir), 0.0);
+        let diffuse_color = (point_light.color.xyz * diffuse_strength);
+
+        let specular_strength = pow(max(dot(tangent_normal, half_dir), 0.0), 32.0);
+        let specular_color = specular_strength * point_light.color.xyz;
+
+        light_color += (diffuse_color + specular_color);
+        // }
     }
 
     // Combine light and colors
-    let result = light_color * texture.xyz;
+    let result = light_color * object_diffuse_map.xyz;
 
-    return vec4<f32>(result, texture.a);
+    return vec4<f32>(result, object_diffuse_map.a);
 }

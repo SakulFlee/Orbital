@@ -15,3 +15,6 @@ pub use camera_controlling_entity::*;
 
 mod cheese;
 pub use cheese::*;
+
+mod brick_cube;
+pub use brick_cube::*;
