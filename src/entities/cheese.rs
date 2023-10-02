@@ -1,8 +1,4 @@
-use cgmath::{Quaternion, Vector3};
-
-use crate::engine::{
-    LogicalDevice, MaterialLoading, ResourceManager, StandardInstance, StandardMaterial, TInstance,
-};
+use crate::engine::LogicalDevice;
 
 use crate::{
     app::{EntityAction, EntityConfiguration, InputHandler, TEntity, UpdateFrequency},
@@ -29,30 +25,32 @@ impl TEntity for Cheese {
         vec![]
     }
 
-    fn prepare_render(&mut self, logical_device: &LogicalDevice) -> EngineResult<()> {
-        let material = StandardMaterial::from_path(logical_device, "cheese.jpg")?;
+    fn prepare_render(&mut self, _logical_device: &LogicalDevice) -> EngineResult<()> {
+        todo!()
 
-        let instances: Vec<StandardInstance> = (-100..=100)
-            .flat_map(|x| {
-                (-100..=100).map(move |z| {
-                    StandardInstance::new(
-                        Vector3::new(x as f32 * 2.5, -1.0, z as f32 * 2.5),
-                        Quaternion::new(0.0, 0.0, 0.0, 0.0),
-                    )
-                })
-            })
-            .collect();
+        // let material = StandardMaterial::from_path(logical_device, "cheese.jpg")?;
 
-        let mesh = ResourceManager::gltf_instanced_mesh_from_path(
-            logical_device,
-            "cheese.gltf",
-            instances,
-            MaterialLoading::Replace(material),
-        )?;
+        // let instances: Vec<StandardInstance> = (-100..=100)
+        //     .flat_map(|x| {
+        //         (-100..=100).map(move |z| {
+        //             StandardInstance::new(
+        //                 Vector3::new(x as f32 * 2.5, -1.0, z as f32 * 2.5),
+        //                 Quaternion::new(0.0, 0.0, 0.0, 0.0),
+        //             )
+        //         })
+        //     })
+        //     .collect();
 
-        self.mesh = Some(mesh);
+        // let mesh = ResourceManager::gltf_instanced_mesh_from_path(
+        //     logical_device,
+        //     "cheese.gltf",
+        //     instances,
+        //     MaterialLoading::Replace(material),
+        // )?;
 
-        Ok(())
+        // self.mesh = Some(mesh);
+
+        // Ok(())
     }
 
     fn meshes(&self) -> Vec<&dyn TMesh> {
