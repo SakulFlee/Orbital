@@ -32,6 +32,10 @@ pub struct App {
     timer: Timer,
     input_handler: InputHandler,
     camera: Camera,
+    #[cfg(debug_assertions)]
+    last_draw_calls: u32,
+    #[cfg(debug_assertions)]
+    last_triangle_count: u32,
 }
 
 impl App {
@@ -72,6 +76,10 @@ impl App {
             timer,
             input_handler,
             camera,
+            #[cfg(debug_assertions)]
+            last_draw_calls: 0,
+            #[cfg(debug_assertions)]
+            last_triangle_count: 0,
         };
 
         event_loop.run(move |event, _, control_flow| {
@@ -161,6 +169,12 @@ impl App {
     }
 
     fn handle_redraw(&mut self) -> EngineResult<()> {
+        #[cfg(debug_assertions)]
+        {
+            self.last_draw_calls = 0;
+            self.last_triangle_count = 0;
+        }
+
         let surface_texture = self.rendering_engine.surface_texture()?;
         let surface_texture_view = surface_texture.make_texture_view();
 
@@ -204,6 +218,12 @@ impl App {
                 .prepare_render_and_collect_data(self.rendering_engine.logical_device());
 
             meshes.iter().for_each(|x| {
+                #[cfg(debug_assertions)]
+                {
+                    self.last_draw_calls += 1;
+                    self.last_triangle_count += x.instance_count() / 3;
+                }
+
                 // Vertex & Instance Buffer
                 render_pass.set_vertex_buffer(0, x.vertex_buffer().slice(..));
                 render_pass.set_vertex_buffer(1, x.instance_buffer().slice(..));
@@ -258,6 +278,12 @@ impl App {
                     ups,
                     delta_time
                 ));
+
+                #[cfg(debug_assertions)]
+                {
+                    log::debug!("Draw Calls: {}", self.last_draw_calls());
+                    log::debug!("Triangle Count: {}", self.last_triangle_count());
+                }
             }
 
             // Slow (i.e. by-second) updates
@@ -269,5 +295,15 @@ impl App {
                 self.rendering_engine.logical_device(),
             );
         }
+    }
+
+    #[cfg(debug_assertions)]
+    pub fn last_draw_calls(&self) -> u32 {
+        self.last_draw_calls
+    }
+
+    #[cfg(debug_assertions)]
+    pub fn last_triangle_count(&self) -> u32 {
+        self.last_triangle_count
     }
 }
