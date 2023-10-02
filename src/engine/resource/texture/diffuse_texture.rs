@@ -31,7 +31,10 @@ impl DiffuseTexture {
         border_color: None,  // Default
     };
 
-    pub fn empty(logical_device: &LogicalDevice) -> EngineResult<Self> {
+    pub fn empty(
+        logical_device: &LogicalDevice,
+        special_format: Option<TextureFormat>,
+    ) -> EngineResult<Self> {
         Ok(Self {
             internal_texture: AbstractTexture::from_empty(
                 logical_device,
@@ -40,7 +43,7 @@ impl DiffuseTexture {
                     height: 512,
                     depth_or_array_layers: 1,
                 },
-                Self::TEXTURE_FORMAT,
+                special_format.unwrap_or(Self::TEXTURE_FORMAT),
                 &Self::SAMPLER_DESCRIPTOR,
                 TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
                 Some("Empty"),
@@ -48,14 +51,18 @@ impl DiffuseTexture {
         })
     }
 
-    pub fn from_path<P>(logical_device: &LogicalDevice, file_path: P) -> EngineResult<Self>
+    pub fn from_path<P>(
+        logical_device: &LogicalDevice,
+        file_path: P,
+        special_format: Option<TextureFormat>,
+    ) -> EngineResult<Self>
     where
         P: AsRef<Path>,
     {
         Ok(Self {
             internal_texture: AbstractTexture::from_path(
                 logical_device,
-                Self::TEXTURE_FORMAT,
+                special_format.unwrap_or(Self::TEXTURE_FORMAT),
                 &Self::SAMPLER_DESCRIPTOR,
                 TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
                 file_path,
@@ -66,13 +73,14 @@ impl DiffuseTexture {
     pub fn from_bytes(
         logical_device: &LogicalDevice,
         bytes: &[u8],
+        special_format: Option<TextureFormat>,
         label: Option<&str>,
     ) -> EngineResult<Self> {
         Ok(Self {
             internal_texture: AbstractTexture::from_bytes(
                 logical_device,
                 bytes,
-                Self::TEXTURE_FORMAT,
+                special_format.unwrap_or(Self::TEXTURE_FORMAT),
                 &Self::SAMPLER_DESCRIPTOR,
                 TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
                 label,
@@ -83,13 +91,14 @@ impl DiffuseTexture {
     pub fn from_image(
         logical_device: &LogicalDevice,
         image: &DynamicImage,
+        special_format: Option<TextureFormat>,
         label: Option<&str>,
     ) -> EngineResult<Self> {
         Ok(Self {
             internal_texture: AbstractTexture::from_image(
                 logical_device,
                 image,
-                Self::TEXTURE_FORMAT,
+                special_format.unwrap_or(Self::TEXTURE_FORMAT),
                 &Self::SAMPLER_DESCRIPTOR,
                 TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
                 label,
@@ -120,7 +129,7 @@ impl ResourceManager {
     where
         P: AsRef<Path>,
     {
-        DiffuseTexture::from_path(logical_device, file_path)
+        DiffuseTexture::from_path(logical_device, file_path, None)
     }
 
     pub fn diffuse_texture_from_bytes(
@@ -128,7 +137,7 @@ impl ResourceManager {
         bytes: &[u8],
         label: Option<&str>,
     ) -> EngineResult<DiffuseTexture> {
-        DiffuseTexture::from_bytes(logical_device, bytes, label)
+        DiffuseTexture::from_bytes(logical_device, bytes, None, label)
     }
 
     pub fn diffuse_texture_from_image(
@@ -136,6 +145,6 @@ impl ResourceManager {
         image: &DynamicImage,
         label: Option<&str>,
     ) -> EngineResult<DiffuseTexture> {
-        DiffuseTexture::from_image(logical_device, image, label)
+        DiffuseTexture::from_image(logical_device, image, None, label)
     }
 }

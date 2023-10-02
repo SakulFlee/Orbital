@@ -72,7 +72,7 @@ impl StandardMaterial {
             diffuse_path.as_ref().clone(),
         )?;
 
-        let normal_texture = ResourceManager::diffuse_texture_from_path(
+        let normal_texture = ResourceManager::normal_texture_from_path(
             logical_device,
             normal_path.as_ref().clone(),
         )?;
