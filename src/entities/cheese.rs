@@ -1,8 +1,4 @@
-use cgmath::{Quaternion, Vector3};
-
-use crate::engine::{
-    LogicalDevice, MaterialLoading, ResourceManager, StandardInstance, StandardMaterial, TInstance,
-};
+use crate::engine::LogicalDevice;
 
 use crate::{
     app::{EntityAction, EntityConfiguration, InputHandler, TEntity, UpdateFrequency},

@@ -8,6 +8,8 @@ pub struct VertexPoint {
     pub position_coordinates: [f32; 3],
     pub texture_coordinates: [f32; 2],
     pub normal_coordinates: [f32; 3],
+    pub tangent: [f32; 3],
+    pub bitangent: [f32; 3],
 }
 
 impl TVertex for VertexPoint {
@@ -21,5 +23,13 @@ impl TVertex for VertexPoint {
 
     fn normal_coordinates(&self) -> [f32; 3] {
         self.normal_coordinates
+    }
+
+    fn tangent(&self) -> [f32; 3] {
+        self.tangent
+    }
+    
+    fn bitangent(&self) -> [f32; 3] {
+        self.bitangent
     }
 }
