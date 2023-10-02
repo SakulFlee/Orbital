@@ -3,8 +3,8 @@ use easy_gltf::Model;
 use logical_device::LogicalDevice;
 
 use crate::engine::{
-    logical_device, DiffuseTexture, EngineError, EngineResult, MaterialLoading, StandardInstance,
-    StandardMaterial, StandardMesh, TInstance, TMaterial, VertexPoint,
+    logical_device, DiffuseTexture, EngineError, EngineResult, MaterialLoading, NormalTexture,
+    StandardInstance, StandardMaterial, StandardMesh, TInstance, TMaterial, VertexPoint,
 };
 
 pub trait ToStandardMesh {
@@ -50,36 +50,30 @@ impl ToStandardMesh for Model {
 
         let material: Option<Box<dyn TMaterial>> = match material_loading {
             MaterialLoading::Ignore => None,
-            MaterialLoading::Try => {
-                match &self.material().pbr.base_color_texture {
-                    Some(base_color_texture) => {
-                        match DiffuseTexture::from_bytes(logical_device, base_color_texture, None)
-                        {
-                            Ok(diffuse_texture) => {
+            MaterialLoading::Try => match &self.material().pbr.base_color_texture {
+                Some(base_color_texture) => {
+                    match DiffuseTexture::from_bytes(logical_device, base_color_texture, None) {
+                        Ok(diffuse_texture) => match NormalTexture::empty(logical_device) {
+                            Ok(normal_texture) => {
                                 match StandardMaterial::from_texture(
                                     logical_device,
                                     diffuse_texture,
+                                    normal_texture,
                                 ) {
                                     Ok(material) => Some(Box::new(material)),
                                     Err(_) => None,
                                 }
                             }
                             Err(_) => None,
-                        }
+                        },
+                        Err(_) => None,
                     }
-                    None => None,
                 }
-            }
+                None => None,
+            },
             MaterialLoading::Replace(material) => Some(Box::new(material)),
         };
 
-        StandardMesh::from_raw(
-            None,
-            logical_device,
-            vertices,
-            indices,
-            instances,
-            material,
-        )
+        StandardMesh::from_raw(None, logical_device, vertices, indices, instances, material)
     }
 }
