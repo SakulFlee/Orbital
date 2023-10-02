@@ -25,7 +25,7 @@ impl TEntity for Cheese {
         vec![]
     }
 
-    fn prepare_render(&mut self, logical_device: &LogicalDevice) -> EngineResult<()> {
+    fn prepare_render(&mut self, _logical_device: &LogicalDevice) -> EngineResult<()> {
         todo!()
 
         // let material = StandardMaterial::from_path(logical_device, "cheese.jpg")?;
