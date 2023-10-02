@@ -15,7 +15,7 @@ branches:
     skip: true
   - label: Delayed
     skip: true
-openPR: true
+openDraftPR: true
 copyIssueDescriptionToPR: true
 copyIssueLabelsToPR: true
 copyIssueAssigneeToPR: true
