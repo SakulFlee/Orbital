@@ -28,7 +28,7 @@ impl TVertex for VertexPoint {
     fn tangent(&self) -> [f32; 3] {
         self.tangent
     }
-    
+
     fn bitangent(&self) -> [f32; 3] {
         self.bitangent
     }
