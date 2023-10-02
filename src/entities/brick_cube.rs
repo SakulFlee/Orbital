@@ -40,10 +40,7 @@ impl TEntity for BrickCube {
             .flat_map(|x| {
                 (-100..=100).map(move |z| {
                     let position = Vector3::new(x as f32 * 1.0, -1.0, z as f32 * 1.0);
-                    StandardInstance::new(
-                        position,
-                        Quaternion::new(0.0, 0.0, 0.0, 0.0)
-                    )
+                    StandardInstance::new(position, Quaternion::new(0.0, 0.0, 0.0, 0.0))
                 })
             })
             .collect();
