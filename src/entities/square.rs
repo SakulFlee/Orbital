@@ -64,24 +64,32 @@ impl Square {
             position_coordinates: [-0.5, 0.5, 0.0],
             texture_coordinates: [0.0, 0.0],
             normal_coordinates: [0.0, 0.0, 0.0],
+            tangent: [0.0; 3],
+            bitangent: [0.0; 3],
         },
         // B
         VertexPoint {
             position_coordinates: [-0.5, -0.5, 0.0],
             texture_coordinates: [0.0, 1.0],
             normal_coordinates: [0.0, 0.0, 0.0],
+            tangent: [0.0; 3],
+            bitangent: [0.0; 3],
         },
         // C
         VertexPoint {
             position_coordinates: [0.5, -0.5, 0.0],
             texture_coordinates: [1.0, 1.0],
             normal_coordinates: [0.0, 0.0, 0.0],
+            tangent: [0.0; 3],
+            bitangent: [0.0; 3],
         },
         // D
         VertexPoint {
             position_coordinates: [0.5, 0.5, 0.0],
             texture_coordinates: [1.0, 0.0],
             normal_coordinates: [0.0, 0.0, 0.0],
+            tangent: [0.0; 3],
+            bitangent: [0.0; 3],
         },
     ];
 
