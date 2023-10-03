@@ -149,7 +149,10 @@ impl TEntity for Square {
     fn update(&mut self, delta_time: f64, input_handler: &InputHandler) -> Vec<EntityAction> {
         log::debug!("Tick! d: {delta_time}ms");
 
-        if input_handler.is_key_pressed(&VirtualKeyCode::Space) {
+        if input_handler
+            .keyboard_input_handler()
+            .is_pressed(&VirtualKeyCode::Space)
+        {
             // Note: [`UpdateFrequency::Slow`] means we have to hold down Space
             log::debug!("SPACE! We are going to SPACEEEEEEEE!");
 
