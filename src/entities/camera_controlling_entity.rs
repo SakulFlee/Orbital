@@ -6,15 +6,11 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct CameraControllingEntity {
-    previous_position: (f64, f64),
-}
+pub struct CameraControllingEntity {}
 
 impl CameraControllingEntity {
     pub fn new() -> Self {
-        Self {
-            previous_position: (0.0, 0.0),
-        }
+        Self {}
     }
 }
 
@@ -52,12 +48,8 @@ impl CameraControllingEntity {
     fn handle_mouse(&mut self, input_handler: &InputHandler, camera_change: &mut CameraChange) {
         let (x, y) = &input_handler.cursor_position();
 
-        if self.previous_position.0 != *x || self.previous_position.1 != *y {
-            camera_change.with_rotate_horizontal((self.previous_position.0 - *x) as f32);
-            camera_change.with_rotate_vertical((self.previous_position.1 - *y) as f32);
-
-            self.previous_position = (*x, *y);
-        }
+        camera_change.with_rotate_horizontal(*x as f32);
+        camera_change.with_rotate_vertical(*y as f32);
     }
 }
 
