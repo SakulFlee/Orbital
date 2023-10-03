@@ -77,8 +77,8 @@ impl App {
             (0.0, 2.0, 10.0),
             Deg(-90.0),
             Deg(-20.0),
+            4.0,
             0.1,
-            0.01,
             projection,
         );
 
@@ -287,7 +287,7 @@ impl App {
         // Fast (i.e. by-cycle) updates
         self.world.call_updateable(
             UpdateFrequency::Fast,
-            self.timer.current_delta_time(),
+            self.timer.cycle_delta_time(),
             &self.input_handler,
             &mut self.camera,
             self.rendering_engine.logical_device(),
