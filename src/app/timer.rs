@@ -47,7 +47,7 @@ impl Timer {
     }
 
     pub fn current_delta_time(&self) -> f64 {
-        self.cycle_delta_time
+        self.current_delta_time
     }
 }
 
