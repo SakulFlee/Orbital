@@ -7,13 +7,14 @@ use crate::{
 
 #[derive(Debug)]
 pub struct CameraControllingEntity {
-    speed: f32,
-    sensitivity: f32,
+    previous_position: (f64, f64),
 }
 
 impl CameraControllingEntity {
-    pub fn new(speed: f32, sensitivity: f32) -> Self {
-        Self { speed, sensitivity }
+    pub fn new() -> Self {
+        Self {
+            previous_position: (0.0, 0.0),
+        }
     }
 }
 
@@ -49,10 +50,12 @@ impl CameraControllingEntity {
     }
 
     fn handle_mouse(&self, input_handler: &InputHandler, camera_change: &mut CameraChange) {
-        let (x, y) = input_handler.mouse_input_handler().cursor_position();
+        let (x, y) = &input_handler.cursor_position();
 
-        camera_change.with_rotate_horizontal(x as f32);
-        camera_change.with_rotate_vertical(y as f32);
+        if self.previous_position.0 != *x || self.previous_position.1 != *y {
+            camera_change.with_rotate_horizontal(*x as f32);
+            camera_change.with_rotate_vertical(*y as f32);
+        }
     }
 }
 
@@ -61,7 +64,7 @@ impl TEntity for CameraControllingEntity {
         EntityConfiguration::new("Camera Controlling Entity", UpdateFrequency::Fast, false)
     }
 
-    fn update(&mut self, delta_time: f64, input_handler: &InputHandler) -> Vec<EntityAction> {
+    fn update(&mut self, _delta_time: f64, input_handler: &InputHandler) -> Vec<EntityAction> {
         let mut camera_change = CameraChange::new();
 
         self.handle_keyboard_input(input_handler, &mut camera_change);
