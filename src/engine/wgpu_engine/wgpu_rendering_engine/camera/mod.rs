@@ -159,7 +159,7 @@ impl Camera {
             * delta_time as f32;
 
         // Rotation
-        // self.yaw += Rad(camera_change.rotate_horizontal()) * self.sensitivity * delta_time as f32;
+        self.yaw += Rad(camera_change.rotate_horizontal()) * self.sensitivity * delta_time as f32;
 
         // Keep the camera's angle from going too high/low.
         if self.pitch < -Rad(Self::SAFE_FRAC_PI_2) {
