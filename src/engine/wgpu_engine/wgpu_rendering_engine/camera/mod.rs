@@ -1,6 +1,6 @@
 use std::f32::consts::FRAC_PI_2;
 
-use cgmath::{perspective, InnerSpace, Matrix4, Point3, Rad, Vector3};
+use cgmath::{InnerSpace, Matrix4, Point3, Rad, Vector3};
 
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
@@ -157,14 +157,14 @@ impl Camera {
         // Rotation
         self.yaw += Rad(camera_change.rotate_horizontal()) * self.sensitivity * delta_time as f32;
 
-        // TODO: Reset mouse pos?
-
         // Keep the camera's angle from going too high/low.
         if self.pitch < -Rad(Self::SAFE_FRAC_PI_2) {
             self.pitch = -Rad(Self::SAFE_FRAC_PI_2);
         } else if self.pitch > Rad(Self::SAFE_FRAC_PI_2) {
             self.pitch = Rad(Self::SAFE_FRAC_PI_2);
         }
+
+        self.update_buffer(logical_device);
     }
 
     pub fn bind_group_layout(logical_device: &LogicalDevice) -> BindGroupLayout {
@@ -213,19 +213,19 @@ impl Camera {
         self.sensitivity = sensitivity;
     }
 
-    pub fn projection(&self) -> Projection {
-        self.projection
+    pub fn projection(&self) -> &Projection {
+        &self.projection
     }
 
     pub fn set_projection(&mut self, projection: Projection) {
         self.projection = projection;
     }
 
-    pub fn buffer(&self) -> Buffer {
-        self.buffer
+    pub fn buffer(&self) -> &Buffer {
+        &self.buffer
     }
 
-    pub fn bind_group(&self) -> BindGroup {
-        self.bind_group
+    pub fn bind_group(&self) -> &BindGroup {
+        &self.bind_group
     }
 }
