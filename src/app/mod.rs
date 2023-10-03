@@ -99,6 +99,12 @@ impl App {
                         .input_handler
                         .keyboard_input_handler()
                         .handle_keyboard_input(input),
+                        WindowEvent::CursorMoved { position,  .. } => app.input_handler.mouse_input_handler().handle_cursor_moved(position),
+                        WindowEvent::CursorEntered { .. } =>app.input_handler.mouse_input_handler().handle_cursor_entered(),
+                        WindowEvent::CursorLeft { .. } => app.input_handler.mouse_input_handler().handle_cursor_left(),
+                        WindowEvent::MouseWheel { delta, phase, .. } => app.input_handler.mouse_input_handler().handle_mouse_scroll(phase, delta)   ,
+                        WindowEvent::MouseInput { state, button, .. } => 
+                            app.input_handler.mouse_input_handler().handle_mouse_input(state, button),
                     _ => (),
                 },
                 Event::RedrawRequested(..) => {
