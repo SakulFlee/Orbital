@@ -90,7 +90,7 @@ impl Camera {
                 }],
             });
 
-        Self {
+        let mut camera = Self {
             position: position.into(),
             yaw: yaw.into(),
             pitch: pitch.into(),
@@ -99,7 +99,11 @@ impl Camera {
             projection,
             bind_group,
             buffer,
-        }
+        };
+
+        camera.update_buffer(logical_device);
+
+        camera
     }
 
     pub fn calculate_matrix(&self) -> Matrix4<f32> {
@@ -155,7 +159,7 @@ impl Camera {
             * delta_time as f32;
 
         // Rotation
-        self.yaw += Rad(camera_change.rotate_horizontal()) * self.sensitivity * delta_time as f32;
+        // self.yaw += Rad(camera_change.rotate_horizontal()) * self.sensitivity * delta_time as f32;
 
         // Keep the camera's angle from going too high/low.
         if self.pitch < -Rad(Self::SAFE_FRAC_PI_2) {
