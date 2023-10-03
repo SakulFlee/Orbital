@@ -49,7 +49,10 @@ impl CameraControllingEntity {
     }
 
     fn handle_mouse(&self, input_handler: &InputHandler, camera_change: &mut CameraChange) {
-        todo!()
+        let (x, y) = input_handler.mouse_input_handler().cursor_position();
+
+        camera_change.with_rotate_horizontal(x as f32);
+        camera_change.with_rotate_vertical(y as f32);
     }
 }
 
