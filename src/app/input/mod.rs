@@ -96,9 +96,3 @@ impl Default for InputHandler {
         Self::new()
     }
 }
-
-impl Default for InputHandler {
-    fn default() -> Self {
-        Self::new()
-    }
-}
