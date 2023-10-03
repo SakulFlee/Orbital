@@ -13,8 +13,8 @@ use winit::{
 };
 
 use crate::engine::{
-    Camera, EngineError, EngineResult, TAmbientLight, TComputingEngine, TPointLight,
-    TRenderingEngine, TTexture, TextureHelper, WGPURenderingEngine, Projection,
+    Camera, EngineError, EngineResult, Projection, TAmbientLight, TComputingEngine, TPointLight,
+    TRenderingEngine, TTexture, TextureHelper, WGPURenderingEngine,
 };
 
 mod input;
@@ -72,7 +72,15 @@ impl App {
             0.1,
             100.0,
         );
-        let camera = Camera::new(rendering_engine.logical_device(), (0.0, 2.0, 10.0), Deg(-90.0), Deg(-20.0), 0.1, 0.01, projection);
+        let camera = Camera::new(
+            rendering_engine.logical_device(),
+            (0.0, 2.0, 10.0),
+            Deg(-90.0),
+            Deg(-20.0),
+            0.1,
+            0.01,
+            projection,
+        );
 
         let mut app = Self {
             name,
@@ -108,8 +116,7 @@ impl App {
                         WindowEvent::CursorEntered { .. } =>app.input_handler.mouse_input_handler_mut().handle_cursor_entered(),
                         WindowEvent::CursorLeft { .. } => app.input_handler.mouse_input_handler_mut().handle_cursor_left(),
                         WindowEvent::MouseWheel { delta, phase, .. } => app.input_handler.mouse_input_handler_mut().handle_mouse_scroll(phase, delta)   ,
-                        WindowEvent::MouseInput { state, button, .. } => 
-                            app.input_handler.mouse_input_handler_mut().handle_mouse_input(state, button),
+                        WindowEvent::MouseInput { state, button, .. } => app.input_handler.mouse_input_handler_mut().handle_mouse_input(state, button),
                     _ => (),
                 },
                 Event::RedrawRequested(..) => {
@@ -181,7 +188,7 @@ impl App {
         // Change projection
         let old_projection = self.camera.projection();
         let projection = Projection::new(
-            new_size.width, 
+            new_size.width,
             new_size.height,
             old_projection.fovy(),
             old_projection.znear(),
