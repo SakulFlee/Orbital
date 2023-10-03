@@ -29,8 +29,8 @@ impl UCamera {
 
     pub fn from_camera(camera: &Camera) -> Self {
         Self {
-            position: [camera.eye.x, camera.eye.y, camera.eye.z, 0.0],
-            view_projection_matrix: camera.view_projection().into(),
+            position: [camera.position.x, camera.position.y, camera.position.z, 0.0],
+            view_projection_matrix: camera.calculate_matrix().into(),
         }
     }
 }
