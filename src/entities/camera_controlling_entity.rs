@@ -1,29 +1,55 @@
-use cgmath::{Point3, Vector3};
 use winit::event::VirtualKeyCode;
 
 use crate::{
     app::{EntityAction, EntityConfiguration, InputHandler, TEntity, UpdateFrequency},
-    engine::{Camera, CameraChange},
+    engine::CameraChange,
 };
 
 #[derive(Debug)]
 pub struct CameraControllingEntity {
-    eye_position: Point3<f32>,
+    speed: f32,
+    sensitivity: f32,
 }
 
 impl CameraControllingEntity {
-    pub fn new() -> Self {
-        Self {
-            eye_position: Camera::DEFAULT_CAMERA_EYE_POSITION.into(),
-        }
+    pub fn new(speed: f32, sensitivity: f32) -> Self {
+        Self { speed, sensitivity }
     }
 }
 
-impl Default for CameraControllingEntity {
-    fn default() -> Self {
-        Self {
-            eye_position: Camera::DEFAULT_CAMERA_EYE_POSITION.into(),
+impl CameraControllingEntity {
+    fn handle_keyboard_input(
+        &self,
+        input_handler: &InputHandler,
+        camera_change: &mut CameraChange,
+    ) {
+        if input_handler.is_key_pressed(&VirtualKeyCode::W) {
+            camera_change.with_amount_forward(1.0);
         }
+
+        if input_handler.is_key_pressed(&VirtualKeyCode::S) {
+            camera_change.with_amount_backward(1.0);
+        }
+
+        if input_handler.is_key_pressed(&VirtualKeyCode::A) {
+            camera_change.with_amount_left(1.0);
+        }
+
+        if input_handler.is_key_pressed(&VirtualKeyCode::D) {
+            camera_change.with_amount_right(1.0);
+        }
+
+        if input_handler.is_key_pressed(&VirtualKeyCode::Space) {
+            camera_change.with_amount_up(1.0);
+        }
+
+        if input_handler.is_key_pressed(&VirtualKeyCode::LShift) {
+            camera_change.with_amount_down(1.0);
+        }
+    }
+
+    fn handle_mouse(&self, input_handler: &InputHandler, camera_change: &mut CameraChange) {
+        todo!()
     }
 }
 
@@ -33,24 +59,11 @@ impl TEntity for CameraControllingEntity {
     }
 
     fn update(&mut self, delta_time: f64, input_handler: &InputHandler) -> Vec<EntityAction> {
-        if input_handler.is_key_pressed(&VirtualKeyCode::W) {
-            self.eye_position += Vector3::new(0.0, 0.0, (0.1 * delta_time) as f32);
-        }
+        let mut camera_change = CameraChange::new();
 
-        if input_handler.is_key_pressed(&VirtualKeyCode::S) {
-            self.eye_position += Vector3::new(0.0, 0.0, (-0.1 * delta_time) as f32);
-        }
+        self.handle_keyboard_input(input_handler, &mut camera_change);
+        self.handle_mouse(input_handler, &mut camera_change);
 
-        if input_handler.is_key_pressed(&VirtualKeyCode::A) {
-            self.eye_position += Vector3::new((0.1 * delta_time) as f32, 0.0, 0.0);
-        }
-
-        if input_handler.is_key_pressed(&VirtualKeyCode::D) {
-            self.eye_position += Vector3::new((-0.1 * delta_time) as f32, 0.0, 0.0);
-        }
-
-        vec![EntityAction::CameraChange(
-            CameraChange::new().with_eye(self.eye_position),
-        )]
+        vec![EntityAction::CameraChange(camera_change)]
     }
 }
