@@ -4,7 +4,8 @@ use super::Camera;
 
 #[derive(Debug)]
 pub struct Projection {
-    aspect: f32,
+    width: u32,
+    height: u32,
     fovy: Rad<f32>,
     znear: f32,
     zfar: f32,
@@ -13,7 +14,8 @@ pub struct Projection {
 impl Projection {
     pub fn new<F: Into<Rad<f32>>>(width: u32, height: u32, fovy: F, znear: f32, zfar: f32) -> Self {
         Self {
-            aspect: width as f32 / height as f32,
+            width,
+            height,
             fovy: fovy.into(),
             znear,
             zfar,
@@ -21,19 +23,32 @@ impl Projection {
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
-        self.aspect = width as f32 / height as f32
+        self.set_width(width);
+        self.set_height(height);
     }
 
     pub fn calculate_matrix(&self) -> Matrix4<f32> {
-        Camera::OPENGL_TO_WGPU_MATRIX * perspective(self.fovy, self.aspect, self.znear, self.zfar)
+        Camera::OPENGL_TO_WGPU_MATRIX * perspective(self.fovy, self.aspect(), self.znear, self.zfar)
     }
 
     pub fn aspect(&self) -> f32 {
-        self.aspect
+        self.width() as f32 / self.height as f32
     }
 
-    pub fn set_aspect(&mut self, aspect: f32) {
-        self.aspect = aspect;
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+
+    pub fn set_width(&mut self, width: u32) {
+        self.width = width;
+    }
+
+    pub fn height(&self) -> u32 {
+        self.height
+    }
+
+    pub fn set_height(&mut self, height: u32) {
+        self.height = height;
     }
 
     pub fn fovy(&self) -> Rad<f32> {
