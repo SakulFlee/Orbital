@@ -83,3 +83,9 @@ impl MouseInputHandler {
         self.scroll
     }
 }
+
+impl Default for MouseInputHandler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
