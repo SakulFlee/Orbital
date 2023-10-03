@@ -187,7 +187,7 @@ impl World {
                     }
                 }
                 EntityAction::CameraChange(camera_change) => {
-                    camera.apply_camera_change(logical_device, camera_change);
+                    camera.apply_camera_change(delta_time, logical_device, camera_change);
                 }
                 EntityAction::Keep => (),
             }
