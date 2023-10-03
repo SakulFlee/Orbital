@@ -4,6 +4,7 @@
         "bitangents",
         "bytemuck",
         "cgmath",
+        "consts",
         "despawn",
         "failable",
         "fovy",
