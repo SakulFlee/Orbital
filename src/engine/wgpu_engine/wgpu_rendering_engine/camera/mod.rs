@@ -2,11 +2,6 @@ use std::f32::consts::FRAC_PI_2;
 
 use cgmath::{perspective, InnerSpace, Matrix4, Point3, Rad, Vector3};
 
-mod u_camera;
-pub use u_camera::*;
-
-mod camera_change;
-pub use camera_change::*;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
@@ -14,6 +9,12 @@ use wgpu::{
 };
 
 use crate::engine::LogicalDevice;
+
+mod u_camera;
+pub use u_camera::*;
+
+mod camera_change;
+pub use camera_change::*;
 
 #[derive(Debug)]
 pub struct Camera {
