@@ -181,3 +181,9 @@ impl Default for MouseInputHandler {
         Self::new()
     }
 }
+
+impl Default for MouseInputHandler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
