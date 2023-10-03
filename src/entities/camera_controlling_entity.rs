@@ -20,33 +20,51 @@ impl CameraControllingEntity {
         input_handler: &InputHandler,
         camera_change: &mut CameraChange,
     ) {
-        if input_handler.is_key_pressed(&VirtualKeyCode::W) {
+        if input_handler
+            .keyboard_input_handler()
+            .is_pressed(&VirtualKeyCode::W)
+        {
             camera_change.with_amount_forward(1.0);
         }
 
-        if input_handler.is_key_pressed(&VirtualKeyCode::S) {
+        if input_handler
+            .keyboard_input_handler()
+            .is_pressed(&VirtualKeyCode::S)
+        {
             camera_change.with_amount_backward(1.0);
         }
 
-        if input_handler.is_key_pressed(&VirtualKeyCode::A) {
+        if input_handler
+            .keyboard_input_handler()
+            .is_pressed(&VirtualKeyCode::A)
+        {
             camera_change.with_amount_left(1.0);
         }
 
-        if input_handler.is_key_pressed(&VirtualKeyCode::D) {
+        if input_handler
+            .keyboard_input_handler()
+            .is_pressed(&VirtualKeyCode::D)
+        {
             camera_change.with_amount_right(1.0);
         }
 
-        if input_handler.is_key_pressed(&VirtualKeyCode::Space) {
+        if input_handler
+            .keyboard_input_handler()
+            .is_pressed(&VirtualKeyCode::Space)
+        {
             camera_change.with_amount_up(1.0);
         }
 
-        if input_handler.is_key_pressed(&VirtualKeyCode::LShift) {
+        if input_handler
+            .keyboard_input_handler()
+            .is_pressed(&VirtualKeyCode::LShift)
+        {
             camera_change.with_amount_down(1.0);
         }
     }
 
     fn handle_mouse(&mut self, input_handler: &InputHandler, camera_change: &mut CameraChange) {
-        let (x, y) = &input_handler.cursor_position();
+        let (x, y) = &input_handler.mouse_input_handler().cursor_position();
 
         camera_change.with_rotate_horizontal(*x as f32);
         camera_change.with_rotate_vertical(*y as f32);
