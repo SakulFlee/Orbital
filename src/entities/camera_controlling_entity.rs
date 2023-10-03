@@ -67,3 +67,9 @@ impl TEntity for CameraControllingEntity {
         vec![EntityAction::CameraChange(camera_change)]
     }
 }
+
+impl Default for CameraControllingEntity {
+    fn default() -> Self {
+        Self::new()
+    }
+}
