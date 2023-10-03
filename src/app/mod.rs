@@ -47,7 +47,7 @@ impl App {
         let name: String = name.into();
 
         let event_loop = Self::make_event_loop();
-        let window = Self::make_window(
+        let mut window = Self::make_window(
             &event_loop,
             true,
             true,
@@ -119,7 +119,7 @@ impl App {
                     }
                 },
                 Event::RedrawEventsCleared => window.request_redraw(),
-                Event::MainEventsCleared => app.handle_main_events_cleared(&window),
+                Event::MainEventsCleared => app.handle_main_events_cleared(&mut window, control_flow),
                 _ => (),
             }
         });
@@ -276,7 +276,7 @@ impl App {
         Ok(())
     }
 
-    fn handle_main_events_cleared(&mut self, window: &Window) {
+    fn handle_main_events_cleared(&mut self, window: &mut Window, control_flow: &mut ControlFlow) {
         // Fast (i.e. by-cycle) updates
         self.world.call_updateable(
             UpdateFrequency::Fast,
@@ -316,6 +316,11 @@ impl App {
                 &mut self.camera,
                 self.rendering_engine.logical_device(),
             );
+        }
+
+        let exit = self.input_handler.post_update(window);
+        if exit {
+            *control_flow = ControlFlow::Exit;
         }
     }
 

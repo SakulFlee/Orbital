@@ -1,4 +1,7 @@
-use winit::event::{MouseScrollDelta, TouchPhase, VirtualKeyCode};
+use winit::{
+    event::{MouseScrollDelta, TouchPhase, VirtualKeyCode},
+    window::Window,
+};
 
 use self::{keyboard_input_handler::KeyboardInputHandler, mouse_input_handler::MouseInputHandler};
 
@@ -18,6 +21,16 @@ impl InputHandler {
             keyboard_input_handler: KeyboardInputHandler::new(),
             mouse_input_handler: MouseInputHandler::new(),
         }
+    }
+
+    // Returns 'true' if the app should be exited.
+    pub fn post_update(&mut self, window: &mut Window) -> bool {
+        let exit = self
+            .keyboard_input_handler
+            .post_update(window, &mut self.mouse_input_handler);
+        self.mouse_input_handler.post_update(window);
+
+        exit
     }
 
     pub fn keyboard_input_handler(&self) -> &KeyboardInputHandler {
@@ -48,6 +61,7 @@ impl InputHandler {
         self.keyboard_input_handler.is_any_pressed(pressed_keys)
     }
 
+    // TODO: Rename properly
     pub fn cursor_position(&self) -> (f64, f64) {
         self.mouse_input_handler.cursor_position()
     }
@@ -70,6 +84,10 @@ impl InputHandler {
 
     pub fn scroll(&self) -> Option<(TouchPhase, MouseScrollDelta)> {
         self.mouse_input_handler.scroll()
+    }
+
+    pub fn mouse_is_grabbed(&self) -> bool {
+        self.mouse_input_handler.is_grabbed()
     }
 }
 
