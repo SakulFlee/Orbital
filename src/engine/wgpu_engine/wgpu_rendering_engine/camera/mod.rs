@@ -1,9 +1,14 @@
-use cgmath::{perspective, Deg, Matrix4, Point3, SquareMatrix, Vector3};
+use std::f32::consts::FRAC_PI_2;
+
+use cgmath::{InnerSpace, Matrix4, Point3, Rad, Vector3};
+
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferUsages, ShaderStages,
 };
+
+use crate::engine::LogicalDevice;
 
 mod u_camera;
 pub use u_camera::*;
@@ -11,17 +16,17 @@ pub use u_camera::*;
 mod camera_change;
 pub use camera_change::*;
 
-use crate::engine::LogicalDevice;
+mod projection;
+pub use projection::*;
 
+#[derive(Debug)]
 pub struct Camera {
-    eye: Point3<f32>,
-    target: Point3<f32>,
-    up: Vector3<f32>,
-    aspect: f32,
-    fovy: f32,
-    znear: f32,
-    zfar: f32,
-    view_projection: Matrix4<f32>,
+    position: Point3<f32>,
+    yaw: Rad<f32>,
+    pitch: Rad<f32>,
+    speed: f32,
+    sensitivity: f32,
+    projection: Projection,
     buffer: Buffer,
     bind_group: BindGroup,
 }
@@ -36,6 +41,8 @@ impl Camera {
     );
 
     pub const DEFAULT_CAMERA_EYE_POSITION: (f32, f32, f32) = (0.0, 1.0, 2.0);
+
+    const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
 
     pub const BIND_GROUP_LAYOUT_DESCRIPTOR: BindGroupLayoutDescriptor<'static> =
         BindGroupLayoutDescriptor {
@@ -52,29 +59,14 @@ impl Camera {
             }],
         };
 
-    pub fn from_window_size(logical_device: &LogicalDevice, window_size: (u32, u32)) -> Self {
-        Self::new(
-            logical_device,
-            Self::DEFAULT_CAMERA_EYE_POSITION.into(),
-            (0.0, 0.0, 0.0).into(),
-            Vector3::unit_y(),
-            window_size.0 as f32 / window_size.1 as f32,
-            45.0,
-            0.1,
-            100.0,
-        )
-    }
-
-    #[allow(clippy::too_many_arguments)] // TODO: Check clippy again after Logical/Physical Device split
-    pub fn new(
+    pub fn new<V: Into<Point3<f32>>, Y: Into<Rad<f32>>, P: Into<Rad<f32>>>(
         logical_device: &LogicalDevice,
-        eye: Point3<f32>,
-        target: Point3<f32>,
-        up: Vector3<f32>,
-        aspect: f32,
-        fovy: f32,
-        znear: f32,
-        zfar: f32,
+        position: V,
+        yaw: Y,
+        pitch: P,
+        speed: f32,
+        sensitivity: f32,
+        projection: Projection,
     ) -> Self {
         let empty_uniform = UCamera::empty();
         let buffer = logical_device
@@ -99,16 +91,14 @@ impl Camera {
             });
 
         let mut camera = Self {
-            eye,
-            target,
-            up,
-            aspect,
-            fovy,
-            znear,
-            zfar,
-            view_projection: Matrix4::identity(),
-            buffer,
+            position: position.into(),
+            yaw: yaw.into(),
+            pitch: pitch.into(),
+            speed,
+            sensitivity,
+            projection,
             bind_group,
+            buffer,
         };
 
         camera.update_buffer(logical_device);
@@ -116,19 +106,24 @@ impl Camera {
         camera
     }
 
-    fn update_view_projection_matrix(&mut self) {
-        let view_matrix = Matrix4::look_at_rh(self.eye, self.target, self.up);
-        let projection_matrix = perspective(Deg(self.fovy), self.aspect, self.znear, self.zfar);
+    pub fn calculate_matrix(&self) -> Matrix4<f32> {
+        let (sin_pitch, cos_pitch) = self.pitch.0.sin_cos();
+        let (sin_yaw, cos_yaw) = self.yaw.0.sin_cos();
 
-        self.view_projection = Camera::OPENGL_TO_WGPU_MATRIX * projection_matrix * view_matrix;
+        Matrix4::look_to_rh(
+            self.position,
+            Vector3 {
+                x: cos_pitch * cos_yaw,
+                y: sin_pitch,
+                z: cos_pitch * sin_yaw,
+            }
+            .normalize(),
+            Vector3::unit_y(),
+        )
     }
 
     pub fn update_buffer(&mut self, logical_device: &LogicalDevice) {
-        // Make sure the view matrix is up-to-date
-        self.update_view_projection_matrix();
-
-        // Transform into uniform
-        let uniform = self.to_uniform();
+        let uniform = UCamera::from_camera(self);
 
         // Write uniform into buffer
         logical_device
@@ -136,114 +131,109 @@ impl Camera {
             .write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[uniform]))
     }
 
-    pub fn to_uniform(&self) -> UCamera {
-        UCamera::from_camera(self)
-    }
-
     pub fn apply_camera_change(
         &mut self,
+        delta_time: f64,
         logical_device: &LogicalDevice,
         camera_change: CameraChange,
     ) {
-        if let Some(eye) = camera_change.eye() {
-            self.set_eye(eye);
-        }
+        let (yaw_sin, yaw_cos) = self.yaw.0.sin_cos();
 
-        if let Some(target) = camera_change.target() {
-            self.set_target(target);
-        }
+        // Move forward/backward
+        let forward = Vector3::new(yaw_cos, 0.0, yaw_sin).normalize();
+        self.position += forward
+            * (camera_change.amount_forward() - camera_change.amount_backward())
+            * self.speed
+            * delta_time as f32;
 
-        if let Some(up) = camera_change.up() {
-            self.set_up(up);
-        }
+        // Move left/right
+        let right = Vector3::new(-yaw_sin, 0.0, yaw_cos).normalize();
+        self.position += right
+            * (camera_change.amount_right() - camera_change.amount_left())
+            * self.speed
+            * delta_time as f32;
 
-        if let Some(aspect) = camera_change.aspect() {
-            self.set_aspect(aspect);
-        }
+        // Move up/down
+        self.position.y += (camera_change.amount_up() - camera_change.amount_down())
+            * self.speed
+            * delta_time as f32;
 
-        if let Some(fovy) = camera_change.fovy() {
-            self.set_fovy(fovy);
-        }
+        // Rotation
+        let half_width = (self.projection().width() / 2) as f32;
+        let half_height = (self.projection().height() / 2) as f32;
+        self.yaw += Rad(camera_change.rotate_horizontal() - half_width)
+            * self.sensitivity
+            * delta_time as f32;
+        self.pitch += Rad(half_height - camera_change.rotate_vertical())
+            * self.sensitivity
+            * delta_time as f32;
 
-        if let Some(znear) = camera_change.znear() {
-            self.set_znear(znear);
-        }
-
-        if let Some(zfar) = camera_change.zfar() {
-            self.set_zfar(zfar);
+        // Keep the camera's angle from going too high/low.
+        if self.pitch < -Rad(Self::SAFE_FRAC_PI_2) {
+            self.pitch = -Rad(Self::SAFE_FRAC_PI_2);
+        } else if self.pitch > Rad(Self::SAFE_FRAC_PI_2) {
+            self.pitch = Rad(Self::SAFE_FRAC_PI_2);
         }
 
         self.update_buffer(logical_device);
-    }
-
-    pub fn eye(&self) -> Point3<f32> {
-        self.eye
-    }
-
-    pub fn set_eye(&mut self, eye: Point3<f32>) {
-        self.eye = eye;
-    }
-
-    pub fn target(&self) -> Point3<f32> {
-        self.target
-    }
-
-    pub fn set_target(&mut self, target: Point3<f32>) {
-        self.target = target;
-    }
-
-    pub fn up(&self) -> Vector3<f32> {
-        self.up
-    }
-
-    pub fn set_up(&mut self, up: Vector3<f32>) {
-        self.up = up;
-    }
-
-    pub fn aspect(&self) -> f32 {
-        self.aspect
-    }
-
-    pub fn set_aspect(&mut self, aspect: f32) {
-        self.aspect = aspect;
-    }
-
-    pub fn fovy(&self) -> f32 {
-        self.fovy
-    }
-
-    pub fn set_fovy(&mut self, fovy: f32) {
-        self.fovy = fovy;
-    }
-
-    pub fn znear(&self) -> f32 {
-        self.znear
-    }
-
-    pub fn set_znear(&mut self, znear: f32) {
-        self.znear = znear;
-    }
-
-    pub fn zfar(&self) -> f32 {
-        self.zfar
-    }
-
-    pub fn set_zfar(&mut self, zfar: f32) {
-        self.zfar = zfar;
-    }
-
-    pub fn view_projection(&self) -> Matrix4<f32> {
-        self.view_projection
-    }
-
-    pub fn buffer(&self) -> &Buffer {
-        &self.buffer
     }
 
     pub fn bind_group_layout(logical_device: &LogicalDevice) -> BindGroupLayout {
         logical_device
             .device()
             .create_bind_group_layout(&Self::BIND_GROUP_LAYOUT_DESCRIPTOR)
+    }
+
+    pub fn position(&self) -> Point3<f32> {
+        self.position
+    }
+
+    pub fn set_position(&mut self, position: Point3<f32>) {
+        self.position = position;
+    }
+
+    pub fn yaw(&self) -> Rad<f32> {
+        self.yaw
+    }
+
+    pub fn set_yaw(&mut self, yaw: Rad<f32>) {
+        self.yaw = yaw;
+    }
+
+    pub fn pitch(&self) -> Rad<f32> {
+        self.pitch
+    }
+
+    pub fn set_pitch(&mut self, pitch: Rad<f32>) {
+        self.pitch = pitch;
+    }
+
+    pub fn speed(&self) -> f32 {
+        self.speed
+    }
+
+    pub fn set_speed(&mut self, speed: f32) {
+        self.speed = speed;
+    }
+
+    pub fn sensitivity(&self) -> f32 {
+        self.sensitivity
+    }
+
+    pub fn set_sensitivity(&mut self, sensitivity: f32) {
+        self.sensitivity = sensitivity;
+    }
+
+    pub fn projection(&self) -> &Projection {
+        &self.projection
+    }
+
+    pub fn set_projection(&mut self, projection: Projection) {
+        self.projection = projection;
+    }
+
+    pub fn buffer(&self) -> &Buffer {
+        &self.buffer
     }
 
     pub fn bind_group(&self) -> &BindGroup {

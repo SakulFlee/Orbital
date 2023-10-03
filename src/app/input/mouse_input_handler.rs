@@ -1,6 +1,7 @@
 use winit::{
-    dpi::PhysicalPosition,
+    dpi::{LogicalPosition, PhysicalPosition},
     event::{ElementState, MouseButton, MouseScrollDelta, TouchPhase},
+    window::{CursorGrabMode, Window},
 };
 
 #[derive(Debug)]
@@ -12,6 +13,10 @@ pub struct MouseInputHandler {
     rmb_pressed: bool,
     mmb_pressed: bool,
     scroll: Option<(TouchPhase, MouseScrollDelta)>,
+    is_grabbed: bool,
+    should_grab: bool,
+    hide_mouse_if_grabbed: bool,
+    reset_cursor_to_center: bool,
 }
 
 impl MouseInputHandler {
@@ -24,7 +29,66 @@ impl MouseInputHandler {
             rmb_pressed: false,
             mmb_pressed: false,
             scroll: None,
+            is_grabbed: false,
+            should_grab: true,
+            hide_mouse_if_grabbed: true,
+            reset_cursor_to_center: true,
         }
+    }
+
+    fn post_update_grabbing(&mut self, window: &mut Window) {
+        if self.should_grab && !self.is_grabbed {
+            let result = window
+                .set_cursor_grab(CursorGrabMode::Confined)
+                .or_else(|_| window.set_cursor_grab(CursorGrabMode::Locked));
+
+            if result.is_err() {
+                log::warn!("Failed grabbing cursor: {:?}", result.unwrap_err());
+                self.is_grabbed = false;
+            } else {
+                self.is_grabbed = true;
+            }
+
+            if self.hide_mouse_if_grabbed {
+                window.set_cursor_visible(!self.is_grabbed);
+            } else {
+                window.set_cursor_visible(true);
+            }
+        } else if !self.should_grab && self.is_grabbed {
+            let result = window.set_cursor_grab(CursorGrabMode::None);
+
+            if result.is_err() {
+                log::warn!("Failed un-grabbing cursor: {:?}", result.unwrap_err());
+                self.is_grabbed = true;
+            } else {
+                self.is_grabbed = false;
+            }
+
+            if self.hide_mouse_if_grabbed {
+                window.set_cursor_visible(!self.is_grabbed);
+            } else {
+                window.set_cursor_visible(true);
+            }
+        }
+    }
+
+    pub fn post_update_cursor_position(&mut self, window: &mut Window) {
+        if !self.reset_cursor_to_center {
+            return;
+        }
+
+        let window_size = window.inner_size();
+        if let Err(e) = window.set_cursor_position(LogicalPosition::new(
+            window_size.width / 2,
+            window_size.height / 2,
+        )) {
+            log::warn!("Failed resetting cursor: {:?}", e);
+        }
+    }
+
+    pub fn post_update(&mut self, window: &mut Window) {
+        self.post_update_grabbing(window);
+        self.post_update_cursor_position(window);
     }
 
     pub fn handle_cursor_moved(&mut self, position: PhysicalPosition<f64>) {
@@ -81,6 +145,34 @@ impl MouseInputHandler {
 
     pub fn scroll(&self) -> Option<(TouchPhase, MouseScrollDelta)> {
         self.scroll
+    }
+
+    pub fn is_grabbed(&self) -> bool {
+        self.is_grabbed
+    }
+
+    pub fn should_grab(&self) -> bool {
+        self.should_grab
+    }
+
+    pub fn set_should_grab(&mut self, should_grab: bool) {
+        self.should_grab = should_grab;
+    }
+
+    pub fn hide_mouse_if_grabbed(&self) -> bool {
+        self.hide_mouse_if_grabbed
+    }
+
+    pub fn set_hide_mouse_if_grabbed(&mut self, hide_mouse_if_grabbed: bool) {
+        self.hide_mouse_if_grabbed = hide_mouse_if_grabbed;
+    }
+
+    pub fn reset_cursor_to_center(&self) -> bool {
+        self.reset_cursor_to_center
+    }
+
+    pub fn set_reset_cursor_to_center(&mut self, reset_cursor_to_center: bool) {
+        self.reset_cursor_to_center = reset_cursor_to_center;
     }
 }
 

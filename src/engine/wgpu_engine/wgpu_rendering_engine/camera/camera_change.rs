@@ -1,89 +1,90 @@
-use cgmath::{Point3, Vector3};
-
 pub struct CameraChange {
-    eye: Option<Point3<f32>>,
-    target: Option<Point3<f32>>,
-    up: Option<Vector3<f32>>,
-    aspect: Option<f32>,
-    fovy: Option<f32>,
-    znear: Option<f32>,
-    zfar: Option<f32>,
+    amount_left: f32,
+    amount_right: f32,
+    amount_forward: f32,
+    amount_backward: f32,
+    amount_up: f32,
+    amount_down: f32,
+    rotate_horizontal: f32,
+    rotate_vertical: f32,
 }
 
 impl CameraChange {
     pub fn new() -> Self {
         Self {
-            eye: None,
-            target: None,
-            up: None,
-            aspect: None,
-            fovy: None,
-            znear: None,
-            zfar: None,
+            amount_left: 0.0,
+            amount_right: 0.0,
+            amount_forward: 0.0,
+            amount_backward: 0.0,
+            amount_up: 0.0,
+            amount_down: 0.0,
+            rotate_horizontal: 0.0,
+            rotate_vertical: 0.0,
         }
     }
 
-    pub fn with_eye(mut self, eye: Point3<f32>) -> Self {
-        self.eye = Some(eye);
-        self
+    pub fn amount_left(&self) -> f32 {
+        self.amount_left
     }
 
-    pub fn with_target(mut self, target: Point3<f32>) -> Self {
-        self.target = Some(target);
-        self
+    pub fn with_amount_left(&mut self, amount_left: f32) {
+        self.amount_left = amount_left;
     }
 
-    pub fn with_up(mut self, up: Vector3<f32>) -> Self {
-        self.up = Some(up);
-        self
+    pub fn amount_right(&self) -> f32 {
+        self.amount_right
     }
 
-    pub fn with_aspect(mut self, aspect: f32) -> Self {
-        self.aspect = Some(aspect);
-        self
+    pub fn with_amount_right(&mut self, amount_right: f32) {
+        self.amount_right = amount_right;
     }
 
-    pub fn with_fovy(mut self, fovy: f32) -> Self {
-        self.fovy = Some(fovy);
-        self
+    pub fn amount_forward(&self) -> f32 {
+        self.amount_forward
     }
 
-    pub fn with_znear(mut self, znear: f32) -> Self {
-        self.znear = Some(znear);
-        self
+    pub fn with_amount_forward(&mut self, amount_forward: f32) {
+        self.amount_forward = amount_forward;
     }
 
-    pub fn with_zfar(mut self, zfar: f32) -> Self {
-        self.zfar = Some(zfar);
-        self
+    pub fn amount_backward(&self) -> f32 {
+        self.amount_backward
     }
 
-    pub fn eye(&self) -> Option<Point3<f32>> {
-        self.eye
+    pub fn with_amount_backward(&mut self, amount_backward: f32) {
+        self.amount_backward = amount_backward;
     }
 
-    pub fn target(&self) -> Option<Point3<f32>> {
-        self.target
+    pub fn amount_up(&self) -> f32 {
+        self.amount_up
     }
 
-    pub fn up(&self) -> Option<Vector3<f32>> {
-        self.up
+    pub fn with_amount_up(&mut self, amount_up: f32) {
+        self.amount_up = amount_up;
     }
 
-    pub fn aspect(&self) -> Option<f32> {
-        self.aspect
+    pub fn amount_down(&self) -> f32 {
+        self.amount_down
     }
 
-    pub fn fovy(&self) -> Option<f32> {
-        self.fovy
+    pub fn with_amount_down(&mut self, amount_down: f32) {
+        self.amount_down = amount_down;
     }
 
-    pub fn znear(&self) -> Option<f32> {
-        self.znear
+    pub fn rotate_horizontal(&self) -> f32 {
+        self.rotate_horizontal
     }
 
-    pub fn zfar(&self) -> Option<f32> {
-        self.zfar
+    pub fn with_rotate_horizontal(&mut self, rotate_horizontal: f32) {
+        self.rotate_horizontal = rotate_horizontal;
+    }
+
+    pub fn rotate_vertical(&self) -> f32 {
+        self.rotate_vertical
+    }
+
+    pub fn with_rotate_vertical(&mut self, rotate_vertical: f32) {
+        self.rotate_vertical = rotate_vertical;
     }
 }
 

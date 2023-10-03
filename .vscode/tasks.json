@@ -64,6 +64,12 @@
                 "$rustc"
             ],
             "group": "build"
+        },
+        {
+            "label": "Clean",
+            "command": "cargo clean",
+            "type": "shell",
+            "problemMatcher": [],
         }
     ]
 }

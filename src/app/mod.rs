@@ -1,5 +1,6 @@
 use std::iter::once;
 
+use cgmath::Deg;
 use wgpu::{
     CommandEncoderDescriptor, IndexFormat, LoadOp, MaintainBase, Operations,
     RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor,
@@ -12,7 +13,7 @@ use winit::{
 };
 
 use crate::engine::{
-    Camera, EngineError, EngineResult, TAmbientLight, TComputingEngine, TPointLight,
+    Camera, EngineError, EngineResult, Projection, TAmbientLight, TComputingEngine, TPointLight,
     TRenderingEngine, TTexture, TextureHelper, WGPURenderingEngine,
 };
 
@@ -46,7 +47,7 @@ impl App {
         let name: String = name.into();
 
         let event_loop = Self::make_event_loop();
-        let window = Self::make_window(
+        let mut window = Self::make_window(
             &event_loop,
             true,
             true,
@@ -64,9 +65,21 @@ impl App {
 
         let input_handler = InputHandler::new();
 
-        let camera = Camera::from_window_size(
+        let projection = Projection::new(
+            window.inner_size().width,
+            window.inner_size().height,
+            Deg(45.0),
+            0.1,
+            100.0,
+        );
+        let camera = Camera::new(
             rendering_engine.logical_device(),
-            window.inner_size().into(),
+            (0.0, 2.0, 10.0),
+            Deg(-90.0),
+            Deg(-20.0),
+            0.1,
+            0.01,
+            projection,
         );
 
         let mut app = Self {
@@ -97,14 +110,13 @@ impl App {
                     } => app.handle_resize(new_size, &window),
                     WindowEvent::KeyboardInput { input, .. } => app
                         .input_handler
-                        .keyboard_input_handler()
+                        .keyboard_input_handler_mut()
                         .handle_keyboard_input(input),
-                        WindowEvent::CursorMoved { position,  .. } => app.input_handler.mouse_input_handler().handle_cursor_moved(position),
-                        WindowEvent::CursorEntered { .. } =>app.input_handler.mouse_input_handler().handle_cursor_entered(),
-                        WindowEvent::CursorLeft { .. } => app.input_handler.mouse_input_handler().handle_cursor_left(),
-                        WindowEvent::MouseWheel { delta, phase, .. } => app.input_handler.mouse_input_handler().handle_mouse_scroll(phase, delta)   ,
-                        WindowEvent::MouseInput { state, button, .. } => 
-                            app.input_handler.mouse_input_handler().handle_mouse_input(state, button),
+                        WindowEvent::CursorMoved { position,  .. } => app.input_handler.mouse_input_handler_mut().handle_cursor_moved(position),
+                        WindowEvent::CursorEntered { .. } =>app.input_handler.mouse_input_handler_mut().handle_cursor_entered(),
+                        WindowEvent::CursorLeft { .. } => app.input_handler.mouse_input_handler_mut().handle_cursor_left(),
+                        WindowEvent::MouseWheel { delta, phase, .. } => app.input_handler.mouse_input_handler_mut().handle_mouse_scroll(phase, delta)   ,
+                        WindowEvent::MouseInput { state, button, .. } => app.input_handler.mouse_input_handler_mut().handle_mouse_input(state, button),
                     _ => (),
                 },
                 Event::RedrawRequested(..) => {
@@ -114,7 +126,7 @@ impl App {
                     }
                 },
                 Event::RedrawEventsCleared => window.request_redraw(),
-                Event::MainEventsCleared => app.handle_main_events_cleared(&window),
+                Event::MainEventsCleared => app.handle_main_events_cleared(&mut window, control_flow),
                 _ => (),
             }
         });
@@ -172,6 +184,17 @@ impl App {
         self.rendering_engine
             .set_surface_configuration(current_config);
         self.rendering_engine.reconfigure_surface();
+
+        // Change projection
+        let old_projection = self.camera.projection();
+        let projection = Projection::new(
+            new_size.width,
+            new_size.height,
+            old_projection.fovy(),
+            old_projection.znear(),
+            old_projection.zfar(),
+        );
+        self.camera.set_projection(projection);
     }
 
     fn handle_redraw(&mut self) -> EngineResult<()> {
@@ -260,7 +283,7 @@ impl App {
         Ok(())
     }
 
-    fn handle_main_events_cleared(&mut self, window: &Window) {
+    fn handle_main_events_cleared(&mut self, window: &mut Window, control_flow: &mut ControlFlow) {
         // Fast (i.e. by-cycle) updates
         self.world.call_updateable(
             UpdateFrequency::Fast,
@@ -300,6 +323,11 @@ impl App {
                 &mut self.camera,
                 self.rendering_engine.logical_device(),
             );
+        }
+
+        let exit = self.input_handler.post_update(window);
+        if exit {
+            *control_flow = ControlFlow::Exit;
         }
     }
 

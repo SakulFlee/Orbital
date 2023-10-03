@@ -1,4 +1,4 @@
-use winit::event::VirtualKeyCode;
+use winit::window::Window;
 
 use self::{keyboard_input_handler::KeyboardInputHandler, mouse_input_handler::MouseInputHandler};
 
@@ -20,24 +20,30 @@ impl InputHandler {
         }
     }
 
-    pub fn keyboard_input_handler(&mut self) -> &mut KeyboardInputHandler {
+    // Returns 'true' if the app should be exited.
+    pub fn post_update(&mut self, window: &mut Window) -> bool {
+        let exit = self
+            .keyboard_input_handler
+            .post_update(window, &mut self.mouse_input_handler);
+        self.mouse_input_handler.post_update(window);
+
+        exit
+    }
+
+    pub fn keyboard_input_handler(&self) -> &KeyboardInputHandler {
+        &self.keyboard_input_handler
+    }
+
+    pub fn keyboard_input_handler_mut(&mut self) -> &mut KeyboardInputHandler {
         &mut self.keyboard_input_handler
     }
 
-    pub fn mouse_input_handler(&mut self) -> &mut MouseInputHandler {
+    pub fn mouse_input_handler(&self) -> &MouseInputHandler {
+        &self.mouse_input_handler
+    }
+
+    pub fn mouse_input_handler_mut(&mut self) -> &mut MouseInputHandler {
         &mut self.mouse_input_handler
-    }
-
-    pub fn is_key_pressed(&self, pressed_key: &VirtualKeyCode) -> bool {
-        self.keyboard_input_handler.is_pressed(pressed_key)
-    }
-
-    pub fn are_all_keys_pressed(&self, pressed_keys: &[VirtualKeyCode]) -> bool {
-        self.keyboard_input_handler.are_all_pressed(pressed_keys)
-    }
-
-    pub fn is_any_key_pressed(&self, pressed_keys: &[VirtualKeyCode]) -> bool {
-        self.keyboard_input_handler.is_any_pressed(pressed_keys)
     }
 }
 
