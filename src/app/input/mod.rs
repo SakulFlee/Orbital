@@ -40,3 +40,9 @@ impl InputHandler {
         self.keyboard_input_handler.is_any_pressed(pressed_keys)
     }
 }
+
+impl Default for InputHandler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
