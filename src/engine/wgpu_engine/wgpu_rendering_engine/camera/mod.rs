@@ -90,7 +90,3 @@ impl Projection {
         Camera::OPENGL_TO_WGPU_MATRIX * perspective(self.fovy, self.aspect, self.znear, self.zfar)
     }
 }
-
-// TODO: Mouse Handler
-// TODO: Actually update Camera
-// TODO: Uniform changes
