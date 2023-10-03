@@ -123,7 +123,7 @@ impl Camera {
     }
 
     pub fn update_buffer(&mut self, logical_device: &LogicalDevice) {
-        let uniform = UCamera::from_camera(&self);
+        let uniform = UCamera::from_camera(self);
 
         // Write uniform into buffer
         logical_device
