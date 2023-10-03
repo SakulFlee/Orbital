@@ -72,7 +72,7 @@ impl App {
             0.1,
             100.0,
         );
-        let camera = Camera::new(rendering_engine.logical_device(), (0.0, 5.0, 10.0), Deg(-90.0), Deg(-20.0), 0.1, 1.0, projection);
+        let camera = Camera::new(rendering_engine.logical_device(), (0.0, 2.0, 10.0), Deg(-90.0), Deg(-20.0), 0.1, 0.05, projection);
 
         let mut app = Self {
             name,
