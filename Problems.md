@@ -76,3 +76,12 @@ glTF also isn't optimal since the parsin library occasionally fails to read mate
 Indendent of the issues, OBJ may be a good addition as a legacy format.
 Something like FBX may also be a good addition.
 
+## "ECS"
+
+A ECS (entity-component-system) is quite hard to implement in Rust as it turns out.
+At least, without an external tool. The current system works, but is kinda ... inefficient and complicated to use.
+Like, let alone the requirement that there must be at least an initial system to spawn everything else is weird.
+
+Also, without properly keeping track of systems _by_ a system, information may simply get lost and/or overwritten.
+There is no proper global system to keep track of everything and no "garbage collector".
+
