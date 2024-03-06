@@ -1,0 +1,14 @@
+# Rust
+/target
+
+# Logs
+game-*.log
+
+# Syncthing
+.stfolder/
+
+# Blender
+.blend*
+
+# MDBook
+docs/book/

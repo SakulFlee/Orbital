@@ -1,0 +1,24 @@
+# https://github.com/robvanderleek/create-issue-branch
+mode: auto
+silent: false
+branchName: tiny
+autoCloseIssue: true
+defaultBranch: 'main'
+branches:
+  - label: Question
+    skip: true
+  - label: Invalid
+    skip: true
+  - label: Won't fix
+    skip: true
+  - label: Duplicate
+    skip: true
+  - label: Delayed
+    skip: true
+openDraftPR: true
+copyIssueDescriptionToPR: true
+copyIssueLabelsToPR: true
+copyIssueAssigneeToPR: true
+copyIssueProjectsToPR: true
+copyIssueMilestoneToPR: true
+commentMessage: 'Branch ${branchName} created for issue: ${issue.title}'

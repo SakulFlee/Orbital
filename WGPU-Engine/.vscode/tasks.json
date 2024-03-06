@@ -1,0 +1,75 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Debug Build",
+            "command": "cargo build",
+            "type": "shell",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Release Build",
+            "command": "cargo build --release",
+            "type": "shell",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "group": "build"
+        },
+        {
+            "label": "Release Run",
+            "command": "cargo run --release",
+            "type": "shell",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "dependsOn": [
+                "Release Build"
+            ]
+        },
+        {
+            "label": "Format Code",
+            "command": "cargo fmt",
+            "type": "shell",
+            "problemMatcher": [
+                "$rustc"
+            ],
+        },
+        {
+            "label": "Clippy",
+            "command": "cargo clippy --fix --all-targets --all-features -- -D warnings -W clippy::all",
+            "type": "shell",
+            "problemMatcher": [
+                "$rustc"
+            ],
+        },
+        {
+            "label": "Build Book",
+            "command": "mdbook build",
+            "options": {
+                "cwd": "docs/"
+            },
+            "type": "shell",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "group": "build"
+        },
+        {
+            "label": "Clean",
+            "command": "cargo clean",
+            "type": "shell",
+            "problemMatcher": [],
+        }
+    ]
+}
