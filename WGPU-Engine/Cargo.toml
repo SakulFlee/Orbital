@@ -1,0 +1,22 @@
+[package]
+name = "wgpu_engine"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+log = "0.4"
+winit = "0.28"
+wgpu = "0.17"
+toml = "0.8.2"
+serde = { version = "1.0", features = ["derive"] }
+fern = "0.6"
+humantime = "2.1"
+bytemuck = { version = "1.14", features = ["derive"] }
+image = "0.24"
+cgmath = "0.18"
+tobj = { version = "4.0.0", features = ["ahash", "log"] }
+pollster = "0.3.0"
+easy-gltf = "1.1.0"
+
+[build-dependencies]
+fs_extra = "1.3"
