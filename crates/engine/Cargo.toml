@@ -1,0 +1,9 @@
+[package]
+name = "engine"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/SakulFlee/Akimo-Project"
+
+[dependencies]
+winit = "0.29.14"

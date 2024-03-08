@@ -102,7 +102,7 @@ keystore_password = "android"
 # as `<cfg>`, it is the uppercased profile name with `-` replaced with `_`.
 #
 # If present they take precedence over the signing information in the manifest. 
-path = ".android/release.keystore"
+path = "$HOME/.android/debug.keystore"
 keystore_password = "android"
 
 # See https://developer.android.com/guide/topics/manifest/uses-sdk-element
@@ -110,7 +110,7 @@ keystore_password = "android"
 # Defaults to a `min_sdk_version` of 23 and `target_sdk_version` of 30 (or lower if the detected NDK doesn't support this).
 [package.metadata.android.sdk]
 min_sdk_version = 23
-target_sdk_version = 30
+target_sdk_version = 34
 max_sdk_version = 34
 
 # See https://developer.android.com/guide/topics/manifest/uses-feature-element
