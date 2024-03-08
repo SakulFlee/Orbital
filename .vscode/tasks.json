@@ -4,465 +4,190 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "General Notice",
+            "label": "[Framework] Build (Debug)",
             "type": "shell",
-            "command": "echo 'Please note that you rarely can run all the tasks on one given platform. Doing so requires lots of setup and cross-toolchains.'"
+            "command": "cargo build",
+            "group": "build",
+            "options": {"cwd": "Framework/"}
         },
         {
-            "label": "Clean Workspace (removes build artifacts; Useful for clean builds)",
+            "label": "[Framework] Build (Release)",
             "type": "shell",
-            "command": "cargo clean",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "build"
+            "command": "cargo build --release",
+            "group": "build",
+            "options": {"cwd": "Framework/"}
         },
         {
-            "label": "Check Shared library (Debug)",
-            "type": "shell",
-            "command": "cargo check --package shared",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "build"
-        },
-        {
-            "label": "Check Platform Windows (Debug)",
-            "type": "shell",
-            "command": "cargo check --package platform_windows",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "build"
-        },
-        {
-            "label": "Check Platform Linux (Debug)",
-            "type": "shell",
-            "command": "cargo check --package platform_linux",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "build"
-        },
-        {
-            "label": "Check Platform macOS (Debug)",
-            "type": "shell",
-            "command": "cargo check --package platform_macos",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "build"
-        },
-        {
-            "label": "Check Platform iOS (Debug)",
-            "type": "shell",
-            "command": "cargo xcodebuild check --package platform_ios",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "build"
-        },
-        {
-            "label": "Check Platform Android (Debug)",
-            "type": "shell",
-            "command": "cargo apk check --package platform_android",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "build"
-        },
-        {
-            "label": "Check Platform WebAssembly (Debug)",
-            "type": "shell",
-            "command": "wasm-pack check --package platform_webassembly",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "build"
-        },
-        {
-            "label": "Check Shared library (Release)",
-            "type": "shell",
-            "command": "cargo check --release --package shared",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "build"
-        },
-        {
-            "label": "Check Platform Windows (Release)",
-            "type": "shell",
-            "command": "cargo check --release --package platform_windows",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "build"
-        },
-        {
-            "label": "Check Platform Linux (Release)",
-            "type": "shell",
-            "command": "cargo check --release --package platform_linux",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "build"
-        },
-        {
-            "label": "Check Platform macOS (Release)",
-            "type": "shell",
-            "command": "cargo check --release --package platform_macos",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "build"
-        },
-        {
-            "label": "Check Platform iOS (Release)",
-            "type": "shell",
-            "command": "cargo xcodebuild check --release --package platform_ios",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "build"
-        },
-        {
-            "label": "Check Platform Android (Release)",
-            "type": "shell",
-            "command": "cargo apk check --release --package platform_android",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "build"
-        },
-        {
-            "label": "Check Platform WebAssembly (Release)",
-            "type": "shell",
-            "command": "wasm-pack check --release --package platform_webassembly",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "build"
-        },
-        {
-            "label": "Build Shared library (Debug)",
-            "type": "shell",
-            "command": "cargo build --package shared",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "build"
-        },
-        {
-            "label": "Build Platform Windows (Debug)",
+            "label": "[Engine] Build Platform: Windows (Debug)",
             "type": "shell",
             "command": "cargo build --package platform_windows",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "build"
+            "group": "build",
+            "options": {"cwd": "Engine/"}
         },
         {
-            "label": "Build Platform Linux (Debug)",
+            "label": "[Engine] Build Platform: Windows (Release)",
+            "type": "shell",
+            "command": "cargo build --package platform_windows --release",
+            "group": "build",
+            "options": {"cwd": "Engine/"}
+        },
+        {
+            "label": "[Engine] Build Platform: Linux (Debug)",
             "type": "shell",
             "command": "cargo build --package platform_linux",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "build"
+            "group": "build",
+            "options": {"cwd": "Engine/"}
         },
         {
-            "label": "Build Platform macOS (Debug)",
+            "label": "[Engine] Build Platform: Linux (Release)",
+            "type": "shell",
+            "command": "cargo build --package platform_linux --release",
+            "group": "build",
+            "options": {"cwd": "Engine/"}
+        },
+        {
+            "label": "[Engine] Build Platform: MacOS (Debug)",
             "type": "shell",
             "command": "cargo build --package platform_macos",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "build"
+            "group": "build",
+            "options": {"cwd": "Engine/"}
         },
         {
-            "label": "Build Platform iOS (Debug)",
+            "label": "[Engine] Build Platform: MacOS (Release)",
+            "type": "shell",
+            "command": "cargo build --package platform_macos --release",
+            "group": "build",
+            "options": {"cwd": "Engine/"}
+        },
+        {
+            "label": "[Engine] Build Platform: iOS (Debug)",
             "type": "shell",
             "command": "cargo xcodebuild build --package platform_ios",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "build"
+            "group": "build",
+            "options": {"cwd": "Engine/"}
         },
         {
-            "label": "Build Platform Android (Debug)",
+            "label": "[Engine] Build Platform: Android (Release)",
             "type": "shell",
-            "command": "cargo apk build --package platform_android",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "build"
+            "command": "cargo apk build --package platform_android --release",
+            "group": "build",
+            "options": {"cwd": "Engine/"}
         },
         {
-            "label": "Build Platform WebAssembly (Debug)",
+            "label": "[Engine] Build Platform: iOS (Debug)",
             "type": "shell",
-            "command": "cd platform/webassembly && wasm-pack build --package platform_webassembly",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "build"
+            "command": "cargo xcodebuild build --package platform_ios",
+            "group": "build",
+            "options": {"cwd": "Engine/"}
         },
         {
-            "label": "Build Shared library (Release)",
+            "label": "[Engine] Build Platform: Android (Release)",
             "type": "shell",
-            "command": "cargo build --release --package shared",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "build"
+            "command": "cargo apk build --package platform_android --release",
+            "group": "build",
+            "options": {"cwd": "Engine/"}
         },
         {
-            "label": "Build Platform Windows (Release)",
+            "label": "[Engine] Build Platform: WebAssembly (Debug)",
             "type": "shell",
-            "command": "cargo build --release --package platform_windows",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "build"
+            "command": "wasm-pack build --package platform_webassembly",
+            "group": "build",
+            "options": {"cwd": "Engine/platforms/webassembly/"}
         },
         {
-            "label": "Build Platform Linux (Release)",
+            "label": "[Engine] Build Platform: WebAssembly (Release)",
             "type": "shell",
-            "command": "cargo build --release --package platform_linux",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "build"
+            "command": "wasm-pack build --package platform_webassembly --release",
+            "group": "build",
+            "options": {"cwd": "Engine/platforms/webassembly/"}
         },
         {
-            "label": "Build Platform macOS (Release)",
+            "label": "[Framework] Test",
             "type": "shell",
-            "command": "cargo build --release --package platform_macos",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "build"
+            "command": "cargo test",
+            "group": "test",
+            "options": {"cwd": "Framework/"}
         },
         {
-            "label": "Build Platform iOS (Release)",
-            "type": "shell",
-            "command": "cargo xcodebuild build --release --package platform_ios",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "build"
-        },
-        {
-            "label": "Build Platform Android (Release)",
-            "type": "shell",
-            "command": "cargo apk build --release --package platform_android",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "build"
-        },
-        {
-            "label": "Build Platform WebAssembly (Release)",
-            "type": "shell",
-            "command": "cd platform/webassembly && wasm-pack build --release --package platform_webassembly",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "build"
-        },
-        {
-            "label": "Test Shared library (Debug)",
-            "type": "shell",
-            "command": "cargo test --package shared",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "test"
-        },
-        {
-            "label": "Test Platform Windows (Debug)",
+            "label": "[Engine] Test Platform: Windows",
             "type": "shell",
             "command": "cargo test --package platform_windows",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "test"
+            "group": "test",
+            "options": {"cwd": "Engine/"}
         },
         {
-            "label": "Test Platform Linux (Debug)",
+            "label": "[Engine] Test Platform: Linux",
             "type": "shell",
             "command": "cargo test --package platform_linux",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "test"
+            "group": "test",
+            "options": {"cwd": "Engine/"}
         },
         {
-            "label": "Test Platform macOS (Debug)",
+            "label": "[Engine] Test Platform: macOS",
             "type": "shell",
             "command": "cargo test --package platform_macos",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "test"
+            "group": "test",
+            "options": {"cwd": "Engine/"}
         },
         {
-            "label": "Test Platform iOS (Debug)",
+            "label": "[Engine] Test Platform: iOS",
             "type": "shell",
             "command": "cargo xcodebuild test --package platform_ios",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "test"
+            "group": "test",
+            "options": {"cwd": "Engine/"}
         },
         {
-            "label": "Test Platform Android (Debug)",
+            "label": "[Engine] Test Platform: Android",
             "type": "shell",
             "command": "cargo apk test --package platform_android",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "test"
+            "group": "test",
+            "options": {"cwd": "Engine/"}
         },
         {
-            "label": "Test Platform WebAssembly (Debug)",
+            "label": "[Engine] Test Platform: WebAssembly",
             "type": "shell",
             "command": "wasm-pack test --package platform_webassembly --node",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "test"
+            "group": "test",
+            "options": {"cwd": "Engine/"}
         },
         {
-            "label": "Test Shared library (Release)",
-            "type": "shell",
-            "command": "cargo test --release --package shared",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "test"
-        },
-        {
-            "label": "Test Platform Windows (Release)",
-            "type": "shell",
-            "command": "cargo test --release --package platform_windows",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "test"
-        },
-        {
-            "label": "Test Platform Linux (Release)",
-            "type": "shell",
-            "command": "cargo test --release --package platform_linux",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "test"
-        },
-        {
-            "label": "Test Platform macOS (Release)",
-            "type": "shell",
-            "command": "cargo test --release --package platform_macos",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "test"
-        },
-        {
-            "label": "Test Platform iOS (Release)",
-            "type": "shell",
-            "command": "cargo xcodebuild test --release --package platform_ios",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "test"
-        },
-        {
-            "label": "Test Platform Android (Release)",
-            "type": "shell",
-            "command": "cargo apk test --release --package platform_android",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "test"
-        },
-        {
-            "label": "Test Platform WebAssembly (Release)",
-            "type": "shell",
-            "command": "wasm-pack test --release --package platform_webassembly --node",
-            "dependsOn": [
-                "General Notice"
-            ],
-            "group": "test"
-        },
-        {
-            "label": "Install Android SDK & NDK",
-            "type": "shell",
-            "command": "sdkmanager 'platforms;android-30' 'system-images;android-30;google_apis;x86_64' 'platform-tools' 'emulator' 'ndk-bundle' 'build-tools;34.0.0-rc3'",
-            "problemMatcher": []
-        },
-        {
-            "label": "Create AVD",
-            "type": "shell",
-            // The '; exit' is to prevent the command from failing due to existing AVD.
-            "command": "avdmanager --silent create avd -n avd_30 -k 'system-images;android-30;google_apis;x86_64'; exit",
-            "dependsOn": "Install Android SDK & NDK",
-            "problemMatcher": []
-        },
-        {
-            "label": "Start Android Emulator",
-            "command": "emulator -avd avd_30",
-            "type": "shell",
-            "dependsOn": "Create AVD",
-            "problemMatcher": []
-        },
-        {
-            "label": "Attach Android Logs (ADB LogCat)",
+            "label": "[Android] Attach to Android logs",
             "command": "adb logcat RustStdoutStderr:D *:S",
             "type": "shell",
             "problemMatcher": [
                 "$rustc"
-            ],
-            "presentation": {
-                "reveal": "always"
-            }
+            ]
         },
         {
-            "label": "Run Android (Debug)",
+            "label": "[Engine] Run Platform: Android (Debug)",
             "command": "cargo apk run --package platform_android",
             "type": "shell",
             "problemMatcher": [
                 "$rustc"
             ],
             "options": {
-                "cwd": "platform/android/"
+                "cwd": "Engine/platforms/android/"
             },
-            "presentation": {
-                "reveal": "always"
-            },
-            "dependsOn": [
-                "Build Platform Android (Debug)"
-            ],
             "group": "test"
         },
         {
-            "label": "Run Android (Release)",
+            "label": "[Engine] Run Platform: Android (Release)",
             "command": "cargo apk run --release --package platform_android",
             "type": "shell",
             "problemMatcher": [
                 "$rustc"
             ],
             "options": {
-                "cwd": "platform/android/"
-            },
-            "presentation": {
-                "reveal": "always"
+                "cwd": "Engine/platforms/android/"
             },
             "dependsOn": [
-                "Build Platform Android (Release)"
+                "[Engine] Build Platform: Android (Release)"
             ],
             "group": "test"
         },
+
+
+        
         {
             "label": "Debug Android (GDB)",
             "command": "cargo apk gdb --package platform_android",
