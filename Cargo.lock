@@ -896,7 +896,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "engine-app"
+name = "engine_app"
 version = "0.1.0"
 dependencies = [
  "serde",
@@ -907,7 +907,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "engine-web"
+name = "engine_web"
 version = "0.1.0"
 dependencies = [
  "console_error_panic_hook",
