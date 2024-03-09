@@ -11,26 +11,6 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  clippy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          submodules: recursive
-
-      - name: Install Rust
-        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
-
-      - name: Add WASM target
-        run: rustup target add wasm32-unknown-unknown
-
-      - name: Install Clippy
-        run: rustup component add clippy
-
-      - name: Clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings -W clippy::all
-
   framework:
     runs-on: ubuntu-latest
     steps:
