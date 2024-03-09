@@ -12,7 +12,7 @@ address = "127.0.0.1"
 # The port to serve on.
 port = 8080
 # Open a browser tab once the initial build is complete.
-open = true
+open = false
 
 [clean]
 # The output dir for all final assets.
