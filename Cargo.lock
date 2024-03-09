@@ -896,6 +896,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "engine-app"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-shell",
+]
+
+[[package]]
 name = "engine-web"
 version = "0.1.0"
 dependencies = [
@@ -909,17 +920,6 @@ dependencies = [
  "wasm-bindgen-test",
  "web-sys",
  "winit",
-]
-
-[[package]]
-name = "engine_app"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-shell",
 ]
 
 [[package]]
@@ -1014,6 +1014,10 @@ checksum = "e13624c2627564efccf4934284bdd98cbaa14e79b0b5a141218e507b3a823456"
 dependencies = [
  "percent-encoding",
 ]
+
+[[package]]
+name = "framework_test_project"
+version = "0.1.0"
 
 [[package]]
 name = "futf"
