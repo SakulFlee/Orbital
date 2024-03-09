@@ -76,7 +76,9 @@ jobs:
           echo -e '[build]\nrustc-wrapper = "sccache"' > ~/.cargo/config.toml
 
       - name: Install Trunk
-        run: cargo install trunk
+        run: |
+          cargo install trunk
+          echo 'PATH="$PATH:$HOME/.cargo/bin"' >> .bashrc
 
       - name: Build
         run: trunk build
@@ -117,7 +119,9 @@ jobs:
           echo -e '[build]\nrustc-wrapper = "sccache"' > ~/.cargo/config.toml
 
       - name: Install Trunk
-        run: cargo install trunk
+        run: |
+          cargo install trunk
+          echo 'PATH="$PATH:$HOME/.cargo/bin"' >> .bashrc
 
       - name: Install Tauri BETA
         run: cargo install tauri-cli --version '^2.0.0-beta'
@@ -176,7 +180,9 @@ jobs:
           echo -e '[build]\nrustc-wrapper = "sccache"' > ~/.cargo/config.toml
 
       - name: Install Trunk
-        run: cargo install trunk
+        run: |
+          cargo install trunk
+          echo 'PATH="$PATH:$HOME/.cargo/bin"' >> .bashrc
 
       - name: Install Tauri BETA
         run: cargo install tauri-cli --version '^2.0.0-beta'
@@ -218,7 +224,9 @@ jobs:
           echo -e '[build]\nrustc-wrapper = "sccache"' > ~/.cargo/config.toml
 
       - name: Install Trunk
-        run: cargo install trunk
+        run: |
+          cargo install trunk
+          echo 'PATH="$PATH:$HOME/.cargo/bin"' >> .bashrc
 
       - name: Install Tauri BETA
         run: cargo install tauri-cli --version '^2.0.0-beta'
@@ -260,7 +268,9 @@ jobs:
           echo -e '[build]\nrustc-wrapper = "sccache"' > ~/.cargo/config.toml
 
       - name: Install Trunk
-        run: cargo install trunk
+        run: |
+          cargo install trunk
+          echo 'PATH="$PATH:$HOME/.cargo/bin"' >> .bashrc
 
       - name: Install Tauri BETA
         run: cargo install tauri-cli --version '^2.0.0-beta'
@@ -302,7 +312,9 @@ jobs:
           echo -e '[build]\nrustc-wrapper = "sccache"' > ~/.cargo/config.toml
 
       - name: Install Trunk
-        run: cargo install trunk
+        run: |
+          cargo install trunk
+          echo 'PATH="$PATH:$HOME/.cargo/bin"' >> .bashrc
 
       - name: Install Tauri BETA
         run: cargo install tauri-cli --version '^2.0.0-beta'
