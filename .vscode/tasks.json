@@ -3,6 +3,7 @@
     // for the documentation about the tasks.json format
     "version": "2.0.0",
     "tasks": [
+        // --- Builds ---
         {
             "label": "[Framework] Build (Debug)",
             "type": "shell",
@@ -18,313 +19,68 @@
             "options": {"cwd": "Framework/"}
         },
         {
-            "label": "[Engine] Build Platform: Windows (Debug)",
+            "label": "[Engine: App] Build Desktop (Debug)",
             "type": "shell",
-            "command": "cargo build --package platform_windows",
+            "command": "cargo tauri build --debug",
             "group": "build",
-            "options": {"cwd": "Engine/"}
+            "options": {"cwd": "crates/engine-app/"}
         },
         {
-            "label": "[Engine] Build Platform: Windows (Release)",
+            "label": "[Engine: App] Build Desktop (Release)",
             "type": "shell",
-            "command": "cargo build --package platform_windows --release",
+            "command": "cargo tauri build",
             "group": "build",
-            "options": {"cwd": "Engine/"}
+            "options": {"cwd": "crates/engine-app/"}
         },
         {
-            "label": "[Engine] Build Platform: Linux (Debug)",
+            "label": "[Engine: App] Build Android (Debug)",
             "type": "shell",
-            "command": "cargo build --package platform_linux",
+            "command": "cargo tauri android build --debug",
             "group": "build",
-            "options": {"cwd": "Engine/"}
+            "options": {"cwd": "crates/engine-app/"}
         },
         {
-            "label": "[Engine] Build Platform: Linux (Release)",
+            "label": "[Engine: App] Build Android (Release)",
             "type": "shell",
-            "command": "cargo build --package platform_linux --release",
+            "command": "cargo tauri android build",
             "group": "build",
-            "options": {"cwd": "Engine/"}
+            "options": {"cwd": "crates/engine-app/"}
         },
         {
-            "label": "[Engine] Build Platform: MacOS (Debug)",
+            "label": "[Engine: Web] Build (Debug)",
             "type": "shell",
-            "command": "cargo build --package platform_macos",
+            "command": "trunk build",
             "group": "build",
-            "options": {"cwd": "Engine/"}
+            "options": {"cwd": "crates/engine-web/"}
         },
         {
-            "label": "[Engine] Build Platform: MacOS (Release)",
+            "label": "[Engine: Web] Build (Release)",
             "type": "shell",
-            "command": "cargo build --package platform_macos --release",
+            "command": "trunk build --release",
             "group": "build",
-            "options": {"cwd": "Engine/"}
+            "options": {"cwd": "crates/engine-web/"}
+        },
+        // --- Tests ---
+        {
+            "label": "[Engine: App] Run Desktop",
+            "type": "shell",
+            "command": "cargo tauri dev",
+            "group": "build",
+            "options": {"cwd": "crates/engine-app/"}
         },
         {
-            "label": "[Engine] Build Platform: iOS (Debug)",
+            "label": "[Engine: App] Run Android",
             "type": "shell",
-            "command": "cargo xcodebuild build --package platform_ios",
+            "command": "cargo tauri android dev",
             "group": "build",
-            "options": {"cwd": "Engine/"}
+            "options": {"cwd": "crates/engine-app/"}
         },
         {
-            "label": "[Engine] Build Platform: Android (Release)",
+            "label": "[Engine: Web] Serve",
             "type": "shell",
-            "command": "cargo apk build --package platform_android --release",
-            "group": "build",
-            "options": {"cwd": "Engine/"}
-        },
-        {
-            "label": "[Engine] Build Platform: iOS (Debug)",
-            "type": "shell",
-            "command": "cargo xcodebuild build --package platform_ios",
-            "group": "build",
-            "options": {"cwd": "Engine/"}
-        },
-        {
-            "label": "[Engine] Build Platform: Android (Release)",
-            "type": "shell",
-            "command": "cargo apk build --package platform_android --release",
-            "group": "build",
-            "options": {"cwd": "Engine/"}
-        },
-        {
-            "label": "[Engine] Build Platform: WebAssembly (Debug)",
-            "type": "shell",
-            "command": "wasm-pack build --package platform_webassembly",
-            "group": "build",
-            "options": {"cwd": "Engine/platforms/webassembly/"}
-        },
-        {
-            "label": "[Engine] Build Platform: WebAssembly (Release)",
-            "type": "shell",
-            "command": "wasm-pack build --package platform_webassembly --release",
-            "group": "build",
-            "options": {"cwd": "Engine/platforms/webassembly/"}
-        },
-        {
-            "label": "[Framework] Test",
-            "type": "shell",
-            "command": "cargo test",
+            "command": "trunk serve",
             "group": "test",
-            "options": {"cwd": "Framework/"}
-        },
-        {
-            "label": "[Engine] Test Platform: Windows",
-            "type": "shell",
-            "command": "cargo test --package platform_windows",
-            "group": "test",
-            "options": {"cwd": "Engine/"}
-        },
-        {
-            "label": "[Engine] Test Platform: Linux",
-            "type": "shell",
-            "command": "cargo test --package platform_linux",
-            "group": "test",
-            "options": {"cwd": "Engine/"}
-        },
-        {
-            "label": "[Engine] Test Platform: macOS",
-            "type": "shell",
-            "command": "cargo test --package platform_macos",
-            "group": "test",
-            "options": {"cwd": "Engine/"}
-        },
-        {
-            "label": "[Engine] Test Platform: iOS",
-            "type": "shell",
-            "command": "cargo xcodebuild test --package platform_ios",
-            "group": "test",
-            "options": {"cwd": "Engine/"}
-        },
-        {
-            "label": "[Engine] Test Platform: Android",
-            "type": "shell",
-            "command": "cargo apk test --package platform_android",
-            "group": "test",
-            "options": {"cwd": "Engine/"}
-        },
-        {
-            "label": "[Engine] Test Platform: WebAssembly",
-            "type": "shell",
-            "command": "wasm-pack test --package platform_webassembly --node",
-            "group": "test",
-            "options": {"cwd": "Engine/"}
-        },
-        {
-            "label": "[Android] Attach to Android logs",
-            "command": "adb logcat RustStdoutStderr:D *:S",
-            "type": "shell",
-            "problemMatcher": [
-                "$rustc"
-            ]
-        },
-        {
-            "label": "[Engine] Run Platform: Android (Debug)",
-            "command": "cargo apk run --package platform_android",
-            "type": "shell",
-            "problemMatcher": [
-                "$rustc"
-            ],
-            "options": {
-                "cwd": "Engine/platforms/android/"
-            },
-            "group": "test"
-        },
-        {
-            "label": "[Engine] Run Platform: Android (Release)",
-            "command": "cargo apk run --release --package platform_android",
-            "type": "shell",
-            "problemMatcher": [
-                "$rustc"
-            ],
-            "options": {
-                "cwd": "Engine/platforms/android/"
-            },
-            "dependsOn": [
-                "[Engine] Build Platform: Android (Release)"
-            ],
-            "group": "test"
-        },
-
-
-        
-        {
-            "label": "Debug Android (GDB)",
-            "command": "cargo apk gdb --package platform_android",
-            "type": "shell",
-            "problemMatcher": [
-                "$rustc"
-            ],
-            "options": {
-                "cwd": "platform/android/"
-            },
-            "presentation": {
-                "reveal": "always"
-            },
-            "dependsOn": [
-                "Build Platform Android (Debug)"
-            ],
-            "group": "test"
-        },
-        {
-            "label": "Run Platform Windows (Debug)",
-            "command": "cargo run --package platform_windows",
-            "type": "shell",
-            "problemMatcher": [
-                "$rustc"
-            ],
-            "presentation": {
-                "reveal": "always"
-            },
-            "dependsOn": [
-                "Build Platform Windows (Debug)"
-            ],
-            "group": "test"
-        },
-        {
-            "label": "Run Platform Windows (Release)",
-            "command": "cargo run --package platform_windows --release",
-            "type": "shell",
-            "problemMatcher": [
-                "$rustc"
-            ],
-            "presentation": {
-                "reveal": "always"
-            },
-            "dependsOn": [
-                "Build Platform Windows (Release)"
-            ],
-            "group": "test"
-        },
-        {
-            "label": "Run Platform Linux (Debug)",
-            "command": "cargo run --package platform_linux",
-            "type": "shell",
-            "problemMatcher": [
-                "$rustc"
-            ],
-            "presentation": {
-                "reveal": "always"
-            },
-            "dependsOn": [
-                "Build Platform Linux (Debug)"
-            ],
-            "group": "test"
-        },
-        {
-            "label": "Run Platform Linux (Release)",
-            "command": "cargo run --package platform_linux --release",
-            "type": "shell",
-            "problemMatcher": [
-                "$rustc"
-            ],
-            "presentation": {
-                "reveal": "always"
-            },
-            "dependsOn": [
-                "Build Platform Linux (Release)"
-            ],
-            "group": "test"
-        },
-        {
-            "label": "Run Platform macOS (Debug)",
-            "command": "cargo run --package platform_macos",
-            "type": "shell",
-            "problemMatcher": [
-                "$rustc"
-            ],
-            "presentation": {
-                "reveal": "always"
-            },
-            "dependsOn": [
-                "Build Platform macOS (Debug)"
-            ],
-            "group": "test"
-        },
-        {
-            "label": "Run Platform macOS (Release)",
-            "command": "cargo run --package platform_macos --release",
-            "type": "shell",
-            "problemMatcher": [
-                "$rustc"
-            ],
-            "presentation": {
-                "reveal": "always"
-            },
-            "dependsOn": [
-                "Build Platform macOS (Release)"
-            ],
-            "group": "test"
-        },
-        {
-            "label": "Run Platform WebAssembly (Debug)",
-            "command": "cd platform/webassembly && miniserve .",
-            "type": "shell",
-            "problemMatcher": [
-                "$rustc"
-            ],
-            "presentation": {
-                "reveal": "always"
-            },
-            "dependsOn": [
-                "Build Platform WebAssembly (Debug)"
-            ],
-            "group": "test"
-        },
-        {
-            "label": "Run Platform WebAssembly (Release)",
-            "command": "cd platform/webassembly && miniserve .",
-            "type": "shell",
-            "problemMatcher": [
-                "$rustc"
-            ],
-            "presentation": {
-                "reveal": "always"
-            },
-            "dependsOn": [
-                "Build Platform WebAssembly (Release)"
-            ],
-            "group": "test"
+            "options": {"cwd": "crates/engine-web/"}
         }
     ]
 }
