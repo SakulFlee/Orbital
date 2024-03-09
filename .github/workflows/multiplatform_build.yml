@@ -19,6 +19,18 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Cache Rustup
+        uses: actions/cache@v4
+        with:
+          path: ~/.rustup
+          key: cache-rustup-linux
+          
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo
+          key: cache-cargo-linux
+
       - name: Install dependencies
         run: |
           sudo apt-get update
