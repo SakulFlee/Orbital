@@ -78,7 +78,7 @@
         {
             "label": "[Engine: Web] Serve",
             "type": "shell",
-            "command": "trunk serve",
+            "command": "trunk serve --config Trunk.toml",
             "group": "test",
             "options": {"cwd": "crates/engine-web/"}
         }
