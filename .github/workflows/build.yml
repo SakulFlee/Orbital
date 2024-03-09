@@ -1,0 +1,236 @@
+name: Multiplatform Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Install Rust
+        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+
+      - name: Add WASM target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Install Clippy
+        run: rustup component add clippy
+
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings -W clippy::all
+
+  framework:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Install Rust
+        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+
+      - name: Add WASM target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Build
+        run: cargo build --verbose
+
+      - name: Test
+        run: cargo test --verbose --no-fail-fast
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: "framework"
+          path: target/
+
+  engine-web:
+    runs-on: ubuntu-latest
+    needs: framework
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Install Rust
+        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+
+      - name: Add WASM target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Install Trunk
+        run: cargo install trunk
+
+      - name: Build
+        run: trunk build
+        working-directory: crates/engine-web/
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: "engine-web"
+          path: target/
+
+  engine-app-windows:
+    runs-on: windows-latest
+    needs: engine-web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Install Rust
+        run: |
+          Invoke-WebRequest https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe -OutFile rustup-init.exe
+          ./rustup-init.exe --default-toolchain stable --profile minimal -y
+
+      - name: Add WASM target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Install Trunk
+        run: cargo install trunk
+
+      - name: Install Tauri BETA
+        run: cargo install tauri-cli --version '^2.0.0-beta'
+
+      - name: Build
+        run: cargo tauri build
+        working-directory: crates/engine-app/
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: "engine-app-windows"
+          path: target/
+
+  engine-app-linux:
+    runs-on: ubuntu-latest
+    needs: engine-web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Install Rust
+        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+
+      - name: Add WASM target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Install Trunk
+        run: cargo install trunk
+
+      - name: Install Tauri BETA
+        run: cargo install tauri-cli --version '^2.0.0-beta'
+
+      - name: Build
+        run: cargo tauri build
+        working-directory: crates/engine-app/
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: "engine-app-linux"
+          path: target/
+
+  engine-app-macos:
+    runs-on: macos-latest
+    needs: engine-web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Install Rust
+        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+
+      - name: Add WASM target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Install Trunk
+        run: cargo install trunk
+
+      - name: Install Tauri BETA
+        run: cargo install tauri-cli --version '^2.0.0-beta'
+
+      - name: Build
+        run: cargo tauri build
+        working-directory: crates/engine-app/
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: "engine-app-macos"
+          path: target/
+
+  engine-app-android:
+    runs-on: ubuntu-latest
+    needs: engine-web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Install Rust
+        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+
+      - name: Add WASM target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Install Trunk
+        run: cargo install trunk
+
+      - name: Install Tauri BETA
+        run: cargo install tauri-cli --version '^2.0.0-beta'
+
+      - name: Build
+        run: cargo tauri android build
+        working-directory: crates/engine-app/
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: "engine-app-android"
+          path: target/
+
+  engine-app-ios:
+    runs-on: macos-latest
+    needs: engine-web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Install Rust
+        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+
+      - name: Add WASM target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Install Trunk
+        run: cargo install trunk
+
+      - name: Install Tauri BETA
+        run: cargo install tauri-cli --version '^2.0.0-beta'
+
+      - name: Build
+        run: cargo tauri ios build
+        working-directory: crates/engine-app/
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: "engine-app-ios"
+          path: target/
