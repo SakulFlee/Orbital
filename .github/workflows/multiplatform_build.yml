@@ -54,6 +54,11 @@ jobs:
       - name: Add WASM target
         run: rustup target add wasm32-unknown-unknown
 
+      - name: Install sccache
+        run: |
+          cargo install sccache
+          echo -e '[build]\nrustc-wrapper = "sccache"' > ~/.cargo/config.toml
+
       - name: Build
         run: cargo build
 
