@@ -24,35 +24,15 @@ jobs:
         with:
           path: ~/.rustup
           key: cache-rustup-linux
-          
+
       - name: Cache Cargo
         uses: actions/cache@v4
         with:
           path: ~/.cargo
           key: cache-cargo-linux
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get upgrade -y
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            build-essential \
-            curl \
-            wget \
-            file \
-            libssl-dev \
-            libgtk-3-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            libsoup-3.0-dev \
-            libjavascriptcoregtk-4.1-dev
-
       - name: Install Rust
         run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
-
-      - name: Add WASM target
-        run: rustup target add wasm32-unknown-unknown
 
       - name: Install sccache
         run: |
@@ -82,8 +62,10 @@ jobs:
       - name: Install Rust
         run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
 
-      - name: Add WASM target
-        run: rustup target add wasm32-unknown-unknown
+      - name: Install sccache
+        run: |
+          cargo install sccache
+          echo -e '[build]\nrustc-wrapper = "sccache"' > ~/.cargo/config.toml
 
       - name: Install Trunk
         run: cargo install trunk
@@ -111,8 +93,10 @@ jobs:
           Invoke-WebRequest https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe -OutFile rustup-init.exe
           ./rustup-init.exe --default-toolchain stable --profile minimal -y
 
-      - name: Add WASM target
-        run: rustup target add wasm32-unknown-unknown
+      - name: Install sccache
+        run: |
+          cargo install sccache
+          echo -e '[build]\nrustc-wrapper = "sccache"' > ~/.cargo/config.toml
 
       - name: Install Trunk
         run: cargo install trunk
@@ -138,11 +122,30 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get upgrade -y
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libssl-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libsoup-3.0-dev \
+            libjavascriptcoregtk-4.1-dev
+
       - name: Install Rust
         run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
 
-      - name: Add WASM target
-        run: rustup target add wasm32-unknown-unknown
+      - name: Install sccache
+        run: |
+          cargo install sccache
+          echo -e '[build]\nrustc-wrapper = "sccache"' > ~/.cargo/config.toml
 
       - name: Install Trunk
         run: cargo install trunk
@@ -171,8 +174,10 @@ jobs:
       - name: Install Rust
         run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
 
-      - name: Add WASM target
-        run: rustup target add wasm32-unknown-unknown
+      - name: Install sccache
+        run: |
+          cargo install sccache
+          echo -e '[build]\nrustc-wrapper = "sccache"' > ~/.cargo/config.toml
 
       - name: Install Trunk
         run: cargo install trunk
@@ -201,8 +206,10 @@ jobs:
       - name: Install Rust
         run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
 
-      - name: Add WASM target
-        run: rustup target add wasm32-unknown-unknown
+      - name: Install sccache
+        run: |
+          cargo install sccache
+          echo -e '[build]\nrustc-wrapper = "sccache"' > ~/.cargo/config.toml
 
       - name: Install Trunk
         run: cargo install trunk
@@ -231,8 +238,10 @@ jobs:
       - name: Install Rust
         run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
 
-      - name: Add WASM target
-        run: rustup target add wasm32-unknown-unknown
+      - name: Install sccache
+        run: |
+          cargo install sccache
+          echo -e '[build]\nrustc-wrapper = "sccache"' > ~/.cargo/config.toml
 
       - name: Install Trunk
         run: cargo install trunk
