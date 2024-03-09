@@ -1,7 +1,8 @@
 {
     "cSpell.words": [
         "akimo",
-        "Akimo"
+        "Akimo",
+        "bindgen"
     ],
     "rust-analyzer.linkedProjects": [
         ".\\crates\\engine-web\\Cargo.toml",

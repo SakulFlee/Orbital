@@ -3,8 +3,8 @@
   "version": "0.0.0",
   "identifier": "de.sakulflee.akimo",
   "build": {
-    "beforeDevCommand": "trunk serve --dist engine-web/dist/ engine-web/index.html",
-    "beforeBuildCommand": "trunk build --release --dist engine-web/dist/ engine-web/index.html",
+    "beforeDevCommand": "trunk serve --config ../engine-web/Trunk.toml",
+    "beforeBuildCommand": "trunk build --config ../engine-web/Trunk.releasee.toml",
     "devUrl": "http://[::1]:8080",
     "frontendDist": "../engine-web/dist/"
   },

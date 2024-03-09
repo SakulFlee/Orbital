@@ -1,0 +1,31 @@
+[build]
+# The index HTML file to drive the bundling process.
+target = "index.html"
+# Build in release mod
+release = true
+# The output dir for all final assets.
+dist = "dist"
+
+[serve]
+# The address to serve on.
+address = "127.0.0.1"
+# The port to serve on.
+port = 8080
+# Open a browser tab once the initial build is complete.
+open = true
+
+[clean]
+# The output dir for all final assets.
+dist = "dist"
+# Optionally perform a cargo clean.
+cargo = false
+
+[tools]
+# Default dart-sass version to download.
+sass = "1.69.5"
+# Default wasm-bindgen version to download.
+wasm_bindgen = "0.2.92"
+# Default wasm-opt version to download.
+wasm_opt = "version_116"
+# Default tailwindcss-cli version to download.
+tailwindcss = "3.3.5"
