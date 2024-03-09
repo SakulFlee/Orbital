@@ -1,8 +1,5 @@
-# Rust & Cargo
+# Rust
 target/
 
-# Wasm-Pack
-pkg/
-
-# Android specific files
-platform/android/.android
+# Trunk
+dist/
