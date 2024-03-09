@@ -1,9 +1,5 @@
-use sycamore::prelude::*;
+use engine_web::app::render;
 
 fn main() {
-    sycamore::render(|| {
-        view! {
-            p { "Hello, World!" }
-        }
-    });
+    render();
 }
