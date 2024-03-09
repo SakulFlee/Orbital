@@ -60,7 +60,7 @@ jobs:
           echo -e '[build]\nrustc-wrapper = "sccache"' > ~/.cargo/config.toml
 
       - name: Build
-        run: cargo build
+        run: cargo build --workspace --exclude engine_app --exclude engine_web
 
       - name: Test
         run: cargo test --no-fail-fast

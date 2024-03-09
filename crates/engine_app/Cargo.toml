@@ -1,5 +1,5 @@
 [package]
-name = "engine_app"
+name = "engine-app"
 version = "0.1.0"
 description = "Project Akimo: Engine"
 authors = ["TODO"]
