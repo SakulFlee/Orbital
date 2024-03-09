@@ -1,0 +1,17 @@
+[package]
+name = "engine"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/SakulFlee/Akimo-Project"
+
+[lib]
+crate_type = ["cdylib", "rlib"]
+
+[dependencies]
+winit = "0.29.14"
+log = "0.4"
+
+[target.'cfg(android)'.dependencies]
+android_logger = "0.13.3"
+android-activity = { version = "0.5.2", features = ["native-activity"] }

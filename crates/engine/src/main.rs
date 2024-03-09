@@ -1,5 +1,7 @@
-use engine::entrypoint;
+mod app;
+
+use app::App;
 
 fn main() {
-    entrypoint();
+    sycamore::render(App);
 }
