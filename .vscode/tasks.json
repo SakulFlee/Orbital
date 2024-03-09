@@ -65,14 +65,14 @@
             "label": "[Engine: App] Run Desktop",
             "type": "shell",
             "command": "cargo tauri dev",
-            "group": "build",
+            "group": "test",
             "options": {"cwd": "crates/engine-app/"}
         },
         {
             "label": "[Engine: App] Run Android",
             "type": "shell",
             "command": "cargo tauri android dev",
-            "group": "build",
+            "group": "test",
             "options": {"cwd": "crates/engine-app/"}
         },
         {
