@@ -2,5 +2,9 @@
     "cSpell.words": [
         "akimo",
         "Akimo"
+    ],
+    "rust-analyzer.linkedProjects": [
+        ".\\crates\\engine-web\\Cargo.toml",
+        ".\\crates\\engine-web\\Cargo.toml"
     ]
 }
