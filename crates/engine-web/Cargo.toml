@@ -7,8 +7,6 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-sycamore = "0.9.0-beta.2"
-sycamore-router = "0.9.0-beta.2"
 wasm-bindgen = { version = "0.2.92", features = ["serde-serialize"] }
 wasm-bindgen-futures = "0.4.37"
 js-sys = "0.3.64"
