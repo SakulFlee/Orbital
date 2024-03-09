@@ -2,6 +2,7 @@ use sycamore::prelude::*;
 use sycamore_router::{HistoryIntegration, Router};
 
 use crate::app_routes::AppRoutes;
+use crate::components::{PageEngine, PageIndex, PageNotFound};
 
 #[allow(non_camel_case_types)]
 pub fn render() {
@@ -13,18 +14,9 @@ pub fn render() {
                     view !{
                          div(class="app") {
                             (match route.get() {
-                                AppRoutes::Index => view! {
-                                    p {
-                                        a(href="/Engine") { "Click here" }
-                                        " to go to Engine"
-                                    }
-                                },
-                                AppRoutes::Engine => view! {
-                                    "Engine"
-                                },
-                                AppRoutes::NotFound => view! {
-                                    "#404 - This page doesn't exist!"
-                                },
+                                AppRoutes::Index => view! {PageIndex {}},
+                                AppRoutes::Engine => view! {PageEngine {}},
+                                AppRoutes::NotFound => view! {PageNotFound {}},
                             })
                         }
                     }
