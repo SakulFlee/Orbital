@@ -1,65 +1,35 @@
 {
+  "productName": "Akimo-Project Engine",
+  "version": "0.0.0",
+  "identifier": "de.sakulflee.akimo",
   "build": {
-    "beforeBuildCommand": "trunk build --release --dist engine-web/dist/ engine-web/index.html",
     "beforeDevCommand": "trunk serve --dist engine-web/dist/ engine-web/index.html",
-    "devPath": "http://[::1]:8080",
-    "distDir": "../engine-web/dist/"
+    "beforeBuildCommand": "trunk build --release --dist engine-web/dist/ engine-web/index.html",
+    "devUrl": "http://[::1]:8080",
+    "frontendDist": "../engine-web/dist/"
   },
-  "package": {
-    "productName": "engine-app",
-    "version": "0.1.0"
-  },
-  "tauri": {
-    "allowlist": {
-      "all": false
-    },
-    "bundle": {
-      "active": true,
-      "category": "DeveloperTool",
-      "copyright": "",
-      "deb": {
-        "depends": []
-      },
-      "externalBin": [],
-      "icon": [
-        "icons/32x32.png",
-        "icons/128x128.png",
-        "icons/128x128@2x.png",
-        "icons/icon.icns",
-        "icons/icon.ico"
-      ],
-      "identifier": "de.sakulflee.engine",
-      "longDescription": "",
-      "macOS": {
-        "entitlements": null,
-        "exceptionDomain": "",
-        "frameworks": [],
-        "providerShortName": null,
-        "signingIdentity": null
-      },
-      "resources": [],
-      "shortDescription": "",
-      "targets": "all",
-      "windows": {
-        "certificateThumbprint": null,
-        "digestAlgorithm": "sha256",
-        "timestampUrl": ""
-      }
-    },
-    "security": {
-      "csp": null
-    },
-    "updater": {
-      "active": false
-    },
+  "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
-        "fullscreen": false,
-        "height": 720,
-        "resizable": true,
-        "title": "Akimo-Project",
-        "width": 1280
+        "title": "engine",
+        "width": 1280,
+        "height": 720
       }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
     ]
   }
 }
