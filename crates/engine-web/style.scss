@@ -1,0 +1,40 @@
+*, head, body {
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: 0;
+    padding: 0;
+
+    width: 100%;
+    height: 100%;
+}
+
+header {
+    width: 100%;
+    height: 32px;
+
+    padding: 4px;
+    
+    color: white;
+    font-size: 26px;
+
+    background-color: purple;
+
+}
+
+footer {
+    width: 100%;
+    height: 22px;
+
+    padding: 4px;
+
+    color: white;
+    background-color: purple;
+}
+
+canvas {
+    width: 100%;
+    height: 100%;
+    background-color: black;
+}
