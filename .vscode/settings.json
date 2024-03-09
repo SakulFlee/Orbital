@@ -2,10 +2,11 @@
     "cSpell.words": [
         "akimo",
         "Akimo",
-        "bindgen"
+        "bindgen",
+        "icns",
+        "sakulflee",
+        "Tauri"
     ],
-    "rust-analyzer.linkedProjects": [
-        ".\\crates\\engine-web\\Cargo.toml",
-        ".\\crates\\engine-web\\Cargo.toml"
-    ]
+    "rust-analyzer.cargo.autoreload": true,
+    "rust-analyzer.cargo.target": "wasm32-unknown-unknown"
 }
