@@ -3,6 +3,25 @@ name = "engine-web"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 sycamore = "0.9.0-beta.2"
 sycamore-router = "0.9.0-beta.2"
+wasm-bindgen = { version = "0.2.92", features = ["serde-serialize"] }
+wasm-bindgen-futures = "0.4.37"
+js-sys = "0.3.64"
+web-sys = { version = "0.3.69", features = ['HtmlCanvasElement'] }
+serde = { version = "1.0.174", features = ["derive"] }
+serde_json = "1.0.103"
+serde_derive = "1.0.174"
+
+# Improves debugging by priting panics to the `console.error` console (JS).
+# Requires a lot of dependencies though, so bad for size.
+# **Should be excluded in release/deploy versions**.
+# To enable use feature "console_error_panik_hook".
+console_error_panic_hook = { version = "0.1" }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.37"
