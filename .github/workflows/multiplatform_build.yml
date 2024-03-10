@@ -323,16 +323,9 @@ jobs:
 
       - name: Build
         env:
-          NDK_HOME: "$ANDROID_SDK_ROOT/ndk/26.2.11394342/"
+          NDK_HOME: $ANDROID_SDK_ROOT/ndk/26.2.11394342/
         run: |
-          echo "ANDROID_SDK_ROOT: $ANDROID_SDK_ROOT"
           echo "NDK_HOME: $NDK_HOME"
-
-          ls -al "$ANDROID_SDK_ROOT/"
-          ls -al "$ANDROID_SDK_ROOT/ndk/"
-          ls -al "$ANDROID_SDK_ROOT/ndk/24.0.8215888"
-          ls -al "$ANDROID_SDK_ROOT/ndk/25.2.9519653"
-          ls -al "$ANDROID_SDK_ROOT/ndk/26.2.11394342"
           ls -al "$NDK_HOME"
 
           cd crates/engine_app/
