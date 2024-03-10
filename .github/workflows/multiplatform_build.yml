@@ -305,53 +305,53 @@ jobs:
           name: "engine-app-android"
           path: target/
 
-  engine-app-ios:
-    runs-on: macos-latest
-    needs: engine-app-macos
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          submodules: recursive
+  # engine-app-ios:
+  #   runs-on: macos-latest
+  #   needs: engine-app-macos
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v3
+  #       with:
+  #         submodules: recursive
 
-      - name: Cache Restore
-        uses: actions/cache/restore@v4
-        with:
-          key: cache
-          path: |
-            ~/.rustup
-            ~/.cargo
-            target/
+  #     - name: Cache Restore
+  #       uses: actions/cache/restore@v4
+  #       with:
+  #         key: cache
+  #         path: |
+  #           ~/.rustup
+  #           ~/.cargo
+  #           target/
 
-      - name: Install Rust
-        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+  #     - name: Install Rust
+  #       run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
 
-      - name: Add WASM target
-        run: rustup target add wasm32-unknown-unknown
+  #     - name: Add WASM target
+  #       run: rustup target add wasm32-unknown-unknown
 
-      - name: Install Trunk
-        run: cargo install trunk
+  #     - name: Install Trunk
+  #       run: cargo install trunk
 
-      - name: Install Tauri BETA
-        run: cargo install tauri-cli --version '^2.0.0-beta'
+  #     - name: Install Tauri BETA
+  #       run: cargo install tauri-cli --version '^2.0.0-beta'
 
-      - name: Build
-        run: cargo tauri ios build
-        working-directory: crates/engine-app/
+  #     - name: Build
+  #       run: cargo tauri ios build
+  #       working-directory: crates/engine-app/
 
-      - name: Cache Save
-        uses: actions/cache/save@v4
-        with:
-          key: cache
-          path: |
-            ~/.rustup
-            ~/.cargo
-            target/
+  #     - name: Cache Save
+  #       uses: actions/cache/save@v4
+  #       with:
+  #         key: cache
+  #         path: |
+  #           ~/.rustup
+  #           ~/.cargo
+  #           target/
 
-      - uses: actions/upload-artifact@v3
-        with:
-          name: "engine-app-ios"
-          path: target/
+  #     - uses: actions/upload-artifact@v3
+  #       with:
+  #         name: "engine-app-ios"
+  #         path: target/
 
   publish:
     runs-on: macos-latest
@@ -362,7 +362,7 @@ jobs:
         engine-app-linux,
         engine-app-macos,
         engine-app-android,
-        engine-app-ios,
+        # engine-app-ios,
       ]
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
