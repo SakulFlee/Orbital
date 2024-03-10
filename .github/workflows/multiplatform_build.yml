@@ -151,7 +151,7 @@ jobs:
       - uses: actions/upload-artifact@v3
         if: always()
         with:
-          name: "engine-app-windows"
+          name: engine-app-windows
           path: target/
 
   engine-app-linux:
@@ -218,7 +218,7 @@ jobs:
       - uses: actions/upload-artifact@v3
         if: always()
         with:
-          name: "engine-app-linux"
+          name: engine-app-linux
           path: target/
 
   # engine-app-macos:
@@ -269,7 +269,7 @@ jobs:
   #     - uses: actions/upload-artifact@v3
   #       if: always()
   #       with:
-  #         name: "engine-app-macos"
+  #         name: engine-app-macos
   #         path: target/
 
   engine-app-android:
@@ -320,7 +320,7 @@ jobs:
       - uses: actions/upload-artifact@v3
         if: always()
         with:
-          name: "engine-app-android"
+          name: engine-app-android
           path: target/
 
   # engine-app-ios:
@@ -371,7 +371,7 @@ jobs:
   #     - uses: actions/upload-artifact@v3
   #       if: always()
   #       with:
-  #         name: "engine-app-ios"
+  #         name: engine-app-ios
   #         path: target/
 
   publish:
