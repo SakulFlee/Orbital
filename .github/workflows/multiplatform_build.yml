@@ -322,9 +322,8 @@ jobs:
           sdkmanager 'platforms;android-34' 'platforms;android-34' 'platform-tools' 'ndk;26.2.11394342' 'build-tools;34.0.0' 'cmdline-tools;latest'
 
       - name: Build
-        env:
-          NDK_HOME: $ANDROID_SDK_ROOT/ndk/26.2.11394342/
         run: |
+          export NDK_HOME="$ANDROID_SDK_ROOT/ndk/26.2.11394342/"
           echo "$ANDROID_SDK_ROOT"
           echo "NDK_HOME: $NDK_HOME"
           ls -al "$NDK_HOME"
