@@ -30,7 +30,9 @@ jobs:
             target/
 
       - name: Install Rust
-        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+        run: |
+          curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Install sccache
         run: |
@@ -68,7 +70,9 @@ jobs:
             target/
 
       - name: Install Rust
-        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+        run: |
+          curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Install sccache
         run: |
@@ -76,9 +80,7 @@ jobs:
           echo -e '[build]\nrustc-wrapper = "sccache"' > ~/.cargo/config.toml
 
       - name: Install Trunk
-        run: |
-          cargo install trunk
-          echo 'PATH="$PATH:$HOME/.cargo/bin"' >> .bashrc
+        run: cargo install trunk
 
       - name: Build
         run: trunk build
@@ -119,9 +121,7 @@ jobs:
           echo -e '[build]\nrustc-wrapper = "sccache"' > ~/.cargo/config.toml
 
       - name: Install Trunk
-        run: |
-          cargo install trunk
-          echo 'PATH="$PATH:$HOME/.cargo/bin"' >> .bashrc
+        run: cargo install trunk
 
       - name: Install Tauri BETA
         run: cargo install tauri-cli --version '^2.0.0-beta'
@@ -172,7 +172,9 @@ jobs:
             libjavascriptcoregtk-4.1-dev
 
       - name: Install Rust
-        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+        run: |
+          curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Install sccache
         run: |
@@ -180,9 +182,7 @@ jobs:
           echo -e '[build]\nrustc-wrapper = "sccache"' > ~/.cargo/config.toml
 
       - name: Install Trunk
-        run: |
-          cargo install trunk
-          echo 'PATH="$PATH:$HOME/.cargo/bin"' >> .bashrc
+        run: cargo install trunk
 
       - name: Install Tauri BETA
         run: cargo install tauri-cli --version '^2.0.0-beta'
@@ -216,7 +216,9 @@ jobs:
             target/
 
       - name: Install Rust
-        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+        run: |
+          curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Install sccache
         run: |
@@ -224,9 +226,7 @@ jobs:
           echo -e '[build]\nrustc-wrapper = "sccache"' > ~/.cargo/config.toml
 
       - name: Install Trunk
-        run: |
-          cargo install trunk
-          echo 'PATH="$PATH:$HOME/.cargo/bin"' >> .bashrc
+        run: cargo install trunk
 
       - name: Install Tauri BETA
         run: cargo install tauri-cli --version '^2.0.0-beta'
@@ -260,7 +260,9 @@ jobs:
             target/
 
       - name: Install Rust
-        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+        run: |
+          curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Install sccache
         run: |
@@ -268,9 +270,7 @@ jobs:
           echo -e '[build]\nrustc-wrapper = "sccache"' > ~/.cargo/config.toml
 
       - name: Install Trunk
-        run: |
-          cargo install trunk
-          echo 'PATH="$PATH:$HOME/.cargo/bin"' >> .bashrc
+        run: cargo install trunk
 
       - name: Install Tauri BETA
         run: cargo install tauri-cli --version '^2.0.0-beta'
@@ -304,7 +304,9 @@ jobs:
             target/
 
       - name: Install Rust
-        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+        run: |
+          curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Install sccache
         run: |
@@ -312,9 +314,7 @@ jobs:
           echo -e '[build]\nrustc-wrapper = "sccache"' > ~/.cargo/config.toml
 
       - name: Install Trunk
-        run: |
-          cargo install trunk
-          echo 'PATH="$PATH:$HOME/.cargo/bin"' >> .bashrc
+        run: cargo install trunk
 
       - name: Install Tauri BETA
         run: cargo install tauri-cli --version '^2.0.0-beta'
