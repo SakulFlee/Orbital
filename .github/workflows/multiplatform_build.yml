@@ -309,6 +309,7 @@ jobs:
       - name: Build
         run: |
           cd crates/engine_app/
+          cargo tauri android init
           cargo tauri android build
 
       - name: Cache Save
