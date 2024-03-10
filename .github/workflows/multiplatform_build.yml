@@ -325,6 +325,12 @@ jobs:
         env:
           NDK_HOME: $ANDROID_SDK_ROOT/ndk/26.2.11394342
         run: |
+          echo "ANDROID_SDK_ROOT: $ANDROID_SDK_ROOT"
+          ls -al $ANDROID_SDK_ROOT
+
+          echo "NDK_HOME: $NDK_HOME"
+          ls -al $NDK_HOME
+
           cd crates/engine_app/
           cargo tauri android init
           cargo tauri android build
