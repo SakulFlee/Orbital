@@ -50,8 +50,8 @@ jobs:
       - uses: actions/upload-artifact@v3
         if: always()
         with:
-          name: "framework"
-          path: target/
+          name: framework
+          path: target/release/lib*
 
   engine-web:
     runs-on: ubuntu-latest
