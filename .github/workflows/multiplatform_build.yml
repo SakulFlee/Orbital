@@ -209,53 +209,53 @@ jobs:
           name: "engine-app-linux"
           path: target/
 
-  engine-app-macos:
-    runs-on: macos-latest
-    needs: engine-web
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          submodules: recursive
+  # engine-app-macos:
+  #   runs-on: macos-latest
+  #   needs: engine-web
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v3
+  #       with:
+  #         submodules: recursive
 
-      - name: Cache Restore
-        uses: actions/cache/restore@v4
-        with:
-          key: cache
-          path: |
-            ~/.rustup
-            ~/.cargo
-            target/
+  #     - name: Cache Restore
+  #       uses: actions/cache/restore@v4
+  #       with:
+  #         key: cache
+  #         path: |
+  #           ~/.rustup
+  #           ~/.cargo
+  #           target/
 
-      - name: Install Rust
-        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+  #     - name: Install Rust
+  #       run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
 
-      - name: Add WASM target
-        run: rustup target add wasm32-unknown-unknown
+  #     - name: Add WASM target
+  #       run: rustup target add wasm32-unknown-unknown
 
-      - name: Install Trunk
-        run: cargo install trunk
+  #     - name: Install Trunk
+  #       run: cargo install trunk
 
-      - name: Install Tauri BETA
-        run: cargo install tauri-cli --version '^2.0.0-beta'
+  #     - name: Install Tauri BETA
+  #       run: cargo install tauri-cli --version '^2.0.0-beta'
 
-      - name: Build
-        run: cargo tauri build
-        working-directory: crates/engine-app/
+  #     - name: Build
+  #       run: cargo tauri build
+  #       working-directory: crates/engine-app/
 
-      - name: Cache Save
-        uses: actions/cache/save@v4
-        with:
-          key: cache
-          path: |
-            ~/.rustup
-            ~/.cargo
-            target/
+  #     - name: Cache Save
+  #       uses: actions/cache/save@v4
+  #       with:
+  #         key: cache
+  #         path: |
+  #           ~/.rustup
+  #           ~/.cargo
+  #           target/
 
-      - uses: actions/upload-artifact@v3
-        with:
-          name: "engine-app-macos"
-          path: target/
+  #     - uses: actions/upload-artifact@v3
+  #       with:
+  #         name: "engine-app-macos"
+  #         path: target/
 
   engine-app-android:
     runs-on: ubuntu-latest
@@ -360,7 +360,7 @@ jobs:
         engine-web,
         engine-app-windows,
         engine-app-linux,
-        engine-app-macos,
+        # engine-app-macos,
         engine-app-android,
         # engine-app-ios,
       ]
