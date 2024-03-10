@@ -48,6 +48,7 @@ jobs:
             target/
 
       - uses: actions/upload-artifact@v3
+        if: always()
         with:
           name: "framework"
           path: target/
@@ -95,6 +96,7 @@ jobs:
             target/
 
       - uses: actions/upload-artifact@v3
+        if: always()
         with:
           name: "engine-web"
           path: crates/engine_web/dist
@@ -144,6 +146,7 @@ jobs:
             target/
 
       - uses: actions/upload-artifact@v3
+        if: always()
         with:
           name: "engine-app-windows"
           path: target/
@@ -211,6 +214,7 @@ jobs:
             target/
 
       - uses: actions/upload-artifact@v3
+        if: always()
         with:
           name: "engine-app-linux"
           path: target/
@@ -261,6 +265,7 @@ jobs:
   #           target/
 
   #     - uses: actions/upload-artifact@v3
+  #       if: always()
   #       with:
   #         name: "engine-app-macos"
   #         path: target/
@@ -311,6 +316,7 @@ jobs:
             target/
 
       - uses: actions/upload-artifact@v3
+        if: always()
         with:
           name: "engine-app-android"
           path: target/
@@ -361,6 +367,7 @@ jobs:
   #           target/
 
   #     - uses: actions/upload-artifact@v3
+  #       if: always()
   #       with:
   #         name: "engine-app-ios"
   #         path: target/
