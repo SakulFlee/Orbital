@@ -124,6 +124,9 @@ jobs:
           Invoke-WebRequest https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe -OutFile rustup-init.exe
           ./rustup-init.exe --default-toolchain stable --profile minimal -y
 
+      - name: Add WASM target
+        run: rustup target add wasm32-unknown-unknown
+
       - name: Install Trunk
         run: cargo install trunk
 
