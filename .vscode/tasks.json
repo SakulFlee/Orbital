@@ -7,14 +7,14 @@
         {
             "label": "[Framework] Build (Debug)",
             "type": "shell",
-            "command": "cargo build",
+            "command": "cargo build --workspace --exclude engine_app --exclude engine_web",
             "group": "build",
             "options": {"cwd": "Framework/"}
         },
         {
             "label": "[Framework] Build (Release)",
             "type": "shell",
-            "command": "cargo build --release",
+            "command": "cargo build --workspace --exclude engine_app --exclude engine_web --release",
             "group": "build",
             "options": {"cwd": "Framework/"}
         },
@@ -23,42 +23,42 @@
             "type": "shell",
             "command": "cargo tauri build --debug",
             "group": "build",
-            "options": {"cwd": "crates/engine-app/"}
+            "options": {"cwd": "crates/engine_app/"}
         },
         {
             "label": "[Engine: App] Build Desktop (Release)",
             "type": "shell",
             "command": "cargo tauri build",
             "group": "build",
-            "options": {"cwd": "crates/engine-app/"}
+            "options": {"cwd": "crates/engine_app/"}
         },
         {
             "label": "[Engine: App] Build Android (Debug)",
             "type": "shell",
             "command": "cargo tauri android build --debug",
             "group": "build",
-            "options": {"cwd": "crates/engine-app/"}
+            "options": {"cwd": "crates/engine_app/"}
         },
         {
             "label": "[Engine: App] Build Android (Release)",
             "type": "shell",
             "command": "cargo tauri android build",
             "group": "build",
-            "options": {"cwd": "crates/engine-app/"}
+            "options": {"cwd": "crates/engine_app/"}
         },
         {
             "label": "[Engine: Web] Build (Debug)",
             "type": "shell",
             "command": "trunk build",
             "group": "build",
-            "options": {"cwd": "crates/engine-web/"}
+            "options": {"cwd": "crates/engine_web/"}
         },
         {
             "label": "[Engine: Web] Build (Release)",
             "type": "shell",
             "command": "trunk build --release",
             "group": "build",
-            "options": {"cwd": "crates/engine-web/"}
+            "options": {"cwd": "crates/engine_web/"}
         },
         // --- Tests ---
         {
@@ -66,21 +66,21 @@
             "type": "shell",
             "command": "cargo tauri dev",
             "group": "test",
-            "options": {"cwd": "crates/engine-app/"}
+            "options": {"cwd": "crates/engine_app/"}
         },
         {
             "label": "[Engine: App] Run Android",
             "type": "shell",
             "command": "cargo tauri android dev",
             "group": "test",
-            "options": {"cwd": "crates/engine-app/"}
+            "options": {"cwd": "crates/engine_app/"}
         },
         {
             "label": "[Engine: Web] Serve",
             "type": "shell",
             "command": "trunk serve --config Trunk.toml",
             "group": "test",
-            "options": {"cwd": "crates/engine-web/"}
+            "options": {"cwd": "crates/engine_web/"}
         }
     ]
 }
