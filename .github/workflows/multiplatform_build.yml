@@ -405,7 +405,7 @@ jobs:
         engine-web,
         engine-app-windows,
         engine-app-linux,
-        # engine-app-macos,
+        engine-app-macos,
         engine-app-android,
         # engine-app-ios,
       ]
