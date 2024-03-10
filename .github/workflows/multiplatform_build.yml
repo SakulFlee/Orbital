@@ -89,9 +89,7 @@ jobs:
         run: cargo install trunk
 
       - name: Build
-        run: trunk build
-        env:
-          PATH: "$PATH:$HOME/.cargo/bin"
+        run: $HOME/.cargo/bin/trunk build
         working-directory: crates/engine-web/
 
       - name: Cache Save
