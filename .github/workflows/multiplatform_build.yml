@@ -19,8 +19,8 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Cache
-        uses: actions/cache@v4
+      - name: Cache Restore
+        uses: actions/cache/restore@v4
         with:
           key: cache
           enableCrossOsArchive: true
@@ -43,6 +43,16 @@ jobs:
       - name: Test
         run: cargo test --no-fail-fast --workspace --exclude engine_app --exclude engine_web
 
+      - name: Cache Save
+        uses: actions/cache/save@v4
+        with:
+          key: cache
+          enableCrossOsArchive: true
+          path: |
+            ~/.rustup
+            ~/.cargo
+            target/
+
       - uses: actions/upload-artifact@v3
         with:
           name: "framework"
@@ -57,8 +67,8 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Cache
-        uses: actions/cache@v4
+      - name: Cache Restore
+        uses: actions/cache/restore@v4
         with:
           key: cache
           enableCrossOsArchive: true
@@ -84,6 +94,16 @@ jobs:
           PATH: "$PATH:$HOME/.cargo/bin"
         working-directory: crates/engine-web/
 
+      - name: Cache Save
+        uses: actions/cache/save@v4
+        with:
+          key: cache
+          enableCrossOsArchive: true
+          path: |
+            ~/.rustup
+            ~/.cargo
+            target/
+
       - uses: actions/upload-artifact@v3
         with:
           name: "engine-web"
@@ -98,8 +118,8 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Cache
-        uses: actions/cache@v4
+      - name: Cache Restore
+        uses: actions/cache/restore@v4
         with:
           key: cache
           enableCrossOsArchive: true
@@ -128,6 +148,16 @@ jobs:
         run: cargo tauri build
         working-directory: crates/engine-app/
 
+      - name: Cache Save
+        uses: actions/cache/save@v4
+        with:
+          key: cache
+          enableCrossOsArchive: true
+          path: |
+            ~/.rustup
+            ~/.cargo
+            target/
+
       - uses: actions/upload-artifact@v3
         with:
           name: "engine-app-windows"
@@ -142,8 +172,8 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Cache
-        uses: actions/cache@v4
+      - name: Cache Restore
+        uses: actions/cache/restore@v4
         with:
           key: cache
           enableCrossOsArchive: true
@@ -187,6 +217,16 @@ jobs:
         run: cargo tauri build
         working-directory: crates/engine-app/
 
+      - name: Cache Save
+        uses: actions/cache/save@v4
+        with:
+          key: cache
+          enableCrossOsArchive: true
+          path: |
+            ~/.rustup
+            ~/.cargo
+            target/
+
       - uses: actions/upload-artifact@v3
         with:
           name: "engine-app-linux"
@@ -201,8 +241,8 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Cache
-        uses: actions/cache@v4
+      - name: Cache Restore
+        uses: actions/cache/restore@v4
         with:
           key: cache
           enableCrossOsArchive: true
@@ -229,6 +269,16 @@ jobs:
         run: cargo tauri build
         working-directory: crates/engine-app/
 
+      - name: Cache Save
+        uses: actions/cache/save@v4
+        with:
+          key: cache
+          enableCrossOsArchive: true
+          path: |
+            ~/.rustup
+            ~/.cargo
+            target/
+
       - uses: actions/upload-artifact@v3
         with:
           name: "engine-app-macos"
@@ -243,8 +293,8 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Cache
-        uses: actions/cache@v4
+      - name: Cache Restore
+        uses: actions/cache/restore@v4
         with:
           key: cache
           enableCrossOsArchive: true
@@ -271,6 +321,16 @@ jobs:
         run: cargo tauri android build
         working-directory: crates/engine-app/
 
+      - name: Cache Save
+        uses: actions/cache/save@v4
+        with:
+          key: cache
+          enableCrossOsArchive: true
+          path: |
+            ~/.rustup
+            ~/.cargo
+            target/
+
       - uses: actions/upload-artifact@v3
         with:
           name: "engine-app-android"
@@ -285,8 +345,8 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Cache
-        uses: actions/cache@v4
+      - name: Cache Restore
+        uses: actions/cache/restore@v4
         with:
           key: cache
           enableCrossOsArchive: true
@@ -312,6 +372,16 @@ jobs:
       - name: Build
         run: cargo tauri ios build
         working-directory: crates/engine-app/
+
+      - name: Cache Save
+        uses: actions/cache/save@v4
+        with:
+          key: cache
+          enableCrossOsArchive: true
+          path: |
+            ~/.rustup
+            ~/.cargo
+            target/
 
       - uses: actions/upload-artifact@v3
         with:
