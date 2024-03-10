@@ -10,7 +10,26 @@ crate-type = ["cdylib", "rlib"]
 wasm-bindgen = { version = "0.2.92", features = ["serde-serialize"] }
 wasm-bindgen-futures = "0.4.37"
 js-sys = "0.3.64"
-web-sys = { version = "0.3.69", features = ['HtmlCanvasElement'] }
+web-sys = { version = "0.3.69", features = [
+    'Document',
+    'Element',
+    'HtmlElement',
+    'HtmlCollection',
+    'Node',
+    'NodeList',
+    'Window',
+    'Headers',
+    'Request',
+    'RequestInit',
+    'RequestMode',
+    'Response',
+    'ReadableStream',
+    'Location',
+    'HtmlHeadElement',
+    'HtmlAnchorElement',
+    'CssStyleDeclaration',
+    'HtmlCanvasElement',
+] }
 serde = { version = "1.0.174", features = ["derive"] }
 serde_json = "1.0.103"
 serde_derive = "1.0.174"
