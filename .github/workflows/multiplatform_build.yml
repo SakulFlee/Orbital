@@ -128,7 +128,7 @@ jobs:
 
       - name: Build
         run: |
-          cd crates/engine-app/
+          cd crates/engine_app/
           cargo tauri build
 
       - name: Cache Save
@@ -194,7 +194,7 @@ jobs:
 
       - name: Build
         run: |
-          cd crates/engine-app/
+          cd crates/engine_app/
           cargo tauri build
 
       - name: Cache Save
@@ -243,7 +243,7 @@ jobs:
 
   #     - name: Build
   #       run:|
-  # cd crates/engine-app/
+  # cd crates/engine_app/
   # cargo tauri build
 
   #     - name: Cache Save
@@ -292,7 +292,7 @@ jobs:
 
       - name: Build
         run: |
-          cd crates/engine-app/
+          cd crates/engine_app/
           cargo tauri android build
 
       - name: Cache Save
@@ -341,7 +341,7 @@ jobs:
 
   #     - name: Build
   #       run:|
-  #         cd crates/engine-app/
+  #         cd crates/engine_app/
   #         cargo tauri ios build
 
   #     - name: Cache Save
