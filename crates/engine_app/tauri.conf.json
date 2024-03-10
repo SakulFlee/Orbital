@@ -3,10 +3,10 @@
   "version": "0.0.0",
   "identifier": "de.sakulflee.akimo",
   "build": {
-    "beforeDevCommand": "trunk serve --config engine-web/Trunk.toml",
-    "beforeBuildCommand": "trunk build --config engine-web/Trunk.release.toml",
+    "beforeDevCommand": "trunk serve --config engine_web/Trunk.toml",
+    "beforeBuildCommand": "trunk build --config engine_web/Trunk.release.toml",
     "devUrl": "http://127.0.0.1:8080",
-    "frontendDist": "../engine-web/dist/"
+    "frontendDist": "../engine_web/dist/"
   },
   "app": {
     "withGlobalTauri": true,
