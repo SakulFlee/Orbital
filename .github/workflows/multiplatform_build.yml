@@ -127,8 +127,9 @@ jobs:
         run: cargo install tauri-cli --version '^2.0.0-beta'
 
       - name: Build
-        run: cargo tauri build
-        working-directory: crates/engine-app/
+        run: |
+          cd crates/engine-app/
+          cargo tauri build
 
       - name: Cache Save
         uses: actions/cache/save@v4
@@ -192,8 +193,9 @@ jobs:
         run: cargo install tauri-cli --version '^2.0.0-beta'
 
       - name: Build
-        run: cargo tauri build
-        working-directory: crates/engine-app/
+        run: |
+          cd crates/engine-app/
+          cargo tauri build
 
       - name: Cache Save
         uses: actions/cache/save@v4
@@ -240,8 +242,9 @@ jobs:
   #       run: cargo install tauri-cli --version '^2.0.0-beta'
 
   #     - name: Build
-  #       run: cargo tauri build
-  #       working-directory: crates/engine-app/
+  #       run:|
+  # cd crates/engine-app/
+  # cargo tauri build
 
   #     - name: Cache Save
   #       uses: actions/cache/save@v4
@@ -288,8 +291,9 @@ jobs:
         run: cargo install tauri-cli --version '^2.0.0-beta'
 
       - name: Build
-        run: cargo tauri android build
-        working-directory: crates/engine-app/
+        run: |
+          cd crates/engine-app/
+          cargo tauri android build
 
       - name: Cache Save
         uses: actions/cache/save@v4
@@ -336,8 +340,9 @@ jobs:
   #       run: cargo install tauri-cli --version '^2.0.0-beta'
 
   #     - name: Build
-  #       run: cargo tauri ios build
-  #       working-directory: crates/engine-app/
+  #       run:|
+  #         cd crates/engine-app/
+  #         cargo tauri ios build
 
   #     - name: Cache Save
   #       uses: actions/cache/save@v4
