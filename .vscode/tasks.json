@@ -37,13 +37,21 @@
             "type": "shell",
             "command": "cargo tauri android build --debug",
             "group": "build",
-            "options": {"cwd": "crates/engine_app/"}
+            "options": {"cwd": "crates/engine_app/"},
+            "dependsOn": "[Engine: App] Initialize Android"
         },
         {
             "label": "[Engine: App] Build Android (Release)",
             "type": "shell",
             "command": "cargo tauri android build",
             "group": "build",
+            "options": {"cwd": "crates/engine_app/"},
+            "dependsOn": "[Engine: App] Initialize Android"
+        },
+        {
+            "label": "[Engine: App] Initialize Android",
+            "type": "shell",
+            "command": "cargo tauri android init",
             "options": {"cwd": "crates/engine_app/"}
         },
         {
