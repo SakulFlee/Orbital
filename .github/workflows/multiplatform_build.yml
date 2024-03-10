@@ -99,7 +99,7 @@ jobs:
         if: always()
         with:
           name: "engine-web"
-          path: crates/engine_web/dist
+          path: crates/engine_web/dist/
 
   engine-app-windows:
     runs-on: windows-latest
