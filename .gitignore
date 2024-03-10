@@ -3,3 +3,8 @@ target/
 
 # Trunk
 dist/
+
+# Cargo config we DO NOT want as it breaks CI.
+# It isn't actually required + you can keep a local (out-of-repository version).
+# Tauri-CLI generates this anyways.
+crates/engine_app/.cargo/config.toml
