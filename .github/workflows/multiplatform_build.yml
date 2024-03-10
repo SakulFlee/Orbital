@@ -90,7 +90,7 @@ jobs:
 
       - name: Build
         run: |
-          cd crates/engine-web/
+          cd crates/engine_web/
           trunk build
 
       - name: Cache Save
