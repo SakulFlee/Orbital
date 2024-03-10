@@ -80,6 +80,9 @@ jobs:
       - name: Install Rust
         run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
 
+      - name: Add WASM target
+        run: rustup target add wasm32-unknown-unknown
+
       - name: Install sccache
         run: |
           cargo install sccache
@@ -201,6 +204,9 @@ jobs:
       - name: Install Rust
         run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
 
+      - name: Add WASM target
+        run: rustup target add wasm32-unknown-unknown
+
       - name: Install sccache
         run: |
           cargo install sccache
@@ -252,6 +258,9 @@ jobs:
 
       - name: Install Rust
         run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+
+      - name: Add WASM target
+        run: rustup target add wasm32-unknown-unknown
 
       - name: Install sccache
         run: |
@@ -305,6 +314,9 @@ jobs:
       - name: Install Rust
         run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
 
+      - name: Add WASM target
+        run: rustup target add wasm32-unknown-unknown
+
       - name: Install sccache
         run: |
           cargo install sccache
@@ -356,6 +368,9 @@ jobs:
 
       - name: Install Rust
         run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+
+      - name: Add WASM target
+        run: rustup target add wasm32-unknown-unknown
 
       - name: Install sccache
         run: |
