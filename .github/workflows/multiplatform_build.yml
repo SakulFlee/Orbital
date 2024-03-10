@@ -30,9 +30,7 @@ jobs:
             target/
 
       - name: Install Rust
-        run: |
-          curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
 
       - name: Install sccache
         run: |
@@ -70,9 +68,7 @@ jobs:
             target/
 
       - name: Install Rust
-        run: |
-          curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
 
       - name: Install sccache
         run: |
@@ -84,6 +80,8 @@ jobs:
 
       - name: Build
         run: trunk build
+        env:
+          PATH: "$PATH:$HOME/.cargo/bin"
         working-directory: crates/engine-web/
 
       - uses: actions/upload-artifact@v3
@@ -172,9 +170,7 @@ jobs:
             libjavascriptcoregtk-4.1-dev
 
       - name: Install Rust
-        run: |
-          curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
 
       - name: Install sccache
         run: |
@@ -216,9 +212,7 @@ jobs:
             target/
 
       - name: Install Rust
-        run: |
-          curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
 
       - name: Install sccache
         run: |
@@ -260,9 +254,7 @@ jobs:
             target/
 
       - name: Install Rust
-        run: |
-          curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
 
       - name: Install sccache
         run: |
@@ -304,9 +296,7 @@ jobs:
             target/
 
       - name: Install Rust
-        run: |
-          curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
 
       - name: Install sccache
         run: |
