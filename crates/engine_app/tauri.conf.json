@@ -1,0 +1,35 @@
+{
+  "productName": "Akimo-Project Engine",
+  "version": "0.0.0",
+  "identifier": "de.sakulflee.akimo",
+  "build": {
+    "beforeDevCommand": "trunk serve --config engine_web/Trunk.toml",
+    "beforeBuildCommand": "trunk build --config engine_web/Trunk.release.toml",
+    "devUrl": "http://127.0.0.1:8080",
+    "frontendDist": "../engine_web/dist/"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "engine",
+        "width": 1280,
+        "height": 720
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}
