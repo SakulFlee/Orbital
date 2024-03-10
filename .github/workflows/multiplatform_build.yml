@@ -95,7 +95,7 @@ jobs:
       - uses: actions/upload-artifact@v3
         with:
           name: "engine-web"
-          path: target/
+          path: crates/engine_web/dist
 
   engine-app-windows:
     runs-on: windows-latest
