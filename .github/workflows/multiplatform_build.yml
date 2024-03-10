@@ -31,11 +31,6 @@ jobs:
       - name: Install Rust
         run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
 
-      - name: Install sccache
-        run: |
-          cargo install sccache
-          echo -e '[build]\nrustc-wrapper = "sccache"' > ~/.cargo/config.toml
-
       - name: Build
         run: cargo build --workspace --exclude engine_app --exclude engine_web
 
@@ -79,11 +74,6 @@ jobs:
 
       - name: Add WASM target
         run: rustup target add wasm32-unknown-unknown
-
-      - name: Install sccache
-        run: |
-          cargo install sccache
-          echo -e '[build]\nrustc-wrapper = "sccache"' > ~/.cargo/config.toml
 
       - name: Install Trunk
         run: cargo install trunk
@@ -129,11 +119,6 @@ jobs:
         run: |
           Invoke-WebRequest https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe -OutFile rustup-init.exe
           ./rustup-init.exe --default-toolchain stable --profile minimal -y
-
-      - name: Install sccache
-        run: |
-          cargo install sccache
-          echo -e '[build]\nrustc-wrapper = "sccache"' > ~/.cargo/config.toml
 
       - name: Install Trunk
         run: cargo install trunk
@@ -200,11 +185,6 @@ jobs:
       - name: Add WASM target
         run: rustup target add wasm32-unknown-unknown
 
-      - name: Install sccache
-        run: |
-          cargo install sccache
-          echo -e '[build]\nrustc-wrapper = "sccache"' > ~/.cargo/config.toml
-
       - name: Install Trunk
         run: cargo install trunk
 
@@ -252,11 +232,6 @@ jobs:
 
       - name: Add WASM target
         run: rustup target add wasm32-unknown-unknown
-
-      - name: Install sccache
-        run: |
-          cargo install sccache
-          echo -e '[build]\nrustc-wrapper = "sccache"' > ~/.cargo/config.toml
 
       - name: Install Trunk
         run: cargo install trunk
@@ -306,11 +281,6 @@ jobs:
       - name: Add WASM target
         run: rustup target add wasm32-unknown-unknown
 
-      - name: Install sccache
-        run: |
-          cargo install sccache
-          echo -e '[build]\nrustc-wrapper = "sccache"' > ~/.cargo/config.toml
-
       - name: Install Trunk
         run: cargo install trunk
 
@@ -358,11 +328,6 @@ jobs:
 
       - name: Add WASM target
         run: rustup target add wasm32-unknown-unknown
-
-      - name: Install sccache
-        run: |
-          cargo install sccache
-          echo -e '[build]\nrustc-wrapper = "sccache"' > ~/.cargo/config.toml
 
       - name: Install Trunk
         run: cargo install trunk
