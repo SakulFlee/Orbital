@@ -89,8 +89,9 @@ jobs:
         run: cargo install trunk
 
       - name: Build
-        run: echo "TEST"
-        working-directory: crates/engine-web/
+        run: |
+          cd crates/engine-web/
+          trunk build
 
       - name: Cache Save
         uses: actions/cache/save@v4
