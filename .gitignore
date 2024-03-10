@@ -4,6 +4,9 @@ target/
 # Trunk
 dist/
 
+# Android / iOS
+gen/
+
 # Cargo config we DO NOT want as it breaks CI.
 # It isn't actually required + you can keep a local (out-of-repository version).
 # Tauri-CLI generates this anyways.
