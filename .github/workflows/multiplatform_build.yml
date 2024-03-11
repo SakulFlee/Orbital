@@ -235,7 +235,7 @@ jobs:
         with:
           name: engine-app-linux
           path: |
-            target/release/Akimo-Project Engine
+            target/release/akimo-project-engine
             target/release/bundle/*
 
   engine-app-macos:
@@ -437,8 +437,8 @@ jobs:
         with:
           workflow: multiplatform_build.yml
 
-      # - name: Prepare artifact -> Linux Executable
-      #   run: mv engine-app-linux/
+      - name: Prepare artifact -> Linux Executable
+        run: mv engine-app-linux/akimo-project-engine "artifacts/Akimo-Project Engine-Linux"
 
       - name: Prepare artifact -> Linux AppImage
         run: find engine-app-linux/bundle/appimage/ -type f -name *.AppImage -exec mv {} "artifacts/Akimo-Project Engine-Linux-AppImage.AppImage" \;
