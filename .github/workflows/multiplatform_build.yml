@@ -359,8 +359,8 @@ jobs:
         with:
           name: engine-app-android
           path: |
-            engine_app/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
-            engine_app/gen/android/app/build/outputs/bundle/universalRelease/app-universal-release.aab
+            crates/engine_app/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
+            crates/engine_app/gen/android/app/build/outputs/bundle/universalRelease/app-universal-release.aab
 
   # engine-app-ios:
   #   runs-on: macos-latest
