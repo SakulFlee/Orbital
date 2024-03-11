@@ -136,6 +136,8 @@ jobs:
         run: cargo install --git https://github.com/tauri-apps/tauri/ --tag tauri-v2.0.0-beta.10 tauri-cli
 
       - name: Build
+        env:
+          RUST_BACKTRACE: "full"
         run: |
           cd crates/engine_app/
           cargo tauri build --verbose
