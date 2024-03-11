@@ -17,6 +17,14 @@ jobs:
         with:
           workflow: multiplatform_build.yml
 
+      - name: Debug
+        run: |
+          echo ">>> ### <<<"
+          ls -al .
+
+          echo ">>> ### <<<"
+          ls -al *
+
       - name: Prepare artifact -> Linux Executable
         run: mv engine-app-linux/akimo-project-engine "artifacts/Akimo-Project Engine-Linux"
 
