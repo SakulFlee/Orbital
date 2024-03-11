@@ -34,10 +34,10 @@ jobs:
         run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
 
       - name: Build
-        run: cargo build --workspace --exclude engine_app --exclude engine_web --release
+        run: cargo build --workspace --exclude engine_app --exclude engine_web --release --verbose
 
       - name: Test
-        run: cargo test --no-fail-fast --workspace --exclude engine_app --exclude engine_web
+        run: cargo test --no-fail-fast --workspace --exclude engine_app --exclude engine_web --verbose
 
       - name: Cache Save
         uses: actions/cache/save@v4
@@ -85,7 +85,7 @@ jobs:
       - name: Build
         run: |
           cd crates/engine_web/
-          trunk build
+          trunk build --verbose
 
       - name: Cache Save
         uses: actions/cache/save@v4
@@ -138,7 +138,7 @@ jobs:
       - name: Build
         run: |
           cd crates/engine_app/
-          cargo tauri build
+          cargo tauri build --verbose
 
       - name: Cache Save
         uses: actions/cache/save@v4
@@ -207,7 +207,7 @@ jobs:
       - name: Build
         run: |
           cd crates/engine_app/
-          cargo tauri build
+          cargo tauri build --verbose
 
       - name: Cache Save
         uses: actions/cache/save@v4
@@ -260,7 +260,7 @@ jobs:
       - name: Build
         run: |
           cd crates/engine_app/
-          cargo tauri build
+          cargo tauri build --verbose
 
       - name: Cache Save
         uses: actions/cache/save@v4
@@ -327,8 +327,8 @@ jobs:
         run: |
           export NDK_HOME="$ANDROID_SDK_ROOT/ndk/26.2.11394342/"
           cd crates/engine_app/
-          cargo tauri android init
-          cargo tauri android build
+          cargo tauri android init --verbose
+          cargo tauri android build --verbose
 
       - name: Cache Save
         uses: actions/cache/save@v4
@@ -381,7 +381,8 @@ jobs:
   #     - name: Build
   #       run:|
   #         cd crates/engine_app/
-  #         cargo tauri ios build
+  #         cargo tauri ios init --verbose
+  #         cargo tauri ios build --verbose
 
   #     - name: Cache Save
   #       uses: actions/cache/save@v4
