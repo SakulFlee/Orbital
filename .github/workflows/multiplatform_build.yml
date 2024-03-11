@@ -143,6 +143,7 @@ jobs:
       - name: Build
         env:
           RUST_BACKTRACE: "full"
+          CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_DEBUG: true
         run: |
           cd crates/engine_app/
           cargo tauri build --verbose
@@ -444,7 +445,7 @@ jobs:
           mv "engine-app-macos/Akimo-Project Engine" "artifacts/Akimo-Project Engine-MACOS"
           mv framework/* artifacts/
 
-      - name: Make release 
+      - name: Make release
         uses: softprops/action-gh-release@v2
         with:
           files: |
