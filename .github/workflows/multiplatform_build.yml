@@ -465,7 +465,7 @@ jobs:
         run: find engine-app-macos/bundle/dmg/ -type f -name *.dmg -exec mv {} "artifacts/Akimo-Project Engine-macOS-Setup.dmg" \;
 
       - name: Prepare artifact -> macOS Setup APP
-        run: zip "artifacts/Akimo-Project Engine-macOS-APP.app.zip" "engine-app-macos/bundle/macos/Akimo-Engine Project.app/"
+        run: zip "artifacts/Akimo-Project Engine-macOS-APP.app.zip" "engine-app-macos/bundle/macos/Akimo-Project Engine.app/"
 
       - name: Prepare artifact -> Web
         run: zip "artifacts/Akimo-Project Engine-Web.zip" "engine-web/*"
