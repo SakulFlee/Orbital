@@ -24,7 +24,8 @@ jobs:
       - name: Cache Restore
         uses: actions/cache/restore@v4
         with:
-          key: cache-framework
+          key: cache
+          enableCrossOsArchive: true
           path: |
             ~/.rustup
             ~/.cargo
@@ -43,7 +44,8 @@ jobs:
         uses: actions/cache/save@v4
         if: always()
         with:
-          key: cache-framework
+          key: cache
+          enableCrossOsArchive: true
           path: |
             ~/.rustup
             ~/.cargo
@@ -67,7 +69,8 @@ jobs:
       - name: Cache Restore
         uses: actions/cache/restore@v4
         with:
-          key: cache-engine-web
+          key: cache
+          enableCrossOsArchive: true
           path: |
             ~/.rustup
             ~/.cargo
@@ -91,7 +94,8 @@ jobs:
         uses: actions/cache/save@v4
         if: always()
         with:
-          key: cache-engine-web
+          key: cache
+          enableCrossOsArchive: true
           path: |
             ~/.rustup
             ~/.cargo
@@ -115,7 +119,8 @@ jobs:
       - name: Cache Restore
         uses: actions/cache/restore@v4
         with:
-          key: cache-engine-app-windows
+          key: cacheows
+          enableCrossOsArchive: true
           path: |
             ~/.rustup
             ~/.cargo
@@ -146,7 +151,8 @@ jobs:
         uses: actions/cache/save@v4
         if: always()
         with:
-          key: cache-engine-app-windows
+          key: cacheows
+          enableCrossOsArchive: true
           path: |
             ~/.rustup
             ~/.cargo
@@ -172,7 +178,8 @@ jobs:
       - name: Cache Restore
         uses: actions/cache/restore@v4
         with:
-          key: cache-engine-app-linux
+          key: cachex
+          enableCrossOsArchive: true
           path: |
             ~/.rustup
             ~/.cargo
@@ -215,7 +222,8 @@ jobs:
         uses: actions/cache/save@v4
         if: always()
         with:
-          key: cache-engine-app-linux
+          key: cachex
+          enableCrossOsArchive: true
           path: |
             ~/.rustup
             ~/.cargo
@@ -241,7 +249,8 @@ jobs:
       - name: Cache Restore
         uses: actions/cache/restore@v4
         with:
-          key: cache-engine-app-linux
+          key: cachex
+          enableCrossOsArchive: true
           path: |
             ~/.rustup
             ~/.cargo
@@ -268,7 +277,8 @@ jobs:
         uses: actions/cache/save@v4
         if: always()
         with:
-          key: cache-engine-app-macos
+          key: caches
+          enableCrossOsArchive: true
           path: |
             ~/.rustup
             ~/.cargo
@@ -294,7 +304,8 @@ jobs:
       - name: Cache Restore
         uses: actions/cache/restore@v4
         with:
-          key: cache-engine-app-android
+          key: cacheoid
+          enableCrossOsArchive: true
           path: |
             ~/.rustup
             ~/.cargo
@@ -336,7 +347,8 @@ jobs:
         uses: actions/cache/save@v4
         if: always()
         with:
-          key: cache-engine-app-android
+          key: cacheoid
+          enableCrossOsArchive: true
           path: |
             ~/.rustup
             ~/.cargo
@@ -362,7 +374,8 @@ jobs:
   #     - name: Cache Restore
   #       uses: actions/cache/restore@v4
   #       with:
-  #         key: cache-engine-app-ios
+  #         key: cache
+  #         enableCrossOsArchive: true
   #         path: |
   #           ~/.rustup
   #           ~/.cargo
@@ -390,7 +403,8 @@ jobs:
   #       uses: actions/cache/save@v4
   #       if: always()
   #       with:
-  #         key: cache-engine-app-ios
+  #         key: cachee-app-ios
+  #         enableCrossOsArchive: true
   #         path: |
   #           ~/.rustup
   #           ~/.cargo
