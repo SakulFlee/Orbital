@@ -1,0 +1,60 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [ci-publish]
+
+jobs:
+  publish:
+    runs-on: macos-latest
+    steps:
+      - name: Make artifacts directory
+        run: mkdir artifacts
+
+      - name: Download all build artifacts
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: multiplatform_build.yml
+
+      - name: Prepare artifact -> Linux Executable
+        run: mv engine-app-linux/akimo-project-engine "artifacts/Akimo-Project Engine-Linux"
+
+      - name: Prepare artifact -> Linux AppImage
+        run: find engine-app-linux/bundle/appimage/ -type f -name *.AppImage -exec mv {} "artifacts/Akimo-Project Engine-Linux-AppImage.AppImage" \;
+
+      - name: Prepare artifact -> Linux DEB
+        run: find engine-app-linux/bundle/deb/ -type f -name *.deb -exec mv {} "artifacts/Akimo-Project Engine-Linux-Setup.deb" \;
+
+      - name: Prepare artifact -> Linux RPM
+        run: find engine-app-linux/bundle/rpm/ -type f -name *.rpm -exec mv {} "artifacts/Akimo-Project Engine-Linux-Setup.rpm" \;
+
+      - name: Prepare artifact -> Windows Executable
+        run: mv "engine-app-windows/Akimo-Project Engine.exe" "artifacts/Akimo-Project Engine-Windows.exe"
+
+      - name: Prepare artifact -> Windows Setup MSI
+        run: find engine-app-windows/bundle/msi/ -type f -name *.msi -exec mv {} "artifacts/Akimo-Project Engine-Windows-Setup.msi" \;
+
+      - name: Prepare artifact -> Windows Setup EXE
+        run: find engine-app-windows/bundle/nsis/ -type f -name *.exe -exec mv {} "artifacts/Akimo-Project Engine-Windows-Setup.exe" \;
+
+      - name: Prepare artifact -> macOS Executable
+        run: mv "engine-app-macos/Akimo-Project Engine" "artifacts/Akimo-Project Engine-macOS"
+
+      - name: Prepare artifact -> macOS Setup DMG
+        run: find engine-app-macos/bundle/dmg/ -type f -name *.dmg -exec mv {} "artifacts/Akimo-Project Engine-macOS-Setup.dmg" \;
+
+      - name: Prepare artifact -> macOS Setup APP
+        run: zip "artifacts/Akimo-Project Engine-macOS-APP.app.zip" "engine-app-macos/bundle/macos/Akimo-Project Engine.app/"
+
+      - name: Prepare artifact -> Web
+        run: zip "artifacts/Akimo-Project Engine-Web.zip" "engine-web/*"
+
+      - name: Prepare artifact -> Framework
+        run: mv framework/* artifacts/
+
+      - name: Make release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/*
