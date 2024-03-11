@@ -459,7 +459,7 @@ jobs:
         run: find engine-app-windows/bundle/nsis/ -type f -name *.exe -exec mv {} "artifacts/Akimo-Project Engine-Windows-Setup.exe" \;
 
       - name: Prepare artifact -> macOS Executable
-        run: mv "engine-app-macos/Akimo-Project Engine.exe" "artifacts/Akimo-Project Engine-macOS.exe"
+        run: mv "engine-app-macos/Akimo-Project Engine" "artifacts/Akimo-Project Engine-macOS"
 
       - name: Prepare artifact -> macOS Setup DMG
         run: find engine-app-macos/bundle/dmg/ -type f -name *.dmg -exec mv {} "artifacts/Akimo-Project Engine-macOS-Setup.dmg" \;
