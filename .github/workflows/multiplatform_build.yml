@@ -433,5 +433,19 @@ jobs:
         with:
           workflow: multiplatform_build.yml
 
-      - name: List artifacts
-        run: ls -al -R .
+      - name: Prepare release
+        run: |
+          mkdir artifacts/
+          find . -name *.AppImage -or -name *.deb -or -name *.rpm -or -name *.exe -or -name *.msi -or -name *.dmg -exec mv {} artifacts/ \;
+          zip "artifacts/engine-web.zip" "engine-web/*"
+          zip "artifacts/Akimo-Project Engine.app.zip" "engine-app-macos/bundle/macos/Akimo-Project Engine.app"
+          mv "engine-app-windows/Akimo-Project Engine.exe" "artifacts/Akimo-Project Engine.exe"
+          mv "engine-app-linux/Akimo-Project Engine" "artifacts/Akimo-Project Engine-LINUX"
+          mv "engine-app-macos/Akimo-Project Engine" "artifacts/Akimo-Project Engine-MACOS"
+          mv framework/* artifacts/
+
+      - name: Make release 
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/*
