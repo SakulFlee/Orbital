@@ -495,3 +495,4 @@ jobs:
           workflow: deploy.yml
           repo: sakulFlee/sakulflee.github.io
           token: ${{ secrets.DISPATCH_PAT }}
+          ref: main
