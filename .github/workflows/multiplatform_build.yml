@@ -433,6 +433,8 @@ jobs:
         engine-web,
         framework,
       ]
+    permissions:
+      contents: write
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - name: Make artifacts directory
