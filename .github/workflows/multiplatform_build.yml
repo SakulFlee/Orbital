@@ -417,7 +417,7 @@ jobs:
   #         name: engine-app-ios
   #         path: target/ TODO
 
-  dispatch-publish:
+  publish:
     runs-on: ubuntu-latest
     needs: [
         engine-app-linux,
