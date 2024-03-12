@@ -51,7 +51,7 @@ jobs:
             ~/.cargo
             target/
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: framework
@@ -101,7 +101,7 @@ jobs:
             ~/.cargo
             target/
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: "engine-web"
@@ -159,7 +159,7 @@ jobs:
             ~/.cargo
             target/
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: engine-app-windows
@@ -230,7 +230,7 @@ jobs:
             ~/.cargo
             target/
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: engine-app-linux
@@ -285,7 +285,7 @@ jobs:
             ~/.cargo
             target/
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: engine-app-macos
@@ -355,7 +355,7 @@ jobs:
             ~/.cargo
             target/
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: engine-app-android
@@ -411,7 +411,7 @@ jobs:
   #           ~/.cargo
   #           target/
 
-  #     - uses: actions/upload-artifact@v3
+  #     - uses: actions/upload-artifact@v4
   #       if: always()
   #       with:
   #         name: engine-app-ios
