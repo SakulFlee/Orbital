@@ -25,7 +25,6 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           key: cache
-          enableCrossOsArchive: true
           path: |
             ~/.rustup
             ~/.cargo
@@ -45,7 +44,6 @@ jobs:
         if: always()
         with:
           key: cache
-          enableCrossOsArchive: true
           path: |
             ~/.rustup
             ~/.cargo
@@ -70,7 +68,6 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           key: cache
-          enableCrossOsArchive: true
           path: |
             ~/.rustup
             ~/.cargo
@@ -95,7 +92,6 @@ jobs:
         if: always()
         with:
           key: cache
-          enableCrossOsArchive: true
           path: |
             ~/.rustup
             ~/.cargo
@@ -121,7 +117,6 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           key: cacheows
-          enableCrossOsArchive: true
           path: |
             ~/.rustup
             ~/.cargo
@@ -154,7 +149,6 @@ jobs:
         if: always()
         with:
           key: cacheows
-          enableCrossOsArchive: true
           path: |
             ~/.rustup
             ~/.cargo
@@ -182,7 +176,6 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           key: cachex
-          enableCrossOsArchive: true
           path: |
             ~/.rustup
             ~/.cargo
@@ -226,7 +219,6 @@ jobs:
         if: always()
         with:
           key: cachex
-          enableCrossOsArchive: true
           path: |
             ~/.rustup
             ~/.cargo
@@ -254,7 +246,6 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           key: cachex
-          enableCrossOsArchive: true
           path: |
             ~/.rustup
             ~/.cargo
@@ -282,7 +273,6 @@ jobs:
         if: always()
         with:
           key: caches
-          enableCrossOsArchive: true
           path: |
             ~/.rustup
             ~/.cargo
@@ -310,7 +300,6 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           key: cacheoid
-          enableCrossOsArchive: true
           path: |
             ~/.rustup
             ~/.cargo
@@ -353,7 +342,6 @@ jobs:
         if: always()
         with:
           key: cacheoid
-          enableCrossOsArchive: true
           path: |
             ~/.rustup
             ~/.cargo
