@@ -492,6 +492,6 @@ jobs:
       - name: Dispatch sakulflee.github.io
         uses: benc-uk/workflow-dispatch@v1
         with:
-          workflow: deploy.yaml
+          workflow: deploy.yml
           repo: sakulFlee/sakulflee.github.io
           token: ${{ secrets.DISPATCH_PAT }}
