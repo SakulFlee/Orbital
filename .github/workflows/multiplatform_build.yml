@@ -466,7 +466,7 @@ jobs:
         run: zip "artifacts/Akimo-Project Engine-macOS-APP.app.zip" "engine-app-macos/bundle/macos/Akimo-Project Engine.app/"
 
       - name: Prepare artifact -> Web
-        run: zip "artifacts/Akimo-Project Engine-Web.zip" "engine-web/*"
+        run: zip "artifacts/Akimo-Project Engine-Web.zip" engine-web/*
 
       - name: Prepare artifact -> Framework
         run: mv framework/* artifacts/
