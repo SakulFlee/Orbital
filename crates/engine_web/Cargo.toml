@@ -41,7 +41,7 @@ serde_derive = "1.0.174"
 console_error_panic_hook = { version = "0.1" }
 
 # Engine related stuff
-winit = { version = "0.29.14" }
+winit = { version = "0.29.15" }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.37"
