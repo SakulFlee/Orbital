@@ -30,9 +30,9 @@ web-sys = { version = "0.3.69", features = [
     'CssStyleDeclaration',
     'HtmlCanvasElement',
 ] }
-serde = { version = "1.0.174", features = ["derive"] }
+serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.103"
-serde_derive = "1.0.174"
+serde_derive = "1.0.197"
 
 # Improves debugging by priting panics to the `console.error` console (JS).
 # Requires a lot of dependencies though, so bad for size.
