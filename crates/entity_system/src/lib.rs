@@ -6,11 +6,11 @@ use ulid::Ulid;
 #[cfg(test)]
 mod tests;
 
-pub trait Entity {
-    fn ulid(&self) -> &Ulid;
-    fn set_ulid(&mut self, ulid: Ulid);
-}
-pub type BoxedEntity = Box<dyn Entity + Send + Sync>;
+pub mod entity;
+pub use entity::*;
+
+pub mod boxed_entity;
+pub use boxed_entity::*;
 
 #[derive(Default)]
 pub struct EntitySystem {
