@@ -17,10 +17,10 @@ impl EventSystem {
         Self::default()
     }
 
-    pub async fn poll(&self) {
+    pub async fn poll(&mut self) {
         let mut entity_system = entity_system().lock().expect("Mutex failure");
 
-        for event in &self.events {
+        for event in self.events.drain(..) {
             console_log!("Dispatching event: {}", event.identifier());
 
             if let Some(entities) = self.receivers.get(&event.identifier()) {
@@ -29,7 +29,7 @@ impl EventSystem {
 
                     console_log!("Sending event to entity: {}", e.ulid());
 
-                    let any: &dyn Any = event;
+                    let any: &dyn Any = &event;
                     e.event_received(event.identifier(), any);
                 }
             }

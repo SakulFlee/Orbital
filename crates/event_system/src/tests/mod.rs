@@ -32,7 +32,6 @@ impl Entity for EntityTest {
     }
 
     fn event_received(&mut self, _identifier: String, _event: &dyn Any) {
-        println!("Event received!");
         self.success = true;
     }
 
@@ -54,6 +53,46 @@ struct OtherEventTest;
 impl Event for OtherEventTest {
     fn identifier(&self) -> String {
         String::from("other.test")
+    }
+}
+
+struct EventTestCounter;
+
+impl Event for EventTestCounter {
+    fn identifier(&self) -> String {
+        String::from("counter.test")
+    }
+}
+
+struct EntityCountTest {
+    ulid: Ulid,
+    count: u8,
+}
+
+impl EntityCountTest {
+    pub fn new() -> Self {
+        Self {
+            ulid: Ulid::new(),
+            count: 0,
+        }
+    }
+}
+
+impl Entity for EntityCountTest {
+    fn ulid(&self) -> &Ulid {
+        &self.ulid
+    }
+
+    fn set_ulid(&mut self, ulid: Ulid) {
+        self.ulid = ulid;
+    }
+
+    fn event_received(&mut self, _identifier: String, _event: &dyn Any) {
+        self.count += 1;
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -136,5 +175,52 @@ fn event_dispatch_with_wrong_identifier() {
             .expect("Any failure");
 
         assert!(!entity.success);
+    });
+}
+
+#[wasm_bindgen_test]
+fn event_dispatch_count() {
+    spawn_local(async {
+        // Make entity
+        let entity = EntityCountTest::new();
+        let ulid = *entity.ulid();
+        entities()
+            .lock()
+            .expect("Mutex failure")
+            .spawn(Box::new(entity))
+            .expect("Spawn failure");
+
+        // Register entity event listener
+        events()
+            .lock()
+            .expect("Mutex failure")
+            .register_receiver("counter.test".into(), &ulid);
+
+        // Dispatch event
+        let event = EventTestCounter {};
+        events()
+            .lock()
+            .expect("Mutex failure")
+            .dispatch_event(Box::new(event));
+
+        // Poll a few times
+        for _ in 0..=3 {
+            events().lock().expect("Mutex failure").poll().await;
+        }
+
+        // Check entity
+        let entities = entities().lock().expect("Mutex failure");
+        let entity = entities
+            .get(&ulid)
+            .expect("Spawn failure")
+            .as_any()
+            .downcast_ref::<EntityCountTest>()
+            .expect("Any failure");
+
+        // If the event would still have been in queue during our multiple
+        // polls above, this counter would be more than 1.
+        // If polling didn't work for some reason, the counter should be 0.
+        // If the counter is 1, it means the event was processed exactly once.
+        assert_eq!(entity.count, 1);
     });
 }
