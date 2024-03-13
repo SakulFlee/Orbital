@@ -68,6 +68,18 @@
         },
         // --- Tests ---
         {
+            "label": "[Framework] Test EntitySystem",
+            "type": "shell",
+            "command": "wasm-pack test --node crates/entity_system",
+            "group": "test"
+        },
+        {
+            "label": "[Framework] Test EventSystem",
+            "type": "shell",
+            "command": "wasm-pack test --node crates/event_system",
+            "group": "test"
+        },
+        {
             "label": "[Engine: App] Run Desktop",
             "type": "shell",
             "command": "cargo tauri dev",
