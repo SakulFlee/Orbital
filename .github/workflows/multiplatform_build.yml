@@ -492,6 +492,7 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           artifacts: "artifacts/*"
+          prerelease: ${{ contains(github.ref, 'pre') || contains(github.ref, 'beta') || contains(github.ref, 'alpha') }}
 
   dispatch-engine-release:
     runs-on: ubuntu-latest
