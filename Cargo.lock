@@ -542,6 +542,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "console_log"
+version = "0.1.0"
+dependencies = [
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "convert_case"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -958,7 +965,10 @@ dependencies = [
 name = "event_system"
 version = "0.1.0"
 dependencies = [
- "lazy_static",
+ "console_log",
+ "entity_system",
+ "hashbrown 0.14.3",
+ "ulid",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
 ]
@@ -1039,6 +1049,10 @@ checksum = "e13624c2627564efccf4934284bdd98cbaa14e79b0b5a141218e507b3a823456"
 dependencies = [
  "percent-encoding",
 ]
+
+[[package]]
+name = "framework_test_project"
+version = "0.1.0"
 
 [[package]]
 name = "futf"
