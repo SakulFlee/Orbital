@@ -5,6 +5,7 @@
         "bindgen",
         "despawn",
         "despawned",
+        "hashbrown",
         "icns",
         "sakulflee",
         "Tauri"
