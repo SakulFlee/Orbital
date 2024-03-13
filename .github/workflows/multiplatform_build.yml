@@ -36,8 +36,14 @@ jobs:
       - name: Install Wasm-Pack
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
+      - name: Add WASM target
+        run: rustup target add wasm32-unknown-unknown
+
       - name: Build
-        run: cargo build --workspace --exclude engine_app --exclude engine_web --release --verbose
+        run: cargo build --workspace --exclude engine_app --exclude engine_web --target wasm32-unknown-unknown --release --verbose
+
+      - name: Setup NodeJS
+        uses: actions/setup-node@v4
 
       - name: Test
         run: find crates/ -mindepth 1 -maxdepth 1 -type d -not -name engine_web -or -not -name engine_app -exec wasm-pack test --node {} \;
