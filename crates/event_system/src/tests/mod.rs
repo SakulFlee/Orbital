@@ -6,6 +6,7 @@ use wasm_bindgen_futures::spawn_local;
 use wasm_bindgen_test::wasm_bindgen_test;
 
 use crate::{events, Event};
+use console_log::console_log;
 
 struct EntityTest {
     ulid: Ulid,
