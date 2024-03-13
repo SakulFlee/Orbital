@@ -1,6 +1,3 @@
-#[macro_use]
-extern crate console_log;
-
 #[cfg(test)]
 mod tests;
 
