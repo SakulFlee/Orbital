@@ -8,15 +8,13 @@
             "label": "[Framework] Build (Debug)",
             "type": "shell",
             "command": "cargo build --workspace --exclude engine_app --exclude engine_web --target wasm32-unknown-unknown",
-            "group": "build",
-            "options": {"cwd": "Framework/"}
+            "group": "build"
         },
         {
             "label": "[Framework] Build (Release)",
             "type": "shell",
             "command": "cargo build --workspace --exclude engine_app --exclude engine_web --target wasm32-unknown-unknown --release",
-            "group": "build",
-            "options": {"cwd": "Framework/"}
+            "group": "build"
         },
         {
             "label": "[Engine: App] Build Desktop (Debug)",
@@ -69,6 +67,18 @@
             "options": {"cwd": "crates/engine_web/"}
         },
         // --- Tests ---
+        {
+            "label": "[Framework] Test EntitySystem",
+            "type": "shell",
+            "command": "wasm-pack test --node crates/entity_system",
+            "group": "test"
+        },
+        {
+            "label": "[Framework] Test EventSystem",
+            "type": "shell",
+            "command": "wasm-pack test --node crates/event_system",
+            "group": "test"
+        },
         {
             "label": "[Engine: App] Run Desktop",
             "type": "shell",

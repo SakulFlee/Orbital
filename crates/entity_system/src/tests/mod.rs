@@ -21,6 +21,14 @@ impl Entity for EntityTest {
     fn set_ulid(&mut self, ulid: Ulid) {
         self.ulid = ulid;
     }
+
+    fn event_received(&mut self, _identifier: String, _event: &dyn std::any::Any) {
+        unimplemented!()
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 #[wasm_bindgen_test]
