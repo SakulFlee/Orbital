@@ -49,8 +49,16 @@ impl Event for EventTest {
     }
 }
 
+struct OtherEventTest;
+
+impl Event for OtherEventTest {
+    fn identifier(&self) -> String {
+        String::from("other.test")
+    }
+}
+
 #[wasm_bindgen_test]
-fn event_bus() {
+fn event_dispatch() {
     spawn_local(async {
         // Make entity
         let entity = EntityTest::new();
@@ -86,7 +94,47 @@ fn event_bus() {
             .downcast_ref::<EntityTest>()
             .expect("Any failure");
 
-        console_log!("Test result success? {}", entity.success);
         assert!(entity.success);
+    });
+}
+
+#[wasm_bindgen_test]
+fn event_dispatch_with_wrong_identifier() {
+    spawn_local(async {
+        // Make entity
+        let entity = EntityTest::new();
+        let ulid = *entity.ulid();
+        entities()
+            .lock()
+            .expect("Mutex failure")
+            .spawn(Box::new(entity))
+            .expect("Spawn failure");
+
+        // Register entity event listener
+        events()
+            .lock()
+            .expect("Mutex failure")
+            .register_receiver("test".into(), &ulid);
+
+        // Dispatch event
+        let event = OtherEventTest {};
+        events()
+            .lock()
+            .expect("Mutex failure")
+            .dispatch_event(Box::new(event));
+
+        // Poll
+        events().lock().expect("Mutex failure").poll().await;
+
+        // Check entity
+        let entities = entities().lock().expect("Mutex failure");
+        let entity = entities
+            .get(&ulid)
+            .expect("Spawn failure")
+            .as_any()
+            .downcast_ref::<EntityTest>()
+            .expect("Any failure");
+
+        assert!(!entity.success);
     });
 }
