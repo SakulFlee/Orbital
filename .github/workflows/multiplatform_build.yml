@@ -33,8 +33,14 @@ jobs:
       - name: Install Rust
         run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
 
+      - name: Add WASM target
+        run: rustup target add wasm32-unknown-unknown
+
       - name: Build
-        run: cargo build --workspace --exclude engine_app --exclude engine_web --release --verbose
+        run: cargo build --workspace --exclude engine_app --exclude engine_web --target wasm32-unknown-unknown --release --verbose
+
+      - name: Setup NodeJS
+        uses: actions/setup-node@v4
 
       - name: Test
         run: cargo test --no-fail-fast --workspace --exclude engine_app --exclude engine_web --verbose
