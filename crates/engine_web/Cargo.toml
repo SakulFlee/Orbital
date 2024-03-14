@@ -8,8 +8,8 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 wasm-bindgen = { version = "0.2.92", features = ["serde-serialize"] }
-wasm-bindgen-futures = "0.4.37"
-js-sys = "0.3.64"
+wasm-bindgen-futures = "0.4.42"
+js-sys = "0.3.69"
 web-sys = { version = "0.3.69", features = [
     'Document',
     'Element',
@@ -44,4 +44,4 @@ console_error_panic_hook = { version = "0.1" }
 winit = { version = "0.29.14" }
 
 [dev-dependencies]
-wasm-bindgen-test = "0.3.37"
+wasm-bindgen-test = "0.3.42"
