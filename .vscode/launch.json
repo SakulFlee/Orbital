@@ -1,18 +1,17 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
     "configurations": [
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Desktop App",
-            "program": "",
-            "windows": {
-                "program": "${workspaceFolder}/target/x86_64-pc-windows-msvc/debug/Akimo-Project Engine.exe"
-            },
-            "preLaunchTask": "[Engine: App] Build Desktop (Debug)"
-        }
+    {
+        "type": "lldb",
+        "request": "launch",
+        "name": "Engine App",
+        "cargo": {
+            "args": [
+                "build",
+                "--bin",
+                "engine_app"
+            ]
+        },
+        "args": []
+    }
     ]
 }
