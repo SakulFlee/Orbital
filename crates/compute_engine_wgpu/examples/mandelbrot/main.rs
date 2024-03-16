@@ -30,11 +30,13 @@ const TEXTURE_DIMS: (usize, usize) = (512, 512);
 
 #[tokio::main]
 pub async fn main() {
-    println!("Full credit of this goes to wgpu (https://github.com/gfx-rs/wgpu).");
-    println!("This example was taken from their examples and mildly modified to work with our engine version.");
-    println!("The original example is licensed under Apache-2.0 & MIT and can be found here:");
-    println!("https://github.com/gfx-rs/wgpu/tree/trunk/examples/src/storage_texture");
-    println!();
+    logging::log_init();
+
+    info!("Full credit of this goes to wgpu (https://github.com/gfx-rs/wgpu).");
+    info!("This example was taken from their examples and mildly modified to work with our engine version.");
+    info!("The original example is licensed under Apache-2.0 & MIT and can be found here:");
+    info!("https://github.com/gfx-rs/wgpu/tree/trunk/examples/src/storage_texture");
+    info!("");
 
     let mut texture_data = vec![0u8; TEXTURE_DIMS.0 * TEXTURE_DIMS.1 * 4];
 
@@ -202,4 +204,6 @@ pub fn output_image_native(image_data: Vec<u8>, texture_dims: (usize, usize), pa
     let mut file = std::fs::File::create(&path).unwrap();
     file.write_all(&png_data[..]).unwrap();
     info!("PNG file written to disc as \"{}\".", path);
+
+    info!("Done! Check the 'mandelbrot.png' file!");
 }
