@@ -36,7 +36,7 @@ jobs:
         if: ${{ !contains(matrix.os , 'windows') }}
 
       - name: Install Rust (Windows)
-        run:
+        run: |
           Invoke-WebRequest https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe -OutFile rustup-init.exe
           ./rustup-init.exe --default-toolchain stable --profile minimal -y
         if: ${{ contains(matrix.os , 'windows') }}
