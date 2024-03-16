@@ -10,6 +10,7 @@
         "multisampled",
         "sakulflee",
         "tokio",
+        "wgpu",
         "winit"
     ],
     "rust-analyzer.cargo.autoreload": true,
