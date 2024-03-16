@@ -431,6 +431,7 @@ dependencies = [
  "logging",
  "logical_device",
  "logical_device_wgpu",
+ "png",
  "tokio",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
