@@ -5,100 +5,35 @@
     "tasks": [
         // --- Builds ---
         {
-            "label": "[Framework] Build (Debug)",
+            "label": "[Workspace] Build (Debug)",
             "type": "shell",
-            "command": "cargo build --workspace --exclude engine_app --exclude engine_web --target wasm32-unknown-unknown",
+            "command": "cargo build --workspace",
             "group": "build"
         },
         {
-            "label": "[Framework] Build (Release)",
+            "label": "[Workspace] Build (Release)",
             "type": "shell",
-            "command": "cargo build --workspace --exclude engine_app --exclude engine_web --target wasm32-unknown-unknown --release",
+            "command": "cargo build --workspace --release",
             "group": "build"
         },
         {
-            "label": "[Engine: App] Build Desktop (Debug)",
+            "label": "[Engine App] Build (Debug)",
             "type": "shell",
-            "command": "cargo tauri build --debug",
-            "group": "build",
-            "options": {"cwd": "crates/engine_app/"}
+            "command": "cargo build --bin engine_app",
+            "group": "build"
         },
         {
-            "label": "[Engine: App] Build Desktop (Release)",
+            "label": "[Engine App] Build (Release)",
             "type": "shell",
-            "command": "cargo tauri build",
-            "group": "build",
-            "options": {"cwd": "crates/engine_app/"}
-        },
-        {
-            "label": "[Engine: App] Build Android (Debug)",
-            "type": "shell",
-            "command": "cargo tauri android build --debug",
-            "group": "build",
-            "options": {"cwd": "crates/engine_app/"},
-            "dependsOn": "[Engine: App] Initialize Android"
-        },
-        {
-            "label": "[Engine: App] Build Android (Release)",
-            "type": "shell",
-            "command": "cargo tauri android build",
-            "group": "build",
-            "options": {"cwd": "crates/engine_app/"},
-            "dependsOn": "[Engine: App] Initialize Android"
-        },
-        {
-            "label": "[Engine: App] Initialize Android",
-            "type": "shell",
-            "command": "cargo tauri android init",
-            "options": {"cwd": "crates/engine_app/"}
-        },
-        {
-            "label": "[Engine: Web] Build (Debug)",
-            "type": "shell",
-            "command": "trunk build",
-            "group": "build",
-            "options": {"cwd": "crates/engine_web/"}
-        },
-        {
-            "label": "[Engine: Web] Build (Release)",
-            "type": "shell",
-            "command": "trunk build --release",
-            "group": "build",
-            "options": {"cwd": "crates/engine_web/"}
+            "command": "cargo build --bin engine_app --release",
+            "group": "build"
         },
         // --- Tests ---
         {
-            "label": "[Framework] Test EntitySystem",
+            "label": "[Workspace] Test",
             "type": "shell",
-            "command": "wasm-pack test --node crates/entity_system",
+            "command": "cargo test --workspace",
             "group": "test"
-        },
-        {
-            "label": "[Framework] Test EventSystem",
-            "type": "shell",
-            "command": "wasm-pack test --node crates/event_system",
-            "group": "test"
-        },
-        {
-            "label": "[Engine: App] Run Desktop",
-            "type": "shell",
-            "command": "cargo tauri dev",
-            "group": "test",
-            "options": {"cwd": "crates/engine_app/"}
-        },
-        {
-            "label": "[Engine: App] Run Android",
-            "type": "shell",
-            "command": "cargo tauri android dev",
-            "group": "test",
-            "options": {"cwd": "crates/engine_app/"}
-        },
-        {
-            "label": "[Engine: Web] Serve",
-            "type": "shell",
-            "command": "trunk serve --config Trunk.toml",
-            "group": "test",
-            "options": {"cwd": "crates/engine_web/"}
         }
     ]
 }
