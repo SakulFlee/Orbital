@@ -1,10 +1,10 @@
 use entity_system::entity_system;
 use hashbrown::HashMap;
+use log::debug;
 use std::any::Any;
 use ulid::Ulid;
 
 use crate::BoxedEvent;
-use console_log::console_log;
 
 #[derive(Default)]
 pub struct EventSystem {
@@ -21,13 +21,13 @@ impl EventSystem {
         let mut entity_system = entity_system().lock().expect("Mutex failure");
 
         for event in self.events.drain(..) {
-            console_log!("Dispatching event: {}", event.identifier());
+            debug!("Dispatching event: {}", event.identifier());
 
             if let Some(entities) = self.receivers.get(&event.identifier()) {
                 for entity in entities {
                     let e = entity_system.get_mut(entity).expect("Entity doesn't exist");
 
-                    console_log!("Sending event to entity: {}", e.ulid());
+                    debug!("Sending event to entity: {}", e.ulid());
 
                     let any: &dyn Any = &event;
                     e.event_received(event.identifier(), any);
