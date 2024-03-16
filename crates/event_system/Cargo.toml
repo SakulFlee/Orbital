@@ -6,12 +6,12 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-wasm-bindgen-futures = "0.4.42"
-ulid = "1.1.2"
-hashbrown = "0.14"
-
-console_log = { path = "../console_log/" }
-entity_system = { path = "../entity_system/" }
+wasm-bindgen-futures = { workspace = true }
+ulid = { workspace = true }
+hashbrown = { workspace = true }
+log = { workspace = true }
+# console_log = { workspace = true }
+entity_system = { workspace = true }
 
 [dev-dependencies]
-wasm-bindgen-test = "0.3.42"
+wasm-bindgen-test = { workspace = true }
