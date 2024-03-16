@@ -1,14 +1,23 @@
 {
     "cSpell.words": [
         "akimo",
-        "Akimo",
         "bindgen",
+        "bytemuck",
         "despawn",
         "despawned",
         "hashbrown",
+        "humantime",
         "icns",
+        "multisampled",
+        "recv",
         "sakulflee",
-        "Tauri"
+        "tokio",
+        "unmap",
+        "unmaps",
+        "unorm",
+        "wgpu",
+        "wgsl",
+        "winit"
     ],
     "rust-analyzer.cargo.autoreload": true,
     "rust-analyzer.cargo.target": "wasm32-unknown-unknown"
