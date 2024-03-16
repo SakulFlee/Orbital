@@ -57,15 +57,25 @@ jobs:
             ~/.cargo
             target/
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload Engine Framework libraries
+        uses: actions/upload-artifact@v4
         with:
           name: framework-libraries-${{ matrix.os }}
           path: target/release/lib*
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload Engine App (*NIX)
+        uses: actions/upload-artifact@v4
+        if: ${{ !contains(matrix.os , 'windows') }}
         with:
           name: engine-app-${{ matrix.os }}
-          path: target/release/engine_app*
+          path: target/release/engine_app
+
+      - name: Upload Engine App (Windows)
+        uses: actions/upload-artifact@v4
+        if: ${{ contains(matrix.os , 'windows') }}
+        with:
+          name: engine-app-${{ matrix.os }}
+          path: target/release/engine_app.exe
 
   publish:
     runs-on: ubuntu-latest
