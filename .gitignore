@@ -3,3 +3,6 @@ target/
 
 # Logs
 *.log
+
+# Example generated files
+mandelbrot.png

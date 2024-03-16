@@ -2,6 +2,7 @@
     "cSpell.words": [
         "akimo",
         "bindgen",
+        "bytemuck",
         "despawn",
         "despawned",
         "hashbrown",
@@ -12,7 +13,8 @@
         "sakulflee",
         "tokio",
         "unmap",
-        "Unorm",
+        "unmaps",
+        "unorm",
         "wgpu",
         "wgsl",
         "winit"

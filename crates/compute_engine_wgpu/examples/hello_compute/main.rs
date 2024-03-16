@@ -8,24 +8,27 @@
 use std::borrow::Cow;
 
 use compute_engine_wgpu::{ComputeEngineTrait, ComputeEngineWGPU};
+use logging::info;
 use wgpu::util::DeviceExt;
 
 #[tokio::main]
 pub async fn main() {
-    println!("Full credit of this goes to wgpu (https://github.com/gfx-rs/wgpu).");
-    println!("This example was taken from their examples and mildly modified to work with our engine version.");
-    println!("The original example is licensed under Apache-2.0 & MIT and can be found here:");
-    println!("https://github.com/gfx-rs/wgpu/tree/trunk/examples/src/hello_compute");
-    println!();
+    logging::log_init();
+
+    info!("Full credit of this goes to wgpu (https://github.com/gfx-rs/wgpu).");
+    info!("This example was taken from their examples and mildly modified to work with our engine version.");
+    info!("The original example is licensed under Apache-2.0 & MIT and can be found here:");
+    info!("https://github.com/gfx-rs/wgpu/tree/trunk/examples/src/hello_compute");
+    info!("");
 
     let number_v: Vec<u32> = vec![1, 2, 3, 4];
     let numbers: &[u32] = &number_v;
 
-    println!("Input: ");
+    info!("Input: ");
     for (i, e) in number_v.iter().enumerate() {
-        println!("#{}: {}", i, e);
+        info!("#{}: {}", i, e);
     }
-    println!();
+    info!("");
 
     let compute_engine = ComputeEngineWGPU::new()
         .await
@@ -107,14 +110,14 @@ pub async fn main() {
         .device()
         .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
     {
-        let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+        let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: None,
             timestamp_writes: None,
         });
-        cpass.set_pipeline(&compute_pipeline);
-        cpass.set_bind_group(0, &bind_group, &[]);
-        cpass.insert_debug_marker("compute collatz iterations");
-        cpass.dispatch_workgroups(numbers.len() as u32, 1, 1); // Number of cells to run, the (x,y,z) size of item being processed
+        compute_pass.set_pipeline(&compute_pipeline);
+        compute_pass.set_bind_group(0, &bind_group, &[]);
+        compute_pass.insert_debug_marker("compute collatz iterations");
+        compute_pass.dispatch_workgroups(numbers.len() as u32, 1, 1); // Number of cells to run, the (x,y,z) size of item being processed
     }
     // Sets adds copy operation to command encoder.
     // Will copy data from storage buffer on GPU to staging buffer on CPU.
@@ -154,9 +157,9 @@ pub async fn main() {
                                 // It effectively frees the memory
 
         // Returns data from buffer
-        println!("Output: ");
+        info!("Output: ");
         for (i, e) in result.iter().enumerate() {
-            println!("#{}: {}", i, e);
+            info!("#{}: {}", i, e);
         }
     } else {
         panic!("failed to run compute on gpu!")
