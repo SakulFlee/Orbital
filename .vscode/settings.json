@@ -8,9 +8,13 @@
         "humantime",
         "icns",
         "multisampled",
+        "recv",
         "sakulflee",
         "tokio",
+        "unmap",
+        "Unorm",
         "wgpu",
+        "wgsl",
         "winit"
     ],
     "rust-analyzer.cargo.autoreload": true,
