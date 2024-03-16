@@ -10,6 +10,7 @@
         "multisampled",
         "sakulflee",
         "tokio",
+        "winit"
     ],
     "rust-analyzer.cargo.autoreload": true,
     "rust-analyzer.cargo.target": "wasm32-unknown-unknown"
