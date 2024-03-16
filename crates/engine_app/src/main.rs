@@ -1,6 +1,5 @@
 use compute_engine_wgpu::ComputeEngineWGPU;
 use engine_result_wgpu::EngineResultWGPU;
-use event_system::event_system;
 use logging::*;
 
 #[tokio::main]
@@ -10,7 +9,7 @@ async fn main() -> EngineResultWGPU<()> {
     info!("Akimo-Project: Engine");
     info!("(C) SakulFlee 2024");
 
-    let compute_engine = ComputeEngineWGPU::new().await?;
+    let _compute_engine = ComputeEngineWGPU::new().await?;
 
     // let event_loop = EventLoop::new().expect("EventLoop boot failed");
     // let window = WindowBuilder::new()
