@@ -13,13 +13,14 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  framework:
-    runs-on: ubuntu-latest
+  workspace:
+    strategy:
+      matrix:
+        os: [ubuntu, windows, macos]
+    runs-on: ${{ matrix.os }}-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-        with:
-          submodules: recursive
 
       - name: Cache Restore
         uses: actions/cache/restore@v4
@@ -30,146 +31,27 @@ jobs:
             ~/.cargo
             target/
 
-      - name: Install Rust
+      - name: Install Rust (*NIX)
         run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
+        if: ${{ !contains(matrix.os , 'windows') }}
 
-      - name: Install Wasm-Pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-
-      - name: Add WASM target
-        run: rustup target add wasm32-unknown-unknown
-
-      - name: Build
-        run: cargo build --workspace --exclude engine_app --exclude engine_web --target wasm32-unknown-unknown --release --verbose
-
-      - name: Setup NodeJS
-        uses: actions/setup-node@v4
-
-      - name: Test
-        run: find crates/ -mindepth 1 -maxdepth 1 -type d -not -name engine_web -or -not -name engine_app -exec wasm-pack test --node {} \;
-
-      - name: Cache Save
-        uses: actions/cache/save@v4
-        if: always()
-        with:
-          key: cache
-          path: |
-            ~/.rustup
-            ~/.cargo
-            target/
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: framework
-          path: target/release/lib*
-
-  engine-web:
-    runs-on: ubuntu-latest
-    needs: framework
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          submodules: recursive
-
-      - name: Cache Restore
-        uses: actions/cache/restore@v4
-        with:
-          key: cache
-          path: |
-            ~/.rustup
-            ~/.cargo
-            target/
-
-      - name: Install Rust
-        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
-
-      - name: Add WASM target
-        run: rustup target add wasm32-unknown-unknown
-
-      - name: Install Trunk
-        run: cargo install trunk
-
-      - name: Build
-        run: |
-          cd crates/engine_web/
-          trunk build --verbose
-
-      - name: Cache Save
-        uses: actions/cache/save@v4
-        if: always()
-        with:
-          key: cache
-          path: |
-            ~/.rustup
-            ~/.cargo
-            target/
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: "engine-web"
-          path: crates/engine_web/dist/
-
-  dispatch-engine-beta:
-    runs-on: ubuntu-latest
-    needs: engine-web
-    steps:
-      - name: Dispatch sakulflee.github.io
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          workflow: deploy.yml
-          repo: sakulFlee/sakulflee.github.io
-          token: ${{ secrets.DISPATCH_PAT }}
-          ref: main
-
-  engine-app-windows:
-    runs-on: windows-latest
-    needs: engine-web
-    if: startsWith(github.ref, 'refs/tags/v')
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          submodules: recursive
-
-      - name: Cache Restore
-        uses: actions/cache/restore@v4
-        with:
-          key: cacheows
-          path: |
-            ~/.rustup
-            ~/.cargo
-            target/
-
-      - name: Install Rust
-        run: |
+      - name: Install Rust (Windows)
+        run:
           Invoke-WebRequest https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe -OutFile rustup-init.exe
           ./rustup-init.exe --default-toolchain stable --profile minimal -y
+        if: ${{ contains(matrix.os , 'windows') }}
 
-      - name: Add WASM target
-        run: rustup target add wasm32-unknown-unknown
+      - name: Build Workspace
+        run: cargo build --workspace --release --verbose
 
-      - name: Install Trunk
-        run: cargo install trunk
-
-      - name: Install Tauri BETA
-        run: cargo install --git https://github.com/tauri-apps/tauri/ --tag tauri-v2.0.0-beta.10 tauri-cli
-
-      - name: Build
-        env:
-          RUST_BACKTRACE: "full"
-          CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_DEBUG: true
-        run: |
-          cd crates/engine_app/
-          cargo tauri build --verbose
+      - name: Test Workspace
+        run: cargo test --workspace --verbose
 
       - name: Cache Save
         uses: actions/cache/save@v4
         if: always()
         with:
-          key: cacheows
+          key: cache
           path: |
             ~/.rustup
             ~/.cargo
@@ -178,270 +60,18 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: engine-app-windows
-          path: |
-            target/release/Akimo-Project Engine.exe
-            target/release/bundle/*
-
-  engine-app-linux:
-    runs-on: ubuntu-latest
-    needs: engine-web
-    if: startsWith(github.ref, 'refs/tags/v')
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          submodules: recursive
-
-      - name: Cache Restore
-        uses: actions/cache/restore@v4
-        with:
-          key: cachex
-          path: |
-            ~/.rustup
-            ~/.cargo
-            target/
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            build-essential \
-            curl \
-            wget \
-            file \
-            libssl-dev \
-            libgtk-3-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            libsoup-3.0-dev \
-            libjavascriptcoregtk-4.1-dev
-
-      - name: Install Rust
-        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
-
-      - name: Add WASM target
-        run: rustup target add wasm32-unknown-unknown
-
-      - name: Install Trunk
-        run: cargo install trunk
-
-      - name: Install Tauri BETA
-        run: cargo install --git https://github.com/tauri-apps/tauri/ --tag tauri-v2.0.0-beta.10 tauri-cli
-
-      - name: Build
-        run: |
-          cd crates/engine_app/
-          cargo tauri build --verbose
-
-      - name: Cache Save
-        uses: actions/cache/save@v4
-        if: always()
-        with:
-          key: cachex
-          path: |
-            ~/.rustup
-            ~/.cargo
-            target/
+          name: framework-libraries
+          path: target/release/lib*
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: engine-app-linux
-          path: |
-            target/release/akimo-project-engine
-            target/release/bundle/*
-
-  engine-app-macos:
-    runs-on: macos-latest
-    needs: engine-web
-    if: startsWith(github.ref, 'refs/tags/v')
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          submodules: recursive
-
-      - name: Cache Restore
-        uses: actions/cache/restore@v4
-        with:
-          key: cachex
-          path: |
-            ~/.rustup
-            ~/.cargo
-            target/
-
-      - name: Install Rust
-        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
-
-      - name: Add WASM target
-        run: rustup target add wasm32-unknown-unknown
-
-      - name: Install Trunk
-        run: cargo install trunk
-
-      - name: Install Tauri BETA
-        run: cargo install --git https://github.com/tauri-apps/tauri/ --tag tauri-v2.0.0-beta.10 tauri-cli
-
-      - name: Build
-        run: |
-          cd crates/engine_app/
-          cargo tauri build --verbose
-
-      - name: Cache Save
-        uses: actions/cache/save@v4
-        if: always()
-        with:
-          key: caches
-          path: |
-            ~/.rustup
-            ~/.cargo
-            target/
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: engine-app-macos
-          path: |
-            target/release/Akimo-Project Engine
-            target/release/bundle/*
-
-  engine-app-android:
-    runs-on: ubuntu-latest
-    needs: engine-web
-    if: startsWith(github.ref, 'refs/tags/v')
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          submodules: recursive
-
-      - name: Cache Restore
-        uses: actions/cache/restore@v4
-        with:
-          key: cacheoid
-          path: |
-            ~/.rustup
-            ~/.cargo
-            target/
-
-      - name: Install Rust
-        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
-
-      - name: Add WASM target
-        run: rustup target add wasm32-unknown-unknown
-
-      - name: Install Trunk
-        run: cargo install trunk
-
-      - name: Install Tauri BETA
-        run: cargo install --git https://github.com/tauri-apps/tauri/ --tag tauri-v2.0.0-beta.10 tauri-cli
-
-      - name: Set up JDK 19
-        uses: actions/setup-java@v3
-        with:
-          java-version: "19"
-          distribution: "temurin"
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Setup Android NDK
-        run: |
-          sdkmanager 'platforms;android-34' 'platforms;android-34' 'platform-tools' 'ndk;26.2.11394342' 'build-tools;34.0.0' 'cmdline-tools;latest'
-
-      - name: Build
-        run: |
-          export NDK_HOME="$ANDROID_SDK_ROOT/ndk/26.2.11394342/"
-          cd crates/engine_app/
-          cargo tauri android init --verbose
-          cargo tauri android build --verbose
-
-      - name: Cache Save
-        uses: actions/cache/save@v4
-        if: always()
-        with:
-          key: cacheoid
-          path: |
-            ~/.rustup
-            ~/.cargo
-            target/
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: engine-app-android
-          path: |
-            crates/engine_app/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
-            crates/engine_app/gen/android/app/build/outputs/bundle/universalRelease/app-universal-release.aab
-
-  # engine-app-ios:
-  #   runs-on: macos-latest
-  #   needs: engine-web
-  #   if: startsWith(github.ref, 'refs/tags/v')
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v3
-  #       with:
-  #         submodules: recursive
-
-  #     - name: Cache Restore
-  #       uses: actions/cache/restore@v4
-  #       with:
-  #         key: cache
-  #         enableCrossOsArchive: true
-  #         path: |
-  #           ~/.rustup
-  #           ~/.cargo
-  #           target/
-
-  #     - name: Install Rust
-  #       run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable --profile minimal -y
-
-  #     - name: Add WASM target
-  #       run: rustup target add wasm32-unknown-unknown
-
-  #     - name: Install Trunk
-  #       run: cargo install trunk
-
-  #     - name: Install Tauri BETA
-  #  cargo install --git https://github.com/tauri-apps/tauri/ --tag tauri-v2.0.0-beta.10 tauri-cli
-
-  #     - name: Build
-  #       run:|
-  #         cd crates/engine_app/
-  #         cargo tauri ios init --verbose
-  #         cargo tauri ios build --verbose
-
-  #     - name: Cache Save
-  #       uses: actions/cache/save@v4
-  #       if: always()
-  #       with:
-  #         key: cachee-app-ios
-  #         enableCrossOsArchive: true
-  #         path: |
-  #           ~/.rustup
-  #           ~/.cargo
-  #           target/
-
-  #     - uses: actions/upload-artifact@v4
-  #       if: always()
-  #       with:
-  #         name: engine-app-ios
-  #         path: target/ TODO
+          name: engine-app-${{ matrix.os }}
+          path: target/release/engine_app*
 
   publish:
     runs-on: ubuntu-latest
-    needs: [
-        engine-app-linux,
-        engine-app-macos,
-        engine-app-windows,
-        engine-app-android,
-        # engine-app-ios TODO,
-        engine-web,
-        framework,
-      ]
+    needs: [workspace]
     permissions:
       contents: write
     if: startsWith(github.ref, 'refs/tags/v')
@@ -452,57 +82,20 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
 
-      - name: Prepare artifact -> Linux Executable
-        run: mv engine-app-linux/akimo-project-engine "artifacts/Akimo-Project.Engine-Linux"
-
-      - name: Prepare artifact -> Linux AppImage
-        run: find engine-app-linux/bundle/appimage/ -type f -name *.AppImage -exec mv {} "artifacts/Akimo-Project.Engine-Linux-AppImage.AppImage" \;
-
-      - name: Prepare artifact -> Linux DEB
-        run: find engine-app-linux/bundle/deb/ -type f -name *.deb -exec mv {} "artifacts/Akimo-Project.Engine-Linux-Setup.deb" \;
-
-      - name: Prepare artifact -> Linux RPM
-        run: find engine-app-linux/bundle/rpm/ -type f -name *.rpm -exec mv {} "artifacts/Akimo-Project.Engine-Linux-Setup.rpm" \;
-
-      - name: Prepare artifact -> Windows Executable
-        run: mv "engine-app-windows/Akimo-Project Engine.exe" "artifacts/Akimo-Project.Engine-Windows.exe"
-
-      - name: Prepare artifact -> Windows Setup MSI
-        run: find engine-app-windows/bundle/msi/ -type f -name *.msi -exec mv {} "artifacts/Akimo-Project.Engine-Windows-Setup.msi" \;
-
-      - name: Prepare artifact -> Windows Setup EXE
-        run: find engine-app-windows/bundle/nsis/ -type f -name *.exe -exec mv {} "artifacts/Akimo-Project.Engine-Windows-Setup.exe" \;
-
-      - name: Prepare artifact -> macOS Executable
-        run: mv "engine-app-macos/Akimo-Project Engine" "artifacts/Akimo-Project.Engine-macOS"
-
-      - name: Prepare artifact -> macOS Setup DMG
-        run: find engine-app-macos/bundle/dmg/ -type f -name *.dmg -exec mv {} "artifacts/Akimo-Project.Engine-macOS-Setup.dmg" \;
-
-      - name: Prepare artifact -> macOS Setup APP
-        run: zip "artifacts/Akimo-Project.Engine-macOS-APP.app.zip" "engine-app-macos/bundle/macos/Akimo-Project Engine.app/"
-
-      - name: Prepare artifact -> Web
-        run: zip "artifacts/Akimo-Project.Engine-Web.zip" engine-web/*
+      - name: Prepare artifact -> Linux
+        run: mv engine-app-linux/engine_app "artifacts/Akimo-Project.Engine.Linux"
+      
+      - name: Prepare artifact -> Windows
+        run: mv engine-app-windows/engine_app "artifacts/Akimo-Project.Engine.Windows"
+      
+      - name: Prepare artifact -> macOS
+        run: mv engine-app-linux/engine_app "artifacts/Akimo-Project.Engine.macos"
 
       - name: Prepare artifact -> Framework
-        run: mv framework/* artifacts/
+        run: find framework/ -type f -exec mv {} "artifacts/Akimo-Project.{}" \;
 
       - name: Make release
         uses: ncipollo/release-action@v1
         with:
           artifacts: "artifacts/*"
           prerelease: ${{ contains(github.ref, 'pre') || contains(github.ref, 'beta') || contains(github.ref, 'alpha') }}
-
-  dispatch-engine-release:
-    runs-on: ubuntu-latest
-    needs: publish
-    if: startsWith(github.ref, 'refs/tags/v')
-    steps:
-      - name: Dispatch sakulflee.github.io
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          workflow: deploy.yml
-          repo: sakulFlee/sakulflee.github.io
-          token: ${{ secrets.DISPATCH_PAT }}
-          ref: main
