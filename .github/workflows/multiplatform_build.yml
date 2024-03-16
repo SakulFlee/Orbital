@@ -58,13 +58,11 @@ jobs:
             target/
 
       - uses: actions/upload-artifact@v4
-        if: always()
         with:
-          name: framework-libraries
+          name: framework-libraries-${{ matrix.os }}
           path: target/release/lib*
 
       - uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: engine-app-${{ matrix.os }}
           path: target/release/engine_app*
@@ -84,10 +82,10 @@ jobs:
 
       - name: Prepare artifact -> Linux
         run: mv engine-app-linux/engine_app "artifacts/Akimo-Project.Engine.Linux"
-      
+
       - name: Prepare artifact -> Windows
         run: mv engine-app-windows/engine_app "artifacts/Akimo-Project.Engine.Windows"
-      
+
       - name: Prepare artifact -> macOS
         run: mv engine-app-linux/engine_app "artifacts/Akimo-Project.Engine.macos"
 
