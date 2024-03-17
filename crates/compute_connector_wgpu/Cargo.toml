@@ -1,5 +1,5 @@
 [package]
-name = "compute_engine_wgpu"
+name = "compute_connector_wgpu"
 version = "0.1.0"
 edition = "2021"
 
@@ -16,7 +16,7 @@ wasm-bindgen-test = { workspace = true }
 logging = { workspace = true }
 logical_device = { workspace = true }
 logical_device_wgpu = { workspace = true }
-compute_engine_trait = { workspace = true }
+compute_connector_trait = { workspace = true }
 engine_error = { workspace = true }
 engine_result_wgpu = { workspace = true }
 tokio = { workspace = true }

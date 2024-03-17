@@ -60,8 +60,8 @@ png = "0.17.13"
 tokio = { version = "1.36.0", features = ["full"] }
 
 # Own crates
-compute_engine_trait = { path = "crates/compute_engine_trait/" }
-compute_engine_wgpu = { path = "crates/compute_engine_wgpu/" }
+compute_connector_trait = { path = "crates/compute_connector_trait/" }
+compute_connector_wgpu = { path = "crates/compute_connector_wgpu/" }
 engine_app = { path = "crates/engine_app/" }
 engine_error = { path = "crates/engine_error/" }
 engine_result = { path = "crates/engine_result/" }

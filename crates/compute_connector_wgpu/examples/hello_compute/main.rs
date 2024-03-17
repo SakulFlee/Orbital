@@ -7,7 +7,7 @@
 
 use std::borrow::Cow;
 
-use compute_engine_wgpu::{ComputeEngineTrait, ComputeEngineWGPU};
+use compute_connector_wgpu::{ComputeConnectorTrait, ComputeConnectorWGPU};
 use logging::info;
 use wgpu::util::DeviceExt;
 
@@ -30,12 +30,12 @@ pub async fn main() {
     }
     info!("");
 
-    let compute_engine = ComputeEngineWGPU::new()
+    let compute_connector = ComputeConnectorWGPU::new()
         .await
         .expect("Compute Engine startup failure!");
 
     // Loads the shader from WGSL
-    let cs_module = compute_engine
+    let cs_module = compute_connector
         .device()
         .create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
@@ -49,7 +49,7 @@ pub async fn main() {
     // `usage` of buffer specifies how it can be used:
     //   `BufferUsages::MAP_READ` allows it to be read (outside the shader).
     //   `BufferUsages::COPY_DST` allows it to be the destination of the copy.
-    let staging_buffer = compute_engine
+    let staging_buffer = compute_connector
         .device()
         .create_buffer(&wgpu::BufferDescriptor {
             label: None,
@@ -64,7 +64,7 @@ pub async fn main() {
     //   The destination of a copy.
     //   The source of a copy.
     let storage_buffer =
-        compute_engine
+        compute_connector
             .device()
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Storage Buffer"),
@@ -82,7 +82,7 @@ pub async fn main() {
 
     // Instantiates the pipeline.
     let compute_pipeline =
-        compute_engine
+        compute_connector
             .device()
             .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
                 label: None,
@@ -93,7 +93,7 @@ pub async fn main() {
 
     // Instantiates the bind group, once again specifying the binding of buffers.
     let bind_group_layout = compute_pipeline.get_bind_group_layout(0);
-    let bind_group = compute_engine
+    let bind_group = compute_connector
         .device()
         .create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
@@ -106,7 +106,7 @@ pub async fn main() {
 
     // A command encoder executes one or many pipelines.
     // It is to WebGPU what a command buffer is to Vulkan.
-    let mut encoder = compute_engine
+    let mut encoder = compute_connector
         .device()
         .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
     {
@@ -124,7 +124,7 @@ pub async fn main() {
     encoder.copy_buffer_to_buffer(&storage_buffer, 0, &staging_buffer, 0, size);
 
     // Submits command encoder for processing
-    compute_engine.queue().submit(Some(encoder.finish()));
+    compute_connector.queue().submit(Some(encoder.finish()));
 
     // Note that we're not calling `.await` here.
     let buffer_slice = staging_buffer.slice(..);
@@ -133,9 +133,9 @@ pub async fn main() {
     buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
 
     // Poll the device in a blocking manner so that our future resolves.
-    // In an actual application, `compute_engine.device().poll(...)` should
+    // In an actual application, `compute_connector.device().poll(...)` should
     // be called in an event loop or on another thread.
-    compute_engine
+    compute_connector
         .device()
         .poll(wgpu::Maintain::wait())
         .panic_on_timeout();
