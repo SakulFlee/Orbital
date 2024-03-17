@@ -1,4 +1,4 @@
-use compute_engine_wgpu::ComputeEngineWGPU;
+use compute_connector_wgpu::ComputeConnectorWGPU;
 use engine_result_wgpu::EngineResultWGPU;
 use logging::*;
 
@@ -9,7 +9,7 @@ async fn main() -> EngineResultWGPU<()> {
     info!("Akimo-Project: Engine");
     info!("(C) SakulFlee 2024");
 
-    let _compute_engine = ComputeEngineWGPU::new().await?;
+    let _compute_connector = ComputeConnectorWGPU::new().await?;
 
     // let event_loop = EventLoop::new().expect("EventLoop boot failed");
     // let window = WindowBuilder::new()
@@ -17,8 +17,8 @@ async fn main() -> EngineResultWGPU<()> {
     //     .build(&event_loop)
     //     .expect("Winit window/canvas creation failed");
 
-    // let compute_engine = ComputeEngineWGPU::new().await;
-    // debug!("CE: {:?}", compute_engine);
+    // let compute_connector = ComputeConnectorWGPU::new().await;
+    // debug!("CE: {:?}", compute_connector);
 
     // event_loop.set_control_flow(event_loop::ControlFlow::Poll);
     // event_loop

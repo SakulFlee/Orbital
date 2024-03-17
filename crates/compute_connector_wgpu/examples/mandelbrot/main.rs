@@ -23,7 +23,7 @@
 
 use std::io::Write;
 
-use compute_engine_wgpu::{ComputeEngineTrait, ComputeEngineWGPU};
+use compute_connector_wgpu::{ComputeConnectorTrait, ComputeConnectorWGPU};
 use logging::info;
 
 const TEXTURE_DIMS: (usize, usize) = (512, 512);
@@ -40,11 +40,11 @@ pub async fn main() {
 
     let mut texture_data = vec![0u8; TEXTURE_DIMS.0 * TEXTURE_DIMS.1 * 4];
 
-    let compute_engine = ComputeEngineWGPU::new()
+    let compute_connector = ComputeConnectorWGPU::new()
         .await
         .expect("Compute Engine initialization failed!");
 
-    let shader = compute_engine
+    let shader = compute_connector
         .device()
         .create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
@@ -53,7 +53,7 @@ pub async fn main() {
             ))),
         });
 
-    let storage_texture = compute_engine
+    let storage_texture = compute_connector
         .device()
         .create_texture(&wgpu::TextureDescriptor {
             label: None,
@@ -70,7 +70,7 @@ pub async fn main() {
             view_formats: &[],
         });
     let storage_texture_view = storage_texture.create_view(&wgpu::TextureViewDescriptor::default());
-    let output_staging_buffer = compute_engine
+    let output_staging_buffer = compute_connector
         .device()
         .create_buffer(&wgpu::BufferDescriptor {
             label: None,
@@ -80,7 +80,7 @@ pub async fn main() {
         });
 
     let bind_group_layout =
-        compute_engine
+        compute_connector
             .device()
             .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: None,
@@ -95,7 +95,7 @@ pub async fn main() {
                     count: None,
                 }],
             });
-    let bind_group = compute_engine
+    let bind_group = compute_connector
         .device()
         .create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
@@ -107,7 +107,7 @@ pub async fn main() {
         });
 
     let pipeline_layout =
-        compute_engine
+        compute_connector
             .device()
             .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: None,
@@ -115,7 +115,7 @@ pub async fn main() {
                 push_constant_ranges: &[],
             });
     let pipeline =
-        compute_engine
+        compute_connector
             .device()
             .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
                 label: None,
@@ -127,7 +127,7 @@ pub async fn main() {
     info!("Wgpu context set up.");
     //----------------------------------------
 
-    let mut command_encoder = compute_engine
+    let mut command_encoder = compute_connector
         .device()
         .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
     {
@@ -161,14 +161,14 @@ pub async fn main() {
             depth_or_array_layers: 1,
         },
     );
-    compute_engine
+    compute_connector
         .queue()
         .submit(Some(command_encoder.finish()));
 
     let buffer_slice = output_staging_buffer.slice(..);
     let (sender, receiver) = flume::bounded(1);
     buffer_slice.map_async(wgpu::MapMode::Read, move |r| sender.send(r).unwrap());
-    compute_engine
+    compute_connector
         .device()
         .poll(wgpu::Maintain::wait())
         .panic_on_timeout();
