@@ -1,6 +1,6 @@
 use logical_device::LogicalDevice;
 
-pub trait ComputeEngineTrait<Instance, Adapter, Device, Queue> {
+pub trait ComputeConnectorTrait<Instance, Adapter, Device, Queue> {
     fn instance(&self) -> &Instance;
     fn adapter(&self) -> &Adapter;
     fn logical_device(&self) -> &LogicalDevice<Device, Queue>;
@@ -19,5 +19,5 @@ pub trait ComputeEngineTrait<Instance, Adapter, Device, Queue> {
         self.logical_device().queue()
     }
 }
-pub type ComputeEngineT<Instance, Adapter, Device, Queue> =
-    dyn ComputeEngineTrait<Instance, Adapter, Device, Queue>;
+pub type ComputeConnectorT<Instance, Adapter, Device, Queue> =
+    dyn ComputeConnectorTrait<Instance, Adapter, Device, Queue>;

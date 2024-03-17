@@ -410,7 +410,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "compute_engine_trait"
+name = "compute_connector_trait"
 version = "0.1.0"
 dependencies = [
  "logical_device",
@@ -419,11 +419,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "compute_engine_wgpu"
+name = "compute_connector_wgpu"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "compute_engine_trait",
+ "compute_connector_trait",
  "engine_error",
  "engine_result_wgpu",
  "flume",
@@ -586,7 +586,7 @@ checksum = "11157ac094ffbdde99aa67b23417ebdd801842852b500e395a45a9c0aac03e4a"
 name = "engine_app"
 version = "0.1.0"
 dependencies = [
- "compute_engine_wgpu",
+ "compute_connector_wgpu",
  "engine_error",
  "engine_result_wgpu",
  "entity_system",

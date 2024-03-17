@@ -8,16 +8,16 @@ use wgpu::{
     PowerPreference, Queue, RequestAdapterOptions,
 };
 
-pub use compute_engine_trait::ComputeEngineTrait;
+pub use compute_connector_trait::ComputeConnectorTrait;
 
 #[derive(Debug)]
-pub struct ComputeEngineWGPU {
+pub struct ComputeConnectorWGPU {
     instance: Instance,
     adapter: Adapter,
     logical_device: LogicalDeviceWGPU,
 }
 
-impl ComputeEngineWGPU {
+impl ComputeConnectorWGPU {
     pub async fn new() -> EngineResultWGPU<Self> {
         let instance = Self::make_instance();
         debug!("Instance: {:#?}", instance);
@@ -91,7 +91,7 @@ impl ComputeEngineWGPU {
     }
 }
 
-impl ComputeEngineTrait<Instance, Adapter, Device, Queue> for ComputeEngineWGPU {
+impl ComputeConnectorTrait<Instance, Adapter, Device, Queue> for ComputeConnectorWGPU {
     fn instance(&self) -> &Instance {
         &self.instance
     }
