@@ -1,5 +1,5 @@
 [package]
-name = "compute_engine_trait"
+name = "compute_connector_trait"
 version = "0.1.0"
 edition = "2021"
 
