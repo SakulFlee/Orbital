@@ -58,10 +58,11 @@ png = "0.17.13"
 
 # Async
 tokio = { version = "1.36.0", features = ["full"] }
+pollster = "0.3.0"
 
 # Own crates
-compute_connector_trait = { path = "crates/compute_connector_trait/" }
-compute_connector_wgpu = { path = "crates/compute_connector_wgpu/" }
+gpu_connector = { path = "crates/gpu_connector/" }
+wgpu_connector = { path = "crates/wgpu_connector/" }
 engine_app = { path = "crates/engine_app/" }
 engine_error = { path = "crates/engine_error/" }
 engine_result = { path = "crates/engine_result/" }
@@ -69,6 +70,6 @@ engine_result_wgpu = { path = "crates/engine_result_wgpu/" }
 engine_web = { path = "crates/engine_web/" }
 entity_system = { path = "crates/entity_system/" }
 event_system = { path = "crates/event_system/" }
-logical_device = { path = "crates/logical_device/" }
-logical_device_wgpu = { path = "crates/logical_device_wgpu/" }
 logging = { path = "crates/logging/" }
+texture_trait = { path = "crates/texture_trait/" }
+texture_wgpu = { path = "crates/texture_wgpu/" }

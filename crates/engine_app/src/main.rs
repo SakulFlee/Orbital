@@ -1,6 +1,7 @@
-use compute_connector_wgpu::ComputeConnectorWGPU;
 use engine_result_wgpu::EngineResultWGPU;
+use graphic_connector_wgpu::GraphicConnectorWGPU;
 use logging::*;
+use winit::{dpi::LogicalSize, event_loop::EventLoop, window::WindowBuilder};
 
 #[tokio::main]
 async fn main() -> EngineResultWGPU<()> {
@@ -8,14 +9,19 @@ async fn main() -> EngineResultWGPU<()> {
 
     info!("Akimo-Project: Engine");
     info!("(C) SakulFlee 2024");
+    
+    let size = LogicalSize::new(1280, 720);
 
-    let _compute_connector = ComputeConnectorWGPU::new().await?;
+    let event_loop = EventLoop::new().expect("EventLoop boot failed");
+    let window = WindowBuilder::new()
+        .with_inner_size(size)
+        .build(&event_loop)
+        .expect("Winit window/canvas creation failed");
 
-    // let event_loop = EventLoop::new().expect("EventLoop boot failed");
-    // let window = WindowBuilder::new()
-    //     .with_canvas(Some(canvas))
-    //     .build(&event_loop)
-    //     .expect("Winit window/canvas creation failed");
+    let surface = gra.instance().create_surface(&window);
+
+    // let _connector = GraphicConnectorWGPU::from_surface(window., size).await?;
+
 
     // let compute_connector = ComputeConnectorWGPU::new().await;
     // debug!("CE: {:?}", compute_connector);

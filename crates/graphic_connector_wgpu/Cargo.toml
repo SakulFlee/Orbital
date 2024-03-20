@@ -1,5 +1,5 @@
 [package]
-name = "logical_device_wgpu"
+name = "graphic_connector_wgpu"
 version = "0.1.0"
 edition = "2021"
 
