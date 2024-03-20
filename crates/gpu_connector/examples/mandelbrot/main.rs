@@ -23,13 +23,12 @@
 
 use std::io::Write;
 
-use compute_connector_wgpu::{ComputeConnectorTrait, ComputeConnectorWGPU};
+use gpu_connector::GPUConnector;
 use logging::info;
 
 const TEXTURE_DIMS: (usize, usize) = (512, 512);
 
-#[tokio::main]
-pub async fn main() {
+pub fn main() {
     logging::log_init();
 
     info!("Full credit of this goes to wgpu (https://github.com/gfx-rs/wgpu).");
@@ -40,11 +39,9 @@ pub async fn main() {
 
     let mut texture_data = vec![0u8; TEXTURE_DIMS.0 * TEXTURE_DIMS.1 * 4];
 
-    let compute_connector = ComputeConnectorWGPU::new()
-        .await
-        .expect("Compute Engine initialization failed!");
+    let connector = GPUConnector::new(None).expect("Compute Engine initialization failed!");
 
-    let shader = compute_connector
+    let shader = connector
         .device()
         .create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
@@ -53,34 +50,30 @@ pub async fn main() {
             ))),
         });
 
-    let storage_texture = compute_connector
-        .device()
-        .create_texture(&wgpu::TextureDescriptor {
-            label: None,
-            size: wgpu::Extent3d {
-                width: TEXTURE_DIMS.0 as u32,
-                height: TEXTURE_DIMS.1 as u32,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8Unorm,
-            usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::COPY_SRC,
-            view_formats: &[],
-        });
+    let storage_texture = connector.device().create_texture(&wgpu::TextureDescriptor {
+        label: None,
+        size: wgpu::Extent3d {
+            width: TEXTURE_DIMS.0 as u32,
+            height: TEXTURE_DIMS.1 as u32,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba8Unorm,
+        usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::COPY_SRC,
+        view_formats: &[],
+    });
     let storage_texture_view = storage_texture.create_view(&wgpu::TextureViewDescriptor::default());
-    let output_staging_buffer = compute_connector
-        .device()
-        .create_buffer(&wgpu::BufferDescriptor {
-            label: None,
-            size: std::mem::size_of_val(&texture_data[..]) as u64,
-            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
-            mapped_at_creation: false,
-        });
+    let output_staging_buffer = connector.device().create_buffer(&wgpu::BufferDescriptor {
+        label: None,
+        size: std::mem::size_of_val(&texture_data[..]) as u64,
+        usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+        mapped_at_creation: false,
+    });
 
     let bind_group_layout =
-        compute_connector
+        connector
             .device()
             .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: None,
@@ -95,7 +88,7 @@ pub async fn main() {
                     count: None,
                 }],
             });
-    let bind_group = compute_connector
+    let bind_group = connector
         .device()
         .create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
@@ -107,27 +100,26 @@ pub async fn main() {
         });
 
     let pipeline_layout =
-        compute_connector
+        connector
             .device()
             .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: None,
                 bind_group_layouts: &[&bind_group_layout],
                 push_constant_ranges: &[],
             });
-    let pipeline =
-        compute_connector
-            .device()
-            .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-                label: None,
-                layout: Some(&pipeline_layout),
-                module: &shader,
-                entry_point: "main",
-            });
+    let pipeline = connector
+        .device()
+        .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: None,
+            layout: Some(&pipeline_layout),
+            module: &shader,
+            entry_point: "main",
+        });
 
     info!("Wgpu context set up.");
     //----------------------------------------
 
-    let mut command_encoder = compute_connector
+    let mut command_encoder = connector
         .device()
         .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
     {
@@ -161,18 +153,16 @@ pub async fn main() {
             depth_or_array_layers: 1,
         },
     );
-    compute_connector
-        .queue()
-        .submit(Some(command_encoder.finish()));
+    connector.queue().submit(Some(command_encoder.finish()));
 
     let buffer_slice = output_staging_buffer.slice(..);
     let (sender, receiver) = flume::bounded(1);
     buffer_slice.map_async(wgpu::MapMode::Read, move |r| sender.send(r).unwrap());
-    compute_connector
+    connector
         .device()
         .poll(wgpu::Maintain::wait())
         .panic_on_timeout();
-    receiver.recv_async().await.unwrap().unwrap();
+    receiver.recv().unwrap().unwrap();
     info!("Output buffer mapped");
     {
         let view = buffer_slice.get_mapped_range();

@@ -556,36 +556,14 @@ checksum = "11157ac094ffbdde99aa67b23417ebdd801842852b500e395a45a9c0aac03e4a"
 name = "engine_app"
 version = "0.1.0"
 dependencies = [
- "engine_error",
- "engine_result_wgpu",
  "entity_system",
  "event_system",
+ "gpu_connector",
  "logging",
  "serde",
  "serde_json",
  "tokio",
- "wgpu_connector",
  "winit",
-]
-
-[[package]]
-name = "engine_error"
-version = "0.1.0"
-
-[[package]]
-name = "engine_result"
-version = "0.1.0"
-dependencies = [
- "engine_error",
-]
-
-[[package]]
-name = "engine_result_wgpu"
-version = "0.1.0"
-dependencies = [
- "engine_error",
- "engine_result",
- "wgpu",
 ]
 
 [[package]]
@@ -854,19 +832,15 @@ dependencies = [
 name = "gpu_connector"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
+ "flume",
+ "image",
  "logging",
+ "png",
  "pollster",
  "wgpu",
  "winit",
 ]
-
-[[package]]
-name = "graphic_connector_trait"
-version = "0.1.0"
-
-[[package]]
-name = "graphic_connector_wgpu"
-version = "0.1.0"
 
 [[package]]
 name = "half"
@@ -1160,14 +1134,6 @@ dependencies = [
  "humantime",
  "log",
 ]
-
-[[package]]
-name = "logical_device"
-version = "0.1.0"
-
-[[package]]
-name = "logical_device_wgpu"
-version = "0.1.0"
 
 [[package]]
 name = "loop9"
@@ -2667,21 +2633,6 @@ dependencies = [
  "bitflags 2.4.2",
  "js-sys",
  "web-sys",
-]
-
-[[package]]
-name = "wgpu_connector"
-version = "0.1.0"
-dependencies = [
- "bytemuck",
- "flume",
- "gpu_connector",
- "image",
- "logging",
- "png",
- "tokio",
- "wgpu",
- "winit",
 ]
 
 [[package]]

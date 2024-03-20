@@ -123,27 +123,27 @@ impl<'a> GPUConnector<'a> {
         Ok((device, queue))
     }
 
-    fn instance(&self) -> &Instance {
+    pub fn instance(&self) -> &Instance {
         &self.instance
     }
 
-    fn adapter(&self) -> &Adapter {
+    pub fn adapter(&self) -> &Adapter {
         &self.adapter
     }
 
-    fn device(&self) -> &Device {
+    pub fn device(&self) -> &Device {
         &self.device
     }
 
-    fn queue(&self) -> &Queue {
+    pub fn queue(&self) -> &Queue {
         &self.queue
     }
 
-    fn surface(&self) -> &Option<Surface<'a>> {
+    pub fn surface(&self) -> &Option<Surface<'a>> {
         &self.surface
     }
 
-    fn surface_configuration(&self) -> &Option<SurfaceConfiguration> {
+    pub fn surface_configuration(&self) -> &Option<SurfaceConfiguration> {
         &self.surface_configuration
     }
 }

@@ -7,12 +7,11 @@
 
 use std::borrow::Cow;
 
-use compute_connector_wgpu::{ComputeConnectorTrait, ComputeConnectorWGPU};
+use gpu_connector::GPUConnector;
 use logging::info;
 use wgpu::util::DeviceExt;
 
-#[tokio::main]
-pub async fn main() {
+pub fn main() {
     logging::log_init();
 
     info!("Full credit of this goes to wgpu (https://github.com/gfx-rs/wgpu).");
@@ -30,12 +29,10 @@ pub async fn main() {
     }
     info!("");
 
-    let compute_connector = ComputeConnectorWGPU::new()
-        .await
-        .expect("Compute Engine startup failure!");
+    let connector = GPUConnector::new(None).expect("Compute Engine startup failure!");
 
     // Loads the shader from WGSL
-    let cs_module = compute_connector
+    let cs_module = connector
         .device()
         .create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
@@ -49,30 +46,27 @@ pub async fn main() {
     // `usage` of buffer specifies how it can be used:
     //   `BufferUsages::MAP_READ` allows it to be read (outside the shader).
     //   `BufferUsages::COPY_DST` allows it to be the destination of the copy.
-    let staging_buffer = compute_connector
-        .device()
-        .create_buffer(&wgpu::BufferDescriptor {
-            label: None,
-            size,
-            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
+    let staging_buffer = connector.device().create_buffer(&wgpu::BufferDescriptor {
+        label: None,
+        size,
+        usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
 
     // Instantiates buffer with data (`numbers`).
     // Usage allowing the buffer to be:
     //   A storage buffer (can be bound within a bind group and thus available to a shader).
     //   The destination of a copy.
     //   The source of a copy.
-    let storage_buffer =
-        compute_connector
-            .device()
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Storage Buffer"),
-                contents: bytemuck::cast_slice(&numbers),
-                usage: wgpu::BufferUsages::STORAGE
-                    | wgpu::BufferUsages::COPY_DST
-                    | wgpu::BufferUsages::COPY_SRC,
-            });
+    let storage_buffer = connector
+        .device()
+        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Storage Buffer"),
+            contents: bytemuck::cast_slice(&numbers),
+            usage: wgpu::BufferUsages::STORAGE
+                | wgpu::BufferUsages::COPY_DST
+                | wgpu::BufferUsages::COPY_SRC,
+        });
 
     // A bind group defines how buffers are accessed by shaders.
     // It is to WebGPU what a descriptor set is to Vulkan.
@@ -82,7 +76,7 @@ pub async fn main() {
 
     // Instantiates the pipeline.
     let compute_pipeline =
-        compute_connector
+        connector
             .device()
             .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
                 label: None,
@@ -93,7 +87,7 @@ pub async fn main() {
 
     // Instantiates the bind group, once again specifying the binding of buffers.
     let bind_group_layout = compute_pipeline.get_bind_group_layout(0);
-    let bind_group = compute_connector
+    let bind_group = connector
         .device()
         .create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
@@ -106,7 +100,7 @@ pub async fn main() {
 
     // A command encoder executes one or many pipelines.
     // It is to WebGPU what a command buffer is to Vulkan.
-    let mut encoder = compute_connector
+    let mut encoder = connector
         .device()
         .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
     {
@@ -124,7 +118,7 @@ pub async fn main() {
     encoder.copy_buffer_to_buffer(&storage_buffer, 0, &staging_buffer, 0, size);
 
     // Submits command encoder for processing
-    compute_connector.queue().submit(Some(encoder.finish()));
+    connector.queue().submit(Some(encoder.finish()));
 
     // Note that we're not calling `.await` here.
     let buffer_slice = staging_buffer.slice(..);
@@ -135,13 +129,13 @@ pub async fn main() {
     // Poll the device in a blocking manner so that our future resolves.
     // In an actual application, `compute_connector.device().poll(...)` should
     // be called in an event loop or on another thread.
-    compute_connector
+    connector
         .device()
         .poll(wgpu::Maintain::wait())
         .panic_on_timeout();
 
     // Awaits until `buffer_future` can be read from
-    if let Ok(Ok(())) = receiver.recv_async().await {
+    if let Ok(Ok(())) = receiver.recv() {
         // Gets contents of buffer
         let data = buffer_slice.get_mapped_range();
         // Since contents are got in bytes, this converts these bytes back to u32
