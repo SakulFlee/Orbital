@@ -1,5 +1,5 @@
 [package]
-name = "compute_connector_trait"
+name = "graphic_connector_trait"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,7 +9,3 @@ edition = "2021"
 crate-type = ["lib", "cdylib"]
 
 [dependencies]
-winit = { workspace = true }
-wgpu = { workspace = true }
-
-logical_device = { workspace = true }

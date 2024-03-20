@@ -9,8 +9,8 @@ winit = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 logging = { workspace = true }
-compute_connector_wgpu = { workspace = true }
 engine_error = { workspace = true }
 engine_result_wgpu = { workspace = true }
 entity_system = { workspace = true }
 event_system = { workspace = true }
+wgpu_connector = { workspace = true }

@@ -9,6 +9,3 @@ edition = "2021"
 crate-type = ["lib", "cdylib"]
 
 [dependencies]
-wgpu = { workspace = true }
-
-logical_device = { workspace = true }

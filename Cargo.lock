@@ -410,36 +410,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "compute_connector_trait"
-version = "0.1.0"
-dependencies = [
- "logical_device",
- "wgpu",
- "winit",
-]
-
-[[package]]
-name = "compute_connector_wgpu"
-version = "0.1.0"
-dependencies = [
- "bytemuck",
- "compute_connector_trait",
- "engine_error",
- "engine_result_wgpu",
- "flume",
- "image",
- "logging",
- "logical_device",
- "logical_device_wgpu",
- "png",
- "tokio",
- "wasm-bindgen-futures",
- "wasm-bindgen-test",
- "wgpu",
- "winit",
-]
-
-[[package]]
 name = "concurrent-queue"
 version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -586,7 +556,6 @@ checksum = "11157ac094ffbdde99aa67b23417ebdd801842852b500e395a45a9c0aac03e4a"
 name = "engine_app"
 version = "0.1.0"
 dependencies = [
- "compute_connector_wgpu",
  "engine_error",
  "engine_result_wgpu",
  "entity_system",
@@ -595,6 +564,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "wgpu_connector",
  "winit",
 ]
 
@@ -879,6 +849,24 @@ checksum = "6bf0b36e6f090b7e1d8a4b49c0cb81c1f8376f72198c65dd3ad9ff3556b8b78c"
 dependencies = [
  "bitflags 2.4.2",
 ]
+
+[[package]]
+name = "gpu_connector"
+version = "0.1.0"
+dependencies = [
+ "logging",
+ "pollster",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
+name = "graphic_connector_trait"
+version = "0.1.0"
+
+[[package]]
+name = "graphic_connector_wgpu"
+version = "0.1.0"
 
 [[package]]
 name = "half"
@@ -1180,10 +1168,6 @@ version = "0.1.0"
 [[package]]
 name = "logical_device_wgpu"
 version = "0.1.0"
-dependencies = [
- "logical_device",
- "wgpu",
-]
 
 [[package]]
 name = "loop9"
@@ -1593,6 +1577,12 @@ dependencies = [
  "tracing",
  "windows-sys 0.52.0",
 ]
+
+[[package]]
+name = "pollster"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22686f4785f02a4fcc856d3b3bb19bf6c8160d103f7a99cc258bddd0251dc7f2"
 
 [[package]]
 name = "pp-rs"
@@ -2106,6 +2096,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06794f8f6c5c898b3275aebefa6b8a1cb24cd2c6c79397ab15774837a0bc5755"
 dependencies = [
  "winapi-util",
+]
+
+[[package]]
+name = "texture_trait"
+version = "0.1.0"
+
+[[package]]
+name = "texture_wgpu"
+version = "0.1.0"
+dependencies = [
+ "texture_trait",
+ "wgpu",
 ]
 
 [[package]]
@@ -2665,6 +2667,21 @@ dependencies = [
  "bitflags 2.4.2",
  "js-sys",
  "web-sys",
+]
+
+[[package]]
+name = "wgpu_connector"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "flume",
+ "gpu_connector",
+ "image",
+ "logging",
+ "png",
+ "tokio",
+ "wgpu",
+ "winit",
 ]
 
 [[package]]
