@@ -1,75 +1,30 @@
-[workspace]
-resolver = "2"
-members = ["crates/*"]
+[package]
+name = "akimo_project"
+version = "0.1.0"
+edition = "2021"
 
-[workspace.dependencies]
-# Windowing
+[features]
+default = ["with_surface"]
+with_surface = []
+
+[lib]
+crate-type = ["lib", "cdylib"]
+
+[dependencies]
 winit = { version = "0.29.14" }
-
-# WGPU
 wgpu = { version = "0.19.3", features = ["spirv", "glsl", "wgsl", "naga-ir"] }
-
-# WASM related
-wasm-bindgen = { version = "0.2.92", features = ["serde-serialize"] }
-wasm-bindgen-futures = "0.4.42"
-wasm-bindgen-test = "0.3.42"
-
-# Logs
 log = "0.4.21"
 fern = "0.6.2"
-
-# Web related
-console_error_panic_hook = { version = "0.1" }
-js-sys = "0.3.69"
-web-sys = { version = "0.3.69", features = [
-    'Document',
-    'Element',
-    'HtmlElement',
-    'HtmlCollection',
-    'Node',
-    'NodeList',
-    'Window',
-    'Headers',
-    'Request',
-    'RequestInit',
-    'RequestMode',
-    'Response',
-    'ReadableStream',
-    'Location',
-    'HtmlHeadElement',
-    'HtmlAnchorElement',
-    'CssStyleDeclaration',
-    'HtmlCanvasElement',
-] }
-
-# Encoding
 serde = { version = "1.0.174", features = ["derive"] }
 serde_json = "1.0.103"
 serde_derive = "1.0.174"
-
-# Data
 ulid = "1.1.2"
 hashbrown = "0.14.3"
 humantime = "2.1.0"
+pollster = "0.3.0"
+
+[dev-dependencies]
 image = "0.25.0"
 flume = "0.11.0"
 bytemuck = "1.15.0"
 png = "0.17.13"
-
-# Async
-tokio = { version = "1.36.0", features = ["full"] }
-pollster = "0.3.0"
-
-# Own crates
-gpu_connector = { path = "crates/gpu_connector/" }
-wgpu_connector = { path = "crates/wgpu_connector/" }
-engine_app = { path = "crates/engine_app/" }
-engine_error = { path = "crates/engine_error/" }
-engine_result = { path = "crates/engine_result/" }
-engine_result_wgpu = { path = "crates/engine_result_wgpu/" }
-engine_web = { path = "crates/engine_web/" }
-entity_system = { path = "crates/entity_system/" }
-event_system = { path = "crates/event_system/" }
-logging = { path = "crates/logging/" }
-texture_trait = { path = "crates/texture_trait/" }
-texture_wgpu = { path = "crates/texture_wgpu/" }
