@@ -16,3 +16,9 @@ wgpu = { workspace = true }
 pollster = { workspace = true }
 
 logging = { workspace = true }
+
+[dev-dependencies]
+image = { workspace = true }
+flume = { workspace = true }
+bytemuck = { workspace = true }
+png = { workspace = true }
