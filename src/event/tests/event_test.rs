@@ -1,4 +1,4 @@
-use crate::agents::event::Event;
+use crate::event::Event;
 
 pub struct EventTest;
 
