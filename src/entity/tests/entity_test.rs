@@ -1,6 +1,6 @@
 use ulid::Ulid;
 
-use crate::agents::entity::Entity;
+use crate::entity::Entity;
 
 pub struct EntityTest {
     ulid: Ulid,

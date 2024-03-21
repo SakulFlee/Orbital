@@ -6,7 +6,7 @@ use std::{
 };
 use ulid::Ulid;
 
-use crate::agents::entity::entity_system;
+use crate::entity::entity_system;
 
 use super::BoxedEvent;
 

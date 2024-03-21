@@ -1,4 +1,4 @@
-use crate::agents::{
+use crate::{
     entity::{entities, Entity},
     event::events,
 };
