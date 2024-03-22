@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     error::RuntimeError,
-    gpu_connector::GPUConnector,
+    gpu_backend::GPUBackend,
     window::{Window, WindowSettings},
 };
 
@@ -42,7 +42,7 @@ impl Runtime {
 
     fn spawn_render_server(window: Arc<WinitWindow>) -> JoinHandle<()> {
         spawn(move || {
-            let _connector = GPUConnector::new(Some(&window)).expect("GPU connector failure");
+            let _connector = GPUBackend::new(Some(&window)).expect("GPU connector failure");
         })
     }
 }

@@ -23,7 +23,7 @@
 
 use std::io::Write;
 
-use akimo_project::{gpu_connector::GPUConnector, logging::*};
+use akimo_project::{gpu_backend::GPUBackend, logging::*};
 
 const TEXTURE_DIMS: (usize, usize) = (512, 512);
 
@@ -38,7 +38,7 @@ pub fn main() {
 
     let mut texture_data = vec![0u8; TEXTURE_DIMS.0 * TEXTURE_DIMS.1 * 4];
 
-    let connector = GPUConnector::new(None).expect("Compute Engine initialization failed!");
+    let connector = GPUBackend::new(None).expect("Compute Engine initialization failed!");
 
     let shader = connector
         .device()
