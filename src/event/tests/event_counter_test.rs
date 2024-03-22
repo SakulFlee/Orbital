@@ -2,7 +2,7 @@ use std::any::Any;
 
 use ulid::Ulid;
 
-use crate::agents::{entity::Entity, event::Event};
+use crate::{entity::Entity, event::Event};
 
 pub struct EventTestCounter;
 
