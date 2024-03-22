@@ -7,7 +7,7 @@
 
 use std::borrow::Cow;
 
-use akimo_project::{gpu_connector::GPUConnector, logging::*};
+use akimo_project::{gpu_backend::GPUBackend, logging::*};
 use wgpu::util::DeviceExt;
 
 pub fn main() {
@@ -28,7 +28,7 @@ pub fn main() {
     }
     info!("");
 
-    let connector = GPUConnector::new(None).expect("Compute Engine startup failure!");
+    let connector = GPUBackend::new(None).expect("Compute Engine startup failure!");
 
     // Loads the shader from WGSL
     let cs_module = connector

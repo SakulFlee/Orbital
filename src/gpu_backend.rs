@@ -8,7 +8,7 @@ use winit::window::Window;
 
 use crate::error::ConnectorError;
 
-pub struct GPUConnector<'a> {
+pub struct GPUBackend<'a> {
     instance: Instance,
     adapter: Adapter,
     device: Device,
@@ -17,7 +17,7 @@ pub struct GPUConnector<'a> {
     surface_configuration: Option<SurfaceConfiguration>,
 }
 
-impl<'a> GPUConnector<'a> {
+impl<'a> GPUBackend<'a> {
     pub fn new(with_window: Option<&'a Window>) -> Result<Self, ConnectorError> {
         let instance = Self::make_instance();
 
