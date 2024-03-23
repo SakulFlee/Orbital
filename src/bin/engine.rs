@@ -1,10 +1,9 @@
-use akimo_project::{error::RuntimeError, logging::*, runtime::Runtime};
+use akimo_project::{
+    error::RuntimeError,
+    logging::*,
+    runtime::{Runtime, RuntimeSettings},
+};
 
 fn main() -> Result<(), RuntimeError> {
-    log_init();
-
-    info!("Akimo-Project: Engine");
-    info!("(C) SakulFlee 2024");
-
-    Runtime::liftoff()
+    pollster::block_on(Runtime::liftoff(RuntimeSettings::default()))
 }
