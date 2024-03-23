@@ -2,7 +2,7 @@ pub use log::*;
 
 use std::{fs, path::Path, time::SystemTime};
 
-pub fn log_init() {
+pub fn init_logger() {
     // Log files for log rotation
     let log_path_0 = Path::new("game-0.log");
     let log_path_1 = Path::new("game-1.log");

@@ -10,12 +10,14 @@ pub enum ConnectorError {
 }
 
 #[derive(Debug)]
-pub enum WindowError {
+pub enum RuntimeError {
     EventLoopError(EventLoopError),
+    ConnectorError(ConnectorError),
+    EntityError(EntityError),
+    MutexPoisonError(String),
 }
 
 #[derive(Debug)]
-pub enum RuntimeError {
-    WindowError(WindowError),
-    ConnectorError(ConnectorError),
+pub enum EntityError {
+    EntityExistsAlready,
 }

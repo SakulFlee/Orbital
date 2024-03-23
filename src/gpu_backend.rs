@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use wgpu::{
     Adapter, Backends, Device, DeviceDescriptor, Features, Instance, InstanceDescriptor, Limits,
     PowerPreference, Queue, RequestAdapterOptions, Surface, SurfaceConfiguration,
@@ -8,6 +10,7 @@ use winit::window::Window;
 
 use crate::error::ConnectorError;
 
+#[derive(Debug)]
 pub struct GPUBackend<'a> {
     instance: Instance,
     adapter: Adapter,

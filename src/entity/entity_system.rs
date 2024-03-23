@@ -3,17 +3,22 @@ use std::sync::{Mutex, OnceLock};
 use hashbrown::HashMap;
 use ulid::Ulid;
 
+use crate::error::EntityError;
+
 use super::BoxedEntity;
 
-#[derive(Default)]
 pub struct EntitySystem {
     entities: HashMap<Ulid, BoxedEntity>,
+    renderer: Option<BoxedEntity>,
 }
 pub type Entities = EntitySystem;
 
 impl EntitySystem {
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            entities: HashMap::new(),
+            renderer: None,
+        }
     }
 
     pub fn spawn(&mut self, entity: BoxedEntity) -> Result<(), String> {
@@ -51,6 +56,20 @@ impl EntitySystem {
             Some(e) => Ok(e),
             None => Err(format!("Entity with ULID '{}' doesn't exist!", ulid)),
         }
+    }
+
+    pub fn spawn_renderer(&mut self, entity: BoxedEntity) -> Result<(), EntityError> {
+        if self.renderer.is_some() {
+            return Err(EntityError::EntityExistsAlready);
+        }
+
+        self.renderer = Some(entity);
+
+        Ok(())
+    }
+
+    pub fn renderer(&self) -> Option<&BoxedEntity> {
+        self.renderer.as_ref()
     }
 }
 

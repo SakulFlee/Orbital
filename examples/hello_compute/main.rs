@@ -11,7 +11,7 @@ use akimo_project::{gpu_backend::GPUBackend, logging::*};
 use wgpu::util::DeviceExt;
 
 pub fn main() {
-    log_init();
+    init_logger();
 
     info!("Full credit of this goes to wgpu (https://github.com/gfx-rs/wgpu).");
     info!("This example was taken from their examples and mildly modified to work with our engine version.");

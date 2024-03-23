@@ -1,48 +1,43 @@
-use std::{
-    sync::Arc,
-    thread::{spawn, JoinHandle},
-};
-
 use crate::{
-    error::RuntimeError,
-    gpu_backend::GPUBackend,
-    window::{Window, WindowSettings},
+    context::Context, error::RuntimeError, gpu_backend::GPUBackend, logging::init_logger,
+    surface_wrapper::SurfaceWrapper, window_wrapper::WindowWrapper,
 };
 
-use winit::window::Window as WinitWindow;
+use log::info;
+use winit::event::{Event, WindowEvent};
+
+mod settings;
+pub use settings::*;
 
 pub struct Runtime;
 
 impl Runtime {
-    pub fn liftoff() -> Result<(), RuntimeError> {
-        // Spawn the window. This will already start opening and displaying!
-        let mut window = Self::spawn_window()?;
+    pub async fn liftoff(settings: RuntimeSettings) -> Result<(), RuntimeError> {
+        init_logger();
+        info!("Akimo-Project: Engine");
+        info!("(C) SakulFlee 2024");
 
-        // Spawn any server components in a different thread
-        let render_server_handle = Self::spawn_render_server(window.window());
+        let window_wrapper = WindowWrapper::new(&settings.name, settings.size);
+        let window = window_wrapper.window();
+        let mut surface = SurfaceWrapper::new();
+        let context = Context::init(&mut surface).await;
 
-        // Wake up the window and let it process things
-        let _ = window.run().map_err(|e| RuntimeError::WindowError(e))?;
-
-        // Once here: the window has closed!
-        // This usually means our application should clean up and exit.
-        // (or ... it crashed. Let's not hope it's that!)
-        // Thus, join all threads and exit!
-        render_server_handle
-            .join()
-            .expect("Render Server Join failed");
+        info!("Staring event loop ...");
+        let _ = window_wrapper
+            .event_loop()
+            .run(|event, target| match event {
+                Event::Resumed => {
+                    surface.resume(&context, window.clone());
+                }
+                Event::WindowEvent { event, .. } => match event {
+                    WindowEvent::CloseRequested => {
+                        target.exit();
+                    }
+                    _ => (),
+                },
+                _ => (),
+            });
 
         Ok(())
-    }
-
-    fn spawn_window() -> Result<Window, RuntimeError> {
-        let window_settings = WindowSettings::default();
-        Window::new(window_settings).map_err(|e| RuntimeError::WindowError(e))
-    }
-
-    fn spawn_render_server(window: Arc<WinitWindow>) -> JoinHandle<()> {
-        spawn(move || {
-            let _connector = GPUBackend::new(Some(&window)).expect("GPU connector failure");
-        })
     }
 }
