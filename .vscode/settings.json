@@ -20,6 +20,5 @@
         "wgpu",
         "wgsl",
         "winit"
-    ],
-    "rust-analyzer.showUnlinkedFileNotification": false
+    ]
 }

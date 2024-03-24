@@ -7,7 +7,9 @@ pub trait App {
         adapter: &Adapter,
         device: &Device,
         queue: &Queue,
-    ) -> Self;
+    ) -> Self
+    where
+        Self: Sized;
 
     fn resize(&mut self, config: &SurfaceConfiguration, device: &Device, queue: &Queue);
 

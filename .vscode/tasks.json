@@ -5,34 +5,22 @@
     "tasks": [
         // --- Builds ---
         {
-            "label": "[Workspace] Build (Debug)",
+            "label": "Build (Debug)",
             "type": "shell",
-            "command": "cargo build --workspace",
-            "group": "build"
+            "command": "cargo build",
+            "group": {"kind": "build", "isDefault": true}
         },
         {
-            "label": "[Workspace] Build (Release)",
+            "label": "Build (Release)",
             "type": "shell",
-            "command": "cargo build --workspace --release",
-            "group": "build"
-        },
-        {
-            "label": "[Engine App] Build (Debug)",
-            "type": "shell",
-            "command": "cargo build --bin engine_app",
-            "group": "build"
-        },
-        {
-            "label": "[Engine App] Build (Release)",
-            "type": "shell",
-            "command": "cargo build --bin engine_app --release",
+            "command": "cargo build --release",
             "group": "build"
         },
         // --- Tests ---
         {
-            "label": "[Workspace] Test",
+            "label": "Test",
             "type": "shell",
-            "command": "cargo test --workspace",
+            "command": "cargo test",
             "group": "test"
         }
     ]

@@ -3,12 +3,12 @@
     {
         "type": "lldb",
         "request": "launch",
-        "name": "Engine App",
+        "name": "Engine",
         "cargo": {
             "args": [
                 "build",
                 "--bin",
-                "engine_app"
+                "engine"
             ]
         },
         "args": []
