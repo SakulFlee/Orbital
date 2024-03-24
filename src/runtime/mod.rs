@@ -3,7 +3,7 @@ use crate::{
     surface_wrapper::SurfaceWrapper, window_wrapper::WindowWrapper,
 };
 
-use log::info;
+use log::{error, info};
 use wgpu::TextureViewDescriptor;
 use winit::event::{Event, WindowEvent};
 
@@ -13,7 +13,7 @@ pub use settings::*;
 pub struct Runtime;
 
 impl Runtime {
-    pub async fn liftoff(mut app: impl App, settings: RuntimeSettings) -> Result<(), RuntimeError> {
+    pub async fn liftoff<AppImpl: App>(settings: RuntimeSettings) -> Result<(), RuntimeError> {
         init_logger();
         info!("Akimo-Project: Engine");
         info!("(C) SakulFlee 2024");
@@ -23,12 +23,25 @@ impl Runtime {
         let mut surface = SurfaceWrapper::new();
         let context = Context::init(&mut surface).await;
 
+        let mut app: Option<AppImpl> = None;
+
         info!("Staring event loop ...");
         let _ = window_wrapper
             .event_loop()
             .run(|event, target| match event {
                 Event::Resumed => {
+                    info!("Resuming ...");
                     surface.resume(&context, window.clone());
+
+                    if app.is_none() {
+                        info!("Bootstrapping app ...");
+                        app = Some(AppImpl::init(
+                            surface.configuration(),
+                            context.adapter(),
+                            context.device(),
+                            context.queue(),
+                        ));
+                    }
                 }
                 Event::WindowEvent { event, .. } => match event {
                     WindowEvent::CloseRequested => {
@@ -43,7 +56,9 @@ impl Runtime {
                         });
 
                         // Render!
-                        app.render(&view, context.device(), context.queue());
+                        app.as_mut()
+                            .expect("Redraw requested when app is none!")
+                            .render(&view, context.device(), context.queue());
 
                         // Present the frame after rendering and inform the window about a redraw being needed
                         frame.present();

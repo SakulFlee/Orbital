@@ -7,12 +7,6 @@ use akimo_project::{
 
 pub struct EngineApp;
 
-impl EngineApp {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
-
 impl App for EngineApp {
     fn init(
         config: &wgpu::SurfaceConfiguration,
@@ -45,6 +39,5 @@ impl App for EngineApp {
 }
 
 fn main() -> Result<(), RuntimeError> {
-    let engine_app = EngineApp::new();
-    pollster::block_on(Runtime::liftoff(engine_app, RuntimeSettings::default()))
+    pollster::block_on(Runtime::liftoff::<EngineApp>(RuntimeSettings::default()))
 }
