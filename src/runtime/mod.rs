@@ -1,9 +1,10 @@
 use crate::{
-    context::Context, error::RuntimeError, gpu_backend::GPUBackend, logging::init_logger,
+    app::App, context::Context, error::RuntimeError, logging::init_logger,
     surface_wrapper::SurfaceWrapper, window_wrapper::WindowWrapper,
 };
 
 use log::info;
+use wgpu::TextureViewDescriptor;
 use winit::event::{Event, WindowEvent};
 
 mod settings;
@@ -12,7 +13,7 @@ pub use settings::*;
 pub struct Runtime;
 
 impl Runtime {
-    pub async fn liftoff(settings: RuntimeSettings) -> Result<(), RuntimeError> {
+    pub async fn liftoff(mut app: impl App, settings: RuntimeSettings) -> Result<(), RuntimeError> {
         init_logger();
         info!("Akimo-Project: Engine");
         info!("(C) SakulFlee 2024");
@@ -32,6 +33,21 @@ impl Runtime {
                 Event::WindowEvent { event, .. } => match event {
                     WindowEvent::CloseRequested => {
                         target.exit();
+                    }
+                    WindowEvent::RedrawRequested => {
+                        // Get next frame to render onto
+                        let frame = surface.acquire_next_frame(&context);
+                        let view = frame.texture.create_view(&TextureViewDescriptor {
+                            format: Some(surface.configuration().view_formats[0]),
+                            ..TextureViewDescriptor::default()
+                        });
+
+                        // Render!
+                        app.render(&view, context.device(), context.queue());
+
+                        // Present the frame after rendering and inform the window about a redraw being needed
+                        frame.present();
+                        window.request_redraw();
                     }
                     _ => (),
                 },

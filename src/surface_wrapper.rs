@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use log::info;
-use wgpu::{rwh::HasWindowHandle, Surface, SurfaceConfiguration};
+use log::{info, warn};
+use wgpu::{rwh::HasWindowHandle, Surface, SurfaceConfiguration, SurfaceTexture};
 use winit::{
     dpi::{PhysicalSize, Size},
     window::Window,
@@ -60,5 +60,22 @@ impl SurfaceWrapper {
 
         let surface = self.surface.as_ref().unwrap();
         surface.configure(&context.device(), &configuration);
+    }
+
+    pub fn acquire_next_frame(&mut self, context: &Context) -> SurfaceTexture {
+        let surface = self.surface.as_ref().unwrap();
+
+        match surface.get_current_texture() {
+            Ok(frame) => frame,
+            Err(e) => {
+                warn!("Surface next frame acquire failed: {}", e);
+                warn!("Reconfiguring and trying again ...");
+
+                surface.configure(&context.device(), self.configuration());
+                surface
+                    .get_current_texture()
+                    .expect("Failed to acquire next surface texture frame for the 2nd time!")
+            }
+        }
     }
 }
