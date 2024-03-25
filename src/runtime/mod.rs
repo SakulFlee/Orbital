@@ -64,7 +64,7 @@ impl Runtime {
                         frame.present();
                         window.request_redraw();
                     }
-                    _ => (),
+                    _ => app.as_mut().expect("App gone").update(event),
                 },
                 _ => (),
             });
