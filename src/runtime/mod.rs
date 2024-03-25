@@ -49,6 +49,7 @@ impl Runtime {
                         ));
                     }
                 }
+                Event::Suspended => surface.suspend(),
                 Event::WindowEvent { event, .. } => match event {
                     WindowEvent::CloseRequested => {
                         target.exit();
