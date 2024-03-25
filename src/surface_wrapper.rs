@@ -78,4 +78,8 @@ impl SurfaceWrapper {
             }
         }
     }
+
+    pub fn suspend(&mut self) {
+        self.surface = None;
+    }
 }
