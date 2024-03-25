@@ -117,7 +117,5 @@ impl App for ClearScreenApp {
 }
 
 fn main() -> Result<(), RuntimeError> {
-    pollster::block_on(Runtime::liftoff::<ClearScreenApp>(
-        RuntimeSettings::default(),
-    ))
+    Runtime::liftoff::<ClearScreenApp>(RuntimeSettings::default())
 }

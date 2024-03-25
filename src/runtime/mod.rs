@@ -13,7 +13,13 @@ pub use settings::*;
 pub struct Runtime;
 
 impl Runtime {
-    pub async fn liftoff<AppImpl: App>(settings: RuntimeSettings) -> Result<(), RuntimeError> {
+    pub fn liftoff<AppImpl: App>(settings: RuntimeSettings) -> Result<(), RuntimeError> {
+        pollster::block_on(Self::liftoff_async::<AppImpl>(settings))
+    }
+
+    pub async fn liftoff_async<AppImpl: App>(
+        settings: RuntimeSettings,
+    ) -> Result<(), RuntimeError> {
         init_logger();
         info!("Akimo-Project: Engine");
         info!("(C) SakulFlee 2024");
