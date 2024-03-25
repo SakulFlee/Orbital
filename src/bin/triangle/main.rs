@@ -103,5 +103,5 @@ impl App for TriangleApp {
 }
 
 fn main() -> Result<(), RuntimeError> {
-    pollster::block_on(Runtime::liftoff::<TriangleApp>(RuntimeSettings::default()))
+    Runtime::liftoff::<TriangleApp>(RuntimeSettings::default())
 }

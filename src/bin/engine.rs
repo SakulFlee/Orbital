@@ -39,5 +39,5 @@ impl App for EngineApp {
 }
 
 fn main() -> Result<(), RuntimeError> {
-    pollster::block_on(Runtime::liftoff::<EngineApp>(RuntimeSettings::default()))
+    Runtime::liftoff::<EngineApp>(RuntimeSettings::default())
 }
