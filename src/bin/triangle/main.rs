@@ -67,12 +67,13 @@ impl App for TriangleApp {
     }
 
     fn resize(&mut self, config: &SurfaceConfiguration, device: &Device, queue: &Queue) {
-        // TODO ... uhhh....
-        todo!()
+        // Nothing needed for this example!
+        // Later, this should be used to update the uniform buffer matrix.
     }
 
     fn update(&mut self, _event: WindowEvent) {
-        // Nothing :)
+        // Nothing needed for this example!
+        // All events that we care about are already taken care of.
     }
 
     fn render(&mut self, view: &TextureView, device: &Device, queue: &Queue) {
