@@ -1,11 +1,14 @@
 use crate::{
-    app::App, context::Context, error::RuntimeError, logging::init_logger,
-    surface_wrapper::SurfaceWrapper, window_wrapper::WindowWrapper,
+    app::App, context::Context, error::RuntimeError, surface_wrapper::SurfaceWrapper,
+    window_wrapper::WindowWrapper,
 };
 
-use log::{error, info};
+use log::{debug, info, warn};
 use wgpu::TextureViewDescriptor;
-use winit::event::{Event, WindowEvent};
+use winit::{
+    event::{Event, WindowEvent},
+    event_loop::EventLoop,
+};
 
 mod settings;
 pub use settings::*;
@@ -13,18 +16,22 @@ pub use settings::*;
 pub struct Runtime;
 
 impl Runtime {
-    pub fn liftoff<AppImpl: App>(settings: RuntimeSettings) -> Result<(), RuntimeError> {
-        pollster::block_on(Self::liftoff_async::<AppImpl>(settings))
+    pub fn liftoff<AppImpl: App>(
+        event_loop: EventLoop<()>,
+        settings: RuntimeSettings,
+    ) -> Result<(), RuntimeError> {
+        debug!("LIFTOFF");
+        pollster::block_on(Self::liftoff_async::<AppImpl>(event_loop, settings))
     }
 
     pub async fn liftoff_async<AppImpl: App>(
+        event_loop: EventLoop<()>,
         settings: RuntimeSettings,
     ) -> Result<(), RuntimeError> {
-        init_logger();
-        info!("Akimo-Project: Engine");
+        info!("Akimo-Project: Runtime");
         info!("(C) SakulFlee 2024");
 
-        let window_wrapper = WindowWrapper::new(&settings.name, settings.size);
+        let window_wrapper = WindowWrapper::new(event_loop, &settings.name, settings.size);
         let window = window_wrapper.window();
         let mut surface = SurfaceWrapper::new();
         let context = Context::init(&mut surface).await;
@@ -56,23 +63,30 @@ impl Runtime {
                     }
                     WindowEvent::RedrawRequested => {
                         // Get next frame to render onto
-                        let frame = surface.acquire_next_frame(&context);
-                        let view = frame.texture.create_view(&TextureViewDescriptor {
-                            format: Some(surface.configuration().view_formats[0]),
-                            ..TextureViewDescriptor::default()
-                        });
+                        if let Some(frame) = surface.acquire_next_frame(&context) {
+                            let view = frame.texture.create_view(&TextureViewDescriptor {
+                                format: Some(surface.configuration().view_formats[0]),
+                                ..TextureViewDescriptor::default()
+                            });
 
-                        // Render!
-                        app.as_mut()
-                            .expect("Redraw requested when app is none!")
-                            .render(&view, context.device(), context.queue());
+                            // Render!
+                            app.as_mut()
+                                .expect("Redraw requested when app is none!")
+                                .render(&view, context.device(), context.queue());
 
-                        // Present the frame after rendering and inform the window about a redraw being needed
-                        frame.present();
+                            // Present the frame after rendering and inform the window about a redraw being needed
+                            frame.present();
+                        } else {
+                            warn!("No surface yet, but redraw was requested!");
+                        }
+
                         window.request_redraw();
                     }
                     _ => app.as_mut().expect("App gone").update(event),
                 },
+                Event::NewEvents(a) => {
+                    debug!("Start cause: {:#?}", a);
+                }
                 _ => (),
             });
 

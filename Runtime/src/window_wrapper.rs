@@ -12,9 +12,7 @@ pub struct WindowWrapper {
 }
 
 impl WindowWrapper {
-    pub fn new<S: Into<Size>>(title: &str, size: S) -> Self {
-        let event_loop = EventLoop::new().unwrap();
-
+    pub fn new<S: Into<Size>>(event_loop: EventLoop<()>, title: &str, size: S) -> Self {
         let window = WindowBuilder::new()
             .with_title(title)
             .with_inner_size(size.into())
