@@ -6,3 +6,17 @@ target/
 
 # Example generated files
 mandelbrot.png
+
+# Local Android configuration
+local.properties
+
+# Android
+build/
+gen/
+jniLibs/
+
+# IDEA
+.idea/
+
+# Gradle
+.gradle/

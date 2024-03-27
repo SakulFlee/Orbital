@@ -2,6 +2,12 @@ pub use log::*;
 
 use std::{fs, path::Path, time::SystemTime};
 
+#[cfg(target_os = "android")]
+pub fn init_logger() {
+    android_logger::init_once(android_logger::Config::default().with_max_level(log::LevelFilter::Trace));
+}
+
+#[cfg(not(target_os = "android"))]
 pub fn init_logger() {
     // Log files for log rotation
     let log_path_0 = Path::new("game-0.log");
