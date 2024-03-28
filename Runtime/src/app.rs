@@ -13,7 +13,7 @@ pub trait App {
 
     fn resize(&mut self, config: &SurfaceConfiguration, device: &Device, queue: &Queue);
 
-    fn update(&mut self, event: WindowEvent);
+    fn update(&mut self);
 
     fn render(&mut self, view: &TextureView, device: &Device, queue: &Queue);
 }

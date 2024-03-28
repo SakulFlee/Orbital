@@ -1,17 +1,30 @@
 {
     "configurations": [
-    {
-        "type": "lldb",
-        "request": "launch",
-        "name": "Engine",
-        "cargo": {
-            "args": [
-                "build",
-                "--bin",
-                "engine"
-            ]
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Example: Clear Screen",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin",
+                    "clear_screen"
+                ]
+            },
+            "args": []
         },
-        "args": []
-    }
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Example: Triangle",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin",
+                    "triangle"
+                ]
+            },
+            "args": []
+        }
     ]
 }

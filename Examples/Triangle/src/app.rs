@@ -1,30 +1,27 @@
-use akimo_project::{
-    app::App,
-    error::RuntimeError,
-    logging::*,
-    runtime::{Runtime, RuntimeSettings},
-};
+use akimo_runtime::app::App;
 use wgpu::{
     Adapter, Color, CommandEncoderDescriptor, Device, FragmentState, LoadOp, MultisampleState,
-    Operations, PipelineLayout, PipelineLayoutDescriptor, PrimitiveState, Queue,
-    RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
-    ShaderModule, ShaderModuleDescriptor, ShaderSource, StoreOp, SurfaceConfiguration, TextureView,
-    VertexState,
+    Operations, PipelineLayoutDescriptor, PrimitiveState, Queue, RenderPassColorAttachment,
+    RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor, ShaderModuleDescriptor,
+    ShaderSource, StoreOp, SurfaceConfiguration, TextureView, VertexState,
 };
-use winit::event::WindowEvent;
 
 pub struct TriangleApp {
-    shader: ShaderModule,
-    pipeline_layout: PipelineLayout,
+    // Note: Curiously, the following two variables don't have to be stored if
+    // we are just referencing them. Uncomment the below and the end of
+    // Self::init if you need access to them :)
+    //
+    // shader: ShaderModule,
+    // pipeline_layout: PipelineLayout,
     pipeline: RenderPipeline,
 }
 
 impl App for TriangleApp {
     fn init(
         config: &SurfaceConfiguration,
-        adapter: &Adapter,
+        _adapter: &Adapter,
         device: &Device,
-        queue: &Queue,
+        _queue: &Queue,
     ) -> Self
     where
         Self: Sized,
@@ -60,18 +57,20 @@ impl App for TriangleApp {
         });
 
         Self {
-            shader,
-            pipeline_layout,
+            // Note: Check variable description in struct declaration!
+            //
+            // shader,
+            // pipeline_layout,
             pipeline,
         }
     }
 
-    fn resize(&mut self, config: &SurfaceConfiguration, device: &Device, queue: &Queue) {
+    fn resize(&mut self, _config: &SurfaceConfiguration, _device: &Device, _queue: &Queue) {
         // Nothing needed for this example!
         // Later, this should be used to update the uniform buffer matrix.
     }
 
-    fn update(&mut self, _event: WindowEvent) {
+    fn update(&mut self) {
         // Nothing needed for this example!
         // All events that we care about are already taken care of.
     }
@@ -86,7 +85,7 @@ impl App for TriangleApp {
                     view,
                     resolve_target: None,
                     ops: Operations {
-                        load: LoadOp::Clear(Color::GREEN),
+                        load: LoadOp::Clear(Color::BLACK),
                         store: StoreOp::Store,
                     },
                 })],
@@ -100,8 +99,4 @@ impl App for TriangleApp {
 
         queue.submit(Some(encoder.finish()));
     }
-}
-
-fn main() -> Result<(), RuntimeError> {
-    Runtime::liftoff::<TriangleApp>(RuntimeSettings::default())
 }

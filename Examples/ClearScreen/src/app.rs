@@ -3,7 +3,6 @@ use wgpu::{
     Adapter, Color, CommandEncoderDescriptor, Device, LoadOp, Operations, Queue,
     RenderPassColorAttachment, RenderPassDescriptor, StoreOp, SurfaceConfiguration, TextureView,
 };
-use winit::event::WindowEvent;
 
 enum Channel {
     R,
@@ -47,26 +46,28 @@ impl akimo_runtime::app::App for App {
         // Later, this should be used to update the uniform buffer matrix.
     }
 
-    fn update(&mut self, _event: WindowEvent) {
+    fn update(&mut self) {
         // Nothing needed for this example!
         // All events that we care about are already taken care of.
 
+        const INTERVAL: f64 = 0.001f64;
+
         match self.decrement {
             Channel::R => {
-                self.color.r -= 0.1f64;
-                self.color.g += 0.1f64;
+                self.color.r -= INTERVAL;
+                self.color.g += INTERVAL;
 
-                if self.color.r <= 0.1f64 {
+                if self.color.r <= INTERVAL {
                     self.color.r = 0.0f64;
                     self.color.g = 1.0f64;
                     self.decrement = Channel::G;
                 }
             }
             Channel::G => {
-                self.color.g -= 0.1f64;
-                self.color.b += 0.1f64;
+                self.color.g -= INTERVAL;
+                self.color.b += INTERVAL;
 
-                if self.color.g <= 0.1f64 {
+                if self.color.g <= INTERVAL {
                     self.color.g = 0.0f64;
                     self.color.b = 1.0f64;
 
@@ -74,10 +75,10 @@ impl akimo_runtime::app::App for App {
                 }
             }
             Channel::B => {
-                self.color.b -= 0.1f64;
-                self.color.r += 0.1f64;
+                self.color.b -= INTERVAL;
+                self.color.r += INTERVAL;
 
-                if self.color.b <= 0.1f64 {
+                if self.color.b <= INTERVAL {
                     self.color.b = 0.0f64;
                     self.color.r = 1.0f64;
 
