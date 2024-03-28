@@ -25,6 +25,32 @@
                 ]
             },
             "args": []
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Example: HelloCompute",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin",
+                    "hello_compute"
+                ]
+            },
+            "args": []
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Example: Mandelbrot",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin",
+                    "mandelbrot"
+                ]
+            },
+            "args": []
         }
     ]
 }

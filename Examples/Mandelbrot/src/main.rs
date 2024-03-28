@@ -1,39 +1,23 @@
-// Full credit of this goes to wgpu (https://github.com/gfx-rs/wgpu).
-// This example was taken from their examples and mildly modified to work
-// with our engine version.
-// The original example is licensed under Apache-2.0 & MIT and
-// can be found here:
+// ---------------------Mandelbrot Example (Akimo-Project)---------------------
+// This example has been taken from the official wgpu examples.
+// It's licensed under Apache-2.0 & MIT and can be found here:
 // https://github.com/gfx-rs/wgpu/tree/trunk/examples/src/storage_texture
-
-//! This example demonstrates the basic usage of storage textures for the purpose of
-//! creating a digital image of the Mandelbrot set
-//! (<https://en.wikipedia.org/wiki/Mandelbrot_set>).
-//!
-//! Storage textures work like normal textures but they operate similar to storage buffers
-//! in that they can be written to. The issue is that as it stands, write-only is the
-//! only valid access mode for storage textures in WGSL and although there is a WGPU feature
-//! to allow for read-write access, this is unfortunately a native-only feature and thus
-//! we won't be using it here. If we needed a reference texture, we would need to add a
-//! second texture to act as a reference and attach that as well. Luckily, we don't need
-//! to read anything in our shader except the dimensions of our texture, which we can
-//! easily get via `textureDimensions`.
-//!
-//! A lot of things aren't explained here via comments. See hello-compute and
-//! repeated-compute for code that is more thoroughly commented.
+// ----------------------------------------------------------------------------
 
 use std::io::Write;
 
-use akimo_project::{gpu_backend::GPUBackend, logging::*};
+use akimo_runtime::{gpu_backend::GPUBackend, logging::*};
 
 const TEXTURE_DIMS: (usize, usize) = (512, 512);
 
 pub fn main() {
     init_logger();
 
-    info!("Full credit of this goes to wgpu (https://github.com/gfx-rs/wgpu).");
-    info!("This example was taken from their examples and mildly modified to work with our engine version.");
-    info!("The original example is licensed under Apache-2.0 & MIT and can be found here:");
+    info!("{:-^1$}", "Mandelbrot Example (Akimo-Project)", 80);
+    info!("This example has been taken from the official wgpu examples.");
+    info!("It's licensed under Apache-2.0 & MIT and can be found here:");
     info!("https://github.com/gfx-rs/wgpu/tree/trunk/examples/src/storage_texture");
+    info!("{:-^1$}", "", 80);
     info!("");
 
     let mut texture_data = vec![0u8; TEXTURE_DIMS.0 * TEXTURE_DIMS.1 * 4];

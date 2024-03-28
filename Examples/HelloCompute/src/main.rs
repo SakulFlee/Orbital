@@ -1,22 +1,22 @@
-// Full credit of this goes to wgpu (https://github.com/gfx-rs/wgpu).
-// This example was taken from their examples and mildly modified to work
-// with our engine version.
-// The original example is licensed under Apache-2.0 & MIT and
-// can be found here:
+// -------------------Hello Compute Example (Akimo-Project)------------------- 
+// This example has been taken from the official wgpu examples.
+// It's licensed under Apache-2.0 & MIT and can be found here:
 // https://github.com/gfx-rs/wgpu/tree/trunk/examples/src/hello_compute
+// --------------------------------------------------------------------------- 
 
 use std::borrow::Cow;
 
-use akimo_project::{gpu_backend::GPUBackend, logging::*};
+use akimo_runtime::{gpu_backend::GPUBackend, logging::*};
 use wgpu::util::DeviceExt;
 
 pub fn main() {
     init_logger();
 
-    info!("Full credit of this goes to wgpu (https://github.com/gfx-rs/wgpu).");
-    info!("This example was taken from their examples and mildly modified to work with our engine version.");
-    info!("The original example is licensed under Apache-2.0 & MIT and can be found here:");
+    info!("{:-^1$}", "Hello Compute Example (Akimo-Project)", 80);
+    info!("This example has been taken from the official wgpu examples.");
+    info!("It's licensed under Apache-2.0 & MIT and can be found here:");
     info!("https://github.com/gfx-rs/wgpu/tree/trunk/examples/src/hello_compute");
+    info!("{:-^1$}", "", 80);
     info!("");
 
     let number_v: Vec<u32> = vec![1, 2, 3, 4];
