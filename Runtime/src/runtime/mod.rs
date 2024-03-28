@@ -82,12 +82,17 @@ impl Runtime {
 
                         window.request_redraw();
                     }
-                    _ => app.as_mut().expect("App gone").update(event),
+                    _ => debug!("Unhandled WindowEvent received: {:#?}", event),
                 },
                 Event::NewEvents(a) => {
                     debug!("Start cause: {:#?}", a);
+
+                    match app.as_mut() {
+                        Some(app) => app.update(),
+                        None => warn!("Trying to update non-existing app!"),
+                    }
                 }
-                _ => (),
+                _ => debug!("Unhandled Event received: {:#?}", event),
             });
 
         Ok(())
