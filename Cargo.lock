@@ -868,6 +868,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
+name = "hello_compute"
+version = "0.1.0"
+dependencies = [
+ "akimo_runtime",
+ "bytemuck",
+ "flume",
+ "log",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
 name = "hermit-abi"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1126,6 +1138,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62bb907fe88d54d8d9ce32a3cceab4218ed2f6b7d35617cafe9adf84e43919cb"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "mandelbrot"
+version = "0.1.0"
+dependencies = [
+ "akimo_runtime",
+ "flume",
+ "log",
+ "png",
+ "wgpu",
+ "winit",
 ]
 
 [[package]]
