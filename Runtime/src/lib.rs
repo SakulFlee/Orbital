@@ -7,6 +7,8 @@ pub use logging::*;
 pub mod entity;
 pub use entity::*;
 
+pub mod event;
+pub use event::*;
 
 pub mod resources;
 pub mod runtime;
