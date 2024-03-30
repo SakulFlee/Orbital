@@ -13,6 +13,12 @@ pub struct EntitySystem {
 }
 pub type Entities = EntitySystem;
 
+impl Default for EntitySystem {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EntitySystem {
     pub fn new() -> Self {
         Self {
@@ -75,7 +81,7 @@ impl EntitySystem {
 
 pub fn entity_system() -> &'static Mutex<EntitySystem> {
     static ENTITY_SYSTEM: OnceLock<Mutex<EntitySystem>> = OnceLock::new();
-    &ENTITY_SYSTEM.get_or_init(|| Mutex::new(EntitySystem::new()))
+    ENTITY_SYSTEM.get_or_init(|| Mutex::new(EntitySystem::new()))
 }
 
 pub fn entities() -> &'static Mutex<EntitySystem> {
