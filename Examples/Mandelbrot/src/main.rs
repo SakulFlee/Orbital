@@ -1,9 +1,3 @@
-// ---------------------Mandelbrot Example (Akimo-Project)---------------------
-// This example has been taken from the official wgpu examples.
-// It's licensed under Apache-2.0 & MIT and can be found here:
-// https://github.com/gfx-rs/wgpu/tree/trunk/examples/src/storage_texture
-// ----------------------------------------------------------------------------
-
 use std::io::Write;
 
 use akimo_runtime::{gpu_backend::GPUBackend, logging::*};
@@ -14,9 +8,15 @@ pub fn main() {
     init_logger();
 
     info!("{:-^1$}", "Mandelbrot Example (Akimo-Project)", 80);
+    info!("This example shows how to initialize a GPU connection");
+    info!("and how to compute the Mandelbrot set on a GPU.");
+    info!("Additionally, data has to be send and received");
+    info!("from and to the GPU and finally converted to a");
+    info!("proper image format to be stored on disk.");
+    info!("{:-^1$}", "License & Credit", 80);
     info!("This example has been taken from the official wgpu examples.");
     info!("It's licensed under Apache-2.0 & MIT and can be found here:");
-    info!("https://github.com/gfx-rs/wgpu/tree/trunk/examples/src/storage_texture");
+    info!("https://github.com/gfx-rs/wgpu/tree/trunk/examples/src/hello_compute");
     info!("{:-^1$}", "", 80);
     info!("");
 
