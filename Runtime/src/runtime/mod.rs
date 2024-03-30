@@ -1,8 +1,4 @@
-use crate::{
-    app::App, context::Context, error::RuntimeError, surface_wrapper::SurfaceWrapper,
-    window_wrapper::WindowWrapper,
-};
-
+use crate::error::RuntimeError;
 use log::{debug, info, warn};
 use wgpu::TextureViewDescriptor;
 use winit::{
@@ -10,8 +6,20 @@ use winit::{
     event_loop::EventLoop,
 };
 
-mod settings;
+pub mod settings;
 pub use settings::*;
+
+pub mod context;
+pub use context::*;
+
+pub mod surface_wrapper;
+pub use surface_wrapper::*;
+
+pub mod window_wrapper;
+pub use window_wrapper::*;
+
+pub mod app;
+pub use app::*;
 
 pub struct Runtime;
 
