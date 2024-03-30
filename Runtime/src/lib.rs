@@ -11,6 +11,8 @@ pub mod event;
 pub use event::*;
 
 pub mod resources;
+pub use resources::*;
+
 pub mod runtime;
 pub mod surface_wrapper;
 pub mod window_wrapper;
