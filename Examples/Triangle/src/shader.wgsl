@@ -13,12 +13,6 @@ fn vs_main(
     let y = f32(i32(in_vertex_index & 1u) * 2 - 1) * 0.5;
 
     out.clip_position = vec4<f32>(x, y, 0.0, 1.0);
-    // out.color = vec4<f32>(
-    //     ((1.0 + x) + (1.0 + y)) * 0.5,
-    //     (1.0 + x) * 0.5,
-    //     (1.0 + y) * 0.5,
-    //     1.0
-    // );
 
     if in_vertex_index == 0 {
         out.color = vec4<f32>(1.0, 0.0, 0.0, 1.0);
