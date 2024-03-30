@@ -1,0 +1,13 @@
+[package]
+name = "hello_compute"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+akimo_runtime = { workspace = true }
+
+log = { workspace = true }
+winit = { workspace = true }
+wgpu = { workspace = true }
+bytemuck = { workspace = true }
+flume = { workspace = true }

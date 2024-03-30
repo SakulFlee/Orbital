@@ -1,0 +1,37 @@
+[package]
+name = "akimo_runtime"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["engine"]
+engine = []
+include_examples = []
+example_clear_screen = ["include_examples"]
+example_triangle = ["include_examples"]
+
+[lib]
+crate-type = ["lib", "cdylib"]
+
+[dependencies]
+winit = { workspace = true }
+wgpu = { workspace = true, features = ["spirv", "glsl", "wgsl", "naga-ir"] }
+serde = { workspace = true, features = ["derive"] }
+log = { workspace = true }
+fern = { workspace = true }
+serde_json = { workspace = true }
+serde_derive = { workspace = true }
+ulid = { workspace = true }
+hashbrown = { workspace = true }
+humantime = { workspace = true }
+pollster = { workspace = true }
+
+[dev-dependencies]
+image = { workspace = true }
+flume = { workspace = true }
+bytemuck = { workspace = true }
+png = { workspace = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+winit = { workspace = true, features = ["android-native-activity"] }
+android_logger = { workspace = true }
