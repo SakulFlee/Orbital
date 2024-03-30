@@ -1,4 +1,3 @@
-use akimo_runtime::logging::*;
 use wgpu::{
     Adapter, Color, CommandEncoderDescriptor, Device, LoadOp, Operations, Queue,
     RenderPassColorAttachment, RenderPassDescriptor, StoreOp, SurfaceConfiguration, TextureView,
