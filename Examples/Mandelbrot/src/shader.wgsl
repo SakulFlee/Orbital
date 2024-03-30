@@ -1,10 +1,3 @@
-// Full credit of this goes to wgpu (https://github.com/gfx-rs/wgpu).
-// This example was taken from their examples and mildly modified to work
-// with our engine version.
-// The original example is licensed under Apache-2.0 & MIT and
-// can be found here:
-// https://github.com/gfx-rs/wgpu/tree/trunk/examples/src/storage_texture
-
 const MAX_ITERATIONS: u32 = 50u;
 
 @group(0)

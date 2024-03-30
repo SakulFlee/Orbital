@@ -1,9 +1,3 @@
-// -------------------Hello Compute Example (Akimo-Project)------------------- 
-// This example has been taken from the official wgpu examples.
-// It's licensed under Apache-2.0 & MIT and can be found here:
-// https://github.com/gfx-rs/wgpu/tree/trunk/examples/src/hello_compute
-// --------------------------------------------------------------------------- 
-
 use std::borrow::Cow;
 
 use akimo_runtime::{gpu_backend::GPUBackend, logging::*};
@@ -13,6 +7,9 @@ pub fn main() {
     init_logger();
 
     info!("{:-^1$}", "Hello Compute Example (Akimo-Project)", 80);
+    info!("This example shows how to initialize a GPU connection");
+    info!("and how to compute the Collatz Conjecture on your GPU.");
+    info!("{:-^1$}", "License & Credit", 80);
     info!("This example has been taken from the official wgpu examples.");
     info!("It's licensed under Apache-2.0 & MIT and can be found here:");
     info!("https://github.com/gfx-rs/wgpu/tree/trunk/examples/src/hello_compute");
