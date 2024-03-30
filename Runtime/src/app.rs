@@ -1,5 +1,4 @@
-use wgpu::{Adapter, Device, Features, Queue, SurfaceConfiguration, TextureView};
-use winit::event::WindowEvent;
+use wgpu::{Adapter, Device, Queue, SurfaceConfiguration, TextureView};
 
 pub trait App {
     fn init(
