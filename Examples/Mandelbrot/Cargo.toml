@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-akimo_runtime = { path = "../../Runtime/" }
+akimo_runtime = { workspace = true }
 
-log = "0.4.21"
-winit = "0.29.15"
-wgpu = "0.19.3"
-flume = "0.11.0"
-png = "0.17.13"
+log = { workspace = true }
+winit = { workspace = true }
+wgpu = { workspace = true }
+flume = { workspace = true }
+png = { workspace = true }

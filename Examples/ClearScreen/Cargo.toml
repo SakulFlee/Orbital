@@ -9,12 +9,12 @@ edition = "2021"
 crate-type = ["lib", "cdylib"]
 
 [dependencies]
-akimo_runtime = { path = "../../Runtime/" }
+akimo_runtime = { workspace = true }
 
-log = "0.4.21"
-winit = "0.29.15"
-wgpu = "0.19.3"
+log = { workspace = true }
+winit = { workspace = true }
+wgpu = { workspace = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
-android_logger = "0.13.3"
-winit = { features = ["android-native-activity"] }
+android_logger = { workspace = true }
+winit = { workspace = true, features = ["android-native-activity"] }
