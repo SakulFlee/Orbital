@@ -36,7 +36,7 @@ pub fn main() {
         });
 
     // Gets the size in bytes of the buffer.
-    let size = std::mem::size_of_val(&numbers) as wgpu::BufferAddress;
+    let size = std::mem::size_of_val(numbers) as wgpu::BufferAddress;
 
     // Instantiates buffer without data.
     // `usage` of buffer specifies how it can be used:

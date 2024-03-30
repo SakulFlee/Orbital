@@ -123,8 +123,9 @@ fn event_dispatch_count() {
             .dispatch_event(Box::new(event));
 
         // Poll a few times
+        let mut events_lock = events().lock().expect("Mutex failure");
         for _ in 0..=3 {
-            events().lock().expect("Mutex failure").poll().await;
+            events_lock.poll().await;
         }
 
         // Check entity
