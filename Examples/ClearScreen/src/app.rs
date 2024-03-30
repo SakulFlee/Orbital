@@ -25,11 +25,6 @@ impl akimo_runtime::app::App for App {
     where
         Self: Sized,
     {
-        info!("::: Clear Screen App Example :::");
-        info!("::: This example showcases the most basic graphical app: :::");
-        info!("::: It initializes a window and surface, initializes a :::");
-        info!("::: GPU backend and clears the screen (window surface). :::");
-
         Self {
             color: Color {
                 r: 1f64,
