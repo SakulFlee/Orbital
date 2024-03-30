@@ -5,6 +5,7 @@
         "bytemuck",
         "despawn",
         "despawned",
+        "gles",
         "hashbrown",
         "humantime",
         "icns",
