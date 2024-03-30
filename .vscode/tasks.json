@@ -5,28 +5,39 @@
     "tasks": [
         // --- Builds ---
         {
-            "label": "[Workspace] Build (Debug)",
+            "label": "[Workspace] Build",
             "type": "shell",
             "command": "cargo build --workspace",
             "group": "build"
         },
+        // --- Android Installs ---
         {
-            "label": "[Workspace] Build (Release)",
+            "label": "[Example: Clear Screen] Install on Android",
             "type": "shell",
-            "command": "cargo build --workspace --release",
-            "group": "build"
+            "command": "./gradlew installDebug",
+            "group": "test",
+            "options": {"cwd": "Examples/ClearScreen/android"}
         },
         {
-            "label": "[Engine App] Build (Debug)",
+            "label": "[Example: Clear Screen] Run on Android",
             "type": "shell",
-            "command": "cargo build --bin engine_app",
-            "group": "build"
+            "command": "adb shell am start -n de.sakulflee.akimoproject.example.clear_screen/android.app.NativeActivity; adb logcat -e de.sakulflee.akimoproject.example.clear_screen",
+            "group": "test",
+            "dependsOn": "[Example: Clear Screen] Install on Android"
         },
         {
-            "label": "[Engine App] Build (Release)",
+            "label": "[Example: Triangle] Install on Android",
             "type": "shell",
-            "command": "cargo build --bin engine_app --release",
-            "group": "build"
+            "command": "./gradlew installDebug",
+            "group": "test",
+            "options": {"cwd": "Examples/Triangle/android"}
+        },
+        {
+            "label": "[Example: Triangle] Run on Android",
+            "type": "shell",
+            "command": "adb shell am start -n de.sakulflee.akimoproject.example.triangle/android.app.NativeActivity; adb logcat -e de.sakulflee.akimoproject.example.triangle",
+            "group": "test",
+            "dependsOn": "[Example: Triangle] Install on Android"
         },
         // --- Tests ---
         {

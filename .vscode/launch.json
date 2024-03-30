@@ -1,17 +1,56 @@
 {
     "configurations": [
-    {
-        "type": "lldb",
-        "request": "launch",
-        "name": "Engine App",
-        "cargo": {
-            "args": [
-                "build",
-                "--bin",
-                "engine_app"
-            ]
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Example: Clear Screen",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin",
+                    "clear_screen"
+                ]
+            },
+            "args": []
         },
-        "args": []
-    }
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Example: Triangle",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin",
+                    "triangle"
+                ]
+            },
+            "args": []
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Example: HelloCompute",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin",
+                    "hello_compute"
+                ]
+            },
+            "args": []
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Example: Mandelbrot",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin",
+                    "mandelbrot"
+                ]
+            },
+            "args": []
+        }
     ]
 }

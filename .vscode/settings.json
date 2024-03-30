@@ -5,20 +5,23 @@
         "bytemuck",
         "despawn",
         "despawned",
+        "gles",
         "hashbrown",
         "humantime",
         "icns",
+        "multisample",
         "multisampled",
+        "multiview",
         "recv",
         "sakulflee",
+        "srgb",
         "tokio",
         "unmap",
         "unmaps",
         "unorm",
+        "vsync",
         "wgpu",
         "wgsl",
         "winit"
-    ],
-    "rust-analyzer.cargo.autoreload": true,
-    "rust-analyzer.cargo.target": "wasm32-unknown-unknown"
+    ]
 }
