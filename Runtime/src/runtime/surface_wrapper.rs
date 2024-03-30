@@ -11,6 +11,12 @@ pub struct SurfaceWrapper {
     configuration: Option<SurfaceConfiguration>,
 }
 
+impl Default for SurfaceWrapper {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SurfaceWrapper {
     pub fn new() -> Self {
         Self {
@@ -36,7 +42,7 @@ impl SurfaceWrapper {
         let surface = self.surface.as_ref().unwrap();
 
         let mut configuration = surface
-            .get_default_config(&context.adapter(), window_size.width, window_size.height)
+            .get_default_config(context.adapter(), window_size.width, window_size.height)
             .expect("Surface isn't supported by adapter");
 
         // Add SRGB (view) format
@@ -56,13 +62,11 @@ impl SurfaceWrapper {
         configuration.height = size.height;
 
         let surface = self.surface.as_ref().unwrap();
-        surface.configure(&context.device(), &configuration);
+        surface.configure(context.device(), configuration);
     }
 
     pub fn acquire_next_frame(&mut self, context: &Context) -> Option<SurfaceTexture> {
-        if self.surface.is_none() {
-            return None;
-        }
+        self.surface.as_ref()?;
 
         let surface = self.surface.as_ref().unwrap();
 
@@ -72,7 +76,7 @@ impl SurfaceWrapper {
                 warn!("Surface next frame acquire failed: {}", e);
                 warn!("Reconfiguring and trying again ...");
 
-                surface.configure(&context.device(), self.configuration());
+                surface.configure(context.device(), self.configuration());
                 Some(
                     surface
                         .get_current_texture()

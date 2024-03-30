@@ -69,20 +69,20 @@ impl<'a> GPUBackend<'a> {
     ) -> Result<Surface<'a>, ConnectorError> {
         let surface = instance
             .create_surface(from_window)
-            .map_err(|e| ConnectorError::SurfaceError(e));
+            .map_err(ConnectorError::SurfaceError);
         debug!("Surface: {:#?}", surface);
 
         surface
     }
 
-    fn make_adapter<'surface>(
+    fn make_adapter(
         instance: &Instance,
-        compatible_surface: Option<&Surface<'surface>>,
+        compatible_surface: Option<&Surface<'_>>,
     ) -> Result<Adapter, ConnectorError> {
         let adapter = pollster::block_on(async {
             instance
                 .request_adapter(&RequestAdapterOptions {
-                    compatible_surface: compatible_surface,
+                    compatible_surface,
                     force_fallback_adapter: false,
                     power_preference: PowerPreference::HighPerformance,
                 })

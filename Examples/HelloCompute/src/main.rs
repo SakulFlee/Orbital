@@ -58,7 +58,7 @@ pub fn main() {
         .device()
         .create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Storage Buffer"),
-            contents: bytemuck::cast_slice(&numbers),
+            contents: bytemuck::cast_slice(numbers),
             usage: wgpu::BufferUsages::STORAGE
                 | wgpu::BufferUsages::COPY_DST
                 | wgpu::BufferUsages::COPY_SRC,
