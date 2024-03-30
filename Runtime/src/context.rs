@@ -1,5 +1,4 @@
-use std::sync::Arc;
-
+use crate::surface_wrapper::SurfaceWrapper;
 use log::info;
 use wgpu::{
     util::{
@@ -9,9 +8,6 @@ use wgpu::{
     Adapter, Device, DeviceDescriptor, Features, Instance, InstanceDescriptor, InstanceFlags,
     Limits, Queue,
 };
-use winit::window::Window;
-
-use crate::{app::App, surface_wrapper::SurfaceWrapper};
 
 pub struct Context {
     instance: Instance,

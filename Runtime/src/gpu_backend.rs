@@ -1,14 +1,9 @@
-use std::sync::Arc;
-
+use crate::{error::ConnectorError, logging::*};
 use wgpu::{
     Adapter, Backends, Device, DeviceDescriptor, Features, Instance, InstanceDescriptor, Limits,
     PowerPreference, Queue, RequestAdapterOptions, Surface, SurfaceConfiguration,
 };
-
-use crate::logging::*;
 use winit::window::Window;
-
-use crate::error::ConnectorError;
 
 #[derive(Debug)]
 pub struct GPUBackend<'a> {
