@@ -1,5 +1,4 @@
 use std::sync::Arc;
-
 use winit::{
     dpi::Size,
     event_loop::EventLoop,
