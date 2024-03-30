@@ -16,3 +16,5 @@ pub use resources::*;
 pub mod runtime;
 pub use runtime::*;
 
+pub mod gpu_backend;
+pub use gpu_backend::*;
