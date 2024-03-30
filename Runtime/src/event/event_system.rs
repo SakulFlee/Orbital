@@ -46,8 +46,7 @@ impl EventSystem {
 
     pub fn register_receiver(&mut self, identifier: String, entity_id: &Ulid) {
         if !self.receivers.contains_key(&identifier) {
-            let mut v: Vec<Ulid> = Vec::new();
-            v.push(*entity_id);
+            let v: Vec<Ulid> = vec![*entity_id];
 
             self.receivers.insert(identifier, v);
         } else {
