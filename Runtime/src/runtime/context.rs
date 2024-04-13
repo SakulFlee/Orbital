@@ -1,12 +1,13 @@
-use crate::surface_wrapper::SurfaceWrapper;
+use crate::runtime::surface_wrapper::SurfaceWrapper;
+use bytemuck::NoUninit;
 use log::info;
 use wgpu::{
     util::{
         backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env,
-        initialize_adapter_from_env_or_default,
+        initialize_adapter_from_env_or_default, BufferInitDescriptor, DeviceExt,
     },
-    Adapter, Device, DeviceDescriptor, Features, Instance, InstanceDescriptor, InstanceFlags,
-    Limits, Queue,
+    Adapter, Buffer, BufferUsages, Device, DeviceDescriptor, Features, Instance,
+    InstanceDescriptor, InstanceFlags, Limits, Queue,
 };
 
 pub struct Context {
@@ -55,6 +56,17 @@ impl Context {
             device,
             queue,
         }
+    }
+
+    pub fn make_buffer<T>(&self, label: Option<&str>, content: &[T], usage: BufferUsages) -> Buffer
+    where
+        T: NoUninit,
+    {
+        self.device().create_buffer_init(&BufferInitDescriptor {
+            label,
+            contents: bytemuck::cast_slice(content),
+            usage,
+        })
     }
 
     pub fn instance(&self) -> &Instance {

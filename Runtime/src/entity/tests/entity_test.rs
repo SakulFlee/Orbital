@@ -6,13 +6,14 @@ pub struct EntityTest {
     ulid: Ulid,
 }
 
-impl EntityTest {
-    pub fn new() -> Self {
+impl Entity for EntityTest {
+    fn new() -> Self
+    where
+        Self: Sized,
+    {
         Self { ulid: Ulid::new() }
     }
-}
 
-impl Entity for EntityTest {
     fn ulid(&self) -> &Ulid {
         &self.ulid
     }

@@ -18,19 +18,22 @@ pub struct EntityCountTest {
 }
 
 impl EntityCountTest {
-    pub fn new() -> Self {
-        Self {
-            ulid: Ulid::new(),
-            count: 0,
-        }
-    }
-
     pub fn counter(&self) -> u8 {
         self.count
     }
 }
 
 impl Entity for EntityCountTest {
+    fn new() -> Self
+    where
+        Self: Sized,
+    {
+        Self {
+            ulid: Ulid::new(),
+            count: 0,
+        }
+    }
+
     fn ulid(&self) -> &Ulid {
         &self.ulid
     }

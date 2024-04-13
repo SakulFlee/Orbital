@@ -1,4 +1,3 @@
-use crate::error::RuntimeError;
 use log::{debug, info, warn};
 use wgpu::TextureViewDescriptor;
 use winit::{
@@ -21,21 +20,22 @@ pub use window_wrapper::*;
 pub mod app;
 pub use app::*;
 
+use crate::error::Error;
+
 pub struct Runtime;
 
 impl Runtime {
     pub fn liftoff<AppImpl: App>(
         event_loop: EventLoop<()>,
         settings: RuntimeSettings,
-    ) -> Result<(), RuntimeError> {
-        debug!("LIFTOFF");
+    ) -> Result<(), Error> {
         pollster::block_on(Self::liftoff_async::<AppImpl>(event_loop, settings))
     }
 
     pub async fn liftoff_async<AppImpl: App>(
         event_loop: EventLoop<()>,
         settings: RuntimeSettings,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), Error> {
         info!("Akimo-Project: Runtime");
         info!("(C) SakulFlee 2024");
 
@@ -56,12 +56,7 @@ impl Runtime {
 
                     if app.is_none() {
                         info!("Bootstrapping app ...");
-                        app = Some(AppImpl::init(
-                            surface.configuration(),
-                            context.adapter(),
-                            context.device(),
-                            context.queue(),
-                        ));
+                        app = Some(AppImpl::init(surface.configuration(), &context));
                     }
                 }
                 Event::Suspended => surface.suspend(),
@@ -80,7 +75,7 @@ impl Runtime {
                             // Render!
                             app.as_mut()
                                 .expect("Redraw requested when app is none!")
-                                .render(&view, context.device(), context.queue());
+                                .render(&view, &context);
 
                             // Present the frame after rendering and inform the window about a redraw being needed
                             frame.present();
