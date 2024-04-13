@@ -3,35 +3,27 @@ name = "akimo_runtime"
 version = "0.1.0"
 edition = "2021"
 
-[features]
-default = ["engine"]
-engine = []
-include_examples = []
-example_clear_screen = ["include_examples"]
-example_triangle = ["include_examples"]
-
 [lib]
 crate-type = ["lib", "cdylib"]
 
 [dependencies]
-winit = { workspace = true }
-wgpu = { workspace = true, features = ["spirv", "glsl", "wgsl", "naga-ir"] }
-serde = { workspace = true, features = ["derive"] }
-log = { workspace = true }
-fern = { workspace = true }
-serde_json = { workspace = true }
-serde_derive = { workspace = true }
-ulid = { workspace = true }
-hashbrown = { workspace = true }
-humantime = { workspace = true }
-pollster = { workspace = true }
-
-[dev-dependencies]
-image = { workspace = true }
-flume = { workspace = true }
-bytemuck = { workspace = true }
-png = { workspace = true }
+wgpu = { version = "0.19.3", features = ["spirv", "glsl", "wgsl", "naga-ir"] }
+serde = { version = "1.0.174", features = ["derive"] }
+bytemuck = { version = "1.15.0", features = ["derive"] }
+winit = { version = "0.29.14" }
+log = { version = "0.4.21" }
+fern = { version = "0.6.2" }
+serde_json = { version = "1.0.103" }
+serde_derive = { version = "1.0.174" }
+ulid = { version = "1.1.2" }
+hashbrown = { version = "0.14.3" }
+humantime = { version = "2.1.0" }
+pollster = { version = "0.3.0" }
+image = { version = "0.25.0" }
+flume = { version = "0.11.0" }
+png = { version = "0.17.13" }
+nalgebra = { version = "0.32.5" }
 
 [target.'cfg(target_os = "android")'.dependencies]
-winit = { workspace = true, features = ["android-native-activity"] }
-android_logger = { workspace = true }
+winit = { version = "0.29.14", features = ["android-native-activity"] }
+android_logger = { version = "0.13.3" }

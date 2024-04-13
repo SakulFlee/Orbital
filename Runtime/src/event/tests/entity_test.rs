@@ -10,19 +10,22 @@ pub struct EntityTest {
 }
 
 impl EntityTest {
-    pub fn new() -> Self {
-        Self {
-            ulid: Ulid::new(),
-            success: false,
-        }
-    }
-
     pub fn success(&self) -> bool {
         self.success
     }
 }
 
 impl Entity for EntityTest {
+    fn new() -> Self
+    where
+        Self: Sized,
+    {
+        Self {
+            ulid: Ulid::new(),
+            success: false,
+        }
+    }
+
     fn ulid(&self) -> &Ulid {
         &self.ulid
     }
