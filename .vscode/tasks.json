@@ -1,49 +1,91 @@
 {
-    // See https://go.microsoft.com/fwlink/?LinkId=733558
-    // for the documentation about the tasks.json format
     "version": "2.0.0",
     "tasks": [
-        // --- Builds ---
         {
-            "label": "[Workspace] Build",
+            "label": "[Rust] Build Libraries (Akimo-Project + Example bindings for Android)",
+            "command": "cargo build --lib",
             "type": "shell",
-            "command": "cargo build --workspace",
+            "args": [],
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
             "group": "build"
         },
-        // --- Android Installs ---
         {
-            "label": "[Example: Clear Screen] Install on Android",
+            "label": "[Rust] Build Binaries (Desktop Examples)",
+            "command": "cargo build --bins",
             "type": "shell",
+            "args": [],
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "group": "build"
+        },
+        {
+            "label": "[Android] Build Apps",
+            "command": "./gradlew assembleDebug",
+            "type": "shell",
+            "args": [],
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "options": {
+                "cwd": "Android/"
+            },
+            "group": "build"
+        },
+        {
+            "label": "[Android] Install Apps",
             "command": "./gradlew installDebug",
-            "group": "test",
-            "options": {"cwd": "Examples/ClearScreen/android"}
+            "type": "shell",
+            "args": [],
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "options": {
+                "cwd": "Android/"
+            },
+            "group": "test"
         },
         {
-            "label": "[Example: Clear Screen] Run on Android",
+            "label": "[Android] LogCat filter",
+            "command": "adb logcat -e de.sakulflee.akimoproject.",
             "type": "shell",
-            "command": "adb shell am start -n de.sakulflee.akimoproject.example.clear_screen/android.app.NativeActivity; adb logcat -e de.sakulflee.akimoproject.example.clear_screen",
-            "group": "test",
-            "dependsOn": "[Example: Clear Screen] Install on Android"
+            "args": [],
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "options": {
+                "cwd": "Android/"
+            },
+            "group": "test"
         },
         {
-            "label": "[Example: Triangle] Install on Android",
-            "type": "shell",
-            "command": "./gradlew installDebug",
-            "group": "test",
-            "options": {"cwd": "Examples/Triangle/android"}
-        },
-        {
-            "label": "[Example: Triangle] Run on Android",
-            "type": "shell",
-            "command": "adb shell am start -n de.sakulflee.akimoproject.example.triangle/android.app.NativeActivity; adb logcat -e de.sakulflee.akimoproject.example.triangle",
-            "group": "test",
-            "dependsOn": "[Example: Triangle] Install on Android"
-        },
-        // --- Tests ---
-        {
-            "label": "[Workspace] Test",
-            "type": "shell",
+            "label": "[Rust] Test",
             "command": "cargo test --workspace",
+            "type": "shell",
+            "args": [],
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
             "group": "test"
         }
     ]

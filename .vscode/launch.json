@@ -1,17 +1,41 @@
 {
+    "version": "0.2.0",
     "configurations": [
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Example: Clear Screen",
+            "name": "Example: ClearScreen",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin",
-                    "clear_screen"
-                ]
+                    "--bin=example_clear_screen",
+                    "--package=example_clear_screen"
+                ],
+                "filter": {
+                    "name": "example_clear_screen",
+                    "kind": "bin"
+                }
             },
-            "args": []
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Example: RenderServerTriangle",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=example_render_server_triangle",
+                    "--package=example_render_server_triangle"
+                ],
+                "filter": {
+                    "name": "example_render_server_triangle",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
         },
         {
             "type": "lldb",
@@ -20,37 +44,16 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--bin",
-                    "triangle"
-                ]
+                    "--bin=example_triangle",
+                    "--package=example_triangle"
+                ],
+                "filter": {
+                    "name": "example_triangle",
+                    "kind": "bin"
+                }
             },
-            "args": []
+            "args": [],
+            "cwd": "${workspaceFolder}"
         },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Example: HelloCompute",
-            "cargo": {
-                "args": [
-                    "build",
-                    "--bin",
-                    "hello_compute"
-                ]
-            },
-            "args": []
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Example: Mandelbrot",
-            "cargo": {
-                "args": [
-                    "build",
-                    "--bin",
-                    "mandelbrot"
-                ]
-            },
-            "args": []
-        }
     ]
 }
