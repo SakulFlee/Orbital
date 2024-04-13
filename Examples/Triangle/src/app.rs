@@ -1,9 +1,11 @@
-use akimo_runtime::app::App;
-use wgpu::{
-    Adapter, Color, CommandEncoderDescriptor, Device, FragmentState, LoadOp, MultisampleState,
-    Operations, PipelineLayoutDescriptor, PrimitiveState, Queue, RenderPassColorAttachment,
-    RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor, ShaderModuleDescriptor,
-    ShaderSource, StoreOp, SurfaceConfiguration, TextureView, VertexState,
+use akimo_runtime::{
+    runtime::{App, Context},
+    wgpu::{
+        Color, CommandEncoderDescriptor, FragmentState, LoadOp, MultisampleState, Operations,
+        PipelineLayoutDescriptor, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
+        RenderPipeline, RenderPipelineDescriptor, ShaderModuleDescriptor, ShaderSource, StoreOp,
+        SurfaceConfiguration, TextureView, VertexState,
+    },
 };
 
 pub struct TriangleApp {
@@ -17,44 +19,45 @@ pub struct TriangleApp {
 }
 
 impl App for TriangleApp {
-    fn init(
-        config: &SurfaceConfiguration,
-        _adapter: &Adapter,
-        device: &Device,
-        _queue: &Queue,
-    ) -> Self
+    fn init(config: &SurfaceConfiguration, context: &Context) -> Self
     where
         Self: Sized,
     {
-        let shader = device.create_shader_module(ShaderModuleDescriptor {
-            label: None,
-            source: ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
-        });
+        let shader = context
+            .device()
+            .create_shader_module(ShaderModuleDescriptor {
+                label: None,
+                source: ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
+            });
 
-        let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
-            label: None,
-            bind_group_layouts: &[],
-            push_constant_ranges: &[],
-        });
+        let pipeline_layout = context
+            .device()
+            .create_pipeline_layout(&PipelineLayoutDescriptor {
+                label: None,
+                bind_group_layouts: &[],
+                push_constant_ranges: &[],
+            });
 
-        let pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: None,
-            layout: Some(&pipeline_layout),
-            vertex: VertexState {
-                module: &shader,
-                entry_point: "vs_main",
-                buffers: &[],
-            },
-            fragment: Some(FragmentState {
-                module: &shader,
-                entry_point: "fs_main",
-                targets: &[Some(config.format.into())],
-            }),
-            primitive: PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: MultisampleState::default(),
-            multiview: None,
-        });
+        let pipeline = context
+            .device()
+            .create_render_pipeline(&RenderPipelineDescriptor {
+                label: None,
+                layout: Some(&pipeline_layout),
+                vertex: VertexState {
+                    module: &shader,
+                    entry_point: "vs_main",
+                    buffers: &[],
+                },
+                fragment: Some(FragmentState {
+                    module: &shader,
+                    entry_point: "fs_main",
+                    targets: &[Some(config.format.into())],
+                }),
+                primitive: PrimitiveState::default(),
+                depth_stencil: None,
+                multisample: MultisampleState::default(),
+                multiview: None,
+            });
 
         Self {
             // Note: Check variable description in struct declaration!
@@ -65,7 +68,7 @@ impl App for TriangleApp {
         }
     }
 
-    fn resize(&mut self, _config: &SurfaceConfiguration, _device: &Device, _queue: &Queue) {
+    fn resize(&mut self, _config: &SurfaceConfiguration, _context: &Context) {
         // Nothing needed for this example!
         // Later, this should be used to update the uniform buffer matrix.
     }
@@ -75,8 +78,10 @@ impl App for TriangleApp {
         // All events that we care about are already taken care of.
     }
 
-    fn render(&mut self, view: &TextureView, device: &Device, queue: &Queue) {
-        let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor { label: None });
+    fn render(&mut self, view: &TextureView, context: &Context) {
+        let mut encoder = context
+            .device()
+            .create_command_encoder(&CommandEncoderDescriptor { label: None });
 
         {
             let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
@@ -97,6 +102,6 @@ impl App for TriangleApp {
             render_pass.draw(0..3, 0..1);
         }
 
-        queue.submit(Some(encoder.finish()));
+        context.queue().submit(Some(encoder.finish()));
     }
 }
