@@ -1,5 +1,5 @@
-use crate::entrypoint;
-use winit::{
+use crate::entrypoint::entrypoint;
+use akimo_runtime::winit::{
     event_loop::EventLoopBuilder,
     platform::android::{activity::AndroidApp, EventLoopBuilderExtAndroid},
 };

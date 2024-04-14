@@ -12,16 +12,20 @@
         "multisample",
         "multisampled",
         "multiview",
+        "nalgebra",
         "recv",
+        "repr",
         "sakulflee",
         "srgb",
         "tokio",
+        "uninit",
         "unmap",
         "unmaps",
         "unorm",
         "vsync",
         "wgpu",
         "wgsl",
-        "winit"
+        "winit",
+        "zeroable"
     ]
 }
