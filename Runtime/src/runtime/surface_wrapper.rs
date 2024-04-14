@@ -4,7 +4,7 @@ use log::{info, warn};
 use wgpu::{Surface, SurfaceConfiguration, SurfaceTexture};
 use winit::{dpi::PhysicalSize, window::Window};
 
-use crate::context::Context;
+use crate::runtime::Context;
 
 pub struct SurfaceWrapper {
     surface: Option<Surface<'static>>,

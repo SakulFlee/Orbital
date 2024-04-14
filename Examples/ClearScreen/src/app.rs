@@ -1,6 +1,9 @@
-use wgpu::{
-    Adapter, Color, CommandEncoderDescriptor, Device, LoadOp, Operations, Queue,
-    RenderPassColorAttachment, RenderPassDescriptor, StoreOp, SurfaceConfiguration, TextureView,
+use akimo_runtime::{
+    runtime::{App, Context},
+    wgpu::{
+        Color, CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment,
+        RenderPassDescriptor, StoreOp, SurfaceConfiguration, TextureView,
+    },
 };
 
 enum Channel {
@@ -9,18 +12,13 @@ enum Channel {
     B,
 }
 
-pub struct App {
+pub struct ClearScreenApp {
     color: Color,
     decrement: Channel,
 }
 
-impl akimo_runtime::app::App for App {
-    fn init(
-        _config: &SurfaceConfiguration,
-        _adapter: &Adapter,
-        _device: &Device,
-        _queue: &Queue,
-    ) -> Self
+impl App for ClearScreenApp {
+    fn init(_config: &SurfaceConfiguration, _context: &Context) -> Self
     where
         Self: Sized,
     {
@@ -35,7 +33,7 @@ impl akimo_runtime::app::App for App {
         }
     }
 
-    fn resize(&mut self, _config: &SurfaceConfiguration, _device: &Device, _queue: &Queue) {
+    fn resize(&mut self, _config: &SurfaceConfiguration, _context: &Context) {
         // Nothing needed for this example!
         // Later, this should be used to update the uniform buffer matrix.
     }
@@ -82,8 +80,10 @@ impl akimo_runtime::app::App for App {
         }
     }
 
-    fn render(&mut self, view: &TextureView, device: &Device, queue: &Queue) {
-        let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor { label: None });
+    fn render(&mut self, view: &TextureView, context: &Context) {
+        let mut encoder = context
+            .device()
+            .create_command_encoder(&CommandEncoderDescriptor { label: None });
 
         {
             let mut _render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
@@ -102,6 +102,6 @@ impl akimo_runtime::app::App for App {
             });
         }
 
-        queue.submit(Some(encoder.finish()));
+        context.queue().submit(Some(encoder.finish()));
     }
 }

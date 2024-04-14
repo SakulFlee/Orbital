@@ -1,20 +1,11 @@
 [package]
-name = "clear_screen"
+name = "example_clear_screen"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [lib]
-crate-type = ["lib", "cdylib"]
+name = "app_example_clear_screen"
+crate-type = ["cdylib", "lib"]
 
 [dependencies]
-akimo_runtime = { workspace = true }
-
-log = { workspace = true }
-winit = { workspace = true }
-wgpu = { workspace = true }
-
-[target.'cfg(target_os = "android")'.dependencies]
-android_logger = { workspace = true }
-winit = { workspace = true, features = ["android-native-activity"] }
+akimo_runtime = { path = "../../Runtime/" }

@@ -1,6 +1,5 @@
 use winit::dpi::{PhysicalSize, Size};
 
-#[derive(Debug)]
 pub struct RuntimeSettings {
     pub name: String,
     pub size: Size,
