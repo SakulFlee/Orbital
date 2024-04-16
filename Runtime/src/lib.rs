@@ -6,5 +6,6 @@ pub mod nalgebra;
 pub mod render_server;
 pub mod resources;
 pub mod runtime;
+pub mod shader;
 pub mod wgpu;
 pub mod winit;
