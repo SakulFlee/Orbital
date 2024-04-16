@@ -1,7 +1,7 @@
 use log::info;
 use ulid::Ulid;
 use wgpu::{
-    include_wgsl, BlendState, Color, ColorTargetState, ColorWrites, CommandEncoderDescriptor, Face,
+    BlendState, Color, ColorTargetState, ColorWrites, CommandEncoderDescriptor, Face,
     FragmentState, FrontFace, IndexFormat, LoadOp, MultisampleState, Operations,
     PipelineLayoutDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology,
     RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
@@ -11,6 +11,7 @@ use wgpu::{
 use crate::{
     resources::{Mesh, Resource, Vertex},
     runtime::Context,
+    shader::{Shader, ShaderType},
 };
 
 pub struct RenderServer {
@@ -30,9 +31,12 @@ impl RenderServer {
         context: &Context,
         surface_texture_format: TextureFormat,
     ) -> RenderPipeline {
-        let shader = context
-            .device()
-            .create_shader_module(include_wgsl!("shader.wgsl"));
+        let shader = Shader::from_file(
+            "Shaders/undefined_shader.wgsl",
+            ShaderType::WGSL(Some("Main Shader")),
+            context,
+        )
+        .expect("Failed loading shader");
 
         let layout = context
             .device()
@@ -48,12 +52,12 @@ impl RenderServer {
                 label: Some("Render Pipeline"),
                 layout: Some(&layout),
                 vertex: VertexState {
-                    module: &shader,
+                    module: &shader.module(),
                     entry_point: "main_vs",
                     buffers: &[Vertex::descriptor()],
                 },
                 fragment: Some(FragmentState {
-                    module: &shader,
+                    module: &shader.module(),
                     entry_point: "main_fs",
                     targets: &[Some(ColorTargetState {
                         format: surface_texture_format,
