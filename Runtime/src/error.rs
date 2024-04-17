@@ -10,4 +10,5 @@ pub enum Error {
     SurfaceError(CreateSurfaceError),
     EventLoopError(EventLoopError),
     MutexPoisonError(String),
+    IOError(std::io::Error),
 }
