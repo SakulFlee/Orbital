@@ -6,8 +6,11 @@ pub use vertex::*;
 pub mod mesh;
 pub use mesh::*;
 
-pub trait Resource {
-    fn ulid(&self) -> &Ulid;
+pub mod model;
+pub use model::*;
 
-    fn set_ulid(&mut self, ulid: Ulid);
-}
+pub mod material;
+pub use material::*;
+
+pub mod pipeline;
+pub use pipeline::*;
