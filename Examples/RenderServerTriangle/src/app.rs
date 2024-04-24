@@ -1,7 +1,7 @@
 use akimo_runtime::{
     nalgebra::Vector3,
     render_server::RenderServer,
-    resources::{Mesh, Vertex},
+    resources::{DummyMaterial, Mesh, Model, Vertex},
     runtime::{App, Context},
     wgpu::{SurfaceConfiguration, TextureView},
 };
@@ -27,11 +27,15 @@ impl App for RenderServerTriangleApp {
             },
         ];
         let indices = vec![0, 1, 2];
-
         let mesh = Mesh::from_vertex_index(context, vertices, indices);
 
+        let dummy_material = DummyMaterial {};
+        let material = Box::new(dummy_material);
+
+        let model = Model::new(mesh, material);
+
         let mut render_server = RenderServer::new(context, config.format);
-        render_server.add_mesh(mesh);
+        render_server.add_model(model);
 
         Self { render_server }
     }
@@ -41,6 +45,7 @@ impl App for RenderServerTriangleApp {
     fn update(&mut self) {}
 
     fn render(&mut self, view: &TextureView, context: &Context) {
+        self.render_server.prepare(context);
         self.render_server.render(view, context);
     }
 }
