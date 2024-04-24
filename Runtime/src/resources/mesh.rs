@@ -1,11 +1,9 @@
+use super::{Vertex, VertexRaw};
+use crate::runtime::Context;
 use ulid::Ulid;
 use wgpu::{Buffer, BufferUsages};
 
-use super::{Resource, Vertex, VertexRaw};
-use crate::runtime::Context;
-
 pub struct Mesh {
-    ulid: Ulid,
     vertex_buffer: Buffer,
     index_buffer: Buffer,
     index_count: u32,
@@ -53,7 +51,6 @@ impl Mesh {
         index_count: u32,
     ) -> Self {
         Self {
-            ulid: ulid.unwrap_or(Ulid::new()),
             vertex_buffer,
             index_buffer,
             index_count,
@@ -70,15 +67,5 @@ impl Mesh {
 
     pub fn index_count(&self) -> u32 {
         self.index_count
-    }
-}
-
-impl Resource for Mesh {
-    fn ulid(&self) -> &Ulid {
-        &self.ulid
-    }
-
-    fn set_ulid(&mut self, ulid: Ulid) {
-        self.ulid = ulid;
     }
 }
