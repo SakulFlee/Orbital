@@ -11,12 +11,16 @@ pub enum ShaderType<'a> {
 
 pub struct Shader {
     shader_module: ShaderModule,
+    entrypoint_vertex: String,
+    entrypoint_fragment: Option<String>,
 }
 
 impl Shader {
     pub fn from_file<S: Into<String>>(
         path: S,
         shader_type: ShaderType,
+        entrypoint_vertex: String,
+        entrypoint_fragment: Option<String>,
         context: &Context,
     ) -> Result<Self, Error> {
         const IMPORT_STATEMENT: &'static str = "#import";
@@ -78,12 +82,20 @@ impl Shader {
         #[cfg(debug_assertions)]
         debug!("Shader result:\n---\n{final_result}---");
 
-        Ok(Self::from_source_string(final_result, shader_type, context))
+        Ok(Self::from_source_string(
+            final_result,
+            shader_type,
+            entrypoint_vertex,
+            entrypoint_fragment,
+            context,
+        ))
     }
 
     pub fn from_source_string(
         source_string: String,
         shader_type: ShaderType,
+        entrypoint_vertex: String,
+        entrypoint_fragment: Option<String>,
         context: &Context,
     ) -> Self {
         let shader_module: ShaderModule = match shader_type {
@@ -97,10 +109,22 @@ impl Shader {
             }
         };
 
-        Self { shader_module }
+        Self {
+            shader_module,
+            entrypoint_vertex,
+            entrypoint_fragment,
+        }
     }
 
     pub fn module(&self) -> &ShaderModule {
         &self.shader_module
+    }
+
+    pub fn entrypoint_vertex(&self) -> &String {
+        &self.entrypoint_vertex
+    }
+
+    pub fn entrypoint_fragment(&self) -> Option<&String> {
+        self.entrypoint_fragment.as_ref()
     }
 }
