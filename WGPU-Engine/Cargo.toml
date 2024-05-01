@@ -11,7 +11,7 @@ toml = "0.8.2"
 serde = { version = "1.0", features = ["derive"] }
 fern = "0.6"
 humantime = "2.1"
-bytemuck = { version = "1.14", features = ["derive"] }
+bytemuck = { version = "1.15.0", features = ["derive"] }
 image = "0.24"
 cgmath = "0.18"
 tobj = { version = "4.0.0", features = ["ahash", "log"] }
