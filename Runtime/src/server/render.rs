@@ -15,6 +15,8 @@ pub struct RenderServer {
     surface_texture_format: TextureFormat,
 }
 
+// TODO: Make descriptors work! :)
+
 impl RenderServer {
     pub fn new(context: &Context, surface_texture_format: TextureFormat) -> Self {
         Self {
@@ -46,6 +48,7 @@ impl RenderServer {
         }
     }
 
+    // TODO
     pub fn remove_mesh(&mut self, ulid: Ulid) {
         todo!()
         // if let Some(index) = self
