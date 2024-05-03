@@ -1,5 +1,7 @@
 use image::{DynamicImage, GenericImageView};
 use log::warn;
+use wgpu::Texture as WTexture;
+use wgpu::TextureDescriptor as WTextureDescriptor;
 use wgpu::{
     AddressMode, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout, Origin3d, Sampler,
     SamplerDescriptor, TextureAspect, TextureDimension, TextureFormat, TextureUsages, TextureView,
@@ -9,13 +11,13 @@ use wgpu::{
 use crate::{resources::TextureDescriptor, runtime::Context};
 
 pub struct Texture {
-    texture: wgpu::Texture,
+    texture: WTexture,
     view: TextureView,
     sampler: Sampler,
 }
 
 impl Texture {
-    pub fn from_descriptor(descriptor: TextureDescriptor, context: &Context) -> Self {
+    pub fn from_descriptor(descriptor: &TextureDescriptor, context: &Context) -> Self {
         match descriptor {
             TextureDescriptor::StandardSRGBu8Image(image) => {
                 Self::standard_srgb8_image(&image, context)
@@ -39,15 +41,15 @@ impl Texture {
     pub fn standard_srgb8_image(image: &DynamicImage, context: &Context) -> Self {
         Self::standard_srgb8_data(
             &image.to_rgba8(),
-            (image.dimensions().0, image.dimensions().1),
+            &(image.dimensions().0, image.dimensions().1),
             context,
         )
     }
 
-    pub fn standard_srgb8_data(data: &[u8], size: (u32, u32), context: &Context) -> Self {
+    pub fn standard_srgb8_data(data: &[u8], size: &(u32, u32), context: &Context) -> Self {
         Self::from_data_srgb8(
             data,
-            &wgpu::TextureDescriptor {
+            &WTextureDescriptor {
                 label: Some("Standard SRGB u8 Data Texture"),
                 size: Extent3d {
                     width: size.0,
@@ -58,7 +60,7 @@ impl Texture {
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: TextureFormat::Rgba8UnormSrgb,
-                usage: TextureUsages::all(),
+                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
                 view_formats: &[],
             },
             &TextureViewDescriptor::default(),
@@ -77,7 +79,7 @@ impl Texture {
 
     pub fn from_image_srgb8(
         image: DynamicImage,
-        texture_desc: &wgpu::TextureDescriptor,
+        texture_desc: &WTextureDescriptor,
         view_desc: &TextureViewDescriptor,
         sampler_desc: &SamplerDescriptor,
         context: &Context,
@@ -99,7 +101,7 @@ impl Texture {
 
     pub fn from_data_srgb8(
         data: &[u8],
-        texture_desc: &wgpu::TextureDescriptor,
+        texture_desc: &WTextureDescriptor,
         view_desc: &TextureViewDescriptor,
         sampler_desc: &SamplerDescriptor,
         context: &Context,
@@ -128,7 +130,7 @@ impl Texture {
     }
 
     pub fn from_descriptors(
-        texture_desc: &wgpu::TextureDescriptor,
+        texture_desc: &WTextureDescriptor,
         view_desc: &TextureViewDescriptor,
         sampler_desc: &SamplerDescriptor,
         context: &Context,
@@ -140,7 +142,7 @@ impl Texture {
         Self::from_existing(texture, view, sampler)
     }
 
-    pub fn from_existing(texture: wgpu::Texture, view: TextureView, sampler: Sampler) -> Self {
+    pub fn from_existing(texture: WTexture, view: TextureView, sampler: Sampler) -> Self {
         Self {
             texture,
             view,
@@ -148,7 +150,7 @@ impl Texture {
         }
     }
 
-    pub fn texture(&self) -> &wgpu::Texture {
+    pub fn texture(&self) -> &WTexture {
         &self.texture
     }
 

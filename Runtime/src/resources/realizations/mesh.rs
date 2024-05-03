@@ -12,7 +12,7 @@ pub struct Mesh {
 }
 
 impl Mesh {
-    pub fn from_descriptor(descriptor: MeshDescriptor, context: &Context) -> Self {
+    pub fn from_descriptor(descriptor: &MeshDescriptor, context: &Context) -> Self {
         let vertex_data: Vec<VertexUniform> =
             descriptor.vertices.iter().map(|x| x.into()).collect();
 

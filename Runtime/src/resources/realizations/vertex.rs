@@ -1,5 +1,6 @@
 use crate::{nalgebra::Vector3, resources::uniforms::VertexUniform};
 
+#[derive(Debug, Clone)]
 pub struct Vertex {
     pub position_coordinates: Vector3<f32>,
 }

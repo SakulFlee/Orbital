@@ -9,3 +9,4 @@ crate-type = ["cdylib", "lib"]
 
 [dependencies]
 akimo_runtime = { path = "../../Runtime/" }
+image = "0.25.1"

@@ -1,7 +1,7 @@
 use wgpu::{
     BindGroupLayout, BlendState, ColorTargetState, ColorWrites, FragmentState, MultisampleState,
     PipelineLayoutDescriptor, PrimitiveState, RenderPipeline, RenderPipelineDescriptor,
-    TextureFormat, VertexBufferLayout, VertexState,
+    TextureFormat, VertexState,
 };
 
 use crate::{
@@ -11,19 +11,19 @@ use crate::{
 };
 
 pub struct Pipeline {
-    identifier: &'static str,
-    pipeline: RenderPipeline,
+    identifier: String,
+    render_pipeline: RenderPipeline,
     shader: Shader,
 }
 
 impl Pipeline {
     pub fn from_descriptor(
-        pipeline_descriptor: PipelineDescriptor,
+        pipeline_descriptor: &PipelineDescriptor,
         surface_format: TextureFormat,
         context: &Context,
     ) -> Result<Self, Error> {
         let mut bind_group_layouts = Vec::<BindGroupLayout>::new();
-        for bind_group_layout_descriptor in pipeline_descriptor.bind_group_descriptors {
+        for bind_group_layout_descriptor in &pipeline_descriptor.bind_group_descriptors {
             bind_group_layouts.push(
                 context
                     .device()
@@ -46,12 +46,12 @@ impl Pipeline {
                     push_constant_ranges: &[],
                 });
 
-        let shader = Shader::from_descriptor(pipeline_descriptor.shader_descriptor, context)?;
+        let shader = Shader::from_descriptor(&pipeline_descriptor.shader_descriptor, context)?;
 
         let pipeline = context
             .device()
             .create_render_pipeline(&RenderPipelineDescriptor {
-                label: Some(pipeline_descriptor.identifier),
+                label: Some(&pipeline_descriptor.identifier),
                 layout: Some(&render_pipeline_layout),
                 vertex: VertexState {
                     module: shader.shader_module(),
@@ -82,9 +82,21 @@ impl Pipeline {
             });
 
         Ok(Self {
-            identifier: pipeline_descriptor.identifier,
-            pipeline,
+            identifier: pipeline_descriptor.identifier.clone(),
+            render_pipeline: pipeline,
             shader,
         })
+    }
+
+    pub fn identifier(&self) -> &str {
+        &self.identifier
+    }
+
+    pub fn render_pipeline(&self) -> &RenderPipeline {
+        &self.render_pipeline
+    }
+
+    pub fn shader(&self) -> &Shader {
+        &self.shader
     }
 }

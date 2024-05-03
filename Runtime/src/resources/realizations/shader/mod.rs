@@ -1,8 +1,3 @@
-//! Testing
-//! Something
-//! here
-//! TODO
-
 use std::fs;
 
 use phf_macros::phf_map;
@@ -60,13 +55,13 @@ static SHADER_LIB: phf::Map<&'static str, &'static str> = phf_map! {
 };
 
 pub struct Shader {
-    identifier: &'static str,
+    identifier: String,
     shader_module: ShaderModule,
 }
 
 impl Shader {
     pub fn from_descriptor(
-        shader_descriptor: ShaderDescriptor,
+        shader_descriptor: &ShaderDescriptor,
         context: &Context,
     ) -> Result<Self, Error> {
         let source = match shader_descriptor.source {
@@ -81,12 +76,12 @@ impl Shader {
         let shader_module = context
             .device()
             .create_shader_module(ShaderModuleDescriptor {
-                label: Some(shader_descriptor.identifier),
+                label: Some(&shader_descriptor.identifier),
                 source: wgpu::ShaderSource::Wgsl(source.into()),
             });
 
         Ok(Self {
-            identifier: shader_descriptor.identifier,
+            identifier: shader_descriptor.identifier.clone(),
             shader_module,
         })
     }
@@ -107,7 +102,7 @@ impl Shader {
                 to_be_imported.push(import);
             } else {
                 // Non-matches simply get added to our result
-                result.push_str(line);
+                result.push_str(&format!("{line}\n"));
             }
         }
 
@@ -127,25 +122,25 @@ impl Shader {
         let import_source = if SHADER_LIB.contains_key(import_statement) {
             // We found a shader library import!
             // Simply reference the PHF map entry ...
-            SHADER_LIB[import_statement]
+            SHADER_LIB[import_statement].to_string()
         } else {
             // Otherwise, we need to try and read a file
             // This only works if the file exists and can be found of course!
-            &fs::read_to_string(import_statement).map_err(|e| Error::IOError(e))?
+            fs::read_to_string(import_statement).map_err(|e| Error::IOError(e))?
         };
 
         // Now parse the source code to check for further imports and return
-        Ok(Self::parse_shader_source_string(import_source)?)
+        Ok(Self::parse_shader_source_string(&import_source)?)
     }
 
-    pub fn from_existing(identifier: &'static str, shader_module: ShaderModule) -> Self {
+    pub fn from_existing<S: Into<String>>(identifier: S, shader_module: ShaderModule) -> Self {
         Self {
-            identifier,
+            identifier: identifier.into(),
             shader_module,
         }
     }
 
-    pub fn identifier(&self) -> &'static str {
+    pub fn identifier(&self) -> &str {
         &self.identifier
     }
 

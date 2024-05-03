@@ -1,3 +1,4 @@
 struct FragmentData {
-    @builtin(position) clip_position: vec4<f32>,
+    @builtin(position) coordinate: vec4<f32>,
+    @location(0) vertex_color: vec3<f32>,
 }
