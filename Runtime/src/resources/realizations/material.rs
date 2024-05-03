@@ -11,14 +11,14 @@ use crate::{
 
 use super::Texture;
 
-pub struct Material<'a> {
+pub struct Material {
     bind_group: BindGroup,
     bind_group_layout: BindGroupLayout,
-    pipeline_descriptor: PipelineDescriptor<'a>,
+    pipeline_descriptor: PipelineDescriptor,
 }
 
-impl<'a> Material<'a> {
-    pub fn from_descriptor(descriptor: MaterialDescriptor, context: &Context) -> Self {
+impl Material {
+    pub fn from_descriptor(descriptor: &MaterialDescriptor, context: &Context) -> Self {
         match descriptor {
             MaterialDescriptor::PBR(albedo) => Self::standard_pbr(albedo, None, context),
             MaterialDescriptor::PBRCustomShader(albedo, shader_descriptor) => todo!(),
@@ -29,14 +29,14 @@ impl<'a> Material<'a> {
             ) => Self::from_descriptors(
                 bind_group_descriptor,
                 bind_group_layout_descriptor,
-                pipeline_descriptor,
+                pipeline_descriptor.clone(),
                 context,
             ),
         }
     }
 
     pub fn standard_pbr(
-        albedo_texture_descriptor: TextureDescriptor,
+        albedo_texture_descriptor: &TextureDescriptor,
         shader_descriptor: Option<ShaderDescriptor>,
         context: &Context,
     ) -> Self {
@@ -92,8 +92,8 @@ impl<'a> Material<'a> {
     }
 
     pub fn from_descriptors(
-        bind_group_descriptor: BindGroupDescriptor,
-        bind_group_layout_descriptor: BindGroupLayoutDescriptor,
+        bind_group_descriptor: &BindGroupDescriptor,
+        bind_group_layout_descriptor: &BindGroupLayoutDescriptor,
         pipeline_descriptor: PipelineDescriptor,
         context: &Context,
     ) -> Self {

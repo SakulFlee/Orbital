@@ -1,17 +1,20 @@
+use std::io::Cursor;
+
 use akimo_runtime::{
     nalgebra::Vector3,
-    render_server::RenderServer,
-    resources::{DummyMaterial, Mesh, Model, Vertex},
+    resources::{MaterialDescriptor, MeshDescriptor, ModelDescriptor, TextureDescriptor, Vertex},
     runtime::{App, Context},
+    server::RenderServer,
     wgpu::{SurfaceConfiguration, TextureView},
 };
+use image::io::Reader;
 
 pub struct RenderServerTriangleApp {
     render_server: RenderServer,
 }
 
 impl App for RenderServerTriangleApp {
-    fn init(config: &SurfaceConfiguration, context: &Context) -> Self
+    fn init(config: &SurfaceConfiguration, _context: &Context) -> Self
     where
         Self: Sized,
     {
@@ -27,15 +30,23 @@ impl App for RenderServerTriangleApp {
             },
         ];
         let indices = vec![0, 1, 2];
-        let mesh = Mesh::from_vertex_index(context, vertices, indices);
 
-        let dummy_material = DummyMaterial {};
-        let material = Box::new(dummy_material);
+        let mut render_server = RenderServer::new(config.format);
 
-        let model = Model::new(mesh, material);
-
-        let mut render_server = RenderServer::new(context, config.format);
-        render_server.add_model(model);
+        let texture = Reader::new(Cursor::new(include_bytes!("texture.png")))
+            .with_guessed_format()
+            .unwrap()
+            .decode()
+            .unwrap()
+            .as_bytes()
+            .to_vec();
+        render_server.spawn_model(ModelDescriptor {
+            mesh_descriptor: MeshDescriptor { vertices, indices },
+            material_descriptor: MaterialDescriptor::PBR(TextureDescriptor::StandardSRGBu8Data(
+                texture,
+                (800, 800),
+            )),
+        });
 
         Self { render_server }
     }

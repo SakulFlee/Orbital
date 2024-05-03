@@ -2,21 +2,21 @@ use wgpu::{BindGroupLayoutDescriptor, Face, FrontFace, PolygonMode, PrimitiveTop
 
 use super::ShaderDescriptor;
 
-#[derive(Debug)]
-pub struct PipelineDescriptor<'a> {
-    pub identifier: &'static str,
+#[derive(Debug, Clone)]
+pub struct PipelineDescriptor {
+    pub identifier: String,
     pub shader_descriptor: ShaderDescriptor,
-    pub bind_group_descriptors: Vec<BindGroupLayoutDescriptor<'a>>,
+    pub bind_group_descriptors: Vec<BindGroupLayoutDescriptor<'static>>,
     pub primitive_topology: PrimitiveTopology,
     pub front_face_order: FrontFace,
     pub cull_mode: Option<Face>,
     pub polygon_mode: PolygonMode,
 }
 
-impl<'a> Default for PipelineDescriptor<'a> {
+impl Default for PipelineDescriptor {
     fn default() -> Self {
         Self {
-            identifier: "default",
+            identifier: "default".into(),
             shader_descriptor: Default::default(),
             bind_group_descriptors: Default::default(),
             primitive_topology: Default::default(),
@@ -27,10 +27,10 @@ impl<'a> Default for PipelineDescriptor<'a> {
     }
 }
 
-impl<'a> PipelineDescriptor<'a> {
+impl PipelineDescriptor {
     pub fn default_with_shader(shader_descriptor: ShaderDescriptor) -> Self {
         Self {
-            identifier: &format!("{} Pipeline", shader_descriptor.identifier),
+            identifier: format!("{} Pipeline", shader_descriptor.identifier),
             shader_descriptor,
             ..Default::default()
         }

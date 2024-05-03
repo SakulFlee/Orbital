@@ -1,14 +1,12 @@
-use wgpu::{BindGroupDescriptor, BindGroupLayoutDescriptor};
-
 use super::{PipelineDescriptor, ShaderDescriptor, TextureDescriptor};
 
-#[derive(Debug)]
-pub enum MaterialDescriptor<'a> {
-    PBR(TextureDescriptor<'a>),
-    PBRCustomShader(TextureDescriptor<'a>, ShaderDescriptor),
+#[derive(Debug, Clone)]
+pub enum MaterialDescriptor {
+    PBR(TextureDescriptor),
+    PBRCustomShader(TextureDescriptor, ShaderDescriptor),
     Custom(
-        BindGroupDescriptor<'a>,
-        BindGroupLayoutDescriptor<'a>,
-        PipelineDescriptor<'a>,
+        wgpu::BindGroupDescriptor<'static>,
+        wgpu::BindGroupLayoutDescriptor<'static>,
+        PipelineDescriptor,
     ),
 }
