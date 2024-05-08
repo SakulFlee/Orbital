@@ -7,10 +7,16 @@ edition = "2021"
 crate-type = ["lib", "cdylib"]
 
 [dependencies]
-wgpu = { version = "0.19.3", features = ["spirv", "glsl", "wgsl", "naga-ir"] }
+wgpu = { version = "0.20.0", features = [
+    "spirv",
+    "glsl",
+    "wgsl",
+    "naga-ir",
+    "naga",
+] }
 serde = { version = "1.0.174", features = ["derive"] }
 bytemuck = { version = "1.15.0", features = ["derive"] }
-winit = { version = "0.29.14" }
+winit = { version = "0.30.0" }
 log = { version = "0.4.21" }
 fern = { version = "0.6.2" }
 serde_json = { version = "1.0.103" }
@@ -27,5 +33,5 @@ phf = { version = "0.11.2" }
 phf_macros = { version = "0.11.2" }
 
 [target.'cfg(target_os = "android")'.dependencies]
-winit = { version = "0.29.14", features = ["android-native-activity"] }
+winit = { version = "0.30.0", features = ["android-native-activity"] }
 android_logger = { version = "0.13.3" }

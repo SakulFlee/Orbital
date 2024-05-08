@@ -1,8 +1,8 @@
-use wgpu::{Buffer, BufferUsages};
+use wgpu::{Buffer, BufferUsages, Device, Queue};
 
 use crate::{
     resources::{descriptors::MeshDescriptor, uniforms::VertexUniform},
-    runtime::Context,
+    util::BufferUtil,
 };
 
 pub struct Mesh {
@@ -12,16 +12,16 @@ pub struct Mesh {
 }
 
 impl Mesh {
-    pub fn from_descriptor(descriptor: &MeshDescriptor, context: &Context) -> Self {
+    pub fn from_descriptor(descriptor: &MeshDescriptor, device: &Device, queue: &Queue) -> Self {
         let vertex_data: Vec<VertexUniform> =
             descriptor.vertices.iter().map(|x| x.into()).collect();
 
-        let vertex_buffer = context.make_buffer(
+        let vertex_buffer = device.make_buffer(
             Some(&format!("Mesh Vertex Buffer")),
             &vertex_data,
             BufferUsages::VERTEX,
         );
-        let index_buffer = context.make_buffer(
+        let index_buffer = device.make_buffer(
             Some(&format!("Mesh Index Buffer")),
             &descriptor.indices,
             BufferUsages::INDEX,
