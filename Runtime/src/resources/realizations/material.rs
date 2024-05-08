@@ -1,12 +1,11 @@
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingResource, BindingType, SamplerBindingType, ShaderStages,
-    TextureSampleType, TextureViewDimension,
+    BindGroupLayoutEntry, BindingResource, BindingType, Device, Queue, SamplerBindingType,
+    ShaderStages, TextureSampleType, TextureViewDimension,
 };
 
-use crate::{
-    resources::{MaterialDescriptor, PipelineDescriptor, ShaderDescriptor, TextureDescriptor},
-    runtime::Context,
+use crate::resources::{
+    MaterialDescriptor, PipelineDescriptor, ShaderDescriptor, TextureDescriptor,
 };
 
 use super::Texture;
@@ -18,9 +17,13 @@ pub struct Material {
 }
 
 impl Material {
-    pub fn from_descriptor(descriptor: &MaterialDescriptor, context: &Context) -> Self {
+    pub fn from_descriptor(
+        descriptor: &MaterialDescriptor,
+        device: &Device,
+        queue: &Queue,
+    ) -> Self {
         match descriptor {
-            MaterialDescriptor::PBR(albedo) => Self::standard_pbr(albedo, None, context),
+            MaterialDescriptor::PBR(albedo) => Self::standard_pbr(albedo, None, device, queue),
             MaterialDescriptor::PBRCustomShader(albedo, shader_descriptor) => todo!(),
             MaterialDescriptor::Custom(
                 bind_group_descriptor,
@@ -30,7 +33,8 @@ impl Material {
                 bind_group_descriptor,
                 bind_group_layout_descriptor,
                 pipeline_descriptor.clone(),
-                context,
+                device,
+                queue,
             ),
         }
     }
@@ -38,36 +42,34 @@ impl Material {
     pub fn standard_pbr(
         albedo_texture_descriptor: &TextureDescriptor,
         shader_descriptor: Option<ShaderDescriptor>,
-        context: &Context,
+        device: &Device,
+        queue: &Queue,
     ) -> Self {
-        let bind_group_layout =
-            context
-                .device()
-                .create_bind_group_layout(&BindGroupLayoutDescriptor {
-                    label: Some("Standard PBR"),
-                    entries: &[
-                        BindGroupLayoutEntry {
-                            binding: 0,
-                            visibility: ShaderStages::FRAGMENT,
-                            ty: BindingType::Texture {
-                                sample_type: TextureSampleType::Float { filterable: true },
-                                view_dimension: TextureViewDimension::D2,
-                                multisampled: false,
-                            },
-                            count: None,
-                        },
-                        BindGroupLayoutEntry {
-                            binding: 1,
-                            visibility: ShaderStages::FRAGMENT,
-                            ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                            count: None,
-                        },
-                    ],
-                });
+        let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            label: Some("Standard PBR"),
+            entries: &[
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ],
+        });
 
-        let albedo_texture = Texture::from_descriptor(albedo_texture_descriptor, context);
+        let albedo_texture = Texture::from_descriptor(albedo_texture_descriptor, device, queue);
 
-        let bind_group = context.device().create_bind_group(&BindGroupDescriptor {
+        let bind_group = device.create_bind_group(&BindGroupDescriptor {
             label: None,
             layout: &bind_group_layout,
             entries: &[
@@ -95,13 +97,12 @@ impl Material {
         bind_group_descriptor: &BindGroupDescriptor,
         bind_group_layout_descriptor: &BindGroupLayoutDescriptor,
         pipeline_descriptor: PipelineDescriptor,
-        context: &Context,
+        device: &Device,
+        queue: &Queue,
     ) -> Self {
-        let bind_group_layout = context
-            .device()
-            .create_bind_group_layout(&bind_group_layout_descriptor);
+        let bind_group_layout = device.create_bind_group_layout(&bind_group_layout_descriptor);
 
-        let bind_group = context.device().create_bind_group(&bind_group_descriptor);
+        let bind_group = device.create_bind_group(&bind_group_descriptor);
 
         Self::from_existing(bind_group, bind_group_layout, pipeline_descriptor)
     }

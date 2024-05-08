@@ -1,12 +1,14 @@
 use std::fs;
 
 use phf_macros::phf_map;
-use wgpu::{ShaderModule, ShaderModuleDescriptor};
+use wgpu::{
+    naga::{FastHashMap, ShaderStage},
+    Device, Queue, ShaderModule, ShaderModuleDescriptor,
+};
 
 use crate::{
     error::Error,
     resources::{ShaderDescriptor, ShaderSource},
-    runtime::Context,
 };
 
 /// Defines the import statement a line in the shader has to start with
@@ -62,7 +64,8 @@ pub struct Shader {
 impl Shader {
     pub fn from_descriptor(
         shader_descriptor: &ShaderDescriptor,
-        context: &Context,
+        device: &Device,
+        queue: &Queue,
     ) -> Result<Self, Error> {
         let source = match shader_descriptor.source {
             // If our source is a file, we can simply let the resolver function
@@ -73,12 +76,10 @@ impl Shader {
             ShaderSource::FromSourceString(source) => Self::parse_shader_source_string(source),
         }?;
 
-        let shader_module = context
-            .device()
-            .create_shader_module(ShaderModuleDescriptor {
-                label: Some(&shader_descriptor.identifier),
-                source: wgpu::ShaderSource::Wgsl(source.into()),
-            });
+        let shader_module = device.create_shader_module(ShaderModuleDescriptor {
+            label: Some(&shader_descriptor.identifier),
+            source: wgpu::ShaderSource::Wgsl(source.into()),
+        });
 
         Ok(Self {
             identifier: shader_descriptor.identifier.clone(),

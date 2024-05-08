@@ -1,6 +1,8 @@
 #import vertex_data
 #import fragment_data
 
+// TODO: Make textures work.
+
 @vertex
 fn entrypoint_vertex(
     in: VertexData

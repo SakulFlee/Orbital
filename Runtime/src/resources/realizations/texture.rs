@@ -1,5 +1,7 @@
 use image::{DynamicImage, GenericImageView};
 use log::warn;
+use wgpu::Device;
+use wgpu::Queue;
 use wgpu::Texture as WTexture;
 use wgpu::TextureDescriptor as WTextureDescriptor;
 use wgpu::{
@@ -8,7 +10,7 @@ use wgpu::{
     TextureViewDescriptor,
 };
 
-use crate::{resources::TextureDescriptor, runtime::Context};
+use crate::resources::TextureDescriptor;
 
 pub struct Texture {
     texture: WTexture,
@@ -17,13 +19,13 @@ pub struct Texture {
 }
 
 impl Texture {
-    pub fn from_descriptor(descriptor: &TextureDescriptor, context: &Context) -> Self {
+    pub fn from_descriptor(descriptor: &TextureDescriptor, device: &Device, queue: &Queue) -> Self {
         match descriptor {
             TextureDescriptor::StandardSRGBu8Image(image) => {
-                Self::standard_srgb8_image(&image, context)
+                Self::standard_srgb8_image(&image, device, queue)
             }
             TextureDescriptor::StandardSRGBu8Data(data, size) => {
-                Self::standard_srgb8_data(data, size, context)
+                Self::standard_srgb8_data(data, size, device, queue)
             }
             TextureDescriptor::Custom(
                 texture_descriptor,
@@ -33,20 +35,27 @@ impl Texture {
                 texture_descriptor,
                 texture_view_descriptor,
                 sampler_descriptor,
-                context,
+                device,
+                queue,
             ),
         }
     }
 
-    pub fn standard_srgb8_image(image: &DynamicImage, context: &Context) -> Self {
+    pub fn standard_srgb8_image(image: &DynamicImage, device: &Device, queue: &Queue) -> Self {
         Self::standard_srgb8_data(
             &image.to_rgba8(),
             &(image.dimensions().0, image.dimensions().1),
-            context,
+            device,
+            queue,
         )
     }
 
-    pub fn standard_srgb8_data(data: &[u8], size: &(u32, u32), context: &Context) -> Self {
+    pub fn standard_srgb8_data(
+        data: &[u8],
+        size: &(u32, u32),
+        device: &Device,
+        queue: &Queue,
+    ) -> Self {
         Self::from_data_srgb8(
             data,
             &WTextureDescriptor {
@@ -73,7 +82,8 @@ impl Texture {
                 min_filter: FilterMode::Nearest,
                 ..Default::default()
             },
-            context,
+            device,
+            queue,
         )
     }
 
@@ -82,7 +92,8 @@ impl Texture {
         texture_desc: &WTextureDescriptor,
         view_desc: &TextureViewDescriptor,
         sampler_desc: &SamplerDescriptor,
-        context: &Context,
+        device: &Device,
+        queue: &Queue,
     ) -> Self {
         if texture_desc.size.width != image.dimensions().0
             || texture_desc.size.height != image.dimensions().1
@@ -95,7 +106,8 @@ impl Texture {
             texture_desc,
             view_desc,
             sampler_desc,
-            context,
+            device,
+            queue,
         )
     }
 
@@ -104,11 +116,12 @@ impl Texture {
         texture_desc: &WTextureDescriptor,
         view_desc: &TextureViewDescriptor,
         sampler_desc: &SamplerDescriptor,
-        context: &Context,
+        device: &Device,
+        queue: &Queue,
     ) -> Self {
-        let texture = Self::from_descriptors(texture_desc, view_desc, sampler_desc, context);
+        let texture = Self::from_descriptors(texture_desc, view_desc, sampler_desc, device, queue);
 
-        context.queue().write_texture(
+        queue.write_texture(
             ImageCopyTexture {
                 texture: texture.texture(),
                 aspect: TextureAspect::All,
@@ -133,11 +146,12 @@ impl Texture {
         texture_desc: &WTextureDescriptor,
         view_desc: &TextureViewDescriptor,
         sampler_desc: &SamplerDescriptor,
-        context: &Context,
+        device: &Device,
+        _queue: &Queue,
     ) -> Self {
-        let texture = context.device().create_texture(&texture_desc);
+        let texture = device.create_texture(&texture_desc);
         let view = texture.create_view(&view_desc);
-        let sampler = context.device().create_sampler(&sampler_desc);
+        let sampler = device.create_sampler(&sampler_desc);
 
         Self::from_existing(texture, view, sampler)
     }

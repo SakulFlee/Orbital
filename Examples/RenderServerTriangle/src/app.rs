@@ -3,9 +3,9 @@ use std::io::Cursor;
 use akimo_runtime::{
     nalgebra::Vector3,
     resources::{MaterialDescriptor, MeshDescriptor, ModelDescriptor, TextureDescriptor, Vertex},
-    runtime::{App, Context},
+    runtime::App,
     server::RenderServer,
-    wgpu::{SurfaceConfiguration, TextureView},
+    wgpu::{Device, Queue, SurfaceConfiguration, TextureView},
 };
 use image::io::Reader;
 
@@ -14,7 +14,7 @@ pub struct RenderServerTriangleApp {
 }
 
 impl App for RenderServerTriangleApp {
-    fn init(config: &SurfaceConfiguration, _context: &Context) -> Self
+    fn init(config: &SurfaceConfiguration, _device: &Device, _queue: &Queue) -> Self
     where
         Self: Sized,
     {
@@ -51,12 +51,10 @@ impl App for RenderServerTriangleApp {
         Self { render_server }
     }
 
-    fn resize(&mut self, _config: &SurfaceConfiguration, _context: &Context) {}
-
     fn update(&mut self) {}
 
-    fn render(&mut self, view: &TextureView, context: &Context) {
-        self.render_server.prepare(context);
-        self.render_server.render(view, context);
+    fn render(&mut self, view: &TextureView, device: &Device, queue: &Queue) {
+        self.render_server.prepare(device, queue);
+        self.render_server.render(view, device, queue);
     }
 }

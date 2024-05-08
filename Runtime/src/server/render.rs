@@ -1,14 +1,11 @@
 use hashbrown::HashMap;
 use log::{debug, error};
 use wgpu::{
-    Color, CommandEncoderDescriptor, IndexFormat, LoadOp, Operations, RenderPassColorAttachment,
-    RenderPassDescriptor, StoreOp, TextureFormat, TextureView,
+    Color, CommandEncoderDescriptor, Device, IndexFormat, LoadOp, Operations, Queue,
+    RenderPassColorAttachment, RenderPassDescriptor, StoreOp, TextureFormat, TextureView,
 };
 
-use crate::{
-    resources::{Model, ModelDescriptor, Pipeline},
-    runtime::Context,
-};
+use crate::resources::{Model, ModelDescriptor, Pipeline};
 
 pub struct RenderServer {
     models: Vec<Model>,
@@ -39,13 +36,13 @@ impl RenderServer {
         todo!()
     }
 
-    pub fn prepare(&mut self, context: &Context) {
+    pub fn prepare(&mut self, device: &Device, queue: &Queue) {
         debug!("Models to spawn: {}", self.models_to_spawn.len());
 
         while !self.models_to_spawn.is_empty() {
             let model_descriptor = self.models_to_spawn.pop().unwrap();
 
-            let model = Model::from_descriptor(&model_descriptor, context);
+            let model = Model::from_descriptor(&model_descriptor, device, queue);
 
             if !self
                 .pipelines
@@ -54,7 +51,8 @@ impl RenderServer {
                 match Pipeline::from_descriptor(
                     model.material().pipeline_descriptor(),
                     self.surface_texture_format,
-                    context,
+                    device,
+                    queue,
                 ) {
                     Ok(pipeline) => {
                         self.pipelines.insert(
@@ -77,10 +75,8 @@ impl RenderServer {
         }
     }
 
-    pub fn render(&mut self, view: &TextureView, context: &Context) {
-        let mut encoder = context
-            .device()
-            .create_command_encoder(&CommandEncoderDescriptor { label: None });
+    pub fn render(&mut self, view: &TextureView, device: &Device, queue: &Queue) {
+        let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor { label: None });
         {
             let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
                 label: Some("Render Pass"),
@@ -115,6 +111,6 @@ impl RenderServer {
             }
         }
 
-        context.queue().submit(Some(encoder.finish()));
+        queue.submit(Some(encoder.finish()));
     }
 }

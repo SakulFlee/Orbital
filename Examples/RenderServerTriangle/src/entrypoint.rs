@@ -12,5 +12,5 @@ pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
     let event_loop = event_loop_result.expect("Event Loop failure");
     let settings = RuntimeSettings::default();
 
-    Runtime::liftoff::<RenderServerTriangleApp>(event_loop, settings).expect("Runtime failure");
+    Runtime::<RenderServerTriangleApp>::liftoff(event_loop, settings).expect("Runtime failure");
 }
