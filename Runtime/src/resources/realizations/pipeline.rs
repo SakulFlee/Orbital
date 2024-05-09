@@ -46,14 +46,14 @@ impl Pipeline {
             label: Some(&pipeline_descriptor.identifier),
             layout: Some(&render_pipeline_layout),
             vertex: VertexState {
-                module: shader.shader_module(),
-                entry_point: "entrypoint_vertex",
+                module: shader.vertex_shader_module(),
+                entry_point: "main",
                 buffers: &[VertexUniform::descriptor()],
                 compilation_options: PipelineCompilationOptions::default(),
             },
             fragment: Some(FragmentState {
-                module: shader.shader_module(),
-                entry_point: "entrypoint_fragment",
+                module: shader.fragment_shader_module(),
+                entry_point: "main",
                 targets: &[Some(ColorTargetState {
                     format: surface_format,
                     blend: Some(BlendState::REPLACE),
