@@ -1,5 +1,5 @@
 use akimo_runtime::{
-    nalgebra::Vector3,
+    nalgebra::{Vector2, Vector3},
     resources::{MaterialDescriptor, MeshDescriptor, ModelDescriptor, Vertex},
     runtime::App,
     server::RenderServer,
@@ -18,12 +18,15 @@ impl App for RenderServerTriangleApp {
         let vertices = vec![
             Vertex {
                 position_coordinates: Vector3::new(-1.0, -1.0, 0.0),
+                texture_coordinates: Vector2::new(0.0, 0.0),
             },
             Vertex {
                 position_coordinates: Vector3::new(1.0, -1.0, 0.0),
+                texture_coordinates: Vector2::new(0.0, 0.0),
             },
             Vertex {
                 position_coordinates: Vector3::new(0.0, 1.0, 0.0),
+                texture_coordinates: Vector2::new(0.0, 0.0),
             },
         ];
         let indices = vec![0, 1, 2];
