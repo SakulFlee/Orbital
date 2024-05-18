@@ -24,7 +24,7 @@ jobs:
 
       - name: Cache target/
         id: target-cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: target
           key: ${{ runner.os }}-target
@@ -61,7 +61,7 @@ jobs:
 
       - name: Cache target/
         id: target-cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: target
           key: wgpu_engine-${{ runner.os }}-target
