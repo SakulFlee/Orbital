@@ -638,6 +638,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "example_render_server_pbr"
+version = "0.1.0"
+dependencies = [
+ "akimo_runtime",
+ "image",
+]
+
+[[package]]
+name = "example_render_server_quad"
+version = "0.1.0"
+dependencies = [
+ "akimo_runtime",
+ "image",
+]
+
+[[package]]
 name = "example_render_server_triangle"
 version = "0.1.0"
 dependencies = [

@@ -1,3 +1,5 @@
+use std::hash::{DefaultHasher, Hash, Hasher};
+
 use wgpu::{
     naga::{FastHashMap, ShaderStage},
     Device, Queue, ShaderModule, ShaderModuleDescriptor, ShaderSource,
@@ -6,7 +8,6 @@ use wgpu::{
 use crate::{error::Error, resources::ShaderDescriptor};
 
 pub struct Shader {
-    identifier: String,
     vertex_shader_module: ShaderModule,
     fragment_shader_module: ShaderModule,
 }
@@ -34,7 +35,7 @@ impl Shader {
         );
 
         let vertex_shader_module = device.create_shader_module(ShaderModuleDescriptor {
-            label: Some(&shader_descriptor.identifier),
+            label: None,
             source: ShaderSource::Glsl {
                 shader: vertex_shader_source.into(),
                 stage: ShaderStage::Vertex,
@@ -42,7 +43,7 @@ impl Shader {
             },
         });
         let fragment_shader_module = device.create_shader_module(ShaderModuleDescriptor {
-            label: Some(&shader_descriptor.identifier),
+            label: None,
             source: ShaderSource::Glsl {
                 shader: fragment_shader_source.into(),
                 stage: ShaderStage::Fragment,
@@ -51,26 +52,19 @@ impl Shader {
         });
 
         Ok(Self {
-            identifier: shader_descriptor.identifier.clone(),
             vertex_shader_module,
             fragment_shader_module,
         })
     }
 
-    pub fn from_existing<S: Into<String>>(
-        identifier: S,
+    pub fn from_existing(
         vertex_shader_module: ShaderModule,
         fragment_shader_module: ShaderModule,
     ) -> Self {
         Self {
-            identifier: identifier.into(),
             vertex_shader_module,
             fragment_shader_module,
         }
-    }
-
-    pub fn identifier(&self) -> &str {
-        &self.identifier
     }
 
     pub fn vertex_shader_module(&self) -> &ShaderModule {

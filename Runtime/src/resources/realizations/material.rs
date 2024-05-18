@@ -1,40 +1,37 @@
 use wgpu::{
-    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BindingResource, BindingType, Device, Queue, SamplerBindingType,
-    ShaderStages, TextureSampleType, TextureViewDimension,
+    ShaderStages, TextureFormat, TextureSampleType, TextureViewDimension,
 };
 
-use crate::resources::{
-    MaterialDescriptor, PipelineDescriptor, ShaderDescriptor, TextureDescriptor,
+use crate::{
+    error::Error,
+    resources::{MaterialDescriptor, PipelineDescriptor, ShaderDescriptor, TextureDescriptor},
 };
 
-use super::Texture;
+use super::{Pipeline, Texture};
 
 pub struct Material {
     bind_group: BindGroup,
-    bind_group_layout: BindGroupLayout,
     pipeline_descriptor: PipelineDescriptor,
 }
 
 impl Material {
     pub fn from_descriptor(
         descriptor: &MaterialDescriptor,
+        surface_format: &TextureFormat,
         device: &Device,
         queue: &Queue,
-    ) -> Self {
+    ) -> Result<Self, Error> {
         match descriptor {
-            MaterialDescriptor::PBR(albedo) => Self::standard_pbr(albedo, None, device, queue),
+            MaterialDescriptor::PBR(albedo) => {
+                Self::standard_pbr(albedo, None, surface_format, device, queue)
+            }
             MaterialDescriptor::PBRCustomShader(albedo, shader_descriptor) => todo!(),
-            MaterialDescriptor::Custom(
-                bind_group_descriptor,
-                bind_group_layout_descriptor,
-                pipeline_descriptor,
-            ) => Self::from_descriptors(
-                bind_group_descriptor,
-                bind_group_layout_descriptor,
-                pipeline_descriptor.clone(),
-                device,
-                queue,
+            MaterialDescriptor::NoImports => todo!(),
+            // MaterialDescriptor::NoImports => Self::standard_no_imports(realization_context),
+            MaterialDescriptor::Custom(bind_group_descriptor, pipeline_descriptor) => Ok(
+                Self::from_descriptors(bind_group_descriptor, pipeline_descriptor, device, queue),
             ),
         }
     }
@@ -42,36 +39,24 @@ impl Material {
     pub fn standard_pbr(
         albedo_texture_descriptor: &TextureDescriptor,
         shader_descriptor: Option<ShaderDescriptor>,
+        surface_format: &TextureFormat,
         device: &Device,
         queue: &Queue,
-    ) -> Self {
-        let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("Standard PBR"),
-            entries: &[
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        sample_type: TextureSampleType::Float { filterable: true },
-                        view_dimension: TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                    count: None,
-                },
-            ],
-        });
-
+    ) -> Result<Self, Error> {
         let albedo_texture = Texture::from_descriptor(albedo_texture_descriptor, device, queue);
+
+        let pipeline_descriptor = if let Some(shader_descriptor) = shader_descriptor {
+            PipelineDescriptor::default_with_shader(shader_descriptor)
+        } else {
+            PipelineDescriptor::default()
+        };
+
+        let pipeline =
+            Pipeline::from_descriptor(&pipeline_descriptor, surface_format, device, queue)?;
 
         let bind_group = device.create_bind_group(&BindGroupDescriptor {
             label: None,
-            layout: &bind_group_layout,
+            layout: pipeline.bind_group_layout(),
             entries: &[
                 BindGroupEntry {
                     binding: 0,
@@ -84,47 +69,29 @@ impl Material {
             ],
         });
 
-        let pipeline_descriptor = if let Some(shader_descriptor) = shader_descriptor {
-            PipelineDescriptor::default_with_shader(shader_descriptor)
-        } else {
-            PipelineDescriptor::default()
-        };
-
-        Self::from_existing(bind_group, bind_group_layout, pipeline_descriptor)
+        Ok(Self::from_existing(bind_group, pipeline_descriptor))
     }
 
     pub fn from_descriptors(
         bind_group_descriptor: &BindGroupDescriptor,
-        bind_group_layout_descriptor: &BindGroupLayoutDescriptor,
-        pipeline_descriptor: PipelineDescriptor,
+        pipeline_descriptor: &PipelineDescriptor,
         device: &Device,
-        queue: &Queue,
+        _queue: &Queue,
     ) -> Self {
-        let bind_group_layout = device.create_bind_group_layout(&bind_group_layout_descriptor);
-
         let bind_group = device.create_bind_group(&bind_group_descriptor);
 
-        Self::from_existing(bind_group, bind_group_layout, pipeline_descriptor)
+        Self::from_existing(bind_group, pipeline_descriptor.clone())
     }
 
-    pub fn from_existing(
-        bind_group: BindGroup,
-        bind_group_layout: BindGroupLayout,
-        pipeline_descriptor: PipelineDescriptor,
-    ) -> Self {
+    pub fn from_existing(bind_group: BindGroup, pipeline_descriptor: PipelineDescriptor) -> Self {
         Self {
             bind_group,
-            bind_group_layout,
             pipeline_descriptor,
         }
     }
 
     pub fn bind_group(&self) -> &BindGroup {
         &self.bind_group
-    }
-
-    pub fn bind_group_layout(&self) -> &BindGroupLayout {
-        &self.bind_group_layout
     }
 
     pub fn pipeline_descriptor(&self) -> &PipelineDescriptor {

@@ -1,6 +1,6 @@
-use wgpu::{Device, Queue};
+use wgpu::{Device, Queue, TextureFormat};
 
-use crate::resources::ModelDescriptor;
+use crate::{error::Error, resources::ModelDescriptor};
 
 use super::{Material, Mesh};
 
@@ -10,12 +10,22 @@ pub struct Model {
 }
 
 impl Model {
-    pub fn from_descriptor(descriptor: &ModelDescriptor, device: &Device, queue: &Queue) -> Self {
+    pub fn from_descriptor(
+        descriptor: &ModelDescriptor,
+        surface_format: &TextureFormat,
+        device: &Device,
+        queue: &Queue,
+    ) -> Result<Self, Error> {
         let mesh = Mesh::from_descriptor(&descriptor.mesh_descriptor, device, queue);
 
-        let material = Material::from_descriptor(&descriptor.material_descriptor, device, queue);
+        let material = Material::from_descriptor(
+            &descriptor.material_descriptor,
+            surface_format,
+            device,
+            queue,
+        )?;
 
-        Self { mesh, material }
+        Ok(Self { mesh, material })
     }
 
     pub fn mesh(&self) -> &Mesh {
