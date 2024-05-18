@@ -40,6 +40,42 @@
         {
             "type": "lldb",
             "request": "launch",
+            "name": "Example: RenderServerQuad",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=example_render_server_quad",
+                    "--package=example_render_server_quad"
+                ],
+                "filter": {
+                    "name": "example_render_server_quad",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Example: RenderServerPBR",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=example_render_server_pbr",
+                    "--package=example_render_server_pbr"
+                ],
+                "filter": {
+                    "name": "example_render_server_pbr",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
             "name": "Example: Triangle",
             "cargo": {
                 "args": [
