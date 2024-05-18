@@ -1,16 +1,7 @@
-use ulid::Ulid;
+pub mod descriptors;
+pub mod realizations;
+pub mod uniforms;
 
-pub mod vertex;
-pub use vertex::*;
-
-pub mod mesh;
-pub use mesh::*;
-
-pub mod model;
-pub use model::*;
-
-pub mod material;
-pub use material::*;
-
-pub mod pipeline;
-pub use pipeline::*;
+pub use descriptors::*;
+pub use realizations::*;
+pub use uniforms::*;

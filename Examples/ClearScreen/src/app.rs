@@ -1,8 +1,9 @@
 use akimo_runtime::{
-    runtime::{App, Context},
+    runtime::App,
     wgpu::{
-        Color, CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment,
-        RenderPassDescriptor, StoreOp, SurfaceConfiguration, TextureView,
+        Color, CommandEncoderDescriptor, Device, LoadOp, Operations, Queue,
+        RenderPassColorAttachment, RenderPassDescriptor, StoreOp, SurfaceConfiguration,
+        TextureView,
     },
 };
 
@@ -18,7 +19,7 @@ pub struct ClearScreenApp {
 }
 
 impl App for ClearScreenApp {
-    fn init(_config: &SurfaceConfiguration, _context: &Context) -> Self
+    fn init(_config: &SurfaceConfiguration, _device: &Device, _queue: &Queue) -> Self
     where
         Self: Sized,
     {
@@ -31,11 +32,6 @@ impl App for ClearScreenApp {
             },
             decrement: Channel::R,
         }
-    }
-
-    fn resize(&mut self, _config: &SurfaceConfiguration, _context: &Context) {
-        // Nothing needed for this example!
-        // Later, this should be used to update the uniform buffer matrix.
     }
 
     fn update(&mut self) {
@@ -80,10 +76,8 @@ impl App for ClearScreenApp {
         }
     }
 
-    fn render(&mut self, view: &TextureView, context: &Context) {
-        let mut encoder = context
-            .device()
-            .create_command_encoder(&CommandEncoderDescriptor { label: None });
+    fn render(&mut self, view: &TextureView, device: &Device, queue: &Queue) {
+        let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor { label: None });
 
         {
             let mut _render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
@@ -102,6 +96,6 @@ impl App for ClearScreenApp {
             });
         }
 
-        context.queue().submit(Some(encoder.finish()));
+        queue.submit(Some(encoder.finish()));
     }
 }

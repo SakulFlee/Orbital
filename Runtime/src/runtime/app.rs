@@ -1,15 +1,15 @@
-use wgpu::{SurfaceConfiguration, TextureView};
-
-use crate::runtime::Context;
+use wgpu::{Device, Queue, SurfaceConfiguration, TextureView};
 
 pub trait App {
-    fn init(config: &SurfaceConfiguration, context: &Context) -> Self
+    fn init(config: &SurfaceConfiguration, device: &Device, queue: &Queue) -> Self
     where
         Self: Sized;
 
-    fn resize(&mut self, config: &SurfaceConfiguration, context: &Context);
+    fn update(&mut self)
+    where
+        Self: Sized;
 
-    fn update(&mut self);
-
-    fn render(&mut self, view: &TextureView, context: &Context);
+    fn render(&mut self, view: &TextureView, device: &Device, queue: &Queue)
+    where
+        Self: Sized;
 }
