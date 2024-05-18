@@ -6,6 +6,6 @@ pub mod nalgebra;
 pub mod resources;
 pub mod runtime;
 pub mod server;
+pub mod util;
 pub mod wgpu;
 pub mod winit;
-pub mod util;

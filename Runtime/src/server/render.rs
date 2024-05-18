@@ -1,4 +1,3 @@
-use hashbrown::HashMap;
 use log::{debug, error};
 use wgpu::{
     Color, CommandEncoderDescriptor, Device, IndexFormat, LoadOp, Operations, Queue,
@@ -7,10 +6,12 @@ use wgpu::{
 
 use crate::resources::{Model, ModelDescriptor, Pipeline};
 
+// TODO: Material cache
+// TODO: Mesh cache
+
 pub struct RenderServer {
     models: Vec<Model>,
     models_to_spawn: Vec<ModelDescriptor>,
-    pipelines: HashMap<String, Pipeline>,
     surface_texture_format: TextureFormat,
 }
 
@@ -19,7 +20,6 @@ impl RenderServer {
         Self {
             models: Vec::new(),
             models_to_spawn: Vec::new(),
-            pipelines: HashMap::new(),
             surface_texture_format,
         }
     }
@@ -36,46 +36,12 @@ impl RenderServer {
         todo!()
     }
 
-    pub fn prepare(&mut self, device: &Device, queue: &Queue) {
-        debug!("Models to spawn: {}", self.models_to_spawn.len());
-
-        while !self.models_to_spawn.is_empty() {
-            let model_descriptor = self.models_to_spawn.pop().unwrap();
-
-            let model = Model::from_descriptor(&model_descriptor, device, queue);
-
-            if !self
-                .pipelines
-                .contains_key(&model.material().pipeline_descriptor().identifier as &str)
-            {
-                match Pipeline::from_descriptor(
-                    model.material().pipeline_descriptor(),
-                    self.surface_texture_format,
-                    device,
-                    queue,
-                ) {
-                    Ok(pipeline) => {
-                        self.pipelines.insert(
-                            model
-                                .material()
-                                .pipeline_descriptor()
-                                .identifier
-                                .to_string(),
-                            pipeline,
-                        );
-
-                        self.models.push(model);
-                    }
-                    Err(e) => {
-                        error!("Failed preparing pipeline '{}'! Skipping model preparation. Error: {:?}", &model.material().pipeline_descriptor().identifier, e);
-                        continue;
-                    }
-                }
-            }
-        }
+    pub fn render(&mut self, view: &TextureView, device: &Device, queue: &Queue) {
+        self.do_prepare(device, queue);
+        self.do_render(device, queue, view);
     }
 
-    pub fn render(&mut self, view: &TextureView, device: &Device, queue: &Queue) {
+    fn do_render(&mut self, device: &Device, queue: &Queue, view: &TextureView) {
         let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor { label: None });
         {
             let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
@@ -97,12 +63,21 @@ impl RenderServer {
                 let mesh = model.mesh();
                 let material = model.material();
 
-                let pipeline_identifier = material.pipeline_descriptor().identifier.as_str();
-                let pipeline = self
-                    .pipelines
-                    .get(pipeline_identifier)
-                    .expect(&format!("Pipeline '{}' is missing!", &pipeline_identifier));
+                let pipeline = match Pipeline::from_descriptor(
+                    material.pipeline_descriptor(),
+                    &self.surface_texture_format,
+                    device,
+                    queue,
+                ) {
+                    Ok(pipeline) => pipeline,
+                    Err(e) => {
+                        error!("Pipeline in invalid state! Error: {:?}", e);
+                        continue;
+                    }
+                };
                 render_pass.set_pipeline(pipeline.render_pipeline());
+
+                render_pass.set_bind_group(0, material.bind_group(), &[]);
 
                 render_pass.set_vertex_buffer(0, mesh.vertex_buffer().slice(..));
                 render_pass.set_index_buffer(mesh.index_buffer().slice(..), IndexFormat::Uint32);
@@ -112,5 +87,32 @@ impl RenderServer {
         }
 
         queue.submit(Some(encoder.finish()));
+    }
+
+    pub fn do_prepare(&mut self, device: &Device, queue: &Queue) {
+        if self.models_to_spawn.is_empty() {
+            return;
+        }
+        debug!("Models to realize: {}", self.models_to_spawn.len());
+
+        while !self.models_to_spawn.is_empty() {
+            let model_descriptor = self.models_to_spawn.pop().unwrap();
+
+            match Model::from_descriptor(
+                &model_descriptor,
+                &self.surface_texture_format,
+                device,
+                queue,
+            ) {
+                Ok(model) => self.models.push(model),
+                Err(e) => {
+                    error!(
+                        "Failed preparing model! Skipping model preparation. Error: {:?}",
+                        e
+                    );
+                    continue;
+                }
+            }
+        }
     }
 }

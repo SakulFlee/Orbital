@@ -16,17 +16,27 @@ impl App for RenderServerTriangleApp {
         Self: Sized,
     {
         let vertices = vec![
+            // Bottom Left
             Vertex {
-                position_coordinates: Vector3::new(-1.0, -1.0, 0.0),
+                position_coordinates: Vector3::new(-0.5, -0.5, 0.0),
             },
+            // Bottom Right
             Vertex {
-                position_coordinates: Vector3::new(1.0, -1.0, 0.0),
+                position_coordinates: Vector3::new(0.5, -0.5, 0.0),
             },
+            // Top Left
             Vertex {
-                position_coordinates: Vector3::new(0.0, 1.0, 0.0),
+                position_coordinates: Vector3::new(-0.5, 0.5, 0.0),
+            },
+            // Top Right
+            Vertex {
+                position_coordinates: Vector3::new(0.5, 0.5, 0.0),
             },
         ];
-        let indices = vec![0, 1, 2];
+        let indices = vec![
+            0, 1, 2, // Bottom Left Triangle
+            1, 2, 3, // Top Right Triangle
+        ];
 
         let mut render_server = RenderServer::new(config.format);
 

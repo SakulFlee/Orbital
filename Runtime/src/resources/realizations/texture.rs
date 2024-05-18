@@ -147,7 +147,7 @@ impl Texture {
         view_desc: &TextureViewDescriptor,
         sampler_desc: &SamplerDescriptor,
         device: &Device,
-        _queue: &Queue,
+        queue: &Queue,
     ) -> Self {
         let texture = device.create_texture(&texture_desc);
         let view = texture.create_view(&view_desc);
