@@ -8,7 +8,7 @@ android {
     ndkVersion '26.2.11394342'
 
     defaultConfig {
-        applicationId = 'de.sakulflee.akimoproject.example_triangle'
+        applicationId = 'de.sakulflee.akimoproject.example_render_server_pbr'
         minSdkVersion 21
         targetSdk 34
     }
@@ -21,7 +21,7 @@ android {
         }
     }
 
-    namespace 'de.sakulflee.akimoproject.example_triangle'
+    namespace 'de.sakulflee.akimoproject.example_render_server_pbr'
 }
 
 dependencies {
@@ -31,9 +31,9 @@ dependencies {
 }
 
 cargoNdk {
-    module = "../Examples/Triangle"
+    module = "../Examples/RenderServerPBR"
     targetDirectory = "../../target"
-    extraCargoBuildArguments = ["--lib", "--package", "example_triangle"]
+    extraCargoBuildArguments = ["--lib", "--package", "example_render_server_pbr"]
     targets = ["arm64", "arm", "x86", "x86_64"]
 }
 
