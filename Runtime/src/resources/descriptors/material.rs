@@ -6,6 +6,5 @@ use super::{PipelineDescriptor, ShaderDescriptor, TextureDescriptor};
 pub enum MaterialDescriptor {
     PBR(TextureDescriptor),
     PBRCustomShader(TextureDescriptor, ShaderDescriptor),
-    NoImports,
     Custom(BindGroupDescriptor<'static>, PipelineDescriptor),
 }
