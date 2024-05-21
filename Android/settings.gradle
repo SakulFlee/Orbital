@@ -15,6 +15,7 @@ dependencyResolutionManagement {
 }
 
 include ':Examples:ClearScreen'
+include ':Examples:Triangle'
 include ':Examples:RenderServerTriangle'
 include ':Examples:RenderServerQuad'
 include ':Examples:RenderServerPBR'
