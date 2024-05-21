@@ -24,7 +24,7 @@ jobs:
 
       - name: Cache target/
         id: target-cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: target
           key: ${{ runner.os }}-target
@@ -45,7 +45,7 @@ jobs:
       - name: Run Tests
         run: cargo test --verbose --no-default-features --no-fail-fast --package wgpu_engine --release
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: "wgpu_engine_debug_${{ matrix.os }}"
           path: |
@@ -61,7 +61,7 @@ jobs:
 
       - name: Cache target/
         id: target-cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: target
           key: wgpu_engine-${{ runner.os }}-target
