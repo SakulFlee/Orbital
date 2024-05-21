@@ -4,6 +4,7 @@ use image::DynamicImage;
 pub enum TextureDescriptor {
     StandardSRGBu8Image(DynamicImage),
     StandardSRGBu8Data(Vec<u8>, (u32, u32)),
+    Empty,
     Custom(
         wgpu::TextureDescriptor<'static>,
         wgpu::TextureViewDescriptor<'static>,

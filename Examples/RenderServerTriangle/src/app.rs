@@ -1,6 +1,6 @@
 use akimo_runtime::{
     nalgebra::{Vector2, Vector3},
-    resources::{MaterialDescriptor, MeshDescriptor, ModelDescriptor, Vertex},
+    resources::{MaterialDescriptor, MeshDescriptor, ModelDescriptor, TextureDescriptor, Vertex},
     runtime::App,
     server::RenderServer,
     wgpu::{Device, Queue, SurfaceConfiguration, TextureView},
@@ -35,7 +35,10 @@ impl App for RenderServerTriangleApp {
 
         render_server.spawn_model(ModelDescriptor {
             mesh_descriptor: MeshDescriptor { vertices, indices },
-            material_descriptor: MaterialDescriptor::NoImports,
+            material_descriptor: MaterialDescriptor::PBRCustomShader(
+                TextureDescriptor::Empty,
+                include_str!("rgb.wgsl"),
+            ),
         });
 
         Self { render_server }
