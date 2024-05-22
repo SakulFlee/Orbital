@@ -1,7 +1,5 @@
 use wgpu::{
-    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingResource, BindingType, Device, Queue, SamplerBindingType,
-    ShaderStages, TextureFormat, TextureSampleType, TextureViewDimension,
+    BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Device, Queue, TextureFormat,
 };
 
 use crate::{
@@ -27,9 +25,13 @@ impl Material {
             MaterialDescriptor::PBR(albedo) => {
                 Self::standard_pbr(albedo, None, surface_format, device, queue)
             }
-            MaterialDescriptor::PBRCustomShader(albedo, shader_descriptor) => todo!(),
-            MaterialDescriptor::NoImports => todo!(),
-            // MaterialDescriptor::NoImports => Self::standard_no_imports(realization_context),
+            MaterialDescriptor::PBRCustomShader(albedo, shader_descriptor) => Self::standard_pbr(
+                albedo,
+                Some(shader_descriptor),
+                surface_format,
+                device,
+                queue,
+            ),
             MaterialDescriptor::Custom(bind_group_descriptor, pipeline_descriptor) => Ok(
                 Self::from_descriptors(bind_group_descriptor, pipeline_descriptor, device, queue),
             ),
@@ -38,7 +40,7 @@ impl Material {
 
     pub fn standard_pbr(
         albedo_texture_descriptor: &TextureDescriptor,
-        shader_descriptor: Option<ShaderDescriptor>,
+        shader_descriptor: Option<&ShaderDescriptor>,
         surface_format: &TextureFormat,
         device: &Device,
         queue: &Queue,

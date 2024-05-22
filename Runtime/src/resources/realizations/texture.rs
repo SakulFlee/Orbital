@@ -27,6 +27,7 @@ impl Texture {
             TextureDescriptor::StandardSRGBu8Data(data, size) => {
                 Self::standard_srgb8_data(data, size, device, queue)
             }
+            TextureDescriptor::Empty => Self::empty(device, queue),
             TextureDescriptor::Custom(
                 texture_descriptor,
                 texture_view_descriptor,
@@ -39,6 +40,13 @@ impl Texture {
                 queue,
             ),
         }
+    }
+
+    /// In case you want an "empty" (1-by-1 px, i.e. 4 bytes) image.
+    /// This only should be used if you really don't need a texture but
+    /// _something_ is requiring there to be one like the Standard Pipeline!
+    pub fn empty(device: &Device, queue: &Queue) -> Self {
+        Self::standard_srgb8_data(&[0, 0, 0, 0], &(1, 1), device, queue)
     }
 
     pub fn standard_srgb8_image(image: &DynamicImage, device: &Device, queue: &Queue) -> Self {
