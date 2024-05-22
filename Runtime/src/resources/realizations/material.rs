@@ -80,7 +80,7 @@ impl Material {
         device: &Device,
         _queue: &Queue,
     ) -> Self {
-        let bind_group = device.create_bind_group(&bind_group_descriptor);
+        let bind_group = device.create_bind_group(bind_group_descriptor);
 
         Self::from_existing(bind_group, pipeline_descriptor.clone())
     }
