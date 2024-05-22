@@ -95,8 +95,8 @@ impl RenderServer {
         }
         debug!("Models to realize: {}", self.models_to_spawn.len());
 
-        while !self.models_to_spawn.is_empty() {
-            let model_descriptor = self.models_to_spawn.pop().unwrap();
+        while let Some(model_descriptor) = self.models_to_spawn.pop() {
+            
 
             match Model::from_descriptor(
                 &model_descriptor,

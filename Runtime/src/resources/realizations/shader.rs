@@ -1,12 +1,7 @@
-use std::{
-    borrow::Borrow,
-    fmt::format,
-    hash::{DefaultHasher, Hash, Hasher},
-};
 
-use log::debug;
+
+
 use wgpu::{
-    naga::{FastHashMap, ShaderStage},
     Device, Queue, ShaderModule, ShaderModuleDescriptor, ShaderSource,
 };
 
@@ -22,7 +17,7 @@ impl Shader {
     pub fn from_descriptor(
         shader_descriptor: ShaderDescriptor,
         device: &Device,
-        queue: &Queue,
+        _queue: &Queue,
     ) -> Result<Self, Error> {
         // let includes_shader_source = shader_descriptor
         //     .includes
@@ -67,7 +62,7 @@ impl Shader {
         let last_preprocessor_line = source
             .lines()
             .enumerate()
-            .filter(|x| x.1.starts_with("#"))
+            .filter(|x| x.1.starts_with('#'))
             .map(|x| x.0)
             .max()
             .expect("Shader doesn't seem to be annotated by preprocessor! (Missing #version xyz?)");

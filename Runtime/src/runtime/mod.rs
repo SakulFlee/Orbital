@@ -41,7 +41,7 @@ pub struct Runtime<AppImpl: App> {
 }
 
 impl<AppImpl: App> Runtime<AppImpl> {
-    pub fn liftoff(event_loop: EventLoop<()>, settings: RuntimeSettings) -> Result<(), Error> {
+    pub fn liftoff(event_loop: EventLoop<()>, _settings: RuntimeSettings) -> Result<(), Error> {
         info!("Akimo-Project: Runtime");
         info!("(C) SakulFlee 2024");
 
@@ -58,7 +58,7 @@ impl<AppImpl: App> Runtime<AppImpl> {
 
         event_loop
             .run_app(&mut runtime)
-            .map_err(|e| Error::EventLoopError(e))
+            .map_err(Error::EventLoopError)
     }
 
     fn make_instance() -> Instance {
@@ -76,7 +76,7 @@ impl<AppImpl: App> Runtime<AppImpl> {
 
     fn make_adapter(instance: &Instance, compatible_surface: Option<&Surface>) -> Adapter {
         let adapter = pollster::block_on(initialize_adapter_from_env_or_default(
-            &instance,
+            instance,
             compatible_surface,
         ))
         .expect("No suitable GPU adapters found!");
@@ -130,7 +130,7 @@ impl<AppImpl: App> Runtime<AppImpl> {
 
     pub fn redraw(&mut self) {
         // Check if surface and device are present
-        if !self.surface.is_some() || !self.device.is_some() {
+        if self.surface.is_none() || self.device.is_none() {
             warn!("Redraw requested, but runtime is in an incomplete state!");
             return;
         }
@@ -166,7 +166,6 @@ impl<AppImpl: App> Runtime<AppImpl> {
             }
         } else {
             warn!("No surface yet, but redraw was requested!");
-            return;
         }
     }
 }
