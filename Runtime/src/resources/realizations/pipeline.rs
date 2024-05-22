@@ -84,7 +84,7 @@ impl Pipeline {
                         // Thus, we don't have to add anything special here!
                         // However, errors are nasty:
                         if let Err(e) =
-                            Self::from_descriptor(&descriptor, &potential_new_format, device, queue)
+                            Self::from_descriptor(&descriptor, potential_new_format, device, queue)
                         {
                             error!("Failed recompiling pipeline (and shader) in pipeline cache after surface format change! Error: {:?}", e);
                         }
@@ -136,7 +136,7 @@ impl Pipeline {
     ) -> Result<Pipeline, Error> {
         let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: None,
-            entries: &pipeline_descriptor.bind_group_entries.as_slice(),
+            entries: pipeline_descriptor.bind_group_entries.as_slice(),
         });
 
         let render_pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
@@ -146,7 +146,7 @@ impl Pipeline {
         });
 
         let shader =
-            Shader::from_descriptor(&pipeline_descriptor.shader_descriptor, device, queue)?;
+            Shader::from_descriptor(pipeline_descriptor.shader_descriptor, device, queue)?;
 
         let render_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
             label: None,

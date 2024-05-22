@@ -22,7 +22,7 @@ impl Texture {
     pub fn from_descriptor(descriptor: &TextureDescriptor, device: &Device, queue: &Queue) -> Self {
         match descriptor {
             TextureDescriptor::StandardSRGBu8Image(image) => {
-                Self::standard_srgb8_image(&image, device, queue)
+                Self::standard_srgb8_image(image, device, queue)
             }
             TextureDescriptor::StandardSRGBu8Data(data, size) => {
                 Self::standard_srgb8_data(data, size, device, queue)
@@ -155,11 +155,11 @@ impl Texture {
         view_desc: &TextureViewDescriptor,
         sampler_desc: &SamplerDescriptor,
         device: &Device,
-        queue: &Queue,
+        _queue: &Queue,
     ) -> Self {
-        let texture = device.create_texture(&texture_desc);
-        let view = texture.create_view(&view_desc);
-        let sampler = device.create_sampler(&sampler_desc);
+        let texture = device.create_texture(texture_desc);
+        let view = texture.create_view(view_desc);
+        let sampler = device.create_sampler(sampler_desc);
 
         Self::from_existing(texture, view, sampler)
     }

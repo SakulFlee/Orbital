@@ -19,7 +19,7 @@ pub struct TriangleApp {
 }
 
 impl App for TriangleApp {
-    fn init(config: &SurfaceConfiguration, device: &Device, queue: &Queue) -> Self
+    fn init(config: &SurfaceConfiguration, device: &Device, _queue: &Queue) -> Self
     where
         Self: Sized,
     {
