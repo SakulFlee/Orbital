@@ -5,6 +5,7 @@ pub mod log;
 pub mod nalgebra;
 pub mod resources;
 pub mod runtime;
+pub mod russimp;
 pub mod server;
 pub mod util;
 pub mod wgpu;
