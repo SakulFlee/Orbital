@@ -2,11 +2,13 @@ use std::borrow::Borrow;
 
 use gltf::{
     accessor::Iter,
+    image::Source,
     mesh::util::{ReadIndices, ReadTexCoords},
+    Texture,
 };
 use nalgebra::{Vector2, Vector3};
 use russimp::scene::{PostProcess, Scene};
-use wgpu::{Device, Queue, TextureFormat};
+use wgpu::{core::resource::Texture, Device, Queue, TextureFormat};
 
 use crate::{
     error::Error,
@@ -65,13 +67,56 @@ impl Model {
         let (document, buffers, images) =
             gltf::import_slice(bytes).map_err(|e| Error::GltfError(e))?;
 
-        let mut result = Vec::<Mesh>::new();
+            for buffer in document.buffers() {
+                match buffer.source() {
+                    gltf::buffer::Source::Bin => todo!(),
+                    gltf::buffer::Source::Uri(_) => todo!(),
+                }
+            }
+
+        let mut material_result = Vec::<Material>::new();
+        for gltf_material in document.materials() {
+            let pbr = gltf_material.pbr_metallic_roughness();
+
+            let albedo = pbr.base_color_texture();
+
+            let tex = albedo.unwrap().texture();
+            let img = tex.source();
+            let src = img.source();
+
+            // TODO
+            match src {
+                Source::View { view, mime_type } => {
+                    let buffer = view.buffer();
+                    let src = buffer.source();
+                    match src {
+                        gltf::buffer::Source::Bin => {
+                            let img = images[buffer.index()];
+                            let pxl = img.pixels;
+                            let width = img.width;
+                            let height = img.height;
+                            let format = img.format;
+                        }
+                        gltf::buffer::Source::Uri(_) => todo!(),
+                    }
+                }
+                Source::Uri { uri, mime_type } => todo!(),
+            }
+
+            let albedo_factor = pbr.base_color_factor();
+            let metallic = pbr.metallic_roughness_texture();
+            let metallic_factor = pbr.metallic_factor();
+            let roughness_factor = pbr.roughness_factor();
+        }
+
+        let mut mesh_result = Vec::<Mesh>::new();
         for gltf_mesh in document.meshes() {
-            result.push(Mesh::from_gltf(gltf_mesh, buffers, device));
+            mesh_result.push(Mesh::from_gltf(gltf_mesh, buffers, device));
         }
 
         // TODO: Materials
         // TODO: From File
+        // TODO: By name?
 
         todo!()
     }
