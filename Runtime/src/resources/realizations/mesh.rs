@@ -1,10 +1,8 @@
-use gltf::{
-    accessor::Iter,
-    mesh::util::{ReadIndices, ReadTexCoords},
-};
+use log::warn;
 use wgpu::{Buffer, BufferUsages, Device, Queue};
 
 use crate::{
+    error::Error,
     resources::{descriptors::MeshDescriptor, uniforms::VertexUniform},
     util::BufferUtil,
 };
@@ -40,48 +38,25 @@ impl Mesh {
         }
     }
 
-    pub fn from_gltf(
-        mesh: crate::gltf::Mesh,
-        buffers: Vec<gltf::buffer::Data>,
-        device: &Device,
-    ) -> Self {
-        let mut position_coordinates = Vec::<[f32; 3]>::new();
-        let mut texture_coordinates = Vec::<[f32; 2]>::new();
-        let mut indices = Vec::<u32>::new();
-
-        for primitive in mesh.primitives() {
-            let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
-
-            if let Some(position) = reader.read_positions() {
-                position.for_each(|x| position_coordinates.push(x));
-            }
-
-            // Note: Only the first set of texture coordinates is read!
-            if let Some(ReadTexCoords::F32(Iter::Standard(texture_coordinate))) =
-                reader.read_tex_coords(0)
-            {
-                texture_coordinate.for_each(|x| texture_coordinates.push(x));
-            }
-
-            if let Some(ReadIndices::U32(Iter::Standard(index))) = reader.read_indices() {
-                index.for_each(|x| indices.push(x));
-            }
-        }
-
-        // Make vertices
-        let vertices = position_coordinates
+    #[cfg(feature = "gltf")]
+    pub fn from_gltf(gltf_model: &easy_gltf::Model, device: &Device) -> Result<Self, Error> {
+        let vertices = gltf_model
+            .vertices()
             .iter()
-            .zip(texture_coordinates.iter())
-            .map(
-                |(positional_coordinate, texture_coordinate)| VertexUniform {
-                    positional_coordinates: *positional_coordinate,
-                    texture_coordinates: *texture_coordinate,
-                },
-            )
+            .map(|vertex| VertexUniform {
+                positional_coordinates: vertex.position.into(),
+                texture_coordinates: vertex.tex_coords.into(),
+            })
             .collect::<Vec<VertexUniform>>();
+        let indices = match gltf_model.indices() {
+            Some(i) => i,
+            None => {
+                warn!("Trying to realize model from glTF without indices!");
+                return Err(Error::NoIndices);
+            }
+        };
 
-        // Make mesh
-        Self::from_data(&vertices, &indices, device)
+        Ok(Self::from_data(&vertices, &indices, device))
     }
 
     pub fn vertex_buffer(&self) -> &Buffer {

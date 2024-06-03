@@ -9,4 +9,3 @@ pub mod server;
 pub mod util;
 pub mod wgpu;
 pub mod winit;
-pub mod gltf;
