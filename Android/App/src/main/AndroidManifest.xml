@@ -12,7 +12,7 @@
             android:exported="true">
 
             <meta-data android:name="android.app.lib_name"
-                android:value="app_example_render_server_triangle" />
+                android:value="app_@@@CRATE_TAG@@@" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
