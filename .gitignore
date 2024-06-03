@@ -20,3 +20,6 @@ jniLibs/
 
 # Gradle
 .gradle/
+
+# Blender
+*.blend*

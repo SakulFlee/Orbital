@@ -11,4 +11,8 @@ pub enum Error {
     EventLoopError(EventLoopError),
     MutexPoisonError(String),
     IOError(std::io::Error),
+    GltfError(Box<dyn std::error::Error>),
+    NoIndices,
+    SceneNotFound,
+    ModelNotFound,
 }
