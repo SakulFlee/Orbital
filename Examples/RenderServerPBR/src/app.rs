@@ -54,13 +54,10 @@ impl App for RenderServerTriangleApp {
             .unwrap()
             .as_bytes()
             .to_vec();
-        render_server.spawn_model(ModelDescriptor {
-            mesh_descriptor: MeshDescriptor { vertices, indices },
-            material_descriptor: MaterialDescriptor::PBR(TextureDescriptor::StandardSRGBu8Data(
-                texture,
-                (800, 800),
-            )),
-        });
+        render_server.spawn_model(ModelDescriptor::FromDescriptors(
+            MeshDescriptor { vertices, indices },
+            MaterialDescriptor::PBR(TextureDescriptor::StandardSRGBu8Data(texture, (800, 800))),
+        ));
 
         Self { render_server }
     }
