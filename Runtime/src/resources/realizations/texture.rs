@@ -1,5 +1,6 @@
 use image::{DynamicImage, GenericImageView};
 use log::warn;
+use wgpu::Color;
 use wgpu::Device;
 use wgpu::Queue;
 use wgpu::Texture as WTexture;
@@ -27,7 +28,7 @@ impl Texture {
             TextureDescriptor::StandardSRGBu8Data(data, size) => {
                 Self::standard_srgb8_data(data, size, device, queue)
             }
-            TextureDescriptor::Empty => Self::empty(device, queue),
+            TextureDescriptor::UniformColor(color) => Self::uniform_color(*color, device, queue),
             TextureDescriptor::Custom(
                 texture_descriptor,
                 texture_view_descriptor,
@@ -42,11 +43,19 @@ impl Texture {
         }
     }
 
-    /// In case you want an "empty" (1-by-1 px, i.e. 4 bytes) image.
-    /// This only should be used if you really don't need a texture but
-    /// _something_ is requiring there to be one like the Standard Pipeline!
-    pub fn empty(device: &Device, queue: &Queue) -> Self {
-        Self::standard_srgb8_data(&[0, 0, 0, 0], &(1, 1), device, queue)
+    /// In case you want a uniform, one color, image.
+    /// This results in an 1-by-1 px, i.e. 4 bytes image.
+    /// 
+    /// ⚠️ This can be used as an empty texture as there is as minimal
+    /// ⚠️ as possible data usage and this resource may not even arrive
+    /// ⚠️ in the shader _if_ it is not used.
+    pub fn uniform_color(color: Color, device: &Device, queue: &Queue) -> Self {
+        let r = ((color.r * 256.0) as u8).min(255).max(0);
+        let g = ((color.g * 256.0) as u8).min(255).max(0);
+        let b = ((color.b * 256.0) as u8).min(255).max(0);
+        let a = ((color.a * 256.0) as u8).min(255).max(0);
+
+        Self::standard_srgb8_data(&[r, g, b, a], &(1, 1), device, queue)
     }
 
     pub fn standard_srgb8_image(image: &DynamicImage, device: &Device, queue: &Queue) -> Self {

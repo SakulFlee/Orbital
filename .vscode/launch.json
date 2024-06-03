@@ -91,5 +91,23 @@
             "args": [],
             "cwd": "${workspaceFolder}"
         },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Example: Asset Loading",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=example_asset_loading",
+                    "--package=example_asset_loading"
+                ],
+                "filter": {
+                    "name": "example_asset_loading",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
     ]
 }
