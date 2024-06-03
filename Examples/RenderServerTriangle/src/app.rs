@@ -33,13 +33,10 @@ impl App for RenderServerTriangleApp {
 
         let mut render_server = RenderServer::new(config.format);
 
-        render_server.spawn_model(ModelDescriptor {
-            mesh_descriptor: MeshDescriptor { vertices, indices },
-            material_descriptor: MaterialDescriptor::PBRCustomShader(
-                TextureDescriptor::Empty,
-                include_str!("rgb.wgsl"),
-            ),
-        });
+        render_server.spawn_model(ModelDescriptor::FromDescriptors(
+            MeshDescriptor { vertices, indices },
+            MaterialDescriptor::PBRCustomShader(TextureDescriptor::EMPTY, include_str!("rgb.wgsl")),
+        ));
 
         Self { render_server }
     }

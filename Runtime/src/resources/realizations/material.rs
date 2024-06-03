@@ -97,7 +97,7 @@ impl Material {
         let albedo_texture_descriptor = if let Some(base_color) = &pbr.base_color_texture {
             TextureDescriptor::StandardSRGBu8Data(base_color.to_vec(), base_color.dimensions())
         } else {
-            return Err(Error::NoBaseColor);
+            TextureDescriptor::UNIFORM_GRAY
         };
 
         Self::standard_pbr(
