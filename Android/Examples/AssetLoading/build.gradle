@@ -8,7 +8,7 @@ android {
     ndkVersion '26.2.11394342'
 
     defaultConfig {
-        applicationId = 'de.sakulflee.akimoproject.@@@CRATE_TAG@@@'
+        applicationId = 'de.sakulflee.akimoproject.example_asset_loading'
         minSdkVersion 21
         targetSdk 34
     }
@@ -21,19 +21,19 @@ android {
         }
     }
 
-    namespace 'de.sakulflee.akimoproject.@@@CRATE_TAG@@@'
+    namespace 'de.sakulflee.akimoproject.example_asset_loading'
 }
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
-    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
 }
 
 cargoNdk {
-    module = "../../Examples/@@@EXAMPLE_FOLDER@@@"
+    module = "../Examples/AssetLoading"
     targetDirectory = "../../target"
-    extraCargoBuildArguments = ["--lib", "--package", "@@@CRATE_TAG@@@"]
+    extraCargoBuildArguments = ["--lib", "--package", "example_asset_loading"]
     targets = ["arm64", "arm", "x86", "x86_64"]
 }
 
