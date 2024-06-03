@@ -13,7 +13,6 @@ pub enum Error {
     IOError(std::io::Error),
     GltfError(Box<dyn std::error::Error>),
     NoIndices,
-    NoBaseColor,
     SceneNotFound,
     ModelNotFound,
 }
