@@ -85,6 +85,30 @@ impl Material {
         Self::from_existing(bind_group, pipeline_descriptor.clone())
     }
 
+    #[cfg(feature = "gltf")]
+    pub fn from_gltf(
+        gltf_material: &easy_gltf::Material,
+        surface_format: &TextureFormat,
+        device: &Device,
+        queue: &Queue,
+    ) -> Result<Self, Error> {
+        let pbr = &gltf_material.pbr;
+
+        let albedo_texture_descriptor = if let Some(base_color) = &pbr.base_color_texture {
+            TextureDescriptor::StandardSRGBu8Data(base_color.to_vec(), base_color.dimensions())
+        } else {
+            return Err(Error::NoBaseColor);
+        };
+
+        Self::standard_pbr(
+            &albedo_texture_descriptor,
+            None,
+            surface_format,
+            device,
+            queue,
+        )
+    }
+
     pub fn from_existing(bind_group: BindGroup, pipeline_descriptor: PipelineDescriptor) -> Self {
         Self {
             bind_group,

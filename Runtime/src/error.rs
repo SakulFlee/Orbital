@@ -1,4 +1,3 @@
-use russimp::RussimpError;
 use wgpu::CreateSurfaceError;
 use winit::error::EventLoopError;
 
@@ -12,6 +11,9 @@ pub enum Error {
     EventLoopError(EventLoopError),
     MutexPoisonError(String),
     IOError(std::io::Error),
-    RussimpError(RussimpError),
-    GltfError(gltf::Error),
+    GltfError(Box<dyn std::error::Error>),
+    NoIndices,
+    NoBaseColor,
+    SceneNotFound,
+    ModelNotFound,
 }

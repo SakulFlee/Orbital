@@ -1,18 +1,8 @@
-use std::borrow::Borrow;
-
-use gltf::{
-    accessor::Iter,
-    image::Source,
-    mesh::util::{ReadIndices, ReadTexCoords},
-    Texture,
-};
-use nalgebra::{Vector2, Vector3};
-use russimp::scene::{PostProcess, Scene};
-use wgpu::{core::resource::Texture, Device, Queue, TextureFormat};
+use wgpu::{Device, Queue, TextureFormat};
 
 use crate::{
     error::Error,
-    resources::{MaterialDescriptor, MeshDescriptor, ModelDescriptor, Vertex, VertexUniform},
+    resources::{ImportDescriptor, MaterialDescriptor, MeshDescriptor, ModelDescriptor},
 };
 
 use super::{Material, Mesh};
@@ -39,8 +29,17 @@ impl Model {
                     queue,
                 )
             }
-            ModelDescriptor::FromFile(_) => todo!(),
-            ModelDescriptor::FromBytes(bytes, hint) => Self::from_bytes(bytes, hint),
+            #[cfg(feature = "gltf")]
+            ModelDescriptor::FromGLTF(file, scene_import_descriptor, model_import_descriptor) => {
+                Self::from_gltf(
+                    file,
+                    scene_import_descriptor,
+                    model_import_descriptor,
+                    surface_format,
+                    device,
+                    queue,
+                )
+            }
         }
     }
 
@@ -59,66 +58,52 @@ impl Model {
         Ok(Self::from_existing(mesh, material))
     }
 
-    pub fn from_bytes(
-        bytes: &[u8],
-        hint: &'static str,
+    #[cfg(feature = "gltf")]
+    pub fn from_gltf(
+        file: &'static str,
+        scene_import_descriptor: &ImportDescriptor,
+        model_import_descriptor: &ImportDescriptor,
+        surface_format: &TextureFormat,
         device: &Device,
-    ) -> Result<Vec<Self>, Error> {
-        let (document, buffers, images) =
-            gltf::import_slice(bytes).map_err(|e| Error::GltfError(e))?;
+        queue: &Queue,
+    ) -> Result<Self, Error> {
+        // Load glTF file
+        let gltf_file = easy_gltf::load(file).map_err(|e| Error::GltfError(e))?;
 
-            for buffer in document.buffers() {
-                match buffer.source() {
-                    gltf::buffer::Source::Bin => todo!(),
-                    gltf::buffer::Source::Uri(_) => todo!(),
-                }
-            }
+        // Query for scene. If found we continue.
+        let scene = if let Some(scene) = match scene_import_descriptor {
+            ImportDescriptor::Index(i) => gltf_file.get(*i as usize),
+            ImportDescriptor::Name(name) => gltf_file
+                .iter()
+                .find(|x| x.name.is_some() && x.name.as_ref().unwrap() == *name),
+        } {
+            scene
+        } else {
+            return Err(Error::SceneNotFound);
+        };
 
-        let mut material_result = Vec::<Material>::new();
-        for gltf_material in document.materials() {
-            let pbr = gltf_material.pbr_metallic_roughness();
+        // Query for model. If found we continue.
+        let models = &scene.models;
+        let model = if let Some(model) = match model_import_descriptor {
+            ImportDescriptor::Index(i) => models.get(*i as usize),
+            ImportDescriptor::Name(name) => models.iter().find(|x| {
+                let mesh_name = x.mesh_name();
 
-            let albedo = pbr.base_color_texture();
+                mesh_name.is_some() && mesh_name.unwrap() == *name
+            }),
+        } {
+            model
+        } else {
+            return Err(Error::ModelNotFound);
+        };
 
-            let tex = albedo.unwrap().texture();
-            let img = tex.source();
-            let src = img.source();
+        // Realize model
+        let model = Self::from_existing(
+            Mesh::from_gltf(&model, device)?,
+            Material::from_gltf(&model.material(), surface_format, device, queue)?,
+        );
 
-            // TODO
-            match src {
-                Source::View { view, mime_type } => {
-                    let buffer = view.buffer();
-                    let src = buffer.source();
-                    match src {
-                        gltf::buffer::Source::Bin => {
-                            let img = images[buffer.index()];
-                            let pxl = img.pixels;
-                            let width = img.width;
-                            let height = img.height;
-                            let format = img.format;
-                        }
-                        gltf::buffer::Source::Uri(_) => todo!(),
-                    }
-                }
-                Source::Uri { uri, mime_type } => todo!(),
-            }
-
-            let albedo_factor = pbr.base_color_factor();
-            let metallic = pbr.metallic_roughness_texture();
-            let metallic_factor = pbr.metallic_factor();
-            let roughness_factor = pbr.roughness_factor();
-        }
-
-        let mut mesh_result = Vec::<Mesh>::new();
-        for gltf_mesh in document.meshes() {
-            mesh_result.push(Mesh::from_gltf(gltf_mesh, buffers, device));
-        }
-
-        // TODO: Materials
-        // TODO: From File
-        // TODO: By name?
-
-        todo!()
+        Ok(model)
     }
 
     pub fn from_existing(mesh: Mesh, material: Material) -> Self {

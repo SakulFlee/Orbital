@@ -1,7 +1,6 @@
 use std::mem::size_of;
 
 use bytemuck::{Pod, Zeroable};
-use russimp::Vector3D;
 use wgpu::{BufferAddress, VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode};
 
 use crate::resources::Vertex;

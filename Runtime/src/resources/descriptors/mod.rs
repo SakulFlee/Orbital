@@ -4,6 +4,7 @@ pub mod model;
 pub mod pipeline;
 pub mod shader;
 pub mod texture;
+pub mod import;
 
 pub use material::*;
 pub use mesh::*;
@@ -11,3 +12,4 @@ pub use model::*;
 pub use pipeline::*;
 pub use shader::*;
 pub use texture::*;
+pub use import::*;
