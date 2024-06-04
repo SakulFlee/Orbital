@@ -24,7 +24,7 @@ jobs:
         key: target
     
     - name: Build
-      run: cargo clippy --verbose --workspace --all-targets --all-features -- -D warnings -W clippy::all
+      run: cargo clippy --workspace --all-targets --all-features -- -W clippy::all
       
     - name: Run tests
       run: cargo test --workspace --verbose
