@@ -23,8 +23,8 @@ jobs:
         path: target/
         key: target
     
-    - name: Build
+    - name: Clippy
       run: cargo clippy --workspace --all-targets --all-features -- -W clippy::all
       
-    - name: Run tests
+    - name: Tests
       run: cargo test --workspace
