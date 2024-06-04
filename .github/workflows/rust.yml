@@ -27,4 +27,4 @@ jobs:
       run: cargo clippy --workspace --all-targets --all-features -- -W clippy::all
       
     - name: Run tests
-      run: cargo test --workspace --verbose
+      run: cargo test --workspace
