@@ -21,6 +21,7 @@ jobs:
       uses: actions/cache@v4.0.2
       with:
         path: target/
+        key: target
     
     - name: Build
       run: cargo clippy --verbose --workspace --all-targets --all-features -- -D warnings -W clippy::all
