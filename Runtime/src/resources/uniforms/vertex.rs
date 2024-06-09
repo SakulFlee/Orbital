@@ -13,7 +13,7 @@ pub struct VertexUniform {
 }
 
 impl VertexUniform {
-    pub fn descriptor() -> VertexBufferLayout<'static> {
+    pub fn vertex_buffer_layout_descriptor() -> VertexBufferLayout<'static> {
         VertexBufferLayout {
             array_stride: size_of::<VertexUniform>() as BufferAddress,
             step_mode: VertexStepMode::Vertex,
