@@ -1,3 +1,4 @@
+pub mod camera;
 pub mod material;
 pub mod mesh;
 pub mod model;
@@ -6,6 +7,7 @@ pub mod shader;
 pub mod texture;
 pub mod import;
 
+pub use camera::*;
 pub use material::*;
 pub use mesh::*;
 pub use model::*;
