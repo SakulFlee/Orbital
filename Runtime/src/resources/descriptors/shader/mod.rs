@@ -1,4 +1,5 @@
 pub type ShaderDescriptor = &'static str;
+// TODO
 // pub type ShaderSource = &'static str;
 
 // pub const STANDARD_VERTEX_SHADER: &'static str = include_str!("standard.vert");

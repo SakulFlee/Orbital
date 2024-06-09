@@ -5,8 +5,10 @@
         "ASSIMP",
         "bindgen",
         "bytemuck",
+        "cgmath",
         "despawn",
         "despawned",
+        "fovy",
         "gles",
         "glsl",
         "gltf",
@@ -22,6 +24,7 @@
         "recv",
         "repr",
         "russimp",
+        "rustfmt",
         "sakulflee",
         "srgb",
         "tokio",
@@ -33,6 +36,8 @@
         "wgpu",
         "wgsl",
         "winit",
-        "zeroable"
+        "zeroable",
+        "zfar",
+        "znear"
     ]
 }
