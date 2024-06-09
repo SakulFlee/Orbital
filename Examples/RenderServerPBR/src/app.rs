@@ -1,8 +1,11 @@
 use std::io::Cursor;
 
 use akimo_runtime::{
-    nalgebra::{Vector2, Vector3},
-    resources::{MaterialDescriptor, MeshDescriptor, ModelDescriptor, TextureDescriptor, Vertex},
+    cgmath::{Vector2, Vector3},
+    resources::{
+        InstanceDescriptor, Instancing, MaterialDescriptor, MeshDescriptor, ModelDescriptor,
+        TextureDescriptor, Vertex,
+    },
     runtime::App,
     server::RenderServer,
     wgpu::{Device, Queue, SurfaceConfiguration, TextureView},
@@ -14,7 +17,7 @@ pub struct RenderServerTriangleApp {
 }
 
 impl App for RenderServerTriangleApp {
-    fn init(config: &SurfaceConfiguration, _device: &Device, _queue: &Queue) -> Self
+    fn init(config: &SurfaceConfiguration, device: &Device, queue: &Queue) -> Self
     where
         Self: Sized,
     {
@@ -45,7 +48,7 @@ impl App for RenderServerTriangleApp {
             1, 2, 3, // Top Right Triangle
         ];
 
-        let mut render_server = RenderServer::new(config.format);
+        let mut render_server = RenderServer::new(config.format, device, queue);
 
         let texture = Reader::new(Cursor::new(include_bytes!("texture.png")))
             .with_guessed_format()
@@ -57,6 +60,7 @@ impl App for RenderServerTriangleApp {
         render_server.spawn_model(ModelDescriptor::FromDescriptors(
             MeshDescriptor { vertices, indices },
             MaterialDescriptor::PBR(TextureDescriptor::StandardSRGBu8Data(texture, (800, 800))),
+            Instancing::Single(InstanceDescriptor::default()),
         ));
 
         Self { render_server }
