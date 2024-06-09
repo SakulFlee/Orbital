@@ -1,3 +1,5 @@
+pub mod camera;
+pub mod instance;
 pub mod material;
 pub mod mesh;
 pub mod model;
@@ -6,6 +8,8 @@ pub mod shader;
 pub mod texture;
 pub mod vertex;
 
+pub use camera::*;
+pub use instance::*;
 pub use material::*;
 pub use mesh::*;
 pub use model::*;

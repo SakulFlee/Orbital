@@ -1,6 +1,9 @@
 use akimo_runtime::{
-    nalgebra::{Vector2, Vector3},
-    resources::{MaterialDescriptor, MeshDescriptor, ModelDescriptor, TextureDescriptor, Vertex},
+    cgmath::{Vector2, Vector3},
+    resources::{
+        InstanceDescriptor, Instancing, MaterialDescriptor, MeshDescriptor, ModelDescriptor,
+        TextureDescriptor, Vertex,
+    },
     runtime::App,
     server::RenderServer,
     wgpu::{Device, Queue, SurfaceConfiguration, TextureView},
@@ -11,7 +14,7 @@ pub struct RenderServerTriangleApp {
 }
 
 impl App for RenderServerTriangleApp {
-    fn init(config: &SurfaceConfiguration, _device: &Device, _queue: &Queue) -> Self
+    fn init(config: &SurfaceConfiguration, device: &Device, queue: &Queue) -> Self
     where
         Self: Sized,
     {
@@ -31,11 +34,12 @@ impl App for RenderServerTriangleApp {
         ];
         let indices = vec![0, 1, 2];
 
-        let mut render_server = RenderServer::new(config.format);
+        let mut render_server = RenderServer::new(config.format, device, queue);
 
         render_server.spawn_model(ModelDescriptor::FromDescriptors(
             MeshDescriptor { vertices, indices },
             MaterialDescriptor::PBRCustomShader(TextureDescriptor::EMPTY, include_str!("rgb.wgsl")),
+            Instancing::Single(InstanceDescriptor::default()),
         ));
 
         Self { render_server }

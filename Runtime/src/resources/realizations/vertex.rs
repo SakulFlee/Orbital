@@ -1,6 +1,6 @@
-use nalgebra::Vector2;
+use cgmath::{Vector2, Vector3};
 
-use crate::{nalgebra::Vector3, resources::uniforms::VertexUniform};
+use crate::resources::VertexUniform;
 
 #[derive(Debug, Clone)]
 pub struct Vertex {
