@@ -18,33 +18,32 @@ pub enum ModelDescriptor {
     /// Describes a model to be created from a mesh and a material descriptor.
     ///
     /// # Arguments
-    /// 
-    /// * 1.: Mesh descriptor, defines the [Mesh](crate::resources::realizations::Mesh) of a [Model]
-    /// 
-    /// * 2.: Material descriptor, defines the [Material](crate::resources::realizations::Material) of a [Model]
-    /// 
-    /// * 3.: Instancing  
+    ///
+    /// 1.: Mesh descriptor, defines the [Mesh](crate::resources::realizations::Mesh) of a [Model](crate::resources::realizations::Model)
+    ///
+    /// 2.: Material descriptor, defines the [Material](crate::resources::realizations::Material) of a [Model](crate::resources::realizations::Model)
+    ///
+    /// 3.: Instancing  
     ///     Check super description for [Instancing] explanation.
     FromDescriptors(MeshDescriptor, MaterialDescriptor, Instancing),
     /// Describes a model to be imported from a _glTF file_.
-    /// 
+    ///
     /// Note, that this **only** imports a [Model](crate::resources::realizations::Model) (i.e. a [Mesh](crate::resources::realizations::Mesh) + a [Material](crate::resources::realizations::Material)).
     /// You can also import as a [Composition](crate::resources::realizations::Composition) (i.e. [Model](crate::resources::realizations::Model) + [Light](crate::resources::realizations::Light), [Camera](crate::resources::realizations::Camera), etc.) via a [CompositionDescriptor](crate::resources::descriptors::CompositionDescriptor).
-    /// 
+    ///
     /// # Arguments
-    /// 
-    /// * 1.: Path to the _glTF File_.  
+    ///
+    /// 1.: Path to the _glTF File_.  
     ///     ⚠️ The file must be accessible at runtime.
     ///
-    /// * 2. &
-    ///   3.: Control what is imported.  
+    /// 2. & 3.: Control what is imported.  
     ///     A single _glTF file_ may contain multiple _Models_.
     ///     Therefore, the 2nd parameter defines which _Scene_ the _Model_
     ///     should be loaded from.
     ///     The 3rd parameter defines which Model is being imported.
     ///     Check [ImportDescriptor] for more!
     ///
-    /// * 4.: Instancing.
+    /// 4.: Instancing.  
     ///     Check super description for [Instancing] explanation.
     #[cfg(feature = "gltf")]
     FromGLTF(&'static str, ImportDescriptor, ImportDescriptor, Instancing),
