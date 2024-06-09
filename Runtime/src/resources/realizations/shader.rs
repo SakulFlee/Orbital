@@ -49,6 +49,7 @@ impl Shader {
         //         defines: FastHashMap::default(),
         //     },
         // });
+        // TODO
 
         let shader_module = device.create_shader_module(ShaderModuleDescriptor {
             label: None,
