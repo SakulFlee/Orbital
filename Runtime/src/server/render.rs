@@ -4,7 +4,7 @@ use wgpu::{
     RenderPassColorAttachment, RenderPassDescriptor, StoreOp, TextureFormat, TextureView,
 };
 
-use crate::resources::{Model, ModelDescriptor, Pipeline};
+use crate::resources::{Camera, CameraDescriptor, Model, ModelDescriptor, Pipeline};
 
 // TODO: Material cache
 // TODO: Mesh cache
@@ -13,14 +13,16 @@ pub struct RenderServer {
     models: Vec<Model>,
     models_to_spawn: Vec<ModelDescriptor>,
     surface_texture_format: TextureFormat,
+    camera: Camera,
 }
 
 impl RenderServer {
-    pub fn new(surface_texture_format: TextureFormat) -> Self {
+    pub fn new(surface_texture_format: TextureFormat, device: &Device, queue: &Queue) -> Self {
         Self {
             models: Vec::new(),
             models_to_spawn: Vec::new(),
             surface_texture_format,
+            camera: Camera::from_descriptor(CameraDescriptor::default(), device, queue),
         }
     }
 
@@ -42,6 +44,25 @@ impl RenderServer {
     }
 
     fn do_render(&mut self, device: &Device, queue: &Queue, view: &TextureView) {
+        // TODO: Remove
+        unsafe {
+            static mut INCREMENT: bool = true;
+            let mut x = self.camera.descriptor().clone();
+            if INCREMENT {
+                x.position.x += 0.001;
+            } else {
+                x.position.x -= 0.001;
+            }
+
+            if x.position.x > -1.0 {
+                INCREMENT = false;
+            }
+            if x.position.x < -4.0 {
+                INCREMENT = true;
+            }
+            self.camera.update_from_descriptor(x, device, queue);
+        }
+
         let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor { label: None });
         {
             let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
@@ -78,11 +99,17 @@ impl RenderServer {
                 render_pass.set_pipeline(pipeline.render_pipeline());
 
                 render_pass.set_bind_group(0, material.bind_group(), &[]);
+                render_pass.set_bind_group(1, self.camera.bind_group(), &[]);
 
                 render_pass.set_vertex_buffer(0, mesh.vertex_buffer().slice(..));
+                render_pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
                 render_pass.set_index_buffer(mesh.index_buffer().slice(..), IndexFormat::Uint32);
 
-                render_pass.draw_indexed(0..mesh.index_count(), 0, 0..1);
+                render_pass.draw_indexed(
+                    0..mesh.index_count(),
+                    0,
+                    0..model.instances().len() as u32,
+                );
             }
         }
 
@@ -96,8 +123,6 @@ impl RenderServer {
         debug!("Models to realize: {}", self.models_to_spawn.len());
 
         while let Some(model_descriptor) = self.models_to_spawn.pop() {
-            
-
             match Model::from_descriptor(
                 &model_descriptor,
                 &self.surface_texture_format,
