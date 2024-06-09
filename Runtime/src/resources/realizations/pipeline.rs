@@ -11,6 +11,8 @@ use crate::{
     resources::{PipelineDescriptor, Shader, VertexUniform},
 };
 
+use super::{Camera, Instance};
+
 pub struct Pipeline {
     render_pipeline: RenderPipeline,
     bind_group_layout: BindGroupLayout,
@@ -134,19 +136,24 @@ impl Pipeline {
         device: &Device,
         queue: &Queue,
     ) -> Result<Pipeline, Error> {
-        let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: None,
-            entries: pipeline_descriptor.bind_group_entries.as_slice(),
-        });
+        let pipeline_bind_group_layout =
+            device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                label: None,
+                entries: pipeline_descriptor.bind_group_entries.as_slice(),
+            });
 
         let render_pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: None,
-            bind_group_layouts: &[&bind_group_layout],
+            bind_group_layouts: &[
+                // Pipeline bind group layouts
+                &pipeline_bind_group_layout,
+                // Camera bind group layout
+                &device.create_bind_group_layout(&Camera::bind_group_layout_descriptor()),
+            ],
             push_constant_ranges: &[],
         });
 
-        let shader =
-            Shader::from_descriptor(pipeline_descriptor.shader_descriptor, device, queue)?;
+        let shader = Shader::from_descriptor(pipeline_descriptor.shader_descriptor, device, queue)?;
 
         let render_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
             label: None,
@@ -154,7 +161,10 @@ impl Pipeline {
             vertex: VertexState {
                 module: shader.shader_module(),
                 entry_point: "entrypoint_vertex",
-                buffers: &[VertexUniform::descriptor()],
+                buffers: &[
+                    VertexUniform::vertex_buffer_layout_descriptor(),
+                    Instance::vertex_buffer_layout_descriptor(),
+                ],
                 compilation_options: PipelineCompilationOptions::default(),
             },
             fragment: Some(FragmentState {
@@ -183,7 +193,7 @@ impl Pipeline {
 
         Ok(Self {
             render_pipeline,
-            bind_group_layout,
+            bind_group_layout: pipeline_bind_group_layout,
             shader,
         })
     }
