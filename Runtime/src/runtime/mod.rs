@@ -2,12 +2,10 @@ use std::sync::Arc;
 
 use log::{debug, info, warn};
 use wgpu::{
-    util::{
-        backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env,
-        initialize_adapter_from_env_or_default,
-    },
+    util::{backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env},
     Adapter, Device, DeviceDescriptor, Features, Instance, InstanceDescriptor, InstanceFlags,
-    Limits, Queue, Surface, SurfaceConfiguration, SurfaceTexture, TextureViewDescriptor,
+    Limits, PowerPreference, Queue, RequestAdapterOptions, Surface, SurfaceConfiguration,
+    SurfaceTexture, TextureViewDescriptor,
 };
 use winit::{
     application::ApplicationHandler,
@@ -75,10 +73,11 @@ impl<AppImpl: App> Runtime<AppImpl> {
     }
 
     fn make_adapter(instance: &Instance, compatible_surface: Option<&Surface>) -> Adapter {
-        let adapter = pollster::block_on(initialize_adapter_from_env_or_default(
-            instance,
+        let adapter = pollster::block_on(instance.request_adapter(&RequestAdapterOptions {
+            power_preference: PowerPreference::HighPerformance,
+            force_fallback_adapter: false,
             compatible_surface,
-        ))
+        }))
         .expect("No suitable GPU adapters found!");
 
         let adapter_info = adapter.get_info();
