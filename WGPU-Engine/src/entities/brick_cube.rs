@@ -15,7 +15,7 @@ pub struct BrickCube {
 }
 
 impl BrickCube {
-    pub const TAG: &str = "BrickCube";
+    pub const TAG: &'static str = "BrickCube";
 }
 
 impl TEntity for BrickCube {

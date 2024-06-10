@@ -27,8 +27,8 @@ impl AbstractTexture {
     where
         P: AsRef<Path>,
     {
-        let file_name = file_path.as_ref().clone().to_str();
-        let bytes = ResourceManager::read_resource_binary(file_path.as_ref().clone())?;
+        let file_name = file_path.as_ref().to_str();
+        let bytes = ResourceManager::read_resource_binary(file_path.as_ref())?;
 
         Self::from_bytes(
             logical_device,
