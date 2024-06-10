@@ -6,7 +6,7 @@ use wgpu::{
     Device, Queue, ShaderStages,
 };
 
-use crate::resources::CameraDescriptor;
+use crate::resources::descriptors::CameraDescriptor;
 
 pub struct Camera {
     descriptor: CameraDescriptor,
@@ -55,13 +55,7 @@ impl Camera {
         });
 
         let mut camera = Self {
-            descriptor: descriptor.clone(),
-            // perspective: Perspective3::new(
-            //     descriptor.aspect,
-            //     descriptor.fovy,
-            //     descriptor.znear,
-            //     descriptor.zfar,
-            // ),
+            descriptor,
             bind_group,
             buffer,
         };
@@ -75,15 +69,7 @@ impl Camera {
         _device: &Device,
         queue: &Queue,
     ) {
-        // TODO: OpenGL to WebGPU matrix?
         self.descriptor = descriptor;
-        // self.perspective = Perspective3::new(
-        //     descriptor.aspect,
-        //     descriptor.fovy,
-        //     descriptor.znear,
-        //     descriptor.zfar,
-        // );
-
         self.update_buffer(queue);
     }
 
@@ -116,9 +102,18 @@ impl Camera {
     }
 
     pub fn calculate_view_projection_matrix(&self) -> Matrix4<f32> {
-        let (pitch_sin, pitch_cos) = self.descriptor.pitch.sin_cos();
-        let (yaw_sin, yaw_cos) = self.descriptor.yaw.sin_cos();
-
+        // WGPU uses the same coordinate system as found in e.g. DirectX or
+        // Metal. Meaning, that the clipping zone is expected to be between
+        // -1.0 and +1.0 for the X and Y axis, but 0.0 to +1.0 for the Z axis.
+        //
+        // However, most computer graphics related library expect OpenGL's
+        // coordinate system. OpenGL uses the same X and Y axis normalized
+        // space, but puts the Z axis **also from -1.0** to +1.0.
+        //
+        // This isn't needed! But an object at origin (0.0, 0.0, 0.0) would be
+        // halfway in the clipping zone. Using this matrix converts FROM the
+        // OpenGL system (as produced by cgmath) INTO the WGPU/DirectX/Metal
+        // system.
         #[rustfmt::skip]
         const OPEN_GL_MATRIX: Matrix4<f32> = Matrix4::new(
             1.0, 0.0, 0.0, 0.0,
@@ -127,14 +122,18 @@ impl Camera {
             0.0, 0.0, 0.0, 1.0,
         );
 
-        let view_projection_matrix = Matrix4::look_at_rh(
-            self.descriptor.position,
-            Point3::from_vec(
-                Vector3::new(pitch_cos * yaw_cos, pitch_sin, pitch_cos * yaw_sin).normalize(),
-            ),
-            Vector3::unit_y(),
+        // Takes yaw and pitch values and converts them into a target vector for our camera.
+        let (pitch_sin, pitch_cos) = self.descriptor.pitch.sin_cos();
+        let (yaw_sin, yaw_cos) = self.descriptor.yaw.sin_cos();
+        let camera_target = Point3::from_vec(
+            Vector3::new(pitch_cos * yaw_cos, pitch_sin, pitch_cos * yaw_sin).normalize(),
         );
 
+        // Calculates the view project matrix
+        let view_projection_matrix =
+            Matrix4::look_at_rh(self.descriptor.position, camera_target, Vector3::unit_y());
+
+        // Calculates the perspective matrix
         let perspective_matrix = perspective(
             Deg(self.descriptor.fovy),
             self.descriptor.aspect,
@@ -142,7 +141,8 @@ impl Camera {
             self.descriptor.far,
         );
 
-        return OPEN_GL_MATRIX * perspective_matrix * view_projection_matrix;
+        // Final result :)
+        OPEN_GL_MATRIX * perspective_matrix * view_projection_matrix
     }
 
     pub fn descriptor(&self) -> &CameraDescriptor {
