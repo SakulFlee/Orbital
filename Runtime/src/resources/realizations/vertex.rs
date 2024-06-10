@@ -3,8 +3,6 @@ use std::mem::size_of;
 use cgmath::{Vector2, Vector3};
 use wgpu::{VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode};
 
-use crate::resources::VertexUniform;
-
 #[derive(Debug, Clone)]
 pub struct Vertex {
     pub position_coordinates: Vector3<f32>,
@@ -14,7 +12,7 @@ pub struct Vertex {
 impl Vertex {
     pub fn vertex_buffer_layout_descriptor() -> VertexBufferLayout<'static> {
         VertexBufferLayout {
-            array_stride: size_of::<VertexUniform>() as u64,
+            array_stride: size_of::<[f32; 5]>() as u64,
             step_mode: VertexStepMode::Vertex,
             attributes: &[
                 VertexAttribute {
