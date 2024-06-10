@@ -146,7 +146,7 @@ impl Model {
         }
     }
 
-    fn make_instance_buffer(instances: &Vec<Instance>, device: &Device, _queue: &Queue) -> Buffer {
+    fn make_instance_buffer(instances: &[Instance], device: &Device, _queue: &Queue) -> Buffer {
         let instance_data: Vec<u8> = instances
             .iter()
             .map(|x| x.make_model_space_matrix())
