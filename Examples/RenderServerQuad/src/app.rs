@@ -48,7 +48,7 @@ impl App for RenderServerTriangleApp {
             1, 2, 3, // Top Right Triangle
         ];
 
-        let mut render_server = RenderServer::new(config.format, device, queue);
+        let mut render_server = RenderServer::new(config.format, (1280, 720).into(), device, queue);
 
         render_server.spawn_model(ModelDescriptor::FromDescriptors(
             MeshDescriptor { vertices, indices },
