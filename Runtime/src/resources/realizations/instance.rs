@@ -1,6 +1,6 @@
 use std::mem;
 
-use crate::resources::InstanceDescriptor;
+use crate::resources::descriptors::InstanceDescriptor;
 use cgmath::Matrix4;
 use wgpu::{VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode};
 

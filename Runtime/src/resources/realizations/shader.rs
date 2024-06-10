@@ -1,7 +1,7 @@
 use std::fmt::Write;
 use wgpu::{Device, Queue, ShaderModule, ShaderModuleDescriptor, ShaderSource};
 
-use crate::{error::Error, resources::ShaderDescriptor};
+use crate::{error::Error, resources::descriptors::ShaderDescriptor};
 
 #[derive(Debug)]
 pub struct Shader {

@@ -6,7 +6,7 @@ use wgpu::{
     Device, Queue, ShaderStages,
 };
 
-use crate::resources::CameraDescriptor;
+use crate::resources::descriptors::CameraDescriptor;
 
 pub struct Camera {
     descriptor: CameraDescriptor,
