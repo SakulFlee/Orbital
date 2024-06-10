@@ -11,10 +11,10 @@ use wgpu::{
 
 use crate::{
     error::Error,
-    resources::{descriptors::PipelineDescriptor, realizations::Shader, uniforms::VertexUniform},
+    resources::{descriptors::PipelineDescriptor, realizations::Shader},
 };
 
-use super::{Camera, Instance};
+use super::{Camera, Instance, Vertex};
 
 #[derive(Debug)]
 pub struct Pipeline {
@@ -31,11 +31,11 @@ impl Pipeline {
     /// # Safety
     /// This is potentially a dangerous operation!
     /// The Rust compiler says the following:
-    /// ```
-    /// use of mutable static is unsafe and requires unsafe function or block
+    ///
+    /// > use of mutable static is unsafe and requires unsafe function or block
     /// mutable statics can be mutated by multiple threads: aliasing violations
     /// or data races will cause undefined behavior
-    /// ```
+    ///
     /// However, once initialized, the cell [OnceLock] should never change and
     /// thus this should be safe.
     ///
@@ -164,7 +164,7 @@ impl Pipeline {
                 module: shader.shader_module(),
                 entry_point: "entrypoint_vertex",
                 buffers: &[
-                    VertexUniform::vertex_buffer_layout_descriptor(),
+                    Vertex::vertex_buffer_layout_descriptor(),
                     Instance::vertex_buffer_layout_descriptor(),
                 ],
                 compilation_options: PipelineCompilationOptions::default(),
