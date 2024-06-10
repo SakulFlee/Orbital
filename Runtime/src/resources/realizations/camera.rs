@@ -55,7 +55,7 @@ impl Camera {
         });
 
         let mut camera = Self {
-            descriptor: descriptor.clone(),
+            descriptor,
             bind_group,
             buffer,
         };
@@ -142,7 +142,7 @@ impl Camera {
         );
 
         // Final result :)
-        return OPEN_GL_MATRIX * perspective_matrix * view_projection_matrix;
+        OPEN_GL_MATRIX * perspective_matrix * view_projection_matrix
     }
 
     pub fn descriptor(&self) -> &CameraDescriptor {

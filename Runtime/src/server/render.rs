@@ -44,7 +44,7 @@ impl RenderServer {
         // TODO: Remove
         unsafe {
             static mut INCREMENT: bool = true;
-            let mut x = self.camera.descriptor().clone();
+            let mut x = *self.camera.descriptor();
             if INCREMENT {
                 x.position.x += 0.001;
             } else {
