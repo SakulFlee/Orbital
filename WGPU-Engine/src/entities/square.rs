@@ -13,7 +13,7 @@ pub struct Square {
 }
 
 impl Square {
-    pub const TAG: &str = "Square";
+    pub const TAG: &'static str = "Square";
 
     /// A square looks like this:
     /// +---+
@@ -58,7 +58,7 @@ impl Square {
     /// depth axis (Z).
     /// > Coordinates are in (X, Y) where -X is <- and +X is ->, and,
     /// > +Y is /\ and -Y is \/
-    const VERTICES: &[VertexPoint] = &[
+    const VERTICES: &'static [VertexPoint] = &[
         // A
         VertexPoint {
             position_coordinates: [-0.5, 0.5, 0.0],
@@ -136,7 +136,7 @@ impl Square {
     /// However, to make it easier to read we tell `rustfmt` to skip formatting,
     /// so that we can place 3 numbers in one row and have two rows. :)
     #[rustfmt::skip]
-    const INDICES: &[u32] = &[
+    const INDICES: &'static [u32] = &[
         0, 1, 2,
         0, 2, 3,
     ];

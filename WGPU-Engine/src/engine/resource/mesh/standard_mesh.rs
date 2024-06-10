@@ -22,7 +22,7 @@ pub struct StandardMesh {
 }
 
 impl StandardMesh {
-    pub const MISSING_TEXTURE: &str = "missing_texture.png";
+    pub const MISSING_TEXTURE: &'static str = "missing_texture.png";
 
     pub fn from_gltf_single<P>(
         logical_device: &LogicalDevice,

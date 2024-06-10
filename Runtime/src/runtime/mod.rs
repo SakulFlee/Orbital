@@ -113,7 +113,7 @@ impl<AppImpl: App> Runtime<AppImpl> {
         debug!(
             "View formats: {:#?}",
             self.surface_configuration.as_ref().unwrap().view_formats
-        ); // FIXME
+        );
     }
 
     pub fn acquire_next_frame(&self) -> Option<SurfaceTexture> {

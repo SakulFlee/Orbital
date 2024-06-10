@@ -1,5 +1,8 @@
-use log::error;
-use std::{collections::HashMap, sync::OnceLock};
+use log::{error, info};
+use std::{
+    collections::HashMap,
+    sync::{Mutex, OnceLock},
+};
 use wgpu::{
     BindGroupLayout, BindGroupLayoutDescriptor, BlendState, ColorTargetState, ColorWrites, Device,
     FragmentState, MultisampleState, PipelineCompilationOptions, PipelineLayoutDescriptor,
@@ -8,11 +11,12 @@ use wgpu::{
 
 use crate::{
     error::Error,
-    resources::{PipelineDescriptor, Shader},
+    resources::{descriptors::PipelineDescriptor, realizations::Shader},
 };
 
 use super::{Camera, Instance, Vertex};
 
+#[derive(Debug)]
 pub struct Pipeline {
     render_pipeline: RenderPipeline,
     bind_group_layout: BindGroupLayout,
@@ -21,29 +25,37 @@ pub struct Pipeline {
 
 impl Pipeline {
     // --- Static ---
-    pub unsafe fn cache() -> (
-        &'static mut HashMap<PipelineDescriptor, Pipeline>,
-        &'static mut Option<TextureFormat>,
-    ) {
-        static mut CACHE: OnceLock<HashMap<PipelineDescriptor, Pipeline>> = OnceLock::new();
-        static mut CACHE_FORMAT: OnceLock<Option<TextureFormat>> = OnceLock::new();
+    /// Gives access to the internal pipeline cache.
+    /// If the cache doesn't exist yet, it gets initialized.
+    ///
+    /// # Safety
+    /// This is potentially a dangerous operation!
+    /// The Rust compiler says the following:
+    /// ```
+    /// use of mutable static is unsafe and requires unsafe function or block
+    /// mutable statics can be mutated by multiple threads: aliasing violations
+    /// or data races will cause undefined behavior
+    /// ```
+    /// However, once initialized, the cell [OnceLock] should never change and
+    /// thus this should be safe.
+    ///
+    /// Additionally, we utilize a [Mutex] to ensure that access to the
+    /// cache map and texture format is actually exclusive.
+    pub unsafe fn cache() -> &'static mut (HashMap<PipelineDescriptor, Pipeline>, TextureFormat) {
+        static mut CACHE: OnceLock<Mutex<(HashMap<PipelineDescriptor, Pipeline>, TextureFormat)>> =
+            OnceLock::new();
 
-        let cache_ref = match CACHE.get_mut() {
-            Some(r) => r,
-            None => {
-                CACHE.set(HashMap::new());
-                CACHE.get_mut().unwrap()
-            }
-        };
-        let cache_format_ref = match CACHE_FORMAT.get_mut() {
-            Some(r) => r,
-            None => {
-                CACHE_FORMAT.set(None);
-                CACHE_FORMAT.get_mut().unwrap()
-            }
-        };
+        if CACHE.get().is_none() {
+            info!("Pipeline cache doesn't exist! Initializing ...");
+            let _ =
+                CACHE.get_or_init(|| Mutex::new((HashMap::new(), TextureFormat::Rgba8UnormSrgb)));
+        }
 
-        (cache_ref, cache_format_ref)
+        CACHE
+            .get_mut()
+            .unwrap()
+            .get_mut()
+            .expect("Cache access violation!")
     }
 
     /// Makes sure the cache is in the right state before accessing.
@@ -63,40 +75,30 @@ impl Pipeline {
         let (cache, cache_format) = unsafe { Self::cache() };
 
         // Check the cache format
-        match cache_format {
-            Some(current_format) => {
-                // If there is a format, compare it.
-                // If they don't match, trigger a recompilation of the cache!
-                if current_format != potential_new_format {
-                    // If the formats don't match, we have to attempt to
-                    // recompile the whole cache.
+        // If they don't match, trigger a recompilation of the cache!
+        if cache_format != potential_new_format {
+            // If the formats don't match, we have to attempt to
+            // recompile the whole cache.
 
-                    // Thus, set the new cache format BEFORE cache is accessed
-                    // again ...
-                    *cache_format = Some(*potential_new_format);
+            // Thus, set the new cache format BEFORE cache is accessed
+            // again ...
+            *cache_format = *potential_new_format;
 
-                    // ... drain the map ...
-                    let old_cache = cache.drain();
+            // ... drain the map ...
+            let old_cache = cache.drain();
 
-                    // ... loop through each descriptor (key) ...
-                    for (descriptor, _) in old_cache {
-                        // ... and create new pipelines with the new format!
-                        // Keep in mind that making a pipeline from a descriptor
-                        // will automatically add the pipeline to the cache.
-                        // Thus, we don't have to add anything special here!
-                        // However, errors are nasty:
-                        if let Err(e) =
-                            Self::from_descriptor(&descriptor, potential_new_format, device, queue)
-                        {
-                            error!("Failed recompiling pipeline (and shader) in pipeline cache after surface format change! Error: {:?}", e);
-                        }
-                    }
+            // ... loop through each descriptor (key) ...
+            for (descriptor, _) in old_cache {
+                // ... and create new pipelines with the new format!
+                // Keep in mind that making a pipeline from a descriptor
+                // will automatically add the pipeline to the cache.
+                // Thus, we don't have to add anything special here!
+                // However, errors are nasty:
+                if let Err(e) =
+                    Self::from_descriptor(&descriptor, potential_new_format, device, queue)
+                {
+                    error!("Failed recompiling pipeline (and shader) in pipeline cache after surface format change! Error: {:?}", e);
                 }
-            }
-            None => {
-                // If no surface format is set yet, this cache must be new.
-                // Fill it with the current format!
-                *cache_format = Some(*potential_new_format);
             }
         }
 
