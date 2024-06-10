@@ -15,7 +15,12 @@ impl App for RenderServerTriangleApp {
     where
         Self: Sized,
     {
-        let mut render_server = RenderServer::new(config.format, device, queue);
+        let mut render_server = RenderServer::new(
+            config.format,
+            (config.width, config.height).into(),
+            device,
+            queue,
+        );
 
         render_server.spawn_model(ModelDescriptor::FromGLTF(
             "Assets/Models/Cube.glb",

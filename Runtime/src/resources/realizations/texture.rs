@@ -1,3 +1,4 @@
+use cgmath::Vector2;
 use image::{DynamicImage, GenericImageView};
 use log::warn;
 use wgpu::Color;
@@ -29,6 +30,7 @@ impl Texture {
                 Self::standard_srgb8_data(data, size, device, queue)
             }
             TextureDescriptor::UniformColor(color) => Self::uniform_color(*color, device, queue),
+            TextureDescriptor::Depth(size) => Self::depth_texture(size, device, queue),
             TextureDescriptor::Custom(
                 texture_descriptor,
                 texture_view_descriptor,
@@ -45,7 +47,7 @@ impl Texture {
 
     /// In case you want a uniform, one color, image.
     /// This results in an 1-by-1 px, i.e. 4 bytes image.
-    /// 
+    ///
     /// ⚠️ This can be used as an empty texture as there is as minimal
     /// ⚠️ as possible data usage and this resource may not even arrive
     /// ⚠️ in the shader _if_ it is not used.
@@ -55,13 +57,13 @@ impl Texture {
         let b = ((color.b * 256.0) as u8).min(255).max(0);
         let a = ((color.a * 256.0) as u8).min(255).max(0);
 
-        Self::standard_srgb8_data(&[r, g, b, a], &(1, 1), device, queue)
+        Self::standard_srgb8_data(&[r, g, b, a], &(1, 1).into(), device, queue)
     }
 
     pub fn standard_srgb8_image(image: &DynamicImage, device: &Device, queue: &Queue) -> Self {
         Self::standard_srgb8_data(
             &image.to_rgba8(),
-            &(image.dimensions().0, image.dimensions().1),
+            &(image.dimensions().0, image.dimensions().1).into(),
             device,
             queue,
         )
@@ -69,7 +71,7 @@ impl Texture {
 
     pub fn standard_srgb8_data(
         data: &[u8],
-        size: &(u32, u32),
+        size: &Vector2<u32>,
         device: &Device,
         queue: &Queue,
     ) -> Self {
@@ -78,8 +80,8 @@ impl Texture {
             &WTextureDescriptor {
                 label: Some("Standard SRGB u8 Data Texture"),
                 size: Extent3d {
-                    width: size.0,
-                    height: size.1,
+                    width: size.x,
+                    height: size.y,
                     ..Default::default()
                 },
                 mip_level_count: 1,
@@ -157,6 +159,39 @@ impl Texture {
         );
 
         texture
+    }
+
+    fn depth_texture(size: &Vector2<u32>, device: &Device, queue: &Queue) -> Texture {
+        Self::from_descriptors(
+            &WTextureDescriptor {
+                label: Some("Depth Texture"),
+                size: Extent3d {
+                    width: size.x,
+                    height: size.y,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::Depth32Float,
+                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            },
+            &TextureViewDescriptor::default(),
+            &SamplerDescriptor {
+                address_mode_u: AddressMode::ClampToEdge,
+                address_mode_v: AddressMode::ClampToEdge,
+                address_mode_w: AddressMode::ClampToEdge,
+                mag_filter: FilterMode::Linear,
+                min_filter: FilterMode::Linear,
+                mipmap_filter: FilterMode::Nearest,
+                lod_min_clamp: 0.0,
+                lod_max_clamp: 100.0,
+                ..Default::default()
+            },
+            device,
+            queue,
+        )
     }
 
     pub fn from_descriptors(

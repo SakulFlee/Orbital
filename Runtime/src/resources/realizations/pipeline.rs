@@ -4,9 +4,7 @@ use std::{
     sync::{Mutex, OnceLock},
 };
 use wgpu::{
-    BindGroupLayout, BindGroupLayoutDescriptor, BlendState, ColorTargetState, ColorWrites, Device,
-    FragmentState, MultisampleState, PipelineCompilationOptions, PipelineLayoutDescriptor,
-    PrimitiveState, Queue, RenderPipeline, RenderPipelineDescriptor, TextureFormat, VertexState,
+    BindGroupLayout, BindGroupLayoutDescriptor, BlendState, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, Device, FragmentState, MultisampleState, PipelineCompilationOptions, PipelineLayoutDescriptor, PrimitiveState, Queue, RenderPipeline, RenderPipelineDescriptor, StencilState, TextureFormat, VertexState
 };
 
 use crate::{
@@ -188,7 +186,13 @@ impl Pipeline {
                 polygon_mode: pipeline_descriptor.polygon_mode,
                 conservative: false,
             },
-            depth_stencil: None,
+            depth_stencil: Some(DepthStencilState {
+                format: TextureFormat::Depth32Float,
+                depth_write_enabled: true,
+                depth_compare: CompareFunction::Less,
+                stencil: StencilState::default(),
+                bias: DepthBiasState::default(),
+            }),
             multisample: MultisampleState::default(),
             multiview: None,
         });
