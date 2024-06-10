@@ -1,29 +1,52 @@
+use cgmath::Vector2;
 use log::{debug, error};
 use wgpu::{
     Color, CommandEncoderDescriptor, Device, IndexFormat, LoadOp, Operations, Queue,
-    RenderPassColorAttachment, RenderPassDescriptor, StoreOp, TextureFormat, TextureView,
+    RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor, StoreOp,
+    TextureFormat, TextureView,
 };
 
 use crate::resources::{
-    descriptors::{CameraDescriptor, ModelDescriptor},
-    realizations::{Camera, Model, Pipeline},
+    descriptors::{CameraDescriptor, ModelDescriptor, TextureDescriptor},
+    realizations::{Camera, Model, Pipeline, Texture},
 };
 
 pub struct RenderServer {
     models: Vec<Model>,
     models_to_spawn: Vec<ModelDescriptor>,
     surface_texture_format: TextureFormat,
+    depth_texture: Texture,
     camera: Camera,
 }
 
 impl RenderServer {
-    pub fn new(surface_texture_format: TextureFormat, device: &Device, queue: &Queue) -> Self {
+    pub fn new(
+        surface_texture_format: TextureFormat,
+        depth_texture_resolution: Vector2<u32>,
+        device: &Device,
+        queue: &Queue,
+    ) -> Self {
         Self {
             models: Vec::new(),
             models_to_spawn: Vec::new(),
             surface_texture_format,
+            depth_texture: Texture::from_descriptor(
+                &TextureDescriptor::Depth(depth_texture_resolution),
+                device,
+                queue,
+            ),
             camera: Camera::from_descriptor(CameraDescriptor::default(), device, queue),
         }
+    }
+
+    pub fn change_depth_texture_resolution(
+        &mut self,
+        new_resolution: Vector2<u32>,
+        device: &Device,
+        queue: &Queue,
+    ) {
+        self.depth_texture =
+            Texture::from_descriptor(&TextureDescriptor::Depth(new_resolution), device, queue);
     }
 
     pub fn set_surface_texture_format(&mut self, surface_texture_format: TextureFormat) {
@@ -75,7 +98,14 @@ impl RenderServer {
                         store: StoreOp::Store,
                     },
                 })],
-                depth_stencil_attachment: None,
+                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                    view: self.depth_texture.view(),
+                    depth_ops: Some(Operations {
+                        load: LoadOp::Clear(1.0),
+                        store: StoreOp::Store,
+                    }),
+                    stencil_ops: None,
+                }),
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });

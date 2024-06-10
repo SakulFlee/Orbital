@@ -30,6 +30,7 @@ impl Texture {
                 Self::standard_srgb8_data(data, size, device, queue)
             }
             TextureDescriptor::UniformColor(color) => Self::uniform_color(*color, device, queue),
+            TextureDescriptor::Depth(size) => Self::depth_texture(size, device, queue),
             TextureDescriptor::Custom(
                 texture_descriptor,
                 texture_view_descriptor,
@@ -158,6 +159,39 @@ impl Texture {
         );
 
         texture
+    }
+
+    fn depth_texture(size: &Vector2<u32>, device: &Device, queue: &Queue) -> Texture {
+        Self::from_descriptors(
+            &WTextureDescriptor {
+                label: Some("Depth Texture"),
+                size: Extent3d {
+                    width: size.x,
+                    height: size.y,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::Depth32Float,
+                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            },
+            &TextureViewDescriptor::default(),
+            &SamplerDescriptor {
+                address_mode_u: AddressMode::ClampToEdge,
+                address_mode_v: AddressMode::ClampToEdge,
+                address_mode_w: AddressMode::ClampToEdge,
+                mag_filter: FilterMode::Linear,
+                min_filter: FilterMode::Linear,
+                mipmap_filter: FilterMode::Nearest,
+                lod_min_clamp: 0.0,
+                lod_max_clamp: 100.0,
+                ..Default::default()
+            },
+            device,
+            queue,
+        )
     }
 
     pub fn from_descriptors(

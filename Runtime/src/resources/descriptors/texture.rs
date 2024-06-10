@@ -1,12 +1,18 @@
+use cgmath::Vector2;
 use image::DynamicImage;
 use wgpu::Color;
 
 #[derive(Debug, Clone)]
 pub enum TextureDescriptor {
+    /// Creates a standard SRGB texture from a dynamic image.
     StandardSRGBu8Image(DynamicImage),
+    /// Creates a standard SRGB texture from bytes (u8).
+    /// Second parameter is the texture size.
     StandardSRGBu8Data(Vec<u8>, Vector2<u32>),
-    StandardSRGBu8Data(Vec<u8>, (u32, u32)),
+    /// Creates a texture with a single uniform color.
     UniformColor(Color),
+    /// Creates a depth texture with a given size.
+    Depth(Vector2<u32>),
     Custom(
         wgpu::TextureDescriptor<'static>,
         wgpu::TextureViewDescriptor<'static>,
