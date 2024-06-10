@@ -36,7 +36,7 @@ impl Shader {
                 .lines()
                 .take(last_preprocessor_line + 1)
                 .fold(String::new(), |mut output, x| {
-                    let _ = write!(output, "{x}\n");
+                    let _ = writeln!(output, "{x}");
                     output
                 });
         let rest_of_shader =
@@ -44,7 +44,7 @@ impl Shader {
                 .lines()
                 .skip(last_preprocessor_line + 1)
                 .fold(String::new(), |mut output, x| {
-                    let _ = write!(output, "{x}\n");
+                    let _ = writeln!(output, "{x}");
                     output
                 });
 
