@@ -1,3 +1,4 @@
+use std::fmt::Write;
 use wgpu::{Device, Queue, ShaderModule, ShaderModuleDescriptor, ShaderSource};
 
 use crate::{error::Error, resources::ShaderDescriptor};
@@ -30,16 +31,22 @@ impl Shader {
             .max()
             .expect("Shader doesn't seem to be annotated by preprocessor! (Missing #version xyz?)");
 
-        let preprocessor_lines = source
-            .lines()
-            .take(last_preprocessor_line + 1)
-            .map(|x| format!("{x}\n"))
-            .collect::<String>();
-        let rest_of_shader = source
-            .lines()
-            .skip(last_preprocessor_line + 1)
-            .map(|x| format!("{x}\n"))
-            .collect::<String>();
+        let preprocessor_lines =
+            source
+                .lines()
+                .take(last_preprocessor_line + 1)
+                .fold(String::new(), |mut output, x| {
+                    let _ = write!(output, "{x}\n");
+                    output
+                });
+        let rest_of_shader =
+            source
+                .lines()
+                .skip(last_preprocessor_line + 1)
+                .fold(String::new(), |mut output, x| {
+                    let _ = write!(output, "{x}\n");
+                    output
+                });
 
         format!("{preprocessor_lines}\n{includes}\n{rest_of_shader}")
     }
