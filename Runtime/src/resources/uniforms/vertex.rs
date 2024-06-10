@@ -13,24 +13,7 @@ pub struct VertexUniform {
 }
 
 impl VertexUniform {
-    pub fn vertex_buffer_layout_descriptor() -> VertexBufferLayout<'static> {
-        VertexBufferLayout {
-            array_stride: size_of::<VertexUniform>() as BufferAddress,
-            step_mode: VertexStepMode::Vertex,
-            attributes: &[
-                VertexAttribute {
-                    offset: 0,
-                    shader_location: 0,
-                    format: VertexFormat::Float32x3,
-                },
-                VertexAttribute {
-                    offset: size_of::<[f32; 3]>() as BufferAddress,
-                    shader_location: 1,
-                    format: VertexFormat::Float32x2,
-                },
-            ],
-        }
-    }
+    
 }
 
 impl From<&VertexUniform> for Vertex {

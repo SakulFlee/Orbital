@@ -1,11 +1,12 @@
 use log::warn;
-use wgpu::{Buffer, BufferUsages, Device, Queue};
-
-use crate::{
-    error::Error,
-    resources::{descriptors::MeshDescriptor, uniforms::VertexUniform},
-    util::BufferUtil,
+use wgpu::{
+    util::{BufferInitDescriptor, DeviceExt},
+    Buffer, BufferUsages, Device, Queue,
 };
+
+use crate::{error::Error, resources::descriptors::MeshDescriptor};
+
+use super::Vertex;
 
 pub struct Mesh {
     vertex_buffer: Buffer,
@@ -15,17 +16,29 @@ pub struct Mesh {
 
 impl Mesh {
     pub fn from_descriptor(descriptor: &MeshDescriptor, device: &Device, _queue: &Queue) -> Self {
-        let vertex_data: Vec<VertexUniform> =
-            descriptor.vertices.iter().map(|x| x.into()).collect();
-
-        Self::from_data(&vertex_data, &descriptor.indices, device)
+        Self::from_data(&descriptor.vertices, &descriptor.indices, device)
     }
 
-    pub fn from_data(vertices: &[VertexUniform], indices: &[u32], device: &Device) -> Self {
-        let vertex_buffer =
-            device.make_buffer(Some("Mesh Vertex Buffer"), vertices, BufferUsages::VERTEX);
-        let index_buffer =
-            device.make_buffer(Some("Mesh Index Buffer"), indices, BufferUsages::INDEX);
+    pub fn from_data(vertices: &[Vertex], indices: &[u32], device: &Device) -> Self {
+        let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("Mesh Vertex Buffer"),
+            contents: &vertices
+                .iter()
+                .map(|x| x.to_bytes())
+                .flatten()
+                .collect::<Vec<u8>>(),
+            usage: BufferUsages::VERTEX,
+        });
+
+        let index_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("Mesh Vertex Buffer"),
+            contents: &indices
+                .iter()
+                .map(|x| x.to_le_bytes())
+                .flatten()
+                .collect::<Vec<u8>>(),
+            usage: BufferUsages::INDEX,
+        });
 
         Self::from_buffer(vertex_buffer, index_buffer, indices.len() as u32)
     }
@@ -43,11 +56,11 @@ impl Mesh {
         let vertices = gltf_model
             .vertices()
             .iter()
-            .map(|vertex| VertexUniform {
-                positional_coordinates: vertex.position.into(),
+            .map(|vertex| Vertex {
+                position_coordinates: vertex.position.into(),
                 texture_coordinates: vertex.tex_coords.into(),
             })
-            .collect::<Vec<VertexUniform>>();
+            .collect::<Vec<Vertex>>();
         let indices = match gltf_model.indices() {
             Some(i) => i,
             None => {

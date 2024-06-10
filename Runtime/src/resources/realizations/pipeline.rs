@@ -8,10 +8,10 @@ use wgpu::{
 
 use crate::{
     error::Error,
-    resources::{PipelineDescriptor, Shader, VertexUniform},
+    resources::{PipelineDescriptor, Shader},
 };
 
-use super::{Camera, Instance};
+use super::{Camera, Instance, Vertex};
 
 pub struct Pipeline {
     render_pipeline: RenderPipeline,
@@ -162,7 +162,7 @@ impl Pipeline {
                 module: shader.shader_module(),
                 entry_point: "entrypoint_vertex",
                 buffers: &[
-                    VertexUniform::vertex_buffer_layout_descriptor(),
+                    Vertex::vertex_buffer_layout_descriptor(),
                     Instance::vertex_buffer_layout_descriptor(),
                 ],
                 compilation_options: PipelineCompilationOptions::default(),
