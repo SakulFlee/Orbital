@@ -11,7 +11,7 @@ use wgpu::{
     TextureViewDescriptor,
 };
 
-use crate::resources::TextureDescriptor;
+use crate::resources::descriptors::TextureDescriptor;
 
 pub struct Texture {
     texture: WTexture,

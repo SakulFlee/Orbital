@@ -3,7 +3,7 @@ use std::mem::size_of;
 use bytemuck::{Pod, Zeroable};
 use wgpu::{BufferAddress, VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode};
 
-use crate::resources::Vertex;
+use crate::resources::realizations::Vertex;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]

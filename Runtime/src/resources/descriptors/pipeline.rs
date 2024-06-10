@@ -19,7 +19,7 @@ impl Default for PipelineDescriptor {
     /// Default is PBR
     fn default() -> Self {
         Self {
-            shader_descriptor: include_str!("shader/standard_pbr.wgsl"), // TODO
+            shader_descriptor: include_str!("shader/standard_pbr.wgsl"),
             bind_group_entries: vec![
                 BindGroupLayoutEntry {
                     binding: 0,

@@ -56,7 +56,7 @@ impl Mesh {
             }
         };
 
-        Ok(Self::from_data(&vertices, &indices, device))
+        Ok(Self::from_data(&vertices, indices, device))
     }
 
     pub fn vertex_buffer(&self) -> &Buffer {

@@ -5,7 +5,7 @@ use wgpu::{
 
 use crate::{
     error::Error,
-    resources::{
+    resources::descriptors::{
         ImportDescriptor, Instancing, MaterialDescriptor, MeshDescriptor, ModelDescriptor,
     },
 };
@@ -119,7 +119,7 @@ impl Model {
 
         // Realize model
         let model = Self::from_existing(
-            Mesh::from_gltf(&model, device)?,
+            Mesh::from_gltf(model, device)?,
             Material::from_gltf(&model.material(), surface_format, device, queue)?,
             instances,
             device,
@@ -146,11 +146,11 @@ impl Model {
         }
     }
 
-    fn make_instance_buffer(instances: &Vec<Instance>, device: &Device, _queue: &Queue) -> Buffer {
+    fn make_instance_buffer(instances: &[Instance], device: &Device, _queue: &Queue) -> Buffer {
         let instance_data: Vec<u8> = instances
             .iter()
             .map(|x| x.make_model_space_matrix())
-            .map(|x| {
+            .flat_map(|x| {
                 vec![
                     x.x.x.to_le_bytes(),
                     x.x.y.to_le_bytes(),
@@ -171,7 +171,6 @@ impl Model {
                 ]
             })
             .flatten()
-            .flatten()
             .collect();
 
         device.create_buffer_init(&BufferInitDescriptor {
@@ -184,7 +183,7 @@ impl Model {
     pub fn convert_instancing(instancing: &Instancing) -> Vec<Instance> {
         match instancing {
             Instancing::Single(i) => vec![Instance::from_descriptor(i)],
-            Instancing::Multiple(vi) => vi.iter().map(|x| Instance::from_descriptor(x)).collect(),
+            Instancing::Multiple(vi) => vi.iter().map(Instance::from_descriptor).collect(),
         }
     }
 

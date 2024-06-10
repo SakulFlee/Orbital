@@ -48,6 +48,6 @@ impl ResourceManager {
     {
         let path = Self::resource_path(file_name)?;
 
-        easy_gltf::load(path).map_err(|e| EngineError::GltfBadMode(e))
+        easy_gltf::load(path).map_err(EngineError::GltfBadMode)
     }
 }
