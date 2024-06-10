@@ -4,10 +4,10 @@ use wgpu::{
     RenderPassColorAttachment, RenderPassDescriptor, StoreOp, TextureFormat, TextureView,
 };
 
-use crate::resources::{Camera, CameraDescriptor, Model, ModelDescriptor, Pipeline};
-
-// TODO: Material cache
-// TODO: Mesh cache
+use crate::resources::{
+    descriptors::{CameraDescriptor, ModelDescriptor},
+    realizations::{Camera, Model, Pipeline},
+};
 
 pub struct RenderServer {
     models: Vec<Model>,
@@ -47,7 +47,7 @@ impl RenderServer {
         // TODO: Remove
         unsafe {
             static mut INCREMENT: bool = true;
-            let mut x = self.camera.descriptor().clone();
+            let mut x = *self.camera.descriptor();
             if INCREMENT {
                 x.position.x += 0.001;
             } else {

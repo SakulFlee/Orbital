@@ -3,8 +3,11 @@ use std::io::Cursor;
 use akimo_runtime::{
     cgmath::{Vector2, Vector3},
     resources::{
-        InstanceDescriptor, Instancing, MaterialDescriptor, MeshDescriptor, ModelDescriptor,
-        TextureDescriptor, Vertex,
+        descriptors::{
+            InstanceDescriptor, Instancing, MaterialDescriptor, MeshDescriptor, ModelDescriptor,
+            TextureDescriptor,
+        },
+        realizations::Vertex,
     },
     runtime::App,
     server::RenderServer,

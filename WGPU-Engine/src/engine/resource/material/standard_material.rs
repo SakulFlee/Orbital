@@ -69,12 +69,12 @@ impl StandardMaterial {
     {
         let diffuse_texture = ResourceManager::diffuse_texture_from_path(
             logical_device,
-            diffuse_path.as_ref().clone(),
+            diffuse_path.as_ref(),
         )?;
 
         let normal_texture = ResourceManager::normal_texture_from_path(
             logical_device,
-            normal_path.as_ref().clone(),
+            normal_path.as_ref(),
         )?;
 
         Self::from_texture(logical_device, diffuse_texture, normal_texture)

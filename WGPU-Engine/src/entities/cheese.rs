@@ -11,7 +11,7 @@ pub struct Cheese {
 }
 
 impl Cheese {
-    pub const TAG: &str = "Cheese";
+    pub const TAG: &'static str = "Cheese";
 }
 
 impl TEntity for Cheese {
