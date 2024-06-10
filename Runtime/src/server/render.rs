@@ -6,9 +6,6 @@ use wgpu::{
 
 use crate::resources::{Camera, CameraDescriptor, Model, ModelDescriptor, Pipeline};
 
-// TODO: Material cache
-// TODO: Mesh cache
-
 pub struct RenderServer {
     models: Vec<Model>,
     models_to_spawn: Vec<ModelDescriptor>,
