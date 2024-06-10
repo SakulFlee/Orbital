@@ -97,7 +97,10 @@ impl Material {
         let pbr = &gltf_material.pbr;
 
         let albedo_texture_descriptor = if let Some(base_color) = &pbr.base_color_texture {
-            TextureDescriptor::StandardSRGBu8Data(base_color.to_vec(), base_color.dimensions())
+            TextureDescriptor::StandardSRGBu8Data(
+                base_color.to_vec(),
+                base_color.dimensions().into(),
+            )
         } else {
             TextureDescriptor::UNIFORM_GRAY
         };
