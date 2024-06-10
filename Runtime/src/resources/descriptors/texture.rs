@@ -4,6 +4,7 @@ use wgpu::Color;
 #[derive(Debug, Clone)]
 pub enum TextureDescriptor {
     StandardSRGBu8Image(DynamicImage),
+    StandardSRGBu8Data(Vec<u8>, Vector2<u32>),
     StandardSRGBu8Data(Vec<u8>, (u32, u32)),
     UniformColor(Color),
     Custom(
