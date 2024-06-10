@@ -1,3 +1,4 @@
+use cgmath::Vector2;
 use image::{DynamicImage, GenericImageView};
 use log::warn;
 use wgpu::Color;
@@ -45,7 +46,7 @@ impl Texture {
 
     /// In case you want a uniform, one color, image.
     /// This results in an 1-by-1 px, i.e. 4 bytes image.
-    /// 
+    ///
     /// ⚠️ This can be used as an empty texture as there is as minimal
     /// ⚠️ as possible data usage and this resource may not even arrive
     /// ⚠️ in the shader _if_ it is not used.
@@ -55,13 +56,13 @@ impl Texture {
         let b = ((color.b * 256.0) as u8).min(255).max(0);
         let a = ((color.a * 256.0) as u8).min(255).max(0);
 
-        Self::standard_srgb8_data(&[r, g, b, a], &(1, 1), device, queue)
+        Self::standard_srgb8_data(&[r, g, b, a], &(1, 1).into(), device, queue)
     }
 
     pub fn standard_srgb8_image(image: &DynamicImage, device: &Device, queue: &Queue) -> Self {
         Self::standard_srgb8_data(
             &image.to_rgba8(),
-            &(image.dimensions().0, image.dimensions().1),
+            &(image.dimensions().0, image.dimensions().1).into(),
             device,
             queue,
         )
@@ -69,7 +70,7 @@ impl Texture {
 
     pub fn standard_srgb8_data(
         data: &[u8],
-        size: &(u32, u32),
+        size: &Vector2<u32>,
         device: &Device,
         queue: &Queue,
     ) -> Self {
@@ -78,8 +79,8 @@ impl Texture {
             &WTextureDescriptor {
                 label: Some("Standard SRGB u8 Data Texture"),
                 size: Extent3d {
-                    width: size.0,
-                    height: size.1,
+                    width: size.x,
+                    height: size.y,
                     ..Default::default()
                 },
                 mip_level_count: 1,
