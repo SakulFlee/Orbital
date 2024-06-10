@@ -13,6 +13,7 @@ use crate::{
 
 use super::{Camera, Instance};
 
+#[derive(Debug)]
 pub struct Pipeline {
     render_pipeline: RenderPipeline,
     bind_group_layout: BindGroupLayout,
@@ -31,14 +32,14 @@ impl Pipeline {
         let cache_ref = match CACHE.get_mut() {
             Some(r) => r,
             None => {
-                CACHE.set(HashMap::new());
+                CACHE.set(HashMap::new()).unwrap();
                 CACHE.get_mut().unwrap()
             }
         };
         let cache_format_ref = match CACHE_FORMAT.get_mut() {
             Some(r) => r,
             None => {
-                CACHE_FORMAT.set(None);
+                CACHE_FORMAT.set(None).unwrap();
                 CACHE_FORMAT.get_mut().unwrap()
             }
         };

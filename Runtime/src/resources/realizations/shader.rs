@@ -2,6 +2,7 @@ use wgpu::{Device, Queue, ShaderModule, ShaderModuleDescriptor, ShaderSource};
 
 use crate::{error::Error, resources::ShaderDescriptor};
 
+#[derive(Debug)]
 pub struct Shader {
     shader_module: ShaderModule,
 }
