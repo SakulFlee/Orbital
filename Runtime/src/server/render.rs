@@ -4,7 +4,10 @@ use wgpu::{
     RenderPassColorAttachment, RenderPassDescriptor, StoreOp, TextureFormat, TextureView,
 };
 
-use crate::resources::{Camera, CameraDescriptor, Model, ModelDescriptor, Pipeline};
+use crate::resources::{
+    descriptors::{CameraDescriptor, ModelDescriptor},
+    realizations::{Camera, Model, Pipeline},
+};
 
 pub struct RenderServer {
     models: Vec<Model>,

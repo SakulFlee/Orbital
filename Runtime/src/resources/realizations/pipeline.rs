@@ -11,7 +11,7 @@ use wgpu::{
 
 use crate::{
     error::Error,
-    resources::{PipelineDescriptor, Shader, VertexUniform},
+    resources::{descriptors::PipelineDescriptor, realizations::Shader, uniforms::VertexUniform},
 };
 
 use super::{Camera, Instance};

@@ -4,7 +4,9 @@ use wgpu::{
 
 use crate::{
     error::Error,
-    resources::{MaterialDescriptor, PipelineDescriptor, ShaderDescriptor, TextureDescriptor},
+    resources::descriptors::{
+        MaterialDescriptor, PipelineDescriptor, ShaderDescriptor, TextureDescriptor,
+    },
 };
 
 use super::{Pipeline, Texture};

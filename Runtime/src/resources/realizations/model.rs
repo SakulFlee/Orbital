@@ -5,7 +5,7 @@ use wgpu::{
 
 use crate::{
     error::Error,
-    resources::{
+    resources::descriptors::{
         ImportDescriptor, Instancing, MaterialDescriptor, MeshDescriptor, ModelDescriptor,
     },
 };
