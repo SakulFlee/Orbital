@@ -1,5 +1,5 @@
 use akimo_runtime::winit::event_loop::EventLoop;
-use app_example_game_runtime::entrypoint::entrypoint;
+use app_example_game_runtime_minimal::entrypoint::entrypoint;
 
 fn main() {
     let event_loop = EventLoop::builder().build();
