@@ -14,6 +14,6 @@ impl Game for ExampleGame {
     where
         Self: Sized,
     {
-        debug!("Update :: {} ms", delta_time);
+        // debug!("Update :: {} ms", delta_time);
     }
 }
