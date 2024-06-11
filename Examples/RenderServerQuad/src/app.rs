@@ -7,7 +7,7 @@ use akimo_runtime::{
         },
         realizations::Vertex,
     },
-    runtime::App,
+    app::App,
     server::RenderServer,
     wgpu::{Device, Queue, SurfaceConfiguration, TextureView},
 };

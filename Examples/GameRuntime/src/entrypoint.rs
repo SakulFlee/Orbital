@@ -1,7 +1,7 @@
 use akimo_runtime::{
     game::GameRuntime,
     log,
-    runtime::RuntimeSettings,
+    app::RuntimeSettings,
     winit::{error::EventLoopError, event_loop::EventLoop},
 };
 

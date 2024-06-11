@@ -24,7 +24,7 @@ pub use app::*;
 use crate::error::Error;
 
 #[derive(Default)]
-pub struct Runtime<AppImpl: App> {
+pub struct AppRuntime<AppImpl: App> {
     // App related
     app: Option<AppImpl>,
     // Window related
@@ -38,7 +38,7 @@ pub struct Runtime<AppImpl: App> {
     queue: Option<Queue>,
 }
 
-impl<AppImpl: App> Runtime<AppImpl> {
+impl<AppImpl: App> AppRuntime<AppImpl> {
     pub fn liftoff(event_loop: EventLoop<()>, settings: RuntimeSettings) -> Result<(), Error> {
         info!("Akimo-Project: App Runtime");
         info!(" --- @SakulFlee --- ");
@@ -183,7 +183,7 @@ impl<AppImpl: App> Runtime<AppImpl> {
     }
 }
 
-impl<AppImpl: App> ApplicationHandler for Runtime<AppImpl> {
+impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         // Fill window handle and remake the device & queue chain
         self.window = Some(Arc::new(

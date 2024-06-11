@@ -3,8 +3,8 @@ use wgpu::{Device, Queue, SurfaceConfiguration, TextureView};
 use winit::event_loop::EventLoop;
 
 use crate::{
+    app::{App, AppRuntime, RuntimeSettings},
     error::Error,
-    runtime::{App, Runtime, RuntimeSettings},
     server::RenderServer,
     timer::Timer,
 };
@@ -22,7 +22,7 @@ impl<GameImpl: Game> GameRuntime<GameImpl> {
         info!("Akimo-Project: Game Runtime");
         info!(" --- @SakulFlee --- ");
 
-        Runtime::<GameRuntime<GameImpl>>::__liftoff(event_loop, settings)
+        AppRuntime::<GameRuntime<GameImpl>>::__liftoff(event_loop, settings)
     }
 }
 

@@ -1,7 +1,7 @@
 use akimo_runtime::{
     cgmath::{Deg, Quaternion, Rotation3, Vector3},
     resources::descriptors::{ImportDescriptor, InstanceDescriptor, Instancing, ModelDescriptor},
-    runtime::App,
+    app::App,
     server::RenderServer,
     wgpu::{Device, Queue, SurfaceConfiguration, TextureView},
 };
