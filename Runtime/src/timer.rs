@@ -5,15 +5,19 @@ pub struct Timer {
     current_cycle_count: u64,
     cycle_delta_time: f64,
     current_delta_time: f64,
+    last_fps: u64,
+    last_delta_time: f64,
 }
 
 impl Timer {
     pub fn new() -> Self {
         Self {
             last_time: Instant::now(),
-            current_cycle_count: 0,
-            cycle_delta_time: 0.0,
-            current_delta_time: 0.0,
+            current_cycle_count: 0u64,
+            cycle_delta_time: 0f64,
+            current_delta_time: 0f64,
+            last_fps: 0u64,
+            last_delta_time: 0f64,
         }
     }
 
@@ -32,7 +36,9 @@ impl Timer {
         if self.current_delta_time >= 1.0 {
             // Make the result FIRST!
             // We are resetting the timer below!
-            let output = Some((self.current_delta_time(), self.current_cycle_count()));
+            self.last_fps = self.current_cycle_count();
+            self.last_delta_time = self.current_delta_time();
+            let output = Some((self.last_delta_time, self.last_fps));
 
             self.current_cycle_count = 0;
             self.current_delta_time -= 1.0;
@@ -56,6 +62,14 @@ impl Timer {
 
     pub fn current_delta_time(&self) -> f64 {
         self.current_delta_time
+    }
+
+    pub fn last_fps(&self) -> u64 {
+        self.last_fps
+    }
+
+    pub fn last_delta_time(&self) -> f64 {
+        self.last_delta_time
     }
 }
 
