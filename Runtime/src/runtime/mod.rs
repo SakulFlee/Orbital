@@ -39,10 +39,17 @@ pub struct Runtime<AppImpl: App> {
 }
 
 impl<AppImpl: App> Runtime<AppImpl> {
-    pub fn liftoff(event_loop: EventLoop<()>, _settings: RuntimeSettings) -> Result<(), Error> {
-        info!("Akimo-Project: Runtime");
-        info!("(C) SakulFlee 2024");
+    pub fn liftoff(event_loop: EventLoop<()>, settings: RuntimeSettings) -> Result<(), Error> {
+        info!("Akimo-Project: App Runtime");
+        info!(" --- @SakulFlee --- ");
 
+        Self::__liftoff(event_loop, settings)
+    }
+
+    pub(crate) fn __liftoff(
+        event_loop: EventLoop<()>,
+        _settings: RuntimeSettings,
+    ) -> Result<(), Error> {
         let mut runtime = Self {
             app: None,
             window: None,
