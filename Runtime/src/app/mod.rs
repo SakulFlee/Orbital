@@ -27,6 +27,7 @@ use crate::error::Error;
 pub struct AppRuntime<AppImpl: App> {
     // App related
     app: Option<AppImpl>,
+    runtime_settings: RuntimeSettings,
     // Window related
     window: Option<Arc<Window>>,
     surface: Option<Surface<'static>>,
@@ -48,10 +49,11 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
 
     pub(crate) fn __liftoff(
         event_loop: EventLoop<()>,
-        _settings: RuntimeSettings,
+        runtime_settings: RuntimeSettings,
     ) -> Result<(), Error> {
         let mut runtime = Self {
             app: None,
+            runtime_settings,
             window: None,
             surface: None,
             surface_configuration: None,
@@ -191,7 +193,8 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
                 .create_window(
                     Window::default_attributes()
                         .with_active(true)
-                        .with_inner_size(PhysicalSize::new(1280, 720)),
+                        .with_inner_size(self.runtime_settings.size)
+                        .with_title(self.runtime_settings.name.clone()),
                 )
                 .unwrap(),
         ));
