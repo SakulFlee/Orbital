@@ -10,3 +10,4 @@ pub mod util;
 pub mod wgpu;
 pub mod winit;
 pub mod timer;
+pub mod game;
