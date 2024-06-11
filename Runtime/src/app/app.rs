@@ -1,4 +1,3 @@
-use cgmath::Vector2;
 use wgpu::{Device, Queue, SurfaceConfiguration, TextureView};
 
 pub trait App {
