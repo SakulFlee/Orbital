@@ -167,6 +167,13 @@ impl<AppImpl: App> Runtime<AppImpl> {
             warn!("No surface yet, but redraw was requested!");
         }
     }
+
+    fn update(&mut self) {
+        match self.app.as_mut() {
+            Some(app) => app.update(),
+            None => warn!("App not present in Runtime! Skipping update."),
+        }
+    }
 }
 
 impl<AppImpl: App> ApplicationHandler for Runtime<AppImpl> {
@@ -263,6 +270,7 @@ impl<AppImpl: App> ApplicationHandler for Runtime<AppImpl> {
                 event_loop.exit();
             }
             WindowEvent::RedrawRequested => {
+                self.update();
                 self.redraw();
 
                 self.window.as_ref().unwrap().request_redraw();
@@ -273,11 +281,6 @@ impl<AppImpl: App> ApplicationHandler for Runtime<AppImpl> {
 
     fn new_events(&mut self, _event_loop: &ActiveEventLoop, cause: StartCause) {
         debug!("New Events: {:#?}", cause);
-
-        match self.app.as_mut() {
-            Some(app) => app.update(),
-            None => warn!("App not present in Runtime! Skipping update."),
-        }
     }
 
     fn device_event(
