@@ -4,8 +4,8 @@ use log::{debug, info, warn};
 use wgpu::{
     util::{backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env},
     Adapter, Device, DeviceDescriptor, Features, Instance, InstanceDescriptor, InstanceFlags,
-    Limits, PowerPreference, Queue, RequestAdapterOptions, Surface, SurfaceConfiguration,
-    SurfaceTexture, TextureViewDescriptor,
+    Limits, PowerPreference, PresentMode, Queue, RequestAdapterOptions, Surface,
+    SurfaceConfiguration, SurfaceTexture, TextureViewDescriptor,
 };
 use winit::{
     application::ApplicationHandler,
@@ -99,10 +99,16 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
         surface: &Surface,
         adapter: &Adapter,
         window_size: PhysicalSize<u32>,
+        vsync_enabled: bool,
     ) -> SurfaceConfiguration {
         let mut surface_configuration = surface
             .get_default_config(adapter, window_size.width, window_size.height)
             .expect("Surface isn't compatible with chosen adapter!");
+
+        surface_configuration.present_mode = match vsync_enabled {
+            true => PresentMode::AutoVsync,
+            false => PresentMode::AutoNoVsync,
+        };
 
         // Add SRGB view format
         surface_configuration
@@ -219,6 +225,7 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
             self.surface.as_ref().unwrap(),
             self.adapter.as_ref().unwrap(),
             window_size,
+            self.runtime_settings.vsync_enabled,
         ));
 
         let (device, queue) = pollster::block_on(self.adapter.as_ref().unwrap().request_device(
@@ -271,6 +278,7 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
                     self.surface.as_ref().unwrap(),
                     self.adapter.as_ref().unwrap(),
                     new_size,
+                    self.runtime_settings.vsync_enabled,
                 ));
 
                 self.reconfigure_surface();
