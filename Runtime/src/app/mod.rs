@@ -4,8 +4,8 @@ use log::{debug, info, warn};
 use wgpu::{
     util::{backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env},
     Adapter, Device, DeviceDescriptor, Features, Instance, InstanceDescriptor, InstanceFlags,
-    Limits, PowerPreference, Queue, RequestAdapterOptions, Surface, SurfaceConfiguration,
-    SurfaceTexture, TextureViewDescriptor,
+    Limits, PowerPreference, PresentMode, Queue, RequestAdapterOptions, Surface,
+    SurfaceConfiguration, SurfaceTexture, TextureViewDescriptor,
 };
 use winit::{
     application::ApplicationHandler,
@@ -24,9 +24,10 @@ pub use app::*;
 use crate::error::Error;
 
 #[derive(Default)]
-pub struct Runtime<AppImpl: App> {
+pub struct AppRuntime<AppImpl: App> {
     // App related
     app: Option<AppImpl>,
+    runtime_settings: RuntimeSettings,
     // Window related
     window: Option<Arc<Window>>,
     surface: Option<Surface<'static>>,
@@ -38,13 +39,21 @@ pub struct Runtime<AppImpl: App> {
     queue: Option<Queue>,
 }
 
-impl<AppImpl: App> Runtime<AppImpl> {
-    pub fn liftoff(event_loop: EventLoop<()>, _settings: RuntimeSettings) -> Result<(), Error> {
-        info!("Akimo-Project: Runtime");
-        info!("(C) SakulFlee 2024");
+impl<AppImpl: App> AppRuntime<AppImpl> {
+    pub fn liftoff(event_loop: EventLoop<()>, settings: RuntimeSettings) -> Result<(), Error> {
+        info!("Akimo-Project: App Runtime");
+        info!(" --- @SakulFlee --- ");
 
+        Self::__liftoff(event_loop, settings)
+    }
+
+    pub(crate) fn __liftoff(
+        event_loop: EventLoop<()>,
+        runtime_settings: RuntimeSettings,
+    ) -> Result<(), Error> {
         let mut runtime = Self {
             app: None,
+            runtime_settings,
             window: None,
             surface: None,
             surface_configuration: None,
@@ -90,10 +99,16 @@ impl<AppImpl: App> Runtime<AppImpl> {
         surface: &Surface,
         adapter: &Adapter,
         window_size: PhysicalSize<u32>,
+        vsync_enabled: bool,
     ) -> SurfaceConfiguration {
         let mut surface_configuration = surface
             .get_default_config(adapter, window_size.width, window_size.height)
             .expect("Surface isn't compatible with chosen adapter!");
+
+        surface_configuration.present_mode = match vsync_enabled {
+            true => PresentMode::AutoVsync,
+            false => PresentMode::AutoNoVsync,
+        };
 
         // Add SRGB view format
         surface_configuration
@@ -167,9 +182,16 @@ impl<AppImpl: App> Runtime<AppImpl> {
             warn!("No surface yet, but redraw was requested!");
         }
     }
+
+    fn update(&mut self) {
+        match self.app.as_mut() {
+            Some(app) => app.update(),
+            None => warn!("App not present in Runtime! Skipping update."),
+        }
+    }
 }
 
-impl<AppImpl: App> ApplicationHandler for Runtime<AppImpl> {
+impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         // Fill window handle and remake the device & queue chain
         self.window = Some(Arc::new(
@@ -177,7 +199,8 @@ impl<AppImpl: App> ApplicationHandler for Runtime<AppImpl> {
                 .create_window(
                     Window::default_attributes()
                         .with_active(true)
-                        .with_inner_size(PhysicalSize::new(1280, 720)),
+                        .with_inner_size(self.runtime_settings.size)
+                        .with_title(self.runtime_settings.name.clone()),
                 )
                 .unwrap(),
         ));
@@ -202,6 +225,7 @@ impl<AppImpl: App> ApplicationHandler for Runtime<AppImpl> {
             self.surface.as_ref().unwrap(),
             self.adapter.as_ref().unwrap(),
             window_size,
+            self.runtime_settings.vsync_enabled,
         ));
 
         let (device, queue) = pollster::block_on(self.adapter.as_ref().unwrap().request_device(
@@ -254,6 +278,7 @@ impl<AppImpl: App> ApplicationHandler for Runtime<AppImpl> {
                     self.surface.as_ref().unwrap(),
                     self.adapter.as_ref().unwrap(),
                     new_size,
+                    self.runtime_settings.vsync_enabled,
                 ));
 
                 self.reconfigure_surface();
@@ -263,6 +288,7 @@ impl<AppImpl: App> ApplicationHandler for Runtime<AppImpl> {
                 event_loop.exit();
             }
             WindowEvent::RedrawRequested => {
+                self.update();
                 self.redraw();
 
                 self.window.as_ref().unwrap().request_redraw();
@@ -273,11 +299,6 @@ impl<AppImpl: App> ApplicationHandler for Runtime<AppImpl> {
 
     fn new_events(&mut self, _event_loop: &ActiveEventLoop, cause: StartCause) {
         debug!("New Events: {:#?}", cause);
-
-        match self.app.as_mut() {
-            Some(app) => app.update(),
-            None => warn!("App not present in Runtime! Skipping update."),
-        }
     }
 
     fn device_event(

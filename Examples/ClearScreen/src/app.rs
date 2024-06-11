@@ -1,5 +1,5 @@
 use akimo_runtime::{
-    runtime::App,
+    app::App,
     wgpu::{
         Color, CommandEncoderDescriptor, Device, LoadOp, Operations, Queue,
         RenderPassColorAttachment, RenderPassDescriptor, StoreOp, SurfaceConfiguration,

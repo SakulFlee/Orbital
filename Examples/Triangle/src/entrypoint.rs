@@ -1,6 +1,6 @@
 use akimo_runtime::{
+    app::{AppRuntime, RuntimeSettings},
     log,
-    runtime::{Runtime, RuntimeSettings},
     winit::{error::EventLoopError, event_loop::EventLoop},
 };
 
@@ -12,5 +12,5 @@ pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
     let event_loop = event_loop_result.expect("Event Loop failure");
     let settings = RuntimeSettings::default();
 
-    Runtime::<TriangleApp>::liftoff(event_loop, settings).expect("Runtime failure");
+    AppRuntime::<TriangleApp>::liftoff(event_loop, settings).expect("Runtime failure");
 }

@@ -1,0 +1,12 @@
+[package]
+name = "example_game_runtime_minimal"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "app_example_game_runtime_minimal"
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+akimo_runtime = { path = "../../Runtime/" }
+image = "0.25.1"
