@@ -7,16 +7,23 @@ edition = "2021"
 crate-type = ["lib", "cdylib"]
 
 [features]
-default = ["gltf"]
+default = ["gltf", "dev_build"]
 gltf = ["dep:easy-gltf", "easy-gltf/names"]
+dev_build = ["wgpu/trace", "wgpu/replay"]
 
 [dependencies]
 wgpu = { version = "0.20.0", features = [
-    "spirv",
-    "glsl",
-    "wgsl",
+    "serde",
     "naga-ir",
-    "naga",
+    "wgsl",
+    "glsl",
+    "spirv",
+    "metal",
+    "angle",
+    "dx12",
+    "vulkan-portability",
+    "webgl",
+    "webgpu",
 ] }
 serde = { version = "1.0.174", features = ["derive"] }
 bytemuck = { version = "1.15.0", features = ["derive"] }

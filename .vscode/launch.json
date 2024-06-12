@@ -112,15 +112,15 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Example: Game Runtime",
+            "name": "Example: Game Runtime Minimal",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=example_game_runtime",
-                    "--package=example_game_runtime"
+                    "--bin=example_game_runtime_minimal",
+                    "--package=example_game_runtime_minimal"
                 ],
                 "filter": {
-                    "name": "example_game_runtime",
+                    "name": "example_game_runtime_minimal",
                     "kind": "bin"
                 }
             },

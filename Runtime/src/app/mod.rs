@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use cgmath::Vector2;
 use log::{debug, info, warn};
 use wgpu::{
     util::{backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env},
@@ -43,6 +44,9 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
     pub fn liftoff(event_loop: EventLoop<()>, settings: RuntimeSettings) -> Result<(), Error> {
         info!("Akimo-Project: App Runtime");
         info!(" --- @SakulFlee --- ");
+
+        #[cfg(feature = "dev_build")]
+        warn!("⚠️ THIS IS A DEV BUILD ⚠️");
 
         Self::__liftoff(event_loop, settings)
     }
@@ -124,10 +128,18 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
             self.surface_configuration.as_ref().unwrap(),
         );
 
-        debug!(
-            "View formats: {:#?}",
-            self.surface_configuration.as_ref().unwrap().view_formats
-        );
+        if let Some(app) = &mut self.app {
+            if let Some(config) = &self.surface_configuration {
+                app.on_resize(
+                    Vector2 {
+                        x: config.width,
+                        y: config.height,
+                    },
+                    self.device.as_ref().unwrap(),
+                    self.queue.as_ref().unwrap(),
+                )
+            }
+        }
     }
 
     pub fn acquire_next_frame(&self) -> Option<SurfaceTexture> {
@@ -167,7 +179,7 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
                 self.app
                     .as_mut()
                     .expect("Redraw on runtime without app")
-                    .render(
+                    .on_render(
                         &view,
                         self.device.as_ref().unwrap(),
                         self.queue.as_ref().unwrap(),
@@ -185,7 +197,7 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
 
     fn update(&mut self) {
         match self.app.as_mut() {
-            Some(app) => app.update(),
+            Some(app) => app.on_update(),
             None => warn!("App not present in Runtime! Skipping update."),
         }
     }

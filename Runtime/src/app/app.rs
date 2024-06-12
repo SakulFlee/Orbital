@@ -1,3 +1,5 @@
+use cgmath::Vector2;
+use log::debug;
 use wgpu::{Device, Queue, SurfaceConfiguration, TextureView};
 
 pub trait App {
@@ -5,11 +7,18 @@ pub trait App {
     where
         Self: Sized;
 
-    fn update(&mut self)
+    fn on_resize(&mut self, _new_size: Vector2<u32>, _device: &Device, _queue: &Queue)
+    where
+        Self: Sized,
+    {
+        // Empty by default! :)
+    }
+
+    fn on_update(&mut self)
     where
         Self: Sized;
 
-    fn render(&mut self, view: &TextureView, device: &Device, queue: &Queue)
+    fn on_render(&mut self, view: &TextureView, device: &Device, queue: &Queue)
     where
         Self: Sized;
 }
