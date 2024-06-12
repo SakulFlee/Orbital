@@ -1,4 +1,4 @@
-use log::{debug, info};
+use log::{debug, info, warn};
 use wgpu::{Device, Queue, SurfaceConfiguration, TextureView};
 use winit::event_loop::EventLoop;
 
@@ -22,6 +22,9 @@ impl<GameImpl: Game> GameRuntime<GameImpl> {
         info!("Akimo-Project: Game Runtime");
         info!(" --- @SakulFlee --- ");
 
+        #[cfg(feature = "dev_build")]
+        warn!("⚠️ THIS IS A DEV BUILD ⚠️");
+
         AppRuntime::<GameRuntime<GameImpl>>::__liftoff(event_loop, settings)
     }
 }
@@ -43,7 +46,15 @@ impl<GameImpl: Game> App for GameRuntime<GameImpl> {
         }
     }
 
-    fn update(&mut self)
+    fn on_resize(&mut self, new_size: cgmath::Vector2<u32>, device: &Device, queue: &Queue)
+    where
+        Self: Sized,
+    {
+        self.render_server
+            .change_depth_texture_resolution(new_size, device, queue)
+    }
+
+    fn on_update(&mut self)
     where
         Self: Sized,
     {
@@ -51,7 +62,7 @@ impl<GameImpl: Game> App for GameRuntime<GameImpl> {
             .cycle(self.timer.cycle_delta_time(), &mut self.render_server);
     }
 
-    fn render(&mut self, view: &TextureView, device: &Device, queue: &Queue)
+    fn on_render(&mut self, view: &TextureView, device: &Device, queue: &Queue)
     where
         Self: Sized,
     {
