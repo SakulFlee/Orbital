@@ -67,9 +67,9 @@ impl App for RenderServerTriangleApp {
         Self { render_server }
     }
 
-    fn update(&mut self) {}
+    fn on_update(&mut self) {}
 
-    fn render(&mut self, view: &TextureView, device: &Device, queue: &Queue) {
+    fn on_render(&mut self, view: &TextureView, device: &Device, queue: &Queue) {
         self.render_server.render(view, device, queue);
     }
 }

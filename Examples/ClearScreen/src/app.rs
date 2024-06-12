@@ -34,7 +34,7 @@ impl App for ClearScreenApp {
         }
     }
 
-    fn update(&mut self) {
+    fn on_update(&mut self) {
         // Nothing needed for this example!
         // All events that we care about are already taken care of.
 
@@ -76,7 +76,7 @@ impl App for ClearScreenApp {
         }
     }
 
-    fn render(&mut self, view: &TextureView, device: &Device, queue: &Queue) {
+    fn on_render(&mut self, view: &TextureView, device: &Device, queue: &Queue) {
         let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor { label: None });
 
         {
