@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use cgmath::Vector2;
 use log::{debug, info, warn};
 use wgpu::{
     util::{backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env},
@@ -120,10 +121,18 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
             self.surface_configuration.as_ref().unwrap(),
         );
 
-        debug!(
-            "View formats: {:#?}",
-            self.surface_configuration.as_ref().unwrap().view_formats
-        );
+        if let Some(app) = &mut self.app {
+            let config_ref = self.surface_configuration.as_ref().unwrap();
+
+            app.on_resize(
+                Vector2 {
+                    x: config_ref.width,
+                    y: config_ref.height,
+                },
+                self.device.as_ref().unwrap(),
+                self.queue.as_ref().unwrap(),
+            )
+        }
     }
 
     pub fn acquire_next_frame(&self) -> Option<SurfaceTexture> {
