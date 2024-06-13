@@ -1,6 +1,5 @@
 use akimo_runtime::{
-    app::RuntimeSettings,
-    game::GameRuntime,
+    game::{GameRuntime, GameSettings},
     log,
     winit::{error::EventLoopError, event_loop::EventLoop},
 };
@@ -11,7 +10,7 @@ pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
     log::init();
 
     let event_loop = event_loop_result.expect("Event Loop failure");
-    let settings = RuntimeSettings::default();
+    let settings = GameSettings::default();
 
     GameRuntime::<ExampleGame>::liftoff(event_loop, settings).expect("Runtime failure");
 }

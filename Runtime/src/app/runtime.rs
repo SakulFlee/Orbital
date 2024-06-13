@@ -17,13 +17,13 @@ use winit::{
 
 use crate::error::Error;
 
-use super::{App, RuntimeSettings};
+use super::{App, AppSettings};
 
 #[derive(Default)]
 pub struct AppRuntime<AppImpl: App> {
     // App related
     app: Option<AppImpl>,
-    runtime_settings: RuntimeSettings,
+    runtime_settings: AppSettings,
     // Window related
     window: Option<Arc<Window>>,
     surface: Option<Surface<'static>>,
@@ -36,7 +36,7 @@ pub struct AppRuntime<AppImpl: App> {
 }
 
 impl<AppImpl: App> AppRuntime<AppImpl> {
-    pub fn liftoff(event_loop: EventLoop<()>, settings: RuntimeSettings) -> Result<(), Error> {
+    pub fn liftoff(event_loop: EventLoop<()>, settings: AppSettings) -> Result<(), Error> {
         info!("Akimo-Project: App Runtime");
         info!(" --- @SakulFlee --- ");
 
@@ -45,7 +45,7 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
 
     pub(crate) fn __liftoff(
         event_loop: EventLoop<()>,
-        runtime_settings: RuntimeSettings,
+        runtime_settings: AppSettings,
     ) -> Result<(), Error> {
         let mut runtime = Self {
             app: None,
