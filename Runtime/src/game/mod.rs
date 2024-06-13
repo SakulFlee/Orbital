@@ -3,6 +3,9 @@ use crate::server::RenderServer;
 pub mod runtime;
 pub use runtime::*;
 
+pub mod settings;
+pub use settings::*;
+
 pub trait Game {
     fn init() -> Self
     where

@@ -1,4 +1,5 @@
 pub mod app;
+pub mod cache;
 pub mod cgmath;
 pub mod entity;
 pub mod error;
