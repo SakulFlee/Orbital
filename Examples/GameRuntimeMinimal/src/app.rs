@@ -10,10 +10,10 @@ impl Game for ExampleGame {
         Self {}
     }
 
-    fn cycle(&mut self, delta_time: f64, render_server: &mut RenderServer)
+    fn cycle(&mut self, delta_time: f64, _render_server: &mut RenderServer)
     where
         Self: Sized,
     {
-        // debug!("Update :: {} ms", delta_time);
+        debug!("Update :: {} ms", delta_time);
     }
 }
