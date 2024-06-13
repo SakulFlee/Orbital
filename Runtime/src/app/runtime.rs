@@ -163,7 +163,7 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
                 self.app
                     .as_mut()
                     .expect("Redraw on runtime without app")
-                    .render(
+                    .on_render(
                         &view,
                         self.device.as_ref().unwrap(),
                         self.queue.as_ref().unwrap(),
@@ -181,7 +181,7 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
 
     fn update(&mut self) {
         match self.app.as_mut() {
-            Some(app) => app.update(),
+            Some(app) => app.on_update(),
             None => warn!("App not present in Runtime! Skipping update."),
         }
     }
