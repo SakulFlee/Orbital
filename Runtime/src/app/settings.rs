@@ -1,12 +1,13 @@
 use winit::dpi::{PhysicalSize, Size};
 
-pub struct RuntimeSettings {
+#[derive(Debug, Clone)]
+pub struct AppSettings {
     pub name: String,
     pub size: Size,
     pub vsync_enabled: bool,
 }
 
-impl Default for RuntimeSettings {
+impl Default for AppSettings {
     fn default() -> Self {
         Self {
             name: "Default App".into(),
