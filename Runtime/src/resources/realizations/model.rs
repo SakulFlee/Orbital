@@ -14,7 +14,7 @@ use super::{instance::Instance, Material, Mesh};
 
 pub struct Model {
     mesh: Mesh,
-    material: Material,
+    material: &'static Material,
     instances: Vec<Instance>,
     instance_buffer: Buffer,
 }
@@ -120,7 +120,7 @@ impl Model {
         // Realize model
         let model = Self::from_existing(
             Mesh::from_gltf(model, device)?,
-            Material::from_gltf(&model.material(), surface_format, device, queue)?,
+            Material::from_gltf(file, &model.material(), surface_format, device, queue)?,
             instances,
             device,
             queue,
@@ -131,7 +131,7 @@ impl Model {
 
     pub fn from_existing(
         mesh: Mesh,
-        material: Material,
+        material: &'static Material,
         instances: Vec<Instance>,
         device: &Device,
         queue: &Queue,
