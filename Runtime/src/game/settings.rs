@@ -6,6 +6,8 @@ use crate::app::AppSettings;
 pub struct GameSettings {
     pub app_settings: AppSettings,
     pub pipeline_cache: CacheSettings,
+    pub material_cache: CacheSettings,
+    pub texture_cache: CacheSettings,
 }
 
 #[derive(Debug, Clone)]

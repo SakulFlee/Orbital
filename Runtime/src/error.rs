@@ -15,4 +15,6 @@ pub enum Error {
     NoIndices,
     SceneNotFound,
     ModelNotFound,
+    ImageError(image::ImageError),
+    CannotRealizeTag(String),
 }
