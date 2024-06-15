@@ -140,7 +140,7 @@ where
         self.map = new_map;
     }
 
-    pub fn size(&self) -> u64 {
-        self.map.len() as u64
+    pub fn size(&self) -> usize {
+        self.map.len()
     }
 }
