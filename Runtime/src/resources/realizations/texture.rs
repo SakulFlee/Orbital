@@ -1,18 +1,16 @@
-use cgmath::Vector2;
+use std::sync::{Mutex, OnceLock};
+
+use cgmath::{Vector2, Vector4};
 use image::{DynamicImage, GenericImageView};
-use log::warn;
-use wgpu::Color;
-use wgpu::Device;
-use wgpu::Queue;
-use wgpu::Texture as WTexture;
-use wgpu::TextureDescriptor as WTextureDescriptor;
+use log::{info, warn};
 use wgpu::{
-    AddressMode, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout, Origin3d, Sampler,
-    SamplerDescriptor, TextureAspect, TextureDimension, TextureFormat, TextureUsages, TextureView,
-    TextureViewDescriptor,
+    AddressMode, Device, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout, Origin3d, Queue,
+    Sampler, SamplerDescriptor, Texture as WTexture, TextureAspect,
+    TextureDescriptor as WTextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+    TextureView, TextureViewDescriptor,
 };
 
-use crate::resources::descriptors::TextureDescriptor;
+use crate::{cache::Cache, error::Error, resources::descriptors::TextureDescriptor};
 
 pub struct Texture {
     texture: WTexture,
@@ -21,28 +19,86 @@ pub struct Texture {
 }
 
 impl Texture {
-    pub fn from_descriptor(descriptor: &TextureDescriptor, device: &Device, queue: &Queue) -> Self {
-        match descriptor {
-            TextureDescriptor::StandardSRGBu8Image(image) => {
-                Self::standard_srgb8_image(image, device, queue)
+    // --- Static ---
+    /// Gives access to the internal pipeline cache.
+    /// If the cache doesn't exist yet, it gets initialized.
+    ///
+    /// # Safety
+    /// This is potentially a dangerous operation!
+    /// The Rust compiler says the following:
+    ///
+    /// > use of mutable static is unsafe and requires unsafe function or block
+    /// mutable statics can be mutated by multiple threads: aliasing violations
+    /// or data races will cause undefined behavior
+    ///
+    /// However, once initialized, the cell [OnceLock] should never change and
+    /// thus this should be safe.
+    ///
+    /// Additionally, we utilize a [Mutex] to ensure that access to the
+    /// cache map and texture format is actually exclusive.
+    pub unsafe fn cache() -> &'static mut Cache<TextureDescriptor, Texture> {
+        static mut CACHE: OnceLock<Mutex<Cache<TextureDescriptor, Texture>>> = OnceLock::new();
+
+        if CACHE.get().is_none() {
+            info!("Texture cache doesn't exist! Initializing ...");
+            let _ = CACHE.get_or_init(|| Mutex::new(Cache::new()));
+        }
+
+        CACHE
+            .get_mut()
+            .unwrap()
+            .get_mut()
+            .expect("Cache access violation!")
+    }
+
+    /// Makes sure the cache is in the right state before accessing.
+    /// Should be ideally called before each cache access.
+    /// Once per context is enough though!
+    ///
+    /// This will set some cache parameters, if they don't exist yet
+    /// (e.g. in case of a new cache), and make sure the pipelines
+    /// still match the correct surface texture formats.
+    /// If needed, this will also attempt recompiling all pipelines
+    /// (and thus their shaders) to match a different format!
+    ///
+    /// > ⚠️ This is a copy of [Pipeline::prepare_cache_access](crate::resources::realizations::Pipeline::prepare_cache_access), without the [TextureFormat](crate::wgpu::TextureFormat) stuff.
+    /// > This function currently doesn't really do anything, but is kept as-is in case we need to add some functionality here later + calling the unsafe static function.
+    pub fn prepare_cache_access() -> &'static mut Cache<TextureDescriptor, Texture> {
+        unsafe { Self::cache() }
+    }
+
+    pub fn from_descriptor(
+        descriptor: &TextureDescriptor,
+        device: &Device,
+        queue: &Queue,
+    ) -> Result<&'static Self, Error> {
+        let cache = Self::prepare_cache_access();
+
+        cache.get_or_add_fallible(descriptor, |k| match k {
+            TextureDescriptor::FilePath(file_path) => {
+                Self::from_file_path(file_path, device, queue)
             }
             TextureDescriptor::StandardSRGBu8Data(data, size) => {
-                Self::standard_srgb8_data(data, size, device, queue)
+                Ok(Self::standard_srgb8_data(data, size, device, queue))
             }
-            TextureDescriptor::UniformColor(color) => Self::uniform_color(*color, device, queue),
-            TextureDescriptor::Depth(size) => Self::depth_texture(size, device, queue),
-            TextureDescriptor::Custom(
-                texture_descriptor,
-                texture_view_descriptor,
-                sampler_descriptor,
-            ) => Self::from_descriptors(
-                texture_descriptor,
-                texture_view_descriptor,
-                sampler_descriptor,
-                device,
-                queue,
-            ),
-        }
+            TextureDescriptor::UniformColor(color) => {
+                Ok(Self::uniform_color(*color, device, queue))
+            }
+        })
+    }
+
+    pub fn from_file_path(file_path: &str, device: &Device, queue: &Queue) -> Result<Self, Error> {
+        let img = image::io::Reader::open(file_path)
+            .map_err(|e| Error::IOError(e))?
+            .decode()
+            .map_err(|e| Error::ImageError(e))?;
+
+        Ok(Self::standard_srgb8_data(
+            img.as_bytes(),
+            &(img.width(), img.height()).into(),
+            device,
+            queue,
+        ))
     }
 
     /// In case you want a uniform, one color, image.
@@ -51,19 +107,10 @@ impl Texture {
     /// ⚠️ This can be used as an empty texture as there is as minimal
     /// ⚠️ as possible data usage and this resource may not even arrive
     /// ⚠️ in the shader _if_ it is not used.
-    pub fn uniform_color(color: Color, device: &Device, queue: &Queue) -> Self {
-        let r = ((color.r * 256.0) as u8).min(255).max(0);
-        let g = ((color.g * 256.0) as u8).min(255).max(0);
-        let b = ((color.b * 256.0) as u8).min(255).max(0);
-        let a = ((color.a * 256.0) as u8).min(255).max(0);
-
-        Self::standard_srgb8_data(&[r, g, b, a], &(1, 1).into(), device, queue)
-    }
-
-    pub fn standard_srgb8_image(image: &DynamicImage, device: &Device, queue: &Queue) -> Self {
+    pub fn uniform_color(color: Vector4<u8>, device: &Device, queue: &Queue) -> Self {
         Self::standard_srgb8_data(
-            &image.to_rgba8(),
-            &(image.dimensions().0, image.dimensions().1).into(),
+            &[color.x, color.y, color.z, color.w],
+            &(1, 1).into(),
             device,
             queue,
         )
@@ -161,7 +208,7 @@ impl Texture {
         texture
     }
 
-    fn depth_texture(size: &Vector2<u32>, device: &Device, queue: &Queue) -> Texture {
+    pub fn depth_texture(size: &Vector2<u32>, device: &Device, queue: &Queue) -> Texture {
         Self::from_descriptors(
             &WTextureDescriptor {
                 label: Some("Depth Texture"),

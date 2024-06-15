@@ -1,8 +1,10 @@
 use std::{hash::Hash, time::Duration};
 
+use change::CacheChange;
 use entry::CacheEntry;
 use hashbrown::HashMap;
 
+pub mod change;
 pub mod entry;
 
 pub struct Cache<Key, Value>
@@ -106,8 +108,14 @@ where
     /// Set it too low and your [Cache] will be ineffective.
     /// Set it too high and you may run into memory issues!
     /// > This depends on what `Value`'s you are actually storing!
-    pub fn cleanup(&mut self, retain_below: Duration) {
+    pub fn cleanup(&mut self, retain_below: Duration) -> CacheChange {
+        let mut change = CacheChange::default();
+        change.before = self.size();
+
         self.map.retain(|_k, v| v.elapsed() < retain_below);
+
+        change.after = self.size();
+        change
     }
 
     /// Used to rework the [Cache] by looping through all keys and re-making them with the given closure.
@@ -130,5 +138,9 @@ where
         });
 
         self.map = new_map;
+    }
+
+    pub fn size(&self) -> u64 {
+        self.map.len() as u64
     }
 }

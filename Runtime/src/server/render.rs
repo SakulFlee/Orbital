@@ -7,7 +7,7 @@ use wgpu::{
 };
 
 use crate::resources::{
-    descriptors::{CameraDescriptor, ModelDescriptor, TextureDescriptor},
+    descriptors::{CameraDescriptor, ModelDescriptor},
     realizations::{Camera, Model, Pipeline, Texture},
 };
 
@@ -30,11 +30,7 @@ impl RenderServer {
             models: Vec::new(),
             models_to_spawn: Vec::new(),
             surface_texture_format,
-            depth_texture: Texture::from_descriptor(
-                &TextureDescriptor::Depth(depth_texture_resolution),
-                device,
-                queue,
-            ),
+            depth_texture: Texture::depth_texture(&depth_texture_resolution, device, queue),
             camera: Camera::from_descriptor(CameraDescriptor::default(), device, queue),
         }
     }
@@ -45,8 +41,7 @@ impl RenderServer {
         device: &Device,
         queue: &Queue,
     ) {
-        self.depth_texture =
-            Texture::from_descriptor(&TextureDescriptor::Depth(new_resolution), device, queue);
+        self.depth_texture = Texture::depth_texture(&new_resolution, device, queue);
     }
 
     pub fn set_surface_texture_format(&mut self, surface_texture_format: TextureFormat) {
