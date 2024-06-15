@@ -7,7 +7,7 @@ use winit::event_loop::EventLoop;
 use crate::{
     app::{App, AppRuntime},
     error::Error,
-    resources::realizations::Pipeline,
+    resources::realizations::{Material, Pipeline, Texture},
     server::RenderServer,
     timer::Timer,
 };
@@ -19,9 +19,13 @@ pub struct GameRuntime<GameImpl: Game> {
     timer: Timer,
     render_server: RenderServer,
     pipeline_cleanup_timer: Instant,
+    material_cleanup_timer: Instant,
+    texture_cleanup_timer: Instant,
 }
 
 pub static mut PIPELINE_CACHE_SETTINGS: OnceLock<CacheSettings> = OnceLock::new();
+pub static mut MATERIAL_CACHE_SETTINGS: OnceLock<CacheSettings> = OnceLock::new();
+pub static mut TEXTURE_CACHE_SETTINGS: OnceLock<CacheSettings> = OnceLock::new();
 
 impl<GameImpl: Game> GameRuntime<GameImpl> {
     pub fn liftoff(event_loop: EventLoop<()>, settings: GameSettings) -> Result<(), Error> {
@@ -33,20 +37,70 @@ impl<GameImpl: Game> GameRuntime<GameImpl> {
 
         unsafe {
             PIPELINE_CACHE_SETTINGS.get_or_init(|| settings.pipeline_cache);
+            MATERIAL_CACHE_SETTINGS.get_or_init(|| settings.material_cache);
+            TEXTURE_CACHE_SETTINGS.get_or_init(|| settings.texture_cache);
         }
 
         AppRuntime::<GameRuntime<GameImpl>>::__liftoff(event_loop, settings.app_settings)
     }
 
-    fn check_pipeline_cleanup_cycle(&mut self, device: &Device, queue: &Queue) {
+    fn do_cleanup(&mut self, device: &Device, queue: &Queue) {
+        self.do_pipeline_cache_cleanup(device, queue);
+        self.do_material_cache_cleanup();
+        self.do_texture_cache_cleanup();
+    }
+
+    fn do_pipeline_cache_cleanup(&mut self, device: &Device, queue: &Queue) {
         let pipeline_cache_settings = unsafe { PIPELINE_CACHE_SETTINGS.get().unwrap() };
 
         if self.pipeline_cleanup_timer.elapsed() >= pipeline_cache_settings.cleanup_interval {
             info!("Pipeline cache cleanup started!");
 
+            // Cache access
             let cache = Pipeline::prepare_cache_access(None, device, queue);
 
-            cache.cleanup(pipeline_cache_settings.retain_period);
+            // Run cleanup
+            let change = cache.cleanup(pipeline_cache_settings.retain_period);
+            info!("Pipeline {}", change);
+
+            // Reset timer
+            self.pipeline_cleanup_timer = Instant::now();
+        }
+    }
+
+    fn do_material_cache_cleanup(&mut self) {
+        let material_cache_settings = unsafe { MATERIAL_CACHE_SETTINGS.get().unwrap() };
+
+        if self.material_cleanup_timer.elapsed() >= material_cache_settings.cleanup_interval {
+            info!("Material cache cleanup started!");
+
+            // Cache access
+            let cache = Material::prepare_cache_access();
+
+            // Run cleanup
+            let change = cache.cleanup(material_cache_settings.retain_period);
+            info!("Material {}", change);
+
+            // Reset timer
+            self.material_cleanup_timer = Instant::now();
+        }
+    }
+
+    fn do_texture_cache_cleanup(&mut self) {
+        let texture_cache_settings = unsafe { TEXTURE_CACHE_SETTINGS.get().unwrap() };
+
+        if self.texture_cleanup_timer.elapsed() >= texture_cache_settings.cleanup_interval {
+            info!("Texture cache cleanup started!");
+
+            // Cache access
+            let cache = Texture::prepare_cache_access();
+
+            // Run cleanup
+            let change = cache.cleanup(texture_cache_settings.retain_period);
+            info!("Texture {}", change);
+
+            // Reset timer
+            self.texture_cleanup_timer = Instant::now();
         }
     }
 }
@@ -66,6 +120,8 @@ impl<GameImpl: Game> App for GameRuntime<GameImpl> {
                 queue,
             ),
             pipeline_cleanup_timer: Instant::now(),
+            material_cleanup_timer: Instant::now(),
+            texture_cleanup_timer: Instant::now(),
         }
     }
 
@@ -93,7 +149,7 @@ impl<GameImpl: Game> App for GameRuntime<GameImpl> {
             debug!("FPS: {fps}");
             debug!("Tick  Delta: {} ms", delta_time);
 
-            self.check_pipeline_cleanup_cycle(device, queue);
+            self.do_cleanup(device, queue);
         }
 
         self.render_server.render(view, device, queue);
