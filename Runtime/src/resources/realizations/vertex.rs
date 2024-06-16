@@ -30,13 +30,11 @@ impl Vertex {
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
-        vec![
-            self.position_coordinates.x.to_le_bytes(),
+        [self.position_coordinates.x.to_le_bytes(),
             self.position_coordinates.y.to_le_bytes(),
             self.position_coordinates.z.to_le_bytes(),
             self.texture_coordinates.x.to_le_bytes(),
-            self.texture_coordinates.y.to_le_bytes(),
-        ]
+            self.texture_coordinates.y.to_le_bytes()]
         .concat()
     }
 }

@@ -16,6 +16,16 @@ where
     map: HashMap<Key, CacheEntry<Value>>,
 }
 
+impl<Key, Value> Default for Cache<Key, Value>
+where
+    Key: Sized + Hash + PartialEq + Eq + Clone,
+    Value: Sized,
+ {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<Key, Value> Cache<Key, Value>
 where
     Key: Sized + Hash + PartialEq + Eq + Clone,
