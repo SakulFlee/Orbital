@@ -1,7 +1,6 @@
 use akimo_runtime::{
     cgmath::{Deg, Quaternion, Rotation3, Vector3},
     game::Game,
-    log::debug,
     resources::descriptors::{ImportDescriptor, InstanceDescriptor, Instancing, ModelDescriptor},
     server::RenderServer,
 };
@@ -18,12 +17,10 @@ impl Game for ExampleGame {
         Self { initialized: false }
     }
 
-    fn cycle(&mut self, delta_time: f64, render_server: &mut RenderServer)
+    fn cycle(&mut self, _delta_time: f64, render_server: &mut RenderServer)
     where
         Self: Sized,
     {
-        debug!("Update :: {} ms", delta_time);
-
         if !self.initialized {
             self.initialized = true;
 

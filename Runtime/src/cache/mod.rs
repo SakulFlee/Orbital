@@ -3,6 +3,7 @@ use std::{hash::Hash, time::Duration};
 use change::CacheChange;
 use entry::CacheEntry;
 use hashbrown::HashMap;
+use log::debug;
 
 pub mod change;
 pub mod entry;
@@ -112,7 +113,13 @@ where
         let mut change = CacheChange::default();
         change.before = self.size();
 
-        self.map.retain(|_k, v| v.elapsed() < retain_below);
+        self.map.retain(|_k, v| {
+            let elapsed = v.elapsed();
+            debug!("Elapsed: {:?}", elapsed);
+            let condition = elapsed < retain_below;
+            debug!("Condition: {}", condition);
+            condition
+        });
 
         change.after = self.size();
         change

@@ -1,5 +1,7 @@
 use std::time::{Duration, Instant};
 
+use log::debug;
+
 pub struct CacheEntry<Value> {
     timer: Instant,
     value: Value,
@@ -14,6 +16,7 @@ impl<Value> CacheEntry<Value> {
     }
 
     pub fn reset_timer(&mut self) {
+        debug!("RESET");
         self.timer = Instant::now();
     }
 
