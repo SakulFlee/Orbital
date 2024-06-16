@@ -15,6 +15,16 @@ where
     map: HashMap<Key, CacheEntry<Value>>,
 }
 
+impl<Key, Value> Default for Cache<Key, Value>
+where
+    Key: Sized + Hash + PartialEq + Eq + Clone,
+    Value: Sized,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<Key, Value> Cache<Key, Value>
 where
     Key: Sized + Hash + PartialEq + Eq + Clone,
@@ -140,7 +150,7 @@ where
         self.map = new_map;
     }
 
-    pub fn size(&self) -> u64 {
-        self.map.len() as u64
+    pub fn size(&self) -> usize {
+        self.map.len()
     }
 }
