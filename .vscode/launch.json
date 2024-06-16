@@ -127,5 +127,23 @@
             "args": [],
             "cwd": "${workspaceFolder}"
         },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Example: Game Runtime Cubes",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=example_game_runtime_cubes",
+                    "--package=example_game_runtime_cubes"
+                ],
+                "filter": {
+                    "name": "example_game_runtime_cubes",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
     ]
 }

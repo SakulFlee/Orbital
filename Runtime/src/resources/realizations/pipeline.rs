@@ -1,10 +1,12 @@
 use log::info;
 use std::sync::{Mutex, OnceLock};
 use wgpu::{
-    BindGroupLayout, BindGroupLayoutDescriptor, BlendState, ColorTargetState, ColorWrites,
-    CompareFunction, DepthBiasState, DepthStencilState, Device, FragmentState, MultisampleState,
-    PipelineCompilationOptions, PipelineLayoutDescriptor, PrimitiveState, Queue, RenderPipeline,
-    RenderPipelineDescriptor, StencilState, TextureFormat, VertexState,
+    BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendState,
+    ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, Device,
+    FragmentState, MultisampleState, PipelineCompilationOptions, PipelineLayoutDescriptor,
+    PrimitiveState, Queue, RenderPipeline, RenderPipelineDescriptor, SamplerBindingType,
+    ShaderStages, StencilState, TextureFormat, TextureSampleType, TextureViewDimension,
+    VertexState,
 };
 
 use crate::{
@@ -113,7 +115,24 @@ impl Pipeline {
         let pipeline_bind_group_layout =
             device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: None,
-                entries: pipeline_descriptor.bind_group_entries.as_slice(),
+                entries: &[
+                    BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: ShaderStages::FRAGMENT,
+                        ty: BindingType::Texture {
+                            sample_type: TextureSampleType::Float { filterable: true },
+                            view_dimension: TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: ShaderStages::FRAGMENT,
+                        ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
             });
 
         let render_pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {

@@ -88,7 +88,6 @@ impl Material {
                 device,
                 queue,
             ),
-            MaterialDescriptor::Tag(t) => Err(Error::CannotRealizeTag(t.clone())),
         })
     }
 
@@ -137,38 +136,6 @@ impl Material {
         let bind_group = device.create_bind_group(bind_group_descriptor);
 
         Self::from_existing(bind_group, pipeline_descriptor.clone())
-    }
-
-    #[cfg(feature = "gltf")]
-    pub fn from_gltf(
-        tag: &str,
-        gltf_material: &easy_gltf::Material,
-        surface_format: &TextureFormat,
-        device: &Device,
-        queue: &Queue,
-    ) -> Result<&'static Self, Error> {
-        let cache = Self::prepare_cache_access();
-
-        cache.get_or_add_fallible(&MaterialDescriptor::Tag(tag.to_string()), |_| {
-            let pbr = &gltf_material.pbr;
-
-            let albedo_texture_descriptor = if let Some(base_color) = &pbr.base_color_texture {
-                TextureDescriptor::StandardSRGBu8Data(
-                    base_color.to_vec(),
-                    base_color.dimensions().into(),
-                )
-            } else {
-                TextureDescriptor::UNIFORM_GRAY
-            };
-
-            Self::standard_pbr(
-                &albedo_texture_descriptor,
-                None,
-                surface_format,
-                device,
-                queue,
-            )
-        })
     }
 
     pub fn from_existing(bind_group: BindGroup, pipeline_descriptor: PipelineDescriptor) -> Self {
