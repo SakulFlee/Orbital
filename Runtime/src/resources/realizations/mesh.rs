@@ -24,8 +24,7 @@ impl Mesh {
             label: Some("Mesh Vertex Buffer"),
             contents: &vertices
                 .iter()
-                .map(|x| x.to_bytes())
-                .flatten()
+                .flat_map(|x| x.to_bytes())
                 .collect::<Vec<u8>>(),
             usage: BufferUsages::VERTEX,
         });
@@ -34,8 +33,7 @@ impl Mesh {
             label: Some("Mesh Vertex Buffer"),
             contents: &indices
                 .iter()
-                .map(|x| x.to_le_bytes())
-                .flatten()
+                .flat_map(|x| x.to_le_bytes())
                 .collect::<Vec<u8>>(),
             usage: BufferUsages::INDEX,
         });
@@ -57,8 +55,8 @@ impl Mesh {
             .vertices()
             .iter()
             .map(|vertex| Vertex {
-                position_coordinates: vertex.position.into(),
-                texture_coordinates: vertex.tex_coords.into(),
+                position_coordinates: vertex.position,
+                texture_coordinates: vertex.tex_coords,
             })
             .collect::<Vec<Vertex>>();
         let indices = match gltf_model.indices() {

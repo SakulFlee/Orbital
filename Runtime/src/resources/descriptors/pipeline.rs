@@ -1,6 +1,5 @@
 use wgpu::{
-    BindGroupLayoutEntry, BindingType, Face, FrontFace, PolygonMode, PrimitiveTopology,
-    SamplerBindingType, ShaderStages, TextureSampleType, TextureViewDimension,
+    Face, FrontFace, PolygonMode, PrimitiveTopology,
 };
 
 use super::ShaderDescriptor;

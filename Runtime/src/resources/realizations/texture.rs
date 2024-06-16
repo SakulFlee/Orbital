@@ -89,9 +89,9 @@ impl Texture {
 
     pub fn from_file_path(file_path: &str, device: &Device, queue: &Queue) -> Result<Self, Error> {
         let img = image::io::Reader::open(file_path)
-            .map_err(|e| Error::IOError(e))?
+            .map_err(Error::IOError)?
             .decode()
-            .map_err(|e| Error::ImageError(e))?;
+            .map_err(Error::ImageError)?;
 
         Ok(Self::standard_srgb8_data(
             img.as_bytes(),

@@ -1,6 +1,5 @@
 use std::time::{Duration, Instant};
 
-use log::debug;
 
 pub struct CacheEntry<Value> {
     timer: Instant,
