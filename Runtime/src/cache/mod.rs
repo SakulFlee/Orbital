@@ -20,7 +20,7 @@ impl<Key, Value> Default for Cache<Key, Value>
 where
     Key: Sized + Hash + PartialEq + Eq + Clone,
     Value: Sized,
- {
+{
     fn default() -> Self {
         Self::new()
     }
@@ -123,13 +123,7 @@ where
         let mut change = CacheChange::default();
         change.before = self.size();
 
-        self.map.retain(|_k, v| {
-            let elapsed = v.elapsed();
-            debug!("Elapsed: {:?}", elapsed);
-            let condition = elapsed < retain_below;
-            debug!("Condition: {}", condition);
-            condition
-        });
+        self.map.retain(|_k, v| v.elapsed() < retain_below);
 
         change.after = self.size();
         change
