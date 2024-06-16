@@ -16,7 +16,6 @@ impl<Value> CacheEntry<Value> {
     }
 
     pub fn reset_timer(&mut self) {
-        debug!("RESET");
         self.timer = Instant::now();
     }
 
