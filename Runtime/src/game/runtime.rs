@@ -56,12 +56,21 @@ impl<GameImpl: Game> GameRuntime<GameImpl> {
         if self.pipeline_cleanup_timer.elapsed() >= pipeline_cache_settings.cleanup_interval {
             info!("Pipeline cache cleanup started!");
 
+            // Reuse variable as performance measure
+            self.pipeline_cleanup_timer = Instant::now();
+
             // Cache access
             let cache = Pipeline::prepare_cache_access(None, device, queue);
 
             // Run cleanup
             let change = cache.cleanup(pipeline_cache_settings.retain_period);
             info!("Pipeline {}", change);
+
+            // Print out duration
+            debug!(
+                "Pipeline Cache Cleanup took {}ms!",
+                self.pipeline_cleanup_timer.elapsed().as_millis()
+            );
 
             // Reset timer
             self.pipeline_cleanup_timer = Instant::now();
@@ -74,12 +83,21 @@ impl<GameImpl: Game> GameRuntime<GameImpl> {
         if self.material_cleanup_timer.elapsed() >= material_cache_settings.cleanup_interval {
             info!("Material cache cleanup started!");
 
+            // Reuse variable as performance measure
+            self.material_cleanup_timer = Instant::now();
+
             // Cache access
             let cache = Material::prepare_cache_access();
 
             // Run cleanup
             let change = cache.cleanup(material_cache_settings.retain_period);
             info!("Material {}", change);
+
+            // Print out duration
+            debug!(
+                "Material Cache Cleanup took {}ms!",
+                self.material_cleanup_timer.elapsed().as_millis()
+            );
 
             // Reset timer
             self.material_cleanup_timer = Instant::now();
@@ -92,12 +110,21 @@ impl<GameImpl: Game> GameRuntime<GameImpl> {
         if self.texture_cleanup_timer.elapsed() >= texture_cache_settings.cleanup_interval {
             info!("Texture cache cleanup started!");
 
+            // Reuse variable as performance measure
+            self.texture_cleanup_timer = Instant::now();
+
             // Cache access
             let cache = Texture::prepare_cache_access();
 
             // Run cleanup
             let change = cache.cleanup(texture_cache_settings.retain_period);
             info!("Texture {}", change);
+
+            // Print out duration
+            debug!(
+                "Texture Cache Cleanup took {}ms!",
+                self.texture_cleanup_timer.elapsed().as_millis()
+            );
 
             // Reset timer
             self.texture_cleanup_timer = Instant::now();

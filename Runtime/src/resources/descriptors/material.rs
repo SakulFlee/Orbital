@@ -16,8 +16,19 @@ pub enum MaterialDescriptor {
     /// 1. Albedo Texture (Color)
     /// 2. Custom Shader
     PBRCustomShader(TextureDescriptor, ShaderDescriptor),
-    /// Should only be used in rare cases and internally.
-    /// Used to tag [Material](crate::resources::realizations::Material)'s in
-    /// case they got created in a custom way or loaded from e.g. a glTF file.
-    Tag(String),
+}
+
+impl From<&easy_gltf::Material> for MaterialDescriptor {
+    fn from(value: &easy_gltf::Material) -> Self {
+        let albedo_texture_descriptor = if let Some(base_color) = &value.pbr.base_color_texture {
+            TextureDescriptor::StandardSRGBu8Data(
+                base_color.to_vec(),
+                base_color.dimensions().into(),
+            )
+        } else {
+            TextureDescriptor::UNIFORM_GRAY
+        };
+
+        Self::PBR(albedo_texture_descriptor)
+    }
 }
