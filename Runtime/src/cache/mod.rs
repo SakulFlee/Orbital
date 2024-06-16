@@ -3,7 +3,6 @@ use std::{hash::Hash, time::Duration};
 use change::CacheChange;
 use entry::CacheEntry;
 use hashbrown::HashMap;
-use log::debug;
 
 pub mod change;
 pub mod entry;
