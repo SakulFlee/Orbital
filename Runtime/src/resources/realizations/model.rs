@@ -14,7 +14,7 @@ use super::{instance::Instance, Material, Mesh};
 
 pub struct Model {
     mesh: Mesh,
-    material: &'static Material,
+    material_descriptor: MaterialDescriptor,
     instances: Vec<Instance>,
     instance_buffer: Buffer,
 }
@@ -22,7 +22,6 @@ pub struct Model {
 impl Model {
     pub fn from_descriptor(
         descriptor: &ModelDescriptor,
-        surface_format: &TextureFormat,
         device: &Device,
         queue: &Queue,
     ) -> Result<Self, Error> {
@@ -32,7 +31,6 @@ impl Model {
                     mesh_descriptor,
                     material_descriptor,
                     instancing,
-                    surface_format,
                     device,
                     queue,
                 )
@@ -48,7 +46,6 @@ impl Model {
                 scene_import_descriptor,
                 model_import_descriptor,
                 instancing,
-                surface_format,
                 device,
                 queue,
             ),
@@ -59,19 +56,19 @@ impl Model {
         mesh_descriptor: &MeshDescriptor,
         material_descriptor: &MaterialDescriptor,
         instancing: &Instancing,
-        surface_format: &TextureFormat,
         device: &Device,
         queue: &Queue,
     ) -> Result<Self, Error> {
         let mesh = Mesh::from_descriptor(mesh_descriptor, device, queue);
 
-        let material =
-            Material::from_descriptor(material_descriptor, surface_format, device, queue)?;
-
         let instances = Self::convert_instancing(instancing);
 
         Ok(Self::from_existing(
-            mesh, material, instances, device, queue,
+            mesh,
+            material_descriptor.clone(),
+            instances,
+            device,
+            queue,
         ))
     }
 
@@ -81,7 +78,6 @@ impl Model {
         scene_import_descriptor: &ImportDescriptor,
         model_import_descriptor: &ImportDescriptor,
         instancing: &Instancing,
-        surface_format: &TextureFormat,
         device: &Device,
         queue: &Queue,
     ) -> Result<Self, Error> {
@@ -117,10 +113,12 @@ impl Model {
 
         let instances = Self::convert_instancing(instancing);
 
+        let material_descriptor: MaterialDescriptor = model.material().as_ref().into();
+
         // Realize model
         let model = Self::from_existing(
             Mesh::from_gltf(model, device)?,
-            Material::from_gltf(file, &model.material(), surface_format, device, queue)?,
+            material_descriptor,
             instances,
             device,
             queue,
@@ -131,7 +129,7 @@ impl Model {
 
     pub fn from_existing(
         mesh: Mesh,
-        material: &'static Material,
+        material_descriptor: MaterialDescriptor,
         instances: Vec<Instance>,
         device: &Device,
         queue: &Queue,
@@ -140,7 +138,7 @@ impl Model {
 
         Self {
             mesh,
-            material,
+            material_descriptor,
             instances,
             instance_buffer,
         }
@@ -195,8 +193,13 @@ impl Model {
         &self.mesh
     }
 
-    pub fn material(&self) -> &Material {
-        &self.material
+    pub fn material(
+        &self,
+        surface_format: &TextureFormat,
+        device: &Device,
+        queue: &Queue,
+    ) -> Result<&'static Material, Error> {
+        Material::from_descriptor(&self.material_descriptor, surface_format, device, queue)
     }
 
     pub fn instances(&self) -> &Vec<Instance> {
