@@ -107,7 +107,14 @@ impl RenderServer {
 
             for model in &self.models {
                 let mesh = model.mesh();
-                let material = model.material();
+                let material = match model.material(&self.surface_texture_format, device, queue) {
+                    Ok(material) => material,
+                    Err(e) => {
+                        error!("Material failure: {:#?}", e);
+                        error!("Skipping model render!");
+                        continue;
+                    }
+                };
 
                 let pipeline = match Pipeline::from_descriptor(
                     material.pipeline_descriptor(),
@@ -148,12 +155,7 @@ impl RenderServer {
         debug!("Models to realize: {}", self.models_to_spawn.len());
 
         while let Some(model_descriptor) = self.models_to_spawn.pop() {
-            match Model::from_descriptor(
-                &model_descriptor,
-                &self.surface_texture_format,
-                device,
-                queue,
-            ) {
+            match Model::from_descriptor(&model_descriptor, device, queue) {
                 Ok(model) => self.models.push(model),
                 Err(e) => {
                     error!(
