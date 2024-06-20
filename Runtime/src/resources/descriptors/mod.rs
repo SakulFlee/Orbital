@@ -1,4 +1,6 @@
 pub mod camera;
+pub mod composition;
+pub mod import;
 pub mod instance;
 pub mod material;
 pub mod mesh;
@@ -6,9 +8,10 @@ pub mod model;
 pub mod pipeline;
 pub mod shader;
 pub mod texture;
-pub mod import;
 
 pub use camera::*;
+pub use composition::*;
+pub use import::*;
 pub use instance::*;
 pub use material::*;
 pub use mesh::*;
@@ -16,4 +19,3 @@ pub use model::*;
 pub use pipeline::*;
 pub use shader::*;
 pub use texture::*;
-pub use import::*;

@@ -1,5 +1,5 @@
 use cgmath::Vector2;
-use log::{debug, error};
+use log::error;
 use wgpu::{
     Color, CommandEncoderDescriptor, Device, IndexFormat, LoadOp, Operations, Queue,
     RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor, StoreOp,
@@ -8,7 +8,7 @@ use wgpu::{
 
 use crate::resources::{
     descriptors::{CameraDescriptor, ModelDescriptor},
-    realizations::{Camera, Model, Pipeline, Texture},
+    realizations::{Camera, Composition, Model, Pipeline, Texture},
 };
 
 pub struct RenderServer {
@@ -48,20 +48,17 @@ impl RenderServer {
         self.surface_texture_format = surface_texture_format;
     }
 
-    pub fn spawn_model(&mut self, model_descriptor: ModelDescriptor) {
-        self.models_to_spawn.push(model_descriptor);
+    pub fn render_composition(
+        &mut self,
+        view: &TextureView,
+        device: &Device,
+        queue: &Queue,
+        composition: &Composition,
+    ) {
+        self.render(view, device, queue, composition.models());
     }
 
-    pub fn despawn_model(&mut self) {
-        todo!()
-    }
-
-    pub fn render(&mut self, view: &TextureView, device: &Device, queue: &Queue) {
-        self.do_prepare(device, queue);
-        self.do_render(device, queue, view);
-    }
-
-    fn do_render(&mut self, device: &Device, queue: &Queue, view: &TextureView) {
+    pub fn render(&mut self, view: &TextureView, device: &Device, queue: &Queue, models: &[Model]) {
         // TODO: Remove
         unsafe {
             static mut INCREMENT: bool = true;
@@ -105,7 +102,7 @@ impl RenderServer {
                 occlusion_query_set: None,
             });
 
-            for model in &self.models {
+            for model in models {
                 let mesh = model.mesh();
                 let material = match model.material(&self.surface_texture_format, device, queue) {
                     Ok(material) => material,
@@ -146,25 +143,5 @@ impl RenderServer {
         }
 
         queue.submit(Some(encoder.finish()));
-    }
-
-    pub fn do_prepare(&mut self, device: &Device, queue: &Queue) {
-        if self.models_to_spawn.is_empty() {
-            return;
-        }
-        debug!("Models to realize: {}", self.models_to_spawn.len());
-
-        while let Some(model_descriptor) = self.models_to_spawn.pop() {
-            match Model::from_descriptor(&model_descriptor, device, queue) {
-                Ok(model) => self.models.push(model),
-                Err(e) => {
-                    error!(
-                        "Failed preparing model! Skipping model preparation. Error: {:?}",
-                        e
-                    );
-                    continue;
-                }
-            }
-        }
     }
 }

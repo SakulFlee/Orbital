@@ -1,5 +1,6 @@
 use std::{sync::OnceLock, time::Instant};
 
+use cgmath::Vector2;
 use log::{debug, info, warn};
 use wgpu::{Device, Queue, SurfaceConfiguration, TextureView};
 use winit::event_loop::EventLoop;
@@ -7,17 +8,18 @@ use winit::event_loop::EventLoop;
 use crate::{
     app::{App, AppRuntime},
     error::Error,
+    renderer::Renderer,
     resources::realizations::{Material, Pipeline, Texture},
-    server::RenderServer,
     timer::Timer,
 };
 
-use super::{CacheSettings, Game, GameSettings};
+use super::{CacheSettings, Game, GameSettings, World};
 
-pub struct GameRuntime<GameImpl: Game> {
+pub struct GameRuntime<GameImpl: Game, RendererImpl: Renderer> {
     game: GameImpl,
+    world: World,
     timer: Timer,
-    render_server: RenderServer,
+    renderer: RendererImpl,
     pipeline_cleanup_timer: Instant,
     material_cleanup_timer: Instant,
     texture_cleanup_timer: Instant,
@@ -27,7 +29,7 @@ pub static mut PIPELINE_CACHE_SETTINGS: OnceLock<CacheSettings> = OnceLock::new(
 pub static mut MATERIAL_CACHE_SETTINGS: OnceLock<CacheSettings> = OnceLock::new();
 pub static mut TEXTURE_CACHE_SETTINGS: OnceLock<CacheSettings> = OnceLock::new();
 
-impl<GameImpl: Game> GameRuntime<GameImpl> {
+impl<GameImpl: Game, RendererImpl: Renderer> GameRuntime<GameImpl, RendererImpl> {
     pub fn liftoff(event_loop: EventLoop<()>, settings: GameSettings) -> Result<(), Error> {
         info!("Akimo-Project: Game Runtime");
         info!(" --- @SakulFlee --- ");
@@ -41,7 +43,10 @@ impl<GameImpl: Game> GameRuntime<GameImpl> {
             TEXTURE_CACHE_SETTINGS.get_or_init(|| settings.texture_cache);
         }
 
-        AppRuntime::<GameRuntime<GameImpl>>::__liftoff(event_loop, settings.app_settings)
+        AppRuntime::<GameRuntime<GameImpl, RendererImpl>>::__liftoff(
+            event_loop,
+            settings.app_settings,
+        )
     }
 
     fn do_cleanup(&mut self, device: &Device, queue: &Queue) {
@@ -132,15 +137,16 @@ impl<GameImpl: Game> GameRuntime<GameImpl> {
     }
 }
 
-impl<GameImpl: Game> App for GameRuntime<GameImpl> {
+impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, RendererImpl> {
     fn init(config: &SurfaceConfiguration, device: &Device, queue: &Queue) -> Self
     where
         Self: Sized,
     {
         Self {
             game: GameImpl::init(),
+            world: World::default(),
             timer: Timer::new(),
-            render_server: RenderServer::new(
+            renderer: RendererImpl::new(
                 config.format,
                 (config.width, config.height).into(),
                 device,
@@ -152,12 +158,12 @@ impl<GameImpl: Game> App for GameRuntime<GameImpl> {
         }
     }
 
-    fn on_resize(&mut self, new_size: cgmath::Vector2<u32>, device: &Device, queue: &Queue)
+    fn on_resize(&mut self, new_resolution: Vector2<u32>, device: &Device, queue: &Queue)
     where
         Self: Sized,
     {
-        self.render_server
-            .change_depth_texture_resolution(new_size, device, queue)
+        self.renderer
+            .change_resolution(new_resolution, device, queue);
     }
 
     fn on_update(&mut self)
@@ -165,20 +171,23 @@ impl<GameImpl: Game> App for GameRuntime<GameImpl> {
         Self: Sized,
     {
         self.game
-            .cycle(self.timer.cycle_delta_time(), &mut self.render_server);
+            .cycle(self.timer.cycle_delta_time(), &mut self.world);
     }
 
-    fn on_render(&mut self, view: &TextureView, device: &Device, queue: &Queue)
+    fn on_render(&mut self, target_view: &TextureView, device: &Device, queue: &Queue)
     where
         Self: Sized,
     {
+        self.world.update(device, queue);
+
+        self.renderer
+            .render(target_view, device, queue, self.world.composition.models());
+
         if let Some((delta_time, fps)) = self.timer.tick() {
             debug!("FPS: {fps}");
             debug!("Tick  Delta: {} ms", delta_time);
 
             self.do_cleanup(device, queue);
         }
-
-        self.render_server.render(view, device, queue);
     }
 }
