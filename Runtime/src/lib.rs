@@ -8,7 +8,6 @@ pub mod game;
 pub mod log;
 pub mod renderer;
 pub mod resources;
-pub mod server;
 pub mod timer;
 pub mod util;
 pub mod wgpu;

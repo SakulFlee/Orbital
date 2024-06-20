@@ -3,6 +3,7 @@
         "akimo",
         "Assimp",
         "ASSIMP",
+        "Bgra",
         "bindgen",
         "bytemuck",
         "cgmath",
