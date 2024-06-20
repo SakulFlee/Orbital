@@ -48,7 +48,7 @@ impl Pipeline {
 
         if CACHE.get().is_none() {
             info!("Pipeline cache doesn't exist! Initializing ...");
-            let _ = CACHE.get_or_init(|| Mutex::new((Cache::new(), TextureFormat::Rgba8UnormSrgb)));
+            let _ = CACHE.get_or_init(|| Mutex::new((Cache::new(), TextureFormat::Bgra8UnormSrgb)));
         }
 
         CACHE

@@ -1,4 +1,7 @@
-use akimo_runtime::{game::Game, log::debug, server::RenderServer};
+use akimo_runtime::{
+    game::{Game, World},
+    log::debug,
+};
 
 pub struct ExampleGame {}
 
@@ -10,7 +13,7 @@ impl Game for ExampleGame {
         Self {}
     }
 
-    fn cycle(&mut self, delta_time: f64, _render_server: &mut RenderServer)
+    fn cycle(&mut self, delta_time: f64, _world: &mut World)
     where
         Self: Sized,
     {

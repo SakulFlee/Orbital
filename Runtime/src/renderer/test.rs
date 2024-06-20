@@ -1,12 +1,7 @@
 use cgmath::Point3;
-use cgmath::Vector3;
-use wgpu::Device;
-use wgpu::Queue;
-use wgpu::TextureFormat;
-use wgpu::TextureView;
+use wgpu::{Device, Queue, TextureFormat, TextureView};
 
-use crate::resources::descriptors::CameraDescriptor;
-use crate::resources::realizations::Model;
+use crate::resources::{descriptors::CameraDescriptor, realizations::Model};
 
 use super::{Renderer, StandardRenderer};
 
