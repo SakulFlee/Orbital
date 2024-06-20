@@ -6,6 +6,7 @@ pub mod error;
 pub mod event;
 pub mod game;
 pub mod log;
+pub mod renderer;
 pub mod resources;
 pub mod server;
 pub mod timer;

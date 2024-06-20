@@ -145,5 +145,23 @@
             "args": [],
             "cwd": "${workspaceFolder}"
         },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Example: Game Runtime Composition",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=example_game_runtime_composition",
+                    "--package=example_game_runtime_composition"
+                ],
+                "filter": {
+                    "name": "example_game_runtime_composition",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
     ]
 }

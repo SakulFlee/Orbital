@@ -1,89 +1,83 @@
 use cgmath::Vector2;
-use log::error;
 use wgpu::{
     Color, CommandEncoderDescriptor, Device, IndexFormat, LoadOp, Operations, Queue,
     RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor, StoreOp,
     TextureFormat, TextureView,
 };
 
-use crate::resources::{
-    descriptors::{CameraDescriptor, ModelDescriptor},
-    realizations::{Camera, Composition, Model, Pipeline, Texture},
+use crate::{
+    log::error,
+    resources::{
+        descriptors::CameraDescriptor,
+        realizations::{Camera, Model, Pipeline, Texture},
+    },
 };
 
-pub struct RenderServer {
-    models: Vec<Model>,
-    models_to_spawn: Vec<ModelDescriptor>,
+use super::Renderer;
+
+pub struct StandardRenderer {
     surface_texture_format: TextureFormat,
     depth_texture: Texture,
     camera: Camera,
 }
 
-impl RenderServer {
-    pub fn new(
-        surface_texture_format: TextureFormat,
-        depth_texture_resolution: Vector2<u32>,
-        device: &Device,
-        queue: &Queue,
+impl StandardRenderer {
+    pub fn change_camera(&mut self, descriptor: CameraDescriptor, device: &Device, queue: &Queue) {
+        self.camera
+            .update_from_descriptor(descriptor, device, queue);
+    }
+
+    pub fn camera_descriptor(&self) -> &CameraDescriptor {
+        self.camera.descriptor()
+    }
+}
+
+impl Renderer for StandardRenderer {
+    fn new(
+        surface_texture_format: wgpu::TextureFormat,
+        resolution: cgmath::Vector2<u32>,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
     ) -> Self {
         Self {
-            models: Vec::new(),
-            models_to_spawn: Vec::new(),
             surface_texture_format,
-            depth_texture: Texture::depth_texture(&depth_texture_resolution, device, queue),
+            depth_texture: Texture::depth_texture(&resolution, device, queue),
             camera: Camera::from_descriptor(CameraDescriptor::default(), device, queue),
         }
     }
 
-    pub fn change_depth_texture_resolution(
+    fn change_surface_texture_format(
         &mut self,
-        new_resolution: Vector2<u32>,
+        surface_texture_format: TextureFormat,
         device: &Device,
         queue: &Queue,
     ) {
-        self.depth_texture = Texture::depth_texture(&new_resolution, device, queue);
-    }
-
-    pub fn set_surface_texture_format(&mut self, surface_texture_format: TextureFormat) {
+        // Set the format internally
         self.surface_texture_format = surface_texture_format;
+
+        // The cache will automatically recompile itself
+        // once a new format is used to access the cache.
+        let _ = Pipeline::prepare_cache_access(Some(&surface_texture_format), device, queue);
     }
 
-    pub fn render_composition(
+    fn change_resolution(&mut self, resolution: Vector2<u32>, device: &Device, queue: &Queue) {
+        // Remake the depth texture with the new size
+        self.depth_texture = Texture::depth_texture(&resolution, device, queue);
+    }
+
+    fn render(
         &mut self,
-        view: &TextureView,
+        target_view: &TextureView,
         device: &Device,
         queue: &Queue,
-        composition: &Composition,
+        models: &[Model],
     ) {
-        self.render(view, device, queue, composition.models());
-    }
-
-    pub fn render(&mut self, view: &TextureView, device: &Device, queue: &Queue, models: &[Model]) {
-        // TODO: Remove
-        unsafe {
-            static mut INCREMENT: bool = true;
-            let mut x = *self.camera.descriptor();
-            if INCREMENT {
-                x.position.x += 0.001;
-            } else {
-                x.position.x -= 0.001;
-            }
-
-            if x.position.x > -1.0 {
-                INCREMENT = false;
-            }
-            if x.position.x < -4.0 {
-                INCREMENT = true;
-            }
-            self.camera.update_from_descriptor(x, device, queue);
-        }
-
         let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor { label: None });
         {
             let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[Some(RenderPassColorAttachment {
-                    view,
+                    view: target_view,
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(Color::BLACK),
