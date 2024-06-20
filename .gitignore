@@ -22,7 +22,7 @@ jniLibs/
 .gradle/
 
 # Blender
-*.blend*
+*.blend[0-99]
 
 # Temporary files
 *~
