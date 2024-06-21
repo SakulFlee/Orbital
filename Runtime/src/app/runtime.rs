@@ -302,8 +302,8 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
         }
     }
 
-    fn new_events(&mut self, _event_loop: &ActiveEventLoop, cause: StartCause) {
-        debug!("New Events: {:#?}", cause);
+    fn new_events(&mut self, _event_loop: &ActiveEventLoop, _cause: StartCause) {
+        // debug!("New Events: {:#?}", cause);
     }
 
     fn device_event(
