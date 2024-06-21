@@ -1,8 +1,6 @@
-use std::sync::{Mutex, OnceLock};
-
 use cgmath::{Vector2, Vector4};
 use image::{DynamicImage, GenericImageView};
-use log::{info, warn};
+use log::warn;
 use wgpu::{
     AddressMode, Device, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout, Origin3d, Queue,
     Sampler, SamplerDescriptor, Texture as WTexture, TextureAspect,
@@ -10,7 +8,7 @@ use wgpu::{
     TextureView, TextureViewDescriptor,
 };
 
-use crate::{cache::Cache, error::Error, resources::descriptors::TextureDescriptor};
+use crate::{error::Error, resources::descriptors::TextureDescriptor};
 
 pub struct Texture {
     texture: WTexture,
@@ -19,62 +17,12 @@ pub struct Texture {
 }
 
 impl Texture {
-    // --- Static ---
-    /// Gives access to the internal pipeline cache.
-    /// If the cache doesn't exist yet, it gets initialized.
-    ///
-    /// # Safety
-    /// This is potentially a dangerous operation!
-    /// The Rust compiler says the following:
-    ///
-    /// > use of mutable static is unsafe and requires unsafe function or block
-    /// mutable statics can be mutated by multiple threads: aliasing violations
-    /// or data races will cause undefined behavior
-    ///
-    /// However, once initialized, the cell [OnceLock] should never change and
-    /// thus this should be safe.
-    ///
-    /// Additionally, we utilize a [Mutex] to ensure that access to the
-    /// cache map and texture format is actually exclusive.
-    pub unsafe fn cache() -> &'static mut Cache<TextureDescriptor, Texture> {
-        static mut CACHE: OnceLock<Mutex<Cache<TextureDescriptor, Texture>>> = OnceLock::new();
-
-        if CACHE.get().is_none() {
-            info!("Texture cache doesn't exist! Initializing ...");
-            let _ = CACHE.get_or_init(|| Mutex::new(Cache::new()));
-        }
-
-        CACHE
-            .get_mut()
-            .unwrap()
-            .get_mut()
-            .expect("Cache access violation!")
-    }
-
-    /// Makes sure the cache is in the right state before accessing.
-    /// Should be ideally called before each cache access.
-    /// Once per context is enough though!
-    ///
-    /// This will set some cache parameters, if they don't exist yet
-    /// (e.g. in case of a new cache), and make sure the pipelines
-    /// still match the correct surface texture formats.
-    /// If needed, this will also attempt recompiling all pipelines
-    /// (and thus their shaders) to match a different format!
-    ///
-    /// > ⚠️ This is a copy of [Pipeline::prepare_cache_access](crate::resources::realizations::Pipeline::prepare_cache_access), without the [TextureFormat](crate::wgpu::TextureFormat) stuff.
-    /// > This function currently doesn't really do anything, but is kept as-is in case we need to add some functionality here later + calling the unsafe static function.
-    pub fn prepare_cache_access() -> &'static mut Cache<TextureDescriptor, Texture> {
-        unsafe { Self::cache() }
-    }
-
     pub fn from_descriptor(
         descriptor: &TextureDescriptor,
         device: &Device,
         queue: &Queue,
-    ) -> Result<&'static Self, Error> {
-        let cache = Self::prepare_cache_access();
-
-        cache.get_or_add_fallible(descriptor, |k| match k {
+    ) -> Result<Self, Error> {
+        match descriptor {
             TextureDescriptor::FilePath(file_path) => {
                 Self::from_file_path(file_path, device, queue)
             }
@@ -84,7 +32,8 @@ impl Texture {
             TextureDescriptor::UniformColor(color) => {
                 Ok(Self::uniform_color(*color, device, queue))
             }
-        })
+            TextureDescriptor::Depth(size) => Ok(Self::depth_texture(size, device, queue)),
+        }
     }
 
     pub fn from_file_path(file_path: &str, device: &Device, queue: &Queue) -> Result<Self, Error> {

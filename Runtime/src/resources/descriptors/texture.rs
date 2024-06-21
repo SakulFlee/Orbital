@@ -52,6 +52,8 @@ pub enum TextureDescriptor {
     /// }
     /// ```
     UniformColor(Vector4<u8>),
+    /// Creates a depth texture
+    Depth(Vector2<u32>),
 }
 
 impl TextureDescriptor {
