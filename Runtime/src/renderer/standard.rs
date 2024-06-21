@@ -1,7 +1,4 @@
-use std::time::Instant;
-
 use cgmath::Vector2;
-use log::info;
 use wgpu::{
     Color, CommandEncoderDescriptor, Device, IndexFormat, LoadOp, Operations, Queue,
     RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor, StoreOp,
@@ -11,7 +8,7 @@ use wgpu::{
 use crate::{
     log::error,
     resources::{
-        descriptors::CameraDescriptor,
+        descriptors::{CameraDescriptor, TextureDescriptor},
         realizations::{Camera, Model, Pipeline, Texture},
     },
 };
@@ -44,7 +41,12 @@ impl Renderer for StandardRenderer {
     ) -> Self {
         Self {
             surface_texture_format,
-            depth_texture: Texture::depth_texture(&resolution, device, queue),
+            depth_texture: Texture::from_descriptor(
+                &TextureDescriptor::Depth(resolution),
+                device,
+                queue,
+            )
+            .expect("Depth texture realization failed!"),
             camera: Camera::from_descriptor(CameraDescriptor::default(), device, queue),
         }
     }
