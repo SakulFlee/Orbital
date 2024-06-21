@@ -70,6 +70,8 @@ impl Renderer for StandardRenderer {
         self.depth_texture = Texture::depth_texture(&resolution, device, queue);
     }
 
+    fn update(&mut self, _delta_time: f64) {}
+
     fn render(
         &mut self,
         target_view: &TextureView,
