@@ -18,6 +18,7 @@ use super::{Pipeline, Texture};
 pub struct Material {
     bind_group: BindGroup,
     pipeline_descriptor: PipelineDescriptor,
+    albedo_texture: Texture,
 }
 
 impl Material {
@@ -124,24 +125,22 @@ impl Material {
             ],
         });
 
-        Ok(Self::from_existing(bind_group, pipeline_descriptor))
+        Ok(Self::from_existing(
+            bind_group,
+            pipeline_descriptor,
+            albedo_texture,
+        ))
     }
 
-    pub fn from_descriptors(
-        bind_group_descriptor: &BindGroupDescriptor,
-        pipeline_descriptor: &PipelineDescriptor,
-        device: &Device,
-        _queue: &Queue,
+    pub fn from_existing(
+        bind_group: BindGroup,
+        pipeline_descriptor: PipelineDescriptor,
+        albedo_texture: Texture,
     ) -> Self {
-        let bind_group = device.create_bind_group(bind_group_descriptor);
-
-        Self::from_existing(bind_group, pipeline_descriptor.clone())
-    }
-
-    pub fn from_existing(bind_group: BindGroup, pipeline_descriptor: PipelineDescriptor) -> Self {
         Self {
             bind_group,
             pipeline_descriptor,
+            albedo_texture,
         }
     }
 

@@ -9,7 +9,7 @@ use crate::{
     app::{App, AppRuntime},
     error::Error,
     renderer::Renderer,
-    resources::realizations::{Material, Pipeline, Texture},
+    resources::realizations::{Material, Pipeline},
     timer::Timer,
 };
 
@@ -22,12 +22,10 @@ pub struct GameRuntime<GameImpl: Game, RendererImpl: Renderer> {
     renderer: RendererImpl,
     pipeline_cleanup_timer: Instant,
     material_cleanup_timer: Instant,
-    texture_cleanup_timer: Instant,
 }
 
 pub static mut PIPELINE_CACHE_SETTINGS: OnceLock<CacheSettings> = OnceLock::new();
 pub static mut MATERIAL_CACHE_SETTINGS: OnceLock<CacheSettings> = OnceLock::new();
-pub static mut TEXTURE_CACHE_SETTINGS: OnceLock<CacheSettings> = OnceLock::new();
 
 impl<GameImpl: Game, RendererImpl: Renderer> GameRuntime<GameImpl, RendererImpl> {
     pub fn liftoff(event_loop: EventLoop<()>, settings: GameSettings) -> Result<(), Error> {
@@ -40,7 +38,6 @@ impl<GameImpl: Game, RendererImpl: Renderer> GameRuntime<GameImpl, RendererImpl>
         unsafe {
             PIPELINE_CACHE_SETTINGS.get_or_init(|| settings.pipeline_cache);
             MATERIAL_CACHE_SETTINGS.get_or_init(|| settings.material_cache);
-            TEXTURE_CACHE_SETTINGS.get_or_init(|| settings.texture_cache);
         }
 
         AppRuntime::<GameRuntime<GameImpl, RendererImpl>>::__liftoff(
@@ -52,7 +49,6 @@ impl<GameImpl: Game, RendererImpl: Renderer> GameRuntime<GameImpl, RendererImpl>
     fn do_cleanup(&mut self, device: &Device, queue: &Queue) {
         self.do_pipeline_cache_cleanup(device, queue);
         self.do_material_cache_cleanup();
-        self.do_texture_cache_cleanup();
     }
 
     fn do_pipeline_cache_cleanup(&mut self, device: &Device, queue: &Queue) {
@@ -108,33 +104,6 @@ impl<GameImpl: Game, RendererImpl: Renderer> GameRuntime<GameImpl, RendererImpl>
             self.material_cleanup_timer = Instant::now();
         }
     }
-
-    fn do_texture_cache_cleanup(&mut self) {
-        let texture_cache_settings = unsafe { TEXTURE_CACHE_SETTINGS.get().unwrap() };
-
-        if self.texture_cleanup_timer.elapsed() >= texture_cache_settings.cleanup_interval {
-            info!("Texture cache cleanup started!");
-
-            // Reuse variable as performance measure
-            self.texture_cleanup_timer = Instant::now();
-
-            // Cache access
-            let cache = Texture::prepare_cache_access();
-
-            // Run cleanup
-            let change = cache.cleanup(texture_cache_settings.retain_period);
-            info!("Texture {}", change);
-
-            // Print out duration
-            debug!(
-                "Texture Cache Cleanup took {}ms!",
-                self.texture_cleanup_timer.elapsed().as_millis()
-            );
-
-            // Reset timer
-            self.texture_cleanup_timer = Instant::now();
-        }
-    }
 }
 
 impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, RendererImpl> {
@@ -154,7 +123,6 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
             ),
             pipeline_cleanup_timer: Instant::now(),
             material_cleanup_timer: Instant::now(),
-            texture_cleanup_timer: Instant::now(),
         }
     }
 
