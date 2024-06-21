@@ -1,7 +1,4 @@
-use std::time::Instant;
-
 use cgmath::Vector2;
-use log::info;
 use wgpu::{
     Color, CommandEncoderDescriptor, Device, IndexFormat, LoadOp, Operations, Queue,
     RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor, StoreOp,
@@ -67,6 +64,8 @@ impl Renderer for StandardRenderer {
         // Remake the depth texture with the new size
         self.depth_texture = Texture::depth_texture(&resolution, device, queue);
     }
+
+    fn update(&mut self, _delta_time: f64) {}
 
     fn render(
         &mut self,

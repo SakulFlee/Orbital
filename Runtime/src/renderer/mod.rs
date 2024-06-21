@@ -26,6 +26,8 @@ pub trait Renderer {
 
     fn change_resolution(&mut self, resolution: Vector2<u32>, device: &Device, queue: &Queue);
 
+    fn update(&mut self, delta_time: f64);
+
     fn render(
         &mut self,
         target_view: &TextureView,
