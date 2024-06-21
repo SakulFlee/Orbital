@@ -1,4 +1,5 @@
 pub mod camera;
+pub mod composition;
 pub mod instance;
 pub mod material;
 pub mod mesh;
@@ -9,6 +10,7 @@ pub mod texture;
 pub mod vertex;
 
 pub use camera::*;
+pub use composition::*;
 pub use instance::*;
 pub use material::*;
 pub use mesh::*;

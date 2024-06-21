@@ -111,20 +111,30 @@ impl Model {
             return Err(Error::ModelNotFound);
         };
 
-        let instances = Self::convert_instancing(instancing);
+        Ok(Self::from_gltf_model(
+            model,
+            Self::convert_instancing(instancing),
+            device,
+            queue,
+        )?)
+    }
 
+    #[cfg(feature = "gltf")]
+    pub fn from_gltf_model(
+        model: &easy_gltf::Model,
+        instances: Vec<Instance>,
+        device: &Device,
+        queue: &Queue,
+    ) -> Result<Self, Error> {
         let material_descriptor: MaterialDescriptor = model.material().as_ref().into();
 
-        // Realize model
-        let model = Self::from_existing(
+        Ok(Self::from_existing(
             Mesh::from_gltf(model, device)?,
             material_descriptor,
             instances,
             device,
             queue,
-        );
-
-        Ok(model)
+        ))
     }
 
     pub fn from_existing(

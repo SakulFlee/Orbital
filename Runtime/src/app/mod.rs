@@ -22,7 +22,7 @@ pub trait App {
     where
         Self: Sized;
 
-    fn on_render(&mut self, view: &TextureView, device: &Device, queue: &Queue)
+    fn on_render(&mut self, target_view: &TextureView, device: &Device, queue: &Queue)
     where
         Self: Sized;
 }
