@@ -1,19 +1,20 @@
 use akimo_runtime::{
     app::App,
     cgmath::{Vector2, Vector3},
+    renderer::{Renderer, TestRenderer},
     resources::{
         descriptors::{
             InstanceDescriptor, Instancing, MaterialDescriptor, MeshDescriptor, ModelDescriptor,
             TextureDescriptor,
         },
-        realizations::Vertex,
+        realizations::{Model, Vertex},
     },
-    server::RenderServer,
     wgpu::{Device, Queue, SurfaceConfiguration, TextureView},
 };
 
 pub struct RenderServerTriangleApp {
-    render_server: RenderServer,
+    renderer: TestRenderer,
+    models: Vec<Model>,
 }
 
 impl App for RenderServerTriangleApp {
@@ -48,20 +49,31 @@ impl App for RenderServerTriangleApp {
             1, 2, 3, // Top Right Triangle
         ];
 
-        let mut render_server = RenderServer::new(config.format, (1280, 720).into(), device, queue);
+        let renderer = TestRenderer::new(config.format, (1280, 720).into(), device, queue);
 
-        render_server.spawn_model(ModelDescriptor::FromDescriptors(
-            MeshDescriptor { vertices, indices },
-            MaterialDescriptor::PBRCustomShader(TextureDescriptor::EMPTY, include_str!("rgb.wgsl")),
-            Instancing::Single(InstanceDescriptor::default()),
-        ));
+        let model = Model::from_descriptor(
+            &ModelDescriptor::FromDescriptors(
+                MeshDescriptor { vertices, indices },
+                MaterialDescriptor::PBRCustomShader(
+                    TextureDescriptor::EMPTY,
+                    include_str!("rgb.wgsl"),
+                ),
+                Instancing::Single(InstanceDescriptor::default()),
+            ),
+            device,
+            queue,
+        )
+        .expect("Model loading failed");
 
-        Self { render_server }
+        Self {
+            renderer,
+            models: vec![model],
+        }
     }
 
     fn on_update(&mut self) {}
 
     fn on_render(&mut self, view: &TextureView, device: &Device, queue: &Queue) {
-        self.render_server.render(view, device, queue);
+        self.renderer.render(view, device, queue, &self.models);
     }
 }
