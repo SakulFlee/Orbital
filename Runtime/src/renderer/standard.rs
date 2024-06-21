@@ -1,4 +1,7 @@
+use std::time::Instant;
+
 use cgmath::Vector2;
+use log::info;
 use wgpu::{
     Color, CommandEncoderDescriptor, Device, IndexFormat, LoadOp, Operations, Queue,
     RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor, StoreOp,
@@ -119,6 +122,7 @@ impl Renderer for StandardRenderer {
                         continue;
                     }
                 };
+
                 render_pass.set_pipeline(pipeline.render_pipeline());
 
                 render_pass.set_bind_group(0, material.bind_group(), &[]);
