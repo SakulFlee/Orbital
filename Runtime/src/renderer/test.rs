@@ -7,30 +7,7 @@ use super::{Renderer, StandardRenderer};
 
 pub struct TestRenderer {
     standard: StandardRenderer,
-}
-
-impl TestRenderer {
-    pub fn update(&mut self, device: &Device, queue: &Queue) {
-        unsafe {
-            static mut INCREMENT: bool = true;
-            let mut x = *self.standard.camera_descriptor();
-
-            if INCREMENT {
-                x.position.x += 0.025;
-            } else {
-                x.position.x -= 0.025;
-            }
-
-            if x.position.x >= 5.0 {
-                INCREMENT = false;
-            }
-            if x.position.x <= 1.5 {
-                INCREMENT = true;
-            }
-
-            self.standard.change_camera(x, device, queue);
-        }
-    }
+    camera_change: Option<CameraDescriptor>,
 }
 
 impl Renderer for TestRenderer {
@@ -51,7 +28,10 @@ impl Renderer for TestRenderer {
             queue,
         );
 
-        Self { standard }
+        Self {
+            standard,
+            camera_change: None,
+        }
     }
 
     fn change_surface_texture_format(
@@ -73,6 +53,31 @@ impl Renderer for TestRenderer {
         self.standard.change_resolution(resolution, device, queue);
     }
 
+    fn update(&mut self, delta_time: f64) {
+        self.standard.update(delta_time);
+
+        // Queue camera change
+        unsafe {
+            static mut INCREMENT: bool = true;
+            let mut camera_change = *self.standard.camera_descriptor();
+
+            if INCREMENT {
+                camera_change.position.x += 1.0 * delta_time as f32;
+            } else {
+                camera_change.position.x -= 1.0 * delta_time as f32;
+            }
+
+            if camera_change.position.x >= 5.0 {
+                INCREMENT = false;
+            }
+            if camera_change.position.x <= 1.5 {
+                INCREMENT = true;
+            }
+
+            self.camera_change = Some(camera_change);
+        }
+    }
+
     fn render(
         &mut self,
         target_view: &TextureView,
@@ -80,8 +85,10 @@ impl Renderer for TestRenderer {
         queue: &Queue,
         models: &[Model],
     ) {
-        // Update camera
-        self.update(device, queue);
+        // If there is a camera change queued, update the camera before rendering.
+        if let Some(camera_change) = self.camera_change {
+            self.standard.change_camera(camera_change, device, queue);
+        }
 
         // Render
         self.standard.render(target_view, device, queue, models);

@@ -138,8 +138,12 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
     where
         Self: Sized,
     {
+        let delta_time = self.timer.cycle_delta_time();
+
         self.game
-            .cycle(self.timer.cycle_delta_time(), &mut self.world);
+            .cycle(delta_time, &mut self.world);
+
+        self.renderer.update(delta_time);
     }
 
     fn on_render(&mut self, target_view: &TextureView, device: &Device, queue: &Queue)
