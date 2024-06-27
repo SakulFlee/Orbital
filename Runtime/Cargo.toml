@@ -7,9 +7,8 @@ edition = "2021"
 crate-type = ["lib", "cdylib"]
 
 [features]
-default = ["gltf", "dev_build"]
+default = ["gltf"]
 gltf = ["dep:easy-gltf", "easy-gltf/names"]
-dev_build = ["wgpu/trace", "wgpu/replay"]
 
 [dependencies]
 wgpu = { version = "0.20.0", features = [
@@ -38,7 +37,6 @@ humantime = { version = "2.1.0" }
 pollster = { version = "0.3.0" }
 image = { version = "0.25.0" }
 cgmath = { version = "0.18.0" }
-
 easy-gltf = { version = "1.1.2", features = ["names"], optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
