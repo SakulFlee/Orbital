@@ -1,7 +1,7 @@
 use akimo_runtime::{
     game::{Element, ElementRegistration, Identifier, WorldChange},
     hashbrown::HashMap,
-    log::{debug, info},
+    log::info,
     ulid::Ulid,
     variant::Variant,
 };
@@ -18,7 +18,7 @@ impl Element for TestElement {
         ElementRegistration::default()
     }
 
-    fn on_update(&mut self, delta_time: f64) -> Option<Vec<WorldChange>> {
+    fn on_update(&mut self, _delta_time: f64) -> Option<Vec<WorldChange>> {
         // Where this message should be send to. In this case ourself.
         let target_id = Identifier::Ulid(self.own_id.unwrap());
         // The message itself, just a simple String
@@ -28,7 +28,9 @@ impl Element for TestElement {
         Some(vec![WorldChange::SendMessage(target_id, message)])
     }
 
-    fn on_message(&mut self, message: HashMap<String, akimo_runtime::variant::Variant>) {
+    fn on_message(&mut self, message: HashMap<String, Variant>) -> Option<Vec<WorldChange>> {
         info!("On Message: {:#?}", message);
+
+        None
     }
 }

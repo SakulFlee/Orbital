@@ -1,3 +1,5 @@
+use std::any::Any;
+
 use hashbrown::HashMap;
 use log::debug;
 use ulid::Ulid;
@@ -50,13 +52,13 @@ impl World {
     }
 
     fn process_queue_spawn_element(&mut self) {
-        let mut to_be_added_to_model_queue = Vec::new();
+        let mut world_changes_to_queue = Vec::new();
+        let mut model_spawns_to_queue = Vec::new();
 
         for mut element in self.queue_element_spawn.drain(..) {
             // Generate new ULID
             let element_ulid = Ulid::new();
-
-            debug!("New element: {}", element_ulid);
+            debug!("New element: {}@{:?}", element_ulid, element.type_id());
 
             // Start element registration
             let registration = element.on_registration(&element_ulid);
@@ -77,13 +79,26 @@ impl World {
             // Process any models
             if let Some(models) = registration.models {
                 for model in models {
-                    to_be_added_to_model_queue.push((element_ulid, model));
+                    model_spawns_to_queue.push((element_ulid, model));
+                }
+            }
+
+            // Queue any changes
+            if let Some(element_world_changes) = registration.world_changes {
+                for world_change in element_world_changes {
+                    world_changes_to_queue.push(world_change);
                 }
             }
         }
 
-        for tuple in to_be_added_to_model_queue {
+        // Queue any model spawns
+        for tuple in model_spawns_to_queue {
             self.queue_model_spawn.push(tuple);
+        }
+
+        // Queue any world changes
+        for world_change in world_changes_to_queue {
+            self.queue_world_change(world_change);
         }
     }
 
@@ -131,12 +146,23 @@ impl World {
     }
 
     fn process_queue_messages(&mut self) {
+        let mut world_changes = Vec::new();
+
         for (element_id, messages) in self.queue_messages.drain() {
             if let Some(element) = self.elements.get_mut(&element_id) {
                 for message in messages {
-                    element.on_message(message);
+                    let result = element.on_message(message);
+
+                    if let Some(result_world_changes) = result {
+                        world_changes.extend(result_world_changes);
+                    }
                 }
             }
+        }
+
+        debug!(">>> WORLD CHANGES: {}", world_changes.len());
+        for world_change in world_changes {
+            self.queue_world_change(world_change);
         }
     }
 

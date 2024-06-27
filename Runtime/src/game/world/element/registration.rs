@@ -1,4 +1,4 @@
-use crate::resources::descriptors::ModelDescriptor;
+use crate::{game::WorldChange, resources::descriptors::ModelDescriptor};
 
 #[derive(Default, Debug)]
 pub struct ElementRegistration {
@@ -39,4 +39,10 @@ pub struct ElementRegistration {
     /// [Element]: super::Element
     /// [World]: crate::game::world::World
     pub models: Option<Vec<ModelDescriptor>>,
+    /// Each [Element] can **optionally** define one or more [WorldChange]s.
+    /// These [WorldChange]s will be queued and realized lazily.
+    ///
+    /// This can be useful when you need to fire a [WorldChange] **once upon
+    /// registration**.
+    pub world_changes: Option<Vec<WorldChange>>,
 }
