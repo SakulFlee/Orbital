@@ -1,5 +1,5 @@
 use akimo_runtime::{
-    game::{Game, World, WorldChangeDescriptor},
+    game::{Game, World, WorldChange},
     resources::descriptors::{CompositionDescriptor, ImportDescriptor},
 };
 
@@ -13,12 +13,12 @@ impl Game for ExampleGame {
         Self {}
     }
 
-    fn cycle(&mut self, _delta_time: f64, world: &mut World)
+    fn on_update(&mut self, _delta_time: f64, world: &mut World)
     where
         Self: Sized,
     {
         if world.composition.is_empty() {
-            world.queue_world_change(WorldChangeDescriptor::SwitchComposition(
+            world.queue_world_change(WorldChange::SwitchComposition(
                 CompositionDescriptor::FromGLTF(
                     "Assets/Models/Cubes.glb",
                     ImportDescriptor::Index(0),

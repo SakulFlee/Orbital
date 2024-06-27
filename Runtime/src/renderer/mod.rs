@@ -33,6 +33,6 @@ pub trait Renderer {
         target_view: &TextureView,
         device: &Device,
         queue: &Queue,
-        models: &[Model],
+        models: &[&Model],
     );
 }
