@@ -64,7 +64,7 @@ impl Material {
     /// If needed, this will also attempt recompiling all pipelines
     /// (and thus their shaders) to match a different format!
     ///
-    /// > ⚠️ This is a copy of [Pipeline::prepare_cache_access](crate::resources::realizations::Pipeline::prepare_cache_access), without the [TextureFormat](crate::wgpu::TextureFormat) stuff.
+    /// > ⚠️ This is a copy of [Pipeline::prepare_cache_access](crate::resources::realizations::Pipeline::prepare_cache_access), without the [TextureFormat] stuff.
     /// > This function currently doesn't really do anything, but is kept as-is in case we need to add some functionality here later + calling the unsafe static function.
     pub fn prepare_cache_access() -> &'static mut Cache<MaterialDescriptor, Material> {
         unsafe { Self::cache() }
