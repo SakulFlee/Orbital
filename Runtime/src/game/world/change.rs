@@ -1,3 +1,5 @@
+use std::{any::Any, fmt};
+
 use hashbrown::HashMap;
 
 use crate::{game::Element, resources::descriptors::ModelDescriptor, variant::Variant};
@@ -20,4 +22,23 @@ pub enum WorldChange {
     SpawnModel(ModelDescriptor, ElementUlid),
     DespawnModel(ModelUlid),
     SendMessage(Identifier, HashMap<String, Variant>),
+}
+
+impl fmt::Debug for WorldChange {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::SpawnElement(arg0) => write!(f, "SpawnElement@{:?}", arg0.type_id()),
+            Self::DespawnElement(arg0) => f.debug_tuple("DespawnElement").field(arg0).finish(),
+            Self::SpawnModelOwned(arg0) => f.debug_tuple("SpawnModelOwned").field(arg0).finish(),
+            Self::SpawnModel(arg0, arg1) => {
+                f.debug_tuple("SpawnModel").field(arg0).field(arg1).finish()
+            }
+            Self::DespawnModel(arg0) => f.debug_tuple("DespawnModel").field(arg0).finish(),
+            Self::SendMessage(arg0, arg1) => f
+                .debug_tuple("SendMessage")
+                .field(arg0)
+                .field(arg1)
+                .finish(),
+        }
+    }
 }

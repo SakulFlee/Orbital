@@ -16,7 +16,9 @@ pub trait Element {
         None
     }
 
-    fn on_message(&mut self, message: HashMap<String, Variant>) {
+    fn on_message(&mut self, message: HashMap<String, Variant>) -> Option<Vec<WorldChange>> {
         warn!("Unhandled message received: {:#?}", message);
+
+        None
     }
 }
