@@ -13,7 +13,7 @@ impl Game for ExampleGame {
         Self {}
     }
 
-    fn cycle(&mut self, delta_time: f64, _world: &mut World)
+    fn on_update(&mut self, delta_time: f64, _world: &mut World)
     where
         Self: Sized,
     {
