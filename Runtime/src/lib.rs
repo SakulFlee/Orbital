@@ -2,7 +2,7 @@
     html_favicon_url = "https://raw.githubusercontent.com/SakulFlee/Akimo-Project/main/.github/logo/Orbital.svg"
 )]
 #![doc(
-    html_logo_url = "https://raw.githubusercontent.com/SakulFlee/Akimo-Project/main/.github/logo/Orbital_Logo.png"
+    html_logo_url = "https://raw.githubusercontent.com/SakulFlee/Akimo-Project/main/.github/logo/Orbital.png"
 )]
 #![doc(html_playground_url = "https://play.rust-lang.org")]
 
