@@ -12,7 +12,15 @@ pub trait Game {
     where
         Self: Sized;
 
-    fn cycle(&mut self, delta_time: f64, world: &mut World)
+    fn on_startup(&mut self, _world: &mut World)
     where
-        Self: Sized;
+        Self: Sized,
+    {
+    }
+
+    fn on_update(&mut self, _delta_time: f64, _world: &mut World)
+    where
+        Self: Sized,
+    {
+    }
 }

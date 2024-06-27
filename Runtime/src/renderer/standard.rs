@@ -77,7 +77,7 @@ impl Renderer for StandardRenderer {
         target_view: &TextureView,
         device: &Device,
         queue: &Queue,
-        models: &[Model],
+        models: &[&Model],
     ) {
         let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor { label: None });
         {
