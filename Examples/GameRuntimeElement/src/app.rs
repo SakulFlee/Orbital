@@ -1,7 +1,6 @@
 use akimo_runtime::{
     game::{Game, World, WorldChange},
-    log::debug,
-    resources::descriptors::{CompositionDescriptor, ImportDescriptor},
+    log::info,
 };
 
 use crate::element::TestElement;
@@ -20,14 +19,7 @@ impl Game for ExampleGame {
     where
         Self: Sized,
     {
-        debug!("REGISTRATION");
-        world.register_element(TestElement::default())
-    }
-
-    fn on_update(&mut self, _delta_time: f64, world: &mut World)
-    where
-        Self: Sized,
-    {
-        // TODO uhhhhh....
+        info!("Queuing TestElement spawn");
+        world.queue_world_change(WorldChange::SpawnElement(Box::new(TestElement::default())));
     }
 }
