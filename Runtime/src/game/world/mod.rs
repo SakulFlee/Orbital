@@ -1,4 +1,5 @@
 use hashbrown::HashMap;
+use log::debug;
 use ulid::Ulid;
 use wgpu::{Device, Queue};
 
@@ -55,6 +56,8 @@ impl World {
             // Generate new ULID
             let element_ulid = Ulid::new();
 
+            debug!("New element: {}", element_ulid);
+
             // Start element registration
             let registration = element.on_registration(&element_ulid);
 
@@ -82,10 +85,6 @@ impl World {
         for tuple in to_be_added_to_model_queue {
             self.queue_model_spawn.push(tuple);
         }
-    }
-
-    pub fn tag_to_ulids(&self, tag: &str) -> Option<&Vec<Ulid>> {
-        self.tags.get(tag)
     }
 
     fn process_queue_despawn_element(&mut self) {
@@ -154,11 +153,13 @@ impl World {
                 error!("SpawnModelOwned cannot be used directly. Use SpawnModel instead!");
             }
             WorldChange::DespawnModel(model_ulid) => self.queue_model_despawn.push(model_ulid),
-            WorldChange::SendMessage(element_ulid, message) => {
-                self.queue_messages
-                    .entry(element_ulid)
-                    .or_insert(Vec::new())
-                    .push(message);
+            WorldChange::SendMessage(identifier, message) => {
+                for element_ulid in self.resolve_identifier(identifier) {
+                    self.queue_messages
+                        .entry(element_ulid)
+                        .or_insert(Vec::new())
+                        .push(message.clone());
+                }
             }
         }
     }
@@ -195,5 +196,26 @@ impl World {
 
     pub fn gather_models_to_render(&self) -> Vec<&Model> {
         self.models.values().collect::<Vec<_>>()
+    }
+
+    pub fn tag_to_ulids(&self, tag: &str) -> Option<&Vec<Ulid>> {
+        self.tags.get(tag)
+    }
+
+    pub fn resolve_identifier(&self, identifier: Identifier) -> Vec<Ulid> {
+        let mut ulids = Vec::new();
+
+        match identifier {
+            Identifier::Ulid(ulid) => ulids.push(ulid),
+            Identifier::Tag(tag) => {
+                if let Some(tag_ulids) = self.tag_to_ulids(&tag) {
+                    for tag_ulid in tag_ulids {
+                        ulids.push(*tag_ulid);
+                    }
+                }
+            }
+        }
+
+        ulids
     }
 }

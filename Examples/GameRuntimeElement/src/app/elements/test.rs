@@ -1,5 +1,5 @@
 use akimo_runtime::{
-    game::{Element, ElementRegistration, WorldChange},
+    game::{Element, ElementRegistration, Identifier, WorldChange},
     hashbrown::HashMap,
     log::{debug, info},
     ulid::Ulid,
@@ -19,10 +19,8 @@ impl Element for TestElement {
     }
 
     fn on_update(&mut self, delta_time: f64) -> Option<Vec<WorldChange>> {
-        debug!("Delta: {}ms", delta_time);
-
         // Where this message should be send to. In this case ourself.
-        let target_id = self.own_id.unwrap();
+        let target_id = Identifier::Ulid(self.own_id.unwrap());
         // The message itself, just a simple String
         let mut message = HashMap::new();
         message.insert("msg".into(), Variant::String("Hello, World!".into()));
