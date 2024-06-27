@@ -1,7 +1,7 @@
 use std::{sync::OnceLock, time::Instant};
 
 use cgmath::Vector2;
-use log::{debug, info, warn};
+use log::{debug, info};
 use wgpu::{Device, Queue, SurfaceConfiguration, TextureView};
 use winit::event_loop::EventLoop;
 
@@ -149,7 +149,7 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
 
         self.game.on_update(delta_time, &mut self.world);
 
-        self.world.update(delta_time, self.de);
+        self.world.update(delta_time);
 
         self.renderer.update(delta_time);
     }
@@ -158,7 +158,7 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
     where
         Self: Sized,
     {
-        self.world.update(device, queue);
+        self.world.prepare_render(device, queue);
 
         self.renderer.render(
             target_view,

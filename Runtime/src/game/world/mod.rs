@@ -40,7 +40,7 @@ pub struct World {
     /// Queue for despawning [Model]s
     queue_model_despawn: Vec<ModelUlid>,
     /// Queue for messages being send to a target [Ulid]
-    queue_messages: HashMap<ElementUlid, HashMap<String, Variant>>,
+    queue_messages: HashMap<ElementUlid, Vec<HashMap<String, Variant>>>,
 }
 
 impl World {
@@ -48,62 +48,40 @@ impl World {
         Self::default()
     }
 
-    pub fn register_element<E: Element>(&mut self, element: E)
-    where
-        E: Sized + 'static,
-    {
-        // Box element for storage
-        let mut boxed = Box::new(element);
+    fn process_queue_spawn_element(&mut self) {
+        let mut to_be_added_to_model_queue = Vec::new();
 
-        // Generate new ULID
-        let ulid = Ulid::new();
+        for mut element in self.queue_element_spawn.drain(..) {
+            // Generate new ULID
+            let element_ulid = Ulid::new();
 
-        // Start element registration
-        let registration = boxed.on_registration(&ulid);
+            // Start element registration
+            let registration = element.on_registration(&element_ulid);
 
-        // Store boxed element
-        self.elements.insert(ulid, boxed);
+            // Store boxed element
+            self.elements.insert(element_ulid, element);
 
-        // Process any tags
-        if let Some(tags) = registration.tags {
-            for tag in tags {
-                self.tags
-                    .entry(tag)
-                    .or_insert(Vec::new())
-                    .push(ulid.clone());
+            // Process any tags
+            if let Some(tags) = registration.tags {
+                for tag in tags {
+                    self.tags
+                        .entry(tag)
+                        .or_insert(Vec::new())
+                        .push(element_ulid.clone());
+                }
+            }
+
+            // Process any models
+            if let Some(models) = registration.models {
+                for model in models {
+                    to_be_added_to_model_queue.push((element_ulid, model));
+                }
             }
         }
 
-        // Process any models
-        if let Some(models) = registration.models {
-            for model in models {
-                self.queue_model_spawn(model);
-            }
+        for tuple in to_be_added_to_model_queue {
+            self.queue_model_spawn.push(tuple);
         }
-    }
-
-    pub fn unregister_elements(&mut self, identifier: &Identifier) {
-        // Convert identifier into list of ulids
-        let ulids = match identifier {
-            Identifier::Ulid(ulid) => vec![*ulid],
-            Identifier::Tag(tag) => self
-                .tag_to_ulids(tag)
-                .map(|x| x.clone())
-                .unwrap_or(Vec::new()),
-        };
-
-        // Queue despawn for any matches
-        for ulid in ulids {
-            self.queue_element_despawn.push(ulid);
-        }
-    }
-
-    pub fn queue_model_spawn(&mut self, model_descriptor: ModelDescriptor) {
-        self.queue_model_spawn.push((Ulid::new(), model_descriptor));
-    }
-
-    pub fn queue_model_despawn(&mut self, ulid: Ulid) {
-        self.queue_model_despawn.push(ulid);
     }
 
     pub fn tag_to_ulids(&self, tag: &str) -> Option<&Vec<Ulid>> {
@@ -154,37 +132,61 @@ impl World {
     }
 
     fn process_queue_messages(&mut self) {
-        for (element_id, message) in self.queue_messages.drain() {
+        for (element_id, messages) in self.queue_messages.drain() {
             if let Some(element) = self.elements.get_mut(&element_id) {
-                element.on_message(message);
+                for message in messages {
+                    element.on_message(message);
+                }
             }
         }
     }
 
-    pub(crate) fn update(&mut self, delta_time: f64) {
-        for element in self.elements.values_mut() {
-            if let Some(world_changes) = element.on_update(delta_time) {
-                for world_change in world_changes {
-                    match world_change {
-                        WorldChange::SpawnElement(element) => {
-                            self.queue_element_spawn.push(element)
-                        }
-                        WorldChange::DespawnElement(element_ulid) => todo!(),
-                        WorldChange::SpawnModel(model_descriptor) => todo!(),
-                        WorldChange::DespawnModel(model_ulid) => todo!(),
-                        WorldChange::SendMessage(element_ulid, message) => todo!(),
+    pub fn queue_world_change(&mut self, world_change: WorldChange) {
+        match world_change {
+            WorldChange::SpawnElement(element) => self.queue_element_spawn.push(element),
+            WorldChange::DespawnElement(element_ulid) => {
+                self.queue_element_despawn.push(element_ulid)
+            }
+            WorldChange::SpawnModel(model_descriptor, element_ulid) => self
+                .queue_model_spawn
+                .push((element_ulid, model_descriptor)),
+            WorldChange::SpawnModelOwned(_) => {
+                error!("SpawnModelOwned cannot be used directly. Use SpawnModel instead!");
+            }
+            WorldChange::DespawnModel(model_ulid) => self.queue_model_despawn.push(model_ulid),
+            WorldChange::SendMessage(element_ulid, message) => {
+                self.queue_messages
+                    .entry(element_ulid)
+                    .or_insert(Vec::new())
+                    .push(message);
+            }
+        }
+    }
+
+    pub fn update(&mut self, delta_time: f64) {
+        let mut world_changes = Vec::new();
+
+        for (element_ulid, element) in &mut self.elements {
+            if let Some(element_world_changes) = element.on_update(delta_time) {
+                for element_world_change in element_world_changes {
+                    // Convert owned model spawning to auto-include the [ElementUlid]
+                    if let WorldChange::SpawnModelOwned(x) = element_world_change {
+                        world_changes.push(WorldChange::SpawnModel(x, *element_ulid));
+                    } else {
+                        world_changes.push(element_world_change);
                     }
                 }
             }
         }
 
+        for world_change in world_changes {
+            self.queue_world_change(world_change);
+        }
+
+        self.process_queue_spawn_element();
         self.process_queue_despawn_element();
         self.process_queue_model_despawn();
         self.process_queue_messages();
-        // TODO: Spawn element queue
-
-        // TODO: Remove queue functions
-        // TODO: Make WorldChange processing function with above
     }
 
     pub fn prepare_render(&mut self, device: &Device, queue: &Queue) {
