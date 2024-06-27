@@ -1,7 +1,10 @@
 use akimo_runtime::{
     game::{Game, World, WorldChange},
+    log::debug,
     resources::descriptors::{CompositionDescriptor, ImportDescriptor},
 };
+
+use crate::element::TestElement;
 
 pub struct ExampleGame;
 
@@ -13,17 +16,18 @@ impl Game for ExampleGame {
         Self {}
     }
 
+    fn on_startup(&mut self, world: &mut World)
+    where
+        Self: Sized,
+    {
+        debug!("REGISTRATION");
+        world.register_element(TestElement::default())
+    }
+
     fn on_update(&mut self, _delta_time: f64, world: &mut World)
     where
         Self: Sized,
     {
-        if world.composition.is_empty() {
-            world.queue_world_change(WorldChange::SwitchComposition(
-                CompositionDescriptor::FromGLTF(
-                    "Assets/Models/Cubes.glb",
-                    ImportDescriptor::Index(0),
-                ),
-            ));
-        }
+        // TODO uhhhhh....
     }
 }

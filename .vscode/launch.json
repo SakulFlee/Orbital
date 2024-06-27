@@ -145,5 +145,23 @@
             "args": [],
             "cwd": "${workspaceFolder}"
         },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Example: Game Runtime Element",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=example_game_runtime_element",
+                    "--package=example_game_runtime_element"
+                ],
+                "filter": {
+                    "name": "example_game_runtime_element",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
     ]
 }
