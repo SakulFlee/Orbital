@@ -23,7 +23,7 @@
      inkscape:pageopacity="0.0"
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
-     inkscape:export-bgcolor="#ffffff00"
+     inkscape:export-bgcolor="#35353500"
      inkscape:zoom="1.3453125"
      inkscape:cx="255.70267"
      inkscape:cy="320"
@@ -78,7 +78,7 @@
          k4="0"
          operator="arithmetic"
          result="composite1" /></filter></defs><rect
-     style="display:inline;fill:#4d4d4d;fill-opacity:1;stroke:none;stroke-width:.989915"
+     style="display:inline;fill:#353535;fill-opacity:1;stroke:none;stroke-width:0.989915"
      id="rect1"
      width="135.467"
      height="169.333"
@@ -86,7 +86,7 @@
      y="0" /><g
      id="g1"
      transform="scale(0.26458333)"><rect
-       style="display:inline;fill:#4d4d4d;fill-opacity:1;stroke:none;stroke-width:5.15344;stroke-opacity:1"
+       style="display:inline;fill:#353535;fill-opacity:1;stroke:none;stroke-width:5.15344;stroke-opacity:1"
        id="rect11"
        width="924.043"
        height="942.504"
@@ -143,9 +143,9 @@
      id="text1"
      transform="matrix(0.26458333,0,0,0.26458333,2.6636262,-35.529616)"
      xml:space="preserve"
-     style="white-space:pre;shape-inside:url(#rect2);fill:#f0f0f0;fill-opacity:1;stroke:none"><tspan
+     style="white-space:pre;shape-inside:url(#rect2);display:inline;fill:#f0f0f0;fill-opacity:1;stroke:none"><tspan
        x="-3.6875"
        y="760.94842"
-       id="tspan4"><tspan
+       id="tspan3"><tspan
          style="font-stretch:semi-condensed;font-size:120px;font-family:'Lucida Console';-inkscape-font-specification:'Lucida Console, Semi-Condensed'"
-         id="tspan2">Orbital</tspan></tspan></text></svg>
+         id="tspan1">Orbital</tspan></tspan></text></svg>

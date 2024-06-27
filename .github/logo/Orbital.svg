@@ -24,14 +24,15 @@
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
      inkscape:zoom="1.6816406"
-     inkscape:cx="255.70267"
-     inkscape:cy="256"
+     inkscape:cx="255.70268"
+     inkscape:cy="255.40535"
      inkscape:window-width="1920"
      inkscape:window-height="1057"
      inkscape:window-x="-8"
      inkscape:window-y="-8"
      inkscape:window-maximized="1"
-     inkscape:current-layer="svg1" />
+     inkscape:current-layer="svg1"
+     inkscape:export-bgcolor="#35353500" />
   <defs
      id="defs1">
     <rect
@@ -81,13 +82,14 @@
     </filter>
   </defs>
   <rect
-     style="display:inline;stroke:#f0f0f0;fill:#4d4d4d;fill-opacity:1;stroke-opacity:1;stroke-width:5.15344"
+     style="display:inline;fill:#353535;fill-opacity:1;stroke:none;stroke-width:5.15344;stroke-opacity:1"
      id="rect11"
-     width="924.043"
-     height="942.504"
+     width="924.04303"
+     height="942.50403"
      x="-56.743"
      y="-414.328"
-     transform="matrix(0.55101402,0,0,0.54027972,32.685991,225.24491)" />
+     transform="matrix(0.55101402,0,0,0.54027972,32.685991,225.24491)"
+     inkscape:label="rect11" />
   <ellipse
      style="display:inline;fill:none;fill-opacity:1;fill-rule:nonzero;stroke:#2bbae6;stroke-width:15.5151;stroke-dasharray:none;stroke-opacity:1"
      id="circle3"
