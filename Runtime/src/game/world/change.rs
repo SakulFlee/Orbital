@@ -2,7 +2,7 @@ use hashbrown::HashMap;
 
 use crate::{game::Element, resources::descriptors::ModelDescriptor, variant::Variant};
 
-use super::{ElementUlid, ModelUlid};
+use super::{ElementUlid, Identifier, ModelUlid};
 
 pub enum WorldChange {
     SpawnElement(Box<dyn Element>),
@@ -19,5 +19,5 @@ pub enum WorldChange {
     /// an [ElementUlid].
     SpawnModel(ModelDescriptor, ElementUlid),
     DespawnModel(ModelUlid),
-    SendMessage(ElementUlid, HashMap<String, Variant>),
+    SendMessage(Identifier, HashMap<String, Variant>),
 }

@@ -2,8 +2,9 @@ use akimo_runtime::{
     game::{Game, World, WorldChange},
     log::info,
 };
+use elements::{ping_pong::PingPongElement, test::TestElement};
 
-use crate::element::TestElement;
+pub mod elements;
 
 pub struct ExampleGame;
 
@@ -21,5 +22,13 @@ impl Game for ExampleGame {
     {
         info!("Queuing TestElement spawn");
         world.queue_world_change(WorldChange::SpawnElement(Box::new(TestElement::default())));
+
+        info!("Queuing Ping & Pong spawn");
+        world.queue_world_change(WorldChange::SpawnElement(Box::new(PingPongElement::new(
+            true,
+        ))));
+        world.queue_world_change(WorldChange::SpawnElement(Box::new(PingPongElement::new(
+            false,
+        ))));
     }
 }
