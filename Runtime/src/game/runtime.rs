@@ -17,6 +17,7 @@ use super::{CacheSettings, Game, GameSettings, World};
 
 pub struct GameRuntime<GameImpl: Game, RendererImpl: Renderer> {
     game: GameImpl,
+    game_startup_complete: bool,
     world: World,
     timer: Timer,
     renderer: RendererImpl,
@@ -113,6 +114,7 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
     {
         Self {
             game: GameImpl::init(),
+            game_startup_complete: false,
             world: World::default(),
             timer: Timer::new(),
             renderer: RendererImpl::new(
@@ -140,8 +142,14 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
     {
         let delta_time = self.timer.cycle_delta_time();
 
-        self.game
-            .cycle(delta_time, &mut self.world);
+        if !self.game_startup_complete {
+            self.game.on_startup(&mut self.world);
+            self.game_startup_complete = true;
+        }
+
+        self.game.on_update(delta_time, &mut self.world);
+
+        self.world.update(delta_time, self.de);
 
         self.renderer.update(delta_time);
     }
@@ -152,8 +160,12 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
     {
         self.world.update(device, queue);
 
-        self.renderer
-            .render(target_view, device, queue, self.world.composition.models());
+        self.renderer.render(
+            target_view,
+            device,
+            queue,
+            &self.world.gather_models_to_render(),
+        );
 
         if let Some((delta_time, fps)) = self.timer.tick() {
             debug!("FPS: {fps}");
