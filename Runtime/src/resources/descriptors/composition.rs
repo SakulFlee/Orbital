@@ -8,7 +8,7 @@ pub enum CompositionDescriptor {
     ///
     /// Note, that this imports **all** data from the glTF (i.e. [Model](crate::resources::realizations::Model) + [Light](crate::resources::realizations::Light), [Camera](crate::resources::realizations::Camera), etc.).
     /// You can also import **only** the [Mesh](crate::resources::realizations::Mesh) and [Material](crate::resources::realizations::Material) as a [Model](crate::resources::realizations::Model).
-    /// Check [MaterialDescriptor] for more.
+    /// Check [MaterialDescriptor](super::MaterialDescriptor) for more.
     ///
     /// # Arguments
     ///

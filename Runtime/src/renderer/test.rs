@@ -83,7 +83,7 @@ impl Renderer for TestRenderer {
         target_view: &TextureView,
         device: &Device,
         queue: &Queue,
-        models: &[Model],
+        models: &[&Model],
     ) {
         // If there is a camera change queued, update the camera before rendering.
         if let Some(camera_change) = self.camera_change {

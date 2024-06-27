@@ -280,12 +280,6 @@ checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 
 [[package]]
 name = "base64"
-version = "0.21.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
-
-[[package]]
-name = "base64"
 version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
@@ -322,9 +316,6 @@ name = "bitflags"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf4b9d6a944f767f8e5e0db018570623c85f3d925ac718db4e06d0187adb21c1"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "bitstream-io"
@@ -809,6 +800,14 @@ dependencies = [
 
 [[package]]
 name = "example_game_runtime_cubes"
+version = "0.1.0"
+dependencies = [
+ "akimo_runtime",
+ "image 0.25.1",
+]
+
+[[package]]
+name = "example_game_runtime_element"
 version = "0.1.0"
 dependencies = [
  "akimo_runtime",
@@ -1315,7 +1314,6 @@ checksum = "168fb715dda47215e360912c096649d23d58bf392ac62f73919e831745e40f26"
 dependencies = [
  "equivalent",
  "hashbrown 0.14.5",
- "serde",
 ]
 
 [[package]]
@@ -1683,7 +1681,6 @@ dependencies = [
  "petgraph",
  "pp-rs",
  "rustc-hash",
- "serde",
  "spirv 0.3.0+sdk-1.3.268.0",
  "termcolor",
  "thiserror",
@@ -2592,18 +2589,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05aaa8004b64fd573fc9d002f4e632d51ad4f026c2b5ba95fcb6c2f32c2c47d8"
 dependencies = [
  "bytemuck",
-]
-
-[[package]]
-name = "ron"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b91f7eff05f748767f183df4320a63d6936e9c6107d97c9e6bdd9784f4289c94"
-dependencies = [
- "base64 0.21.7",
- "bitflags 2.5.0",
- "serde",
- "serde_derive",
 ]
 
 [[package]]
@@ -3529,7 +3514,6 @@ dependencies = [
  "parking_lot",
  "profiling",
  "raw-window-handle 0.6.2",
- "ron",
  "rustc-hash",
  "serde",
  "smallvec",

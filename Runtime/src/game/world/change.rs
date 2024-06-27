@@ -1,34 +1,44 @@
-use crate::resources::descriptors::{CompositionDescriptor, ModelDescriptor};
+use std::{any::Any, fmt};
 
-/// This is used to describe a [World](super::World) change.
-/// When queueing changes, the order **is important**!
-///
-/// For example, say we do this:
-/// 1. [Self::SwitchComposition]
-/// 2. [Self::SpawnModels]
-///
-/// Then first, the [Composition] will be changed, then [Model]s are added.
-///
-/// However, if we instead do this in reverse:
-/// 1. [Self::SpawnModels]
-/// 2. [Self::SwitchComposition]
-///
-/// Then we would first spawn any [Model]s in, then **fully replace** the existing [Composition] with a new one.
-/// Effectively undoing any changes done by [Self::SpawnModels]!
-///
-/// [Model]: crate::resources::realizations::Model
-/// [Composition]: crate::resources::realizations::Composition
-#[derive(Debug)]
-pub enum WorldChangeDescriptor {
-    /// This will **DROP** the current [Composition] and everything in it, by realizing the new [Composition] and **fully** replacing the previous [Composition].
-    ///
-    /// [Composition]: crate::resources::realizations::Composition
-    SwitchComposition(CompositionDescriptor),
+use hashbrown::HashMap;
 
-    /// This will **add** [Model]s to the existing [Composition] without dropping it.
-    /// [Model]s will be realized, then added.d
+use crate::{game::Element, resources::descriptors::ModelDescriptor, variant::Variant};
+
+use super::{ElementUlid, Identifier, ModelUlid};
+
+pub enum WorldChange {
+    SpawnElement(Box<dyn Element>),
+    DespawnElement(ElementUlid),
+    /// Queues a model to be spawned
     ///
-    /// [Model]: crate::resources::realizations::Model
-    /// [Composition]: crate::resources::realizations::Composition
-    SpawnModels(Vec<ModelDescriptor>),
+    /// Same as [Self::SpawnModel], but without needing to supply
+    /// an [ElementUlid].
+    /// The [ElementUlid] of the current [Element] will be used.
+    SpawnModelOwned(ModelDescriptor),
+    /// Queues a model to be spawned
+    ///
+    /// Same as [Self::SpawnModelOwned], but with needing to supply
+    /// an [ElementUlid].
+    SpawnModel(ModelDescriptor, ElementUlid),
+    DespawnModel(ModelUlid),
+    SendMessage(Identifier, HashMap<String, Variant>),
+}
+
+impl fmt::Debug for WorldChange {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::SpawnElement(arg0) => write!(f, "SpawnElement@{:?}", arg0.type_id()),
+            Self::DespawnElement(arg0) => f.debug_tuple("DespawnElement").field(arg0).finish(),
+            Self::SpawnModelOwned(arg0) => f.debug_tuple("SpawnModelOwned").field(arg0).finish(),
+            Self::SpawnModel(arg0, arg1) => {
+                f.debug_tuple("SpawnModel").field(arg0).field(arg1).finish()
+            }
+            Self::DespawnModel(arg0) => f.debug_tuple("DespawnModel").field(arg0).finish(),
+            Self::SendMessage(arg0, arg1) => f
+                .debug_tuple("SendMessage")
+                .field(arg0)
+                .field(arg1)
+                .finish(),
+        }
+    }
 }
