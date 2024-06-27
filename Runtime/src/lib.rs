@@ -84,17 +84,31 @@
 //! [Queue]: crate::wgpu::Queue
 //! [Elements]: crate::game::world::element::Element
 //! [World]: crate::game::world::World
+
+// Modules
 pub mod app;
 pub mod cache;
-pub mod cgmath;
-pub mod entity;
 pub mod error;
-pub mod event;
 pub mod game;
-pub mod log;
+pub mod logging;
 pub mod renderer;
 pub mod resources;
 pub mod timer;
 pub mod util;
-pub mod wgpu;
-pub mod winit;
+pub mod variant;
+
+// Re-exports
+macro_rules! reexport {
+    ($name: ident) => {
+        pub mod $name {
+            pub use $name::*;
+        }
+    };
+}
+
+reexport!(cgmath);
+reexport!(hashbrown);
+reexport!(log);
+reexport!(ulid);
+reexport!(wgpu);
+reexport!(winit);
