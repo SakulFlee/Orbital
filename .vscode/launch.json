@@ -163,5 +163,23 @@
             "args": [],
             "cwd": "${workspaceFolder}"
         },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Example",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=example",
+                    "--package=example"
+                ],
+                "filter": {
+                    "name": "example",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
     ]
 }

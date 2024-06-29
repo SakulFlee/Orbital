@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["Runtime/", "Examples/*", "WGPU-Engine/"]
+members = ["Runtime/", "Examples/*", "WGPU-Engine/", "Example/"]
 
 [profile.dev.package."*"]
 opt-level = 3
