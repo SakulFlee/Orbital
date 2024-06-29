@@ -776,6 +776,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "example"
+version = "0.1.0"
+dependencies = [
+ "akimo_runtime",
+ "image 0.25.1",
+]
+
+[[package]]
 name = "example_asset_loading"
 version = "0.1.0"
 dependencies = [
