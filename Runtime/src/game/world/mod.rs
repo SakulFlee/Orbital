@@ -160,7 +160,6 @@ impl World {
             }
         }
 
-        debug!(">>> WORLD CHANGES: {}", world_changes.len());
         for world_change in world_changes {
             self.queue_world_change(world_change);
         }
