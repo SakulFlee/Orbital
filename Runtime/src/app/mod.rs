@@ -43,7 +43,7 @@ pub use runtime::*;
 /// 3. An [AppSettings] instance.
 ///
 /// ## Making [App]
-/// 
+///
 /// Getting an implementation of [App] should be straight forward.
 /// Make a structure and implement the trait like so:
 ///
@@ -64,15 +64,15 @@ pub use runtime::*;
 /// E.g. [App::on_resize] gets called once there is a resize event.
 ///
 /// ## Acquiring an [EventLoop]
-/// 
+///
 /// Actually acquiring a [EventLoop] here is the main challenge.  
 /// Depending on your platform(s) choice(s), you may need different entrypoints
 /// to handle this per-platform.
-/// 
+///
 /// A detailed explanation can be found in the [main crate documentation](crate) under _Platforms_!
-/// 
+///
 /// ## [AppSettings]
-/// 
+///
 /// The [AppSettings] just define a few settings relevant for apps.  
 /// Things like window name or initial size can be configured.
 /// The default settings are enough to get started.
@@ -85,9 +85,9 @@ pub use runtime::*;
 /// Both build on top of an [App].
 ///
 /// ## RGB Triangle with Shader
-/// 
-/// ![Example image](https://github.com/SakulFlee/Akimo-Project/blob/SakulFlee/issue117/.github/images/app_example_triangle.png?raw=true)
-/// 
+///
+/// ![Example image](https://raw.githubusercontent.com/SakulFlee/Akimo-Project/main/.github/images/app_example_triangle.png)
+///
 /// ```rust
 /// // app.rs
 /// use akimo_runtime::{
@@ -224,9 +224,9 @@ pub use runtime::*;
 /// ```
 ///
 /// ## Clear Screen color changing
-/// 
-/// ![Example image](https://github.com/SakulFlee/Akimo-Project/blob/SakulFlee/issue117/.github/images/app_example_clearscreen.gif?raw=true)
-/// 
+///
+/// ![Example image](https://raw.githubusercontent.com/SakulFlee/Akimo-Project/main/.github/images/app_example_clearscreen.gif)
+///
 /// ```rust
 /// use akimo_runtime::{
 ///     app::App,
