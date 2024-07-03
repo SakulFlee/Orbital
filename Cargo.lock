@@ -792,13 +792,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "example_clear_screen"
-version = "0.1.0"
-dependencies = [
- "akimo_runtime",
-]
-
-[[package]]
 name = "example_game_runtime_composition"
 version = "0.1.0"
 dependencies = [
@@ -844,13 +837,6 @@ version = "0.1.0"
 dependencies = [
  "akimo_runtime",
  "image 0.25.1",
-]
-
-[[package]]
-name = "example_triangle"
-version = "0.1.0"
-dependencies = [
- "akimo_runtime",
 ]
 
 [[package]]
