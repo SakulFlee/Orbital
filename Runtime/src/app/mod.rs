@@ -85,6 +85,9 @@ pub use runtime::*;
 /// Both build on top of an [App].
 ///
 /// ## RGB Triangle with Shader
+/// 
+/// ![Example image](https://github.com/SakulFlee/Akimo-Project/blob/SakulFlee/issue117/.github/images/app_example_triangle.png?raw=true)
+/// 
 /// ```rust
 /// // app.rs
 /// use akimo_runtime::{
@@ -221,6 +224,9 @@ pub use runtime::*;
 /// ```
 ///
 /// ## Clear Screen color changing
+/// 
+/// ![Example image](https://github.com/SakulFlee/Akimo-Project/blob/SakulFlee/issue117/.github/images/app_example_clearscreen.gif?raw=true)
+/// 
 /// ```rust
 /// use akimo_runtime::{
 ///     app::App,
