@@ -2,6 +2,32 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "[Rust] Build Documentation",
+            "command": "cargo doc --no-deps --package akimo_runtime",
+            "type": "shell",
+            "args": [],
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "group": "build"
+        },
+        {
+            "label": "[Rust] Build Documentation & Open",
+            "command": "cargo doc --no-deps --package akimo_runtime --open",
+            "type": "shell",
+            "args": [],
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "group": "build"
+        },
+        {
             "label": "[Rust] Build Libraries (Akimo-Project + Example bindings for Android)",
             "command": "cargo build --lib",
             "type": "shell",
