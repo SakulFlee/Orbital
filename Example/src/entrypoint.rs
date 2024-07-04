@@ -1,4 +1,4 @@
-use akimo_runtime::{
+use orbital::{
     game::{GameRuntime, GameSettings},
     logging,
     renderer::TestRenderer,

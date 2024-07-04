@@ -16,23 +16,23 @@ pub use world::*;
 /// A [Game] gets presented a [World].  
 /// A [World] contains everything inside your [Game].  
 /// Things inside your [World] are called [Elements].  
-/// An [Element] can receive updates, messages, spawn or despawn models or 
+/// An [Element] can receive updates, messages, spawn or despawn models or
 /// even other [Elements].  
 /// Thus, your [Game] instance is more of a controlling entity:  
 /// In most cases it only spawns the initial set of [Elements] and everything
 /// else is handled by [Elements] themselves.  
 /// You will have **one** [Game], **one** [World] and **many** [Elements].
-/// 
+///
 /// You **do not render yourself**!  
 /// This is handled by your [World] and [Renderer].
-/// The [World] keeps track of any [Models] and informs the [Renderer] 
+/// The [World] keeps track of any [Models] and informs the [Renderer]
 /// about what is to be rendered.
-/// 
+///
 /// Additionally, the [GameRuntime] will initialize a few things for you
 /// and keep track of them in the background.
 /// Such as a frame timer, FPS rating, or, caches for various [resources].
-/// 
-/// Once your [Game] instance is ready, continue reading about the 
+///
+/// Once your [Game] instance is ready, continue reading about the
 /// [World] and [Elements].
 ///
 /// # Usage
@@ -122,7 +122,7 @@ pub use world::*;
 ///
 /// ```rust
 /// // libs.rs
-/// use akimo_runtime::game::{Game, World, WorldChange};
+/// use orbital::game::{Game, World, WorldChange};
 ///
 /// pub mod cube;
 /// use cube::Cube;
@@ -165,7 +165,7 @@ pub use world::*;
 ///
 /// ```rust
 /// // cube.rs
-/// use akimo_runtime::{
+/// use orbital::{
 ///     cgmath::{Deg, Quaternion, Rotation3, Vector3},
 ///     game::{Element, ElementRegistration},
 ///     resources::descriptors::{ImportDescriptor, InstanceDescriptor, Instancing, ModelDescriptor},
