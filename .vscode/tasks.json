@@ -3,7 +3,7 @@
     "tasks": [
         {
             "label": "[Rust] Build Orbital",
-            "command": "cargo build --package akimo_engine",
+            "command": "cargo build --package orbital",
             "type": "shell",
             "args": [],
             "problemMatcher": [

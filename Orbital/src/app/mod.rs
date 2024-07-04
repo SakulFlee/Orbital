@@ -91,7 +91,7 @@ pub use runtime::*;
 ///
 /// ```rust
 /// // app.rs
-/// use akimo_runtime::{
+/// use orbital::{
 ///     app::App,
 ///     wgpu::{
 ///         Color, CommandEncoderDescriptor, Device, FragmentState, LoadOp, MultisampleState,
@@ -229,7 +229,7 @@ pub use runtime::*;
 /// ![Example image](https://raw.githubusercontent.com/SakulFlee/Akimo-Project/main/.github/images/app_example_clearscreen.gif)
 ///
 /// ```rust
-/// use akimo_runtime::{
+/// use orbital::{
 ///     app::App,
 ///     wgpu::{
 ///         Color, CommandEncoderDescriptor, Device, LoadOp, Operations, Queue,
