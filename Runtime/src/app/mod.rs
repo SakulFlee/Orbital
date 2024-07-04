@@ -25,6 +25,7 @@ pub use runtime::*;
 /// so that you can focus on making [Games] ❤️!
 ///
 /// # Usage
+/// 
 /// To use an [App], all you need to do is call the
 /// [AppRuntime] with your implementation, like so:
 ///
@@ -42,7 +43,7 @@ pub use runtime::*;
 /// 2. An [EventLoop] instance.
 /// 3. An [AppSettings] instance.
 ///
-/// ## Making [App]
+/// ## Making an [App] instance
 ///
 /// Getting an implementation of [App] should be straight forward.
 /// Make a structure and implement the trait like so:
@@ -71,7 +72,7 @@ pub use runtime::*;
 ///
 /// A detailed explanation can be found in the [main crate documentation](crate) under _Platforms_!
 ///
-/// ## [AppSettings]
+/// ## Making [AppSettings]
 ///
 /// The [AppSettings] just define a few settings relevant for apps.  
 /// Things like window name or initial size can be configured.

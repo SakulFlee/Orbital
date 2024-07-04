@@ -1,25 +1,18 @@
 use akimo_runtime::{
     cgmath::{Deg, Quaternion, Rotation3, Vector3},
-    game::{Game, World, WorldChange},
+    game::{Element, ElementRegistration},
     resources::descriptors::{ImportDescriptor, InstanceDescriptor, Instancing, ModelDescriptor},
+    ulid::Ulid,
 };
 
-pub struct ExampleGame;
+pub struct Cube;
 
-impl Game for ExampleGame {
-    fn init() -> Self
-    where
-        Self: Sized,
-    {
-        Self {}
-    }
-
-    fn on_update(&mut self, _delta_time: f64, world: &mut World)
-    where
-        Self: Sized,
-    {
-        if world.composition.is_empty() {
-            world.queue_world_change(WorldChange::SpawnModels(vec![ModelDescriptor::FromGLTF(
+impl Element for Cube {
+    fn on_registration(&mut self, _ulid: &Ulid) -> ElementRegistration {
+        // We can directly supply our ModelDescriptor during registration.
+        // Alternatively, we could queue a WorldChange::SpawnModel(Owned).
+        ElementRegistration {
+            models: Some(vec![ModelDescriptor::FromGLTF(
                 "Assets/Models/Cube.glb",
                 ImportDescriptor::Index(0),
                 ImportDescriptor::Index(0),
@@ -59,7 +52,8 @@ impl Game for ExampleGame {
                         ..Default::default()
                     },
                 ]),
-            )]));
+            )]),
+            ..Default::default()
         }
     }
 }
