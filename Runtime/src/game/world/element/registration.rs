@@ -1,5 +1,6 @@
 use crate::{game::WorldChange, resources::descriptors::ModelDescriptor};
 
+/// Used when registering an [Element](super::Element).
 #[derive(Default, Debug)]
 pub struct ElementRegistration {
     /// Each [Element] can **optionally** have _Tags_.
