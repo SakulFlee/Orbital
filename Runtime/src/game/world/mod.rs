@@ -23,6 +23,41 @@ pub use identifier::*;
 pub type ElementUlid = Ulid;
 pub type ModelUlid = Ulid;
 
+/// A [World] keeps track of everything inside your [Game].  
+/// Mainly, [Elements] and [realized resources].
+/// 
+/// You may also be interested in [WorldChange] and [Element].
+/// 
+/// The inner workings of this structure are quiet complex, but do not
+/// need to be understood by the average user.  
+/// To break down what is happening here:  
+/// - Each [Element] and [realized resource] gets assigned a [Ulid].
+///     - Said [Ulid] is used as an identifier.
+/// - When an [Element] spawns a [Model], the [realized resource] gets it's
+///     [Ulid] assigned and a translation map is filled with both the [Element]
+///     [Ulid], as well as the [realized resource] [Ulid].
+/// - If a [realized resource] is despawned, it can be done so via their [Ulid].
+/// - If an [Element] is despawned, it can be done so via their [Ulid].
+///     - If this happens, any relations to [realized resources] **will also be
+///         removed**.
+/// 
+/// Additionally, a _tagging_ system is in place here.  
+/// If an [Element] registers itself with a given _tag_, then the _tag_ can be
+/// used to interact with said [Element].
+/// If multiple [Elements] register the same _tag_, then **all** will be 
+/// interacted with.  
+/// E.g. You have three [Elements] _tagged_ `enemy` and request a despawning
+/// of said _tag_ `enemy`, will result in **all** [Elements] _tagged_ `enemy`
+/// to be removed.
+/// 
+/// Lastly, any changes and messaging is **queued up** and will be processed
+/// on the next cycle if possible.
+/// Changes get executed in-order of queueing (FIFO).
+/// 
+/// [Game]: crate::game::Game
+/// [Elements]: crate::game::world::element::Element
+/// [realized resource]: crate::resources::realizations
+/// [realized resources]: crate::resources::realizations
 #[derive(Default)]
 pub struct World {
     /// [Element]s and their [Ulid]s
@@ -165,6 +200,9 @@ impl World {
         }
     }
 
+    /// Call this function to queue a given [WorldChange].  
+    /// The [WorldChange] will be processed during the next possible
+    /// cycle.
     pub fn queue_world_change(&mut self, world_change: WorldChange) {
         match world_change {
             WorldChange::SpawnElement(element) => self.queue_element_spawn.push(element),
@@ -189,6 +227,12 @@ impl World {
         }
     }
 
+    /// Processes queued up [WorldChanges]
+    /// 
+    /// ⚠️ This is already called automatically by the [GameRuntime].  
+    /// ⚠️ You will only need to call this if you are making your own thing.
+    /// 
+    /// [GameRuntime]: crate::game::GameRuntime
     pub fn update(&mut self, delta_time: f64) {
         let mut world_changes = Vec::new();
 
@@ -215,18 +259,41 @@ impl World {
         self.process_queue_messages();
     }
 
+    /// Similar to [World::update], but for [WorldChanges] 
+    /// that require GPU access.
+    /// 
+    /// ⚠️ This is already called automatically by the [GameRuntime].  
+    /// ⚠️ You will only need to call this if you are making your own thing.
+    /// 
+    /// [GameRuntime]: crate::game::GameRuntime
+    /// [WorldChanges]: WorldChange
     pub fn prepare_render(&mut self, device: &Device, queue: &Queue) {
         self.process_queue_model_spawn(device, queue);
     }
 
+    /// This function returns a [Vec<&Model>] of all [Models] that 
+    /// need to be rendered.
+    /// This information is intended to be send to a [Renderer].
+    /// 
+    /// [Models]: Model
+    /// [Renderer]: crate::renderer::Renderer
     pub fn gather_models_to_render(&self) -> Vec<&Model> {
         self.models.values().collect::<Vec<_>>()
     }
 
+    /// Converts a given `tag` into a [Ulid] if found.
     pub fn tag_to_ulids(&self, tag: &str) -> Option<&Vec<Ulid>> {
         self.tags.get(tag)
     }
 
+    /// Converts a given [Identifier] into a [Vec<Ulid>].
+    /// I.e. a list of [Element] [Ulids].
+    /// 
+    /// This is especially useful for resolving _tags_ as multiple
+    /// [Elements] can be _tagged_ with the same _tag_.
+    /// 
+    /// [Ulids]: Ulid
+    /// [Elements]: Element
     pub fn resolve_identifier(&self, identifier: Identifier) -> Vec<Ulid> {
         let mut ulids = Vec::new();
 
