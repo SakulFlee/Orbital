@@ -5,9 +5,9 @@ use akimo_runtime::{
     ulid::Ulid,
 };
 
-pub struct Cube;
+pub struct Cubes;
 
-impl Element for Cube {
+impl Element for Cubes {
     fn on_registration(&mut self, _ulid: &Ulid) -> ElementRegistration {
         // We can directly supply our ModelDescriptor during registration.
         // Alternatively, we could queue a WorldChange::SpawnModel(Owned).
