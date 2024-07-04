@@ -1,0 +1,12 @@
+[package]
+name = "example"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "app_example"
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+orbital = { path = "../Orbital/" }
+image = "0.25.1"
