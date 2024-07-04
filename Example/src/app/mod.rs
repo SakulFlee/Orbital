@@ -2,7 +2,10 @@ use akimo_runtime::{
     game::{Game, World, WorldChange},
     log::info,
 };
-use elements::messaging::{ping_pong::PingPongElement, test::TestElement};
+use elements::{
+    messaging::{ping_pong::PingPongElement, test::TestElement},
+    models::cubes::Cubes,
+};
 
 pub mod elements;
 
@@ -30,5 +33,8 @@ impl Game for ExampleGame {
         world.queue_world_change(WorldChange::SpawnElement(Box::new(PingPongElement::new(
             false,
         ))));
+
+        info!("Queuing Cubes spawn");
+        world.queue_world_change(WorldChange::SpawnElement(Box::new(Cubes {})));
     }
 }
