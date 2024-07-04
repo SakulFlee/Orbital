@@ -2,6 +2,32 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "[Rust] Build Orbital",
+            "command": "cargo build --package akimo_engine",
+            "type": "shell",
+            "args": [],
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "group": "build"
+        },
+        {
+            "label": "[Rust] Build Example",
+            "command": "cargo build --package example",
+            "type": "shell",
+            "args": [],
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "group": "build"
+        },
+        {
             "label": "[Rust] Build Documentation",
             "command": "cargo doc --no-deps --package akimo_runtime",
             "type": "shell",
@@ -17,32 +43,6 @@
         {
             "label": "[Rust] Build Documentation & Open",
             "command": "cargo doc --no-deps --package akimo_runtime --open",
-            "type": "shell",
-            "args": [],
-            "problemMatcher": [
-                "$rustc"
-            ],
-            "presentation": {
-                "reveal": "always"
-            },
-            "group": "build"
-        },
-        {
-            "label": "[Rust] Build Libraries (Akimo-Project + Example bindings for Android)",
-            "command": "cargo build --lib",
-            "type": "shell",
-            "args": [],
-            "problemMatcher": [
-                "$rustc"
-            ],
-            "presentation": {
-                "reveal": "always"
-            },
-            "group": "build"
-        },
-        {
-            "label": "[Rust] Build Binaries (Desktop Examples)",
-            "command": "cargo build --bins",
             "type": "shell",
             "args": [],
             "problemMatcher": [
@@ -98,19 +98,6 @@
             },
             "options": {
                 "cwd": "Android/"
-            },
-            "group": "test"
-        },
-        {
-            "label": "[Rust] Test",
-            "command": "cargo test --workspace",
-            "type": "shell",
-            "args": [],
-            "problemMatcher": [
-                "$rustc"
-            ],
-            "presentation": {
-                "reveal": "always"
             },
             "group": "test"
         }
