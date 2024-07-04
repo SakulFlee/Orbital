@@ -6,21 +6,38 @@ use crate::{game::Element, resources::descriptors::ModelDescriptor, variant::Var
 
 use super::{ElementUlid, Identifier, ModelUlid};
 
+/// A [WorldChange] is a _proposed change to the [World]_.  
+/// 
+/// [World]: super::World
 pub enum WorldChange {
+    /// Queues an [Element] to be spawned.
+    /// The given [Element] must be [Boxed](Box)!
     SpawnElement(Box<dyn Element>),
-    DespawnElement(ElementUlid),
-    /// Queues a model to be spawned
+    /// Queues one or many [Element(s)](Element) to be despawned.
+    /// Use an [Identifier] to select what to despawn!
+    DespawnElement(Identifier),
+    /// Queues a [Model] to be spawned.
     ///
-    /// Same as [Self::SpawnModel], but without needing to supply
+    /// Same as [WorldChange::SpawnModel], but without needing to supply
     /// an [ElementUlid].
     /// The [ElementUlid] of the current [Element] will be used.
+    /// 
+    /// [Model]: crate::resources::realizations::Model
     SpawnModelOwned(ModelDescriptor),
-    /// Queues a model to be spawned
+    /// Queues a [Model] to be spawned.
     ///
-    /// Same as [Self::SpawnModelOwned], but with needing to supply
+    /// Same as [WorldChange::SpawnModelOwned], but with needing to supply
     /// an [ElementUlid].
+    /// 
+    /// [Model]: crate::resources::realizations::Model
     SpawnModel(ModelDescriptor, ElementUlid),
+    /// Queues a [Model] to be despawned.  
+    /// Use a [ModelUlid] to specify which is being despawned.
+    /// 
+    /// [Model]: crate::resources::realizations::Model
     DespawnModel(ModelUlid),
+    /// Sends a message to one or many [Elements](Element).  
+    /// The message must be a [HashMap<String, Variant>].
     SendMessage(Identifier, HashMap<String, Variant>),
 }
 
