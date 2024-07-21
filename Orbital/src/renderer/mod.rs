@@ -1,13 +1,10 @@
 use cgmath::Vector2;
 use wgpu::{Device, Queue, TextureFormat, TextureView};
 
-use crate::resources::realizations::Model;
+use crate::resources::realizations::{Camera, Model};
 
 pub mod standard;
 pub use standard::*;
-
-pub mod test;
-pub use test::*;
 
 pub trait Renderer {
     fn new(
@@ -34,5 +31,6 @@ pub trait Renderer {
         device: &Device,
         queue: &Queue,
         models: &[&Model],
+        camera: &Camera,
     );
 }
