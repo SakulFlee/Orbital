@@ -3,7 +3,7 @@ use elements::{
     models::cubes::Cubes,
 };
 use orbital::{
-    game::{Game, World, WorldChange},
+    game::{implementations::debug_test_camera::DebugTestCamera, Game, World, WorldChange},
     log::info,
 };
 
@@ -23,6 +23,9 @@ impl Game for ExampleGame {
     where
         Self: Sized,
     {
+        info!("Queuing DebugTestCamera spawn");
+        world.queue_world_change(WorldChange::SpawnElement(Box::new(DebugTestCamera::new())));
+
         info!("Queuing TestElement spawn");
         world.queue_world_change(WorldChange::SpawnElement(Box::new(TestElement::default())));
 
