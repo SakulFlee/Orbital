@@ -1,7 +1,8 @@
 use cgmath::Point3;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct CameraDescriptor {
+    pub identifier: String,
     pub position: Point3<f32>,
     pub yaw: f32,
     pub pitch: f32,
@@ -11,16 +12,18 @@ pub struct CameraDescriptor {
     pub far: f32,
 }
 
+impl CameraDescriptor {
+    pub const DEFAULT_NAME: &'static str = "Default";
+}
+
 impl Default for CameraDescriptor {
     fn default() -> Self {
         Self {
-            // position: Point3::new(0.0, 4.0, -2.5),
+            identifier: Self::DEFAULT_NAME.into(),
             position: Point3::new(-1.0, 0.0, 0.0),
             yaw: 0f32,
             pitch: 0f32,
-            // 16:9 aspect ratio as default
             aspect: 16.0 / 9.0,
-            // fovy: PI / 4.0, TODO
             fovy: 45.0,
             near: 0.1,
             far: 10000.0,
