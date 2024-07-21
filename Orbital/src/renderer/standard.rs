@@ -8,7 +8,7 @@ use wgpu::{
 use crate::{
     log::error,
     resources::{
-        descriptors::{CameraDescriptor, TextureDescriptor},
+        descriptors::TextureDescriptor,
         realizations::{Camera, Model, Pipeline, Texture},
     },
 };
@@ -18,18 +18,6 @@ use super::Renderer;
 pub struct StandardRenderer {
     surface_texture_format: TextureFormat,
     depth_texture: Texture,
-    camera: Camera,
-}
-
-impl StandardRenderer {
-    pub fn change_camera(&mut self, descriptor: CameraDescriptor, device: &Device, queue: &Queue) {
-        self.camera
-            .update_from_descriptor(descriptor, device, queue);
-    }
-
-    pub fn camera_descriptor(&self) -> &CameraDescriptor {
-        self.camera.descriptor()
-    }
 }
 
 impl Renderer for StandardRenderer {
@@ -47,7 +35,6 @@ impl Renderer for StandardRenderer {
                 queue,
             )
             .expect("Depth texture realization failed!"),
-            camera: Camera::from_descriptor(CameraDescriptor::default(), device, queue),
         }
     }
 
@@ -78,6 +65,7 @@ impl Renderer for StandardRenderer {
         device: &Device,
         queue: &Queue,
         models: &[&Model],
+        camera: &Camera,
     ) {
         let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor { label: None });
         {
@@ -130,7 +118,7 @@ impl Renderer for StandardRenderer {
                 render_pass.set_pipeline(pipeline.render_pipeline());
 
                 render_pass.set_bind_group(0, material.bind_group(), &[]);
-                render_pass.set_bind_group(1, self.camera.bind_group(), &[]);
+                render_pass.set_bind_group(1, camera.bind_group(), &[]);
 
                 render_pass.set_vertex_buffer(0, mesh.vertex_buffer().slice(..));
                 render_pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
