@@ -160,12 +160,10 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
     {
         self.world.prepare_render(device, queue);
 
-        self.renderer.render(
-            target_view,
-            device,
-            queue,
-            &self.world.gather_models_to_render(),
-        );
+        let (camera, models) = self.world.gather_render_resources();
+
+        self.renderer
+            .render(target_view, device, queue, &models, camera);
 
         if let Some((delta_time, fps)) = self.timer.tick() {
             debug!("FPS: {fps}");

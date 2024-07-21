@@ -1,13 +1,16 @@
 use std::any::Any;
 
 use hashbrown::HashMap;
-use log::debug;
+use log::{debug, warn};
 use ulid::Ulid;
 use wgpu::{Device, Queue};
 
 use crate::{
     log::error,
-    resources::{descriptors::ModelDescriptor, realizations::Model},
+    resources::{
+        descriptors::{CameraDescriptor, ModelDescriptor},
+        realizations::{Camera, Model},
+    },
     variant::Variant,
 };
 
@@ -60,6 +63,7 @@ pub type ModelUlid = Ulid;
 /// [realized resources]: crate::resources::realizations
 #[derive(Default)]
 pub struct World {
+    // --- Elements & Models ---
     /// [Element]s and their [Ulid]s
     elements: HashMap<ElementUlid, Box<dyn Element>>,
     /// **Active** [Model]s and their [Ulid]s
@@ -69,6 +73,7 @@ pub struct World {
     model_owner: HashMap<ModelUlid, ElementUlid>,
     /// Translation map to determine _tag_ association between [Element]s
     tags: HashMap<String, Vec<ElementUlid>>,
+    // --- Queues ---
     /// Queue for spawning [Element]s
     queue_element_spawn: Vec<Box<dyn Element>>,
     /// Queue for despawning [Element]s
@@ -79,11 +84,81 @@ pub struct World {
     queue_model_despawn: Vec<ModelUlid>,
     /// Queue for messages being send to a target [Ulid]
     queue_messages: HashMap<ElementUlid, Vec<HashMap<String, Variant>>>,
+    // --- Camera ---
+    /// Active Camera
+    active_camera: Option<Camera>,
+    /// Active Camera Update  
+    /// In case the camera to be updated is the active one.
+    active_camera_update: Option<CameraDescriptor>,
+    /// Cameras
+    camera_descriptors: Vec<CameraDescriptor>,
+    /// Next camera to be changed to upon next cycle.
+    /// Must be set to `Some` if we do change.
+    /// Must be set to `None` if we don't change.
+    /// Internal of `Some` must match existing camera descriptor.
+    ///
+    /// ⚠️ Only the most recent `WorldChange` request will be applied as we can
+    /// only ever have one single camera active!
+    next_camera: Option<String>,
 }
+
+// TODO: Call Renderer::render _with_ Option<&ActiveCamera>
+// TODO: Make Camera actions like changing, spawning, despawning
 
 impl World {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    fn process_active_camera_change(&mut self, device: &Device, queue: &Queue) {
+        let update_option = self.active_camera_update.take();
+        match update_option {
+            Some(update_descriptor) => {
+                if let Some(camera) = &mut self.active_camera {
+                    camera.update_from_descriptor(update_descriptor, device, queue);
+                } else {
+                    error!("Trying to apply camera change to active camera, but active camera does not exist!");
+                }
+            }
+            None => return,
+        }
+    }
+
+    fn process_next_camera(&mut self, device: &Device, queue: &Queue) {
+        if self.active_camera.is_none() && self.next_camera.is_none() {
+            warn!("No active camera was set and no next camera is applied! Spawning a default camera ...");
+
+            self.camera_descriptors.push(CameraDescriptor::default());
+            self.next_camera = Some(CameraDescriptor::DEFAULT_NAME.into());
+        }
+
+        let taken = self.next_camera.take();
+        match taken {
+            Some(camera_identifier) => {
+                match self
+                    .camera_descriptors
+                    .iter()
+                    .find(|x| x.identifier == camera_identifier)
+                {
+                    Some(camera_descriptor) => {
+                        // Realize camera
+                        self.active_camera = Some(Camera::from_descriptor(
+                            camera_descriptor.clone(),
+                            device,
+                            queue,
+                        ));
+                    }
+                    None => {
+                        error!(
+                            "Supposed to change to camera '{}', but no such camera exists!",
+                            camera_identifier
+                        );
+                        return;
+                    }
+                }
+            }
+            None => return,
+        }
     }
 
     fn process_queue_spawn_element(&mut self) {
@@ -226,7 +301,64 @@ impl World {
                         .push(message.clone());
                 }
             }
+            WorldChange::SpawnCamera(descriptor) => self.spawn_camera(descriptor),
+            WorldChange::SpawnCameraAndMakeActive(descriptor) => {
+                let identifier = descriptor.identifier.clone();
+                self.spawn_camera(descriptor);
+                self.next_camera = Some(identifier);
+            }
+            WorldChange::DespawnCamera(identifier) => {
+                if let Some(camera) = &self.active_camera {
+                    if camera.descriptor().identifier == identifier {
+                        self.active_camera = None;
+
+                        warn!("Despawned Camera was active!");
+                    }
+                }
+
+                self.camera_descriptors
+                    .retain(|x| x.identifier != identifier);
+            }
+            WorldChange::ChangeActiveCamera(identifier) => {
+                if let Some(camera) = &self.active_camera {
+                    if camera.descriptor().identifier == identifier {
+                        warn!("Attempting to activate already active camera!");
+                        return;
+                    }
+                }
+
+                // If it exists or not will be handled by queue processor
+                self.next_camera = Some(identifier);
+            }
+            WorldChange::UpdateCamera(camera_change_descriptor) => {
+                if let Some(camera) = &self.active_camera {
+                    if camera.descriptor().identifier == camera_change_descriptor.identifier {
+                        self.active_camera_update = Some(camera_change_descriptor);
+                    }
+                } else {
+                    if let Some(existing_camera_descriptor) = self
+                        .camera_descriptors
+                        .iter_mut()
+                        .find(|x| x.identifier == camera_change_descriptor.identifier)
+                    {
+                        *existing_camera_descriptor = camera_change_descriptor;
+                    }
+                }
+            }
         }
+    }
+
+    fn spawn_camera(&mut self, descriptor: CameraDescriptor) {
+        if self
+            .camera_descriptors
+            .iter()
+            .any(|x| x.identifier == descriptor.identifier)
+        {
+            warn!("Trying to spawn Camera with identifier '{}', which already exists. Rejecting change!", descriptor.identifier);
+            return;
+        }
+
+        self.camera_descriptors.push(descriptor);
     }
 
     /// Processes queued up [WorldChanges]
@@ -271,6 +403,8 @@ impl World {
     /// [WorldChanges]: WorldChange
     pub fn prepare_render(&mut self, device: &Device, queue: &Queue) {
         self.process_queue_model_spawn(device, queue);
+        self.process_active_camera_change(device, queue);
+        self.process_next_camera(device, queue);
     }
 
     /// This function returns a [Vec<&Model>] of all [Models] that
@@ -279,8 +413,11 @@ impl World {
     ///
     /// [Models]: Model
     /// [Renderer]: crate::renderer::Renderer
-    pub fn gather_models_to_render(&self) -> Vec<&Model> {
-        self.models.values().collect::<Vec<_>>()
+    pub fn gather_render_resources(&self) -> (&Camera, Vec<&Model>) {
+        (
+            self.active_camera.as_ref().unwrap(),
+            self.models.values().collect::<Vec<_>>(),
+        )
     }
 
     /// Converts a given `tag` into a [Ulid] if found.
