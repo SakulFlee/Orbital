@@ -1,7 +1,7 @@
 use orbital::{
     game::{GameRuntime, GameSettings},
     logging,
-    renderer::TestRenderer,
+    renderer::StandardRenderer,
     winit::{error::EventLoopError, event_loop::EventLoop},
 };
 
@@ -13,6 +13,6 @@ pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
     let event_loop = event_loop_result.expect("Event Loop failure");
     let settings = GameSettings::default();
 
-    GameRuntime::<ExampleGame, TestRenderer>::liftoff(event_loop, settings)
+    GameRuntime::<ExampleGame, StandardRenderer>::liftoff(event_loop, settings)
         .expect("Runtime failure");
 }
