@@ -1,6 +1,7 @@
 use orbital::{
     game::{Element, ElementRegistration, Identifier, WorldChange},
     hashbrown::HashMap,
+    input::InputFrame,
     log::info,
     ulid::Ulid,
     variant::Variant,
@@ -18,7 +19,11 @@ impl Element for TestElement {
         ElementRegistration::default()
     }
 
-    fn on_update(&mut self, _delta_time: f64) -> Option<Vec<WorldChange>> {
+    fn on_update(
+        &mut self,
+        _delta_time: f64,
+        _input_frame: &Option<&InputFrame>,
+    ) -> Option<Vec<WorldChange>> {
         // Where this message should be send to. In this case ourself.
         let target_id = Identifier::Ulid(self.own_id.unwrap());
         // The message itself, just a simple String
