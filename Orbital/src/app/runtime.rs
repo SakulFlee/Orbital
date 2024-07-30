@@ -18,7 +18,7 @@ use winit::{
 
 use crate::error::Error;
 
-use super::{App, AppSettings};
+use super::{App, AppSettings, InputEvent};
 
 #[derive(Default)]
 pub struct AppRuntime<AppImpl: App> {
@@ -298,6 +298,56 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
 
                 self.window.as_ref().unwrap().request_redraw();
             }
+            WindowEvent::KeyboardInput {
+                device_id,
+                event,
+                is_synthetic,
+            } => {
+                if let Some(app) = &mut self.app {
+                    app.on_input(InputEvent::KeyboardInput {
+                        device_id,
+                        event,
+                        is_synthetic,
+                    })
+                }
+            }
+            WindowEvent::MouseInput {
+                device_id,
+                state,
+                button,
+            } => {
+                if let Some(app) = &mut self.app {
+                    app.on_input(InputEvent::MouseInput {
+                        device_id,
+                        state,
+                        button,
+                    })
+                }
+            }
+            WindowEvent::MouseWheel {
+                device_id,
+                delta,
+                phase,
+            } => {
+                if let Some(app) = &mut self.app {
+                    app.on_input(InputEvent::MouseWheel {
+                        device_id,
+                        delta,
+                        phase,
+                    })
+                }
+            }
+            WindowEvent::CursorMoved {
+                device_id,
+                position,
+            } => {
+                if let Some(app) = &mut self.app {
+                    app.on_input(InputEvent::CursorMoved {
+                        device_id,
+                        position,
+                    })
+                }
+            }
             _ => debug!("Unhandled WindowEvent encountered: {:#?}", event),
         }
     }
@@ -308,11 +358,48 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
 
     fn device_event(
         &mut self,
-        event_loop: &ActiveEventLoop,
+        _event_loop: &ActiveEventLoop,
         device_id: DeviceId,
         event: DeviceEvent,
     ) {
-        let _ = (event_loop, device_id, event);
+        match event {
+            DeviceEvent::Added => {
+                if let Some(app) = &mut self.app {
+                    app.on_input(InputEvent::Added {
+                        device_id: device_id,
+                    })
+                }
+            }
+            DeviceEvent::Removed => {
+                if let Some(app) = &mut self.app {
+                    app.on_input(InputEvent::Removed { device_id })
+                }
+            }
+            DeviceEvent::MouseMotion { delta } => {
+                if let Some(app) = &mut self.app {
+                    app.on_input(InputEvent::MouseMotion { device_id, delta })
+                }
+            }
+            DeviceEvent::Motion { axis, value } => {
+                if let Some(app) = &mut self.app {
+                    app.on_input(InputEvent::AxisMotion {
+                        device_id,
+                        axis,
+                        value,
+                    })
+                }
+            }
+            DeviceEvent::Button { button, state } => {
+                if let Some(app) = &mut self.app {
+                    app.on_input(InputEvent::Button {
+                        device_id,
+                        button,
+                        state: state.clone(),
+                    })
+                }
+            }
+            _ => (),
+        }
     }
 
     fn memory_warning(&mut self, _event_loop: &ActiveEventLoop) {
