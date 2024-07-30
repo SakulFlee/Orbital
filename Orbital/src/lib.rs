@@ -309,6 +309,7 @@ pub mod app;
 pub mod cache;
 pub mod error;
 pub mod game;
+pub mod input;
 pub mod logging;
 pub mod renderer;
 pub mod resources;
