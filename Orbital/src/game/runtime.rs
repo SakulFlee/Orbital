@@ -1,13 +1,14 @@
 use std::{sync::OnceLock, time::Instant};
 
 use cgmath::Vector2;
-use log::{debug, info};
+use log::{debug, info, warn};
 use wgpu::{Device, Queue, SurfaceConfiguration, TextureView};
 use winit::event_loop::EventLoop;
 
 use crate::{
-    app::{App, AppRuntime},
+    app::{App, AppRuntime, InputEvent},
     error::Error,
+    input::manager::InputManager,
     renderer::Renderer,
     resources::realizations::{Material, Pipeline},
     timer::Timer,
@@ -23,6 +24,7 @@ pub struct GameRuntime<GameImpl: Game, RendererImpl: Renderer> {
     renderer: RendererImpl,
     pipeline_cleanup_timer: Instant,
     material_cleanup_timer: Instant,
+    input_manager: InputManager,
 }
 
 pub static mut PIPELINE_CACHE_SETTINGS: OnceLock<CacheSettings> = OnceLock::new();
@@ -125,6 +127,7 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
             ),
             pipeline_cleanup_timer: Instant::now(),
             material_cleanup_timer: Instant::now(),
+            input_manager: InputManager::new(),
         }
     }
 
@@ -134,6 +137,15 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
     {
         self.renderer
             .change_resolution(new_resolution, device, queue);
+    }
+
+    fn on_input(&mut self, input_event: InputEvent)
+    where
+        Self: Sized,
+    {
+        if let Err(e) = self.input_manager.handle_input_event(input_event) {
+            warn!("Input event failed processing: {:?}", e);
+        }
     }
 
     fn on_update(&mut self)
@@ -149,7 +161,10 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
 
         self.game.on_update(delta_time, &mut self.world);
 
-        self.world.update(delta_time);
+        self.world.update(
+            delta_time,
+            Some(self.input_manager.take_input_frame_and_reset()),
+        );
 
         self.renderer.update(delta_time);
     }
