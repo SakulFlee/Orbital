@@ -1,5 +1,7 @@
 use wgpu::CreateSurfaceError;
-use winit::error::EventLoopError;
+use winit::{error::EventLoopError, event::DeviceId, keyboard::PhysicalKey};
+
+use crate::input::layout::Layout;
 
 #[derive(Debug)]
 pub enum Error {
@@ -17,4 +19,7 @@ pub enum Error {
     ModelNotFound,
     ImageError(image::ImageError),
     CannotRealizeTag(String),
+    InputLayoutNotFound(Layout),
+    InputDeviceNotFound(DeviceId),
+    PhysicalKeyToScanCodeConversionError(PhysicalKey),
 }
