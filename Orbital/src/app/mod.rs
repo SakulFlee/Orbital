@@ -8,6 +8,9 @@ pub use settings::*;
 pub mod runtime;
 pub use runtime::*;
 
+pub mod input_event;
+pub use input_event::*;
+
 /// Implement this trait to make an [App].  
 /// An [App] is a entrypoint wrapper exposing a few functions for you to use.
 /// The main goal of an [App] is to simplify and streamline the process to
@@ -25,7 +28,7 @@ pub use runtime::*;
 /// so that you can focus on making [Games] ❤️!
 ///
 /// # Usage
-/// 
+///
 /// To use an [App], all you need to do is call the
 /// [AppRuntime] with your implementation, like so:
 ///
@@ -355,6 +358,13 @@ pub trait App {
     /// Any resizing of resources (e.g. swap-chain, depth texture, etc.) should
     /// be updated inside here.
     fn on_resize(&mut self, _new_size: cgmath::Vector2<u32>, _device: &Device, _queue: &Queue)
+    where
+        Self: Sized,
+    {
+    }
+
+    /// Gets called each time an input event is send out by [winit].
+    fn on_input(&mut self, _input_event: InputEvent)
     where
         Self: Sized,
     {
