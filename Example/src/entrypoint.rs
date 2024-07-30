@@ -5,7 +5,7 @@ use orbital::{
     winit::{error::EventLoopError, event_loop::EventLoop},
 };
 
-use crate::app::ExampleGame;
+use crate::game::ExampleGame;
 
 pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
     logging::init();

@@ -1,4 +1,5 @@
 use elements::{
+    inputs::Input,
     messaging::{ping_pong::PingPongElement, test::TestElement},
     models::cubes::Cubes,
 };
@@ -39,5 +40,8 @@ impl Game for ExampleGame {
 
         info!("Queuing Cubes spawn");
         world.queue_world_change(WorldChange::SpawnElement(Box::new(Cubes {})));
+
+        info!("Queuing Input spawn");
+        world.queue_world_change(WorldChange::SpawnElement(Box::new(Input {})));
     }
 }
