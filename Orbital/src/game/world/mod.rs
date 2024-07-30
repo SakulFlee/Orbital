@@ -6,6 +6,7 @@ use ulid::Ulid;
 use wgpu::{Device, Queue};
 
 use crate::{
+    input::InputFrame,
     log::error,
     resources::{
         descriptors::{CameraDescriptor, ModelDescriptor},
@@ -367,11 +368,12 @@ impl World {
     /// ⚠️ You will only need to call this if you are making your own thing.
     ///
     /// [GameRuntime]: crate::game::GameRuntime
-    pub fn update(&mut self, delta_time: f64) {
+    pub fn update(&mut self, delta_time: f64, input_frame: Option<InputFrame>) {
+        let input_frame_ref = input_frame.as_ref();
         let mut world_changes = Vec::new();
 
         for (element_ulid, element) in &mut self.elements {
-            if let Some(element_world_changes) = element.on_update(delta_time) {
+            if let Some(element_world_changes) = element.on_update(delta_time, &input_frame_ref) {
                 for element_world_change in element_world_changes {
                     // Convert owned model spawning to auto-include the [ElementUlid]
                     if let WorldChange::SpawnModelOwned(x) = element_world_change {

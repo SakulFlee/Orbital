@@ -2,6 +2,7 @@ use cgmath::Point3;
 
 use crate::{
     game::{Element, ElementRegistration, WorldChange},
+    input::InputFrame,
     resources::descriptors::CameraDescriptor,
 };
 
@@ -35,7 +36,11 @@ impl Element for DebugTestCamera {
         }
     }
 
-    fn on_update(&mut self, delta_time: f64) -> Option<Vec<WorldChange>> {
+    fn on_update(
+        &mut self,
+        delta_time: f64,
+        _input_frame: &Option<&InputFrame>,
+    ) -> Option<Vec<WorldChange>> {
         if self.incrementing {
             self.camera_change.position.x += 1.0 * delta_time as f32;
         } else {
