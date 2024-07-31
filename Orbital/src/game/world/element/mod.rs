@@ -2,7 +2,7 @@ use hashbrown::HashMap;
 use log::warn;
 use ulid::Ulid;
 
-use crate::{game::WorldChange, input::InputFrame, variant::Variant};
+use crate::{app::InputEvent, game::WorldChange, variant::Variant};
 
 pub mod registration;
 pub use registration::*;
@@ -107,11 +107,15 @@ pub trait Element {
         ElementRegistration::default()
     }
 
-    fn on_update(
+    fn on_input_event(
         &mut self,
         _delta_time: f64,
-        _input_frame: &Option<&InputFrame>,
+        _input_event: &InputEvent,
     ) -> Option<Vec<WorldChange>> {
+        None
+    }
+
+    fn on_update(&mut self, _delta_time: f64) -> Option<Vec<WorldChange>> {
         None
     }
 

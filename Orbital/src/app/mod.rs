@@ -11,6 +11,9 @@ pub use runtime::*;
 pub mod input_event;
 pub use input_event::*;
 
+pub mod app_changes;
+pub use app_changes::*;
+
 /// Implement this trait to make an [App].  
 /// An [App] is a entrypoint wrapper exposing a few functions for you to use.
 /// The main goal of an [App] is to simplify and streamline the process to
@@ -364,7 +367,7 @@ pub trait App {
     }
 
     /// Gets called each time an input event is send out by [winit].
-    fn on_input(&mut self, _input_event: InputEvent)
+    fn on_input(&mut self, _input_event: &InputEvent)
     where
         Self: Sized,
     {
@@ -372,10 +375,11 @@ pub trait App {
 
     /// Gets called each time an update cycle is happening.  
     /// Any updating should happen inside here.
-    fn on_update(&mut self)
+    fn on_update(&mut self) -> Option<Vec<AppChange>>
     where
         Self: Sized,
     {
+        None
     }
 
     /// Gets called each time a render (== redraw) cycle is happening.

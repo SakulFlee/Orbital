@@ -1,18 +1,18 @@
 use orbital::{
+    app::InputEvent,
     game::{Element, WorldChange},
-    input::InputFrame,
     log::debug,
 };
 
 pub struct Input;
 
 impl Element for Input {
-    fn on_update(
+    fn on_input_event(
         &mut self,
-        delta_time: f64,
-        input_frame: &Option<&InputFrame>,
+        _delta_time: f64,
+        input_event: &InputEvent,
     ) -> Option<Vec<WorldChange>> {
-        debug!("Input Frame: {:?}@{}", input_frame, delta_time);
+        debug!("InputEvent: {:?}", input_event);
 
         None
     }
