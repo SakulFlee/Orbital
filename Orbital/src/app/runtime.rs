@@ -1,6 +1,10 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use cgmath::Vector2;
+use gilrs::{
+    ff::{BaseEffect, EffectBuilder, Replay},
+    Event, Gilrs,
+};
 use log::{debug, error, info, warn};
 use wgpu::{
     util::{backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env},
@@ -20,11 +24,11 @@ use crate::error::Error;
 
 use super::{App, AppChange, AppSettings, InputEvent};
 
-#[derive(Default)]
 pub struct AppRuntime<AppImpl: App> {
     // App related
     app: Option<AppImpl>,
     runtime_settings: AppSettings,
+    gil: Gilrs,
     // Window related
     window: Option<Arc<Window>>,
     surface: Option<Surface<'static>>,
@@ -51,6 +55,7 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
         let mut runtime = Self {
             app: None,
             runtime_settings,
+            gil: Gilrs::new().unwrap(),
             window: None,
             surface: None,
             surface_configuration: None,
@@ -188,8 +193,18 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
         }
     }
 
+    fn gamepad_inputs(&mut self) {
+        if let Some(app) = &mut self.app {
+            while let Some(gil_event) = self.gil.next_event() {
+                let input_event: InputEvent = gil_event.into();
+
+                app.on_input(&input_event);
+            }
+        }
+    }
+
     fn update(&mut self) {
-        // self.window.unwrap().set_cursor_position(position)
+        self.gamepad_inputs();
 
         let mut app_changes = Vec::new();
         if let Some(app) = self.app.as_mut() {
@@ -418,5 +433,22 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
 
     fn memory_warning(&mut self, _event_loop: &ActiveEventLoop) {
         warn!("Memory warning received!");
+    }
+}
+
+impl<AppImpl: App> Default for AppRuntime<AppImpl> {
+    fn default() -> Self {
+        Self {
+            app: Default::default(),
+            runtime_settings: Default::default(),
+            gil: Gilrs::new().unwrap(),
+            window: Default::default(),
+            surface: Default::default(),
+            surface_configuration: Default::default(),
+            instance: Default::default(),
+            adapter: Default::default(),
+            device: Default::default(),
+            queue: Default::default(),
+        }
     }
 }

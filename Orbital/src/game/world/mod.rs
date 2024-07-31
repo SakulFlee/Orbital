@@ -361,23 +361,8 @@ impl World {
     }
 
     pub fn on_input_event(&mut self, delta_time: f64, input_event: &InputEvent) {
-        let mut world_changes = Vec::new();
-
-        for (element_ulid, element) in &mut self.elements {
-            if let Some(element_world_changes) = element.on_input_event(delta_time, input_event) {
-                for element_world_change in element_world_changes {
-                    // Convert owned model spawning to auto-include the [ElementUlid]
-                    if let WorldChange::SpawnModelOwned(x) = element_world_change {
-                        world_changes.push(WorldChange::SpawnModel(x, *element_ulid));
-                    } else {
-                        world_changes.push(element_world_change);
-                    }
-                }
-            }
-        }
-
-        for world_change in world_changes {
-            self.queue_world_change(world_change);
+        for (_element_ulid, element) in &mut self.elements {
+            element.on_input_event(delta_time, input_event)
         }
     }
 
@@ -388,7 +373,6 @@ impl World {
     ///
     /// [GameRuntime]: crate::game::GameRuntime
     pub fn update(&mut self, delta_time: f64) -> Option<Vec<AppChange>> {
-        let mut to_be_returned = Vec::new();
         let mut world_changes = Vec::new();
 
         for (element_ulid, element) in &mut self.elements {
@@ -404,14 +388,21 @@ impl World {
             }
         }
 
-        for world_change in world_changes {
-            match world_change {
-                WorldChange::ChangeCursorAppearance(_) => to_be_returned.push(world_change.into()),
-                WorldChange::ChangeCursorPosition(_) => to_be_returned.push(world_change.into()),
-                WorldChange::ChangeCursorVisible(_) => to_be_returned.push(world_change.into()),
-                WorldChange::ChangeCursorGrabbed(_) => to_be_returned.push(world_change.into()),
-                _ => self.queue_world_change(world_change),
-            }
+        let (to_be_returned, queue_for_world): (Vec<_>, Vec<_>) =
+            world_changes.into_iter().partition(|x| match x {
+                WorldChange::ChangeCursorAppearance(_) => true,
+                WorldChange::ChangeCursorPosition(_) => true,
+                WorldChange::ChangeCursorVisible(_) => true,
+                WorldChange::ChangeCursorGrabbed(_) => true,
+                WorldChange::GamepadEffect {
+                    gamepads: _,
+                    effects: _,
+                } => true,
+                _ => false,
+            });
+
+        for world_change in queue_for_world {
+            self.queue_world_change(world_change);
         }
 
         self.process_queue_spawn_element();
@@ -422,7 +413,7 @@ impl World {
         if to_be_returned.is_empty() {
             None
         } else {
-            Some(to_be_returned)
+            Some(to_be_returned.into_iter().map(|x| x.into()).collect())
         }
     }
 

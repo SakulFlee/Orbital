@@ -1,4 +1,5 @@
 use cgmath::Point3;
+use gilrs::{Axis, Button};
 use winit::{
     event::ElementState,
     keyboard::{KeyCode, PhysicalKey},
@@ -11,12 +12,10 @@ use crate::{
 };
 
 pub struct DebugTestCamera {
-    key_move_forward: bool,
-    key_move_backward: bool,
-    key_move_left: bool,
-    key_move_right: bool,
-    key_move_up: bool,
-    key_move_down: bool,
+    axis_forward_back: f32,
+    axis_left_right: f32,
+    axis_up_down: f32,
+    is_axis_input: bool,
     camera_change: CameraDescriptor,
 }
 
@@ -32,12 +31,10 @@ impl DebugTestCamera {
 
     pub fn new() -> Self {
         Self {
-            key_move_forward: false,
-            key_move_backward: false,
-            key_move_left: false,
-            key_move_right: false,
-            key_move_up: false,
-            key_move_down: false,
+            axis_forward_back: 0.0,
+            axis_left_right: 0.0,
+            axis_up_down: 0.0,
+            is_axis_input: false,
             camera_change: CameraDescriptor {
                 position: Point3::new(5.0, 0.0, 0.0),
                 ..Default::default()
@@ -57,11 +54,7 @@ impl Element for DebugTestCamera {
         }
     }
 
-    fn on_input_event(
-        &mut self,
-        _delta_time: f64,
-        input_event: &InputEvent,
-    ) -> Option<Vec<WorldChange>> {
+    fn on_input_event(&mut self, _delta_time: f64, input_event: &InputEvent) {
         match input_event {
             InputEvent::KeyboardButton {
                 device_id: _,
@@ -69,68 +62,110 @@ impl Element for DebugTestCamera {
                 is_synthetic: _,
             } => match event.physical_key {
                 Self::KEY_MOVE_FORWARD => {
-                    self.key_move_forward = event.state == ElementState::Pressed;
+                    self.axis_forward_back = if event.state == ElementState::Pressed {
+                        -1.0
+                    } else {
+                        0.0
+                    };
+                    self.is_axis_input = false;
                 }
                 Self::KEY_MOVE_BACKWARD => {
-                    self.key_move_backward = event.state == ElementState::Pressed;
+                    self.axis_forward_back = if event.state == ElementState::Pressed {
+                        1.0
+                    } else {
+                        0.0
+                    };
+                    self.is_axis_input = false;
                 }
                 Self::KEY_MOVE_LEFT => {
-                    self.key_move_left = event.state == ElementState::Pressed;
+                    self.axis_left_right = if event.state == ElementState::Pressed {
+                        -1.0
+                    } else {
+                        0.0
+                    };
+                    self.is_axis_input = false;
                 }
                 Self::KEY_MOVE_RIGHT => {
-                    self.key_move_right = event.state == ElementState::Pressed;
+                    self.axis_left_right = if event.state == ElementState::Pressed {
+                        1.0
+                    } else {
+                        0.0
+                    };
+                    self.is_axis_input = false;
                 }
                 Self::KEY_MOVE_DOWN => {
-                    self.key_move_down = event.state == ElementState::Pressed;
+                    self.axis_up_down = if event.state == ElementState::Pressed {
+                        -1.0
+                    } else {
+                        0.0
+                    };
+                    self.is_axis_input = false;
                 }
                 Self::KEY_MOVE_UP => {
-                    self.key_move_up = event.state == ElementState::Pressed;
+                    self.axis_up_down = if event.state == ElementState::Pressed {
+                        1.0
+                    } else {
+                        0.0
+                    };
+                    self.is_axis_input = false;
+                }
+                _ => (),
+            },
+            InputEvent::GamepadAxis {
+                gamepad_id: _,
+                axis,
+                value,
+            } => match axis {
+                Axis::LeftStickX => {
+                    if *value > 0.15 {
+                        self.axis_left_right = *value;
+                        self.is_axis_input = true;
+                    } else if *value < -0.15 {
+                        self.axis_left_right = *value;
+                        self.is_axis_input = true;
+                    } else if self.is_axis_input {
+                        self.axis_left_right = 0.0;
+                        self.is_axis_input = true;
+                    }
+                }
+                Axis::LeftStickY => {
+                    if *value > 0.15 {
+                        self.axis_forward_back = -*value;
+                        self.is_axis_input = true;
+                    } else if *value < -0.15 {
+                        self.axis_forward_back = -*value;
+                        self.is_axis_input = true;
+                    } else if self.is_axis_input {
+                        self.axis_forward_back = 0.0;
+                        self.is_axis_input = true;
+                    }
+                }
+                _ => (),
+            },
+            InputEvent::GamepadButton {
+                gamepad_id: _,
+                button,
+                pressed,
+            } => match button {
+                Button::DPadUp => {
+                    self.axis_up_down = if *pressed { 1.0 } else { 0.0 };
+                    self.is_axis_input = false;
+                }
+                Button::DPadDown => {
+                    self.axis_up_down = if *pressed { -1.0 } else { 0.0 };
+                    self.is_axis_input = false;
                 }
                 _ => (),
             },
             _ => (),
         }
-
-        None
     }
 
     fn on_update(&mut self, delta_time: f64) -> Option<Vec<WorldChange>> {
-        let mut changed = false;
+        self.camera_change.position.x += self.axis_forward_back * delta_time as f32;
+        self.camera_change.position.z += self.axis_left_right * delta_time as f32;
+        self.camera_change.position.y += self.axis_up_down * delta_time as f32;
 
-        if self.key_move_forward {
-            self.camera_change.position.x -= 1.0 * delta_time as f32;
-            changed = true;
-        }
-
-        if self.key_move_backward {
-            self.camera_change.position.x += 1.0 * delta_time as f32;
-            changed = true;
-        }
-
-        if self.key_move_left {
-            self.camera_change.position.z -= 1.0 * delta_time as f32;
-            changed = true;
-        }
-
-        if self.key_move_right {
-            self.camera_change.position.z += 1.0 * delta_time as f32;
-            changed = true;
-        }
-
-        if self.key_move_down {
-            self.camera_change.position.y -= 1.0 * delta_time as f32;
-            changed = true;
-        }
-
-        if self.key_move_up {
-            self.camera_change.position.y += 1.0 * delta_time as f32;
-            changed = true;
-        }
-
-        if changed {
-            Some(vec![WorldChange::UpdateCamera(self.camera_change.clone())])
-        } else {
-            None
-        }
+        Some(vec![WorldChange::UpdateCamera(self.camera_change.clone())])
     }
 }
