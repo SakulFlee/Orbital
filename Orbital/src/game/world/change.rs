@@ -1,5 +1,6 @@
 use std::{any::Any, fmt};
 
+use gilrs::{ff::BaseEffect, GamepadId};
 use hashbrown::HashMap;
 use winit::{dpi::Position, window::Cursor};
 
@@ -99,6 +100,13 @@ pub enum WorldChange {
     /// A grabbed mouse cursor **cannot** escape the current window.  
     /// Gets send directly to [winit], issues may appear in log.
     ChangeCursorGrabbed(bool),
+    /// Used to activate vibration motors on a given gamepad.  
+    /// Setting `gamepads` to `None` will result in **all** connected
+    /// gamepads executing the given [BaseEffect].
+    GamepadEffect {
+        gamepads: Option<Vec<GamepadId>>,
+        effects: Vec<BaseEffect>,
+    },
 }
 
 impl From<WorldChange> for AppChange {
@@ -153,6 +161,11 @@ impl fmt::Debug for WorldChange {
             Self::ChangeCursorGrabbed(arg0) => {
                 f.debug_tuple("ChangeCursorGrabbed").field(arg0).finish()
             }
+            Self::GamepadEffect { gamepads, effects } => f
+                .debug_tuple("GamepadEffect")
+                .field(gamepads)
+                .field(effects)
+                .finish(),
         }
     }
 }
