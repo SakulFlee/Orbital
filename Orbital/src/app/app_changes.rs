@@ -1,4 +1,3 @@
-use gilrs::{ff::BaseEffect, GamepadId};
 use winit::{dpi::Position, window::Cursor};
 
 pub enum AppChange {
