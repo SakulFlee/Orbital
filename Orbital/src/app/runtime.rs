@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use cgmath::Vector2;
-use log::{debug, info, warn};
+use log::{debug, error, info, warn};
 use wgpu::{
     util::{backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env},
     Adapter, Device, DeviceDescriptor, Features, Instance, InstanceDescriptor, InstanceFlags,
@@ -13,12 +13,12 @@ use winit::{
     dpi::PhysicalSize,
     event::{DeviceEvent, DeviceId, StartCause, WindowEvent},
     event_loop::{ActiveEventLoop, EventLoop},
-    window::{Window, WindowId},
+    window::{CursorGrabMode, Window, WindowId},
 };
 
 use crate::error::Error;
 
-use super::{App, AppSettings, InputEvent};
+use super::{App, AppChange, AppSettings, InputEvent};
 
 #[derive(Default)]
 pub struct AppRuntime<AppImpl: App> {
@@ -189,9 +189,63 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
     }
 
     fn update(&mut self) {
-        match self.app.as_mut() {
-            Some(app) => app.on_update(),
-            None => warn!("App not present in Runtime! Skipping update."),
+        // self.window.unwrap().set_cursor_position(position)
+
+        let mut app_changes = Vec::new();
+        if let Some(app) = self.app.as_mut() {
+            let option_changes = app.on_update();
+
+            if let Some(proposed_changes) = option_changes {
+                app_changes.extend(proposed_changes);
+            }
+        } else {
+            warn!("App not present in Runtime! Skipping update.")
+        }
+
+        for app_change in app_changes {
+            match app_change {
+                AppChange::ChangeCursorAppearance(x) => {
+                    if let Some(window) = &mut self.window {
+                        window.set_cursor(x);
+                    } else {
+                        error!("AppChange::ChangeCursorAppearance proposed, but Window does not exist yet!");
+                    }
+                }
+                AppChange::ChangeCursorPosition(x) => {
+                    if let Some(window) = &mut self.window {
+                        if let Err(e) = window.set_cursor_position(x) {
+                            error!("AppChange::ChangeCursorPosition failed to change cursor position due to an external error: {}", e);
+                        }
+                    } else {
+                        error!("AppChange::ChangeCursorPosition proposed, but Window does not exist yet!");
+                    }
+                }
+                AppChange::ChangeCursorVisible(x) => {
+                    if let Some(window) = &mut self.window {
+                        window.set_cursor_visible(x);
+                    } else {
+                        error!("AppChange::ChangeCursorVisible proposed, but Window does not exist yet!");
+                    }
+                }
+                AppChange::ChangeCursorGrabbed(x) => {
+                    if let Some(window) = &mut self.window {
+                        if x {
+                            if let Err(e) = window
+                                .set_cursor_grab(CursorGrabMode::Confined)
+                                .or_else(|_e| window.set_cursor_grab(CursorGrabMode::Locked))
+                            {
+                                error!("AppChange::ChangeCursorGrabbed failed to grab cursor due to an external error: {}", e);
+                            }
+                        } else {
+                            if let Err(e) = window.set_cursor_grab(CursorGrabMode::None) {
+                                error!("AppChange::ChangeCursorGrabbed failed to release cursor due to an external error: {}", e);
+                            }
+                        }
+                    } else {
+                        error!("AppChange::ChangeCursorVisible proposed, but Window does not exist yet!");
+                    }
+                }
+            }
         }
     }
 }
@@ -304,7 +358,7 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
                 is_synthetic,
             } => {
                 if let Some(app) = &mut self.app {
-                    app.on_input(InputEvent::KeyboardInput {
+                    app.on_input(&InputEvent::KeyboardButton {
                         device_id,
                         event,
                         is_synthetic,
@@ -317,7 +371,7 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
                 button,
             } => {
                 if let Some(app) = &mut self.app {
-                    app.on_input(InputEvent::MouseInput {
+                    app.on_input(&InputEvent::MouseButton {
                         device_id,
                         state,
                         button,
@@ -330,7 +384,7 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
                 phase,
             } => {
                 if let Some(app) = &mut self.app {
-                    app.on_input(InputEvent::MouseWheel {
+                    app.on_input(&InputEvent::MouseWheel {
                         device_id,
                         delta,
                         phase,
@@ -342,7 +396,7 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
                 position,
             } => {
                 if let Some(app) = &mut self.app {
-                    app.on_input(InputEvent::CursorMoved {
+                    app.on_input(&InputEvent::MouseMoved {
                         device_id,
                         position,
                     })
@@ -352,54 +406,14 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
         }
     }
 
-    fn new_events(&mut self, _event_loop: &ActiveEventLoop, _cause: StartCause) {
-        // debug!("New Events: {:#?}", cause);
-    }
+    fn new_events(&mut self, _event_loop: &ActiveEventLoop, _cause: StartCause) {}
 
     fn device_event(
         &mut self,
         _event_loop: &ActiveEventLoop,
-        device_id: DeviceId,
-        event: DeviceEvent,
+        _device_id: DeviceId,
+        _event: DeviceEvent,
     ) {
-        match event {
-            DeviceEvent::Added => {
-                if let Some(app) = &mut self.app {
-                    app.on_input(InputEvent::Added {
-                        device_id: device_id,
-                    })
-                }
-            }
-            DeviceEvent::Removed => {
-                if let Some(app) = &mut self.app {
-                    app.on_input(InputEvent::Removed { device_id })
-                }
-            }
-            DeviceEvent::MouseMotion { delta } => {
-                if let Some(app) = &mut self.app {
-                    app.on_input(InputEvent::MouseMotion { device_id, delta })
-                }
-            }
-            DeviceEvent::Motion { axis, value } => {
-                if let Some(app) = &mut self.app {
-                    app.on_input(InputEvent::AxisMotion {
-                        device_id,
-                        axis,
-                        value,
-                    })
-                }
-            }
-            DeviceEvent::Button { button, state } => {
-                if let Some(app) = &mut self.app {
-                    app.on_input(InputEvent::Button {
-                        device_id,
-                        button,
-                        state: state.clone(),
-                    })
-                }
-            }
-            _ => (),
-        }
     }
 
     fn memory_warning(&mut self, _event_loop: &ActiveEventLoop) {

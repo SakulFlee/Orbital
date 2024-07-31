@@ -6,7 +6,7 @@ use ulid::Ulid;
 use wgpu::{Device, Queue};
 
 use crate::{
-    input::InputFrame,
+    app::{AppChange, InputEvent},
     log::error,
     resources::{
         descriptors::{CameraDescriptor, ModelDescriptor},
@@ -102,9 +102,6 @@ pub struct World {
     /// only ever have one single camera active!
     next_camera: Option<String>,
 }
-
-// TODO: Call Renderer::render _with_ Option<&ActiveCamera>
-// TODO: Make Camera actions like changing, spawning, despawning
 
 impl World {
     pub fn new() -> Self {
@@ -346,6 +343,7 @@ impl World {
                     }
                 }
             }
+            _ => (),
         }
     }
 
@@ -362,18 +360,11 @@ impl World {
         self.camera_descriptors.push(descriptor);
     }
 
-    /// Processes queued up [WorldChanges]
-    ///
-    /// ⚠️ This is already called automatically by the [GameRuntime].  
-    /// ⚠️ You will only need to call this if you are making your own thing.
-    ///
-    /// [GameRuntime]: crate::game::GameRuntime
-    pub fn update(&mut self, delta_time: f64, input_frame: Option<InputFrame>) {
-        let input_frame_ref = input_frame.as_ref();
+    pub fn on_input_event(&mut self, delta_time: f64, input_event: &InputEvent) {
         let mut world_changes = Vec::new();
 
         for (element_ulid, element) in &mut self.elements {
-            if let Some(element_world_changes) = element.on_update(delta_time, &input_frame_ref) {
+            if let Some(element_world_changes) = element.on_input_event(delta_time, input_event) {
                 for element_world_change in element_world_changes {
                     // Convert owned model spawning to auto-include the [ElementUlid]
                     if let WorldChange::SpawnModelOwned(x) = element_world_change {
@@ -388,11 +379,51 @@ impl World {
         for world_change in world_changes {
             self.queue_world_change(world_change);
         }
+    }
+
+    /// Processes queued up [WorldChanges]
+    ///
+    /// ⚠️ This is already called automatically by the [GameRuntime].  
+    /// ⚠️ You will only need to call this if you are making your own thing.
+    ///
+    /// [GameRuntime]: crate::game::GameRuntime
+    pub fn update(&mut self, delta_time: f64) -> Option<Vec<AppChange>> {
+        let mut to_be_returned = Vec::new();
+        let mut world_changes = Vec::new();
+
+        for (element_ulid, element) in &mut self.elements {
+            if let Some(element_world_changes) = element.on_update(delta_time) {
+                for element_world_change in element_world_changes {
+                    // Convert owned model spawning to auto-include the [ElementUlid]
+                    if let WorldChange::SpawnModelOwned(x) = element_world_change {
+                        world_changes.push(WorldChange::SpawnModel(x, *element_ulid));
+                    } else {
+                        world_changes.push(element_world_change);
+                    }
+                }
+            }
+        }
+
+        for world_change in world_changes {
+            match world_change {
+                WorldChange::ChangeCursorAppearance(_) => to_be_returned.push(world_change.into()),
+                WorldChange::ChangeCursorPosition(_) => to_be_returned.push(world_change.into()),
+                WorldChange::ChangeCursorVisible(_) => to_be_returned.push(world_change.into()),
+                WorldChange::ChangeCursorGrabbed(_) => to_be_returned.push(world_change.into()),
+                _ => self.queue_world_change(world_change),
+            }
+        }
 
         self.process_queue_spawn_element();
         self.process_queue_despawn_element();
         self.process_queue_model_despawn();
         self.process_queue_messages();
+
+        if to_be_returned.is_empty() {
+            None
+        } else {
+            Some(to_be_returned)
+        }
     }
 
     /// Similar to [World::update], but for [WorldChanges]
@@ -451,4 +482,8 @@ impl World {
 
         ulids
     }
+
+    // pub fn handle_input_event(&mut self, input_event: InputEvent) -> Result<(), Error> {
+    //     // self.input_manager.handle_input_event(input_event)
+    // }
 }

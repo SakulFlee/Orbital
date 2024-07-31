@@ -1,14 +1,13 @@
 use std::{sync::OnceLock, time::Instant};
 
 use cgmath::Vector2;
-use log::{debug, info, warn};
+use log::{debug, info};
 use wgpu::{Device, Queue, SurfaceConfiguration, TextureView};
 use winit::event_loop::EventLoop;
 
 use crate::{
-    app::{App, AppRuntime, InputEvent},
+    app::{App, AppChange, AppRuntime, InputEvent},
     error::Error,
-    input::manager::InputManager,
     renderer::Renderer,
     resources::realizations::{Material, Pipeline},
     timer::Timer,
@@ -24,7 +23,6 @@ pub struct GameRuntime<GameImpl: Game, RendererImpl: Renderer> {
     renderer: RendererImpl,
     pipeline_cleanup_timer: Instant,
     material_cleanup_timer: Instant,
-    input_manager: InputManager,
 }
 
 pub static mut PIPELINE_CACHE_SETTINGS: OnceLock<CacheSettings> = OnceLock::new();
@@ -34,9 +32,6 @@ impl<GameImpl: Game, RendererImpl: Renderer> GameRuntime<GameImpl, RendererImpl>
     pub fn liftoff(event_loop: EventLoop<()>, settings: GameSettings) -> Result<(), Error> {
         info!("Akimo-Project: Game Runtime");
         info!(" --- @SakulFlee --- ");
-
-        #[cfg(feature = "dev_build")]
-        warn!("⚠️ THIS IS A DEV BUILD ⚠️");
 
         unsafe {
             PIPELINE_CACHE_SETTINGS.get_or_init(|| settings.pipeline_cache);
@@ -127,7 +122,6 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
             ),
             pipeline_cleanup_timer: Instant::now(),
             material_cleanup_timer: Instant::now(),
-            input_manager: InputManager::new(),
         }
     }
 
@@ -139,16 +133,15 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
             .change_resolution(new_resolution, device, queue);
     }
 
-    fn on_input(&mut self, input_event: InputEvent)
+    fn on_input(&mut self, input_event: &InputEvent)
     where
         Self: Sized,
     {
-        if let Err(e) = self.input_manager.handle_input_event(input_event) {
-            warn!("Input event failed processing: {:?}", e);
-        }
+        self.world
+            .on_input_event(self.timer.cycle_delta_time(), input_event)
     }
 
-    fn on_update(&mut self)
+    fn on_update(&mut self) -> Option<Vec<AppChange>>
     where
         Self: Sized,
     {
@@ -161,12 +154,11 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
 
         self.game.on_update(delta_time, &mut self.world);
 
-        self.world.update(
-            delta_time,
-            Some(self.input_manager.take_input_frame_and_reset()),
-        );
+        let app_changes = self.world.update(delta_time);
 
         self.renderer.update(delta_time);
+
+        app_changes
     }
 
     fn on_render(&mut self, target_view: &TextureView, device: &Device, queue: &Queue)
