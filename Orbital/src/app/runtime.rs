@@ -1,10 +1,7 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use cgmath::Vector2;
-use gilrs::{
-    ff::{BaseEffect, EffectBuilder, Replay},
-    Event, Gilrs,
-};
+use gilrs::Gilrs;
 use log::{debug, error, info, warn};
 use wgpu::{
     util::{backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env},
