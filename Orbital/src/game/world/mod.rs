@@ -6,6 +6,7 @@ use ulid::Ulid;
 use wgpu::{Device, Queue};
 
 use crate::{
+    app::{AppChange, InputEvent},
     log::error,
     resources::{
         descriptors::{CameraDescriptor, ModelDescriptor},
@@ -101,9 +102,6 @@ pub struct World {
     /// only ever have one single camera active!
     next_camera: Option<String>,
 }
-
-// TODO: Call Renderer::render _with_ Option<&ActiveCamera>
-// TODO: Make Camera actions like changing, spawning, despawning
 
 impl World {
     pub fn new() -> Self {
@@ -345,6 +343,7 @@ impl World {
                     }
                 }
             }
+            _ => (),
         }
     }
 
@@ -361,13 +360,19 @@ impl World {
         self.camera_descriptors.push(descriptor);
     }
 
+    pub fn on_input_event(&mut self, delta_time: f64, input_event: &InputEvent) {
+        for (_element_ulid, element) in &mut self.elements {
+            element.on_input_event(delta_time, input_event)
+        }
+    }
+
     /// Processes queued up [WorldChanges]
     ///
     /// ⚠️ This is already called automatically by the [GameRuntime].  
     /// ⚠️ You will only need to call this if you are making your own thing.
     ///
     /// [GameRuntime]: crate::game::GameRuntime
-    pub fn update(&mut self, delta_time: f64) {
+    pub fn update(&mut self, delta_time: f64) -> Option<Vec<AppChange>> {
         let mut world_changes = Vec::new();
 
         for (element_ulid, element) in &mut self.elements {
@@ -383,7 +388,20 @@ impl World {
             }
         }
 
-        for world_change in world_changes {
+        let (to_be_returned, queue_for_world): (Vec<_>, Vec<_>) =
+            world_changes.into_iter().partition(|x| match x {
+                WorldChange::ChangeCursorAppearance(_) => true,
+                WorldChange::ChangeCursorPosition(_) => true,
+                WorldChange::ChangeCursorVisible(_) => true,
+                WorldChange::ChangeCursorGrabbed(_) => true,
+                WorldChange::GamepadEffect {
+                    gamepads: _,
+                    effects: _,
+                } => true,
+                _ => false,
+            });
+
+        for world_change in queue_for_world {
             self.queue_world_change(world_change);
         }
 
@@ -391,6 +409,12 @@ impl World {
         self.process_queue_despawn_element();
         self.process_queue_model_despawn();
         self.process_queue_messages();
+
+        if to_be_returned.is_empty() {
+            None
+        } else {
+            Some(to_be_returned.into_iter().map(|x| x.into()).collect())
+        }
     }
 
     /// Similar to [World::update], but for [WorldChanges]
@@ -449,4 +473,8 @@ impl World {
 
         ulids
     }
+
+    // pub fn handle_input_event(&mut self, input_event: InputEvent) -> Result<(), Error> {
+    //     // self.input_manager.handle_input_event(input_event)
+    // }
 }
