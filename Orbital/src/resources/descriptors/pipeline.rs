@@ -1,6 +1,4 @@
-use wgpu::{
-    Face, FrontFace, PolygonMode, PrimitiveTopology,
-};
+use wgpu::{Face, FrontFace, PolygonMode, PrimitiveTopology};
 
 use super::ShaderDescriptor;
 
@@ -19,6 +17,7 @@ impl Default for PipelineDescriptor {
     fn default() -> Self {
         Self {
             shader_descriptor: include_str!("shader/standard_pbr.wgsl"),
+            // TODO
             // bind_group_entries: vec![
             //     BindGroupLayoutEntry {
             //         binding: 0,
@@ -39,7 +38,7 @@ impl Default for PipelineDescriptor {
             // ],
             primitive_topology: Default::default(),
             front_face_order: Default::default(),
-            cull_mode: Default::default(),
+            cull_mode: Some(Face::Back),
             polygon_mode: Default::default(),
         }
     }
