@@ -6,7 +6,7 @@ use wgpu::{Device, Queue, SurfaceConfiguration, TextureView};
 use winit::event_loop::EventLoop;
 
 use crate::{
-    app::{App, AppRuntime},
+    app::{App, AppChange, AppRuntime, InputEvent},
     error::Error,
     renderer::Renderer,
     resources::realizations::{Material, Pipeline},
@@ -32,9 +32,6 @@ impl<GameImpl: Game, RendererImpl: Renderer> GameRuntime<GameImpl, RendererImpl>
     pub fn liftoff(event_loop: EventLoop<()>, settings: GameSettings) -> Result<(), Error> {
         info!("Akimo-Project: Game Runtime");
         info!(" --- @SakulFlee --- ");
-
-        #[cfg(feature = "dev_build")]
-        warn!("⚠️ THIS IS A DEV BUILD ⚠️");
 
         unsafe {
             PIPELINE_CACHE_SETTINGS.get_or_init(|| settings.pipeline_cache);
@@ -136,7 +133,15 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
             .change_resolution(new_resolution, device, queue);
     }
 
-    fn on_update(&mut self)
+    fn on_input(&mut self, input_event: &InputEvent)
+    where
+        Self: Sized,
+    {
+        self.world
+            .on_input_event(self.timer.cycle_delta_time(), input_event)
+    }
+
+    fn on_update(&mut self) -> Option<Vec<AppChange>>
     where
         Self: Sized,
     {
@@ -149,9 +154,11 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
 
         self.game.on_update(delta_time, &mut self.world);
 
-        self.world.update(delta_time);
+        let app_changes = self.world.update(delta_time);
 
         self.renderer.update(delta_time);
+
+        app_changes
     }
 
     fn on_render(&mut self, target_view: &TextureView, device: &Device, queue: &Queue)
