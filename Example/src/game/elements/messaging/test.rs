@@ -29,7 +29,7 @@ impl Element for TestElement {
     }
 
     fn on_message(&mut self, message: HashMap<String, Variant>) -> Option<Vec<WorldChange>> {
-        info!("On Message: {:#?}", message);
+        // info!("On Message: {:#?}", message);
 
         None
     }

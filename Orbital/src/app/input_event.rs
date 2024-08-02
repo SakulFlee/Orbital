@@ -35,11 +35,6 @@ pub enum InputEvent {
         button: Button,
         pressed: bool,
     },
-    GamepadButtonValue {
-        gamepad_id: GamepadId,
-        button: Button,
-        value: f32,
-    },
     GamepadAxis {
         gamepad_id: GamepadId,
         axis: Axis,
@@ -53,43 +48,39 @@ pub enum InputEvent {
     },
 }
 
-impl From<Event> for InputEvent {
-    fn from(event: Event) -> Self {
-        match event.event {
-            EventType::ButtonPressed(button, _) => Self::GamepadButton {
-                gamepad_id: event.id,
+impl InputEvent {
+    pub fn convert(gil_event: Event) -> Option<Self> {
+        match gil_event.event {
+            EventType::ButtonPressed(button, _) => Some(Self::GamepadButton {
+                gamepad_id: gil_event.id,
                 button: button,
                 pressed: true,
-            },
-            EventType::ButtonRepeated(button, _) => Self::GamepadButton {
-                gamepad_id: event.id,
+            }),
+            EventType::ButtonRepeated(button, _) => Some(Self::GamepadButton {
+                gamepad_id: gil_event.id,
                 button: button,
                 pressed: true,
-            },
-            EventType::ButtonReleased(button, _) => Self::GamepadButton {
-                gamepad_id: event.id,
+            }),
+            EventType::ButtonReleased(button, _) => Some(Self::GamepadButton {
+                gamepad_id: gil_event.id,
                 button: button,
                 pressed: false,
-            },
-            EventType::AxisChanged(axis, value, _) => Self::GamepadAxis {
-                gamepad_id: event.id,
+            }),
+            EventType::AxisChanged(axis, value, _) => Some(Self::GamepadAxis {
+                gamepad_id: gil_event.id,
                 axis: axis,
                 value: value,
-            },
-            EventType::Connected => Self::GamepadConnected {
-                gamepad_id: event.id,
-            },
-            EventType::Disconnected => Self::GamepadDisconnected {
-                gamepad_id: event.id,
-            },
-            EventType::Dropped => Self::GamepadDisconnected {
-                gamepad_id: event.id,
-            },
-            EventType::ButtonChanged(button, value, _) => Self::GamepadButtonValue {
-                gamepad_id: event.id,
-                button: button,
-                value: value,
-            },
+            }),
+            EventType::Connected => Some(Self::GamepadConnected {
+                gamepad_id: gil_event.id,
+            }),
+            EventType::Disconnected => Some(Self::GamepadDisconnected {
+                gamepad_id: gil_event.id,
+            }),
+            EventType::Dropped => Some(Self::GamepadDisconnected {
+                gamepad_id: gil_event.id,
+            }),
+            _ => None,
         }
     }
 }
