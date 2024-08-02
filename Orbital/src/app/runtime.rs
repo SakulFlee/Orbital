@@ -193,9 +193,9 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
     fn gamepad_inputs(&mut self) {
         if let Some(app) = &mut self.app {
             while let Some(gil_event) = self.gil.next_event() {
-                let input_event: InputEvent = gil_event.into();
-
-                app.on_input(&input_event);
+                if let Some(input_event) = InputEvent::convert(gil_event) {
+                    app.on_input(&input_event);
+                }
             }
         }
     }
