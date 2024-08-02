@@ -2,6 +2,19 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "[Rust] Build Workspace",
+            "command": "cargo build --workspace",
+            "type": "shell",
+            "args": [],
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "group": "build"
+        },
+        {
             "label": "[Rust] Build Orbital",
             "command": "cargo build --package orbital",
             "type": "shell",

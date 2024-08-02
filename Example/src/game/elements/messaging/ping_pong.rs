@@ -41,11 +41,9 @@ impl Element for PingPongElement {
     }
 
     fn on_message(&mut self, message: HashMap<String, Variant>) -> Option<Vec<WorldChange>> {
-        info!("On Message: {:#?}", message);
-
         if let Some(Variant::Boolean(is_ping)) = message.get("payload") {
             if self.is_ping && !*is_ping {
-                info!("Pong received! Sending Ping back.");
+                // info!("Pong received! Sending Ping back.");
 
                 let mut message = HashMap::new();
                 message.insert("payload".into(), Variant::Boolean(self.is_ping));
@@ -55,7 +53,7 @@ impl Element for PingPongElement {
                     message,
                 )]);
             } else if !self.is_ping && *is_ping {
-                info!("Ping received! Sending Pong back.");
+                // info!("Ping received! Sending Pong back.");
 
                 let mut message = HashMap::new();
                 message.insert("payload".into(), Variant::Boolean(self.is_ping));
