@@ -125,13 +125,13 @@ impl Camera {
         // Takes yaw and pitch values and converts them into a target vector for our camera.
         let (pitch_sin, pitch_cos) = self.descriptor.pitch.sin_cos();
         let (yaw_sin, yaw_cos) = self.descriptor.yaw.sin_cos();
-        let camera_target = Point3::from_vec(
-            Vector3::new(pitch_cos * yaw_cos, pitch_sin, pitch_cos * yaw_sin).normalize(),
-        );
 
         // Calculates the view project matrix
-        let view_projection_matrix =
-            Matrix4::look_at_rh(self.descriptor.position, camera_target, Vector3::unit_y());
+        let view_projection_matrix: Matrix4<f32> = Matrix4::look_to_rh(
+            self.descriptor.position,
+            Vector3::new(pitch_cos * yaw_cos, pitch_sin, pitch_cos * yaw_sin).normalize(),
+            Vector3::unit_y(),
+        );
 
         // Calculates the perspective matrix
         let perspective_matrix = perspective(
