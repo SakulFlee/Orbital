@@ -1,5 +1,6 @@
 use winit::{dpi::Position, window::Cursor};
 
+#[derive(Debug)]
 pub enum AppChange {
     /// Changes the appearance (i.e. icon) of the mouse cursor.  
     /// Gets send directly to [winit], issues may appear in log.

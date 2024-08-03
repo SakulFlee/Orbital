@@ -6,7 +6,7 @@ use winit::{
 };
 
 use crate::{
-    app::{InputEvent, WINDOW_HALF_SIZE},
+    app::{AppChange, InputEvent, WINDOW_HALF_SIZE},
     game::{CameraChange, Element, ElementRegistration, Mode, WorldChange},
     resources::descriptors::CameraDescriptor,
     util::InputHandler,
@@ -90,7 +90,7 @@ impl Element for DebugTestCamera {
                     position: Point3::new(5.0, 0.0, 0.0),
                     ..Default::default()
                 }),
-                WorldChange::ChangeCursorVisible(false),
+                WorldChange::AppChange(AppChange::ChangeCursorVisible(false)),
             ]),
             ..Default::default()
         }
@@ -154,7 +154,8 @@ impl Element for DebugTestCamera {
 
         // Send off, if there is a change
         let cursor_position = PhysicalPosition::<u32>::from(unsafe { WINDOW_HALF_SIZE });
-        let cursor_position_change = WorldChange::ChangeCursorPosition(cursor_position.into());
+        let cursor_position_change =
+            WorldChange::AppChange(AppChange::ChangeCursorPosition(cursor_position.into()));
 
         let mut changes = vec![cursor_position_change];
 

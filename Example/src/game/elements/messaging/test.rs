@@ -1,7 +1,6 @@
 use orbital::{
     game::{Element, ElementRegistration, Identifier, WorldChange},
     hashbrown::HashMap,
-    log::info,
     ulid::Ulid,
     variant::Variant,
 };
