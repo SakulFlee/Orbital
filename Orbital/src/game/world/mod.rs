@@ -90,7 +90,7 @@ pub struct World {
     active_camera: Option<Camera>,
     /// Active Camera Update  
     /// In case the camera to be updated is the active one.
-    active_camera_update: Option<CameraDescriptor>,
+    active_camera_change: Option<CameraChange>,
     /// Cameras
     camera_descriptors: Vec<CameraDescriptor>,
     /// Next camera to be changed to upon next cycle.
@@ -109,11 +109,11 @@ impl World {
     }
 
     fn process_active_camera_change(&mut self, device: &Device, queue: &Queue) {
-        let update_option = self.active_camera_update.take();
+        let update_option = self.active_camera_change.take();
         match update_option {
-            Some(update_descriptor) => {
+            Some(change) => {
                 if let Some(camera) = &mut self.active_camera {
-                    camera.update_from_descriptor(update_descriptor, device, queue);
+                    camera.update_from_change(change, device, queue);
                 } else {
                     error!("Trying to apply camera change to active camera, but active camera does not exist!");
                 }
@@ -328,18 +328,18 @@ impl World {
                 // If it exists or not will be handled by queue processor
                 self.next_camera = Some(identifier);
             }
-            WorldChange::UpdateCamera(camera_change_descriptor) => {
+            WorldChange::UpdateCamera(change) => {
                 if let Some(camera) = &self.active_camera {
-                    if camera.descriptor().identifier == camera_change_descriptor.identifier {
-                        self.active_camera_update = Some(camera_change_descriptor);
+                    if camera.descriptor().identifier == change.target {
+                        self.active_camera_change = Some(change);
                     }
                 } else {
                     if let Some(existing_camera_descriptor) = self
                         .camera_descriptors
                         .iter_mut()
-                        .find(|x| x.identifier == camera_change_descriptor.identifier)
+                        .find(|x| x.identifier == change.target)
                     {
-                        *existing_camera_descriptor = camera_change_descriptor;
+                        existing_camera_descriptor.apply_change(change);
                     }
                 }
             }

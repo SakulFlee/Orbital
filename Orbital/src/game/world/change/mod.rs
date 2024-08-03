@@ -13,6 +13,12 @@ use crate::{
 
 use super::{ElementUlid, Identifier, ModelUlid};
 
+pub mod position;
+pub use position::*;
+
+pub mod camera;
+pub use camera::*;
+
 /// A [WorldChange] is a _proposed change to the [World]_.  
 ///
 /// [World]: super::World
@@ -74,18 +80,18 @@ pub enum WorldChange {
     ///
     /// [Camera]: crate::resources::realizations::Camera
     ChangeActiveCamera(String),
-    /// Applies a given [CameraDescriptor] properties to a [Camera].
+    /// Applies changes to the target [Camera].
     ///
     /// If a [Camera] exists with the specified [CameraDescriptor::identifier],
-    /// any property of the [CameraDescriptor] will be applied to the [Camera]
-    /// and a [Buffer] update is triggered.  
+    /// any property that is set to `Some(...)` will be applied, and if the
+    /// [Camera] is active, will trigger a [Buffer] update.  
     /// If a [Camera] does not exists with the [CameraDescriptor::identifier],
     /// this world change will be rejected and a warning will be printed to
     /// console.
     ///
     /// [Camera]: crate::resources::realizations::Camera
     /// [Buffer]: wgpu::Buffer
-    UpdateCamera(CameraDescriptor),
+    UpdateCamera(CameraChange),
     /// Changes the appearance (i.e. icon) of the mouse cursor.  
     /// Gets send directly to [winit], issues may appear in log.
     ChangeCursorAppearance(Cursor),
