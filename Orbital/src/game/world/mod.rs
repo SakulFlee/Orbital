@@ -1,7 +1,7 @@
-use std::any::Any;
+use std::{any::Any, mem::replace};
 
 use hashbrown::HashMap;
-use log::{debug, warn};
+use log::{info, warn};
 use ulid::Ulid;
 use wgpu::{Device, Queue};
 
@@ -75,6 +75,8 @@ pub struct World {
     /// Translation map to determine _tag_ association between [Element]s
     tags: HashMap<String, Vec<ElementUlid>>,
     // --- Queues ---
+    /// Queue for [WorldChange]s before being processed into other queues
+    queue_world_changes: Vec<WorldChange>,
     /// Queue for spawning [Element]s
     queue_element_spawn: Vec<Box<dyn Element>>,
     /// Queue for despawning [Element]s
@@ -160,13 +162,10 @@ impl World {
     }
 
     fn process_queue_spawn_element(&mut self) {
-        let mut world_changes_to_queue = Vec::new();
-        let mut model_spawns_to_queue = Vec::new();
-
         for mut element in self.queue_element_spawn.drain(..) {
             // Generate new ULID
             let element_ulid = Ulid::new();
-            debug!("New element: {}@{:?}", element_ulid, element.type_id());
+            info!("New element: {}@{:?}", element_ulid, element.type_id());
 
             // Start element registration
             let registration = element.on_registration(&element_ulid);
@@ -187,26 +186,18 @@ impl World {
             // Process any models
             if let Some(models) = registration.models {
                 for model in models {
-                    model_spawns_to_queue.push((element_ulid, model));
+                    // model_spawns_to_queue.push((element_ulid, model));
+                    self.queue_model_spawn.push((element_ulid, model));
                 }
             }
 
             // Queue any changes
             if let Some(element_world_changes) = registration.world_changes {
                 for world_change in element_world_changes {
-                    world_changes_to_queue.push(world_change);
+                    // world_changes_to_queue.push(world_change);
+                    self.queue_world_changes.push(world_change);
                 }
             }
-        }
-
-        // Queue any model spawns
-        for tuple in model_spawns_to_queue {
-            self.queue_model_spawn.push(tuple);
-        }
-
-        // Queue any world changes
-        for world_change in world_changes_to_queue {
-            self.queue_world_change(world_change);
         }
     }
 
@@ -269,14 +260,32 @@ impl World {
         }
 
         for world_change in world_changes {
-            self.queue_world_change(world_change);
+            self.process_world_change(world_change);
         }
+    }
+
+    pub fn process_world_changes(&mut self) -> Vec<AppChange> {
+        let world_changes = replace(&mut self.queue_world_changes, Vec::new());
+
+        let mut app_changes = Vec::new();
+        for world_change in world_changes {
+            if let Some(app_change) = self.process_world_change(world_change) {
+                app_changes.push(app_change);
+            }
+        }
+
+        self.process_queue_spawn_element();
+        self.process_queue_despawn_element();
+        self.process_queue_model_despawn();
+        self.process_queue_messages();
+
+        app_changes
     }
 
     /// Call this function to queue a given [WorldChange].  
     /// The [WorldChange] will be processed during the next possible
     /// cycle.
-    pub fn queue_world_change(&mut self, world_change: WorldChange) {
+    pub fn process_world_change(&mut self, world_change: WorldChange) -> Option<AppChange> {
         match world_change {
             WorldChange::SpawnElement(element) => self.queue_element_spawn.push(element),
             WorldChange::DespawnElement(identifier) => {
@@ -321,7 +330,7 @@ impl World {
                 if let Some(camera) = &self.active_camera {
                     if camera.descriptor().identifier == identifier {
                         warn!("Attempting to activate already active camera!");
-                        return;
+                        return None;
                     }
                 }
 
@@ -343,10 +352,10 @@ impl World {
                     }
                 }
             }
-            _ => {
-                error!("Dropping: {:?}", world_change);
-            }
+            WorldChange::AppChange(app_change) => return Some(app_change),
         }
+
+        None
     }
 
     fn spawn_camera(&mut self, descriptor: CameraDescriptor) {
@@ -374,49 +383,22 @@ impl World {
     /// ⚠️ You will only need to call this if you are making your own thing.
     ///
     /// [GameRuntime]: crate::game::GameRuntime
-    pub fn update(&mut self, delta_time: f64) -> Option<Vec<AppChange>> {
-        let mut world_changes = Vec::new();
-
+    pub fn update(&mut self, delta_time: f64) -> Vec<AppChange> {
         for (element_ulid, element) in &mut self.elements {
             if let Some(element_world_changes) = element.on_update(delta_time) {
                 for element_world_change in element_world_changes {
                     // Convert owned model spawning to auto-include the [ElementUlid]
                     if let WorldChange::SpawnModelOwned(x) = element_world_change {
-                        world_changes.push(WorldChange::SpawnModel(x, *element_ulid));
+                        self.queue_world_changes
+                            .push(WorldChange::SpawnModel(x, *element_ulid));
                     } else {
-                        world_changes.push(element_world_change);
+                        self.queue_world_changes.push(element_world_change);
                     }
                 }
             }
         }
 
-        let (to_be_returned, queue_for_world): (Vec<_>, Vec<_>) =
-            world_changes.into_iter().partition(|x| match x {
-                WorldChange::ChangeCursorAppearance(_) => true,
-                WorldChange::ChangeCursorPosition(_) => true,
-                WorldChange::ChangeCursorVisible(_) => true,
-                WorldChange::ChangeCursorGrabbed(_) => true,
-                WorldChange::GamepadEffect {
-                    gamepads: _,
-                    effects: _,
-                } => true,
-                _ => false,
-            });
-
-        for world_change in queue_for_world {
-            self.queue_world_change(world_change);
-        }
-
-        self.process_queue_spawn_element();
-        self.process_queue_despawn_element();
-        self.process_queue_model_despawn();
-        self.process_queue_messages();
-
-        if to_be_returned.is_empty() {
-            None
-        } else {
-            Some(to_be_returned.into_iter().map(|x| x.into()).collect())
-        }
+        self.process_world_changes()
     }
 
     /// Similar to [World::update], but for [WorldChanges]
