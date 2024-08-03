@@ -37,6 +37,8 @@ pub struct AppRuntime<AppImpl: App> {
     queue: Option<Queue>,
 }
 
+pub static mut WINDOW_HALF_SIZE: (i32, i32) = (0, 0);
+
 impl<AppImpl: App> AppRuntime<AppImpl> {
     pub fn liftoff(event_loop: EventLoop<()>, settings: AppSettings) -> Result<(), Error> {
         info!("Akimo-Project: App Runtime");
@@ -149,6 +151,19 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
         }
     }
 
+    pub fn calculate_center_point(&self) {
+        if let Some(window) = &self.window {
+            let size = window.inner_size();
+
+            let half_width = size.width as i32 / 2;
+            let half_height = size.height as i32 / 2;
+
+            unsafe {
+                WINDOW_HALF_SIZE = (half_width, half_height);
+            }
+        }
+    }
+
     pub fn redraw(&mut self) {
         // Check if surface and device are present
         if self.surface.is_none() || self.device.is_none() {
@@ -202,6 +217,7 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
 
     fn update(&mut self) {
         self.gamepad_inputs();
+        self.calculate_center_point();
 
         let mut app_changes = Vec::new();
         if let Some(app) = self.app.as_mut() {
@@ -235,6 +251,8 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
                 AppChange::ChangeCursorVisible(x) => {
                     if let Some(window) = &mut self.window {
                         window.set_cursor_visible(x);
+                        debug!("#### TRIGGER ####");
+                        // TODO: Doesn't get triggered?
                     } else {
                         error!("AppChange::ChangeCursorVisible proposed, but Window does not exist yet!");
                     }

@@ -1,11 +1,13 @@
-use super::PositionChange;
+use cgmath::Vector3;
+
+use super::Mode;
 
 #[derive(Debug, Default)]
 pub struct CameraChange {
     pub target: &'static str,
-    pub position: Option<PositionChange>,
-    pub pitch: Option<f32>,
-    pub yaw: Option<f32>,
+    pub position: Option<Mode<Vector3<f32>>>,
+    pub pitch: Option<Mode<f32>>,
+    pub yaw: Option<Mode<f32>>,
 }
 
 impl CameraChange {

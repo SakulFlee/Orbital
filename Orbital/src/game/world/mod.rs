@@ -343,7 +343,9 @@ impl World {
                     }
                 }
             }
-            _ => (),
+            _ => {
+                error!("Dropping: {:?}", world_change);
+            }
         }
     }
 

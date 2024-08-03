@@ -1,10 +1,13 @@
 use cgmath::{Point3, Vector3};
 use gilrs::{Axis, Button};
-use winit::keyboard::{KeyCode, PhysicalKey};
+use winit::{
+    dpi::PhysicalPosition,
+    keyboard::{KeyCode, PhysicalKey},
+};
 
 use crate::{
-    app::InputEvent,
-    game::{CameraChange, Element, ElementRegistration, PositionChange, PositionMode, WorldChange},
+    app::{InputEvent, WINDOW_HALF_SIZE},
+    game::{CameraChange, Element, ElementRegistration, Mode, WorldChange},
     resources::descriptors::CameraDescriptor,
     util::InputHandler,
 };
@@ -16,7 +19,8 @@ pub struct DebugTestCamera {
 impl DebugTestCamera {
     pub const IDENTIFIER: &'static str = "DEBUG";
 
-    pub const SPEED: f32 = 5.0;
+    pub const MOVEMENT_SPEED: f32 = 5.0;
+    pub const MOUSE_SENSITIVITY: f32 = 0.1;
 
     // Keyboard bindings
     pub const KEY_MOVE_FORWARD: PhysicalKey = PhysicalKey::Code(KeyCode::KeyW);
@@ -80,13 +84,14 @@ impl Element for DebugTestCamera {
     fn on_registration(&mut self, _ulid: &ulid::Ulid) -> ElementRegistration {
         ElementRegistration {
             tags: Some(vec!["debug test camera".into()]),
-            world_changes: Some(vec![WorldChange::SpawnCameraAndMakeActive(
-                CameraDescriptor {
+            world_changes: Some(vec![
+                WorldChange::SpawnCameraAndMakeActive(CameraDescriptor {
                     identifier: Self::IDENTIFIER.into(),
-                    position: Point3::new(-5.0, 0.0, 0.0),
+                    position: Point3::new(5.0, 0.0, 0.0),
                     ..Default::default()
-                },
-            )]),
+                }),
+                WorldChange::ChangeCursorVisible(false),
+            ]),
             ..Default::default()
         }
     }
@@ -113,6 +118,14 @@ impl Element for DebugTestCamera {
             Self::ACTION_MOVE_DOWN,
         );
 
+        // Calculate camera rotation
+        let cursor_position: PhysicalPosition<i32> =
+            self.input_handler.get_cursor_position().cast();
+        let window_half_size = unsafe { WINDOW_HALF_SIZE };
+
+        let yaw_change = (cursor_position.x - window_half_size.0) as f32 * delta_time as f32;
+        let pitch_change = (window_half_size.1 - cursor_position.y) as f32 * delta_time as f32;
+
         // Modify position as needed
         let mut position = Vector3::new(0.0, 0.0, 0.0);
         if let Some(axis) = move_forward_backward {
@@ -129,21 +142,24 @@ impl Element for DebugTestCamera {
         let change = CameraChange {
             target: Self::IDENTIFIER,
             position: if position.x != 0.0 || position.y != 0.0 || position.z != 0.0 {
-                Some(PositionChange {
-                    position,
-                    mode: PositionMode::OffsetViewAligned,
-                })
+                Some(Mode::OffsetViewAligned(position * Self::MOVEMENT_SPEED))
             } else {
                 None
             },
-            ..Default::default()
+            pitch: Some(Mode::Offset(pitch_change * Self::MOUSE_SENSITIVITY)),
+            yaw: Some(Mode::Offset(yaw_change * Self::MOUSE_SENSITIVITY)),
         };
 
         // Send off, if there is a change
+        let cursor_position = PhysicalPosition::<u32>::from(unsafe { WINDOW_HALF_SIZE });
+        let cursor_position_change = WorldChange::ChangeCursorPosition(cursor_position.into());
+
+        let mut changes = vec![cursor_position_change];
+
         if change.does_change_something() {
-            Some(vec![WorldChange::UpdateCamera(change)])
-        } else {
-            None
+            changes.push(WorldChange::UpdateCamera(change));
         }
+
+        Some(changes)
     }
 }

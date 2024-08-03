@@ -13,8 +13,8 @@ use crate::{
 
 use super::{ElementUlid, Identifier, ModelUlid};
 
-pub mod position;
-pub use position::*;
+pub mod mode;
+pub use mode::*;
 
 pub mod camera;
 pub use camera::*;
