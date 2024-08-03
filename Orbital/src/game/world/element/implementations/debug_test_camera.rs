@@ -126,6 +126,8 @@ impl Element for DebugTestCamera {
         let yaw_change = (cursor_position.x - window_half_size.0) as f32 * delta_time as f32;
         let pitch_change = (window_half_size.1 - cursor_position.y) as f32 * delta_time as f32;
 
+        // TODO: Controller Joystick movement
+
         // Modify position as needed
         let mut position = Vector3::new(0.0, 0.0, 0.0);
         if let Some(axis) = move_forward_backward {
