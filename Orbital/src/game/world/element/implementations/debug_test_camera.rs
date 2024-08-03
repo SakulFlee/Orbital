@@ -1,21 +1,20 @@
-use cgmath::Point3;
+use cgmath::{Point3, Vector3};
 use gilrs::{Axis, Button};
 use winit::keyboard::{KeyCode, PhysicalKey};
 
 use crate::{
     app::InputEvent,
-    game::{Element, ElementRegistration, WorldChange},
+    game::{CameraChange, Element, ElementRegistration, PositionChange, PositionMode, WorldChange},
     resources::descriptors::CameraDescriptor,
     util::InputHandler,
 };
 
 pub struct DebugTestCamera {
-    camera_change: CameraDescriptor,
     input_handler: InputHandler,
 }
 
 impl DebugTestCamera {
-    pub const DEBUG_CAMERA_NAME: &'static str = "DEBUG";
+    pub const IDENTIFIER: &'static str = "DEBUG";
 
     pub const SPEED: f32 = 5.0;
 
@@ -73,13 +72,7 @@ impl DebugTestCamera {
         input_handler
             .register_gamepad_axis_mapping(Self::AXIS_LEFT_RIGHT, Self::ACTION_MOVE_LEFT_RIGHT);
 
-        Self {
-            camera_change: CameraDescriptor {
-                position: Point3::new(-10.0, 0.0, 0.0),
-                ..Default::default()
-            },
-            input_handler,
-        }
+        Self { input_handler }
     }
 }
 
@@ -88,7 +81,11 @@ impl Element for DebugTestCamera {
         ElementRegistration {
             tags: Some(vec!["debug test camera".into()]),
             world_changes: Some(vec![WorldChange::SpawnCameraAndMakeActive(
-                self.camera_change.clone(),
+                CameraDescriptor {
+                    identifier: Self::IDENTIFIER.into(),
+                    position: Point3::new(-5.0, 0.0, 0.0),
+                    ..Default::default()
+                },
             )]),
             ..Default::default()
         }
@@ -99,6 +96,7 @@ impl Element for DebugTestCamera {
     }
 
     fn on_update(&mut self, delta_time: f64) -> Option<Vec<WorldChange>> {
+        // Read input axis
         let move_forward_backward = self.input_handler.get_dynamic_axis(
             Self::ACTION_MOVE_FORWARD_BACKWARD,
             Self::ACTION_MOVE_FORWARD,
@@ -115,22 +113,35 @@ impl Element for DebugTestCamera {
             Self::ACTION_MOVE_DOWN,
         );
 
-        let mut changed = false;
+        // Modify position as needed
+        let mut position = Vector3::new(0.0, 0.0, 0.0);
         if let Some(axis) = move_forward_backward {
-            self.camera_change.position.x += axis * delta_time as f32;
-            changed = true;
+            position.x += axis * delta_time as f32;
         }
         if let Some(axis) = move_left_right {
-            self.camera_change.position.z += axis * delta_time as f32;
-            changed = true;
+            position.z += axis * delta_time as f32;
         }
         if let Some(axis) = move_up_down {
-            self.camera_change.position.y += axis * delta_time as f32;
-            changed = true;
+            position.y += axis * delta_time as f32;
         }
 
-        if changed {
-            Some(vec![WorldChange::UpdateCamera(self.camera_change.clone())])
+        // Compile CameraChange
+        let change = CameraChange {
+            target: Self::IDENTIFIER,
+            position: if position.x != 0.0 || position.y != 0.0 || position.z != 0.0 {
+                Some(PositionChange {
+                    position,
+                    mode: PositionMode::OffsetViewAligned,
+                })
+            } else {
+                None
+            },
+            ..Default::default()
+        };
+
+        // Send off, if there is a change
+        if change.does_change_something() {
+            Some(vec![WorldChange::UpdateCamera(change)])
         } else {
             None
         }
