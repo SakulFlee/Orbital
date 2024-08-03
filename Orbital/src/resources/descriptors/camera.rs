@@ -26,7 +26,6 @@ impl CameraDescriptor {
                 Mode::Offset(pitch) | Mode::OffsetViewAligned(pitch) => self.pitch += pitch,
             }
 
-            // TODO: Test
             if self.pitch < -FRAC_PI_2 {
                 self.pitch = -FRAC_PI_2;
             } else if self.pitch > FRAC_PI_2 {
