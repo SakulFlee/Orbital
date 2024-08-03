@@ -251,8 +251,6 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
                 AppChange::ChangeCursorVisible(x) => {
                     if let Some(window) = &mut self.window {
                         window.set_cursor_visible(x);
-                        debug!("#### TRIGGER ####");
-                        // TODO: Doesn't get triggered?
                     } else {
                         error!("AppChange::ChangeCursorVisible proposed, but Window does not exist yet!");
                     }
