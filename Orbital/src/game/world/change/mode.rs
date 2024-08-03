@@ -1,12 +1,7 @@
-use cgmath::Vector3;
-
-#[derive(Debug)]
-pub struct PositionChange {
-    pub position: Vector3<f32>,
-    pub mode: PositionMode,
-}
-
-/// Defines how a given [PositionChange] will be used.  
+/// Defines how `<T>` will be used.  
+/// This is mainly intended to be used with _positions_ (e.g. [Vector3<f32>])
+/// and [Camera]s. The following documentation will be based around this assumption, but this may also be used elsewhere.
+///
 /// There are three modes:
 ///
 /// - [PositionMode::Overwrite]: Directly overwrites the position in question.  
@@ -18,6 +13,7 @@ pub struct PositionChange {
 ///     location by the supplied amount, where "forward" will be equal to where
 ///     the [Camera] is looking at. Only valid if the current view angle is
 ///     known (e.g. by a [Camera]).
+///     If not known, will default back to [PositionMode::Offset].
 ///
 /// # When to use what?
 ///
@@ -37,10 +33,10 @@ pub struct PositionChange {
 /// - Ideal for any kind of 1st-person [Camera]!
 ///
 /// [Camera]: crate::resources::realizations::Camera
-#[derive(Debug, Default)]
-pub enum PositionMode {
-    Overwrite,
-    Offset,
-    #[default]
-    OffsetViewAligned,
+/// [Vector3<f32>]: crate::cgmath::Vector3
+#[derive(Debug)]
+pub enum Mode<T> {
+    Overwrite(T),
+    Offset(T),
+    OffsetViewAligned(T),
 }

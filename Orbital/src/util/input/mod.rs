@@ -86,7 +86,7 @@ impl InputHandler {
         self.axis_threshold = axis_threshold;
     }
 
-    pub fn get_mouse_position(&self) -> PhysicalPosition<f64> {
+    pub fn get_cursor_position(&self) -> PhysicalPosition<f64> {
         self.mouse_position
     }
 

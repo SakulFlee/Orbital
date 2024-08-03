@@ -2,7 +2,7 @@ use std::f32::consts::FRAC_PI_2;
 
 use cgmath::{InnerSpace, Point3, Vector3};
 
-use crate::game::{CameraChange, PositionMode};
+use crate::game::{CameraChange, Mode};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CameraDescriptor {
@@ -20,33 +20,40 @@ impl CameraDescriptor {
     pub const DEFAULT_NAME: &'static str = "Default";
 
     pub fn apply_change(&mut self, change: CameraChange) {
-        if let Some(pitch) = change.pitch {
-            self.pitch = pitch;
+        if let Some(mode) = change.pitch {
+            match mode {
+                Mode::Overwrite(pitch) => self.pitch = pitch,
+                Mode::Offset(pitch) | Mode::OffsetViewAligned(pitch) => self.pitch += pitch,
+            }
 
-            if self.pitch < -FRAC_PI_2 { // TODO: Test
+            // TODO: Test
+            if self.pitch < -FRAC_PI_2 {
                 self.pitch = -FRAC_PI_2;
             } else if self.pitch > FRAC_PI_2 {
                 self.pitch = FRAC_PI_2;
             }
         }
 
-        if let Some(yaw) = change.yaw {
-            self.yaw = yaw;
+        if let Some(mode) = change.yaw {
+            match mode {
+                Mode::Overwrite(yaw) => self.yaw = yaw,
+                Mode::Offset(yaw) | Mode::OffsetViewAligned(yaw) => self.yaw += yaw,
+            }
         }
 
-        if let Some(position) = change.position {
-            match position.mode {
-                PositionMode::Overwrite => {
+        if let Some(mode) = change.position {
+            match mode {
+                Mode::Overwrite(position) => {
                     self.position = Point3 {
-                        x: position.position.x,
-                        y: position.position.y,
-                        z: position.position.z,
+                        x: position.x,
+                        y: position.y,
+                        z: position.z,
                     };
                 }
-                PositionMode::Offset => {
-                    self.position += position.position;
+                Mode::Offset(position) => {
+                    self.position += position;
                 }
-                PositionMode::OffsetViewAligned => {
+                Mode::OffsetViewAligned(position) => {
                     let (yaw_sin, yaw_cos) = self.yaw.sin_cos();
 
                     // Find alignment unit vectors
@@ -54,9 +61,9 @@ impl CameraDescriptor {
                     let unit_right = Vector3::new(-yaw_sin, 0.0, yaw_cos).normalize();
 
                     // Apply offsets
-                    self.position += unit_forward * position.position.x;
-                    self.position += unit_right * position.position.z;
-                    self.position.y += position.position.y;
+                    self.position += unit_forward * position.x;
+                    self.position += unit_right * position.z;
+                    self.position.y += position.y;
                 }
             }
         }
