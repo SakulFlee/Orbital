@@ -1,4 +1,4 @@
-use std::f32::consts::FRAC_PI_2;
+use std::f32::consts::{FRAC_PI_2};
 
 use cgmath::{InnerSpace, Point3, Vector3};
 

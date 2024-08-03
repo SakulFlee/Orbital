@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use cgmath::{Point3, Vector3};
 use gilrs::{Axis, Button};
 use winit::{
@@ -14,13 +16,19 @@ use crate::{
 
 pub struct DebugTestCamera {
     input_handler: InputHandler,
+    /// Indicates whether the mouse cursor was reset back to the center
+    /// of the screen already. This is to prevent camera glitches at
+    /// startup of the game. Can also be used to temporarily disable
+    /// camera movement based on mouse cursor and gamepad.
+    flag_cursor_position_changed_set: bool,
 }
 
 impl DebugTestCamera {
     pub const IDENTIFIER: &'static str = "DEBUG";
 
     pub const MOVEMENT_SPEED: f32 = 5.0;
-    pub const MOUSE_SENSITIVITY: f32 = 0.1;
+    pub const MOUSE_SENSITIVITY: f32 = 0.5;
+    pub const GAMEPAD_SENSITIVITY: f32 = 2.5;
 
     // Keyboard bindings
     pub const KEY_MOVE_FORWARD: PhysicalKey = PhysicalKey::Code(KeyCode::KeyW);
@@ -43,13 +51,17 @@ impl DebugTestCamera {
     pub const ACTION_MOVE_UP: &'static str = "move_up";
 
     // Axis bindings
-    pub const AXIS_FORWARD_BACKWARD: Axis = Axis::LeftStickY;
-    pub const AXIS_LEFT_RIGHT: Axis = Axis::LeftStickX;
+    pub const AXIS_MOVE_FORWARD_BACKWARD: Axis = Axis::LeftStickY;
+    pub const AXIS_MOVE_LEFT_RIGHT: Axis = Axis::LeftStickX;
+    pub const AXIS_LOOK_UP_DOWN: Axis = Axis::RightStickY;
+    pub const AXIS_LOOK_LEFT_RIGHT: Axis = Axis::RightStickX;
 
     // Axis actions
     pub const ACTION_MOVE_FORWARD_BACKWARD: &'static str = "move_forward_backward";
     pub const ACTION_MOVE_LEFT_RIGHT: &'static str = "move_left_right";
     pub const ACTION_MOVE_UP_DOWN: &'static str = "move_up_down";
+    pub const ACTION_LOOK_LEFT_RIGHT: &'static str = "look_left_right";
+    pub const ACTION_LOOK_UP_DOWN: &'static str = "look_up_down";
 
     pub fn new() -> Self {
         let mut input_handler = InputHandler::new();
@@ -70,13 +82,25 @@ impl DebugTestCamera {
 
         // Axis bindings
         input_handler.register_gamepad_axis_mapping(
-            Self::AXIS_FORWARD_BACKWARD,
+            Self::AXIS_MOVE_FORWARD_BACKWARD,
             Self::ACTION_MOVE_FORWARD_BACKWARD,
         );
-        input_handler
-            .register_gamepad_axis_mapping(Self::AXIS_LEFT_RIGHT, Self::ACTION_MOVE_LEFT_RIGHT);
+        input_handler.register_gamepad_axis_mapping(
+            Self::AXIS_MOVE_LEFT_RIGHT,
+            Self::ACTION_MOVE_LEFT_RIGHT,
+        );
 
-        Self { input_handler }
+        input_handler.register_gamepad_axis_mapping(
+            Self::AXIS_LOOK_LEFT_RIGHT,
+            Self::ACTION_LOOK_LEFT_RIGHT,
+        );
+        input_handler
+            .register_gamepad_axis_mapping(Self::AXIS_LOOK_UP_DOWN, Self::ACTION_LOOK_UP_DOWN);
+
+        Self {
+            input_handler,
+            flag_cursor_position_changed_set: true,
+        }
     }
 }
 
@@ -88,6 +112,7 @@ impl Element for DebugTestCamera {
                 WorldChange::SpawnCameraAndMakeActive(CameraDescriptor {
                     identifier: Self::IDENTIFIER.into(),
                     position: Point3::new(5.0, 0.0, 0.0),
+                    yaw: PI,
                     ..Default::default()
                 }),
                 WorldChange::AppChange(AppChange::ChangeCursorVisible(false)),
@@ -118,16 +143,6 @@ impl Element for DebugTestCamera {
             Self::ACTION_MOVE_DOWN,
         );
 
-        // Calculate camera rotation
-        let cursor_position: PhysicalPosition<i32> =
-            self.input_handler.get_cursor_position().cast();
-        let window_half_size = unsafe { WINDOW_HALF_SIZE };
-
-        let yaw_change = (cursor_position.x - window_half_size.0) as f32 * delta_time as f32;
-        let pitch_change = (window_half_size.1 - cursor_position.y) as f32 * delta_time as f32;
-
-        // TODO: Controller Joystick movement
-
         // Modify position as needed
         let mut position = Vector3::new(0.0, 0.0, 0.0);
         if let Some(axis) = move_forward_backward {
@@ -140,6 +155,14 @@ impl Element for DebugTestCamera {
             position.y += axis * delta_time as f32;
         }
 
+        // Calculate camera rotation
+        let (is_axis, yaw_change, pitch_change) = self
+            .input_handler
+            .calculate_view_change_from_axis_and_cursor(
+                Self::ACTION_LOOK_LEFT_RIGHT,
+                Self::ACTION_LOOK_UP_DOWN,
+            );
+
         // Compile CameraChange
         let change = CameraChange {
             target: Self::IDENTIFIER,
@@ -148,8 +171,24 @@ impl Element for DebugTestCamera {
             } else {
                 None
             },
-            pitch: Some(Mode::Offset(pitch_change * Self::MOUSE_SENSITIVITY)),
-            yaw: Some(Mode::Offset(yaw_change * Self::MOUSE_SENSITIVITY)),
+            yaw: Some(Mode::Offset(
+                yaw_change
+                    * if is_axis {
+                        Self::GAMEPAD_SENSITIVITY
+                    } else {
+                        Self::MOUSE_SENSITIVITY
+                    }
+                    * delta_time as f32,
+            )),
+            pitch: Some(Mode::Offset(
+                pitch_change
+                    * if is_axis {
+                        Self::GAMEPAD_SENSITIVITY
+                    } else {
+                        Self::MOUSE_SENSITIVITY
+                    }
+                    * delta_time as f32,
+            )),
         };
 
         // Send off, if there is a change
@@ -159,8 +198,10 @@ impl Element for DebugTestCamera {
 
         let mut changes = vec![cursor_position_change];
 
-        if change.does_change_something() {
+        if !self.flag_cursor_position_changed_set && change.does_change_something() {
             changes.push(WorldChange::UpdateCamera(change));
+        } else {
+            self.flag_cursor_position_changed_set = false;
         }
 
         Some(changes)

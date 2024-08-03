@@ -1,9 +1,3 @@
-// use descriptor::InputDescriptor;
-
-// use crate::app::{input_event, InputEvent};
-
-pub mod descriptor;
-
 use gilrs::{Axis, Button};
 use hashbrown::{HashMap, HashSet};
 use winit::{
@@ -12,7 +6,7 @@ use winit::{
     keyboard::PhysicalKey,
 };
 
-use crate::app::InputEvent;
+use crate::app::{InputEvent, WINDOW_HALF_SIZE};
 
 pub type Action = &'static str;
 
@@ -88,6 +82,60 @@ impl InputHandler {
 
     pub fn get_cursor_position(&self) -> PhysicalPosition<f64> {
         self.mouse_position
+    }
+
+    pub fn calculate_view_change_from_axis_and_cursor(
+        &self,
+        action_x_axis: &'static str,
+        action_y_axis: &'static str,
+    ) -> (bool, f32, f32) {
+        if let Some(axis_result) =
+            self.calculate_view_change_from_axis(action_x_axis, action_y_axis)
+        {
+            return (true, axis_result.0, axis_result.1);
+        } else {
+            let cursor_result = self.calculate_view_change_from_cursor();
+            return (false, cursor_result.0, cursor_result.1);
+        }
+    }
+
+    pub fn calculate_view_change_from_axis(
+        &self,
+        action_x_axis: &'static str,
+        action_y_axis: &'static str,
+    ) -> Option<(f32, f32)> {
+        let option_x = self.get_only_axis(action_x_axis);
+        let option_y = self.get_only_axis(action_y_axis);
+
+        if option_x.is_some() && option_y.is_some() {
+            return Some((option_x.unwrap(), option_y.unwrap()));
+        } else if option_x.is_some() || option_y.is_some() {
+            return Some((
+                option_x.or(Some(0.0)).unwrap(),
+                option_y.or(Some(0.0)).unwrap(),
+            ));
+        } else {
+            return None;
+        }
+    }
+
+    /// Calculates the change of `yaw` and `pitch` based on mouse movement.  
+    /// Assumes the mouse cursor deviated from the center of the window
+    /// (see [WINDOW_HALF_SIZE]) and will produce false results otherwise.
+    ///
+    /// Returns the calculated **radial** change.
+    /// First, `yaw`, last, `pitch`.
+    ///
+    /// ⚠️ Will make use of [WINDOW_HALF_SIZE] which is potentially dangerous
+    /// outside of Rust!
+    pub fn calculate_view_change_from_cursor(&self) -> (f32, f32) {
+        let cursor_position: PhysicalPosition<i32> = self.get_cursor_position().cast();
+        let window_half_size = unsafe { WINDOW_HALF_SIZE };
+
+        let yaw_change = (cursor_position.x - window_half_size.0) as f32;
+        let pitch_change = (window_half_size.1 - cursor_position.y) as f32;
+
+        (yaw_change, pitch_change)
     }
 
     pub fn get_mouse_scrolling(&self) -> (f32, f32) {

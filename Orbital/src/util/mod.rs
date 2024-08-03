@@ -1,5 +1,5 @@
 pub mod buffer;
 pub use buffer::*;
 
-pub mod input;
-pub use input::*;
+pub mod input_handler;
+pub use input_handler::*;
