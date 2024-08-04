@@ -24,20 +24,20 @@ impl Game for ExampleGame {
         Self: Sized,
     {
         info!("Queuing DebugTestCamera spawn");
-        world.queue_world_change(WorldChange::SpawnElement(Box::new(DebugTestCamera::new())));
+        world.process_world_change(WorldChange::SpawnElement(Box::new(DebugTestCamera::new())));
 
         info!("Queuing TestElement spawn");
-        world.queue_world_change(WorldChange::SpawnElement(Box::new(TestElement::default())));
+        world.process_world_change(WorldChange::SpawnElement(Box::new(TestElement::default())));
 
         info!("Queuing Ping & Pong spawn");
-        world.queue_world_change(WorldChange::SpawnElement(Box::new(PingPongElement::new(
+        world.process_world_change(WorldChange::SpawnElement(Box::new(PingPongElement::new(
             true,
         ))));
-        world.queue_world_change(WorldChange::SpawnElement(Box::new(PingPongElement::new(
+        world.process_world_change(WorldChange::SpawnElement(Box::new(PingPongElement::new(
             false,
         ))));
 
         info!("Queuing Cubes spawn");
-        world.queue_world_change(WorldChange::SpawnElement(Box::new(Cubes {})));
+        world.process_world_change(WorldChange::SpawnElement(Box::new(Cubes {})));
     }
 }

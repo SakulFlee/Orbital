@@ -1,4 +1,8 @@
-use cgmath::Point3;
+use std::f32::consts::{FRAC_PI_2};
+
+use cgmath::{InnerSpace, Point3, Vector3};
+
+use crate::game::{CameraChange, Mode};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CameraDescriptor {
@@ -14,6 +18,55 @@ pub struct CameraDescriptor {
 
 impl CameraDescriptor {
     pub const DEFAULT_NAME: &'static str = "Default";
+
+    pub fn apply_change(&mut self, change: CameraChange) {
+        if let Some(mode) = change.pitch {
+            match mode {
+                Mode::Overwrite(pitch) => self.pitch = pitch,
+                Mode::Offset(pitch) | Mode::OffsetViewAligned(pitch) => self.pitch += pitch,
+            }
+
+            if self.pitch < -FRAC_PI_2 {
+                self.pitch = -FRAC_PI_2;
+            } else if self.pitch > FRAC_PI_2 {
+                self.pitch = FRAC_PI_2;
+            }
+        }
+
+        if let Some(mode) = change.yaw {
+            match mode {
+                Mode::Overwrite(yaw) => self.yaw = yaw,
+                Mode::Offset(yaw) | Mode::OffsetViewAligned(yaw) => self.yaw += yaw,
+            }
+        }
+
+        if let Some(mode) = change.position {
+            match mode {
+                Mode::Overwrite(position) => {
+                    self.position = Point3 {
+                        x: position.x,
+                        y: position.y,
+                        z: position.z,
+                    };
+                }
+                Mode::Offset(position) => {
+                    self.position += position;
+                }
+                Mode::OffsetViewAligned(position) => {
+                    let (yaw_sin, yaw_cos) = self.yaw.sin_cos();
+
+                    // Find alignment unit vectors
+                    let unit_forward = Vector3::new(yaw_cos, 0.0, yaw_sin).normalize();
+                    let unit_right = Vector3::new(-yaw_sin, 0.0, yaw_cos).normalize();
+
+                    // Apply offsets
+                    self.position += unit_forward * position.x;
+                    self.position += unit_right * position.z;
+                    self.position.y += position.y;
+                }
+            }
+        }
+    }
 }
 
 impl Default for CameraDescriptor {

@@ -6,6 +6,7 @@
         "bindgen",
         "bytemuck",
         "cgmath",
+        "consts",
         "despawn",
         "despawned",
         "despawning",

@@ -156,9 +156,14 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
 
         let app_changes = self.world.update(delta_time);
 
+        // TODO: Needed?
         self.renderer.update(delta_time);
 
-        app_changes
+        if app_changes.is_empty() {
+            None
+        } else {
+            Some(app_changes)
+        }
     }
 
     fn on_render(&mut self, target_view: &TextureView, device: &Device, queue: &Queue)

@@ -1,23 +1,34 @@
-use cgmath::Point3;
+use std::f32::consts::PI;
+
+use cgmath::{Point3, Vector3};
 use gilrs::{Axis, Button};
-use winit::keyboard::{KeyCode, PhysicalKey};
+use winit::{
+    dpi::PhysicalPosition,
+    keyboard::{KeyCode, PhysicalKey},
+};
 
 use crate::{
-    app::InputEvent,
-    game::{Element, ElementRegistration, WorldChange},
+    app::{AppChange, InputEvent, WINDOW_HALF_SIZE},
+    game::{CameraChange, Element, ElementRegistration, Mode, WorldChange},
     resources::descriptors::CameraDescriptor,
     util::InputHandler,
 };
 
 pub struct DebugTestCamera {
-    camera_change: CameraDescriptor,
     input_handler: InputHandler,
+    /// Indicates whether the mouse cursor was reset back to the center
+    /// of the screen already. This is to prevent camera glitches at
+    /// startup of the game. Can also be used to temporarily disable
+    /// camera movement based on mouse cursor and gamepad.
+    flag_cursor_position_changed_set: bool,
 }
 
 impl DebugTestCamera {
-    pub const DEBUG_CAMERA_NAME: &'static str = "DEBUG";
+    pub const IDENTIFIER: &'static str = "DEBUG";
 
-    pub const SPEED: f32 = 5.0;
+    pub const MOVEMENT_SPEED: f32 = 5.0;
+    pub const MOUSE_SENSITIVITY: f32 = 0.5;
+    pub const GAMEPAD_SENSITIVITY: f32 = 2.5;
 
     // Keyboard bindings
     pub const KEY_MOVE_FORWARD: PhysicalKey = PhysicalKey::Code(KeyCode::KeyW);
@@ -40,13 +51,17 @@ impl DebugTestCamera {
     pub const ACTION_MOVE_UP: &'static str = "move_up";
 
     // Axis bindings
-    pub const AXIS_FORWARD_BACKWARD: Axis = Axis::LeftStickY;
-    pub const AXIS_LEFT_RIGHT: Axis = Axis::LeftStickX;
+    pub const AXIS_MOVE_FORWARD_BACKWARD: Axis = Axis::LeftStickY;
+    pub const AXIS_MOVE_LEFT_RIGHT: Axis = Axis::LeftStickX;
+    pub const AXIS_LOOK_UP_DOWN: Axis = Axis::RightStickY;
+    pub const AXIS_LOOK_LEFT_RIGHT: Axis = Axis::RightStickX;
 
     // Axis actions
     pub const ACTION_MOVE_FORWARD_BACKWARD: &'static str = "move_forward_backward";
     pub const ACTION_MOVE_LEFT_RIGHT: &'static str = "move_left_right";
     pub const ACTION_MOVE_UP_DOWN: &'static str = "move_up_down";
+    pub const ACTION_LOOK_LEFT_RIGHT: &'static str = "look_left_right";
+    pub const ACTION_LOOK_UP_DOWN: &'static str = "look_up_down";
 
     pub fn new() -> Self {
         let mut input_handler = InputHandler::new();
@@ -67,18 +82,24 @@ impl DebugTestCamera {
 
         // Axis bindings
         input_handler.register_gamepad_axis_mapping(
-            Self::AXIS_FORWARD_BACKWARD,
+            Self::AXIS_MOVE_FORWARD_BACKWARD,
             Self::ACTION_MOVE_FORWARD_BACKWARD,
         );
+        input_handler.register_gamepad_axis_mapping(
+            Self::AXIS_MOVE_LEFT_RIGHT,
+            Self::ACTION_MOVE_LEFT_RIGHT,
+        );
+
+        input_handler.register_gamepad_axis_mapping(
+            Self::AXIS_LOOK_LEFT_RIGHT,
+            Self::ACTION_LOOK_LEFT_RIGHT,
+        );
         input_handler
-            .register_gamepad_axis_mapping(Self::AXIS_LEFT_RIGHT, Self::ACTION_MOVE_LEFT_RIGHT);
+            .register_gamepad_axis_mapping(Self::AXIS_LOOK_UP_DOWN, Self::ACTION_LOOK_UP_DOWN);
 
         Self {
-            camera_change: CameraDescriptor {
-                position: Point3::new(-10.0, 0.0, 0.0),
-                ..Default::default()
-            },
             input_handler,
+            flag_cursor_position_changed_set: true,
         }
     }
 }
@@ -87,9 +108,15 @@ impl Element for DebugTestCamera {
     fn on_registration(&mut self, _ulid: &ulid::Ulid) -> ElementRegistration {
         ElementRegistration {
             tags: Some(vec!["debug test camera".into()]),
-            world_changes: Some(vec![WorldChange::SpawnCameraAndMakeActive(
-                self.camera_change.clone(),
-            )]),
+            world_changes: Some(vec![
+                WorldChange::SpawnCameraAndMakeActive(CameraDescriptor {
+                    identifier: Self::IDENTIFIER.into(),
+                    position: Point3::new(5.0, 0.0, 0.0),
+                    yaw: PI,
+                    ..Default::default()
+                }),
+                WorldChange::AppChange(AppChange::ChangeCursorVisible(false)),
+            ]),
             ..Default::default()
         }
     }
@@ -99,6 +126,7 @@ impl Element for DebugTestCamera {
     }
 
     fn on_update(&mut self, delta_time: f64) -> Option<Vec<WorldChange>> {
+        // Read input axis
         let move_forward_backward = self.input_handler.get_dynamic_axis(
             Self::ACTION_MOVE_FORWARD_BACKWARD,
             Self::ACTION_MOVE_FORWARD,
@@ -115,24 +143,67 @@ impl Element for DebugTestCamera {
             Self::ACTION_MOVE_DOWN,
         );
 
-        let mut changed = false;
+        // Modify position as needed
+        let mut position = Vector3::new(0.0, 0.0, 0.0);
         if let Some(axis) = move_forward_backward {
-            self.camera_change.position.x += axis * delta_time as f32;
-            changed = true;
+            position.x += axis * delta_time as f32;
         }
         if let Some(axis) = move_left_right {
-            self.camera_change.position.z += axis * delta_time as f32;
-            changed = true;
+            position.z += axis * delta_time as f32;
         }
         if let Some(axis) = move_up_down {
-            self.camera_change.position.y += axis * delta_time as f32;
-            changed = true;
+            position.y += axis * delta_time as f32;
         }
 
-        if changed {
-            Some(vec![WorldChange::UpdateCamera(self.camera_change.clone())])
+        // Calculate camera rotation
+        let (is_axis, yaw_change, pitch_change) = self
+            .input_handler
+            .calculate_view_change_from_axis_and_cursor(
+                Self::ACTION_LOOK_LEFT_RIGHT,
+                Self::ACTION_LOOK_UP_DOWN,
+            );
+
+        // Compile CameraChange
+        let change = CameraChange {
+            target: Self::IDENTIFIER,
+            position: if position.x != 0.0 || position.y != 0.0 || position.z != 0.0 {
+                Some(Mode::OffsetViewAligned(position * Self::MOVEMENT_SPEED))
+            } else {
+                None
+            },
+            yaw: Some(Mode::Offset(
+                yaw_change
+                    * if is_axis {
+                        Self::GAMEPAD_SENSITIVITY
+                    } else {
+                        Self::MOUSE_SENSITIVITY
+                    }
+                    * delta_time as f32,
+            )),
+            pitch: Some(Mode::Offset(
+                pitch_change
+                    * if is_axis {
+                        Self::GAMEPAD_SENSITIVITY
+                    } else {
+                        Self::MOUSE_SENSITIVITY
+                    }
+                    * delta_time as f32,
+            )),
+        };
+
+        // Send off, if there is a change
+        let cursor_position = PhysicalPosition::<u32>::from(unsafe { WINDOW_HALF_SIZE });
+        let cursor_position_change =
+            WorldChange::AppChange(AppChange::ChangeCursorPosition(cursor_position.into()));
+
+        let mut changes = vec![cursor_position_change];
+
+        if !self.flag_cursor_position_changed_set && change.does_change_something() {
+            changes.push(WorldChange::UpdateCamera(change));
         } else {
-            None
+            self.flag_cursor_position_changed_set = false;
         }
+
+        Some(changes)
     }
 }
