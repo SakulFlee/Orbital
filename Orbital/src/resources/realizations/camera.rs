@@ -1,4 +1,4 @@
-use cgmath::{perspective, Deg, EuclideanSpace, InnerSpace, Matrix4, Point3, Vector3};
+use cgmath::{perspective, Deg, InnerSpace, Matrix4, Vector3};
 use std::mem;
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
@@ -6,7 +6,7 @@ use wgpu::{
     Device, Queue, ShaderStages,
 };
 
-use crate::resources::descriptors::CameraDescriptor;
+use crate::{game::CameraChange, resources::descriptors::CameraDescriptor};
 
 pub struct Camera {
     descriptor: CameraDescriptor,
@@ -63,13 +63,8 @@ impl Camera {
         camera
     }
 
-    pub fn update_from_descriptor(
-        &mut self,
-        descriptor: CameraDescriptor,
-        _device: &Device,
-        queue: &Queue,
-    ) {
-        self.descriptor = descriptor;
+    pub fn update_from_change(&mut self, change: CameraChange, _device: &Device, queue: &Queue) {
+        self.descriptor.apply_change(change);
         self.update_buffer(queue);
     }
 
