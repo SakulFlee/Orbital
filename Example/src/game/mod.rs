@@ -1,8 +1,4 @@
-use elements::{
-    camera::Camera,
-    messaging::{ping_pong::PingPongElement, test::TestElement},
-    models::cubes::Cubes,
-};
+use elements::{camera::Camera, cubes::Cubes, ping_pong::PingPongElement};
 use orbital::{
     game::{Game, World, WorldChange},
     log::info,
@@ -26,9 +22,6 @@ impl Game for ExampleGame {
     {
         info!("Queuing Camera spawn");
         world.process_world_change(WorldChange::SpawnElement(Box::new(Camera::new())));
-
-        info!("Queuing TestElement spawn");
-        world.process_world_change(WorldChange::SpawnElement(Box::new(TestElement::default())));
 
         info!("Queuing Ping & Pong spawn");
         world.process_world_change(WorldChange::SpawnElement(Box::new(PingPongElement::new(

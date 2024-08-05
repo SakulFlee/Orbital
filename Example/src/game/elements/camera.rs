@@ -17,11 +17,6 @@ use orbital::{
 pub struct Camera {
     input_handler: InputHandler,
     is_focused: bool,
-    /// Indicates whether the mouse cursor was reset back to the center
-    /// of the screen already. This is to prevent camera glitches at
-    /// startup of the game. Can also be used to temporarily disable
-    /// camera movement based on mouse cursor and gamepad.
-    flag_cursor_position_changed_set: bool,
 }
 
 impl Camera {
@@ -100,8 +95,7 @@ impl Camera {
 
         Self {
             input_handler,
-            is_focused: false,
-            flag_cursor_position_changed_set: true,
+            is_focused: true,
         }
     }
 }
@@ -208,10 +202,8 @@ impl Element for Camera {
 
         let mut changes = vec![cursor_position_change];
 
-        if !self.flag_cursor_position_changed_set && change.does_change_something() {
+        if change.does_change_something() {
             changes.push(WorldChange::UpdateCamera(change));
-        } else {
-            self.flag_cursor_position_changed_set = false;
         }
 
         Some(changes)
