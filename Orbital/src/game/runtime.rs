@@ -133,6 +133,13 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
             .change_resolution(new_resolution, device, queue);
     }
 
+    fn on_focus_change(&mut self, focused: bool)
+    where
+        Self: Sized,
+    {
+        self.world.on_focus_change(focused);
+    }
+
     fn on_input(&mut self, input_event: &InputEvent)
     where
         Self: Sized,
