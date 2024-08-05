@@ -144,8 +144,7 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
     where
         Self: Sized,
     {
-        self.world
-            .on_input_event(self.timer.cycle_delta_time(), input_event)
+        self.world.on_input_event(input_event)
     }
 
     fn on_update(&mut self) -> Option<Vec<AppChange>>
