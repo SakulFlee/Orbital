@@ -380,6 +380,11 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
 
                 self.window.as_ref().unwrap().request_redraw();
             }
+            WindowEvent::Focused(focused) => {
+                if let Some(app) = &mut self.app {
+                    app.on_focus_change(focused);
+                }
+            }
             WindowEvent::KeyboardInput {
                 device_id,
                 event,
