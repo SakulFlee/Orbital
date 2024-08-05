@@ -371,9 +371,9 @@ impl World {
         self.camera_descriptors.push(descriptor);
     }
 
-    pub fn on_input_event(&mut self, delta_time: f64, input_event: &InputEvent) {
+    pub fn on_input_event(&mut self, input_event: &InputEvent) {
         for (_element_ulid, element) in &mut self.elements {
-            element.on_input_event(delta_time, input_event)
+            element.on_input_event(input_event)
         }
     }
 

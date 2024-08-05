@@ -121,7 +121,7 @@ impl Element for Camera {
         }
     }
 
-    fn on_input_event(&mut self, _delta_time: f64, input_event: &InputEvent) {
+    fn on_input_event(&mut self, input_event: &InputEvent) {
         self.input_handler.handle_event(input_event);
     }
 
