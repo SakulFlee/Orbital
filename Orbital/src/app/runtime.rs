@@ -435,7 +435,52 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
                     })
                 }
             }
-            _ => debug!("Unhandled WindowEvent encountered: {:#?}", event),
+            WindowEvent::ModifiersChanged(_) => (),
+            WindowEvent::ActivationTokenDone {
+                serial: _,
+                token: _,
+            } => (),
+            WindowEvent::Moved(_) => (),
+            WindowEvent::Destroyed => (),
+            WindowEvent::DroppedFile(_) => (),
+            WindowEvent::HoveredFile(_) => (),
+            WindowEvent::HoveredFileCancelled => (),
+            WindowEvent::Ime(_) => (),
+            WindowEvent::CursorEntered { device_id: _ } => (),
+            WindowEvent::CursorLeft { device_id: _ } => (),
+            WindowEvent::PinchGesture {
+                device_id: _,
+                delta: _,
+                phase: _,
+            } => (),
+            WindowEvent::PanGesture {
+                device_id: _,
+                delta: _,
+                phase: _,
+            } => (),
+            WindowEvent::DoubleTapGesture { device_id: _ } => (),
+            WindowEvent::RotationGesture {
+                device_id: _,
+                delta: _,
+                phase: _,
+            } => (),
+            WindowEvent::TouchpadPressure {
+                device_id: _,
+                pressure: _,
+                stage: _,
+            } => (),
+            WindowEvent::AxisMotion {
+                device_id: _,
+                axis: _,
+                value: _,
+            } => (),
+            WindowEvent::Touch(_) => (),
+            WindowEvent::ScaleFactorChanged {
+                scale_factor: _,
+                inner_size_writer: _,
+            } => (),
+            WindowEvent::ThemeChanged(_) => (),
+            WindowEvent::Occluded(_) => (),
         }
     }
 
