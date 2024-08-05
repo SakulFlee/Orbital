@@ -105,6 +105,8 @@ pub trait Element {
         ElementRegistration::default()
     }
 
+    fn on_focus_change(&mut self, _focused: bool) {}
+
     fn on_input_event(&mut self, _delta_time: f64, _input_event: &InputEvent) {}
 
     fn on_update(&mut self, _delta_time: f64) -> Option<Vec<WorldChange>> {

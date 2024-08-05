@@ -366,6 +366,12 @@ pub trait App {
     {
     }
 
+    fn on_focus_change(&mut self, _focused: bool)
+    where
+        Self: Sized,
+    {
+    }
+
     /// Gets called each time an input event is send out by [winit].
     fn on_input(&mut self, _input_event: &InputEvent)
     where
