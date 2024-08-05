@@ -371,6 +371,12 @@ impl World {
         self.camera_descriptors.push(descriptor);
     }
 
+    pub fn on_focus_change(&mut self, focused: bool) {
+        for (_element_ulid, element) in &mut self.elements {
+            element.on_focus_change(focused);
+        }
+    }
+
     pub fn on_input_event(&mut self, input_event: &InputEvent) {
         for (_element_ulid, element) in &mut self.elements {
             element.on_input_event(input_event)
