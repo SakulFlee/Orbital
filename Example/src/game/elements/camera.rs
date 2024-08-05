@@ -16,6 +16,7 @@ use orbital::{
 
 pub struct Camera {
     input_handler: InputHandler,
+    is_focused: bool,
     /// Indicates whether the mouse cursor was reset back to the center
     /// of the screen already. This is to prevent camera glitches at
     /// startup of the game. Can also be used to temporarily disable
@@ -99,6 +100,7 @@ impl Camera {
 
         Self {
             input_handler,
+            is_focused: false,
             flag_cursor_position_changed_set: true,
         }
     }
@@ -121,11 +123,19 @@ impl Element for Camera {
         }
     }
 
+    fn on_focus_change(&mut self, focused: bool) {
+        self.is_focused = focused;
+    }
+
     fn on_input_event(&mut self, _delta_time: f64, input_event: &InputEvent) {
         self.input_handler.handle_event(input_event);
     }
 
     fn on_update(&mut self, delta_time: f64) -> Option<Vec<WorldChange>> {
+        if !self.is_focused {
+            return None;
+        }
+
         // Read input axis
         let move_forward_backward = self.input_handler.get_dynamic_axis(
             Self::ACTION_MOVE_FORWARD_BACKWARD,
