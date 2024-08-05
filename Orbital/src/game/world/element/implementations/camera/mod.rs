@@ -14,7 +14,11 @@ use crate::{
     util::InputHandler,
 };
 
-pub struct DebugTestCamera {
+pub mod settings;
+
+pub mod standard;
+
+pub struct StandardCamera {
     input_handler: InputHandler,
     /// Indicates whether the mouse cursor was reset back to the center
     /// of the screen already. This is to prevent camera glitches at
@@ -23,7 +27,7 @@ pub struct DebugTestCamera {
     flag_cursor_position_changed_set: bool,
 }
 
-impl DebugTestCamera {
+impl StandardCamera {
     pub const IDENTIFIER: &'static str = "DEBUG";
 
     pub const MOVEMENT_SPEED: f32 = 5.0;
@@ -104,7 +108,7 @@ impl DebugTestCamera {
     }
 }
 
-impl Element for DebugTestCamera {
+impl Element for StandardCamera {
     fn on_registration(&mut self, _ulid: &ulid::Ulid) -> ElementRegistration {
         ElementRegistration {
             tags: Some(vec!["debug test camera".into()]),
