@@ -8,7 +8,8 @@ use winit::{
 
 use crate::app::{InputEvent, WINDOW_HALF_SIZE};
 
-pub type Action = &'static str;
+pub mod action;
+pub use action::*;
 
 #[derive(Debug, Default)]
 pub struct InputHandler {
@@ -142,19 +143,19 @@ impl InputHandler {
         self.mouse_scrolling
     }
 
-    pub fn register_keyboard_mapping(&mut self, key: PhysicalKey, action: &'static str) {
+    pub fn register_keyboard_mapping(&mut self, key: PhysicalKey, action: Action) {
         self.keyboard_mapping.insert(key, action);
     }
 
-    pub fn register_mouse_button_mapping(&mut self, button: MouseButton, action: &'static str) {
+    pub fn register_mouse_button_mapping(&mut self, button: MouseButton, action: Action) {
         self.mouse_button_mapping.insert(button, action);
     }
 
-    pub fn register_gamepad_button_mapping(&mut self, button: Button, action: &'static str) {
+    pub fn register_gamepad_button_mapping(&mut self, button: Button, action: Action) {
         self.gamepad_button_mapping.insert(button, action);
     }
 
-    pub fn register_gamepad_axis_mapping(&mut self, axis: Axis, action: &'static str) {
+    pub fn register_gamepad_axis_mapping(&mut self, axis: Axis, action: Action) {
         self.gamepad_axis_mapping.insert(axis, action);
     }
 
@@ -186,7 +187,7 @@ impl InputHandler {
         positive_action: &'static str,
         negative_action: &'static str,
     ) -> Option<f32> {
-        let axis = self.triggered_action_axis.get(axis_action).cloned(); // TODO
+        let axis = self.triggered_action_axis.get(axis_action).cloned();
         if axis.is_some() {
             return axis;
         }

@@ -7,8 +7,6 @@ use crate::{app::InputEvent, game::WorldChange, variant::Variant};
 pub mod registration;
 pub use registration::*;
 
-pub mod implementations;
-
 /// An [Element] is a **thing** inside a [World].  
 /// Whenever you need something in your world, be it static or updated,
 /// you are looking for one or multiple [Elements]!
