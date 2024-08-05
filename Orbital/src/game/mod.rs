@@ -250,12 +250,4 @@ pub trait Game {
         Self: Sized,
     {
     }
-
-    /// Gets called each time an update cycle is happening.  
-    /// Any [World] changes should happen inside here.
-    fn on_update(&mut self, _delta_time: f64, _world: &mut World)
-    where
-        Self: Sized,
-    {
-    }
 }

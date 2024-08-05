@@ -158,8 +158,6 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
             self.game_startup_complete = true;
         }
 
-        self.game.on_update(delta_time, &mut self.world);
-
         let app_changes = self.world.update(delta_time);
 
         // TODO: Needed?
