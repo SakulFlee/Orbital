@@ -39,22 +39,22 @@ impl Instance {
             attributes: &[
                 VertexAttribute {
                     offset: 0,
-                    shader_location: 2,
+                    shader_location: 5,
                     format: VertexFormat::Float32x4,
                 },
                 VertexAttribute {
                     offset: mem::size_of::<[f32; 4]>() as u64,
-                    shader_location: 3,
+                    shader_location: 6,
                     format: VertexFormat::Float32x4,
                 },
                 VertexAttribute {
-                    offset: mem::size_of::<[f32; 8]>() as u64,
-                    shader_location: 4,
+                    offset: mem::size_of::<[f32; 4 * 2]>() as u64,
+                    shader_location: 7,
                     format: VertexFormat::Float32x4,
                 },
                 VertexAttribute {
-                    offset: mem::size_of::<[f32; 12]>() as u64,
-                    shader_location: 5,
+                    offset: mem::size_of::<[f32; 4 * 3]>() as u64,
+                    shader_location: 8,
                     format: VertexFormat::Float32x4,
                 },
             ],

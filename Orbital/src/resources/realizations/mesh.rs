@@ -54,10 +54,7 @@ impl Mesh {
         let vertices = gltf_model
             .vertices()
             .iter()
-            .map(|vertex| Vertex {
-                position_coordinates: vertex.position,
-                texture_coordinates: vertex.tex_coords,
-            })
+            .map(|vertex| Into::<Vertex>::into(*vertex))
             .collect::<Vec<Vertex>>();
         let indices = match gltf_model.indices() {
             Some(i) => i,

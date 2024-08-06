@@ -4,6 +4,8 @@
         "assimp",
         "bgra",
         "bindgen",
+        "binormal",
+        "bitangent",
         "bytemuck",
         "cgmath",
         "consts",
