@@ -1,4 +1,4 @@
-use elements::{camera::Camera, cubes::Cubes, ping_pong::PingPongElement};
+use elements::{camera::Camera, damaged_helmet::ChessCube, cubes::Cubes, ping_pong::PingPongElement};
 use orbital::{
     game::{Game, World, WorldChange},
     log::info,
@@ -31,7 +31,8 @@ impl Game for ExampleGame {
             false,
         ))));
 
-        info!("Queuing Cubes spawn");
-        world.process_world_change(WorldChange::SpawnElement(Box::new(Cubes {})));
+        // info!("Queuing Cubes spawn");
+        // world.process_world_change(WorldChange::SpawnElement(Box::new(Cubes {})));
+        world.process_world_change(WorldChange::SpawnElement(Box::new(ChessCube {})));
     }
 }
