@@ -1,4 +1,4 @@
-use cgmath::{Vector2, Vector4};
+use cgmath::{Vector1, Vector2, Vector4};
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub enum TextureDescriptor {
@@ -15,11 +15,11 @@ pub enum TextureDescriptor {
     StandardSRGBu8Data(Vec<u8>, Vector2<u32>),
     /// Creates a texture with a single uniform color.
     ///
-    /// The format is:
-    /// x -> Red
-    /// y -> Green
-    /// z -> Blue
-    /// w -> Alpha
+    /// The format is:  
+    /// x -> Red  
+    /// y -> Green  
+    /// z -> Blue  
+    /// w -> Alpha  
     ///
     /// Each number should be at most 255.
     /// Where 255 means 100% and 0 means 0% of that channel.
@@ -52,6 +52,10 @@ pub enum TextureDescriptor {
     /// }
     /// ```
     UniformColor(Vector4<u8>),
+    /// Grayscale/Single channel textures
+    Luma { data: Vec<u8>, size: Vector2<u32> },
+    /// Grayscale/Single channel textures
+    UniformLuma { data: u8 },
     /// Creates a depth texture
     Depth(Vector2<u32>),
 }
