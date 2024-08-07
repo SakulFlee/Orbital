@@ -20,6 +20,7 @@ pub struct Material {
     pipeline_descriptor: PipelineDescriptor,
 
     // TODO: Unsure if we can remove those after material creation?
+    normal_texture: Texture,
     albedo_texture: Texture,
     metallic_texture: Texture,
     roughness_texture: Texture,
@@ -84,10 +85,12 @@ impl Material {
 
         cache.get_or_add_fallible(descriptor, |k| match k {
             MaterialDescriptor::PBR {
+                normal,
                 albedo,
                 metallic,
                 roughness,
             } => Self::standard_pbr(
+                normal,
                 albedo,
                 metallic,
                 roughness,
@@ -97,11 +100,13 @@ impl Material {
                 queue,
             ),
             MaterialDescriptor::PBRCustomShader {
+                normal,
                 albedo,
                 metallic,
                 roughness,
                 custom_shader,
             } => Self::standard_pbr(
+                normal,
                 albedo,
                 metallic,
                 roughness,
@@ -114,6 +119,7 @@ impl Material {
     }
 
     pub fn standard_pbr(
+        normal_texture_descriptor: &TextureDescriptor,
         albedo_texture_descriptor: &TextureDescriptor,
         metallic_texture_descriptor: &TextureDescriptor,
         roughness_texture_descriptor: &TextureDescriptor,
@@ -122,6 +128,7 @@ impl Material {
         device: &Device,
         queue: &Queue,
     ) -> Result<Self, Error> {
+        let normal_texture = Texture::from_descriptor(normal_texture_descriptor, device, queue)?;
         let albedo_texture = Texture::from_descriptor(albedo_texture_descriptor, device, queue)?;
         let metallic_texture =
             Texture::from_descriptor(metallic_texture_descriptor, device, queue)?;
@@ -143,11 +150,35 @@ impl Material {
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureView(albedo_texture.view()),
+                    resource: BindingResource::TextureView(normal_texture.view()),
                 },
                 BindGroupEntry {
                     binding: 1,
+                    resource: BindingResource::Sampler(normal_texture.sampler()),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: BindingResource::TextureView(albedo_texture.view()),
+                },
+                BindGroupEntry {
+                    binding: 3,
                     resource: BindingResource::Sampler(albedo_texture.sampler()),
+                },
+                BindGroupEntry {
+                    binding: 4,
+                    resource: BindingResource::TextureView(metallic_texture.view()),
+                },
+                BindGroupEntry {
+                    binding: 5,
+                    resource: BindingResource::Sampler(metallic_texture.sampler()),
+                },
+                BindGroupEntry {
+                    binding: 6,
+                    resource: BindingResource::TextureView(roughness_texture.view()),
+                },
+                BindGroupEntry {
+                    binding: 7,
+                    resource: BindingResource::Sampler(roughness_texture.sampler()),
                 },
             ],
         });
@@ -155,6 +186,7 @@ impl Material {
         Ok(Self::from_existing(
             bind_group,
             pipeline_descriptor,
+            normal_texture,
             albedo_texture,
             metallic_texture,
             roughness_texture,
@@ -164,6 +196,7 @@ impl Material {
     pub fn from_existing(
         bind_group: BindGroup,
         pipeline_descriptor: PipelineDescriptor,
+        normal_texture: Texture,
         albedo_texture: Texture,
         metallic_texture: Texture,
         roughness_texture: Texture,
@@ -171,6 +204,7 @@ impl Material {
         Self {
             bind_group,
             pipeline_descriptor,
+            normal_texture,
             albedo_texture,
             metallic_texture,
             roughness_texture,
