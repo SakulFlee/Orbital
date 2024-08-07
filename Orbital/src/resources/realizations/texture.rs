@@ -32,6 +32,8 @@ impl Texture {
             TextureDescriptor::UniformColor(color) => {
                 Ok(Self::uniform_color(*color, device, queue))
             }
+            TextureDescriptor::Luma { data, size } => Ok(Self::luma(data, size, device, queue)),
+            TextureDescriptor::UniformLuma { data } => Ok(Self::uniform_luma(data, device, queue)),
             TextureDescriptor::Depth(size) => Ok(Self::depth_texture(size, device, queue)),
         }
     }
@@ -63,6 +65,122 @@ impl Texture {
             device,
             queue,
         )
+    }
+
+    /// Luma (Grayscale) textures
+    pub fn luma(data: &Vec<u8>, size: &Vector2<u32>, device: &Device, queue: &Queue) -> Self {
+        let texture = Self::from_descriptors(
+            &WTextureDescriptor {
+                label: Some("Luma Texture"),
+                size: Extent3d {
+                    width: size.x,
+                    height: size.y,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::R8Unorm,
+                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+                view_formats: &[],
+            },
+            &TextureViewDescriptor::default(),
+            &SamplerDescriptor {
+                address_mode_u: AddressMode::ClampToEdge,
+                address_mode_v: AddressMode::ClampToEdge,
+                address_mode_w: AddressMode::ClampToEdge,
+                mag_filter: FilterMode::Linear,
+                min_filter: FilterMode::Linear,
+                mipmap_filter: FilterMode::Nearest,
+                lod_min_clamp: 0.0,
+                lod_max_clamp: 100.0,
+                ..Default::default()
+            },
+            device,
+            queue,
+        );
+
+        queue.write_texture(
+            ImageCopyTexture {
+                texture: texture.texture(),
+                aspect: TextureAspect::All,
+                origin: Origin3d::ZERO,
+                mip_level: 0,
+            },
+            data,
+            ImageDataLayout {
+                offset: 0,
+                // 1 bytes (Luma), times the width
+                bytes_per_row: Some(size.x),
+                // ... times height
+                rows_per_image: Some(size.y),
+            },
+            Extent3d {
+                width: size.x,
+                height: size.y,
+                ..Default::default()
+            },
+        );
+
+        texture
+    }
+
+    /// Uniform Luma (Grayscale) textures
+    pub fn uniform_luma(data: &u8, device: &Device, queue: &Queue) -> Self {
+        let texture = Self::from_descriptors(
+            &WTextureDescriptor {
+                label: Some("Luma Texture"),
+                size: Extent3d {
+                    width: 1,
+                    height: 1,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::R8Unorm,
+                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+                view_formats: &[],
+            },
+            &TextureViewDescriptor::default(),
+            &SamplerDescriptor {
+                address_mode_u: AddressMode::ClampToEdge,
+                address_mode_v: AddressMode::ClampToEdge,
+                address_mode_w: AddressMode::ClampToEdge,
+                mag_filter: FilterMode::Linear,
+                min_filter: FilterMode::Linear,
+                mipmap_filter: FilterMode::Nearest,
+                lod_min_clamp: 0.0,
+                lod_max_clamp: 100.0,
+                ..Default::default()
+            },
+            device,
+            queue,
+        );
+
+        queue.write_texture(
+            ImageCopyTexture {
+                texture: texture.texture(),
+                aspect: TextureAspect::All,
+                origin: Origin3d::ZERO,
+                mip_level: 0,
+            },
+            &[*data],
+            ImageDataLayout {
+                offset: 0,
+                // 1 bytes (Luma), times the width
+                bytes_per_row: Some(1),
+                // ... times height
+                rows_per_image: Some(1),
+            },
+            Extent3d {
+                width: 1,
+                height: 1,
+                ..Default::default()
+            },
+        );
+
+        texture
     }
 
     pub fn standard_srgb8_data(
