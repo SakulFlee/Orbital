@@ -18,7 +18,11 @@ use super::{Pipeline, Texture};
 pub struct Material {
     bind_group: BindGroup,
     pipeline_descriptor: PipelineDescriptor,
+
+    // TODO: Unsure if we can remove those after material creation?
     albedo_texture: Texture,
+    metallic_texture: Texture,
+    roughness_texture: Texture,
 }
 
 impl Material {
@@ -79,12 +83,29 @@ impl Material {
         let cache = Self::prepare_cache_access();
 
         cache.get_or_add_fallible(descriptor, |k| match k {
-            MaterialDescriptor::PBR(albedo) => {
-                Self::standard_pbr(albedo, None, surface_format, device, queue)
-            }
-            MaterialDescriptor::PBRCustomShader(albedo, shader_descriptor) => Self::standard_pbr(
+            MaterialDescriptor::PBR {
                 albedo,
-                Some(shader_descriptor),
+                metallic,
+                roughness,
+            } => Self::standard_pbr(
+                albedo,
+                metallic,
+                roughness,
+                None,
+                surface_format,
+                device,
+                queue,
+            ),
+            MaterialDescriptor::PBRCustomShader {
+                albedo,
+                metallic,
+                roughness,
+                custom_shader,
+            } => Self::standard_pbr(
+                albedo,
+                metallic,
+                roughness,
+                Some(custom_shader),
                 surface_format,
                 device,
                 queue,
@@ -94,12 +115,18 @@ impl Material {
 
     pub fn standard_pbr(
         albedo_texture_descriptor: &TextureDescriptor,
+        metallic_texture_descriptor: &TextureDescriptor,
+        roughness_texture_descriptor: &TextureDescriptor,
         shader_descriptor: Option<&ShaderDescriptor>,
         surface_format: &TextureFormat,
         device: &Device,
         queue: &Queue,
     ) -> Result<Self, Error> {
         let albedo_texture = Texture::from_descriptor(albedo_texture_descriptor, device, queue)?;
+        let metallic_texture =
+            Texture::from_descriptor(metallic_texture_descriptor, device, queue)?;
+        let roughness_texture =
+            Texture::from_descriptor(roughness_texture_descriptor, device, queue)?;
 
         let pipeline_descriptor = if let Some(shader_descriptor) = shader_descriptor {
             PipelineDescriptor::default_with_shader(shader_descriptor)
@@ -129,6 +156,8 @@ impl Material {
             bind_group,
             pipeline_descriptor,
             albedo_texture,
+            metallic_texture,
+            roughness_texture,
         ))
     }
 
@@ -136,11 +165,15 @@ impl Material {
         bind_group: BindGroup,
         pipeline_descriptor: PipelineDescriptor,
         albedo_texture: Texture,
+        metallic_texture: Texture,
+        roughness_texture: Texture,
     ) -> Self {
         Self {
             bind_group,
             pipeline_descriptor,
             albedo_texture,
+            metallic_texture,
+            roughness_texture,
         }
     }
 
