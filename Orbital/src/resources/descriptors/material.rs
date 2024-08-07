@@ -1,4 +1,5 @@
 use cgmath::Vector4;
+use log::debug;
 
 use super::{ShaderDescriptor, TextureDescriptor};
 
@@ -6,6 +7,7 @@ use super::{ShaderDescriptor, TextureDescriptor};
 pub enum MaterialDescriptor {
     /// Creates a standard PBR (= Physically-Based-Rendering) material.
     PBR {
+        normal: TextureDescriptor,
         albedo: TextureDescriptor,
         metallic: TextureDescriptor,
         roughness: TextureDescriptor,
@@ -13,6 +15,7 @@ pub enum MaterialDescriptor {
     /// Creates a PBR (= Physically-Based-Rendering) material
     /// with a custom shader.
     PBRCustomShader {
+        normal: TextureDescriptor,
         albedo: TextureDescriptor,
         metallic: TextureDescriptor,
         roughness: TextureDescriptor,
@@ -22,6 +25,20 @@ pub enum MaterialDescriptor {
 
 impl From<&easy_gltf::Material> for MaterialDescriptor {
     fn from(value: &easy_gltf::Material) -> Self {
+        let normal = if let Some(x) = &value.normal {
+            let mut processed_bytes = Vec::new();
+            for (k, v) in x.texture.to_vec().into_iter().enumerate() {
+                processed_bytes.push(v);
+                if k % 3 == 0 {
+                    processed_bytes.push(255);
+                }
+            }
+
+            TextureDescriptor::StandardSRGBAu8Data(processed_bytes, x.texture.dimensions().into())
+        } else {
+            TextureDescriptor::UNIFORM_BLACK
+        };
+
         let metallic_texture_descriptor = if let Some(metallic_buffer) = &value.pbr.metallic_texture
         {
             TextureDescriptor::Luma {
@@ -47,7 +64,7 @@ impl From<&easy_gltf::Material> for MaterialDescriptor {
             };
 
         let albedo_texture_descriptor = if let Some(base_color) = &value.pbr.base_color_texture {
-            TextureDescriptor::StandardSRGBu8Data(
+            TextureDescriptor::StandardSRGBAu8Data(
                 base_color.to_vec(),
                 base_color.dimensions().into(),
             )
@@ -61,6 +78,7 @@ impl From<&easy_gltf::Material> for MaterialDescriptor {
         };
 
         Self::PBR {
+            normal,
             albedo: albedo_texture_descriptor,
             metallic: metallic_texture_descriptor,
             roughness: roughness_texture_descriptor,

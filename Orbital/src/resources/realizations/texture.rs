@@ -1,6 +1,6 @@
 use cgmath::{Vector2, Vector4};
 use image::{DynamicImage, GenericImageView, ImageReader};
-use log::warn;
+use log::{debug, warn};
 use wgpu::{
     AddressMode, Device, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout, Origin3d, Queue,
     Sampler, SamplerDescriptor, Texture as WTexture, TextureAspect,
@@ -26,8 +26,8 @@ impl Texture {
             TextureDescriptor::FilePath(file_path) => {
                 Self::from_file_path(file_path, device, queue)
             }
-            TextureDescriptor::StandardSRGBu8Data(data, size) => {
-                Ok(Self::standard_srgb8_data(data, size, device, queue))
+            TextureDescriptor::StandardSRGBAu8Data(data, size) => {
+                Ok(Self::standard_srgba8_data(data, size, device, queue))
             }
             TextureDescriptor::UniformColor(color) => {
                 Ok(Self::uniform_color(*color, device, queue))
@@ -44,7 +44,7 @@ impl Texture {
             .decode()
             .map_err(Error::ImageError)?;
 
-        Ok(Self::standard_srgb8_data(
+        Ok(Self::standard_srgba8_data(
             img.as_bytes(),
             &(img.width(), img.height()).into(),
             device,
@@ -59,7 +59,7 @@ impl Texture {
     /// ⚠️ as possible data usage and this resource may not even arrive
     /// ⚠️ in the shader _if_ it is not used.
     pub fn uniform_color(color: Vector4<u8>, device: &Device, queue: &Queue) -> Self {
-        Self::standard_srgb8_data(
+        Self::standard_srgba8_data(
             &[color.x, color.y, color.z, color.w],
             &(1, 1).into(),
             device,
@@ -86,9 +86,9 @@ impl Texture {
             },
             &TextureViewDescriptor::default(),
             &SamplerDescriptor {
-                address_mode_u: AddressMode::ClampToEdge,
-                address_mode_v: AddressMode::ClampToEdge,
-                address_mode_w: AddressMode::ClampToEdge,
+                address_mode_u: AddressMode::Repeat,
+                address_mode_v: AddressMode::Repeat,
+                address_mode_w: AddressMode::Repeat,
                 mag_filter: FilterMode::Linear,
                 min_filter: FilterMode::Linear,
                 mipmap_filter: FilterMode::Nearest,
@@ -144,9 +144,9 @@ impl Texture {
             },
             &TextureViewDescriptor::default(),
             &SamplerDescriptor {
-                address_mode_u: AddressMode::ClampToEdge,
-                address_mode_v: AddressMode::ClampToEdge,
-                address_mode_w: AddressMode::ClampToEdge,
+                address_mode_u: AddressMode::Repeat,
+                address_mode_v: AddressMode::Repeat,
+                address_mode_w: AddressMode::Repeat,
                 mag_filter: FilterMode::Linear,
                 min_filter: FilterMode::Linear,
                 mipmap_filter: FilterMode::Nearest,
@@ -183,7 +183,7 @@ impl Texture {
         texture
     }
 
-    pub fn standard_srgb8_data(
+    pub fn standard_srgba8_data(
         data: &[u8],
         size: &Vector2<u32>,
         device: &Device,
@@ -208,9 +208,9 @@ impl Texture {
             &TextureViewDescriptor::default(),
             &SamplerDescriptor {
                 label: Some("Standard SRGB u8 Data Texture Sampler"),
-                address_mode_u: AddressMode::ClampToEdge,
-                address_mode_v: AddressMode::ClampToEdge,
-                address_mode_w: AddressMode::ClampToEdge,
+                address_mode_u: AddressMode::Repeat,
+                address_mode_v: AddressMode::Repeat,
+                address_mode_w: AddressMode::Repeat,
                 mag_filter: FilterMode::Linear,
                 min_filter: FilterMode::Nearest,
                 ..Default::default()
@@ -293,9 +293,9 @@ impl Texture {
             },
             &TextureViewDescriptor::default(),
             &SamplerDescriptor {
-                address_mode_u: AddressMode::ClampToEdge,
-                address_mode_v: AddressMode::ClampToEdge,
-                address_mode_w: AddressMode::ClampToEdge,
+                address_mode_u: AddressMode::Repeat,
+                address_mode_v: AddressMode::Repeat,
+                address_mode_w: AddressMode::Repeat,
                 mag_filter: FilterMode::Linear,
                 min_filter: FilterMode::Linear,
                 mipmap_filter: FilterMode::Nearest,
