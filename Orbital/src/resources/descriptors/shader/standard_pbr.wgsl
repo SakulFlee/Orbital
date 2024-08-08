@@ -16,10 +16,12 @@ struct InstanceData {
 
 struct FragmentData {
     @builtin(position) position: vec4<f32>,
-    @location(0) uv: vec2<f32>,
-    @location(1) normal: vec3<f32>,
-    @location(2) tangent: vec3<f32>,
-    @location(3) bitangent: vec3<f32>,
+    @location(0) world_position: vec3<f32>,
+    @location(1) uv: vec2<f32>,
+    @location(2) normal: vec3<f32>,
+    @location(3) tangent: vec3<f32>,
+    @location(4) bitangent: vec3<f32>,
+    @location(5) camera_position: vec3<f32>,
 }
 
 struct CameraUniform {
@@ -57,28 +59,36 @@ fn entrypoint_vertex(
     var out: FragmentData;
 
     // Calculate actual position
-    out.position = camera.view_projection_matrix * model_space_matrix * vec4<f32>(vertex.position, 1.0);
+    let world_position_ = model_space_matrix * vec4<f32>(vertex.position, 1.0);
+    out.position = camera.view_projection_matrix * world_position_;
+    out.world_position = world_position_.xyz;
 
     // Passthrough variables
     out.uv = vertex.uv;
     out.normal = vertex.normal;
     out.tangent = vertex.tangent;
     out.bitangent = vertex.bitangent;
+    out.camera_position = camera.position;
 
     return out;
 }
 
 @fragment
-fn entrypoint_fragment(fragment: FragmentData) -> @location(0) vec4<f32> {
-    let tangent_basis = mat3x3<f32>(
-        fragment.tangent,
-        fragment.bitangent,
-        fragment.normal
-    );
+fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
+    let N = normalize(in.normal);
+    let V = normalize(in.camera_position - in.world_position);
 
-    return textureSample(
-        albedo_texture,
-        albedo_sampler,
-        fragment.uv
-    );
+    return vec4<f32>(N, 1.0);
+
+    // let tangent_basis = mat3x3<f32>(
+    //     in.tangent,
+    //     in.bitangent,
+    //     in.normal
+    // );
+
+    // return textureSample(
+    //     albedo_texture,
+    //     albedo_sampler,
+    //     in.uv
+    // );
 }
