@@ -24,6 +24,7 @@ struct FragmentData {
 
 struct CameraUniform {
     view_projection_matrix: mat4x4<f32>,
+    position: vec3<f32>,
 }
 
 @group(0) @binding(0) var normal_texture: texture_2d<f32>;

@@ -35,10 +35,14 @@ impl Camera {
         let buffer = device.create_buffer(&BufferDescriptor {
             label: Some("Camera Buffer"),
             size: (
-                // Main data type
-                mem::size_of::<f32>() *
-                // View Matrix (4x4 f32)
-                (4 * 4)
+                // Main data type is f32.
+                // The matrix is a 4x4 f32 vector.
+                // Additionally, we have a position 3x f32 vector.
+                // Unfortunately, we need to waste one byte here as WGPU
+                // wants it to align to the next multiple that is dividable by 8
+                // Thus, we need to add one byte here and fill an empty byte at
+                // the end.
+                mem::size_of::<f32>() * ((4 * 4) + 4)
             ) as u64,
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             mapped_at_creation: false,
@@ -91,6 +95,10 @@ impl Camera {
                 view_projection_matrix.w.y.to_le_bytes(),
                 view_projection_matrix.w.z.to_le_bytes(),
                 view_projection_matrix.w.w.to_le_bytes(),
+                self.descriptor.position.x.to_le_bytes(),
+                self.descriptor.position.y.to_le_bytes(),
+                self.descriptor.position.z.to_le_bytes(),
+                [0u8; 4], // Empty to align with "dividable by 8"
             ]
             .concat(),
         );
