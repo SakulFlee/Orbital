@@ -152,8 +152,8 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
         let F = fresnel_schlick(max(dot(H, V), 0.0), F0);
 
         let kS = F;
-        var kD = vec3<f32>(1.0) - kS;
-        kD *= 1.0 - metallic;
+        var refraction_ratio = vec3<f32>(1.0) - kS; // refraction_ratio = kD
+        refraction_ratio *= 1.0 - metallic;
 
         let numerator = NDF * G * F;
         let denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001;
@@ -161,7 +161,7 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
 
         // Adding radiance to Lo
         let NdotL = max(dot(N, L), 0.0);
-        Lo += (kD * albedo.xyz / PI + specular) * radiance * NdotL;
+        Lo += (refraction_ratio * albedo.xyz / PI + specular) * radiance * NdotL;
     }
 
     // Ambient calculation
