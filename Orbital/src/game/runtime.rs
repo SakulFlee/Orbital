@@ -1,15 +1,18 @@
-use std::{sync::OnceLock, time::Instant};
+use std::{any::Any, sync::OnceLock, time::Instant};
 
 use cgmath::Vector2;
-use log::{debug, info};
+use log::{debug, error, info};
 use wgpu::{Device, Queue, SurfaceConfiguration, TextureView};
 use winit::event_loop::EventLoop;
 
 use crate::{
     app::{App, AppChange, AppRuntime, InputEvent},
     error::Error,
-    renderer::Renderer,
-    resources::realizations::{Material, Pipeline},
+    renderer::{Renderer, StandardRenderer},
+    resources::{
+        descriptors::CubeTextureDescriptor,
+        realizations::{CubeTexture, Material, Pipeline},
+    },
     timer::Timer,
 };
 
@@ -23,6 +26,7 @@ pub struct GameRuntime<GameImpl: Game, RendererImpl: Renderer> {
     renderer: RendererImpl,
     pipeline_cleanup_timer: Instant,
     material_cleanup_timer: Instant,
+    cube_texture: Option<CubeTexture>,
 }
 
 pub static mut PIPELINE_CACHE_SETTINGS: OnceLock<CacheSettings> = OnceLock::new();
@@ -122,6 +126,7 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
             ),
             pipeline_cleanup_timer: Instant::now(),
             material_cleanup_timer: Instant::now(),
+            cube_texture: None,
         }
     }
 
@@ -174,12 +179,40 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
     where
         Self: Sized,
     {
+        if let Some(x) = &self.cube_texture {
+            // ...
+        } else {
+            let cube_texture_result = CubeTexture::from_descriptor(
+                CubeTextureDescriptor::RadianceHDRFile {
+                    path: "assets/HDRs/rosendal_park_sunset_puresky_4k.hdr",
+                },
+                device,
+                queue,
+            );
+
+            match cube_texture_result {
+                Ok(x) => {
+                    info!("Successfully loaded and converted HDR!");
+                    self.cube_texture = Some(x);
+                }
+                Err(e) => {
+                    error!("Failed loading and/or converting HDR!");
+                }
+            }
+        }
+
         self.world.prepare_render(device, queue);
 
         let (camera, models) = self.world.gather_render_resources();
 
-        self.renderer
-            .render(target_view, device, queue, &models, camera, self.world.light_storage());
+        self.renderer.render(
+            target_view,
+            device,
+            queue,
+            &models,
+            camera,
+            self.world.light_storage(),
+        );
 
         if let Some((delta_time, fps)) = self.timer.tick() {
             debug!("FPS: {fps}");

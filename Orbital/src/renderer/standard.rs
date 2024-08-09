@@ -5,12 +5,10 @@ use wgpu::{
     TextureFormat, TextureView,
 };
 
-use crate::{
-    log::error,
-    resources::{
-        descriptors::TextureDescriptor,
-        realizations::{Camera, LightStorage, Model, Pipeline, Texture},
-    },
+use crate::log::error;
+use crate::resources::{
+    descriptors::TextureDescriptor,
+    realizations::{Camera, LightStorage, Model, Pipeline, Texture},
 };
 
 use super::Renderer;

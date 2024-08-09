@@ -17,4 +17,5 @@ pub enum Error {
     ModelNotFound,
     ImageError(image::ImageError),
     CannotRealizeTag(String),
+    WrongFormat,
 }

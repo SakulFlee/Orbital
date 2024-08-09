@@ -20,11 +20,11 @@ pub struct Material {
     pipeline_descriptor: PipelineDescriptor,
 
     // TODO: Unsure if we can remove those after material creation?
-    normal_texture: Texture,
-    albedo_texture: Texture,
-    metallic_texture: Texture,
-    roughness_texture: Texture,
-    occlusion_texture: Texture,
+    // normal_texture: Texture,
+    // albedo_texture: Texture,
+    // metallic_texture: Texture,
+    // roughness_texture: Texture,
+    // occlusion_texture: Texture,
 }
 
 impl Material {
@@ -207,31 +207,31 @@ impl Material {
         Ok(Self::from_existing(
             bind_group,
             pipeline_descriptor,
-            normal_texture,
-            albedo_texture,
-            metallic_texture,
-            roughness_texture,
-            occlusion_texture,
+            // normal_texture,
+            // albedo_texture,
+            // metallic_texture,
+            // roughness_texture,
+            // occlusion_texture,
         ))
     }
 
     pub fn from_existing(
         bind_group: BindGroup,
         pipeline_descriptor: PipelineDescriptor,
-        normal_texture: Texture,
-        albedo_texture: Texture,
-        metallic_texture: Texture,
-        roughness_texture: Texture,
-        occlusion_texture: Texture,
+        // normal_texture: Texture,
+        // albedo_texture: Texture,
+        // metallic_texture: Texture,
+        // roughness_texture: Texture,
+        // occlusion_texture: Texture,
     ) -> Self {
         Self {
             bind_group,
             pipeline_descriptor,
-            normal_texture,
-            albedo_texture,
-            metallic_texture,
-            roughness_texture,
-            occlusion_texture,
+            // normal_texture,
+            // albedo_texture,
+            // metallic_texture,
+            // roughness_texture,
+            // occlusion_texture,
         }
     }
 
