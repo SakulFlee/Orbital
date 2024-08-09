@@ -1,3 +1,9 @@
+// Variable help:
+// The following is the same (in GLSL):
+// X Y Z W
+// R G B A
+// S T P Q
+
 struct VertexData {
     @builtin(vertex_index) vertex_index: u32,
     @location(0) position: vec3<f32>,
@@ -89,39 +95,38 @@ fn entrypoint_vertex(
 }
 
 @fragment
-fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
-    // TODO: Unused??
-    let normal = textureSample(
-        normal_texture,
-        normal_sampler,
-        in.uv
-    );
-
+fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {    
     // Sample textures
-    let albedo = textureSample(
+    let albedo = pow(textureSample(
         albedo_texture,
         albedo_sampler,
         in.uv
-    );
+    ).rgb, vec3<f32>(2.2));
     let metallic = textureSample(
         metallic_texture,
         metallic_sampler,
         in.uv
-    ).x;
+    ).r;
     let roughness = textureSample(
         roughness_texture,
         roughness_sampler,
         in.uv
-    ).x;
+    ).r;
+
+    // Sample normal
+    let normal = sample_normal_from_map(in.uv, in.world_position, in.normal);
+    let N = normalize(normal);
+
+    // TODO: Might be able to get rid of tangent, bitangent, etc.?
 
     // Precalculations
-    let N = normalize(in.normal);
     let V = normalize(in.camera_position - in.world_position);
 
     var F0 = STANDARD_F0;
     F0 = mix(F0, albedo.xyz, metallic);
 
     let ao = 1.0; // TODO
+    // TODO: Map?
 
     // Reflectance equation
     var Lo = vec3<f32>(0.0);
@@ -163,6 +168,27 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     color = pow(color, vec3<f32>(1.0 / 2.2));
 
     return vec4<f32>(color, 1.0);
+}
+
+fn sample_normal_from_map(uv: vec2<f32>, world_position: vec3<f32>, vertex_normal: vec3<f32>) -> vec3<f32> {
+    let normal_sample = textureSample(
+        normal_texture,
+        normal_sampler,
+        uv
+    ).xyz;
+    let tangent_normal = normal_sample * 2.0 - 1.0;
+
+    let Q1 = dpdx(world_position);
+    let Q2 = dpdy(world_position);
+    let st1 = dpdx(uv);
+    let st2 = dpdy(uv);
+
+    let N = normalize(vertex_normal);
+    let T = normalize(Q1 * st2.y - Q2 * st1.y);
+    let B = -normalize(cross(N, T));
+
+    let TBN = mat3x3<f32>(T, B, N);
+    return normalize(TBN * tangent_normal);
 }
 
 fn fresnel_schlick(cos_theta: f32, F0: vec3<f32>) -> vec3<f32> {
