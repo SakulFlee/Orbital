@@ -12,6 +12,7 @@ use crate::{
 
 use super::{instance::Instance, Material, Mesh};
 
+#[derive(Debug)]
 pub struct Model {
     mesh: Mesh,
     material_descriptor: MaterialDescriptor,

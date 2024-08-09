@@ -14,6 +14,7 @@ use orbital::{
     },
 };
 
+#[derive(Debug)]
 pub struct Camera {
     input_handler: InputHandler,
     is_focused: bool,

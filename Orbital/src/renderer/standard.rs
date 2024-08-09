@@ -9,7 +9,7 @@ use crate::{
     log::error,
     resources::{
         descriptors::TextureDescriptor,
-        realizations::{Camera, Model, Pipeline, Texture},
+        realizations::{Camera, LightStorage, Model, Pipeline, Texture},
     },
 };
 
@@ -66,6 +66,7 @@ impl Renderer for StandardRenderer {
         queue: &Queue,
         models: &[&Model],
         camera: &Camera,
+        light_storage: &LightStorage,
     ) {
         let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor { label: None });
         {
@@ -119,6 +120,7 @@ impl Renderer for StandardRenderer {
 
                 render_pass.set_bind_group(0, material.bind_group(), &[]);
                 render_pass.set_bind_group(1, camera.bind_group(), &[]);
+                render_pass.set_bind_group(2, light_storage.bind_group().unwrap(), &[]);
 
                 render_pass.set_vertex_buffer(0, mesh.vertex_buffer().slice(..));
                 render_pass.set_vertex_buffer(1, model.instance_buffer().slice(..));

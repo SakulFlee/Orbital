@@ -29,6 +29,15 @@ struct CameraUniform {
     position: vec3<f32>,
 }
 
+struct PointLight {
+    position: vec3<f32>,
+    color: vec3<f32>,
+}
+
+struct LightStorage {
+    point_lights: array<PointLight>,
+}
+
 @group(0) @binding(0) var normal_texture: texture_2d<f32>;
 @group(0) @binding(1) var normal_sampler: sampler;
 
@@ -43,6 +52,12 @@ struct CameraUniform {
 
 @group(1) @binding(0) 
 var<uniform> camera: CameraUniform;
+
+@group(2) @binding(0) 
+var<storage> lights: LightStorage;
+
+const PI = 3.14159265359; 
+const STANDARD_F0 = vec3<f32>(0.04);
 
 @vertex
 fn entrypoint_vertex(
@@ -75,20 +90,98 @@ fn entrypoint_vertex(
 
 @fragment
 fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
+    // TODO: Unused??
+    let normal = textureSample(
+        normal_texture,
+        normal_sampler,
+        in.uv
+    );
+    let albedo = textureSample(
+        albedo_texture,
+        albedo_sampler,
+        in.uv
+    );
+    let metallic = textureSample(
+        metallic_texture,
+        metallic_sampler,
+        in.uv
+    ).x;
+    let roughness = textureSample(
+        roughness_texture,
+        roughness_sampler,
+        in.uv
+    ).x;
+
     let N = normalize(in.normal);
     let V = normalize(in.camera_position - in.world_position);
 
-    return vec4<f32>(N, 1.0);
+    var Lo = vec3<f32>(0.0);
+    for (var i: u32 = 0; i < arrayLength(&lights.point_lights); i++) {
+        let point_light = lights.point_lights[i];
 
-    // let tangent_basis = mat3x3<f32>(
-    //     in.tangent,
-    //     in.bitangent,
-    //     in.normal
-    // );
+        let L = normalize(point_light.position - in.world_position);
+        let H = normalize(V + L);
 
-    // return textureSample(
-    //     albedo_texture,
-    //     albedo_sampler,
-    //     in.uv
-    // );
+        let distance = length(point_light.position - in.world_position);
+        let attenuation = 1.0 / (distance * distance);
+        let radiance = point_light.color * attenuation;
+
+        var F0 = STANDARD_F0;
+        F0 = mix(F0, albedo.xyz, metallic);
+        let F = fresnel_schlick(max(dot(H, V), 0.0), F0);
+
+        let NDF = distribution_ggx(N, H, roughness);
+        let G = geometry_smith(N, V, L, roughness);
+
+        // Cook-Torrance BRDF
+        let numerator = NDF * G * F;
+        let denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001;
+        let specular = numerator / denominator;
+
+        let kS = F;
+        var kD = vec3<f32>(1.0) - kS;
+        kD *= 1.0 - metallic;
+
+        let NdotL = max(dot(N, L), 0.0);
+        Lo += (kD * albedo.xyz / PI + specular) * radiance * NdotL;
+    }
+
+    let ao = 1.0; // TODO
+    let ambient = vec3<f32>(0.5) * albedo.xyz * ao;
+    let color = ambient + Lo;
+
+    return vec4<f32>(color, 1.0);
+}
+
+fn fresnel_schlick(cos_theta: f32, F0: vec3<f32>) -> vec3<f32> {
+    return F0 + (1.0 - F0) * pow(clamp(1.0 - cos_theta, 0.0, 1.0), 5.0);
+}
+
+fn distribution_ggx(N: vec3<f32>, H: vec3<f32>, roughness: f32) -> f32 {
+    let a_squared = pow(roughness * roughness, 2.0);
+    let NdotH_squared = pow(max(dot(N, H), 0.0), 2.0);
+
+    var denom = (NdotH_squared * (a_squared - 1.0) + 1.0);
+    denom = PI * pow(denom, 2.0);
+
+    return a_squared / denom;
+}
+
+fn geometry_schlick_ggx(NdotV: f32, roughness: f32) -> f32 {
+    let r = (roughness + 1.0);
+    let k = pow(r, 2.0) / 8.0;
+
+    let denom = NdotV * (1.0 - k) + k;
+
+    return NdotV / denom;
+}
+
+fn geometry_smith(N: vec3<f32>, V: vec3<f32>, L: vec3<f32>, roughness: f32) -> f32 {
+    let NdotV = max(dot(N, V), 0.0);
+    let NdotL = max(dot(N, L), 0.0);
+
+    let ggx2 = geometry_schlick_ggx(NdotV, roughness);
+    let ggx1 = geometry_schlick_ggx(NdotL, roughness);
+
+    return ggx1 * ggx2;
 }

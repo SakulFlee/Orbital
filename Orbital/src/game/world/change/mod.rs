@@ -5,7 +5,7 @@ use hashbrown::HashMap;
 use crate::{
     app::AppChange,
     game::Element,
-    resources::descriptors::{CameraDescriptor, ModelDescriptor},
+    resources::descriptors::{CameraDescriptor, LightDescriptor, ModelDescriptor},
     variant::Variant,
 };
 
@@ -92,6 +92,8 @@ pub enum WorldChange {
     UpdateCamera(CameraChange),
     /// Any [AppChange]s that need to be processed need to use this variant!
     AppChange(AppChange),
+    /// Spawns a light into existence.
+    SpawnLight(LightDescriptor),
 }
 
 impl fmt::Debug for WorldChange {
@@ -120,6 +122,7 @@ impl fmt::Debug for WorldChange {
             }
             Self::UpdateCamera(arg0) => f.debug_tuple("UpdateCamera").field(arg0).finish(),
             Self::AppChange(app_change) => f.debug_tuple("AppChange").field(app_change).finish(),
+            Self::SpawnLight(desc) => f.debug_tuple("SpawnLight").field(desc).finish(),
         }
     }
 }

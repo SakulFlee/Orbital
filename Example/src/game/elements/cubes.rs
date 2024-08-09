@@ -5,6 +5,7 @@ use orbital::{
     ulid::Ulid,
 };
 
+#[derive(Debug)]
 pub struct Cubes;
 
 impl Element for Cubes {
