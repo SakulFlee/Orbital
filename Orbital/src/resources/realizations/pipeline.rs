@@ -15,7 +15,7 @@ use crate::{
     resources::{descriptors::PipelineDescriptor, realizations::Shader},
 };
 
-use super::{Camera, Instance, Vertex};
+use super::{Camera, Instance, LightStorage, Vertex};
 
 #[derive(Debug)]
 pub struct Pipeline {
@@ -194,6 +194,8 @@ impl Pipeline {
                 &pipeline_bind_group_layout,
                 // Camera bind group layout
                 &device.create_bind_group_layout(&Camera::bind_group_layout_descriptor()),
+                // Light Storage bind group layout
+                &device.create_bind_group_layout(&LightStorage::bind_group_layout_descriptor()),
             ],
             push_constant_ranges: &[],
         });

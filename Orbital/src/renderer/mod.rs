@@ -1,7 +1,7 @@
 use cgmath::Vector2;
 use wgpu::{Device, Queue, TextureFormat, TextureView};
 
-use crate::resources::realizations::{Camera, Model};
+use crate::resources::realizations::{Camera, LightStorage, Model};
 
 pub mod standard;
 pub use standard::*;
@@ -25,6 +25,8 @@ pub trait Renderer {
 
     fn update(&mut self, delta_time: f64);
 
+    // TODO: Change to raw data types (e.g. bind group) to make it more
+    // compatible with other implementations
     fn render(
         &mut self,
         target_view: &TextureView,
@@ -32,5 +34,6 @@ pub trait Renderer {
         queue: &Queue,
         models: &[&Model],
         camera: &Camera,
+        light_storage: &LightStorage,
     );
 }

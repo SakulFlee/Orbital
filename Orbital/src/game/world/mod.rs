@@ -10,7 +10,7 @@ use crate::{
     log::error,
     resources::{
         descriptors::{CameraDescriptor, ModelDescriptor},
-        realizations::{Camera, Model},
+        realizations::{Camera, LightStorage, Model},
     },
     variant::Variant,
 };
@@ -62,7 +62,7 @@ pub type ModelUlid = Ulid;
 /// [Elements]: crate::game::world::element::Element
 /// [realized resource]: crate::resources::realizations
 /// [realized resources]: crate::resources::realizations
-#[derive(Default)]
+#[derive(Debug)]
 pub struct World {
     // --- Elements & Models ---
     /// [Element]s and their [Ulid]s
@@ -74,6 +74,8 @@ pub struct World {
     model_owner: HashMap<ModelUlid, ElementUlid>,
     /// Translation map to determine _tag_ association between [Element]s
     tags: HashMap<String, Vec<ElementUlid>>,
+    /// --- Storages ---
+    light_storage: LightStorage,
     // --- Queues ---
     /// Queue for [WorldChange]s before being processed into other queues
     queue_world_changes: Vec<WorldChange>,
@@ -106,8 +108,24 @@ pub struct World {
 }
 
 impl World {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(device: &Device, queue: &Queue) -> Self {
+        Self {
+            elements: Default::default(),
+            models: Default::default(),
+            model_owner: Default::default(),
+            tags: Default::default(),
+            light_storage: LightStorage::initialize(device, queue),
+            queue_world_changes: Default::default(),
+            queue_element_spawn: Default::default(),
+            queue_element_despawn: Default::default(),
+            queue_model_spawn: Default::default(),
+            queue_model_despawn: Default::default(),
+            queue_messages: Default::default(),
+            active_camera: Default::default(),
+            active_camera_change: Default::default(),
+            camera_descriptors: Default::default(),
+            next_camera: Default::default(),
+        }
     }
 
     fn process_active_camera_change(&mut self, device: &Device, queue: &Queue) {
@@ -353,6 +371,9 @@ impl World {
                 }
             }
             WorldChange::AppChange(app_change) => return Some(app_change),
+            WorldChange::SpawnLight(light_descriptor) => {
+                self.light_storage.add_descriptor(light_descriptor)
+            }
         }
 
         None
@@ -419,6 +440,8 @@ impl World {
         self.process_queue_model_spawn(device, queue);
         self.process_active_camera_change(device, queue);
         self.process_next_camera(device, queue);
+
+        self.light_storage.update_if_needed(device, queue);
     }
 
     /// This function returns a [Vec<&Model>] of all [Models] that
@@ -464,7 +487,7 @@ impl World {
         ulids
     }
 
-    // pub fn handle_input_event(&mut self, input_event: InputEvent) -> Result<(), Error> {
-    //     // self.input_manager.handle_input_event(input_event)
-    // }
+    pub fn light_storage(&self) -> &LightStorage {
+        &self.light_storage
+    }
 }

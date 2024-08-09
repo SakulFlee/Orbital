@@ -112,7 +112,7 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
         Self {
             game: GameImpl::init(),
             game_startup_complete: false,
-            world: World::default(),
+            world: World::new(device, queue),
             timer: Timer::new(),
             renderer: RendererImpl::new(
                 config.format,
@@ -179,7 +179,7 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
         let (camera, models) = self.world.gather_render_resources();
 
         self.renderer
-            .render(target_view, device, queue, &models, camera);
+            .render(target_view, device, queue, &models, camera, self.world.light_storage());
 
         if let Some((delta_time, fps)) = self.timer.tick() {
             debug!("FPS: {fps}");

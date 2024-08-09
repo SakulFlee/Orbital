@@ -8,6 +8,7 @@ use wgpu::{
 
 use crate::{game::CameraChange, resources::descriptors::CameraDescriptor};
 
+#[derive(Debug)]
 pub struct Camera {
     descriptor: CameraDescriptor,
     bind_group: BindGroup,
