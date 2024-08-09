@@ -96,6 +96,8 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
         normal_sampler,
         in.uv
     );
+
+    // Sample textures
     let albedo = textureSample(
         albedo_texture,
         albedo_sampler,
@@ -112,13 +114,21 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
         in.uv
     ).x;
 
+    // Precalculations
     let N = normalize(in.normal);
     let V = normalize(in.camera_position - in.world_position);
 
+    var F0 = STANDARD_F0;
+    F0 = mix(F0, albedo.xyz, metallic);
+
+    let ao = 1.0; // TODO
+
+    // Reflectance equation
     var Lo = vec3<f32>(0.0);
     for (var i: u32 = 0; i < arrayLength(&lights.point_lights); i++) {
         let point_light = lights.point_lights[i];
 
+        // Calculate per-light radiance
         let L = normalize(point_light.position - in.world_position);
         let H = normalize(V + L);
 
@@ -126,36 +136,38 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
         let attenuation = 1.0 / (distance * distance);
         let radiance = point_light.color * attenuation;
 
-        var F0 = STANDARD_F0;
-        F0 = mix(F0, albedo.xyz, metallic);
-        let F = fresnel_schlick(max(dot(H, V), 0.0), F0);
-
+        // Cook-Torrance BRDF
         let NDF = distribution_ggx(N, H, roughness);
         let G = geometry_smith(N, V, L, roughness);
-
-        // Cook-Torrance BRDF
-        let numerator = NDF * G * F;
-        let denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001;
-        let specular = numerator / denominator;
+        let F = fresnel_schlick(max(dot(H, V), 0.0), F0);
 
         let kS = F;
         var kD = vec3<f32>(1.0) - kS;
         kD *= 1.0 - metallic;
 
+        let numerator = NDF * G * F;
+        let denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001;
+        let specular = numerator / denominator;
+
+        // Adding radiance to Lo
         let NdotL = max(dot(N, L), 0.0);
         Lo += (kD * albedo.xyz / PI + specular) * radiance * NdotL;
     }
 
-    let ao = 1.0; // TODO
+    // Ambient calculation
     let ambient = vec3<f32>(0.03) * albedo.xyz * ao;
-    let color = ambient + Lo;
+    var color = ambient + Lo;
+
+    // HDR gamma correction / tone mapping / Reinhard operator
+    color = color / (color + vec3<f32>(1.0));
+    color = pow(color, vec3<f32>(1.0 / 2.2));
 
     return vec4<f32>(color, 1.0);
 }
 
 fn fresnel_schlick(cos_theta: f32, F0: vec3<f32>) -> vec3<f32> {
     let c = pow(clamp(1.0 - cos_theta, 0.0, 1.0), 5.0);
-    
+
     return F0 + (1.0 - F0) * c;
 }
 
