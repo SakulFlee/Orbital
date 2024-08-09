@@ -1,12 +1,10 @@
 use log::info;
 use std::sync::{Mutex, OnceLock};
 use wgpu::{
-    BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendState,
-    ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, Device,
-    FragmentState, MultisampleState, PipelineCompilationOptions, PipelineLayoutDescriptor,
-    PrimitiveState, Queue, RenderPipeline, RenderPipelineDescriptor, SamplerBindingType,
-    ShaderStages, StencilState, TextureFormat, TextureSampleType, TextureViewDimension,
-    VertexState,
+    BindGroupLayout, BindGroupLayoutDescriptor, BlendState, ColorTargetState, ColorWrites,
+    CompareFunction, DepthBiasState, DepthStencilState, Device, FragmentState, MultisampleState,
+    PipelineCompilationOptions, PipelineLayoutDescriptor, PrimitiveState, Queue, RenderPipeline,
+    RenderPipelineDescriptor, StencilState, TextureFormat, VertexState,
 };
 
 use crate::{
@@ -115,105 +113,36 @@ impl Pipeline {
         let pipeline_bind_group_layout =
             device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: None,
-                entries: &[
-                    // Normal
-                    BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                    BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                    // Albedo
-                    BindGroupLayoutEntry {
-                        binding: 2,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                    BindGroupLayoutEntry {
-                        binding: 3,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                    // Metallic
-                    BindGroupLayoutEntry {
-                        binding: 4,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                    BindGroupLayoutEntry {
-                        binding: 5,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                    // Roughness
-                    BindGroupLayoutEntry {
-                        binding: 6,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                    BindGroupLayoutEntry {
-                        binding: 7,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                    // Occlusion
-                    BindGroupLayoutEntry {
-                        binding: 8,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                    BindGroupLayoutEntry {
-                        binding: 9,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
+                entries: &pipeline_descriptor.bind_group_entries,
             });
+
+        // Bind group layouts
+        let mut pipeline_bind_group_layouts = vec![&pipeline_bind_group_layout];
+
+        // Note: Unfortunately needed due to the binding needing to live longer, but also needing to be optional.
+        #[allow(unused_assignments)]
+        let mut camera_bind_group: Option<BindGroupLayout> = None;
+        #[allow(unused_assignments)]
+        let mut light_storage_bind_group: Option<BindGroupLayout> = None;
+
+        if pipeline_descriptor.include_camera_bind_group_layout {
+            camera_bind_group =
+                Some(device.create_bind_group_layout(&Camera::bind_group_layout_descriptor()));
+
+            pipeline_bind_group_layouts.push(camera_bind_group.as_ref().unwrap());
+        }
+
+        if pipeline_descriptor.include_light_storage_bind_group_layout {
+            light_storage_bind_group = Some(
+                device.create_bind_group_layout(&LightStorage::bind_group_layout_descriptor()),
+            );
+
+            pipeline_bind_group_layouts.push(light_storage_bind_group.as_ref().unwrap());
+        }
 
         let render_pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: None,
-            bind_group_layouts: &[
-                // Pipeline bind group layouts
-                &pipeline_bind_group_layout,
-                // Camera bind group layout
-                &device.create_bind_group_layout(&Camera::bind_group_layout_descriptor()),
-                // Light Storage bind group layout
-                &device.create_bind_group_layout(&LightStorage::bind_group_layout_descriptor()),
-            ],
+            bind_group_layouts: &pipeline_bind_group_layouts,
             push_constant_ranges: &[],
         });
 
