@@ -56,6 +56,9 @@ struct LightStorage {
 @group(0) @binding(6) var roughness_texture: texture_2d<f32>;
 @group(0) @binding(7) var roughness_sampler: sampler;
 
+@group(0) @binding(8) var occlusion_texture: texture_2d<f32>;
+@group(0) @binding(9) var occlusion_sampler: sampler;
+
 @group(1) @binding(0) 
 var<uniform> camera: CameraUniform;
 
@@ -112,6 +115,11 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
         roughness_sampler,
         in.uv
     ).r;
+    let occlusion = textureSample(
+        occlusion_texture,
+        occlusion_sampler,
+        in.uv
+    ).r;
 
     // Sample normal
     let normal = sample_normal_from_map(in.uv, in.world_position, in.normal);
@@ -124,9 +132,6 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
 
     var F0 = STANDARD_F0;
     F0 = mix(F0, albedo.xyz, metallic);
-
-    let ao = 1.0; // TODO
-    // TODO: Map?
 
     // Reflectance equation
     var Lo = vec3<f32>(0.0);
@@ -160,7 +165,7 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     }
 
     // Ambient calculation
-    let ambient = vec3<f32>(0.03) * albedo.xyz * ao;
+    let ambient = vec3<f32>(0.03) * albedo.xyz * occlusion;
     var color = ambient + Lo;
 
     // HDR gamma correction / tone mapping / Reinhard operator
