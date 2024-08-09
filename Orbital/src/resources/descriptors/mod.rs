@@ -1,5 +1,6 @@
 pub mod camera;
 pub mod composition;
+pub mod cube_texture;
 pub mod import;
 pub mod instance;
 pub mod light;
@@ -12,6 +13,7 @@ pub mod texture;
 
 pub use camera::*;
 pub use composition::*;
+pub use cube_texture::*;
 pub use import::*;
 pub use instance::*;
 pub use light::*;

@@ -2,8 +2,8 @@ use cgmath::{Vector2, Vector4};
 use image::{DynamicImage, GenericImageView, ImageReader};
 use log::{debug, warn};
 use wgpu::{
-    AddressMode, Device, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout, Origin3d, Queue,
-    Sampler, SamplerDescriptor, Texture as WTexture, TextureAspect,
+    AddressMode, CompareFunction, Device, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout,
+    Origin3d, Queue, Sampler, SamplerDescriptor, Texture as WTexture, TextureAspect,
     TextureDescriptor as WTextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
     TextureView, TextureViewDescriptor,
 };
@@ -301,6 +301,48 @@ impl Texture {
                 mipmap_filter: FilterMode::Nearest,
                 lod_min_clamp: 0.0,
                 lod_max_clamp: 100.0,
+                ..Default::default()
+            },
+            device,
+            queue,
+        )
+    }
+
+    pub fn make_texture(
+        label: Option<&str>,
+        size: Vector2<u32>,
+        format: TextureFormat,
+        usage: TextureUsages,
+        filter: FilterMode,
+        address_mode: AddressMode,
+        device: &Device,
+        queue: &Queue,
+    ) -> Self {
+        Self::from_descriptors(
+            &WTextureDescriptor {
+                label: label,
+                size: Extent3d {
+                    width: size.x,
+                    height: size.y,
+                    ..Default::default()
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format,
+                usage,
+                view_formats: &[],
+            },
+            &TextureViewDescriptor::default(),
+            &SamplerDescriptor {
+                label: Some("Radiance HDR Sampler"),
+                address_mode_u: address_mode,
+                address_mode_v: address_mode,
+                address_mode_w: address_mode,
+                mag_filter: filter,
+                min_filter: filter,
+                mipmap_filter: filter,
+                compare: Some(CompareFunction::Always),
                 ..Default::default()
             },
             device,

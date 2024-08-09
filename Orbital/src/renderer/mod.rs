@@ -26,7 +26,7 @@ pub trait Renderer {
     fn update(&mut self, delta_time: f64);
 
     // TODO: Change to raw data types (e.g. bind group) to make it more
-    // compatible with other implementations
+    // compatible with other implementations :: or world?
     fn render(
         &mut self,
         target_view: &TextureView,
