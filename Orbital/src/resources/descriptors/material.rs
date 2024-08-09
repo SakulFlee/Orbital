@@ -1,5 +1,4 @@
 use cgmath::Vector4;
-use log::debug;
 
 use super::{ShaderDescriptor, TextureDescriptor};
 
@@ -11,6 +10,7 @@ pub enum MaterialDescriptor {
         albedo: TextureDescriptor,
         metallic: TextureDescriptor,
         roughness: TextureDescriptor,
+        occlusion: TextureDescriptor,
     },
     /// Creates a PBR (= Physically-Based-Rendering) material
     /// with a custom shader.
@@ -19,51 +19,62 @@ pub enum MaterialDescriptor {
         albedo: TextureDescriptor,
         metallic: TextureDescriptor,
         roughness: TextureDescriptor,
+        occlusion: TextureDescriptor,
         custom_shader: ShaderDescriptor,
     },
 }
 
+impl MaterialDescriptor {
+    pub fn from_gltf(gltf_material: &easy_gltf::Material) -> Self {
+        gltf_material.into()
+    }
+
+    pub fn from_gltf_with_custom_shader(
+        gltf_material: &easy_gltf::Material,
+        custom_shader: ShaderDescriptor,
+    ) -> Self {
+        if let Self::PBR {
+            normal,
+            albedo,
+            metallic,
+            roughness,
+            occlusion,
+        } = gltf_material.into()
+        {
+            Self::PBRCustomShader {
+                normal: normal,
+                albedo: albedo,
+                metallic: metallic,
+                roughness: roughness,
+                occlusion: occlusion,
+                custom_shader: custom_shader,
+            }
+        } else {
+            unreachable!()
+        }
+    }
+}
+
 impl From<&easy_gltf::Material> for MaterialDescriptor {
     fn from(value: &easy_gltf::Material) -> Self {
-        let normal = if let Some(x) = &value.normal {
+        let normal = if let Some(normal_map) = &value.normal {
             let mut processed_bytes = Vec::new();
-            for (k, v) in x.texture.to_vec().into_iter().enumerate() {
+            for (k, v) in normal_map.texture.to_vec().into_iter().enumerate() {
                 processed_bytes.push(v);
                 if k % 3 == 0 {
                     processed_bytes.push(255);
                 }
             }
 
-            TextureDescriptor::StandardSRGBAu8Data(processed_bytes, x.texture.dimensions().into())
+            TextureDescriptor::StandardSRGBAu8Data(
+                processed_bytes,
+                normal_map.texture.dimensions().into(),
+            )
         } else {
             TextureDescriptor::UNIFORM_BLACK
         };
 
-        let metallic_texture_descriptor = if let Some(metallic_buffer) = &value.pbr.metallic_texture
-        {
-            TextureDescriptor::Luma {
-                data: metallic_buffer.to_vec(),
-                size: metallic_buffer.dimensions().into(),
-            }
-        } else {
-            TextureDescriptor::UniformLuma {
-                data: (255f32 * value.pbr.metallic_factor) as u8,
-            }
-        };
-
-        let roughness_texture_descriptor =
-            if let Some(roughness_buffer) = &value.pbr.roughness_texture {
-                TextureDescriptor::Luma {
-                    data: roughness_buffer.to_vec(),
-                    size: roughness_buffer.dimensions().into(),
-                }
-            } else {
-                TextureDescriptor::UniformLuma {
-                    data: (255f32 * value.pbr.roughness_factor) as u8,
-                }
-            };
-
-        let albedo_texture_descriptor = if let Some(base_color) = &value.pbr.base_color_texture {
+        let albedo = if let Some(base_color) = &value.pbr.base_color_texture {
             TextureDescriptor::StandardSRGBAu8Data(
                 base_color.to_vec(),
                 base_color.dimensions().into(),
@@ -77,11 +88,43 @@ impl From<&easy_gltf::Material> for MaterialDescriptor {
             ))
         };
 
+        let metallic = if let Some(metallic_buffer) = &value.pbr.metallic_texture {
+            TextureDescriptor::Luma {
+                data: metallic_buffer.to_vec(),
+                size: metallic_buffer.dimensions().into(),
+            }
+        } else {
+            TextureDescriptor::UniformLuma {
+                data: (255f32 * value.pbr.metallic_factor) as u8,
+            }
+        };
+
+        let roughness = if let Some(roughness_buffer) = &value.pbr.roughness_texture {
+            TextureDescriptor::Luma {
+                data: roughness_buffer.to_vec(),
+                size: roughness_buffer.dimensions().into(),
+            }
+        } else {
+            TextureDescriptor::UniformLuma {
+                data: (255f32 * value.pbr.roughness_factor) as u8,
+            }
+        };
+
+        let occlusion = if let Some(occlusion) = &value.occlusion {
+            TextureDescriptor::Luma {
+                data: occlusion.texture.to_vec(),
+                size: occlusion.texture.dimensions().into(),
+            }
+        } else {
+            TextureDescriptor::UniformLuma { data: 255u8 }
+        };
+
         Self::PBR {
             normal,
-            albedo: albedo_texture_descriptor,
-            metallic: metallic_texture_descriptor,
-            roughness: roughness_texture_descriptor,
+            albedo,
+            metallic,
+            roughness,
+            occlusion,
         }
     }
 }

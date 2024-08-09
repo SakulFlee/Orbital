@@ -24,6 +24,7 @@ pub struct Material {
     albedo_texture: Texture,
     metallic_texture: Texture,
     roughness_texture: Texture,
+    occlusion_texture: Texture,
 }
 
 impl Material {
@@ -89,11 +90,13 @@ impl Material {
                 albedo,
                 metallic,
                 roughness,
+                occlusion,
             } => Self::standard_pbr(
                 normal,
                 albedo,
                 metallic,
                 roughness,
+                occlusion,
                 None,
                 surface_format,
                 device,
@@ -104,12 +107,14 @@ impl Material {
                 albedo,
                 metallic,
                 roughness,
+                occlusion,
                 custom_shader,
             } => Self::standard_pbr(
                 normal,
                 albedo,
                 metallic,
                 roughness,
+                occlusion,
                 Some(custom_shader),
                 surface_format,
                 device,
@@ -123,6 +128,7 @@ impl Material {
         albedo_texture_descriptor: &TextureDescriptor,
         metallic_texture_descriptor: &TextureDescriptor,
         roughness_texture_descriptor: &TextureDescriptor,
+        occlusion_texture_descriptor: &TextureDescriptor,
         shader_descriptor: Option<&ShaderDescriptor>,
         surface_format: &TextureFormat,
         device: &Device,
@@ -134,6 +140,8 @@ impl Material {
             Texture::from_descriptor(metallic_texture_descriptor, device, queue)?;
         let roughness_texture =
             Texture::from_descriptor(roughness_texture_descriptor, device, queue)?;
+        let occlusion_texture =
+            Texture::from_descriptor(occlusion_texture_descriptor, device, queue)?;
 
         let pipeline_descriptor = if let Some(shader_descriptor) = shader_descriptor {
             PipelineDescriptor::default_with_shader(shader_descriptor)
@@ -148,6 +156,7 @@ impl Material {
             label: None,
             layout: pipeline.bind_group_layout(),
             entries: &[
+                // Normal
                 BindGroupEntry {
                     binding: 0,
                     resource: BindingResource::TextureView(normal_texture.view()),
@@ -156,6 +165,7 @@ impl Material {
                     binding: 1,
                     resource: BindingResource::Sampler(normal_texture.sampler()),
                 },
+                // Albedo
                 BindGroupEntry {
                     binding: 2,
                     resource: BindingResource::TextureView(albedo_texture.view()),
@@ -164,6 +174,7 @@ impl Material {
                     binding: 3,
                     resource: BindingResource::Sampler(albedo_texture.sampler()),
                 },
+                // Metallic
                 BindGroupEntry {
                     binding: 4,
                     resource: BindingResource::TextureView(metallic_texture.view()),
@@ -172,6 +183,7 @@ impl Material {
                     binding: 5,
                     resource: BindingResource::Sampler(metallic_texture.sampler()),
                 },
+                // Roughness
                 BindGroupEntry {
                     binding: 6,
                     resource: BindingResource::TextureView(roughness_texture.view()),
@@ -179,6 +191,15 @@ impl Material {
                 BindGroupEntry {
                     binding: 7,
                     resource: BindingResource::Sampler(roughness_texture.sampler()),
+                },
+                // OCCLUSION
+                BindGroupEntry {
+                    binding: 8,
+                    resource: BindingResource::TextureView(occlusion_texture.view()),
+                },
+                BindGroupEntry {
+                    binding: 9,
+                    resource: BindingResource::Sampler(occlusion_texture.sampler()),
                 },
             ],
         });
@@ -190,6 +211,7 @@ impl Material {
             albedo_texture,
             metallic_texture,
             roughness_texture,
+            occlusion_texture,
         ))
     }
 
@@ -200,6 +222,7 @@ impl Material {
         albedo_texture: Texture,
         metallic_texture: Texture,
         roughness_texture: Texture,
+        occlusion_texture: Texture,
     ) -> Self {
         Self {
             bind_group,
@@ -208,6 +231,7 @@ impl Material {
             albedo_texture,
             metallic_texture,
             roughness_texture,
+            occlusion_texture,
         }
     }
 
