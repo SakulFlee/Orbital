@@ -147,29 +147,36 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     }
 
     let ao = 1.0; // TODO
-    let ambient = vec3<f32>(0.5) * albedo.xyz * ao;
+    let ambient = vec3<f32>(0.03) * albedo.xyz * ao;
     let color = ambient + Lo;
 
     return vec4<f32>(color, 1.0);
 }
 
 fn fresnel_schlick(cos_theta: f32, F0: vec3<f32>) -> vec3<f32> {
-    return F0 + (1.0 - F0) * pow(clamp(1.0 - cos_theta, 0.0, 1.0), 5.0);
+    let c = pow(clamp(1.0 - cos_theta, 0.0, 1.0), 5.0);
+    
+    return F0 + (1.0 - F0) * c;
 }
 
 fn distribution_ggx(N: vec3<f32>, H: vec3<f32>, roughness: f32) -> f32 {
-    let a_squared = pow(roughness * roughness, 2.0);
-    let NdotH_squared = pow(max(dot(N, H), 0.0), 2.0);
+    let a2 = roughness * roughness;
+    let a2_2 = a2 * a2;
 
-    var denom = (NdotH_squared * (a_squared - 1.0) + 1.0);
+    let NdotH = max(dot(N, H), 0.0);
+    let NdotH_2 = NdotH * NdotH;
+
+    var denom = (NdotH_2 * (a2_2 - 1.0) + 1.0);
     denom = PI * pow(denom, 2.0);
 
-    return a_squared / denom;
+    return a2_2 / denom;
 }
 
 fn geometry_schlick_ggx(NdotV: f32, roughness: f32) -> f32 {
     let r = (roughness + 1.0);
-    let k = pow(r, 2.0) / 8.0;
+    let r_2 = r * r;
+
+    let k = r_2 / 8.0;
 
     let denom = NdotV * (1.0 - k) + k;
 
