@@ -1,7 +1,7 @@
 use cgmath::Vector2;
 use wgpu::{Device, Queue, TextureFormat, TextureView};
 
-use crate::resources::realizations::{Camera, LightStorage, Model};
+use crate::resources::{descriptors::MaterialDescriptor, realizations::{Camera, LightStorage, Material, Model}};
 
 pub mod standard;
 pub use standard::*;
@@ -35,5 +35,6 @@ pub trait Renderer {
         models: &[&Model],
         camera: &Camera,
         light_storage: &LightStorage,
+        sky_box_material: &MaterialDescriptor,
     );
 }

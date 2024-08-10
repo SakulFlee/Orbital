@@ -8,8 +8,12 @@ use wgpu::{
 use crate::{
     cache::Cache,
     error::Error,
-    resources::descriptors::{
-        MaterialDescriptor, PipelineDescriptor, ShaderDescriptor, TextureDescriptor,
+    resources::{
+        descriptors::{
+            CubeTextureDescriptor, MaterialDescriptor, PipelineDescriptor, ShaderDescriptor,
+            TextureDescriptor,
+        },
+        realizations::CubeTexture,
     },
 };
 
@@ -18,7 +22,6 @@ use super::{Pipeline, Texture};
 pub struct Material {
     bind_group: BindGroup,
     pipeline_descriptor: PipelineDescriptor,
-
     // TODO: Unsure if we can remove those after material creation?
     // normal_texture: Texture,
     // albedo_texture: Texture,
@@ -120,7 +123,40 @@ impl Material {
                 device,
                 queue,
             ),
+            MaterialDescriptor::SkyBox { sky_texture } => {
+                Self::skybox(sky_texture, surface_format, device, queue)
+            }
         })
+    }
+
+    pub fn skybox(
+        sky_texture: &CubeTextureDescriptor,
+        surface_format: &TextureFormat,
+        device: &Device,
+        queue: &Queue,
+    ) -> Result<Self, Error> {
+        let cube_texture = CubeTexture::from_descriptor(sky_texture, device, queue)?;
+
+        let pipeline_descriptor = PipelineDescriptor::default_skybox();
+        let pipeline =
+            Pipeline::from_descriptor(&pipeline_descriptor, surface_format, device, queue)?;
+
+        let bind_group = device.create_bind_group(&BindGroupDescriptor {
+            label: None,
+            layout: pipeline.bind_group_layout(),
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::TextureView(cube_texture.texture().view()),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::Sampler(cube_texture.texture().sampler()),
+                },
+            ],
+        });
+
+        Ok(Self::from_existing(bind_group, pipeline_descriptor))
     }
 
     pub fn standard_pbr(

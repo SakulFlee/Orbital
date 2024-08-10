@@ -148,16 +148,33 @@ impl Pipeline {
 
         let shader = Shader::from_descriptor(pipeline_descriptor.shader_descriptor, device, queue)?;
 
+        let mut vertex_buffers = Vec::new();
+        if pipeline_descriptor.include_vertex_buffer_layout {
+            vertex_buffers.push(Vertex::vertex_buffer_layout_descriptor());
+        }
+        if pipeline_descriptor.include_instance_buffer_layout {
+            vertex_buffers.push(Instance::vertex_buffer_layout_descriptor());
+        }
+
+        let depth_stencil = if pipeline_descriptor.depth_stencil {
+            Some(DepthStencilState {
+                format: TextureFormat::Depth32Float,
+                depth_write_enabled: true,
+                depth_compare: CompareFunction::Less,
+                stencil: StencilState::default(),
+                bias: DepthBiasState::default(),
+            })
+        } else {
+            None
+        };
+
         let render_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
             label: None,
             layout: Some(&render_pipeline_layout),
             vertex: VertexState {
                 module: shader.shader_module(),
                 entry_point: "entrypoint_vertex",
-                buffers: &[
-                    Vertex::vertex_buffer_layout_descriptor(),
-                    Instance::vertex_buffer_layout_descriptor(),
-                ],
+                buffers: &vertex_buffers,
                 compilation_options: PipelineCompilationOptions::default(),
             },
             fragment: Some(FragmentState {
@@ -179,13 +196,7 @@ impl Pipeline {
                 polygon_mode: pipeline_descriptor.polygon_mode,
                 conservative: false,
             },
-            depth_stencil: Some(DepthStencilState {
-                format: TextureFormat::Depth32Float,
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::Less,
-                stencil: StencilState::default(),
-                bias: DepthBiasState::default(),
-            }),
+            depth_stencil,
             multisample: MultisampleState::default(),
             multiview: None,
         });

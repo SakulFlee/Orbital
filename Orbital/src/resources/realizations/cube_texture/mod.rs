@@ -1,6 +1,5 @@
 use cgmath::Vector2;
 use image::{GenericImageView, ImageReader};
-use log::debug;
 use wgpu::{
     include_wgsl, AddressMode, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
@@ -21,7 +20,7 @@ impl CubeTexture {
     pub const DST_SIZE: u32 = 512;
 
     pub fn from_descriptor(
-        desc: CubeTextureDescriptor,
+        desc: &CubeTextureDescriptor,
         device: &Device,
         queue: &Queue,
     ) -> Result<Self, Error> {
@@ -31,7 +30,7 @@ impl CubeTexture {
             }
             CubeTextureDescriptor::RadianceHDRData { data, size } => Ok(Self::radiance_hdr_vec(
                 &data,
-                size,
+                *size,
                 Self::DST_SIZE,
                 device,
                 queue,
