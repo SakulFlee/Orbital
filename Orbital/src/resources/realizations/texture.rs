@@ -1,6 +1,6 @@
 use cgmath::{Vector2, Vector4};
 use image::{DynamicImage, GenericImageView, ImageReader};
-use log::{debug, warn};
+use log::warn;
 use wgpu::{
     AddressMode, CompareFunction, Device, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout,
     Origin3d, Queue, Sampler, SamplerDescriptor, Texture as WTexture, TextureAspect,

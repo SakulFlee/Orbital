@@ -15,6 +15,44 @@ pub struct PipelineDescriptor {
     pub polygon_mode: PolygonMode,
     pub include_camera_bind_group_layout: bool,
     pub include_light_storage_bind_group_layout: bool,
+    pub include_vertex_buffer_layout: bool,
+    pub include_instance_buffer_layout: bool,
+    pub depth_stencil: bool,
+}
+
+impl PipelineDescriptor {
+    pub fn default_skybox() -> Self {
+        Self {
+            shader_descriptor: include_str!("shader/skybox.wgsl"),
+            bind_group_entries: vec![
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Float { filterable: false },
+                        view_dimension: TextureViewDimension::D2Array,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
+                    count: None,
+                },
+            ],
+            primitive_topology: Default::default(),
+            front_face_order: Default::default(),
+            cull_mode: None,
+            polygon_mode: Default::default(),
+            include_camera_bind_group_layout: false,
+            include_light_storage_bind_group_layout: false,
+            include_vertex_buffer_layout: false,
+            include_instance_buffer_layout: false,
+            depth_stencil: false,
+        }
+    }
 }
 
 impl Default for PipelineDescriptor {
@@ -115,6 +153,9 @@ impl Default for PipelineDescriptor {
             polygon_mode: Default::default(),
             include_camera_bind_group_layout: true,
             include_light_storage_bind_group_layout: true,
+            include_vertex_buffer_layout: true,
+            include_instance_buffer_layout: true,
+            depth_stencil: true,
         }
     }
 }

@@ -1,6 +1,6 @@
 use cgmath::Vector4;
 
-use super::{ShaderDescriptor, TextureDescriptor};
+use super::{CubeTextureDescriptor, ShaderDescriptor, TextureDescriptor};
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum MaterialDescriptor {
@@ -22,6 +22,9 @@ pub enum MaterialDescriptor {
         occlusion: TextureDescriptor,
         custom_shader: ShaderDescriptor,
     },
+    SkyBox {
+        sky_texture: CubeTextureDescriptor,
+    }
 }
 
 impl MaterialDescriptor {

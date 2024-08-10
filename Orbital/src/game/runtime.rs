@@ -1,17 +1,17 @@
-use std::{any::Any, sync::OnceLock, time::Instant};
+use std::{sync::OnceLock, time::Instant};
 
 use cgmath::Vector2;
-use log::{debug, error, info};
+use log::{debug, info};
 use wgpu::{Device, Queue, SurfaceConfiguration, TextureView};
 use winit::event_loop::EventLoop;
 
 use crate::{
     app::{App, AppChange, AppRuntime, InputEvent},
     error::Error,
-    renderer::{Renderer, StandardRenderer},
+    renderer::Renderer,
     resources::{
-        descriptors::CubeTextureDescriptor,
-        realizations::{CubeTexture, Material, Pipeline},
+        descriptors::{CubeTextureDescriptor, MaterialDescriptor},
+        realizations::{Material, Pipeline},
     },
     timer::Timer,
 };
@@ -26,7 +26,7 @@ pub struct GameRuntime<GameImpl: Game, RendererImpl: Renderer> {
     renderer: RendererImpl,
     pipeline_cleanup_timer: Instant,
     material_cleanup_timer: Instant,
-    cube_texture: Option<CubeTexture>,
+    skybox_material: MaterialDescriptor,
 }
 
 pub static mut PIPELINE_CACHE_SETTINGS: OnceLock<CacheSettings> = OnceLock::new();
@@ -126,7 +126,12 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
             ),
             pipeline_cleanup_timer: Instant::now(),
             material_cleanup_timer: Instant::now(),
-            cube_texture: None,
+            // TODO: Make adjustable via config or WorldChange+Default?
+            skybox_material: MaterialDescriptor::SkyBox {
+                sky_texture: CubeTextureDescriptor::RadianceHDRFile {
+                    path: "assets/HDRs/rosendal_park_sunset_puresky_4k.hdr",
+                },
+            },
         }
     }
 
@@ -179,28 +184,6 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
     where
         Self: Sized,
     {
-        if let Some(x) = &self.cube_texture {
-            // ...
-        } else {
-            let cube_texture_result = CubeTexture::from_descriptor(
-                CubeTextureDescriptor::RadianceHDRFile {
-                    path: "assets/HDRs/rosendal_park_sunset_puresky_4k.hdr",
-                },
-                device,
-                queue,
-            );
-
-            match cube_texture_result {
-                Ok(x) => {
-                    info!("Successfully loaded and converted HDR!");
-                    self.cube_texture = Some(x);
-                }
-                Err(e) => {
-                    error!("Failed loading and/or converting HDR!");
-                }
-            }
-        }
-
         self.world.prepare_render(device, queue);
 
         let (camera, models) = self.world.gather_render_resources();
@@ -212,6 +195,7 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
             &models,
             camera,
             self.world.light_storage(),
+            &self.skybox_material,
         );
 
         if let Some((delta_time, fps)) = self.timer.tick() {
