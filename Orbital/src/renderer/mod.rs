@@ -1,7 +1,10 @@
 use cgmath::Vector2;
 use wgpu::{Device, Queue, TextureFormat, TextureView};
 
-use crate::resources::{descriptors::MaterialDescriptor, realizations::{Camera, LightStorage, Material, Model}};
+use crate::resources::{
+    descriptors::MaterialDescriptor,
+    realizations::{Camera, LightStorage, Model},
+};
 
 pub mod standard;
 pub use standard::*;
