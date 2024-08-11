@@ -9,7 +9,9 @@ use crate::{
     app::{AppChange, InputEvent},
     log::error,
     resources::{
-        descriptors::{CameraDescriptor, ModelDescriptor},
+        descriptors::{
+            CameraDescriptor, CubeTextureDescriptor, MaterialDescriptor, ModelDescriptor,
+        },
         realizations::{Camera, LightStorage, Model},
     },
     variant::Variant,
@@ -105,6 +107,8 @@ pub struct World {
     /// ⚠️ Only the most recent `WorldChange` request will be applied as we can
     /// only ever have one single camera active!
     next_camera: Option<String>,
+    // --- SkyBox ---
+    skybox_material_descriptor: MaterialDescriptor,
 }
 
 impl World {
@@ -125,6 +129,11 @@ impl World {
             active_camera_change: Default::default(),
             camera_descriptors: Default::default(),
             next_camera: Default::default(),
+            skybox_material_descriptor: MaterialDescriptor::SkyBox {
+                sky_texture: CubeTextureDescriptor::RadianceHDRFile {
+                    path: "assets/HDRs/lonely_road_afternoon_puresky_4k.hdr",
+                },
+            },
         }
     }
 
@@ -374,6 +383,13 @@ impl World {
             WorldChange::SpawnLight(light_descriptor) => {
                 self.light_storage.add_descriptor(light_descriptor)
             }
+            WorldChange::ChangeSkyBox { skybox_material } => {
+                if let MaterialDescriptor::SkyBox { sky_texture: _ } = &skybox_material {
+                    self.skybox_material_descriptor = skybox_material;
+                } else {
+                    error!("WorldChange::ChangeSkyBox requested, but supplied material is not of type MaterialDescriptor::SkyBox!");
+                }
+            }
         }
 
         None
@@ -489,5 +505,9 @@ impl World {
 
     pub fn light_storage(&self) -> &LightStorage {
         &self.light_storage
+    }
+
+    pub fn skybox_material_descriptor(&self) -> &MaterialDescriptor {
+        &self.skybox_material_descriptor
     }
 }

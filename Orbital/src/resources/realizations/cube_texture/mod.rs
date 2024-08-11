@@ -1,8 +1,5 @@
-use std::io::Cursor;
-
 use cgmath::Vector2;
-use image::{codecs::hdr::HdrDecoder, GenericImageView, ImageDecoder, ImageReader};
-use log::debug;
+use image::{GenericImageView, ImageReader};
 use wgpu::{
     include_wgsl, AddressMode, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,

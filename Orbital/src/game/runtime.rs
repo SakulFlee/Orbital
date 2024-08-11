@@ -9,10 +9,7 @@ use crate::{
     app::{App, AppChange, AppRuntime, InputEvent},
     error::Error,
     renderer::Renderer,
-    resources::{
-        descriptors::{CubeTextureDescriptor, MaterialDescriptor},
-        realizations::{Material, Pipeline},
-    },
+    resources::realizations::{Material, Pipeline},
     timer::Timer,
 };
 
@@ -26,7 +23,6 @@ pub struct GameRuntime<GameImpl: Game, RendererImpl: Renderer> {
     renderer: RendererImpl,
     pipeline_cleanup_timer: Instant,
     material_cleanup_timer: Instant,
-    skybox_material: MaterialDescriptor,
 }
 
 pub static mut PIPELINE_CACHE_SETTINGS: OnceLock<CacheSettings> = OnceLock::new();
@@ -126,12 +122,6 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
             ),
             pipeline_cleanup_timer: Instant::now(),
             material_cleanup_timer: Instant::now(),
-            // TODO: Make adjustable via config or WorldChange+Default?
-            skybox_material: MaterialDescriptor::SkyBox {
-                sky_texture: CubeTextureDescriptor::RadianceHDRFile {
-                    path: "assets/HDRs/lonely_road_afternoon_puresky_4k.hdr",
-                },
-            },
         }
     }
 
@@ -195,7 +185,7 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
             &models,
             camera,
             self.world.light_storage(),
-            &self.skybox_material,
+            &self.world.skybox_material_descriptor(),
         );
 
         if let Some((delta_time, fps)) = self.timer.tick() {
