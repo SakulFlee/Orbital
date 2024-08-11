@@ -3,9 +3,11 @@ use image::{GenericImageView, ImageReader};
 use wgpu::{
     include_wgsl, AddressMode, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
-    ComputePassDescriptor, ComputePipeline, Device, Extent3d, FilterMode, ImageCopyTexture,
-    ImageDataLayout, Origin3d, Queue, ShaderStages, StorageTextureAccess, TextureAspect,
-    TextureFormat, TextureSampleType, TextureUsages, TextureViewDimension,
+    ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor, Device, Extent3d,
+    FilterMode, ImageCopyTexture, ImageDataLayout, Origin3d, PipelineLayoutDescriptor, Queue,
+    SamplerDescriptor, ShaderStages, StorageTextureAccess, TextureAspect, TextureDescriptor,
+    TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureViewDescriptor,
+    TextureViewDimension,
 };
 
 use crate::{error::Error, resources::descriptors::CubeTextureDescriptor};
@@ -17,7 +19,7 @@ pub struct CubeTexture {
 }
 
 impl CubeTexture {
-    pub const DST_SIZE: u32 = 512;
+    pub const DST_SIZE: u32 = 4096;
 
     pub fn from_descriptor(
         desc: &CubeTextureDescriptor,
@@ -66,40 +68,41 @@ impl CubeTexture {
         }
     }
 
-    pub fn create_filled(
-        label: Option<&str>,
-        size: Vector2<u32>,
-        format: TextureFormat,
-        usage: TextureUsages,
-        mag_filter: FilterMode,
-        data: &[u8],
-        device: &Device,
-        queue: &Queue,
-    ) -> Self {
-        let s = Self::create_empty(label, size, format, usage, mag_filter, device);
+    // TODO
+    // pub fn create_filled(
+    //     label: Option<&str>,
+    //     size: Vector2<u32>,
+    //     format: TextureFormat,
+    //     usage: TextureUsages,
+    //     mag_filter: FilterMode,
+    //     data: &[u8],
+    //     device: &Device,
+    //     queue: &Queue,
+    // ) -> Self {
+    //     let s = Self::create_empty(label, size, format, usage, mag_filter, device);
 
-        queue.write_texture(
-            ImageCopyTexture {
-                texture: &s.texture().texture(),
-                mip_level: 0,
-                origin: Origin3d::ZERO,
-                aspect: TextureAspect::All,
-            },
-            data,
-            ImageDataLayout {
-                offset: 0,
-                bytes_per_row: Some(size.x * std::mem::size_of::<[f32; 4]> as u32),
-                rows_per_image: Some(size.y),
-            },
-            Extent3d {
-                width: size.x,
-                height: size.y,
-                ..Default::default()
-            },
-        );
+    //     queue.write_texture(
+    //         ImageCopyTexture {
+    //             texture: &s.texture().texture(),
+    //             mip_level: 0,
+    //             origin: Origin3d::ZERO,
+    //             aspect: TextureAspect::All,
+    //         },
+    //         data,
+    //         ImageDataLayout {
+    //             offset: 0,
+    //             bytes_per_row: Some(size.x * std::mem::size_of::<[f32; 4]> as u32),
+    //             rows_per_image: Some(size.y),
+    //         },
+    //         Extent3d {
+    //             width: size.x,
+    //             height: size.y,
+    //             ..Default::default()
+    //         },
+    //     );
 
-        s
-    }
+    //     s
+    // }
 
     pub fn create_empty(
         label: Option<&str>,
@@ -109,9 +112,9 @@ impl CubeTexture {
         mag_filter: FilterMode,
         device: &Device,
     ) -> Self {
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
+        let texture = device.create_texture(&TextureDescriptor {
             label,
-            size: wgpu::Extent3d {
+            size: Extent3d {
                 width: size.x,
                 height: size.y,
                 // A cube has 6 sides, so we need 6 layers
@@ -119,27 +122,27 @@ impl CubeTexture {
             },
             mip_level_count: 1,
             sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
+            dimension: TextureDimension::D2,
             format,
             usage,
             view_formats: &[],
         });
 
-        let view = texture.create_view(&wgpu::TextureViewDescriptor {
+        let view = texture.create_view(&TextureViewDescriptor {
             label,
-            dimension: Some(wgpu::TextureViewDimension::D2Array),
+            dimension: Some(TextureViewDimension::Cube),
             array_layer_count: Some(6),
             ..Default::default()
         });
 
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+        let sampler = device.create_sampler(&SamplerDescriptor {
             label,
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            address_mode_u: AddressMode::ClampToEdge,
+            address_mode_v: AddressMode::ClampToEdge,
+            address_mode_w: AddressMode::ClampToEdge,
             mag_filter,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
+            min_filter: FilterMode::Nearest,
+            mipmap_filter: FilterMode::Nearest,
             ..Default::default()
         });
 
@@ -247,6 +250,19 @@ impl CubeTexture {
             device,
         );
 
+        // Needed only know for processing.
+        // Actual rendering later uses the included View in
+        // TextureViewDimension::Cube
+        let dst_equirectangular_view =
+            dst_texture
+                .texture()
+                .texture()
+                .create_view(&TextureViewDescriptor {
+                    label: Some("Equirectangular DST view"),
+                    dimension: Some(TextureViewDimension::D2Array),
+                    ..Default::default()
+                });
+
         let bind_group_layout =
             device.create_bind_group_layout(&Self::bind_group_layout_descriptor());
         let bind_group = device.create_bind_group(&BindGroupDescriptor {
@@ -259,7 +275,7 @@ impl CubeTexture {
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::TextureView(&dst_texture.texture().view()),
+                    resource: BindingResource::TextureView(&dst_equirectangular_view),
                 },
             ],
         });
@@ -284,7 +300,7 @@ impl CubeTexture {
     }
 
     fn make_pipeline(bind_group_layout: &BindGroupLayout, device: &Device) -> ComputePipeline {
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: None,
             bind_group_layouts: &[bind_group_layout],
             push_constant_ranges: &[],
@@ -292,7 +308,7 @@ impl CubeTexture {
 
         let shader = device.create_shader_module(include_wgsl!("equirectangular.wgsl"));
 
-        device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        device.create_compute_pipeline(&ComputePipelineDescriptor {
             label: Some("Equirectangular to CubeMap"),
             layout: Some(&pipeline_layout),
             module: &shader,

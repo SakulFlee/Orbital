@@ -25,14 +25,19 @@ struct FragmentData {
     @location(0) world_position: vec3<f32>,
     @location(1) uv: vec2<f32>,
     @location(2) normal: vec3<f32>,
-    @location(3) tangent: vec3<f32>,
-    @location(4) bitangent: vec3<f32>,
-    @location(5) camera_position: vec3<f32>,
+    // @location(3) tangent: vec3<f32>,
+    // @location(4) bitangent: vec3<f32>,
+    // @location(5) camera_position: vec3<f32>,
 }
 
 struct CameraUniform {
+    // Note: Ignore 4th value. Needed to align bytes.
+    position: vec4<f32>,
     view_projection_matrix: mat4x4<f32>,
-    position: vec3<f32>,
+    perspective_projection_matrix: mat4x4<f32>,
+    perspective_view_projection_matrix: mat4x4<f32>,
+    view_projection_transposed: mat4x4<f32>,
+    perspective_projection_invert: mat4x4<f32>,
 }
 
 struct PointLight {
@@ -80,20 +85,18 @@ fn entrypoint_vertex(
         instance.model_space_matrix_3,
     );
 
-    var out: FragmentData;
-
     // Calculate actual position
-    let world_position_ = model_space_matrix * vec4<f32>(vertex.position, 1.0);
-    out.position = camera.view_projection_matrix * world_position_;
-    out.world_position = world_position_.xyz;
+    let world_position = model_space_matrix * vec4<f32>(vertex.position, 1.0);
 
     // Passthrough variables
+    var out: FragmentData;
+    out.position = camera.perspective_view_projection_matrix * world_position;
+    out.world_position = world_position.xyz;
     out.uv = vertex.uv;
     out.normal = vertex.normal;
-    out.tangent = vertex.tangent;
-    out.bitangent = vertex.bitangent;
-    out.camera_position = camera.position;
-
+    // out.tangent = vertex.tangent;
+    // out.bitangent = vertex.bitangent;
+    // out.camera_position = camera.position;
     return out;
 }
 
@@ -128,7 +131,7 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     // TODO: Might be able to get rid of tangent, bitangent, etc.?
 
     // Precalculations
-    let V = normalize(in.camera_position - in.world_position);
+    let V = normalize(camera.position.xyz - in.world_position);
 
     var F0 = STANDARD_F0;
     F0 = mix(F0, albedo.xyz, metallic);

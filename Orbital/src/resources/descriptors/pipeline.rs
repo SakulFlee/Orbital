@@ -30,7 +30,7 @@ impl PipelineDescriptor {
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         sample_type: TextureSampleType::Float { filterable: false },
-                        view_dimension: TextureViewDimension::D2Array,
+                        view_dimension: TextureViewDimension::Cube,
                         multisampled: false,
                     },
                     count: None,
@@ -46,7 +46,7 @@ impl PipelineDescriptor {
             front_face_order: Default::default(),
             cull_mode: None,
             polygon_mode: Default::default(),
-            include_camera_bind_group_layout: false,
+            include_camera_bind_group_layout: true,
             include_light_storage_bind_group_layout: false,
             include_vertex_buffer_layout: false,
             include_instance_buffer_layout: false,
@@ -161,6 +161,7 @@ impl Default for PipelineDescriptor {
 }
 
 impl PipelineDescriptor {
+    // TODO
     // Like `Default::default`, but with a custom shader
     pub fn default_with_shader(shader_descriptor: ShaderDescriptor) -> Self {
         Self {
