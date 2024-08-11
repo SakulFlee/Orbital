@@ -1,5 +1,8 @@
+use std::io::Cursor;
+
 use cgmath::Vector2;
-use image::{GenericImageView, ImageReader};
+use image::{codecs::hdr::HdrDecoder, GenericImageView, ImageDecoder, ImageReader};
+use log::debug;
 use wgpu::{
     include_wgsl, AddressMode, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
@@ -19,7 +22,7 @@ pub struct CubeTexture {
 }
 
 impl CubeTexture {
-    pub const DST_SIZE: u32 = 4096;
+    pub const DST_SIZE: u32 = 1024;
 
     pub fn from_descriptor(
         desc: &CubeTextureDescriptor,
@@ -44,6 +47,7 @@ impl CubeTexture {
         BindGroupLayoutDescriptor {
             label: Some("Equirectangular"),
             entries: &[
+                // Input
                 BindGroupLayoutEntry {
                     binding: 0,
                     visibility: ShaderStages::COMPUTE,
@@ -54,6 +58,7 @@ impl CubeTexture {
                     },
                     count: None,
                 },
+                // Output
                 BindGroupLayoutEntry {
                     binding: 1,
                     visibility: ShaderStages::COMPUTE,
@@ -68,48 +73,11 @@ impl CubeTexture {
         }
     }
 
-    // TODO
-    // pub fn create_filled(
-    //     label: Option<&str>,
-    //     size: Vector2<u32>,
-    //     format: TextureFormat,
-    //     usage: TextureUsages,
-    //     mag_filter: FilterMode,
-    //     data: &[u8],
-    //     device: &Device,
-    //     queue: &Queue,
-    // ) -> Self {
-    //     let s = Self::create_empty(label, size, format, usage, mag_filter, device);
-
-    //     queue.write_texture(
-    //         ImageCopyTexture {
-    //             texture: &s.texture().texture(),
-    //             mip_level: 0,
-    //             origin: Origin3d::ZERO,
-    //             aspect: TextureAspect::All,
-    //         },
-    //         data,
-    //         ImageDataLayout {
-    //             offset: 0,
-    //             bytes_per_row: Some(size.x * std::mem::size_of::<[f32; 4]> as u32),
-    //             rows_per_image: Some(size.y),
-    //         },
-    //         Extent3d {
-    //             width: size.x,
-    //             height: size.y,
-    //             ..Default::default()
-    //         },
-    //     );
-
-    //     s
-    // }
-
     pub fn create_empty(
         label: Option<&str>,
         size: Vector2<u32>,
         format: TextureFormat,
         usage: TextureUsages,
-        mag_filter: FilterMode,
         device: &Device,
     ) -> Self {
         let texture = device.create_texture(&TextureDescriptor {
@@ -140,7 +108,7 @@ impl CubeTexture {
             address_mode_u: AddressMode::ClampToEdge,
             address_mode_v: AddressMode::ClampToEdge,
             address_mode_w: AddressMode::ClampToEdge,
-            mag_filter,
+            mag_filter: FilterMode::Nearest,
             min_filter: FilterMode::Nearest,
             mipmap_filter: FilterMode::Nearest,
             ..Default::default()
@@ -165,22 +133,9 @@ impl CubeTexture {
         let width = img.dimensions().0;
         let height = img.dimensions().1;
 
-        let mut processed_floats = Vec::new();
-        for (k, v) in img
-            .as_rgb32f()
-            .ok_or(Error::WrongFormat)?
+        let data = img
+            .into_rgba32f()
             .into_iter()
-            .enumerate()
-        {
-            processed_floats.push(*v);
-            if k % 3 == 0 {
-                // Alpha channel!
-                processed_floats.push(1.0);
-            }
-        }
-
-        let data = processed_floats
-            .iter()
             .map(|x| x.to_le_bytes())
             .collect::<Vec<_>>()
             .concat();
@@ -246,7 +201,6 @@ impl CubeTexture {
             },
             TextureFormat::Rgba32Float,
             TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
-            FilterMode::Nearest,
             device,
         );
 
@@ -291,7 +245,7 @@ impl CubeTexture {
         let workgroups = (dst_size + 15) / 16;
         pass.set_pipeline(&pipeline);
         pass.set_bind_group(0, &bind_group, &[]);
-        pass.dispatch_workgroups(workgroups, workgroups, 0);
+        pass.dispatch_workgroups(workgroups, workgroups, 6);
 
         drop(pass);
         queue.submit([encoder.finish()]);
