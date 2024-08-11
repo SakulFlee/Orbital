@@ -27,9 +27,9 @@ impl CameraDescriptor {
             }
 
             if self.pitch < -FRAC_PI_2 {
-                self.pitch = -FRAC_PI_2;
+                self.pitch = -FRAC_PI_2 + 0.0001;
             } else if self.pitch > FRAC_PI_2 {
-                self.pitch = FRAC_PI_2;
+                self.pitch = FRAC_PI_2 - 0.0001;
             }
         }
 
