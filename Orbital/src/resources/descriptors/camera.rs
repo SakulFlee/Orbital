@@ -20,6 +20,7 @@ pub struct CameraDescriptor {
 
 impl CameraDescriptor {
     pub const DEFAULT_NAME: &'static str = "Default";
+    pub const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
 
     pub fn apply_change(&mut self, change: CameraChange) {
         if let Some(mode) = change.pitch {
@@ -28,10 +29,10 @@ impl CameraDescriptor {
                 Mode::Offset(pitch) | Mode::OffsetViewAligned(pitch) => self.pitch += pitch,
             }
 
-            if self.pitch < -FRAC_PI_2 {
-                self.pitch = -FRAC_PI_2 + 0.0001;
-            } else if self.pitch > FRAC_PI_2 {
-                self.pitch = FRAC_PI_2 - 0.0001;
+            if self.pitch < -Self::SAFE_FRAC_PI_2 {
+                self.pitch = -Self::SAFE_FRAC_PI_2;
+            } else if self.pitch > Self::SAFE_FRAC_PI_2 {
+                self.pitch = Self::SAFE_FRAC_PI_2;
             }
         }
 
