@@ -129,7 +129,7 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
             // TODO: Make adjustable via config or WorldChange+Default?
             skybox_material: MaterialDescriptor::SkyBox {
                 sky_texture: CubeTextureDescriptor::RadianceHDRFile {
-                    path: "assets/HDRs/rosendal_park_sunset_puresky_4k.hdr",
+                    path: "assets/HDRs/autumn_field_4k.hdr",
                 },
             },
         }
