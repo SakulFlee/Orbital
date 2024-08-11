@@ -38,17 +38,21 @@ impl Camera {
             size: (
                 // We have the following variables in our Buffer:
                 // position:                            vec4<f32>   -> 4x f32
-                mem::size_of::<f32>() * 4 +
+                mem::size_of::<f32>() * 3 +
                 // view_projection_matrix:              mat4x4<f32> -> 4x4x f32
-                mem::size_of::<f32>() * 4 * 4 +
-                // perspective_projection_matrix:       mat4x4<f32> -> 4x4x f32
                 mem::size_of::<f32>() * 4 * 4 +
                 // perspective_view_projection_matrix:  mat4x4<f32> -> 4x4x f32
                 mem::size_of::<f32>() * 4 * 4 +
                 // view_projection_transposed:          mat4x4<f32> -> 4x4x f32
                 mem::size_of::<f32>() * 4 * 4 +
                 // perspective_projection_invert:       mat4x4<f32> -> 4x4x f32
-                mem::size_of::<f32>() * 4 * 4
+                mem::size_of::<f32>() * 4 * 4 +
+                // global_gamma:
+                mem::size_of::<f32>() +
+                // skybox_gamma:
+                mem::size_of::<f32>() +
+                // Padding ... This should align the buffer to 288.
+                12
             ) as u64,
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             mapped_at_creation: false,
@@ -114,23 +118,6 @@ impl Camera {
                 view_projection_matrix.w.y.to_le_bytes(),
                 view_projection_matrix.w.z.to_le_bytes(),
                 view_projection_matrix.w.w.to_le_bytes(),
-                // Perspective Projection Matrix
-                perspective_projection_matrix.x.x.to_le_bytes(),
-                perspective_projection_matrix.x.y.to_le_bytes(),
-                perspective_projection_matrix.x.z.to_le_bytes(),
-                perspective_projection_matrix.x.w.to_le_bytes(),
-                perspective_projection_matrix.y.x.to_le_bytes(),
-                perspective_projection_matrix.y.y.to_le_bytes(),
-                perspective_projection_matrix.y.z.to_le_bytes(),
-                perspective_projection_matrix.y.w.to_le_bytes(),
-                perspective_projection_matrix.z.x.to_le_bytes(),
-                perspective_projection_matrix.z.y.to_le_bytes(),
-                perspective_projection_matrix.z.z.to_le_bytes(),
-                perspective_projection_matrix.z.w.to_le_bytes(),
-                perspective_projection_matrix.w.x.to_le_bytes(),
-                perspective_projection_matrix.w.y.to_le_bytes(),
-                perspective_projection_matrix.w.z.to_le_bytes(),
-                perspective_projection_matrix.w.w.to_le_bytes(),
                 // Perspective View Projection Matrix
                 perspective_view_projection_matrix.x.x.to_le_bytes(),
                 perspective_view_projection_matrix.x.y.to_le_bytes(),
@@ -182,6 +169,10 @@ impl Camera {
                 perspective_projection_invert.w.y.to_le_bytes(),
                 perspective_projection_invert.w.z.to_le_bytes(),
                 perspective_projection_invert.w.w.to_le_bytes(),
+                // Global Gamma
+                self.descriptor.global_gamma.to_le_bytes(),
+                // SkyBox Gamma
+                self.descriptor.skybox_gamma.to_le_bytes(),
             ]
             .concat(),
         );

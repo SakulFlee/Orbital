@@ -1,8 +1,8 @@
 use cgmath::Vector2;
 use wgpu::{
-    Color, CommandEncoder, CommandEncoderDescriptor, Device, IndexFormat, LoadOp, Operations,
-    Queue, RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor,
-    StoreOp, TextureFormat, TextureView,
+    CommandEncoder, CommandEncoderDescriptor, Device, IndexFormat, LoadOp, Operations, Queue,
+    RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor, StoreOp,
+    TextureFormat, TextureView,
 };
 
 use crate::log::error;

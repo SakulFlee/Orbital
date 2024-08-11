@@ -12,7 +12,7 @@ use crate::{error::Error, resources::descriptors::TextureDescriptor};
 
 pub struct Texture {
     texture: WTexture,
-    view: TextureView,
+    pub(crate) view: TextureView, // TODO
     sampler: Sampler,
 }
 

@@ -1,9 +1,3 @@
-// Variable help:
-// The following is the same (in GLSL):
-// X Y Z W
-// R G B A
-// S T P Q
-
 struct VertexData {
     @builtin(vertex_index) vertex_index: u32,
     @location(0) position: vec3<f32>,
@@ -31,13 +25,13 @@ struct FragmentData {
 }
 
 struct CameraUniform {
-    // Note: Ignore 4th value. Needed to align bytes.
-    position: vec4<f32>,
+    position: vec3<f32>,
     view_projection_matrix: mat4x4<f32>,
-    perspective_projection_matrix: mat4x4<f32>,
     perspective_view_projection_matrix: mat4x4<f32>,
     view_projection_transposed: mat4x4<f32>,
     perspective_projection_invert: mat4x4<f32>,
+    global_gamma: f32,
+    skybox_gamma: f32,
 }
 
 struct PointLight {
@@ -173,7 +167,7 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
 
     // HDR gamma correction / tone mapping / Reinhard operator
     color = color / (color + vec3<f32>(1.0));
-    color = pow(color, vec3<f32>(1.0 / 2.2));
+    color = pow(color, vec3<f32>(1.0 / camera.global_gamma));
 
     return vec4<f32>(color, 1.0);
 }
