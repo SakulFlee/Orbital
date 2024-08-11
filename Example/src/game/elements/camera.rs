@@ -24,7 +24,7 @@ impl Camera {
     pub const IDENTIFIER: &'static str = "DEBUG";
 
     pub const MOVEMENT_SPEED: f32 = 5.0;
-    pub const MOUSE_SENSITIVITY: f32 = 0.5;
+    pub const MOUSE_SENSITIVITY: f32 = 0.0075;
     pub const GAMEPAD_SENSITIVITY: f32 = 2.5;
 
     // Keyboard bindings
@@ -182,8 +182,7 @@ impl Element for Camera {
                         Self::GAMEPAD_SENSITIVITY
                     } else {
                         Self::MOUSE_SENSITIVITY
-                    }
-                    * delta_time as f32,
+                    },
             )),
             pitch: Some(Mode::Offset(
                 pitch_change
@@ -191,8 +190,7 @@ impl Element for Camera {
                         Self::GAMEPAD_SENSITIVITY
                     } else {
                         Self::MOUSE_SENSITIVITY
-                    }
-                    * delta_time as f32,
+                    },
             )),
         };
 
