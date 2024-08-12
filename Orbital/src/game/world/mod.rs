@@ -1,4 +1,4 @@
-use std::{any::Any, mem::replace};
+use std::any::Any;
 
 use hashbrown::HashMap;
 use log::{info, warn};
@@ -292,7 +292,7 @@ impl World {
     }
 
     pub fn process_world_changes(&mut self) -> Vec<AppChange> {
-        let world_changes = replace(&mut self.queue_world_changes, Vec::new());
+        let world_changes = std::mem::replace(&mut self.queue_world_changes, Vec::new());
 
         let mut app_changes = Vec::new();
         for world_change in world_changes {

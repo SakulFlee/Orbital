@@ -20,6 +20,12 @@ pub struct Camera {
     is_focused: bool,
 }
 
+impl Default for Camera {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Camera {
     pub const IDENTIFIER: &'static str = "DEBUG";
 
