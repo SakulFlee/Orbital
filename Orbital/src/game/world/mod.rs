@@ -185,7 +185,7 @@ impl World {
         for mut element in self.queue_element_spawn.drain(..) {
             // Generate new ULID
             let element_ulid = Ulid::new();
-            info!("New element: {}@{:?}", element_ulid, element.type_id());
+            info!("New element: {}", element_ulid);
 
             // Start element registration
             let registration = element.on_registration(&element_ulid);
