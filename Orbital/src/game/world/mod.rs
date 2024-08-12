@@ -508,7 +508,7 @@ impl World {
     }
 
     pub fn models(&self) -> Vec<&Model> {
-        self.models.values().collect()
+        self.models.values().by_ref().collect()
     }
 
     pub fn light_storage(&self) -> &LightStorage {
