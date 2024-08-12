@@ -108,13 +108,12 @@ impl InputHandler {
         let option_x = self.get_only_axis(action_x_axis);
         let option_y = self.get_only_axis(action_y_axis);
 
+        // Double if lets aren't stable yet. Clippy flags this.
+        #[allow(clippy::unnecessary_unwrap)]
         if option_x.is_some() && option_y.is_some() {
             Some((option_x.unwrap(), option_y.unwrap()))
         } else if option_x.is_some() || option_y.is_some() {
-            return Some((
-                option_x.unwrap_or(0.0),
-                option_y.unwrap_or(0.0),
-            ));
+            return Some((option_x.unwrap_or(0.0), option_y.unwrap_or(0.0)));
         } else {
             return None;
         }
@@ -340,6 +339,8 @@ impl InputHandler {
                 value,
             } => {
                 if let Some(action) = self.gamepad_axis_mapping.get(axis) {
+                    // Clippy false positive?
+                    #[allow(clippy::if_same_then_else)]
                     if value.gt(&self.axis_threshold) {
                         self.triggered_action_axis.insert(*action, *value);
                     } else if value.lt(&-self.axis_threshold) {
