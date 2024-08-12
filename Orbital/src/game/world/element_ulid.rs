@@ -1,0 +1,1 @@
+pub type ElementUlid = Ulid;

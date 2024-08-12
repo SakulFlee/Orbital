@@ -26,8 +26,14 @@ pub use element::*;
 pub mod identifier;
 pub use identifier::*;
 
-pub type ElementUlid = Ulid;
-pub type ModelUlid = Ulid;
+pub mod element_ulid;
+pub use element_ulid::*;
+
+pub mod model_ulid;
+pub use model_ulid::*;
+
+pub mod environment;
+pub use environment::*;
 
 /// A [World] keeps track of everything inside your [Game].  
 /// Mainly, [Elements] and [realized resources].
