@@ -19,21 +19,24 @@ pub struct CubeTexture {
 }
 
 impl CubeTexture {
-    pub const DST_SIZE: u32 = 1024;
-
     pub fn from_descriptor(
         desc: &CubeTextureDescriptor,
         device: &Device,
         queue: &Queue,
     ) -> Result<Self, Error> {
         match desc {
-            CubeTextureDescriptor::RadianceHDRFile { path } => {
-                Self::radiance_hdr_file(path, Self::DST_SIZE, device, queue)
-            }
-            CubeTextureDescriptor::RadianceHDRData { data, size } => Ok(Self::radiance_hdr_vec(
+            CubeTextureDescriptor::RadianceHDRFile {
+                cube_face_size,
+                path,
+            } => Self::radiance_hdr_file(path, *cube_face_size, device, queue),
+            CubeTextureDescriptor::RadianceHDRData {
+                cube_face_size,
+                data,
+                size,
+            } => Ok(Self::radiance_hdr_vec(
                 &data,
                 *size,
-                Self::DST_SIZE,
+                *cube_face_size,
                 device,
                 queue,
             )),
