@@ -154,8 +154,8 @@
 //! First of all, in `app/build.gradle` remove both `externalNativeBuild`
 //! blocks.  
 //! > You may also change the `namespace` and `applicationId` here.  
-//! Next, under `app/src/main/AndroidManifest.xml` search for the
-//! following line:
+//! > Next, under `app/src/main/AndroidManifest.xml` search for the
+//! > following line:
 //! ```xml
 //! <meta-data android:name="android.app.lib_name"
 //!            android:value="native-activity" />
@@ -229,7 +229,7 @@
 //! ```
 //!
 //! > [Winit] basically takes over the `AndroidApp` and uses that instead
-//! of making a new window.
+//! > of making a new window.
 //!
 //! Now, just call the **Runtime** with the acquired [EventLoop]!
 //!

@@ -139,15 +139,12 @@ impl World {
 
     fn process_active_camera_change(&mut self, device: &Device, queue: &Queue) {
         let update_option = self.active_camera_change.take();
-        match update_option {
-            Some(change) => {
-                if let Some(camera) = &mut self.active_camera {
-                    camera.update_from_change(change, device, queue);
-                } else {
-                    error!("Trying to apply camera change to active camera, but active camera does not exist!");
-                }
+        if let Some(change) = update_option {
+            if let Some(camera) = &mut self.active_camera {
+                camera.update_from_change(change, device, queue);
+            } else {
+                error!("Trying to apply camera change to active camera, but active camera does not exist!");
             }
-            None => return,
         }
     }
 
@@ -160,31 +157,27 @@ impl World {
         }
 
         let taken = self.next_camera.take();
-        match taken {
-            Some(camera_identifier) => {
-                match self
-                    .camera_descriptors
-                    .iter()
-                    .find(|x| x.identifier == camera_identifier)
-                {
-                    Some(camera_descriptor) => {
-                        // Realize camera
-                        self.active_camera = Some(Camera::from_descriptor(
-                            camera_descriptor.clone(),
-                            device,
-                            queue,
-                        ));
-                    }
-                    None => {
-                        error!(
-                            "Supposed to change to camera '{}', but no such camera exists!",
-                            camera_identifier
-                        );
-                        return;
-                    }
+        if let Some(camera_identifier) = taken {
+            match self
+                .camera_descriptors
+                .iter()
+                .find(|x| x.identifier == camera_identifier)
+            {
+                Some(camera_descriptor) => {
+                    // Realize camera
+                    self.active_camera = Some(Camera::from_descriptor(
+                        camera_descriptor.clone(),
+                        device,
+                        queue,
+                    ));
+                }
+                None => {
+                    error!(
+                        "Supposed to change to camera '{}', but no such camera exists!",
+                        camera_identifier
+                    );
                 }
             }
-            None => return,
         }
     }
 
@@ -206,7 +199,7 @@ impl World {
                     self.tags
                         .entry(tag)
                         .or_insert(Vec::new())
-                        .push(element_ulid.clone());
+                        .push(element_ulid);
                 }
             }
 
@@ -292,7 +285,7 @@ impl World {
     }
 
     pub fn process_world_changes(&mut self) -> Vec<AppChange> {
-        let world_changes = std::mem::replace(&mut self.queue_world_changes, Vec::new());
+        let world_changes = std::mem::take(&mut self.queue_world_changes);
 
         let mut app_changes = Vec::new();
         for world_change in world_changes {
@@ -369,14 +362,12 @@ impl World {
                     if camera.descriptor().identifier == change.target {
                         self.active_camera_change = Some(change);
                     }
-                } else {
-                    if let Some(existing_camera_descriptor) = self
-                        .camera_descriptors
-                        .iter_mut()
-                        .find(|x| x.identifier == change.target)
-                    {
-                        existing_camera_descriptor.apply_change(change);
-                    }
+                } else if let Some(existing_camera_descriptor) = self
+                    .camera_descriptors
+                    .iter_mut()
+                    .find(|x| x.identifier == change.target)
+                {
+                    existing_camera_descriptor.apply_change(change);
                 }
             }
             WorldChange::AppChange(app_change) => return Some(app_change),

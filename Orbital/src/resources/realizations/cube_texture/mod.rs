@@ -34,7 +34,7 @@ impl CubeTexture {
                 data,
                 size,
             } => Ok(Self::radiance_hdr_vec(
-                &data,
+                data,
                 *size,
                 *cube_face_size,
                 device,
@@ -135,7 +135,7 @@ impl CubeTexture {
 
         let data = img
             .into_rgba32f()
-            .into_iter()
+            .iter()
             .map(|x| x.to_le_bytes())
             .collect::<Vec<_>>()
             .concat();
@@ -175,7 +175,7 @@ impl CubeTexture {
 
         queue.write_texture(
             ImageCopyTexture {
-                texture: &src_texture.texture(),
+                texture: src_texture.texture(),
                 mip_level: 0,
                 origin: Origin3d::ZERO,
                 aspect: TextureAspect::All,
@@ -225,7 +225,7 @@ impl CubeTexture {
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureView(&src_texture.view()),
+                    resource: BindingResource::TextureView(src_texture.view()),
                 },
                 BindGroupEntry {
                     binding: 1,

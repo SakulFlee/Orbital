@@ -45,12 +45,12 @@ impl MaterialDescriptor {
         } = gltf_material.into()
         {
             Self::PBRCustomShader {
-                normal: normal,
-                albedo: albedo,
-                metallic: metallic,
-                roughness: roughness,
-                occlusion: occlusion,
-                custom_shader: custom_shader,
+                normal,
+                albedo,
+                metallic,
+                roughness,
+                occlusion,
+                custom_shader,
             }
         } else {
             unreachable!()
