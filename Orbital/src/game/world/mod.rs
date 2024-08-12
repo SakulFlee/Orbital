@@ -131,6 +131,7 @@ impl World {
             next_camera: Default::default(),
             skybox_material_descriptor: MaterialDescriptor::SkyBox {
                 sky_texture: CubeTextureDescriptor::RadianceHDRFile {
+                    cube_face_size: CubeTextureDescriptor::SKY_BOX_DEFAULT_SIZE,
                     path: "assets/HDRs/lonely_road_afternoon_puresky_4k.hdr",
                 },
             },
