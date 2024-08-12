@@ -9,9 +9,7 @@ use crate::{
     app::{AppChange, InputEvent},
     log::error,
     resources::{
-        descriptors::{
-            CameraDescriptor, CubeTextureDescriptor, MaterialDescriptor, ModelDescriptor,
-        },
+        descriptors::{CameraDescriptor, MaterialDescriptor, ModelDescriptor},
         realizations::{Camera, LightStorage, Model},
     },
     variant::Variant,
@@ -113,8 +111,8 @@ pub struct World {
     /// ⚠️ Only the most recent `WorldChange` request will be applied as we can
     /// only ever have one single camera active!
     next_camera: Option<String>,
-    // --- SkyBox ---
-    skybox_material_descriptor: MaterialDescriptor,
+    // --- Environment ---
+    world_environment: WorldEnvironment,
 }
 
 impl World {
@@ -135,12 +133,7 @@ impl World {
             active_camera_change: Default::default(),
             camera_descriptors: Default::default(),
             next_camera: Default::default(),
-            skybox_material_descriptor: MaterialDescriptor::SkyBox {
-                sky_texture: CubeTextureDescriptor::RadianceHDRFile {
-                    cube_face_size: CubeTextureDescriptor::SKY_BOX_DEFAULT_SIZE,
-                    path: "assets/HDRs/lonely_road_afternoon_puresky_4k.hdr",
-                },
-            },
+            world_environment: Default::default(),
         }
     }
 
@@ -392,7 +385,7 @@ impl World {
             }
             WorldChange::ChangeSkyBox { skybox_material } => {
                 if let MaterialDescriptor::SkyBox { sky_texture: _ } = &skybox_material {
-                    self.skybox_material_descriptor = skybox_material;
+                    self.world_environment.sky_box_material_descriptor = skybox_material;
                 } else {
                     error!("WorldChange::ChangeSkyBox requested, but supplied material is not of type MaterialDescriptor::SkyBox!");
                 }
@@ -510,11 +503,19 @@ impl World {
         ulids
     }
 
+    pub fn active_camera(&self) -> &Camera {
+        self.active_camera.as_ref().unwrap()
+    }
+
+    pub fn models(&self) -> Vec<&Model> {
+        self.models.values().collect()
+    }
+
     pub fn light_storage(&self) -> &LightStorage {
         &self.light_storage
     }
 
-    pub fn skybox_material_descriptor(&self) -> &MaterialDescriptor {
-        &self.skybox_material_descriptor
+    pub fn world_environment(&self) -> &WorldEnvironment {
+        &self.world_environment
     }
 }
