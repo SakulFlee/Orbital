@@ -19,6 +19,7 @@ use crate::{
 
 use super::{Pipeline, Texture};
 
+#[derive(Debug)]
 pub struct Material {
     bind_group: BindGroup,
     pipeline_descriptor: PipelineDescriptor,

@@ -1,10 +1,7 @@
 use cgmath::Vector2;
 use wgpu::{Device, Queue, TextureFormat, TextureView};
 
-use crate::resources::{
-    descriptors::MaterialDescriptor,
-    realizations::{Camera, LightStorage, Model},
-};
+use crate::game::World;
 
 pub mod standard;
 pub use standard::*;
@@ -28,16 +25,5 @@ pub trait Renderer {
 
     fn update(&mut self, delta_time: f64);
 
-    // TODO: Change to raw data types (e.g. bind group) to make it more
-    // compatible with other implementations :: or world?
-    fn render(
-        &mut self,
-        target_view: &TextureView,
-        device: &Device,
-        queue: &Queue,
-        models: &[&Model],
-        camera: &Camera,
-        light_storage: &LightStorage,
-        sky_box_material: &MaterialDescriptor,
-    );
+    fn render(&mut self, target_view: &TextureView, device: &Device, queue: &Queue, world: &World);
 }

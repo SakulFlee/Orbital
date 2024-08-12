@@ -5,6 +5,7 @@ use wgpu::{
     TextureFormat, TextureView,
 };
 
+use crate::game::World;
 use crate::log::error;
 use crate::resources::descriptors::MaterialDescriptor;
 use crate::resources::realizations::Material;
@@ -187,21 +188,16 @@ impl Renderer for StandardRenderer {
 
     fn update(&mut self, _delta_time: f64) {}
 
-    fn render(
-        &mut self,
-        target_view: &TextureView,
-        device: &Device,
-        queue: &Queue,
-        models: &[&Model],
-        camera: &Camera,
-        light_storage: &LightStorage,
-        skybox_material: &MaterialDescriptor,
-    ) {
+    fn render(&mut self, target_view: &TextureView, device: &Device, queue: &Queue, world: &World) {
+        let (active_camera, models) = world.gather_render_resources();
+        let light_storage = world.light_storage();
+        let world_environment = world.world_environment();
+
         let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor { label: None });
         {
             self.render_skybox(
-                skybox_material,
-                camera,
+                &world_environment.sky_box_material_descriptor,
+                active_camera,
                 &mut encoder,
                 target_view,
                 device,
@@ -209,8 +205,8 @@ impl Renderer for StandardRenderer {
             );
 
             self.render_models(
-                models,
-                camera,
+                &models,
+                active_camera,
                 light_storage,
                 &mut encoder,
                 target_view,
