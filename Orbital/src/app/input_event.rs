@@ -53,23 +53,23 @@ impl InputEvent {
         match gil_event.event {
             EventType::ButtonPressed(button, _) => Some(Self::GamepadButton {
                 gamepad_id: gil_event.id,
-                button: button,
+                button,
                 pressed: true,
             }),
             EventType::ButtonRepeated(button, _) => Some(Self::GamepadButton {
                 gamepad_id: gil_event.id,
-                button: button,
+                button,
                 pressed: true,
             }),
             EventType::ButtonReleased(button, _) => Some(Self::GamepadButton {
                 gamepad_id: gil_event.id,
-                button: button,
+                button,
                 pressed: false,
             }),
             EventType::AxisChanged(axis, value, _) => Some(Self::GamepadAxis {
                 gamepad_id: gil_event.id,
-                axis: axis,
-                value: value,
+                axis,
+                value,
             }),
             EventType::Connected => Some(Self::GamepadConnected {
                 gamepad_id: gil_event.id,

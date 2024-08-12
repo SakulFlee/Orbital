@@ -320,7 +320,7 @@ impl Texture {
     ) -> Self {
         Self::from_descriptors(
             &WTextureDescriptor {
-                label: label,
+                label,
                 size: Extent3d {
                     width: size.x,
                     height: size.y,

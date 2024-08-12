@@ -32,8 +32,8 @@ impl Pipeline {
     /// The Rust compiler says the following:
     ///
     /// > use of mutable static is unsafe and requires unsafe function or block
-    /// mutable statics can be mutated by multiple threads: aliasing violations
-    /// or data races will cause undefined behavior
+    /// > mutable statics can be mutated by multiple threads: aliasing violations
+    /// > or data races will cause undefined behavior
     ///
     /// However, once initialized, the cell [OnceLock] should never change and
     /// thus this should be safe.
