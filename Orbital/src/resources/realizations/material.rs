@@ -2,7 +2,9 @@ use std::sync::{Mutex, OnceLock};
 
 use log::info;
 use wgpu::{
-    BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Device, Queue, TextureFormat,
+    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutEntry, BindingResource,
+    BindingType, Device, Queue, SamplerBindingType, ShaderStages, TextureFormat, TextureSampleType,
+    TextureViewDimension,
 };
 
 use crate::{
@@ -10,8 +12,8 @@ use crate::{
     error::Error,
     resources::{
         descriptors::{
-            CubeTextureDescriptor, MaterialDescriptor, PipelineDescriptor, ShaderDescriptor,
-            TextureDescriptor,
+            CubeTextureDescriptor, MaterialDescriptor, PipelineBindGroupLayout, PipelineDescriptor,
+            ShaderDescriptor, TextureDescriptor,
         },
         realizations::CubeTexture,
     },
@@ -23,15 +25,12 @@ use super::{Pipeline, Texture};
 pub struct Material {
     bind_group: BindGroup,
     pipeline_descriptor: PipelineDescriptor,
-    // TODO: Unsure if we can remove those after material creation?
-    // normal_texture: Texture,
-    // albedo_texture: Texture,
-    // metallic_texture: Texture,
-    // roughness_texture: Texture,
-    // occlusion_texture: Texture,
 }
 
 impl Material {
+    pub const PBR_PIPELINE_BIND_GROUP_NAME: &'static str = "PBR";
+    pub const WORLD_ENVIRONMENT_PIPELINE_BIND_GROUP_NAME: &'static str = "WorldEnvironment";
+
     // --- Static ---
     /// Gives access to the internal pipeline cache.
     /// If the cache doesn't exist yet, it gets initialized.
@@ -80,6 +79,158 @@ impl Material {
         unsafe { Self::cache() }
     }
 
+    pub fn pbr_pipeline_bind_group_layout() -> PipelineBindGroupLayout {
+        PipelineBindGroupLayout {
+            label: Self::PBR_PIPELINE_BIND_GROUP_NAME,
+            entries: vec![
+                // Normal
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                    count: None,
+                },
+                // Albedo
+                BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                    count: None,
+                },
+                // Metallic
+                BindGroupLayoutEntry {
+                    binding: 4,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 5,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                    count: None,
+                },
+                // Roughness
+                BindGroupLayoutEntry {
+                    binding: 6,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 7,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                    count: None,
+                },
+                // Occlusion
+                BindGroupLayoutEntry {
+                    binding: 8,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 9,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ],
+        }
+    }
+
+    pub fn world_environment_pipeline_bind_group_layout() -> PipelineBindGroupLayout {
+        PipelineBindGroupLayout {
+            label: Self::WORLD_ENVIRONMENT_PIPELINE_BIND_GROUP_NAME,
+            entries: vec![
+                // Sky
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Float { filterable: false },
+                        view_dimension: TextureViewDimension::Cube,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
+                    count: None,
+                },
+                // Irradiance
+                BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Float { filterable: false },
+                        view_dimension: TextureViewDimension::Cube,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
+                    count: None,
+                },
+                // Radiance
+                BindGroupLayoutEntry {
+                    binding: 4,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Float { filterable: false },
+                        view_dimension: TextureViewDimension::Cube,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 5,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
+                    count: None,
+                },
+            ],
+        }
+    }
+
     pub fn from_descriptor(
         descriptor: &MaterialDescriptor,
         surface_format: &TextureFormat,
@@ -124,35 +275,64 @@ impl Material {
                 device,
                 queue,
             ),
-            MaterialDescriptor::SkyBox { sky_texture } => {
-                Self::skybox(sky_texture, surface_format, device, queue)
-            }
+            MaterialDescriptor::WorldEnvironment {
+                sky,
+                irradiance,
+                radiance,
+            } => Self::skybox(sky, irradiance, radiance, surface_format, device, queue),
         })
     }
 
     pub fn skybox(
-        sky_texture: &CubeTextureDescriptor,
+        sky: &CubeTextureDescriptor,
+        irradiance: &CubeTextureDescriptor,
+        radiance: &CubeTextureDescriptor,
         surface_format: &TextureFormat,
         device: &Device,
         queue: &Queue,
     ) -> Result<Self, Error> {
-        let cube_texture = CubeTexture::from_descriptor(sky_texture, device, queue)?;
+        let sky_texture = CubeTexture::from_descriptor(sky, device, queue)?;
+        let irradiance_texture = CubeTexture::from_descriptor(irradiance, device, queue)?;
+        let radiance_texture = CubeTexture::from_descriptor(radiance, device, queue)?;
 
         let pipeline_descriptor = PipelineDescriptor::default_skybox();
         let pipeline =
             Pipeline::from_descriptor(&pipeline_descriptor, surface_format, device, queue)?;
 
+        let bind_group_layout = pipeline
+            .bind_group_layout(Self::WORLD_ENVIRONMENT_PIPELINE_BIND_GROUP_NAME)
+            .ok_or(Error::BindGroupMissing)?;
+
         let bind_group = device.create_bind_group(&BindGroupDescriptor {
             label: None,
-            layout: pipeline.bind_group_layout(),
+            layout: bind_group_layout,
             entries: &[
+                // Sky
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureView(cube_texture.texture().view()),
+                    resource: BindingResource::TextureView(sky_texture.texture().view()),
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::Sampler(cube_texture.texture().sampler()),
+                    resource: BindingResource::Sampler(sky_texture.texture().sampler()),
+                },
+                // Irradiance
+                BindGroupEntry {
+                    binding: 2,
+                    resource: BindingResource::TextureView(irradiance_texture.texture().view()),
+                },
+                BindGroupEntry {
+                    binding: 3,
+                    resource: BindingResource::Sampler(irradiance_texture.texture().sampler()),
+                },
+                // Radiance
+                BindGroupEntry {
+                    binding: 4,
+                    resource: BindingResource::TextureView(radiance_texture.texture().view()),
+                },
+                BindGroupEntry {
+                    binding: 5,
+                    resource: BindingResource::Sampler(radiance_texture.texture().sampler()),
                 },
             ],
         });
@@ -189,9 +369,13 @@ impl Material {
         let pipeline =
             Pipeline::from_descriptor(&pipeline_descriptor, surface_format, device, queue)?;
 
+        let bind_group_layout = pipeline
+            .bind_group_layout(Self::PBR_PIPELINE_BIND_GROUP_NAME)
+            .ok_or(Error::BindGroupMissing)?;
+
         let bind_group = device.create_bind_group(&BindGroupDescriptor {
             label: None,
-            layout: pipeline.bind_group_layout(),
+            layout: bind_group_layout,
             entries: &[
                 // Normal
                 BindGroupEntry {
@@ -229,7 +413,7 @@ impl Material {
                     binding: 7,
                     resource: BindingResource::Sampler(roughness_texture.sampler()),
                 },
-                // OCCLUSION
+                // Occlusion
                 BindGroupEntry {
                     binding: 8,
                     resource: BindingResource::TextureView(occlusion_texture.view()),
@@ -244,31 +428,16 @@ impl Material {
         Ok(Self::from_existing(
             bind_group,
             pipeline_descriptor,
-            // normal_texture,
-            // albedo_texture,
-            // metallic_texture,
-            // roughness_texture,
-            // occlusion_texture,
         ))
     }
 
     pub fn from_existing(
         bind_group: BindGroup,
         pipeline_descriptor: PipelineDescriptor,
-        // normal_texture: Texture,
-        // albedo_texture: Texture,
-        // metallic_texture: Texture,
-        // roughness_texture: Texture,
-        // occlusion_texture: Texture,
     ) -> Self {
         Self {
             bind_group,
             pipeline_descriptor,
-            // normal_texture,
-            // albedo_texture,
-            // metallic_texture,
-            // roughness_texture,
-            // occlusion_texture,
         }
     }
 

@@ -7,11 +7,10 @@ use wgpu::{
 
 use crate::game::World;
 use crate::log::error;
-use crate::resources::descriptors::MaterialDescriptor;
 use crate::resources::realizations::Material;
 use crate::resources::{
     descriptors::TextureDescriptor,
-    realizations::{Camera, LightStorage, Model, Pipeline, Texture},
+    realizations::{Pipeline, Texture},
 };
 
 use super::Renderer;
@@ -24,8 +23,7 @@ pub struct StandardRenderer {
 impl StandardRenderer {
     fn render_skybox(
         &self,
-        skybox_material: &MaterialDescriptor,
-        camera: &Camera,
+        world: &World,
         encoder: &mut CommandEncoder,
         target_view: &TextureView,
         device: &Device,
@@ -47,8 +45,8 @@ impl StandardRenderer {
         });
 
         // SkyBox
-        let skybox_material = match Material::from_descriptor(
-            skybox_material,
+        let world_environment_material = match Material::from_descriptor(
+            world.world_environment(),
             &self.surface_texture_format,
             device,
             queue,
@@ -60,7 +58,7 @@ impl StandardRenderer {
             }
         };
         let skybox_pipeline = match Pipeline::from_descriptor(
-            skybox_material.pipeline_descriptor(),
+            world_environment_material.pipeline_descriptor(),
             &self.surface_texture_format,
             device,
             queue,
@@ -72,16 +70,14 @@ impl StandardRenderer {
             }
         };
         render_pass.set_pipeline(skybox_pipeline.render_pipeline());
-        render_pass.set_bind_group(0, skybox_material.bind_group(), &[]);
-        render_pass.set_bind_group(1, camera.bind_group(), &[]);
+        render_pass.set_bind_group(0, world_environment_material.bind_group(), &[]);
+        render_pass.set_bind_group(1, world.active_camera().bind_group(), &[]);
         render_pass.draw(0..3, 0..1);
     }
 
     fn render_models(
         &self,
-        models: &[&Model],
-        camera: &Camera,
-        light_storage: &LightStorage,
+        world: &World,
         encoder: &mut CommandEncoder,
         target_view: &TextureView,
         device: &Device,
@@ -110,7 +106,7 @@ impl StandardRenderer {
         });
 
         // Models
-        for model in models {
+        for model in world.models() {
             let mesh = model.mesh();
             let material = match model.material(&self.surface_texture_format, device, queue) {
                 Ok(material) => material,
@@ -137,8 +133,22 @@ impl StandardRenderer {
             render_pass.set_pipeline(pipeline.render_pipeline());
 
             render_pass.set_bind_group(0, material.bind_group(), &[]);
-            render_pass.set_bind_group(1, camera.bind_group(), &[]);
-            render_pass.set_bind_group(2, light_storage.bind_group().unwrap(), &[]);
+            render_pass.set_bind_group(1, world.active_camera().bind_group(), &[]);
+            render_pass.set_bind_group(2, world.light_storage().bind_group().unwrap(), &[]);
+
+            let world_environment_material = match Material::from_descriptor(
+                world.world_environment(),
+                &self.surface_texture_format,
+                device,
+                queue,
+            ) {
+                Ok(x) => x,
+                Err(e) => {
+                    error!("SkyBox Material in invalid state: {:?}", e);
+                    return;
+                }
+            };
+            render_pass.set_bind_group(3, world_environment_material.bind_group(), &[]);
 
             render_pass.set_vertex_buffer(0, mesh.vertex_buffer().slice(..));
             render_pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
@@ -189,30 +199,11 @@ impl Renderer for StandardRenderer {
     fn update(&mut self, _delta_time: f64) {}
 
     fn render(&mut self, target_view: &TextureView, device: &Device, queue: &Queue, world: &World) {
-        let (active_camera, models) = world.gather_render_resources();
-        let light_storage = world.light_storage();
-        let world_environment = world.world_environment();
-
         let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor { label: None });
         {
-            self.render_skybox(
-                &world_environment.sky_box_material_descriptor,
-                active_camera,
-                &mut encoder,
-                target_view,
-                device,
-                queue,
-            );
+            self.render_skybox(world, &mut encoder, target_view, device, queue);
 
-            self.render_models(
-                &models,
-                active_camera,
-                light_storage,
-                &mut encoder,
-                target_view,
-                device,
-                queue,
-            );
+            self.render_models(world, &mut encoder, target_view, device, queue);
         }
 
         queue.submit(Some(encoder.finish()));

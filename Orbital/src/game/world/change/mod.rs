@@ -96,7 +96,7 @@ pub enum WorldChange {
     AppChange(AppChange),
     /// Spawns a light into existence.
     SpawnLight(LightDescriptor),
-    ChangeSkyBox {
+    ChangeWorldEnvironment {
         skybox_material: MaterialDescriptor,
     },
 }
@@ -128,7 +128,7 @@ impl fmt::Debug for WorldChange {
             Self::UpdateCamera(arg0) => f.debug_tuple("UpdateCamera").field(arg0).finish(),
             Self::AppChange(app_change) => f.debug_tuple("AppChange").field(app_change).finish(),
             Self::SpawnLight(desc) => f.debug_tuple("SpawnLight").field(desc).finish(),
-            WorldChange::ChangeSkyBox { skybox_material } => f
+            WorldChange::ChangeWorldEnvironment { skybox_material } => f
                 .debug_tuple("ChangeSkyBox")
                 .field(skybox_material)
                 .finish(),

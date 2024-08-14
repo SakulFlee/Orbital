@@ -1,10 +1,10 @@
 use log::info;
 use std::sync::{Mutex, OnceLock};
 use wgpu::{
-    BindGroupLayout, BindGroupLayoutDescriptor, BlendState, ColorTargetState, ColorWrites,
-    CompareFunction, DepthBiasState, DepthStencilState, Device, FragmentState, MultisampleState,
-    PipelineCompilationOptions, PipelineLayoutDescriptor, PrimitiveState, Queue, RenderPipeline,
-    RenderPipelineDescriptor, StencilState, TextureFormat, VertexState,
+    BindGroupLayout, BlendState, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
+    DepthStencilState, Device, FragmentState, MultisampleState, PipelineCompilationOptions,
+    PipelineLayoutDescriptor, PrimitiveState, Queue, RenderPipeline, RenderPipelineDescriptor,
+    StencilState, TextureFormat, VertexState,
 };
 
 use crate::{
@@ -13,12 +13,12 @@ use crate::{
     resources::{descriptors::PipelineDescriptor, realizations::Shader},
 };
 
-use super::{Camera, Instance, LightStorage, Vertex};
+use super::{Instance, Vertex};
 
 #[derive(Debug)]
 pub struct Pipeline {
     render_pipeline: RenderPipeline,
-    bind_group_layout: BindGroupLayout,
+    bind_group_layouts: Vec<(&'static str, BindGroupLayout)>,
     shader: Shader,
 }
 
@@ -110,39 +110,19 @@ impl Pipeline {
         device: &Device,
         queue: &Queue,
     ) -> Result<Pipeline, Error> {
-        let pipeline_bind_group_layout =
-            device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: None,
-                entries: &pipeline_descriptor.bind_group_entries,
-            });
-
-        // Bind group layouts
-        let mut pipeline_bind_group_layouts = vec![&pipeline_bind_group_layout];
-
-        // Note: Unfortunately needed due to the binding needing to live longer, but also needing to be optional.
-        #[allow(unused_assignments)]
-        let mut camera_bind_group: Option<BindGroupLayout> = None;
-        #[allow(unused_assignments)]
-        let mut light_storage_bind_group: Option<BindGroupLayout> = None;
-
-        if pipeline_descriptor.include_camera_bind_group_layout {
-            camera_bind_group =
-                Some(device.create_bind_group_layout(&Camera::bind_group_layout_descriptor()));
-
-            pipeline_bind_group_layouts.push(camera_bind_group.as_ref().unwrap());
-        }
-
-        if pipeline_descriptor.include_light_storage_bind_group_layout {
-            light_storage_bind_group = Some(
-                device.create_bind_group_layout(&LightStorage::bind_group_layout_descriptor()),
-            );
-
-            pipeline_bind_group_layouts.push(light_storage_bind_group.as_ref().unwrap());
-        }
+        let bind_group_layouts = pipeline_descriptor
+            .bind_group_layouts
+            .iter()
+            .map(|x| (x.label, x.make_bind_group_layout(device)))
+            .collect::<Vec<_>>();
+        let bind_group_layouts_ref = bind_group_layouts
+            .iter()
+            .map(|(_, x)| x)
+            .collect::<Vec<_>>();
 
         let render_pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: None,
-            bind_group_layouts: &pipeline_bind_group_layouts,
+            bind_group_layouts: &bind_group_layouts_ref,
             push_constant_ranges: &[],
         });
 
@@ -203,7 +183,7 @@ impl Pipeline {
 
         Ok(Self {
             render_pipeline,
-            bind_group_layout: pipeline_bind_group_layout,
+            bind_group_layouts,
             shader,
         })
     }
@@ -212,8 +192,11 @@ impl Pipeline {
         &self.render_pipeline
     }
 
-    pub fn bind_group_layout(&self) -> &BindGroupLayout {
-        &self.bind_group_layout
+    pub fn bind_group_layout(&self, label: &str) -> Option<&BindGroupLayout> {
+        self.bind_group_layouts
+            .iter()
+            .find(|x| x.0 == label)
+            .map(|(_, x)| x)
     }
 
     pub fn shader(&self) -> &Shader {

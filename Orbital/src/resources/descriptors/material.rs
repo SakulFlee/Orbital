@@ -22,12 +22,31 @@ pub enum MaterialDescriptor {
         occlusion: TextureDescriptor,
         custom_shader: ShaderDescriptor,
     },
-    SkyBox {
-        sky_texture: CubeTextureDescriptor,
-    }
+    WorldEnvironment {
+        sky: CubeTextureDescriptor,
+        irradiance: CubeTextureDescriptor,
+        radiance: CubeTextureDescriptor,
+    },
 }
 
 impl MaterialDescriptor {
+    pub fn default_world_environment() -> MaterialDescriptor {
+        MaterialDescriptor::WorldEnvironment {
+            sky: CubeTextureDescriptor::RadianceHDRFile {
+                cube_face_size: 1024,
+                path: "Assets/HDRs/lonely_road_afternoon_puresky_4k.hdr",
+            },
+            irradiance: CubeTextureDescriptor::RadianceHDRFile {
+                cube_face_size: 32,
+                path: "Assets/HDRs/lonely_road_afternoon_puresky_irradiance.hdr",
+            },
+            radiance: CubeTextureDescriptor::RadianceHDRFile {
+                cube_face_size: 32,
+                path: "Assets/HDRs/lonely_road_afternoon_puresky_radiance.hdr",
+            },
+        }
+    }
+
     pub fn from_gltf(gltf_material: &easy_gltf::Material) -> Self {
         gltf_material.into()
     }

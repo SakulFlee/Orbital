@@ -1,4 +1,3 @@
-
 use hashbrown::HashMap;
 use log::{info, warn};
 use ulid::Ulid;
@@ -28,9 +27,6 @@ pub use element_ulid::*;
 
 pub mod model_ulid;
 pub use model_ulid::*;
-
-pub mod environment;
-pub use environment::*;
 
 /// A [World] keeps track of everything inside your [Game].  
 /// Mainly, [Elements] and [realized resources].
@@ -111,7 +107,7 @@ pub struct World {
     /// only ever have one single camera active!
     next_camera: Option<String>,
     // --- Environment ---
-    world_environment: WorldEnvironment,
+    world_environment: MaterialDescriptor,
 }
 
 impl World {
@@ -132,7 +128,7 @@ impl World {
             active_camera_change: Default::default(),
             camera_descriptors: Default::default(),
             next_camera: Default::default(),
-            world_environment: Default::default(),
+            world_environment: MaterialDescriptor::default_world_environment(),
         }
     }
 
@@ -373,9 +369,16 @@ impl World {
             WorldChange::SpawnLight(light_descriptor) => {
                 self.light_storage.add_descriptor(light_descriptor)
             }
-            WorldChange::ChangeSkyBox { skybox_material } => {
-                if let MaterialDescriptor::SkyBox { sky_texture: _ } = &skybox_material {
-                    self.world_environment.sky_box_material_descriptor = skybox_material;
+            WorldChange::ChangeWorldEnvironment {
+                skybox_material: world_environment_material_descriptor,
+            } => {
+                if let MaterialDescriptor::WorldEnvironment {
+                    sky: _,
+                    irradiance: _,
+                    radiance: _,
+                } = &world_environment_material_descriptor
+                {
+                    self.world_environment = world_environment_material_descriptor;
                 } else {
                     error!("WorldChange::ChangeSkyBox requested, but supplied material is not of type MaterialDescriptor::SkyBox!");
                 }
@@ -505,7 +508,7 @@ impl World {
         &self.light_storage
     }
 
-    pub fn world_environment(&self) -> &WorldEnvironment {
+    pub fn world_environment(&self) -> &MaterialDescriptor {
         &self.world_environment
     }
 }

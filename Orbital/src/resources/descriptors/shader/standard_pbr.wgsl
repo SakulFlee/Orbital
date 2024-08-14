@@ -58,11 +58,15 @@ struct LightStorage {
 @group(0) @binding(8) var occlusion_texture: texture_2d<f32>;
 @group(0) @binding(9) var occlusion_sampler: sampler;
 
-@group(1) @binding(0) 
-var<uniform> camera: CameraUniform;
+@group(1) @binding(0) var<uniform> camera: CameraUniform;
 
-@group(2) @binding(0) 
-var<storage> lights: LightStorage;
+@group(2) @binding(0) var<storage> lights: LightStorage;
+
+@group(3) @binding(0) var irradiance_env_map: texture_cube<f32>;
+@group(3) @binding(1) var irradiance_sampler: sampler;
+
+@group(3) @binding(2) var radiance_env_map: texture_cube<f32>;
+@group(3) @binding(3) var radiance_sampler: sampler;
 
 const PI = 3.14159265359; 
 const STANDARD_F0 = vec3<f32>(0.04);
