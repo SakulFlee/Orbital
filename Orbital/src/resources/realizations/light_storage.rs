@@ -1,11 +1,10 @@
 use cgmath::{Vector3, Zero};
 use wgpu::{
-    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferDescriptor, BufferUsages,
-    Device, Queue, ShaderStages,
+    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutEntry, BindingType, Buffer,
+    BufferBindingType, BufferDescriptor, BufferUsages, Device, Queue, ShaderStages,
 };
 
-use crate::resources::descriptors::LightDescriptor;
+use crate::resources::descriptors::{LightDescriptor, PipelineBindGroupLayout};
 
 #[derive(Debug)]
 pub struct LightStorage {
@@ -17,10 +16,10 @@ pub struct LightStorage {
 }
 
 impl LightStorage {
-    pub fn bind_group_layout_descriptor() -> BindGroupLayoutDescriptor<'static> {
-        BindGroupLayoutDescriptor {
-            label: Some("Light Storage"),
-            entries: &[BindGroupLayoutEntry {
+    pub fn pipeline_bind_group_layout() -> PipelineBindGroupLayout {
+        PipelineBindGroupLayout {
+            label: "WorldEnvironment",
+            entries: vec![BindGroupLayoutEntry {
                 binding: 0,
                 visibility: ShaderStages::FRAGMENT,
                 ty: BindingType::Buffer {
@@ -85,8 +84,7 @@ impl LightStorage {
             return;
         }
 
-        let bind_group_layout =
-            device.create_bind_group_layout(&Self::bind_group_layout_descriptor());
+        let bind_group_layout = Self::pipeline_bind_group_layout().make_bind_group_layout(device);
 
         self.bind_group = Some(device.create_bind_group(&BindGroupDescriptor {
             label: Some("Light Storage Bind Group"),

@@ -18,4 +18,5 @@ pub enum Error {
     ImageError(image::ImageError),
     CannotRealizeTag(String),
     WrongFormat,
+    BindGroupMissing,
 }

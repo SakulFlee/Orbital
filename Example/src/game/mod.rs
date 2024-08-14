@@ -1,7 +1,4 @@
-use elements::{
-    camera::Camera, damaged_helmet::DamagedHelmet, pbr_spheres::PBRSpheres,
-    ping_pong::PingPongElement,
-};
+use elements::{camera::Camera, damaged_helmet::DamagedHelmet, ping_pong::PingPongElement};
 use orbital::{
     game::{Game, World, WorldChange},
     log::info,

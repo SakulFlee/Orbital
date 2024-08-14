@@ -1,12 +1,14 @@
 use cgmath::{perspective, Deg, InnerSpace, Matrix, Matrix4, SquareMatrix, Vector3};
 use std::mem;
 use wgpu::{
-    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferDescriptor, BufferUsages,
-    Device, Queue, ShaderStages,
+    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutEntry, BindingType, Buffer,
+    BufferBindingType, BufferDescriptor, BufferUsages, Device, Queue, ShaderStages,
 };
 
-use crate::{game::CameraChange, resources::descriptors::CameraDescriptor};
+use crate::{
+    game::CameraChange,
+    resources::descriptors::{CameraDescriptor, PipelineBindGroupLayout},
+};
 
 #[derive(Debug)]
 pub struct Camera {
@@ -16,10 +18,10 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn bind_group_layout_descriptor() -> BindGroupLayoutDescriptor<'static> {
-        BindGroupLayoutDescriptor {
-            label: Some("Camera"),
-            entries: &[BindGroupLayoutEntry {
+    pub fn pipeline_bind_group_layout() -> PipelineBindGroupLayout {
+        PipelineBindGroupLayout {
+            label: "Camera",
+            entries: vec![BindGroupLayoutEntry {
                 binding: 0,
                 visibility: ShaderStages::VERTEX_FRAGMENT,
                 ty: BindingType::Buffer {
@@ -57,8 +59,7 @@ impl Camera {
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        let bind_group_layout =
-            device.create_bind_group_layout(&Self::bind_group_layout_descriptor());
+        let bind_group_layout = Self::pipeline_bind_group_layout().make_bind_group_layout(device);
         let bind_group = device.create_bind_group(&BindGroupDescriptor {
             label: Some("Camera Bind Group"),
             layout: &bind_group_layout,
