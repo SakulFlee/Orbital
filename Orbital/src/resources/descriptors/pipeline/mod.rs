@@ -4,8 +4,6 @@ use crate::resources::realizations::{Camera, LightStorage, Material};
 
 use super::ShaderDescriptor;
 
-// TODO: List of Bind Group Layout Descriptors, instead of booleans? + remove bind_group_entries
-
 mod bind_group_layout;
 pub use bind_group_layout::*;
 

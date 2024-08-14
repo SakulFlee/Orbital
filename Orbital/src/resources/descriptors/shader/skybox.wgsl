@@ -15,13 +15,10 @@ struct VertexOutput {
     @location(0) clip_position: vec4<f32>,
 }
 
-@group(0) @binding(0)
-var env_map: texture_cube<f32>;
-@group(0) @binding(1)
-var env_sampler: sampler;
+@group(0) @binding(0) var env_map: texture_cube<f32>;
+@group(0) @binding(1) var env_sampler: sampler;
 
-@group(1) @binding(0)
-var<uniform> camera: CameraUniform;
+@group(1) @binding(0) var<uniform> camera: CameraUniform;
 
 @vertex
 fn entrypoint_vertex(

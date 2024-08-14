@@ -1,6 +1,5 @@
 use cgmath::{Vector2, Vector4};
-use image::{DynamicImage, GenericImageView, ImageReader};
-use log::warn;
+use image::ImageReader;
 use wgpu::{
     AddressMode, CompareFunction, Device, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout,
     Origin3d, Queue, Sampler, SamplerDescriptor, Texture as WTexture, TextureAspect,
@@ -12,7 +11,7 @@ use crate::{error::Error, resources::descriptors::TextureDescriptor};
 
 pub struct Texture {
     texture: WTexture,
-    pub(crate) view: TextureView, // TODO
+    view: TextureView,
     sampler: Sampler,
 }
 
@@ -44,8 +43,15 @@ impl Texture {
             .decode()
             .map_err(Error::ImageError)?;
 
+        let data = img
+            .to_rgba8()
+            .iter()
+            .map(|x| x.to_le_bytes())
+            .collect::<Vec<_>>()
+            .concat();
+
         Ok(Self::standard_srgba8_data(
-            img.as_bytes(),
+            &data,
             &(img.width(), img.height()).into(),
             device,
             queue,
@@ -215,30 +221,6 @@ impl Texture {
                 min_filter: FilterMode::Nearest,
                 ..Default::default()
             },
-            device,
-            queue,
-        )
-    }
-
-    pub fn from_image_srgb8(
-        image: DynamicImage,
-        texture_desc: &WTextureDescriptor,
-        view_desc: &TextureViewDescriptor,
-        sampler_desc: &SamplerDescriptor,
-        device: &Device,
-        queue: &Queue,
-    ) -> Self {
-        if texture_desc.size.width != image.dimensions().0
-            || texture_desc.size.height != image.dimensions().1
-        {
-            warn!("Image supplied has different dimensions from what the texture description expects! This may lead to undefined behaviour.");
-        }
-
-        Self::from_data_srgb8(
-            &image.to_rgba8(),
-            texture_desc,
-            view_desc,
-            sampler_desc,
             device,
             queue,
         )

@@ -6,6 +6,8 @@
         "bindgen",
         "binormal",
         "bitangent",
+        "brdf",
+        "BRDF",
         "bytemuck",
         "cgmath",
         "consts",
