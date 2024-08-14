@@ -227,6 +227,23 @@ impl Material {
                     ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
                     count: None,
                 },
+                // IBL BRDF LUT
+                BindGroupLayoutEntry {
+                    binding: 6,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 7,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                    count: None,
+                },
             ],
         }
     }
@@ -294,6 +311,11 @@ impl Material {
         let sky_texture = CubeTexture::from_descriptor(sky, device, queue)?;
         let irradiance_texture = CubeTexture::from_descriptor(irradiance, device, queue)?;
         let radiance_texture = CubeTexture::from_descriptor(radiance, device, queue)?;
+        let ibl_brdf_lut = Texture::from_descriptor(
+            &TextureDescriptor::FilePath("Assets/IBL_BRDF_LUT/ibl_brdf_lut.png"),
+            device,
+            queue,
+        )?;
 
         let pipeline_descriptor = PipelineDescriptor::default_skybox();
         let pipeline =
@@ -333,6 +355,15 @@ impl Material {
                 BindGroupEntry {
                     binding: 5,
                     resource: BindingResource::Sampler(radiance_texture.texture().sampler()),
+                },
+                // IBL BRDF LUT
+                BindGroupEntry {
+                    binding: 6,
+                    resource: BindingResource::TextureView(ibl_brdf_lut.view()),
+                },
+                BindGroupEntry {
+                    binding: 7,
+                    resource: BindingResource::Sampler(ibl_brdf_lut.sampler()),
                 },
             ],
         });
@@ -425,16 +456,10 @@ impl Material {
             ],
         });
 
-        Ok(Self::from_existing(
-            bind_group,
-            pipeline_descriptor,
-        ))
+        Ok(Self::from_existing(bind_group, pipeline_descriptor))
     }
 
-    pub fn from_existing(
-        bind_group: BindGroup,
-        pipeline_descriptor: PipelineDescriptor,
-    ) -> Self {
+    pub fn from_existing(bind_group: BindGroup, pipeline_descriptor: PipelineDescriptor) -> Self {
         Self {
             bind_group,
             pipeline_descriptor,

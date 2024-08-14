@@ -34,15 +34,15 @@ impl MaterialDescriptor {
         MaterialDescriptor::WorldEnvironment {
             sky: CubeTextureDescriptor::RadianceHDRFile {
                 cube_face_size: 1024,
-                path: "Assets/HDRs/lonely_road_afternoon_puresky_4k.hdr",
+                path: "Assets/HDRs/brown_photostudio_02_4k.hdr",
             },
             irradiance: CubeTextureDescriptor::RadianceHDRFile {
-                cube_face_size: 32,
-                path: "Assets/HDRs/lonely_road_afternoon_puresky_irradiance.hdr",
+                cube_face_size: 128,
+                path: "Assets/HDRs/test_irradiance.hdr",
             },
             radiance: CubeTextureDescriptor::RadianceHDRFile {
-                cube_face_size: 32,
-                path: "Assets/HDRs/lonely_road_afternoon_puresky_radiance.hdr",
+                cube_face_size: 128,
+                path: "Assets/HDRs/test_radiance.hdr",
             },
         }
     }
