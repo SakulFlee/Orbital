@@ -80,4 +80,7 @@ impl TextureDescriptor {
         z: 128,
         w: 255,
     });
+    pub const UNIFORM_LUMA_BLACK: Self = Self::UniformLuma { data: 0 };
+    pub const UNIFORM_LUMA_WHITE: Self = Self::UniformLuma { data: 255 };
+    pub const UNIFORM_LUMA_GRAY: Self = Self::UniformLuma { data: 128 };
 }

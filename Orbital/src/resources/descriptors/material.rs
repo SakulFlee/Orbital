@@ -1,4 +1,4 @@
-use cgmath::Vector4;
+use log::{error, warn};
 
 use super::{CubeTextureDescriptor, ShaderDescriptor, TextureDescriptor};
 
@@ -37,11 +37,11 @@ impl MaterialDescriptor {
                 path: "Assets/HDRs/brown_photostudio_02_4k.hdr",
             },
             irradiance: CubeTextureDescriptor::RadianceHDRFile {
-                cube_face_size: 128,
+                cube_face_size: 512,
                 path: "Assets/HDRs/test_irradiance.hdr",
             },
             radiance: CubeTextureDescriptor::RadianceHDRFile {
-                cube_face_size: 128,
+                cube_face_size: 512,
                 path: "Assets/HDRs/test_radiance.hdr",
             },
         }
@@ -79,66 +79,79 @@ impl MaterialDescriptor {
 
 impl From<&easy_gltf::Material> for MaterialDescriptor {
     fn from(value: &easy_gltf::Material) -> Self {
-        let normal = if let Some(normal_map) = &value.normal {
-            let mut processed_bytes = Vec::new();
-            for (k, v) in normal_map.texture.to_vec().into_iter().enumerate() {
-                processed_bytes.push(v);
-                if k % 3 == 0 {
-                    processed_bytes.push(255);
+        let normal = match &value.normal {
+            Some(normal_map) => match image::load_from_memory(&normal_map.texture.as_raw()) {
+                Ok(x) => {
+                    let rgba_img = x.to_rgba8();
+                    let bytes_vec = rgba_img.to_vec();
+                    TextureDescriptor::StandardSRGBAu8Data(bytes_vec, rgba_img.dimensions().into())
                 }
-            }
-
-            TextureDescriptor::StandardSRGBAu8Data(
-                processed_bytes,
-                normal_map.texture.dimensions().into(),
-            )
-        } else {
-            TextureDescriptor::UNIFORM_BLACK
-        };
-
-        let albedo = if let Some(base_color) = &value.pbr.base_color_texture {
-            TextureDescriptor::StandardSRGBAu8Data(
-                base_color.to_vec(),
-                base_color.dimensions().into(),
-            )
-        } else {
-            TextureDescriptor::UniformColor(Vector4::new(
-                (255f32 * value.pbr.base_color_factor.x) as u8,
-                (255f32 * value.pbr.base_color_factor.y) as u8,
-                (255f32 * value.pbr.base_color_factor.z) as u8,
-                (255f32 * value.pbr.base_color_factor.w) as u8,
-            ))
-        };
-
-        let metallic = if let Some(metallic_buffer) = &value.pbr.metallic_texture {
-            TextureDescriptor::Luma {
-                data: metallic_buffer.to_vec(),
-                size: metallic_buffer.dimensions().into(),
-            }
-        } else {
-            TextureDescriptor::UniformLuma {
-                data: (255f32 * value.pbr.metallic_factor) as u8,
+                Err(e) => {
+                    error!(
+                        "Failed loading NormalMap: {}! Using Uniform black instead.",
+                        e
+                    );
+                    TextureDescriptor::UNIFORM_BLACK
+                }
+            },
+            None => {
+                warn!("No Normal texture found! Using uniform black.");
+                TextureDescriptor::UNIFORM_BLACK
             }
         };
 
-        let roughness = if let Some(roughness_buffer) = &value.pbr.roughness_texture {
-            TextureDescriptor::Luma {
-                data: roughness_buffer.to_vec(),
-                size: roughness_buffer.dimensions().into(),
-            }
-        } else {
-            TextureDescriptor::UniformLuma {
-                data: (255f32 * value.pbr.roughness_factor) as u8,
+        let albedo = match &value.pbr.base_color_texture {
+            Some(albedo_buffer) => match image::load_from_memory(&albedo_buffer.as_raw()) {
+                Ok(dynamic_img) => {
+                    let rgba_img = dynamic_img.to_rgba8();
+                    let bytes_vec = rgba_img.to_vec();
+                    TextureDescriptor::StandardSRGBAu8Data(bytes_vec, rgba_img.dimensions().into())
+                }
+                Err(e) => {
+                    error!(
+                        "Failed loading NormalMap: {}! Using Uniform black instead.",
+                        e
+                    );
+                    TextureDescriptor::UNIFORM_BLACK
+                }
+            },
+            None => {
+                warn!("No Albedo texture found! Using uniform black.");
+                TextureDescriptor::UNIFORM_BLACK
             }
         };
 
-        let occlusion = if let Some(occlusion) = &value.occlusion {
-            TextureDescriptor::Luma {
+        let metallic = match &value.pbr.metallic_texture {
+            Some(img_buffer) => TextureDescriptor::Luma {
+                data: img_buffer.to_vec(),
+                size: img_buffer.dimensions().into(),
+            },
+            None => {
+                warn!("No Metallic texture found! Using uniform black.");
+                TextureDescriptor::UNIFORM_LUMA_BLACK
+            }
+        };
+
+        let roughness = match &value.pbr.roughness_texture {
+            Some(img_buffer) => TextureDescriptor::Luma {
+                data: img_buffer.to_vec(),
+                size: img_buffer.dimensions().into(),
+            },
+            None => {
+                warn!("No Roughness texture found! Using uniform black.");
+                TextureDescriptor::UNIFORM_LUMA_BLACK
+            }
+        };
+
+        let occlusion = match &value.occlusion {
+            Some(occlusion) => TextureDescriptor::Luma {
                 data: occlusion.texture.to_vec(),
                 size: occlusion.texture.dimensions().into(),
+            },
+            None => {
+                warn!("No Occlusion texture found! Using uniform black.");
+                TextureDescriptor::UNIFORM_LUMA_BLACK
             }
-        } else {
-            TextureDescriptor::UniformLuma { data: 255u8 }
         };
 
         Self::PBR {
