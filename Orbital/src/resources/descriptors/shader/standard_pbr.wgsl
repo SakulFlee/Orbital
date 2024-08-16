@@ -249,7 +249,8 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     let specular = radiance_color * (F * environment_brdf.x + environment_brdf.y);
 
 // TODO: Specular is broken, somehow. Maybe something with F? Intensity way too high or something....
-    let ambient = (kD * diffuse + specular) * occlusion;
+    // let ambient = (kD * diffuse + specular) * occlusion;
+    let ambient = (kD * diffuse) * occlusion;
 
     var color = ambient + Lo;
 
