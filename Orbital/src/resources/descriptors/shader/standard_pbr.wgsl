@@ -18,7 +18,9 @@ struct FragmentData {
     @builtin(position) position: vec4<f32>,
     @location(0) world_position: vec3<f32>,
     @location(1) uv: vec2<f32>,
-    @location(2) normal: vec3<f32>,
+    @location(2) tangent: vec3<f32>,
+    @location(3) bitangent: vec3<f32>,
+    @location(4) normal: vec3<f32>,
 }
 
 struct CameraUniform {
@@ -69,28 +71,21 @@ struct LightStorage {
 @group(3) @binding(7) var ibl_brdf_lut_sampler: sampler;
 
 const PI = 3.14159265359; 
-const STANDARD_F0 = vec3<f32>(0.04);
-const MAX_REFLECTION_LOD = 7.0;
+const F0_DIELECTRIC_STANDARD = vec3<f32>(0.04);
+const MAX_REFLECTION_LOD = 1.0;
 
-fn sample_normal_from_map(uv: vec2<f32>, world_position: vec3<f32>, vertex_normal: vec3<f32>) -> vec3<f32> {
+/// Samples the fragment's normal and transforms it into world space
+fn sample_normal_from_map(uv: vec2<f32>, world_position: vec3<f32>, TBN: mat3x3<f32>) -> vec3<f32> {
     let normal_sample = textureSample(
         normal_texture,
         normal_sampler,
         uv
-    ).xyz;
-    let tangent_normal = normal_sample * 2.0 - 1.0;
+    ).rgb;
 
-    let Q1 = dpdx(world_position);
-    let Q2 = dpdy(world_position);
-    let st1 = dpdx(uv);
-    let st2 = dpdy(uv);
+    let tangent_normal = 2.0 * normal_sample - 1.0;
+    let N = normalize(TBN * tangent_normal);
 
-    let N = normalize(vertex_normal);
-    let T = normalize(Q1 * st2.y - Q2 * st1.y);
-    let B = -normalize(cross(N, T));
-
-    let TBN = mat3x3<f32>(T, B, N);
-    return normalize(TBN * tangent_normal);
+    return N;
 }
 
 fn fresnel_schlick(cos_theta: f32, F0: vec3<f32>) -> vec3<f32> {
@@ -102,21 +97,21 @@ fn fresnel_schlick_roughness(cos_theta: f32, F0: vec3<f32>, roughness: f32) -> v
 }
 
 fn distribution_ggx(N: vec3<f32>, H: vec3<f32>, roughness: f32) -> f32 {
-    let a = roughness * roughness;
-    let a_2 = a * a;
+    let alpha = roughness * roughness;
+    let alpha_squared = alpha * alpha;
 
-    let NdotH = max(dot(N, H), 0.0);
-    let NdotH_2 = NdotH * NdotH;
+    let NdotH = max(0.0, dot(N, H));
+    let NdotH_squared = NdotH * NdotH;
 
-    var denom = (NdotH_2 * (a_2 - 1.0) + 1.0);
-    denom = PI * denom * denom;
+    let denom = NdotH_squared * (alpha_squared - 1.0) + 1.0;
+    let denom_squared = denom * denom;
 
-    return a_2 / denom;
+    return alpha_squared / (PI * denom_squared);
 }
 
 fn geometry_schlick_ggx(NdotV: f32, roughness: f32) -> f32 {
-    let r = (roughness + 1.0);
-    let k = r * r / 8.0;
+    let r = roughness + 1.0;
+    let k = (r * r) / 8.0;
 
     let denom = NdotV * (1.0 - k) + k;
 
@@ -145,7 +140,7 @@ fn entrypoint_vertex(
         instance.model_space_matrix_3,
     );
 
-    // Calculate actual position
+    // Calculate world position
     let world_position = model_space_matrix * vec4<f32>(vertex.position, 1.0);
 
     // Passthrough variables
@@ -153,12 +148,21 @@ fn entrypoint_vertex(
     out.position = camera.perspective_view_projection_matrix * world_position;
     out.world_position = world_position.xyz;
     out.uv = vertex.uv;
+    out.tangent = vertex.tangent;
+    out.bitangent = vertex.bitangent;
     out.normal = vertex.normal;
     return out;
 }
 
 @fragment
 fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {    
+    // Precalculate TBN (Tangent, Bitangent, Normal) matrix
+    let TBN = mat3x3(
+        in.tangent,
+        in.bitangent,
+        in.normal,
+    );
+
     // Material properties
     let albedo = pow(textureSample(
         albedo_texture,
@@ -181,14 +185,17 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
         in.uv
     ).r;
 
-    // Input lighting data
-    let N = sample_normal_from_map(in.uv, in.world_position, in.normal);
+    // Fragment's Normal
+    let N = sample_normal_from_map(in.uv, in.world_position, TBN);
+
+    // Outgoing Light direction (camera position == eye)
     let V = normalize(camera.position.xyz - in.world_position);
+
+    // Specular light reflection
     let R = reflect(-V, N);
 
     // Calculate reflectance at normal incidence
-    var F0 = STANDARD_F0;
-    F0 = mix(F0, albedo.xyz, metallic);
+    var F0 = mix(F0_DIELECTRIC_STANDARD, albedo, metallic);
 
     // Reflectance equation
     var Lo = vec3<f32>(0.0);
@@ -199,7 +206,7 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
         let L = normalize(point_light.position - in.world_position);
         let H = normalize(V + L);
 
-        let distance = length(point_light.position - in.world_position);
+        let distance = length(L);
         let attenuation = 1.0 / (distance * distance);
         let radiance = point_light.color * attenuation;
 
@@ -212,9 +219,7 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
         let denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001; // +0.0001 prevents division by zero
         let specular = numerator / denominator;
 
-        let kS = F;
-        var kD = vec3<f32>(1.0) - kS;
-        kD *= 1.0 - metallic;
+        let kD = mix(vec3<f32>(1.0) - F, vec3<f32>(0.0), metallic);
 
         // Adding radiance to Lo
         let NdotL = max(dot(N, L), 0.0);
@@ -223,16 +228,14 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
 
     // Ambient light calculation (IBL Diffuse)
     let F = fresnel_schlick_roughness(max(dot(N, V), 0.0), F0, roughness);
-    let kS = F;
-    var kD = 1.0 - kS;
-    kD *= 1.0 - metallic;
+    let kD = mix(vec3<f32>(1.0) - F, vec3<f32>(0.0), metallic);
 
     let irradiance = textureSample(
         irradiance_env_map,
         irradiance_sampler,
         N
     ).rgb;
-    let diffuse = irradiance * albedo;
+    let diffuse_ibl = irradiance * albedo;
 
     // IBL Specular
     let radiance_color = textureSampleLevel(
@@ -241,17 +244,17 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
         R,
         roughness * MAX_REFLECTION_LOD
     ).rgb;
-    let environment_brdf = textureSample(
+
+    let specular_brdf = textureSample(
         ibl_brdf_lut_texture,
         ibl_brdf_lut_sampler,
         vec2<f32>(max(dot(N, V), 0.0), roughness)
     ).rg;
-    let specular = radiance_color * (F * environment_brdf.x + environment_brdf.y);
+    var specular_ibl = radiance_color * (F * specular_brdf.x + specular_brdf.y);
 
-// TODO: Specular is broken, somehow. Maybe something with F? Intensity way too high or something....
-    // let ambient = (kD * diffuse + specular) * occlusion;
-    let ambient = (kD * diffuse) * occlusion;
-
+    // let EMISSIVE = 0.001; // TODO
+    let EMISSIVE = 1.0;
+    let ambient = (kD * diffuse_ibl + specular_ibl) * occlusion * EMISSIVE;
     var color = ambient + Lo;
 
     // HDR gamma correction / tone mapping / Reinhard operator

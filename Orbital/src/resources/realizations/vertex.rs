@@ -18,26 +18,31 @@ impl Vertex {
             array_stride: size_of::<[f32; 3 * 4 + 2]>() as u64,
             step_mode: VertexStepMode::Vertex,
             attributes: &[
+                // Position
                 VertexAttribute {
                     offset: 0,
                     shader_location: 0,
                     format: VertexFormat::Float32x3,
                 },
+                // Normal
                 VertexAttribute {
                     offset: size_of::<[f32; 3]>() as u64,
                     shader_location: 1,
                     format: VertexFormat::Float32x3,
                 },
+                // Tangent
                 VertexAttribute {
                     offset: size_of::<[f32; 3 * 2]>() as u64,
                     shader_location: 2,
                     format: VertexFormat::Float32x3,
                 },
+                // Bitangent
                 VertexAttribute {
                     offset: size_of::<[f32; 3 * 3]>() as u64,
                     shader_location: 3,
                     format: VertexFormat::Float32x3,
                 },
+                // UV
                 VertexAttribute {
                     offset: size_of::<[f32; 3 * 4]>() as u64,
                     shader_location: 4,

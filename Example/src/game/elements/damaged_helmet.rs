@@ -1,5 +1,5 @@
 use orbital::{
-    cgmath::Vector3,
+    cgmath::{Deg, Quaternion, Rotation3, Vector3, Zero},
     game::{Element, ElementRegistration, WorldChange},
     resources::descriptors::{
         ImportDescriptor, InstanceDescriptor, Instancing, LightDescriptor, ModelDescriptor,
@@ -19,26 +19,30 @@ impl Element for DamagedHelmet {
                 "Assets/Models/DamagedHelmet.glb",
                 ImportDescriptor::Index(0),
                 ImportDescriptor::Index(0),
-                Instancing::Single(InstanceDescriptor::default()),
+                Instancing::Single(InstanceDescriptor {
+                    position: Vector3::zero(),
+                    rotation: Quaternion::from_angle_y(Deg(90.0)),
+                    scale: Vector3::new(1.0, 1.0, 1.0),
+                }),
             )]),
-            // world_changes: Some(vec![
-            //     WorldChange::SpawnLight(LightDescriptor::PointLight {
-            //         position: Vector3::new(5.0, 0.0, 0.0),
-            //         color: Vector3::new(1.0, 1.0, 1.0),
-            //     }),
-            //     WorldChange::SpawnLight(LightDescriptor::PointLight {
-            //         position: Vector3::new(5.0, 5.0, 5.0),
-            //         color: Vector3::new(1.0, 0.0, 0.0),
-            //     }),
-            //     WorldChange::SpawnLight(LightDescriptor::PointLight {
-            //         position: Vector3::new(5.0, 5.0, -5.0),
-            //         color: Vector3::new(0.0, 1.0, 0.0),
-            //     }),
-            //     WorldChange::SpawnLight(LightDescriptor::PointLight {
-            //         position: Vector3::new(5.0, -5.0, -5.0),
-            //         color: Vector3::new(0.0, 0.0, 1.0),
-            //     }),
-            // ]),
+            world_changes: Some(vec![
+                WorldChange::SpawnLight(LightDescriptor::PointLight {
+                    position: Vector3::new(5.0, 0.0, 0.0),
+                    color: Vector3::new(1.0, 1.0, 1.0),
+                }),
+                WorldChange::SpawnLight(LightDescriptor::PointLight {
+                    position: Vector3::new(-5.0, 0.0, 0.0),
+                    color: Vector3::new(1.0, 1.0, 1.0),
+                }),
+                WorldChange::SpawnLight(LightDescriptor::PointLight {
+                    position: Vector3::new(5.0, 0.0, -5.0),
+                    color: Vector3::new(1.0, 1.0, 1.0),
+                }),
+                WorldChange::SpawnLight(LightDescriptor::PointLight {
+                    position: Vector3::new(-5.0, 0.0, -5.0),
+                    color: Vector3::new(1.0, 1.0, 1.0),
+                }),
+            ]),
             ..Default::default()
         }
     }
