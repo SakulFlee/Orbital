@@ -1,4 +1,12 @@
+use std::{
+    io::{Cursor, Read},
+    sync::Arc,
+};
+
+use cgmath::{Vector2, Vector3, Vector4};
+use image::{ImageBuffer, ImageEncoder, ImageError, ImageFormat, Pixel, Rgba};
 use log::{error, warn};
+use wgpu::TextureFormat;
 
 use super::{CubeTextureDescriptor, ShaderDescriptor, TextureDescriptor};
 
@@ -11,6 +19,7 @@ pub enum MaterialDescriptor {
         metallic: TextureDescriptor,
         roughness: TextureDescriptor,
         occlusion: TextureDescriptor,
+        emissive: TextureDescriptor,
     },
     /// Creates a PBR (= Physically-Based-Rendering) material
     /// with a custom shader.
@@ -20,6 +29,7 @@ pub enum MaterialDescriptor {
         metallic: TextureDescriptor,
         roughness: TextureDescriptor,
         occlusion: TextureDescriptor,
+        emissive: TextureDescriptor,
         custom_shader: ShaderDescriptor,
     },
     WorldEnvironment {
@@ -61,6 +71,7 @@ impl MaterialDescriptor {
             metallic,
             roughness,
             occlusion,
+            emissive,
         } = gltf_material.into()
         {
             Self::PBRCustomShader {
@@ -69,90 +80,146 @@ impl MaterialDescriptor {
                 metallic,
                 roughness,
                 occlusion,
+                emissive,
                 custom_shader,
             }
         } else {
             unreachable!()
         }
     }
+
+    fn load_texture_buffer_rgb_or_rgba_fallible(
+        data: &[u8],
+        size: Vector2<u32>,
+        format: ImageFormat,
+    ) -> Result<TextureDescriptor, ImageError> {
+        match image::load_from_memory_with_format(data, format) {
+            Ok(dynamic_img) => {
+                let rgba_img = dynamic_img.to_rgba8();
+                let rgba_data = rgba_img.to_vec();
+                Ok(TextureDescriptor::StandardSRGBAu8Data(rgba_data, size))
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    fn load_texture_buffer_rgb_or_rgba(
+        texture: Option<(&Vec<u8>, Vector2<u32>)>,
+        factor: Option<Vector3<f32>>,
+        formats: Vec<ImageFormat>,
+    ) -> TextureDescriptor {
+        if let Some((data, size)) = texture {
+            for format in formats {
+                match Self::load_texture_buffer_rgb_or_rgba_fallible(data, size, format) {
+                    Ok(x) => return x,
+                    Err(_) => (),
+                }
+            }
+        }
+
+        if let Some(factor) = factor {
+            warn!("Could not load texture from memory with multiple formats. Using Uniform factor '{:?}' instead!", factor);
+            Self::uniform_texture_rgb(factor)
+        } else {
+            warn!("Could not load texture from memory with multiple formats. Using Uniform black instead!");
+            TextureDescriptor::UNIFORM_BLACK
+        }
+    }
+
+    fn uniform_texture_rgb(factor: Vector3<f32>) -> TextureDescriptor {
+        TextureDescriptor::UniformColor(Vector4 {
+            x: (factor.x * 255.0) as u8,
+            y: (factor.y * 255.0) as u8,
+            z: (factor.z * 255.0) as u8,
+            w: 255,
+        })
+    }
+
+    fn rgb_to_rgba(data: &[u8]) -> Vec<u8> {
+        data.chunks(3)
+            .map(|x| [x[0], x[1], x[2], 255])
+            .collect::<Vec<_>>()
+            .concat()
+    }
 }
 
 impl From<&easy_gltf::Material> for MaterialDescriptor {
     fn from(value: &easy_gltf::Material) -> Self {
-        let normal = match &value.normal {
-            Some(normal_map) => match image::load_from_memory(&normal_map.texture.as_raw()) {
-                Ok(x) => {
-                    let rgba_img = x.to_rgba8();
-                    let bytes_vec = rgba_img.to_vec();
-                    TextureDescriptor::StandardSRGBAu8Data(bytes_vec, rgba_img.dimensions().into())
-                }
-                Err(e) => {
-                    error!(
-                        "Failed loading NormalMap: {}! Using Uniform black instead.",
-                        e
-                    );
-                    TextureDescriptor::UNIFORM_BLACK
-                }
-            },
-            None => {
-                warn!("No Normal texture found! Using uniform black.");
-                TextureDescriptor::UNIFORM_BLACK
-            }
-        };
+        let normal = value
+            .normal
+            .as_ref()
+            .map(|x| {
+                let data = Self::rgb_to_rgba(&x.texture);
+                TextureDescriptor::StandardSRGBAu8Data(data, x.texture.dimensions().into())
+            })
+            .ok_or(TextureDescriptor::UNIFORM_BLACK)
+            .unwrap();
 
-        let albedo = match &value.pbr.base_color_texture {
-            Some(albedo_buffer) => match image::load_from_memory(&albedo_buffer.as_raw()) {
-                Ok(dynamic_img) => {
-                    let rgba_img = dynamic_img.to_rgba8();
-                    let bytes_vec = rgba_img.to_vec();
-                    TextureDescriptor::StandardSRGBAu8Data(bytes_vec, rgba_img.dimensions().into())
-                }
-                Err(e) => {
-                    error!(
-                        "Failed loading NormalMap: {}! Using Uniform black instead.",
-                        e
-                    );
-                    TextureDescriptor::UNIFORM_BLACK
-                }
-            },
-            None => {
-                warn!("No Albedo texture found! Using uniform black.");
-                TextureDescriptor::UNIFORM_BLACK
-            }
-        };
+        let albedo = value
+            .pbr
+            .base_color_texture
+            .as_ref()
+            .map(|x| {
+                TextureDescriptor::StandardSRGBAu8Data(x.as_raw().to_vec(), x.dimensions().into())
+            })
+            .ok_or(TextureDescriptor::UniformColor(
+                value.pbr.base_color_factor.map(|x| (x * 255.0) as u8),
+            ))
+            .unwrap();
 
-        let metallic = match &value.pbr.metallic_texture {
-            Some(img_buffer) => TextureDescriptor::Luma {
-                data: img_buffer.to_vec(),
-                size: img_buffer.dimensions().into(),
-            },
-            None => {
-                warn!("No Metallic texture found! Using uniform black.");
-                TextureDescriptor::UNIFORM_LUMA_BLACK
-            }
-        };
+        let metallic = value
+            .pbr
+            .metallic_texture
+            .as_ref()
+            .map(|x| TextureDescriptor::Luma {
+                data: x.as_raw().to_vec(),
+                size: x.dimensions().into(),
+            })
+            .ok_or(TextureDescriptor::UniformLuma {
+                data: (value.pbr.metallic_factor * 255.0) as u8,
+            })
+            .unwrap();
 
-        let roughness = match &value.pbr.roughness_texture {
-            Some(img_buffer) => TextureDescriptor::Luma {
-                data: img_buffer.to_vec(),
-                size: img_buffer.dimensions().into(),
-            },
-            None => {
-                warn!("No Roughness texture found! Using uniform black.");
-                TextureDescriptor::UNIFORM_LUMA_BLACK
-            }
-        };
+        let roughness = value
+            .pbr
+            .roughness_texture
+            .as_ref()
+            .map(|x| TextureDescriptor::Luma {
+                data: x.as_raw().to_vec(),
+                size: x.dimensions().into(),
+            })
+            .ok_or(TextureDescriptor::UniformLuma {
+                data: (value.pbr.roughness_factor * 255.0) as u8,
+            })
+            .unwrap();
 
-        let occlusion = match &value.occlusion {
-            Some(occlusion) => TextureDescriptor::Luma {
-                data: occlusion.texture.to_vec(),
-                size: occlusion.texture.dimensions().into(),
-            },
-            None => {
-                warn!("No Occlusion texture found! Using uniform black.");
-                TextureDescriptor::UNIFORM_LUMA_BLACK
-            }
-        };
+        let occlusion = value
+            .occlusion
+            .as_ref()
+            .map(|x| TextureDescriptor::Luma {
+                data: x.texture.to_vec(),
+                size: x.texture.dimensions().into(),
+            })
+            .ok_or(TextureDescriptor::UNIFORM_LUMA_BLACK)
+            .unwrap();
+
+        let emissive = value
+            .emissive
+            .texture
+            .as_ref()
+            .map(|x| {
+                TextureDescriptor::StandardSRGBAu8Data(
+                    Self::rgb_to_rgba(x.as_raw()),
+                    x.dimensions().into(),
+                )
+            })
+            .ok_or(TextureDescriptor::UniformColor(Vector4 {
+                x: (value.emissive.factor.x * 255.0) as u8,
+                y: (value.emissive.factor.y * 255.0) as u8,
+                z: (value.emissive.factor.z * 255.0) as u8,
+                w: 255,
+            }))
+            .unwrap();
 
         Self::PBR {
             normal,
@@ -160,6 +227,7 @@ impl From<&easy_gltf::Material> for MaterialDescriptor {
             metallic,
             roughness,
             occlusion,
+            emissive,
         }
     }
 }

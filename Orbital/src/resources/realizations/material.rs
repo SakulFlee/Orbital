@@ -168,6 +168,23 @@ impl Material {
                     ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
                 },
+                // Emissive
+                BindGroupLayoutEntry {
+                    binding: 10,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 11,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                    count: None,
+                },
             ],
         }
     }
@@ -263,12 +280,14 @@ impl Material {
                 metallic,
                 roughness,
                 occlusion,
+                emissive,
             } => Self::standard_pbr(
                 normal,
                 albedo,
                 metallic,
                 roughness,
                 occlusion,
+                emissive,
                 None,
                 surface_format,
                 device,
@@ -280,6 +299,7 @@ impl Material {
                 metallic,
                 roughness,
                 occlusion,
+                emissive,
                 custom_shader,
             } => Self::standard_pbr(
                 normal,
@@ -287,6 +307,7 @@ impl Material {
                 metallic,
                 roughness,
                 occlusion,
+                emissive,
                 Some(custom_shader),
                 surface_format,
                 device,
@@ -377,6 +398,7 @@ impl Material {
         metallic_texture_descriptor: &TextureDescriptor,
         roughness_texture_descriptor: &TextureDescriptor,
         occlusion_texture_descriptor: &TextureDescriptor,
+        emissive_texture_descriptor: &TextureDescriptor,
         shader_descriptor: Option<&ShaderDescriptor>,
         surface_format: &TextureFormat,
         device: &Device,
@@ -390,6 +412,8 @@ impl Material {
             Texture::from_descriptor(roughness_texture_descriptor, device, queue)?;
         let occlusion_texture =
             Texture::from_descriptor(occlusion_texture_descriptor, device, queue)?;
+        let emissive_texture =
+            Texture::from_descriptor(emissive_texture_descriptor, device, queue)?;
 
         let pipeline_descriptor = if let Some(shader_descriptor) = shader_descriptor {
             PipelineDescriptor::default_with_shader(shader_descriptor)
@@ -452,6 +476,15 @@ impl Material {
                 BindGroupEntry {
                     binding: 9,
                     resource: BindingResource::Sampler(occlusion_texture.sampler()),
+                },
+                // Emissive
+                BindGroupEntry {
+                    binding: 10,
+                    resource: BindingResource::TextureView(emissive_texture.view()),
+                },
+                BindGroupEntry {
+                    binding: 11,
+                    resource: BindingResource::Sampler(emissive_texture.sampler()),
                 },
             ],
         });
