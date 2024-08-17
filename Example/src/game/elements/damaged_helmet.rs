@@ -28,19 +28,19 @@ impl Element for DamagedHelmet {
             world_changes: Some(vec![
                 WorldChange::SpawnLight(LightDescriptor::PointLight {
                     position: Vector3::new(5.0, 0.0, 0.0),
-                    color: Vector3::new(1.0, 1.0, 1.0),
+                    color: Vector3::new(0.8, 0.8, 0.8),
                 }),
                 WorldChange::SpawnLight(LightDescriptor::PointLight {
                     position: Vector3::new(-5.0, 0.0, 0.0),
-                    color: Vector3::new(1.0, 1.0, 1.0),
+                    color: Vector3::new(0.8, 0.8, 0.8),
                 }),
                 WorldChange::SpawnLight(LightDescriptor::PointLight {
                     position: Vector3::new(5.0, 0.0, -5.0),
-                    color: Vector3::new(1.0, 1.0, 1.0),
+                    color: Vector3::new(0.8, 0.8, 0.8),
                 }),
                 WorldChange::SpawnLight(LightDescriptor::PointLight {
                     position: Vector3::new(-5.0, 0.0, -5.0),
-                    color: Vector3::new(1.0, 1.0, 1.0),
+                    color: Vector3::new(0.8, 0.8, 0.8),
                 }),
             ]),
             ..Default::default()

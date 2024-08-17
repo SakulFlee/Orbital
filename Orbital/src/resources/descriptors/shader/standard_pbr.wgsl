@@ -57,6 +57,9 @@ struct LightStorage {
 @group(0) @binding(8) var occlusion_texture: texture_2d<f32>;
 @group(0) @binding(9) var occlusion_sampler: sampler;
 
+@group(0) @binding(10) var emissive_texture: texture_2d<f32>;
+@group(0) @binding(11) var emissive_sampler: sampler;
+
 @group(1) @binding(0) var<uniform> camera: CameraUniform;
 
 @group(2) @binding(0) var<storage> lights: LightStorage;
@@ -156,14 +159,23 @@ fn entrypoint_vertex(
 
 @fragment
 fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {    
-    // Precalculate TBN (Tangent, Bitangent, Normal) matrix
+    // Fragment's Normal
     let TBN = mat3x3(
         in.tangent,
         in.bitangent,
         in.normal,
     );
+    let N = sample_normal_from_map(in.uv, in.world_position, TBN);
 
-    // Material properties
+    // Outgoing Light direction (camera position == eye)
+    let V = normalize(camera.position.xyz - in.world_position);
+
+    let NdotV = max(dot(N, V), 0.0);
+
+    // Specular light reflection
+    let R = reflect(-V, N);
+
+    // Sample material properties
     let albedo = pow(textureSample(
         albedo_texture,
         albedo_sampler,
@@ -184,15 +196,27 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
         occlusion_sampler,
         in.uv
     ).r;
-
-    // Fragment's Normal
-    let N = sample_normal_from_map(in.uv, in.world_position, TBN);
-
-    // Outgoing Light direction (camera position == eye)
-    let V = normalize(camera.position.xyz - in.world_position);
-
-    // Specular light reflection
-    let R = reflect(-V, N);
+    let emissive = textureSample(
+        emissive_texture,
+        emissive_sampler,
+        in.uv
+    ).rgb;
+    let irradiance = textureSample(
+        irradiance_env_map,
+        irradiance_sampler,
+        N
+    ).rgb;
+    let radiance = textureSampleLevel(
+        radiance_env_map,
+        radiance_sampler,
+        R,
+        roughness * MAX_REFLECTION_LOD
+    ).rgb;
+    let specular_brdf = textureSample(
+        ibl_brdf_lut_texture,
+        ibl_brdf_lut_sampler,
+        vec2<f32>(NdotV, roughness)
+    ).rg;
 
     // Calculate reflectance at normal incidence
     var F0 = mix(F0_DIELECTRIC_STANDARD, albedo, metallic);
@@ -213,48 +237,34 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
         // Cook-Torrance BRDF
         let NDF = distribution_ggx(N, H, roughness);
         let G = geometry_smith(N, V, L, roughness);
-        let F = fresnel_schlick(max(dot(H, V), 0.0), F0);
+        let HdotV = max(dot(H, V), 0.0);
+        let F = fresnel_schlick(HdotV, F0);
 
         let numerator = NDF * G * F;
-        let denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001; // +0.0001 prevents division by zero
+        let NdotL = max(dot(N, L), 0.0);
+        let denominator = 4.0 * NdotV * NdotL + 0.0001; // +0.0001 prevents division by zero
         let specular = numerator / denominator;
 
         let kD = mix(vec3<f32>(1.0) - F, vec3<f32>(0.0), metallic);
 
         // Adding radiance to Lo
-        let NdotL = max(dot(N, L), 0.0);
         Lo += (kD * albedo / PI + specular) * radiance * NdotL;
     }
 
-    // Ambient light calculation (IBL Diffuse)
+    // Pre-calculations for IBL/Ambient Light
     let F = fresnel_schlick_roughness(max(dot(N, V), 0.0), F0, roughness);
     let kD = mix(vec3<f32>(1.0) - F, vec3<f32>(0.0), metallic);
 
-    let irradiance = textureSample(
-        irradiance_env_map,
-        irradiance_sampler,
-        N
-    ).rgb;
+    // IBL Diffuse
     let diffuse_ibl = irradiance * albedo;
 
     // IBL Specular
-    let radiance_color = textureSampleLevel(
-        radiance_env_map,
-        radiance_sampler,
-        R,
-        roughness * MAX_REFLECTION_LOD
-    ).rgb;
+    var specular_ibl = radiance * (F * specular_brdf.x + specular_brdf.y);
 
-    let specular_brdf = textureSample(
-        ibl_brdf_lut_texture,
-        ibl_brdf_lut_sampler,
-        vec2<f32>(max(dot(N, V), 0.0), roughness)
-    ).rg;
-    var specular_ibl = radiance_color * (F * specular_brdf.x + specular_brdf.y);
+    // Ambient light calculation (IBL)
+    let ambient = (kD * diffuse_ibl + specular_ibl) * occlusion * emissive;
 
-    // let EMISSIVE = 0.001; // TODO
-    let EMISSIVE = 1.0;
-    let ambient = (kD * diffuse_ibl + specular_ibl) * occlusion * EMISSIVE;
+    // Combine Ambient and light reflection output
     var color = ambient + Lo;
 
     // HDR gamma correction / tone mapping / Reinhard operator
@@ -262,4 +272,6 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     color = pow(color, vec3<f32>(1.0 / camera.global_gamma));
 
     return vec4<f32>(color, 1.0);
+
+    // TODO: Lo seems partially wrong behind the helmet
 }
