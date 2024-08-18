@@ -37,15 +37,22 @@ fn entrypoint_vertex(
 
 @fragment
 fn entrypoint_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    let view_pos_homogeneous = camera.perspective_projection_invert * in.clip_position;
-    let view_ray_direction = view_pos_homogeneous.xyz / view_pos_homogeneous.w;
+    // Precalculations
+    let view_position = camera.perspective_projection_invert * in.clip_position;
+    let view_ray_direction = view_position.xyz / view_position.w;
     var ray_direction = normalize((camera.view_projection_transposed * vec4(view_ray_direction, 0.0)).xyz);
 
+    // HDRI SkyBox
     let sample = textureSample(env_map, env_sampler, ray_direction);
 
     var color = sample.xyz;
     color = color / (color + vec3<f32>(1.0));
     color = pow(color, vec3<f32>(1.0 / camera.skybox_gamma));
+
+    // Generated SkyBox:
+    // let sky_color = vec3<f32>(0.0, 0.75, 1.0);
+    // let horizon_color = vec3<f32>(0.5, 0.5, 0.5);
+    // let color = mix(horizon_color, sky_color, ray_direction.y);
 
     return vec4<f32>(color, 1.0);
 }
