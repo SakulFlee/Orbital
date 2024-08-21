@@ -6,6 +6,7 @@ use orbital::{
     variant::Variant,
 };
 
+#[derive(Debug)]
 pub struct PingPongElement {
     is_ping: bool,
 }

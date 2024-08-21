@@ -8,6 +8,7 @@ use crate::{error::Error, resources::descriptors::MeshDescriptor};
 
 use super::Vertex;
 
+#[derive(Debug)]
 pub struct Mesh {
     vertex_buffer: Buffer,
     index_buffer: Buffer,

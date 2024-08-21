@@ -1,4 +1,4 @@
-use std::f32::consts::{FRAC_PI_2};
+use std::f32::consts::FRAC_PI_2;
 
 use cgmath::{InnerSpace, Point3, Vector3};
 
@@ -14,10 +14,13 @@ pub struct CameraDescriptor {
     pub fovy: f32,
     pub near: f32,
     pub far: f32,
+    pub global_gamma: f32,
+    pub skybox_gamma: f32,
 }
 
 impl CameraDescriptor {
     pub const DEFAULT_NAME: &'static str = "Default";
+    pub const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
 
     pub fn apply_change(&mut self, change: CameraChange) {
         if let Some(mode) = change.pitch {
@@ -26,10 +29,10 @@ impl CameraDescriptor {
                 Mode::Offset(pitch) | Mode::OffsetViewAligned(pitch) => self.pitch += pitch,
             }
 
-            if self.pitch < -FRAC_PI_2 {
-                self.pitch = -FRAC_PI_2;
-            } else if self.pitch > FRAC_PI_2 {
-                self.pitch = FRAC_PI_2;
+            if self.pitch < -Self::SAFE_FRAC_PI_2 {
+                self.pitch = -Self::SAFE_FRAC_PI_2;
+            } else if self.pitch > Self::SAFE_FRAC_PI_2 {
+                self.pitch = Self::SAFE_FRAC_PI_2;
             }
         }
 
@@ -80,6 +83,8 @@ impl Default for CameraDescriptor {
             fovy: 45.0,
             near: 0.1,
             far: 10000.0,
+            global_gamma: 2.2,
+            skybox_gamma: 0.5,
         }
     }
 }

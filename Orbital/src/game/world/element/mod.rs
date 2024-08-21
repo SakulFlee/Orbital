@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use hashbrown::HashMap;
 use log::warn;
 use ulid::Ulid;
@@ -100,7 +102,7 @@ pub use registration::*;
 /// [realized resource]: crate::resources::realizations
 /// [Models]: crate::resources::realizations::Model
 /// [WorldChanges]: super::WorldChange
-pub trait Element {
+pub trait Element: Debug {
     fn on_registration(&mut self, _ulid: &Ulid) -> ElementRegistration {
         ElementRegistration::default()
     }

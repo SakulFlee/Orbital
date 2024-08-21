@@ -1,4 +1,4 @@
-use cgmath::{Vector1, Vector2, Vector4};
+use cgmath::{Vector2, Vector4};
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub enum TextureDescriptor {
@@ -12,7 +12,7 @@ pub enum TextureDescriptor {
     /// # Parameters
     /// 1st.: A Vector of bytes, containing the image data in RGBA pixels
     /// 2nd.: The size of the texture, must be accurate or this will panic!
-    StandardSRGBu8Data(Vec<u8>, Vector2<u32>),
+    StandardSRGBAu8Data(Vec<u8>, Vector2<u32>),
     /// Creates a texture with a single uniform color.
     ///
     /// The format is:  
@@ -80,4 +80,7 @@ impl TextureDescriptor {
         z: 128,
         w: 255,
     });
+    pub const UNIFORM_LUMA_BLACK: Self = Self::UniformLuma { data: 0 };
+    pub const UNIFORM_LUMA_WHITE: Self = Self::UniformLuma { data: 255 };
+    pub const UNIFORM_LUMA_GRAY: Self = Self::UniformLuma { data: 128 };
 }

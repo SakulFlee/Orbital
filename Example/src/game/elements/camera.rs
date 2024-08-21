@@ -14,19 +14,26 @@ use orbital::{
     },
 };
 
+#[derive(Debug)]
 pub struct Camera {
     input_handler: InputHandler,
     is_focused: bool,
+}
+
+impl Default for Camera {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Camera {
     pub const IDENTIFIER: &'static str = "DEBUG";
 
     pub const MOVEMENT_SPEED: f32 = 5.0;
-    pub const MOUSE_SENSITIVITY: f32 = 0.5;
+    pub const MOUSE_SENSITIVITY: f32 = 0.0075;
     pub const GAMEPAD_SENSITIVITY: f32 = 2.5;
 
-    // Keyboard bindings
+    //--- Keyboard bindings
     pub const KEY_MOVE_FORWARD: PhysicalKey = PhysicalKey::Code(KeyCode::KeyW);
     pub const KEY_MOVE_BACKWARD: PhysicalKey = PhysicalKey::Code(KeyCode::KeyS);
     pub const KEY_MOVE_LEFT: PhysicalKey = PhysicalKey::Code(KeyCode::KeyA);
@@ -34,11 +41,11 @@ impl Camera {
     pub const KEY_MOVE_DOWN: PhysicalKey = PhysicalKey::Code(KeyCode::KeyQ);
     pub const KEY_MOVE_UP: PhysicalKey = PhysicalKey::Code(KeyCode::KeyE);
 
-    // Button bindings
+    //--- Button bindings
     pub const BUTTON_MOVE_DOWN: Button = Button::DPadDown;
     pub const BUTTON_MOVE_UP: Button = Button::DPadUp;
 
-    // Button actions
+    //--- Button actions
     pub const ACTION_MOVE_FORWARD: &'static str = "move_forward";
     pub const ACTION_MOVE_BACKWARD: &'static str = "move_backward";
     pub const ACTION_MOVE_LEFT: &'static str = "move_left";
@@ -46,13 +53,13 @@ impl Camera {
     pub const ACTION_MOVE_DOWN: &'static str = "move_down";
     pub const ACTION_MOVE_UP: &'static str = "move_up";
 
-    // Axis bindings
+    //--- Axis bindings
     pub const AXIS_MOVE_FORWARD_BACKWARD: Axis = Axis::LeftStickY;
     pub const AXIS_MOVE_LEFT_RIGHT: Axis = Axis::LeftStickX;
     pub const AXIS_LOOK_UP_DOWN: Axis = Axis::RightStickY;
     pub const AXIS_LOOK_LEFT_RIGHT: Axis = Axis::RightStickX;
 
-    // Axis actions
+    //--- Axis actions
     pub const ACTION_MOVE_FORWARD_BACKWARD: &'static str = "move_forward_backward";
     pub const ACTION_MOVE_LEFT_RIGHT: &'static str = "move_left_right";
     pub const ACTION_MOVE_UP_DOWN: &'static str = "move_up_down";
@@ -62,7 +69,7 @@ impl Camera {
     pub fn new() -> Self {
         let mut input_handler = InputHandler::new();
 
-        // Keyboard bindings
+        //--- Keyboard bindings
         input_handler.register_keyboard_mapping(Self::KEY_MOVE_FORWARD, Self::ACTION_MOVE_FORWARD);
         input_handler
             .register_keyboard_mapping(Self::KEY_MOVE_BACKWARD, Self::ACTION_MOVE_BACKWARD);
@@ -71,12 +78,12 @@ impl Camera {
         input_handler.register_keyboard_mapping(Self::KEY_MOVE_DOWN, Self::ACTION_MOVE_DOWN);
         input_handler.register_keyboard_mapping(Self::KEY_MOVE_UP, Self::ACTION_MOVE_UP);
 
-        // Button bindings
+        //--- Button bindings
         input_handler
             .register_gamepad_button_mapping(Self::BUTTON_MOVE_DOWN, Self::ACTION_MOVE_DOWN);
         input_handler.register_gamepad_button_mapping(Self::BUTTON_MOVE_UP, Self::ACTION_MOVE_UP);
 
-        // Axis bindings
+        //--- Axis bindings
         input_handler.register_gamepad_axis_mapping(
             Self::AXIS_MOVE_FORWARD_BACKWARD,
             Self::ACTION_MOVE_FORWARD_BACKWARD,
@@ -181,8 +188,7 @@ impl Element for Camera {
                         Self::GAMEPAD_SENSITIVITY
                     } else {
                         Self::MOUSE_SENSITIVITY
-                    }
-                    * delta_time as f32,
+                    },
             )),
             pitch: Some(Mode::Offset(
                 pitch_change
@@ -190,8 +196,7 @@ impl Element for Camera {
                         Self::GAMEPAD_SENSITIVITY
                     } else {
                         Self::MOUSE_SENSITIVITY
-                    }
-                    * delta_time as f32,
+                    },
             )),
         };
 
