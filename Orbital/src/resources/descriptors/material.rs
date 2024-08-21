@@ -44,15 +44,15 @@ impl MaterialDescriptor {
         MaterialDescriptor::WorldEnvironment {
             sky: CubeTextureDescriptor::RadianceHDRFile {
                 cube_face_size: 1024,
-                path: "Assets/HDRs/brown_photostudio_02_4k.hdr",
+                path: "Assets/HDRs/kloppenheim_02_puresky_4k.hdr",
             },
             irradiance: CubeTextureDescriptor::RadianceHDRFile {
-                cube_face_size: 512,
-                path: "Assets/HDRs/test_irradiance.hdr",
+                cube_face_size: 1024,
+                path: "Assets/HDRs/kloppenheim_02_puresky_4k.hdr",
             },
             radiance: CubeTextureDescriptor::RadianceHDRFile {
-                cube_face_size: 512,
-                path: "Assets/HDRs/test_radiance.hdr",
+                cube_face_size: 1024,
+                path: "Assets/HDRs/kloppenheim_02_puresky_4k.hdr",
             },
         }
     }
@@ -86,53 +86,6 @@ impl MaterialDescriptor {
         } else {
             unreachable!()
         }
-    }
-
-    fn load_texture_buffer_rgb_or_rgba_fallible(
-        data: &[u8],
-        size: Vector2<u32>,
-        format: ImageFormat,
-    ) -> Result<TextureDescriptor, ImageError> {
-        match image::load_from_memory_with_format(data, format) {
-            Ok(dynamic_img) => {
-                let rgba_img = dynamic_img.to_rgba8();
-                let rgba_data = rgba_img.to_vec();
-                Ok(TextureDescriptor::StandardSRGBAu8Data(rgba_data, size))
-            }
-            Err(e) => Err(e),
-        }
-    }
-
-    fn load_texture_buffer_rgb_or_rgba(
-        texture: Option<(&Vec<u8>, Vector2<u32>)>,
-        factor: Option<Vector3<f32>>,
-        formats: Vec<ImageFormat>,
-    ) -> TextureDescriptor {
-        if let Some((data, size)) = texture {
-            for format in formats {
-                match Self::load_texture_buffer_rgb_or_rgba_fallible(data, size, format) {
-                    Ok(x) => return x,
-                    Err(_) => (),
-                }
-            }
-        }
-
-        if let Some(factor) = factor {
-            warn!("Could not load texture from memory with multiple formats. Using Uniform factor '{:?}' instead!", factor);
-            Self::uniform_texture_rgb(factor)
-        } else {
-            warn!("Could not load texture from memory with multiple formats. Using Uniform black instead!");
-            TextureDescriptor::UNIFORM_BLACK
-        }
-    }
-
-    fn uniform_texture_rgb(factor: Vector3<f32>) -> TextureDescriptor {
-        TextureDescriptor::UniformColor(Vector4 {
-            x: (factor.x * 255.0) as u8,
-            y: (factor.y * 255.0) as u8,
-            z: (factor.z * 255.0) as u8,
-            w: 255,
-        })
     }
 
     fn rgb_to_rgba(data: &[u8]) -> Vec<u8> {
