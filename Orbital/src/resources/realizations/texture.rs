@@ -1,9 +1,8 @@
 use cgmath::{Vector2, Vector4};
-use image::{DynamicImage, GenericImageView, ImageReader};
-use log::warn;
+use image::ImageReader;
 use wgpu::{
-    AddressMode, Device, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout, Origin3d, Queue,
-    Sampler, SamplerDescriptor, Texture as WTexture, TextureAspect,
+    AddressMode, CompareFunction, Device, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout,
+    Origin3d, Queue, Sampler, SamplerDescriptor, Texture as WTexture, TextureAspect,
     TextureDescriptor as WTextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
     TextureView, TextureViewDescriptor,
 };
@@ -26,8 +25,8 @@ impl Texture {
             TextureDescriptor::FilePath(file_path) => {
                 Self::from_file_path(file_path, device, queue)
             }
-            TextureDescriptor::StandardSRGBu8Data(data, size) => {
-                Ok(Self::standard_srgb8_data(data, size, device, queue))
+            TextureDescriptor::StandardSRGBAu8Data(data, size) => {
+                Ok(Self::standard_srgba8_data(data, size, device, queue))
             }
             TextureDescriptor::UniformColor(color) => {
                 Ok(Self::uniform_color(*color, device, queue))
@@ -44,8 +43,15 @@ impl Texture {
             .decode()
             .map_err(Error::ImageError)?;
 
-        Ok(Self::standard_srgb8_data(
-            img.as_bytes(),
+        let data = img
+            .to_rgba8()
+            .iter()
+            .map(|x| x.to_le_bytes())
+            .collect::<Vec<_>>()
+            .concat();
+
+        Ok(Self::standard_srgba8_data(
+            &data,
             &(img.width(), img.height()).into(),
             device,
             queue,
@@ -59,7 +65,7 @@ impl Texture {
     /// ⚠️ as possible data usage and this resource may not even arrive
     /// ⚠️ in the shader _if_ it is not used.
     pub fn uniform_color(color: Vector4<u8>, device: &Device, queue: &Queue) -> Self {
-        Self::standard_srgb8_data(
+        Self::standard_srgba8_data(
             &[color.x, color.y, color.z, color.w],
             &(1, 1).into(),
             device,
@@ -86,9 +92,9 @@ impl Texture {
             },
             &TextureViewDescriptor::default(),
             &SamplerDescriptor {
-                address_mode_u: AddressMode::ClampToEdge,
-                address_mode_v: AddressMode::ClampToEdge,
-                address_mode_w: AddressMode::ClampToEdge,
+                address_mode_u: AddressMode::Repeat,
+                address_mode_v: AddressMode::Repeat,
+                address_mode_w: AddressMode::Repeat,
                 mag_filter: FilterMode::Linear,
                 min_filter: FilterMode::Linear,
                 mipmap_filter: FilterMode::Nearest,
@@ -144,9 +150,9 @@ impl Texture {
             },
             &TextureViewDescriptor::default(),
             &SamplerDescriptor {
-                address_mode_u: AddressMode::ClampToEdge,
-                address_mode_v: AddressMode::ClampToEdge,
-                address_mode_w: AddressMode::ClampToEdge,
+                address_mode_u: AddressMode::Repeat,
+                address_mode_v: AddressMode::Repeat,
+                address_mode_w: AddressMode::Repeat,
                 mag_filter: FilterMode::Linear,
                 min_filter: FilterMode::Linear,
                 mipmap_filter: FilterMode::Nearest,
@@ -183,7 +189,7 @@ impl Texture {
         texture
     }
 
-    pub fn standard_srgb8_data(
+    pub fn standard_srgba8_data(
         data: &[u8],
         size: &Vector2<u32>,
         device: &Device,
@@ -208,37 +214,13 @@ impl Texture {
             &TextureViewDescriptor::default(),
             &SamplerDescriptor {
                 label: Some("Standard SRGB u8 Data Texture Sampler"),
-                address_mode_u: AddressMode::ClampToEdge,
-                address_mode_v: AddressMode::ClampToEdge,
-                address_mode_w: AddressMode::ClampToEdge,
+                address_mode_u: AddressMode::Repeat,
+                address_mode_v: AddressMode::Repeat,
+                address_mode_w: AddressMode::Repeat,
                 mag_filter: FilterMode::Linear,
                 min_filter: FilterMode::Nearest,
                 ..Default::default()
             },
-            device,
-            queue,
-        )
-    }
-
-    pub fn from_image_srgb8(
-        image: DynamicImage,
-        texture_desc: &WTextureDescriptor,
-        view_desc: &TextureViewDescriptor,
-        sampler_desc: &SamplerDescriptor,
-        device: &Device,
-        queue: &Queue,
-    ) -> Self {
-        if texture_desc.size.width != image.dimensions().0
-            || texture_desc.size.height != image.dimensions().1
-        {
-            warn!("Image supplied has different dimensions from what the texture description expects! This may lead to undefined behaviour.");
-        }
-
-        Self::from_data_srgb8(
-            &image.to_rgba8(),
-            texture_desc,
-            view_desc,
-            sampler_desc,
             device,
             queue,
         )
@@ -293,14 +275,56 @@ impl Texture {
             },
             &TextureViewDescriptor::default(),
             &SamplerDescriptor {
-                address_mode_u: AddressMode::ClampToEdge,
-                address_mode_v: AddressMode::ClampToEdge,
-                address_mode_w: AddressMode::ClampToEdge,
+                address_mode_u: AddressMode::Repeat,
+                address_mode_v: AddressMode::Repeat,
+                address_mode_w: AddressMode::Repeat,
                 mag_filter: FilterMode::Linear,
                 min_filter: FilterMode::Linear,
                 mipmap_filter: FilterMode::Nearest,
                 lod_min_clamp: 0.0,
                 lod_max_clamp: 100.0,
+                ..Default::default()
+            },
+            device,
+            queue,
+        )
+    }
+
+    pub fn make_texture(
+        label: Option<&str>,
+        size: Vector2<u32>,
+        format: TextureFormat,
+        usage: TextureUsages,
+        filter: FilterMode,
+        address_mode: AddressMode,
+        device: &Device,
+        queue: &Queue,
+    ) -> Self {
+        Self::from_descriptors(
+            &WTextureDescriptor {
+                label,
+                size: Extent3d {
+                    width: size.x,
+                    height: size.y,
+                    ..Default::default()
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format,
+                usage,
+                view_formats: &[],
+            },
+            &TextureViewDescriptor::default(),
+            &SamplerDescriptor {
+                label: Some("Radiance HDR Sampler"),
+                address_mode_u: address_mode,
+                address_mode_v: address_mode,
+                address_mode_w: address_mode,
+                mag_filter: filter,
+                min_filter: filter,
+                mipmap_filter: filter,
+                compare: Some(CompareFunction::Always),
                 ..Default::default()
             },
             device,

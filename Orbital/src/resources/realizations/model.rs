@@ -12,6 +12,7 @@ use crate::{
 
 use super::{instance::Instance, Material, Mesh};
 
+#[derive(Debug)]
 pub struct Model {
     mesh: Mesh,
     material_descriptor: MaterialDescriptor,
@@ -111,12 +112,12 @@ impl Model {
             return Err(Error::ModelNotFound);
         };
 
-        Ok(Self::from_gltf_model(
+        Self::from_gltf_model(
             model,
             Self::convert_instancing(instancing),
             device,
             queue,
-        )?)
+        )
     }
 
     #[cfg(feature = "gltf")]

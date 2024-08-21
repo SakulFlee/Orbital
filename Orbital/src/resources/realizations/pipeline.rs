@@ -1,12 +1,10 @@
 use log::info;
 use std::sync::{Mutex, OnceLock};
 use wgpu::{
-    BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendState,
-    ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, Device,
-    FragmentState, MultisampleState, PipelineCompilationOptions, PipelineLayoutDescriptor,
-    PrimitiveState, Queue, RenderPipeline, RenderPipelineDescriptor, SamplerBindingType,
-    ShaderStages, StencilState, TextureFormat, TextureSampleType, TextureViewDimension,
-    VertexState,
+    BindGroupLayout, BlendState, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
+    DepthStencilState, Device, FragmentState, MultisampleState, PipelineCompilationOptions,
+    PipelineLayoutDescriptor, PrimitiveState, Queue, RenderPipeline, RenderPipelineDescriptor,
+    StencilState, TextureFormat, VertexState,
 };
 
 use crate::{
@@ -15,12 +13,12 @@ use crate::{
     resources::{descriptors::PipelineDescriptor, realizations::Shader},
 };
 
-use super::{Camera, Instance, Vertex};
+use super::{Instance, Vertex};
 
 #[derive(Debug)]
 pub struct Pipeline {
     render_pipeline: RenderPipeline,
-    bind_group_layout: BindGroupLayout,
+    bind_group_layouts: Vec<(&'static str, BindGroupLayout)>,
     shader: Shader,
 }
 
@@ -34,8 +32,8 @@ impl Pipeline {
     /// The Rust compiler says the following:
     ///
     /// > use of mutable static is unsafe and requires unsafe function or block
-    /// mutable statics can be mutated by multiple threads: aliasing violations
-    /// or data races will cause undefined behavior
+    /// > mutable statics can be mutated by multiple threads: aliasing violations
+    /// > or data races will cause undefined behavior
     ///
     /// However, once initialized, the cell [OnceLock] should never change and
     /// thus this should be safe.
@@ -112,41 +110,43 @@ impl Pipeline {
         device: &Device,
         queue: &Queue,
     ) -> Result<Pipeline, Error> {
-        let pipeline_bind_group_layout =
-            device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: None,
-                entries: &[
-                    BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                    BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
-            });
+        let bind_group_layouts = pipeline_descriptor
+            .bind_group_layouts
+            .iter()
+            .map(|x| (x.label, x.make_bind_group_layout(device)))
+            .collect::<Vec<_>>();
+        let bind_group_layouts_ref = bind_group_layouts
+            .iter()
+            .map(|(_, x)| x)
+            .collect::<Vec<_>>();
 
         let render_pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: None,
-            bind_group_layouts: &[
-                // Pipeline bind group layouts
-                &pipeline_bind_group_layout,
-                // Camera bind group layout
-                &device.create_bind_group_layout(&Camera::bind_group_layout_descriptor()),
-            ],
+            bind_group_layouts: &bind_group_layouts_ref,
             push_constant_ranges: &[],
         });
 
         let shader = Shader::from_descriptor(pipeline_descriptor.shader_descriptor, device, queue)?;
+
+        let mut vertex_buffers = Vec::new();
+        if pipeline_descriptor.include_vertex_buffer_layout {
+            vertex_buffers.push(Vertex::vertex_buffer_layout_descriptor());
+        }
+        if pipeline_descriptor.include_instance_buffer_layout {
+            vertex_buffers.push(Instance::vertex_buffer_layout_descriptor());
+        }
+
+        let depth_stencil = if pipeline_descriptor.depth_stencil {
+            Some(DepthStencilState {
+                format: TextureFormat::Depth32Float,
+                depth_write_enabled: true,
+                depth_compare: CompareFunction::Less,
+                stencil: StencilState::default(),
+                bias: DepthBiasState::default(),
+            })
+        } else {
+            None
+        };
 
         let render_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
             label: None,
@@ -154,10 +154,7 @@ impl Pipeline {
             vertex: VertexState {
                 module: shader.shader_module(),
                 entry_point: "entrypoint_vertex",
-                buffers: &[
-                    Vertex::vertex_buffer_layout_descriptor(),
-                    Instance::vertex_buffer_layout_descriptor(),
-                ],
+                buffers: &vertex_buffers,
                 compilation_options: PipelineCompilationOptions::default(),
             },
             fragment: Some(FragmentState {
@@ -179,20 +176,14 @@ impl Pipeline {
                 polygon_mode: pipeline_descriptor.polygon_mode,
                 conservative: false,
             },
-            depth_stencil: Some(DepthStencilState {
-                format: TextureFormat::Depth32Float,
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::Less,
-                stencil: StencilState::default(),
-                bias: DepthBiasState::default(),
-            }),
+            depth_stencil,
             multisample: MultisampleState::default(),
             multiview: None,
         });
 
         Ok(Self {
             render_pipeline,
-            bind_group_layout: pipeline_bind_group_layout,
+            bind_group_layouts,
             shader,
         })
     }
@@ -201,8 +192,11 @@ impl Pipeline {
         &self.render_pipeline
     }
 
-    pub fn bind_group_layout(&self) -> &BindGroupLayout {
-        &self.bind_group_layout
+    pub fn bind_group_layout(&self, label: &str) -> Option<&BindGroupLayout> {
+        self.bind_group_layouts
+            .iter()
+            .find(|x| x.0 == label)
+            .map(|(_, x)| x)
     }
 
     pub fn shader(&self) -> &Shader {

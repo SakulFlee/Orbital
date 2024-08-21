@@ -1,7 +1,7 @@
 use cgmath::Vector2;
 use wgpu::{Device, Queue, TextureFormat, TextureView};
 
-use crate::resources::realizations::{Camera, Model};
+use crate::game::World;
 
 pub mod standard;
 pub use standard::*;
@@ -25,12 +25,5 @@ pub trait Renderer {
 
     fn update(&mut self, delta_time: f64);
 
-    fn render(
-        &mut self,
-        target_view: &TextureView,
-        device: &Device,
-        queue: &Queue,
-        models: &[&Model],
-        camera: &Camera,
-    );
+    fn render(&mut self, target_view: &TextureView, device: &Device, queue: &Queue, world: &World);
 }

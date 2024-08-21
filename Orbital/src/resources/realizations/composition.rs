@@ -51,10 +51,8 @@ impl Composition {
 
         // If any error is found, return it.
         if let Some(x) = iter.find(|x| x.is_err()) {
-            if let Err(e) = x {
-                return Err(e);
-            }
-        }
+            x?;
+        };
 
         // No errors should be in iter, unwrap all
         Ok(Self {

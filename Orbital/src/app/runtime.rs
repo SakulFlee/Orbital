@@ -264,10 +264,8 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
                             {
                                 error!("AppChange::ChangeCursorGrabbed failed to grab cursor due to an external error: {}", e);
                             }
-                        } else {
-                            if let Err(e) = window.set_cursor_grab(CursorGrabMode::None) {
-                                error!("AppChange::ChangeCursorGrabbed failed to release cursor due to an external error: {}", e);
-                            }
+                        } else if let Err(e) = window.set_cursor_grab(CursorGrabMode::None) {
+                            error!("AppChange::ChangeCursorGrabbed failed to release cursor due to an external error: {}", e);
                         }
                     } else {
                         error!("AppChange::ChangeCursorVisible proposed, but Window does not exist yet!");

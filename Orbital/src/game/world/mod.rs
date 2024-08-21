@@ -1,5 +1,3 @@
-use std::{any::Any, mem::replace};
-
 use hashbrown::HashMap;
 use log::{info, warn};
 use ulid::Ulid;
@@ -9,8 +7,8 @@ use crate::{
     app::{AppChange, InputEvent},
     log::error,
     resources::{
-        descriptors::{CameraDescriptor, ModelDescriptor},
-        realizations::{Camera, Model},
+        descriptors::{CameraDescriptor, MaterialDescriptor, ModelDescriptor},
+        realizations::{Camera, LightStorage, Model},
     },
     variant::Variant,
 };
@@ -24,8 +22,11 @@ pub use element::*;
 pub mod identifier;
 pub use identifier::*;
 
-pub type ElementUlid = Ulid;
-pub type ModelUlid = Ulid;
+pub mod element_ulid;
+pub use element_ulid::*;
+
+pub mod model_ulid;
+pub use model_ulid::*;
 
 /// A [World] keeps track of everything inside your [Game].  
 /// Mainly, [Elements] and [realized resources].
@@ -62,7 +63,7 @@ pub type ModelUlid = Ulid;
 /// [Elements]: crate::game::world::element::Element
 /// [realized resource]: crate::resources::realizations
 /// [realized resources]: crate::resources::realizations
-#[derive(Default)]
+#[derive(Debug)]
 pub struct World {
     // --- Elements & Models ---
     /// [Element]s and their [Ulid]s
@@ -74,6 +75,8 @@ pub struct World {
     model_owner: HashMap<ModelUlid, ElementUlid>,
     /// Translation map to determine _tag_ association between [Element]s
     tags: HashMap<String, Vec<ElementUlid>>,
+    /// --- Storages ---
+    light_storage: LightStorage,
     // --- Queues ---
     /// Queue for [WorldChange]s before being processed into other queues
     queue_world_changes: Vec<WorldChange>,
@@ -103,24 +106,40 @@ pub struct World {
     /// ⚠️ Only the most recent `WorldChange` request will be applied as we can
     /// only ever have one single camera active!
     next_camera: Option<String>,
+    // --- Environment ---
+    world_environment: MaterialDescriptor,
 }
 
 impl World {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(device: &Device, queue: &Queue) -> Self {
+        Self {
+            elements: Default::default(),
+            models: Default::default(),
+            model_owner: Default::default(),
+            tags: Default::default(),
+            light_storage: LightStorage::initialize(device, queue),
+            queue_world_changes: Default::default(),
+            queue_element_spawn: Default::default(),
+            queue_element_despawn: Default::default(),
+            queue_model_spawn: Default::default(),
+            queue_model_despawn: Default::default(),
+            queue_messages: Default::default(),
+            active_camera: Default::default(),
+            active_camera_change: Default::default(),
+            camera_descriptors: Default::default(),
+            next_camera: Default::default(),
+            world_environment: MaterialDescriptor::default_world_environment(),
+        }
     }
 
     fn process_active_camera_change(&mut self, device: &Device, queue: &Queue) {
         let update_option = self.active_camera_change.take();
-        match update_option {
-            Some(change) => {
-                if let Some(camera) = &mut self.active_camera {
-                    camera.update_from_change(change, device, queue);
-                } else {
-                    error!("Trying to apply camera change to active camera, but active camera does not exist!");
-                }
+        if let Some(change) = update_option {
+            if let Some(camera) = &mut self.active_camera {
+                camera.update_from_change(change, device, queue);
+            } else {
+                error!("Trying to apply camera change to active camera, but active camera does not exist!");
             }
-            None => return,
         }
     }
 
@@ -133,31 +152,27 @@ impl World {
         }
 
         let taken = self.next_camera.take();
-        match taken {
-            Some(camera_identifier) => {
-                match self
-                    .camera_descriptors
-                    .iter()
-                    .find(|x| x.identifier == camera_identifier)
-                {
-                    Some(camera_descriptor) => {
-                        // Realize camera
-                        self.active_camera = Some(Camera::from_descriptor(
-                            camera_descriptor.clone(),
-                            device,
-                            queue,
-                        ));
-                    }
-                    None => {
-                        error!(
-                            "Supposed to change to camera '{}', but no such camera exists!",
-                            camera_identifier
-                        );
-                        return;
-                    }
+        if let Some(camera_identifier) = taken {
+            match self
+                .camera_descriptors
+                .iter()
+                .find(|x| x.identifier == camera_identifier)
+            {
+                Some(camera_descriptor) => {
+                    // Realize camera
+                    self.active_camera = Some(Camera::from_descriptor(
+                        camera_descriptor.clone(),
+                        device,
+                        queue,
+                    ));
+                }
+                None => {
+                    error!(
+                        "Supposed to change to camera '{}', but no such camera exists!",
+                        camera_identifier
+                    );
                 }
             }
-            None => return,
         }
     }
 
@@ -165,7 +180,7 @@ impl World {
         for mut element in self.queue_element_spawn.drain(..) {
             // Generate new ULID
             let element_ulid = Ulid::new();
-            info!("New element: {}@{:?}", element_ulid, element.type_id());
+            info!("New element: {}", element_ulid);
 
             // Start element registration
             let registration = element.on_registration(&element_ulid);
@@ -179,7 +194,7 @@ impl World {
                     self.tags
                         .entry(tag)
                         .or_insert(Vec::new())
-                        .push(element_ulid.clone());
+                        .push(element_ulid);
                 }
             }
 
@@ -265,7 +280,7 @@ impl World {
     }
 
     pub fn process_world_changes(&mut self) -> Vec<AppChange> {
-        let world_changes = replace(&mut self.queue_world_changes, Vec::new());
+        let world_changes = std::mem::take(&mut self.queue_world_changes);
 
         let mut app_changes = Vec::new();
         for world_change in world_changes {
@@ -342,17 +357,32 @@ impl World {
                     if camera.descriptor().identifier == change.target {
                         self.active_camera_change = Some(change);
                     }
-                } else {
-                    if let Some(existing_camera_descriptor) = self
-                        .camera_descriptors
-                        .iter_mut()
-                        .find(|x| x.identifier == change.target)
-                    {
-                        existing_camera_descriptor.apply_change(change);
-                    }
+                } else if let Some(existing_camera_descriptor) = self
+                    .camera_descriptors
+                    .iter_mut()
+                    .find(|x| x.identifier == change.target)
+                {
+                    existing_camera_descriptor.apply_change(change);
                 }
             }
             WorldChange::AppChange(app_change) => return Some(app_change),
+            WorldChange::SpawnLight(light_descriptor) => {
+                self.light_storage.add_descriptor(light_descriptor)
+            }
+            WorldChange::ChangeWorldEnvironment {
+                skybox_material: world_environment_material_descriptor,
+            } => {
+                if let MaterialDescriptor::WorldEnvironment {
+                    sky: _,
+                    irradiance: _,
+                    radiance: _,
+                } = &world_environment_material_descriptor
+                {
+                    self.world_environment = world_environment_material_descriptor;
+                } else {
+                    error!("WorldChange::ChangeSkyBox requested, but supplied material is not of type MaterialDescriptor::SkyBox!");
+                }
+            }
         }
 
         None
@@ -419,6 +449,8 @@ impl World {
         self.process_queue_model_spawn(device, queue);
         self.process_active_camera_change(device, queue);
         self.process_next_camera(device, queue);
+
+        self.light_storage.update_if_needed(device, queue);
     }
 
     /// This function returns a [Vec<&Model>] of all [Models] that
@@ -464,7 +496,19 @@ impl World {
         ulids
     }
 
-    // pub fn handle_input_event(&mut self, input_event: InputEvent) -> Result<(), Error> {
-    //     // self.input_manager.handle_input_event(input_event)
-    // }
+    pub fn active_camera(&self) -> &Camera {
+        self.active_camera.as_ref().unwrap()
+    }
+
+    pub fn models(&self) -> Vec<&Model> {
+        self.models.values().by_ref().collect()
+    }
+
+    pub fn light_storage(&self) -> &LightStorage {
+        &self.light_storage
+    }
+
+    pub fn world_environment(&self) -> &MaterialDescriptor {
+        &self.world_environment
+    }
 }
