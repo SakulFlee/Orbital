@@ -1,13 +1,3 @@
-use std::{
-    io::{Cursor, Read},
-    sync::Arc,
-};
-
-use cgmath::{Vector2, Vector3, Vector4};
-use image::{ImageBuffer, ImageEncoder, ImageError, ImageFormat, Pixel, Rgba};
-use log::{error, warn};
-use wgpu::TextureFormat;
-
 use super::{CubeTextureDescriptor, ShaderDescriptor, TextureDescriptor};
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -105,8 +95,7 @@ impl From<&easy_gltf::Material> for MaterialDescriptor {
                 let data = Self::rgb_to_rgba(&x.texture);
                 TextureDescriptor::StandardSRGBAu8Data(data, x.texture.dimensions().into())
             })
-            .ok_or(TextureDescriptor::UNIFORM_BLACK)
-            .unwrap();
+            .unwrap_or(TextureDescriptor::UNIFORM_BLACK);
 
         let albedo = value
             .pbr
@@ -115,10 +104,9 @@ impl From<&easy_gltf::Material> for MaterialDescriptor {
             .map(|x| {
                 TextureDescriptor::StandardSRGBAu8Data(x.as_raw().to_vec(), x.dimensions().into())
             })
-            .ok_or(TextureDescriptor::UniformColor(
+            .unwrap_or(TextureDescriptor::UniformColor(
                 value.pbr.base_color_factor.map(|x| (x * 255.0) as u8),
-            ))
-            .unwrap();
+            ));
 
         let metallic = value
             .pbr
@@ -128,10 +116,9 @@ impl From<&easy_gltf::Material> for MaterialDescriptor {
                 data: x.as_raw().to_vec(),
                 size: x.dimensions().into(),
             })
-            .ok_or(TextureDescriptor::UniformLuma {
+            .unwrap_or(TextureDescriptor::UniformLuma {
                 data: (value.pbr.metallic_factor * 255.0) as u8,
-            })
-            .unwrap();
+            });
 
         let roughness = value
             .pbr
@@ -141,10 +128,9 @@ impl From<&easy_gltf::Material> for MaterialDescriptor {
                 data: x.as_raw().to_vec(),
                 size: x.dimensions().into(),
             })
-            .ok_or(TextureDescriptor::UniformLuma {
+            .unwrap_or(TextureDescriptor::UniformLuma {
                 data: (value.pbr.roughness_factor * 255.0) as u8,
-            })
-            .unwrap();
+            });
 
         let occlusion = value
             .occlusion
@@ -153,8 +139,7 @@ impl From<&easy_gltf::Material> for MaterialDescriptor {
                 data: x.texture.to_vec(),
                 size: x.texture.dimensions().into(),
             })
-            .ok_or(TextureDescriptor::UNIFORM_LUMA_BLACK)
-            .unwrap();
+            .unwrap_or(TextureDescriptor::UNIFORM_LUMA_WHITE);
 
         let emissive = value
             .emissive
@@ -166,13 +151,10 @@ impl From<&easy_gltf::Material> for MaterialDescriptor {
                     x.dimensions().into(),
                 )
             })
-            .ok_or(TextureDescriptor::UniformColor(Vector4 {
-                x: (value.emissive.factor.x * 255.0) as u8,
-                y: (value.emissive.factor.y * 255.0) as u8,
-                z: (value.emissive.factor.z * 255.0) as u8,
-                w: 255,
-            }))
-            .unwrap();
+            .unwrap_or(TextureDescriptor::UNIFORM_WHITE);
+
+        // TODO: Include factors!
+        // Factors != Values
 
         Self::PBR {
             normal,
