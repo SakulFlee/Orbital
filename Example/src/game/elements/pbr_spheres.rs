@@ -14,7 +14,7 @@ impl Element for PBRSpheres {
     fn on_registration(&mut self, _ulid: &Ulid) -> ElementRegistration {
         ElementRegistration {
             models: Some(vec![ModelDescriptor::FromGLTF(
-                "Assets/Models/PBRSpheres.glb",
+                "Assets/Models/PBR_Spheres.glb",
                 ImportDescriptor::Index(0),
                 ImportDescriptor::Index(0),
                 Instancing::Single(InstanceDescriptor::default()),
