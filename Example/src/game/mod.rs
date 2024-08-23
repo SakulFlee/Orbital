@@ -1,6 +1,4 @@
-use elements::{
-    camera::Camera, damaged_helmet::DamagedHelmet, ping_pong::PingPongElement, spheres::Spheres,
-};
+use elements::{camera::Camera, pbr_spheres::PBRSpheres, ping_pong::PingPongElement};
 use orbital::{
     game::{Game, World, WorldChange},
     log::info,
@@ -33,6 +31,6 @@ impl Game for ExampleGame {
             false,
         ))));
 
-        world.process_world_change(WorldChange::SpawnElement(Box::new(Spheres {})));
+        world.process_world_change(WorldChange::SpawnElement(Box::new(PBRSpheres {})));
     }
 }
