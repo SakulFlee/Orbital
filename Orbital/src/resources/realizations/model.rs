@@ -112,12 +112,7 @@ impl Model {
             return Err(Error::ModelNotFound);
         };
 
-        Self::from_gltf_model(
-            model,
-            Self::convert_instancing(instancing),
-            device,
-            queue,
-        )
+        Self::from_gltf_model(model, Self::convert_instancing(instancing), device, queue)
     }
 
     #[cfg(feature = "gltf")]
