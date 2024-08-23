@@ -1,5 +1,5 @@
 use hashbrown::HashMap;
-use log::{debug, info, warn};
+use log::{info, warn};
 use ulid::Ulid;
 use wgpu::{Device, Queue};
 
@@ -301,8 +301,6 @@ impl World {
     /// The [WorldChange] will be processed during the next possible
     /// cycle.
     pub fn process_world_change(&mut self, world_change: WorldChange) -> Option<AppChange> {
-        debug!("World Change: {:?}", world_change);
-
         match world_change {
             WorldChange::SpawnElement(element) => self.queue_element_spawn.push(element),
             WorldChange::DespawnElement(identifier) => {

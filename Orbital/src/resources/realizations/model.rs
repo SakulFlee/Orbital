@@ -1,4 +1,3 @@
-use log::debug;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     Buffer, BufferUsages, Device, Queue, TextureFormat,
@@ -85,9 +84,6 @@ impl Model {
     ) -> Result<Self, Error> {
         // Load glTF file
         let gltf_file = easy_gltf::load(file).map_err(|e| Error::GltfError(e))?;
-
-        debug!("Descriptor: {:?}", model_import_descriptor);
-        debug!("glTF Length: {}", gltf_file.len());
 
         // Query for scene. If found we continue.
         let scene = if let Some(scene) = match scene_import_descriptor {
