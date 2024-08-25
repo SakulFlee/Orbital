@@ -117,6 +117,8 @@
 //! This can be done like so:
 //!
 //! ```rust
+//! # use orbital::winit::event_loop::EventLoop;
+//!
 //! let event_loop = EventLoop::builder().build().unwrap();
 //! ```
 //!
@@ -218,7 +220,14 @@
 //!
 //! Now, with [Cargo-NDK] you will have an Android entrypoint like so:
 //!
-//! ```rust
+//! ```ignore
+//! # // Ignored, as this only compiles if _building for Android_, but the
+//! # // documentation should be available regardless of platform. 
+//! # use orbital::winit::{
+//! #     event_loop::EventLoop,
+//! #     platform::android::{activity::AndroidApp, EventLoopBuilderExtAndroid},
+//! # };
+//!
 //! #[no_mangle]
 //! fn android_main(app: AndroidApp) {
 //!     let event_loop = EventLoop::builder()

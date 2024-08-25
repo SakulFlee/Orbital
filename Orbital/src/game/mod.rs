@@ -41,11 +41,34 @@ pub use world::*;
 /// [GameRuntime] with your implementation, like so:
 ///
 /// ```rust
-/// let event_loop = // Acquire event loop;
+/// # use orbital::{
+/// #     renderer::StandardRenderer, 
+/// #     game::{Game, GameRuntime, GameSettings, World}, 
+/// #     winit::event_loop::EventLoop
+/// # };
+///
+/// # struct MyGame;
+/// # impl Game for MyGame {
+/// #   fn init() -> Self
+/// #   where Self: Sized,
+/// #   {
+/// #       Self {}
+/// #   }
+/// #   fn on_startup(&mut self, _world: &mut World)
+/// #   where
+/// #       Self: Sized,
+/// #   {
+/// #       std::process::exit(0);
+/// #   }
+/// # }
+///
+/// # fn main() {
+/// let event_loop = EventLoop::new().unwrap(); // Acquire event loop, might be different based on platform!
 /// let settings = GameSettings::default();
 ///
 /// GameRuntime::<MyGame, StandardRenderer>::liftoff(event_loop, settings)
 ///     .expect("Runtime failure");
+/// # }
 /// ```
 ///
 /// You will need three/four things:
@@ -61,9 +84,16 @@ pub use world::*;
 /// Simply make a structure and implement the trait on it, as needed:
 ///
 /// ```rust
+/// # use orbital::{renderer::StandardRenderer, game::Game};
+///
 /// pub struct MyGame;
 ///
 /// impl Game for MyGame {
+/// #   fn init() -> Self
+/// #   where Self: Sized,
+/// #   {
+/// #       Self {}
+/// #   }
 ///     // ...
 /// }
 /// ```
@@ -121,11 +151,12 @@ pub use world::*;
 /// > ⚠️ This example does not come with input processing!
 ///
 /// ```rust
-/// // libs.rs
-/// use orbital::game::{Game, World, WorldChange};
-///
-/// pub mod cube;
-/// use cube::Cube;
+/// # use orbital::{
+/// #     cgmath::{Deg, Quaternion, Rotation3, Vector3},
+/// #     game::{Element, ElementRegistration, Game, World, WorldChange},
+/// #     resources::descriptors::{ImportDescriptor, InstanceDescriptor, Instancing, ModelDescriptor},
+/// #     ulid::Ulid,
+/// # };
 ///
 /// pub struct ExampleGame;
 ///
@@ -158,20 +189,11 @@ pub use world::*;
 ///
 ///         // Finally, we can make the WorldChange and queue the Element spawning.
 ///         let world_change = WorldChange::SpawnElement(boxed_cube);
-///         world.queue_world_change(world_change);
+///         world.process_world_change(world_change);
 ///     }
 /// }
-/// ```
 ///
-/// ```rust
-/// // cube.rs
-/// use orbital::{
-///     cgmath::{Deg, Quaternion, Rotation3, Vector3},
-///     game::{Element, ElementRegistration},
-///     resources::descriptors::{ImportDescriptor, InstanceDescriptor, Instancing, ModelDescriptor},
-///     ulid::Ulid,
-/// };
-///
+/// #[derive(Debug)]
 /// pub struct Cube;
 ///
 /// impl Element for Cube {
