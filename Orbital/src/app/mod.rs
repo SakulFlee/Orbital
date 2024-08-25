@@ -36,11 +36,25 @@ pub use app_changes::*;
 /// [AppRuntime] with your implementation, like so:
 ///
 /// ```rust
-/// let event_loop = // Acquire event loop;
+/// # use orbital::{app::{AppSettings, AppRuntime, App}, wgpu::{Device, Queue, SurfaceConfiguration}, winit::event_loop::EventLoop};
+///
+/// # struct MyApp;
+/// # impl App for MyApp {
+/// #   fn init(config: &SurfaceConfiguration, device: &Device, queue: &Queue) -> Self
+/// #   where Self: Sized,
+/// #   {
+/// #       std::process::exit(0);
+/// #       Self {}
+/// #   }
+/// # }
+///
+/// # fn main() {
+/// let event_loop = EventLoop::new().unwrap(); // Acquire event loop, might be different based on platform!
 /// let settings = AppSettings::default();
 ///
 /// AppRuntime::<MyApp>::liftoff(event_loop, settings)
 ///     .expect("Runtime failure");
+/// # }
 /// ```
 ///
 /// You will need three things:
@@ -55,10 +69,22 @@ pub use app_changes::*;
 /// Make a structure and implement the trait like so:
 ///
 /// ```rust
+/// # use orbital::{
+/// #     app::{App, AppChange},
+/// #     wgpu::{Device, Queue, SurfaceConfiguration}
+/// # };
+///
 /// pub struct MyApp;
 ///
 /// impl App for MyApp {
 ///     // ...
+/// #    fn init(config: &SurfaceConfiguration, device: &Device, _queue: &Queue) -> Self
+/// #    where
+/// #        Self: Sized,
+/// #    {
+/// #       std::process::exit(0);
+/// #       Self {}
+/// #    }
 /// }
 /// ```
 ///
@@ -98,7 +124,7 @@ pub use app_changes::*;
 /// ```rust
 /// // app.rs
 /// use orbital::{
-///     app::App,
+///     app::{App, AppChange},
 ///     wgpu::{
 ///         Color, CommandEncoderDescriptor, Device, FragmentState, LoadOp, MultisampleState,
 ///         Operations, PipelineLayoutDescriptor, PrimitiveState, Queue, RenderPassColorAttachment,
@@ -122,9 +148,10 @@ pub use app_changes::*;
 ///     where
 ///         Self: Sized,
 ///     {
+///         # std::process::exit(0);
 ///         let shader = device.create_shader_module(ShaderModuleDescriptor {
 ///             label: None,
-///             source: ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
+///             source: ShaderSource::Wgsl(include_str!("your_shader_here.wgsl").into()),
 ///         });
 ///
 ///         let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
@@ -163,9 +190,11 @@ pub use app_changes::*;
 ///         }
 ///     }
 ///
-///     fn on_update(&mut self) {
+///     fn on_update(&mut self) -> Option<Vec<AppChange>> {
 ///         // Nothing needed for this example!
 ///         // All events that we care about are already taken care of.
+///
+///         None
 ///     }
 ///
 ///     fn on_render(&mut self, view: &TextureView, device: &Device, queue: &Queue) {
@@ -227,114 +256,6 @@ pub use app_changes::*;
 /// @fragment
 /// fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 ///     return in.color;
-/// }
-/// ```
-///
-/// ## Clear Screen color changing
-///
-/// ![Example image](https://raw.githubusercontent.com/SakulFlee/Akimo-Project/main/.github/images/app_example_clearscreen.gif)
-///
-/// ```rust
-/// use orbital::{
-///     app::App,
-///     wgpu::{
-///         Color, CommandEncoderDescriptor, Device, LoadOp, Operations, Queue,
-///         RenderPassColorAttachment, RenderPassDescriptor, StoreOp, SurfaceConfiguration,
-///         TextureView,
-///     },
-/// };
-///
-/// enum Channel {
-///     R,
-///     G,
-///     B,
-/// }
-///
-/// pub struct ClearScreenApp {
-///     color: Color,
-///     decrement: Channel,
-/// }
-///
-/// impl App for ClearScreenApp {
-///     fn init(_config: &SurfaceConfiguration, _device: &Device, _queue: &Queue) -> Self
-///     where
-///         Self: Sized,
-///     {
-///         Self {
-///             color: Color {
-///                 r: 1f64,
-///                 g: 0f64,
-///                 b: 0f64,
-///                 a: 1f64,
-///             },
-///             decrement: Channel::R,
-///         }
-///     }
-///
-///     fn on_update(&mut self) {
-///         // Nothing needed for this example!
-///         // All events that we care about are already taken care of.
-///
-///         const INTERVAL: f64 = 0.001f64;
-///
-///         match self.decrement {
-///             Channel::R => {
-///                 self.color.r -= INTERVAL;
-///                 self.color.g += INTERVAL;
-///
-///                 if self.color.r <= INTERVAL {
-///                     self.color.r = 0.0f64;
-///                     self.color.g = 1.0f64;
-///                     self.decrement = Channel::G;
-///                 }
-///             }
-///             Channel::G => {
-///                 self.color.g -= INTERVAL;
-///                 self.color.b += INTERVAL;
-///
-///                 if self.color.g <= INTERVAL {
-///                     self.color.g = 0.0f64;
-///                     self.color.b = 1.0f64;
-///
-///                     self.decrement = Channel::B;
-///                 }
-///             }
-///             Channel::B => {
-///                 self.color.b -= INTERVAL;
-///                 self.color.r += INTERVAL;
-///
-///                 if self.color.b <= INTERVAL {
-///                     self.color.b = 0.0f64;
-///                     self.color.r = 1.0f64;
-///
-///                     self.decrement = Channel::R;
-///                 }
-///             }
-///         }
-///     }
-///
-///     fn on_render(&mut self, view: &TextureView, device: &Device, queue: &Queue) {
-///         let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor { label: None });
-///
-///         {
-///             let mut _render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
-///                 label: None,
-///                 color_attachments: &[Some(RenderPassColorAttachment {
-///                     view,
-///                     resolve_target: None,
-///                     ops: Operations {
-///                         load: LoadOp::Clear(self.color),
-///                         store: StoreOp::Store,
-///                     },
-///                 })],
-///                 depth_stencil_attachment: None,
-///                 timestamp_writes: None,
-///                 occlusion_query_set: None,
-///             });
-///         }
-///
-///         queue.submit(Some(encoder.finish()));
-///     }
 /// }
 /// ```
 ///
