@@ -26,14 +26,18 @@ pub enum TextureDescriptor {
     ///
     /// Each colour channel should be converted internally to a float via:
     ///
-    /// ```
+    /// ```ignore
+    /// # use orbital::cgmath::Vector4;
+    /// 
     /// let channel_{x, y, z, w}: f64 = Vector4::{x, y, z, w} / 255.0f64;
     /// ```
     ///
     /// # Examples
     ///
     /// 100% Red:
-    /// ```
+    /// ```ignore
+    /// # use orbital::cgmath::Vector4;
+    /// 
     /// Vector4 {
     ///     x: 255,
     ///     y: 0,
@@ -43,7 +47,9 @@ pub enum TextureDescriptor {
     /// ```
     ///
     /// 33.3% Red, 33.3% Blue, 33.3% Blue:
-    /// ```
+    /// ```ignore
+    /// # use orbital::cgmath::Vector4;
+    /// 
     /// Vector4 {
     ///     x: 85,
     ///     y: 85,
