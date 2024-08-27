@@ -145,7 +145,7 @@ pub use world::*;
 ///
 /// ## Cubes
 ///
-/// ![Cubes Example GIF](https://raw.githubusercontent.com/SakulFlee/Akimo-Project/main/.github/images/game_example_cubes.gif)
+/// ![Cubes Example GIF](https://raw.githubusercontent.com/SakulFlee/Orbital/main/.github/images/game_example_cubes.gif)
 ///
 /// > ⚠️ The camera movement is done via [TestRenderer](crate::renderer::TestRenderer), this behaviour may change in the future.  
 /// > ⚠️ This example does not come with input processing!

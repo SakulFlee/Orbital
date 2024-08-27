@@ -18,7 +18,7 @@ if [ $# -lt 3 ]; then
     echo "Not enough arguments!"
     echo "$0 <Example Crate Name> <Example Folder Name> \"<Android App name>\""
     echo "For example:"
-    echo "$0 example_clear_screen ClearScreen \"ClearScreen Example (Akimo-Project)\""
+    echo "$0 example_clear_screen ClearScreen \"ClearScreen Example (Orbital)\""
     exit -1
 fi
 

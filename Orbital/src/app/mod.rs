@@ -119,7 +119,7 @@ pub use app_changes::*;
 ///
 /// ## RGB Triangle with Shader
 ///
-/// ![Example image](https://raw.githubusercontent.com/SakulFlee/Akimo-Project/main/.github/images/app_example_triangle.png)
+/// ![Example image](https://raw.githubusercontent.com/SakulFlee/Orbital/main/.github/images/app_example_triangle.png)
 ///
 /// ```rust
 /// // app.rs
