@@ -30,7 +30,7 @@ pub static mut MATERIAL_CACHE_SETTINGS: OnceLock<CacheSettings> = OnceLock::new(
 
 impl<GameImpl: Game, RendererImpl: Renderer> GameRuntime<GameImpl, RendererImpl> {
     pub fn liftoff(event_loop: EventLoop<()>, settings: GameSettings) -> Result<(), Error> {
-        info!("Akimo-Project: Game Runtime");
+        info!("Orbital: Game Runtime");
         info!(" --- @SakulFlee --- ");
 
         unsafe {

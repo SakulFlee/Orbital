@@ -41,7 +41,7 @@ pub static mut WINDOW_HALF_SIZE: (i32, i32) = (0, 0);
 
 impl<AppImpl: App> AppRuntime<AppImpl> {
     pub fn liftoff(event_loop: EventLoop<()>, settings: AppSettings) -> Result<(), Error> {
-        info!("Akimo-Project: App Runtime");
+        info!("Orbital: App Runtime");
         info!(" --- @SakulFlee --- ");
 
         Self::__liftoff(event_loop, settings)
@@ -215,7 +215,7 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
         }
     }
 
-    fn update(&mut self) {
+    fn update(&mut self) -> bool {
         self.gamepad_inputs();
         self.calculate_center_point();
 
@@ -232,6 +232,12 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
 
         for app_change in app_changes {
             match app_change {
+                AppChange::RequestAppClosure => {
+                    return true;
+                }
+                AppChange::ForceAppClosure { exit_code } => {
+                    std::process::exit(exit_code);
+                }
                 AppChange::ChangeCursorAppearance(x) => {
                     if let Some(window) = &mut self.window {
                         window.set_cursor(x);
@@ -273,6 +279,8 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
                 }
             }
         }
+
+        false
     }
 }
 
@@ -357,6 +365,11 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
         _window_id: WindowId,
         event: WindowEvent,
     ) {
+        // Skip if exiting
+        if event_loop.exiting() {
+            return;
+        }
+
         match event {
             WindowEvent::Resized(new_size) => {
                 self.surface_configuration = Some(Self::make_surface_configuration(
@@ -373,7 +386,12 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
                 event_loop.exit();
             }
             WindowEvent::RedrawRequested => {
-                self.update();
+                let close_request = self.update();
+                if close_request {
+                    event_loop.exit();
+                    return;
+                }
+
                 self.redraw();
 
                 self.window.as_ref().unwrap().request_redraw();

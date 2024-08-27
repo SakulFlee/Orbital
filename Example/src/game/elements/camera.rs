@@ -41,6 +41,8 @@ impl Camera {
     pub const KEY_MOVE_DOWN: PhysicalKey = PhysicalKey::Code(KeyCode::KeyQ);
     pub const KEY_MOVE_UP: PhysicalKey = PhysicalKey::Code(KeyCode::KeyE);
 
+    pub const KEY_DEBUG: PhysicalKey = PhysicalKey::Code(KeyCode::Space);
+
     //--- Button bindings
     pub const BUTTON_MOVE_DOWN: Button = Button::DPadDown;
     pub const BUTTON_MOVE_UP: Button = Button::DPadUp;
@@ -52,6 +54,8 @@ impl Camera {
     pub const ACTION_MOVE_RIGHT: &'static str = "move_right";
     pub const ACTION_MOVE_DOWN: &'static str = "move_down";
     pub const ACTION_MOVE_UP: &'static str = "move_up";
+
+    pub const ACTION_DEBUG: &'static str = "debug";
 
     //--- Axis bindings
     pub const AXIS_MOVE_FORWARD_BACKWARD: Axis = Axis::LeftStickY;
@@ -77,6 +81,8 @@ impl Camera {
         input_handler.register_keyboard_mapping(Self::KEY_MOVE_RIGHT, Self::ACTION_MOVE_RIGHT);
         input_handler.register_keyboard_mapping(Self::KEY_MOVE_DOWN, Self::ACTION_MOVE_DOWN);
         input_handler.register_keyboard_mapping(Self::KEY_MOVE_UP, Self::ACTION_MOVE_UP);
+
+        input_handler.register_keyboard_mapping(Self::KEY_DEBUG, Self::ACTION_DEBUG);
 
         //--- Button bindings
         input_handler
@@ -206,6 +212,10 @@ impl Element for Camera {
             WorldChange::AppChange(AppChange::ChangeCursorPosition(cursor_position.into()));
 
         let mut changes = vec![cursor_position_change];
+
+        if self.input_handler.is_triggered(Self::ACTION_DEBUG) {
+            changes.push(WorldChange::CleanWorld);
+        }
 
         if change.does_change_something() {
             changes.push(WorldChange::UpdateCamera(change));
