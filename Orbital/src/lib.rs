@@ -1,12 +1,12 @@
 #![doc(
-    html_favicon_url = "https://raw.githubusercontent.com/SakulFlee/Akimo-Project/main/.github/logo/Orbital.svg"
+    html_favicon_url = "https://raw.githubusercontent.com/SakulFlee/Orbital/main/.github/logo/Orbital.svg"
 )]
 #![doc(
-    html_logo_url = "https://raw.githubusercontent.com/SakulFlee/Akimo-Project/main/.github/logo/Orbital.png"
+    html_logo_url = "https://raw.githubusercontent.com/SakulFlee/Orbital/main/.github/logo/Orbital.png"
 )]
 #![doc(html_playground_url = "https://play.rust-lang.org")]
 
-//! ![Orbital Logo](https://raw.githubusercontent.com/SakulFlee/Akimo-Project/main/.github/logo/Orbital_Logo.png)
+//! ![Orbital Logo](https://raw.githubusercontent.com/SakulFlee/Orbital/main/.github/logo/Orbital_Logo.png)
 //!
 //! The Orbital Runtime & Engine is a multi-layer project.  
 //! It is mainly intended to be used to make [Games].  
@@ -37,7 +37,7 @@
 //! Like explained above, we have a [Game] and [App] layer,
 //! but there is more:
 //!
-//! ![Diagram: Managed vs. Unmanaged](https://raw.githubusercontent.com/SakulFlee/Akimo-Project/ec00739b23e5aaca8a00b53c6bf099f2e423d057/.github/images/diagram_managed_vs_unmanaged.drawio.png)
+//! ![Diagram: Managed vs. Unmanaged](https://raw.githubusercontent.com/SakulFlee/Orbital/ec00739b23e5aaca8a00b53c6bf099f2e423d057/.github/images/diagram_managed_vs_unmanaged.drawio.png)
 //!
 //! At the bottom, we have the _Framework_.
 //! This is the most **DIY** (_do it yourself_) layer and approach.
@@ -222,7 +222,7 @@
 //!
 //! ```ignore
 //! # // Ignored, as this only compiles if _building for Android_, but the
-//! # // documentation should be available regardless of platform. 
+//! # // documentation should be available regardless of platform.
 //! # use orbital::winit::{
 //! #     event_loop::EventLoop,
 //! #     platform::android::{activity::AndroidApp, EventLoopBuilderExtAndroid},

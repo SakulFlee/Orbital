@@ -99,6 +99,30 @@ pub enum WorldChange {
     ChangeWorldEnvironment {
         skybox_material: MaterialDescriptor,
     },
+    /// Cleans the entire [World].
+    /// Meaning, that any [Element]s, and their associated resources like
+    /// [Model]s, will be despawned and
+    /// removed from the world.
+    /// 
+    /// This can be used to replicate the effect of a "scene change".  
+    /// Queue a [WorldChange::CleanWorld] first, then anything for the new 
+    /// scene.
+    /// 
+    /// ⚠️This will literally remove everything from the [World]. 
+    /// Be careful!⚠️  
+    /// The order of enqueueing [WorldChange]s matters here!  
+    /// For example:  
+    /// Say, we queue in the following order:  
+    /// 1. [WorldChange::SpawnElement]  
+    /// 2. [WorldChange::CleanWorld]  
+    /// 3. [WorldChange::SpawnElement]  
+    /// We would only end up with **ONE** spawned [Element].
+    /// The first one would be nulled.
+    ///
+    /// 
+    /// [World]: crate::game::world::World
+    /// [Model]: crate::resources::realizations::Model
+    CleanWorld,
 }
 
 impl fmt::Debug for WorldChange {
@@ -132,6 +156,7 @@ impl fmt::Debug for WorldChange {
                 .debug_tuple("ChangeSkyBox")
                 .field(skybox_material)
                 .finish(),
+            WorldChange::CleanWorld => f.debug_tuple("CleanWorld").finish(),
         }
     }
 }

@@ -52,6 +52,14 @@ impl LightStorage {
         s
     }
 
+    pub fn clear(&mut self) {
+        self.descriptors.clear();
+        self.bind_group = None;
+        self.buffer = None;
+        self.dummy_light_added = false;
+        self.needs_update = false;
+    }
+
     pub fn update_buffer(&mut self, device: &Device, queue: &Queue) {
         if self.is_empty() {
             self.buffer = None;
