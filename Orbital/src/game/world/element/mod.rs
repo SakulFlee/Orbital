@@ -84,7 +84,7 @@ pub use registration::*;
 ///
 /// A flow diagram would look like this:
 ///
-/// ![Messaging Flow Diagram](https://raw.githubusercontent.com/SakulFlee/Akimo-Project/62619c14a49b87f6cea32d2c3caee7cfab59052b/.github/images/messaging_flow_example.drawio.svg)
+/// ![Messaging Flow Diagram](https://raw.githubusercontent.com/SakulFlee/Orbital/62619c14a49b87f6cea32d2c3caee7cfab59052b/.github/images/messaging_flow_example.drawio.svg)
 ///
 /// Furthermore, this approach is easily scaleable.  
 /// _Tags_ can be used multiple times!  
@@ -95,7 +95,7 @@ pub use registration::*;
 ///
 /// A full diagram would look like this:
 ///
-/// ![Messaging Flow Diagram Multiple](https://raw.githubusercontent.com/SakulFlee/Akimo-Project/62619c14a49b87f6cea32d2c3caee7cfab59052b/.github/images/messaging_flow_example_multiple.drawio.svg)
+/// ![Messaging Flow Diagram Multiple](https://raw.githubusercontent.com/SakulFlee/Orbital/62619c14a49b87f6cea32d2c3caee7cfab59052b/.github/images/messaging_flow_example_multiple.drawio.svg)
 ///
 /// [World]: super::World
 /// [Elements]: Element

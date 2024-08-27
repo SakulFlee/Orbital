@@ -383,6 +383,31 @@ impl World {
                     error!("WorldChange::ChangeSkyBox requested, but supplied material is not of type MaterialDescriptor::SkyBox!");
                 }
             }
+            WorldChange::CleanWorld => {
+                info!("WorldChange::CleanWorld received!");
+
+                // Note: Materials and such will automatically clean up after the given cache interval is hit
+
+                // Clear spawning queues
+                self.queue_element_spawn.clear();
+                self.queue_model_spawn.clear();
+
+                // Elements
+                self.elements.clear();
+
+                // Models
+                self.models.clear();
+                self.model_owner.clear();
+
+                // Lights
+                self.light_storage.clear();
+
+                // Camera
+                self.camera_descriptors.clear();
+                self.next_camera = None;
+                self.active_camera = None;
+                self.active_camera_change = None;
+            }
         }
 
         None
@@ -434,7 +459,15 @@ impl World {
             }
         }
 
-        self.process_world_changes()
+        let mut changes = self.process_world_changes();
+
+        if self.elements.is_empty() {
+            warn!("No more elements in World! Exiting ...");
+
+            changes.push(AppChange::ForceAppClosure { exit_code: 0 });
+        }
+
+        changes
     }
 
     /// Similar to [World::update], but for [WorldChanges]
