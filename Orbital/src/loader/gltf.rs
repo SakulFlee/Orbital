@@ -487,6 +487,7 @@ impl From<&Camera> for CameraDescriptor {
             String::from("Unnamed glTF Camera")
         };
 
+        // TODO: Validate this calculation!
         let forward = value.forward();
         let yaw = forward.y.atan2(forward.x);
         let pitch = -forward.z.asin();
