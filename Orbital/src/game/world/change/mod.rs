@@ -11,7 +11,7 @@ use crate::{
     variant::Variant,
 };
 
-use super::{ElementUlid, Identifier, ModelUlid};
+use super::{ Identifier, ModelUlid};
 
 pub mod mode;
 pub use mode::*;
@@ -36,14 +36,7 @@ pub enum WorldChange {
     /// The [ElementUlid] of the current [Element] will be used.
     ///
     /// [Model]: crate::resources::realizations::Model
-    SpawnModelOwned(ModelDescriptor),
-    /// Queues a [Model] to be spawned.
-    ///
-    /// Same as [WorldChange::SpawnModelOwned], but with needing to supply
-    /// an [ElementUlid].
-    ///
-    /// [Model]: crate::resources::realizations::Model
-    SpawnModel(ModelDescriptor, ElementUlid),
+    SpawnModel(ModelDescriptor),
     /// Queues a [Model] to be despawned.  
     /// Use a [ModelUlid] to specify which is being despawned.
     ///
@@ -103,12 +96,12 @@ pub enum WorldChange {
     /// Meaning, that any [Element]s, and their associated resources like
     /// [Model]s, will be despawned and
     /// removed from the world.
-    /// 
+    ///
     /// This can be used to replicate the effect of a "scene change".  
-    /// Queue a [WorldChange::CleanWorld] first, then anything for the new 
+    /// Queue a [WorldChange::CleanWorld] first, then anything for the new
     /// scene.
-    /// 
-    /// ⚠️This will literally remove everything from the [World]. 
+    ///
+    /// ⚠️This will literally remove everything from the [World].
     /// Be careful!⚠️  
     /// The order of enqueueing [WorldChange]s matters here!  
     /// For example:  
@@ -119,7 +112,7 @@ pub enum WorldChange {
     /// We would only end up with **ONE** spawned [Element].
     /// The first one would be nulled.
     ///
-    /// 
+    ///
     /// [World]: crate::game::world::World
     /// [Model]: crate::resources::realizations::Model
     CleanWorld,
@@ -130,10 +123,7 @@ impl fmt::Debug for WorldChange {
         match self {
             Self::SpawnElement(arg0) => write!(f, "SpawnElement@{:?}", arg0.type_id()),
             Self::DespawnElement(arg0) => f.debug_tuple("DespawnElement").field(arg0).finish(),
-            Self::SpawnModelOwned(arg0) => f.debug_tuple("SpawnModelOwned").field(arg0).finish(),
-            Self::SpawnModel(arg0, arg1) => {
-                f.debug_tuple("SpawnModel").field(arg0).field(arg1).finish()
-            }
+            Self::SpawnModel(arg0) => f.debug_tuple("SpawnModel").field(arg0).finish(),
             Self::DespawnModel(arg0) => f.debug_tuple("DespawnModel").field(arg0).finish(),
             Self::SendMessage(arg0, arg1) => f
                 .debug_tuple("SendMessage")

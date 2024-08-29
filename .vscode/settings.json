@@ -59,6 +59,7 @@
         "wgsl",
         "willir",
         "winit",
+        "yfov",
         "zeroable",
         "zfar",
         "znear"
