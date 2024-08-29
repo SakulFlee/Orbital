@@ -73,6 +73,7 @@ impl Model {
         ))
     }
 
+    #[deprecated]
     #[cfg(feature = "gltf")]
     pub fn from_gltf(
         file: &'static str,
@@ -115,6 +116,7 @@ impl Model {
         Self::from_gltf_model(model, Self::convert_instancing(instancing), device, queue)
     }
 
+    #[deprecated]
     #[cfg(feature = "gltf")]
     pub fn from_gltf_model(
         model: &easy_gltf::Model,

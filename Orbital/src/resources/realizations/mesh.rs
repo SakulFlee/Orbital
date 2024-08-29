@@ -50,6 +50,7 @@ impl Mesh {
         }
     }
 
+    #[deprecated]
     #[cfg(feature = "gltf")]
     pub fn from_gltf(gltf_model: &easy_gltf::Model, device: &Device) -> Result<Self, Error> {
         let vertices = gltf_model
