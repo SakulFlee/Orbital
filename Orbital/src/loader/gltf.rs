@@ -1,5 +1,6 @@
 use std::{
-    ops::Range,
+    ops::{Range, RangeBounds},
+    slice::SliceIndex,
     thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
@@ -27,17 +28,24 @@ use super::Loader;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum GLTFIdentifier {
-    /// The numerical id, starting at zero (0), of the location of the model.
-    /// glTF doesn't have an index system, meaning the 0th resource is always
-    /// the first in list.
-    /// The next element will always be the 1st, then 2nd, etc.
-    /// Empty indices don't exist!
-    Id(u32),
-    /// Same as [GLTFIdentifier::Id], but with a range of Ids.
-    Ids(Range<u32>),
-    /// Names/Labels must be supported by the glTF file.
-    /// It's an optional feature and is not always included!
-    Name(&'static str),
+    /// The numerical id, starting at zero, of the location of the object.
+    /// Indices cannot be skipped, meaning that an empty index == end of data.  
+    ///
+    /// Will be used to find objects very efficiently and fast by their index.
+    ///
+    /// ⚠️ Avoid using a [Range] like: `0..=usize::MAX` to load everything.  
+    /// ⚠️ Instead, use [GLTFLoaderMode::LoadEverything] or [GLTFLoaderMode::LoadScenes]!
+    Id(Vec<usize>),
+    /// ⚠️ Labels (names) must be supported by the glTF file.
+    /// ⚠️ It's an optional feature and is not always included!
+    ///
+    /// Will attempt searching for the label(s) and select them.
+    /// Slower, compared to [GLTFIdentifier::Id].
+    ///
+    /// ⚠️ If a Label can't be found, it will be skipped. No error is produced.
+    /// ⚠️ If a Label is listed multiple times, all will be selected.
+    /// ⚠️ If nothing matches the Label(s), nothing is selected.
+    Label(Vec<&'static str>),
 }
 
 #[derive(Debug, Clone)]
@@ -56,7 +64,7 @@ pub enum GLTFLoaderMode {
     /// [WorldChange::CleanWorld].
     ///
     /// [WorldChange::CleanWorld]: crate::game::WorldChange::CleanWorld
-    LoadScenes { identifier: Vec<GLTFIdentifier> },
+    LoadScenes { identifiers: Vec<GLTFIdentifier> },
     /// Loads a specific subset of resources (models, lights, cameras).  
     /// The first [GLTFIdentifier] is for identifying the scene.  
     /// The second [GLTFIdentifier] is for identifying the actual resource.
@@ -108,9 +116,9 @@ impl GLTFLoader {
     pub fn load_scenes(&mut self, scenes: &mut Vec<GLTFIdentifier>) -> &mut Self {
         if let Some(mode) = &mut self.mode {
             match mode {
-                GLTFLoaderMode::LoadScenes { identifier } => {
+                GLTFLoaderMode::LoadScenes { identifiers } => {
                     // If the mode is already selected, add to it
-                    identifier.append(scenes);
+                    identifiers.append(scenes);
 
                     return self;
                 }
@@ -240,35 +248,68 @@ impl GLTFLoader {
         self
     }
 
-    fn loader_load_everything(gltf_scenes: &Vec<Scene>) -> Vec<WorldChange> {
+    fn loader_gltf_scene_to_world_changes(gltf_scene: &Scene) -> Vec<WorldChange> {
+        let mut world_changes = Vec::new();
+
+        // TODO: Parallelise!
+
+        for gltf_model in &gltf_scene.models {
+            let model_descriptor: ModelDescriptor = gltf_model.into();
+            let world_change = WorldChange::SpawnModel(model_descriptor);
+
+            world_changes.push(world_change);
+        }
+
+        for gltf_light in &gltf_scene.lights {
+            let light_descriptor: LightDescriptor = gltf_light.into();
+            let world_change = WorldChange::SpawnLight(light_descriptor);
+
+            world_changes.push(world_change);
+        }
+
+        for gltf_camera in &gltf_scene.cameras {
+            let camera_descriptor: CameraDescriptor = gltf_camera.into();
+            let world_change = WorldChange::SpawnCamera(camera_descriptor);
+
+            world_changes.push(world_change);
+        }
+
+        world_changes
+    }
+
+    fn loader_load_everything(gltf_scenes: &[Scene]) -> Vec<WorldChange> {
         let mut world_changes = Vec::new();
 
         // TODO: Parallelise!
 
         for gltf_scene in gltf_scenes {
-            for gltf_model in &gltf_scene.models {
-                let model_descriptor: ModelDescriptor = gltf_model.into();
-                let world_change = WorldChange::SpawnModel(model_descriptor);
+            let scene_world_changes = Self::loader_gltf_scene_to_world_changes(gltf_scene);
 
-                world_changes.push(world_change);
-            }
-
-            for gltf_light in &gltf_scene.lights {
-                let light_descriptor: LightDescriptor = gltf_light.into();
-                let world_change = WorldChange::SpawnLight(light_descriptor);
-
-                world_changes.push(world_change);
-            }
-
-            for gltf_camera in &gltf_scene.cameras {
-                let camera_descriptor: CameraDescriptor = gltf_camera.into();
-                let world_change = WorldChange::SpawnCamera(camera_descriptor);
-
-                world_changes.push(world_change);
-            }
+            world_changes.extend(scene_world_changes);
         }
 
         world_changes
+    }
+
+    fn loader_load_scenes(gltf_scenes: &[Scene], identifier: &GLTFIdentifier) -> Vec<WorldChange> {
+        // TODO: Parallelise!
+
+        match identifier {
+            GLTFIdentifier::Id(ids) => gltf_scenes
+                .into_iter()
+                .enumerate()
+                .filter_map(|(i, x)| ids.contains(&i).then_some(x))
+                .map(|scene| Self::loader_gltf_scene_to_world_changes(scene))
+                .flatten()
+                .collect(),
+            GLTFIdentifier::Label(labels) => gltf_scenes
+                .into_iter()
+                .filter(|x| x.name.is_some())
+                .filter(|x| labels.contains(&x.name.as_ref().unwrap().as_str()))
+                .map(|x| Self::loader_gltf_scene_to_world_changes(x))
+                .flatten()
+                .collect(),
+        }
     }
 }
 
@@ -288,14 +329,27 @@ impl Loader for GLTFLoader {
             let gltf_scenes = match easy_gltf::load(file_path) {
                 Ok(x) => x,
                 Err(e) => {
-                    sender.send(Err(Error::GltfError(e)));
+                    sender
+                        .send(Err(Error::GltfError(e)))
+                        .expect("GLTFLoader failed sending error results to main process!");
                     return;
                 }
             };
 
             let world_changes = match mode {
                 GLTFLoaderMode::LoadEverything => Self::loader_load_everything(&gltf_scenes),
-                GLTFLoaderMode::LoadScenes { identifier } => todo!(),
+                GLTFLoaderMode::LoadScenes { identifiers } => {
+                    let mut world_changes = Vec::new();
+
+                    for identifier in identifiers {
+                        let scene_world_change =
+                            Self::loader_load_scenes(&gltf_scenes, &identifier);
+
+                        world_changes.extend(scene_world_change);
+                    }
+
+                    world_changes
+                }
                 GLTFLoaderMode::LoadSpecific {
                     scene_model_map,
                     scene_light_map,
@@ -303,7 +357,9 @@ impl Loader for GLTFLoader {
                 } => todo!(),
             };
 
-            sender.send(Ok(world_changes));
+            sender
+                .send(Ok(world_changes))
+                .expect("GLTFLoader failed sending successful results to main process!");
         });
 
         self.worker = Some(GLTFWorker { receiver, worker });
@@ -512,27 +568,96 @@ impl From<&Camera> for CameraDescriptor {
     }
 }
 
+#[cfg(test)]
+const TEST_FILE_PATH: &'static str = "../Assets/Models/PBR_Spheres.glb";
+#[cfg(test)]
+const TEST_FILE_WORLD_CHANGES: usize = 121;
+
 #[test]
-fn test() {
-    const FILE_PATH: &'static str = "../Assets/Models/PBR_Spheres.glb";
-    let mut loader = GLTFLoader::new(FILE_PATH);
+fn load_everything() {
+    let mut loader = GLTFLoader::new(TEST_FILE_PATH);
 
     loader.load_everything();
 
-    println!("Begin processing glTF file: {}", FILE_PATH);
+    println!("Begin processing glTF file: {}", TEST_FILE_PATH);
     let time = Instant::now();
     loader.begin_processing();
 
-    while !loader.is_done_processing() {
-        // thread::sleep(Duration::from_millis(10));
+    // Wait until done
+    while !loader.is_done_processing() {}
+
+    let result = loader.finish_processing();
+    let elapsed = time.elapsed();
+    println!("Took: {}ms", elapsed.as_millis());
+
+    if result.is_err() {
+        panic!("Result is not expected: {:?}", result);
     }
+
+    let world_changes = result.unwrap();
+    println!(
+        "Finished processing! {} WorldChange's generated!",
+        world_changes.len()
+    );
+    assert_eq!(world_changes.len(), TEST_FILE_WORLD_CHANGES);
+}
+
+#[test]
+fn load_scene_id() {
+    let mut loader = GLTFLoader::new(TEST_FILE_PATH);
+
+    loader.load_scene(GLTFIdentifier::Id(vec![0, 1, 2]));
+
+    println!("Begin processing glTF file: {}", TEST_FILE_PATH);
+    let time = Instant::now();
+    loader.begin_processing();
+
+    // Wait until done
+    while !loader.is_done_processing() {}
 
     let result = loader.finish_processing();
 
     let elapsed = time.elapsed();
     println!("Took: {}ms", elapsed.as_millis());
-    match result {
-        Ok(v) => println!("Finished processing! {} WorldChange's generated!", v.len()),
-        Err(e) => println!("Failed processing: {:?}", e),
+
+    if result.is_err() {
+        panic!("Result is not expected: {:?}", result);
     }
+
+    let world_changes = result.unwrap();
+    println!(
+        "Finished processing! {} WorldChange's generated!",
+        world_changes.len()
+    );
+    assert_eq!(world_changes.len(), TEST_FILE_WORLD_CHANGES);
+}
+
+#[test]
+fn load_scene_label() {
+    let mut loader = GLTFLoader::new(TEST_FILE_PATH);
+
+    loader.load_scene(GLTFIdentifier::Label(vec!["Scene"]));
+
+    println!("Begin processing glTF file: {}", TEST_FILE_PATH);
+    let time = Instant::now();
+    loader.begin_processing();
+
+    // Wait until done
+    while !loader.is_done_processing() {}
+
+    let result = loader.finish_processing();
+
+    let elapsed = time.elapsed();
+    println!("Took: {}ms", elapsed.as_millis());
+
+    if result.is_err() {
+        panic!("Result is not expected: {:?}", result);
+    }
+
+    let world_changes = result.unwrap();
+    println!(
+        "Finished processing! {} WorldChange's generated!",
+        world_changes.len()
+    );
+    assert_eq!(world_changes.len(), TEST_FILE_WORLD_CHANGES);
 }
