@@ -26,26 +26,46 @@ use crate::{
 
 use super::Loader;
 
+#[derive(Debug, Clone)]
+pub enum GLTFObjectType {
+    Model,
+    Light,
+    Camera,
+}
+
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum GLTFIdentifier {
-    /// The numerical id, starting at zero, of the location of the object.
-    /// Indices cannot be skipped, meaning that an empty index == end of data.  
+    /// The numerical id, starting at zero, of the location of the object
+    /// inside the glTF file.  
+    /// Indices cannot be skipped and the order will be preserved.
+    /// Thus, the first object will always be the 0th index.
+    Id(usize),
+    /// Label/Name of the object inside the glTF file.
     ///
-    /// Will be used to find objects very efficiently and fast by their index.
+    /// ⚠️ Labels in glTF files are an optional feature and must be  
+    ///     supported by the glTF file / exporter.
     ///
-    /// ⚠️ Avoid using a [Range] like: `0..=usize::MAX` to load everything.  
-    /// ⚠️ Instead, use [GLTFLoaderMode::LoadEverything] or [GLTFLoaderMode::LoadScenes]!
-    Id(Vec<usize>),
-    /// ⚠️ Labels (names) must be supported by the glTF file.
-    /// ⚠️ It's an optional feature and is not always included!
-    ///
-    /// Will attempt searching for the label(s) and select them.
-    /// Slower, compared to [GLTFIdentifier::Id].
-    ///
-    /// ⚠️ If a Label can't be found, it will be skipped. No error is produced.
-    /// ⚠️ If a Label is listed multiple times, all will be selected.
-    /// ⚠️ If nothing matches the Label(s), nothing is selected.
-    Label(Vec<&'static str>),
+    /// Less performant than [GLTFIdentifier::Id] as it needs to
+    /// search through all entries until the label is found or no
+    /// more objects are to be inspected.  
+    /// However, if used in a [Loader], performance can be ignored.
+    Label(&'static str),
+}
+
+impl GLTFIdentifier {
+    pub fn ranged_id(start: usize, end: usize) -> Vec<Self> {
+        if start > end {
+            panic!("Ranged start cannot be bigger than end!");
+        }
+
+        let mut v = Vec::new();
+
+        for i in start..=end {
+            v.push(GLTFIdentifier::Id(i));
+        }
+
+        v
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -64,7 +84,9 @@ pub enum GLTFLoaderMode {
     /// [WorldChange::CleanWorld].
     ///
     /// [WorldChange::CleanWorld]: crate::game::WorldChange::CleanWorld
-    LoadScenes { identifiers: Vec<GLTFIdentifier> },
+    LoadScenes {
+        scene_identifiers: Vec<GLTFIdentifier>,
+    },
     /// Loads a specific subset of resources (models, lights, cameras).  
     /// The first [GLTFIdentifier] is for identifying the scene.  
     /// The second [GLTFIdentifier] is for identifying the actual resource.
@@ -72,9 +94,9 @@ pub enum GLTFLoaderMode {
     /// You can import only a given resource (e.g. models) by only filling out
     /// the corresponding map.
     LoadSpecific {
-        scene_model_map: HashMap<GLTFIdentifier, Vec<GLTFIdentifier>>,
-        scene_light_map: HashMap<GLTFIdentifier, Vec<GLTFIdentifier>>,
-        scene_camera_map: HashMap<GLTFIdentifier, Vec<GLTFIdentifier>>,
+        scene_model_map: Option<HashMap<GLTFIdentifier, Vec<GLTFIdentifier>>>,
+        scene_light_map: Option<HashMap<GLTFIdentifier, Vec<GLTFIdentifier>>>,
+        scene_camera_map: Option<HashMap<GLTFIdentifier, Vec<GLTFIdentifier>>>,
     },
 }
 
@@ -87,165 +109,134 @@ pub struct GLTFWorker {
 #[derive(Debug)]
 pub struct GLTFLoader {
     file_path: &'static str,
-    mode: Option<GLTFLoaderMode>,
+    mode: GLTFLoaderMode,
     worker: Option<GLTFWorker>,
 }
 
 impl GLTFLoader {
-    pub fn new(file_path: &'static str) -> Self
+    pub fn new(file_path: &'static str, mode: GLTFLoaderMode) -> Self
     where
         Self: Sized,
     {
         Self {
             file_path: file_path.into(),
-            mode: None,
+            mode,
             worker: None,
         }
     }
 
-    pub fn load_everything(&mut self) -> &mut Self {
-        if self.mode.is_some() {
-            warn!("GLTFLoaderMode already set, overwriting!");
-        }
-
-        self.mode = Some(GLTFLoaderMode::LoadEverything);
-
-        self
-    }
-
-    pub fn load_scenes(&mut self, scenes: &mut Vec<GLTFIdentifier>) -> &mut Self {
-        if let Some(mode) = &mut self.mode {
-            match mode {
-                GLTFLoaderMode::LoadScenes { identifiers } => {
-                    // If the mode is already selected, add to it
-                    identifiers.append(scenes);
-
-                    return self;
-                }
-                _ => {
-                    warn!("GLTFLoaderMode already set, overwriting!");
-                }
-            }
-        }
-
-        self.mode = Some(GLTFLoaderMode::LoadEverything);
-
-        self
-    }
-
-    pub fn load_scene(&mut self, scene: GLTFIdentifier) -> &mut Self {
-        self.load_scenes(&mut vec![scene])
-    }
-
-    pub fn load_model(&mut self, scene: GLTFIdentifier, model: GLTFIdentifier) -> &mut Self {
-        if let Some(mode) = &mut self.mode {
-            match mode {
-                GLTFLoaderMode::LoadSpecific {
-                    scene_model_map,
-                    scene_light_map: _,
-                    scene_camera_map: _,
-                } => {
-                    // If the mode is already selected, add to it
-                    let entry = scene_model_map.entry(scene);
-
-                    let models = entry.or_default();
-                    models.push(model);
-
-                    return self;
-                }
-                _ => {
-                    warn!("GLTFLoaderMode already set, overwriting!");
-                }
-            }
-        }
-
-        let mut scene_model_map = HashMap::new();
-        let scene_light_map = HashMap::new();
-        let scene_camera_map = HashMap::new();
-
-        scene_model_map.insert(scene, vec![model]);
-
-        self.mode = Some(GLTFLoaderMode::LoadSpecific {
-            scene_model_map,
-            scene_light_map,
-            scene_camera_map,
+    fn loader_load_objects_from_scene(
+        gltf_scene: &Scene,
+        identifiers: Vec<GLTFIdentifier>,
+        object_type: GLTFObjectType,
+    ) -> Vec<WorldChange> {
+        let (ids, labels): (Vec<_>, Vec<_>) = identifiers.into_iter().partition(|x| match x {
+            GLTFIdentifier::Id(_) => true,
+            GLTFIdentifier::Label(_) => false,
         });
 
-        self
-    }
-
-    pub fn load_light(&mut self, scene: GLTFIdentifier, light: GLTFIdentifier) -> &mut Self {
-        if let Some(mode) = &mut self.mode {
-            match mode {
-                GLTFLoaderMode::LoadSpecific {
-                    scene_model_map: _,
-                    scene_light_map,
-                    scene_camera_map: _,
-                } => {
-                    // If the mode is already selected, add to it
-                    let entry = scene_light_map.entry(scene);
-
-                    let lights = entry.or_default();
-                    lights.push(light);
-
-                    return self;
+        let actual_ids: Vec<usize> = ids
+            .into_iter()
+            .map(|x| {
+                if let GLTFIdentifier::Id(id) = x {
+                    id
+                } else {
+                    unreachable!()
                 }
-                _ => {
-                    warn!("GLTFLoaderMode already set, overwriting!");
+            })
+            .collect();
+
+        let actual_labels: Vec<&str> = labels
+            .into_iter()
+            .map(|x| {
+                if let GLTFIdentifier::Label(label) = x {
+                    label
+                } else {
+                    unreachable!()
                 }
-            }
-        }
+            })
+            .collect();
 
-        let scene_model_map = HashMap::new();
-        let mut scene_light_map = HashMap::new();
-        let scene_camera_map = HashMap::new();
+        let world_changes: Vec<_> = match object_type {
+            GLTFObjectType::Model => gltf_scene
+                .models
+                .iter()
+                .enumerate()
+                .filter(|(id, model)| {
+                    actual_ids.contains(id)
+                        || model
+                            .mesh_name()
+                            .is_some_and(|label| actual_labels.contains(&label))
+                })
+                .map(|(_, model)| {
+                    let model_descriptor: ModelDescriptor = model.into();
+                    let world_change = WorldChange::SpawnModel(model_descriptor);
 
-        scene_light_map.insert(scene, vec![light]);
+                    world_change
+                })
+                .collect(),
+            GLTFObjectType::Light => gltf_scene
+                .lights
+                .iter()
+                .enumerate()
+                .filter(|(id, light)| {
+                    if actual_ids.contains(id) {
+                        true
+                    } else {
+                        match light {
+                            Light::Directional {
+                                name,
+                                direction: _,
+                                color: _,
+                                intensity: _,
+                            } => name,
+                            Light::Point {
+                                name,
+                                position: _,
+                                color: _,
+                                intensity: _,
+                            } => name,
+                            Light::Spot {
+                                name,
+                                position: _,
+                                direction: _,
+                                color: _,
+                                intensity: _,
+                                inner_cone_angle: _,
+                                outer_cone_angle: _,
+                            } => name,
+                        }
+                        .as_ref()
+                        .is_some_and(|label| actual_labels.contains(&label.as_str()))
+                    }
+                })
+                .map(|(_, light)| {
+                    let light_descriptor: LightDescriptor = light.into();
+                    let world_change = WorldChange::SpawnLight(light_descriptor);
 
-        self.mode = Some(GLTFLoaderMode::LoadSpecific {
-            scene_model_map,
-            scene_light_map,
-            scene_camera_map,
-        });
+                    world_change
+                })
+                .collect(),
+            GLTFObjectType::Camera => gltf_scene
+                .cameras
+                .iter()
+                .enumerate()
+                .filter(|(id, camera)| {
+                    actual_ids.contains(id)
+                        || camera
+                            .name
+                            .as_ref()
+                            .is_some_and(|label| actual_labels.contains(&label.as_str()))
+                })
+                .map(|(_, camera)| {
+                    let camera_descriptor: CameraDescriptor = camera.into();
+                    let world_change = WorldChange::SpawnCamera(camera_descriptor);
 
-        self
-    }
-
-    pub fn load_camera(&mut self, scene: GLTFIdentifier, camera: GLTFIdentifier) -> &mut Self {
-        if let Some(mode) = &mut self.mode {
-            match mode {
-                GLTFLoaderMode::LoadSpecific {
-                    scene_model_map: _,
-                    scene_light_map: _,
-                    scene_camera_map,
-                } => {
-                    // If the mode is already selected, add to it
-                    let entry = scene_camera_map.entry(scene);
-
-                    let cameras = entry.or_default();
-                    cameras.push(camera);
-
-                    return self;
-                }
-                _ => {
-                    warn!("GLTFLoaderMode already set, overwriting!");
-                }
-            }
-        }
-
-        let scene_model_map = HashMap::new();
-        let scene_light_map = HashMap::new();
-        let mut scene_camera_map = HashMap::new();
-
-        scene_camera_map.insert(scene, vec![camera]);
-
-        self.mode = Some(GLTFLoaderMode::LoadSpecific {
-            scene_model_map,
-            scene_light_map,
-            scene_camera_map,
-        });
-
-        self
+                    world_change
+                })
+                .collect(),
+        };
+        world_changes
     }
 
     fn loader_gltf_scene_to_world_changes(gltf_scene: &Scene) -> Vec<WorldChange> {
@@ -291,14 +282,14 @@ impl GLTFLoader {
         world_changes
     }
 
-    fn loader_load_scenes(gltf_scenes: &[Scene], identifier: &GLTFIdentifier) -> Vec<WorldChange> {
+    fn loader_load_scene(gltf_scenes: &[Scene], identifier: &GLTFIdentifier) -> Vec<WorldChange> {
         // TODO: Parallelise!
 
         match identifier {
-            GLTFIdentifier::Id(ids) => gltf_scenes
+            GLTFIdentifier::Id(id) => gltf_scenes
                 .into_iter()
                 .enumerate()
-                .filter_map(|(i, x)| ids.contains(&i).then_some(x))
+                .filter_map(|(i, x)| i.eq(id).then_some(x))
                 .map(|scene| Self::loader_gltf_scene_to_world_changes(scene))
                 .flatten()
                 .collect(),
@@ -322,8 +313,8 @@ impl Loader for GLTFLoader {
 
         let (sender, receiver) = crossbeam_channel::unbounded();
 
-        let file_path = self.file_path.clone();
-        let mode = self.mode.clone().unwrap();
+        let file_path = self.file_path;
+        let mode = self.mode.clone();
 
         let worker = thread::spawn(move || {
             let gltf_scenes = match easy_gltf::load(file_path) {
@@ -338,12 +329,13 @@ impl Loader for GLTFLoader {
 
             let world_changes = match mode {
                 GLTFLoaderMode::LoadEverything => Self::loader_load_everything(&gltf_scenes),
-                GLTFLoaderMode::LoadScenes { identifiers } => {
+                GLTFLoaderMode::LoadScenes {
+                    scene_identifiers: identifiers,
+                } => {
                     let mut world_changes = Vec::new();
 
                     for identifier in identifiers {
-                        let scene_world_change =
-                            Self::loader_load_scenes(&gltf_scenes, &identifier);
+                        let scene_world_change = Self::loader_load_scene(&gltf_scenes, &identifier);
 
                         world_changes.extend(scene_world_change);
                     }
@@ -354,7 +346,174 @@ impl Loader for GLTFLoader {
                     scene_model_map,
                     scene_light_map,
                     scene_camera_map,
-                } => todo!(),
+                } => {
+                    let mut world_changes = Vec::new();
+
+                    // Models
+                    if let Some(scene_models) = scene_model_map {
+                        let model_world_changes = scene_models
+                            .into_iter()
+                            // Find each scene specified to be selected by the key (k), pass on the object selector vec (v)
+                            .map(|(k, v)| {
+                                let scene = match k {
+                                    GLTFIdentifier::Id(id) => gltf_scenes.get(id),
+                                    GLTFIdentifier::Label(label) => gltf_scenes
+                                        .iter()
+                                        .find(|x| x.name.as_ref().is_some_and(|x| x == label)),
+                                };
+
+                                (scene, v)
+                            })
+                            // Remove any scenes that could not be found
+                            .filter_map(|x| {
+                                if let Some(scene) = x.0 {
+                                    Some((scene, x.1))
+                                } else {
+                                    None
+                                }
+                            })
+                            // Extract any objects mentioned (v) from the scene (k)
+                            .map(|(k, v)| {
+                                v.iter()
+                                    .map(|x| match x {
+                                        GLTFIdentifier::Id(id) => k.models.get(*id),
+                                        GLTFIdentifier::Label(label) => k.models.iter().find(|y| {
+                                            y.mesh_name().as_ref().is_some_and(|z| z == label)
+                                        }),
+                                    })
+                                    .collect::<Vec<_>>()
+                            })
+                            .flatten()
+                            // Remove any objects that could not be found
+                            .filter_map(|x| x)
+                            // Convert to descriptors
+                            .map(|x| ModelDescriptor::from(x))
+                            // Convert to world changes
+                            .map(|x| WorldChange::SpawnModel(x))
+                            .collect::<Vec<_>>();
+
+                        world_changes.extend(model_world_changes);
+                    }
+
+                    // Lights
+                    if let Some(scene_lights) = scene_light_map {
+                        let light_world_changes = scene_lights
+                            .into_iter()
+                            // Find each scene specified to be selected by the key (k), pass on the object selector vec (v)
+                            .map(|(k, v)| {
+                                let scene = match k {
+                                    GLTFIdentifier::Id(id) => gltf_scenes.get(id),
+                                    GLTFIdentifier::Label(label) => gltf_scenes
+                                        .iter()
+                                        .find(|x| x.name.as_ref().is_some_and(|x| x == label)),
+                                };
+
+                                (scene, v)
+                            })
+                            // Remove any scenes that could not be found
+                            .filter_map(|x| {
+                                if let Some(scene) = x.0 {
+                                    Some((scene, x.1))
+                                } else {
+                                    None
+                                }
+                            })
+                            // Extract any objects mentioned (v) from the scene (k)
+                            .map(|(k, v)| {
+                                v.iter()
+                                    .map(|x| match x {
+                                        GLTFIdentifier::Id(id) => k.lights.get(*id),
+                                        GLTFIdentifier::Label(label) => k.lights.iter().find(|y| {
+                                            let name = match y {
+                                                Light::Directional {
+                                                    name,
+                                                    direction: _,
+                                                    color: _,
+                                                    intensity: _,
+                                                } => name,
+                                                Light::Point {
+                                                    name,
+                                                    position: _,
+                                                    color: _,
+                                                    intensity: _,
+                                                } => name,
+                                                Light::Spot {
+                                                    name,
+                                                    position: _,
+                                                    direction: _,
+                                                    color: _,
+                                                    intensity: _,
+                                                    inner_cone_angle: _,
+                                                    outer_cone_angle: _,
+                                                } => name,
+                                            };
+
+                                            name.as_ref().is_some_and(|z| z == label)
+                                        }),
+                                    })
+                                    .collect::<Vec<_>>()
+                            })
+                            .flatten()
+                            // Remove any objects that could not be found
+                            .filter_map(|x| x)
+                            // Convert to descriptors
+                            .map(|x| LightDescriptor::from(x))
+                            // Convert to world changes
+                            .map(|x| WorldChange::SpawnLight(x))
+                            .collect::<Vec<_>>();
+
+                        world_changes.extend(light_world_changes);
+                    }
+
+                    // Cameras
+                    if let Some(scene_cameras) = scene_camera_map {
+                        let camera_world_changes = scene_cameras
+                            .into_iter()
+                            // Find each scene specified to be selected by the key (k), pass on the object selector vec (v)
+                            .map(|(k, v)| {
+                                let scene = match k {
+                                    GLTFIdentifier::Id(id) => gltf_scenes.get(id),
+                                    GLTFIdentifier::Label(label) => gltf_scenes
+                                        .iter()
+                                        .find(|x| x.name.as_ref().is_some_and(|x| x == label)),
+                                };
+
+                                (scene, v)
+                            })
+                            // Remove any scenes that could not be found
+                            .filter_map(|x| {
+                                if let Some(scene) = x.0 {
+                                    Some((scene, x.1))
+                                } else {
+                                    None
+                                }
+                            })
+                            // Extract any objects mentioned (v) from the scene (k)
+                            .map(|(k, v)| {
+                                v.iter()
+                                    .map(|x| match x {
+                                        GLTFIdentifier::Id(id) => k.cameras.get(*id),
+                                        GLTFIdentifier::Label(label) => k
+                                            .cameras
+                                            .iter()
+                                            .find(|y| y.name.as_ref().is_some_and(|z| z == label)),
+                                    })
+                                    .collect::<Vec<_>>()
+                            })
+                            .flatten()
+                            // Remove any objects that could not be found
+                            .filter_map(|x| x)
+                            // Convert to descriptors
+                            .map(|x| CameraDescriptor::from(x))
+                            // Convert to world changes
+                            .map(|x| WorldChange::SpawnCamera(x))
+                            .collect::<Vec<_>>();
+
+                        world_changes.extend(camera_world_changes);
+                    }
+
+                    world_changes
+                }
             };
 
             sender
@@ -575,9 +734,7 @@ const TEST_FILE_WORLD_CHANGES: usize = 121;
 
 #[test]
 fn load_everything() {
-    let mut loader = GLTFLoader::new(TEST_FILE_PATH);
-
-    loader.load_everything();
+    let mut loader = GLTFLoader::new(TEST_FILE_PATH, GLTFLoaderMode::LoadEverything);
 
     println!("Begin processing glTF file: {}", TEST_FILE_PATH);
     let time = Instant::now();
@@ -604,9 +761,16 @@ fn load_everything() {
 
 #[test]
 fn load_scene_id() {
-    let mut loader = GLTFLoader::new(TEST_FILE_PATH);
-
-    loader.load_scene(GLTFIdentifier::Id(vec![0, 1, 2]));
+    let mut loader = GLTFLoader::new(
+        TEST_FILE_PATH,
+        GLTFLoaderMode::LoadScenes {
+            scene_identifiers: vec![
+                GLTFIdentifier::Id(0),
+                GLTFIdentifier::Id(1),
+                GLTFIdentifier::Id(2),
+            ],
+        },
+    );
 
     println!("Begin processing glTF file: {}", TEST_FILE_PATH);
     let time = Instant::now();
@@ -634,9 +798,12 @@ fn load_scene_id() {
 
 #[test]
 fn load_scene_label() {
-    let mut loader = GLTFLoader::new(TEST_FILE_PATH);
-
-    loader.load_scene(GLTFIdentifier::Label(vec!["Scene"]));
+    let mut loader = GLTFLoader::new(
+        TEST_FILE_PATH,
+        GLTFLoaderMode::LoadScenes {
+            scene_identifiers: vec![GLTFIdentifier::Label("Scene")],
+        },
+    );
 
     println!("Begin processing glTF file: {}", TEST_FILE_PATH);
     let time = Instant::now();
@@ -660,4 +827,45 @@ fn load_scene_label() {
         world_changes.len()
     );
     assert_eq!(world_changes.len(), TEST_FILE_WORLD_CHANGES);
+}
+
+#[test]
+fn load_scene_specific() {
+    let mut models = HashMap::new();
+    models.insert(
+        GLTFIdentifier::Label("Scene"),
+        GLTFIdentifier::ranged_id(0, 2),
+    );
+
+    let mut loader = GLTFLoader::new(
+        TEST_FILE_PATH,
+        GLTFLoaderMode::LoadSpecific {
+            scene_model_map: Some(models),
+            scene_light_map: None,
+            scene_camera_map: None,
+        },
+    );
+
+    println!("Begin processing glTF file: {}", TEST_FILE_PATH);
+    let time = Instant::now();
+    loader.begin_processing();
+
+    // Wait until done
+    while !loader.is_done_processing() {}
+
+    let result = loader.finish_processing();
+
+    let elapsed = time.elapsed();
+    println!("Took: {}ms", elapsed.as_millis());
+
+    if result.is_err() {
+        panic!("Result is not expected: {:?}", result);
+    }
+
+    let world_changes = result.unwrap();
+    println!(
+        "Finished processing! {} WorldChange's generated!",
+        world_changes.len()
+    );
+    assert_eq!(world_changes.len(), 3);
 }
