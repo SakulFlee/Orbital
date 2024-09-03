@@ -11,7 +11,7 @@ pub enum Error {
     EventLoopError(EventLoopError),
     MutexPoisonError(String),
     IOError(std::io::Error),
-    GltfError(Box<dyn std::error::Error>),
+    GltfError(Box<dyn std::error::Error + Send + Sync>),
     NoIndices,
     SceneNotFound,
     ModelNotFound,
@@ -19,4 +19,7 @@ pub enum Error {
     CannotRealizeTag(String),
     WrongFormat,
     BindGroupMissing,
+    FileNotFound,
+    NotDoneProcessing,
+    CrossbeamRecvError(crossbeam_channel::RecvError),
 }

@@ -70,9 +70,6 @@ pub struct World {
     elements: HashMap<ElementUlid, Box<dyn Element>>,
     /// **Active** [Model]s and their [Ulid]s
     models: HashMap<ModelUlid, Model>,
-    /// Translation map to determine ownership over [Model]s
-    /// based on [Element] [Ulid]s
-    model_owner: HashMap<ModelUlid, ElementUlid>,
     /// Translation map to determine _tag_ association between [Element]s
     tags: HashMap<String, Vec<ElementUlid>>,
     /// --- Storages ---
@@ -85,7 +82,7 @@ pub struct World {
     /// Queue for despawning [Element]s
     queue_element_despawn: Vec<ElementUlid>,
     /// Queue for spawning [Model]s
-    queue_model_spawn: Vec<(ElementUlid, ModelDescriptor)>,
+    queue_model_spawn: Vec<ModelDescriptor>,
     /// Queue for despawning [Model]s
     queue_model_despawn: Vec<ModelUlid>,
     /// Queue for messages being send to a target [Ulid]
@@ -115,7 +112,6 @@ impl World {
         Self {
             elements: Default::default(),
             models: Default::default(),
-            model_owner: Default::default(),
             tags: Default::default(),
             light_storage: LightStorage::initialize(device, queue),
             queue_world_changes: Default::default(),
@@ -201,8 +197,7 @@ impl World {
             // Process any models
             if let Some(models) = registration.models {
                 for model in models {
-                    // model_spawns_to_queue.push((element_ulid, model));
-                    self.queue_model_spawn.push((element_ulid, model));
+                    self.queue_model_spawn.push(model);
                 }
             }
 
@@ -222,15 +217,6 @@ impl World {
         drain.iter().for_each(|element_ulid| {
             // Remove the element
             self.elements.remove(element_ulid);
-
-            // Find any ModelUlid and queue those for removal
-            self.model_owner
-                .iter()
-                .filter(|(_, v)| *v == element_ulid)
-                .map(|(k, _)| k)
-                .for_each(|x| {
-                    self.queue_model_despawn.push(*x);
-                });
         });
     }
 
@@ -241,21 +227,17 @@ impl World {
     }
 
     fn process_queue_model_spawn(&mut self, device: &Device, queue: &Queue) {
-        for (element_id, model_descriptor) in self.queue_model_spawn.drain(..) {
+        for model_descriptor in self.queue_model_spawn.drain(..) {
             let model = match Model::from_descriptor(&model_descriptor, device, queue) {
                 Ok(model) => model,
                 Err(e) => {
-                    error!(
-                        "Failure realizing model for element '{}': {:#?}",
-                        element_id, e
-                    );
+                    error!("Failure realizing model: {:#?}", e);
                     continue;
                 }
             };
 
             let model_id = Ulid::new();
             self.models.insert(model_id, model);
-            self.model_owner.insert(model_id, element_id);
         }
     }
 
@@ -308,11 +290,8 @@ impl World {
                     self.queue_element_despawn.push(element_ulid)
                 }
             }
-            WorldChange::SpawnModel(model_descriptor, element_ulid) => self
-                .queue_model_spawn
-                .push((element_ulid, model_descriptor)),
-            WorldChange::SpawnModelOwned(_) => {
-                error!("SpawnModelOwned cannot be used directly. Use SpawnModel instead!");
+            WorldChange::SpawnModel(model_descriptor) => {
+                self.queue_model_spawn.push(model_descriptor)
             }
             WorldChange::DespawnModel(model_ulid) => self.queue_model_despawn.push(model_ulid),
             WorldChange::SendMessage(identifier, message) => {
@@ -397,7 +376,6 @@ impl World {
 
                 // Models
                 self.models.clear();
-                self.model_owner.clear();
 
                 // Lights
                 self.light_storage.clear();
@@ -445,16 +423,10 @@ impl World {
     ///
     /// [GameRuntime]: crate::game::GameRuntime
     pub fn update(&mut self, delta_time: f64) -> Vec<AppChange> {
-        for (element_ulid, element) in &mut self.elements {
+        for (_element_ulid, element) in &mut self.elements {
             if let Some(element_world_changes) = element.on_update(delta_time) {
                 for element_world_change in element_world_changes {
-                    // Convert owned model spawning to auto-include the [ElementUlid]
-                    if let WorldChange::SpawnModelOwned(x) = element_world_change {
-                        self.queue_world_changes
-                            .push(WorldChange::SpawnModel(x, *element_ulid));
-                    } else {
-                        self.queue_world_changes.push(element_world_change);
-                    }
+                    self.queue_world_changes.push(element_world_change);
                 }
             }
         }
