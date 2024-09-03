@@ -102,7 +102,7 @@ pub use registration::*;
 /// [realized resource]: crate::resources::realizations
 /// [Models]: crate::resources::realizations::Model
 /// [WorldChanges]: super::WorldChange
-pub trait Element: Debug {
+pub trait Element: Debug + Send {
     fn on_registration(&mut self, _ulid: &Ulid) -> ElementRegistration {
         ElementRegistration::default()
     }
