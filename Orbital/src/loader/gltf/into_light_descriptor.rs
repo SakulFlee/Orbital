@@ -11,8 +11,8 @@ impl From<&Light> for LightDescriptor {
                 color,
                 intensity,
             } => LightDescriptor::PointLight {
-                position: position.clone(),
-                color: color.clone(),
+                position: *position,
+                color: *color,
             },
             Light::Directional {
                 name,

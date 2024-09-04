@@ -4,7 +4,7 @@ use hashbrown::HashMap;
 
 use crate::loader::{GLTFIdentifier, GLTFLoader, GLTFWorkerMode, Worker};
 
-const TEST_FILE_PATH: &'static str = "../Assets/Models/PBR_Spheres.glb";
+const TEST_FILE_PATH: &str = "../Assets/Models/PBR_Spheres.glb";
 const TEST_FILE_WORLD_CHANGES: usize = 121;
 
 #[test]

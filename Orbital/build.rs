@@ -1,6 +1,6 @@
-use std::process::{Command, ExitStatus};
+use std::process::Command;
 
-const MODELS_DIR: &'static str = "../Assets/Models/";
+const MODELS_DIR: &str = "../Assets/Models/";
 
 fn main() {
     blender_pbr_spheres();
