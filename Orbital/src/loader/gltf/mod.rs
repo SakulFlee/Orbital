@@ -42,7 +42,7 @@ impl GLTFLoader {
         Self: Sized,
     {
         Self {
-            file_path: file_path.into(),
+            file_path,
             mode,
             worker: None,
         }
@@ -96,18 +96,16 @@ impl GLTFLoader {
 
         match identifier {
             GLTFIdentifier::Id(id) => gltf_scenes
-                .into_iter()
+                .iter()
                 .enumerate()
                 .filter_map(|(i, x)| i.eq(id).then_some(x))
-                .map(|scene| Self::loader_gltf_scene_to_world_changes(scene))
-                .flatten()
+                .flat_map(Self::loader_gltf_scene_to_world_changes)
                 .collect(),
             GLTFIdentifier::Label(labels) => gltf_scenes
-                .into_iter()
+                .iter()
                 .filter(|x| x.name.is_some())
-                .filter(|x| labels.contains(&x.name.as_ref().unwrap().as_str()))
-                .map(|x| Self::loader_gltf_scene_to_world_changes(x))
-                .flatten()
+                .filter(|x| labels.contains(x.name.as_ref().unwrap().as_str()))
+                .flat_map(Self::loader_gltf_scene_to_world_changes)
                 .collect(),
         }
     }
@@ -182,7 +180,7 @@ impl Worker for GLTFLoader {
                                 }
                             })
                             // Extract any objects mentioned (v) from the scene (k)
-                            .map(|(k, v)| {
+                            .flat_map(|(k, v)| {
                                 v.iter()
                                     .map(|x| match x {
                                         GLTFIdentifier::Id(id) => k.models.get(*id),
@@ -192,13 +190,12 @@ impl Worker for GLTFLoader {
                                     })
                                     .collect::<Vec<_>>()
                             })
-                            .flatten()
                             // Remove any objects that could not be found
-                            .filter_map(|x| x)
+                            .flatten()
                             // Convert to descriptors
-                            .map(|x| ModelDescriptor::from(x))
+                            .map(ModelDescriptor::from)
                             // Convert to world changes
-                            .map(|x| WorldChange::SpawnModel(x))
+                            .map(WorldChange::SpawnModel)
                             .collect::<Vec<_>>();
 
                         world_changes.extend(model_world_changes);
@@ -228,7 +225,7 @@ impl Worker for GLTFLoader {
                                 }
                             })
                             // Extract any objects mentioned (v) from the scene (k)
-                            .map(|(k, v)| {
+                            .flat_map(|(k, v)| {
                                 v.iter()
                                     .map(|x| match x {
                                         GLTFIdentifier::Id(id) => k.lights.get(*id),
@@ -262,13 +259,12 @@ impl Worker for GLTFLoader {
                                     })
                                     .collect::<Vec<_>>()
                             })
-                            .flatten()
                             // Remove any objects that could not be found
-                            .filter_map(|x| x)
+                            .flatten()
                             // Convert to descriptors
-                            .map(|x| LightDescriptor::from(x))
+                            .map(LightDescriptor::from)
                             // Convert to world changes
-                            .map(|x| WorldChange::SpawnLight(x))
+                            .map(WorldChange::SpawnLight)
                             .collect::<Vec<_>>();
 
                         world_changes.extend(light_world_changes);
@@ -298,7 +294,7 @@ impl Worker for GLTFLoader {
                                 }
                             })
                             // Extract any objects mentioned (v) from the scene (k)
-                            .map(|(k, v)| {
+                            .flat_map(|(k, v)| {
                                 v.iter()
                                     .map(|x| match x {
                                         GLTFIdentifier::Id(id) => k.cameras.get(*id),
@@ -309,13 +305,12 @@ impl Worker for GLTFLoader {
                                     })
                                     .collect::<Vec<_>>()
                             })
-                            .flatten()
                             // Remove any objects that could not be found
-                            .filter_map(|x| x)
+                            .flatten()
                             // Convert to descriptors
-                            .map(|x| CameraDescriptor::from(x))
+                            .map(CameraDescriptor::from)
                             // Convert to world changes
-                            .map(|x| WorldChange::SpawnCamera(x))
+                            .map(WorldChange::SpawnCamera)
                             .collect::<Vec<_>>();
 
                         world_changes.extend(camera_world_changes);
@@ -357,6 +352,6 @@ impl Worker for GLTFLoader {
         worker
             .receiver
             .recv()
-            .map_err(|e| Error::CrossbeamRecvError(e))?
+            .map_err(Error::CrossbeamRecvError)?
     }
 }
