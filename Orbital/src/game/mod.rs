@@ -201,7 +201,7 @@ pub use world::*;
 ///         // We can directly supply our ModelDescriptor during registration.
 ///         // Alternatively, we could queue a WorldChange::SpawnModel(Owned).
 ///         ElementRegistration {
-///             models: Some(vec![ModelDescriptor::FromGLTF(
+///             models: Some(vec![ModelDescriptor::FromGLTF( // TODO: Outdated!
 ///                 "Assets/Models/Cube.glb",
 ///                 ImportDescriptor::Index(0),
 ///                 ImportDescriptor::Index(0),
