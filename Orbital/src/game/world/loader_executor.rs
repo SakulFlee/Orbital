@@ -54,11 +54,11 @@ impl LoaderExecutor {
         // Repopulate the active loaders
         self.active_loaders = Some(remaining);
 
-        let finished_results = done
+        
+        done
             .into_iter()
             .map(|mut x| x.finish_processing())
-            .collect::<Vec<_>>();
-        finished_results
+            .collect::<Vec<_>>()
     }
 
     pub fn do_start_new_loaders(&mut self) {
@@ -126,11 +126,11 @@ impl Debug for LoaderExecutor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let active_loaders = match &self.active_loaders {
             Some(x) => format!("Some(Workers = {})", x.len()),
-            None => format!("None"),
+            None => "None".to_string(),
         };
         let scheduled_loaders = match &self.scheduled_loaders {
             Some(x) => format!("Some(Workers = {})", x.len()),
-            None => format!("None"),
+            None => "None".to_string(),
         };
 
         f.debug_struct("LoaderExecutor")
