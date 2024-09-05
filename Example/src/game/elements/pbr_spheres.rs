@@ -1,9 +1,8 @@
 use orbital::{
     cgmath::Vector3,
     game::{Element, ElementRegistration, WorldChange},
-    resources::descriptors::{
-        ImportDescriptor, InstanceDescriptor, Instancing, LightDescriptor, ModelDescriptor,
-    },
+    loader::{GLTFLoader, GLTFWorkerMode},
+    resources::descriptors::LightDescriptor,
     ulid::Ulid,
 };
 
@@ -12,14 +11,14 @@ pub struct PBRSpheres;
 
 impl Element for PBRSpheres {
     fn on_registration(&mut self, _ulid: &Ulid) -> ElementRegistration {
+        const FILE_NAME: &'static str = "Assets/Models/PBR_Spheres.glb";
+
         ElementRegistration {
-            models: Some(vec![ModelDescriptor::FromGLTF(
-                "Assets/Models/PBR_Spheres.glb",
-                ImportDescriptor::Index(0),
-                ImportDescriptor::Index(0),
-                Instancing::Single(InstanceDescriptor::default()),
-            )]),
             world_changes: Some(vec![
+                WorldChange::EnqueueLoader(Box::new(GLTFLoader::new(
+                    FILE_NAME,
+                    GLTFWorkerMode::LoadEverything,
+                ))),
                 WorldChange::SpawnLight(LightDescriptor::PointLight {
                     position: Vector3::new(5.0, 0.0, 0.0),
                     color: Vector3::new(1.0, 1.0, 1.0),

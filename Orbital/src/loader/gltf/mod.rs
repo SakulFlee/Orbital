@@ -1,7 +1,7 @@
 use std::thread::{self};
 
 use easy_gltf::{Light, Scene};
-use log::warn;
+use log::{debug, error, warn};
 
 use crate::{
     error::Error,
@@ -9,7 +9,7 @@ use crate::{
     resources::descriptors::{CameraDescriptor, LightDescriptor, ModelDescriptor},
 };
 
-use super::Worker;
+use super::Loader;
 
 mod identifier;
 mod worker;
@@ -111,12 +111,13 @@ impl GLTFLoader {
     }
 }
 
-impl Worker for GLTFLoader {
+impl Loader for GLTFLoader {
     fn begin_processing(&mut self) {
         if self.worker.is_some() {
             warn!("GLTFLoader is already processing!");
             return;
         }
+        debug!("Started processing: {}@{:?}", self.file_path, self.mode);
 
         let (sender, receiver) = crossbeam_channel::unbounded();
 
@@ -349,9 +350,21 @@ impl Worker for GLTFLoader {
             .join()
             .expect("Worker thread didn't exit correctly!");
 
-        worker
-            .receiver
-            .recv()
-            .map_err(Error::CrossbeamRecvError)?
+        let result = worker.receiver.recv().map_err(Error::CrossbeamRecvError)?;
+
+        match &result {
+            Ok(world_changes) => debug!(
+                "Finished processing {}@{:?} successfully! Generated {} world changes.",
+                self.file_path,
+                self.mode,
+                world_changes.len()
+            ),
+            Err(e) => error!(
+                "Finished processing {}@{:?} with an error: {:?}",
+                self.file_path, self.mode, e
+            ),
+        }
+
+        result
     }
 }

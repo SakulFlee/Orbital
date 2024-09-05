@@ -28,6 +28,9 @@ pub use element_ulid::*;
 pub mod model_ulid;
 pub use model_ulid::*;
 
+pub mod loader_executor;
+pub use loader_executor::*;
+
 /// A [World] keeps track of everything inside your [Game].  
 /// Mainly, [Elements] and [realized resources].
 ///
@@ -105,6 +108,7 @@ pub struct World {
     next_camera: Option<String>,
     // --- Environment ---
     world_environment: MaterialDescriptor,
+    loader_executor: LoaderExecutor,
 }
 
 impl World {
@@ -125,6 +129,7 @@ impl World {
             camera_descriptors: Default::default(),
             next_camera: Default::default(),
             world_environment: MaterialDescriptor::default_world_environment(),
+            loader_executor: LoaderExecutor::new(None),
         }
     }
 
@@ -386,6 +391,9 @@ impl World {
                 self.active_camera = None;
                 self.active_camera_change = None;
             }
+            WorldChange::EnqueueLoader(loader) => {
+                self.loader_executor.schedule_loader_boxed(loader);
+            }
         }
 
         None
@@ -431,15 +439,32 @@ impl World {
             }
         }
 
-        let mut changes = self.process_world_changes();
+        // Cycle loader, enqueue any `Ok`, report any `Err`
+        let (ok, error): (Vec<_>, Vec<_>) = self
+            .loader_executor
+            .cycle()
+            .into_iter()
+            .partition(|x| x.is_ok());
 
+        self.queue_world_changes.extend(
+            ok.into_iter()
+                .map(|x| x.unwrap())
+                .flatten()
+                .collect::<Vec<_>>(),
+        );
+
+        error
+            .into_iter()
+            .for_each(|x| error!("Failed loading resource with loader: {:?}", x.unwrap_err()));
+
+        // Process through `WorldChange`s and pass on any `AppChange`s
+        let mut app_changes = self.process_world_changes();
         if self.elements.is_empty() {
             warn!("No more elements in World! Exiting ...");
 
-            changes.push(AppChange::ForceAppClosure { exit_code: 0 });
+            app_changes.push(AppChange::ForceAppClosure { exit_code: 0 });
         }
-
-        changes
+        app_changes
     }
 
     /// Similar to [World::update], but for [WorldChanges]
