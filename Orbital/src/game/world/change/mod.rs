@@ -5,13 +5,14 @@ use hashbrown::HashMap;
 use crate::{
     app::AppChange,
     game::Element,
+    loader::Loader,
     resources::descriptors::{
         CameraDescriptor, LightDescriptor, MaterialDescriptor, ModelDescriptor,
     },
     variant::Variant,
 };
 
-use super::{ Identifier, ModelUlid};
+use super::{Identifier, ModelUlid};
 
 pub mod mode;
 pub use mode::*;
@@ -116,6 +117,7 @@ pub enum WorldChange {
     /// [World]: crate::game::world::World
     /// [Model]: crate::resources::realizations::Model
     CleanWorld,
+    EnqueueLoader(Box<dyn Loader + Send>),
 }
 
 impl fmt::Debug for WorldChange {
@@ -147,6 +149,7 @@ impl fmt::Debug for WorldChange {
                 .field(skybox_material)
                 .finish(),
             WorldChange::CleanWorld => f.debug_tuple("CleanWorld").finish(),
+            WorldChange::EnqueueLoader(_) => f.debug_tuple("EnqueueLoader").finish(),
         }
     }
 }

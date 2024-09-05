@@ -84,7 +84,7 @@ impl Model {
         queue: &Queue,
     ) -> Result<Self, Error> {
         // Load glTF file
-        let gltf_file = easy_gltf::load(file).map_err(|e| Error::GltfError(e))?;
+        let gltf_file = easy_gltf::load(file).map_err(Error::GltfError)?;
 
         // Query for scene. If found we continue.
         let scene = if let Some(scene) = match scene_import_descriptor {
