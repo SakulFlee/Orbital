@@ -9,7 +9,7 @@ pub struct PipelineBindGroupLayout {
 impl PipelineBindGroupLayout {
     pub fn make_bind_group_layout(&self, device: &Device) -> BindGroupLayout {
         device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some(&self.label),
+            label: Some(self.label),
             entries: &self.entries,
         })
     }
