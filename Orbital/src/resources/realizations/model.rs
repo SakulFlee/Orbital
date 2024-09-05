@@ -5,9 +5,7 @@ use wgpu::{
 
 use crate::{
     error::Error,
-    resources::descriptors::{
-        ImportDescriptor, Instancing, MaterialDescriptor, MeshDescriptor, ModelDescriptor,
-    },
+    resources::descriptors::{Instancing, MaterialDescriptor, MeshDescriptor, ModelDescriptor},
 };
 
 use super::{instance::Instance, Material, Mesh};
@@ -27,29 +25,11 @@ impl Model {
         queue: &Queue,
     ) -> Result<Self, Error> {
         match descriptor {
-            ModelDescriptor::FromDescriptors(mesh_descriptor, material_descriptor, instancing) => {
-                Self::from_descriptors(
-                    mesh_descriptor,
-                    material_descriptor,
-                    instancing,
-                    device,
-                    queue,
-                )
-            }
-            #[cfg(feature = "gltf")]
-            ModelDescriptor::FromGLTF(
-                file,
-                scene_import_descriptor,
-                model_import_descriptor,
+            ModelDescriptor::FromDescriptors {
+                mesh,
+                material,
                 instancing,
-            ) => Self::from_gltf(
-                file,
-                scene_import_descriptor,
-                model_import_descriptor,
-                instancing,
-                device,
-                queue,
-            ),
+            } => Self::from_descriptors(mesh, material, instancing, device, queue),
         }
     }
 
@@ -67,68 +47,6 @@ impl Model {
         Ok(Self::from_existing(
             mesh,
             material_descriptor.clone(),
-            instances,
-            device,
-            queue,
-        ))
-    }
-
-    #[deprecated]
-    #[cfg(feature = "gltf")]
-    pub fn from_gltf(
-        file: &'static str,
-        scene_import_descriptor: &ImportDescriptor,
-        model_import_descriptor: &ImportDescriptor,
-        instancing: &Instancing,
-        device: &Device,
-        queue: &Queue,
-    ) -> Result<Self, Error> {
-        // Load glTF file
-        let gltf_file = easy_gltf::load(file).map_err(Error::GltfError)?;
-
-        // Query for scene. If found we continue.
-        let scene = if let Some(scene) = match scene_import_descriptor {
-            ImportDescriptor::Index(i) => gltf_file.get(*i as usize),
-            ImportDescriptor::Name(name) => gltf_file
-                .iter()
-                .find(|x| x.name.is_some() && x.name.as_ref().unwrap() == *name),
-        } {
-            scene
-        } else {
-            return Err(Error::SceneNotFound);
-        };
-
-        // Query for model. If found we continue.
-        let models = &scene.models;
-        let model = if let Some(model) = match model_import_descriptor {
-            ImportDescriptor::Index(i) => models.get(*i as usize),
-            ImportDescriptor::Name(name) => models.iter().find(|x| {
-                let mesh_name = x.mesh_name();
-
-                mesh_name.is_some() && mesh_name.unwrap() == *name
-            }),
-        } {
-            model
-        } else {
-            return Err(Error::ModelNotFound);
-        };
-
-        Self::from_gltf_model(model, Self::convert_instancing(instancing), device, queue)
-    }
-
-    #[deprecated]
-    #[cfg(feature = "gltf")]
-    pub fn from_gltf_model(
-        model: &easy_gltf::Model,
-        instances: Vec<Instance>,
-        device: &Device,
-        queue: &Queue,
-    ) -> Result<Self, Error> {
-        let material_descriptor: MaterialDescriptor = model.material().as_ref().into();
-
-        Ok(Self::from_existing(
-            Mesh::from_gltf(model, device)?,
-            material_descriptor,
             instances,
             device,
             queue,
