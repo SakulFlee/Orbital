@@ -448,8 +448,7 @@ impl World {
 
         self.queue_world_changes.extend(
             ok.into_iter()
-                .map(|x| x.unwrap())
-                .flatten()
+                .flat_map(|x| x.unwrap())
                 .collect::<Vec<_>>(),
         );
 
