@@ -4,13 +4,13 @@ use crate::resources::descriptors::{InstanceDescriptor, Instancing, ModelDescrip
 
 impl From<&Model> for ModelDescriptor {
     fn from(gltf_model: &Model) -> Self {
-        let material_descriptor = gltf_model.material().as_ref().into();
-        let mesh_descriptor = gltf_model.into();
+        let material = gltf_model.material().as_ref().into();
+        let mesh = gltf_model.into();
 
-        ModelDescriptor::FromDescriptors(
-            mesh_descriptor,
-            material_descriptor,
-            Instancing::Single(InstanceDescriptor::default()),
-        )
+        ModelDescriptor::FromDescriptors {
+            mesh,
+            material,
+            instancing: Instancing::Single(InstanceDescriptor::default()),
+        }
     }
 }
