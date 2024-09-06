@@ -1,13 +1,23 @@
+use std::{
+    hash::{Hash, Hasher},
+    mem,
+};
+
+use cgmath::Vector3;
+
 use super::{CubeTextureDescriptor, ShaderDescriptor, TextureDescriptor};
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum MaterialDescriptor {
     /// Creates a standard PBR (= Physically-Based-Rendering) material.
     PBR {
         normal: TextureDescriptor,
         albedo: TextureDescriptor,
+        albedo_factor: Vector3<f32>,
         metallic: TextureDescriptor,
+        metallic_factor: f32,
         roughness: TextureDescriptor,
+        roughness_factor: f32,
         occlusion: TextureDescriptor,
         emissive: TextureDescriptor,
     },
@@ -16,8 +26,11 @@ pub enum MaterialDescriptor {
     PBRCustomShader {
         normal: TextureDescriptor,
         albedo: TextureDescriptor,
+        albedo_factor: Vector3<f32>,
         metallic: TextureDescriptor,
+        metallic_factor: f32,
         roughness: TextureDescriptor,
+        roughness_factor: f32,
         occlusion: TextureDescriptor,
         emissive: TextureDescriptor,
         custom_shader: ShaderDescriptor,
@@ -46,35 +59,12 @@ impl MaterialDescriptor {
             },
         }
     }
+}
 
-    pub fn from_gltf(gltf_material: &easy_gltf::Material) -> Self {
-        gltf_material.into()
-    }
-
-    pub fn from_gltf_with_custom_shader(
-        gltf_material: &easy_gltf::Material,
-        custom_shader: ShaderDescriptor,
-    ) -> Self {
-        if let Self::PBR {
-            normal,
-            albedo,
-            metallic,
-            roughness,
-            occlusion,
-            emissive,
-        } = gltf_material.into()
-        {
-            Self::PBRCustomShader {
-                normal,
-                albedo,
-                metallic,
-                roughness,
-                occlusion,
-                emissive,
-                custom_shader,
-            }
-        } else {
-            unreachable!()
-        }
+impl Hash for MaterialDescriptor {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        mem::discriminant(self).hash(state);
     }
 }
+
+impl Eq for MaterialDescriptor {}
