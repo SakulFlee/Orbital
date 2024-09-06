@@ -5,11 +5,11 @@ use orbital::{
 };
 
 #[derive(Debug)]
-pub struct PBRSpheres;
+pub struct DamagedHelmet;
 
-impl Element for PBRSpheres {
+impl Element for DamagedHelmet {
     fn on_registration(&mut self, _ulid: &Ulid) -> ElementRegistration {
-        const FILE_NAME: &str = "Assets/Models/PBR_Spheres.glb";
+        const FILE_NAME: &str = "Assets/Models/DamagedHelmet.glb";
 
         ElementRegistration {
             world_changes: Some(vec![WorldChange::EnqueueLoader(Box::new(GLTFLoader::new(

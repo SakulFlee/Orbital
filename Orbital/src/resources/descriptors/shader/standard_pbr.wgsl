@@ -42,6 +42,12 @@ struct LightStorage {
     point_lights: array<PointLight>,
 }
 
+struct PBRFactors {
+    albedo_factor: vec3<f32>,
+    metallic_factor: f32,
+    roughness_factor: f32,
+}
+
 struct PBRData {
     // Albedo (color) texture sample
     albedo: vec3<f32>,
@@ -90,6 +96,8 @@ struct PBRData {
 
 @group(0) @binding(10) var emissive_texture: texture_2d<f32>;
 @group(0) @binding(11) var emissive_sampler: sampler;
+
+@group(0) @binding(12) var<uniform> pbr_factors: PBRFactors;
 
 @group(1) @binding(0) var<uniform> camera: CameraUniform;
 
@@ -306,17 +314,17 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
         albedo_texture,
         albedo_sampler,
         fragment_data.uv
-    ).rgb, vec3<f32>(camera.global_gamma));
+    ).rgb * pbr_factors.albedo_factor.rgb, vec3<f32>(camera.global_gamma));
     let metallic = textureSample(
         metallic_texture,
         metallic_sampler,
         fragment_data.uv
-    ).r;
+    ).r * pbr_factors.metallic_factor;
     let roughness = textureSample(
         roughness_texture,
         roughness_sampler,
         fragment_data.uv
-    ).r;
+    ).r * pbr_factors.roughness_factor;
     let occlusion = textureSample(
         occlusion_texture,
         occlusion_sampler,

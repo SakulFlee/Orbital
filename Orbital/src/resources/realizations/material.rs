@@ -1,10 +1,9 @@
 use std::sync::{Mutex, OnceLock};
 
+use cgmath::{num_traits::ToBytes, Vector3, Vector4};
 use log::info;
 use wgpu::{
-    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutEntry, BindingResource,
-    BindingType, Device, Queue, SamplerBindingType, ShaderStages, TextureFormat, TextureSampleType,
-    TextureViewDimension,
+    util::{BufferInitDescriptor, DeviceExt}, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutEntry, BindingResource, BindingType, BufferBinding, BufferUsages, Device, Queue, SamplerBindingType, ShaderStages, TextureFormat, TextureSampleType, TextureViewDimension
 };
 
 use crate::{
@@ -100,7 +99,7 @@ impl Material {
                     ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
                 },
-                // Albedo
+                // Albedo Texture
                 BindGroupLayoutEntry {
                     binding: 2,
                     visibility: ShaderStages::FRAGMENT,
@@ -117,7 +116,7 @@ impl Material {
                     ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
                 },
-                // Metallic
+                // Metallic Texture
                 BindGroupLayoutEntry {
                     binding: 4,
                     visibility: ShaderStages::FRAGMENT,
@@ -134,7 +133,7 @@ impl Material {
                     ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
                 },
-                // Roughness
+                // Roughness Texture
                 BindGroupLayoutEntry {
                     binding: 6,
                     visibility: ShaderStages::FRAGMENT,
@@ -183,6 +182,17 @@ impl Material {
                     binding: 11,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                    count: None,
+                },
+                // Factors
+                BindGroupLayoutEntry {
+                    binding: 12,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
                     count: None,
                 },
             ],
@@ -277,15 +287,21 @@ impl Material {
             MaterialDescriptor::PBR {
                 normal,
                 albedo,
+                albedo_factor,
                 metallic,
+                metallic_factor,
                 roughness,
+                roughness_factor,
                 occlusion,
                 emissive,
             } => Self::standard_pbr(
                 normal,
                 albedo,
+                albedo_factor,
                 metallic,
+                metallic_factor,
                 roughness,
+                roughness_factor,
                 occlusion,
                 emissive,
                 None,
@@ -296,16 +312,22 @@ impl Material {
             MaterialDescriptor::PBRCustomShader {
                 normal,
                 albedo,
+                albedo_factor,
                 metallic,
+                metallic_factor,
                 roughness,
+                roughness_factor,
                 occlusion,
                 emissive,
                 custom_shader,
             } => Self::standard_pbr(
                 normal,
                 albedo,
+                albedo_factor,
                 metallic,
+                metallic_factor,
                 roughness,
+                roughness_factor,
                 occlusion,
                 emissive,
                 Some(custom_shader),
@@ -395,8 +417,11 @@ impl Material {
     pub fn standard_pbr(
         normal_texture_descriptor: &TextureDescriptor,
         albedo_texture_descriptor: &TextureDescriptor,
+        albedo_factor: &Vector3<f32>,
         metallic_texture_descriptor: &TextureDescriptor,
+        metallic_factor: &f32,
         roughness_texture_descriptor: &TextureDescriptor,
+        roughness_factor: &f32,
         occlusion_texture_descriptor: &TextureDescriptor,
         emissive_texture_descriptor: &TextureDescriptor,
         shader_descriptor: Option<&ShaderDescriptor>,
@@ -427,6 +452,26 @@ impl Material {
         let bind_group_layout = pipeline
             .bind_group_layout(Self::PBR_PIPELINE_BIND_GROUP_NAME)
             .ok_or(Error::BindGroupMissing)?;
+
+        let factor_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("PBR Factor Buffer"),
+            contents: &[
+                // Albedo Factor
+                albedo_factor.x.to_le_bytes(), // R
+                albedo_factor.y.to_le_bytes(), // G
+                albedo_factor.z.to_le_bytes(), // B
+                // Metallic Factor
+                metallic_factor.to_le_bytes(), // LUMA
+                // Roughness Factor
+                roughness_factor.to_le_bytes(), // LUMA
+                // Padding to reach 32
+                [0; 4],
+                [0; 4],
+                [0; 4],
+            ]
+            .as_flattened(),
+            usage: BufferUsages::UNIFORM,
+        });
 
         let bind_group = device.create_bind_group(&BindGroupDescriptor {
             label: None,
@@ -485,6 +530,10 @@ impl Material {
                 BindGroupEntry {
                     binding: 11,
                     resource: BindingResource::Sampler(emissive_texture.sampler()),
+                },
+                BindGroupEntry {
+                    binding: 12,
+                    resource: BindingResource::Buffer(factor_buffer.as_entire_buffer_binding()),
                 },
             ],
         });
