@@ -1,3 +1,6 @@
+use std::u8;
+
+use cgmath::Vector3;
 use easy_gltf::Material;
 
 use crate::{
@@ -16,6 +19,16 @@ impl From<&Material> for MaterialDescriptor {
             })
             .unwrap_or(TextureDescriptor::UNIFORM_BLACK);
 
+        fn convert_factor_to_u8(factor: f32) -> u8 {
+            const U8_MIN_AS_F32: f32 = u8::MIN as f32;
+            const U8_MAX_AS_F32: f32 = u8::MAX as f32;
+
+            let unclamped = factor * U8_MAX_AS_F32;
+            let clamped = unclamped.clamp(U8_MIN_AS_F32, U8_MAX_AS_F32);
+
+            clamped as u8
+        }
+
         let albedo = value
             .pbr
             .base_color_texture
@@ -24,7 +37,7 @@ impl From<&Material> for MaterialDescriptor {
                 TextureDescriptor::StandardSRGBAu8Data(x.as_raw().to_vec(), x.dimensions().into())
             })
             .unwrap_or(TextureDescriptor::UniformColor(
-                value.pbr.base_color_factor.map(|x| (x * 255.0) as u8),
+                value.pbr.base_color_factor.map(|x| convert_factor_to_u8(x)),
             ));
 
         let metallic = value
@@ -36,7 +49,7 @@ impl From<&Material> for MaterialDescriptor {
                 size: x.dimensions().into(),
             })
             .unwrap_or(TextureDescriptor::UniformLuma {
-                data: (value.pbr.metallic_factor * 255.0) as u8,
+                data: convert_factor_to_u8(value.pbr.metallic_factor),
             });
 
         let roughness = value
@@ -48,7 +61,7 @@ impl From<&Material> for MaterialDescriptor {
                 size: x.dimensions().into(),
             })
             .unwrap_or(TextureDescriptor::UniformLuma {
-                data: (value.pbr.roughness_factor * 255.0) as u8,
+                data: convert_factor_to_u8(value.pbr.roughness_factor),
             });
 
         let occlusion = value
@@ -72,14 +85,18 @@ impl From<&Material> for MaterialDescriptor {
             })
             .unwrap_or(TextureDescriptor::UNIFORM_WHITE);
 
-        // TODO: Include factors!
-        // Factors != Values
-
         Self::PBR {
             normal,
             albedo,
+            albedo_factor: Vector3::new(
+                value.pbr.base_color_factor.x,
+                value.pbr.base_color_factor.y,
+                value.pbr.base_color_factor.z,
+            ),
             metallic,
+            metallic_factor: value.pbr.metallic_factor,
             roughness,
+            roughness_factor: value.pbr.roughness_factor,
             occlusion,
             emissive,
         }
