@@ -72,7 +72,7 @@ pub struct World {
     /// [Element]s and their [Ulid]s
     elements: HashMap<ElementUlid, Box<dyn Element>>,
     /// **Active** [Model]s and their [Ulid]s
-    models: HashMap<ModelUlid, Model>,
+    models: HashMap<String, Model>,
     /// Translation map to determine _tag_ association between [Element]s
     tags: HashMap<String, Vec<ElementUlid>>,
     /// --- Storages ---
@@ -87,7 +87,7 @@ pub struct World {
     /// Queue for spawning [Model]s
     queue_model_spawn: Vec<ModelDescriptor>,
     /// Queue for despawning [Model]s
-    queue_model_despawn: Vec<ModelUlid>,
+    queue_model_despawn: Vec<String>,
     /// Queue for messages being send to a target [Ulid]
     queue_messages: HashMap<ElementUlid, Vec<HashMap<String, Variant>>>,
     // --- Camera ---
@@ -241,8 +241,7 @@ impl World {
                 }
             };
 
-            let model_id = Ulid::new();
-            self.models.insert(model_id, model);
+            self.models.insert(model.label().to_string(), model);
         }
     }
 
@@ -298,7 +297,7 @@ impl World {
             WorldChange::SpawnModel(model_descriptor) => {
                 self.queue_model_spawn.push(model_descriptor)
             }
-            WorldChange::DespawnModel(model_ulid) => self.queue_model_despawn.push(model_ulid),
+            WorldChange::DespawnModel(model_label) => self.queue_model_despawn.push(model_label),
             WorldChange::SendMessage(identifier, message) => {
                 for element_ulid in self.resolve_identifier(identifier) {
                     self.queue_messages
@@ -446,11 +445,8 @@ impl World {
             .into_iter()
             .partition(|x| x.is_ok());
 
-        self.queue_world_changes.extend(
-            ok.into_iter()
-                .flat_map(|x| x.unwrap())
-                .collect::<Vec<_>>(),
-        );
+        self.queue_world_changes
+            .extend(ok.into_iter().flat_map(|x| x.unwrap()).collect::<Vec<_>>());
 
         error
             .into_iter()

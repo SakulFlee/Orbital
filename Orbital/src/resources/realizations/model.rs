@@ -12,6 +12,7 @@ use super::{instance::Instance, Material, Mesh};
 
 #[derive(Debug)]
 pub struct Model {
+    label: String,
     mesh: Mesh,
     material_descriptor: MaterialDescriptor,
     instances: Vec<Instance>,
@@ -26,14 +27,16 @@ impl Model {
     ) -> Result<Self, Error> {
         match descriptor {
             ModelDescriptor::FromDescriptors {
+                label,
                 mesh,
                 material,
                 instancing,
-            } => Self::from_descriptors(mesh, material, instancing, device, queue),
+            } => Self::from_descriptors(label, mesh, material, instancing, device, queue),
         }
     }
 
     pub fn from_descriptors(
+        label: &String,
         mesh_descriptor: &MeshDescriptor,
         material_descriptor: &MaterialDescriptor,
         instancing: &Instancing,
@@ -45,6 +48,7 @@ impl Model {
         let instances = Self::convert_instancing(instancing);
 
         Ok(Self::from_existing(
+            label.clone(),
             mesh,
             material_descriptor.clone(),
             instances,
@@ -54,6 +58,7 @@ impl Model {
     }
 
     pub fn from_existing(
+        label: String,
         mesh: Mesh,
         material_descriptor: MaterialDescriptor,
         instances: Vec<Instance>,
@@ -63,6 +68,7 @@ impl Model {
         let instance_buffer = Self::make_instance_buffer(&instances, device, queue);
 
         Self {
+            label,
             mesh,
             material_descriptor,
             instances,
@@ -113,6 +119,10 @@ impl Model {
 
     pub fn update_instance_buffer(&mut self, device: &Device, queue: &Queue) {
         self.instance_buffer = Self::make_instance_buffer(&self.instances, device, queue);
+    }
+
+    pub fn label(&self) -> &str {
+        &self.label
     }
 
     pub fn mesh(&self) -> &Mesh {
