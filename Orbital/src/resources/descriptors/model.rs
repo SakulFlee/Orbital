@@ -17,6 +17,7 @@ use super::{Instancing, MaterialDescriptor, MeshDescriptor};
 pub enum ModelDescriptor {
     /// Describes a model to be created from a mesh and a material descriptor.
     FromDescriptors {
+        label: String,
         mesh: MeshDescriptor,
         material: MaterialDescriptor,
         instancing: Instancing,

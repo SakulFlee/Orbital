@@ -41,8 +41,10 @@ pub enum WorldChange {
     /// Queues a [Model] to be despawned.  
     /// Use a [ModelUlid] to specify which is being despawned.
     ///
+    /// TODO: Update docs
+    ///
     /// [Model]: crate::resources::realizations::Model
-    DespawnModel(ModelUlid),
+    DespawnModel(String),
     /// Sends a message to one or many [Elements](Element).  
     /// The message must be a [HashMap<String, Variant>].
     SendMessage(Identifier, HashMap<String, Variant>),
