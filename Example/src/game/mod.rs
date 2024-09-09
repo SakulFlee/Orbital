@@ -1,8 +1,8 @@
-use elements::{camera::Camera, pbr_spheres::PBRSpheres, ping_pong::PingPongElement};
-use orbital::{
-    game::{Game, World, WorldChange},
-    log::info,
+use elements::{
+    camera::Camera, damaged_helmet::DamagedHelmet, lights::Lights, pbr_spheres::PBRSpheres,
+    ping_pong::PingPongElement,
 };
+use orbital::game::{Game, World, WorldChange};
 
 pub mod elements;
 
@@ -20,10 +20,11 @@ impl Game for ExampleGame {
     where
         Self: Sized,
     {
-        info!("Queuing Camera spawn");
+        // Camera & Lights
         world.process_world_change(WorldChange::SpawnElement(Box::new(Camera::new())));
+        world.process_world_change(WorldChange::SpawnElement(Box::new(Lights {})));
 
-        info!("Queuing Ping & Pong spawn");
+        // Ping Pong
         world.process_world_change(WorldChange::SpawnElement(Box::new(PingPongElement::new(
             true,
         ))));
@@ -31,6 +32,8 @@ impl Game for ExampleGame {
             false,
         ))));
 
+        // Models
         world.process_world_change(WorldChange::SpawnElement(Box::new(PBRSpheres {})));
+        world.process_world_change(WorldChange::SpawnElement(Box::new(DamagedHelmet {})));
     }
 }

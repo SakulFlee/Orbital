@@ -20,4 +20,3 @@ impl Element for DamagedHelmet {
         }
     }
 }
-
