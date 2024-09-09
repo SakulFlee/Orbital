@@ -8,8 +8,6 @@ pub enum LightDescriptor {
     },
 }
 
-// TODO: Import lights from GLTF
-
 impl LightDescriptor {
     pub fn bytes_needed(&self) -> u64 {
         match self {
