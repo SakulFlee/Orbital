@@ -323,6 +323,7 @@ pub mod logging;
 pub mod renderer;
 pub mod resources;
 pub mod timer;
+pub mod transform;
 pub mod util;
 pub mod variant;
 
