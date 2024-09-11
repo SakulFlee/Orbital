@@ -1,6 +1,6 @@
 use std::mem;
 
-use crate::resources::descriptors::InstanceDescriptor;
+use crate::{resources::descriptors::InstanceDescriptor, transform::Transform};
 use cgmath::Matrix4;
 use wgpu::{VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode};
 
@@ -58,6 +58,14 @@ impl Instance {
                     format: VertexFormat::Float32x4,
                 },
             ],
+        }
+    }
+}
+
+impl From<&Transform> for Instance {
+    fn from(value: &Transform) -> Self {
+        Self {
+            descriptor: value.into(),
         }
     }
 }
