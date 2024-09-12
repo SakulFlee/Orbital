@@ -15,6 +15,7 @@ impl Element for PBRSpheres {
             world_changes: Some(vec![WorldChange::EnqueueLoader(Box::new(GLTFLoader::new(
                 FILE_NAME,
                 GLTFWorkerMode::LoadEverything,
+                None,
             )))]),
             ..Default::default()
         }
