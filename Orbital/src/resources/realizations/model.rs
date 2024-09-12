@@ -4,79 +4,123 @@ use wgpu::{
 };
 
 use crate::{
-    error::Error,
-    resources::descriptors::{Instancing, MaterialDescriptor, MeshDescriptor, ModelDescriptor},
+    resources::descriptors::{MaterialDescriptor, MeshDescriptor, ModelDescriptor},
+    transform::Transform,
 };
 
 use super::{instance::Instance, Material, Mesh};
 
 #[derive(Debug)]
+pub struct Instancing {
+    buffer: Buffer,
+    count: u32,
+}
+
+impl Instancing {
+    pub fn buffer(&self) -> &Buffer {
+        &self.buffer
+    }
+
+    pub fn instance_count(&self) -> u32 {
+        self.count
+    }
+}
+
+#[derive(Debug)]
 pub struct Model {
-    label: String,
-    mesh: Mesh,
-    material_descriptor: MaterialDescriptor,
-    instances: Vec<Instance>,
-    instance_buffer: Buffer,
+    descriptor: ModelDescriptor,
+    cached_mesh: Option<Mesh>,
+    instance_data: Option<Instancing>,
 }
 
 impl Model {
-    pub fn from_descriptor(
-        descriptor: &ModelDescriptor,
-        device: &Device,
-        queue: &Queue,
-    ) -> Result<Self, Error> {
-        match descriptor {
-            ModelDescriptor::FromDescriptors {
-                label,
-                mesh,
-                material,
-                instancing,
-            } => Self::from_descriptors(label, mesh, material, instancing, device, queue),
-        }
-    }
-
-    pub fn from_descriptors(
-        label: &String,
-        mesh_descriptor: &MeshDescriptor,
-        material_descriptor: &MaterialDescriptor,
-        instancing: &Instancing,
-        device: &Device,
-        queue: &Queue,
-    ) -> Result<Self, Error> {
-        let mesh = Mesh::from_descriptor(mesh_descriptor, device, queue);
-
-        let instances = Self::convert_instancing(instancing);
-
-        Ok(Self::from_existing(
-            label.clone(),
-            mesh,
-            material_descriptor.clone(),
-            instances,
-            device,
-            queue,
-        ))
-    }
-
-    pub fn from_existing(
-        label: String,
-        mesh: Mesh,
-        material_descriptor: MaterialDescriptor,
-        instances: Vec<Instance>,
-        device: &Device,
-        queue: &Queue,
-    ) -> Self {
-        let instance_buffer = Self::make_instance_buffer(&instances, device, queue);
-
+    pub fn from_descriptor(descriptor: ModelDescriptor) -> Self {
         Self {
-            label,
-            mesh,
-            material_descriptor,
-            instances,
-            instance_buffer,
+            descriptor,
+            cached_mesh: None,
+            instance_data: None,
         }
     }
 
-    fn make_instance_buffer(instances: &[Instance], device: &Device, _queue: &Queue) -> Buffer {
+    pub fn descriptor(&self) -> &ModelDescriptor {
+        &self.descriptor
+    }
+
+    pub fn mesh_descriptor(&self) -> &MeshDescriptor {
+        &self.descriptor().mesh
+    }
+
+    pub fn mesh(&self) -> &Mesh {
+        self.cached_mesh.as_ref().unwrap()
+    }
+
+    pub fn material_descriptor(&self) -> &MaterialDescriptor {
+        &self.descriptor().material
+    }
+
+    pub fn material(
+        &self,
+        surface_format: &TextureFormat,
+        device: &Device,
+        queue: &Queue,
+    ) -> &Material {
+        Material::from_descriptor(self.material_descriptor(), surface_format, device, queue)
+            .expect("Material build failed")
+    }
+
+    pub fn label(&self) -> &String {
+        &self.descriptor.label
+    }
+
+    fn convert_transforms_to_instances(&self) -> Vec<Instance> {
+        self.descriptor
+            .transforms
+            .iter()
+            .map(|x| Instance::from(x))
+            .collect()
+    }
+
+    pub fn transform(&self) -> &Transform {
+        &self
+            .descriptor
+            .transforms
+            .first()
+            .expect("At least one Transform must be present!")
+    }
+
+    pub fn transform_specific(&self, id: usize) -> &Transform {
+        &self.descriptor.transforms[id]
+    }
+
+    pub fn transform_count(&self) -> usize {
+        self.descriptor.transforms.len()
+    }
+
+    pub fn instance_data(&self) -> &Instancing {
+        self.instance_data.as_ref().unwrap()
+    }
+
+    pub fn prepare_render(&mut self, device: &Device, queue: &Queue) {
+        self.prepare_mesh(device, queue);
+        self.prepare_instance_data(device);
+    }
+
+    fn prepare_mesh(&mut self, device: &Device, queue: &Queue) {
+        if self.cached_mesh.is_some() {
+            return;
+        }
+
+        // If the mesh doesn't exist yet, create it and then return it.
+        let mesh = Mesh::from_descriptor(self.mesh_descriptor(), device, queue);
+        self.cached_mesh = Some(mesh);
+    }
+
+    fn prepare_instance_data(&mut self, device: &Device) {
+        if self.instance_data.is_some() {
+            return;
+        }
+
+        let instances = self.convert_transforms_to_instances();
         let instance_data: Vec<u8> = instances
             .iter()
             .map(|x| x.make_model_space_matrix())
@@ -102,47 +146,19 @@ impl Model {
             })
             .flatten()
             .collect();
+        let instance_count = self.transform_count() as u32;
 
-        device.create_buffer_init(&BufferInitDescriptor {
+        let instance_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: None,
             contents: &instance_data,
             usage: BufferUsages::VERTEX,
-        })
-    }
+        });
 
-    pub fn convert_instancing(instancing: &Instancing) -> Vec<Instance> {
-        match instancing {
-            Instancing::Single(i) => vec![Instance::from_descriptor(i)],
-            Instancing::Multiple(vi) => vi.iter().map(Instance::from_descriptor).collect(),
-        }
-    }
-
-    pub fn update_instance_buffer(&mut self, device: &Device, queue: &Queue) {
-        self.instance_buffer = Self::make_instance_buffer(&self.instances, device, queue);
-    }
-
-    pub fn label(&self) -> &str {
-        &self.label
-    }
-
-    pub fn mesh(&self) -> &Mesh {
-        &self.mesh
-    }
-
-    pub fn material(
-        &self,
-        surface_format: &TextureFormat,
-        device: &Device,
-        queue: &Queue,
-    ) -> Result<&'static Material, Error> {
-        Material::from_descriptor(&self.material_descriptor, surface_format, device, queue)
-    }
-
-    pub fn instances(&self) -> &Vec<Instance> {
-        &self.instances
-    }
-
-    pub fn instance_buffer(&self) -> &Buffer {
-        &self.instance_buffer
+        // If the mesh doesn't exist yet, create it and then return it.
+        let instance_data = Instancing {
+            buffer: instance_buffer,
+            count: instance_count,
+        };
+        self.instance_data = Some(instance_data);
     }
 }

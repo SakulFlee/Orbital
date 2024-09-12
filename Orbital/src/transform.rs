@@ -1,6 +1,6 @@
-use cgmath::{Quaternion, Vector3};
+use cgmath::{Quaternion, Vector3, Zero};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Transform {
     pub position: Vector3<f32>,
     pub rotation: Quaternion<f32>,
@@ -42,5 +42,15 @@ impl Transform {
 
     pub fn apply_scale(&mut self, other_scale: Vector3<f32>) {
         self.scale += other_scale;
+    }
+}
+
+impl Default for Transform {
+    fn default() -> Self {
+        Self {
+            position: Vector3::zero(),
+            rotation: Quaternion::zero(),
+            scale: Vector3::new(1.0, 1.0, 1.0),
+        }
     }
 }

@@ -1,5 +1,7 @@
 use cgmath::{Quaternion, Vector3, Zero};
 
+use crate::transform::Transform;
+
 #[derive(Debug, Clone)]
 pub enum Instancing {
     Single(InstanceDescriptor),
@@ -19,6 +21,16 @@ impl Default for InstanceDescriptor {
             position: Vector3::zero(),
             rotation: Quaternion::zero(),
             scale: Vector3::new(1.0, 1.0, 1.0),
+        }
+    }
+}
+
+impl From<&Transform> for InstanceDescriptor {
+    fn from(value: &Transform) -> Self {
+        Self {
+            position: value.position,
+            rotation: value.rotation,
+            scale: value.scale,
         }
     }
 }
