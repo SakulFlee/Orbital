@@ -1,6 +1,6 @@
 use cgmath::{Quaternion, Vector3, Zero};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Transform {
     pub position: Vector3<f32>,
     pub rotation: Quaternion<f32>,
@@ -8,6 +8,52 @@ pub struct Transform {
 }
 
 impl Transform {
+    pub fn new(position: Vector3<f32>, rotation: Quaternion<f32>, scale: Vector3<f32>) -> Self {
+        Self {
+            position,
+            rotation,
+            scale,
+        }
+    }
+
+    pub fn only_position(position: Vector3<f32>) -> Self {
+        Self {
+            position,
+            rotation: Quaternion::zero(),
+            scale: Vector3::zero(),
+        }
+    }
+
+    pub fn only_rotation(rotation: Quaternion<f32>) -> Self {
+        Self {
+            position: Vector3::zero(),
+            rotation,
+            scale: Vector3::zero(),
+        }
+    }
+
+    pub fn only_scale(scale: Vector3<f32>) -> Self {
+        Self {
+            position: Vector3::zero(),
+            rotation: Quaternion::zero(),
+            scale,
+        }
+    }
+
+    pub fn zero() -> Self {
+        Self {
+            position: Vector3::zero(),
+            rotation: Quaternion::zero(),
+            scale: Vector3::zero(),
+        }
+    }
+
+    pub fn apply_transform(&mut self, transform: Transform) {
+        self.apply_position(transform.position);
+        self.apply_rotation(transform.rotation);
+        self.apply_scale(transform.scale);
+    }
+
     pub fn position(&self) -> Vector3<f32> {
         self.position
     }

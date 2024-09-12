@@ -1,3 +1,4 @@
+use log::debug;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     Buffer, BufferUsages, Device, Queue, TextureFormat,
@@ -10,6 +11,7 @@ use crate::{
 
 use super::{instance::Instance, Material, Mesh};
 
+// TODO: Move out
 #[derive(Debug)]
 pub struct Instancing {
     buffer: Buffer,
@@ -94,6 +96,94 @@ impl Model {
 
     pub fn transform_count(&self) -> usize {
         self.descriptor.transforms.len()
+    }
+
+    /// Sets one or multiple [Transform]s for this [Model].
+    /// Will **replace** _any_ [Transform]s with the given [Transform]s.
+    ///
+    /// If this [Model] has multiple [Instance]s defined, all will be
+    /// effectively removed with this.
+    pub fn set_transforms(&mut self, transforms: Vec<Transform>) {
+        self.descriptor.transforms = transforms;
+
+        // Reset instancing information to trigger a rebuild on next preparation
+        // cycle.
+        self.instance_data = None;
+    }
+
+    /// Sets a specific [Transform] on this [Model].
+    /// Will **replace** the selected [Transform] with the given [Transform],
+    /// if found.
+    pub fn set_specific_transform(&mut self, transform: Transform, index: usize) {
+        if let Some(model_transform) = self.descriptor.transforms.get_mut(index) {
+            *model_transform = transform;
+
+            // Reset instancing information to trigger a rebuild on next preparation
+            // cycle.
+            self.instance_data = None;
+        }
+    }
+
+    /// Adds one or many [Transform]_s_ to the [Model].
+    /// Effectively, instancing the [Model].
+    pub fn add_transforms(&mut self, transforms: Vec<Transform>) {
+        self.descriptor.transforms.extend(transforms);
+
+        // Reset instancing information to trigger a rebuild on next preparation
+        // cycle.
+        self.instance_data = None;
+    }
+
+    /// Removes a [Transform] from the [Model].
+    ///
+    /// ⚠️ Make sure at least one [Transform] is present!
+    pub fn remove_transforms(&mut self, indices: Vec<usize>) {
+        let transform_drain = self.descriptor.transforms.drain(..);
+
+        self.descriptor.transforms = transform_drain
+            .into_iter()
+            .enumerate()
+            .filter_map(|(i, transform)| {
+                if indices.contains(&i) {
+                    None
+                } else {
+                    Some(transform)
+                }
+            })
+            .collect();
+
+        // Reset instancing information to trigger a rebuild on next preparation
+        // cycle.
+        self.instance_data = None;
+    }
+
+    /// Applies the given [Transform] to the [Model].
+    /// _All_ defined [Transform]s will be offset by the given
+    /// [Transform].
+    pub fn apply_transform(&mut self, transform: Transform) {
+        self.descriptor.transforms.iter_mut().for_each(|x| {
+            debug!("> Before: {:?}", x);
+            let y = x.apply_transform(transform);
+            debug!("> After: {:?}", x);
+        });
+
+        // Reset instancing information to trigger a rebuild on next preparation
+        // cycle.
+        self.instance_data = None;
+    }
+
+    /// Applies the given [Transform] to the [Model] given a specific index for
+    /// the [Transform] selection.
+    /// _Only_ the defined [Transform] will be offset by the given
+    /// [Transform].
+    pub fn apply_transform_specific(&mut self, transform: Transform, index: usize) {
+        if let Some(model_transform) = self.descriptor.transforms.get_mut(index) {
+            *model_transform = transform;
+
+            // Reset instancing information to trigger a rebuild on next preparation
+            // cycle.
+            self.instance_data = None;
+        }
     }
 
     pub fn instance_data(&self) -> &Instancing {
