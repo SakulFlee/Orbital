@@ -231,16 +231,9 @@ impl World {
         }
     }
 
-    fn process_queue_model_spawn(&mut self, device: &Device, queue: &Queue) {
+    fn process_queue_model_spawn(&mut self) {
         for model_descriptor in self.queue_model_spawn.drain(..) {
-            let model = match Model::from_descriptor(&model_descriptor, device, queue) {
-                Ok(model) => model,
-                Err(e) => {
-                    error!("Failure realizing model: {:#?}", e);
-                    continue;
-                }
-            };
-
+            let model = Model::from_descriptor(model_descriptor);
             self.models.insert(model.label().to_string(), model);
         }
     }
@@ -471,11 +464,13 @@ impl World {
     /// [GameRuntime]: crate::game::GameRuntime
     /// [WorldChanges]: WorldChange
     pub fn prepare_render(&mut self, device: &Device, queue: &Queue) {
-        self.process_queue_model_spawn(device, queue);
+        self.process_queue_model_spawn();
         self.process_active_camera_change(device, queue);
         self.process_next_camera(device, queue);
 
         self.light_storage.update_if_needed(device, queue);
+
+        self.models.values_mut().for_each(|x| x.prepare_render(device, queue));
     }
 
     /// This function returns a [Vec<&Model>] of all [Models] that
@@ -526,6 +521,7 @@ impl World {
     }
 
     pub fn models(&self) -> Vec<&Model> {
+        // TODO: Select models based on render radius
         self.models.values().by_ref().collect()
     }
 

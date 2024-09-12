@@ -7,7 +7,7 @@ use wgpu::{
 
 use crate::game::World;
 use crate::log::error;
-use crate::resources::realizations::Material;
+use crate::resources::realizations::{Material, Model};
 use crate::resources::{
     descriptors::TextureDescriptor,
     realizations::{Pipeline, Texture},
@@ -16,7 +16,7 @@ use crate::resources::{
 use super::Renderer;
 
 pub struct StandardRenderer {
-    surface_texture_format: TextureFormat,
+    surface_format: TextureFormat,
     depth_texture: Texture,
 }
 
@@ -47,7 +47,7 @@ impl StandardRenderer {
         // SkyBox
         let world_environment_material = match Material::from_descriptor(
             world.world_environment(),
-            &self.surface_texture_format,
+            &self.surface_format,
             device,
             queue,
         ) {
@@ -59,7 +59,7 @@ impl StandardRenderer {
         };
         let skybox_pipeline = match Pipeline::from_descriptor(
             world_environment_material.pipeline_descriptor(),
-            &self.surface_texture_format,
+            &self.surface_format,
             device,
             queue,
         ) {
@@ -108,18 +108,12 @@ impl StandardRenderer {
         // Models
         for model in world.models() {
             let mesh = model.mesh();
-            let material = match model.material(&self.surface_texture_format, device, queue) {
-                Ok(material) => material,
-                Err(e) => {
-                    error!("Material failure: {:#?}", e);
-                    error!("Skipping model render!");
-                    continue;
-                }
-            };
+            let material = model.material(&self.surface_format, device, queue);
+            let instance_data = model.instance_data();
 
             let pipeline = match Pipeline::from_descriptor(
                 material.pipeline_descriptor(),
-                &self.surface_texture_format,
+                &self.surface_format,
                 device,
                 queue,
             ) {
@@ -138,7 +132,7 @@ impl StandardRenderer {
 
             let world_environment_material = match Material::from_descriptor(
                 world.world_environment(),
-                &self.surface_texture_format,
+                &self.surface_format,
                 device,
                 queue,
             ) {
@@ -151,10 +145,10 @@ impl StandardRenderer {
             render_pass.set_bind_group(3, world_environment_material.bind_group(), &[]);
 
             render_pass.set_vertex_buffer(0, mesh.vertex_buffer().slice(..));
-            render_pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
+            render_pass.set_vertex_buffer(1, instance_data.buffer().slice(..));
             render_pass.set_index_buffer(mesh.index_buffer().slice(..), IndexFormat::Uint32);
 
-            render_pass.draw_indexed(0..mesh.index_count(), 0, 0..model.instances().len() as u32);
+            render_pass.draw_indexed(0..mesh.index_count(), 0, 0..instance_data.instance_count());
         }
     }
 }
@@ -167,7 +161,7 @@ impl Renderer for StandardRenderer {
         queue: &wgpu::Queue,
     ) -> Self {
         Self {
-            surface_texture_format,
+            surface_format: surface_texture_format,
             depth_texture: Texture::from_descriptor(
                 &TextureDescriptor::Depth(resolution),
                 device,
@@ -184,7 +178,7 @@ impl Renderer for StandardRenderer {
         queue: &Queue,
     ) {
         // Set the format internally
-        self.surface_texture_format = surface_texture_format;
+        self.surface_format = surface_texture_format;
 
         // The cache will automatically recompile itself
         // once a new format is used to access the cache.
