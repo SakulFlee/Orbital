@@ -1,4 +1,7 @@
-use std::thread::{self};
+use std::{
+    borrow::BorrowMut,
+    thread::{self},
+};
 
 use easy_gltf::{Light, Scene};
 use log::{debug, error, warn};
@@ -7,6 +10,7 @@ use crate::{
     error::Error,
     game::WorldChange,
     resources::descriptors::{CameraDescriptor, LightDescriptor, ModelDescriptor},
+    transform::Transform,
 };
 
 use super::Loader;
@@ -34,10 +38,15 @@ pub struct GLTFLoader {
     file_path: &'static str,
     mode: GLTFWorkerMode,
     worker: Option<GLTFWorker>,
+    model_transform: Option<Transform>,
 }
 
 impl GLTFLoader {
-    pub fn new(file_path: &'static str, mode: GLTFWorkerMode) -> Self
+    pub fn new(
+        file_path: &'static str,
+        mode: GLTFWorkerMode,
+        model_transform: Option<Transform>,
+    ) -> Self
     where
         Self: Sized,
     {
@@ -45,16 +54,26 @@ impl GLTFLoader {
             file_path,
             mode,
             worker: None,
+            model_transform,
         }
     }
 
-    fn loader_gltf_scene_to_world_changes(gltf_scene: &Scene) -> Vec<WorldChange> {
+    fn loader_gltf_scene_to_world_changes(
+        gltf_scene: &Scene,
+        option_model_transforms: &Option<Transform>,
+    ) -> Vec<WorldChange> {
         let mut world_changes = Vec::new();
 
         // TODO: Parallelise!
 
         for gltf_model in &gltf_scene.models {
-            let model_descriptor: ModelDescriptor = gltf_model.into();
+            let mut model_descriptor: ModelDescriptor = gltf_model.into();
+
+            // If a model transform is given, apply it to all model descriptors.
+            if let Some(model_transform) = option_model_transforms {
+                model_descriptor.transforms = vec![model_transform.clone()];
+            }
+
             let world_change = WorldChange::SpawnModel(model_descriptor);
 
             world_changes.push(world_change);
@@ -77,13 +96,17 @@ impl GLTFLoader {
         world_changes
     }
 
-    fn loader_load_everything(gltf_scenes: &[Scene]) -> Vec<WorldChange> {
+    fn loader_load_everything(
+        gltf_scenes: &[Scene],
+        option_model_transform: &Option<Transform>,
+    ) -> Vec<WorldChange> {
         let mut world_changes = Vec::new();
 
         // TODO: Parallelise!
 
         for gltf_scene in gltf_scenes {
-            let scene_world_changes = Self::loader_gltf_scene_to_world_changes(gltf_scene);
+            let scene_world_changes =
+                Self::loader_gltf_scene_to_world_changes(gltf_scene, option_model_transform);
 
             world_changes.extend(scene_world_changes);
         }
@@ -91,7 +114,11 @@ impl GLTFLoader {
         world_changes
     }
 
-    fn loader_load_scene(gltf_scenes: &[Scene], identifier: &GLTFIdentifier) -> Vec<WorldChange> {
+    fn loader_load_scene(
+        gltf_scenes: &[Scene],
+        identifier: &GLTFIdentifier,
+        option_model_transform: &Option<Transform>,
+    ) -> Vec<WorldChange> {
         // TODO: Parallelise!
 
         match identifier {
@@ -99,13 +126,13 @@ impl GLTFLoader {
                 .iter()
                 .enumerate()
                 .filter_map(|(i, x)| i.eq(id).then_some(x))
-                .flat_map(Self::loader_gltf_scene_to_world_changes)
+                .flat_map(|x| Self::loader_gltf_scene_to_world_changes(x, option_model_transform))
                 .collect(),
             GLTFIdentifier::Label(labels) => gltf_scenes
                 .iter()
                 .filter(|x| x.name.is_some())
                 .filter(|x| labels.contains(x.name.as_ref().unwrap().as_str()))
-                .flat_map(Self::loader_gltf_scene_to_world_changes)
+                .flat_map(|x| Self::loader_gltf_scene_to_world_changes(x, option_model_transform))
                 .collect(),
         }
     }
@@ -123,6 +150,7 @@ impl Loader for GLTFLoader {
 
         let file_path = self.file_path;
         let mode = self.mode.clone();
+        let option_model_transform = self.model_transform.take();
 
         let worker = thread::spawn(move || {
             let gltf_scenes = match easy_gltf::load(file_path) {
@@ -136,14 +164,20 @@ impl Loader for GLTFLoader {
             };
 
             let world_changes = match mode {
-                GLTFWorkerMode::LoadEverything => Self::loader_load_everything(&gltf_scenes),
+                GLTFWorkerMode::LoadEverything => {
+                    Self::loader_load_everything(&gltf_scenes, &option_model_transform)
+                }
                 GLTFWorkerMode::LoadScenes {
                     scene_identifiers: identifiers,
                 } => {
                     let mut world_changes = Vec::new();
 
                     for identifier in identifiers {
-                        let scene_world_change = Self::loader_load_scene(&gltf_scenes, &identifier);
+                        let scene_world_change = Self::loader_load_scene(
+                            &gltf_scenes,
+                            &identifier,
+                            &option_model_transform,
+                        );
 
                         world_changes.extend(scene_world_change);
                     }
@@ -159,7 +193,7 @@ impl Loader for GLTFLoader {
 
                     // Models
                     if let Some(scene_models) = scene_model_map {
-                        let model_world_changes = scene_models
+                        let mut models = scene_models
                             .into_iter()
                             // Find each scene specified to be selected by the key (k), pass on the object selector vec (v)
                             .map(|(k, v)| {
@@ -195,7 +229,17 @@ impl Loader for GLTFLoader {
                             .flatten()
                             // Convert to descriptors
                             .map(ModelDescriptor::from)
-                            // Convert to world changes
+                            .collect::<Vec<_>>();
+
+                        if let Some(model_transform) = &option_model_transform {
+                            models
+                                .iter_mut()
+                                .for_each(|x| x.transforms = vec![model_transform.clone()]);
+                        }
+
+                        // Convert to world changes
+                        let model_world_changes = models
+                            .into_iter()
                             .map(WorldChange::SpawnModel)
                             .collect::<Vec<_>>();
 
