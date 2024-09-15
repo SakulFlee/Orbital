@@ -37,7 +37,7 @@ pollster = { version = "0.3.0" }
 image = { version = "0.25.0" }
 cgmath = { version = "0.18.0" }
 easy-gltf = { version = "1.1.2", optional = true }
-gilrs = { version = "0.10.9" }
+gilrs = { version = "0.11.0" }
 crossbeam-channel = "0.5"
 num_cpus = "1.0"
 
