@@ -2,7 +2,6 @@ use std::fmt::Debug;
 
 use hashbrown::HashMap;
 use log::warn;
-use ulid::Ulid;
 
 use crate::{app::InputEvent, game::WorldChange, variant::Variant};
 
@@ -103,7 +102,7 @@ pub use registration::*;
 /// [Models]: crate::resources::realizations::Model
 /// [WorldChanges]: super::WorldChange
 pub trait Element: Debug + Send {
-    fn on_registration(&mut self, _ulid: &Ulid) -> ElementRegistration {
+    fn on_registration(&mut self) -> ElementRegistration {
         ElementRegistration::default()
     }
 

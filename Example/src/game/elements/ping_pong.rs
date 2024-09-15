@@ -1,8 +1,7 @@
 use orbital::{
-    game::{Element, ElementRegistration, Identifier, WorldChange},
+    game::{Element, ElementRegistration, WorldChange},
     hashbrown::HashMap,
     log::warn,
-    ulid::Ulid,
     variant::Variant,
 };
 
@@ -18,26 +17,18 @@ impl PingPongElement {
 }
 
 impl Element for PingPongElement {
-    fn on_registration(&mut self, _ulid: &Ulid) -> ElementRegistration {
+    fn on_registration(&mut self) -> ElementRegistration {
+        let element_registration = ElementRegistration::new("PingPong");
+
         if self.is_ping {
             let mut message = HashMap::new();
             message.insert("payload".into(), Variant::Boolean(true));
 
-            let world_change = vec![WorldChange::SendMessage(
-                Identifier::Tag("Pong".into()),
-                message,
-            )];
-
-            ElementRegistration {
-                tags: Some(vec!["Ping".into()]),
-                world_changes: Some(world_change),
-                ..Default::default()
-            }
+            element_registration
+                .with_additional_label("Ping")
+                .with_initial_world_change(WorldChange::SendMessage("Pong".to_string(), message))
         } else {
-            ElementRegistration {
-                tags: Some(vec!["Pong".into()]),
-                ..Default::default()
-            }
+            element_registration.with_additional_label("Pong")
         }
     }
 
@@ -49,20 +40,14 @@ impl Element for PingPongElement {
                 let mut message = HashMap::new();
                 message.insert("payload".into(), Variant::Boolean(self.is_ping));
 
-                return Some(vec![WorldChange::SendMessage(
-                    Identifier::Tag("Pong".into()),
-                    message,
-                )]);
+                return Some(vec![WorldChange::SendMessage("Pong".into(), message)]);
             } else if !self.is_ping && *is_ping {
                 // info!("Ping received! Sending Pong back.");
 
                 let mut message = HashMap::new();
                 message.insert("payload".into(), Variant::Boolean(self.is_ping));
 
-                return Some(vec![WorldChange::SendMessage(
-                    Identifier::Tag("Ping".into()),
-                    message,
-                )]);
+                return Some(vec![WorldChange::SendMessage("Ping".into(), message)]);
             } else {
                 warn!(
                     "Neither Ping nor Pong packet match! Self: {}; Packet: {}",
