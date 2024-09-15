@@ -1,6 +1,6 @@
 use element_store::ElementStore;
 use hashbrown::HashMap;
-use log::{info, warn};
+use log::{debug, info, warn};
 use wgpu::{Device, Queue};
 
 use crate::{
@@ -364,6 +364,66 @@ impl World {
             } => self
                 .element_store
                 .remove_label(&element_label, labels_to_be_removed),
+            WorldChange::SetTransformModel(model_label, transform) => {
+                if let Some(model) = self.models.get_mut(&model_label) {
+                    model.set_transforms(vec![transform]);
+                } else {
+                    error!(
+                        "Model with label '{}' could not be found! Cannot set transform: {:?}",
+                        model_label, transform
+                    );
+                }
+            }
+            WorldChange::SetTransformSpecificModelInstance(model_label, transform, index) => {
+                if let Some(model) = self.models.get_mut(&model_label) {
+                    model.set_specific_transform(transform, index);
+                } else {
+                    error!(
+                        "Model with label '{}' could not be found! Cannot set transform: {:?}",
+                        model_label, transform
+                    );
+                }
+            }
+            WorldChange::ApplyTransformModel(model_label, transform) => {
+                if let Some(model) = self.models.get_mut(&model_label) {
+                    debug!("Applying '{:?}' to '{}'", transform, model_label);
+                    debug!("Before: {:?}", model.transform());
+                    model.apply_transform(transform);
+                    debug!("After: {:?}", model.transform());
+                } else {
+                    error!(
+                        "Model with label '{}' could not be found! Cannot apply transform: {:?}",
+                        model_label, transform
+                    );
+                }
+            }
+            WorldChange::ApplyTransformSpecificModelInstance(model_label, transform, index) => {
+                if let Some(model) = self.models.get_mut(&model_label) {
+                    model.apply_transform_specific(transform, index);
+                } else {
+                    error!(
+                        "Model with label '{}' could not be found! Cannot apply transform: {:?}",
+                        model_label, transform
+                    );
+                }
+            }
+            WorldChange::AddTransformsToModel(model_label, transforms) => {
+                if let Some(model) = self.models.get_mut(&model_label) {
+                    model.add_transforms(transforms);
+                } else {
+                    error!(
+                        "Model with label '{}' could not be found! Cannot add transforms: {:?}",
+                        model_label, transforms
+                    );
+                }
+            }
+            WorldChange::RemoveTransformsFromModel(model_label, indices) => {
+                if let Some(model) = self.models.get_mut(&model_label) {
+                    model.remove_transforms(indices);
+                } else {
+                    error!("Model with label '{}' could not be found! Cannot remove transform at index '{:?}'", model_label, indices);
+                }
+            }
         }
 
         None

@@ -5,6 +5,7 @@ use crate::{
     resources::descriptors::{
         CameraDescriptor, LightDescriptor, MaterialDescriptor, ModelDescriptor,
     },
+    transform::Transform,
 };
 
 pub mod mode;
@@ -20,8 +21,11 @@ use super::Message;
 /// [World]: super::World
 #[derive(Debug)]
 pub enum WorldChange {
-    /// Queues an [Element] to be spawned.
-    /// The given [Element] must be [Boxed](Box)!
+    /// Spawns (== adds) an [Element] to the [World].
+    ///
+    /// ⚠️ The given [Element] must be [Boxed](Box) as it's a `dyn Trait`!
+    ///
+    /// [World]: super::World
     SpawnElement(Box<dyn Element>),
     /// Queues one or many [Element(s)](Element) to be despawned.
     DespawnElement(String),
@@ -40,43 +44,130 @@ pub enum WorldChange {
     /// The [ElementUlid] of the current [Element] will be used.
     ///
     /// [Model]: crate::resources::realizations::Model
+    /// [World]: super::World
     SpawnModel(ModelDescriptor),
-    /// Queues a [Model] to be despawned.  
-    /// Use a [ModelUlid] to specify which is being despawned.
-    ///
-    /// TODO: Update docs
+    /// Despawns (== removes) a [Model] from the [World].
     ///
     /// [Model]: crate::resources::realizations::Model
+    /// [World]: super::World
     DespawnModel(String),
-    /// Sends a message to one or many [Elements](Element).  
-    /// The message must be of type [Message], which is an alias for
-    /// [HashMap<String, Variant>].
+    /// If the given [Model] can be found, will _replace_ all given
+    /// [Transform]s and set the given [Transform] as the only one. This should
+    /// be used if you only have one [Instance]/[Transform] on your [Model].
+    ///
+    /// If multiple [Transform]s have been set before (i.e. the [Model] is
+    /// [Instance]d), will remove any [Instance]s. Use the other [Transform]
+    /// [WorldChange]s.
+    ///
+    /// [Model]: crate::resources::realizations::Model
+    /// [Instance]: crate::resources::realizations::Instance
+    SetTransformModel(String, Transform),
+    /// If the given [Model] can be found, will _replace_ a **specific**
+    /// [Transform] by it's index. This should be used if you have multiple
+    /// [Instance]s/[Transform]s on your [Model].
+    ///
+    /// [Model]: crate::resources::realizations::Model
+    /// [Instance]: crate::resources::realizations::Instance
+    SetTransformSpecificModelInstance(String, Transform, usize),
+    /// If the given [Model] can be found, will _apply_ a the given [Transform]
+    /// to **all** defined [Transform]s. This should be used if you have
+    /// multiple [Instance]s/[Transform]s on your [Model] and you want to
+    /// offset them by a given [Transform]. This is especially useful if you
+    /// have loaded e.g. a whole level and now want to move it by an offset.
+    /// Applying here means, adding this [Transform] as an _offset_ to the
+    /// existing [Transform] of the [Model].
+    ///
+    /// # Example:
+    /// Given the following [Model] [Transform]:
+    /// Transform::position at `(1, 2, 3)`
+    ///
+    /// ... and a Transform::position at `(5, 0, 0)`
+    ///
+    /// ... the result of this will be:
+    /// ```
+    /// (1 + 5, 2 + 0, 3 + 0)
+    /// == (6, 2, 3).
+    /// ```
+    ///
+    /// [Model]: crate::resources::realizations::Model
+    /// [Instance]: crate::resources::realizations::Instance
+    ApplyTransformModel(String, Transform),
+    /// If the given [Model] can be found, will _apply_ a **specific**
+    /// [Transform] by it's index. This should be used if you have multiple
+    /// [Instance]s/[Transform]s on your [Model].
+    /// Applying here means, adding this [Transform] as an _offset_ to the
+    /// existing [Transform] of the [Model].
+    ///
+    /// # Example:
+    /// Given the following [Model] [Transform]:
+    /// Transform::position at `(1, 2, 3)`
+    ///
+    /// ... and a Transform::position at `(5, 0, 0)`
+    ///
+    /// ... the result of this will be:
+    /// ```
+    /// (1 + 5, 2 + 0, 3 + 0)
+    /// == (6, 2, 3).
+    /// ```
+    ///
+    /// [Model]: crate::resources::realizations::Model
+    /// [Instance]: crate::resources::realizations::Instance
+    ApplyTransformSpecificModelInstance(String, Transform, usize),
+    /// If the given [Model] can be found, will add one or many [Transform]_s_
+    /// to the [Model]. This will effectively **[Instance]** the [Model].
+    ///
+    /// [Model]: crate::resources::realizations::Model
+    /// [Instance]: crate::resources::realizations::Instance
+    AddTransformsToModel(String, Vec<Transform>),
+    /// If the given [Model] can be found, will remove one or many
+    /// [Transform]_s_ from the [Model]. This will effectively **[Instance]**   
+    /// the [Model].
+    ///
+    /// [Model]: crate::resources::realizations::Model
+    /// [Instance]: crate::resources::realizations::Instance
+    RemoveTransformsFromModel(String, Vec<usize>),
+    /// Sends a `Message` to one or many [Element]s.
+    ///
+    /// The message must be a [Message] and can encode most
+    /// information. Make sure to _"share information, not references"_!
+    ///
+    /// # Rejection
+    /// Will be rejected if an [Element] with the specified _Identifier_ was
+    /// not found.
+    ///
     SendMessage(String, Message),
-    /// Spawns a [Camera] with a given [CameraDescriptor].  
-    /// If the chosen `identifier` of the [Camera] is already taken, this change
-    /// will be rejected.
+    /// Spawns a [Camera] into the [World].
+    ///
+    /// # Rejection
+    /// Will be rejected if a [Camera]/[CameraDescriptor] with the specified
+    /// _Identifier_ already exists.
     ///
     /// [Camera]: crate::resources::realizations::Camera
+    /// [World]: super::World
     SpawnCamera(CameraDescriptor),
-    /// Similar to [Self::SpawnCamera], but also makes the new [Camera] active.
+    /// Does the same as [WorldChange::SpawnCamera], but also makes the new
+    /// [Camera] become active.
     ///
     /// [Camera]: crate::resources::realizations::Camera
     SpawnCameraAndMakeActive(CameraDescriptor),
-    /// Despawns a [Camera] given a `identifier` ([String]).
+    /// Despawns a [Camera] given a _Identifier_.
     ///
-    /// If a [Camera] with the given `identifier` exists, it will be removed.  
-    /// If a [Camera] with the given `identifier` does not exist, nothing will happen.
+    /// # Rejection
+    /// If a [Camera] with the given _identifier_ does not exist, the change
+    /// will be rejected.
     ///
-    /// If the active [Camera] is removed, a [Default] [Camera] will be spawned
-    /// automatically on the next cycle.
+    /// # Active [Camera] removal
+    /// If the **active** [Camera] is removed, a [Default] [Camera] will be
+    /// spawned automatically on the next cycle.
     ///
     /// [Camera]: crate::resources::realizations::Camera
     DespawnCamera(String),
     /// Changes the active [Camera] to a [Camera] with the
-    /// given `identifier` ([String]).
+    /// given _identifier_.
     ///
-    /// If a [Camera] with the given `identifier` does **not** exist,
-    /// the active [Camera] **will not be changed**.
+    /// # Rejection
+    /// If a [Camera] with the given _identifier_ does **not** exist,
+    /// the change will be rejected.
     ///
     /// [Camera]: crate::resources::realizations::Camera
     ChangeActiveCamera(String),
@@ -85,6 +176,8 @@ pub enum WorldChange {
     /// If a [Camera] exists with the specified [CameraDescriptor::identifier],
     /// any property that is set to `Some(...)` will be applied, and if the
     /// [Camera] is active, will trigger a [Buffer] update.  
+    ///
+    /// # Rejection
     /// If a [Camera] does not exists with the [CameraDescriptor::identifier],
     /// this world change will be rejected and a warning will be printed to
     /// console.
@@ -92,13 +185,21 @@ pub enum WorldChange {
     /// [Camera]: crate::resources::realizations::Camera
     /// [Buffer]: wgpu::Buffer
     UpdateCamera(CameraChange),
-    /// Any [AppChange]s that need to be processed need to use this variant!
+    /// Passes on _any_ [AppChange]s that need to be processed
+    /// by the [AppRuntime].
+    ///
+    /// [AppRuntime]: crate::app::AppRuntime
     AppChange(AppChange),
-    /// Spawns a light into existence.
+    /// Spawns a [Light] into the [World].
+    ///
+    /// [Light]: crate::resources::realizations::Light
+    /// [World]: super::World
     SpawnLight(LightDescriptor),
-    ChangeWorldEnvironment {
-        skybox_material: MaterialDescriptor,
-    },
+    /// Changes the _World Environment_ for the [World].
+    /// This is mainly changing the _SkyBox_ and _IBL_.
+    ///
+    /// [World]: super::World
+    ChangeWorldEnvironment { skybox_material: MaterialDescriptor },
     /// Cleans the entire [World].
     /// Meaning, that any [Element]s, and their associated resources like
     /// [Model]s, will be despawned and
@@ -123,5 +224,11 @@ pub enum WorldChange {
     /// [World]: crate::game::world::World
     /// [Model]: crate::resources::realizations::Model
     CleanWorld,
+    /// Enqueues a [Loader] of any kind to the [World].
+    /// The [World] will eventually start executing the [Loader] in the
+    /// background and once done, process any [WorldChange]s proposed by it.
+    ///
+    /// [World]: super::World
+    /// [Loader]: crate::loader::Loader
     EnqueueLoader(Box<dyn Loader + Send>),
 }
