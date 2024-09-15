@@ -1,7 +1,3 @@
-use std::{any::Any, fmt};
-
-use hashbrown::HashMap;
-
 use crate::{
     app::AppChange,
     game::Element,
@@ -10,10 +6,7 @@ use crate::{
         CameraDescriptor, LightDescriptor, MaterialDescriptor, ModelDescriptor,
     },
     transform::Transform,
-    variant::Variant,
 };
-
-use super::Identifier;
 
 pub mod mode;
 pub use mode::*;
@@ -21,11 +14,12 @@ pub use mode::*;
 pub mod camera;
 pub use camera::*;
 
-/// A [WorldChange] is a _proposed change_ to the [World].  
-/// Basically, whenever we need to interact with the [World], it is through
-/// a [WorldChange].
+use super::Message;
+
+/// A [WorldChange] is a _proposed change to the [World]_.  
 ///
 /// [World]: super::World
+#[derive(Debug)]
 pub enum WorldChange {
     /// Spawns (== adds) an [Element] to the [World].
     ///
@@ -33,14 +27,21 @@ pub enum WorldChange {
     ///
     /// [World]: super::World
     SpawnElement(Box<dyn Element>),
-    /// Despawns (== removes) one or many [Element]s from the [World].
+    /// Queues one or many [Element(s)](Element) to be despawned.
+    DespawnElement(String),
+    ElementAddLabels {
+        element_label: String,
+        new_labels: Vec<String>,
+    },
+    ElementRemoveLabels {
+        element_label: String,
+        labels_to_be_removed: Vec<String>,
+    },
+    /// Queues a [Model] to be spawned.
     ///
-    /// If the identifier is used by multiple [Element]s, **all** will be
-    /// despawned.
-    ///
-    /// [World]: super::World
-    DespawnElement(Identifier),
-    /// Spawns (== add) a [Model] into the [World].
+    /// Same as [WorldChange::SpawnModel], but without needing to supply
+    /// an [ElementUlid].
+    /// The [ElementUlid] of the current [Element] will be used.
     ///
     /// [Model]: crate::resources::realizations::Model
     /// [World]: super::World
@@ -127,14 +128,14 @@ pub enum WorldChange {
     RemoveTransformsFromModel(String, Vec<usize>),
     /// Sends a `Message` to one or many [Element]s.
     ///
-    /// The message must be a [HashMap<String, Variant>] and can encode most
+    /// The message must be a [Message] and can encode most
     /// information. Make sure to _"share information, not references"_!
     ///
     /// # Rejection
     /// Will be rejected if an [Element] with the specified _Identifier_ was
     /// not found.
     ///
-    SendMessage(Identifier, HashMap<String, Variant>),
+    SendMessage(String, Message),
     /// Spawns a [Camera] into the [World].
     ///
     /// # Rejection
@@ -230,70 +231,4 @@ pub enum WorldChange {
     /// [World]: super::World
     /// [Loader]: crate::loader::Loader
     EnqueueLoader(Box<dyn Loader + Send>),
-}
-
-impl fmt::Debug for WorldChange {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::SpawnElement(arg0) => write!(f, "SpawnElement@{:?}", arg0.type_id()),
-            Self::DespawnElement(arg0) => f.debug_tuple("DespawnElement").field(arg0).finish(),
-            Self::SpawnModel(arg0) => f.debug_tuple("SpawnModel").field(arg0).finish(),
-            Self::DespawnModel(arg0) => f.debug_tuple("DespawnModel").field(arg0).finish(),
-            Self::SendMessage(arg0, arg1) => f
-                .debug_tuple("SendMessage")
-                .field(arg0)
-                .field(arg1)
-                .finish(),
-            Self::SpawnCamera(arg0) => f.debug_tuple("SpawnCamera").field(arg0).finish(),
-            Self::SpawnCameraAndMakeActive(arg0) => f
-                .debug_tuple("SpawnCameraAndMakeActive")
-                .field(arg0)
-                .finish(),
-            Self::DespawnCamera(arg0) => f.debug_tuple("DespawnCamera").field(arg0).finish(),
-            Self::ChangeActiveCamera(arg0) => {
-                f.debug_tuple("ChangeActiveCamera").field(arg0).finish()
-            }
-            Self::UpdateCamera(arg0) => f.debug_tuple("UpdateCamera").field(arg0).finish(),
-            Self::AppChange(app_change) => f.debug_tuple("AppChange").field(app_change).finish(),
-            Self::SpawnLight(desc) => f.debug_tuple("SpawnLight").field(desc).finish(),
-            Self::ChangeWorldEnvironment { skybox_material } => f
-                .debug_tuple("ChangeSkyBox")
-                .field(skybox_material)
-                .finish(),
-            Self::CleanWorld => f.debug_tuple("CleanWorld").finish(),
-            Self::EnqueueLoader(_) => f.debug_tuple("EnqueueLoader").finish(),
-            Self::SetTransformModel(model_label, transform) => f
-                .debug_tuple("SetTransformModel")
-                .field(model_label)
-                .field(transform)
-                .finish(),
-            Self::SetTransformSpecificModelInstance(model_label, transform, index) => f
-                .debug_tuple("SetTransformSpecificModelInstance")
-                .field(model_label)
-                .field(transform)
-                .field(index)
-                .finish(),
-            Self::AddTransformsToModel(model_label, transforms) => f
-                .debug_tuple("AddTransformsToModel")
-                .field(model_label)
-                .field(transforms)
-                .finish(),
-            Self::RemoveTransformsFromModel(model_label, indices) => f
-                .debug_tuple("RemoveTransformsFromModel")
-                .field(model_label)
-                .field(indices)
-                .finish(),
-            Self::ApplyTransformModel(model_label, transform) => f
-                .debug_tuple("ApplyTransformModel")
-                .field(model_label)
-                .field(transform)
-                .finish(),
-            Self::ApplyTransformSpecificModelInstance(model_label, transform, index) => f
-                .debug_tuple("ApplyTransformSpecificModelInstance")
-                .field(model_label)
-                .field(transform)
-                .field(index)
-                .finish(),
-        }
-    }
 }

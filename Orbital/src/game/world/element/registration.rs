@@ -1,49 +1,49 @@
-use crate::{game::WorldChange, resources::descriptors::ModelDescriptor};
+use crate::game::WorldChange;
 
 /// Used when registering an [Element](super::Element).
 #[derive(Default, Debug)]
 pub struct ElementRegistration {
-    /// Each [Element] can **optionally** have _Tags_.
-    /// A _Tag_ can be used instead of the uniquely assigned [Ulid].
-    ///
-    /// Both, a _Tag_ and a [Ulid], can be used the same way.
-    /// However, a [Ulid] is **unique** and only ever involves one [Element].
-    /// On the other hand, a _Tag_ can be used for multiple objects.
-    ///
-    /// Say you want to send a message to all _NPCs_.
-    /// Simply _Tag_ every NPC with `"NPC"` and send a message to that _Tag_.
-    ///
-    /// Similarly, this can also be used for e.g. removing [Element]s
-    /// from the [World].
-    /// Instead of removing all by their [Ulid] individually, a common _Tag_
-    /// can be used to remove all at once.
-    ///
-    /// [Ulid]: ulid::Ulid
-    /// [Element]: super::Element
-    /// [World]: crate::game::world::World
-    pub tags: Option<Vec<String>>,
-    /// Each [Element] can **optionally** define one or more [Model]s to be
-    /// associated with it.
-    /// Upon registration, each [ModelDescriptor] will be
-    /// realized into a [Model].
-    ///
-    /// Each [Model] will be linked with the registering [Element].
-    /// If an [Element] is removed, any linked [Model] will also be removed.
-    /// If an [Element] is moved, any linked [Model] will also be offset.
-    ///
-    /// If there is a need to remove or add [Model]s at some later point in time
-    /// (i.e. **after registration**), it is possible to directly interact with
-    /// [World]!
-    ///
-    /// [Model]: crate::resources::realizations::Model
-    /// [ModelDescriptor]: crate::resources::descriptors::ModelDescriptor
-    /// [Element]: super::Element
-    /// [World]: crate::game::world::World
-    pub models: Option<Vec<ModelDescriptor>>,
-    /// Each [Element] can **optionally** define one or more [WorldChange]s.
-    /// These [WorldChange]s will be queued and realized lazily.
-    ///
-    /// This can be useful when you need to fire a [WorldChange] **once upon
-    /// registration**.
-    pub world_changes: Option<Vec<WorldChange>>,
+    /// Each [Element] must have at least one _label_ defined.
+    /// Any additional _labels_ will work the same as the main _label_.
+    /// [Element]s can share _labels_ to
+    labels: Vec<String>,
+    initial_world_changes: Vec<WorldChange>,
+}
+
+impl ElementRegistration {
+    pub fn new<S: Into<String>>(main_label: S) -> Self {
+        Self {
+            labels: vec![main_label.into()],
+            initial_world_changes: Vec::new(),
+        }
+    }
+
+    pub fn with_additional_label<S: Into<String>>(mut self, label: S) -> Self {
+        self.labels.push(label.into());
+
+        self
+    }
+
+    pub fn with_additional_labels<S: Into<String>>(mut self, labels: Vec<S>) -> Self {
+        let processed_labels: Vec<String> = labels.into_iter().map(|s| s.into()).collect();
+        self.labels.extend(processed_labels);
+
+        self
+    }
+
+    pub fn with_initial_world_change(mut self, world_change: WorldChange) -> Self {
+        self.initial_world_changes.push(world_change);
+
+        self
+    }
+
+    pub fn with_initial_world_changes(mut self, world_changes: Vec<WorldChange>) -> Self {
+        self.initial_world_changes.extend(world_changes);
+
+        self
+    }
+
+    pub fn extract(self) -> (Vec<String>, Vec<WorldChange>) {
+        (self.labels, self.initial_world_changes)
+    }
 }

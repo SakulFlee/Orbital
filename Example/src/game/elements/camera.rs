@@ -6,7 +6,6 @@ use orbital::{
     game::{CameraChange, Element, ElementRegistration, Mode, WorldChange},
     gilrs::{Axis, Button},
     resources::descriptors::CameraDescriptor,
-    ulid::Ulid,
     util::InputHandler,
     winit::{
         dpi::PhysicalPosition,
@@ -27,7 +26,7 @@ impl Default for Camera {
 }
 
 impl Camera {
-    pub const IDENTIFIER: &'static str = "DEBUG";
+    pub const IDENTIFIER: &'static str = "Main Camera";
 
     pub const MOVEMENT_SPEED: f32 = 5.0;
     pub const MOUSE_SENSITIVITY: f32 = 0.0075;
@@ -114,20 +113,17 @@ impl Camera {
 }
 
 impl Element for Camera {
-    fn on_registration(&mut self, _ulid: &Ulid) -> ElementRegistration {
-        ElementRegistration {
-            tags: Some(vec!["debug test camera".into()]),
-            world_changes: Some(vec![
-                WorldChange::SpawnCameraAndMakeActive(CameraDescriptor {
-                    identifier: Self::IDENTIFIER.into(),
-                    position: Point3::new(5.0, 0.0, 0.0),
-                    yaw: PI,
-                    ..Default::default()
-                }),
-                WorldChange::AppChange(AppChange::ChangeCursorVisible(false)),
-            ]),
-            ..Default::default()
-        }
+    fn on_registration(&mut self) -> ElementRegistration {
+        ElementRegistration::new(Self::IDENTIFIER)
+            .with_initial_world_change(WorldChange::SpawnCameraAndMakeActive(CameraDescriptor {
+                identifier: Self::IDENTIFIER.into(),
+                position: Point3::new(5.0, 0.0, 0.0),
+                yaw: PI,
+                ..Default::default()
+            }))
+            .with_initial_world_change(WorldChange::AppChange(AppChange::ChangeCursorVisible(
+                false,
+            )))
     }
 
     fn on_focus_change(&mut self, focused: bool) {

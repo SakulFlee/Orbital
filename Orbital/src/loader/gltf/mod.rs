@@ -1,7 +1,4 @@
-use std::{
-    borrow::BorrowMut,
-    thread::{self},
-};
+use std::thread::{self};
 
 use easy_gltf::{Light, Scene};
 use log::{debug, error, warn};
