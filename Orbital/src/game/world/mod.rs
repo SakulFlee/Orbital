@@ -311,6 +311,7 @@ impl World {
             WorldChange::SpawnLight(light_descriptor) => {
                 self.light_storage.add_descriptor(light_descriptor)
             }
+            WorldChange::DespawnLight(label) => self.light_storage.remove_light(&label),
             WorldChange::ChangeWorldEnvironment {
                 skybox_material: world_environment_material_descriptor,
             } => {
