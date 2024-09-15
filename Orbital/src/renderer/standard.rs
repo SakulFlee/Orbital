@@ -7,7 +7,7 @@ use wgpu::{
 
 use crate::game::World;
 use crate::log::error;
-use crate::resources::realizations::{Material, Model};
+use crate::resources::realizations::Material;
 use crate::resources::{
     descriptors::TextureDescriptor,
     realizations::{Pipeline, Texture},
