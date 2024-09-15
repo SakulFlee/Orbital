@@ -34,6 +34,7 @@ impl LightStorage {
 
     pub fn initialize(device: &Device, queue: &Queue) -> Self {
         let descriptors = vec![LightDescriptor::PointLight {
+            label: "Dummy".into(),
             position: Vector3::zero(),
             color: Vector3::zero(),
         }];
@@ -126,6 +127,11 @@ impl LightStorage {
         }
 
         self.descriptors.push(descriptor);
+        self.needs_update = true;
+    }
+
+    pub fn remove_light(&mut self, label: &str) {
+        self.descriptors.retain(|x| x.label() != label);
         self.needs_update = true;
     }
 

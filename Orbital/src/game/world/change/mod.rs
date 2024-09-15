@@ -195,6 +195,11 @@ pub enum WorldChange {
     /// [Light]: crate::resources::realizations::Light
     /// [World]: super::World
     SpawnLight(LightDescriptor),
+    /// Despawns a [Light] from the [World].
+    ///
+    /// [Light]: crate::resources::realizations::Light
+    /// [World]: super::World
+    DespawnLight(String),
     /// Changes the _World Environment_ for the [World].
     /// This is mainly changing the _SkyBox_ and _IBL_.
     ///
