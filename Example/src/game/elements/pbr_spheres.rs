@@ -1,23 +1,23 @@
 use orbital::{
     game::{Element, ElementRegistration, WorldChange},
     loader::{GLTFLoader, GLTFWorkerMode},
-    ulid::Ulid,
 };
 
 #[derive(Debug)]
 pub struct PBRSpheres;
 
-impl Element for PBRSpheres {
-    fn on_registration(&mut self, _ulid: &Ulid) -> ElementRegistration {
-        const FILE_NAME: &str = "Assets/Models/PBR_Spheres.glb";
+impl PBRSpheres {
+    const FILE_NAME: &'static str = "Assets/Models/PBR_Spheres.glb";
+}
 
-        ElementRegistration {
-            world_changes: Some(vec![WorldChange::EnqueueLoader(Box::new(GLTFLoader::new(
-                FILE_NAME,
+impl Element for PBRSpheres {
+    fn on_registration(&mut self) -> ElementRegistration {
+        ElementRegistration::new(Self::FILE_NAME).with_initial_world_change(
+            WorldChange::EnqueueLoader(Box::new(GLTFLoader::new(
+                Self::FILE_NAME,
                 GLTFWorkerMode::LoadEverything,
                 None,
-            )))]),
-            ..Default::default()
-        }
+            ))),
+        )
     }
 }

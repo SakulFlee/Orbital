@@ -1,6 +1,6 @@
+use element_store::ElementStore;
 use hashbrown::HashMap;
 use log::{info, warn};
-use ulid::Ulid;
 use wgpu::{Device, Queue};
 
 use crate::{
@@ -10,7 +10,6 @@ use crate::{
         descriptors::{CameraDescriptor, MaterialDescriptor, ModelDescriptor},
         realizations::{Camera, LightStorage, Model},
     },
-    variant::Variant,
 };
 
 pub mod change;
@@ -19,17 +18,13 @@ pub use change::*;
 pub mod element;
 pub use element::*;
 
-pub mod identifier;
-pub use identifier::*;
-
-pub mod element_ulid;
-pub use element_ulid::*;
-
-pub mod model_ulid;
-pub use model_ulid::*;
+pub mod message;
+pub use message::*;
 
 pub mod loader_executor;
 pub use loader_executor::*;
+
+mod element_store;
 
 /// A [World] keeps track of everything inside your [Game].  
 /// Mainly, [Elements] and [realized resources].
@@ -68,13 +63,9 @@ pub use loader_executor::*;
 /// [realized resources]: crate::resources::realizations
 #[derive(Debug)]
 pub struct World {
-    // --- Elements & Models ---
-    /// [Element]s and their [Ulid]s
-    elements: HashMap<ElementUlid, Box<dyn Element>>,
+    element_store: ElementStore,
     /// **Active** [Model]s and their [Ulid]s
     models: HashMap<String, Model>,
-    /// Translation map to determine _tag_ association between [Element]s
-    tags: HashMap<String, Vec<ElementUlid>>,
     /// --- Storages ---
     light_storage: LightStorage,
     // --- Queues ---
@@ -83,13 +74,13 @@ pub struct World {
     /// Queue for spawning [Element]s
     queue_element_spawn: Vec<Box<dyn Element>>,
     /// Queue for despawning [Element]s
-    queue_element_despawn: Vec<ElementUlid>,
+    queue_element_despawn: Vec<String>,
     /// Queue for spawning [Model]s
     queue_model_spawn: Vec<ModelDescriptor>,
     /// Queue for despawning [Model]s
     queue_model_despawn: Vec<String>,
     /// Queue for messages being send to a target [Ulid]
-    queue_messages: HashMap<ElementUlid, Vec<HashMap<String, Variant>>>,
+    queue_messages: HashMap<String, Vec<Message>>,
     // --- Camera ---
     /// Active Camera
     active_camera: Option<Camera>,
@@ -114,9 +105,8 @@ pub struct World {
 impl World {
     pub fn new(device: &Device, queue: &Queue) -> Self {
         Self {
-            elements: Default::default(),
+            element_store: ElementStore::new(),
             models: Default::default(),
-            tags: Default::default(),
             light_storage: LightStorage::initialize(device, queue),
             queue_world_changes: Default::default(),
             queue_element_spawn: Default::default(),
@@ -179,49 +169,24 @@ impl World {
 
     fn process_queue_spawn_element(&mut self) {
         for mut element in self.queue_element_spawn.drain(..) {
-            // Generate new ULID
-            let element_ulid = Ulid::new();
-            info!("New element: {}", element_ulid);
-
             // Start element registration
-            let registration = element.on_registration(&element_ulid);
+            let registration: ElementRegistration = element.on_registration();
+
+            let (labels, world_changes) = registration.extract();
 
             // Store boxed element
-            self.elements.insert(element_ulid, element);
-
-            // Process any tags
-            if let Some(tags) = registration.tags {
-                for tag in tags {
-                    self.tags
-                        .entry(tag)
-                        .or_insert(Vec::new())
-                        .push(element_ulid);
-                }
-            }
-
-            // Process any models
-            if let Some(models) = registration.models {
-                for model in models {
-                    self.queue_model_spawn.push(model);
-                }
-            }
+            self.element_store.store_element(element, labels);
 
             // Queue any changes
-            if let Some(element_world_changes) = registration.world_changes {
-                for world_change in element_world_changes {
-                    // world_changes_to_queue.push(world_change);
-                    self.queue_world_changes.push(world_change);
-                }
-            }
+            self.queue_world_changes.extend(world_changes);
         }
     }
 
     fn process_queue_despawn_element(&mut self) {
         let drain = self.queue_element_despawn.drain(..).collect::<Vec<_>>();
 
-        drain.iter().for_each(|element_ulid| {
-            // Remove the element
-            self.elements.remove(element_ulid);
+        drain.iter().for_each(|element_label| {
+            self.element_store.remove_element(element_label);
         });
     }
 
@@ -241,14 +206,16 @@ impl World {
     fn process_queue_messages(&mut self) {
         let mut world_changes = Vec::new();
 
-        for (element_id, messages) in self.queue_messages.drain() {
-            if let Some(element) = self.elements.get_mut(&element_id) {
-                for message in messages {
-                    let result = element.on_message(message);
-
-                    if let Some(result_world_changes) = result {
-                        world_changes.extend(result_world_changes);
-                    }
+        for (element_label, messages) in self.queue_messages.drain() {
+            match self.element_store.send_messages(&element_label, messages) {
+                Ok(element_world_changes) => {
+                    world_changes.extend(element_world_changes);
+                }
+                Err(e) => {
+                    error!(
+                        "An error occurred while sending a message to '{}': {:?}",
+                        element_label, e
+                    )
                 }
             }
         }
@@ -282,21 +249,20 @@ impl World {
     pub fn process_world_change(&mut self, world_change: WorldChange) -> Option<AppChange> {
         match world_change {
             WorldChange::SpawnElement(element) => self.queue_element_spawn.push(element),
-            WorldChange::DespawnElement(identifier) => {
-                for element_ulid in self.resolve_identifier(identifier) {
-                    self.queue_element_despawn.push(element_ulid)
-                }
+            WorldChange::DespawnElement(element_label) => {
+                self.element_store.remove_element(&element_label);
             }
             WorldChange::SpawnModel(model_descriptor) => {
                 self.queue_model_spawn.push(model_descriptor)
             }
             WorldChange::DespawnModel(model_label) => self.queue_model_despawn.push(model_label),
-            WorldChange::SendMessage(identifier, message) => {
-                for element_ulid in self.resolve_identifier(identifier) {
-                    self.queue_messages
-                        .entry(element_ulid)
-                        .or_insert(Vec::new())
-                        .push(message.clone());
+            WorldChange::SendMessage(element_label, message) => {
+                match self
+                    .element_store
+                    .send_messages(&element_label, vec![message])
+                {
+                    Ok(world_changes) => self.queue_world_changes.extend(world_changes),
+                    Err(e) => error!("An error occurred while sending a message: {:?}", e),
                 }
             }
             WorldChange::SpawnCamera(descriptor) => self.spawn_camera(descriptor),
@@ -369,7 +335,7 @@ impl World {
                 self.queue_model_spawn.clear();
 
                 // Elements
-                self.elements.clear();
+                self.element_store.clear();
 
                 // Models
                 self.models.clear();
@@ -386,6 +352,18 @@ impl World {
             WorldChange::EnqueueLoader(loader) => {
                 self.loader_executor.schedule_loader_boxed(loader);
             }
+            WorldChange::ElementAddLabels {
+                element_label,
+                new_labels,
+            } => {
+                self.element_store.add_label(&element_label, new_labels);
+            }
+            WorldChange::ElementRemoveLabels {
+                element_label,
+                labels_to_be_removed,
+            } => self
+                .element_store
+                .remove_label(&element_label, labels_to_be_removed),
         }
 
         None
@@ -405,15 +383,11 @@ impl World {
     }
 
     pub fn on_focus_change(&mut self, focused: bool) {
-        for (_element_ulid, element) in &mut self.elements {
-            element.on_focus_change(focused);
-        }
+        self.element_store.send_focus_change(focused);
     }
 
     pub fn on_input_event(&mut self, input_event: &InputEvent) {
-        for (_element_ulid, element) in &mut self.elements {
-            element.on_input_event(input_event)
-        }
+        self.element_store.send_input_event(input_event);
     }
 
     /// Processes queued up [WorldChanges]
@@ -423,13 +397,8 @@ impl World {
     ///
     /// [GameRuntime]: crate::game::GameRuntime
     pub fn update(&mut self, delta_time: f64) -> Vec<AppChange> {
-        for (_element_ulid, element) in &mut self.elements {
-            if let Some(element_world_changes) = element.on_update(delta_time) {
-                for element_world_change in element_world_changes {
-                    self.queue_world_changes.push(element_world_change);
-                }
-            }
-        }
+        let element_changes = self.element_store.update(delta_time);
+        self.queue_world_changes.extend(element_changes);
 
         // Cycle loader, enqueue any `Ok`, report any `Err`
         let (ok, error): (Vec<_>, Vec<_>) = self
@@ -447,7 +416,7 @@ impl World {
 
         // Process through `WorldChange`s and pass on any `AppChange`s
         let mut app_changes = self.process_world_changes();
-        if self.elements.is_empty() {
+        if self.element_store.element_count() == 0 {
             warn!("No more elements in World! Exiting ...");
 
             app_changes.push(AppChange::ForceAppClosure { exit_code: 0 });
@@ -470,7 +439,9 @@ impl World {
 
         self.light_storage.update_if_needed(device, queue);
 
-        self.models.values_mut().for_each(|x| x.prepare_render(device, queue));
+        self.models
+            .values_mut()
+            .for_each(|x| x.prepare_render(device, queue));
     }
 
     /// This function returns a [Vec<&Model>] of all [Models] that
@@ -484,36 +455,6 @@ impl World {
             self.active_camera.as_ref().unwrap(),
             self.models.values().collect::<Vec<_>>(),
         )
-    }
-
-    /// Converts a given `tag` into a [Ulid] if found.
-    pub fn tag_to_ulids(&self, tag: &str) -> Option<&Vec<Ulid>> {
-        self.tags.get(tag)
-    }
-
-    /// Converts a given [Identifier] into a [Vec<Ulid>].
-    /// I.e. a list of [Element] [Ulids].
-    ///
-    /// This is especially useful for resolving _tags_ as multiple
-    /// [Elements] can be _tagged_ with the same _tag_.
-    ///
-    /// [Ulids]: Ulid
-    /// [Elements]: Element
-    pub fn resolve_identifier(&self, identifier: Identifier) -> Vec<Ulid> {
-        let mut ulids = Vec::new();
-
-        match identifier {
-            Identifier::Ulid(ulid) => ulids.push(ulid),
-            Identifier::Tag(tag) => {
-                if let Some(tag_ulids) = self.tag_to_ulids(&tag) {
-                    for tag_ulid in tag_ulids {
-                        ulids.push(*tag_ulid);
-                    }
-                }
-            }
-        }
-
-        ulids
     }
 
     pub fn active_camera(&self) -> &Camera {
