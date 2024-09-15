@@ -11,6 +11,7 @@ impl From<&Light> for LightDescriptor {
                 color,
                 intensity,
             } => LightDescriptor::PointLight {
+                label: name.clone().unwrap_or("Unlabelled".into()),
                 position: *position,
                 color: *color,
             },
