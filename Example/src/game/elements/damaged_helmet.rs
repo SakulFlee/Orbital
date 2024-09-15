@@ -3,26 +3,26 @@ use orbital::{
     game::{Element, ElementRegistration, WorldChange},
     loader::{GLTFLoader, GLTFWorkerMode},
     transform::Transform,
-    ulid::Ulid,
 };
 
 #[derive(Debug)]
 pub struct DamagedHelmet;
 
-impl Element for DamagedHelmet {
-    fn on_registration(&mut self, _ulid: &Ulid) -> ElementRegistration {
-        const FILE_NAME: &str = "Assets/Models/DamagedHelmet.glb";
+impl DamagedHelmet {
+    const FILE_NAME: &'static str = "Assets/Models/DamagedHelmet.glb";
+}
 
-        ElementRegistration {
-            world_changes: Some(vec![WorldChange::EnqueueLoader(Box::new(GLTFLoader::new(
-                FILE_NAME,
+impl Element for DamagedHelmet {
+    fn on_registration(&mut self) -> ElementRegistration {
+        ElementRegistration::new(Self::FILE_NAME).with_initial_world_change(
+            WorldChange::EnqueueLoader(Box::new(GLTFLoader::new(
+                Self::FILE_NAME,
                 GLTFWorkerMode::LoadEverything,
                 Some(Transform {
                     position: Vector3::new(0.0, 0.0, 5.0),
                     ..Default::default()
                 }),
-            )))]),
-            ..Default::default()
-        }
+            ))),
+        )
     }
 }

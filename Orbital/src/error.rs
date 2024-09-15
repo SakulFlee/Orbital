@@ -22,4 +22,5 @@ pub enum Error {
     FileNotFound,
     NotDoneProcessing,
     CrossbeamRecvError(crossbeam_channel::RecvError),
+    NotFound,
 }

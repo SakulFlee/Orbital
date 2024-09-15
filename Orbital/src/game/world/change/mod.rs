@@ -1,7 +1,3 @@
-use std::{any::Any, fmt};
-
-use hashbrown::HashMap;
-
 use crate::{
     app::AppChange,
     game::Element,
@@ -9,10 +5,7 @@ use crate::{
     resources::descriptors::{
         CameraDescriptor, LightDescriptor, MaterialDescriptor, ModelDescriptor,
     },
-    variant::Variant,
 };
-
-use super::{Identifier, ModelUlid};
 
 pub mod mode;
 pub use mode::*;
@@ -20,16 +13,26 @@ pub use mode::*;
 pub mod camera;
 pub use camera::*;
 
+use super::Message;
+
 /// A [WorldChange] is a _proposed change to the [World]_.  
 ///
 /// [World]: super::World
+#[derive(Debug)]
 pub enum WorldChange {
     /// Queues an [Element] to be spawned.
     /// The given [Element] must be [Boxed](Box)!
     SpawnElement(Box<dyn Element>),
     /// Queues one or many [Element(s)](Element) to be despawned.
-    /// Use an [Identifier] to select what to despawn!
-    DespawnElement(Identifier),
+    DespawnElement(String),
+    ElementAddLabels {
+        element_label: String,
+        new_labels: Vec<String>,
+    },
+    ElementRemoveLabels {
+        element_label: String,
+        labels_to_be_removed: Vec<String>,
+    },
     /// Queues a [Model] to be spawned.
     ///
     /// Same as [WorldChange::SpawnModel], but without needing to supply
@@ -46,8 +49,9 @@ pub enum WorldChange {
     /// [Model]: crate::resources::realizations::Model
     DespawnModel(String),
     /// Sends a message to one or many [Elements](Element).  
-    /// The message must be a [HashMap<String, Variant>].
-    SendMessage(Identifier, HashMap<String, Variant>),
+    /// The message must be of type [Message], which is an alias for
+    /// [HashMap<String, Variant>].
+    SendMessage(String, Message),
     /// Spawns a [Camera] with a given [CameraDescriptor].  
     /// If the chosen `identifier` of the [Camera] is already taken, this change
     /// will be rejected.
@@ -120,38 +124,4 @@ pub enum WorldChange {
     /// [Model]: crate::resources::realizations::Model
     CleanWorld,
     EnqueueLoader(Box<dyn Loader + Send>),
-}
-
-impl fmt::Debug for WorldChange {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::SpawnElement(arg0) => write!(f, "SpawnElement@{:?}", arg0.type_id()),
-            Self::DespawnElement(arg0) => f.debug_tuple("DespawnElement").field(arg0).finish(),
-            Self::SpawnModel(arg0) => f.debug_tuple("SpawnModel").field(arg0).finish(),
-            Self::DespawnModel(arg0) => f.debug_tuple("DespawnModel").field(arg0).finish(),
-            Self::SendMessage(arg0, arg1) => f
-                .debug_tuple("SendMessage")
-                .field(arg0)
-                .field(arg1)
-                .finish(),
-            Self::SpawnCamera(arg0) => f.debug_tuple("SpawnCamera").field(arg0).finish(),
-            Self::SpawnCameraAndMakeActive(arg0) => f
-                .debug_tuple("SpawnCameraAndMakeActive")
-                .field(arg0)
-                .finish(),
-            Self::DespawnCamera(arg0) => f.debug_tuple("DespawnCamera").field(arg0).finish(),
-            Self::ChangeActiveCamera(arg0) => {
-                f.debug_tuple("ChangeActiveCamera").field(arg0).finish()
-            }
-            Self::UpdateCamera(arg0) => f.debug_tuple("UpdateCamera").field(arg0).finish(),
-            Self::AppChange(app_change) => f.debug_tuple("AppChange").field(app_change).finish(),
-            Self::SpawnLight(desc) => f.debug_tuple("SpawnLight").field(desc).finish(),
-            WorldChange::ChangeWorldEnvironment { skybox_material } => f
-                .debug_tuple("ChangeSkyBox")
-                .field(skybox_material)
-                .finish(),
-            WorldChange::CleanWorld => f.debug_tuple("CleanWorld").finish(),
-            WorldChange::EnqueueLoader(_) => f.debug_tuple("EnqueueLoader").finish(),
-        }
-    }
 }
