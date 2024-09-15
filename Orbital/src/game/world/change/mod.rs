@@ -9,6 +9,7 @@ use crate::{
     resources::descriptors::{
         CameraDescriptor, LightDescriptor, MaterialDescriptor, ModelDescriptor,
     },
+    transform::Transform,
     variant::Variant,
 };
 
@@ -49,6 +50,81 @@ pub enum WorldChange {
     /// [Model]: crate::resources::realizations::Model
     /// [World]: super::World
     DespawnModel(String),
+    /// If the given [Model] can be found, will _replace_ all given
+    /// [Transform]s and set the given [Transform] as the only one. This should
+    /// be used if you only have one [Instance]/[Transform] on your [Model].
+    ///
+    /// If multiple [Transform]s have been set before (i.e. the [Model] is
+    /// [Instance]d), will remove any [Instance]s. Use the other [Transform]
+    /// [WorldChange]s.
+    ///
+    /// [Model]: crate::resources::realizations::Model
+    /// [Instance]: crate::resources::realizations::Instance
+    SetTransformModel(String, Transform),
+    /// If the given [Model] can be found, will _replace_ a **specific**
+    /// [Transform] by it's index. This should be used if you have multiple
+    /// [Instance]s/[Transform]s on your [Model].
+    ///
+    /// [Model]: crate::resources::realizations::Model
+    /// [Instance]: crate::resources::realizations::Instance
+    SetTransformSpecificModelInstance(String, Transform, usize),
+    /// If the given [Model] can be found, will _apply_ a the given [Transform]
+    /// to **all** defined [Transform]s. This should be used if you have
+    /// multiple [Instance]s/[Transform]s on your [Model] and you want to
+    /// offset them by a given [Transform]. This is especially useful if you
+    /// have loaded e.g. a whole level and now want to move it by an offset.
+    /// Applying here means, adding this [Transform] as an _offset_ to the
+    /// existing [Transform] of the [Model].
+    ///
+    /// # Example:
+    /// Given the following [Model] [Transform]:
+    /// Transform::position at `(1, 2, 3)`
+    ///
+    /// ... and a Transform::position at `(5, 0, 0)`
+    ///
+    /// ... the result of this will be:
+    /// ```
+    /// (1 + 5, 2 + 0, 3 + 0)
+    /// == (6, 2, 3).
+    /// ```
+    ///
+    /// [Model]: crate::resources::realizations::Model
+    /// [Instance]: crate::resources::realizations::Instance
+    ApplyTransformModel(String, Transform),
+    /// If the given [Model] can be found, will _apply_ a **specific**
+    /// [Transform] by it's index. This should be used if you have multiple
+    /// [Instance]s/[Transform]s on your [Model].
+    /// Applying here means, adding this [Transform] as an _offset_ to the
+    /// existing [Transform] of the [Model].
+    ///
+    /// # Example:
+    /// Given the following [Model] [Transform]:
+    /// Transform::position at `(1, 2, 3)`
+    ///
+    /// ... and a Transform::position at `(5, 0, 0)`
+    ///
+    /// ... the result of this will be:
+    /// ```
+    /// (1 + 5, 2 + 0, 3 + 0)
+    /// == (6, 2, 3).
+    /// ```
+    ///
+    /// [Model]: crate::resources::realizations::Model
+    /// [Instance]: crate::resources::realizations::Instance
+    ApplyTransformSpecificModelInstance(String, Transform, usize),
+    /// If the given [Model] can be found, will add one or many [Transform]_s_
+    /// to the [Model]. This will effectively **[Instance]** the [Model].
+    ///
+    /// [Model]: crate::resources::realizations::Model
+    /// [Instance]: crate::resources::realizations::Instance
+    AddTransformsToModel(String, Vec<Transform>),
+    /// If the given [Model] can be found, will remove one or many
+    /// [Transform]_s_ from the [Model]. This will effectively **[Instance]**   
+    /// the [Model].
+    ///
+    /// [Model]: crate::resources::realizations::Model
+    /// [Instance]: crate::resources::realizations::Instance
+    RemoveTransformsFromModel(String, Vec<usize>),
     /// Sends a `Message` to one or many [Element]s.
     ///
     /// The message must be a [HashMap<String, Variant>] and can encode most
@@ -180,12 +256,44 @@ impl fmt::Debug for WorldChange {
             Self::UpdateCamera(arg0) => f.debug_tuple("UpdateCamera").field(arg0).finish(),
             Self::AppChange(app_change) => f.debug_tuple("AppChange").field(app_change).finish(),
             Self::SpawnLight(desc) => f.debug_tuple("SpawnLight").field(desc).finish(),
-            WorldChange::ChangeWorldEnvironment { skybox_material } => f
+            Self::ChangeWorldEnvironment { skybox_material } => f
                 .debug_tuple("ChangeSkyBox")
                 .field(skybox_material)
                 .finish(),
-            WorldChange::CleanWorld => f.debug_tuple("CleanWorld").finish(),
-            WorldChange::EnqueueLoader(_) => f.debug_tuple("EnqueueLoader").finish(),
+            Self::CleanWorld => f.debug_tuple("CleanWorld").finish(),
+            Self::EnqueueLoader(_) => f.debug_tuple("EnqueueLoader").finish(),
+            Self::SetTransformModel(model_label, transform) => f
+                .debug_tuple("SetTransformModel")
+                .field(model_label)
+                .field(transform)
+                .finish(),
+            Self::SetTransformSpecificModelInstance(model_label, transform, index) => f
+                .debug_tuple("SetTransformSpecificModelInstance")
+                .field(model_label)
+                .field(transform)
+                .field(index)
+                .finish(),
+            Self::AddTransformsToModel(model_label, transforms) => f
+                .debug_tuple("AddTransformsToModel")
+                .field(model_label)
+                .field(transforms)
+                .finish(),
+            Self::RemoveTransformsFromModel(model_label, indices) => f
+                .debug_tuple("RemoveTransformsFromModel")
+                .field(model_label)
+                .field(indices)
+                .finish(),
+            Self::ApplyTransformModel(model_label, transform) => f
+                .debug_tuple("ApplyTransformModel")
+                .field(model_label)
+                .field(transform)
+                .finish(),
+            Self::ApplyTransformSpecificModelInstance(model_label, transform, index) => f
+                .debug_tuple("ApplyTransformSpecificModelInstance")
+                .field(model_label)
+                .field(transform)
+                .field(index)
+                .finish(),
         }
     }
 }

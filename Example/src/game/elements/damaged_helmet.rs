@@ -25,4 +25,11 @@ impl Element for DamagedHelmet {
             ..Default::default()
         }
     }
+
+    fn on_update(&mut self, delta_time: f64) -> Option<Vec<WorldChange>> {
+        Some(vec![WorldChange::ApplyTransformModel(
+            "mesh_helmet_LP_13930damagedHelmet".into(),
+            Transform::only_position(Vector3::new(0.0, 0.0, 1.0 * delta_time as f32)),
+        )])
+    }
 }
