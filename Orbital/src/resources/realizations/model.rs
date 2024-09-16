@@ -162,9 +162,7 @@ impl Model {
     /// [Transform].
     pub fn apply_transform(&mut self, transform: Transform) {
         self.descriptor.transforms.iter_mut().for_each(|x| {
-            debug!("> Before: {:?}", x);
-            let y = x.apply_transform(transform);
-            debug!("> After: {:?}", x);
+            x.apply_transform(transform);
         });
 
         // Reset instancing information to trigger a rebuild on next preparation

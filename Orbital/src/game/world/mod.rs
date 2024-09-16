@@ -387,10 +387,7 @@ impl World {
             }
             WorldChange::ApplyTransformModel(model_label, transform) => {
                 if let Some(model) = self.models.get_mut(&model_label) {
-                    debug!("Applying '{:?}' to '{}'", transform, model_label);
-                    debug!("Before: {:?}", model.transform());
                     model.apply_transform(transform);
-                    debug!("After: {:?}", model.transform());
                 } else {
                     error!(
                         "Model with label '{}' could not be found! Cannot apply transform: {:?}",
