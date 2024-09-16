@@ -179,6 +179,7 @@ impl Pipeline {
             depth_stencil,
             multisample: MultisampleState::default(),
             multiview: None,
+            cache: None,
         });
 
         Ok(Self {

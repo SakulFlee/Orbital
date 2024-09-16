@@ -55,8 +55,9 @@ pub fn init() {
                 // Default level to accept
                 .level(default_log_level)
                 // WGPU Overwrite
-                .level_for("wgpu_core", LevelFilter::Info)
-                .level_for("wgpu_hal", LevelFilter::Info)
+                .level_for("wgpu_core", LevelFilter::Warn)
+                .level_for("wgpu_hal", LevelFilter::Warn)
+                .level_for("naga", LevelFilter::Warn)
                 // Write to StdOut
                 .chain(std::io::stdout())
                 .chain(fern::log_file(log_path_0).expect("failed building file log")),
