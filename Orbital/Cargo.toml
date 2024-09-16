@@ -11,7 +11,7 @@ default = ["gltf"]
 gltf = ["dep:easy-gltf", "easy-gltf/names"]
 
 [dependencies]
-wgpu = { version = "0.20.0", features = [
+wgpu = { version = "22.1.0", features = [
     "serde",
     "naga-ir",
     "wgsl",
