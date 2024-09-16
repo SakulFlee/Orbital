@@ -151,6 +151,7 @@ impl IblBrdf {
             module: &shader,
             entry_point: "main",
             compilation_options: Default::default(),
+            cache: None,
         })
     }
 
