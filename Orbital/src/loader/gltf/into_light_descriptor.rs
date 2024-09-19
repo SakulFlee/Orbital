@@ -1,6 +1,6 @@
 use easy_gltf::Light;
 
-use crate::resources::descriptors::LightDescriptor;
+use crate::resources::{descriptors::LightDescriptor, realizations::PointLight};
 
 impl From<&Light> for LightDescriptor {
     fn from(value: &Light) -> Self {
@@ -10,11 +10,15 @@ impl From<&Light> for LightDescriptor {
                 position,
                 color,
                 intensity,
-            } => LightDescriptor::PointLight {
-                label: name.clone().unwrap_or("Unlabelled".into()),
-                position: *position,
-                color: *color,
-            },
+            } => {
+                let point_light = PointLight {
+                    label: name.clone().unwrap_or("unlabelled".into()),
+                    position: *position,
+                    color: *color,
+                };
+
+                LightDescriptor::PointLight(point_light)
+            }
             Light::Directional {
                 name,
                 direction,

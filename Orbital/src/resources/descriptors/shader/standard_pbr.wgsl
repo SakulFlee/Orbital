@@ -34,12 +34,12 @@ struct CameraUniform {
 }
 
 struct PointLight {
-    position: vec3<f32>,
-    color: vec3<f32>,
+    position: vec4<f32>,
+    color: vec4<f32>,
 }
 
-struct LightStorage {
-    point_lights: array<PointLight>,
+struct PointLightStore {
+    lights: array<PointLight>,
 }
 
 struct PBRFactors {
@@ -101,7 +101,7 @@ struct PBRData {
 
 @group(1) @binding(0) var<uniform> camera: CameraUniform;
 
-@group(2) @binding(0) var<storage> lights: LightStorage;
+@group(2) @binding(0) var<storage> point_light_store: array<PointLight>;
 
 @group(3) @binding(2) var irradiance_env_map: texture_cube<f32>;
 @group(3) @binding(3) var irradiance_sampler: sampler;
@@ -181,11 +181,11 @@ fn hdr_tone_map_gamma_correction(color: vec3<f32>) -> vec3<f32> {
 
 fn calculate_point_light_reflectance(pbr: PBRData, world_position: vec3<f32>) -> vec3<f32> {
     var Lo = vec3<f32>(0.0);
-    for (var i: u32 = 0; i < arrayLength(&lights.point_lights); i++) {
-        let point_light = lights.point_lights[i];   
+    for (var i: u32 = 0; i < arrayLength(&point_light_store); i++) {
+        let point_light = point_light_store[i];   
 
         // Calculate per-light radiance
-        let L = normalize(point_light.position - world_position);
+        let L = normalize(point_light.position.xyz - world_position);
         let H = normalize(pbr.V + L);
 
         let radiance = point_light_radiance(point_light, world_position);
@@ -282,7 +282,7 @@ fn geometry_smith(N: vec3<f32>, V: vec3<f32>, L: vec3<f32>, roughness: f32) -> f
 }
 
 fn point_light_attenuation(a: f32, b: f32, point_light: PointLight, world_position: vec3<f32>) -> f32 {
-    let distance = length(point_light.position - world_position);
+    let distance = length(point_light.position.xyz - world_position);
 
     return 1.0 / (1.0 + a * distance + b * distance * distance);
 }
@@ -294,7 +294,7 @@ fn point_light_radiance(point_light: PointLight, world_position: vec3<f32>) -> v
         point_light,
         world_position
     );
-    return point_light.color * attenuation;
+    return point_light.color.rgb * attenuation;
 }
 
 fn pbr_data(fragment_data: FragmentData) -> PBRData {
