@@ -112,7 +112,7 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
         Self {
             game: GameImpl::init(),
             game_startup_complete: false,
-            world: World::new(device, queue),
+            world: World::new(),
             timer: Timer::new(),
             renderer: RendererImpl::new(
                 config.format,

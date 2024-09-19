@@ -1,52 +1,37 @@
-use cgmath::Vector3;
+use crate::resources::realizations::PointLight;
 
 #[derive(Debug)]
 pub enum LightDescriptor {
-    PointLight {
-        label: String,
-        position: Vector3<f32>,
-        color: Vector3<f32>,
-    },
+    PointLight(PointLight),
 }
 
 impl LightDescriptor {
     pub fn label(&self) -> &str {
         match self {
-            LightDescriptor::PointLight {
-                label,
-                position: _,
-                color: _,
-            } => &label,
+            LightDescriptor::PointLight(point_light) => &point_light.label,
         }
     }
 
     pub fn bytes_needed(&self) -> u64 {
         match self {
-            LightDescriptor::PointLight {
-                label: _,
-                position,
-                color,
-            } => {
-                // + 4 for padding
-                ((std::mem::size_of_val(position) + 4) + (std::mem::size_of_val(color) + 4)) as u64
+            LightDescriptor::PointLight(point_light) => {
+                // + 1 for padding. Could also use Vec4 instead of 3.
+                ((std::mem::size_of_val(&point_light.position) + 1)
+                    + (std::mem::size_of_val(&point_light.color) + 1)) as u64
             }
         }
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
         match self {
-            LightDescriptor::PointLight {
-                label: _,
-                position,
-                color,
-            } => [
-                position.x.to_le_bytes(),
-                position.y.to_le_bytes(),
-                position.z.to_le_bytes(),
+            LightDescriptor::PointLight(point_light) => [
+                point_light.position.x.to_le_bytes(),
+                point_light.position.y.to_le_bytes(),
+                point_light.position.z.to_le_bytes(),
                 [0u8; 4],
-                color.x.to_le_bytes(),
-                color.y.to_le_bytes(),
-                color.z.to_le_bytes(),
+                point_light.color.x.to_le_bytes(),
+                point_light.color.y.to_le_bytes(),
+                point_light.color.z.to_le_bytes(),
                 [0u8; 4],
             ]
             .concat()
