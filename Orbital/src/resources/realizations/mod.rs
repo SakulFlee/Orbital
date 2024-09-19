@@ -1,7 +1,7 @@
 pub mod camera;
 pub mod cube_texture;
 pub mod instance;
-pub mod light_storage;
+pub mod light;
 pub mod material;
 pub mod mesh;
 pub mod model;
@@ -13,7 +13,7 @@ pub mod vertex;
 pub use camera::*;
 pub use cube_texture::*;
 pub use instance::*;
-pub use light_storage::*;
+pub use light::*;
 pub use material::*;
 pub use mesh::*;
 pub use model::*;
