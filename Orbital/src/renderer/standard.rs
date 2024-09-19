@@ -128,7 +128,7 @@ impl StandardRenderer {
 
             render_pass.set_bind_group(0, material.bind_group(), &[]);
             render_pass.set_bind_group(1, world.active_camera().bind_group(), &[]);
-            render_pass.set_bind_group(2, world.light_storage().bind_group().unwrap(), &[]);
+            render_pass.set_bind_group(2, world.light_store().point_light_bind_group(), &[]);
 
             let world_environment_material = match Material::from_descriptor(
                 world.world_environment(),

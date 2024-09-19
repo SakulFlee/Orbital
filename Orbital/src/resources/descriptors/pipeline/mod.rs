@@ -1,6 +1,9 @@
 use wgpu::{Face, FrontFace, PolygonMode, PrimitiveTopology};
 
-use crate::resources::realizations::{Camera, LightStorage, Material};
+use crate::{
+    game::PointLightStore,
+    resources::realizations::{Camera, Material},
+};
 
 use super::ShaderDescriptor;
 
@@ -47,7 +50,7 @@ impl Default for PipelineDescriptor {
             bind_group_layouts: vec![
                 Material::pbr_pipeline_bind_group_layout(),
                 Camera::pipeline_bind_group_layout(),
-                LightStorage::pipeline_bind_group_layout(),
+                PointLightStore::pipeline_bind_group_layout(),
                 Material::world_environment_pipeline_bind_group_layout(),
             ],
             primitive_topology: Default::default(),

@@ -1,6 +1,6 @@
 use element_store::ElementStore;
 use hashbrown::HashMap;
-use log::{debug, info, warn};
+use log::{info, warn};
 use wgpu::{Device, Queue};
 
 use crate::{
@@ -8,7 +8,7 @@ use crate::{
     log::error,
     resources::{
         descriptors::{CameraDescriptor, MaterialDescriptor, ModelDescriptor},
-        realizations::{Camera, LightStorage, Model},
+        realizations::{Camera, Model},
     },
 };
 
@@ -25,6 +25,9 @@ pub mod loader_executor;
 pub use loader_executor::*;
 
 mod element_store;
+
+mod light_store;
+pub use light_store::*;
 
 /// A [World] keeps track of everything inside your [Game].  
 /// Mainly, [Elements] and [realized resources].
@@ -67,7 +70,7 @@ pub struct World {
     /// **Active** [Model]s and their [Ulid]s
     models: HashMap<String, Model>,
     /// --- Storages ---
-    light_storage: LightStorage,
+    light_store: LightStore,
     // --- Queues ---
     /// Queue for [WorldChange]s before being processed into other queues
     queue_world_changes: Vec<WorldChange>,
@@ -103,11 +106,11 @@ pub struct World {
 }
 
 impl World {
-    pub fn new(device: &Device, queue: &Queue) -> Self {
+    pub fn new() -> Self {
         Self {
             element_store: ElementStore::new(),
             models: Default::default(),
-            light_storage: LightStorage::initialize(device, queue),
+            light_store: LightStore::new(),
             queue_world_changes: Default::default(),
             queue_element_spawn: Default::default(),
             queue_element_despawn: Default::default(),
@@ -309,9 +312,11 @@ impl World {
             }
             WorldChange::AppChange(app_change) => return Some(app_change),
             WorldChange::SpawnLight(light_descriptor) => {
-                self.light_storage.add_descriptor(light_descriptor)
+                self.light_store.add_light_descriptor(light_descriptor);
             }
-            WorldChange::DespawnLight(label) => self.light_storage.remove_light(&label),
+            WorldChange::DespawnLight(label) => {
+                self.light_store.remove_any_light_with_label(&label)
+            }
             WorldChange::ChangeWorldEnvironment {
                 skybox_material: world_environment_material_descriptor,
             } => {
@@ -342,7 +347,7 @@ impl World {
                 self.models.clear();
 
                 // Lights
-                self.light_storage.clear();
+                self.light_store.clear();
 
                 // Camera
                 self.camera_descriptors.clear();
@@ -495,7 +500,7 @@ impl World {
         self.process_active_camera_change(device, queue);
         self.process_next_camera(device, queue);
 
-        self.light_storage.update_if_needed(device, queue);
+        self.light_store.update_if_needed(device, queue);
 
         self.models
             .values_mut()
@@ -524,8 +529,8 @@ impl World {
         self.models.values().by_ref().collect()
     }
 
-    pub fn light_storage(&self) -> &LightStorage {
-        &self.light_storage
+    pub fn light_store(&self) -> &LightStore {
+        &self.light_store
     }
 
     pub fn world_environment(&self) -> &MaterialDescriptor {
