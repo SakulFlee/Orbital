@@ -9,6 +9,7 @@ use wgpu::{
 
 use crate::{error::Error, resources::descriptors::TextureDescriptor};
 
+#[derive(Debug)]
 pub struct Texture {
     texture: WTexture,
     view: TextureView,
