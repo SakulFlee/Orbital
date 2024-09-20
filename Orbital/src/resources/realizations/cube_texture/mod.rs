@@ -73,7 +73,7 @@ impl CubeTexture {
         }
     }
 
-    pub fn create_empty(
+    fn create_empty(
         label: Option<&str>,
         size: Vector2<u32>,
         format: TextureFormat,
