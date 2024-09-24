@@ -19,7 +19,7 @@ use crate::{
     },
 };
 
-use super::{Pipeline, Texture};
+use super::{ibl_brdf, IblBrdf, Pipeline, Texture};
 
 #[derive(Debug)]
 pub struct Material {
@@ -249,7 +249,7 @@ impl Material {
                     binding: 6,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
-                        sample_type: TextureSampleType::Float { filterable: true },
+                        sample_type: TextureSampleType::Float { filterable: false },
                         view_dimension: TextureViewDimension::D2,
                         multisampled: false,
                     },
@@ -258,7 +258,7 @@ impl Material {
                 BindGroupLayoutEntry {
                     binding: 7,
                     visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                    ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
                     count: None,
                 },
             ],
@@ -332,11 +332,7 @@ impl Material {
         let sky_texture = CubeTexture::from_descriptor(sky, device, queue)?;
         let irradiance_texture = CubeTexture::from_descriptor(irradiance, device, queue)?;
         let radiance_texture = CubeTexture::from_descriptor(radiance, device, queue)?;
-        let ibl_brdf_lut = Texture::from_descriptor(
-            &TextureDescriptor::FilePath("Assets/IBL_BRDF_LUT/ibl_brdf_lut.png"),
-            device,
-            queue,
-        )?;
+        let ibl_brdf_lut = IblBrdf::generate(device, queue);
 
         let pipeline_descriptor = PipelineDescriptor::default_skybox();
         let pipeline =
@@ -380,11 +376,11 @@ impl Material {
                 // IBL BRDF LUT
                 BindGroupEntry {
                     binding: 6,
-                    resource: BindingResource::TextureView(ibl_brdf_lut.view()),
+                    resource: BindingResource::TextureView(ibl_brdf_lut.texture().view()),
                 },
                 BindGroupEntry {
                     binding: 7,
-                    resource: BindingResource::Sampler(ibl_brdf_lut.sampler()),
+                    resource: BindingResource::Sampler(ibl_brdf_lut.texture().sampler()),
                 },
             ],
         });
