@@ -1,4 +1,4 @@
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Mutex, MutexGuard, OnceLock};
 
 use log::info;
 use wgpu::{
@@ -19,7 +19,7 @@ use crate::{
     },
 };
 
-use super::{ibl_brdf, IblBrdf, Pipeline, Texture};
+use super::{IblBrdf, Pipeline, Texture};
 
 #[derive(Debug)]
 pub struct Material {
@@ -77,6 +77,29 @@ impl Material {
     /// > This function currently doesn't really do anything, but is kept as-is in case we need to add some functionality here later + calling the unsafe static function.
     pub fn prepare_cache_access() -> &'static mut Cache<MaterialDescriptor, Material> {
         unsafe { Self::cache() }
+    }
+
+    pub unsafe fn get_or_generate_ibl_brdf_lut(
+        device: &Device,
+        queue: &Queue,
+    ) -> MutexGuard<'static, Texture> {
+        static mut CACHE: OnceLock<Mutex<Texture>> = OnceLock::new();
+
+        if CACHE.get().is_none() {
+            info!("IBL BRDF LUT cache doesn't exist! Initializing ...");
+            let _ = CACHE.get_or_init(|| {
+                let ibl_brdf = IblBrdf::generate(device, queue);
+                let texture = ibl_brdf.texture();
+                let mutex = Mutex::new(texture);
+                mutex
+            });
+        }
+
+        CACHE
+            .get()
+            .unwrap()
+            .lock()
+            .expect("IBL BRDF LUT cache access violation!")
     }
 
     pub fn pbr_pipeline_bind_group_layout() -> PipelineBindGroupLayout {
@@ -332,7 +355,7 @@ impl Material {
         let sky_texture = CubeTexture::from_descriptor(sky, device, queue)?;
         let irradiance_texture = CubeTexture::from_descriptor(irradiance, device, queue)?;
         let radiance_texture = CubeTexture::from_descriptor(radiance, device, queue)?;
-        let ibl_brdf_lut = IblBrdf::generate(device, queue);
+        let ibl_brdf_lut = unsafe { Self::get_or_generate_ibl_brdf_lut(device, queue) };
 
         let pipeline_descriptor = PipelineDescriptor::default_skybox();
         let pipeline =
@@ -376,11 +399,11 @@ impl Material {
                 // IBL BRDF LUT
                 BindGroupEntry {
                     binding: 6,
-                    resource: BindingResource::TextureView(ibl_brdf_lut.texture().view()),
+                    resource: BindingResource::TextureView(ibl_brdf_lut.view()),
                 },
                 BindGroupEntry {
                     binding: 7,
-                    resource: BindingResource::Sampler(ibl_brdf_lut.texture().sampler()),
+                    resource: BindingResource::Sampler(ibl_brdf_lut.sampler()),
                 },
             ],
         });

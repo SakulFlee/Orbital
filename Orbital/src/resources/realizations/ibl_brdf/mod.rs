@@ -12,7 +12,7 @@ use super::Texture;
 
 #[derive(Debug)]
 pub struct IblBrdf {
-    texture: Texture,
+    texture: Option<Texture>,
 }
 
 impl IblBrdf {
@@ -77,7 +77,7 @@ impl IblBrdf {
         });
 
         Self {
-            texture: Texture::from_existing(texture, view, sampler),
+            texture: Some(Texture::from_existing(texture, view, sampler)),
         }
     }
 
@@ -96,14 +96,15 @@ impl IblBrdf {
         // Needed only know for processing.
         // Actual rendering later uses the included View in
         // TextureViewDimension::Cube
-        let ibl_brdf_output = dst_texture
-            .texture()
-            .texture()
-            .create_view(&TextureViewDescriptor {
-                label: Some("IRL BRDF DST view"),
-                dimension: Some(TextureViewDimension::D2),
-                ..Default::default()
-            });
+        let ibl_brdf_output =
+            dst_texture
+                .texture_ref()
+                .texture()
+                .create_view(&TextureViewDescriptor {
+                    label: Some("IRL BRDF DST view"),
+                    dimension: Some(TextureViewDimension::D2),
+                    ..Default::default()
+                });
 
         let bind_group_layout =
             device.create_bind_group_layout(&Self::bind_group_layout_descriptor());
@@ -153,7 +154,15 @@ impl IblBrdf {
         })
     }
 
-    pub fn texture(&self) -> &Texture {
-        &self.texture
+    pub fn texture_ref(&self) -> &Texture {
+        self.texture
+            .as_ref()
+            .expect("IBL BRDF texture was already taken!")
+    }
+
+    pub fn texture(mut self) -> Texture {
+        self.texture
+            .take()
+            .expect("IBL BRDF texture was already taken!")
     }
 }
