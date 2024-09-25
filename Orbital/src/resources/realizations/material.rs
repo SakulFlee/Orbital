@@ -1,4 +1,4 @@
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Mutex, MutexGuard, OnceLock};
 
 use cgmath::{num_traits::ToBytes, Vector3, Vector4};
 use log::info;
@@ -18,7 +18,7 @@ use crate::{
     },
 };
 
-use super::{Pipeline, Texture};
+use super::{IblBrdf, Pipeline, Texture};
 
 #[derive(Debug)]
 pub struct Material {
@@ -76,6 +76,29 @@ impl Material {
     /// > This function currently doesn't really do anything, but is kept as-is in case we need to add some functionality here later + calling the unsafe static function.
     pub fn prepare_cache_access() -> &'static mut Cache<MaterialDescriptor, Material> {
         unsafe { Self::cache() }
+    }
+
+    pub unsafe fn get_or_generate_ibl_brdf_lut(
+        device: &Device,
+        queue: &Queue,
+    ) -> MutexGuard<'static, Texture> {
+        static mut CACHE: OnceLock<Mutex<Texture>> = OnceLock::new();
+
+        if CACHE.get().is_none() {
+            info!("IBL BRDF LUT cache doesn't exist! Initializing ...");
+            let _ = CACHE.get_or_init(|| {
+                let ibl_brdf = IblBrdf::generate(device, queue);
+                let texture = ibl_brdf.texture();
+                let mutex = Mutex::new(texture);
+                mutex
+            });
+        }
+
+        CACHE
+            .get()
+            .unwrap()
+            .lock()
+            .expect("IBL BRDF LUT cache access violation!")
     }
 
     pub fn pbr_pipeline_bind_group_layout() -> PipelineBindGroupLayout {
@@ -259,7 +282,7 @@ impl Material {
                     binding: 6,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
-                        sample_type: TextureSampleType::Float { filterable: true },
+                        sample_type: TextureSampleType::Float { filterable: false },
                         view_dimension: TextureViewDimension::D2,
                         multisampled: false,
                     },
@@ -268,7 +291,7 @@ impl Material {
                 BindGroupLayoutEntry {
                     binding: 7,
                     visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                    ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
                     count: None,
                 },
             ],
@@ -354,11 +377,7 @@ impl Material {
         let sky_texture = CubeTexture::from_descriptor(sky, device, queue)?;
         let irradiance_texture = CubeTexture::from_descriptor(irradiance, device, queue)?;
         let radiance_texture = CubeTexture::from_descriptor(radiance, device, queue)?;
-        let ibl_brdf_lut = Texture::from_descriptor(
-            &TextureDescriptor::FilePath("Assets/IBL_BRDF_LUT/ibl_brdf_lut.png"),
-            device,
-            queue,
-        )?;
+        let ibl_brdf_lut = unsafe { Self::get_or_generate_ibl_brdf_lut(device, queue) };
 
         let pipeline_descriptor = PipelineDescriptor::default_skybox();
         let pipeline =

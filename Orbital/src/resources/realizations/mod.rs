@@ -1,5 +1,6 @@
 pub mod camera;
 pub mod cube_texture;
+pub mod ibl_brdf;
 pub mod instance;
 pub mod light;
 pub mod material;
@@ -12,6 +13,7 @@ pub mod vertex;
 
 pub use camera::*;
 pub use cube_texture::*;
+pub use ibl_brdf::*;
 pub use instance::*;
 pub use light::*;
 pub use material::*;
