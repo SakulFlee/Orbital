@@ -77,6 +77,8 @@ struct PBRData {
     NdotV: f32,
     // Color reflectance at normal standard dielectric incidence
     F0: vec3<f32>,
+    // Rough Fresnel Schlick
+    F: vec3<f32>,
 }
 
 @group(0) @binding(0) var normal_texture: texture_2d<f32>;
@@ -140,7 +142,7 @@ fn entrypoint_vertex(
     out.position = camera.perspective_view_projection_matrix * world_position;
 
     // Actual position in world (no perspective)
-    out.world_position = world_position.xyz / world_position.w;
+    out.world_position = world_position.xyz;
 
     // Transform UV
     out.uv = (model_space_matrix * vec4<f32>(vertex.uv, 0.0, 0.0)).xy;
@@ -210,14 +212,13 @@ fn calculate_point_light_reflectance(pbr: PBRData, world_position: vec3<f32>) ->
 
 fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
     // Pre-calculations for IBL/Ambient Light
-    let F = fresnel_schlick_roughness(pbr.NdotV, pbr.F0, pbr.roughness);
-    let kD = mix(vec3<f32>(1.0) - F, vec3<f32>(0.0), pbr.metallic);
+    let kD = (1.0 - pbr.F) * (1.0 - pbr.metallic);
 
     // IBL Diffuse
     let diffuse_ibl = kD * (pbr.irradiance * pbr.albedo);
 
     // IBL Specular
-    var specular_ibl = pbr.radiance * (pbr.F0 * pbr.brdf_lut.x + pbr.brdf_lut.y);
+    var specular_ibl = pbr.radiance * (pbr.F * pbr.brdf_lut.x + pbr.brdf_lut.y);
 
     // Ambient light calculation (IBL)
     let ambient = (diffuse_ibl + specular_ibl) * pbr.occlusion * pbr.emissive;
@@ -349,11 +350,13 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     let brdf_lut = textureSample(
         ibl_brdf_lut_texture,
         ibl_brdf_lut_sampler,
-        vec2<f32>(NdotV, roughness)
+        vec2<f32>(max(NdotV, 0.0), roughness)
     ).rg;
 
     // Calculate reflectance at normal incidence
     var F0 = mix(F0_DIELECTRIC_STANDARD, albedo, metallic);
+
+    let F = fresnel_schlick_roughness(NdotV, F0, roughness);
 
     var out: PBRData;
     out.albedo = albedo;
@@ -370,5 +373,6 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     out.R = R;
     out.NdotV = NdotV;
     out.F0 = F0;
+    out.F = F;
     return out;
 }
