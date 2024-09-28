@@ -350,7 +350,7 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     let brdf_lut = textureSample(
         ibl_brdf_lut_texture,
         ibl_brdf_lut_sampler,
-        vec2<f32>(max(NdotV, 0.0), roughness)
+        vec2<f32>(max(NdotV, 0.0), 1.0 - roughness)
     ).rg;
 
     // Calculate reflectance at normal incidence
