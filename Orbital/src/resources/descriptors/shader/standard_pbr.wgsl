@@ -79,6 +79,8 @@ struct PBRData {
     F0: vec3<f32>,
     // Rough Fresnel Schlick
     F: vec3<f32>,
+    // Metallic scale for IBL/Ambient Light
+    kD: vec3<f32>,
 }
 
 @group(0) @binding(0) var normal_texture: texture_2d<f32>;
@@ -202,26 +204,21 @@ fn calculate_point_light_reflectance(pbr: PBRData, world_position: vec3<f32>) ->
         let denominator = 4.0 * pbr.NdotV * NdotL + 0.0001; // +0.0001 prevents division by zero
         let specular = numerator / denominator;
 
-        let kD = mix(vec3<f32>(1.0) - F, vec3<f32>(0.0), pbr.metallic);
-
         // Adding radiance to Lo
-        Lo += (kD * pbr.albedo / PI + specular) * radiance * NdotL;
+        Lo += (pbr.kD * pbr.albedo / PI + specular) * radiance * NdotL;
     }
     return Lo;
 }
 
 fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
-    // Pre-calculations for IBL/Ambient Light
-    let kD = (1.0 - pbr.F) * (1.0 - pbr.metallic);
-
     // IBL Diffuse
-    let diffuse_ibl = kD * (pbr.irradiance * pbr.albedo);
+    let diffuse_ibl = pbr.irradiance * pbr.albedo;
 
     // IBL Specular
     var specular_ibl = pbr.radiance * (pbr.F * pbr.brdf_lut.x + pbr.brdf_lut.y);
 
     // Ambient light calculation (IBL)
-    let ambient = (diffuse_ibl + specular_ibl) * pbr.occlusion * pbr.emissive;
+    let ambient = pbr.kD * (diffuse_ibl + specular_ibl) * pbr.occlusion * pbr.emissive;
     return ambient;
 }
 
@@ -358,6 +355,9 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
 
     let F = fresnel_schlick_roughness(NdotV, F0, roughness);
 
+    // Pre-calculations for IBL/Ambient Light
+    let kD = (1.0 - F) * (1.0 - metallic);
+
     var out: PBRData;
     out.albedo = albedo;
     out.metallic = metallic;
@@ -374,5 +374,6 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     out.NdotV = NdotV;
     out.F0 = F0;
     out.F = F;
+    out.kD = kD;
     return out;
 }
