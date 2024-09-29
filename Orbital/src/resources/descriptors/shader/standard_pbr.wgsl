@@ -308,47 +308,78 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     let NdotV = max(dot(N, V), 0.0);
 
     // Material properties
-    let albedo = pow(textureSample(
+
+    let albedo_sample = textureSample(
         albedo_texture,
         albedo_sampler,
         fragment_data.uv
-    ).rgb * pbr_factors.albedo_factor.rgb, vec3<f32>(camera.global_gamma));
-    let metallic = textureSample(
+    ).rgb;
+    let albedo_factored = albedo_sample * pbr_factors.albedo_factor.rgb;
+    let albedo_clamped = clamp(albedo_factored, vec3(0.0), vec3(1.0));
+    let albedo_gamma_applied = pow(albedo_clamped, vec3(camera.global_gamma));
+    let albedo = albedo_gamma_applied;
+
+    let metallic_sample = textureSample(
         metallic_texture,
         metallic_sampler,
         fragment_data.uv
-    ).r * pbr_factors.metallic_factor;
-    let roughness = textureSample(
+    ).r;
+    let metallic_factored = metallic_sample * pbr_factors.metallic_factor;
+    let metallic_clamped = clamp(metallic_factored, 0.0, 1.0);
+    let metallic = metallic_clamped;
+
+    let roughness_sample = textureSample(
         roughness_texture,
         roughness_sampler,
         fragment_data.uv
-    ).r * pbr_factors.roughness_factor;
-    let occlusion = textureSample(
+    ).r;
+    let roughness_factored = roughness_sample * pbr_factors.roughness_factor;
+    let roughness_clamped = clamp(roughness_factored, 0.0, 1.0);
+    let roughness = roughness_clamped;
+
+    let occlusion_sample = textureSample(
         occlusion_texture,
         occlusion_sampler,
         fragment_data.uv
     ).r;
-    let emissive = textureSample(
+    let occlusion_clamped = clamp(occlusion_sample, 0.0, 1.0);
+    let occlusion = occlusion_clamped;
+
+    let emissive_sample = textureSample(
         emissive_texture,
         emissive_sampler,
         fragment_data.uv
     ).rgb;
-    let irradiance = textureSample(
+    let emissive_clamped = clamp(emissive_sample, vec3(0.0), vec3(1.0));
+    let emissive_gamma_applied = pow(emissive_clamped, vec3(camera.global_gamma));
+    let emissive = emissive_clamped;
+
+    let irradiance_sample = textureSample(
         irradiance_env_map,
         irradiance_sampler,
         N
     ).rgb;
-    let radiance = textureSampleLevel(
+    let irradiance_clamped = clamp(irradiance_sample, vec3(0.0), vec3(1.0));
+    let irradiance_gamma_applied = pow(irradiance_clamped, vec3(camera.global_gamma));
+    let irradiance = irradiance_gamma_applied;
+
+    let radiance_sample = textureSampleLevel(
         radiance_env_map,
         radiance_sampler,
         R,
         roughness
     ).rgb;
-    let brdf_lut = textureSample(
+    let radiance_clamped = clamp(radiance_sample, vec3(0.0), vec3(1.0));
+    let radiance_gamma_applied = pow(radiance_clamped, vec3(camera.global_gamma));
+    let radiance = radiance_gamma_applied;
+
+    let brdf_lut_sample = textureSample(
         ibl_brdf_lut_texture,
         ibl_brdf_lut_sampler,
         vec2<f32>(max(NdotV, 0.0), 1.0 - roughness)
     ).rg;
+    let brdf_lut_clamped = clamp(brdf_lut_sample, vec2(0.0), vec2(1.0));
+    let brdf_lut = brdf_lut_clamped;
 
     // Calculate reflectance at normal incidence
     var F0 = mix(F0_DIELECTRIC_STANDARD, albedo, metallic);
