@@ -83,7 +83,7 @@ impl From<&Material> for MaterialDescriptor {
                     x.dimensions().into(),
                 )
             })
-            .unwrap_or(TextureDescriptor::UNIFORM_WHITE);
+            .unwrap_or(TextureDescriptor::UNIFORM_BLACK);
 
         Self::PBR {
             normal,
