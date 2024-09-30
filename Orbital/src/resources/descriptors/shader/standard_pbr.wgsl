@@ -165,15 +165,23 @@ fn entrypoint_vertex(
 fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     let pbr = pbr_data(in);
 
-    // Point Light reflectance light
-    let point_light_reflectance = calculate_point_light_reflectance(pbr, in.world_position);
+    var output = vec3(0.0);
 
     // IBL Ambient light
-    let ambient = calculate_ambient_ibl(pbr);
+    var ambient = calculate_ambient_ibl(pbr);
+    // Ambient Occlusion
+    ambient *= pbr.occlusion;
+    output += ambient;
 
-    // Combine ambient and light reflection output
-    let raw_color = ambient + point_light_reflectance;
-    let tone_mapped_color = hdr_tone_map_gamma_correction(raw_color);
+    // Point Light reflectance light
+    let point_light_reflectance = calculate_point_light_reflectance(pbr, in.world_position);
+    output += point_light_reflectance;
+
+    // Add emissive "ontop"
+    output += pbr.emissive;
+
+    // Tonemap / HDR 
+    let tone_mapped_color = hdr_tone_map_gamma_correction(output);
     return vec4<f32>(tone_mapped_color, 1.0);
 }
 
@@ -196,7 +204,7 @@ fn calculate_point_light_reflectance(pbr: PBRData, world_position: vec3<f32>) ->
 
         // Cook-Torrance BRDF
         let NDF = DistributionGGX(pbr.N, H, pbr.roughness);
-        let G = geometry_smith(pbr.N, pbr.V, L, pbr.roughness);
+        let G = geometry_smith(pbr, L, pbr.roughness);
         let F = fresnel_schlick(max(dot(H, pbr.V), 0.0), pbr.F0);
 
         let numerator = NDF * G * F;
@@ -210,6 +218,7 @@ fn calculate_point_light_reflectance(pbr: PBRData, world_position: vec3<f32>) ->
     return Lo;
 }
 
+// NOTE: kD removed
 fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
     // IBL Diffuse
     let diffuse_color = (pbr.albedo * (vec3(1.0) - pbr.F0)) * (1.0 - pbr.metallic);
@@ -220,12 +229,7 @@ fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
     var specular_ibl = pbr.radiance * (specular_color * pbr.brdf_lut.x + pbr.brdf_lut.y);
 
     // Ambient light calculation (IBL)
-    // let ambient = pbr.kD * (diffuse_ibl + specular_ibl) * pbr.occlusion * pbr.emissive;
-    // return ambient;
     return diffuse_ibl + specular_ibl;
-    // TODO: occlusion
-    // TODO: emissive
-    // TODO: kD?
 }
 
 /// Samples the fragment's normal and transforms it into world space
@@ -275,11 +279,10 @@ fn geometry_schlick_ggx(NdotV: f32, roughness: f32) -> f32 {
     return num / denom;
 }
 
-fn geometry_smith(N: vec3<f32>, V: vec3<f32>, L: vec3<f32>, roughness: f32) -> f32 {
-    let NdotV = max(dot(N, V), 0.0);
-    let NdotL = max(dot(N, L), 0.0);
+fn geometry_smith(pbr: PBRData, L: vec3<f32>, roughness: f32) -> f32 {
+    let NdotL = max(dot(pbr.N, L), 0.0);
 
-    let ggx2 = geometry_schlick_ggx(NdotV, roughness);
+    let ggx2 = geometry_schlick_ggx(pbr.NdotV, roughness);
     let ggx1 = geometry_schlick_ggx(NdotL, roughness);
 
     return ggx1 * ggx2;
