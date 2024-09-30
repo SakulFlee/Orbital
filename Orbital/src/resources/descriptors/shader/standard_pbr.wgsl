@@ -212,14 +212,20 @@ fn calculate_point_light_reflectance(pbr: PBRData, world_position: vec3<f32>) ->
 
 fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
     // IBL Diffuse
-    let diffuse_ibl = pbr.irradiance * pbr.albedo;
+    let diffuse_color = (pbr.albedo * (vec3(1.0) - pbr.F0)) * (1.0 - pbr.metallic);
+    let diffuse_ibl = pbr.irradiance * diffuse_color;
 
     // IBL Specular
-    var specular_ibl = pbr.radiance * (pbr.F * pbr.brdf_lut.x + pbr.brdf_lut.y);
+    let specular_color = mix(pbr.F0, pbr.albedo, pbr.metallic);
+    var specular_ibl = pbr.radiance * (specular_color * pbr.brdf_lut.x + pbr.brdf_lut.y);
 
     // Ambient light calculation (IBL)
-    let ambient = pbr.kD * (diffuse_ibl + specular_ibl) * pbr.occlusion * pbr.emissive;
-    return ambient;
+    // let ambient = pbr.kD * (diffuse_ibl + specular_ibl) * pbr.occlusion * pbr.emissive;
+    // return ambient;
+    return diffuse_ibl + specular_ibl;
+    // TODO: occlusion
+    // TODO: emissive
+    // TODO: kD?
 }
 
 /// Samples the fragment's normal and transforms it into world space
@@ -306,7 +312,7 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     );
     out.N = sample_normal_from_map(fragment_data.uv, fragment_data.world_position, out.TBN);
     out.V = normalize(camera.position.xyz - fragment_data.world_position);
-    out.R = reflect(-out.V, out.N);
+    out.R = normalize(reflect(-out.V, out.N));
     out.NdotV = max(dot(out.N, out.V), 0.0);
 
     // Material properties
