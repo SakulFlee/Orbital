@@ -73,8 +73,6 @@ struct PBRData {
     V: vec3<f32>,
     // Dot product (multiplication) of normal and outgoing light
     dotNV: f32,
-    // Rough Fresnel Schlick
-    F: vec3<f32>,
 }
 
 @group(0) @binding(0) var normal_texture: texture_2d<f32>;
@@ -366,8 +364,6 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     ).rg;
     let brdf_lut_clamped = clamp(brdf_lut_sample, vec2(0.0), vec2(1.0));
     out.brdf_lut = brdf_lut_clamped;
-
-    out.F = fresnel_schlick_roughness(out.dotNV, out.F0, out.roughness);
 
     return out;
 }
