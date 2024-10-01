@@ -196,7 +196,6 @@ fn brdf(point_light: PointLight, pbr: PBRData, world_position: vec3<f32>) -> vec
     let H = normalize(pbr.V + L);
 
     let dotNL = clamp(dot(pbr.N, L), 0.0, 1.0);
-    // let dotLH = clamp(dot(L, H), 0.0, 1.0);
     let dotNH = clamp(dot(pbr.N, H), 0.0, 1.0);
 
     var Lo: vec3<f32>;
