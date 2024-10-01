@@ -151,7 +151,6 @@ fn entrypoint_vertex(
 @fragment
 fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     let pbr = pbr_data(in);
-
     var output = vec3(0.0);
 
     // IBL Ambient light
@@ -359,6 +358,3 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
 
     return out;
 }
-
-// TODO: Check for unused functions
-// TODO: Check for unused variables
