@@ -65,22 +65,12 @@ struct PBRData {
     radiance: vec3<f32>,
     // BRDF LuT (look-up-table) (used for IBL)
     brdf_lut: vec2<f32>,
-    // Tangent-Bitangent-Normal matrix
-    TBN: mat3x3<f32>,
     // Normal
     N: vec3<f32>,
     // Outgoing light direction originating from camera
     V: vec3<f32>,
-    // Specular lighr reflection 
-    R: vec3<f32>,
     // Dot product (multiplication) of normal and outgoing light
-    dotNV: f32,
-    // Color reflectance at normal standard dielectric incidence
-    F0: vec3<f32>,
-    // Rough Fresnel Schlick
-    F: vec3<f32>,
-    // Metallic scale for IBL/Ambient Light
-    kD: vec3<f32>,
+    NdotV: f32,
 }
 
 @group(0) @binding(0) var normal_texture: texture_2d<f32>;
@@ -118,9 +108,6 @@ struct PBRData {
 
 const PI = 3.14159265359; 
 const F0_DEFAULT = vec3<f32>(0.04);
-
-const POINT_LIGHT_DEFAULT_A = 0.1;
-const POINT_LIGHT_DEFAULT_B = 0.1;
 
 @vertex
 fn entrypoint_vertex(
@@ -164,13 +151,10 @@ fn entrypoint_vertex(
 @fragment
 fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     let pbr = pbr_data(in);
-
     var output = vec3(0.0);
 
     // IBL Ambient light
     var ambient = calculate_ambient_ibl(pbr);
-    // Ambient Occlusion
-    ambient *= pbr.occlusion;
     output += ambient;
 
     // Point Light reflectance light
@@ -195,23 +179,23 @@ fn brdf(point_light: PointLight, pbr: PBRData, world_position: vec3<f32>) -> vec
     let L = normalize(point_light.position.xyz - world_position);
     let H = normalize(pbr.V + L);
 
-    let dotNL = clamp(dot(pbr.N, L), 0.0, 1.0);
-    let dotNH = clamp(dot(pbr.N, H), 0.0, 1.0);
+    let NdotL = clamp(dot(pbr.N, L), 0.0, 1.0);
+    let NdotH = clamp(dot(pbr.N, H), 0.0, 1.0);
 
     var Lo: vec3<f32>;
-    if dotNL > 0.0 {
+    if NdotL > 0.0 {
         let roughness = max(0.05, pbr.roughness); // TODO: Needed?
         // Normal distribution of the microfacets
-        let D = distribution_ggx(dotNH, roughness);
+        let D = distribution_ggx(NdotH, roughness);
         // Geometric/Microfacet shadowing term
-        let G = schlick_smith_ggx(dotNL, pbr.dotNV, roughness);
+        let G = schlick_smith_ggx(NdotL, pbr.NdotV, roughness);
         // Fresnel factor (i.e. reflectance depending on angle of camera)
-        let F = fresnel_schlick(pbr.dotNV, pbr);
+        let F = fresnel_schlick(pbr.NdotV, pbr);
 
         let nominator = D * F * G;
-        let denominator = 4.0 * dotNL * pbr.dotNV + 0.0001; // +0.0001 prevents division by zero
+        let denominator = 4.0 * NdotL * pbr.NdotV + 0.0001; // +0.0001 prevents division by zero
         let specular = nominator / denominator;
-        Lo += specular * dotNL * point_light.color.rgb;
+        Lo += specular * NdotL * point_light.color.rgb;
     }
     return Lo;
 }
@@ -228,29 +212,36 @@ fn calculate_point_light_specular_contribution(pbr: PBRData, world_position: vec
 }
 
 fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
+    // Calculate reflectance at normal incidence
+    let F0 = mix(F0_DEFAULT, pbr.albedo, pbr.metallic);
+
     // IBL Diffuse
-    let diffuse_color = (pbr.albedo * (vec3(1.0) - pbr.F0)) * (1.0 - pbr.metallic);
+    let diffuse_color = (pbr.albedo * (vec3(1.0) - F0)) * (1.0 - pbr.metallic);
     let diffuse_ibl = pbr.irradiance * diffuse_color;
 
     // IBL Specular
-    let specular_color = mix(pbr.F0, pbr.albedo, pbr.metallic);
+    let specular_color = mix(F0, pbr.albedo, pbr.metallic);
     var specular_ibl = pbr.radiance * (specular_color * pbr.brdf_lut.x + pbr.brdf_lut.y);
 
-    // Ambient light calculation (IBL)
-    return diffuse_ibl + specular_ibl;
+    // Ambient light calculation (IBL), multiplied by ambient occlusion
+    return (diffuse_ibl + specular_ibl) * pbr.occlusion;
 }
 
 /// Samples the fragment's normal and transforms it into world space
-fn sample_normal_from_map(uv: vec2<f32>, world_position: vec3<f32>, TBN: mat3x3<f32>) -> vec3<f32> {
+fn sample_normal_from_map(fragment_data: FragmentData) -> vec3<f32> {
     let normal_sample = textureSample(
         normal_texture,
         normal_sampler,
-        uv
+        fragment_data.uv
     ).rgb;
-
     let tangent_normal = 2.0 * normal_sample - 1.0;
-    let N = normalize(TBN * tangent_normal);
 
+    let TBN = mat3x3(
+        fragment_data.tangent,
+        fragment_data.bitangent,
+        fragment_data.normal,
+    );
+    let N = normalize(TBN * tangent_normal);
     return N;
 }
 
@@ -266,20 +257,20 @@ fn fresnel_schlick_roughness(cos_theta: f32, F0: vec3<f32>, roughness: f32) -> v
 }
 
 /// Geometric Shadowing
-fn schlick_smith_ggx(dotNL: f32, dotNV: f32, roughness: f32) -> f32 {
+fn schlick_smith_ggx(NdotL: f32, NdotV: f32, roughness: f32) -> f32 {
     let r = roughness + 1.0;
     let k = (r * r) / 8.0;
-    let GL = dotNL / (dotNL * (1.0 - k) + k);
-    let GV = dotNV / (dotNV * (1.0 - k) + k);
+    let GL = NdotL / (NdotL * (1.0 - k) + k);
+    let GV = NdotV / (NdotV * (1.0 - k) + k);
     return GL * GV;
 }
 
 // Normal distribution
-fn distribution_ggx(dotNH: f32, roughness: f32) -> f32 {
+fn distribution_ggx(NdotH: f32, roughness: f32) -> f32 {
     let alpha = roughness * roughness;
     let alpha_squared = alpha * alpha;
 
-    let denom = (dotNH * dotNH) * (alpha_squared - 1.0) + 1.0;
+    let denom = (NdotH * NdotH) * (alpha_squared - 1.0) + 1.0;
     return alpha_squared / (PI * denom * denom);
 }
 
@@ -287,15 +278,10 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     var out: PBRData;
 
     // Precalculations
-    out.TBN = mat3x3(
-        fragment_data.tangent,
-        fragment_data.bitangent,
-        fragment_data.normal,
-    );
-    out.N = sample_normal_from_map(fragment_data.uv, fragment_data.world_position, out.TBN);
+    out.N = sample_normal_from_map(fragment_data);
     out.V = normalize(camera.position.xyz - fragment_data.world_position);
-    out.R = normalize(reflect(-out.V, out.N));
-    out.dotNV = clamp(dot(out.N, out.V), 0.0, 1.0);
+    let R = normalize(reflect(-out.V, out.N));
+    out.NdotV = clamp(dot(out.N, out.V), 0.0, 1.0);
 
     // Material properties
     let albedo_sample = textureSample(
@@ -355,7 +341,7 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     let radiance_sample = textureSampleLevel(
         radiance_env_map,
         radiance_sampler,
-        out.R,
+        R,
         out.roughness
     ).rgb;
     let radiance_clamped = clamp(radiance_sample, vec3(0.0), vec3(1.0));
@@ -365,21 +351,10 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     let brdf_lut_sample = textureSample(
         ibl_brdf_lut_texture,
         ibl_brdf_lut_sampler,
-        vec2<f32>(max(out.dotNV, 0.0), clamp(1.0 - out.roughness, 0.0, 1.0))
+        vec2<f32>(max(out.NdotV, 0.0), clamp(1.0 - out.roughness, 0.0, 1.0))
     ).rg;
     let brdf_lut_clamped = clamp(brdf_lut_sample, vec2(0.0), vec2(1.0));
     out.brdf_lut = brdf_lut_clamped;
 
-    // Calculate reflectance at normal incidence
-    out.F0 = mix(F0_DEFAULT, out.albedo, out.metallic);
-
-    out.F = fresnel_schlick_roughness(out.dotNV, out.F0, out.roughness);
-
-    // Pre-calculations for IBL/Ambient Light
-    out.kD = (1.0 - out.F) * (1.0 - out.metallic);
-
     return out;
 }
-
-// TODO: Check for unused functions
-// TODO: Check for unused variables
