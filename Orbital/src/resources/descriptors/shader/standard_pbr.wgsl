@@ -74,7 +74,7 @@ struct PBRData {
     // Specular lighr reflection 
     R: vec3<f32>,
     // Dot product (multiplication) of normal and outgoing light
-    NdotV: f32,
+    dotNV: f32,
     // Color reflectance at normal standard dielectric incidence
     F0: vec3<f32>,
     // Rough Fresnel Schlick
@@ -117,7 +117,7 @@ struct PBRData {
 @group(3) @binding(7) var ibl_brdf_lut_sampler: sampler;
 
 const PI = 3.14159265359; 
-const F0_DIELECTRIC_STANDARD = vec3<f32>(0.04);
+const F0_DEFAULT = vec3<f32>(0.04);
 
 const POINT_LIGHT_DEFAULT_A = 0.1;
 const POINT_LIGHT_DEFAULT_B = 0.1;
@@ -174,7 +174,7 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     output += ambient;
 
     // Point Light reflectance light
-    let point_light_reflectance = calculate_point_light_reflectance(pbr, in.world_position);
+    let point_light_reflectance = calculate_point_light_specular_contribution(pbr, in.world_position);
     output += point_light_reflectance;
 
     // Add emissive "ontop"
@@ -191,32 +191,69 @@ fn hdr_tone_map_gamma_correction(color: vec3<f32>) -> vec3<f32> {
     return result;
 }
 
-fn calculate_point_light_reflectance(pbr: PBRData, world_position: vec3<f32>) -> vec3<f32> {
-    var Lo = vec3<f32>(0.0);
-    for (var i: u32 = 0; i < arrayLength(&point_light_store); i++) {
-        let point_light = point_light_store[i];   
+fn brdf(point_light: PointLight, pbr: PBRData, world_position: vec3<f32>) -> vec3<f32> {
+    let L = normalize(point_light.position.xyz - world_position);
+    let H = normalize(pbr.V + L);
 
-        // Calculate per-light radiance
-        let L = normalize(point_light.position.xyz - world_position);
-        let H = normalize(pbr.V + L);
+    let dotNL = clamp(dot(pbr.N, L), 0.0, 1.0);
+    // let dotLH = clamp(dot(L, H), 0.0, 1.0);
+    let dotNH = clamp(dot(pbr.N, H), 0.0, 1.0);
 
-        let radiance = point_light_radiance(point_light, world_position);
+    var Lo: vec3<f32>;
+    if dotNL > 0.0 {
+        let roughness = max(0.05, pbr.roughness); // TODO: Needed?
+        // Normal distribution of the microfacets
+        let D = distribution_ggx(dotNH, roughness);
+        // Geometric/Microfacet shadowing term
+        let G = schlick_smith_ggx(dotNL, pbr.dotNV, roughness);
+        // Fresnel factor (i.e. reflectance depending on angle of camera)
+        let F = fresnel_schlick(pbr.dotNV, pbr);
 
-        // Cook-Torrance BRDF
-        let NDF = DistributionGGX(pbr.N, H, pbr.roughness);
-        let G = geometry_smith(pbr, L, pbr.roughness);
-        let F = fresnel_schlick(max(dot(H, pbr.V), 0.0), pbr.F0);
-
-        let numerator = NDF * G * F;
-        let NdotL = max(dot(pbr.N, L), 0.0);
-        let denominator = 4.0 * pbr.NdotV * NdotL + 0.0001; // +0.0001 prevents division by zero
-        let specular = numerator / denominator;
-
-        // Adding radiance to Lo
-        Lo += (pbr.kD * pbr.albedo / PI + specular) * radiance * NdotL;
+        let nominator = D * F * G;
+        let denominator = 4.0 * dotNL * pbr.dotNV + 0.0001;
+        let specular = nominator / denominator; // +0.0001 prevents division by zero
+        Lo += specular * dotNL * point_light.color.rgb;
     }
     return Lo;
 }
+
+fn calculate_point_light_specular_contribution(pbr: PBRData, world_position: vec3<f32>) -> vec3<f32> {
+    var Lo = vec3(0.0);
+
+    for (var i: u32 = 0; i < arrayLength(&point_light_store); i++) {
+        let point_light = point_light_store[i];
+        Lo += brdf(point_light, pbr, world_position);
+    }
+
+    return Lo;
+}
+
+// fn calculate_point_light_reflectance(pbr: PBRData, world_position: vec3<f32>) -> vec3<f32> {
+//     var Lo = vec3<f32>(0.0);
+//     for (var i: u32 = 0; i < arrayLength(&point_light_store); i++) {
+//         let point_light = point_light_store[i];   
+
+//         // Calculate per-light radiance
+//         let L = normalize(point_light.position.xyz - world_position);
+//         let H = normalize(pbr.V + L);
+
+//         let radiance = point_light_radiance(point_light, world_position);
+
+//         // Cook-Torrance BRDF
+//         let NDF = DistributionGGX(pbr.N, H, pbr.roughness);
+//         let G = geometry_smith(pbr, L, pbr.roughness);
+//         let F = fresnel_schlick(max(dot(H, pbr.V), 0.0), pbr.F0);
+
+//         let numerator = NDF * G * F;
+//         let NdotL = max(dot(pbr.N, L), 0.0);
+//         let denominator = 4.0 * pbr.dotNV * NdotL + 0.0001; // +0.0001 prevents division by zero
+//         let specular = numerator / denominator;
+
+//         // Adding radiance to Lo
+//         Lo += (pbr.kD * pbr.albedo / PI + specular) * radiance * NdotL;
+//     }
+//     return Lo;
+// }
 
 // NOTE: kD removed
 fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
@@ -246,12 +283,33 @@ fn sample_normal_from_map(uv: vec2<f32>, world_position: vec3<f32>, TBN: mat3x3<
     return N;
 }
 
-fn fresnel_schlick(cos_theta: f32, F0: vec3<f32>) -> vec3<f32> {
-    return F0 + (1.0 - F0) * pow(clamp(1.0 - cos_theta, 0.0, 1.0), 5.0);
+// Fresnel
+fn fresnel_schlick(cos_theta: f32, pbr: PBRData) -> vec3<f32> {
+    let F0 = mix(F0_DEFAULT, pbr.albedo, pbr.metallic);
+    let F = F0 + (1.0 - F0) * pow(1.0 - cos_theta, 5.0);
+    return F;
 }
 
 fn fresnel_schlick_roughness(cos_theta: f32, F0: vec3<f32>, roughness: f32) -> vec3<f32> {
     return F0 + (max(vec3<f32>(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cos_theta, 0.0, 1.0), 5.0);
+}
+
+/// Geometric Shadowing
+fn schlick_smith_ggx(dotNL: f32, dotNV: f32, roughness: f32) -> f32 {
+    let r = roughness + 1.0;
+    let k = (r * r) / 8.0;
+    let GL = dotNL / (dotNL * (1.0 - k) + k);
+    let GV = dotNV / (dotNV * (1.0 - k) + k);
+    return GL * GV;
+}
+
+// Normal distribution
+fn distribution_ggx(dotNH: f32, roughness: f32) -> f32 {
+    let alpha = roughness * roughness;
+    let alpha_squared = alpha * alpha;
+
+    let denom = (dotNH * dotNH) * (alpha_squared - 1.0) + 1.0;
+    return alpha_squared / (PI * denom * denom);
 }
 
 fn DistributionGGX(N: vec3<f32>, H: vec3<f32>, roughness: f32) -> f32 {
@@ -269,12 +327,12 @@ fn DistributionGGX(N: vec3<f32>, H: vec3<f32>, roughness: f32) -> f32 {
 }
 
 // Schlick-GGX approximation of geometric attenuation function using Smith's method.
-fn geometry_schlick_ggx(NdotV: f32, roughness: f32) -> f32 {
+fn geometry_schlick_ggx(dotNV: f32, roughness: f32) -> f32 {
     let r = roughness + 1.0;
     let k = (r * r) / 8.0;
 
-    let num = NdotV;
-    let denom = NdotV * (1.0 - k) + k;
+    let num = dotNV;
+    let denom = dotNV * (1.0 - k) + k;
 
     return num / denom;
 }
@@ -282,7 +340,7 @@ fn geometry_schlick_ggx(NdotV: f32, roughness: f32) -> f32 {
 fn geometry_smith(pbr: PBRData, L: vec3<f32>, roughness: f32) -> f32 {
     let NdotL = max(dot(pbr.N, L), 0.0);
 
-    let ggx2 = geometry_schlick_ggx(pbr.NdotV, roughness);
+    let ggx2 = geometry_schlick_ggx(pbr.dotNV, roughness);
     let ggx1 = geometry_schlick_ggx(NdotL, roughness);
 
     return ggx1 * ggx2;
@@ -316,7 +374,7 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     out.N = sample_normal_from_map(fragment_data.uv, fragment_data.world_position, out.TBN);
     out.V = normalize(camera.position.xyz - fragment_data.world_position);
     out.R = normalize(reflect(-out.V, out.N));
-    out.NdotV = max(dot(out.N, out.V), 0.0);
+    out.dotNV = clamp(dot(out.N, out.V), 0.0, 1.0);
 
     // Material properties
     let albedo_sample = textureSample(
@@ -386,18 +444,21 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     let brdf_lut_sample = textureSample(
         ibl_brdf_lut_texture,
         ibl_brdf_lut_sampler,
-        vec2<f32>(max(out.NdotV, 0.0), clamp(1.0 - out.roughness, 0.0, 1.0))
+        vec2<f32>(max(out.dotNV, 0.0), clamp(1.0 - out.roughness, 0.0, 1.0))
     ).rg;
     let brdf_lut_clamped = clamp(brdf_lut_sample, vec2(0.0), vec2(1.0));
     out.brdf_lut = brdf_lut_clamped;
 
     // Calculate reflectance at normal incidence
-    out.F0 = mix(F0_DIELECTRIC_STANDARD, out.albedo, out.metallic);
+    out.F0 = mix(F0_DEFAULT, out.albedo, out.metallic);
 
-    out.F = fresnel_schlick_roughness(out.NdotV, out.F0, out.roughness);
+    out.F = fresnel_schlick_roughness(out.dotNV, out.F0, out.roughness);
 
     // Pre-calculations for IBL/Ambient Light
     out.kD = (1.0 - out.F) * (1.0 - out.metallic);
 
     return out;
 }
+
+// TODO: Check for unused functions
+// TODO: Check for unused variables
