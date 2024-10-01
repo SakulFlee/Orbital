@@ -72,7 +72,7 @@ struct PBRData {
     // Outgoing light direction originating from camera
     V: vec3<f32>,
     // Dot product (multiplication) of normal and outgoing light
-    dotNV: f32,
+    NdotV: f32,
 }
 
 @group(0) @binding(0) var normal_texture: texture_2d<f32>;
@@ -187,23 +187,23 @@ fn brdf(point_light: PointLight, pbr: PBRData, world_position: vec3<f32>) -> vec
     let L = normalize(point_light.position.xyz - world_position);
     let H = normalize(pbr.V + L);
 
-    let dotNL = clamp(dot(pbr.N, L), 0.0, 1.0);
-    let dotNH = clamp(dot(pbr.N, H), 0.0, 1.0);
+    let NdotL = clamp(dot(pbr.N, L), 0.0, 1.0);
+    let NdotH = clamp(dot(pbr.N, H), 0.0, 1.0);
 
     var Lo: vec3<f32>;
-    if dotNL > 0.0 {
+    if NdotL > 0.0 {
         let roughness = max(0.05, pbr.roughness); // TODO: Needed?
         // Normal distribution of the microfacets
-        let D = distribution_ggx(dotNH, roughness);
+        let D = distribution_ggx(NdotH, roughness);
         // Geometric/Microfacet shadowing term
-        let G = schlick_smith_ggx(dotNL, pbr.dotNV, roughness);
+        let G = schlick_smith_ggx(NdotL, pbr.NdotV, roughness);
         // Fresnel factor (i.e. reflectance depending on angle of camera)
-        let F = fresnel_schlick(pbr.dotNV, pbr);
+        let F = fresnel_schlick(pbr.NdotV, pbr);
 
         let nominator = D * F * G;
-        let denominator = 4.0 * dotNL * pbr.dotNV + 0.0001; // +0.0001 prevents division by zero
+        let denominator = 4.0 * NdotL * pbr.NdotV + 0.0001; // +0.0001 prevents division by zero
         let specular = nominator / denominator;
-        Lo += specular * dotNL * point_light.color.rgb;
+        Lo += specular * NdotL * point_light.color.rgb;
     }
     return Lo;
 }
@@ -261,20 +261,20 @@ fn fresnel_schlick_roughness(cos_theta: f32, F0: vec3<f32>, roughness: f32) -> v
 }
 
 /// Geometric Shadowing
-fn schlick_smith_ggx(dotNL: f32, dotNV: f32, roughness: f32) -> f32 {
+fn schlick_smith_ggx(NdotL: f32, NdotV: f32, roughness: f32) -> f32 {
     let r = roughness + 1.0;
     let k = (r * r) / 8.0;
-    let GL = dotNL / (dotNL * (1.0 - k) + k);
-    let GV = dotNV / (dotNV * (1.0 - k) + k);
+    let GL = NdotL / (NdotL * (1.0 - k) + k);
+    let GV = NdotV / (NdotV * (1.0 - k) + k);
     return GL * GV;
 }
 
 // Normal distribution
-fn distribution_ggx(dotNH: f32, roughness: f32) -> f32 {
+fn distribution_ggx(NdotH: f32, roughness: f32) -> f32 {
     let alpha = roughness * roughness;
     let alpha_squared = alpha * alpha;
 
-    let denom = (dotNH * dotNH) * (alpha_squared - 1.0) + 1.0;
+    let denom = (NdotH * NdotH) * (alpha_squared - 1.0) + 1.0;
     return alpha_squared / (PI * denom * denom);
 }
 
@@ -290,7 +290,7 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     out.N = sample_normal_from_map(fragment_data.uv, fragment_data.world_position, out.TBN);
     out.V = normalize(camera.position.xyz - fragment_data.world_position);
     let R = normalize(reflect(-out.V, out.N));
-    out.dotNV = clamp(dot(out.N, out.V), 0.0, 1.0);
+    out.NdotV = clamp(dot(out.N, out.V), 0.0, 1.0);
 
     // Material properties
     let albedo_sample = textureSample(
@@ -360,7 +360,7 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     let brdf_lut_sample = textureSample(
         ibl_brdf_lut_texture,
         ibl_brdf_lut_sampler,
-        vec2<f32>(max(out.dotNV, 0.0), clamp(1.0 - out.roughness, 0.0, 1.0))
+        vec2<f32>(max(out.NdotV, 0.0), clamp(1.0 - out.roughness, 0.0, 1.0))
     ).rg;
     let brdf_lut_clamped = clamp(brdf_lut_sample, vec2(0.0), vec2(1.0));
     out.brdf_lut = brdf_lut_clamped;
