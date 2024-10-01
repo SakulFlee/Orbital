@@ -161,8 +161,6 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
 
     // IBL Ambient light
     var ambient = calculate_ambient_ibl(pbr);
-    // Ambient Occlusion
-    ambient *= pbr.occlusion;
     output += ambient;
 
     // Point Light reflectance light
@@ -231,8 +229,8 @@ fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
     let specular_color = mix(F0, pbr.albedo, pbr.metallic);
     var specular_ibl = pbr.radiance * (specular_color * pbr.brdf_lut.x + pbr.brdf_lut.y);
 
-    // Ambient light calculation (IBL)
-    return diffuse_ibl + specular_ibl;
+    // Ambient light calculation (IBL), multiplied by ambient occlusion
+    return (diffuse_ibl + specular_ibl) * pbr.occlusion;
 }
 
 /// Samples the fragment's normal and transforms it into world space
