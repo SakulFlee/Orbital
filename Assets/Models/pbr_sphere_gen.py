@@ -37,7 +37,7 @@ for z in range(0, entries):
 
         # Construct the bmesh sphere and assign it to the blender mesh.
         bm = bmesh.new()
-        bmesh.ops.create_uvsphere(bm, u_segments=32, v_segments=16, radius=1)
+        bmesh.ops.create_uvsphere(bm, u_segments=16, v_segments=16, radius=1)
         bm.to_mesh(mesh)
         bm.free()
 
