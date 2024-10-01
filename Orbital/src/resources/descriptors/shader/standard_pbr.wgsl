@@ -294,7 +294,7 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     );
     out.N = sample_normal_from_map(fragment_data.uv, fragment_data.world_position, out.TBN);
     out.V = normalize(camera.position.xyz - fragment_data.world_position);
-    out.R = normalize(reflect(-out.V, out.N));
+    let R = normalize(reflect(-out.V, out.N));
     out.dotNV = clamp(dot(out.N, out.V), 0.0, 1.0);
 
     // Material properties
@@ -355,7 +355,7 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     let radiance_sample = textureSampleLevel(
         radiance_env_map,
         radiance_sampler,
-        out.R,
+        R,
         out.roughness
     ).rgb;
     let radiance_clamped = clamp(radiance_sample, vec3(0.0), vec3(1.0));
