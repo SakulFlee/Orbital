@@ -209,8 +209,8 @@ fn brdf(point_light: PointLight, pbr: PBRData, world_position: vec3<f32>) -> vec
         let F = fresnel_schlick(pbr.dotNV, pbr);
 
         let nominator = D * F * G;
-        let denominator = 4.0 * dotNL * pbr.dotNV + 0.0001;
-        let specular = nominator / denominator; // +0.0001 prevents division by zero
+        let denominator = 4.0 * dotNL * pbr.dotNV + 0.0001; // +0.0001 prevents division by zero
+        let specular = nominator / denominator;
         Lo += specular * dotNL * point_light.color.rgb;
     }
     return Lo;
