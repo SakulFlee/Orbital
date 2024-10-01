@@ -65,8 +65,6 @@ struct PBRData {
     radiance: vec3<f32>,
     // BRDF LuT (look-up-table) (used for IBL)
     brdf_lut: vec2<f32>,
-    // Tangent-Bitangent-Normal matrix
-    TBN: mat3x3<f32>,
     // Normal
     N: vec3<f32>,
     // Outgoing light direction originating from camera
