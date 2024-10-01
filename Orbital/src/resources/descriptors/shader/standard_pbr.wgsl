@@ -74,11 +74,13 @@ struct PBRData {
     // Specular lighr reflection 
     R: vec3<f32>,
     // Dot product (multiplication) of normal and outgoing light
-    NdotV: f32,
+    dotNV: f32,
     // Color reflectance at normal standard dielectric incidence
     F0: vec3<f32>,
     // Rough Fresnel Schlick
     F: vec3<f32>,
+    // Metallic scale for IBL/Ambient Light
+    kD: vec3<f32>,
 }
 
 @group(0) @binding(0) var normal_texture: texture_2d<f32>;
@@ -115,7 +117,7 @@ struct PBRData {
 @group(3) @binding(7) var ibl_brdf_lut_sampler: sampler;
 
 const PI = 3.14159265359; 
-const F0_DIELECTRIC_STANDARD = vec3<f32>(0.04);
+const F0_DEFAULT = vec3<f32>(0.04);
 
 const POINT_LIGHT_DEFAULT_A = 0.1;
 const POINT_LIGHT_DEFAULT_B = 0.1;
@@ -163,15 +165,23 @@ fn entrypoint_vertex(
 fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     let pbr = pbr_data(in);
 
-    // Point Light reflectance light
-    let point_light_reflectance = calculate_point_light_reflectance(pbr, in.world_position);
+    var output = vec3(0.0);
 
     // IBL Ambient light
-    let ambient = calculate_ambient_ibl(pbr);
+    var ambient = calculate_ambient_ibl(pbr);
+    // Ambient Occlusion
+    ambient *= pbr.occlusion;
+    output += ambient;
 
-    // Combine ambient and light reflection output
-    let raw_color = ambient + point_light_reflectance;
-    let tone_mapped_color = hdr_tone_map_gamma_correction(raw_color);
+    // Point Light reflectance light
+    let point_light_reflectance = calculate_point_light_specular_contribution(pbr, in.world_position);
+    output += point_light_reflectance;
+
+    // Add emissive "ontop"
+    output += pbr.emissive;
+
+    // Tonemap / HDR 
+    let tone_mapped_color = hdr_tone_map_gamma_correction(output);
     return vec4<f32>(tone_mapped_color, 1.0);
 }
 
@@ -181,48 +191,82 @@ fn hdr_tone_map_gamma_correction(color: vec3<f32>) -> vec3<f32> {
     return result;
 }
 
-fn calculate_point_light_reflectance(pbr: PBRData, world_position: vec3<f32>) -> vec3<f32> {
-    var Lo = vec3<f32>(0.0);
-    for (var i: u32 = 0; i < arrayLength(&point_light_store); i++) {
-        let point_light = point_light_store[i];   
+fn brdf(point_light: PointLight, pbr: PBRData, world_position: vec3<f32>) -> vec3<f32> {
+    let L = normalize(point_light.position.xyz - world_position);
+    let H = normalize(pbr.V + L);
 
-        // Calculate per-light radiance
-        let L = normalize(point_light.position.xyz - world_position);
-        let H = normalize(pbr.V + L);
+    let dotNL = clamp(dot(pbr.N, L), 0.0, 1.0);
+    // let dotLH = clamp(dot(L, H), 0.0, 1.0);
+    let dotNH = clamp(dot(pbr.N, H), 0.0, 1.0);
 
-        let radiance = point_light_radiance(point_light, world_position);
+    var Lo: vec3<f32>;
+    if dotNL > 0.0 {
+        let roughness = max(0.05, pbr.roughness); // TODO: Needed?
+        // Normal distribution of the microfacets
+        let D = distribution_ggx(dotNH, roughness);
+        // Geometric/Microfacet shadowing term
+        let G = schlick_smith_ggx(dotNL, pbr.dotNV, roughness);
+        // Fresnel factor (i.e. reflectance depending on angle of camera)
+        let F = fresnel_schlick(pbr.dotNV, pbr);
 
-        // Cook-Torrance BRDF
-        let NDF = DistributionGGX(pbr.N, H, pbr.roughness);
-        let G = geometry_smith(pbr.N, pbr.V, L, pbr.roughness);
-        let F = fresnel_schlick(max(dot(H, pbr.V), 0.0), pbr.F0);
-
-        let numerator = NDF * G * F;
-        let NdotL = max(dot(pbr.N, L), 0.0);
-        let denominator = 4.0 * pbr.NdotV * NdotL + 0.0001; // +0.0001 prevents division by zero
-        let specular = numerator / denominator;
-
-        let kD = mix(vec3<f32>(1.0) - F, vec3<f32>(0.0), pbr.metallic);
-
-        // Adding radiance to Lo
-        Lo += (kD * pbr.albedo / PI + specular) * radiance * NdotL;
+        let nominator = D * F * G;
+        let denominator = 4.0 * dotNL * pbr.dotNV + 0.0001;
+        let specular = nominator / denominator; // +0.0001 prevents division by zero
+        Lo += specular * dotNL * point_light.color.rgb;
     }
     return Lo;
 }
 
-fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
-    // Pre-calculations for IBL/Ambient Light
-    let kD = (1.0 - pbr.F) * (1.0 - pbr.metallic);
+fn calculate_point_light_specular_contribution(pbr: PBRData, world_position: vec3<f32>) -> vec3<f32> {
+    var Lo = vec3(0.0);
 
+    for (var i: u32 = 0; i < arrayLength(&point_light_store); i++) {
+        let point_light = point_light_store[i];
+        Lo += brdf(point_light, pbr, world_position);
+    }
+
+    return Lo;
+}
+
+// fn calculate_point_light_reflectance(pbr: PBRData, world_position: vec3<f32>) -> vec3<f32> {
+//     var Lo = vec3<f32>(0.0);
+//     for (var i: u32 = 0; i < arrayLength(&point_light_store); i++) {
+//         let point_light = point_light_store[i];   
+
+//         // Calculate per-light radiance
+//         let L = normalize(point_light.position.xyz - world_position);
+//         let H = normalize(pbr.V + L);
+
+//         let radiance = point_light_radiance(point_light, world_position);
+
+//         // Cook-Torrance BRDF
+//         let NDF = DistributionGGX(pbr.N, H, pbr.roughness);
+//         let G = geometry_smith(pbr, L, pbr.roughness);
+//         let F = fresnel_schlick(max(dot(H, pbr.V), 0.0), pbr.F0);
+
+//         let numerator = NDF * G * F;
+//         let NdotL = max(dot(pbr.N, L), 0.0);
+//         let denominator = 4.0 * pbr.dotNV * NdotL + 0.0001; // +0.0001 prevents division by zero
+//         let specular = numerator / denominator;
+
+//         // Adding radiance to Lo
+//         Lo += (pbr.kD * pbr.albedo / PI + specular) * radiance * NdotL;
+//     }
+//     return Lo;
+// }
+
+// NOTE: kD removed
+fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
     // IBL Diffuse
-    let diffuse_ibl = kD * (pbr.irradiance * pbr.albedo);
+    let diffuse_color = (pbr.albedo * (vec3(1.0) - pbr.F0)) * (1.0 - pbr.metallic);
+    let diffuse_ibl = pbr.irradiance * diffuse_color;
 
     // IBL Specular
-    var specular_ibl = pbr.radiance * (pbr.F * pbr.brdf_lut.x + pbr.brdf_lut.y);
+    let specular_color = mix(pbr.F0, pbr.albedo, pbr.metallic);
+    var specular_ibl = pbr.radiance * (specular_color * pbr.brdf_lut.x + pbr.brdf_lut.y);
 
     // Ambient light calculation (IBL)
-    let ambient = (diffuse_ibl + specular_ibl) * pbr.occlusion * pbr.emissive;
-    return ambient;
+    return diffuse_ibl + specular_ibl;
 }
 
 /// Samples the fragment's normal and transforms it into world space
@@ -239,12 +283,33 @@ fn sample_normal_from_map(uv: vec2<f32>, world_position: vec3<f32>, TBN: mat3x3<
     return N;
 }
 
-fn fresnel_schlick(cos_theta: f32, F0: vec3<f32>) -> vec3<f32> {
-    return F0 + (1.0 - F0) * pow(clamp(1.0 - cos_theta, 0.0, 1.0), 5.0);
+// Fresnel
+fn fresnel_schlick(cos_theta: f32, pbr: PBRData) -> vec3<f32> {
+    let F0 = mix(F0_DEFAULT, pbr.albedo, pbr.metallic);
+    let F = F0 + (1.0 - F0) * pow(1.0 - cos_theta, 5.0);
+    return F;
 }
 
 fn fresnel_schlick_roughness(cos_theta: f32, F0: vec3<f32>, roughness: f32) -> vec3<f32> {
     return F0 + (max(vec3<f32>(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cos_theta, 0.0, 1.0), 5.0);
+}
+
+/// Geometric Shadowing
+fn schlick_smith_ggx(dotNL: f32, dotNV: f32, roughness: f32) -> f32 {
+    let r = roughness + 1.0;
+    let k = (r * r) / 8.0;
+    let GL = dotNL / (dotNL * (1.0 - k) + k);
+    let GV = dotNV / (dotNV * (1.0 - k) + k);
+    return GL * GV;
+}
+
+// Normal distribution
+fn distribution_ggx(dotNH: f32, roughness: f32) -> f32 {
+    let alpha = roughness * roughness;
+    let alpha_squared = alpha * alpha;
+
+    let denom = (dotNH * dotNH) * (alpha_squared - 1.0) + 1.0;
+    return alpha_squared / (PI * denom * denom);
 }
 
 fn DistributionGGX(N: vec3<f32>, H: vec3<f32>, roughness: f32) -> f32 {
@@ -262,21 +327,20 @@ fn DistributionGGX(N: vec3<f32>, H: vec3<f32>, roughness: f32) -> f32 {
 }
 
 // Schlick-GGX approximation of geometric attenuation function using Smith's method.
-fn geometry_schlick_ggx(NdotV: f32, roughness: f32) -> f32 {
+fn geometry_schlick_ggx(dotNV: f32, roughness: f32) -> f32 {
     let r = roughness + 1.0;
     let k = (r * r) / 8.0;
 
-    let num = NdotV;
-    let denom = NdotV * (1.0 - k) + k;
+    let num = dotNV;
+    let denom = dotNV * (1.0 - k) + k;
 
     return num / denom;
 }
 
-fn geometry_smith(N: vec3<f32>, V: vec3<f32>, L: vec3<f32>, roughness: f32) -> f32 {
-    let NdotV = max(dot(N, V), 0.0);
-    let NdotL = max(dot(N, L), 0.0);
+fn geometry_smith(pbr: PBRData, L: vec3<f32>, roughness: f32) -> f32 {
+    let NdotL = max(dot(pbr.N, L), 0.0);
 
-    let ggx2 = geometry_schlick_ggx(NdotV, roughness);
+    let ggx2 = geometry_schlick_ggx(pbr.dotNV, roughness);
     let ggx1 = geometry_schlick_ggx(NdotL, roughness);
 
     return ggx1 * ggx2;
@@ -299,80 +363,102 @@ fn point_light_radiance(point_light: PointLight, world_position: vec3<f32>) -> v
 }
 
 fn pbr_data(fragment_data: FragmentData) -> PBRData {
+    var out: PBRData;
+
     // Precalculations
-    let TBN = mat3x3(
+    out.TBN = mat3x3(
         fragment_data.tangent,
         fragment_data.bitangent,
         fragment_data.normal,
     );
-    let N = sample_normal_from_map(fragment_data.uv, fragment_data.world_position, TBN);
-    let V = normalize(camera.position.xyz - fragment_data.world_position);
-    let R = reflect(-V, N);
-    let NdotV = max(dot(N, V), 0.0);
+    out.N = sample_normal_from_map(fragment_data.uv, fragment_data.world_position, out.TBN);
+    out.V = normalize(camera.position.xyz - fragment_data.world_position);
+    out.R = normalize(reflect(-out.V, out.N));
+    out.dotNV = clamp(dot(out.N, out.V), 0.0, 1.0);
 
     // Material properties
-    let albedo = pow(textureSample(
+    let albedo_sample = textureSample(
         albedo_texture,
         albedo_sampler,
         fragment_data.uv
-    ).rgb * pbr_factors.albedo_factor.rgb, vec3<f32>(camera.global_gamma));
-    let metallic = textureSample(
+    ).rgb;
+    let albedo_factored = albedo_sample * pbr_factors.albedo_factor.rgb;
+    let albedo_clamped = clamp(albedo_factored, vec3(0.0), vec3(1.0));
+    let albedo_gamma_applied = pow(albedo_clamped, vec3(camera.global_gamma));
+    out.albedo = albedo_gamma_applied;
+
+    let metallic_sample = textureSample(
         metallic_texture,
         metallic_sampler,
         fragment_data.uv
-    ).r * pbr_factors.metallic_factor;
-    let roughness = textureSample(
+    ).r;
+    let metallic_factored = metallic_sample * pbr_factors.metallic_factor;
+    let metallic_clamped = clamp(metallic_factored, 0.0, 1.0);
+    out.metallic = metallic_clamped;
+
+    let roughness_sample = textureSample(
         roughness_texture,
         roughness_sampler,
         fragment_data.uv
-    ).r * pbr_factors.roughness_factor;
-    let occlusion = textureSample(
+    ).r;
+    let roughness_factored = roughness_sample * pbr_factors.roughness_factor;
+    let roughness_clamped = clamp(roughness_factored, 0.0, 1.0);
+    out.roughness = roughness_clamped;
+
+    let occlusion_sample = textureSample(
         occlusion_texture,
         occlusion_sampler,
         fragment_data.uv
     ).r;
-    let emissive = textureSample(
+    let occlusion_clamped = clamp(occlusion_sample, 0.0, 1.0);
+    out.occlusion = occlusion_clamped;
+
+    let emissive_sample = textureSample(
         emissive_texture,
         emissive_sampler,
         fragment_data.uv
     ).rgb;
-    let irradiance = textureSample(
+    let emissive_clamped = clamp(emissive_sample, vec3(0.0), vec3(1.0));
+    let emissive_gamma_applied = pow(emissive_clamped, vec3(camera.global_gamma));
+    out.emissive = emissive_clamped;
+
+    let irradiance_sample = textureSample(
         irradiance_env_map,
         irradiance_sampler,
-        N
+        out.N
     ).rgb;
-    let radiance = textureSampleLevel(
+    let irradiance_clamped = clamp(irradiance_sample, vec3(0.0), vec3(1.0));
+    let irradiance_gamma_applied = pow(irradiance_clamped, vec3(camera.global_gamma));
+    out.irradiance = irradiance_gamma_applied;
+
+    let radiance_sample = textureSampleLevel(
         radiance_env_map,
         radiance_sampler,
-        R,
-        roughness
+        out.R,
+        out.roughness
     ).rgb;
-    let brdf_lut = textureSample(
+    let radiance_clamped = clamp(radiance_sample, vec3(0.0), vec3(1.0));
+    let radiance_gamma_applied = pow(radiance_clamped, vec3(camera.global_gamma));
+    out.radiance = radiance_gamma_applied;
+
+    let brdf_lut_sample = textureSample(
         ibl_brdf_lut_texture,
         ibl_brdf_lut_sampler,
-        vec2<f32>(max(NdotV, 0.0), roughness)
+        vec2<f32>(max(out.dotNV, 0.0), clamp(1.0 - out.roughness, 0.0, 1.0))
     ).rg;
+    let brdf_lut_clamped = clamp(brdf_lut_sample, vec2(0.0), vec2(1.0));
+    out.brdf_lut = brdf_lut_clamped;
 
     // Calculate reflectance at normal incidence
-    var F0 = mix(F0_DIELECTRIC_STANDARD, albedo, metallic);
+    out.F0 = mix(F0_DEFAULT, out.albedo, out.metallic);
 
-    let F = fresnel_schlick_roughness(NdotV, F0, roughness);
+    out.F = fresnel_schlick_roughness(out.dotNV, out.F0, out.roughness);
 
-    var out: PBRData;
-    out.albedo = albedo;
-    out.metallic = metallic;
-    out.roughness = roughness;
-    out.occlusion = occlusion;
-    out.emissive = emissive;
-    out.irradiance = irradiance;
-    out.radiance = radiance;
-    out.brdf_lut = brdf_lut;
-    out.TBN = TBN;
-    out.N = N;
-    out.V = V;
-    out.R = R;
-    out.NdotV = NdotV;
-    out.F0 = F0;
-    out.F = F;
+    // Pre-calculations for IBL/Ambient Light
+    out.kD = (1.0 - out.F) * (1.0 - out.metallic);
+
     return out;
 }
+
+// TODO: Check for unused functions
+// TODO: Check for unused variables

@@ -550,6 +550,7 @@ impl Material {
                     binding: 11,
                     resource: BindingResource::Sampler(emissive_texture.sampler()),
                 },
+                // Factors
                 BindGroupEntry {
                     binding: 12,
                     resource: BindingResource::Buffer(factor_buffer.as_entire_buffer_binding()),
