@@ -242,9 +242,12 @@ fn sample_normal_from_map(fragment_data: FragmentData) -> vec3<f32> {
     ).rgb;
     let tangent_normal = 2.0 * normal_sample - 1.0;
 
-    let N = normalize(
-        fragment_data.tangent * fragment_data.bitangent * fragment_data.normal * tangent_normal
+    let TBN = mat3x3(
+        fragment_data.tangent,
+        fragment_data.bitangent,
+        fragment_data.normal,
     );
+    let N = normalize(TBN * tangent_normal);
     return N;
 }
 
@@ -281,11 +284,6 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     var out: PBRData;
 
     // Precalculations
-    out.TBN = mat3x3(
-        fragment_data.tangent,
-        fragment_data.bitangent,
-        fragment_data.normal,
-    );
     out.N = sample_normal_from_map(fragment_data);
     out.V = normalize(camera.position.xyz - fragment_data.world_position);
     let R = normalize(reflect(-out.V, out.N));
