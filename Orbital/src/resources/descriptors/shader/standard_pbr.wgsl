@@ -227,34 +227,6 @@ fn calculate_point_light_specular_contribution(pbr: PBRData, world_position: vec
     return Lo;
 }
 
-// fn calculate_point_light_reflectance(pbr: PBRData, world_position: vec3<f32>) -> vec3<f32> {
-//     var Lo = vec3<f32>(0.0);
-//     for (var i: u32 = 0; i < arrayLength(&point_light_store); i++) {
-//         let point_light = point_light_store[i];   
-
-//         // Calculate per-light radiance
-//         let L = normalize(point_light.position.xyz - world_position);
-//         let H = normalize(pbr.V + L);
-
-//         let radiance = point_light_radiance(point_light, world_position);
-
-//         // Cook-Torrance BRDF
-//         let NDF = DistributionGGX(pbr.N, H, pbr.roughness);
-//         let G = geometry_smith(pbr, L, pbr.roughness);
-//         let F = fresnel_schlick(max(dot(H, pbr.V), 0.0), pbr.F0);
-
-//         let numerator = NDF * G * F;
-//         let NdotL = max(dot(pbr.N, L), 0.0);
-//         let denominator = 4.0 * pbr.dotNV * NdotL + 0.0001; // +0.0001 prevents division by zero
-//         let specular = numerator / denominator;
-
-//         // Adding radiance to Lo
-//         Lo += (pbr.kD * pbr.albedo / PI + specular) * radiance * NdotL;
-//     }
-//     return Lo;
-// }
-
-// NOTE: kD removed
 fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
     // IBL Diffuse
     let diffuse_color = (pbr.albedo * (vec3(1.0) - pbr.F0)) * (1.0 - pbr.metallic);
@@ -309,56 +281,6 @@ fn distribution_ggx(dotNH: f32, roughness: f32) -> f32 {
 
     let denom = (dotNH * dotNH) * (alpha_squared - 1.0) + 1.0;
     return alpha_squared / (PI * denom * denom);
-}
-
-fn DistributionGGX(N: vec3<f32>, H: vec3<f32>, roughness: f32) -> f32 {
-    let alpha = roughness * roughness;
-    let alpha_2 = alpha * alpha;
-
-    let NdotH = max(dot(N, H), 0.0);
-    let NdotH_2 = NdotH * NdotH;
-
-    let num = alpha_2;
-    var denom = (NdotH_2 * (alpha_2 - 1.0) + 1.0);
-    denom = PI * denom * denom;
-
-    return num / denom;
-}
-
-// Schlick-GGX approximation of geometric attenuation function using Smith's method.
-fn geometry_schlick_ggx(dotNV: f32, roughness: f32) -> f32 {
-    let r = roughness + 1.0;
-    let k = (r * r) / 8.0;
-
-    let num = dotNV;
-    let denom = dotNV * (1.0 - k) + k;
-
-    return num / denom;
-}
-
-fn geometry_smith(pbr: PBRData, L: vec3<f32>, roughness: f32) -> f32 {
-    let NdotL = max(dot(pbr.N, L), 0.0);
-
-    let ggx2 = geometry_schlick_ggx(pbr.dotNV, roughness);
-    let ggx1 = geometry_schlick_ggx(NdotL, roughness);
-
-    return ggx1 * ggx2;
-}
-
-fn point_light_attenuation(a: f32, b: f32, point_light: PointLight, world_position: vec3<f32>) -> f32 {
-    let distance = length(point_light.position.xyz - world_position);
-
-    return 1.0 / (1.0 + a * distance + b * distance * distance);
-}
-
-fn point_light_radiance(point_light: PointLight, world_position: vec3<f32>) -> vec3<f32> {
-    let attenuation = point_light_attenuation(
-        POINT_LIGHT_DEFAULT_A,
-        POINT_LIGHT_DEFAULT_B,
-        point_light,
-        world_position
-    );
-    return point_light.color.rgb * attenuation;
 }
 
 fn pbr_data(fragment_data: FragmentData) -> PBRData {
