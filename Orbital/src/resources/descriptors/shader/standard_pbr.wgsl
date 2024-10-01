@@ -109,9 +109,6 @@ struct PBRData {
 const PI = 3.14159265359; 
 const F0_DEFAULT = vec3<f32>(0.04);
 
-const POINT_LIGHT_DEFAULT_A = 0.1;
-const POINT_LIGHT_DEFAULT_B = 0.1;
-
 @vertex
 fn entrypoint_vertex(
     vertex: VertexData,
