@@ -219,7 +219,7 @@ fn calculate_point_light_specular_contribution(pbr: PBRData, world_position: vec
 
 fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
     // Calculate reflectance at normal incidence
-    let F0 = mix(F0_DEFAULT, out.albedo, out.metallic);
+    let F0 = mix(F0_DEFAULT, pbr.albedo, pbr.metallic);
 
     // IBL Diffuse
     let diffuse_color = (pbr.albedo * (vec3(1.0) - F0)) * (1.0 - pbr.metallic);
