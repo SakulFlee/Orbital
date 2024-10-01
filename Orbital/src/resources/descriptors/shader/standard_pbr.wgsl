@@ -75,8 +75,6 @@ struct PBRData {
     dotNV: f32,
     // Rough Fresnel Schlick
     F: vec3<f32>,
-    // Metallic scale for IBL/Ambient Light
-    kD: vec3<f32>,
 }
 
 @group(0) @binding(0) var normal_texture: texture_2d<f32>;
@@ -370,9 +368,6 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     out.brdf_lut = brdf_lut_clamped;
 
     out.F = fresnel_schlick_roughness(out.dotNV, out.F0, out.roughness);
-
-    // Pre-calculations for IBL/Ambient Light
-    out.kD = (1.0 - out.F) * (1.0 - out.metallic);
 
     return out;
 }
