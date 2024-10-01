@@ -234,16 +234,17 @@ fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
 }
 
 /// Samples the fragment's normal and transforms it into world space
-fn sample_normal_from_map(uv: vec2<f32>, world_position: vec3<f32>, TBN: mat3x3<f32>) -> vec3<f32> {
+fn sample_normal_from_map(fragment_data: FragmentData) -> vec3<f32> {
     let normal_sample = textureSample(
         normal_texture,
         normal_sampler,
-        uv
+        fragment_data.uv
     ).rgb;
-
     let tangent_normal = 2.0 * normal_sample - 1.0;
-    let N = normalize(TBN * tangent_normal);
 
+    let N = normalize(
+        fragment_data.tangent * fragment_data.bitangent * fragment_data.normal * tangent_normal
+    );
     return N;
 }
 
@@ -285,7 +286,7 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
         fragment_data.bitangent,
         fragment_data.normal,
     );
-    out.N = sample_normal_from_map(fragment_data.uv, fragment_data.world_position, out.TBN);
+    out.N = sample_normal_from_map(fragment_data);
     out.V = normalize(camera.position.xyz - fragment_data.world_position);
     let R = normalize(reflect(-out.V, out.N));
     out.NdotV = clamp(dot(out.N, out.V), 0.0, 1.0);
