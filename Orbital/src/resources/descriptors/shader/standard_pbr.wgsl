@@ -71,12 +71,8 @@ struct PBRData {
     N: vec3<f32>,
     // Outgoing light direction originating from camera
     V: vec3<f32>,
-    // Specular lighr reflection 
-    R: vec3<f32>,
     // Dot product (multiplication) of normal and outgoing light
     dotNV: f32,
-    // Color reflectance at normal standard dielectric incidence
-    F0: vec3<f32>,
     // Rough Fresnel Schlick
     F: vec3<f32>,
     // Metallic scale for IBL/Ambient Light
@@ -228,12 +224,15 @@ fn calculate_point_light_specular_contribution(pbr: PBRData, world_position: vec
 }
 
 fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
+    // Calculate reflectance at normal incidence
+    let F0 = mix(F0_DEFAULT, out.albedo, out.metallic);
+
     // IBL Diffuse
-    let diffuse_color = (pbr.albedo * (vec3(1.0) - pbr.F0)) * (1.0 - pbr.metallic);
+    let diffuse_color = (pbr.albedo * (vec3(1.0) - F0)) * (1.0 - pbr.metallic);
     let diffuse_ibl = pbr.irradiance * diffuse_color;
 
     // IBL Specular
-    let specular_color = mix(pbr.F0, pbr.albedo, pbr.metallic);
+    let specular_color = mix(F0, pbr.albedo, pbr.metallic);
     var specular_ibl = pbr.radiance * (specular_color * pbr.brdf_lut.x + pbr.brdf_lut.y);
 
     // Ambient light calculation (IBL)
@@ -369,9 +368,6 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     ).rg;
     let brdf_lut_clamped = clamp(brdf_lut_sample, vec2(0.0), vec2(1.0));
     out.brdf_lut = brdf_lut_clamped;
-
-    // Calculate reflectance at normal incidence
-    out.F0 = mix(F0_DEFAULT, out.albedo, out.metallic);
 
     out.F = fresnel_schlick_roughness(out.dotNV, out.F0, out.roughness);
 
