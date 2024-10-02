@@ -68,7 +68,7 @@ impl GLTFLoader {
 
             // If a model transform is given, apply it to all model descriptors.
             if let Some(model_transform) = option_model_transforms {
-                model_descriptor.transforms = vec![model_transform.clone()];
+                model_descriptor.transforms = vec![*model_transform];
             }
 
             let world_change = WorldChange::SpawnModel(model_descriptor);
@@ -231,7 +231,7 @@ impl Loader for GLTFLoader {
                         if let Some(model_transform) = &option_model_transform {
                             models
                                 .iter_mut()
-                                .for_each(|x| x.transforms = vec![model_transform.clone()]);
+                                .for_each(|x| x.transforms = vec![*model_transform]);
                         }
 
                         // Convert to world changes

@@ -13,6 +13,12 @@ pub struct PointLightStore {
     buffer: Option<Buffer>,
 }
 
+impl Default for PointLightStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PointLightStore {
     pub fn new() -> Self {
         Self {

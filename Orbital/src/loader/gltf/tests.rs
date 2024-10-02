@@ -174,7 +174,7 @@ fn test_transform_single() {
             scene_light_map: None,
             scene_camera_map: None,
         },
-        Some(transform.clone()),
+        Some(transform),
     );
 
     println!("Begin processing glTF file: {}", TEST_FILE_PATH);
@@ -229,7 +229,7 @@ fn test_transform_multiple_same() {
     let mut loader = GLTFLoader::new(
         TEST_FILE_PATH,
         GLTFWorkerMode::LoadEverything,
-        Some(transform.clone()),
+        Some(transform),
     );
 
     println!("Begin processing glTF file: {}", TEST_FILE_PATH);

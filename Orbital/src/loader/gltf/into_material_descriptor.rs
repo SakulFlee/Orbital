@@ -37,7 +37,7 @@ impl From<&Material> for MaterialDescriptor {
                 TextureDescriptor::StandardSRGBAu8Data(x.as_raw().to_vec(), x.dimensions().into())
             })
             .unwrap_or(TextureDescriptor::UniformColor(
-                value.pbr.base_color_factor.map(|x| convert_factor_to_u8(x)),
+                value.pbr.base_color_factor.map(convert_factor_to_u8),
             ));
 
         let metallic = value
