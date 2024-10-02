@@ -342,7 +342,7 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
         radiance_env_map,
         radiance_sampler,
         R,
-        out.roughness
+        out.roughness // TODO: Might be false
     ).rgb;
     let radiance_clamped = clamp(radiance_sample, vec3(0.0), vec3(1.0));
     let radiance_gamma_applied = pow(radiance_clamped, vec3(camera.global_gamma));
