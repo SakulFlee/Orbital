@@ -1,7 +1,7 @@
 use cgmath::Vector2;
 use image::{GenericImageView, ImageReader};
 use wgpu::{
-    include_wgsl, AddressMode, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor, Device, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout, Origin3d, PipelineCacheDescriptor, PipelineLayoutDescriptor, Queue, SamplerDescriptor, ShaderStages, StorageTextureAccess, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension
+    include_wgsl, AddressMode, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor, Device, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout, Origin3d, PipelineLayoutDescriptor, Queue, SamplerDescriptor, ShaderStages, StorageTextureAccess, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension
 };
 
 use crate::{error::Error, resources::descriptors::CubeTextureDescriptor};
