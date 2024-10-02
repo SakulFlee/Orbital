@@ -214,14 +214,17 @@ fn calculate_point_light_specular_contribution(pbr: PBRData, world_position: vec
 fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
     // Calculate reflectance at normal incidence
     let F0 = mix(F0_DEFAULT, pbr.albedo, pbr.metallic);
+    let F = fresnel_schlick_roughness(pbr.NdotV, F0, pbr.roughness);
 
     // IBL Diffuse
-    let diffuse_color = (pbr.albedo * (vec3(1.0) - F0)) * (1.0 - pbr.metallic);
+    let diffuse_color = (pbr.albedo * (vec3(1.0) - F) + 0.0001) * (1.0 - pbr.metallic + 0.0001);
     let diffuse_ibl = pbr.irradiance * diffuse_color;
 
     // IBL Specular
     let specular_color = mix(F0, pbr.albedo, pbr.metallic);
     var specular_ibl = pbr.radiance * (specular_color * pbr.brdf_lut.x + pbr.brdf_lut.y);
+    // TODO: Try!
+    // var specular_ibl = pbr.radiance * (F * pbr.brdf_lut.x + pbr.brdf_lut.y);
 
     // Ambient light calculation (IBL), multiplied by ambient occlusion
     return (diffuse_ibl + specular_ibl) * pbr.occlusion;
@@ -252,6 +255,7 @@ fn fresnel_schlick(cos_theta: f32, pbr: PBRData) -> vec3<f32> {
     return F;
 }
 
+// Fresnel schlick **with** roughness
 fn fresnel_schlick_roughness(cos_theta: f32, F0: vec3<f32>, roughness: f32) -> vec3<f32> {
     return F0 + (max(vec3<f32>(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cos_theta, 0.0, 1.0), 5.0);
 }
