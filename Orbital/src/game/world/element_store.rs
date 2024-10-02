@@ -31,7 +31,7 @@ impl ElementStore {
     pub fn store_element(&mut self, element: Box<dyn Element>, labels: Vec<String>) {
         // Get the next cursor index.
         // Realistically, this should never overflow ...
-        let next_cursor_index =   self.cursor_index.checked_add(1).expect(&format!("Congratulations! You managed to run out of Element indices! This means, you have spawned {} Elements already and are attempting to spawn another one. Here's a question from me to you: How do you have so much memory?", ElementIndexType::MAX));
+        let next_cursor_index =   self.cursor_index.checked_add(1).unwrap_or_else(|| panic!("Congratulations! You managed to run out of Element indices! This means, you have spawned {} Elements already and are attempting to spawn another one. Here's a question from me to you: How do you have so much memory?", ElementIndexType::MAX));
 
         // Update the cursor position to the current new index
         self.cursor_index = next_cursor_index;
@@ -66,8 +66,7 @@ impl ElementStore {
 
             let world_changes: Vec<_> = messages
                 .into_iter()
-                .map(|message| element.on_message(message))
-                .flatten()
+                .filter_map(|message| element.on_message(message))
                 .flatten()
                 .collect();
 
@@ -92,8 +91,7 @@ impl ElementStore {
     pub fn update(&mut self, delta_time: f64) -> Vec<WorldChange> {
         self.element_map
             .values_mut()
-            .map(|x| x.on_update(delta_time))
-            .flatten()
+            .filter_map(|x| x.on_update(delta_time))
             .flatten()
             .collect::<Vec<_>>()
     }

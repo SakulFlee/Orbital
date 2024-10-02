@@ -10,6 +10,12 @@ pub struct LightStore {
     point_light_store: PointLightStore,
 }
 
+impl Default for LightStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LightStore {
     pub fn new() -> Self {
         Self {

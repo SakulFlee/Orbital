@@ -1,4 +1,3 @@
-use log::debug;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     Buffer, BufferUsages, Device, Queue, TextureFormat,
@@ -78,12 +77,12 @@ impl Model {
         self.descriptor
             .transforms
             .iter()
-            .map(|x| Instance::from(x))
+            .map(Instance::from)
             .collect()
     }
 
     pub fn transform(&self) -> &Transform {
-        &self
+        self
             .descriptor
             .transforms
             .first()

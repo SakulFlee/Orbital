@@ -1,9 +1,9 @@
 use std::sync::{Mutex, MutexGuard, OnceLock};
 
-use cgmath::{num_traits::ToBytes, Vector3, Vector4};
+use cgmath::{num_traits::ToBytes, Vector3};
 use log::info;
 use wgpu::{
-    util::{BufferInitDescriptor, DeviceExt}, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutEntry, BindingResource, BindingType, BufferBinding, BufferUsages, Device, Queue, SamplerBindingType, ShaderStages, TextureFormat, TextureSampleType, TextureViewDimension
+    util::{BufferInitDescriptor, DeviceExt}, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutEntry, BindingResource, BindingType, BufferUsages, Device, Queue, SamplerBindingType, ShaderStages, TextureFormat, TextureSampleType, TextureViewDimension
 };
 
 use crate::{
@@ -89,8 +89,8 @@ impl Material {
             let _ = CACHE.get_or_init(|| {
                 let ibl_brdf = IblBrdf::generate(device, queue);
                 let texture = ibl_brdf.texture();
-                let mutex = Mutex::new(texture);
-                mutex
+                
+                Mutex::new(texture)
             });
         }
 
@@ -474,7 +474,7 @@ impl Material {
 
         let factor_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("PBR Factor Buffer"),
-            contents: &[
+            contents: [
                 // Albedo Factor
                 albedo_factor.x.to_le_bytes(), // R
                 albedo_factor.y.to_le_bytes(), // G
