@@ -1,0 +1,52 @@
+@group(0) @binding(0) var input_texture : texture_cube<f32>;
+@group(0) @binding(1) var output_texture : texture_storage_2d_array<rgba32float, write>;
+@group(0) @binding(2) var sampler : sampler;
+
+const PI : f32 = 3.141592653589793;
+const SAMPLE_COUNT : u32 = 1024;
+
+fn sample_hemisphere(u : f32, v : f32) -> vec3<f32> {
+    let phi = 2.0 * PI * u;
+    let cosTheta = sqrt(1.0 - v);
+    let sinTheta = sqrt(1.0 - cosTheta * cosTheta);
+    return vec3<f32>(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
+}
+
+fn cube_direction(face : u32, uv : vec2<f32>) -> vec3<f32> {
+    let uvw = vec3<f32>(uv * 2.0 - 1.0, 1.0);
+    switch face {
+        case 0u: { return vec3<f32>( uvw.z, -uvw.y,  uvw.x); } // Right
+        case 1u: { return vec3<f32>(-uvw.z, -uvw.y, -uvw.x); } // Left
+        case 2u: { return vec3<f32>( uvw.x,  uvw.z,  uvw.y); } // Top
+        case 3u: { return vec3<f32>( uvw.x, -uvw.z, -uvw.y); } // Bottom
+        case 4u: { return vec3<f32>( uvw.x, -uvw.y,  uvw.z); } // Front
+        case 5u: { return vec3<f32>(-uvw.x, -uvw.y, -uvw.z); } // Back
+        default: { return vec3<f32>(0.0); }
+    }
+}
+
+@compute @workgroup_size(16, 16, 1)
+fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
+    let dimensions = textureDimensions(output_texture);
+    let face = global_id.z;
+    let uv = vec2<f32>(f32(global_id.x) / f32(dimensions.x), f32(global_id.y) / f32(dimensions.y));
+    
+    let normal = normalize(cube_direction(face, uv));
+    var irradiance = vec3<f32>(0.0);
+    var total_weight = 0.0;
+
+    for (var i = 0u; i < SAMPLE_COUNT; i = i + 1u) {
+        let xi = vec2<f32>(f32(i) / f32(SAMPLE_COUNT), fract(f32(i) * 0.618034));
+        let sample_vec = sample_hemisphere(xi.x, xi.y);
+        let sample_dir = normalize(normal + sample_vec);
+        
+        let nDotL = max(dot(normal, sample_dir), 0.0);
+        if (nDotL > 0.0) {
+            irradiance += textureSampleLevel(input_texture, sampler, sample_dir, 0.0).rgb * nDotL;
+            total_weight += nDotL;
+        }
+    }
+
+    irradiance = irradiance * (1.0 / total_weight) * PI;
+    textureStore(output_texture, vec2<i32>(global_id.xy), i32(face), vec4<f32>(irradiance, 1.0));
+}

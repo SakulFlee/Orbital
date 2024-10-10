@@ -3,7 +3,10 @@ use std::sync::{Mutex, MutexGuard, OnceLock};
 use cgmath::{num_traits::ToBytes, Vector3};
 use log::info;
 use wgpu::{
-    util::{BufferInitDescriptor, DeviceExt}, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutEntry, BindingResource, BindingType, BufferUsages, Device, Queue, SamplerBindingType, ShaderStages, TextureFormat, TextureSampleType, TextureViewDimension
+    util::{BufferInitDescriptor, DeviceExt},
+    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutEntry, BindingResource,
+    BindingType, BufferUsages, Device, Queue, SamplerBindingType, ShaderStages, TextureFormat,
+    TextureSampleType, TextureViewDimension,
 };
 
 use crate::{
@@ -11,10 +14,10 @@ use crate::{
     error::Error,
     resources::{
         descriptors::{
-            CubeTextureDescriptor, MaterialDescriptor, PipelineBindGroupLayout, PipelineDescriptor,
-            ShaderDescriptor, TextureDescriptor,
+            MaterialDescriptor, PipelineBindGroupLayout, PipelineDescriptor, ShaderDescriptor,
+            TextureDescriptor, WorldEnvironmentDescriptor,
         },
-        realizations::CubeTexture,
+        realizations::WorldEnvironment,
     },
 };
 
@@ -89,7 +92,7 @@ impl Material {
             let _ = CACHE.get_or_init(|| {
                 let ibl_brdf = IblBrdf::generate(device, queue);
                 let texture = ibl_brdf.texture();
-                
+
                 Mutex::new(texture)
             });
         }
@@ -367,16 +370,14 @@ impl Material {
     }
 
     pub fn skybox(
-        sky: &CubeTextureDescriptor,
-        irradiance: &CubeTextureDescriptor,
-        radiance: &CubeTextureDescriptor,
+        sky: &WorldEnvironmentDescriptor,
+        irradiance: &WorldEnvironmentDescriptor,
+        radiance: &WorldEnvironmentDescriptor,
         surface_format: &TextureFormat,
         device: &Device,
         queue: &Queue,
     ) -> Result<Self, Error> {
-        let sky_texture = CubeTexture::from_descriptor(sky, device, queue)?;
-        let irradiance_texture = CubeTexture::from_descriptor(irradiance, device, queue)?;
-        let radiance_texture = CubeTexture::from_descriptor(radiance, device, queue)?;
+        let world_environment = WorldEnvironment::from_descriptor(sky, device, queue)?;
         let ibl_brdf_lut = unsafe { Self::get_or_generate_ibl_brdf_lut(device, queue) };
 
         let pipeline_descriptor = PipelineDescriptor::default_skybox();
@@ -394,29 +395,41 @@ impl Material {
                 // Sky
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureView(sky_texture.texture().view()),
+                    resource: BindingResource::TextureView(
+                        world_environment.skybox_cube_texture().view(),
+                    ),
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::Sampler(sky_texture.texture().sampler()),
+                    resource: BindingResource::Sampler(
+                        world_environment.skybox_cube_texture().sampler(),
+                    ),
                 },
                 // Irradiance
                 BindGroupEntry {
                     binding: 2,
-                    resource: BindingResource::TextureView(irradiance_texture.texture().view()),
+                    resource: BindingResource::TextureView(
+                        world_environment.diffuse_cube_texture().view(),
+                    ),
                 },
                 BindGroupEntry {
                     binding: 3,
-                    resource: BindingResource::Sampler(irradiance_texture.texture().sampler()),
+                    resource: BindingResource::Sampler(
+                        world_environment.diffuse_cube_texture().sampler(),
+                    ),
                 },
                 // Radiance
                 BindGroupEntry {
                     binding: 4,
-                    resource: BindingResource::TextureView(radiance_texture.texture().view()),
+                    resource: BindingResource::TextureView(
+                        world_environment.skybox_cube_texture().view(),
+                    ),
                 },
                 BindGroupEntry {
                     binding: 5,
-                    resource: BindingResource::Sampler(radiance_texture.texture().sampler()),
+                    resource: BindingResource::Sampler(
+                        world_environment.skybox_cube_texture().sampler(),
+                    ),
                 },
                 // IBL BRDF LUT
                 BindGroupEntry {
