@@ -4,7 +4,10 @@ use cgmath::Vector2;
 use gilrs::Gilrs;
 use log::{debug, error, info, warn};
 use wgpu::{
-    util::{backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env}, Adapter, Device, DeviceDescriptor, Features, Instance, InstanceDescriptor, InstanceFlags, Limits, MemoryHints, PowerPreference, PresentMode, Queue, RequestAdapterOptions, Surface, SurfaceConfiguration, SurfaceTexture, TextureViewDescriptor
+    util::{backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env},
+    Adapter, Device, DeviceDescriptor, Features, Instance, InstanceDescriptor, InstanceFlags,
+    Limits, MemoryHints, PowerPreference, PresentMode, Queue, RequestAdapterOptions, Surface,
+    SurfaceConfiguration, SurfaceTexture, TextureViewDescriptor,
 };
 use winit::{
     application::ApplicationHandler,
@@ -321,9 +324,9 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
         let (device, queue) = pollster::block_on(self.adapter.as_ref().unwrap().request_device(
             &DeviceDescriptor {
                 label: None,
-                required_features: Features::default(),
+                required_features: Features::default() | Features::MULTIVIEW,
                 required_limits: Limits::default(),
-                memory_hints: MemoryHints::Performance,                
+                memory_hints: MemoryHints::Performance,
             },
             None,
         ))

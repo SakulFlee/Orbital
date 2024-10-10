@@ -1,5 +1,4 @@
 pub mod camera;
-pub mod cube_texture;
 pub mod ibl_brdf;
 pub mod instance;
 pub mod light;
@@ -10,9 +9,9 @@ pub mod pipeline;
 pub mod shader;
 pub mod texture;
 pub mod vertex;
+pub mod world_environment;
 
 pub use camera::*;
-pub use cube_texture::*;
 pub use ibl_brdf::*;
 pub use instance::*;
 pub use light::*;
@@ -23,3 +22,4 @@ pub use pipeline::*;
 pub use shader::*;
 pub use texture::*;
 pub use vertex::*;
+pub use world_environment::*;
