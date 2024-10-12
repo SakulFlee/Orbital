@@ -510,9 +510,12 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
     fn device_event(
         &mut self,
         _event_loop: &ActiveEventLoop,
-        _device_id: DeviceId,
-        _event: DeviceEvent,
+        device_id: DeviceId,
+        event: DeviceEvent,
     ) {
+        if let Some(app) = self.app.as_mut() {
+            app.on_device_event(device_id, event);
+        }
     }
 
     fn memory_warning(&mut self, _event_loop: &ActiveEventLoop) {
