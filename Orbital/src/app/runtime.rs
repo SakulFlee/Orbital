@@ -501,7 +501,11 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
         }
     }
 
-    fn new_events(&mut self, _event_loop: &ActiveEventLoop, _cause: StartCause) {}
+    fn new_events(&mut self, _event_loop: &ActiveEventLoop, start_cause: StartCause) {
+        if let Some(app) = self.app.as_mut() {
+            app.on_next_event_cycle(start_cause);
+        }
+    }
 
     fn device_event(
         &mut self,
