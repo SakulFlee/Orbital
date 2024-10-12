@@ -335,5 +335,9 @@ pub trait App {
         warn!("Memory warning received!");
     }
 
-    fn on_device_event(&mut self, _device_id: DeviceId, _event: DeviceEvent) {}
+    fn on_device_event(&mut self, _device_id: DeviceId, _event: DeviceEvent)
+    where
+        Self: Sized,
+    {
+    }
 }
