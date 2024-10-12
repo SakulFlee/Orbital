@@ -516,7 +516,9 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
     }
 
     fn memory_warning(&mut self, _event_loop: &ActiveEventLoop) {
-        warn!("Memory warning received!");
+        if let Some(app) = self.app.as_mut() {
+            app.on_memory_warning();
+        }
     }
 }
 

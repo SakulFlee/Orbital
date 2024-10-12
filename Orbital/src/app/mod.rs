@@ -1,5 +1,6 @@
 //! ⚠️ You are most likely looking for the [App] description!
 
+use log::warn;
 use wgpu::{Device, Queue, SurfaceConfiguration, TextureView};
 
 pub mod settings;
@@ -323,5 +324,14 @@ pub trait App {
     where
         Self: Sized,
     {
+    }
+
+    /// Gets called once Winit informs us that we are about to run
+    /// out of memory.
+    fn on_memory_warning(&mut self)
+    where
+        Self: Sized,
+    {
+        warn!("Memory warning received!");
     }
 }
