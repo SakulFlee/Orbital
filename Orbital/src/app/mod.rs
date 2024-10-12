@@ -14,7 +14,7 @@ pub use input_event::*;
 
 pub mod app_changes;
 pub use app_changes::*;
-use winit::event::StartCause;
+use winit::event::{DeviceEvent, DeviceId, StartCause};
 
 /// Implement this trait to make an [App].  
 /// An [App] is a entrypoint wrapper exposing a few functions for you to use.
@@ -334,4 +334,6 @@ pub trait App {
     {
         warn!("Memory warning received!");
     }
+
+    fn on_device_event(&mut self, _device_id: DeviceId, _event: DeviceEvent) {}
 }
