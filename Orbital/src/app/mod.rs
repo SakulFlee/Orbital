@@ -13,6 +13,7 @@ pub use input_event::*;
 
 pub mod app_changes;
 pub use app_changes::*;
+use winit::event::StartCause;
 
 /// Implement this trait to make an [App].  
 /// An [App] is a entrypoint wrapper exposing a few functions for you to use.
@@ -312,6 +313,13 @@ pub trait App {
     /// Gets called each time a render (== redraw) cycle is happening.
     /// Any rendering should happen inside here.
     fn on_render(&mut self, _target_view: &TextureView, _device: &Device, _queue: &Queue)
+    where
+        Self: Sized,
+    {
+    }
+
+    /// Gets called before any newly incoming events are processed.
+    fn on_next_event_cycle(&mut self, _start_cause: StartCause)
     where
         Self: Sized,
     {
