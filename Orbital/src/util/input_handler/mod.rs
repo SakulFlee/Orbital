@@ -1,5 +1,6 @@
 use gilrs::{Axis, Button};
 use hashbrown::{HashMap, HashSet};
+use log::debug;
 use winit::{
     dpi::PhysicalPosition,
     event::{ElementState, MouseButton, MouseScrollDelta},
@@ -105,18 +106,15 @@ impl InputHandler {
         action_x_axis: &'static str,
         action_y_axis: &'static str,
     ) -> Option<(f32, f32)> {
-        let option_x = self.get_only_axis(action_x_axis);
-        let option_y = self.get_only_axis(action_y_axis);
+        let option_x = self.get_only_axis(action_x_axis).unwrap_or(0.0);
+        let option_y = self.get_only_axis(action_y_axis).unwrap_or(0.0);
 
-        // Double if lets aren't stable yet. Clippy flags this.
-        #[allow(clippy::unnecessary_unwrap)]
-        if option_x.is_some() && option_y.is_some() {
-            Some((option_x.unwrap(), option_y.unwrap()))
-        } else if option_x.is_some() || option_y.is_some() {
-            return Some((option_x.unwrap_or(0.0), option_y.unwrap_or(0.0)));
-        } else {
+        debug!("option_x: {option_x}, option_y: {option_y}");
+
+        if option_x.abs() < 0.01 && option_y.abs() < 0.01 {
             return None;
         }
+        return Some((option_x, option_y));
     }
 
     /// Calculates the change of `yaw` and `pitch` based on mouse movement.  
@@ -305,7 +303,7 @@ impl InputHandler {
                     MouseScrollDelta::PixelDelta(delta) => (delta.x as f32, delta.y as f32),
                 };
             }
-            InputEvent::MouseMoved {
+            InputEvent::MouseMovedPosition {
                 device_id: _,
                 position,
             } => {
@@ -349,6 +347,9 @@ impl InputHandler {
                         self.triggered_action_axis.remove(*action);
                     }
                 }
+            }
+            InputEvent::MouseMovedDelta { device_id, delta } => {
+                debug!("Delta: {:?}", delta);
             }
             _ => (),
         }

@@ -5,6 +5,7 @@ use orbital::{
     cgmath::{Point3, Vector3},
     game::{CameraChange, Element, ElementRegistration, Mode, WorldChange},
     gilrs::{Axis, Button},
+    log::debug,
     resources::descriptors::CameraDescriptor,
     util::InputHandler,
     winit::{
@@ -122,12 +123,13 @@ impl Element for Camera {
                 ..Default::default()
             }))
             .with_initial_world_change(WorldChange::AppChange(AppChange::ChangeCursorVisible(
-                false,
+                true, // TODO
             )))
     }
 
     fn on_focus_change(&mut self, focused: bool) {
         self.is_focused = focused;
+        debug!("Focus change: {}", focused);
     }
 
     fn on_input_event(&mut self, input_event: &InputEvent) {
@@ -203,11 +205,15 @@ impl Element for Camera {
         };
 
         // Send off, if there is a change
-        let cursor_position = PhysicalPosition::<u32>::from(unsafe { WINDOW_HALF_SIZE });
+        // let cursor_position = PhysicalPosition::<u32>::from(unsafe { WINDOW_HALF_SIZE });
+        let cursor_position = PhysicalPosition::<u32>::from((1920 / 2, 1080 / 2));
         let cursor_position_change =
             WorldChange::AppChange(AppChange::ChangeCursorPosition(cursor_position.into()));
 
-        let mut changes = vec![cursor_position_change];
+        let mut changes = vec![
+            WorldChange::AppChange(AppChange::ChangeCursorGrabbed(true)),
+            // cursor_position_change,
+        ];
 
         if self.input_handler.is_triggered(Self::ACTION_DEBUG) {
             changes.push(WorldChange::CleanWorld);
