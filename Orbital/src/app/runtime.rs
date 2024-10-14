@@ -446,7 +446,7 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
                 position,
             } => {
                 if let Some(app) = &mut self.app {
-                    app.on_input(&InputEvent::MouseMoved {
+                    app.on_input(&InputEvent::MouseMovedPosition {
                         device_id,
                         position,
                     })
