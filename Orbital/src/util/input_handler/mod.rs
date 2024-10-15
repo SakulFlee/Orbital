@@ -64,6 +64,8 @@ pub struct InputHandler {
     // --- Other Input Data ---
     /// Stores the current mouse position.
     mouse_position: PhysicalPosition<f64>,
+    /// Stores the current mouse delta,
+    mouse_delta: (f64, f64),
     /// Stores the current mouse scrolling values.
     mouse_scrolling: (f32, f32),
 }
@@ -86,7 +88,14 @@ impl InputHandler {
         self.mouse_position
     }
 
-    pub fn calculate_view_change_from_axis_and_cursor(
+    /// Calculates the view change (yaw & pitch) based on the given axis and
+    /// mouse delta.
+    /// First, attempts to read axis values. If no axis values are detected,
+    /// attempts using mouse delta.
+    ///
+    /// Check [Self::calculate_view_change_from_mouse_position] and
+    /// [Self::calculate_view_change_from_mouse_position] for more.
+    pub fn calculate_view_change_from_axis_and_mouse_delta(
         &self,
         action_x_axis: &'static str,
         action_y_axis: &'static str,
@@ -96,7 +105,40 @@ impl InputHandler {
         {
             (true, axis_result.0, axis_result.1)
         } else {
-            let cursor_result = self.calculate_view_change_from_cursor();
+            let cursor_result = self.calculate_view_change_from_mouse_delta();
+            (false, cursor_result.0, cursor_result.1)
+        }
+    }
+
+    /// Calculates the view change (yaw & pitch) based on the given axis and
+    /// mouse position.
+    /// First, attempts to read Axis values.
+    /// If no Axis values are detected, will attempt reading mouse position.
+    ///
+    /// Check [Self::calculate_view_change_from_mouse_position] and
+    /// [Self::calculate_view_change_from_mouse_position] for more.
+    /// Make special note of the requirements for [Self::calculate_view_change_from_mouse_position]!
+    ///
+    /// # Note
+    ///
+    /// Ideally, use [Self::calculate_view_change_from_axis_and_mouse_delta]    
+    /// instead of this function. It'll work on more systems and is more
+    /// accurate.
+    /// On the other hand, this function takes any operating system changes
+    /// to the mouse cursor position into account (e.g. accelerated mouse
+    /// cursors, which might not be taken into account on some systems using
+    /// Mouse Delta).
+    pub fn calculate_view_change_from_axis_and_mouse_position(
+        &self,
+        action_x_axis: &'static str,
+        action_y_axis: &'static str,
+    ) -> (bool, f32, f32) {
+        if let Some(axis_result) =
+            self.calculate_view_change_from_axis(action_x_axis, action_y_axis)
+        {
+            (true, axis_result.0, axis_result.1)
+        } else {
+            let cursor_result = self.calculate_view_change_from_mouse_position();
             (false, cursor_result.0, cursor_result.1)
         }
     }
@@ -108,8 +150,6 @@ impl InputHandler {
     ) -> Option<(f32, f32)> {
         let option_x = self.get_only_axis(action_x_axis).unwrap_or(0.0);
         let option_y = self.get_only_axis(action_y_axis).unwrap_or(0.0);
-
-        debug!("option_x: {option_x}, option_y: {option_y}");
 
         if option_x.abs() < 0.01 && option_y.abs() < 0.01 {
             return None;
@@ -126,7 +166,13 @@ impl InputHandler {
     ///
     /// ⚠️ Will make use of [WINDOW_HALF_SIZE] which is potentially dangerous
     /// outside of Rust!
-    pub fn calculate_view_change_from_cursor(&self) -> (f32, f32) {
+    ///
+    /// # Note
+    ///
+    /// If possible, use [Self::calculate_view_change_from_mouse_delta] instead.
+    /// It's more accurate and should work on more systems.
+    ///
+    pub fn calculate_view_change_from_mouse_position(&self) -> (f32, f32) {
         let cursor_position: PhysicalPosition<i32> = self.get_cursor_position().cast();
         let window_half_size = unsafe { WINDOW_HALF_SIZE };
 
@@ -134,6 +180,14 @@ impl InputHandler {
         let pitch_change = (window_half_size.1 - cursor_position.y) as f32;
 
         (yaw_change, pitch_change)
+    }
+
+    /// Calculates the change of `yaw` and `pitch` based on mouse delta.  
+    ///
+    /// Returns the calculated **radial** change.
+    /// First, `yaw`, last, `pitch`.
+    pub fn calculate_view_change_from_mouse_delta(&self) -> (f32, f32) {
+        (self.mouse_delta.0 as f32, -self.mouse_delta.1 as f32)
     }
 
     pub fn get_mouse_scrolling(&self) -> (f32, f32) {
@@ -348,10 +402,21 @@ impl InputHandler {
                     }
                 }
             }
-            InputEvent::MouseMovedDelta { device_id, delta } => {
-                debug!("Delta: {:?}", delta);
+            InputEvent::MouseMovedDelta {
+                device_id: _,
+                delta,
+            } => {
+                self.mouse_delta.0 += delta.0;
+                self.mouse_delta.1 += delta.1;
             }
             _ => (),
         }
+    }
+
+    /// Should be called whenever a reset is happening.
+    /// This is important for e.g. mouse delta which needs to be reset to
+    /// accurately track mouse movements between updates.
+    pub fn reset(&mut self) {
+        self.mouse_delta = (0f64, 0f64);
     }
 }
