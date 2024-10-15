@@ -1,17 +1,14 @@
 use std::f32::consts::PI;
 
 use orbital::{
-    app::{AppChange, InputEvent, WINDOW_HALF_SIZE},
+    app::{AppChange, InputEvent},
     cgmath::{Point3, Vector3},
     game::{CameraChange, Element, ElementRegistration, Mode, WorldChange},
     gilrs::{Axis, Button},
     log::debug,
     resources::descriptors::CameraDescriptor,
     util::InputHandler,
-    winit::{
-        dpi::PhysicalPosition,
-        keyboard::{KeyCode, PhysicalKey},
-    },
+    winit::keyboard::{KeyCode, PhysicalKey},
 };
 
 #[derive(Debug)]
@@ -123,8 +120,9 @@ impl Element for Camera {
                 ..Default::default()
             }))
             .with_initial_world_change(WorldChange::AppChange(AppChange::ChangeCursorVisible(
-                true, // TODO
+                false,
             )))
+            .with_initial_world_change(WorldChange::AppChange(AppChange::ChangeCursorGrabbed(true)))
     }
 
     fn on_focus_change(&mut self, focused: bool) {
@@ -173,10 +171,11 @@ impl Element for Camera {
         // Calculate camera rotation
         let (is_axis, yaw_change, pitch_change) = self
             .input_handler
-            .calculate_view_change_from_axis_and_cursor(
+            .calculate_view_change_from_axis_and_mouse_delta(
                 Self::ACTION_LOOK_LEFT_RIGHT,
                 Self::ACTION_LOOK_UP_DOWN,
             );
+        self.input_handler.reset();
 
         // Compile CameraChange
         let change = CameraChange {
@@ -204,15 +203,8 @@ impl Element for Camera {
             )),
         };
 
-        // Send off, if there is a change
-        // let cursor_position = PhysicalPosition::<u32>::from(unsafe { WINDOW_HALF_SIZE });
-        let cursor_position = PhysicalPosition::<u32>::from((1920 / 2, 1080 / 2));
-        let cursor_position_change =
-            WorldChange::AppChange(AppChange::ChangeCursorPosition(cursor_position.into()));
-
         let mut changes = vec![
-            WorldChange::AppChange(AppChange::ChangeCursorGrabbed(true)),
-            // cursor_position_change,
+            // WorldChange::AppChange(AppChange::ChangeCursorGrabbed(true)),
         ];
 
         if self.input_handler.is_triggered(Self::ACTION_DEBUG) {
