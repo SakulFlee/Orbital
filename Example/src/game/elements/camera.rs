@@ -203,9 +203,7 @@ impl Element for Camera {
             )),
         };
 
-        let mut changes = vec![
-            // WorldChange::AppChange(AppChange::ChangeCursorGrabbed(true)),
-        ];
+        let mut changes = vec![];
 
         if self.input_handler.is_triggered(Self::ACTION_DEBUG) {
             changes.push(WorldChange::CleanWorld);
@@ -215,6 +213,10 @@ impl Element for Camera {
             changes.push(WorldChange::UpdateCamera(change));
         }
 
-        Some(changes)
+        if changes.is_empty() {
+            None
+        } else {
+            Some(changes)
+        }
     }
 }
