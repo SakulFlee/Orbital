@@ -3,7 +3,10 @@ use std::{sync::OnceLock, time::Instant};
 use cgmath::Vector2;
 use log::{debug, info};
 use wgpu::{Device, Queue, SurfaceConfiguration, TextureView};
-use winit::event_loop::EventLoop;
+use winit::{
+    event::{DeviceEvent, DeviceId},
+    event_loop::EventLoop,
+};
 
 use crate::{
     app::{App, AppChange, AppRuntime, InputEvent},
@@ -184,6 +187,16 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
             debug!("Tick  Delta: {} ms", delta_time);
 
             self.do_cleanup(device, queue);
+        }
+    }
+
+    fn on_device_event(&mut self, device_id: DeviceId, event: DeviceEvent)
+    where
+        Self: Sized,
+    {
+        if let DeviceEvent::MouseMotion { delta } = event {
+            let input_event = InputEvent::MouseMovedDelta { device_id, delta };
+            self.world.on_input_event(&input_event);
         }
     }
 }
