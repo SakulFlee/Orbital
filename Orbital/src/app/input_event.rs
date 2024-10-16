@@ -26,9 +26,13 @@ pub enum InputEvent {
         delta: MouseScrollDelta,
         phase: TouchPhase,
     },
-    MouseMoved {
+    MouseMovedPosition {
         device_id: DeviceId,
         position: PhysicalPosition<f64>,
+    },
+    MouseMovedDelta {
+        device_id: DeviceId,
+        delta: (f64, f64),
     },
     GamepadButton {
         gamepad_id: GamepadId,

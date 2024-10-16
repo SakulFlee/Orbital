@@ -4,7 +4,10 @@ use cgmath::Vector2;
 use gilrs::Gilrs;
 use log::{debug, error, info, warn};
 use wgpu::{
-    util::{backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env}, Adapter, Device, DeviceDescriptor, Features, Instance, InstanceDescriptor, InstanceFlags, Limits, MemoryHints, PowerPreference, PresentMode, Queue, RequestAdapterOptions, Surface, SurfaceConfiguration, SurfaceTexture, TextureViewDescriptor
+    util::{backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env},
+    Adapter, Device, DeviceDescriptor, Features, Instance, InstanceDescriptor, InstanceFlags,
+    Limits, MemoryHints, PowerPreference, PresentMode, Queue, RequestAdapterOptions, Surface,
+    SurfaceConfiguration, SurfaceTexture, TextureViewDescriptor,
 };
 use winit::{
     application::ApplicationHandler,
@@ -323,7 +326,7 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
                 label: None,
                 required_features: Features::default(),
                 required_limits: Limits::default(),
-                memory_hints: MemoryHints::Performance,                
+                memory_hints: MemoryHints::Performance,
             },
             None,
         ))
@@ -443,7 +446,7 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
                 position,
             } => {
                 if let Some(app) = &mut self.app {
-                    app.on_input(&InputEvent::MouseMoved {
+                    app.on_input(&InputEvent::MouseMovedPosition {
                         device_id,
                         position,
                     })
@@ -498,18 +501,27 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
         }
     }
 
-    fn new_events(&mut self, _event_loop: &ActiveEventLoop, _cause: StartCause) {}
+    fn new_events(&mut self, _event_loop: &ActiveEventLoop, start_cause: StartCause) {
+        if let Some(app) = self.app.as_mut() {
+            app.on_next_event_cycle(start_cause);
+        }
+    }
 
     fn device_event(
         &mut self,
         _event_loop: &ActiveEventLoop,
-        _device_id: DeviceId,
-        _event: DeviceEvent,
+        device_id: DeviceId,
+        event: DeviceEvent,
     ) {
+        if let Some(app) = self.app.as_mut() {
+            app.on_device_event(device_id, event);
+        }
     }
 
     fn memory_warning(&mut self, _event_loop: &ActiveEventLoop) {
-        warn!("Memory warning received!");
+        if let Some(app) = self.app.as_mut() {
+            app.on_memory_warning();
+        }
     }
 }
 
