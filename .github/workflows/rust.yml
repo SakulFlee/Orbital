@@ -22,6 +22,8 @@ jobs:
       with:
         path: target/
         key: target
+
+    - run: apt-get install -y libudev
     
     - name: Clippy
       run: cargo clippy --workspace --all-targets --all-features -- -W clippy::all
