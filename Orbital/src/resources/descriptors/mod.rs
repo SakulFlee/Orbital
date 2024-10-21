@@ -1,5 +1,5 @@
 pub mod camera;
-pub mod cube_texture;
+pub mod world_environment;
 pub mod instance;
 pub mod light;
 pub mod material;
@@ -10,7 +10,7 @@ pub mod shader;
 pub mod texture;
 
 pub use camera::*;
-pub use cube_texture::*;
+pub use world_environment::*;
 pub use instance::*;
 pub use light::*;
 pub use material::*;

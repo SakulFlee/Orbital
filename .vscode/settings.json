@@ -26,6 +26,7 @@
         "glsl",
         "gltf",
         "hashbrown",
+        "HDRI",
         "humantime",
         "icns",
         "infacing",

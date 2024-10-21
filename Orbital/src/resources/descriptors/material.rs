@@ -5,7 +5,7 @@ use std::{
 
 use cgmath::Vector3;
 
-use super::{CubeTextureDescriptor, ShaderDescriptor, TextureDescriptor};
+use super::{ShaderDescriptor, TextureDescriptor, WorldEnvironmentDescriptor};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MaterialDescriptor {
@@ -36,24 +36,24 @@ pub enum MaterialDescriptor {
         custom_shader: ShaderDescriptor,
     },
     WorldEnvironment {
-        sky: CubeTextureDescriptor,
-        irradiance: CubeTextureDescriptor,
-        radiance: CubeTextureDescriptor,
+        sky: WorldEnvironmentDescriptor,
+        irradiance: WorldEnvironmentDescriptor,
+        radiance: WorldEnvironmentDescriptor,
     },
 }
 
 impl MaterialDescriptor {
     pub fn default_world_environment() -> MaterialDescriptor {
         MaterialDescriptor::WorldEnvironment {
-            sky: CubeTextureDescriptor::RadianceHDRFile {
+            sky: WorldEnvironmentDescriptor::FromFile {
                 cube_face_size: 1024,
                 path: "Assets/HDRs/kloppenheim_02_puresky_4k.hdr",
             },
-            irradiance: CubeTextureDescriptor::RadianceHDRFile {
+            irradiance: WorldEnvironmentDescriptor::FromFile {
                 cube_face_size: 1024,
                 path: "Assets/HDRs/kloppenheim_02_puresky_4k.hdr",
             },
-            radiance: CubeTextureDescriptor::RadianceHDRFile {
+            radiance: WorldEnvironmentDescriptor::FromFile {
                 cube_face_size: 1024,
                 path: "Assets/HDRs/kloppenheim_02_puresky_4k.hdr",
             },
