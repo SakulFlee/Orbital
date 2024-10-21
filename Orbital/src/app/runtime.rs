@@ -5,9 +5,9 @@ use gilrs::Gilrs;
 use log::{debug, error, info, warn};
 use wgpu::{
     util::{backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env},
-    Adapter, Device, DeviceDescriptor, Features, Instance, InstanceDescriptor, InstanceFlags,
-    Limits, MemoryHints, PowerPreference, PresentMode, Queue, RequestAdapterOptions, Surface,
-    SurfaceConfiguration, SurfaceTexture, TextureViewDescriptor,
+    Adapter, Backends, CompositeAlphaMode, Device, DeviceDescriptor, DeviceType, Features,
+    Instance, InstanceDescriptor, InstanceFlags, Limits, MemoryHints, PresentMode, Queue, Surface,
+    SurfaceConfiguration, SurfaceTexture, TextureUsages, TextureViewDescriptor,
 };
 use winit::{
     application::ApplicationHandler,
@@ -82,18 +82,121 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
         instance
     }
 
-    fn make_adapter(instance: &Instance, compatible_surface: Option<&Surface>) -> Adapter {
-        let adapter = pollster::block_on(instance.request_adapter(&RequestAdapterOptions {
-            power_preference: PowerPreference::HighPerformance,
-            force_fallback_adapter: false,
-            compatible_surface,
-        }))
-        .expect("No suitable GPU adapters found!");
+    fn retrieve_and_rank_adapters(
+        instance: &Instance,
+        compatible_surface: Option<&Surface>,
+    ) -> Vec<(Adapter, u128)> {
+        let mut valid_adapters_ranked: Vec<_> = instance
+            .enumerate_adapters(Backends::all())
+            .into_iter()
+            // Remove any adapters that don't support the surface
+            .filter(|adapter| {
+                compatible_surface.is_none()
+                    || adapter.is_surface_supported(compatible_surface.unwrap())
+            })
+            // Initialize scoring
+            .map(|adapter| (adapter, 0u128))
+            // Map and match device types based on preference
+            .map(|(adapter, score)| {
+                let local_score = match adapter.get_info().device_type {
+                    DeviceType::DiscreteGpu => 1000,
+                    DeviceType::IntegratedGpu => 100,
+                    DeviceType::VirtualGpu => 0,
+                    DeviceType::Cpu => 0,
+                    DeviceType::Other => 0,
+                };
 
-        let adapter_info = adapter.get_info();
-        debug!("Adapter: {} ({:#?})", adapter_info.name, adapter_info);
+                (adapter, score + local_score)
+            })
+            // For each limit, increase the score.
+            // Thus, higher limits == higher score.
+            .map(|(adapter, score)| {
+                let mut local_score = score;
+                local_score += adapter.limits().max_texture_dimension_1d as u128;
+                local_score += adapter.limits().max_texture_dimension_2d as u128;
+                local_score += adapter.limits().max_texture_dimension_3d as u128;
+                local_score += adapter.limits().max_texture_array_layers as u128;
+                local_score += adapter.limits().max_bind_groups as u128;
+                local_score += adapter.limits().max_bindings_per_bind_group as u128;
+                local_score += adapter
+                    .limits()
+                    .max_dynamic_uniform_buffers_per_pipeline_layout
+                    as u128;
+                local_score += adapter
+                    .limits()
+                    .max_dynamic_storage_buffers_per_pipeline_layout
+                    as u128;
+                local_score += adapter.limits().max_sampled_textures_per_shader_stage as u128;
+                local_score += adapter.limits().max_samplers_per_shader_stage as u128;
+                local_score += adapter.limits().max_storage_buffers_per_shader_stage as u128;
+                local_score += adapter.limits().max_storage_textures_per_shader_stage as u128;
+                local_score += adapter.limits().max_uniform_buffers_per_shader_stage as u128;
+                local_score += adapter.limits().max_uniform_buffer_binding_size as u128;
+                local_score += adapter.limits().max_storage_buffer_binding_size as u128;
+                local_score += adapter.limits().max_vertex_buffers as u128;
+                local_score += adapter.limits().max_buffer_size as u128;
+                local_score += adapter.limits().max_vertex_attributes as u128;
+                local_score += adapter.limits().max_vertex_buffer_array_stride as u128;
+                local_score += adapter.limits().min_uniform_buffer_offset_alignment as u128;
+                local_score += adapter.limits().min_storage_buffer_offset_alignment as u128;
+                local_score += adapter.limits().max_inter_stage_shader_components as u128;
+                local_score += adapter.limits().max_color_attachments as u128;
+                local_score += adapter.limits().max_color_attachment_bytes_per_sample as u128;
+                local_score += adapter.limits().max_compute_workgroup_storage_size as u128;
+                local_score += adapter.limits().max_compute_invocations_per_workgroup as u128;
+                local_score += adapter.limits().max_compute_workgroup_size_x as u128;
+                local_score += adapter.limits().max_compute_workgroup_size_y as u128;
+                local_score += adapter.limits().max_compute_workgroup_size_z as u128;
+                local_score += adapter.limits().max_compute_workgroups_per_dimension as u128;
+                local_score += adapter.limits().min_subgroup_size as u128;
+                local_score += adapter.limits().max_subgroup_size as u128;
+                local_score += adapter.limits().max_push_constant_size as u128;
+                local_score += adapter.limits().max_non_sampler_bindings as u128;
 
-        adapter
+                (adapter, score + local_score)
+            })
+            // For each feature, increase the score.
+            // Thus, more features == higher score.
+            .map(|(adapter, score)| {
+                let feature_count = adapter.features().iter().count();
+
+                (adapter, score + feature_count as u128)
+            })
+            .collect::<Vec<_>>();
+
+        // Sort adapters
+        valid_adapters_ranked.sort_by_key(|(_adapter, score)| *score);
+
+        if valid_adapters_ranked.is_empty() {
+            panic!("No suitable GPU adapters found!");
+        }
+
+        info!("Following GPU adapters found:");
+        valid_adapters_ranked
+            .iter()
+            .enumerate()
+            .for_each(|(i, (adapter, score))| {
+                info!("#{}: {} [{}]", i, adapter.get_info().name, score)
+            });
+
+        valid_adapters_ranked
+    }
+
+    fn make_device_and_queue(adapter: &Adapter) -> (Device, Queue) {
+        let (device, queue) = pollster::block_on(adapter.request_device(
+            &DeviceDescriptor {
+                label: Some("Orbital GPU"),
+                required_features: Features::default() | Features::MULTIVIEW,
+                required_limits: Limits::default(),
+                memory_hints: MemoryHints::Performance,
+            },
+            None,
+        ))
+        .expect("Failed creating device from chosen adapter!");
+        debug!("Device: {:?}", device);
+        debug!("Queue: {:?}", queue);
+
+        (device, queue)
     }
 
     fn make_surface_configuration(
@@ -102,9 +205,23 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
         window_size: PhysicalSize<u32>,
         vsync_enabled: bool,
     ) -> SurfaceConfiguration {
-        let mut surface_configuration = surface
-            .get_default_config(adapter, window_size.width, window_size.height)
-            .expect("Surface isn't compatible with chosen adapter!");
+        let caps = surface.get_capabilities(adapter);
+        let mut surface_configuration = SurfaceConfiguration {
+            usage: TextureUsages::RENDER_ATTACHMENT,
+            format: *caps
+                .formats
+                .first()
+                .expect("Surface is required to have at least one format set!"),
+            width: window_size.width,
+            height: window_size.height,
+            desired_maximum_frame_latency: 2,
+            present_mode: *caps
+                .present_modes
+                .first()
+                .expect("Surface is required to have at least one present mode set!"),
+            alpha_mode: CompositeAlphaMode::Auto,
+            view_formats: vec![],
+        };
 
         surface_configuration.present_mode = match vsync_enabled {
             true => PresentMode::AutoVsync,
@@ -304,33 +421,47 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
             self.instance
                 .as_ref()
                 .unwrap()
-                .create_surface(self.window.as_ref().unwrap().clone())
+                .create_surface(
+                    self.window
+                        .as_ref()
+                        .expect("Expected a Window to exist by now!")
+                        .clone(),
+                )
                 .expect("Surface creation failed"),
         );
 
-        self.adapter = Some(Self::make_adapter(
-            self.instance.as_ref().unwrap(),
-            Some(self.surface.as_ref().unwrap()),
-        ));
+        let mut adapters_ranked = Self::retrieve_and_rank_adapters(
+            self.instance
+                .as_ref()
+                .expect("Expected an Instance to exist by now!"),
+            self.surface.as_ref(),
+        );
+
+        let (chosen_adapter, chosen_score) = adapters_ranked.swap_remove(adapters_ranked.len() - 1);
+        info!(
+            "Chosen adapter: {} [{}]",
+            chosen_adapter.get_info().name,
+            chosen_score
+        );
+        self.adapter = Some(chosen_adapter);
 
         let window_size = self.window.as_ref().unwrap().inner_size();
         self.surface_configuration = Some(Self::make_surface_configuration(
-            self.surface.as_ref().unwrap(),
-            self.adapter.as_ref().unwrap(),
+            self.surface
+                .as_ref()
+                .expect("Expected a Surface to exist by now!"),
+            self.adapter
+                .as_ref()
+                .expect("Expected an Adapter to exist by now!"),
             window_size,
             self.runtime_settings.vsync_enabled,
         ));
 
-        let (device, queue) = pollster::block_on(self.adapter.as_ref().unwrap().request_device(
-            &DeviceDescriptor {
-                label: None,
-                required_features: Features::default() | Features::MULTIVIEW,
-                required_limits: Limits::default(),
-                memory_hints: MemoryHints::Performance,
-            },
-            None,
-        ))
-        .expect("Unable to find suitable GPU device!");
+        let (device, queue) = Self::make_device_and_queue(
+            self.adapter
+                .as_ref()
+                .expect("Expected an Adapter to be set by now!"),
+        );
         self.device = Some(device);
         self.queue = Some(queue);
 
@@ -341,9 +472,15 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
             info!("Bootstrapping app ...");
 
             self.app = Some(AppImpl::init(
-                self.surface_configuration.as_ref().unwrap(),
-                self.device.as_ref().unwrap(),
-                self.queue.as_ref().unwrap(),
+                self.surface_configuration
+                    .as_ref()
+                    .expect("Expected a SurfaceConfiguration to exist by now!"),
+                self.device
+                    .as_ref()
+                    .expect("Expected a Device to exist by now!"),
+                self.queue
+                    .as_ref()
+                    .expect("Expected a Queue to exist by now!"),
             ));
         }
     }
