@@ -1,4 +1,4 @@
-use std::{path::PathBuf, process::Command};
+use std::process::Command;
 
 fn path_to_models_dir() -> String {
     const MODELS_DIR: &str = "../Assets/Models/";
