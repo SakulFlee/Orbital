@@ -16,9 +16,6 @@ use crate::{error::Error, resources::descriptors::WorldEnvironmentDescriptor};
 
 use super::Texture;
 
-mod processing_type;
-pub use processing_type::*;
-
 pub struct WorldEnvironment {
     pbr_ibl_diffuse: Texture,
     pbr_ibl_specular: Texture,
@@ -367,7 +364,7 @@ impl WorldEnvironment {
             push_constant_ranges: &[],
         });
 
-        let shader = device.create_shader_module(include_wgsl!("equirectangular.wgsl"));
+        let shader = device.create_shader_module(include_wgsl!("world_environment.wgsl"));
 
         device.create_compute_pipeline(&ComputePipelineDescriptor {
             label: Some("Equirectangular to CubeMap"),
