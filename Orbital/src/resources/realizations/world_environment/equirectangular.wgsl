@@ -63,11 +63,30 @@ fn importance_sample_ggx(Xi: vec2<f32>, roughness: f32, N: vec3<f32>) -> vec3<f3
     return tangentX * H.x + tangentY * H.y + N * H.z;
 }
 
-fn calculate_pbr_ibl_diffuse(N: vec3<f32>) {
+fn calculate_pbr_ibl_diffuse(N: vec3<f32>, gid: vec3<u32>) {
+    var irradiance = vec3(0.0);
+    let sample_delta = PI * 0.5 / 64.0;
 
+    for(var phi = 0.0; phi < 2.0 * PI; phi += sample_delta) {
+        for(var theta = 0.0; theta < 0.5 * PI; theta += sample_delta) {
+            let tangent = vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
+            let L = normalize(tangent);
+            let NdotL = max(dot(N, L), 0.0);
+
+            let inv_atan = vec2(0.1591, 0.3183);
+            let eq_uv = vec2(atan2(L.z, L.x), asin(L.y)) * inv_atan + 0.5;
+            let eq_pixel = vec2<i32>(eq_uv * vec2<f32>(textureDimensions(src)));
+            
+            let sample = textureLoad(src, eq_pixel, 0);
+            irradiance += sample.rgb * cos(theta) * sin(theta) * NdotL;
+        }
+    }
+
+    let prefiltered_color = irradiance * PI * (1.0 / 64.0) * (1.0 / 64.0);
+    textureStore(dst, gid.xy, gid.z, vec4(prefiltered_color, 1.0));
 }
 
-fn calculate_pbr_ibl_specular(N: vec3<f32>, roughness: f32, gid: vec3<u32>) {
+fn calculate_pbr_ibl_specular(N: vec3<f32>, gid: vec3<u32>, roughness: f32) {
     var prefiltered_color = vec3(0.0);
     var total_weight = 0.0;
 
@@ -154,9 +173,9 @@ fn main(
 
     if (info.rougness_percent < 0) {
         // Diffuse
-        calculate_pbr_ibl_diffuse(N);
+        calculate_pbr_ibl_diffuse(N, gid);
     } else {
         // Specular
-        calculate_pbr_ibl_specular(N, f32(info.rougness_percent), gid);
+        calculate_pbr_ibl_specular(N, gid, f32(info.rougness_percent));
     }
 }
