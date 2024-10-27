@@ -97,14 +97,14 @@ struct PBRData {
 
 @group(2) @binding(0) var<storage> point_light_store: array<PointLight>;
 
-@group(3) @binding(2) var irradiance_env_map: texture_cube<f32>;
-@group(3) @binding(3) var irradiance_sampler: sampler;
+@group(3) @binding(0) var diffuse_env_map: texture_cube<f32>;
+@group(3) @binding(1) var diffuse_sampler: sampler;
 
-@group(3) @binding(4) var radiance_env_map: texture_cube<f32>;
-@group(3) @binding(5) var radiance_sampler: sampler;
+@group(3) @binding(2) var specular_env_map: texture_cube<f32>;
+@group(3) @binding(3) var specular_sampler: sampler;
 
-@group(3) @binding(6) var ibl_brdf_lut_texture: texture_2d<f32>;
-@group(3) @binding(7) var ibl_brdf_lut_sampler: sampler;
+@group(3) @binding(4) var ibl_brdf_lut_texture: texture_2d<f32>;
+@group(3) @binding(5) var ibl_brdf_lut_sampler: sampler;
 
 const PI = 3.14159265359; 
 const F0_DEFAULT = vec3<f32>(0.04);
@@ -333,24 +333,24 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     let emissive_gamma_applied = pow(emissive_clamped, vec3(camera.global_gamma));
     out.emissive = emissive_clamped;
 
-    let irradiance_sample = textureSample(
-        irradiance_env_map,
-        irradiance_sampler,
+    let diffuse_sample = textureSample(
+        diffuse_env_map,
+        diffuse_sampler,
         out.N
     ).rgb;
-    let irradiance_clamped = clamp(irradiance_sample, vec3(0.0), vec3(1.0));
-    let irradiance_gamma_applied = pow(irradiance_clamped, vec3(camera.global_gamma));
-    out.irradiance = irradiance_gamma_applied;
+    let diffuse_clamped = clamp(diffuse_sample, vec3(0.0), vec3(1.0));
+    let diffuse_gamma_applied = pow(diffuse_clamped, vec3(camera.global_gamma));
+    out.irradiance = diffuse_gamma_applied;
 
-    let radiance_sample = textureSampleLevel(
-        radiance_env_map,
-        radiance_sampler,
+    let specular_sample = textureSampleLevel(
+        specular_env_map,
+        specular_sampler,
         R,
         out.roughness // TODO: Might be false
     ).rgb;
-    let radiance_clamped = clamp(radiance_sample, vec3(0.0), vec3(1.0));
-    let radiance_gamma_applied = pow(radiance_clamped, vec3(camera.global_gamma));
-    out.radiance = radiance_gamma_applied;
+    let specular_clamped = clamp(specular_sample, vec3(0.0), vec3(1.0));
+    let specular_gamma_applied = pow(specular_clamped, vec3(camera.global_gamma));
+    out.radiance = specular_gamma_applied;
 
     let brdf_lut_sample = textureSample(
         ibl_brdf_lut_texture,
