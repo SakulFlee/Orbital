@@ -229,7 +229,7 @@ impl Material {
         PipelineBindGroupLayout {
             label: Self::WORLD_ENVIRONMENT_PIPELINE_BIND_GROUP_NAME,
             entries: vec![
-                // Sky
+                // Specular
                 BindGroupLayoutEntry {
                     binding: 0,
                     visibility: ShaderStages::FRAGMENT,
@@ -246,7 +246,7 @@ impl Material {
                     ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
                     count: None,
                 },
-                // Irradiance
+                // Diffuse
                 BindGroupLayoutEntry {
                     binding: 2,
                     visibility: ShaderStages::FRAGMENT,
@@ -263,26 +263,9 @@ impl Material {
                     ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
                     count: None,
                 },
-                // Radiance
-                BindGroupLayoutEntry {
-                    binding: 4,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        sample_type: TextureSampleType::Float { filterable: false },
-                        view_dimension: TextureViewDimension::Cube,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    binding: 5,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
-                    count: None,
-                },
                 // IBL BRDF LUT
                 BindGroupLayoutEntry {
-                    binding: 6,
+                    binding: 4,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         sample_type: TextureSampleType::Float { filterable: false },
@@ -292,7 +275,7 @@ impl Material {
                     count: None,
                 },
                 BindGroupLayoutEntry {
-                    binding: 7,
+                    binding: 5,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
                     count: None,
@@ -392,52 +375,39 @@ impl Material {
             label: None,
             layout: bind_group_layout,
             entries: &[
-                // Sky
+                // Diffuse
                 BindGroupEntry {
                     binding: 0,
                     resource: BindingResource::TextureView(
-                        world_environment.skybox_cube_texture().view(),
+                        world_environment.pbr_ibl_diffuse().view(),
                     ),
                 },
                 BindGroupEntry {
                     binding: 1,
                     resource: BindingResource::Sampler(
-                        world_environment.skybox_cube_texture().sampler(),
+                        world_environment.pbr_ibl_diffuse().sampler(),
                     ),
                 },
-                // Irradiance
+                // Specular
                 BindGroupEntry {
                     binding: 2,
                     resource: BindingResource::TextureView(
-                        world_environment.diffuse_cube_texture().view(),
+                        world_environment.pbr_ibl_specular().view(),
                     ),
                 },
                 BindGroupEntry {
                     binding: 3,
                     resource: BindingResource::Sampler(
-                        world_environment.diffuse_cube_texture().sampler(),
-                    ),
-                },
-                // Radiance
-                BindGroupEntry {
-                    binding: 4,
-                    resource: BindingResource::TextureView(
-                        world_environment.skybox_cube_texture().view(),
-                    ),
-                },
-                BindGroupEntry {
-                    binding: 5,
-                    resource: BindingResource::Sampler(
-                        world_environment.skybox_cube_texture().sampler(),
+                        world_environment.pbr_ibl_specular().sampler(),
                     ),
                 },
                 // IBL BRDF LUT
                 BindGroupEntry {
-                    binding: 6,
+                    binding: 4,
                     resource: BindingResource::TextureView(ibl_brdf_lut.view()),
                 },
                 BindGroupEntry {
-                    binding: 7,
+                    binding: 5,
                     resource: BindingResource::Sampler(ibl_brdf_lut.sampler()),
                 },
             ],

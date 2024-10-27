@@ -1,4 +1,5 @@
 const PI: f32 = 3.1415926535897932384626433832795;
+const SAMPLE_COUNT: u32 = 1024u;
 
 struct Face {
     forward: vec3<f32>,
@@ -6,11 +7,91 @@ struct Face {
     right: vec3<f32>,
 }
 
+struct Info {
+    // If >= 0, we're generating a mipmap for specular IBL
+    // If < 0, we're generating diffuse IBL
+    rougness_percent: i32,
+}
+
 @group(0) @binding(0)
-var src: texture_2d<f32>;
+var<uniform> info: Info;
 
 @group(0) @binding(1)
+var src: texture_2d<f32>;
+
+@group(0) @binding(2)
 var dst: texture_storage_2d_array<rgba32float, write>;
+
+// Importance sampling functions
+fn van_der_corput(n: u32, base: u32) -> f32 {
+    var m = n;
+    var q = 0.0;
+    var b = f32(base);
+    var k = 1.0;
+    
+    while(m > 0u) {
+        let a = f32(m % base);
+        q = q + a * k;
+        k = k / b;
+        m = m / base;
+    }
+    return q;
+}
+
+fn hammersley(i: u32, N: u32) -> vec2<f32> {
+    return vec2(f32(i) / f32(N), van_der_corput(i, 2u));
+}
+
+fn importance_sample_ggx(Xi: vec2<f32>, roughness: f32, N: vec3<f32>) -> vec3<f32> {
+    let a = roughness * roughness;
+    let phi = 2.0 * PI * Xi.x;
+    let cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (a*a - 1.0) * Xi.y));
+    let sinTheta = sqrt(1.0 - cosTheta * cosTheta);
+
+    // Spherical to cartesian
+    let H = vec3(
+        sinTheta * cos(phi),
+        sinTheta * sin(phi),
+        cosTheta
+    );
+
+    // Tangent space to world space
+    let up = select(vec3(1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0), abs(N.y) < 0.999);
+    let tangentX = normalize(cross(up, N));
+    let tangentY = cross(N, tangentX);
+
+    return tangentX * H.x + tangentY * H.y + N * H.z;
+}
+
+fn calculate_pbr_ibl_diffuse(N: vec3<f32>) {
+
+}
+
+fn calculate_pbr_ibl_specular(N: vec3<f32>, roughness: f32, gid: vec3<u32>) {
+    var prefiltered_color = vec3(0.0);
+    var total_weight = 0.0;
+
+    for(var i = 0u; i < SAMPLE_COUNT; i++) {
+        let Xi = hammersley(i, SAMPLE_COUNT);
+        let H = importance_sample_ggx(Xi, roughness, N);
+        let L = normalize(2.0 * dot(N, H) * H - N);
+        
+        let NdotL = max(dot(N, L), 0.0);
+        if(NdotL > 0.0) {
+            // Convert L to equirectangular UV
+            let inv_atan = vec2(0.1591, 0.3183);
+            let eq_uv = vec2(atan2(L.z, L.x), asin(L.y)) * inv_atan + 0.5;
+            let eq_pixel = vec2<i32>(eq_uv * vec2<f32>(textureDimensions(src)));
+            
+            let sample = textureLoad(src, eq_pixel, 0);
+            prefiltered_color += sample.rgb * NdotL;
+            total_weight += NdotL;
+        }
+    }
+
+    prefiltered_color /= total_weight;
+    textureStore(dst, gid.xy, gid.z, vec4(prefiltered_color, 1.0));
+}
 
 @compute
 @workgroup_size(16, 16, 1)
@@ -26,37 +107,37 @@ fn main(
     }
 
     var FACES: array<Face, 6> = array(
-        // FACES +X
+        // FACE +X
         Face(
             vec3(1.0, 0.0, 0.0),  // forward
             vec3(0.0, 1.0, 0.0),  // up
             vec3(0.0, 0.0, -1.0), // right
         ),
-        // FACES -X
+        // FACE -X
         Face(
             vec3(-1.0, 0.0, 0.0),
             vec3(0.0, 1.0, 0.0),
             vec3(0.0, 0.0, 1.0),
         ),
-        // FACES +Y
+        // FACE +Y
         Face(
             vec3(0.0, -1.0, 0.0),
             vec3(0.0, 0.0, 1.0),
             vec3(1.0, 0.0, 0.0),
         ),
-        // FACES -Y
+        // FACE -Y
         Face(
             vec3(0.0, 1.0, 0.0),
             vec3(0.0, 0.0, -1.0),
             vec3(1.0, 0.0, 0.0),
         ),
-        // FACES +Z
+        // FACE +Z
         Face(
             vec3(0.0, 0.0, 1.0),
             vec3(0.0, 1.0, 0.0),
             vec3(1.0, 0.0, 0.0),
         ),
-        // FACES -Z
+        // FACE -Z
         Face(
             vec3(0.0, 0.0, -1.0),
             vec3(0.0, 1.0, 0.0),
@@ -65,19 +146,17 @@ fn main(
     );
 
     // Get texture coords relative to cubemap face
-    let dst_dimensions = vec2<f32>(textureDimensions(dst));
-    let cube_uv = vec2<f32>(gid.xy) / dst_dimensions * 2.0 - 1.0;
+    let cube_uv = vec2<f32>(gid.xy) / vec2<f32>(textureDimensions(dst)) * 2.0 - 1.0;
 
-    // Get spherical coordinate from cube_uv
+    // Get normal based on face and cube_uv
     let face = FACES[gid.z];
-    let spherical = normalize(face.forward + face.right * cube_uv.x + face.up * cube_uv.y);
+    let N = normalize(face.forward + face.right * cube_uv.x + face.up * cube_uv.y);
 
-    // Get coordinate on the equirectangular texture
-    let inv_atan = vec2(0.1591, 0.3183);
-    let eq_uv = vec2(atan2(spherical.z, spherical.x), asin(spherical.y)) * inv_atan + 0.5;
-    let eq_pixel = vec2<i32>(eq_uv * vec2<f32>(textureDimensions(src)));
-
-    // We use textureLoad() as textureSample() is not allowed in compute shaders
-    var sample = textureLoad(src, eq_pixel, 0);
-    textureStore(dst, gid.xy, gid.z, sample);
+    if (info.rougness_percent < 0) {
+        // Diffuse
+        calculate_pbr_ibl_diffuse(N);
+    } else {
+        // Specular
+        calculate_pbr_ibl_specular(N, f32(info.rougness_percent), gid);
+    }
 }
