@@ -63,6 +63,67 @@ fn importance_sample_ggx(Xi: vec2<f32>, roughness: f32, N: vec3<f32>) -> vec3<f3
     return tangentX * H.x + tangentY * H.y + N * H.z;
 }
 
+fn gid_z_to_face(gid_z: u32) -> Face {
+    switch gid_z {
+        // FACE +X
+        case 0u: {
+            return Face(
+                vec3(1.0, 0.0, 0.0),  // forward
+                vec3(0.0, 1.0, 0.0),  // up
+                vec3(0.0, 0.0, -1.0), // right
+            );
+        }
+        // FACE -X
+        case 1u: {
+            return Face(
+                vec3(-1.0, 0.0, 0.0),
+                vec3(0.0, 1.0, 0.0),
+                vec3(0.0, 0.0, 1.0),
+            );
+        }
+        // FACE +Y
+        case 2u: {
+            return Face(
+                vec3(0.0, -1.0, 0.0),
+                vec3(0.0, 0.0, 1.0),
+                vec3(1.0, 0.0, 0.0),
+            );
+        }
+        // FACE -Y
+        case 3u: {
+            return Face(
+                vec3(0.0, 1.0, 0.0),
+                vec3(0.0, 0.0, -1.0),
+                vec3(1.0, 0.0, 0.0),
+            );
+        }
+        // FACE +Z
+        case 4u: {
+            return Face(
+                vec3(0.0, 0.0, 1.0),
+                vec3(0.0, 1.0, 0.0),
+                vec3(1.0, 0.0, 0.0),
+            );
+        }
+        // FACE -Z
+        case 5u: {
+            return Face(
+                vec3(0.0, 0.0, -1.0),
+                vec3(0.0, 1.0, 0.0),
+                vec3(-1.0, 0.0, 0.0),
+            );
+        }
+        // SHOULD NEVER TRIGGER!
+        default: {
+            return Face(
+                vec3(0.0, 0.0, 0.0),
+                vec3(0.0, 0.0, 0.0),
+                vec3(0.0, 0.0, 0.0),
+            );
+        }
+    }
+}
+
 fn calculate_pbr_ibl_diffuse(N: vec3<f32>, gid: vec3<u32>) {
     var irradiance = vec3(0.0);
     let sample_delta = PI * 0.5 / 64.0;
@@ -127,50 +188,11 @@ fn main(
         return;
     }
 
-    var FACES: array<Face, 6> = array(
-        // FACE +X
-        Face(
-            vec3(1.0, 0.0, 0.0),  // forward
-            vec3(0.0, 1.0, 0.0),  // up
-            vec3(0.0, 0.0, -1.0), // right
-        ),
-        // FACE -X
-        Face(
-            vec3(-1.0, 0.0, 0.0),
-            vec3(0.0, 1.0, 0.0),
-            vec3(0.0, 0.0, 1.0),
-        ),
-        // FACE +Y
-        Face(
-            vec3(0.0, -1.0, 0.0),
-            vec3(0.0, 0.0, 1.0),
-            vec3(1.0, 0.0, 0.0),
-        ),
-        // FACE -Y
-        Face(
-            vec3(0.0, 1.0, 0.0),
-            vec3(0.0, 0.0, -1.0),
-            vec3(1.0, 0.0, 0.0),
-        ),
-        // FACE +Z
-        Face(
-            vec3(0.0, 0.0, 1.0),
-            vec3(0.0, 1.0, 0.0),
-            vec3(1.0, 0.0, 0.0),
-        ),
-        // FACE -Z
-        Face(
-            vec3(0.0, 0.0, -1.0),
-            vec3(0.0, 1.0, 0.0),
-            vec3(-1.0, 0.0, 0.0),
-        ),
-    );
-
     // Get texture coords relative to cubemap face
     let cube_uv = vec2<f32>(gid.xy) / vec2<f32>(textureDimensions(dst)) * 2.0 - 1.0;
 
     // Get normal based on face and cube_uv
-    let face = FACES[gid.z];
+    let face = gid_z_to_face(gid.z);
     let N = normalize(face.forward + face.right * cube_uv.x + face.up * cube_uv.y);
 
     if (info.rougness_percent < 0) {
