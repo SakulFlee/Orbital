@@ -59,10 +59,10 @@ struct PBRData {
     occlusion: f32,
     // Emissive (like albedo, but ignores light) texture sample
     emissive: vec3<f32>,
-    // Irradiance (used for diffuse IBL)
-    irradiance: vec3<f32>,
-    // Radiance (used for specular IBL)
-    radiance: vec3<f32>,
+    // Diffuse IBL
+    ibl_diffuse: vec3<f32>,
+    // Specular IBL
+    ibl_specular: vec3<f32>,
     // BRDF LuT (look-up-table) (used for IBL)
     brdf_lut: vec2<f32>,
     // Normal
@@ -203,7 +203,7 @@ fn brdf(point_light: PointLight, pbr: PBRData, world_position: vec3<f32>) -> vec
 fn calculate_point_light_specular_contribution(pbr: PBRData, world_position: vec3<f32>) -> vec3<f32> {
     var Lo = vec3(0.0);
 
-    for (var i: u32 = 0; i < arrayLength(&point_light_store); i++) {
+    for (var i = u32(0); i < arrayLength(&point_light_store); i++) {
         let point_light = point_light_store[i];
         Lo += brdf(point_light, pbr, world_position); 
     }
@@ -218,11 +218,11 @@ fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
 
     // IBL Diffuse
     let diffuse_color = (pbr.albedo * (vec3(1.0) - F) + 0.0001) * (1.0 - pbr.metallic + 0.0001);
-    let diffuse_ibl = pbr.irradiance * diffuse_color;
+    let diffuse_ibl = pbr.ibl_diffuse * diffuse_color;
 
     // IBL Specular
     let specular_color = mix(F0, pbr.albedo, pbr.metallic);
-    var specular_ibl = pbr.radiance * (F * pbr.brdf_lut.x + pbr.brdf_lut.y);
+    var specular_ibl = pbr.ibl_specular * (F * pbr.brdf_lut.x + pbr.brdf_lut.y);
 
     // Ambient light calculation (IBL), multiplied by ambient occlusion
     return (diffuse_ibl + specular_ibl) * pbr.occlusion;
@@ -329,7 +329,7 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     ).rgb;
     let emissive_clamped = clamp(emissive_sample, vec3(0.0), vec3(1.0));
     let emissive_gamma_applied = pow(emissive_clamped, vec3(camera.global_gamma));
-    out.emissive = emissive_clamped;
+    out.emissive = emissive_gamma_applied;
 
     let diffuse_sample = textureSample(
         diffuse_env_map,
@@ -338,7 +338,7 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     ).rgb;
     let diffuse_clamped = clamp(diffuse_sample, vec3(0.0), vec3(1.0));
     let diffuse_gamma_applied = pow(diffuse_clamped, vec3(camera.global_gamma));
-    out.irradiance = diffuse_gamma_applied;
+    out.ibl_diffuse = diffuse_gamma_applied;
 
     let specular_sample = textureSampleLevel(
         specular_env_map,
@@ -348,7 +348,7 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     ).rgb;
     let specular_clamped = clamp(specular_sample, vec3(0.0), vec3(1.0));
     let specular_gamma_applied = pow(specular_clamped, vec3(camera.global_gamma));
-    out.radiance = specular_gamma_applied;
+    out.ibl_specular = specular_gamma_applied;
 
     let brdf_lut_sample = textureSample(
         ibl_brdf_lut_texture,
