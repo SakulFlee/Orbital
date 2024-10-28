@@ -3,7 +3,7 @@ use crate::{
     game::Element,
     loader::Loader,
     resources::descriptors::{
-        CameraDescriptor, LightDescriptor, MaterialDescriptor, ModelDescriptor,
+        CameraDescriptor, LightDescriptor, MaterialDescriptor, ModelDescriptor, SkyboxType,
     },
     transform::Transform,
 };
@@ -201,10 +201,15 @@ pub enum WorldChange {
     /// [World]: super::World
     DespawnLight(String),
     /// Changes the _World Environment_ for the [World].
-    /// This is mainly changing the _SkyBox_ and _IBL_.
     ///
     /// [World]: super::World
-    ChangeWorldEnvironment { skybox_material: MaterialDescriptor },
+    ChangeWorldEnvironment {
+        world_environment_material_descriptor: MaterialDescriptor,
+    },
+    /// Changes the [WorldEnvironment] [SkyboxType] for the [World].
+    ///
+    /// [World]: super::World
+    ChangeWorldEnvironmentSkyboxType { skybox_type: SkyboxType },
     /// Cleans the entire [World].
     /// Meaning, that any [Element]s, and their associated resources like
     /// [Model]s, will be despawned and

@@ -15,8 +15,20 @@ struct VertexOutput {
     @location(0) clip_position: vec4<f32>,
 }
 
-@group(0) @binding(2) var env_map: texture_cube<f32>;
-@group(0) @binding(3) var env_sampler: sampler;
+struct Info {
+    lod: i32,
+}
+
+@group(0) @binding(0) var diffuse_env_map: texture_cube<f32>;
+@group(0) @binding(1) var diffuse_env_sampler: sampler;
+
+@group(0) @binding(2) var specular_env_map: texture_cube<f32>;
+@group(0) @binding(3) var specular_env_sampler: sampler;
+
+// @group(0) @binding(4) var ibl_brdf_env_map: texture_cube<f32>;
+// @group(0) @binding(5) var ibl_brdf_env_sampler: sampler;
+
+@group(0) @binding(6) var<uniform> info: Info;
 
 @group(1) @binding(0) var<uniform> camera: CameraUniform;
 
@@ -43,7 +55,12 @@ fn entrypoint_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     var ray_direction = normalize((camera.view_projection_transposed * vec4(view_ray_direction, 0.0)).xyz);
 
     // HDRI SkyBox
-    let sample = textureSample(env_map, env_sampler, ray_direction);
+    var sample: vec4<f32>;
+    if info.lod < 0 {
+        sample = textureSample(diffuse_env_map, diffuse_env_sampler, ray_direction);
+    } else {
+        sample = textureSampleLevel(specular_env_map, specular_env_sampler, ray_direction, f32(info.lod));
+    }
 
     var color = sample.xyz;
     color = color / (color + vec3<f32>(1.0));

@@ -1,6 +1,6 @@
 use elements::{
-    camera::Camera, damaged_helmet::DamagedHelmet, lights::Lights, pbr_spheres::PBRSpheres,
-    ping_pong::PingPongElement,
+    camera::Camera, damaged_helmet::DamagedHelmet, debug_world_environment::DebugWorldEnvironment,
+    lights::Lights, pbr_spheres::PBRSpheres, ping_pong::PingPongElement,
 };
 use orbital::game::{Game, World, WorldChange};
 
@@ -20,6 +20,11 @@ impl Game for ExampleGame {
     where
         Self: Sized,
     {
+        // Debug
+        world.process_world_change(WorldChange::SpawnElement(Box::new(
+            DebugWorldEnvironment::new(),
+        )));
+
         // Camera & Lights
         world.process_world_change(WorldChange::SpawnElement(Box::new(Camera::new())));
         world.process_world_change(WorldChange::SpawnElement(Box::new(Lights {})));

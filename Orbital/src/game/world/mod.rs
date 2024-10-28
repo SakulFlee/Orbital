@@ -324,17 +324,21 @@ impl World {
                 self.light_store.remove_any_light_with_label(&label)
             }
             WorldChange::ChangeWorldEnvironment {
-                skybox_material: world_environment_material_descriptor,
+                world_environment_material_descriptor,
             } => {
-                if let MaterialDescriptor::WorldEnvironment {
-                    sky: _,
-                    irradiance: _,
-                    radiance: _,
-                } = &world_environment_material_descriptor
+                if let MaterialDescriptor::WorldEnvironment(_) =
+                    &world_environment_material_descriptor
                 {
                     self.world_environment = world_environment_material_descriptor;
                 } else {
-                    error!("WorldChange::ChangeSkyBox requested, but supplied material is not of type MaterialDescriptor::SkyBox!");
+                    error!("WorldChange::ChangeWorldEnvironment requested, but supplied material is not of type MaterialDescriptor::SkyBox!");
+                }
+            }
+            WorldChange::ChangeWorldEnvironmentSkyboxType { skybox_type } => {
+                if let MaterialDescriptor::WorldEnvironment(desc) = &mut self.world_environment {
+                    desc.set_skybox_type(skybox_type);
+                } else {
+                    panic!("WorldChange::ChangeWorldEnvironmentSkyboxType requested, but existing Skybox material isn't of correct type! This shouldn't be possible.");
                 }
             }
             WorldChange::CleanWorld => {

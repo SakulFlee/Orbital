@@ -1,5 +1,4 @@
 pub mod camera;
-pub mod world_environment;
 pub mod instance;
 pub mod light;
 pub mod material;
@@ -7,10 +6,11 @@ pub mod mesh;
 pub mod model;
 pub mod pipeline;
 pub mod shader;
+pub mod skybox_type;
 pub mod texture;
+pub mod world_environment;
 
 pub use camera::*;
-pub use world_environment::*;
 pub use instance::*;
 pub use light::*;
 pub use material::*;
@@ -18,4 +18,6 @@ pub use mesh::*;
 pub use model::*;
 pub use pipeline::*;
 pub use shader::*;
+pub use skybox_type::*;
 pub use texture::*;
+pub use world_environment::*;

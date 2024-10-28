@@ -5,8 +5,8 @@ use log::info;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutEntry, BindingResource,
-    BindingType, BufferUsages, Device, Queue, SamplerBindingType, ShaderStages, TextureFormat,
-    TextureSampleType, TextureViewDimension,
+    BindingType, BufferBindingType, BufferUsages, Device, Queue, SamplerBindingType, ShaderStages,
+    TextureFormat, TextureSampleType, TextureViewDimension,
 };
 
 use crate::{
@@ -15,13 +15,13 @@ use crate::{
     resources::{
         descriptors::{
             MaterialDescriptor, PipelineBindGroupLayout, PipelineDescriptor, ShaderDescriptor,
-            TextureDescriptor, WorldEnvironmentDescriptor,
+            SkyboxType, TextureDescriptor, WorldEnvironmentDescriptor,
         },
         realizations::WorldEnvironment,
     },
 };
 
-use super::{IblBrdf, Pipeline, Texture};
+use super::{world_environment, IblBrdf, Pipeline, Texture};
 
 #[derive(Debug)]
 pub struct Material {
@@ -280,6 +280,17 @@ impl Material {
                     ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
                     count: None,
                 },
+                // Skybox info
+                BindGroupLayoutEntry {
+                    binding: 6,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
             ],
         }
     }
@@ -344,23 +355,20 @@ impl Material {
                 device,
                 queue,
             ),
-            MaterialDescriptor::WorldEnvironment {
-                sky,
-                irradiance,
-                radiance,
-            } => Self::skybox(sky, irradiance, radiance, surface_format, device, queue),
+            MaterialDescriptor::WorldEnvironment(world_environment) => {
+                Self::skybox(world_environment, surface_format, device, queue)
+            }
         })
     }
 
     pub fn skybox(
-        sky: &WorldEnvironmentDescriptor,
-        irradiance: &WorldEnvironmentDescriptor,
-        radiance: &WorldEnvironmentDescriptor,
+        world_environment_descriptor: &WorldEnvironmentDescriptor,
         surface_format: &TextureFormat,
         device: &Device,
         queue: &Queue,
     ) -> Result<Self, Error> {
-        let world_environment = WorldEnvironment::from_descriptor(sky, device, queue)?;
+        let world_environment =
+            WorldEnvironment::from_descriptor(world_environment_descriptor, device, queue)?;
         let ibl_brdf_lut = unsafe { Self::get_or_generate_ibl_brdf_lut(device, queue) };
 
         let pipeline_descriptor = PipelineDescriptor::default_skybox();
@@ -370,6 +378,17 @@ impl Material {
         let bind_group_layout = pipeline
             .bind_group_layout(Self::WORLD_ENVIRONMENT_PIPELINE_BIND_GROUP_NAME)
             .ok_or(Error::BindGroupMissing)?;
+
+        let info_buffer_bytes = match world_environment.skybox_type() {
+            SkyboxType::Diffuse => &[(-1i32).to_le_bytes()],
+            SkyboxType::Specular { lod } => &[(lod as u32).to_le_bytes()],
+        };
+
+        let info_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("Skybox Info Buffer"),
+            contents: &info_buffer_bytes.concat(),
+            usage: BufferUsages::UNIFORM,
+        });
 
         let bind_group = device.create_bind_group(&BindGroupDescriptor {
             label: None,
@@ -409,6 +428,11 @@ impl Material {
                 BindGroupEntry {
                     binding: 5,
                     resource: BindingResource::Sampler(ibl_brdf_lut.sampler()),
+                },
+                // Info
+                BindGroupEntry {
+                    binding: 6,
+                    resource: BindingResource::Buffer(info_buffer.as_entire_buffer_binding()),
                 },
             ],
         });

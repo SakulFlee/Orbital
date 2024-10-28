@@ -12,11 +12,15 @@ use wgpu::{
     TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
 };
 
-use crate::{error::Error, resources::descriptors::WorldEnvironmentDescriptor};
+use crate::{
+    error::Error,
+    resources::descriptors::{SkyboxType, WorldEnvironmentDescriptor},
+};
 
 use super::Texture;
 
 pub struct WorldEnvironment {
+    skybox_type: SkyboxType,
     pbr_ibl_diffuse: Texture,
     pbr_ibl_specular: Texture,
 }
@@ -70,14 +74,17 @@ impl WorldEnvironment {
     ) -> Result<Self, Error> {
         match desc {
             WorldEnvironmentDescriptor::FromFile {
+                skybox_type,
                 cube_face_size,
                 path,
-            } => Self::radiance_hdr_file(path, *cube_face_size, device, queue),
+            } => Self::radiance_hdr_file(*skybox_type, path, *cube_face_size, device, queue),
             WorldEnvironmentDescriptor::FromData {
+                skybox_type,
                 cube_face_size,
                 data,
                 size,
             } => Ok(Self::radiance_hdr_vec(
+                *skybox_type,
                 data,
                 *size,
                 *cube_face_size,
@@ -137,6 +144,7 @@ impl WorldEnvironment {
     }
 
     pub fn radiance_hdr_file(
+        skybox_type: SkyboxType,
         file_path: &str,
         dst_size: u32,
         device: &Device,
@@ -158,6 +166,7 @@ impl WorldEnvironment {
             .concat();
 
         Ok(Self::radiance_hdr_vec(
+            skybox_type,
             &data,
             Vector2 {
                 x: width,
@@ -170,6 +179,7 @@ impl WorldEnvironment {
     }
 
     pub fn radiance_hdr_vec(
+        skybox_type: SkyboxType,
         data: &[u8],
         src_size: Vector2<u32>,
         dst_size: u32,
@@ -238,6 +248,7 @@ impl WorldEnvironment {
         queue.submit([encoder.finish()]);
 
         Self {
+            skybox_type,
             pbr_ibl_diffuse: diffuse.0,
             pbr_ibl_specular: specular.0,
         }
@@ -382,5 +393,9 @@ impl WorldEnvironment {
 
     pub fn pbr_ibl_specular(&self) -> &Texture {
         &self.pbr_ibl_specular
+    }
+
+    pub fn skybox_type(&self) -> SkyboxType {
+        self.skybox_type
     }
 }
