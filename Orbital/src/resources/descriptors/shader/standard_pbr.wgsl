@@ -356,8 +356,7 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
         ibl_brdf_lut_sampler,
         vec2<f32>(max(out.NdotV, 0.0), clamp(1.0 - out.roughness, 0.0, 1.0))
     ).rg;
-    let brdf_lut_clamped = clamp(brdf_lut_sample, vec2(0.0), vec2(1.0));
-    out.brdf_lut = brdf_lut_clamped;
+    out.brdf_lut = brdf_lut_sample;
 
     return out;
 }
