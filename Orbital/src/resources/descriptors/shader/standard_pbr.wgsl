@@ -184,11 +184,10 @@ fn brdf(point_light: PointLight, pbr: PBRData, world_position: vec3<f32>) -> vec
 
     var Lo: vec3<f32>;
     if NdotL > 0.0 {
-        let roughness = max(0.05, pbr.roughness); // TODO: Needed?
         // Normal distribution of the microfacets
-        let D = distribution_ggx(NdotH, roughness);
+        let D = distribution_ggx(NdotH, pbr.roughness);
         // Geometric/Microfacet shadowing term
-        let G = schlick_smith_ggx(NdotL, pbr.NdotV, roughness);
+        let G = schlick_smith_ggx(NdotL, pbr.NdotV, pbr.roughness);
         // Fresnel factor (i.e. reflectance depending on angle of camera)
         let F = fresnel_schlick(pbr.NdotV, pbr);
 
