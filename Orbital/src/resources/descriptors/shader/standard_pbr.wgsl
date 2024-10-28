@@ -108,7 +108,6 @@ struct PBRData {
 
 const PI = 3.14159265359; 
 const F0_DEFAULT = vec3<f32>(0.04);
-const TOTAL_SPECULAR_LODS = 11;
 
 @vertex
 fn entrypoint_vertex(
@@ -341,11 +340,13 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     let diffuse_gamma_applied = pow(diffuse_clamped, vec3(camera.global_gamma));
     out.ibl_diffuse = diffuse_gamma_applied;
 
+    let specular_mip_count = textureNumLevels(specular_env_map);
+    let specular_mip_level = out.roughness * out.roughness * f32(specular_mip_count - 1);
     let specular_sample = textureSampleLevel(
         specular_env_map,
         specular_sampler,
         R,
-       f32(TOTAL_SPECULAR_LODS) * out.roughness
+        specular_mip_level
     ).rgb;
     let specular_clamped = clamp(specular_sample, vec3(0.0), vec3(1.0));
     let specular_gamma_applied = pow(specular_clamped, vec3(camera.global_gamma));
