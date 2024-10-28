@@ -205,7 +205,7 @@ fn calculate_point_light_specular_contribution(pbr: PBRData, world_position: vec
 
     for (var i: u32 = 0; i < arrayLength(&point_light_store); i++) {
         let point_light = point_light_store[i];
-        Lo += brdf(point_light, pbr, world_position);
+        Lo += brdf(point_light, pbr, world_position); 
     }
 
     return Lo;
@@ -222,9 +222,7 @@ fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
 
     // IBL Specular
     let specular_color = mix(F0, pbr.albedo, pbr.metallic);
-    var specular_ibl = pbr.radiance * (specular_color * pbr.brdf_lut.x + pbr.brdf_lut.y);
-    // TODO: Try!
-    // var specular_ibl = pbr.radiance * (F * pbr.brdf_lut.x + pbr.brdf_lut.y);
+    var specular_ibl = pbr.radiance * (F * pbr.brdf_lut.x + pbr.brdf_lut.y);
 
     // Ambient light calculation (IBL), multiplied by ambient occlusion
     return (diffuse_ibl + specular_ibl) * pbr.occlusion;
