@@ -108,6 +108,7 @@ struct PBRData {
 
 const PI = 3.14159265359; 
 const F0_DEFAULT = vec3<f32>(0.04);
+const TOTAL_SPECULAR_LODS = 11;
 
 @vertex
 fn entrypoint_vertex(
@@ -344,7 +345,7 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
         specular_env_map,
         specular_sampler,
         R,
-        out.roughness // TODO: Might be false
+       f32(TOTAL_SPECULAR_LODS) * out.roughness
     ).rgb;
     let specular_clamped = clamp(specular_sample, vec3(0.0), vec3(1.0));
     let specular_gamma_applied = pow(specular_clamped, vec3(camera.global_gamma));
