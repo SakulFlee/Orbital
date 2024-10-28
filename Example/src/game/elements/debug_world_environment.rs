@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use orbital::{
     app::{input_event, InputEvent},
     game::{Element, ElementRegistration, WorldChange},
@@ -11,6 +13,7 @@ use orbital::{
 pub struct DebugWorldEnvironment {
     input_handler: InputHandler,
     current_skybox_type: SkyboxType,
+    last_trigger: Instant,
 }
 
 impl DebugWorldEnvironment {
@@ -29,6 +32,7 @@ impl DebugWorldEnvironment {
         Self {
             current_skybox_type: SkyboxType::default(),
             input_handler,
+            last_trigger: Instant::now(),
         }
     }
 }
@@ -43,6 +47,10 @@ impl Element for DebugWorldEnvironment {
     }
 
     fn on_update(&mut self, _delta_time: f64) -> Option<Vec<WorldChange>> {
+        if self.last_trigger.elapsed().as_secs() < 1 {
+            return None;
+        }
+
         if self.input_handler.is_triggered(Self::ACTION_DEBUG_UP) {
             match self.current_skybox_type {
                 SkyboxType::Diffuse => {
@@ -56,6 +64,7 @@ impl Element for DebugWorldEnvironment {
                     }
                 }
             }
+            self.last_trigger = Instant::now();
 
             debug!("Changing skybox to {:?}!", self.current_skybox_type);
             Some(vec![WorldChange::ChangeWorldEnvironmentSkyboxType {
@@ -70,10 +79,11 @@ impl Element for DebugWorldEnvironment {
                     if lod == 0 {
                         self.current_skybox_type = SkyboxType::Diffuse;
                     } else {
-                        self.current_skybox_type = SkyboxType::Specular { lod: lod + 1 };
+                        self.current_skybox_type = SkyboxType::Specular { lod: lod - 1 };
                     }
                 }
             }
+            self.last_trigger = Instant::now();
 
             debug!("Changing skybox to {:?}!", self.current_skybox_type);
             Some(vec![WorldChange::ChangeWorldEnvironmentSkyboxType {
