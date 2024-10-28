@@ -58,7 +58,7 @@ impl WorldEnvironment {
                     visibility: ShaderStages::COMPUTE,
                     ty: BindingType::StorageTexture {
                         access: StorageTextureAccess::WriteOnly,
-                        format: TextureFormat::Rgba32Float,
+                        format: TextureFormat::Rgba16Float,
                         view_dimension: TextureViewDimension::D2Array,
                     },
                     count: None,
@@ -134,9 +134,9 @@ impl WorldEnvironment {
             address_mode_u: AddressMode::ClampToEdge,
             address_mode_v: AddressMode::ClampToEdge,
             address_mode_w: AddressMode::ClampToEdge,
-            mag_filter: FilterMode::Nearest,
-            min_filter: FilterMode::Nearest,
-            mipmap_filter: FilterMode::Nearest,
+            mag_filter: FilterMode::Linear,
+            min_filter: FilterMode::Linear,
+            mipmap_filter: FilterMode::Linear,
             ..Default::default()
         });
 
@@ -315,7 +315,7 @@ impl WorldEnvironment {
         let dst = Self::create_empty_cube_texture(
             Some(&name),
             Vector2 { x: size, y: size },
-            TextureFormat::Rgba32Float,
+            TextureFormat::Rgba16Float,
             TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
             !is_diffuse,
             device,

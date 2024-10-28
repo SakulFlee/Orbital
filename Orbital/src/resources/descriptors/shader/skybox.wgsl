@@ -65,11 +65,11 @@ fn entrypoint_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     var color = sample.xyz;
     color = color / (color + vec3<f32>(1.0));
     color = pow(color, vec3<f32>(1.0 / camera.skybox_gamma));
+    return vec4<f32>(color, 1.0);
 
     // Generated SkyBox:
     // let sky_color = vec3<f32>(0.0, 0.75, 1.0);
     // let horizon_color = vec3<f32>(0.5, 0.5, 0.5);
     // let color = mix(horizon_color, sky_color, ray_direction.y);
 
-    return vec4<f32>(color, 1.0);
 }
