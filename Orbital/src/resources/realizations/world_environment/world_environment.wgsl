@@ -1,5 +1,5 @@
 const PI: f32 = 3.1415926535897932384626433832795;
-const SAMPLE_COUNT: u32 = 1024u;
+const SAMPLE_COUNT: u32 = 1024u; // Note can be increased freely, e.g. 4096u :)
 const INV_ATAN = vec2<f32>(0.1591, 0.3183);
 
 struct Face {
@@ -122,11 +122,11 @@ fn importance_sample_ggx(Xi: vec2<f32>, roughness: f32, N: vec3<f32>) -> vec3<f3
 
     // Tangent space to world space
     let up = select(vec3(1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0), abs(N.y) < 0.999);
-    let tangentX = normalize(cross(up, N));
-    let tangentY = cross(N, tangentX);
+    let tangent = normalize(cross(up, N));
+    let bitangent = cross(N, tangent);
 
-    let L = tangentX * H.x + tangentY * H.y + N * H.z;
-    return L;
+    let sample_vec = tangent * H.x + bitangent * H.y + N * H.z;
+    return sample_vec;
 }
 
 fn calculate_pbr_ibl_diffuse(N: vec3<f32>, gid: vec3<u32>) {
@@ -157,7 +157,7 @@ fn calculate_pbr_ibl_specular(N: vec3<f32>, gid: vec3<u32>, roughness: f32) {
     var prefiltered_color = vec3(0.0);
     var total_weight = 0.0;
 
-    for(var i = 0u; i < SAMPLE_COUNT; i++) {
+    for(var i = 1u; i <= SAMPLE_COUNT; i++) {
         let Xi = hammersley(i, SAMPLE_COUNT);
         let H = importance_sample_ggx(Xi, roughness, N);
         let L = normalize(2.0 * dot(N, H) * H - N);
