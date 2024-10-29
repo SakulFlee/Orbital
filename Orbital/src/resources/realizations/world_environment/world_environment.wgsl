@@ -1,5 +1,6 @@
 const PI: f32 = 3.1415926535897932384626433832795;
 const SAMPLE_COUNT: u32 = 1024u;
+const INV_ATAN = vec2<f32>(0.1591, 0.3183);
 
 struct Face {
     forward: vec3<f32>,
@@ -150,8 +151,6 @@ fn calculate_pbr_ibl_diffuse(N: vec3<f32>, gid: vec3<u32>) {
     let prefiltered_color = irradiance * PI * (1.0 / 64.0) * (1.0 / 64.0);
     textureStore(dst, gid.xy, gid.z, vec4(prefiltered_color, 1.0));
 }
-
-const INV_ATAN = vec2<f32>(0.1591, 0.3183);
 
 fn calculate_pbr_ibl_specular(N: vec3<f32>, gid: vec3<u32>, roughness: f32) {
     var debug = vec4(0.0);
