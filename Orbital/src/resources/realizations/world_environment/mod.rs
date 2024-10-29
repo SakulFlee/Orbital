@@ -353,7 +353,7 @@ impl WorldEnvironment {
                 let buffer = device.create_buffer_init(&BufferInitDescriptor {
                     label: Some(&format!("{} Buffer @ {}% roughness", &name, roughness)),
                     usage: BufferUsages::UNIFORM,
-                    contents: &[mip_level.to_le_bytes()].concat(),
+                    contents: &[(mip_level * 10).to_le_bytes()].concat(),
                 });
 
                 x.push((view, buffer));
