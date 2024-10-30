@@ -1,5 +1,5 @@
 const PI: f32 = 3.1415926535897932384626433832795;
-const SAMPLE_COUNT: u32 = 1024u; // Note can be increased freely, e.g. 4096u :)
+const SAMPLE_COUNT: u32 = 4096u;
 const INV_ATAN = vec2<f32>(0.1591, 0.3183);
 
 struct Face {
