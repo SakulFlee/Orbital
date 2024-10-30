@@ -103,8 +103,19 @@ fn van_der_corput(n: u32, base: u32) -> f32 {
     return result;
 }
 
+fn radical_inverse_vdc(bitsI: u32) -> f32 {
+    var bits = bitsI;
+    bits = (bits << 16u) | (bits >> 16u);
+    bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
+    bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
+    bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
+    bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+    return f32(bits) * 2.3283064365386963e-10; // / 0x100000000
+}
+
 fn hammersley(i: u32, N: u32) -> vec2<f32> {
-    return vec2(f32(i) / f32(N), van_der_corput(i, 2u));
+    // return vec2(f32(i) / f32(N), van_der_corput(i, 2u));
+    return vec2(f32(i)/f32(N), radical_inverse_vdc(i));
 }
 
 fn importance_sample_ggx(Xi: vec2<f32>, roughness: f32, N: vec3<f32>) -> vec3<f32> {
@@ -121,12 +132,20 @@ fn importance_sample_ggx(Xi: vec2<f32>, roughness: f32, N: vec3<f32>) -> vec3<f3
     );
 
     // Tangent space to world space
-    let up = select(vec3(1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0), abs(N.y) < 0.999);
+    let up = select(
+        select(
+            vec3(0.0, 1.0, 0.0),
+            vec3(1.0, 0.0, 0.0),
+            abs(N.y) > 0.999
+        ), 
+        vec3(0.0, 1.0, 0.0), 
+        abs(N.z) > 0.999
+    );
     let tangent = normalize(cross(up, N));
     let bitangent = cross(N, tangent);
 
     let sample_vec = tangent * H.x + bitangent * H.y + N * H.z;
-    return sample_vec;
+    return normalize(sample_vec);
 }
 
 fn calculate_pbr_ibl_diffuse(N: vec3<f32>, gid: vec3<u32>) {
@@ -139,8 +158,7 @@ fn calculate_pbr_ibl_diffuse(N: vec3<f32>, gid: vec3<u32>) {
             let L = normalize(tangent);
             let NdotL = max(dot(N, L), 0.0);
 
-            let inv_atan = vec2(0.1591, 0.3183);
-            let eq_uv = vec2(atan2(L.z, L.x), asin(L.y)) * inv_atan + 0.5;
+            let eq_uv = vec2(atan2(L.z, L.x), asin(L.y)) * INV_ATAN + 0.5;
             let eq_pixel = vec2<i32>(eq_uv * vec2<f32>(textureDimensions(src)));
             
             let sample = textureLoad(src, eq_pixel, 0);
@@ -153,7 +171,6 @@ fn calculate_pbr_ibl_diffuse(N: vec3<f32>, gid: vec3<u32>) {
 }
 
 fn calculate_pbr_ibl_specular(N: vec3<f32>, gid: vec3<u32>, roughness: f32) {
-    var debug = vec4(0.0);
     var prefiltered_color = vec3(0.0);
     var total_weight = 0.0;
 
@@ -161,32 +178,20 @@ fn calculate_pbr_ibl_specular(N: vec3<f32>, gid: vec3<u32>, roughness: f32) {
         let Xi = hammersley(i, SAMPLE_COUNT);
         let H = importance_sample_ggx(Xi, roughness, N);
         let L = normalize(2.0 * dot(N, H) * H - N);
-        
-        let NdotL = dot(N, L);
-        if(NdotL > 0.0) {
-            // // Edge case detection to prevent black dots
-            // let NdotH = max(dot(N, H), 0.0);
-            // let edge_weight = smoothstep(0.0, 0.2, NdotH);
 
+        let NdotL = max(dot(N, L), 0.0);
+        if(NdotL > 0.0) {
             // Convert L to equirectangular UV
             let eq_uv = vec2(atan2(L.z, L.x), asin(L.y)) * INV_ATAN + 0.5;
             let eq_pixel = vec2<i32>(eq_uv * vec2<f32>(textureDimensions(src)));
              
             let sample = textureLoad(src, eq_pixel, 0);
-            
-            // prefiltered_color += sample.rgb * NdotL * edge_weight;
-            // total_weight += NdotL * edge_weight;
-            prefiltered_color += sample.rgb;
+            prefiltered_color += sample.rgb * NdotL;
             total_weight += NdotL;
         }
     }
 
-// CHECK OPENGL SOURCE CODE
-
-    // if (total_weight > 0.0) {
-    //     prefiltered_color /= total_weight;
-    // }
-    textureStore(dst, gid.xy, gid.z, vec4(prefiltered_color / f32(SAMPLE_COUNT) , 1.0));
+    textureStore(dst, gid.xy, gid.z, vec4(prefiltered_color / total_weight, 1.0));
 }
 
 @compute
