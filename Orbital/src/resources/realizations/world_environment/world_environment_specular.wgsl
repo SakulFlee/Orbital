@@ -8,20 +8,14 @@ struct Face {
     right: vec3<f32>,
 }
 
-struct Info {
-    // If >= 0, we're generating a mipmap for specular IBL
-    // If < 0, we're generating diffuse IBL
-    roughness_percent: i32,
-}
-
 @group(0) @binding(0)
-var<uniform> info: Info;
-
-@group(0) @binding(1)
 var src: texture_2d<f32>;
 
-@group(0) @binding(2)
+@group(0) @binding(1)
 var dst: texture_storage_2d_array<rgba16float, write>;
+
+@group(0) @binding(2)
+var<uniform> roughness: f32;
 
 fn gid_z_to_face(gid_z: u32) -> Face {
     switch gid_z {
@@ -98,7 +92,7 @@ fn hammersley(i: u32, N: u32) -> vec2<f32> {
     return vec2(f32(i)/f32(N), radical_inverse_vdc(i));
 }
 
-fn importance_sample_ggx(Xi: vec2<f32>, roughness: f32, N: vec3<f32>) -> vec3<f32> {
+fn importance_sample_ggx(Xi: vec2<f32>, N: vec3<f32>) -> vec3<f32> {
     let a = roughness * roughness;
     let phi = 2.0 * PI * Xi.x;
     let cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (a*a - 1.0) * Xi.y));
@@ -128,7 +122,7 @@ fn importance_sample_ggx(Xi: vec2<f32>, roughness: f32, N: vec3<f32>) -> vec3<f3
     return normalize(sample_vec);
 }
 
-fn distribution_ggx(NdotH: f32, roughness: f32) -> f32 {
+fn distribution_ggx(NdotH: f32) -> f32 {
     let alpha = roughness * roughness;
     let alpha_squared = alpha * alpha;
 
@@ -136,59 +130,19 @@ fn distribution_ggx(NdotH: f32, roughness: f32) -> f32 {
     return alpha_squared / (PI * denom * denom);
 }
 
-fn calculate_pbr_ibl_diffuse(N: vec3<f32>, gid: vec3<u32>) {
-    var irradiance = vec3(0.0);
-    let sample_delta = PI * 0.5 / 64.0;
-
-    for(var phi = 0.0; phi < 2.0 * PI; phi += sample_delta) {
-        for(var theta = 0.0; theta < 0.5 * PI; theta += sample_delta) {
-            let tangent = vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
-            let L = normalize(tangent);
-            let NdotL = max(dot(N, L), 0.0);
-
-            let eq_uv = vec2(atan2(L.z, L.x), asin(L.y)) * INV_ATAN + 0.5;
-            let eq_pixel = vec2<i32>(eq_uv * vec2<f32>(textureDimensions(src)));
-            
-            let sample = textureLoad(src, eq_pixel, 0);
-            irradiance += sample.rgb * cos(theta) * sin(theta) * NdotL;
-        }
-    }
-
-    let prefiltered_color = irradiance * PI * (1.0 / 64.0) * (1.0 / 64.0);
-    textureStore(dst, gid.xy, gid.z, vec4(prefiltered_color, 1.0));
-}
-
-fn calculate_adaptive_sample_count(roughness: f32, NdotV: f32) -> u32 {
-    let roughness_factor = u32(floor(
-            mix(1.0, 0.25, roughness) * f32(BASE_SAMPLES)
-    ));
-    let view_factor = u32(floor(
-        mix(1.0, 0.5, NdotV) * f32(roughness_factor)
-    ));
-    return max(view_factor, 64u);
-}
-
-fn calculate_pbr_ibl_specular(N: vec3<f32>, gid: vec3<u32>, roughness: f32, V: vec3<f32>) {
+fn calculate_pbr_ibl_specular(N: vec3<f32>, gid: vec3<u32>, V: vec3<f32>) {
     var prefiltered_color = vec3(0.0);
     var total_weight = 0.0;
-    
-    let NdotV = max(dot(N, V), 0.0);
-    let sample_count = calculate_adaptive_sample_count(roughness, NdotV);
 
     let src_dimensions = vec2<f32>(textureDimensions(src));
 
-    for(var i = 1u; i <= sample_count; i++) {
-        let Xi = hammersley(i, sample_count);
-        let H = importance_sample_ggx(Xi, roughness, N);
+    for(var i = 1u; i <= BASE_SAMPLES; i++) {
+        let Xi = hammersley(i, BASE_SAMPLES);
+        let H = importance_sample_ggx(Xi, N);
         let L = normalize(2.0 * dot(N, H) * H - N);
 
         let NdotL = max(dot(N, L), 0.0);
         if(NdotL > 0.0) {
-            let NdotH = max(dot(N, H), 0.0);
-            let D = distribution_ggx(NdotH, roughness);
-            let pdf = (D * NdotH) / (4.0 * NdotH);
-            let weight = NdotL / max(pdf, 0.0001);
-
             // Convert L to equirectangular UV
             let eq_uv = vec2(
                 atan2(L.z, L.x), 
@@ -198,8 +152,8 @@ fn calculate_pbr_ibl_specular(N: vec3<f32>, gid: vec3<u32>, roughness: f32, V: v
 
             let sample = textureLoad(src, eq_pixel, 0);
 
-            prefiltered_color += sample.rgb * weight;
-            total_weight += weight;
+            prefiltered_color += sample.rgb * NdotL;
+            total_weight += NdotL;
         }
     }
 
@@ -226,18 +180,8 @@ fn main(
     let face = gid_z_to_face(gid.z);
     let N = normalize(face.forward + face.right * cube_uv.x + face.up * cube_uv.y);
 
-    if (info.roughness_percent < 0) {
-        // Diffuse
-        calculate_pbr_ibl_diffuse(N, gid);
-    } else {
-        // Specular
+    // Calculate view vector
+    let V = normalize(-N + cube_uv.x * face.right + cube_uv.y * face.up);
 
-        // Convert percentage (0-100%) into expected float (0.0-1.0)
-        let roughness = f32(info.roughness_percent) / 100.0;
-
-        // Calculate view vector
-        let V = normalize(-N + cube_uv.x * face.right + cube_uv.y * face.up);
-
-        calculate_pbr_ibl_specular(N, gid, roughness, V);
-    }
+    calculate_pbr_ibl_specular(N, gid, V);
 }
