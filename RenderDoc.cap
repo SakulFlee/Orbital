@@ -20,10 +20,10 @@
             "apiValidation": true,
             "captureAllCmdLists": true,
             "captureCallstacks": true,
-            "captureCallstacksOnlyDraws": true,
+            "captureCallstacksOnlyDraws": false,
             "debugOutputMute": true,
             "delayForDebugger": 0,
-            "hookIntoChildren": true,
+            "hookIntoChildren": false,
             "refAllResources": true,
             "softMemoryLimit": 0,
             "verifyBufferAccess": true
