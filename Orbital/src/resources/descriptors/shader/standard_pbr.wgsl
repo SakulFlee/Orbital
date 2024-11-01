@@ -1,3 +1,6 @@
+const PI: f32 = 3.14159265359; 
+const F0_DEFAULT: f32 = 0.04;
+
 struct VertexData {
     @builtin(vertex_index) vertex_index: u32,
     @location(0) position: vec3<f32>,
@@ -106,9 +109,6 @@ struct PBRData {
 @group(3) @binding(4) var ibl_brdf_lut_texture: texture_2d<f32>;
 @group(3) @binding(5) var ibl_brdf_lut_sampler: sampler;
 
-const PI = 3.14159265359; 
-const F0_DEFAULT = vec3<f32>(0.04);
-
 @vertex
 fn entrypoint_vertex(
     vertex: VertexData,
@@ -212,7 +212,7 @@ fn calculate_point_light_specular_contribution(pbr: PBRData, world_position: vec
 
 fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
     // Calculate reflectance at normal incidence
-    let F0 = mix(F0_DEFAULT, pbr.albedo, pbr.metallic);
+    let F0 = mix(vec3(F0_DEFAULT), pbr.albedo, pbr.metallic);
     let F = fresnel_schlick_roughness(pbr.NdotV, F0, pbr.roughness);
 
     // IBL Diffuse
@@ -247,7 +247,7 @@ fn sample_normal_from_map(fragment_data: FragmentData) -> vec3<f32> {
 
 // Fresnel
 fn fresnel_schlick(cos_theta: f32, pbr: PBRData) -> vec3<f32> {
-    let F0 = mix(F0_DEFAULT, pbr.albedo, pbr.metallic);
+    let F0 = mix(vec3(F0_DEFAULT), pbr.albedo, pbr.metallic);
     let F = F0 + (1.0 - F0) * pow(1.0 - cos_theta, 5.0);
     return F;
 }
@@ -340,7 +340,7 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     out.ibl_diffuse = diffuse_gamma_applied;
 
     let specular_mip_count = textureNumLevels(specular_env_map);
-    let specular_mip_level = out.roughness * out.roughness * f32(specular_mip_count - 1);
+    let specular_mip_level = out.roughness * out.roughness * f32(specular_mip_count - 1u);
     let specular_sample = textureSampleLevel(
         specular_env_map,
         specular_sampler,
