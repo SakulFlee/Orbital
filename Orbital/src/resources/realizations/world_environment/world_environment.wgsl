@@ -1,5 +1,5 @@
 const PI: f32 = 3.1415926535897932384626433832795;
-const SAMPLE_COUNT: u32 = 1024u;
+const BASE_SAMPLES: u32 = 1024u;
 const INV_ATAN = vec2<f32>(0.1591, 0.3183);
 
 struct Face {
@@ -84,25 +84,6 @@ fn gid_z_to_face(gid_z: u32) -> Face {
     }
 }
 
-// Importance sampling functions
-fn van_der_corput(n: u32, base: u32) -> f32 {
-    var local_n = n;
-    var inv_base = 1.0 / f32(base);
-    var denom = 1.0;
-    var result = 0.0;
-
-    for(var i = 1u; i <= 32u; i++) {
-        if(local_n > 0u) {
-            denom = f32(local_n) % 2.0;
-            result += denom * inv_base;
-            inv_base /= 2.0;
-            local_n = u32(f32(n) / 2.0);
-        }
-    }
-
-    return result;
-}
-
 fn radical_inverse_vdc(bitsI: u32) -> f32 {
     var bits = bitsI;
     bits = (bits << 16u) | (bits >> 16u);
@@ -114,7 +95,6 @@ fn radical_inverse_vdc(bitsI: u32) -> f32 {
 }
 
 fn hammersley(i: u32, N: u32) -> vec2<f32> {
-    // return vec2(f32(i) / f32(N), van_der_corput(i, 2u));
     return vec2(f32(i)/f32(N), radical_inverse_vdc(i));
 }
 
@@ -178,7 +158,6 @@ fn calculate_pbr_ibl_diffuse(N: vec3<f32>, gid: vec3<u32>) {
     textureStore(dst, gid.xy, gid.z, vec4(prefiltered_color, 1.0));
 }
 
-const BASE_SAMPLES: u32 = 1024u;
 fn calculate_adaptive_sample_count(roughness: f32, NdotV: f32) -> u32 {
     let roughness_factor = u32(floor(
             mix(1.0, 0.25, roughness) * f32(BASE_SAMPLES)
