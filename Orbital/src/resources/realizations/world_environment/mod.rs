@@ -7,9 +7,10 @@ use wgpu::{
     BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferBinding, BufferBindingType,
     BufferUsages, CommandEncoder, ComputePassDescriptor, ComputePipeline,
     ComputePipelineDescriptor, Device, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout,
-    Origin3d, PipelineLayoutDescriptor, Queue, SamplerDescriptor, ShaderStages,
-    StorageTextureAccess, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat,
-    TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
+    Origin3d, PipelineLayoutDescriptor, Queue, SamplerDescriptor, ShaderModuleDescriptor,
+    ShaderStages, StorageTextureAccess, TextureAspect, TextureDescriptor, TextureDimension,
+    TextureFormat, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor,
+    TextureViewDimension,
 };
 
 use crate::{
@@ -26,24 +27,12 @@ pub struct WorldEnvironment {
 }
 
 impl WorldEnvironment {
-    pub fn bind_group_layout_descriptor() -> BindGroupLayoutDescriptor<'static> {
-        BindGroupLayoutDescriptor {
-            label: Some("Equirectangular to PBR IBL Environment Maps"),
-            entries: &[
-                // Input: Info
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::COMPUTE,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
+    pub fn bind_group_layout_descriptor(is_specular: bool) -> BindGroupLayoutDescriptor<'static> {
+        let entries = {
+            let mut x = vec![
                 // Input: Equirectangular Image as source
                 BindGroupLayoutEntry {
-                    binding: 1,
+                    binding: 0,
                     visibility: ShaderStages::COMPUTE,
                     ty: BindingType::Texture {
                         sample_type: TextureSampleType::Float { filterable: false },
@@ -54,7 +43,7 @@ impl WorldEnvironment {
                 },
                 // Output
                 BindGroupLayoutEntry {
-                    binding: 2,
+                    binding: 1,
                     visibility: ShaderStages::COMPUTE,
                     ty: BindingType::StorageTexture {
                         access: StorageTextureAccess::WriteOnly,
@@ -63,7 +52,33 @@ impl WorldEnvironment {
                     },
                     count: None,
                 },
-            ],
+            ];
+
+            if is_specular {
+                x.push(
+                    // Input: Roughness
+                    BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: ShaderStages::COMPUTE,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                );
+            }
+
+            x
+        };
+
+        let entries_box = entries.into_boxed_slice();
+        let entries_leak = Box::leak(entries_box);
+
+        BindGroupLayoutDescriptor {
+            label: Some("Equirectangular to PBR IBL Environment Maps"),
+            entries: entries_leak,
         }
     }
 
@@ -220,153 +235,175 @@ impl WorldEnvironment {
             },
         );
 
-        let bind_group_layout =
-            device.create_bind_group_layout(&Self::bind_group_layout_descriptor());
-        let pipeline = Self::make_compute_pipeline(&bind_group_layout, device);
         let mut encoder = device.create_command_encoder(&Default::default());
 
-        let diffuse = Self::prepare_compute_task(dst_size, true, device);
-        Self::make_compute_task(
-            &mut encoder,
-            &pipeline,
-            device,
-            src_texture.view(),
+        let diffuse = Self::make_ibl_diffuse(
             dst_size,
-            diffuse.1,
+            &device.create_bind_group_layout(&Self::bind_group_layout_descriptor(false)),
+            src_texture.view(),
+            &mut encoder,
+            device,
         );
-
-        let specular = Self::prepare_compute_task(dst_size, false, device);
-        Self::make_compute_task(
-            &mut encoder,
-            &pipeline,
-            device,
-            src_texture.view(),
+        let specular = Self::make_ibl_specular(
             dst_size,
-            specular.1,
+            &device.create_bind_group_layout(&Self::bind_group_layout_descriptor(true)),
+            src_texture.view(),
+            &mut encoder,
+            device,
         );
 
         queue.submit([encoder.finish()]);
 
         Self {
             skybox_type,
-            pbr_ibl_diffuse: diffuse.0,
-            pbr_ibl_specular: specular.0,
+            pbr_ibl_diffuse: diffuse,
+            pbr_ibl_specular: specular,
         }
     }
 
-    fn make_compute_task(
-        encoder: &mut CommandEncoder,
-        pipeline: &ComputePipeline,
-        device: &Device,
-        src_view: &TextureView,
+    fn make_ibl_diffuse(
         dst_size: u32,
-        data: Vec<(TextureView, Buffer)>,
-    ) {
-        for (view, buffer) in data {
-            let bind_group_layout =
-                device.create_bind_group_layout(&Self::bind_group_layout_descriptor());
+        bind_group_layout: &BindGroupLayout,
+        src_view: &TextureView,
+        encoder: &mut CommandEncoder,
+        device: &Device,
+    ) -> Texture {
+        let pipeline = Self::make_compute_pipeline(
+            &bind_group_layout,
+            include_wgsl!("world_environment_diffuse.wgsl"),
+            "main",
+            device,
+        );
+
+        let dst_texture = Self::create_empty_cube_texture(
+            Some("PBR IBL Diffuse"),
+            Vector2 {
+                x: dst_size,
+                y: dst_size,
+            },
+            TextureFormat::Rgba16Float,
+            TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+            false,
+            device,
+        );
+
+        let dst_view = dst_texture.texture().create_view(&TextureViewDescriptor {
+            label: Some("PBR IBL Diffuse --- !!! PROCESSING VIEW !!!"),
+            dimension: Some(TextureViewDimension::D2Array),
+            ..Default::default()
+        });
+
+        let bind_group = device.create_bind_group(&BindGroupDescriptor {
+            label: Some("World Environment Processing Bind Group for PBR IBL Diffuse"),
+            layout: &bind_group_layout,
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::TextureView(src_view),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::TextureView(&dst_view),
+                },
+            ],
+        });
+
+        let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor {
+            label: Some("Equirectangular Compute Task - Diffuse"),
+            ..Default::default()
+        });
+
+        let workgroups = (dst_size + 15) / 16;
+        pass.set_pipeline(&pipeline);
+        pass.set_bind_group(0, &bind_group, &[]);
+        pass.dispatch_workgroups(workgroups, workgroups, 6);
+
+        dst_texture
+    }
+
+    fn make_ibl_specular(
+        dst_size: u32,
+        bind_group_layout: &BindGroupLayout,
+        src_view: &TextureView,
+        encoder: &mut CommandEncoder,
+        device: &Device,
+    ) -> Texture {
+        let pipeline = Self::make_compute_pipeline(
+            &bind_group_layout,
+            include_wgsl!("world_environment_specular.wgsl"),
+            "main",
+            device,
+        );
+
+        let dst_texture = Self::create_empty_cube_texture(
+            Some("PBR IBL Diffuse"),
+            Vector2 {
+                x: dst_size,
+                y: dst_size,
+            },
+            TextureFormat::Rgba16Float,
+            TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+            true,
+            device,
+        );
+
+        for i in 0..=10 {
+            let roughness = i as f32 / 10.0;
+
+            let dst_view = dst_texture.texture().create_view(&TextureViewDescriptor {
+                label: Some(&format!(
+                    "PBR IBL Specular @ {} roughness --- !!! PROCESSING VIEW !!!",
+                    roughness
+                )),
+                dimension: Some(TextureViewDimension::D2Array),
+                base_mip_level: i,
+                mip_level_count: Some(1),
+                ..Default::default()
+            });
+
+            let buffer = device.create_buffer_init(&BufferInitDescriptor {
+                label: Some("PBR IBL Specular Buffer"),
+                contents: &[roughness.to_le_bytes()].concat(),
+                usage: BufferUsages::UNIFORM,
+            });
 
             let bind_group = device.create_bind_group(&BindGroupDescriptor {
-                label: Some("World Environment Processing Bind Group"),
+                label: Some("World Environment Processing Bind Group for PBR IBL Diffuse"),
                 layout: &bind_group_layout,
                 entries: &[
                     BindGroupEntry {
                         binding: 0,
-                        resource: BindingResource::Buffer(BufferBinding {
-                            buffer: &buffer,
-                            offset: 0,
-                            size: None,
-                        }),
-                    },
-                    BindGroupEntry {
-                        binding: 1,
                         resource: BindingResource::TextureView(src_view),
                     },
                     BindGroupEntry {
+                        binding: 1,
+                        resource: BindingResource::TextureView(&dst_view),
+                    },
+                    BindGroupEntry {
                         binding: 2,
-                        resource: BindingResource::TextureView(&view),
+                        resource: BindingResource::Buffer(buffer.as_entire_buffer_binding()),
                     },
                 ],
             });
 
             let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor {
-                label: Some("Equirectangular Compute Task"),
+                label: Some("Equirectangular Compute Task - Specular"),
                 ..Default::default()
             });
 
             let workgroups = (dst_size + 15) / 16;
-            pass.set_pipeline(pipeline);
+            pass.set_pipeline(&pipeline);
             pass.set_bind_group(0, &bind_group, &[]);
             pass.dispatch_workgroups(workgroups, workgroups, 6);
         }
-    }
 
-    fn prepare_compute_task(
-        size: u32,
-        is_diffuse: bool,
-        device: &Device,
-    ) -> (Texture, Vec<(TextureView, Buffer)>) {
-        let name = if is_diffuse {
-            "PBR IBL Diffuse"
-        } else {
-            "PBR IBL Specular"
-        };
-
-        let dst = Self::create_empty_cube_texture(
-            Some(&name),
-            Vector2 { x: size, y: size },
-            TextureFormat::Rgba16Float,
-            TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
-            !is_diffuse,
-            device,
-        );
-
-        // Needed only for processing!
-        // Actual rendering later uses the included View.
-        let data = if is_diffuse {
-            let view = dst.texture().create_view(&TextureViewDescriptor {
-                label: Some(&format!("{} View", &name)),
-                dimension: Some(TextureViewDimension::D2Array),
-                ..Default::default()
-            });
-
-            let buffer = device.create_buffer_init(&BufferInitDescriptor {
-                label: Some(&format!("{} Buffer", &name)),
-                usage: BufferUsages::UNIFORM,
-                contents: &[(-1i32).to_le_bytes()].concat(),
-            });
-
-            vec![(view, buffer)]
-        } else {
-            let mut x = Vec::new();
-            for mip_level in 0..=10 {
-                let roughness = 100.0 / 10.0 * mip_level as f32;
-
-                let view = dst.texture().create_view(&TextureViewDescriptor {
-                    label: Some(&format!("{} View @ {}% roughness", &name, roughness)),
-                    dimension: Some(TextureViewDimension::D2Array),
-                    base_mip_level: mip_level,
-                    mip_level_count: Some(1),
-                    ..Default::default()
-                });
-
-                let buffer = device.create_buffer_init(&BufferInitDescriptor {
-                    label: Some(&format!("{} Buffer @ {}% roughness", &name, roughness)),
-                    usage: BufferUsages::UNIFORM,
-                    contents: &[(mip_level * 10).to_le_bytes()].concat(),
-                });
-
-                x.push((view, buffer));
-            }
-
-            x
-        };
-
-        (dst, data)
+        dst_texture
     }
 
     fn make_compute_pipeline(
         bind_group_layout: &BindGroupLayout,
+        shader_module_descriptor: ShaderModuleDescriptor,
+        shader_entrypoint: &str,
         device: &Device,
     ) -> ComputePipeline {
         let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
@@ -375,13 +412,13 @@ impl WorldEnvironment {
             push_constant_ranges: &[],
         });
 
-        let shader = device.create_shader_module(include_wgsl!("world_environment.wgsl"));
+        let shader = device.create_shader_module(shader_module_descriptor);
 
         device.create_compute_pipeline(&ComputePipelineDescriptor {
-            label: Some("Equirectangular to CubeMap"),
+            label: Some("WorldEnvironment Processing Pipeline"),
             layout: Some(&pipeline_layout),
             module: &shader,
-            entry_point: "main",
+            entry_point: shader_entrypoint,
             compilation_options: Default::default(),
             cache: None,
         })
