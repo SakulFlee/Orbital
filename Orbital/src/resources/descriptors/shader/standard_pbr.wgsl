@@ -354,8 +354,10 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     let brdf_lut_sample = textureSample(
         ibl_brdf_lut_texture,
         ibl_brdf_lut_sampler,
-        vec2<f32>(max(out.NdotV, 0.0), clamp(1.0 - out.roughness, 0.0, 1.0))
-    ).rg;
+        vec2<f32>(
+            max(out.NdotV, 0.0001), 
+            clamp(1.0 - out.roughness, 0.0001, 1.0)
+    )).rg;
     out.brdf_lut = brdf_lut_sample;
 
     return out;
