@@ -141,6 +141,12 @@ impl WorldEnvironment {
             label,
             dimension: Some(TextureViewDimension::Cube),
             array_layer_count: Some(6),
+            base_mip_level: 0,
+            mip_level_count: Some(if with_mips {
+                11 // 0% to 100% in 10% steps
+            } else {
+                1
+            }),
             ..Default::default()
         });
 
@@ -152,6 +158,12 @@ impl WorldEnvironment {
             mag_filter: FilterMode::Linear,
             min_filter: FilterMode::Linear,
             mipmap_filter: FilterMode::Linear,
+            lod_min_clamp: 0.0,
+            lod_max_clamp: if with_mips {
+                10.0 // 0% to 100% in 10% steps
+            } else {
+                1.0
+            },
             ..Default::default()
         });
 
