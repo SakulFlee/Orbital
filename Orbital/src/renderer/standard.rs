@@ -138,7 +138,7 @@ impl StandardRenderer {
             ) {
                 Ok(x) => x,
                 Err(e) => {
-                    error!("SkyBox Material in invalid state: {:?}", e);
+                    error!("WorldEnvironment Material in invalid state: {:?}", e);
                     return;
                 }
             };
