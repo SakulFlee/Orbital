@@ -33,7 +33,6 @@ struct CameraUniform {
     view_projection_transposed: mat4x4<f32>,
     perspective_projection_invert: mat4x4<f32>,
     global_gamma: f32,
-    skybox_gamma: f32,
 }
 
 struct PointLight {
