@@ -42,7 +42,7 @@ impl MaterialDescriptor {
     pub fn default_world_environment() -> MaterialDescriptor {
         MaterialDescriptor::WorldEnvironment(WorldEnvironmentDescriptor::FromFile {
             skybox_type: super::SkyboxType::Specular { lod: 0 },
-            cube_face_size: 4096,
+            cube_face_size: super::WorldEnvironmentDescriptor::DEFAULT_SIZE,
             path: "Assets/HDRs/kloppenheim_02_puresky_4k.hdr",
             sampling_type: SamplingType::ImportanceSampling,
         })
