@@ -1,16 +1,13 @@
 use cgmath::Vector2;
 use image::{GenericImageView, ImageReader};
 use wgpu::{
-    include_wgsl,
-    util::{BufferInitDescriptor, DeviceExt},
-    AddressMode, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferBinding, BufferBindingType,
-    BufferUsages, CommandEncoder, ComputePassDescriptor, ComputePipeline,
-    ComputePipelineDescriptor, Device, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout,
-    Origin3d, PipelineLayoutDescriptor, Queue, SamplerDescriptor, ShaderModuleDescriptor,
-    ShaderStages, StorageTextureAccess, TextureAspect, TextureDescriptor, TextureDimension,
-    TextureFormat, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor,
-    TextureViewDimension,
+    include_wgsl, AddressMode, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
+    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, CommandEncoder,
+    ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor, Device, Extent3d,
+    FilterMode, ImageCopyTexture, ImageDataLayout, Origin3d, PipelineLayoutDescriptor, Queue,
+    SamplerDescriptor, ShaderModuleDescriptor, ShaderStages, StorageTextureAccess, TextureAspect,
+    TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+    TextureView, TextureViewDescriptor, TextureViewDimension,
 };
 
 use crate::{
@@ -27,9 +24,10 @@ pub struct WorldEnvironment {
 }
 
 impl WorldEnvironment {
-    pub fn bind_group_layout_descriptor(is_specular: bool) -> BindGroupLayoutDescriptor<'static> {
-        let entries = {
-            let mut x = vec![
+    pub fn bind_group_layout_descriptor() -> BindGroupLayoutDescriptor<'static> {
+        BindGroupLayoutDescriptor {
+            label: Some("Equirectangular to PBR IBL Environment Maps"),
+            entries: &[
                 // Input: Equirectangular Image as source
                 BindGroupLayoutEntry {
                     binding: 0,
@@ -52,33 +50,7 @@ impl WorldEnvironment {
                     },
                     count: None,
                 },
-            ];
-
-            if is_specular {
-                x.push(
-                    // Input: Roughness
-                    BindGroupLayoutEntry {
-                        binding: 2,
-                        visibility: ShaderStages::COMPUTE,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
-                    },
-                );
-            }
-
-            x
-        };
-
-        let entries_box = entries.into_boxed_slice();
-        let entries_leak = Box::leak(entries_box);
-
-        BindGroupLayoutDescriptor {
-            label: Some("Equirectangular to PBR IBL Environment Maps"),
-            entries: entries_leak,
+            ],
         }
     }
 
@@ -251,14 +223,14 @@ impl WorldEnvironment {
 
         let diffuse = Self::make_ibl_diffuse(
             dst_size,
-            &device.create_bind_group_layout(&Self::bind_group_layout_descriptor(false)),
+            &device.create_bind_group_layout(&Self::bind_group_layout_descriptor()),
             src_texture.view(),
             &mut encoder,
             device,
         );
         let specular = Self::make_ibl_specular(
             dst_size,
-            &device.create_bind_group_layout(&Self::bind_group_layout_descriptor(true)),
+            &device.create_bind_group_layout(&Self::bind_group_layout_descriptor()),
             src_texture.view(),
             &mut encoder,
             device,
@@ -359,55 +331,41 @@ impl WorldEnvironment {
             device,
         );
 
-        for i in 0..=10 {
-            let roughness = i as f32 / 10.0;
+        let dst_view = dst_texture.texture().create_view(&TextureViewDescriptor {
+            label: Some("PBR IBL Specular --- !!! PROCESSING VIEW !!!"),
+            dimension: Some(TextureViewDimension::D2Array),
+            base_mip_level: 0,
+            mip_level_count: Some(1),
+            ..Default::default()
+        });
 
-            let dst_view = dst_texture.texture().create_view(&TextureViewDescriptor {
-                label: Some(&format!(
-                    "PBR IBL Specular @ {} roughness --- !!! PROCESSING VIEW !!!",
-                    roughness
-                )),
-                dimension: Some(TextureViewDimension::D2Array),
-                base_mip_level: i,
-                mip_level_count: Some(1),
-                ..Default::default()
-            });
+        let bind_group = device.create_bind_group(&BindGroupDescriptor {
+            label: Some("World Environment Processing Bind Group for PBR IBL Diffuse"),
+            layout: &bind_group_layout,
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::TextureView(src_view),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::TextureView(&dst_view),
+                },
+            ],
+        });
 
-            let buffer = device.create_buffer_init(&BufferInitDescriptor {
-                label: Some("PBR IBL Specular Buffer"),
-                contents: &[roughness.to_le_bytes()].concat(),
-                usage: BufferUsages::UNIFORM,
-            });
+        let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor {
+            label: Some("Equirectangular Compute Task - Specular"),
+            ..Default::default()
+        });
 
-            let bind_group = device.create_bind_group(&BindGroupDescriptor {
-                label: Some("World Environment Processing Bind Group for PBR IBL Diffuse"),
-                layout: &bind_group_layout,
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: BindingResource::TextureView(src_view),
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: BindingResource::TextureView(&dst_view),
-                    },
-                    BindGroupEntry {
-                        binding: 2,
-                        resource: BindingResource::Buffer(buffer.as_entire_buffer_binding()),
-                    },
-                ],
-            });
+        let workgroups = (dst_size + 15) / 16;
+        pass.set_pipeline(&pipeline);
+        pass.set_bind_group(0, &bind_group, &[]);
+        pass.dispatch_workgroups(workgroups, workgroups, 6);
 
-            let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor {
-                label: Some("Equirectangular Compute Task - Specular"),
-                ..Default::default()
-            });
-
-            let workgroups = (dst_size + 15) / 16;
-            pass.set_pipeline(&pipeline);
-            pass.set_bind_group(0, &bind_group, &[]);
-            pass.dispatch_workgroups(workgroups, workgroups, 6);
-        }
+        // LoD generation
+        // for i in 1..=10 {}
 
         dst_texture
     }
