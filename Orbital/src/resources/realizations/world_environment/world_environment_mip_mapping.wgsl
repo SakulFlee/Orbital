@@ -96,8 +96,15 @@ fn importance_sample_ggx(Xi: vec2<f32>, roughness: f32, N: vec3<f32>) -> vec3<f3
     );
     
     // Tangent space to world space
-    // let up = select(vec3(1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0), abs(N.y) < 0.999);
-    let up = vec3(0.0, 1.0, 0.0);
+    let up = select(
+        select(
+            vec3(0.0, 1.0, 0.0),
+            vec3(1.0, 0.0, 0.0),
+            abs(N.y) > 0.999
+        ), 
+        vec3(0.0, 1.0, 0.0), 
+        abs(N.z) > 0.999
+    );
     let tangent = normalize(cross(up, N));
     let bitangent = cross(N, tangent);
     
