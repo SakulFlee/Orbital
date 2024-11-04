@@ -165,14 +165,30 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     output += pbr.emissive;
 
     // Tonemap / HDR 
-    let tone_mapped_color = hdr_tone_map_gamma_correction(output);
+    let tone_mapped_color = aces_tone_map(output);
     return vec4<f32>(tone_mapped_color, 1.0);
 }
 
+// Note: Unused in favor of ACES
 fn hdr_tone_map_gamma_correction(color: vec3<f32>) -> vec3<f32> {
     var result = color / (color + vec3<f32>(1.0));
     result = pow(result, vec3<f32>(1.0 / camera.global_gamma));
     return result;
+}
+
+// ACES tone mapping
+const ACES_A: f32 = 2.51;
+const ACES_B: f32 = 0.03;
+const ACES_C: f32 = 2.43;
+const ACES_D: f32 = 0.59;
+const ACES_E: f32 = 0.14;
+fn aces_tone_map(color: vec3<f32>) -> vec3<f32> {
+    return clamp(
+        (color * (ACES_A * color + ACES_B)) / 
+        (color * (ACES_C * color + ACES_D) + ACES_E), 
+        vec3(0.0), 
+        vec3(1.0)
+    );
 }
 
 fn brdf(point_light: PointLight, pbr: PBRData, world_position: vec3<f32>) -> vec3<f32> {
