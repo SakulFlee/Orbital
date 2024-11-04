@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use orbital::{
-    app::{input_event, InputEvent},
+    app::InputEvent,
     game::{Element, ElementRegistration, WorldChange},
     log::debug,
     resources::descriptors::SkyboxType,
