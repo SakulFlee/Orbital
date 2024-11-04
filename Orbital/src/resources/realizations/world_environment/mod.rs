@@ -1,13 +1,16 @@
 use cgmath::Vector2;
 use image::{GenericImageView, ImageReader};
 use wgpu::{
-    include_wgsl, AddressMode, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
-    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, CommandEncoder,
-    ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor, Device, Extent3d,
-    FilterMode, ImageCopyTexture, ImageDataLayout, Origin3d, PipelineLayoutDescriptor, Queue,
-    SamplerBindingType, SamplerDescriptor, ShaderModuleDescriptor, ShaderStages,
-    StorageTextureAccess, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat,
-    TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
+    include_wgsl,
+    util::{BufferInitDescriptor, DeviceExt},
+    AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
+    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
+    BufferBindingType, BufferUsages, CommandEncoder, ComputePassDescriptor, ComputePipeline,
+    ComputePipelineDescriptor, Device, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout,
+    Origin3d, PipelineLayoutDescriptor, Queue, SamplerBindingType, SamplerDescriptor,
+    ShaderModuleDescriptor, ShaderStages, StorageTextureAccess, TextureAspect, TextureDescriptor,
+    TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView,
+    TextureViewDescriptor, TextureViewDimension,
 };
 
 use crate::{
@@ -88,6 +91,22 @@ impl WorldEnvironment {
                     count: None,
                 },
             ],
+        }
+    }
+
+    pub fn bind_group_layout_descriptor_buffer() -> BindGroupLayoutDescriptor<'static> {
+        BindGroupLayoutDescriptor {
+            label: Some("Mip Buffer Bind Group Layout"),
+            entries: &[BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStages::COMPUTE,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
         }
     }
 
@@ -280,7 +299,7 @@ impl WorldEnvironment {
         device: &Device,
     ) -> Texture {
         let pipeline = Self::make_compute_pipeline(
-            &bind_group_layout,
+            &[bind_group_layout],
             include_wgsl!("world_environment_diffuse.wgsl"),
             "main",
             device,
@@ -340,7 +359,7 @@ impl WorldEnvironment {
         device: &Device,
     ) -> Texture {
         let pipeline = Self::make_compute_pipeline(
-            &bind_group_layout,
+            &[&bind_group_layout],
             include_wgsl!("world_environment_specular.wgsl"),
             "main",
             device,
@@ -399,9 +418,11 @@ impl WorldEnvironment {
     ) -> Texture {
         let bind_group_layout =
             device.create_bind_group_layout(&Self::bind_group_layout_descriptor_mip_mapping());
+        let mip_buffer_bind_group_layout =
+            device.create_bind_group_layout(&Self::bind_group_layout_descriptor_buffer());
 
         let pipeline = Self::make_compute_pipeline(
-            &bind_group_layout,
+            &[&bind_group_layout, &mip_buffer_bind_group_layout],
             include_wgsl!("world_environment_mip_mapping.wgsl"),
             "main",
             device,
@@ -420,11 +441,11 @@ impl WorldEnvironment {
         );
 
         let max_mip_levels = dst_texture.calculate_max_mip_levels();
-        for i in 0..max_mip_levels {
+        for mip_level in 0..max_mip_levels {
             let dst_view = dst_texture.texture().create_view(&TextureViewDescriptor {
                 label: Some("PBR IBL Specular LoD processing view"),
                 dimension: Some(TextureViewDimension::D2Array),
-                base_mip_level: i,
+                base_mip_level: mip_level,
                 mip_level_count: Some(1),
                 ..Default::default()
             });
@@ -448,6 +469,13 @@ impl WorldEnvironment {
                 ],
             });
 
+            let mip_bind_group = Self::make_mip_buffer(
+                mip_level,
+                max_mip_levels,
+                &mip_buffer_bind_group_layout,
+                device,
+            );
+
             let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor {
                 label: Some("PBR IBL Specular Mip Mapping task"),
                 ..Default::default()
@@ -456,21 +484,44 @@ impl WorldEnvironment {
             let workgroups = (src_specular_ibl.texture().size().width + 15) / 16;
             pass.set_pipeline(&pipeline);
             pass.set_bind_group(0, &bind_group, &[]);
+            pass.set_bind_group(1, &mip_bind_group, &[]);
             pass.dispatch_workgroups(workgroups, workgroups, 6);
         }
 
         dst_texture
     }
 
+    fn make_mip_buffer(
+        mip_level: u32,
+        max_mip_level: u32,
+        mip_buffer_bind_group_layout: &BindGroupLayout,
+        device: &Device,
+    ) -> BindGroup {
+        let buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("Mip Buffer"),
+            contents: &[mip_level.to_le_bytes(), max_mip_level.to_le_bytes()].concat(),
+            usage: BufferUsages::UNIFORM,
+        });
+
+        device.create_bind_group(&BindGroupDescriptor {
+            label: Some("Mip Buffer Bind Group"),
+            layout: &mip_buffer_bind_group_layout,
+            entries: &[BindGroupEntry {
+                binding: 0,
+                resource: BindingResource::Buffer(buffer.as_entire_buffer_binding()),
+            }],
+        })
+    }
+
     fn make_compute_pipeline(
-        bind_group_layout: &BindGroupLayout,
+        bind_group_layouts: &[&BindGroupLayout],
         shader_module_descriptor: ShaderModuleDescriptor,
         shader_entrypoint: &str,
         device: &Device,
     ) -> ComputePipeline {
         let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: None,
-            bind_group_layouts: &[bind_group_layout],
+            bind_group_layouts,
             push_constant_ranges: &[],
         });
 
