@@ -5,7 +5,7 @@ use std::{
 
 use cgmath::Vector3;
 
-use super::{ShaderDescriptor, TextureDescriptor, WorldEnvironmentDescriptor};
+use super::{SamplingType, ShaderDescriptor, TextureDescriptor, WorldEnvironmentDescriptor};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MaterialDescriptor {
@@ -42,8 +42,9 @@ impl MaterialDescriptor {
     pub fn default_world_environment() -> MaterialDescriptor {
         MaterialDescriptor::WorldEnvironment(WorldEnvironmentDescriptor::FromFile {
             skybox_type: super::SkyboxType::Specular { lod: 0 },
-            cube_face_size: 1024,
+            cube_face_size: 4096,
             path: "Assets/HDRs/kloppenheim_02_puresky_4k.hdr",
+            sampling_type: SamplingType::ImportanceSampling,
         })
     }
 }

@@ -1,3 +1,11 @@
+const LUMINANCE_CONVERSION: vec3<f32> = vec3<f32>(0.2126, 0.7152, 0.0722);
+const ACES_A: f32 = 2.51;
+const ACES_B: f32 = 0.03;
+const ACES_C: f32 = 2.43;
+const ACES_D: f32 = 0.59;
+const ACES_E: f32 = 0.14;
+const IMPORTANCE_SAMPLE_COUNT: u32 = 1024u;
+
 @group(0) @binding(0)
 var src: texture_cube<f32>; 
 
@@ -13,6 +21,7 @@ var<uniform> mip_info: MipInfo;
 struct MipInfo {
     mip_level: u32,
     max_mip_level: u32,
+    sampling_type: u32,
 }
 
 struct Face {
@@ -82,6 +91,20 @@ fn gid_z_to_face(gid_z: u32) -> Face {
     }
 }
 
+fn luminance(color: vec3<f32>) -> f32 {
+    return dot(color, LUMINANCE_CONVERSION);
+}
+
+// ACES tone mapping
+fn aces_tone_map(color: vec3<f32>) -> vec3<f32> {
+    return clamp(
+        (color * (ACES_A * color + ACES_B)) / 
+        (color * (ACES_C * color + ACES_D) + ACES_E), 
+        vec3(0.0), 
+        vec3(1.0)
+    );
+}
+
 fn importance_sample_ggx(Xi: vec2<f32>, roughness: f32, N: vec3<f32>) -> vec3<f32> {
     let a = roughness * roughness;
     let phi = 2.0 * 3.14159 * Xi.x;
@@ -113,20 +136,24 @@ fn importance_sample_ggx(Xi: vec2<f32>, roughness: f32, N: vec3<f32>) -> vec3<f3
 
 fn sample_importance(N: vec3<f32>, roughness: f32) -> vec4<f32> {
     var result = vec4(0.0);
-    let sample_count = 1024u;
+    var total_weight = 0.0;
     
-    for(var i = 0u; i < sample_count; i++) {
-        let Xi = vec2(f32(i) / f32(sample_count), fract(f32(i) * 0.618034));
+    for(var i = 0u; i < IMPORTANCE_SAMPLE_COUNT; i++) {
+        let Xi = vec2(f32(i) / f32(IMPORTANCE_SAMPLE_COUNT), fract(f32(i) * 0.618034));
         let H = importance_sample_ggx(Xi, roughness, N);
         let L = normalize(2.0 * dot(N, H) * H - N);
         
         let NdotL = max(dot(N, L), 0.0);
         if(NdotL > 0.0) {
-            result += textureSampleLevel(src, src_sampler, L, 0.0) * NdotL;
+            let sample = textureSampleLevel(src, src_sampler, L, 0.0);
+            let lum_weight = 1.0 / (1.0 + luminance(sample.rgb));
+            
+            result += sample * (NdotL * lum_weight);
+            total_weight += NdotL * lum_weight;
         }
     }
     
-    return result / result.w;
+    return vec4(aces_tone_map(result.rgb / total_weight), result.a / total_weight);
 }
 
 // Box filtering
@@ -191,9 +218,21 @@ fn main(
     let N = normalize(face.forward + face.right * cube_uv.x + face.up * cube_uv.y);
     let Nmod = vec3(N.x, -N.y, N.z);
 
-    // Sample with box or gaussian filter
-    let sample = sample_importance(Nmod, f32(mip_info.mip_level) / f32(mip_info.max_mip_level));
-    // let sample = sample_filtered_gaussian(Nmod, f32(mip_info.mip_level));
-    // let sample = sample_filtered_box(Nmod, f32(mip_info.mip_level));
+    // Sample based on sampling type
+    var sample = vec4(0.0);
+    switch mip_info.sampling_type {
+        case 2u: {
+            sample = sample_filtered_box(Nmod, f32(mip_info.mip_level));
+            break;
+        }
+        case 1u: {
+            sample = sample_filtered_gaussian(Nmod, f32(mip_info.mip_level));
+            break;
+        }
+        case 0u, default: {
+            sample = sample_importance(Nmod, f32(mip_info.mip_level) / f32(mip_info.max_mip_level));
+            break;
+        }
+    }
     textureStore(dst, gid.xy, gid.z, sample);
 }
