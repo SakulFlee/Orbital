@@ -1,5 +1,6 @@
 use cgmath::Vector2;
 use image::{GenericImageView, ImageReader};
+use log::debug;
 use wgpu::{
     include_wgsl,
     util::{BufferInitDescriptor, DeviceExt},
@@ -358,6 +359,7 @@ impl WorldEnvironment {
             ..Default::default()
         });
 
+        debug!("Generating PBR IBL Diffuse ...");
         let workgroups = (dst_size + 15) / 16;
         pass.set_pipeline(&pipeline);
         pass.set_bind_group(0, &bind_group, &[]);
@@ -418,6 +420,7 @@ impl WorldEnvironment {
             ..Default::default()
         });
 
+        debug!("Generating PBR IBL Specular (LoD = 0 / Roughness = 0%) ...");
         let workgroups = (dst_size + 15) / 16;
         pass.set_pipeline(&pipeline);
         pass.set_bind_group(0, &bind_group, &[]);
@@ -498,6 +501,11 @@ impl WorldEnvironment {
                 ..Default::default()
             });
 
+            debug!(
+                "Generating PBR IBL Specular (LoD = {} / Roughness = {}%) ...",
+                mip_level,
+                (mip_level as f32 / max_mip_levels as f32) * 100.0
+            );
             let workgroups = (src_specular_ibl.texture().size().width + 15) / 16;
             pass.set_pipeline(&pipeline);
             pass.set_bind_group(0, &bind_group, &[]);
