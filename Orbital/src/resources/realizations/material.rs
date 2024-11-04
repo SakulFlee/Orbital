@@ -367,8 +367,12 @@ impl Material {
         device: &Device,
         queue: &Queue,
     ) -> Result<Self, Error> {
-        let world_environment =
-            WorldEnvironment::from_descriptor(world_environment_descriptor, device, queue)?;
+        let world_environment = WorldEnvironment::from_descriptor(
+            world_environment_descriptor,
+            &WorldEnvironmentDescriptor::DEFAULT_SAMPLING_TYPE,
+            device,
+            queue,
+        )?;
         let ibl_brdf_lut = unsafe { Self::get_or_generate_ibl_brdf_lut(device, queue) };
 
         let pipeline_descriptor = PipelineDescriptor::default_skybox();

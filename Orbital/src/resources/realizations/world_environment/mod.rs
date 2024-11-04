@@ -15,7 +15,7 @@ use wgpu::{
 
 use crate::{
     error::Error,
-    resources::descriptors::{SkyboxType, WorldEnvironmentDescriptor},
+    resources::descriptors::{SamplingType, SkyboxType, WorldEnvironmentDescriptor},
 };
 
 use super::Texture;
@@ -112,6 +112,7 @@ impl WorldEnvironment {
 
     pub fn from_descriptor(
         desc: &WorldEnvironmentDescriptor,
+        sampling_type: &SamplingType,
         device: &Device,
         queue: &Queue,
     ) -> Result<Self, Error> {
@@ -120,17 +121,27 @@ impl WorldEnvironment {
                 skybox_type,
                 cube_face_size,
                 path,
-            } => Self::radiance_hdr_file(*skybox_type, path, *cube_face_size, device, queue),
+                sampling_type,
+            } => Self::radiance_hdr_file(
+                *skybox_type,
+                path,
+                *cube_face_size,
+                sampling_type,
+                device,
+                queue,
+            ),
             WorldEnvironmentDescriptor::FromData {
                 skybox_type,
                 cube_face_size,
                 data,
                 size,
+                sampling_type,
             } => Ok(Self::radiance_hdr_vec(
                 *skybox_type,
                 data,
                 *size,
                 *cube_face_size,
+                sampling_type,
                 device,
                 queue,
             )),
@@ -191,6 +202,7 @@ impl WorldEnvironment {
         skybox_type: SkyboxType,
         file_path: &str,
         dst_size: u32,
+        sampling_type: &SamplingType,
         device: &Device,
         queue: &Queue,
     ) -> Result<Self, Error> {
@@ -217,6 +229,7 @@ impl WorldEnvironment {
                 y: height,
             },
             dst_size,
+            sampling_type,
             device,
             queue,
         ))
@@ -227,6 +240,7 @@ impl WorldEnvironment {
         data: &[u8],
         src_size: Vector2<u32>,
         dst_size: u32,
+        sampling_type: &SamplingType,
         device: &Device,
         queue: &Queue,
     ) -> Self {
@@ -280,7 +294,8 @@ impl WorldEnvironment {
             &mut encoder,
             device,
         );
-        let specular = Self::generate_specular_mip_maps(&raw_specular, &mut encoder, device);
+        let specular =
+            Self::generate_specular_mip_maps(&raw_specular, sampling_type, &mut encoder, device);
 
         queue.submit([encoder.finish()]);
 
@@ -413,6 +428,7 @@ impl WorldEnvironment {
 
     fn generate_specular_mip_maps(
         src_specular_ibl: &Texture,
+        sampling_type: &SamplingType,
         encoder: &mut CommandEncoder,
         device: &Device,
     ) -> Texture {
@@ -472,6 +488,7 @@ impl WorldEnvironment {
             let mip_bind_group = Self::make_mip_buffer(
                 mip_level,
                 max_mip_levels,
+                sampling_type,
                 &mip_buffer_bind_group_layout,
                 device,
             );
@@ -494,12 +511,18 @@ impl WorldEnvironment {
     fn make_mip_buffer(
         mip_level: u32,
         max_mip_level: u32,
+        sampling_type: &SamplingType,
         mip_buffer_bind_group_layout: &BindGroupLayout,
         device: &Device,
     ) -> BindGroup {
         let buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Mip Buffer"),
-            contents: &[mip_level.to_le_bytes(), max_mip_level.to_le_bytes()].concat(),
+            contents: &[
+                mip_level.to_le_bytes(),
+                max_mip_level.to_le_bytes(),
+                sampling_type.to_le_bytes(),
+            ]
+            .concat(),
             usage: BufferUsages::UNIFORM,
         });
 
