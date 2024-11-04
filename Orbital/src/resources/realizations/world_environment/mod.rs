@@ -5,9 +5,9 @@ use wgpu::{
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, CommandEncoder,
     ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor, Device, Extent3d,
     FilterMode, ImageCopyTexture, ImageDataLayout, Origin3d, PipelineLayoutDescriptor, Queue,
-    SamplerDescriptor, ShaderModuleDescriptor, ShaderStages, StorageTextureAccess, TextureAspect,
-    TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
-    TextureView, TextureViewDescriptor, TextureViewDimension,
+    SamplerBindingType, SamplerDescriptor, ShaderModuleDescriptor, ShaderStages,
+    StorageTextureAccess, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat,
+    TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
 };
 
 use crate::{
@@ -42,6 +42,43 @@ impl WorldEnvironment {
                 // Output
                 BindGroupLayoutEntry {
                     binding: 1,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::StorageTexture {
+                        access: StorageTextureAccess::WriteOnly,
+                        format: TextureFormat::Rgba16Float,
+                        view_dimension: TextureViewDimension::D2Array,
+                    },
+                    count: None,
+                },
+            ],
+        }
+    }
+
+    pub fn bind_group_layout_descriptor_mip_mapping() -> BindGroupLayoutDescriptor<'static> {
+        BindGroupLayoutDescriptor {
+            label: Some("PBR IBL Specular Environment Mip Mapping"),
+            entries: &[
+                // Input: PBR IBL Specular with LoD = 0 generated as source
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::Cube,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                // Src sampler
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                    count: None,
+                },
+                // Output
+                BindGroupLayoutEntry {
+                    binding: 2,
                     visibility: ShaderStages::COMPUTE,
                     ty: BindingType::StorageTexture {
                         access: StorageTextureAccess::WriteOnly,
@@ -89,16 +126,17 @@ impl WorldEnvironment {
         with_mips: bool,
         device: &Device,
     ) -> Texture {
+        let size = Extent3d {
+            width: size.x,
+            height: size.y,
+            // A cube has 6 sides, so we need 6 layers
+            depth_or_array_layers: 6,
+        };
         let texture = device.create_texture(&TextureDescriptor {
             label,
-            size: Extent3d {
-                width: size.x,
-                height: size.y,
-                // A cube has 6 sides, so we need 6 layers
-                depth_or_array_layers: 6,
-            },
+            size,
             mip_level_count: if with_mips {
-                11 // 0% to 100% in 10% steps
+                Texture::calculate_max_mip_levels_from_texture_size(&size)
             } else {
                 1
             },
@@ -113,12 +151,6 @@ impl WorldEnvironment {
             label,
             dimension: Some(TextureViewDimension::Cube),
             array_layer_count: Some(6),
-            base_mip_level: 0,
-            mip_level_count: Some(if with_mips {
-                11 // 0% to 100% in 10% steps
-            } else {
-                1
-            }),
             ..Default::default()
         });
 
@@ -130,12 +162,6 @@ impl WorldEnvironment {
             mag_filter: FilterMode::Linear,
             min_filter: FilterMode::Linear,
             mipmap_filter: FilterMode::Linear,
-            lod_min_clamp: 0.0,
-            lod_max_clamp: if with_mips {
-                10.0 // 0% to 100% in 10% steps
-            } else {
-                1.0
-            },
             ..Default::default()
         });
 
@@ -228,13 +254,14 @@ impl WorldEnvironment {
             &mut encoder,
             device,
         );
-        let specular = Self::make_ibl_specular(
+        let raw_specular = Self::make_ibl_specular(
             dst_size,
             &device.create_bind_group_layout(&Self::bind_group_layout_descriptor()),
             src_texture.view(),
             &mut encoder,
             device,
         );
+        let specular = Self::generate_specular_mip_maps(&raw_specular, &mut encoder, device);
 
         queue.submit([encoder.finish()]);
 
@@ -320,22 +347,20 @@ impl WorldEnvironment {
         );
 
         let dst_texture = Self::create_empty_cube_texture(
-            Some("PBR IBL Diffuse"),
+            Some("PBR IBL Specular without LoDs"),
             Vector2 {
                 x: dst_size,
                 y: dst_size,
             },
             TextureFormat::Rgba16Float,
             TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
-            true,
+            false,
             device,
         );
 
         let dst_view = dst_texture.texture().create_view(&TextureViewDescriptor {
             label: Some("PBR IBL Specular --- !!! PROCESSING VIEW !!!"),
             dimension: Some(TextureViewDimension::D2Array),
-            base_mip_level: 0,
-            mip_level_count: Some(1),
             ..Default::default()
         });
 
@@ -364,8 +389,75 @@ impl WorldEnvironment {
         pass.set_bind_group(0, &bind_group, &[]);
         pass.dispatch_workgroups(workgroups, workgroups, 6);
 
-        // LoD generation
-        // for i in 1..=10 {}
+        dst_texture
+    }
+
+    fn generate_specular_mip_maps(
+        src_specular_ibl: &Texture,
+        encoder: &mut CommandEncoder,
+        device: &Device,
+    ) -> Texture {
+        let bind_group_layout =
+            device.create_bind_group_layout(&Self::bind_group_layout_descriptor_mip_mapping());
+
+        let pipeline = Self::make_compute_pipeline(
+            &bind_group_layout,
+            include_wgsl!("world_environment_mip_mapping.wgsl"),
+            "main",
+            device,
+        );
+
+        let dst_texture = Self::create_empty_cube_texture(
+            Some("PBR IBL Specular with LoDs"),
+            Vector2 {
+                x: src_specular_ibl.texture().width(),
+                y: src_specular_ibl.texture().height(),
+            },
+            TextureFormat::Rgba16Float,
+            TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+            true,
+            device,
+        );
+
+        let max_mip_levels = dst_texture.calculate_max_mip_levels();
+        for i in 0..max_mip_levels {
+            let dst_view = dst_texture.texture().create_view(&TextureViewDescriptor {
+                label: Some("PBR IBL Specular LoD processing view"),
+                dimension: Some(TextureViewDimension::D2Array),
+                base_mip_level: i,
+                mip_level_count: Some(1),
+                ..Default::default()
+            });
+
+            let bind_group = device.create_bind_group(&BindGroupDescriptor {
+                label: Some("World Environment Processing Bind Group for PBR IBL Diffuse"),
+                layout: &bind_group_layout,
+                entries: &[
+                    BindGroupEntry {
+                        binding: 0,
+                        resource: BindingResource::TextureView(src_specular_ibl.view()),
+                    },
+                    BindGroupEntry {
+                        binding: 1,
+                        resource: BindingResource::Sampler(src_specular_ibl.sampler()),
+                    },
+                    BindGroupEntry {
+                        binding: 2,
+                        resource: BindingResource::TextureView(&dst_view),
+                    },
+                ],
+            });
+
+            let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor {
+                label: Some("PBR IBL Specular Mip Mapping task"),
+                ..Default::default()
+            });
+
+            let workgroups = (src_specular_ibl.texture().size().width + 15) / 16;
+            pass.set_pipeline(&pipeline);
+            pass.set_bind_group(0, &bind_group, &[]);
+            pass.dispatch_workgroups(workgroups, workgroups, 6);
+        }
 
         dst_texture
     }
