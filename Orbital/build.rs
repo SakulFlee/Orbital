@@ -13,7 +13,6 @@ fn path_to_models_dir() -> String {
 }
 
 fn main() {
-    println!("cargo::rerun-if-changed=build.rs");
     blender_pbr_spheres();
     blender_model_files();
 }
@@ -21,10 +20,6 @@ fn main() {
 fn blender_pbr_spheres() {
     println!(
         "cargo::rerun-if-changed={}/pbr_sphere_gen.py",
-        path_to_models_dir()
-    );
-    println!(
-        "cargo::rerun-if-changed={}/PBR_Spheres.glb",
         path_to_models_dir()
     );
 
@@ -59,11 +54,7 @@ fn blender_model_files() {
 }
 
 fn blender_convert_to_gltf(filepath: &str) {
-    println!(
-        "cargo::rerun-if-changed={}/{}",
-        path_to_models_dir(),
-        filepath
-    );
+    println!("cargo::rerun-if-changed={}", filepath);
 
     let mut handle = Command::new("blender")
         .arg("--background")
