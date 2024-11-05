@@ -172,8 +172,6 @@ impl Camera {
                 perspective_projection_invert.w.w.to_le_bytes(),
                 // Global Gamma
                 self.descriptor.global_gamma.to_le_bytes(),
-                // SkyBox Gamma
-                self.descriptor.skybox_gamma.to_le_bytes(),
             ]
             .concat(),
         );

@@ -5,7 +5,7 @@ use std::{
 
 use cgmath::Vector3;
 
-use super::{ShaderDescriptor, TextureDescriptor, WorldEnvironmentDescriptor};
+use super::{SamplingType, ShaderDescriptor, TextureDescriptor, WorldEnvironmentDescriptor};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MaterialDescriptor {
@@ -35,29 +35,17 @@ pub enum MaterialDescriptor {
         emissive: TextureDescriptor,
         custom_shader: ShaderDescriptor,
     },
-    WorldEnvironment {
-        sky: WorldEnvironmentDescriptor,
-        irradiance: WorldEnvironmentDescriptor,
-        radiance: WorldEnvironmentDescriptor,
-    },
+    WorldEnvironment(WorldEnvironmentDescriptor),
 }
 
 impl MaterialDescriptor {
     pub fn default_world_environment() -> MaterialDescriptor {
-        MaterialDescriptor::WorldEnvironment {
-            sky: WorldEnvironmentDescriptor::FromFile {
-                cube_face_size: 1024,
-                path: "Assets/HDRs/kloppenheim_02_puresky_4k.hdr",
-            },
-            irradiance: WorldEnvironmentDescriptor::FromFile {
-                cube_face_size: 1024,
-                path: "Assets/HDRs/kloppenheim_02_puresky_4k.hdr",
-            },
-            radiance: WorldEnvironmentDescriptor::FromFile {
-                cube_face_size: 1024,
-                path: "Assets/HDRs/kloppenheim_02_puresky_4k.hdr",
-            },
-        }
+        MaterialDescriptor::WorldEnvironment(WorldEnvironmentDescriptor::FromFile {
+            skybox_type: super::SkyboxType::Specular { lod: 0 },
+            cube_face_size: super::WorldEnvironmentDescriptor::DEFAULT_SIZE,
+            path: "Assets/HDRs/kloppenheim_02_puresky_4k.hdr",
+            sampling_type: SamplingType::ImportanceSampling,
+        })
     }
 }
 

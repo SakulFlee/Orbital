@@ -355,6 +355,20 @@ impl Texture {
         }
     }
 
+    pub fn calculate_max_mip_levels(&self) -> u32 {
+        Self::calculate_max_mip_levels_from_texture_size(&self.texture.size())
+    }
+
+    pub fn calculate_max_mip_levels_from_texture_size(texture_size: &Extent3d) -> u32 {
+        let max_size = texture_size.width.max(texture_size.height) as f32;
+
+        let size_log = max_size.log2();
+        let size_floor = size_log.floor();
+
+        let max_mip_levels = (size_floor as u32) + 1;
+        max_mip_levels
+    }
+
     pub fn texture(&self) -> &WTexture {
         &self.texture
     }
