@@ -365,8 +365,8 @@ impl Texture {
         let size_log = max_size.log2();
         let size_floor = size_log.floor();
 
-        let max_mip_levels = (size_floor as u32) + 1;
-        max_mip_levels
+        
+        (size_floor as u32) + 1
     }
 
     pub fn texture(&self) -> &WTexture {

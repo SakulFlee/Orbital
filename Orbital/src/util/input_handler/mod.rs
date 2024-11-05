@@ -153,7 +153,7 @@ impl InputHandler {
         if option_x.abs() < 0.01 && option_y.abs() < 0.01 {
             return None;
         }
-        return Some((option_x, option_y));
+        Some((option_x, option_y))
     }
 
     /// Calculates the change of `yaw` and `pitch` based on mouse movement.  
