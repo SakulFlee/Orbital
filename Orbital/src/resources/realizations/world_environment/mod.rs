@@ -562,7 +562,7 @@ impl WorldEnvironment {
             label: Some("WorldEnvironment Processing Pipeline"),
             layout: Some(&pipeline_layout),
             module: &shader,
-            entry_point: shader_entrypoint,
+            entry_point: Some(shader_entrypoint),
             compilation_options: Default::default(),
             cache: None,
         })

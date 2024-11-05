@@ -1,6 +1,5 @@
 use gilrs::{Axis, Button};
 use hashbrown::{HashMap, HashSet};
-use log::debug;
 use winit::{
     dpi::PhysicalPosition,
     event::{ElementState, MouseButton, MouseScrollDelta},
