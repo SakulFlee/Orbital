@@ -21,7 +21,7 @@ use crate::{
     },
 };
 
-use super::{world_environment, IblBrdf, Pipeline, Texture};
+use super::{IblBrdf, Pipeline, Texture};
 
 #[derive(Debug)]
 pub struct Material {
