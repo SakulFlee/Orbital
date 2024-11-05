@@ -5,8 +5,8 @@ use log::info;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutEntry, BindingResource,
-    BindingType, BufferUsages, Device, Queue, SamplerBindingType, ShaderStages, TextureFormat,
-    TextureSampleType, TextureViewDimension,
+    BindingType, BufferBindingType, BufferUsages, Device, Queue, SamplerBindingType, ShaderStages,
+    TextureFormat, TextureSampleType, TextureViewDimension,
 };
 
 use crate::{
@@ -15,13 +15,13 @@ use crate::{
     resources::{
         descriptors::{
             MaterialDescriptor, PipelineBindGroupLayout, PipelineDescriptor, ShaderDescriptor,
-            TextureDescriptor, WorldEnvironmentDescriptor,
+            SkyboxType, TextureDescriptor, WorldEnvironmentDescriptor,
         },
         realizations::WorldEnvironment,
     },
 };
 
-use super::{IblBrdf, Pipeline, Texture};
+use super::{world_environment, IblBrdf, Pipeline, Texture};
 
 #[derive(Debug)]
 pub struct Material {
@@ -229,12 +229,12 @@ impl Material {
         PipelineBindGroupLayout {
             label: Self::WORLD_ENVIRONMENT_PIPELINE_BIND_GROUP_NAME,
             entries: vec![
-                // Sky
+                // Diffuse
                 BindGroupLayoutEntry {
                     binding: 0,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
-                        sample_type: TextureSampleType::Float { filterable: false },
+                        sample_type: TextureSampleType::Float { filterable: true },
                         view_dimension: TextureViewDimension::Cube,
                         multisampled: false,
                     },
@@ -243,15 +243,15 @@ impl Material {
                 BindGroupLayoutEntry {
                     binding: 1,
                     visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
                 },
-                // Irradiance
+                // Specular
                 BindGroupLayoutEntry {
                     binding: 2,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
-                        sample_type: TextureSampleType::Float { filterable: false },
+                        sample_type: TextureSampleType::Float { filterable: true },
                         view_dimension: TextureViewDimension::Cube,
                         multisampled: false,
                     },
@@ -260,16 +260,16 @@ impl Material {
                 BindGroupLayoutEntry {
                     binding: 3,
                     visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
                 },
-                // Radiance
+                // IBL BRDF LUT
                 BindGroupLayoutEntry {
                     binding: 4,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         sample_type: TextureSampleType::Float { filterable: false },
-                        view_dimension: TextureViewDimension::Cube,
+                        view_dimension: TextureViewDimension::D2,
                         multisampled: false,
                     },
                     count: None,
@@ -280,21 +280,15 @@ impl Material {
                     ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
                     count: None,
                 },
-                // IBL BRDF LUT
+                // Skybox info
                 BindGroupLayoutEntry {
                     binding: 6,
                     visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        sample_type: TextureSampleType::Float { filterable: false },
-                        view_dimension: TextureViewDimension::D2,
-                        multisampled: false,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
                     },
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    binding: 7,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
                     count: None,
                 },
             ],
@@ -361,23 +355,24 @@ impl Material {
                 device,
                 queue,
             ),
-            MaterialDescriptor::WorldEnvironment {
-                sky,
-                irradiance,
-                radiance,
-            } => Self::skybox(sky, irradiance, radiance, surface_format, device, queue),
+            MaterialDescriptor::WorldEnvironment(world_environment) => {
+                Self::skybox(world_environment, surface_format, device, queue)
+            }
         })
     }
 
     pub fn skybox(
-        sky: &WorldEnvironmentDescriptor,
-        irradiance: &WorldEnvironmentDescriptor,
-        radiance: &WorldEnvironmentDescriptor,
+        world_environment_descriptor: &WorldEnvironmentDescriptor,
         surface_format: &TextureFormat,
         device: &Device,
         queue: &Queue,
     ) -> Result<Self, Error> {
-        let world_environment = WorldEnvironment::from_descriptor(sky, device, queue)?;
+        let world_environment = WorldEnvironment::from_descriptor(
+            world_environment_descriptor,
+            &WorldEnvironmentDescriptor::DEFAULT_SAMPLING_TYPE,
+            device,
+            queue,
+        )?;
         let ibl_brdf_lut = unsafe { Self::get_or_generate_ibl_brdf_lut(device, queue) };
 
         let pipeline_descriptor = PipelineDescriptor::default_skybox();
@@ -388,57 +383,60 @@ impl Material {
             .bind_group_layout(Self::WORLD_ENVIRONMENT_PIPELINE_BIND_GROUP_NAME)
             .ok_or(Error::BindGroupMissing)?;
 
+        let info_buffer_bytes = match world_environment.skybox_type() {
+            SkyboxType::Diffuse => &[(-1i32).to_le_bytes()],
+            SkyboxType::Specular { lod } => &[(lod as u32).to_le_bytes()],
+        };
+
+        let info_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("Skybox Info Buffer"),
+            contents: &info_buffer_bytes.concat(),
+            usage: BufferUsages::UNIFORM,
+        });
+
         let bind_group = device.create_bind_group(&BindGroupDescriptor {
             label: None,
             layout: bind_group_layout,
             entries: &[
-                // Sky
+                // Diffuse
                 BindGroupEntry {
                     binding: 0,
                     resource: BindingResource::TextureView(
-                        world_environment.skybox_cube_texture().view(),
+                        world_environment.pbr_ibl_diffuse().view(),
                     ),
                 },
                 BindGroupEntry {
                     binding: 1,
                     resource: BindingResource::Sampler(
-                        world_environment.skybox_cube_texture().sampler(),
+                        world_environment.pbr_ibl_diffuse().sampler(),
                     ),
                 },
-                // Irradiance
+                // Specular
                 BindGroupEntry {
                     binding: 2,
                     resource: BindingResource::TextureView(
-                        world_environment.diffuse_cube_texture().view(),
+                        world_environment.pbr_ibl_specular().view(),
                     ),
                 },
                 BindGroupEntry {
                     binding: 3,
                     resource: BindingResource::Sampler(
-                        world_environment.diffuse_cube_texture().sampler(),
-                    ),
-                },
-                // Radiance
-                BindGroupEntry {
-                    binding: 4,
-                    resource: BindingResource::TextureView(
-                        world_environment.skybox_cube_texture().view(),
-                    ),
-                },
-                BindGroupEntry {
-                    binding: 5,
-                    resource: BindingResource::Sampler(
-                        world_environment.skybox_cube_texture().sampler(),
+                        world_environment.pbr_ibl_specular().sampler(),
                     ),
                 },
                 // IBL BRDF LUT
                 BindGroupEntry {
-                    binding: 6,
+                    binding: 4,
                     resource: BindingResource::TextureView(ibl_brdf_lut.view()),
                 },
                 BindGroupEntry {
-                    binding: 7,
+                    binding: 5,
                     resource: BindingResource::Sampler(ibl_brdf_lut.sampler()),
+                },
+                // Info
+                BindGroupEntry {
+                    binding: 6,
+                    resource: BindingResource::Buffer(info_buffer.as_entire_buffer_binding()),
                 },
             ],
         });

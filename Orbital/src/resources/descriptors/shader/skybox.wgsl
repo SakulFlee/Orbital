@@ -5,7 +5,6 @@ struct CameraUniform {
     view_projection_transposed: mat4x4<f32>,
     perspective_projection_invert: mat4x4<f32>,
     global_gamma: f32,
-    skybox_gamma: f32,
 }
 
 struct VertexOutput {
@@ -15,8 +14,20 @@ struct VertexOutput {
     @location(0) clip_position: vec4<f32>,
 }
 
-@group(0) @binding(0) var env_map: texture_cube<f32>;
-@group(0) @binding(1) var env_sampler: sampler;
+struct Info {
+    lod: i32,
+}
+
+@group(0) @binding(0) var diffuse_env_map: texture_cube<f32>;
+@group(0) @binding(1) var diffuse_env_sampler: sampler;
+
+@group(0) @binding(2) var specular_env_map: texture_cube<f32>;
+@group(0) @binding(3) var specular_env_sampler: sampler;
+
+// @group(0) @binding(4) var ibl_brdf_env_map: texture_cube<f32>;
+// @group(0) @binding(5) var ibl_brdf_env_sampler: sampler;
+
+@group(0) @binding(6) var<uniform> info: Info;
 
 @group(1) @binding(0) var<uniform> camera: CameraUniform;
 
@@ -42,17 +53,42 @@ fn entrypoint_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let view_ray_direction = view_position.xyz / view_position.w;
     var ray_direction = normalize((camera.view_projection_transposed * vec4(view_ray_direction, 0.0)).xyz);
 
-    // HDRI SkyBox
-    let sample = textureSample(env_map, env_sampler, ray_direction);
+    // Sample HDRI WorldEnvironemnt as Sky Box, based on LoD (-1 = diffuse)
+    var sample: vec3<f32>;
+    if info.lod < 0 {
+        sample = textureSample(diffuse_env_map, diffuse_env_sampler, ray_direction).rgb;
+    } else {
+        sample = textureSampleLevel(specular_env_map, specular_env_sampler, ray_direction, f32(info.lod)).rgb;
+    }
 
-    var color = sample.xyz;
-    color = color / (color + vec3<f32>(1.0));
-    color = pow(color, vec3<f32>(1.0 / camera.skybox_gamma));
+    // Clamp sample to be within range (possible detail loss if there is data past >1.0)
+    let clamped = clamp(sample, vec3(0.0), vec3(1.0));
+
+    // Adjust for gamma
+    let gamma_adjustment = pow(clamped, vec3(camera.global_gamma));
+
+    // ACES Tone Map (HDR mapping)
+    let aces_tone_mapped = aces_tone_map(gamma_adjustment);
+
+    return vec4<f32>(gamma_adjustment, 1.0);
 
     // Generated SkyBox:
     // let sky_color = vec3<f32>(0.0, 0.75, 1.0);
     // let horizon_color = vec3<f32>(0.5, 0.5, 0.5);
     // let color = mix(horizon_color, sky_color, ray_direction.y);
+}
 
-    return vec4<f32>(color, 1.0);
+// ACES tone mapping
+const ACES_A: f32 = 2.51;
+const ACES_B: f32 = 0.03;
+const ACES_C: f32 = 2.43;
+const ACES_D: f32 = 0.59;
+const ACES_E: f32 = 0.14;
+fn aces_tone_map(color: vec3<f32>) -> vec3<f32> {
+    return clamp(
+        (color * (ACES_A * color + ACES_B)) / 
+        (color * (ACES_C * color + ACES_D) + ACES_E), 
+        vec3(0.0), 
+        vec3(1.0)
+    );
 }

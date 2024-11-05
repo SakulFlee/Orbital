@@ -15,7 +15,6 @@ pub struct CameraDescriptor {
     pub near: f32,
     pub far: f32,
     pub global_gamma: f32,
-    pub skybox_gamma: f32,
 }
 
 impl CameraDescriptor {
@@ -84,7 +83,6 @@ impl Default for CameraDescriptor {
             near: 0.1,
             far: 10000.0,
             global_gamma: 2.2,
-            skybox_gamma: 0.5,
         }
     }
 }

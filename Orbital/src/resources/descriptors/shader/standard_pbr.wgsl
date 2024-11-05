@@ -1,3 +1,6 @@
+const PI: f32 = 3.14159265359; 
+const F0_DEFAULT: f32 = 0.04;
+
 struct VertexData {
     @builtin(vertex_index) vertex_index: u32,
     @location(0) position: vec3<f32>,
@@ -30,7 +33,6 @@ struct CameraUniform {
     view_projection_transposed: mat4x4<f32>,
     perspective_projection_invert: mat4x4<f32>,
     global_gamma: f32,
-    skybox_gamma: f32,
 }
 
 struct PointLight {
@@ -59,10 +61,10 @@ struct PBRData {
     occlusion: f32,
     // Emissive (like albedo, but ignores light) texture sample
     emissive: vec3<f32>,
-    // Irradiance (used for diffuse IBL)
-    irradiance: vec3<f32>,
-    // Radiance (used for specular IBL)
-    radiance: vec3<f32>,
+    // Diffuse IBL
+    ibl_diffuse: vec3<f32>,
+    // Specular IBL
+    ibl_specular: vec3<f32>,
     // BRDF LuT (look-up-table) (used for IBL)
     brdf_lut: vec2<f32>,
     // Normal
@@ -97,17 +99,14 @@ struct PBRData {
 
 @group(2) @binding(0) var<storage> point_light_store: array<PointLight>;
 
-@group(3) @binding(2) var irradiance_env_map: texture_cube<f32>;
-@group(3) @binding(3) var irradiance_sampler: sampler;
+@group(3) @binding(0) var diffuse_env_map: texture_cube<f32>;
+@group(3) @binding(1) var diffuse_sampler: sampler;
 
-@group(3) @binding(4) var radiance_env_map: texture_cube<f32>;
-@group(3) @binding(5) var radiance_sampler: sampler;
+@group(3) @binding(2) var specular_env_map: texture_cube<f32>;
+@group(3) @binding(3) var specular_sampler: sampler;
 
-@group(3) @binding(6) var ibl_brdf_lut_texture: texture_2d<f32>;
-@group(3) @binding(7) var ibl_brdf_lut_sampler: sampler;
-
-const PI = 3.14159265359; 
-const F0_DEFAULT = vec3<f32>(0.04);
+@group(3) @binding(4) var ibl_brdf_lut_texture: texture_2d<f32>;
+@group(3) @binding(5) var ibl_brdf_lut_sampler: sampler;
 
 @vertex
 fn entrypoint_vertex(
@@ -165,14 +164,30 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     output += pbr.emissive;
 
     // Tonemap / HDR 
-    let tone_mapped_color = hdr_tone_map_gamma_correction(output);
+    let tone_mapped_color = aces_tone_map(output);
     return vec4<f32>(tone_mapped_color, 1.0);
 }
 
+// Note: Unused in favor of ACES
 fn hdr_tone_map_gamma_correction(color: vec3<f32>) -> vec3<f32> {
     var result = color / (color + vec3<f32>(1.0));
     result = pow(result, vec3<f32>(1.0 / camera.global_gamma));
     return result;
+}
+
+// ACES tone mapping
+const ACES_A: f32 = 2.51;
+const ACES_B: f32 = 0.03;
+const ACES_C: f32 = 2.43;
+const ACES_D: f32 = 0.59;
+const ACES_E: f32 = 0.14;
+fn aces_tone_map(color: vec3<f32>) -> vec3<f32> {
+    return clamp(
+        (color * (ACES_A * color + ACES_B)) / 
+        (color * (ACES_C * color + ACES_D) + ACES_E), 
+        vec3(0.0), 
+        vec3(1.0)
+    );
 }
 
 fn brdf(point_light: PointLight, pbr: PBRData, world_position: vec3<f32>) -> vec3<f32> {
@@ -184,11 +199,10 @@ fn brdf(point_light: PointLight, pbr: PBRData, world_position: vec3<f32>) -> vec
 
     var Lo: vec3<f32>;
     if NdotL > 0.0 {
-        let roughness = max(0.05, pbr.roughness); // TODO: Needed?
         // Normal distribution of the microfacets
-        let D = distribution_ggx(NdotH, roughness);
+        let D = distribution_ggx(NdotH, pbr.roughness);
         // Geometric/Microfacet shadowing term
-        let G = schlick_smith_ggx(NdotL, pbr.NdotV, roughness);
+        let G = schlick_smith_ggx(NdotL, pbr.NdotV, pbr.roughness);
         // Fresnel factor (i.e. reflectance depending on angle of camera)
         let F = fresnel_schlick(pbr.NdotV, pbr);
 
@@ -203,9 +217,9 @@ fn brdf(point_light: PointLight, pbr: PBRData, world_position: vec3<f32>) -> vec
 fn calculate_point_light_specular_contribution(pbr: PBRData, world_position: vec3<f32>) -> vec3<f32> {
     var Lo = vec3(0.0);
 
-    for (var i: u32 = 0; i < arrayLength(&point_light_store); i++) {
+    for (var i = u32(0); i < arrayLength(&point_light_store); i++) {
         let point_light = point_light_store[i];
-        Lo += brdf(point_light, pbr, world_position);
+        Lo += brdf(point_light, pbr, world_position); 
     }
 
     return Lo;
@@ -213,18 +227,16 @@ fn calculate_point_light_specular_contribution(pbr: PBRData, world_position: vec
 
 fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
     // Calculate reflectance at normal incidence
-    let F0 = mix(F0_DEFAULT, pbr.albedo, pbr.metallic);
+    let F0 = mix(vec3(F0_DEFAULT), pbr.albedo, pbr.metallic);
     let F = fresnel_schlick_roughness(pbr.NdotV, F0, pbr.roughness);
 
     // IBL Diffuse
     let diffuse_color = (pbr.albedo * (vec3(1.0) - F) + 0.0001) * (1.0 - pbr.metallic + 0.0001);
-    let diffuse_ibl = pbr.irradiance * diffuse_color;
+    let diffuse_ibl = pbr.ibl_diffuse * diffuse_color;
 
     // IBL Specular
     let specular_color = mix(F0, pbr.albedo, pbr.metallic);
-    var specular_ibl = pbr.radiance * (specular_color * pbr.brdf_lut.x + pbr.brdf_lut.y);
-    // TODO: Try!
-    // var specular_ibl = pbr.radiance * (F * pbr.brdf_lut.x + pbr.brdf_lut.y);
+    var specular_ibl = pbr.ibl_specular * (F * pbr.brdf_lut.x + pbr.brdf_lut.y);
 
     // Ambient light calculation (IBL), multiplied by ambient occlusion
     return (diffuse_ibl + specular_ibl) * pbr.occlusion;
@@ -250,7 +262,7 @@ fn sample_normal_from_map(fragment_data: FragmentData) -> vec3<f32> {
 
 // Fresnel
 fn fresnel_schlick(cos_theta: f32, pbr: PBRData) -> vec3<f32> {
-    let F0 = mix(F0_DEFAULT, pbr.albedo, pbr.metallic);
+    let F0 = mix(vec3(F0_DEFAULT), pbr.albedo, pbr.metallic);
     let F = F0 + (1.0 - F0) * pow(1.0 - cos_theta, 5.0);
     return F;
 }
@@ -331,34 +343,37 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     ).rgb;
     let emissive_clamped = clamp(emissive_sample, vec3(0.0), vec3(1.0));
     let emissive_gamma_applied = pow(emissive_clamped, vec3(camera.global_gamma));
-    out.emissive = emissive_clamped;
+    out.emissive = emissive_gamma_applied;
 
-    let irradiance_sample = textureSample(
-        irradiance_env_map,
-        irradiance_sampler,
+    let diffuse_sample = textureSample(
+        diffuse_env_map,
+        diffuse_sampler,
         out.N
     ).rgb;
-    let irradiance_clamped = clamp(irradiance_sample, vec3(0.0), vec3(1.0));
-    let irradiance_gamma_applied = pow(irradiance_clamped, vec3(camera.global_gamma));
-    out.irradiance = irradiance_gamma_applied;
+    let diffuse_clamped = clamp(diffuse_sample, vec3(0.0), vec3(1.0));
+    let diffuse_gamma_applied = pow(diffuse_clamped, vec3(camera.global_gamma));
+    out.ibl_diffuse = diffuse_gamma_applied;
 
-    let radiance_sample = textureSampleLevel(
-        radiance_env_map,
-        radiance_sampler,
+    let specular_mip_count = textureNumLevels(specular_env_map);
+    let specular_mip_level = out.roughness * out.roughness * f32(specular_mip_count - 1u);
+    let specular_sample = textureSampleLevel(
+        specular_env_map,
+        specular_sampler,
         R,
-        out.roughness // TODO: Might be false
+        specular_mip_level
     ).rgb;
-    let radiance_clamped = clamp(radiance_sample, vec3(0.0), vec3(1.0));
-    let radiance_gamma_applied = pow(radiance_clamped, vec3(camera.global_gamma));
-    out.radiance = radiance_gamma_applied;
+    let specular_clamped = clamp(specular_sample, vec3(0.0), vec3(1.0));
+    let specular_gamma_applied = pow(specular_clamped, vec3(camera.global_gamma));
+    out.ibl_specular = specular_gamma_applied;
 
     let brdf_lut_sample = textureSample(
         ibl_brdf_lut_texture,
         ibl_brdf_lut_sampler,
-        vec2<f32>(max(out.NdotV, 0.0), clamp(1.0 - out.roughness, 0.0, 1.0))
-    ).rg;
-    let brdf_lut_clamped = clamp(brdf_lut_sample, vec2(0.0), vec2(1.0));
-    out.brdf_lut = brdf_lut_clamped;
+        vec2<f32>(
+            max(out.NdotV, 0.0001), 
+            clamp(1.0 - out.roughness, 0.0001, 1.0)
+    )).rg;
+    out.brdf_lut = brdf_lut_sample;
 
     return out;
 }
