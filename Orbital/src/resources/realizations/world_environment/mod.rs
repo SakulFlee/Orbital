@@ -341,7 +341,7 @@ impl WorldEnvironment {
 
         let bind_group = device.create_bind_group(&BindGroupDescriptor {
             label: Some("World Environment Processing Bind Group for PBR IBL Diffuse"),
-            layout: &bind_group_layout,
+            layout: bind_group_layout,
             entries: &[
                 BindGroupEntry {
                     binding: 0,
@@ -376,7 +376,7 @@ impl WorldEnvironment {
         device: &Device,
     ) -> Texture {
         let pipeline = Self::make_compute_pipeline(
-            &[&bind_group_layout],
+            &[bind_group_layout],
             include_wgsl!("world_environment_specular.wgsl"),
             "main",
             device,
@@ -402,7 +402,7 @@ impl WorldEnvironment {
 
         let bind_group = device.create_bind_group(&BindGroupDescriptor {
             label: Some("World Environment Processing Bind Group for PBR IBL Diffuse"),
-            layout: &bind_group_layout,
+            layout: bind_group_layout,
             entries: &[
                 BindGroupEntry {
                     binding: 0,
@@ -536,7 +536,7 @@ impl WorldEnvironment {
 
         device.create_bind_group(&BindGroupDescriptor {
             label: Some("Mip Buffer Bind Group"),
-            layout: &mip_buffer_bind_group_layout,
+            layout: mip_buffer_bind_group_layout,
             entries: &[BindGroupEntry {
                 binding: 0,
                 resource: BindingResource::Buffer(buffer.as_entire_buffer_binding()),

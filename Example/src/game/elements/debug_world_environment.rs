@@ -16,6 +16,12 @@ pub struct DebugWorldEnvironment {
     last_trigger: Instant,
 }
 
+impl Default for DebugWorldEnvironment {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DebugWorldEnvironment {
     pub const KEY_DEBUG_UP: PhysicalKey = PhysicalKey::Code(KeyCode::Digit2);
     pub const KEY_DEBUG_DOWN: PhysicalKey = PhysicalKey::Code(KeyCode::Digit1);

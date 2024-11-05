@@ -9,7 +9,7 @@ fn path_to_models_dir() -> String {
     let canonicalize = std::fs::canonicalize(&concat).unwrap();
 
     let canonicalize_str = canonicalize.to_str().unwrap().to_string();
-    return canonicalize_str;
+    canonicalize_str
 }
 
 fn main() {
