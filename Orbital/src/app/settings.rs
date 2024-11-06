@@ -10,7 +10,7 @@ pub struct AppSettings {
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
-            name: "Default App".into(),
+            name: "Orbital App".into(),
             size: PhysicalSize::new(1280, 720).into(),
             vsync_enabled: true,
         }
