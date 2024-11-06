@@ -5,7 +5,7 @@ use gilrs::Gilrs;
 use log::{debug, error, info, warn};
 use wgpu::{
     util::{backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env},
-    Adapter, Backends, CompositeAlphaMode, Device, DeviceDescriptor, DeviceType, Features,
+    Adapter, Backend, Backends, CompositeAlphaMode, Device, DeviceDescriptor, DeviceType, Features,
     Instance, InstanceDescriptor, InstanceFlags, Limits, MemoryHints, PresentMode, Queue, Surface,
     SurfaceConfiguration, SurfaceTexture, TextureUsages, TextureViewDescriptor,
 };
@@ -104,6 +104,23 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
                     DeviceType::VirtualGpu => 0,
                     DeviceType::Cpu => 0,
                     DeviceType::Other => 0,
+                };
+
+                (adapter, score + local_score)
+            })
+            // Map and match device backends based on preference
+            .map(|(adapter, score)| {
+                let local_score = match adapter.get_info().backend {
+                    // DX12 and Metal should be preferred where available (i.e. on Windows and macOS) over Vulkan
+                    Backend::Dx12 => 1000,
+                    Backend::Metal => 1000,
+                    // Vulkan is the universal default
+                    Backend::Vulkan => 100,
+                    // In Webbrowsers, only WebGPU should be available (or WebGL which should fall below into Backend::Gl). To prevent this from being chosen, somehow, on Desktop platforms over something more performant we set a lower score than above, but higher than OpenGL.
+                    Backend::BrowserWebGpu => 50,
+                    // OpenGL and Empty are not recommended at all and may not even work at all
+                    Backend::Gl => 0,
+                    Backend::Empty => 0,
                 };
 
                 (adapter, score + local_score)
@@ -439,9 +456,10 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
 
         let (chosen_adapter, chosen_score) = adapters_ranked.swap_remove(adapters_ranked.len() - 1);
         info!(
-            "Chosen adapter: {} [{}]",
+            "Chosen adapter: {} [{} points]\n{:?}",
             chosen_adapter.get_info().name,
-            chosen_score
+            chosen_score,
+            chosen_adapter.get_info()
         );
         self.adapter = Some(chosen_adapter);
 
