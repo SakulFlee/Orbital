@@ -274,8 +274,7 @@ fn fresnel_schlick_roughness(cos_theta: f32, F0: vec3<f32>, roughness: f32) -> v
 
 /// Geometric Shadowing
 fn schlick_smith_ggx(NdotL: f32, NdotV: f32, roughness: f32) -> f32 {
-    let r = roughness + 1.0;
-    let k = (r * r) / 8.0;
+    let k = (roughness * roughness) / 2.0;
     let GL = NdotL / (NdotL * (1.0 - k) + k);
     let GV = NdotV / (NdotV * (1.0 - k) + k);
     return GL * GV;
@@ -325,7 +324,7 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
         fragment_data.uv
     ).r;
     let roughness_factored = roughness_sample * pbr_factors.roughness_factor;
-    let roughness_clamped = clamp(roughness_factored, 0.0, 1.0);
+    let roughness_clamped = clamp(roughness_factored, 0.0001, 0.9999);
     out.roughness = roughness_clamped;
 
     let occlusion_sample = textureSample(
