@@ -230,7 +230,7 @@ fn main(
             break;
         }
         case 0u, default: {
-            sample = sample_importance(Nmod, f32(mip_info.mip_level) / f32(mip_info.max_mip_level));
+            sample = sample_importance(Nmod, f32(mip_info.mip_level) / f32(mip_info.max_mip_level - 1u));
             break;
         }
     }
