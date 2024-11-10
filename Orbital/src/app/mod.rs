@@ -2,9 +2,13 @@
 
 use log::warn;
 use wgpu::{Device, Queue, SurfaceConfiguration, TextureView};
+use winit::event::{DeviceEvent, DeviceId, StartCause};
 
 pub mod settings;
 pub use settings::*;
+
+pub mod event;
+pub use event::*;
 
 pub mod runtime;
 pub use runtime::*;
@@ -14,7 +18,6 @@ pub use input_event::*;
 
 pub mod app_changes;
 pub use app_changes::*;
-use winit::event::{DeviceEvent, DeviceId, StartCause};
 
 /// Implement this trait to make an [App].  
 /// An [App] is a entrypoint wrapper exposing a few functions for you to use.
