@@ -41,10 +41,18 @@ impl<GameImpl: Game, RendererImpl: Renderer> GameRuntime<GameImpl, RendererImpl>
             MATERIAL_CACHE_SETTINGS.get_or_init(|| settings.material_cache);
         }
 
-        AppRuntime::<GameRuntime<GameImpl, RendererImpl>>::__liftoff(
-            event_loop,
-            settings.app_settings,
-        )
+        // tokio::runtime::Builder::new_multi_thread()
+        //     .enable_all()
+        //     .build()
+        //     .unwrap()
+        //     .block_on(async {
+        //         AppRuntime::<GameRuntime<GameImpl, RendererImpl>>::__liftoff(
+        //             event_loop,
+        //             settings.app_settings,
+        //         )
+        //         .await
+        //     })
+        todo!()
     }
 
     fn do_cleanup(&mut self, device: &Device, queue: &Queue) {
