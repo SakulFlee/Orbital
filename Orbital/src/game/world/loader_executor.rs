@@ -54,9 +54,7 @@ impl LoaderExecutor {
         // Repopulate the active loaders
         self.active_loaders = Some(remaining);
 
-        
-        done
-            .into_iter()
+        done.into_iter()
             .map(|mut x| x.finish_processing())
             .collect::<Vec<_>>()
     }
