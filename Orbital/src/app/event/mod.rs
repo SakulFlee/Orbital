@@ -1,13 +1,15 @@
 use winit::event::{DeviceEvent, DeviceId, StartCause, WindowEvent};
 
-#[derive(Debug, PartialEq, Clone)]
+mod input;
+pub use input::*;
+
+#[derive(Debug, PartialEq)]
 pub enum AppEvent {
+    Resumed,
+    Suspended,
+    InputEvent(InputEvent),
     WindowEvent(WindowEvent),
     NewEventCycle(StartCause),
     DeviceEvent(DeviceId, DeviceEvent),
     MemoryWarning,
-    Suspended,
-    Resumed,
-    #[cfg(feature = "gamepad_input")]
-    GamepadInput(gilrs::Event),
 }

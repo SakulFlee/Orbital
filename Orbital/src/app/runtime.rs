@@ -1,9 +1,14 @@
-use std::sync::Arc;
+use std::{
+    sync::{
+        mpsc::{self, Sender},
+        Arc,
+    },
+    task,
+};
 
 use cgmath::Vector2;
 use gilrs::Gilrs;
 use log::{debug, error, info, warn};
-use tokio::sync::mpsc::{self, channel, Receiver, Sender, UnboundedSender};
 use wgpu::{
     util::{backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env},
     Adapter, Backend, Backends, CompositeAlphaMode, Device, DeviceDescriptor, DeviceType, Features,
@@ -18,13 +23,13 @@ use winit::{
     window::{CursorGrabMode, Window, WindowId},
 };
 
-use crate::error::Error;
+use crate::{app::InputEvent, error::Error};
 
-use super::{App, AppChange, AppEvent, AppSettings, InputEvent};
+use super::{App, AppChange, AppEvent, AppSettings};
 
 pub struct AppRuntime<AppImpl: App> {
     // Events
-    event_tx: UnboundedSender<AppEvent>,
+    event_tx: Sender<AppEvent>,
     // App related
     app: Option<AppImpl>,
     runtime_settings: AppSettings,
@@ -47,61 +52,91 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
         info!("Orbital Runtime");
         info!(" --- @SakulFlee --- ");
 
-        let (event_tx, mut event_rx) = mpsc::unbounded_channel();
+        let (event_tx, mut event_rx) = mpsc::channel();
 
-        let tokio_runtime = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .unwrap();
+        let mut app_runtime = Self {
+            event_tx: event_tx.clone(),
+            app: None,
+            runtime_settings: settings,
+            gil: Gilrs::new().unwrap(), // TODO: Remove
+            window: None,
+            surface: None,
+            surface_configuration: None,
+            instance: None,
+            adapter: None,
+            device: None,
+            queue: None,
+        };
 
-        tokio_runtime.block_on(async {
-            let mut app_runtime = Self {
-                event_tx: event_tx.clone(),
-                app: None,
-                runtime_settings: settings,
-                gil: Gilrs::new().unwrap(), // TODO: Remove
-                window: None,
-                surface: None,
-                surface_configuration: None,
-                instance: None,
-                adapter: None,
-                device: None,
-                queue: None,
-            };
+        let mut handles = Vec::new();
 
-            #[cfg(feature = "gamepad_input_poll")]
-            {
-                info!("Gamepad input polling enabled by feature flag!");
-                let mut gil = Gilrs::new().expect("Gamepad input polling failed to initialize!");
-                let gil_event_tx = app_runtime.event_tx.clone();
+        #[cfg(feature = "gamepad_input_poll")]
+        {
+            info!("Gamepad input polling enabled by feature flag!");
+            let mut gil = Gilrs::new().expect("Gamepad input polling failed to initialize!");
+            let gil_event_tx = app_runtime.event_tx.clone();
 
-                tokio_runtime.spawn(async move {
-                    loop {
-                        if let Some(gil_event) = gil.next_event() {
-                            if let Err(e) = gil_event_tx.send(AppEvent::GamepadInput(gil_event)) {
-                                error!("Failed to send gamepad input event: {}", e);
-                            }
+            #[allow(unused_mut)]
+            let mut x = move || {
+                debug!(
+                    "GIL thread: {:?} [{}]",
+                    std::thread::current().id(),
+                    std::thread::current().name().unwrap_or("UNNAMED")
+                );
+
+                loop {
+                    if let Some(gil_event) = gil.next_event() {
+                        if let Some(event) = InputEvent::convert(gil_event) {
+                            gil_event_tx.send(AppEvent::InputEvent(event)).unwrap();
                         }
                     }
-                });
-            }
-
-            tokio_runtime.spawn(async move {
-                loop {
-                    let event = event_rx.recv().await.unwrap();
-                    debug!(
-                        "Received event: {:?} @ #{:?} - {}",
-                        &event,
-                        std::thread::current().id(),
-                        std::thread::current().name().unwrap_or("UNNAMED")
-                    );
                 }
+            };
+
+            #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+            let handle = async_std::task::spawn_blocking(x);
+
+            // TODO: Actually verify
+            #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+            let handle = async_std::task::spawn(async move {
+                x();
             });
 
-            event_loop
-                .run_app(&mut app_runtime)
-                .map_err(Error::EventLoopError)
-        })
+            handles.push(handle);
+        }
+
+        #[allow(unused_mut)]
+        let mut x = move || {
+            debug!(
+                "EVENT thread: {:?} [{}]",
+                std::thread::current().id(),
+                std::thread::current().name().unwrap_or("UNNAMED")
+            );
+
+            loop {
+                let x = event_rx.recv();
+                debug!("Events: {:?}", x);
+            }
+        };
+        #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+        let handle = async_std::task::spawn_blocking(x);
+
+        // TODO: Actually verify
+        #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+        let handle = async_std::task::spawn(async move {
+            x();
+        });
+        handles.push(handle);
+
+        let result = event_loop
+            .run_app(&mut app_runtime)
+            .map_err(Error::EventLoopError);
+
+        handles
+            .into_iter()
+            .for_each(|x| async_std::task::block_on(x));
+
+        result
     }
 
     fn make_instance() -> Instance {
@@ -374,18 +409,18 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
         }
     }
 
-    fn gamepad_inputs(&mut self) {
-        if let Some(app) = &mut self.app {
-            while let Some(gil_event) = self.gil.next_event() {
-                if let Some(input_event) = InputEvent::convert(gil_event) {
-                    app.on_input(&input_event);
-                }
-            }
-        }
-    }
+    // fn gamepad_inputs(&mut self) {
+    //     if let Some(app) = &mut self.app {
+    //         while let Some(gil_event) = self.gil.next_event() {
+    //             if let Some(input_event) = InputEvent::convert(gil_event) {
+    //                 app.on_input(&input_event);
+    //             }
+    //         }
+    //     }
+    // }
 
     fn update(&mut self) -> bool {
-        self.gamepad_inputs();
+        // self.gamepad_inputs();
         self.calculate_center_point();
 
         let mut app_changes = Vec::new();
@@ -537,9 +572,7 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
             ));
         }
 
-        if let Err(e) = self.event_tx.send(AppEvent::Resumed) {
-            error!("Failed to send resumed event: {}", e);
-        }
+        self.event_tx.send(AppEvent::Resumed).unwrap();
     }
 
     fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
@@ -553,9 +586,7 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
         self.device = None;
         self.queue = None;
 
-        if let Err(e) = self.event_tx.send(AppEvent::Suspended) {
-            error!("Failed to send suspended event: {}", e);
-        }
+        self.event_tx.send(AppEvent::Suspended).unwrap();
     }
 
     fn window_event(
@@ -569,144 +600,97 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
             return;
         }
 
-        if let Err(e) = self.event_tx.send(AppEvent::WindowEvent(event)) {
-            error!("Failed to send window event: {}", e);
+        match event {
+            WindowEvent::Resized(new_size) => {
+                self.surface_configuration = Some(Self::make_surface_configuration(
+                    self.surface.as_ref().unwrap(),
+                    self.adapter.as_ref().unwrap(),
+                    new_size,
+                    self.runtime_settings.vsync_enabled,
+                ));
+
+                self.reconfigure_surface();
+            }
+            WindowEvent::CloseRequested => {
+                info!("Close requested!");
+                event_loop.exit();
+            }
+            WindowEvent::RedrawRequested => {
+                let close_request = self.update();
+                if close_request {
+                    event_loop.exit();
+                    return;
+                }
+
+                self.redraw();
+
+                self.window.as_ref().unwrap().request_redraw();
+            }
+            WindowEvent::Focused(focused) => {
+                if let Some(app) = &mut self.app {
+                    app.on_focus_change(focused);
+                }
+            }
+            WindowEvent::KeyboardInput {
+                device_id,
+                event,
+                is_synthetic,
+            } => {
+                self.event_tx
+                    .send(AppEvent::InputEvent(InputEvent::KeyboardButton {
+                        device_id,
+                        event,
+                        is_synthetic,
+                    }))
+                    .unwrap();
+            }
+            WindowEvent::MouseInput {
+                device_id,
+                state,
+                button,
+            } => {
+                self.event_tx
+                    .send(AppEvent::InputEvent(InputEvent::MouseButton {
+                        device_id,
+                        state,
+                        button,
+                    }))
+                    .unwrap();
+            }
+            WindowEvent::MouseWheel {
+                device_id,
+                delta,
+                phase,
+            } => {
+                self.event_tx
+                    .send(AppEvent::InputEvent(InputEvent::MouseWheel {
+                        device_id,
+                        delta,
+                        phase,
+                    }))
+                    .unwrap();
+            }
+            WindowEvent::CursorMoved {
+                device_id,
+                position,
+            } => {
+                self.event_tx
+                    .send(AppEvent::InputEvent(InputEvent::MouseMovedPosition {
+                        device_id,
+                        position,
+                    }))
+                    .unwrap();
+            }
+            WindowEvent::CursorEntered { device_id: _ } => (),
+            WindowEvent::CursorLeft { device_id: _ } => (),
+            _ => (),
         }
-
-        //     // match event {
-        //         WindowEvent::Resized(new_size) => {
-        //             self.surface_configuration = Some(Self::make_surface_configuration(
-        //                 self.surface.as_ref().unwrap(),
-        //                 self.adapter.as_ref().unwrap(),
-        //                 new_size,
-        //                 self.runtime_settings.vsync_enabled,
-        //             ));
-
-        //             self.reconfigure_surface();
-        //         }
-        //         WindowEvent::CloseRequested => {
-        //             info!("Close requested!");
-        //             event_loop.exit();
-        //         }
-        //         WindowEvent::RedrawRequested => {
-        //             let close_request = self.update();
-        //             if close_request {
-        //                 event_loop.exit();
-        //                 return;
-        //             }
-
-        //             self.redraw();
-
-        //             self.window.as_ref().unwrap().request_redraw();
-        //         }
-        //         WindowEvent::Focused(focused) => {
-        //             if let Some(app) = &mut self.app {
-        //                 app.on_focus_change(focused);
-        //             }
-        //         }
-        //         WindowEvent::KeyboardInput {
-        //             device_id,
-        //             event,
-        //             is_synthetic,
-        //         } => {
-        //             if let Some(app) = &mut self.app {
-        //                 app.on_input(&InputEvent::KeyboardButton {
-        //                     device_id,
-        //                     event,
-        //                     is_synthetic,
-        //                 })
-        //             }
-        //         }
-        //         WindowEvent::MouseInput {
-        //             device_id,
-        //             state,
-        //             button,
-        //         } => {
-        //             if let Some(app) = &mut self.app {
-        //                 app.on_input(&InputEvent::MouseButton {
-        //                     device_id,
-        //                     state,
-        //                     button,
-        //                 })
-        //             }
-        //         }
-        //         WindowEvent::MouseWheel {
-        //             device_id,
-        //             delta,
-        //             phase,
-        //         } => {
-        //             if let Some(app) = &mut self.app {
-        //                 app.on_input(&InputEvent::MouseWheel {
-        //                     device_id,
-        //                     delta,
-        //                     phase,
-        //                 })
-        //             }
-        //         }
-        //         WindowEvent::CursorMoved {
-        //             device_id,
-        //             position,
-        //         } => {
-        //             if let Some(app) = &mut self.app {
-        //                 app.on_input(&InputEvent::MouseMovedPosition {
-        //                     device_id,
-        //                     position,
-        //                 })
-        //             }
-        //         }
-        //         WindowEvent::ModifiersChanged(_) => (),
-        //         WindowEvent::ActivationTokenDone {
-        //             serial: _,
-        //             token: _,
-        //         } => (),
-        //         WindowEvent::Moved(_) => (),
-        //         WindowEvent::Destroyed => (),
-        //         WindowEvent::DroppedFile(_) => (),
-        //         WindowEvent::HoveredFile(_) => (),
-        //         WindowEvent::HoveredFileCancelled => (),
-        //         WindowEvent::Ime(_) => (),
-        //         WindowEvent::CursorEntered { device_id: _ } => (),
-        //         WindowEvent::CursorLeft { device_id: _ } => (),
-        //         WindowEvent::PinchGesture {
-        //             device_id: _,
-        //             delta: _,
-        //             phase: _,
-        //         } => (),
-        //         WindowEvent::PanGesture {
-        //             device_id: _,
-        //             delta: _,
-        //             phase: _,
-        //         } => (),
-        //         WindowEvent::DoubleTapGesture { device_id: _ } => (),
-        //         WindowEvent::RotationGesture {
-        //             device_id: _,
-        //             delta: _,
-        //             phase: _,
-        //         } => (),
-        //         WindowEvent::TouchpadPressure {
-        //             device_id: _,
-        //             pressure: _,
-        //             stage: _,
-        //         } => (),
-        //         WindowEvent::AxisMotion {
-        //             device_id: _,
-        //             axis: _,
-        //             value: _,
-        //         } => (),
-        //         WindowEvent::Touch(_) => (),
-        //         WindowEvent::ScaleFactorChanged {
-        //             scale_factor: _,
-        //             inner_size_writer: _,
-        //         } => (),
-        //         WindowEvent::ThemeChanged(_) => (),
-        //         WindowEvent::Occluded(_) => (),
-        //     }
     }
 
     fn new_events(&mut self, _event_loop: &ActiveEventLoop, start_cause: StartCause) {
-        if let Err(e) = self.event_tx.send(AppEvent::NewEventCycle(start_cause)) {
-            error!("Failed to send new event cycle event: {}", e);
-        }
+        self.event_tx
+            .send(AppEvent::NewEventCycle(start_cause))
+            .unwrap();
     }
 
     fn device_event(
@@ -715,14 +699,12 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
         device_id: DeviceId,
         event: DeviceEvent,
     ) {
-        if let Err(e) = self.event_tx.send(AppEvent::DeviceEvent(device_id, event)) {
-            error!("Failed to send device event: {}", e);
-        }
+        self.event_tx
+            .send(AppEvent::DeviceEvent(device_id, event))
+            .unwrap();
     }
 
     fn memory_warning(&mut self, _event_loop: &ActiveEventLoop) {
-        if let Err(e) = self.event_tx.send(AppEvent::MemoryWarning) {
-            error!("Failed to send memory warning event: {}", e);
-        }
+        self.event_tx.send(AppEvent::MemoryWarning).unwrap();
     }
 }
