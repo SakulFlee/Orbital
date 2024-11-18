@@ -17,20 +17,27 @@ pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
     // GameRuntime::<ExampleGame, StandardRenderer>::liftoff(event_loop, settings)
     //     .expect("Runtime failure");
 
-    AppRuntime::<X>::liftoff(event_loop, AppSettings::default()).expect("Runtime failure");
+    AppRuntime::liftoff::<X>(event_loop, AppSettings::default()).expect("Runtime failure");
 }
 
 pub struct X {}
 
 impl App for X {
-    fn init(
-        config: &orbital::wgpu::SurfaceConfiguration,
-        device: &orbital::wgpu::Device,
-        queue: &orbital::wgpu::Queue,
-    ) -> Self
+    fn initialize() -> Self
     where
         Self: Sized,
     {
-        Self {}
+        X {}
+    }
+
+    fn on_resume(
+        &mut self,
+        _config: &orbital::wgpu::SurfaceConfiguration,
+        _device: &orbital::wgpu::Device,
+        _queue: &orbital::wgpu::Queue,
+    ) where
+        Self: Sized,
+    {
+        println!("Resumed");
     }
 }
