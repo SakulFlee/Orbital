@@ -23,7 +23,7 @@ pub struct GameRuntime<GameImpl: Game, RendererImpl: Renderer> {
     game_startup_complete: bool,
     world: World,
     timer: Timer,
-    renderer: RendererImpl,
+    renderer: Option<RendererImpl>,
     pipeline_cleanup_timer: Instant,
     material_cleanup_timer: Instant,
 }
@@ -116,7 +116,7 @@ impl<GameImpl: Game, RendererImpl: Renderer> GameRuntime<GameImpl, RendererImpl>
 }
 
 impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, RendererImpl> {
-    fn init(config: &SurfaceConfiguration, device: &Device, queue: &Queue) -> Self
+    fn initialize() -> Self
     where
         Self: Sized,
     {
@@ -125,23 +125,31 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
             game_startup_complete: false,
             world: World::new(),
             timer: Timer::new(),
-            renderer: RendererImpl::new(
-                config.format,
-                (config.width, config.height).into(),
-                device,
-                queue,
-            ),
+            renderer: None,
             pipeline_cleanup_timer: Instant::now(),
             material_cleanup_timer: Instant::now(),
         }
+    }
+
+    fn on_resume(&mut self, config: &SurfaceConfiguration, device: &Device, queue: &Queue)
+    where
+        Self: Sized,
+    {
+        self.renderer = Some(RendererImpl::new(
+            config.format,
+            (config.width, config.height).into(),
+            device,
+            queue,
+        ));
     }
 
     fn on_resize(&mut self, new_resolution: Vector2<u32>, device: &Device, queue: &Queue)
     where
         Self: Sized,
     {
-        self.renderer
-            .change_resolution(new_resolution, device, queue);
+        // TODO
+        // self.renderer
+        // .change_resolution(new_resolution, device, queue);
     }
 
     fn on_focus_change(&mut self, focused: bool)
@@ -172,7 +180,9 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
         let app_changes = self.world.update(delta_time);
 
         // TODO: Needed?
-        self.renderer.update(delta_time);
+        if let Some(renderer) = &mut self.renderer {
+            renderer.update(delta_time);
+        }
 
         if app_changes.is_empty() {
             None
@@ -187,8 +197,9 @@ impl<GameImpl: Game, RendererImpl: Renderer> App for GameRuntime<GameImpl, Rende
     {
         self.world.prepare_render(device, queue);
 
-        self.renderer
-            .render(target_view, device, queue, &self.world);
+        if let Some(renderer) = &mut self.renderer {
+            renderer.render(target_view, device, queue, &self.world);
+        }
 
         if let Some((delta_time, fps)) = self.timer.tick() {
             debug!("FPS: {fps}");

@@ -275,10 +275,27 @@ pub use app_changes::*;
 /// [winit]: crate::winit
 pub trait App {
     /// Gets called once, upon [AppRuntime::liftoff].  
-    /// Any initialization you may need should happen inside here.
-    fn init(config: &SurfaceConfiguration, device: &Device, queue: &Queue) -> Self
+    /// This function must be implemented and should return the initial state
+    /// of the app.
+    fn initialize() -> Self
     where
         Self: Sized;
+
+    /// Gets called upon the [App] getting resumed _OR_ when the [App] got initiated first time and we know have access to the GPU via [Device] & [Queue].
+    /// Depending on the state, we might want to reinitialize things for the GPU related to memory between suspension and resumption might have been dropped.
+    fn on_resume(&mut self, _config: &SurfaceConfiguration, _device: &Device, _queue: &Queue)
+    where
+        Self: Sized,
+    {
+    }
+
+    /// Gets called upon the [App] getting suspended.
+    /// On some operating systems this will invalidate the [Device], [Queue], [Surface](wgpu::Surface) and [Window](winit::window::Window).
+    fn on_suspend(&mut self)
+    where
+        Self: Sized,
+    {
+    }
 
     /// Gets called each time the window, app or canvas gets resized.  
     /// Any resizing of resources (e.g. swap-chain, depth texture, etc.) should
