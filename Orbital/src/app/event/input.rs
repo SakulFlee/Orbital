@@ -3,7 +3,9 @@ use std::fmt::Debug;
 use gilrs::{Axis, Button, EventType, GamepadId};
 use winit::{
     dpi::PhysicalPosition,
-    event::{DeviceId, ElementState, KeyEvent, MouseButton, MouseScrollDelta, TouchPhase},
+    event::{
+        DeviceEvent, DeviceId, ElementState, KeyEvent, MouseButton, MouseScrollDelta, TouchPhase,
+    },
 };
 
 /// A mix of [winit::event::WindowEvent], [winit::event::DeviceEvent] and [gilrs::Event] (if enabled) to be used by [crate::app::App]s during [crate::app::App::on_input].
@@ -54,7 +56,16 @@ pub enum InputEvent {
 
 #[cfg(feature = "gamepad_input")]
 impl InputEvent {
-    pub fn convert(gil_event: gilrs::Event) -> Option<Self> {
+    pub fn convert_device_event(device_id: DeviceId, device_event: DeviceEvent) -> Option<Self> {
+        match device_event {
+            DeviceEvent::MouseMotion { delta } => {
+                Some(InputEvent::MouseMovedDelta { device_id, delta })
+            }
+            _ => None,
+        }
+    }
+
+    pub fn convert_gil_event(gil_event: gilrs::Event) -> Option<Self> {
         match gil_event.event {
             EventType::ButtonPressed(button, _) => Some(Self::GamepadButton {
                 gamepad_id: gil_event.id,
