@@ -1,5 +1,5 @@
 use orbital::{
-    app::{App, AppRuntime, AppSettings},
+    app::{App, AppChange, AppRuntime, AppSettings},
     game::{GameRuntime, GameSettings},
     logging,
     renderer::StandardRenderer,
@@ -39,5 +39,12 @@ impl App for X {
         Self: Sized,
     {
         println!("Resumed");
+    }
+
+    fn on_update(&mut self) -> Option<Vec<AppChange>>
+    where
+        Self: Sized,
+    {
+        Some(vec![AppChange::RequestRedraw])
     }
 }
