@@ -7,7 +7,13 @@ edition = "2021"
 crate-type = ["lib", "cdylib"]
 
 [features]
-default = ["gltf", "game_runtime", "gamepad_input", "gamepad_input_poll"]
+default = [
+    "gltf",
+    "game_runtime",
+    "gamepad_input",
+    "gamepad_input_poll",
+    "auto_request_redraw",
+]
 # Enables glTF support.
 gltf = ["dep:easy-gltf", "easy-gltf/names"]
 # Enables the game runtime and integrates it into the app runtime. 
@@ -20,6 +26,10 @@ game_runtime = []
 gamepad_input = ["dep:gilrs"]
 # Automatically polls gamepad inputs and processes them.
 gamepad_input_poll = ["gamepad_input"]
+# Will automatically request a redraw when the last frame was rendered.
+# Enable this for games and applications that need to constantly redraw.
+# Disable this for applications that only need to draw once every now and then.
+auto_request_redraw = []
 
 [dependencies]
 wgpu = { version = "23.0.0", features = [
