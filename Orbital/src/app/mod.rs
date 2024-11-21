@@ -1,5 +1,7 @@
 //! ⚠️ You are most likely looking for the [App] description!
 
+use std::future::Future;
+
 use log::warn;
 use wgpu::{Device, Queue, SurfaceConfiguration, TextureView};
 use winit::event::{DeviceEvent, DeviceId, StartCause};
@@ -279,82 +281,84 @@ pub trait App {
     /// of the app.
     fn initialize() -> Self
     where
-        Self: Sized;
+        Self: Sized + Send;
 
     /// Gets called upon the [App] getting resumed _OR_ when the [App] got initiated first time and we know have access to the GPU via [Device] & [Queue].
     /// Depending on the state, we might want to reinitialize things for the GPU related to memory between suspension and resumption might have been dropped.
-    fn on_resume(&mut self, _config: &SurfaceConfiguration, _device: &Device, _queue: &Queue)
+    fn on_resume(
+        &mut self,
+        _config: &SurfaceConfiguration,
+        _device: &Device,
+        _queue: &Queue,
+    ) -> impl std::future::Future<Output = ()> + Send
     where
         Self: Sized,
     {
+        async {}
     }
 
     /// Gets called upon the [App] getting suspended.
     /// On some operating systems this will invalidate the [Device], [Queue], [Surface](wgpu::Surface) and [Window](winit::window::Window).
-    fn on_suspend(&mut self)
+    fn on_suspend(&mut self) -> impl std::future::Future<Output = ()> + Send
     where
         Self: Sized,
     {
+        async {}
     }
 
     /// Gets called each time the window, app or canvas gets resized.  
     /// Any resizing of resources (e.g. swap-chain, depth texture, etc.) should
     /// be updated inside here.
-    fn on_resize(&mut self, _new_size: cgmath::Vector2<u32>, _device: &Device, _queue: &Queue)
+    fn on_resize(
+        &mut self,
+        _new_size: cgmath::Vector2<u32>,
+        _device: &Device,
+        _queue: &Queue,
+    ) -> impl std::future::Future<Output = ()> + Send
     where
         Self: Sized,
     {
+        async {}
     }
 
-    fn on_focus_change(&mut self, _focused: bool)
+    fn on_focus_change(&mut self, _focused: bool) -> impl std::future::Future<Output = ()> + Send
     where
         Self: Sized,
     {
+        async {}
     }
 
     /// Gets called each time an input event is send out by [winit].
-    fn on_input(&mut self, _input_event: &InputEvent)
+    fn on_input(
+        &mut self,
+        _input_event: &InputEvent,
+    ) -> impl std::future::Future<Output = ()> + Send
     where
         Self: Sized,
     {
+        async {}
     }
 
     /// Gets called each time an update cycle is happening.  
     /// Any updating should happen inside here.
-    fn on_update(&mut self) -> Option<Vec<AppChange>>
+    fn on_update(&mut self) -> impl std::future::Future<Output = Option<Vec<AppChange>>> + Send
     where
         Self: Sized,
     {
-        None
+        async { None }
     }
 
     /// Gets called each time a render (== redraw) cycle is happening.
     /// Any rendering should happen inside here.
-    fn on_render(&mut self, _target_view: &TextureView, _device: &Device, _queue: &Queue)
+    fn on_render(
+        &mut self,
+        _target_view: &TextureView,
+        _device: &Device,
+        _queue: &Queue,
+    ) -> impl std::future::Future<Output = ()> + Send
     where
         Self: Sized,
     {
-    }
-
-    /// Gets called before any newly incoming events are processed.
-    fn on_next_event_cycle(&mut self, _start_cause: StartCause)
-    where
-        Self: Sized,
-    {
-    }
-
-    /// Gets called once Winit informs us that we are about to run
-    /// out of memory.
-    fn on_memory_warning(&mut self)
-    where
-        Self: Sized,
-    {
-        warn!("Memory warning received!");
-    }
-
-    fn on_device_event(&mut self, _device_id: DeviceId, _event: DeviceEvent)
-    where
-        Self: Sized,
-    {
+        async {}
     }
 }
