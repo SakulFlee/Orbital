@@ -100,28 +100,28 @@ impl AppRuntime {
                 std::thread::current().name().unwrap_or("UNNAMED")
             );
 
-            let mut app: AppImpl = AppImpl::initialize();
+            let mut app = AppImpl::initialize();
             loop {
                 if let Ok(event) = event_rx.recv().await {
                     debug!("Received event: {:?}", &event);
 
                     match event {
                         AppEvent::Resumed(surface_configuration, device, queue) => {
-                            app.on_resume(&surface_configuration, &device, &queue);
+                            app.on_resume(&surface_configuration, &device, &queue).await;
                         }
-                        AppEvent::Suspended => app.on_suspend(),
+                        AppEvent::Suspended => app.on_suspend().await,
                         AppEvent::Resize(size, device, queue) => {
-                            app.on_resize(size, &device, &queue)
+                            app.on_resize(size, &device, &queue).await
                         }
                         AppEvent::Render(view, device, queue) => {
-                            app.on_render(&view, &device, &queue)
+                            app.on_render(&view, &device, &queue).await
                         }
-                        AppEvent::InputEvent(input_event) => app.on_input(&input_event),
+                        AppEvent::InputEvent(input_event) => app.on_input(&input_event).await,
                         AppEvent::FocusChange { focused } => {
-                            app.on_focus_change(focused);
+                            app.on_focus_change(focused).await;
                         }
                         AppEvent::Update => {
-                            if let Some(changes) = app.on_update() {
+                            if let Some(changes) = app.on_update().await {
                                 for app_change in changes {
                                     if let Err(e) = app_change_tx.send(app_change).await {
                                         error!(
