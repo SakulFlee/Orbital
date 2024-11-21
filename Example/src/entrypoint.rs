@@ -1,21 +1,14 @@
 use orbital::{
     app::{App, AppChange, AppRuntime, AppSettings},
-    game::{GameRuntime, GameSettings},
+    log::debug,
     logging,
-    renderer::StandardRenderer,
     winit::{error::EventLoopError, event_loop::EventLoop},
 };
-
-use crate::game::ExampleGame;
 
 pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
     logging::init();
 
     let event_loop = event_loop_result.expect("Event Loop failure");
-    // let settings = GameSettings::default();
-
-    // GameRuntime::<ExampleGame, StandardRenderer>::liftoff(event_loop, settings)
-    //     .expect("Runtime failure");
 
     AppRuntime::liftoff::<X>(event_loop, AppSettings::default()).expect("Runtime failure");
 }
@@ -30,7 +23,7 @@ impl App for X {
         X {}
     }
 
-    fn on_resume(
+    async fn on_resume(
         &mut self,
         _config: &orbital::wgpu::SurfaceConfiguration,
         _device: &orbital::wgpu::Device,
@@ -38,13 +31,15 @@ impl App for X {
     ) where
         Self: Sized,
     {
-        println!("Resumed");
+        debug!("Resumed");
     }
 
-    fn on_update(&mut self) -> Option<Vec<AppChange>>
+    async fn on_update(&mut self) -> Option<Vec<AppChange>>
     where
         Self: Sized,
     {
-        Some(vec![AppChange::RequestRedraw])
+        debug!("Update");
+
+        None
     }
 }
