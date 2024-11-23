@@ -45,5 +45,5 @@ pub enum AppChange {
     /// TODO
     RequestRedraw,
     /// TODO
-    FinishedRedraw,
+    FinishedRedraw(SurfaceTexture),
 }

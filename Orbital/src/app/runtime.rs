@@ -87,7 +87,7 @@ impl AppRuntime {
                 );
 
                 loop {
-                    if let Some(gil_event) = gil.next_event() {
+                    if let Some(gil_event) = gil.next_event_blocking(None) {
                         if let Some(event) = InputEvent::convert_gil_event(gil_event) {
                             if let Err(e) = gil_event_tx.send(AppEvent::InputEvent(event)).await {
                                 error!("Failed to send input event to app event channel: {}", e);
@@ -117,12 +117,11 @@ impl AppRuntime {
                             app.on_resize(size, &device, &queue).await
                         }
                         AppEvent::Render(frame, view, device, queue) => {
-                            debug!("RENDER CALLED");
                             app.on_render(&view, &device, &queue).await;
 
-                            frame.present();
-
-                            if let Err(e) = app_change_tx.send(AppChange::FinishedRedraw).await {
+                            if let Err(e) =
+                                app_change_tx.send(AppChange::FinishedRedraw(frame)).await
+                            {
                                 error!("Failed to send app change to app change channel: {}", e);
                             }
                         }
@@ -516,9 +515,8 @@ impl AppRuntime {
                         warn!("Redraw requested, but window does not exist!");
                     }
                 }
-                AppChange::FinishedRedraw => {
-                    // frame.present();
-                    debug!("FINISHED REDRAW!");
+                AppChange::FinishedRedraw(frame) => {
+                    frame.present();
                     self.frame_acquired = false;
                 }
             }
