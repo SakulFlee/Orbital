@@ -66,14 +66,12 @@ impl Pipeline {
     /// If needed, this will also attempt recompiling all pipelines
     /// (and thus their shaders) to match a different format!
     pub fn prepare_cache_access(
-        potential_new_format: Option<&TextureFormat>,
-        device: &Device,
-        queue: &Queue,
+        potential_new_format_struct: Option<(&TextureFormat, &Device, &Queue)>,
     ) -> &'static mut Cache<PipelineDescriptor, Pipeline> {
         let (cache, cache_format) = unsafe { Self::cache() };
 
         // Check the cache format if it's set to [Some]
-        if let Some(potential_new_format) = potential_new_format {
+        if let Some((potential_new_format, device, queue)) = potential_new_format_struct {
             // If they don't match, trigger a recompilation of the cache!
             if cache_format != potential_new_format {
                 // If the formats don't match, we have to attempt to
@@ -97,7 +95,7 @@ impl Pipeline {
         device: &Device,
         queue: &Queue,
     ) -> Result<&'static Self, Error> {
-        let cache = Self::prepare_cache_access(Some(surface_format), device, queue);
+        let cache = Self::prepare_cache_access(Some((surface_format, device, queue)));
 
         cache.get_or_add_fallible(pipeline_descriptor, |k| {
             Self::make_pipeline(k, surface_format, device, queue)

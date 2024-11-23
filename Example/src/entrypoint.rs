@@ -1,45 +1,17 @@
 use orbital::{
-    app::{App, AppChange, AppRuntime, AppSettings},
-    log::debug,
-    logging,
-    winit::{error::EventLoopError, event_loop::EventLoop},
+    app::{AppRuntime, AppSettings}, game::CacheSettings, logging, renderer::StandardRenderer, winit::{error::EventLoopError, event_loop::EventLoop}
 };
+
+use crate::app::MyApp;
 
 pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
     logging::init();
 
     let event_loop = event_loop_result.expect("Event Loop failure");
 
-    AppRuntime::liftoff::<X>(event_loop, AppSettings::default()).expect("Runtime failure");
-}
+    let app_settings = AppSettings::default();
 
-pub struct X {}
+    let app = MyApp::<StandardRenderer>::new(CacheSettings::default(), CacheSettings::default());
 
-impl App for X {
-    fn initialize() -> Self
-    where
-        Self: Sized,
-    {
-        X {}
-    }
-
-    async fn on_resume(
-        &mut self,
-        _config: &orbital::wgpu::SurfaceConfiguration,
-        _device: &orbital::wgpu::Device,
-        _queue: &orbital::wgpu::Queue,
-    ) where
-        Self: Sized,
-    {
-        debug!("Resumed");
-    }
-
-    async fn on_update(&mut self) -> Option<Vec<AppChange>>
-    where
-        Self: Sized,
-    {
-        debug!("Update");
-
-        None
-    }
+    AppRuntime::liftoff(event_loop, app_settings, app).expect("Runtime failure");
 }

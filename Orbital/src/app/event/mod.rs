@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use cgmath::Vector2;
-use wgpu::{Device, Queue, SurfaceConfiguration, TextureView};
+use wgpu::{Device, Queue, SurfaceConfiguration, SurfaceTexture, TextureView};
 
 mod input;
 pub use input::*;
@@ -13,6 +13,6 @@ pub enum AppEvent {
     InputEvent(InputEvent),
     FocusChange { focused: bool },
     Resize(Vector2<u32>, Arc<Device>, Arc<Queue>),
-    Render(TextureView, Arc<Device>, Arc<Queue>),
+    Render(SurfaceTexture, TextureView, Arc<Device>, Arc<Queue>),
     Update,
 }
