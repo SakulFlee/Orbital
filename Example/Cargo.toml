@@ -10,3 +10,4 @@ crate-type = ["cdylib", "lib"]
 [dependencies]
 orbital = { path = "../Orbital/" }
 image = "0.25.1"
+futures = "0.3.31"

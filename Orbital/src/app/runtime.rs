@@ -37,14 +37,19 @@ pub struct AppRuntime {
     adapter: Option<Adapter>,
     device: Option<Arc<Device>>,
     queue: Option<Arc<Queue>>,
+    /// Indicates whether we already have a frame acquired that is currently
+    /// "in flight" to prevent WGPU from crashing if we re-request the next
+    /// frame while the previous one isn't presented yet.
+    frame_acquired: bool,
 }
 
 pub static mut WINDOW_HALF_SIZE: (i32, i32) = (0, 0);
 
 impl AppRuntime {
-    pub fn liftoff<AppImpl: App + Send>(
+    pub fn liftoff(
         event_loop: EventLoop<()>,
         settings: AppSettings,
+        mut app: impl App + Send + 'static,
     ) -> Result<(), Error> {
         info!("Orbital Runtime");
         info!(" --- @SakulFlee --- ");
@@ -63,6 +68,7 @@ impl AppRuntime {
             adapter: None,
             device: None,
             queue: None,
+            frame_acquired: false,
         };
 
         let mut handles = Vec::new();
@@ -100,11 +106,8 @@ impl AppRuntime {
                 std::thread::current().name().unwrap_or("UNNAMED")
             );
 
-            let mut app = AppImpl::initialize();
             loop {
                 if let Ok(event) = event_rx.recv().await {
-                    debug!("Received event: {:?}", &event);
-
                     match event {
                         AppEvent::Resumed(surface_configuration, device, queue) => {
                             app.on_resume(&surface_configuration, &device, &queue).await;
@@ -113,8 +116,15 @@ impl AppRuntime {
                         AppEvent::Resize(size, device, queue) => {
                             app.on_resize(size, &device, &queue).await
                         }
-                        AppEvent::Render(view, device, queue) => {
-                            app.on_render(&view, &device, &queue).await
+                        AppEvent::Render(frame, view, device, queue) => {
+                            debug!("RENDER CALLED");
+                            app.on_render(&view, &device, &queue).await;
+
+                            frame.present();
+
+                            if let Err(e) = app_change_tx.send(AppChange::FinishedRedraw).await {
+                                error!("Failed to send app change to app change channel: {}", e);
+                            }
                         }
                         AppEvent::InputEvent(input_event) => app.on_input(&input_event).await,
                         AppEvent::FocusChange { focused } => {
@@ -382,6 +392,14 @@ impl AppRuntime {
     }
 
     pub fn redraw(&mut self) {
+        // Skip if a frame is already acquired.
+        // Prevents WGPU from throwing validation errors when we are
+        // re-requesting the next frame, when the current frame isn't
+        // presented yet.
+        if self.frame_acquired {
+            return;
+        }
+
         // Check if surface and device are present
         if self.surface.is_none() || self.device.is_none() {
             warn!("Redraw requested, but runtime is in an incomplete state!");
@@ -397,23 +415,27 @@ impl AppRuntime {
                 .view_formats
                 .first()
             {
+                self.frame_acquired = true;
+
                 let view = frame.texture.create_view(&TextureViewDescriptor {
                     format: Some(*format),
                     ..TextureViewDescriptor::default()
                 });
 
-                // Render!
+                // Trigger Render: This is NOT directly rendering, but sending
+                // an event on the message challenge to inform the App it should
+                // render "now". This is NOT blocking, meaning we can't expect
+                // the frame to be ready rendered immediately after.
+                // Instead, we move the `frame.present()` over after App
+                // actually received the event and DID the rendering!
                 if let Err(e) = self.event_tx.try_send(AppEvent::Render(
+                    frame,
                     view,
                     self.device.as_ref().unwrap().clone(),
                     self.queue.as_ref().unwrap().clone(),
                 )) {
                     error!("Failed to send render event: {}", e);
                 }
-
-                // Present the frame after rendering and inform the window about a redraw being needed
-                // TODO: Might not be ready yet as the event was just send?
-                frame.present();
             } else {
                 warn!("Surface configuration doesn't have any view formats!");
             }
@@ -493,6 +515,11 @@ impl AppRuntime {
                     } else {
                         warn!("Redraw requested, but window does not exist!");
                     }
+                }
+                AppChange::FinishedRedraw => {
+                    // frame.present();
+                    debug!("FINISHED REDRAW!");
+                    self.frame_acquired = false;
                 }
             }
         }

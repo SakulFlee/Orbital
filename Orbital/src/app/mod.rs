@@ -276,13 +276,6 @@ pub use app_changes::*;
 /// [GameRuntime]: crate::game::GameRuntime
 /// [winit]: crate::winit
 pub trait App {
-    /// Gets called once, upon [AppRuntime::liftoff].  
-    /// This function must be implemented and should return the initial state
-    /// of the app.
-    fn initialize() -> Self
-    where
-        Self: Sized + Send;
-
     /// Gets called upon the [App] getting resumed _OR_ when the [App] got initiated first time and we know have access to the GPU via [Device] & [Queue].
     /// Depending on the state, we might want to reinitialize things for the GPU related to memory between suspension and resumption might have been dropped.
     fn on_resume(

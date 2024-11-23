@@ -8,7 +8,7 @@ type ElementIndexType = u64;
 
 #[derive(Debug)]
 pub struct ElementStore {
-    pub element_map: HashMap<ElementIndexType, Box<dyn Element>>,
+    pub element_map: HashMap<ElementIndexType, Box<dyn Element + Send>>,
     pub cursor_index: ElementIndexType,
     pub label_map: HashMap<String, ElementIndexType>,
 }

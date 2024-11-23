@@ -1,5 +1,6 @@
 use std::{hash::Hash, time::Duration};
 
+use async_std::stream;
 use change::CacheChange;
 use entry::CacheEntry;
 use hashbrown::HashMap;
@@ -120,7 +121,7 @@ where
     /// > This depends on what `Value`'s you are actually storing!
     pub fn cleanup(&mut self, retain_below: Duration) -> CacheChange {
         let mut change = CacheChange::default();
-        change.before = self.size();
+        change.before = self.size();        
 
         self.map.retain(|_k, v| v.elapsed() < retain_below);
 
