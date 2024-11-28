@@ -1,6 +1,6 @@
 use hashbrown::HashMap;
 
-use crate::{app::InputEvent, error::Error, variant::Variant};
+use crate::{error::Error, input::InputState, variant::Variant};
 
 use super::{Element, WorldChange};
 
@@ -82,16 +82,10 @@ impl ElementStore {
             .for_each(|x| x.on_focus_change(focused));
     }
 
-    pub fn send_input_event(&mut self, input_event: &InputEvent) {
+    pub fn update(&mut self, delta_time: f64, input_state: &InputState) -> Vec<WorldChange> {
         self.element_map
             .values_mut()
-            .for_each(|x| x.on_input_event(input_event));
-    }
-
-    pub fn update(&mut self, delta_time: f64) -> Vec<WorldChange> {
-        self.element_map
-            .values_mut()
-            .filter_map(|x| x.on_update(delta_time))
+            .filter_map(|x| x.on_update(delta_time, input_state))
             .flatten()
             .collect::<Vec<_>>()
     }

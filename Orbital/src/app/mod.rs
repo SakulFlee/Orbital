@@ -1,10 +1,6 @@
 //! ⚠️ You are most likely looking for the [App] description!
 
-use std::future::Future;
-
-use log::warn;
 use wgpu::{Device, Queue, SurfaceConfiguration, TextureView};
-use winit::event::{DeviceEvent, DeviceId, StartCause};
 
 pub mod settings;
 pub use settings::*;
@@ -17,6 +13,8 @@ pub use runtime::*;
 
 pub mod app_changes;
 pub use app_changes::*;
+
+use crate::input::InputState;
 
 /// Implement this trait to make an [App].  
 /// An [App] is a entrypoint wrapper exposing a few functions for you to use.
@@ -321,20 +319,12 @@ pub trait App {
         async {}
     }
 
-    /// Gets called each time an input event is send out by [winit].
-    fn on_input(
-        &mut self,
-        _input_event: &InputEvent,
-    ) -> impl std::future::Future<Output = ()> + Send
-    where
-        Self: Sized,
-    {
-        async {}
-    }
-
     /// Gets called each time an update cycle is happening.  
     /// Any updating should happen inside here.
-    fn on_update(&mut self) -> impl std::future::Future<Output = Option<Vec<AppChange>>> + Send
+    fn on_update(
+        &mut self,
+        _input_state: &InputState,
+    ) -> impl std::future::Future<Output = Option<Vec<AppChange>>> + Send
     where
         Self: Sized,
     {

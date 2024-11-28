@@ -34,6 +34,7 @@ impl CameraDescriptor {
                 self.pitch = Self::SAFE_FRAC_PI_2;
             }
         }
+        
 
         if let Some(mode) = change.yaw {
             match mode {
