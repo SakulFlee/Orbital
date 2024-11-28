@@ -12,6 +12,34 @@ pub struct CameraChange {
 
 impl CameraChange {
     pub fn does_change_something(&self) -> bool {
-        self.position.is_some() || self.pitch.is_some() || self.yaw.is_some()
+        if let Some(position) = &self.position {
+            return match position {
+                Mode::Overwrite(v) => {
+                    v.x.abs() >= 0.001 || v.y.abs() >= 0.001 || v.z.abs() >= 0.001
+                }
+                Mode::Offset(v) => v.x.abs() >= 0.001 || v.y.abs() >= 0.001 || v.z.abs() >= 0.0001,
+                Mode::OffsetViewAligned(v) => {
+                    v.x.abs() >= 0.001 || v.y.abs() >= 0.001 || v.z.abs() >= 0.001
+                }
+            };
+        }
+
+        if let Some(yaw) = &self.yaw {
+            return match yaw {
+                Mode::Overwrite(v) => v.abs() >= 0.0001,
+                Mode::Offset(v) => v.abs() >= 0.0001,
+                Mode::OffsetViewAligned(v) => v.abs() >= 0.0001,
+            };
+        }
+
+        if let Some(pitch) = &self.pitch {
+            return match pitch {
+                Mode::Overwrite(v) => v.abs() >= 0.0001,
+                Mode::Offset(v) => v.abs() >= 0.0001,
+                Mode::OffsetViewAligned(v) => v.abs() >= 0.0001,
+            };
+        }
+
+        false
     }
 }
