@@ -1,9 +1,10 @@
-use std::{sync::Arc, thread, time::Duration};
+use std::sync::Arc;
 
 use async_std::channel::{Receiver, Sender};
 use cgmath::Vector2;
 use gilrs::Gilrs;
 use log::{debug, error, info, warn};
+use pollster::FutureExt;
 use wgpu::{
     util::{backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env},
     Adapter, Backend, Backends, CompositeAlphaMode, Device, DeviceDescriptor, DeviceType, Features,
@@ -18,7 +19,10 @@ use winit::{
     window::{CursorGrabMode, Window, WindowId},
 };
 
-use crate::{app::InputEvent, error::Error};
+use crate::{
+    error::Error,
+    input::{InputEvent, InputState},
+};
 
 use super::{App, AppChange, AppEvent, AppSettings};
 
@@ -41,6 +45,9 @@ pub struct AppRuntime {
     /// "in flight" to prevent WGPU from crashing if we re-request the next
     /// frame while the previous one isn't presented yet.
     frame_acquired: bool,
+    input_state: InputState,
+    #[cfg(feature = "gamepad_input")]
+    gil: Gilrs,
 }
 
 pub static mut WINDOW_HALF_SIZE: (i32, i32) = (0, 0);
@@ -69,37 +76,12 @@ impl AppRuntime {
             device: None,
             queue: None,
             frame_acquired: false,
+            input_state: InputState::new(),
+            #[cfg(feature = "gamepad_input")]
+            gil: Gilrs::new().expect("Gamepad input initialization failed!"),
         };
 
-        let mut handles = Vec::new();
-
-        #[cfg(feature = "gamepad_input_poll")]
-        {
-            info!("Gamepad input polling enabled by feature flag!");
-            let mut gil = Gilrs::new().expect("Gamepad input polling failed to initialize!");
-            let gil_event_tx = app_runtime.event_tx.clone();
-
-            let handle = async_std::task::spawn(async move {
-                debug!(
-                    "GIL thread: {:?} [{}]",
-                    std::thread::current().id(),
-                    std::thread::current().name().unwrap_or("UNNAMED")
-                );
-
-                loop {
-                    if let Some(gil_event) = gil.next_event_blocking(None) {
-                        if let Some(event) = InputEvent::convert_gil_event(gil_event) {
-                            if let Err(e) = gil_event_tx.send(AppEvent::InputEvent(event)).await {
-                                error!("Failed to send input event to app event channel: {}", e);
-                            }
-                        }
-                    }
-                }
-            });
-            handles.push(handle);
-        }
-
-        let handle = async_std::task::spawn(async move {
+        let app_handle = async_std::task::spawn(async move {
             debug!(
                 "EVENT thread: {:?} [{}]",
                 std::thread::current().id(),
@@ -125,12 +107,11 @@ impl AppRuntime {
                                 error!("Failed to send app change to app change channel: {}", e);
                             }
                         }
-                        AppEvent::InputEvent(input_event) => app.on_input(&input_event).await,
                         AppEvent::FocusChange { focused } => {
                             app.on_focus_change(focused).await;
                         }
-                        AppEvent::Update => {
-                            if let Some(changes) = app.on_update().await {
+                        AppEvent::Update(input_state) => {
+                            if let Some(changes) = app.on_update(&input_state).await {
                                 for app_change in changes {
                                     if let Err(e) = app_change_tx.send(app_change).await {
                                         error!(
@@ -145,15 +126,16 @@ impl AppRuntime {
                 }
             }
         });
-        handles.push(handle);
 
         let result = event_loop
             .run_app(&mut app_runtime)
             .map_err(Error::EventLoopError);
 
-        handles.into_iter().for_each(|x| {
-            x.cancel();
-        });
+        // Terminate app handle
+        app_handle
+            .cancel()
+            .block_on()
+            .expect("Failed interrupting app thread!");
 
         result
     }
@@ -344,7 +326,7 @@ impl AppRuntime {
 
     pub fn reconfigure_surface(&mut self)
     where
-        Self: Sized + Sync + Send,
+        Self: Sized + Send,
     {
         self.surface.as_ref().unwrap().configure(
             self.device.as_ref().unwrap(),
@@ -443,12 +425,35 @@ impl AppRuntime {
         }
     }
 
+    #[cfg(feature = "gamepad_input")]
+    fn receive_controller_inputs(&mut self) {
+        use crate::input::InputEvent;
+
+        while let Some(gil_event) = self.gil.next_event() {
+            if let Some(input_event) = InputEvent::convert_gil_event(gil_event) {
+                self.input_state.handle_event(input_event);
+            }
+        }
+    }
+
     fn update(&mut self) {
+        // TODO: Needed?
         self.calculate_center_point();
 
-        if let Err(e) = self.event_tx.try_send(AppEvent::Update) {
+        // Check for gamepad input events if the feature is enabled
+        #[cfg(feature = "gamepad_input_poll")]
+        self.receive_controller_inputs();
+
+        // Trigger an update with the input state!
+        if let Err(e) = self
+            .event_tx
+            .try_send(AppEvent::Update(self.input_state.clone()))
+        {
             error!("Failed to send update event: {}", e);
         }
+
+        // After updating, reset all delta states
+        self.input_state.reset_delta_states();
     }
 
     fn process_app_changes(&mut self) -> bool {
@@ -637,9 +642,10 @@ impl ApplicationHandler for AppRuntime {
             return;
         }
 
-        match event {
+        let input_event = match event {
             WindowEvent::CloseRequested => {
                 event_loop.exit();
+                None
             }
             WindowEvent::RedrawRequested => {
                 self.update();
@@ -654,73 +660,49 @@ impl ApplicationHandler for AppRuntime {
 
                 #[cfg(feature = "auto_request_redraw")]
                 self.window.as_ref().unwrap().request_redraw();
+
+                None
             }
             WindowEvent::KeyboardInput {
                 device_id,
                 event,
                 is_synthetic,
-            } => {
-                if let Err(e) =
-                    self.event_tx
-                        .try_send(AppEvent::InputEvent(InputEvent::KeyboardButton {
-                            device_id,
-                            event,
-                            is_synthetic,
-                        }))
-                {
-                    error!("Failed sending Keyboard InputEvent to app: {}!", e);
-                }
-            }
+            } => Some(InputEvent::KeyboardButton {
+                device_id,
+                event,
+                is_synthetic,
+            }),
             WindowEvent::MouseInput {
                 device_id,
                 state,
                 button,
-            } => {
-                if let Err(e) =
-                    self.event_tx
-                        .try_send(AppEvent::InputEvent(InputEvent::MouseButton {
-                            device_id,
-                            state,
-                            button,
-                        }))
-                {
-                    error!("Failed sending Mouse button InputEvent to app: {}!", e);
-                }
-            }
+            } => Some(InputEvent::MouseButton {
+                device_id,
+                state,
+                button,
+            }),
             WindowEvent::MouseWheel {
                 device_id,
                 delta,
                 phase,
-            } => {
-                if let Err(e) =
-                    self.event_tx
-                        .try_send(AppEvent::InputEvent(InputEvent::MouseWheel {
-                            device_id,
-                            delta,
-                            phase,
-                        }))
-                {
-                    error!("Failed sending Mouse wheel InputEvent to app: {}!", e);
-                }
-            }
+            } => Some(InputEvent::MouseWheel {
+                device_id,
+                delta,
+                phase,
+            }),
             WindowEvent::CursorMoved {
                 device_id,
                 position,
-            } => {
-                if let Err(e) =
-                    self.event_tx
-                        .try_send(AppEvent::InputEvent(InputEvent::MouseMovedPosition {
-                            device_id,
-                            position,
-                        }))
-                {
-                    error!("Failed sending Mouse moved InputEvent to app: {}!", e);
-                }
-            }
+            } => Some(InputEvent::MouseMovedPosition {
+                device_id,
+                position,
+            }),
             WindowEvent::Focused(focused) => {
                 if let Err(e) = self.event_tx.try_send(AppEvent::FocusChange { focused }) {
                     error!("Failed sending Mouse moved InputEvent to app: {}!", e);
                 }
+
+                None
             }
             WindowEvent::Resized(new_size) => {
                 self.surface_configuration = Some(AppRuntime::make_surface_configuration(
@@ -731,8 +713,14 @@ impl ApplicationHandler for AppRuntime {
                 ));
 
                 self.reconfigure_surface();
+
+                None
             }
-            _ => (),
+            _ => None,
+        };
+
+        if let Some(input_event) = input_event {
+            self.input_state.handle_event(input_event);
         }
     }
 
@@ -743,9 +731,7 @@ impl ApplicationHandler for AppRuntime {
         device_event: DeviceEvent,
     ) {
         if let Some(input_event) = InputEvent::convert_device_event(device_id, device_event) {
-            if let Err(e) = self.event_tx.try_send(AppEvent::InputEvent(input_event)) {
-                error!("Failed to send DeviceEvent to App: {}", e);
-            }
+            self.input_state.handle_event(input_event);
         }
     }
 }
