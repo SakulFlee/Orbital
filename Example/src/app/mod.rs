@@ -1,9 +1,10 @@
 use std::time::Instant;
 
 use orbital::{
-    app::{App, AppChange, InputEvent},
+    app::{App, AppChange},
     cgmath::Vector2,
     game::{CacheSettings, World, WorldChange},
+    input::InputState,
     log::{debug, info, warn},
     renderer::Renderer,
     resources::realizations::{Material, Pipeline},
@@ -156,19 +157,19 @@ impl<RenderImpl: Renderer + Send> App for MyApp<RenderImpl> {
         self.world.on_focus_change(focused);
     }
 
-    async fn on_input(&mut self, input_event: &InputEvent) -> ()
-    where
-        Self: Sized,
-    {
-        self.world.on_input_event(input_event);
-    }
+    // async fn on_input(&mut self, input_event: &InputEvent) -> ()
+    // where
+    //     Self: Sized,
+    // {
+    //     self.world.on_input_event(input_event);
+    // }
 
-    async fn on_update(&mut self) -> Option<Vec<AppChange>>
+    async fn on_update(&mut self, input_state: &InputState) -> Option<Vec<AppChange>>
     where
         Self: Sized,
     {
         let delta_time = self.timer.cycle_delta_time();
-        let app_changes = self.world.update(delta_time);
+        let app_changes = self.world.update(delta_time, input_state);
 
         // TODO: Needed?
         if let Some(renderer) = &mut self.renderer {

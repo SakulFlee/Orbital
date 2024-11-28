@@ -1,13 +1,14 @@
 use std::f32::consts::PI;
 
 use orbital::{
-    app::{AppChange, InputEvent},
+    app::AppChange,
     cgmath::{Point3, Vector3},
     game::{CameraChange, Element, ElementRegistration, Mode, WorldChange},
     gilrs::{Axis, Button},
+    input::{InputButton, InputState},
     log::debug,
     resources::descriptors::CameraDescriptor,
-    util::InputHandler,
+    util::{input_handler, InputHandler},
     winit::keyboard::{KeyCode, PhysicalKey},
 };
 
@@ -119,9 +120,10 @@ impl Element for Camera {
                 yaw: PI,
                 ..Default::default()
             }))
-            .with_initial_world_change(WorldChange::AppChange(AppChange::ChangeCursorVisible(
-                false,
-            )))
+            // TODO
+            // .with_initial_world_change(WorldChange::AppChange(AppChange::ChangeCursorVisible(
+            //     false,
+            // )))
             .with_initial_world_change(WorldChange::AppChange(AppChange::ChangeCursorGrabbed(true)))
     }
 
@@ -130,93 +132,113 @@ impl Element for Camera {
         debug!("Focus change: {}", focused);
     }
 
-    fn on_input_event(&mut self, input_event: &InputEvent) {
-        self.input_handler.handle_event(input_event);
-    }
+    fn on_update(&mut self, delta_time: f64, input_state: &InputState) -> Option<Vec<WorldChange>> {
+        const INPUT_BUTTON: InputButton = InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyW));
 
-    fn on_update(&mut self, delta_time: f64) -> Option<Vec<WorldChange>> {
-        if !self.is_focused {
-            return None;
+        static mut D: f64 = 0.0;
+
+        if let Some((id, pressed)) = input_state.button_state_any(&INPUT_BUTTON) {
+            if pressed {
+                debug!("Button '{:?}' pressed!", id);
+            }
         }
 
-        // Read input axis
-        let move_forward_backward = self.input_handler.get_dynamic_axis(
-            Self::ACTION_MOVE_FORWARD_BACKWARD,
-            Self::ACTION_MOVE_FORWARD,
-            Self::ACTION_MOVE_BACKWARD,
-        );
-        let move_left_right = self.input_handler.get_dynamic_axis(
-            Self::ACTION_MOVE_LEFT_RIGHT,
-            Self::ACTION_MOVE_RIGHT,
-            Self::ACTION_MOVE_LEFT,
-        );
-        let move_up_down = self.input_handler.get_dynamic_axis(
-            Self::ACTION_MOVE_UP_DOWN,
-            Self::ACTION_MOVE_UP,
-            Self::ACTION_MOVE_DOWN,
-        );
+        // unsafe {
+        //     D += delta_time;
+        //     if D > 100.0 {
+        //         debug!(
+        //             "{:?}@{:?}",
+        //             input_state,
+        //             input_state.button_state_any(&INPUT_BUTTON)
+        //         );
 
-        // Modify position as needed
-        let mut position = Vector3::new(0.0, 0.0, 0.0);
-        if let Some(axis) = move_forward_backward {
-            position.x += axis * delta_time as f32;
-        }
-        if let Some(axis) = move_left_right {
-            position.z += axis * delta_time as f32;
-        }
-        if let Some(axis) = move_up_down {
-            position.y += axis * delta_time as f32;
-        }
+        //         D = 0.0;
+        //     }
+        // }
 
-        // Calculate camera rotation
-        let (is_axis, yaw_change, pitch_change) = self
-            .input_handler
-            .calculate_view_change_from_axis_and_mouse_delta(
-                Self::ACTION_LOOK_LEFT_RIGHT,
-                Self::ACTION_LOOK_UP_DOWN,
-            );
-        self.input_handler.reset();
+        None
+        // if !self.is_focused {
+        //     return None;
+        // }
 
-        // Compile CameraChange
-        let change = CameraChange {
-            target: Self::IDENTIFIER,
-            position: if position.x != 0.0 || position.y != 0.0 || position.z != 0.0 {
-                Some(Mode::OffsetViewAligned(position * Self::MOVEMENT_SPEED))
-            } else {
-                None
-            },
-            yaw: Some(Mode::Offset(
-                yaw_change
-                    * if is_axis {
-                        Self::GAMEPAD_SENSITIVITY
-                    } else {
-                        Self::MOUSE_SENSITIVITY
-                    },
-            )),
-            pitch: Some(Mode::Offset(
-                pitch_change
-                    * if is_axis {
-                        Self::GAMEPAD_SENSITIVITY
-                    } else {
-                        Self::MOUSE_SENSITIVITY
-                    },
-            )),
-        };
+        // // Read input axis
+        // let move_forward_backward = self.input_handler.get_dynamic_axis(
+        //     Self::ACTION_MOVE_FORWARD_BACKWARD,
+        //     Self::ACTION_MOVE_FORWARD,
+        //     Self::ACTION_MOVE_BACKWARD,
+        // );
+        // let move_left_right = self.input_handler.get_dynamic_axis(
+        //     Self::ACTION_MOVE_LEFT_RIGHT,
+        //     Self::ACTION_MOVE_RIGHT,
+        //     Self::ACTION_MOVE_LEFT,
+        // );
+        // let move_up_down = self.input_handler.get_dynamic_axis(
+        //     Self::ACTION_MOVE_UP_DOWN,
+        //     Self::ACTION_MOVE_UP,
+        //     Self::ACTION_MOVE_DOWN,
+        // );
 
-        let mut changes = vec![];
+        // // Modify position as needed
+        // let mut position = Vector3::new(0.0, 0.0, 0.0);
+        // if let Some(axis) = move_forward_backward {
+        //     position.x += axis * delta_time as f32;
+        // }
+        // if let Some(axis) = move_left_right {
+        //     position.z += axis * delta_time as f32;
+        // }
+        // if let Some(axis) = move_up_down {
+        //     position.y += axis * delta_time as f32;
+        // }
 
-        if self.input_handler.is_triggered(Self::ACTION_DEBUG) {
-            changes.push(WorldChange::CleanWorld);
-        }
+        // // Calculate camera rotation
+        // let (is_axis, yaw_change, pitch_change) = self
+        //     .input_handler
+        //     .calculate_view_change_from_axis_and_mouse_delta(
+        //         Self::ACTION_LOOK_LEFT_RIGHT,
+        //         Self::ACTION_LOOK_UP_DOWN,
+        //     );
+        // self.input_handler.reset();
 
-        if change.does_change_something() {
-            changes.push(WorldChange::UpdateCamera(change));
-        }
+        // // Compile CameraChange
+        // let change = CameraChange {
+        //     target: Self::IDENTIFIER,
+        //     position: if position.x != 0.0 || position.y != 0.0 || position.z != 0.0 {
+        //         Some(Mode::OffsetViewAligned(position * Self::MOVEMENT_SPEED))
+        //     } else {
+        //         None
+        //     },
+        //     yaw: Some(Mode::Offset(
+        //         yaw_change
+        //             * if is_axis {
+        //                 Self::GAMEPAD_SENSITIVITY
+        //             } else {
+        //                 Self::MOUSE_SENSITIVITY
+        //             },
+        //     )),
+        //     pitch: Some(Mode::Offset(
+        //         pitch_change
+        //             * if is_axis {
+        //                 Self::GAMEPAD_SENSITIVITY
+        //             } else {
+        //                 Self::MOUSE_SENSITIVITY
+        //             },
+        //     )),
+        // };
 
-        if changes.is_empty() {
-            None
-        } else {
-            Some(changes)
-        }
+        // let mut changes = vec![];
+
+        // if self.input_handler.is_triggered(Self::ACTION_DEBUG) {
+        //     changes.push(WorldChange::CleanWorld);
+        // }
+
+        // if change.does_change_something() {
+        //     changes.push(WorldChange::UpdateCamera(change));
+        // }
+
+        // if changes.is_empty() {
+        //     None
+        // } else {
+        //     Some(changes)
+        // }
     }
 }

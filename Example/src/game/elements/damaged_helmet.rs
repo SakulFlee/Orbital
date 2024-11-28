@@ -1,8 +1,5 @@
 use orbital::{
-    cgmath::Vector3,
-    game::{Element, ElementRegistration, WorldChange},
-    loader::{GLTFLoader, GLTFWorkerMode},
-    transform::Transform,
+    cgmath::Vector3, game::{Element, ElementRegistration, WorldChange}, input::InputState, loader::{GLTFLoader, GLTFWorkerMode}, transform::Transform
 };
 
 #[derive(Debug)]
@@ -26,7 +23,7 @@ impl Element for DamagedHelmet {
         )
     }
 
-    fn on_update(&mut self, delta_time: f64) -> Option<Vec<WorldChange>> {
+    fn on_update(&mut self, delta_time: f64, _input_state: &InputState) -> Option<Vec<WorldChange>> {
         // TODO
         // Some(vec![WorldChange::ApplyTransformModel(
         //     "mesh_helmet_LP_13930damagedHelmet".into(),

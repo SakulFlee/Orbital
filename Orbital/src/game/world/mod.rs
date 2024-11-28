@@ -4,12 +4,10 @@ use log::{info, warn};
 use wgpu::{Device, Queue};
 
 use crate::{
-    app::{AppChange, InputEvent},
-    log::error,
-    resources::{
+    app::AppChange, input::InputState, log::error, resources::{
         descriptors::{CameraDescriptor, MaterialDescriptor, ModelDescriptor},
         realizations::{Camera, Model},
-    },
+    }
 };
 
 pub mod change;
@@ -314,6 +312,8 @@ impl World {
                     .find(|x| x.identifier == change.target)
                 {
                     existing_camera_descriptor.apply_change(change);
+                } else {
+                    warn!("Attempting to update non-existing camera: {:?}!", change);
                 }
             }
             WorldChange::AppChange(app_change) => return Some(app_change),
@@ -459,18 +459,14 @@ impl World {
         self.element_store.send_focus_change(focused);
     }
 
-    pub fn on_input_event(&mut self, input_event: &InputEvent) {
-        self.element_store.send_input_event(input_event);
-    }
-
     /// Processes queued up [WorldChanges]
     ///
     /// ⚠️ This is already called automatically by the [GameRuntime].  
     /// ⚠️ You will only need to call this if you are making your own thing.
     ///
     /// [GameRuntime]: crate::game::GameRuntime
-    pub fn update(&mut self, delta_time: f64) -> Vec<AppChange> {
-        let element_changes = self.element_store.update(delta_time);
+    pub fn update(&mut self, delta_time: f64, input_state: &InputState) -> Vec<AppChange> {
+        let element_changes = self.element_store.update(delta_time, input_state);
         self.queue_world_changes.extend(element_changes);
 
         // Cycle loader, enqueue any `Ok`, report any `Err`

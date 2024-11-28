@@ -6,7 +6,7 @@ use winit::{
     keyboard::PhysicalKey,
 };
 
-use crate::app::{InputEvent, WINDOW_HALF_SIZE};
+use crate::{app::WINDOW_HALF_SIZE, input::InputEvent};
 
 pub mod action;
 pub use action::*;

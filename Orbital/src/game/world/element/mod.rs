@@ -3,7 +3,11 @@ use std::fmt::Debug;
 use hashbrown::HashMap;
 use log::warn;
 
-use crate::{app::InputEvent, game::WorldChange, variant::Variant};
+use crate::{
+    game::WorldChange,
+    input::{InputEvent, InputState},
+    variant::Variant,
+};
 
 pub mod registration;
 pub use registration::*;
@@ -106,11 +110,13 @@ pub trait Element: Debug + Send {
         ElementRegistration::default()
     }
 
-    fn on_input_event(&mut self, _input_event: &InputEvent) {}
-
     fn on_focus_change(&mut self, _focused: bool) {}
 
-    fn on_update(&mut self, _delta_time: f64) -> Option<Vec<WorldChange>> {
+    fn on_update(
+        &mut self,
+        _delta_time: f64,
+        _input_state: &InputState,
+    ) -> Option<Vec<WorldChange>> {
         None
     }
 
