@@ -36,6 +36,12 @@ pub enum InputEvent {
         device_id: DeviceId,
         delta: (f64, f64),
     },
+    DeviceConnected {
+        device_id: DeviceId,
+    },
+    DeviceDisconnected {
+        device_id: DeviceId,
+    },
     #[cfg(feature = "gamepad_input")]
     GamepadButton {
         gamepad_id: GamepadId,
@@ -49,15 +55,21 @@ pub enum InputEvent {
         value: f32,
     },
     #[cfg(feature = "gamepad_input")]
-    GamepadConnected { gamepad_id: GamepadId },
+    GamepadConnected {
+        gamepad_id: GamepadId,
+    },
     #[cfg(feature = "gamepad_input")]
-    GamepadDisconnected { gamepad_id: GamepadId },
+    GamepadDisconnected {
+        gamepad_id: GamepadId,
+    },
 }
 
 #[cfg(feature = "gamepad_input")]
 impl InputEvent {
     pub fn convert_device_event(device_id: DeviceId, device_event: DeviceEvent) -> Option<Self> {
         match device_event {
+            DeviceEvent::Added => Some(Self::DeviceConnected { device_id }),
+            DeviceEvent::Removed => Some(Self::DeviceDisconnected { device_id }),
             DeviceEvent::MouseMotion { delta } => {
                 Some(InputEvent::MouseMovedDelta { device_id, delta })
             }
