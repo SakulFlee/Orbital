@@ -1,8 +1,13 @@
-use cgmath::{Vector2, Zero};
+use cgmath::{InnerSpace, Vector2, Zero};
 use gilrs::Axis;
 use hashbrown::HashMap;
 use log::debug;
-use winit::event::{ElementState, MouseScrollDelta};
+use winit::{
+    event::{ElementState, MouseScrollDelta},
+    keyboard::{KeyCode, PhysicalKey},
+};
+
+use crate::input::{self, button};
 
 use super::{InputAxis, InputButton, InputEvent, InputId};
 
@@ -153,6 +158,10 @@ impl InputState {
         }
     }
 
+    pub fn mouse_cursor_position_state(&self) -> Vector2<f64> {
+        self.mouse_cursor_position_state
+    }
+
     pub fn button_state_specific(
         &self,
         input_button: &InputButton,
@@ -176,6 +185,22 @@ impl InputState {
                 }
             })
             .flatten()
+    }
+
+    pub fn button_state_many(
+        &self,
+        input_buttons: &[&InputButton],
+    ) -> HashMap<InputButton, (InputId, bool)> {
+        self.button_states
+            .iter()
+            .flat_map(|(input_id, state)| {
+                input_buttons.iter().filter_map(|&input_button| {
+                    state
+                        .get(input_button)
+                        .map(|pressed| (*input_button, (*input_id, *pressed)))
+                })
+            })
+            .collect()
     }
 
     pub fn button_state_all(&self, input_button: &InputButton) -> Vec<(InputId, bool)> {
@@ -231,7 +256,75 @@ impl InputState {
             .collect()
     }
 
-    pub fn mouse_cursor_position_state(&self) -> Vector2<f64> {
-        self.mouse_cursor_position_state
+    pub fn delta_state_many(
+        &self,
+        input_axises: &[&InputAxis],
+    ) -> HashMap<InputAxis, (InputId, Vector2<f64>)> {
+        self.delta_states
+            .iter()
+            .filter_map(|(input_id, state)| {
+                input_axises.iter().find_map(|&input_axis| {
+                    state
+                        .get(input_axis)
+                        .map(|pressed| (*input_axis, (*input_id, *pressed)))
+                })
+            })
+            .collect()
+    }
+
+    pub fn movement_vector(
+        &self,
+        input_axis: Option<&InputAxis>,
+        input_button_forward: &InputButton,
+        input_button_backward: &InputButton,
+        input_button_left: &InputButton,
+        input_button_right: &InputButton,
+    ) -> Vector2<f64> {
+        // Prioritize gamepad inputs
+        let gamepad_deltas = input_axis.and_then(|axis| self.delta_state_any(axis));
+        if let Some((_, delta)) = gamepad_deltas {
+            let magnitude = delta.magnitude();
+            return if magnitude > 0.1 {
+                delta / magnitude
+            } else {
+                delta
+            };
+        }
+
+        let mut movement = Vector2::zero();
+        let button_state = self.button_state_many(&[
+            &input_button_forward,
+            &input_button_backward,
+            &input_button_left,
+            &input_button_right,
+        ]);
+        debug!("{:?}", movement);
+        for (button, (_, pressed)) in button_state.iter() {
+            debug!("{:?}: {}", button, pressed);
+            if !pressed {
+                continue;
+            }
+
+            if button == input_button_forward {
+                movement.y += 1.0;
+                debug!("forward");
+            } else if button == input_button_backward {
+                movement.y -= 1.0;
+                debug!("backward");
+            } else if button == input_button_left {
+                movement.x -= 1.0;
+                debug!("left");
+            } else if button == input_button_right {
+                movement.x += 1.0;
+                debug!("right");
+            }
+        }
+
+        let magnitude = movement.magnitude();
+        if magnitude > 0.1 {
+            movement / magnitude
+        } else {
+            movement
+        }
     }
 }

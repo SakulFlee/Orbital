@@ -2,10 +2,10 @@ use std::f32::consts::PI;
 
 use orbital::{
     app::AppChange,
-    cgmath::{Point3, Vector3},
+    cgmath::{InnerSpace, Point3, Vector3},
     game::{CameraChange, Element, ElementRegistration, Mode, WorldChange},
     gilrs::{Axis, Button},
-    input::{InputButton, InputState},
+    input::{InputAxis, InputButton, InputState},
     log::debug,
     resources::descriptors::CameraDescriptor,
     util::{input_handler, InputHandler},
@@ -133,13 +133,20 @@ impl Element for Camera {
     }
 
     fn on_update(&mut self, delta_time: f64, input_state: &InputState) -> Option<Vec<WorldChange>> {
-        const INPUT_BUTTON: InputButton = InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyW));
+        unsafe {
+            static mut D: f64 = 0.0;
+            D += delta_time;
+            if D >= 60.0 {
+                D = 0.0;
 
-        static mut D: f64 = 0.0;
-
-        if let Some((id, pressed)) = input_state.button_state_any(&INPUT_BUTTON) {
-            if pressed {
-                debug!("Button '{:?}' pressed!", id);
+                let movement = input_state.movement_vector(
+                    Some(&InputAxis::GamepadLeftStick),
+                    &InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyW)),
+                    &InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyS)),
+                    &InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyA)),
+                    &InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyD)),
+                );
+                debug!(">>> {:?}", movement);
             }
         }
 
