@@ -139,15 +139,33 @@ impl Element for Camera {
             if D >= 60.0 {
                 D = 0.0;
 
-                let movement = input_state.movement_vector(
-                    Some(&InputAxis::GamepadLeftStick),
-                    &InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyW)),
-                    &InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyS)),
-                    &InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyA)),
-                    &InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyD)),
-                );
-                debug!(">>> {:?}", movement);
+                // debug!(">>> {:?}", movement);
             }
+        }
+
+        let movement = input_state.movement_vector(
+            Some(&InputAxis::GamepadLeftStick),
+            &InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyW)),
+            &InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyS)),
+            &InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyA)),
+            &InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyD)),
+        );
+
+        let camera_change = CameraChange {
+            target: Self::IDENTIFIER,
+            position: Some(Mode::OffsetViewAligned(Vector3::new(
+                movement.x as f32,
+                0.0,
+                movement.y as f32,
+            ))),
+            pitch: None,
+            yaw: None,
+        };
+
+        if camera_change.does_change_something() {
+            Some(vec![WorldChange::UpdateCamera(camera_change)])
+        } else {
+            None
         }
 
         // unsafe {
@@ -163,7 +181,6 @@ impl Element for Camera {
         //     }
         // }
 
-        None
         // if !self.is_focused {
         //     return None;
         // }
