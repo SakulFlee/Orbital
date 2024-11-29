@@ -298,13 +298,13 @@ impl InputState {
             }
 
             if button == input_button_forward {
-                movement.y += 1.0;
-            } else if button == input_button_backward {
-                movement.y -= 1.0;
-            } else if button == input_button_left {
-                movement.x -= 1.0;
-            } else if button == input_button_right {
                 movement.x += 1.0;
+            } else if button == input_button_backward {
+                movement.x -= 1.0;
+            } else if button == input_button_left {
+                movement.y -= 1.0;
+            } else if button == input_button_right {
+                movement.y += 1.0;
             }
         }
 
