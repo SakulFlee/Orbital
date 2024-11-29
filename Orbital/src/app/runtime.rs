@@ -487,10 +487,7 @@ impl AppRuntime {
                 AppChange::ChangeCursorGrabbed(grab) => {
                     if let Some(window) = &self.window {
                         if grab {
-                            if let Err(e) = window
-                                .set_cursor_grab(CursorGrabMode::Confined)
-                                .or(window.set_cursor_grab(CursorGrabMode::Locked))
-                            {
+                            if let Err(e) = window.set_cursor_grab(CursorGrabMode::Confined) {
                                 error!("Failed to set cursor grab! This might not be supported on your platform. Error: {}", e);
                             }
                         } else {
