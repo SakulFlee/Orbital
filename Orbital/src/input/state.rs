@@ -1,7 +1,6 @@
 use cgmath::{InnerSpace, Vector2, Zero};
 use gilrs::Axis;
 use hashbrown::HashMap;
-use log::debug;
 use winit::event::{ElementState, MouseScrollDelta};
 
 use super::{InputAxis, InputButton, InputEvent, InputId};
@@ -294,7 +293,6 @@ impl InputState {
             &input_button_right,
         ]);
         for (button, (_, pressed)) in button_state.iter() {
-            debug!("{:?}: {}", button, pressed);
             if !pressed {
                 continue;
             }
