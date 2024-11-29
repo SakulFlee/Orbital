@@ -2,12 +2,7 @@ use cgmath::{InnerSpace, Vector2, Zero};
 use gilrs::Axis;
 use hashbrown::HashMap;
 use log::debug;
-use winit::{
-    event::{ElementState, MouseScrollDelta},
-    keyboard::{KeyCode, PhysicalKey},
-};
-
-use crate::input::{self, button};
+use winit::event::{ElementState, MouseScrollDelta};
 
 use super::{InputAxis, InputButton, InputEvent, InputId};
 
@@ -298,7 +293,6 @@ impl InputState {
             &input_button_left,
             &input_button_right,
         ]);
-        debug!("{:?}", movement);
         for (button, (_, pressed)) in button_state.iter() {
             debug!("{:?}: {}", button, pressed);
             if !pressed {
@@ -307,16 +301,12 @@ impl InputState {
 
             if button == input_button_forward {
                 movement.y += 1.0;
-                debug!("forward");
             } else if button == input_button_backward {
                 movement.y -= 1.0;
-                debug!("backward");
             } else if button == input_button_left {
                 movement.x -= 1.0;
-                debug!("left");
             } else if button == input_button_right {
                 movement.x += 1.0;
-                debug!("right");
             }
         }
 
