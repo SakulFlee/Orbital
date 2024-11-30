@@ -451,9 +451,6 @@ impl AppRuntime {
         {
             error!("Failed to send update event: {}", e);
         }
-
-        // After updating, reset all delta states
-        self.input_state.reset_delta_states();
     }
 
     fn process_app_changes(&mut self) -> bool {
@@ -520,6 +517,8 @@ impl AppRuntime {
                 AppChange::FinishedRedraw(frame) => {
                     frame.present();
                     self.frame_acquired = false;
+
+                    self.input_state.reset_deltas();
                 }
             }
         }
