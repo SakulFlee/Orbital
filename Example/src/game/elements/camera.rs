@@ -66,11 +66,6 @@ impl Element for Camera {
             .with_initial_world_change(WorldChange::AppChange(AppChange::ChangeCursorGrabbed(true)))
     }
 
-    // fn on_focus_change(&mut self, focused: bool) {
-    //     self.is_focused = focused;
-    //     debug!("Focus change: {}", focused);
-    // }
-
     fn on_update(&mut self, delta_time: f64, input_state: &InputState) -> Option<Vec<WorldChange>> {
         // Calculate movement vector
         let (movement_vector_is_gamepad, mut movement_vector) = input_state.movement_vector(
