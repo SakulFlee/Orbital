@@ -12,8 +12,10 @@ pub struct CameraChange {
 
 impl CameraChange {
     pub fn does_change_something(&self) -> bool {
-        if let Some(position) = &self.position {
-            return match position {
+        if self
+            .position
+            .as_ref()
+            .is_some_and(|position| match position {
                 Mode::Overwrite(v) => {
                     v.x.abs() >= 0.001 || v.y.abs() >= 0.001 || v.z.abs() >= 0.001
                 }
@@ -21,23 +23,25 @@ impl CameraChange {
                 Mode::OffsetViewAligned(v) => {
                     v.x.abs() >= 0.001 || v.y.abs() >= 0.001 || v.z.abs() >= 0.001
                 }
-            };
+            })
+        {
+            return true;
         }
 
-        if let Some(yaw) = &self.yaw {
-            return match yaw {
-                Mode::Overwrite(v) => v.abs() >= 0.0001,
-                Mode::Offset(v) => v.abs() >= 0.0001,
-                Mode::OffsetViewAligned(v) => v.abs() >= 0.0001,
-            };
+        if self.yaw.as_ref().is_some_and(|yaw| match yaw {
+            Mode::Overwrite(v) => v.abs() >= 0.0001,
+            Mode::Offset(v) => v.abs() >= 0.0001,
+            Mode::OffsetViewAligned(v) => v.abs() >= 0.0001,
+        }) {
+            return true;
         }
 
-        if let Some(pitch) = &self.pitch {
-            return match pitch {
-                Mode::Overwrite(v) => v.abs() >= 0.0001,
-                Mode::Offset(v) => v.abs() >= 0.0001,
-                Mode::OffsetViewAligned(v) => v.abs() >= 0.0001,
-            };
+        if self.pitch.as_ref().is_some_and(|pitch| match pitch {
+            Mode::Overwrite(v) => v.abs() >= 0.0001,
+            Mode::Offset(v) => v.abs() >= 0.0001,
+            Mode::OffsetViewAligned(v) => v.abs() >= 0.0001,
+        }) {
+            return true;
         }
 
         false

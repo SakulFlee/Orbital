@@ -21,7 +21,10 @@ impl InputState {
         }
     }
 
-    pub fn reset_delta_states(&mut self) {
+    /// Resets all delta values back to zero.
+    /// This should be called after updating, but before the next cycle.
+    /// I.e. after rendering is a good time.
+    pub fn reset_deltas(&mut self) {
         self.delta_states.iter_mut().for_each(|(_, state)| {
             state
                 .iter_mut()
@@ -314,5 +317,36 @@ impl InputState {
         } else {
             movement
         }
+    }
+
+    pub fn view_vector(&self, gamepad_input_axis: Option<&InputAxis>) -> Vector2<f64> {
+        // Prioritize gamepad inputs
+        let gamepad_deltas = gamepad_input_axis.and_then(|axis| self.delta_state_any(axis));
+        if let Some((_, delta)) = gamepad_deltas {
+            let magnitude = delta.magnitude();
+            return if magnitude > 0.1 {
+                delta / magnitude
+            } else {
+                delta
+            };
+        }
+
+        if let Some((_, delta)) = self.delta_state_any(&InputAxis::MouseMovement) {
+            // TODO: Unsure if magnitude should be use for mouse inputs
+            // let magnitude = delta.magnitude();
+            // return if magnitude > 0.1 {
+            //     delta / magnitude
+            // } else {
+            //     delta
+            // };
+
+            // Coordinates for mouse delta are flipped.
+            // X corresponds to "up and down".
+            // Y corresponds to "left and right".
+            // Additionally, "up and down" needs to be inverted.
+            return Vector2::new(-delta.y, delta.x);
+        }
+
+        Vector2::zero()
     }
 }
