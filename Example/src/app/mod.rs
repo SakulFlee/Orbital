@@ -162,7 +162,7 @@ impl<RenderImpl: Renderer + Send> App for MyApp<RenderImpl> {
         Self: Sized,
     {
         let delta_time = self.timer.cycle_delta_time();
-        let app_changes = self.world.update(delta_time, input_state);
+        let app_changes = self.world.update(delta_time, input_state).await; // TODO: ?
 
         // TODO: Needed?
         if let Some(renderer) = &mut self.renderer {
