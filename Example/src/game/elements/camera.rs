@@ -2,9 +2,10 @@ use std::f32::consts::PI;
 
 use orbital::{
     app::AppChange,
-    cgmath::{Point3, Vector3},
+    cgmath::{Point3, Vector3, Zero},
     game::{CameraChange, Element, ElementRegistration, Mode, WorldChange},
     input::{InputAxis, InputButton, InputState},
+    log::debug,
     resources::descriptors::CameraDescriptor,
     winit::keyboard::{KeyCode, PhysicalKey},
 };
@@ -88,7 +89,19 @@ impl Element for Camera {
                 Self::MOVEMENT_SPEED
             };
 
-        let view_vector = input_state.view_vector(Some(&Self::GAMEPAD_MOVEMENT_AXIS)) * delta_time;
+        let view_vector = input_state.view_vector(Some(&Self::GAMEPAD_VIEW_AXIS)) * delta_time;
+
+        unsafe {
+            static mut D: f64 = 0.0;
+            D += delta_time;
+            if D > 180.0 {
+                D -= 180.0;
+
+                debug!("");
+                debug!("{:?}", movement_vector);
+                debug!("{:?}", view_vector);
+            }
+        }
 
         let camera_change = CameraChange {
             target: Self::IDENTIFIER,

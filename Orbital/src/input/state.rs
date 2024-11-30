@@ -28,6 +28,10 @@ impl InputState {
         self.delta_states.iter_mut().for_each(|(_, state)| {
             state
                 .iter_mut()
+                // Only reset mouse deltas
+                .filter(|(axis, _)| {
+                    InputAxis::MouseMovement.eq(axis) || InputAxis::MouseScrollWheel.eq(axis)
+                })
                 .for_each(|(_, delta)| *delta = Vector2::zero())
         });
     }
@@ -150,7 +154,15 @@ impl InputState {
                 .entry(input_id)
                 .or_insert(HashMap::new())
                 .entry(axis)
-                .and_modify(|x| *x += delta)
+                .and_modify(|x| match axis {
+                    // Mouse inputs need to be summed as they aren't tracking the mouse position directly, but the change in movement.
+                    // After a frame is rendered, we need to reset these.
+                    InputAxis::MouseMovement | InputAxis::MouseScrollWheel => *x += delta,
+                    // Gamepad values are stated. Meaning a new input event will always have the total value of the input. Thus, we won't need to summarize here.
+                    InputAxis::GamepadLeftStick
+                    | InputAxis::GamepadRightStick
+                    | InputAxis::GamepadTrigger => *x = delta,
+                })
                 .or_insert(delta);
         }
     }
@@ -280,12 +292,16 @@ impl InputState {
         // Prioritize gamepad inputs
         let gamepad_deltas = input_axis.and_then(|axis| self.delta_state_any(axis));
         if let Some((_, delta)) = gamepad_deltas {
-            let magnitude = delta.magnitude();
-            return if magnitude > 0.1 {
-                delta / magnitude
-            } else {
-                delta
-            };
+            // let magnitude = delta.magnitude();
+            // return if magnitude > 0.1 {
+            //     delta / magnitude
+            // } else {
+            //     delta
+            // };
+
+            if !delta.is_zero() {
+                return delta;
+            }
         }
 
         let mut movement = Vector2::zero();
@@ -323,12 +339,15 @@ impl InputState {
         // Prioritize gamepad inputs
         let gamepad_deltas = gamepad_input_axis.and_then(|axis| self.delta_state_any(axis));
         if let Some((_, delta)) = gamepad_deltas {
-            let magnitude = delta.magnitude();
-            return if magnitude > 0.1 {
-                delta / magnitude
-            } else {
-                delta
-            };
+            // let magnitude = delta.magnitude();
+            // return if magnitude > 0.1 {
+            //     delta / magnitude
+            // } else {
+            //     delta
+            // };
+            if !delta.is_zero() {
+                return delta;
+            }
         }
 
         if let Some((_, delta)) = self.delta_state_any(&InputAxis::MouseMovement) {
