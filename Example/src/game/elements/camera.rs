@@ -113,7 +113,9 @@ impl Element for Camera {
         // Make camera change
         let camera_change = CameraChange {
             target: Self::IDENTIFIER,
-            position: Some(Mode::OffsetViewAligned(Vector3::new(
+            // Change to Mode::OffsetViewAligned to enter "view aligned" movement.
+            // Change to Mode::OffsetViewAlignedWithY to enter "free cam" movement.
+            position: Some(Mode::OffsetViewAlignedWithY(Vector3::new(
                 movement_vector.x as f32,
                 0.0,
                 movement_vector.y as f32,

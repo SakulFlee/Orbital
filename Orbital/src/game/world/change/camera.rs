@@ -16,11 +16,10 @@ impl CameraChange {
             .position
             .as_ref()
             .is_some_and(|position| match position {
-                Mode::Overwrite(v) => {
-                    v.x.abs() >= 0.001 || v.y.abs() >= 0.001 || v.z.abs() >= 0.001
-                }
-                Mode::Offset(v) => v.x.abs() >= 0.001 || v.y.abs() >= 0.001 || v.z.abs() >= 0.0001,
-                Mode::OffsetViewAligned(v) => {
+                Mode::Overwrite(v)
+                | Mode::Offset(v)
+                | Mode::OffsetViewAligned(v)
+                | Mode::OffsetViewAlignedWithY(v) => {
                     v.x.abs() >= 0.001 || v.y.abs() >= 0.001 || v.z.abs() >= 0.001
                 }
             })
@@ -29,17 +28,19 @@ impl CameraChange {
         }
 
         if self.yaw.as_ref().is_some_and(|yaw| match yaw {
-            Mode::Overwrite(v) => v.abs() >= 0.0001,
-            Mode::Offset(v) => v.abs() >= 0.0001,
-            Mode::OffsetViewAligned(v) => v.abs() >= 0.0001,
+            Mode::Overwrite(v)
+            | Mode::Offset(v)
+            | Mode::OffsetViewAligned(v)
+            | Mode::OffsetViewAlignedWithY(v) => v.abs() >= 0.0001,
         }) {
             return true;
         }
 
         if self.pitch.as_ref().is_some_and(|pitch| match pitch {
-            Mode::Overwrite(v) => v.abs() >= 0.0001,
-            Mode::Offset(v) => v.abs() >= 0.0001,
-            Mode::OffsetViewAligned(v) => v.abs() >= 0.0001,
+            Mode::Overwrite(v)
+            | Mode::Offset(v)
+            | Mode::OffsetViewAligned(v)
+            | Mode::OffsetViewAlignedWithY(v) => v.abs() >= 0.0001,
         }) {
             return true;
         }
