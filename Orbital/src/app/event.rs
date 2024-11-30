@@ -9,7 +9,6 @@ use crate::input::InputState;
 pub enum AppEvent {
     Resumed(SurfaceConfiguration, Arc<Device>, Arc<Queue>),
     Suspended,
-    FocusChange { focused: bool },
     Resize(Vector2<u32>, Arc<Device>, Arc<Queue>),
     Render(SurfaceTexture, TextureView, Arc<Device>, Arc<Queue>),
     Update(InputState),
