@@ -36,7 +36,38 @@
 /// [Vector3<f32>]: crate::cgmath::Vector3
 #[derive(Debug)]
 pub enum Mode<T> {
+    /// Will overwrite the inner value.
+    /// E.g. if used for positions, will fully replace the existing position with the inner position.
+    ///
+    /// Current position: (0, 1, 2)
+    /// Inner/New position: (5, 5, 5)
+    /// After change: (5, 5, 5)
+    ///
+    /// When used with a position for changing the camera, this is ideal for teleporting the camera to a new location.
     Overwrite(T),
+    /// Will offset the existing value by the inner value.
+    /// E.g. if used for positions, will add the inner position to the existing position.
+    ///
+    /// Current position: (0, 1, 2)
+    /// Inner/New position: (5, 5, 5)
+    /// After change: (0 + 5, 1 + 5, 2 + 5)
+    ///            == (5, 6, 7)
+    ///
+    /// When used with a position for changing the camera, this is ideal for "top down" cameras.
+    ///
+    /// Sometimes the same as [Mode::OffsetViewAligned] or [Mode::OffsetViewAlignedWithY]!
     Offset(T),
+    /// Same as [Mode::Offset], but will take the current view angle into account.
+    /// Effectively making it so that the offset is always "forward" aligned.
+    ///
+    /// When used with a position for changing the camera, this is often referred to as "forward movement".
+    ///
+    /// Sometimes the same as [Mode::OffsetViewAligned] or [Mode::OffsetViewAlignedWithY]!
     OffsetViewAligned(T),
+    /// Same as [Mode::OffsetViewAligned], but will also offset the Y-axis.
+    ///
+    /// When used with a position for changing the camera, this is often referred to as "free cam".
+    ///
+    /// Sometimes the same as [Mode::OffsetViewAligned] or [Mode::OffsetViewAlignedWithY]!
+    OffsetViewAlignedWithY(T),
 }
