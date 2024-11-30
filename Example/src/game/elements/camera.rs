@@ -60,10 +60,9 @@ impl Element for Camera {
                 yaw: PI,
                 ..Default::default()
             }))
-            // TODO
-            // .with_initial_world_change(WorldChange::AppChange(AppChange::ChangeCursorVisible(
-            //     false,
-            // )))
+            .with_initial_world_change(WorldChange::AppChange(AppChange::ChangeCursorVisible(
+                false,
+            )))
             .with_initial_world_change(WorldChange::AppChange(AppChange::ChangeCursorGrabbed(true)))
     }
 
