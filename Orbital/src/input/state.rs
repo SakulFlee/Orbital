@@ -155,14 +155,13 @@ impl InputState {
             // Our "up and down" is Y and our "left and right" is X.
             // In Winit + Gil "up and down" is X and "left and right" is Y.
             // Additionally, the mouse wheel delta for "up" is inverted, so we need to invert that as well.
-            let flipped_delta = Vector2::new(
+            // Gamepad inputs will also be clamped to not allow cheating.
+            let flipped_delta =
                 if InputAxis::MouseMovement.eq(&axis) || InputAxis::MouseScrollWheel.eq(&axis) {
-                    -delta.y
+                    Vector2::new(-delta.y, delta.x)
                 } else {
-                    delta.y
-                },
-                delta.x,
-            );
+                    Vector2::new(delta.y.clamp(-1.0, 1.0), delta.x.clamp(-1.0, 1.0))
+                };
             self.delta_states
                 .entry(input_id)
                 .or_insert(HashMap::new())
