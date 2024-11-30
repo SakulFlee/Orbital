@@ -4,6 +4,7 @@ use orbital::{
     app::AppChange,
     cgmath::{Point3, Vector3},
     game::{CameraChange, Element, ElementRegistration, Mode, WorldChange},
+    gilrs::Button,
     input::{InputAxis, InputButton, InputState},
     resources::descriptors::CameraDescriptor,
     winit::keyboard::{KeyCode, PhysicalKey},
@@ -30,6 +31,8 @@ impl Camera {
 
     pub const GAMEPAD_MOVEMENT_AXIS: InputAxis = InputAxis::GamepadLeftStick;
     pub const GAMEPAD_VIEW_AXIS: InputAxis = InputAxis::GamepadRightStick;
+    pub const GAMEPAD_SPRINT_BUTTON: InputButton = InputButton::Gamepad(Button::East);
+
     pub const KEYBOARD_MOVEMENT_FORWARD: InputButton =
         InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyW));
     pub const KEYBOARD_MOVEMENT_BACKWARD: InputButton =
@@ -77,14 +80,20 @@ impl Element for Camera {
         );
         movement_vector *= delta_time;
 
-        movement_vector *= if input_state
-            .button_state_any(&Self::KEYBOARD_MOVEMENT_SPRINT)
-            .is_some_and(|(_, pressed)| pressed)
-        {
-            Self::MOVEMENT_SPEED * Self::SPRINT_MULTIPLIER
-        } else {
-            Self::MOVEMENT_SPEED
-        };
+        // Check for sprint
+        movement_vector *= Self::MOVEMENT_SPEED
+            * if input_state
+                .button_state_many(&[
+                    &Self::KEYBOARD_MOVEMENT_SPRINT,
+                    &Self::GAMEPAD_SPRINT_BUTTON,
+                ])
+                .iter()
+                .any(|(_, (_, pressed))| *pressed)
+            {
+                Self::SPRINT_MULTIPLIER
+            } else {
+                1.0
+            };
 
         if movement_vector_is_gamepad {
             movement_vector *= Self::GAMEPAD_MOVEMENT_SENSITIVITY;
