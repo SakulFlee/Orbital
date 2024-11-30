@@ -1,5 +1,10 @@
 use orbital::{
-    cgmath::Vector3, game::{Element, ElementRegistration, WorldChange}, input::InputState, loader::{GLTFLoader, GLTFWorkerMode}, transform::Transform
+    async_trait::async_trait,
+    cgmath::Vector3,
+    game::{Element, ElementRegistration, WorldChange},
+    input::InputState,
+    loader::{GLTFLoader, GLTFWorkerMode},
+    transform::Transform,
 };
 
 #[derive(Debug)]
@@ -9,6 +14,7 @@ impl DamagedHelmet {
     const FILE_NAME: &'static str = "Assets/Models/DamagedHelmet.glb";
 }
 
+#[async_trait]
 impl Element for DamagedHelmet {
     fn on_registration(&mut self) -> ElementRegistration {
         ElementRegistration::new(Self::FILE_NAME).with_initial_world_change(
@@ -23,7 +29,11 @@ impl Element for DamagedHelmet {
         )
     }
 
-    fn on_update(&mut self, delta_time: f64, _input_state: &InputState) -> Option<Vec<WorldChange>> {
+    async fn on_update(
+        &mut self,
+        delta_time: f64,
+        _input_state: &InputState,
+    ) -> Option<Vec<WorldChange>> {
         // TODO
         // Some(vec![WorldChange::ApplyTransformModel(
         //     "mesh_helmet_LP_13930damagedHelmet".into(),

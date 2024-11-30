@@ -464,8 +464,8 @@ impl World {
     /// ⚠️ You will only need to call this if you are making your own thing.
     ///
     /// [GameRuntime]: crate::game::GameRuntime
-    pub fn update(&mut self, delta_time: f64, input_state: &InputState) -> Vec<AppChange> {
-        let element_changes = self.element_store.update(delta_time, input_state);
+    pub async fn update(&mut self, delta_time: f64, input_state: &InputState) -> Vec<AppChange> {
+        let element_changes = self.element_store.update(delta_time, input_state).await; // TODO: ?
         self.queue_world_changes.extend(element_changes);
 
         // Cycle loader, enqueue any `Ok`, report any `Err`

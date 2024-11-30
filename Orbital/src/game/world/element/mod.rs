@@ -1,13 +1,10 @@
 use std::fmt::Debug;
 
+use async_trait::async_trait;
 use hashbrown::HashMap;
 use log::warn;
 
-use crate::{
-    game::WorldChange,
-    input::{InputEvent, InputState},
-    variant::Variant,
-};
+use crate::{game::WorldChange, input::InputState, variant::Variant};
 
 pub mod registration;
 pub use registration::*;
@@ -105,12 +102,13 @@ pub use registration::*;
 /// [realized resource]: crate::resources::realizations
 /// [Models]: crate::resources::realizations::Model
 /// [WorldChanges]: super::WorldChange
+#[async_trait]
 pub trait Element: Debug + Send {
     fn on_registration(&mut self) -> ElementRegistration {
         ElementRegistration::default()
     }
 
-    fn on_update(
+    async fn on_update(
         &mut self,
         _delta_time: f64,
         _input_state: &InputState,

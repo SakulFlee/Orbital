@@ -2,6 +2,7 @@ use std::f32::consts::PI;
 
 use orbital::{
     app::AppChange,
+    async_trait::{self, async_trait},
     cgmath::{Point3, Vector3},
     game::{CameraChange, Element, ElementRegistration, Mode, WorldChange},
     gilrs::Button,
@@ -54,6 +55,7 @@ impl Camera {
     }
 }
 
+#[async_trait]
 impl Element for Camera {
     fn on_registration(&mut self) -> ElementRegistration {
         ElementRegistration::new(Self::IDENTIFIER)
@@ -69,7 +71,11 @@ impl Element for Camera {
             .with_initial_world_change(WorldChange::AppChange(AppChange::ChangeCursorGrabbed(true)))
     }
 
-    fn on_update(&mut self, delta_time: f64, input_state: &InputState) -> Option<Vec<WorldChange>> {
+    async fn on_update(
+        &mut self,
+        delta_time: f64,
+        input_state: &InputState,
+    ) -> Option<Vec<WorldChange>> {
         // Calculate movement vector
         let (movement_vector_is_gamepad, mut movement_vector) = input_state.movement_vector(
             Some(&Self::GAMEPAD_MOVEMENT_AXIS),

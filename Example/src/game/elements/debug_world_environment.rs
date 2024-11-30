@@ -1,6 +1,7 @@
 use std::time::Instant;
 
 use orbital::{
+    async_trait::async_trait,
     game::{Element, ElementRegistration, WorldChange},
     input::InputState,
     log::debug,
@@ -43,6 +44,7 @@ impl DebugWorldEnvironment {
     }
 }
 
+#[async_trait]
 impl Element for DebugWorldEnvironment {
     fn on_registration(&mut self) -> ElementRegistration {
         ElementRegistration::new("debug_world_environment")
@@ -52,7 +54,7 @@ impl Element for DebugWorldEnvironment {
     //     self.input_handler.handle_event(input_event);
     // }
 
-    fn on_update(
+    async fn on_update(
         &mut self,
         _delta_time: f64,
         _input_state: &InputState,

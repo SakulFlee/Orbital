@@ -1,3 +1,4 @@
+use futures::{stream::FuturesUnordered, StreamExt};
 use hashbrown::HashMap;
 
 use crate::{error::Error, input::InputState, variant::Variant};
@@ -76,12 +77,15 @@ impl ElementStore {
         }
     }
 
-    pub fn update(&mut self, delta_time: f64, input_state: &InputState) -> Vec<WorldChange> {
+    pub async fn update(&mut self, delta_time: f64, input_state: &InputState) -> Vec<WorldChange> {
         self.element_map
             .values_mut()
-            .filter_map(|x| x.on_update(delta_time, input_state))
-            .flatten()
-            .collect::<Vec<_>>()
+            .map(|element| element.on_update(delta_time, input_state))
+            .collect::<FuturesUnordered<_>>()
+            .filter_map(|changes| async move { changes })
+            .flat_map(|changes| futures::stream::iter(changes))
+            .collect()
+            .await
     }
 
     pub fn add_label(&mut self, element_label: &str, new_labels: Vec<String>) {

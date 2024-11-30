@@ -344,3 +344,4 @@ reexport!(log);
 reexport!(wgpu);
 reexport!(winit);
 reexport!(gilrs);
+reexport!(async_trait);
