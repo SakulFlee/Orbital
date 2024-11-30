@@ -306,6 +306,16 @@ impl InputState {
             .collect()
     }
 
+    /// Calculates the current movement vectors for this input state.
+    /// Will prioritize gamepad inputs over keyboard inputs.
+    /// Uses the button state of any keyboard otherwise.
+    ///
+    /// # Returns
+    /// A tuple of two parts:
+    /// 1. A boolean indicating whether the movement vector is from a gamepad.
+    /// 2. The movement vector to be used for changing the camera.
+    ///
+    /// > Note: We might want to multiply this by delta time and add a sensitivity factor!
     pub fn movement_vector(
         &self,
         input_axis: Option<&InputAxis>,
@@ -313,19 +323,12 @@ impl InputState {
         input_button_backward: &InputButton,
         input_button_left: &InputButton,
         input_button_right: &InputButton,
-    ) -> Vector2<f64> {
+    ) -> (bool, Vector2<f64>) {
         // Prioritize gamepad inputs
         let gamepad_deltas = input_axis.and_then(|axis| self.delta_state_any(axis));
         if let Some((_, delta)) = gamepad_deltas {
-            // let magnitude = delta.magnitude();
-            // return if magnitude > 0.1 {
-            //     delta / magnitude
-            // } else {
-            //     delta
-            // };
-
             if !delta.is_zero() {
-                return delta;
+                return (true, delta);
             }
         }
 
@@ -352,27 +355,32 @@ impl InputState {
             }
         }
 
-        let magnitude = movement.magnitude();
-        if magnitude > 0.1 {
-            movement / magnitude
-        } else {
-            movement
-        }
+        (false, movement)
     }
 
-    pub fn view_vector(&self, gamepad_input_axis: Option<&InputAxis>) -> Vector2<f64> {
+    /// Calculates the current view vectors for this input state.
+    /// Will prioritize gamepad inputs over mouse inputs.
+    /// Uses the delta movement of any mouse otherwise.
+    ///
+    /// # Returns
+    /// A tuple of two parts:
+    /// 1. A boolean indicating whether the view vector is from a gamepad.
+    /// 2. The view vector to be used for changing the camera.
+    ///
+    /// > Note: We might want to multiply this by delta time and add a sensitivity factor!
+    pub fn view_vector(&self, gamepad_input_axis: Option<&InputAxis>) -> (bool, Vector2<f64>) {
         // Prioritize gamepad inputs
         let gamepad_deltas = gamepad_input_axis.and_then(|axis| self.delta_state_any(axis));
         if let Some((_, delta)) = gamepad_deltas {
             if !delta.is_zero() {
-                return delta;
+                return (true, delta);
             }
         }
 
         if let Some((_, delta)) = self.delta_state_any(&InputAxis::MouseMovement) {
-            return delta;
+            return (false, delta);
         }
 
-        Vector2::zero()
+        (false, Vector2::zero())
     }
 }
