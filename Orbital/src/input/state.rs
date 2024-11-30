@@ -1,6 +1,7 @@
 use cgmath::{InnerSpace, Vector2, Zero};
 use gilrs::Axis;
 use hashbrown::HashMap;
+use log::debug;
 use winit::event::{ElementState, MouseScrollDelta};
 
 use super::{InputAxis, InputButton, InputEvent, InputId};
@@ -129,7 +130,7 @@ impl InputState {
                     ),
                     Axis::RightStickY => (
                         InputAxis::GamepadRightStick,
-                        Vector2::new(value as f64, 0.0),
+                        Vector2::new(0.0, value as f64),
                     ),
                     Axis::LeftZ => (InputAxis::GamepadTrigger, Vector2::new(value as f64, 0.0)),
                     Axis::RightZ => (InputAxis::GamepadTrigger, Vector2::new(0.0, value as f64)),
@@ -150,6 +151,18 @@ impl InputState {
                 .and_modify(|x| *x = pressed)
                 .or_insert(pressed);
         } else if let Some((axis, delta)) = input_axis_state {
+            // Our delta has to be flipped here, meaning X = Y and Y = X, since the engine, and thus WGPU and such, use a different coordinate system than what we are reading here.
+            // Our "up and down" is Y and our "left and right" is X.
+            // In Winit + Gil "up and down" is X and "left and right" is Y.
+            // Additionally, the mouse wheel delta for "up" is inverted, so we need to invert that as well.
+            let flipped_delta = Vector2::new(
+                if InputAxis::MouseMovement.eq(&axis) || InputAxis::MouseScrollWheel.eq(&axis) {
+                    -delta.y
+                } else {
+                    delta.y
+                },
+                delta.x,
+            );
             self.delta_states
                 .entry(input_id)
                 .or_insert(HashMap::new())
@@ -157,13 +170,26 @@ impl InputState {
                 .and_modify(|x| match axis {
                     // Mouse inputs need to be summed as they aren't tracking the mouse position directly, but the change in movement.
                     // After a frame is rendered, we need to reset these.
-                    InputAxis::MouseMovement | InputAxis::MouseScrollWheel => *x += delta,
+                    InputAxis::MouseMovement | InputAxis::MouseScrollWheel => *x += flipped_delta,
                     // Gamepad values are stated. Meaning a new input event will always have the total value of the input. Thus, we won't need to summarize here.
                     InputAxis::GamepadLeftStick
                     | InputAxis::GamepadRightStick
-                    | InputAxis::GamepadTrigger => *x = delta,
+                    | InputAxis::GamepadTrigger => {
+                        let x_valid = flipped_delta.x.abs() > 0.0001;
+                        let y_valid = flipped_delta.y.abs() > 0.0001;
+
+                        if x_valid && y_valid {
+                            *x = flipped_delta;
+                        } else if x_valid {
+                            x.x = flipped_delta.x;
+                        } else if y_valid {
+                            x.y = flipped_delta.y;
+                        } else {
+                            *x = Vector2::zero();
+                        }
+                    }
                 })
-                .or_insert(delta);
+                .or_insert(flipped_delta);
         }
     }
 
@@ -339,31 +365,13 @@ impl InputState {
         // Prioritize gamepad inputs
         let gamepad_deltas = gamepad_input_axis.and_then(|axis| self.delta_state_any(axis));
         if let Some((_, delta)) = gamepad_deltas {
-            // let magnitude = delta.magnitude();
-            // return if magnitude > 0.1 {
-            //     delta / magnitude
-            // } else {
-            //     delta
-            // };
             if !delta.is_zero() {
                 return delta;
             }
         }
 
         if let Some((_, delta)) = self.delta_state_any(&InputAxis::MouseMovement) {
-            // TODO: Unsure if magnitude should be use for mouse inputs
-            // let magnitude = delta.magnitude();
-            // return if magnitude > 0.1 {
-            //     delta / magnitude
-            // } else {
-            //     delta
-            // };
-
-            // Coordinates for mouse delta are flipped.
-            // X corresponds to "up and down".
-            // Y corresponds to "left and right".
-            // Additionally, "up and down" needs to be inverted.
-            return Vector2::new(-delta.y, delta.x);
+            return delta;
         }
 
         Vector2::zero()
