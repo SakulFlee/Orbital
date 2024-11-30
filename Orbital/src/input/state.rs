@@ -147,7 +147,7 @@ impl InputState {
                 .entry(input_id)
                 .or_insert(HashMap::new())
                 .entry(axis)
-                .and_modify(|x| *x = delta)
+                .and_modify(|x| *x += delta)
                 .or_insert(delta);
         }
     }
