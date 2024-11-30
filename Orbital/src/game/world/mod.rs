@@ -4,10 +4,13 @@ use log::{info, warn};
 use wgpu::{Device, Queue};
 
 use crate::{
-    app::AppChange, input::InputState, log::error, resources::{
+    app::AppChange,
+    input::InputState,
+    log::error,
+    resources::{
         descriptors::{CameraDescriptor, MaterialDescriptor, ModelDescriptor},
         realizations::{Camera, Model},
-    }
+    },
 };
 
 pub mod change;
@@ -453,10 +456,6 @@ impl World {
         }
 
         self.camera_descriptors.push(descriptor);
-    }
-
-    pub fn on_focus_change(&mut self, focused: bool) {
-        self.element_store.send_focus_change(focused);
     }
 
     /// Processes queued up [WorldChanges]

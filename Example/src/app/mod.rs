@@ -150,13 +150,6 @@ impl<RenderImpl: Renderer + Send> App for MyApp<RenderImpl> {
         }
     }
 
-    async fn on_focus_change(&mut self, focused: bool)
-    where
-        Self: Sized,
-    {
-        self.world.on_focus_change(focused);
-    }
-
     // async fn on_input(&mut self, input_event: &InputEvent) -> ()
     // where
     //     Self: Sized,

@@ -107,9 +107,6 @@ impl AppRuntime {
                                 error!("Failed to send app change to app change channel: {}", e);
                             }
                         }
-                        AppEvent::FocusChange { focused } => {
-                            app.on_focus_change(focused).await;
-                        }
                         AppEvent::Update(input_state) => {
                             if let Some(changes) = app.on_update(&input_state).await {
                                 for app_change in changes {
@@ -693,13 +690,6 @@ impl ApplicationHandler for AppRuntime {
                 device_id,
                 position,
             }),
-            WindowEvent::Focused(focused) => {
-                if let Err(e) = self.event_tx.try_send(AppEvent::FocusChange { focused }) {
-                    error!("Failed sending Mouse moved InputEvent to app: {}!", e);
-                }
-
-                None
-            }
             WindowEvent::Resized(new_size) => {
                 self.surface_configuration = Some(AppRuntime::make_surface_configuration(
                     self.surface.as_ref().unwrap(),

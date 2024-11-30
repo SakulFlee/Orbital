@@ -76,12 +76,6 @@ impl ElementStore {
         }
     }
 
-    pub fn send_focus_change(&mut self, focused: bool) {
-        self.element_map
-            .values_mut()
-            .for_each(|x| x.on_focus_change(focused));
-    }
-
     pub fn update(&mut self, delta_time: f64, input_state: &InputState) -> Vec<WorldChange> {
         self.element_map
             .values_mut()
