@@ -1,8 +1,8 @@
 use wgpu::{Face, FrontFace, PolygonMode, PrimitiveTopology};
 
 use crate::{
-    game::PointLightStore,
     resources::realizations::{Camera, Material},
+    world::PointLightStore,
 };
 
 use super::ShaderDescriptor;

@@ -3,19 +3,20 @@ use std::time::Instant;
 use orbital::{
     app::{App, AppChange},
     cgmath::Vector2,
-    game::{CacheSettings, World, WorldChange},
     input::InputState,
     log::{debug, info, warn},
     renderer::Renderer,
     resources::realizations::{Material, Pipeline},
     timer::Timer,
     wgpu::{Device, Queue, SurfaceConfiguration, TextureView},
+    world::{World, WorldChange},
 };
 
-use crate::game::elements::{
-    camera::Camera, damaged_helmet::DamagedHelmet, debug_world_environment::DebugWorldEnvironment,
-    lights::Lights, pbr_spheres::PBRSpheres, ping_pong::PingPongElement,
-};
+mod cache_settings;
+pub use cache_settings::*;
+
+mod elements;
+use elements::*;
 
 pub struct MyApp<RendererImpl: Renderer + Send> {
     renderer: Option<RendererImpl>,

@@ -1,4 +1,4 @@
-use crate::game::WorldChange;
+use crate::world::WorldChange;
 
 /// Used when registering an [Element](super::Element).
 #[derive(Default, Debug)]
