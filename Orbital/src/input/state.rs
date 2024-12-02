@@ -1,7 +1,6 @@
-use cgmath::{InnerSpace, Vector2, Zero};
+use cgmath::{Vector2, Zero};
 use gilrs::Axis;
 use hashbrown::HashMap;
-use log::debug;
 use winit::event::{ElementState, MouseScrollDelta};
 
 use super::{InputAxis, InputButton, InputEvent, InputId};
@@ -11,6 +10,12 @@ pub struct InputState {
     button_states: HashMap<InputId, HashMap<InputButton, bool>>,
     delta_states: HashMap<InputId, HashMap<InputAxis, Vector2<f64>>>,
     mouse_cursor_position_state: Vector2<f64>,
+}
+
+impl Default for InputState {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl InputState {
@@ -211,14 +216,9 @@ impl InputState {
         self.button_states
             .iter()
             .find(|(_, state)| state.contains_key(input_button))
-            .map(|(input_id, state)| {
-                if let Some(pressed) = state.get(input_button) {
-                    Some((input_id.clone(), pressed.clone()))
-                } else {
-                    None
-                }
+            .and_then(|(input_id, state)| {
+                state.get(input_button).map(|pressed| (*input_id, *pressed))
             })
-            .flatten()
     }
 
     pub fn button_state_many(
@@ -242,11 +242,7 @@ impl InputState {
             .iter()
             .filter(|(_, state)| state.contains_key(input_button))
             .filter_map(|(input_id, state)| {
-                if let Some(pressed) = state.get(input_button) {
-                    Some((input_id.clone(), pressed.clone()))
-                } else {
-                    None
-                }
+                state.get(input_button).map(|pressed| (*input_id, *pressed))
             })
             .collect()
     }
@@ -266,14 +262,9 @@ impl InputState {
         self.delta_states
             .iter()
             .find(|(_, state)| state.contains_key(input_axis))
-            .map(|(input_id, state)| {
-                if let Some(delta) = state.get(input_axis) {
-                    Some((input_id.clone(), delta.clone()))
-                } else {
-                    None
-                }
+            .and_then(|(input_id, state)| {
+                state.get(input_axis).map(|delta| (*input_id, *delta))
             })
-            .flatten()
     }
 
     pub fn delta_state_all(&self, input_axis: &InputAxis) -> Vec<(InputId, Vector2<f64>)> {
@@ -281,11 +272,7 @@ impl InputState {
             .iter()
             .filter(|(_, state)| state.contains_key(input_axis))
             .filter_map(|(input_id, state)| {
-                if let Some(delta) = state.get(input_axis) {
-                    Some((input_id.clone(), delta.clone()))
-                } else {
-                    None
-                }
+                state.get(input_axis).map(|delta| (*input_id, *delta))
             })
             .collect()
     }
@@ -334,10 +321,10 @@ impl InputState {
 
         let mut movement = Vector2::zero();
         let button_state = self.button_state_many(&[
-            &input_button_forward,
-            &input_button_backward,
-            &input_button_left,
-            &input_button_right,
+            input_button_forward,
+            input_button_backward,
+            input_button_left,
+            input_button_right,
         ]);
         for (button, (_, pressed)) in button_state.iter() {
             if !pressed {
