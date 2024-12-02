@@ -182,7 +182,7 @@ impl Renderer for StandardRenderer {
 
         // The cache will automatically recompile itself
         // once a new format is used to access the cache.
-        let _ = Pipeline::prepare_cache_access(Some(&surface_texture_format), device, queue);
+        let _ = Pipeline::prepare_cache_access(Some((&surface_texture_format, device, queue)));
     }
 
     fn change_resolution(&mut self, resolution: Vector2<u32>, device: &Device, queue: &Queue) {

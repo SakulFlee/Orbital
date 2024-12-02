@@ -25,7 +25,9 @@ impl CameraDescriptor {
         if let Some(mode) = change.pitch {
             match mode {
                 Mode::Overwrite(pitch) => self.pitch = pitch,
-                Mode::Offset(pitch) | Mode::OffsetViewAligned(pitch) => self.pitch += pitch,
+                Mode::Offset(pitch)
+                | Mode::OffsetViewAligned(pitch)
+                | Mode::OffsetViewAlignedWithY(pitch) => self.pitch += pitch,
             }
 
             if self.pitch < -Self::SAFE_FRAC_PI_2 {
@@ -38,7 +40,9 @@ impl CameraDescriptor {
         if let Some(mode) = change.yaw {
             match mode {
                 Mode::Overwrite(yaw) => self.yaw = yaw,
-                Mode::Offset(yaw) | Mode::OffsetViewAligned(yaw) => self.yaw += yaw,
+                Mode::Offset(yaw)
+                | Mode::OffsetViewAligned(yaw)
+                | Mode::OffsetViewAlignedWithY(yaw) => self.yaw += yaw,
             }
         }
 
@@ -65,6 +69,22 @@ impl CameraDescriptor {
                     self.position += unit_forward * position.x;
                     self.position += unit_right * position.z;
                     self.position.y += position.y;
+                }
+                Mode::OffsetViewAlignedWithY(position) => {
+                    let (yaw_sin, yaw_cos) = self.yaw.sin_cos();
+                    let (pitch_sin, pitch_cos) = self.pitch.sin_cos();
+
+                    // Find alignment unit vectors
+                    let unit_forward =
+                        Vector3::new(yaw_cos * pitch_cos, pitch_sin, yaw_sin * pitch_cos)
+                            .normalize();
+                    let unit_right = Vector3::new(-yaw_sin, 0.0, yaw_cos).normalize();
+                    let unit_up = unit_right.cross(unit_forward).normalize();
+
+                    // Apply offsets
+                    self.position += unit_forward * position.x;
+                    self.position += unit_right * position.z;
+                    self.position += unit_up * position.y;
                 }
             }
         }

@@ -7,8 +7,29 @@ edition = "2021"
 crate-type = ["lib", "cdylib"]
 
 [features]
-default = ["gltf"]
+default = [
+    "gltf",
+    "game_runtime",
+    "gamepad_input",
+    "gamepad_input_poll",
+    "auto_request_redraw",
+]
+# Enables glTF support.
 gltf = ["dep:easy-gltf", "easy-gltf/names"]
+# Enables the game runtime and integrates it into the app runtime. 
+# This will make many things easier to implement as many things will be handled by the game runtime automatically, while the game-dev can focus on the game.
+# However, this can be too restrictive for a few games.
+# Disabling this feature will give you full control over everything, or, just to implement a simple app, rather than a full game.
+game_runtime = []
+# Enables gamepad inputs from being polled and processed.
+# Note: Winit _does_ have _some_ gamepad input support, but it's not very good at the moment, gilrs takes a much better approach (for now?).
+gamepad_input = ["dep:gilrs"]
+# Automatically polls gamepad inputs and processes them.
+gamepad_input_poll = ["gamepad_input"]
+# Will automatically request a redraw when the last frame was rendered.
+# Enable this for games and applications that need to constantly redraw.
+# Disable this for applications that only need to draw once every now and then.
+auto_request_redraw = []
 
 [dependencies]
 wgpu = { version = "23.0.0", features = [
@@ -36,9 +57,12 @@ pollster = { version = "0.4.0" }
 image = { version = "0.25.0" }
 cgmath = { version = "0.18.0" }
 easy-gltf = { version = "1.1.2", optional = true }
-gilrs = { version = "0.11.0" }
+gilrs = { version = "0.11.0", optional = true }
 crossbeam-channel = "0.5"
-num_cpus = "1.0"
+num_cpus = "1.16.0"
+async-std = { version = "1.13.0" }
+async-trait = "0.1.83"
+futures = "0.3.31"
 
 [target.'cfg(target_os = "android")'.dependencies]
 winit = { version = "0.30.0", features = ["android-native-activity"] }

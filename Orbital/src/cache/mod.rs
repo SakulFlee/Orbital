@@ -120,7 +120,7 @@ where
     /// > This depends on what `Value`'s you are actually storing!
     pub fn cleanup(&mut self, retain_below: Duration) -> CacheChange {
         let mut change = CacheChange::default();
-        change.before = self.size();
+        change.before = self.size();        
 
         self.map.retain(|_k, v| v.elapsed() < retain_below);
 

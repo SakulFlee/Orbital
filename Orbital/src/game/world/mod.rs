@@ -4,7 +4,8 @@ use log::{info, warn};
 use wgpu::{Device, Queue};
 
 use crate::{
-    app::{AppChange, InputEvent},
+    app::AppChange,
+    input::InputState,
     log::error,
     resources::{
         descriptors::{CameraDescriptor, MaterialDescriptor, ModelDescriptor},
@@ -212,28 +213,6 @@ impl World {
         }
     }
 
-    fn process_queue_messages(&mut self) {
-        let mut world_changes = Vec::new();
-
-        for (element_label, messages) in self.queue_messages.drain() {
-            match self.element_store.send_messages(&element_label, messages) {
-                Ok(element_world_changes) => {
-                    world_changes.extend(element_world_changes);
-                }
-                Err(e) => {
-                    error!(
-                        "An error occurred while sending a message to '{}': {:?}",
-                        element_label, e
-                    )
-                }
-            }
-        }
-
-        for world_change in world_changes {
-            self.process_world_change(world_change);
-        }
-    }
-
     pub fn process_world_changes(&mut self) -> Vec<AppChange> {
         let world_changes = std::mem::take(&mut self.queue_world_changes);
 
@@ -247,7 +226,6 @@ impl World {
         self.process_queue_spawn_element();
         self.process_queue_despawn_element();
         self.process_queue_model_despawn();
-        self.process_queue_messages();
 
         app_changes
     }
@@ -265,15 +243,8 @@ impl World {
                 self.queue_model_spawn.push(model_descriptor)
             }
             WorldChange::DespawnModel(model_label) => self.queue_model_despawn.push(model_label),
-            WorldChange::SendMessage(element_label, message) => {
-                match self
-                    .element_store
-                    .send_messages(&element_label, vec![message])
-                {
-                    Ok(world_changes) => self.queue_world_changes.extend(world_changes),
-                    Err(e) => error!("An error occurred while sending a message: {:?}", e),
-                }
-            }
+            WorldChange::SendMessage(message) => self.element_store.queue_message(message),
+
             WorldChange::SpawnCamera(descriptor) => self.spawn_camera(descriptor),
             WorldChange::SpawnCameraAndMakeActive(descriptor) => {
                 let identifier = descriptor.identifier.clone();
@@ -314,6 +285,8 @@ impl World {
                     .find(|x| x.identifier == change.target)
                 {
                     existing_camera_descriptor.apply_change(change);
+                } else {
+                    warn!("Attempting to update non-existing camera: {:?}!", change);
                 }
             }
             WorldChange::AppChange(app_change) => return Some(app_change),
@@ -455,22 +428,14 @@ impl World {
         self.camera_descriptors.push(descriptor);
     }
 
-    pub fn on_focus_change(&mut self, focused: bool) {
-        self.element_store.send_focus_change(focused);
-    }
-
-    pub fn on_input_event(&mut self, input_event: &InputEvent) {
-        self.element_store.send_input_event(input_event);
-    }
-
     /// Processes queued up [WorldChanges]
     ///
     /// ⚠️ This is already called automatically by the [GameRuntime].  
     /// ⚠️ You will only need to call this if you are making your own thing.
     ///
     /// [GameRuntime]: crate::game::GameRuntime
-    pub fn update(&mut self, delta_time: f64) -> Vec<AppChange> {
-        let element_changes = self.element_store.update(delta_time);
+    pub async fn update(&mut self, delta_time: f64, input_state: &InputState) -> Vec<AppChange> {
+        let element_changes = self.element_store.update(delta_time, input_state).await; // TODO: ?
         self.queue_world_changes.extend(element_changes);
 
         // Cycle loader, enqueue any `Ok`, report any `Err`
