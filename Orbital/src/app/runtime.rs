@@ -484,10 +484,8 @@ impl AppRuntime {
                             if let Err(e) = window.set_cursor_grab(CursorGrabMode::Confined) {
                                 error!("Failed to set cursor grab! This might not be supported on your platform. Error: {}", e);
                             }
-                        } else {
-                            if let Err(e) = window.set_cursor_grab(CursorGrabMode::None) {
-                                error!("Failed to unset cursor grab! Error: {}", e);
-                            }
+                        } else if let Err(e) = window.set_cursor_grab(CursorGrabMode::None) {
+                            error!("Failed to unset cursor grab! Error: {}", e);
                         }
                     } else {
                         warn!("Change cursor grabbing requested, but window does not exist!");
