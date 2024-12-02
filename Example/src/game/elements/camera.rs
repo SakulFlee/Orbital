@@ -2,7 +2,7 @@ use std::f32::consts::PI;
 
 use orbital::{
     app::AppChange,
-    async_trait::{self, async_trait},
+    async_trait::{async_trait},
     cgmath::{Point3, Vector3},
     game::{CameraChange, Element, ElementRegistration, Message, Mode, WorldChange},
     gilrs::Button,
