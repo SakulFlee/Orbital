@@ -1,21 +1,18 @@
 use std::f32::consts::PI;
 
 use orbital::{
-    app::{AppChange, InputEvent},
+    app::AppChange,
+    async_trait::{async_trait},
     cgmath::{Point3, Vector3},
-    game::{CameraChange, Element, ElementRegistration, Mode, WorldChange},
-    gilrs::{Axis, Button},
-    log::debug,
+    game::{CameraChange, Element, ElementRegistration, Message, Mode, WorldChange},
+    gilrs::Button,
+    input::{InputAxis, InputButton, InputState},
     resources::descriptors::CameraDescriptor,
-    util::InputHandler,
     winit::keyboard::{KeyCode, PhysicalKey},
 };
 
 #[derive(Debug)]
-pub struct Camera {
-    input_handler: InputHandler,
-    is_focused: bool,
-}
+pub struct Camera {}
 
 impl Default for Camera {
     fn default() -> Self {
@@ -26,90 +23,39 @@ impl Default for Camera {
 impl Camera {
     pub const IDENTIFIER: &'static str = "Main Camera";
 
-    pub const MOVEMENT_SPEED: f32 = 5.0;
-    pub const MOUSE_SENSITIVITY: f32 = 0.0075;
-    pub const GAMEPAD_SENSITIVITY: f32 = 2.5;
+    pub const MOVEMENT_SPEED: f64 = 5.0;
+    pub const SPRINT_MULTIPLIER: f64 = 5.0;
 
-    //--- Keyboard bindings
-    pub const KEY_MOVE_FORWARD: PhysicalKey = PhysicalKey::Code(KeyCode::KeyW);
-    pub const KEY_MOVE_BACKWARD: PhysicalKey = PhysicalKey::Code(KeyCode::KeyS);
-    pub const KEY_MOVE_LEFT: PhysicalKey = PhysicalKey::Code(KeyCode::KeyA);
-    pub const KEY_MOVE_RIGHT: PhysicalKey = PhysicalKey::Code(KeyCode::KeyD);
-    pub const KEY_MOVE_DOWN: PhysicalKey = PhysicalKey::Code(KeyCode::KeyQ);
-    pub const KEY_MOVE_UP: PhysicalKey = PhysicalKey::Code(KeyCode::KeyE);
+    pub const MOUSE_SENSITIVITY: f64 = 1.0;
+    pub const GAMEPAD_MOVEMENT_SENSITIVITY: f64 = 2.5;
+    pub const GAMEPAD_VIEW_SENSITIVITY: f64 = 2.5;
 
-    pub const KEY_DEBUG: PhysicalKey = PhysicalKey::Code(KeyCode::Space);
+    pub const GAMEPAD_MOVEMENT_AXIS: InputAxis = InputAxis::GamepadLeftStick;
+    pub const GAMEPAD_VIEW_AXIS: InputAxis = InputAxis::GamepadRightStick;
+    pub const GAMEPAD_SPRINT_BUTTON: InputButton = InputButton::Gamepad(Button::East);
 
-    //--- Button bindings
-    pub const BUTTON_MOVE_DOWN: Button = Button::DPadDown;
-    pub const BUTTON_MOVE_UP: Button = Button::DPadUp;
+    pub const KEYBOARD_MOVEMENT_FORWARD: InputButton =
+        InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyW));
+    pub const KEYBOARD_MOVEMENT_BACKWARD: InputButton =
+        InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyS));
+    pub const KEYBOARD_MOVEMENT_LEFT: InputButton =
+        InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyA));
+    pub const KEYBOARD_MOVEMENT_RIGHT: InputButton =
+        InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyD));
+    pub const KEYBOARD_MOVEMENT_SPRINT: InputButton =
+        InputButton::Keyboard(PhysicalKey::Code(KeyCode::ShiftLeft));
 
-    //--- Button actions
-    pub const ACTION_MOVE_FORWARD: &'static str = "move_forward";
-    pub const ACTION_MOVE_BACKWARD: &'static str = "move_backward";
-    pub const ACTION_MOVE_LEFT: &'static str = "move_left";
-    pub const ACTION_MOVE_RIGHT: &'static str = "move_right";
-    pub const ACTION_MOVE_DOWN: &'static str = "move_down";
-    pub const ACTION_MOVE_UP: &'static str = "move_up";
+    pub const KEYBOARD_DEBUG: InputButton =
+        InputButton::Keyboard(PhysicalKey::Code(KeyCode::Space));
 
     pub const ACTION_DEBUG: &'static str = "debug";
 
-    //--- Axis bindings
-    pub const AXIS_MOVE_FORWARD_BACKWARD: Axis = Axis::LeftStickY;
-    pub const AXIS_MOVE_LEFT_RIGHT: Axis = Axis::LeftStickX;
-    pub const AXIS_LOOK_UP_DOWN: Axis = Axis::RightStickY;
-    pub const AXIS_LOOK_LEFT_RIGHT: Axis = Axis::RightStickX;
-
-    //--- Axis actions
-    pub const ACTION_MOVE_FORWARD_BACKWARD: &'static str = "move_forward_backward";
-    pub const ACTION_MOVE_LEFT_RIGHT: &'static str = "move_left_right";
-    pub const ACTION_MOVE_UP_DOWN: &'static str = "move_up_down";
-    pub const ACTION_LOOK_LEFT_RIGHT: &'static str = "look_left_right";
-    pub const ACTION_LOOK_UP_DOWN: &'static str = "look_up_down";
-
     pub fn new() -> Self {
-        let mut input_handler = InputHandler::new();
-
-        //--- Keyboard bindings
-        input_handler.register_keyboard_mapping(Self::KEY_MOVE_FORWARD, Self::ACTION_MOVE_FORWARD);
-        input_handler
-            .register_keyboard_mapping(Self::KEY_MOVE_BACKWARD, Self::ACTION_MOVE_BACKWARD);
-        input_handler.register_keyboard_mapping(Self::KEY_MOVE_LEFT, Self::ACTION_MOVE_LEFT);
-        input_handler.register_keyboard_mapping(Self::KEY_MOVE_RIGHT, Self::ACTION_MOVE_RIGHT);
-        input_handler.register_keyboard_mapping(Self::KEY_MOVE_DOWN, Self::ACTION_MOVE_DOWN);
-        input_handler.register_keyboard_mapping(Self::KEY_MOVE_UP, Self::ACTION_MOVE_UP);
-
-        input_handler.register_keyboard_mapping(Self::KEY_DEBUG, Self::ACTION_DEBUG);
-
-        //--- Button bindings
-        input_handler
-            .register_gamepad_button_mapping(Self::BUTTON_MOVE_DOWN, Self::ACTION_MOVE_DOWN);
-        input_handler.register_gamepad_button_mapping(Self::BUTTON_MOVE_UP, Self::ACTION_MOVE_UP);
-
-        //--- Axis bindings
-        input_handler.register_gamepad_axis_mapping(
-            Self::AXIS_MOVE_FORWARD_BACKWARD,
-            Self::ACTION_MOVE_FORWARD_BACKWARD,
-        );
-        input_handler.register_gamepad_axis_mapping(
-            Self::AXIS_MOVE_LEFT_RIGHT,
-            Self::ACTION_MOVE_LEFT_RIGHT,
-        );
-
-        input_handler.register_gamepad_axis_mapping(
-            Self::AXIS_LOOK_LEFT_RIGHT,
-            Self::ACTION_LOOK_LEFT_RIGHT,
-        );
-        input_handler
-            .register_gamepad_axis_mapping(Self::AXIS_LOOK_UP_DOWN, Self::ACTION_LOOK_UP_DOWN);
-
-        Self {
-            input_handler,
-            is_focused: true,
-        }
+        Self {}
     }
 }
 
+#[async_trait]
 impl Element for Camera {
     fn on_registration(&mut self) -> ElementRegistration {
         ElementRegistration::new(Self::IDENTIFIER)
@@ -125,92 +71,78 @@ impl Element for Camera {
             .with_initial_world_change(WorldChange::AppChange(AppChange::ChangeCursorGrabbed(true)))
     }
 
-    fn on_focus_change(&mut self, focused: bool) {
-        self.is_focused = focused;
-        debug!("Focus change: {}", focused);
-    }
-
-    fn on_input_event(&mut self, input_event: &InputEvent) {
-        self.input_handler.handle_event(input_event);
-    }
-
-    fn on_update(&mut self, delta_time: f64) -> Option<Vec<WorldChange>> {
-        if !self.is_focused {
-            return None;
-        }
-
-        // Read input axis
-        let move_forward_backward = self.input_handler.get_dynamic_axis(
-            Self::ACTION_MOVE_FORWARD_BACKWARD,
-            Self::ACTION_MOVE_FORWARD,
-            Self::ACTION_MOVE_BACKWARD,
+    async fn on_update(
+        &mut self,
+        delta_time: f64,
+        input_state: &InputState,
+        _messages: Option<Vec<Message>>,
+    ) -> Option<Vec<WorldChange>> {
+        // Calculate movement vector
+        let (movement_vector_is_gamepad, mut movement_vector) = input_state.movement_vector(
+            Some(&Self::GAMEPAD_MOVEMENT_AXIS),
+            &Self::KEYBOARD_MOVEMENT_FORWARD,
+            &Self::KEYBOARD_MOVEMENT_BACKWARD,
+            &Self::KEYBOARD_MOVEMENT_LEFT,
+            &Self::KEYBOARD_MOVEMENT_RIGHT,
         );
-        let move_left_right = self.input_handler.get_dynamic_axis(
-            Self::ACTION_MOVE_LEFT_RIGHT,
-            Self::ACTION_MOVE_RIGHT,
-            Self::ACTION_MOVE_LEFT,
-        );
-        let move_up_down = self.input_handler.get_dynamic_axis(
-            Self::ACTION_MOVE_UP_DOWN,
-            Self::ACTION_MOVE_UP,
-            Self::ACTION_MOVE_DOWN,
-        );
+        movement_vector *= delta_time;
 
-        // Modify position as needed
-        let mut position = Vector3::new(0.0, 0.0, 0.0);
-        if let Some(axis) = move_forward_backward {
-            position.x += axis * delta_time as f32;
-        }
-        if let Some(axis) = move_left_right {
-            position.z += axis * delta_time as f32;
-        }
-        if let Some(axis) = move_up_down {
-            position.y += axis * delta_time as f32;
-        }
-
-        // Calculate camera rotation
-        let (is_axis, yaw_change, pitch_change) = self
-            .input_handler
-            .calculate_view_change_from_axis_and_mouse_delta(
-                Self::ACTION_LOOK_LEFT_RIGHT,
-                Self::ACTION_LOOK_UP_DOWN,
-            );
-        self.input_handler.reset();
-
-        // Compile CameraChange
-        let change = CameraChange {
-            target: Self::IDENTIFIER,
-            position: if position.x != 0.0 || position.y != 0.0 || position.z != 0.0 {
-                Some(Mode::OffsetViewAligned(position * Self::MOVEMENT_SPEED))
+        // Check for sprint
+        movement_vector *= Self::MOVEMENT_SPEED
+            * if input_state
+                .button_state_many(&[
+                    &Self::KEYBOARD_MOVEMENT_SPRINT,
+                    &Self::GAMEPAD_SPRINT_BUTTON,
+                ])
+                .iter()
+                .any(|(_, (_, pressed))| *pressed)
+            {
+                Self::SPRINT_MULTIPLIER
             } else {
-                None
-            },
-            yaw: Some(Mode::Offset(
-                yaw_change
-                    * if is_axis {
-                        Self::GAMEPAD_SENSITIVITY
-                    } else {
-                        Self::MOUSE_SENSITIVITY
-                    },
-            )),
-            pitch: Some(Mode::Offset(
-                pitch_change
-                    * if is_axis {
-                        Self::GAMEPAD_SENSITIVITY
-                    } else {
-                        Self::MOUSE_SENSITIVITY
-                    },
-            )),
+                1.0
+            };
+
+        if movement_vector_is_gamepad {
+            movement_vector *= Self::GAMEPAD_MOVEMENT_SENSITIVITY;
+        }
+
+        // Calculate view vector
+        let (view_vector_is_gamepad, mut view_vector) =
+            input_state.view_vector(Some(&Self::GAMEPAD_VIEW_AXIS));
+        view_vector *= delta_time;
+
+        view_vector *= if view_vector_is_gamepad {
+            Self::GAMEPAD_VIEW_SENSITIVITY
+        } else {
+            Self::MOUSE_SENSITIVITY
         };
 
-        let mut changes = vec![];
+        // Make camera change
+        let camera_change = CameraChange {
+            target: Self::IDENTIFIER,
+            // Change to Mode::OffsetViewAligned to enter "view aligned" movement.
+            // Change to Mode::OffsetViewAlignedWithY to enter "free cam" movement.
+            position: Some(Mode::OffsetViewAlignedWithY(Vector3::new(
+                movement_vector.x as f32,
+                0.0,
+                movement_vector.y as f32,
+            ))),
+            pitch: Some(Mode::Offset(view_vector.x as f32)),
+            yaw: Some(Mode::Offset(view_vector.y as f32)),
+        };
 
-        if self.input_handler.is_triggered(Self::ACTION_DEBUG) {
-            changes.push(WorldChange::CleanWorld);
+        let mut changes = Vec::new();
+
+        // Only submit a camera change if there is something to update
+        if camera_change.does_change_something() {
+            changes.push(WorldChange::UpdateCamera(camera_change));
         }
 
-        if change.does_change_something() {
-            changes.push(WorldChange::UpdateCamera(change));
+        // Only trigger debug action if the button is pressed
+        if let Some((_, pressed)) = input_state.button_state_any(&Self::KEYBOARD_DEBUG) {
+            if pressed {
+                changes.push(WorldChange::CleanWorld);
+            }
         }
 
         if changes.is_empty() {

@@ -1,3 +1,4 @@
+use wgpu::SurfaceTexture;
 use winit::{dpi::Position, window::Cursor};
 
 #[derive(Debug)]
@@ -7,14 +8,20 @@ pub enum AppChange {
     ChangeCursorAppearance(Cursor),
     /// Changes the mouse cursor position.  
     /// Gets send directly to [winit], issues may appear in log.
+    ///
+    /// Check [Window::set_cursor_position](winit::window::Window::set_cursor_position) for more information and compatibility.
     ChangeCursorPosition(Position),
     /// Changes the mouse cursor visibility.  
     /// `true` means the cursor will be visible, whereas `false` means invisible.  
     /// Gets send directly to [winit], issues may appear in log.
+    ///
+    /// Check [Window::set_cursor_visible](winit::window::Window::set_cursor_visible) for more information and compatibility.
     ChangeCursorVisible(bool),
     /// Changes if the mouse cursor should be grabbed or not.  
     /// A grabbed mouse cursor **cannot** escape the current window.  
     /// Gets send directly to [winit], issues may appear in log.
+    ///
+    /// Check [Window::set_cursor_grab](winit::window::Window::set_cursor_grab) for more information and compatibility.
     ChangeCursorGrabbed(bool),
     /// Requested that the app will close itself as soon as possible.
     /// The internal event loop will be stopped and the window will be closed.
@@ -35,4 +42,8 @@ pub enum AppChange {
     ///
     /// See also: [AppChange::RequestAppClosure]
     ForceAppClosure { exit_code: i32 },
+    /// TODO
+    RequestRedraw,
+    /// TODO
+    FinishedRedraw(SurfaceTexture),
 }

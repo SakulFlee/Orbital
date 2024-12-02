@@ -3,7 +3,7 @@ use std::time::Duration;
 use crate::app::AppSettings;
 
 #[derive(Default, Debug, Clone)]
-pub struct GameSettings {
+pub struct GameSettings {// TODO: Cleanup
     pub app_settings: AppSettings,
     pub pipeline_cache: CacheSettings,
     pub material_cache: CacheSettings,

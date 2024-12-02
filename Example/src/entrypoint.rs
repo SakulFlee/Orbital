@@ -1,18 +1,17 @@
 use orbital::{
-    game::{GameRuntime, GameSettings},
-    logging,
-    renderer::StandardRenderer,
-    winit::{error::EventLoopError, event_loop::EventLoop},
+    app::{AppRuntime, AppSettings}, game::CacheSettings, logging, renderer::StandardRenderer, winit::{error::EventLoopError, event_loop::EventLoop}
 };
 
-use crate::game::ExampleGame;
+use crate::app::MyApp;
 
 pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
     logging::init();
 
     let event_loop = event_loop_result.expect("Event Loop failure");
-    let settings = GameSettings::default();
 
-    GameRuntime::<ExampleGame, StandardRenderer>::liftoff(event_loop, settings)
-        .expect("Runtime failure");
+    let app_settings = AppSettings::default();
+
+    let app = MyApp::<StandardRenderer>::new(CacheSettings::default(), CacheSettings::default());
+
+    AppRuntime::liftoff(event_loop, app_settings, app).expect("Runtime failure");
 }

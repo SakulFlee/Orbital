@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
+use async_std::channel::{Receiver, Sender};
 use cgmath::Vector2;
 use gilrs::Gilrs;
 use log::{debug, error, info, warn};
+use pollster::FutureExt;
 use wgpu::{
     util::{backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env},
     Adapter, Backend, Backends, CompositeAlphaMode, Device, DeviceDescriptor, DeviceType, Features,
@@ -12,20 +14,24 @@ use wgpu::{
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
-    event::{DeviceEvent, DeviceId, StartCause, WindowEvent},
+    event::{DeviceEvent, DeviceId, WindowEvent},
     event_loop::{ActiveEventLoop, EventLoop},
     window::{CursorGrabMode, Window, WindowId},
 };
 
-use crate::error::Error;
+use crate::{
+    error::Error,
+    input::{InputEvent, InputState},
+};
 
-use super::{App, AppChange, AppSettings, InputEvent};
+use super::{App, AppChange, AppEvent, AppSettings};
 
-pub struct AppRuntime<AppImpl: App> {
+pub struct AppRuntime {
+    // Events
+    event_tx: Sender<AppEvent>,
+    app_change_rx: Receiver<AppChange>,
     // App related
-    app: Option<AppImpl>,
     runtime_settings: AppSettings,
-    gil: Gilrs,
     // Window related
     window: Option<Arc<Window>>,
     surface: Option<Surface<'static>>,
@@ -33,28 +39,35 @@ pub struct AppRuntime<AppImpl: App> {
     // Device related
     instance: Option<Instance>,
     adapter: Option<Adapter>,
-    device: Option<Device>,
-    queue: Option<Queue>,
+    device: Option<Arc<Device>>,
+    queue: Option<Arc<Queue>>,
+    /// Indicates whether we already have a frame acquired that is currently
+    /// "in flight" to prevent WGPU from crashing if we re-request the next
+    /// frame while the previous one isn't presented yet.
+    frame_acquired: bool,
+    input_state: InputState,
+    #[cfg(feature = "gamepad_input")]
+    gil: Gilrs,
 }
 
 pub static mut WINDOW_HALF_SIZE: (i32, i32) = (0, 0);
 
-impl<AppImpl: App> AppRuntime<AppImpl> {
-    pub fn liftoff(event_loop: EventLoop<()>, settings: AppSettings) -> Result<(), Error> {
-        info!("Orbital: App Runtime");
+impl AppRuntime {
+    pub fn liftoff(
+        event_loop: EventLoop<()>,
+        settings: AppSettings,
+        mut app: impl App + Send + 'static,
+    ) -> Result<(), Error> {
+        info!("Orbital Runtime");
         info!(" --- @SakulFlee --- ");
 
-        Self::__liftoff(event_loop, settings)
-    }
+        let (event_tx, event_rx) = async_std::channel::unbounded::<AppEvent>();
+        let (app_change_tx, app_change_rx) = async_std::channel::unbounded::<AppChange>();
 
-    pub(crate) fn __liftoff(
-        event_loop: EventLoop<()>,
-        runtime_settings: AppSettings,
-    ) -> Result<(), Error> {
-        let mut runtime = Self {
-            app: None,
-            runtime_settings,
-            gil: Gilrs::new().unwrap(),
+        let mut app_runtime = Self {
+            event_tx: event_tx.clone(),
+            app_change_rx,
+            runtime_settings: settings,
             window: None,
             surface: None,
             surface_configuration: None,
@@ -62,11 +75,66 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
             adapter: None,
             device: None,
             queue: None,
+            frame_acquired: false,
+            input_state: InputState::new(),
+            #[cfg(feature = "gamepad_input")]
+            gil: Gilrs::new().expect("Gamepad input initialization failed!"),
         };
 
-        event_loop
-            .run_app(&mut runtime)
-            .map_err(Error::EventLoopError)
+        let app_handle = async_std::task::spawn(async move {
+            debug!(
+                "EVENT thread: {:?} [{}]",
+                std::thread::current().id(),
+                std::thread::current().name().unwrap_or("UNNAMED")
+            );
+
+            loop {
+                if let Ok(event) = event_rx.recv().await {
+                    match event {
+                        AppEvent::Resumed(surface_configuration, device, queue) => {
+                            app.on_resume(&surface_configuration, &device, &queue).await;
+                        }
+                        AppEvent::Suspended => app.on_suspend().await,
+                        AppEvent::Resize(size, device, queue) => {
+                            app.on_resize(size, &device, &queue).await
+                        }
+                        AppEvent::Render(frame, view, device, queue) => {
+                            app.on_render(&view, &device, &queue).await;
+
+                            if let Err(e) =
+                                app_change_tx.send(AppChange::FinishedRedraw(frame)).await
+                            {
+                                error!("Failed to send app change to app change channel: {}", e);
+                            }
+                        }
+                        AppEvent::Update(input_state) => {
+                            if let Some(changes) = app.on_update(&input_state).await {
+                                for app_change in changes {
+                                    if let Err(e) = app_change_tx.send(app_change).await {
+                                        error!(
+                                            "Failed to send app change to app change channel: {}",
+                                            e
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        let result = event_loop
+            .run_app(&mut app_runtime)
+            .map_err(Error::EventLoopError);
+
+        // Terminate app handle
+        app_handle
+            .cancel()
+            .block_on()
+            .expect("Failed interrupting app thread!");
+
+        result
     }
 
     fn make_instance() -> Instance {
@@ -253,23 +321,26 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
         surface_configuration
     }
 
-    pub fn reconfigure_surface(&mut self) {
+    pub fn reconfigure_surface(&mut self)
+    where
+        Self: Sized + Send,
+    {
         self.surface.as_ref().unwrap().configure(
             self.device.as_ref().unwrap(),
             self.surface_configuration.as_ref().unwrap(),
         );
 
-        if let Some(app) = &mut self.app {
-            let config_ref = self.surface_configuration.as_ref().unwrap();
+        let config_ref = self.surface_configuration.as_ref().unwrap();
 
-            app.on_resize(
-                Vector2 {
-                    x: config_ref.width,
-                    y: config_ref.height,
-                },
-                self.device.as_ref().unwrap(),
-                self.queue.as_ref().unwrap(),
-            )
+        if let Err(e) = self.event_tx.try_send(AppEvent::Resize(
+            Vector2 {
+                x: config_ref.width,
+                y: config_ref.height,
+            },
+            self.device.as_ref().unwrap().clone(),
+            self.queue.as_ref().unwrap().clone(),
+        )) {
+            error!("Failed to send resize event: {}", e);
         }
     }
 
@@ -299,6 +370,14 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
     }
 
     pub fn redraw(&mut self) {
+        // Skip if a frame is already acquired.
+        // Prevents WGPU from throwing validation errors when we are
+        // re-requesting the next frame, when the current frame isn't
+        // presented yet.
+        if self.frame_acquired {
+            return;
+        }
+
         // Check if surface and device are present
         if self.surface.is_none() || self.device.is_none() {
             warn!("Redraw requested, but runtime is in an incomplete state!");
@@ -314,23 +393,27 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
                 .view_formats
                 .first()
             {
+                self.frame_acquired = true;
+
                 let view = frame.texture.create_view(&TextureViewDescriptor {
                     format: Some(*format),
                     ..TextureViewDescriptor::default()
                 });
 
-                // Render!
-                self.app
-                    .as_mut()
-                    .expect("Redraw on runtime without app")
-                    .on_render(
-                        &view,
-                        self.device.as_ref().unwrap(),
-                        self.queue.as_ref().unwrap(),
-                    );
-
-                // Present the frame after rendering and inform the window about a redraw being needed
-                frame.present();
+                // Trigger Render: This is NOT directly rendering, but sending
+                // an event on the message challenge to inform the App it should
+                // render "now". This is NOT blocking, meaning we can't expect
+                // the frame to be ready rendered immediately after.
+                // Instead, we move the `frame.present()` over after App
+                // actually received the event and DID the rendering!
+                if let Err(e) = self.event_tx.try_send(AppEvent::Render(
+                    frame,
+                    view,
+                    self.device.as_ref().unwrap().clone(),
+                    self.queue.as_ref().unwrap().clone(),
+                )) {
+                    error!("Failed to send render event: {}", e);
+                }
             } else {
                 warn!("Surface configuration doesn't have any view formats!");
             }
@@ -339,86 +422,107 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
         }
     }
 
-    fn gamepad_inputs(&mut self) {
-        if let Some(app) = &mut self.app {
-            while let Some(gil_event) = self.gil.next_event() {
-                if let Some(input_event) = InputEvent::convert(gil_event) {
-                    app.on_input(&input_event);
-                }
+    #[cfg(feature = "gamepad_input")]
+    fn receive_controller_inputs(&mut self) {
+        use crate::input::InputEvent;
+
+        while let Some(gil_event) = self.gil.next_event() {
+            if let Some(input_event) = InputEvent::convert_gil_event(gil_event) {
+                self.input_state.handle_event(input_event);
             }
         }
     }
 
-    fn update(&mut self) -> bool {
-        self.gamepad_inputs();
+    fn update(&mut self) {
+        // TODO: Needed?
         self.calculate_center_point();
 
-        let mut app_changes = Vec::new();
-        if let Some(app) = self.app.as_mut() {
-            let option_changes = app.on_update();
+        // Check for gamepad input events if the feature is enabled
+        #[cfg(feature = "gamepad_input_poll")]
+        self.receive_controller_inputs();
 
-            if let Some(proposed_changes) = option_changes {
-                app_changes.extend(proposed_changes);
-            }
-        } else {
-            warn!("App not present in Runtime! Skipping update.")
+        // Trigger an update with the input state!
+        if let Err(e) = self
+            .event_tx
+            .try_send(AppEvent::Update(self.input_state.clone()))
+        {
+            error!("Failed to send update event: {}", e);
         }
+    }
 
-        for app_change in app_changes {
+    fn process_app_changes(&mut self) -> bool {
+        let mut exit_requested = false;
+
+        while let Ok(app_change) = self.app_change_rx.try_recv() {
             match app_change {
-                AppChange::RequestAppClosure => {
-                    return true;
-                }
-                AppChange::ForceAppClosure { exit_code } => {
-                    std::process::exit(exit_code);
-                }
-                AppChange::ChangeCursorAppearance(x) => {
-                    if let Some(window) = &mut self.window {
-                        window.set_cursor(x);
+                AppChange::ChangeCursorAppearance(cursor) => {
+                    if let Some(window) = &self.window {
+                        window.set_cursor(cursor);
                     } else {
-                        error!("AppChange::ChangeCursorAppearance proposed, but Window does not exist yet!");
+                        warn!("Change cursor appearance requested, but window does not exist!");
                     }
                 }
-                AppChange::ChangeCursorPosition(x) => {
-                    if let Some(window) = &mut self.window {
-                        if let Err(e) = window.set_cursor_position(x) {
-                            error!("AppChange::ChangeCursorPosition failed to change cursor position due to an external error: {}", e);
+                AppChange::ChangeCursorPosition(position) => {
+                    if let Some(window) = &self.window {
+                        if let Err(e) = window.set_cursor_position(position) {
+                            error!("Failed to set cursor position: {}", e);
                         }
                     } else {
-                        error!("AppChange::ChangeCursorPosition proposed, but Window does not exist yet!");
+                        warn!("Change cursor position requested, but window does not exist!");
                     }
                 }
-                AppChange::ChangeCursorVisible(x) => {
-                    if let Some(window) = &mut self.window {
-                        window.set_cursor_visible(x);
+                AppChange::ChangeCursorVisible(visible) => {
+                    if let Some(window) = &self.window {
+                        window.set_cursor_visible(visible);
                     } else {
-                        error!("AppChange::ChangeCursorVisible proposed, but Window does not exist yet!");
+                        warn!("Change cursor visibility requested, but window does not exist!");
                     }
                 }
-                AppChange::ChangeCursorGrabbed(x) => {
-                    if let Some(window) = &mut self.window {
-                        if x {
-                            if let Err(e) = window
-                                .set_cursor_grab(CursorGrabMode::Confined)
-                                .or_else(|_e| window.set_cursor_grab(CursorGrabMode::Locked))
-                            {
-                                error!("AppChange::ChangeCursorGrabbed failed to grab cursor due to an external error: {}", e);
+                AppChange::ChangeCursorGrabbed(grab) => {
+                    if let Some(window) = &self.window {
+                        if grab {
+                            if let Err(e) = window.set_cursor_grab(CursorGrabMode::Confined) {
+                                error!("Failed to set cursor grab! This might not be supported on your platform. Error: {}", e);
                             }
                         } else if let Err(e) = window.set_cursor_grab(CursorGrabMode::None) {
-                            error!("AppChange::ChangeCursorGrabbed failed to release cursor due to an external error: {}", e);
+                            error!("Failed to unset cursor grab! Error: {}", e);
                         }
                     } else {
-                        error!("AppChange::ChangeCursorVisible proposed, but Window does not exist yet!");
+                        warn!("Change cursor grabbing requested, but window does not exist!");
                     }
+                }
+                AppChange::RequestAppClosure => {
+                    warn!("App closure was requested!");
+                    exit_requested = true;
+                }
+                AppChange::ForceAppClosure { exit_code } => {
+                    warn!(
+                        "Force app closure was requested with exit code {}!",
+                        exit_code
+                    );
+                    std::process::exit(exit_code);
+                }
+                AppChange::RequestRedraw => {
+                    if let Some(window) = &self.window {
+                        window.request_redraw();
+                    } else {
+                        warn!("Redraw requested, but window does not exist!");
+                    }
+                }
+                AppChange::FinishedRedraw(frame) => {
+                    frame.present();
+                    self.frame_acquired = false;
+
+                    self.input_state.reset_deltas();
                 }
             }
         }
 
-        false
+        exit_requested
     }
 }
 
-impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
+impl ApplicationHandler for AppRuntime {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         // Fill window handle and remake the device & queue chain
         self.window = Some(Arc::new(
@@ -432,7 +536,7 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
                 .unwrap(),
         ));
 
-        self.instance = Some(Self::make_instance());
+        self.instance = Some(AppRuntime::make_instance());
 
         self.surface = Some(
             self.instance
@@ -447,7 +551,7 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
                 .expect("Surface creation failed"),
         );
 
-        let mut adapters_ranked = Self::retrieve_and_rank_adapters(
+        let mut adapters_ranked = AppRuntime::retrieve_and_rank_adapters(
             self.instance
                 .as_ref()
                 .expect("Expected an Instance to exist by now!"),
@@ -464,7 +568,7 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
         self.adapter = Some(chosen_adapter);
 
         let window_size = self.window.as_ref().unwrap().inner_size();
-        self.surface_configuration = Some(Self::make_surface_configuration(
+        self.surface_configuration = Some(AppRuntime::make_surface_configuration(
             self.surface
                 .as_ref()
                 .expect("Expected a Surface to exist by now!"),
@@ -475,37 +579,36 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
             self.runtime_settings.vsync_enabled,
         ));
 
-        let (device, queue) = Self::make_device_and_queue(
+        let (device, queue) = AppRuntime::make_device_and_queue(
             self.adapter
                 .as_ref()
                 .expect("Expected an Adapter to be set by now!"),
         );
-        self.device = Some(device);
-        self.queue = Some(queue);
+        self.device = Some(Arc::new(device));
+        self.queue = Some(Arc::new(queue));
 
         self.reconfigure_surface();
 
-        // Check if the app exists. If not, create it.
-        if self.app.is_none() {
-            info!("Bootstrapping app ...");
-
-            self.app = Some(AppImpl::init(
-                self.surface_configuration
-                    .as_ref()
-                    .expect("Expected a SurfaceConfiguration to exist by now!"),
-                self.device
-                    .as_ref()
-                    .expect("Expected a Device to exist by now!"),
-                self.queue
-                    .as_ref()
-                    .expect("Expected a Queue to exist by now!"),
-            ));
+        if let Err(e) = self.event_tx.try_send(AppEvent::Resumed(
+            self.surface_configuration
+                .as_ref()
+                .expect("Expected a SurfaceConfiguration to exist by now!")
+                .clone(),
+            self.device
+                .as_ref()
+                .expect("Expected a Device to exist by now!")
+                .clone(),
+            self.queue
+                .as_ref()
+                .expect("Expected a Queue to exist by now!")
+                .clone(),
+        )) {
+            error!("Failed to send WindowEvent to App: {}", e);
         }
     }
 
     fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
         // Invalidate everything related to the window, surface and device.
-        // (Except for the app!)
         self.window = None;
         self.surface = None;
         self.surface_configuration = None;
@@ -513,6 +616,10 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
         self.adapter = None;
         self.device = None;
         self.queue = None;
+
+        if let Err(e) = self.event_tx.try_send(AppEvent::Suspended) {
+            error!("Failed to send Suspend Event to App: {}", e);
+        }
     }
 
     fn window_event(
@@ -526,9 +633,63 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
             return;
         }
 
-        match event {
+        let input_event = match event {
+            WindowEvent::CloseRequested => {
+                event_loop.exit();
+                None
+            }
+            WindowEvent::RedrawRequested => {
+                self.update();
+
+                let close_requested = self.process_app_changes();
+                if close_requested {
+                    event_loop.exit();
+                    return;
+                }
+
+                self.redraw();
+
+                #[cfg(feature = "auto_request_redraw")]
+                self.window.as_ref().unwrap().request_redraw();
+
+                None
+            }
+            WindowEvent::KeyboardInput {
+                device_id,
+                event,
+                is_synthetic,
+            } => Some(InputEvent::KeyboardButton {
+                device_id,
+                event,
+                is_synthetic,
+            }),
+            WindowEvent::MouseInput {
+                device_id,
+                state,
+                button,
+            } => Some(InputEvent::MouseButton {
+                device_id,
+                state,
+                button,
+            }),
+            WindowEvent::MouseWheel {
+                device_id,
+                delta,
+                phase,
+            } => Some(InputEvent::MouseWheel {
+                device_id,
+                delta,
+                phase,
+            }),
+            WindowEvent::CursorMoved {
+                device_id,
+                position,
+            } => Some(InputEvent::MouseMovedPosition {
+                device_id,
+                position,
+            }),
             WindowEvent::Resized(new_size) => {
-                self.surface_configuration = Some(Self::make_surface_configuration(
+                self.surface_configuration = Some(AppRuntime::make_surface_configuration(
                     self.surface.as_ref().unwrap(),
                     self.adapter.as_ref().unwrap(),
                     new_size,
@@ -536,129 +697,14 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
                 ));
 
                 self.reconfigure_surface();
-            }
-            WindowEvent::CloseRequested => {
-                info!("Close requested!");
-                event_loop.exit();
-            }
-            WindowEvent::RedrawRequested => {
-                let close_request = self.update();
-                if close_request {
-                    event_loop.exit();
-                    return;
-                }
 
-                self.redraw();
+                None
+            }
+            _ => None,
+        };
 
-                self.window.as_ref().unwrap().request_redraw();
-            }
-            WindowEvent::Focused(focused) => {
-                if let Some(app) = &mut self.app {
-                    app.on_focus_change(focused);
-                }
-            }
-            WindowEvent::KeyboardInput {
-                device_id,
-                event,
-                is_synthetic,
-            } => {
-                if let Some(app) = &mut self.app {
-                    app.on_input(&InputEvent::KeyboardButton {
-                        device_id,
-                        event,
-                        is_synthetic,
-                    })
-                }
-            }
-            WindowEvent::MouseInput {
-                device_id,
-                state,
-                button,
-            } => {
-                if let Some(app) = &mut self.app {
-                    app.on_input(&InputEvent::MouseButton {
-                        device_id,
-                        state,
-                        button,
-                    })
-                }
-            }
-            WindowEvent::MouseWheel {
-                device_id,
-                delta,
-                phase,
-            } => {
-                if let Some(app) = &mut self.app {
-                    app.on_input(&InputEvent::MouseWheel {
-                        device_id,
-                        delta,
-                        phase,
-                    })
-                }
-            }
-            WindowEvent::CursorMoved {
-                device_id,
-                position,
-            } => {
-                if let Some(app) = &mut self.app {
-                    app.on_input(&InputEvent::MouseMovedPosition {
-                        device_id,
-                        position,
-                    })
-                }
-            }
-            WindowEvent::ModifiersChanged(_) => (),
-            WindowEvent::ActivationTokenDone {
-                serial: _,
-                token: _,
-            } => (),
-            WindowEvent::Moved(_) => (),
-            WindowEvent::Destroyed => (),
-            WindowEvent::DroppedFile(_) => (),
-            WindowEvent::HoveredFile(_) => (),
-            WindowEvent::HoveredFileCancelled => (),
-            WindowEvent::Ime(_) => (),
-            WindowEvent::CursorEntered { device_id: _ } => (),
-            WindowEvent::CursorLeft { device_id: _ } => (),
-            WindowEvent::PinchGesture {
-                device_id: _,
-                delta: _,
-                phase: _,
-            } => (),
-            WindowEvent::PanGesture {
-                device_id: _,
-                delta: _,
-                phase: _,
-            } => (),
-            WindowEvent::DoubleTapGesture { device_id: _ } => (),
-            WindowEvent::RotationGesture {
-                device_id: _,
-                delta: _,
-                phase: _,
-            } => (),
-            WindowEvent::TouchpadPressure {
-                device_id: _,
-                pressure: _,
-                stage: _,
-            } => (),
-            WindowEvent::AxisMotion {
-                device_id: _,
-                axis: _,
-                value: _,
-            } => (),
-            WindowEvent::Touch(_) => (),
-            WindowEvent::ScaleFactorChanged {
-                scale_factor: _,
-                inner_size_writer: _,
-            } => (),
-            WindowEvent::ThemeChanged(_) => (),
-            WindowEvent::Occluded(_) => (),
-        }
-    }
-
-    fn new_events(&mut self, _event_loop: &ActiveEventLoop, start_cause: StartCause) {
-        if let Some(app) = self.app.as_mut() {
-            app.on_next_event_cycle(start_cause);
+        if let Some(input_event) = input_event {
+            self.input_state.handle_event(input_event);
         }
     }
 
@@ -666,33 +712,10 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
         &mut self,
         _event_loop: &ActiveEventLoop,
         device_id: DeviceId,
-        event: DeviceEvent,
+        device_event: DeviceEvent,
     ) {
-        if let Some(app) = self.app.as_mut() {
-            app.on_device_event(device_id, event);
-        }
-    }
-
-    fn memory_warning(&mut self, _event_loop: &ActiveEventLoop) {
-        if let Some(app) = self.app.as_mut() {
-            app.on_memory_warning();
-        }
-    }
-}
-
-impl<AppImpl: App> Default for AppRuntime<AppImpl> {
-    fn default() -> Self {
-        Self {
-            app: Default::default(),
-            runtime_settings: Default::default(),
-            gil: Gilrs::new().unwrap(),
-            window: Default::default(),
-            surface: Default::default(),
-            surface_configuration: Default::default(),
-            instance: Default::default(),
-            adapter: Default::default(),
-            device: Default::default(),
-            queue: Default::default(),
+        if let Some(input_event) = InputEvent::convert_device_event(device_id, device_event) {
+            self.input_state.handle_event(input_event);
         }
     }
 }

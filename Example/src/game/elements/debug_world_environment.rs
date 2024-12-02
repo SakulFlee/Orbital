@@ -1,8 +1,9 @@
 use std::time::Instant;
 
 use orbital::{
-    app::InputEvent,
-    game::{Element, ElementRegistration, WorldChange},
+    async_trait::async_trait,
+    game::{Element, ElementRegistration, Message, WorldChange},
+    input::InputState,
     log::debug,
     resources::descriptors::SkyboxType,
     util::InputHandler,
@@ -43,16 +44,18 @@ impl DebugWorldEnvironment {
     }
 }
 
+#[async_trait]
 impl Element for DebugWorldEnvironment {
     fn on_registration(&mut self) -> ElementRegistration {
         ElementRegistration::new("debug_world_environment")
     }
-
-    fn on_input_event(&mut self, input_event: &InputEvent) {
-        self.input_handler.handle_event(input_event);
-    }
-
-    fn on_update(&mut self, _delta_time: f64) -> Option<Vec<WorldChange>> {
+    
+    async fn on_update(
+        &mut self,
+        _delta_time: f64,
+        _input_state: &InputState,
+        _messages: Option<Vec<Message>>,
+    ) -> Option<Vec<WorldChange>> {
         if self.last_trigger.elapsed().as_secs() < 1 {
             return None;
         }
