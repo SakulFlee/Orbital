@@ -150,13 +150,6 @@ impl<RenderImpl: Renderer + Send> App for MyApp<RenderImpl> {
         }
     }
 
-    // async fn on_input(&mut self, input_event: &InputEvent) -> ()
-    // where
-    //     Self: Sized,
-    // {
-    //     self.world.on_input_event(input_event);
-    // }
-
     async fn on_update(&mut self, input_state: &InputState) -> Option<Vec<AppChange>>
     where
         Self: Sized,

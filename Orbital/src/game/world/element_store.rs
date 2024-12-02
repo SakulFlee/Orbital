@@ -1,25 +1,32 @@
+use std::time::Instant;
+
 use futures::{stream::FuturesUnordered, StreamExt};
-use hashbrown::HashMap;
+use hashbrown::{hash_map::Entry, HashMap};
+use log::{debug, warn};
 
-use crate::{error::Error, input::InputState, variant::Variant};
+use crate::input::InputState;
 
-use super::{Element, WorldChange};
+use super::{Element, Message, WorldChange};
 
 type ElementIndexType = u64;
 
 #[derive(Debug)]
 pub struct ElementStore {
-    pub element_map: HashMap<ElementIndexType, Box<dyn Element + Send>>,
-    pub cursor_index: ElementIndexType,
-    pub label_map: HashMap<String, ElementIndexType>,
+    element_map: HashMap<ElementIndexType, Box<dyn Element + Send>>,
+    cursor_index: ElementIndexType,
+    label_map: HashMap<String, ElementIndexType>,
+    message_queue: HashMap<String, Vec<Message>>,
 }
 
 impl ElementStore {
+    pub const MAX_TIME_IN_SECONDS: u64 = 5;
+
     pub fn new() -> Self {
         Self {
             element_map: HashMap::new(),
-            cursor_index: 0,
+            cursor_index: ElementIndexType::MIN,
             label_map: HashMap::new(),
+            message_queue: HashMap::new(),
         }
     }
 
@@ -27,6 +34,7 @@ impl ElementStore {
         self.element_map.clear();
         self.cursor_index = 0;
         self.label_map.clear();
+        self.message_queue.clear();
     }
 
     pub fn store_element(&mut self, element: Box<dyn Element>, labels: Vec<String>) {
@@ -54,38 +62,64 @@ impl ElementStore {
         }
     }
 
-    pub fn send_messages(
-        &mut self,
-        element_label: &str,
-        messages: Vec<HashMap<String, Variant>>,
-    ) -> Result<Vec<WorldChange>, Error> {
-        if let Some(element_id) = self.label_map.get(element_label).cloned() {
-            let element = self
-                .element_map
-                .get_mut(&element_id)
-                .expect("Element label found and ID resolved, but Element doesn't exist.");
-
-            let world_changes: Vec<_> = messages
-                .into_iter()
-                .filter_map(|message| element.on_message(message))
-                .flatten()
-                .collect();
-
-            Ok(world_changes)
-        } else {
-            Err(Error::NotFound)
+    pub fn queue_message(&mut self, message: Message) {
+        // TODO: Potentially unnecessary string conversions!
+        match self.message_queue.entry(message.to().to_string()) {
+            Entry::Occupied(mut occupied_entry) => {
+                occupied_entry.get_mut().push(message);
+            }
+            Entry::Vacant(vacant_entry) => {
+                vacant_entry.insert(vec![message]);
+            }
         }
     }
 
     pub async fn update(&mut self, delta_time: f64, input_state: &InputState) -> Vec<WorldChange> {
-        self.element_map
-            .values_mut()
-            .map(|element| element.on_update(delta_time, input_state))
+        // Draining here will remove the messages from the queue so we don't need to clean/clear after!
+        let mut messages = self.message_queue.drain().collect::<HashMap<_, _>>();
+
+        let x = self
+            .element_map
+            .iter_mut()
+            .map(|(element_id, element)| {
+                (
+                    self.label_map
+                        .iter()
+                        .find(|(_, id)| element_id == *id)
+                        .map(|(label, _)| label)
+                        .expect("Cannot find element label from id! This should never happen..."),
+                    element,
+                )
+            })
+            .map(|(label, element)| {
+                let messages = messages.remove(label);
+                element.on_update(delta_time, input_state, messages)
+            })
             .collect::<FuturesUnordered<_>>()
             .filter_map(|changes| async move { changes })
             .flat_map(|changes| futures::stream::iter(changes))
             .collect()
-            .await
+            .await;
+
+        if messages.len() > 0 {
+            let now = Instant::now();
+            messages
+                .values_mut()
+                .for_each(|messages| {
+                    messages.retain(|message| {
+                        if message.creation_instant().duration_since(now).as_secs() >= Self::MAX_TIME_IN_SECONDS {
+                            warn!("Message has exceeded the maximum time of {} seconds. Removing message: '{:?}'", Self::MAX_TIME_IN_SECONDS, message);
+                            return false;
+                        }
+
+                        true
+                    });
+                });
+
+            self.message_queue.extend(messages);
+        }
+
+        x
     }
 
     pub fn add_label(&mut self, element_label: &str, new_labels: Vec<String>) {

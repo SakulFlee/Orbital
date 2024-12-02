@@ -135,7 +135,7 @@ pub enum WorldChange {
     /// Will be rejected if an [Element] with the specified _Identifier_ was
     /// not found.
     ///
-    SendMessage(String, Message),
+    SendMessage(Message),
     /// Spawns a [Camera] into the [World].
     ///
     /// # Rejection
