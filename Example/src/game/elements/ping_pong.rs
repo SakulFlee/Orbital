@@ -3,7 +3,6 @@ use orbital::{
     game::{Element, ElementRegistration, Message, WorldChange},
     hashbrown::HashMap,
     input::InputState,
-    log::{debug, info},
     variant::Variant,
 };
 
@@ -47,45 +46,42 @@ impl Element for PingPongElement {
         _input_state: &InputState,
         messages_option: Option<Vec<Message>>,
     ) -> Option<Vec<WorldChange>> {
-        match messages_option {
-            Some(messages) => {
-                for message in messages {
-                    if let Some(payload) = message.get("payload") {
-                        if let Variant::Boolean(is_ping) = payload {
-                            if *is_ping && !self.is_ping {
-                                // Disabled to prevent log spam!
-                                // debug!("Ping Received! Sending Pong back.");
-                                return Some(vec![WorldChange::SendMessage(
-                                    Message::new_from_message(
-                                        Self::LABEL_PONG.into(),
-                                        Self::LABEL_PING.into(),
-                                        HashMap::from_iter(vec![(
-                                            "payload".into(),
-                                            Variant::Boolean(self.is_ping),
-                                        )]),
-                                    ),
-                                )]);
-                            } else if !*is_ping && self.is_ping {
-                                // Disabled to prevent log spam!
-                                // debug!("Pong Received! Sending Ping back.");
-                                return Some(vec![WorldChange::SendMessage(
-                                    Message::new_from_message(
-                                        Self::LABEL_PING.into(),
-                                        Self::LABEL_PONG.into(),
-                                        HashMap::from_iter(vec![(
-                                            "payload".into(),
-                                            Variant::Boolean(self.is_ping),
-                                        )]),
-                                    ),
-                                )]);
-                            } else {
-                                panic!("Received Ping payload as Ping element, or, Pong payload as Pong element. This should never happen!");
-                            }
+        if let Some(messages) = messages_option {
+            for message in messages {
+                if let Some(payload) = message.get("payload") {
+                    if let Variant::Boolean(is_ping) = payload {
+                        if *is_ping && !self.is_ping {
+                            // Disabled to prevent log spam!
+                            // debug!("Ping Received! Sending Pong back.");
+                            return Some(vec![WorldChange::SendMessage(
+                                Message::new_from_message(
+                                    Self::LABEL_PONG.into(),
+                                    Self::LABEL_PING.into(),
+                                    HashMap::from_iter(vec![(
+                                        "payload".into(),
+                                        Variant::Boolean(self.is_ping),
+                                    )]),
+                                ),
+                            )]);
+                        } else if !*is_ping && self.is_ping {
+                            // Disabled to prevent log spam!
+                            // debug!("Pong Received! Sending Ping back.");
+                            return Some(vec![WorldChange::SendMessage(
+                                Message::new_from_message(
+                                    Self::LABEL_PING.into(),
+                                    Self::LABEL_PONG.into(),
+                                    HashMap::from_iter(vec![(
+                                        "payload".into(),
+                                        Variant::Boolean(self.is_ping),
+                                    )]),
+                                ),
+                            )]);
+                        } else {
+                            panic!("Received Ping payload as Ping element, or, Pong payload as Pong element. This should never happen!");
                         }
                     }
                 }
             }
-            None => (),
         }
 
         // None
