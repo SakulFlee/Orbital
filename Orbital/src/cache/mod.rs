@@ -1,6 +1,5 @@
 use std::{hash::Hash, time::Duration};
 
-use async_std::stream;
 use change::CacheChange;
 use entry::CacheEntry;
 use hashbrown::HashMap;
