@@ -1,13 +1,13 @@
 use std::fmt::Debug;
 
 use async_trait::async_trait;
-use hashbrown::HashMap;
-use log::warn;
-
-use crate::{game::WorldChange, input::InputState, variant::Variant};
 
 pub mod registration;
 pub use registration::*;
+
+use crate::input::InputState;
+
+use super::{Message, WorldChange};
 
 /// An [Element] is a **thing** inside a [World].  
 /// Whenever you need something in your world, be it static or updated,
@@ -112,13 +112,8 @@ pub trait Element: Debug + Send {
         &mut self,
         _delta_time: f64,
         _input_state: &InputState,
+        _messages: Option<Vec<Message>>,
     ) -> Option<Vec<WorldChange>> {
-        None
-    }
-
-    fn on_message(&mut self, message: HashMap<String, Variant>) -> Option<Vec<WorldChange>> {
-        warn!("Unhandled message received: {:#?}", message);
-
         None
     }
 }

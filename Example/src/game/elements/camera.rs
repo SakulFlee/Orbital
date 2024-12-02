@@ -4,7 +4,7 @@ use orbital::{
     app::AppChange,
     async_trait::{self, async_trait},
     cgmath::{Point3, Vector3},
-    game::{CameraChange, Element, ElementRegistration, Mode, WorldChange},
+    game::{CameraChange, Element, ElementRegistration, Message, Mode, WorldChange},
     gilrs::Button,
     input::{InputAxis, InputButton, InputState},
     resources::descriptors::CameraDescriptor,
@@ -75,6 +75,7 @@ impl Element for Camera {
         &mut self,
         delta_time: f64,
         input_state: &InputState,
+        _messages: Option<Vec<Message>>,
     ) -> Option<Vec<WorldChange>> {
         // Calculate movement vector
         let (movement_vector_is_gamepad, mut movement_vector) = input_state.movement_vector(

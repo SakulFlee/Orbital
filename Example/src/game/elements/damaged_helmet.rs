@@ -1,7 +1,7 @@
 use orbital::{
     async_trait::async_trait,
     cgmath::Vector3,
-    game::{Element, ElementRegistration, WorldChange},
+    game::{Element, ElementRegistration, Message, WorldChange},
     input::InputState,
     loader::{GLTFLoader, GLTFWorkerMode},
     transform::Transform,
@@ -33,6 +33,7 @@ impl Element for DamagedHelmet {
         &mut self,
         delta_time: f64,
         _input_state: &InputState,
+        _messages: Option<Vec<Message>>,
     ) -> Option<Vec<WorldChange>> {
         // TODO
         // Some(vec![WorldChange::ApplyTransformModel(

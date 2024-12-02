@@ -1,6 +1,6 @@
 use element_store::ElementStore;
 use hashbrown::HashMap;
-use log::{info, warn};
+use log::{debug, info, warn};
 use wgpu::{Device, Queue};
 
 use crate::{
@@ -213,28 +213,6 @@ impl World {
         }
     }
 
-    fn process_queue_messages(&mut self) {
-        let mut world_changes = Vec::new();
-
-        for (element_label, messages) in self.queue_messages.drain() {
-            match self.element_store.send_messages(&element_label, messages) {
-                Ok(element_world_changes) => {
-                    world_changes.extend(element_world_changes);
-                }
-                Err(e) => {
-                    error!(
-                        "An error occurred while sending a message to '{}': {:?}",
-                        element_label, e
-                    )
-                }
-            }
-        }
-
-        for world_change in world_changes {
-            self.process_world_change(world_change);
-        }
-    }
-
     pub fn process_world_changes(&mut self) -> Vec<AppChange> {
         let world_changes = std::mem::take(&mut self.queue_world_changes);
 
@@ -248,7 +226,6 @@ impl World {
         self.process_queue_spawn_element();
         self.process_queue_despawn_element();
         self.process_queue_model_despawn();
-        self.process_queue_messages();
 
         app_changes
     }
@@ -266,15 +243,8 @@ impl World {
                 self.queue_model_spawn.push(model_descriptor)
             }
             WorldChange::DespawnModel(model_label) => self.queue_model_despawn.push(model_label),
-            WorldChange::SendMessage(element_label, message) => {
-                match self
-                    .element_store
-                    .send_messages(&element_label, vec![message])
-                {
-                    Ok(world_changes) => self.queue_world_changes.extend(world_changes),
-                    Err(e) => error!("An error occurred while sending a message: {:?}", e),
-                }
-            }
+            WorldChange::SendMessage(message) => self.element_store.queue_message(message),
+
             WorldChange::SpawnCamera(descriptor) => self.spawn_camera(descriptor),
             WorldChange::SpawnCameraAndMakeActive(descriptor) => {
                 let identifier = descriptor.identifier.clone();
