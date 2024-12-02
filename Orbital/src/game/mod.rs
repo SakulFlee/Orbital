@@ -258,7 +258,7 @@ pub use world::*;
 /// [Models]: crate::resources::realizations::Model
 /// [Element]: crate::game::world::element::Element
 /// [Elements]: crate::game::world::element::Element
-pub trait Game {
+pub trait Game { // TODO: Cleanup
     /// Gets called once, upon [GameRuntime::liftoff].  
     /// Any initialization you may need should happen inside here.
     fn init() -> Self

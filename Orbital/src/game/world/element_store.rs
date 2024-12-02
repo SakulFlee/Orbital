@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use futures::{stream::FuturesUnordered, StreamExt};
 use hashbrown::{hash_map::Entry, HashMap};
-use log::{debug, warn};
+use log::warn;
 
 use crate::input::InputState;
 
