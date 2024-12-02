@@ -97,11 +97,11 @@ impl ElementStore {
             })
             .collect::<FuturesUnordered<_>>()
             .filter_map(|changes| async move { changes })
-            .flat_map(|changes| futures::stream::iter(changes))
+            .flat_map(futures::stream::iter)
             .collect()
             .await;
 
-        if messages.len() > 0 {
+        if !messages.is_empty() {
             let now = Instant::now();
             messages
                 .values_mut()
