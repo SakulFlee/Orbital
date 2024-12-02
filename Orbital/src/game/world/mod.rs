@@ -1,6 +1,6 @@
 use element_store::ElementStore;
 use hashbrown::HashMap;
-use log::{debug, info, warn};
+use log::{info, warn};
 use wgpu::{Device, Queue};
 
 use crate::{
