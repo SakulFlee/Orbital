@@ -165,7 +165,7 @@ impl<RenderImpl: Renderer + Send> App for MyApp<RenderImpl> {
         (!app_changes.is_empty()).then_some(app_changes)
     }
 
-    async fn on_render(&mut self, target_view: &TextureView, device: &Device, queue: &Queue) -> ()
+    async fn on_render(&mut self, target_view: &TextureView, device: &Device, queue: &Queue)
     where
         Self: Sized,
     {
