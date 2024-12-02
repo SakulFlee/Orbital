@@ -61,8 +61,8 @@ pub use light_store::*;
 /// on the next cycle if possible.
 /// Changes get executed in-order of queueing (FIFO).
 ///
-/// [Game]: crate::game::Game
-/// [Elements]: crate::game::world::element::Element
+/// [Game]: crate::world::Game
+/// [Elements]: crate::world::World::element::Element
 /// [realized resource]: crate::resources::realizations
 /// [realized resources]: crate::resources::realizations
 #[derive(Debug)]
@@ -433,7 +433,7 @@ impl World {
     /// ⚠️ This is already called automatically by the [GameRuntime].  
     /// ⚠️ You will only need to call this if you are making your own thing.
     ///
-    /// [GameRuntime]: crate::game::GameRuntime
+    /// [GameRuntime]: crate::world::GameRuntime
     pub async fn update(&mut self, delta_time: f64, input_state: &InputState) -> Vec<AppChange> {
         let element_changes = self.element_store.update(delta_time, input_state).await; // TODO: ?
         self.queue_world_changes.extend(element_changes);
@@ -468,7 +468,7 @@ impl World {
     /// ⚠️ This is already called automatically by the [GameRuntime].  
     /// ⚠️ You will only need to call this if you are making your own thing.
     ///
-    /// [GameRuntime]: crate::game::GameRuntime
+    /// [GameRuntime]: crate::world::GameRuntime
     /// [WorldChanges]: WorldChange
     pub fn prepare_render(&mut self, device: &Device, queue: &Queue) {
         self.process_queue_model_spawn();

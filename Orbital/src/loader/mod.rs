@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::{error::Error, game::WorldChange};
+use crate::{error::Error, world::WorldChange};
 
 mod gltf;
 pub use gltf::*;

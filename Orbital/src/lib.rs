@@ -303,13 +303,13 @@
 //! [AppRuntime]: crate::app::AppRuntime
 //! [App]: crate::app::App
 //! [Apps]: crate::app::App
-//! [GameRuntime]: crate::game::GameRuntime
-//! [Game]: crate::game::Game
-//! [Games]: crate::game::Game
+//! [GameRuntime]: crate::world::GameRuntime
+//! [Game]: crate::world::Game
+//! [Games]: crate::world::Game
 //! [Device]: crate::wgpu::Device
 //! [Queue]: crate::wgpu::Queue
-//! [Elements]: crate::game::world::element::Element
-//! [World]: crate::game::world::World
+//! [Elements]: crate::world::World::element::Element
+//! [World]: crate::world::World::World
 //! [Winit]: crate::winit
 //! [EventLoop]: crate::winit::event_loop::EventLoop
 
@@ -317,7 +317,6 @@
 pub mod app;
 pub mod cache;
 pub mod error;
-pub mod game;
 pub mod input;
 pub mod loader;
 pub mod logging;
@@ -327,6 +326,7 @@ pub mod timer;
 pub mod transform;
 pub mod util;
 pub mod variant;
+pub mod world;
 
 // Re-exports
 macro_rules! reexport {

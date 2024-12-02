@@ -7,20 +7,9 @@ edition = "2021"
 crate-type = ["lib", "cdylib"]
 
 [features]
-default = [
-    "gltf",
-    "game_runtime",
-    "gamepad_input",
-    "gamepad_input_poll",
-    "auto_request_redraw",
-]
+default = ["gltf", "gamepad_input", "gamepad_input_poll", "auto_request_redraw"]
 # Enables glTF support.
 gltf = ["dep:easy-gltf", "easy-gltf/names"]
-# Enables the game runtime and integrates it into the app runtime. 
-# This will make many things easier to implement as many things will be handled by the game runtime automatically, while the game-dev can focus on the game.
-# However, this can be too restrictive for a few games.
-# Disabling this feature will give you full control over everything, or, just to implement a simple app, rather than a full game.
-game_runtime = []
 # Enables gamepad inputs from being polled and processed.
 # Note: Winit _does_ have _some_ gamepad input support, but it's not very good at the moment, gilrs takes a much better approach (for now?).
 gamepad_input = ["dep:gilrs"]

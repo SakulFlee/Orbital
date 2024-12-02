@@ -1,14 +1,5 @@
 use std::time::Duration;
 
-use crate::app::AppSettings;
-
-#[derive(Default, Debug, Clone)]
-pub struct GameSettings {// TODO: Cleanup
-    pub app_settings: AppSettings,
-    pub pipeline_cache: CacheSettings,
-    pub material_cache: CacheSettings,
-}
-
 #[derive(Debug, Clone)]
 pub struct CacheSettings {
     pub cleanup_interval: Duration,

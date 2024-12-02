@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use orbital::{
     async_trait::async_trait,
-    game::{Element, ElementRegistration, Message, WorldChange},
+    world::{Element, ElementRegistration, Message, WorldChange},
     input::InputState,
     log::debug,
     resources::descriptors::SkyboxType,

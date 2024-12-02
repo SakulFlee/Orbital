@@ -5,9 +5,9 @@ use log::{debug, error, warn};
 
 use crate::{
     error::Error,
-    game::WorldChange,
     resources::descriptors::{CameraDescriptor, LightDescriptor, ModelDescriptor},
     transform::Transform,
+    world::WorldChange,
 };
 
 use super::Loader;
