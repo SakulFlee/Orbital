@@ -269,9 +269,9 @@ use crate::input::InputState;
 /// [EventLoop]: crate::winit::event_loop::EventLoop
 /// [EventLoops]: crate::winit::event_loop::EventLoop
 /// [Apps]: crate::app::App
-/// [Game]: crate::game::Game
-/// [Games]: crate::game::Game
-/// [GameRuntime]: crate::game::GameRuntime
+/// [Game]: crate::world::Game
+/// [Games]: crate::world::Game
+/// [GameRuntime]: crate::world::GameRuntime
 /// [winit]: crate::winit
 pub trait App {
     /// Gets called upon the [App] getting resumed _OR_ when the [App] got initiated first time and we know have access to the GPU via [Device] & [Queue].

@@ -4,9 +4,9 @@ use cgmath::{Quaternion, Vector3};
 use hashbrown::HashMap;
 
 use crate::{
-    game::WorldChange,
     loader::{GLTFIdentifier, GLTFLoader, GLTFWorkerMode, Loader},
     transform::Transform,
+    world::WorldChange,
 };
 
 const TEST_FILE_PATH: &str = "../Assets/Models/PBR_Spheres.glb";

@@ -6,8 +6,8 @@ use wgpu::{
 };
 
 use crate::{
-    game::CameraChange,
     resources::descriptors::{CameraDescriptor, PipelineBindGroupLayout},
+    world::CameraChange,
 };
 
 #[derive(Debug)]

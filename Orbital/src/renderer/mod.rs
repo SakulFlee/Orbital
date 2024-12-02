@@ -1,7 +1,7 @@
 use cgmath::Vector2;
 use wgpu::{Device, Queue, TextureFormat, TextureView};
 
-use crate::game::World;
+use crate::world::World;
 
 pub mod standard;
 pub use standard::*;

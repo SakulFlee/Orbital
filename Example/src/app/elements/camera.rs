@@ -4,7 +4,7 @@ use orbital::{
     app::AppChange,
     async_trait::{async_trait},
     cgmath::{Point3, Vector3},
-    game::{CameraChange, Element, ElementRegistration, Message, Mode, WorldChange},
+    world::{CameraChange, Element, ElementRegistration, Message, Mode, WorldChange},
     gilrs::Button,
     input::{InputAxis, InputButton, InputState},
     resources::descriptors::CameraDescriptor,

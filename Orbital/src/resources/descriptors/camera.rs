@@ -2,7 +2,7 @@ use std::f32::consts::FRAC_PI_2;
 
 use cgmath::{InnerSpace, Point3, Vector3};
 
-use crate::game::{CameraChange, Mode};
+use crate::world::{CameraChange, Mode};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CameraDescriptor {

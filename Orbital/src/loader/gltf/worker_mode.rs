@@ -17,7 +17,7 @@ pub enum GLTFWorkerMode {
     /// To trigger a "scene change" like in other engines, see:  
     /// [WorldChange::CleanWorld].
     ///
-    /// [WorldChange::CleanWorld]: crate::game::WorldChange::CleanWorld
+    /// [WorldChange::CleanWorld]: crate::world::WorldChange::CleanWorld
     LoadScenes {
         scene_identifiers: Vec<GLTFIdentifier>,
     },
