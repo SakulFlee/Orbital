@@ -1,8 +1,11 @@
 use orbital::{
-    app::{AppRuntime, AppSettings}, game::CacheSettings, logging, renderer::StandardRenderer, winit::{error::EventLoopError, event_loop::EventLoop}
+    app::{AppRuntime, AppSettings},
+    logging,
+    renderer::StandardRenderer,
+    winit::{error::EventLoopError, event_loop::EventLoop},
 };
 
-use crate::app::MyApp;
+use crate::app::{CacheSettings, MyApp};
 
 pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
     logging::init();

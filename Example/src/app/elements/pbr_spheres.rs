@@ -1,5 +1,5 @@
 use orbital::{
-    game::{Element, ElementRegistration, WorldChange},
+    world::{Element, ElementRegistration, WorldChange},
     loader::{GLTFLoader, GLTFWorkerMode},
 };
 

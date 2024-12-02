@@ -1,6 +1,6 @@
 use orbital::{
     async_trait::async_trait,
-    game::{Element, ElementRegistration, Message, WorldChange},
+    world::{Element, ElementRegistration, Message, WorldChange},
     hashbrown::HashMap,
     input::InputState,
     variant::Variant,

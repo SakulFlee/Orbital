@@ -1,7 +1,7 @@
 use orbital::{
     cgmath::Vector3,
-    game::{Element, ElementRegistration, WorldChange},
     resources::{descriptors::LightDescriptor, realizations::PointLight},
+    world::{Element, ElementRegistration, WorldChange},
 };
 
 #[derive(Debug)]

@@ -1,7 +1,7 @@
 use orbital::{
     async_trait::async_trait,
     cgmath::Vector3,
-    game::{Element, ElementRegistration, Message, WorldChange},
+    world::{Element, ElementRegistration, Message, WorldChange},
     input::InputState,
     loader::{GLTFLoader, GLTFWorkerMode},
     transform::Transform,

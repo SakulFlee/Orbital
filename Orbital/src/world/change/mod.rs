@@ -1,6 +1,6 @@
 use crate::{
     app::AppChange,
-    game::Element,
+    world::Element,
     loader::Loader,
     resources::descriptors::{
         CameraDescriptor, LightDescriptor, MaterialDescriptor, ModelDescriptor, SkyboxType,
@@ -231,7 +231,7 @@ pub enum WorldChange {
     /// The first one would be nulled.
     ///
     ///
-    /// [World]: crate::game::world::World
+    /// [World]: crate::world::World::World
     /// [Model]: crate::resources::realizations::Model
     CleanWorld,
     /// Enqueues a [Loader] of any kind to the [World].
