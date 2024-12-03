@@ -1,7 +1,9 @@
+use std::time::Instant;
+
 use element_store::ElementStore;
 use hashbrown::HashMap;
 use log::{info, warn};
-use wgpu::{Device, Queue};
+use wgpu::{Device, Instance, Queue};
 
 use crate::{
     app::AppChange,
@@ -104,6 +106,7 @@ pub struct World {
     // --- Environment ---
     world_environment: MaterialDescriptor,
     loader_executor: LoaderExecutor,
+    close_requested_timer: Option<Instant>,
 }
 
 impl Default for World {
@@ -130,6 +133,7 @@ impl World {
             next_camera: Default::default(),
             world_environment: MaterialDescriptor::default_world_environment(),
             loader_executor: LoaderExecutor::new(None),
+            close_requested_timer: None,
         }
     }
 
@@ -455,9 +459,22 @@ impl World {
         // Process through `WorldChange`s and pass on any `AppChange`s
         let mut app_changes = self.process_world_changes();
         if self.element_store.element_count() == 0 {
-            warn!("No more elements in World! Exiting ...");
-
-            app_changes.push(AppChange::ForceAppClosure { exit_code: 0 });
+            match self.close_requested_timer {
+                Some(timer) => {
+                    // This should be after softly requesting!
+                    if timer.elapsed().as_secs() > 5 {
+                        warn!("No more elements in World and close request didn't work yet! Force Quitting!");
+                        app_changes.push(AppChange::ForceAppClosure { exit_code: 0 });
+                    }
+                }
+                None => {
+                    // This should be first!
+                    // Attempt to softly request the app to close first.
+                    self.close_requested_timer = Some(Instant::now());
+                    warn!("No more elements in World! Exiting ...");
+                    app_changes.push(AppChange::RequestAppClosure);
+                }
+            }
         }
         app_changes
     }
