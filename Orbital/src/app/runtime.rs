@@ -2,9 +2,10 @@ use std::sync::Arc;
 
 use async_std::channel::{Receiver, Sender};
 use cgmath::Vector2;
+use futures::FutureExt;
 use gilrs::Gilrs;
 use log::{debug, error, info, warn};
-use pollster::FutureExt;
+
 use wgpu::{
     util::{backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env},
     Adapter, Backend, Backends, CompositeAlphaMode, Device, DeviceDescriptor, DeviceType, Features,
@@ -129,10 +130,7 @@ impl AppRuntime {
             .map_err(Error::EventLoopError);
 
         // Terminate app handle
-        app_handle
-            .cancel()
-            .block_on()
-            .expect("Failed interrupting app thread!");
+        let _ = app_handle.cancel().now_or_never();
 
         result
     }
