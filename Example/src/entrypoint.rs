@@ -12,7 +12,8 @@ pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
 
     let event_loop = event_loop_result.expect("Event Loop failure");
 
-    let app_settings = AppSettings::default();
+    let mut app_settings = AppSettings::default();
+    app_settings.vsync_enabled = false;
 
     let app = MyApp::<StandardRenderer>::new(CacheSettings::default(), CacheSettings::default());
 

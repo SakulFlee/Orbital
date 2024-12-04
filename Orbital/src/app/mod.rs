@@ -1,5 +1,6 @@
 //! ⚠️ You are most likely looking for the [App] description!
 
+use log::debug;
 use wgpu::{Device, Queue, SurfaceConfiguration, TextureView};
 
 pub mod settings;
@@ -324,6 +325,8 @@ pub trait App {
     fn on_update(
         &mut self,
         _input_state: &InputState,
+        _delta_time: f64,
+        _cycle: Option<(f64, u64)>,
     ) -> impl std::future::Future<Output = Option<Vec<AppChange>>> + Send
     where
         Self: Sized,
