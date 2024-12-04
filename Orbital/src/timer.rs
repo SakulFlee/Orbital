@@ -1,75 +1,69 @@
-use std::time::Instant;
+use std::{arch::x86_64::_SIDD_LEAST_SIGNIFICANT, time::Instant};
 
 pub struct Timer {
+    /// Last time when tick was called.
+    /// Used to calculate the current delta.
     last_time: Instant,
-    current_cycle_count: u64,
+    /// FPS = UPS  
+    /// (Frames Per Second == Updates Per Second)
+    fps: u64,
+    /// The time that has passed since the last tick.  
+    /// I.e. the time passed since the last update cycle and frame.
+    delta_time: f64,
+    /// The total time that has passed during this whole cycle.
+    /// Each cycle should last at least a single second, but it can be longer in case of e.g. lag.
     cycle_delta_time: f64,
-    current_delta_time: f64,
-    last_fps: u64,
-    last_delta_time: f64,
 }
 
 impl Timer {
     pub fn new() -> Self {
         Self {
             last_time: Instant::now(),
-            current_cycle_count: 0u64,
+            fps: 0u64,
+            delta_time: 0f64,
             cycle_delta_time: 0f64,
-            current_delta_time: 0f64,
-            last_fps: 0u64,
-            last_delta_time: 0f64,
         }
     }
 
-    pub fn tick(&mut self) -> Option<(f64, u64)> {
-        // Take a snapshot and reassign our time
-        let elapsed = self.last_time.elapsed();
-        self.last_time = Instant::now();
+    /// Will perform a few calculations in succession to accurately calculate a delta time, to be used in e.g. updating, and fps reading.
+    /// Must be called each update cycle, otherwise this will be inaccurate.
+    ///
+    /// # Delta time vs. Cycle delta time
+    /// Delta time is the time passed since the last tick (and thus update/frame).
+    /// Cycle delta time is the time passed since the last cycle.
+    ///
+    /// Cycle delta time is an accumulation (summarization) of delta times, over at least one second, possibly longer in case of e.g. lag.
+    ///
+    /// Thus, delta time should be used to e.g. update between frames.  
+    /// Cycle delta time should be used as a metric of FPS stability.
+    ///
+    /// # Returns
+    /// Returns two (*three) things as a tuple:
+    /// 1. The current delta time, will always be returned.
+    /// 2. `Some(fps, cycle delta time)`, if a cycle has concluded.
+    ///    `None`, otherwise.
+    pub fn tick(&mut self) -> (f64, Option<(f64, u64)>) {
+        let now = Instant::now();
+        let elapsed = now.duration_since(self.last_time);
+        self.last_time = now;
 
-        // Convert our snapshot into elapsed seconds, increase current delta
-        // time and increment cycle count
-        self.cycle_delta_time = elapsed.as_secs_f64();
-        self.current_delta_time += self.cycle_delta_time;
-        self.current_cycle_count += 1;
+        self.delta_time = elapsed.as_secs_f64().clamp(0.0, 1.0);
 
-        // If current delta time is more than a second, reset cycle and return
-        if self.current_delta_time >= 1.0 {
-            // Make the result FIRST!
-            // We are resetting the timer below!
-            self.last_fps = self.current_cycle_count();
-            self.last_delta_time = self.current_delta_time();
-            let output = Some((self.last_delta_time, self.last_fps));
+        self.cycle_delta_time += self.delta_time;
+        self.fps += 1;
 
-            self.current_cycle_count = 0;
-            self.current_delta_time -= 1.0;
-            if self.current_delta_time < 0.0 {
-                self.current_delta_time = 0.0;
-            }
+        let cycle_part = if self.cycle_delta_time >= 1.0 {
+            let output = Some((self.cycle_delta_time, self.fps));
 
-            return output;
-        }
+            self.cycle_delta_time -= 1.0;
+            self.fps = 0;
 
-        None
-    }
+            output
+        } else {
+            None
+        };
 
-    pub fn current_cycle_count(&self) -> u64 {
-        self.current_cycle_count
-    }
-
-    pub fn cycle_delta_time(&self) -> f64 {
-        self.cycle_delta_time
-    }
-
-    pub fn current_delta_time(&self) -> f64 {
-        self.current_delta_time
-    }
-
-    pub fn last_fps(&self) -> u64 {
-        self.last_fps
-    }
-
-    pub fn last_delta_time(&self) -> f64 {
-        self.last_delta_time
+        (self.delta_time, cycle_part)
     }
 }
 

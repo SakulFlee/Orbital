@@ -15,14 +15,15 @@ use wgpu::{
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
-    event::{DeviceEvent, DeviceId, WindowEvent},
-    event_loop::{ActiveEventLoop, EventLoop},
+    event::{self, DeviceEvent, DeviceId, WindowEvent},
+    event_loop::{self, ActiveEventLoop, EventLoop},
     window::{CursorGrabMode, Window, WindowId},
 };
 
 use crate::{
     error::Error,
     input::{InputEvent, InputState},
+    timer::Timer,
 };
 
 use super::{App, AppChange, AppEvent, AppSettings};
@@ -42,6 +43,7 @@ pub struct AppRuntime {
     adapter: Option<Adapter>,
     device: Option<Arc<Device>>,
     queue: Option<Arc<Queue>>,
+    timer: Option<Timer>,
     /// Indicates whether we already have a frame acquired that is currently
     /// "in flight" to prevent WGPU from crashing if we re-request the next
     /// frame while the previous one isn't presented yet.
@@ -76,6 +78,7 @@ impl AppRuntime {
             adapter: None,
             device: None,
             queue: None,
+            timer: None,
             frame_acquired: false,
             input_state: InputState::new(),
             #[cfg(feature = "gamepad_input")]
@@ -84,7 +87,7 @@ impl AppRuntime {
 
         let app_handle = async_std::task::spawn(async move {
             debug!(
-                "EVENT thread: {:?} [{}]",
+                "App thread: {:?} [{}]",
                 std::thread::current().id(),
                 std::thread::current().name().unwrap_or("UNNAMED")
             );
@@ -108,8 +111,14 @@ impl AppRuntime {
                                 error!("Failed to send app change to app change channel: {}", e);
                             }
                         }
-                        AppEvent::Update(input_state) => {
-                            if let Some(changes) = app.on_update(&input_state).await {
+                        AppEvent::Update {
+                            input_state,
+                            delta_time,
+                            cycle,
+                        } => {
+                            if let Some(changes) =
+                                app.on_update(&input_state, delta_time, cycle).await
+                            {
                                 for app_change in changes {
                                     if let Err(e) = app_change_tx.send(app_change).await {
                                         error!(
@@ -432,6 +441,15 @@ impl AppRuntime {
     }
 
     fn update(&mut self) {
+        let (delta_time, cycle) = self.timer.as_mut().expect("Timer went missing").tick();
+
+        if let Some((total_delta, fps)) = cycle {
+            debug!(
+                "FPS: {} | TDT: {}s | CDT: {}s",
+                fps, total_delta, delta_time
+            );
+        }
+
         // TODO: Needed?
         self.calculate_center_point();
 
@@ -440,10 +458,11 @@ impl AppRuntime {
         self.receive_controller_inputs();
 
         // Trigger an update with the input state!
-        if let Err(e) = self
-            .event_tx
-            .try_send(AppEvent::Update(self.input_state.clone()))
-        {
+        if let Err(e) = self.event_tx.try_send(AppEvent::Update {
+            input_state: self.input_state.clone(),
+            delta_time,
+            cycle,
+        }) {
             error!("Failed to send update event: {}", e);
         }
     }
@@ -511,7 +530,10 @@ impl AppRuntime {
                     frame.present();
                     self.frame_acquired = false;
 
-                    self.input_state.reset_deltas();
+                    self.input_state.reset_deltas(); // TODO: Move to update?
+
+                    // Trigger next update cycle after the frame was fully rendered!
+                    self.update();
                 }
             }
         }
@@ -585,6 +607,8 @@ impl ApplicationHandler for AppRuntime {
         self.device = Some(Arc::new(device));
         self.queue = Some(Arc::new(queue));
 
+        self.timer = Some(Timer::new());
+
         self.reconfigure_surface();
 
         if let Err(e) = self.event_tx.try_send(AppEvent::Resumed(
@@ -614,6 +638,7 @@ impl ApplicationHandler for AppRuntime {
         self.adapter = None;
         self.device = None;
         self.queue = None;
+        self.timer = None;
 
         if let Err(e) = self.event_tx.try_send(AppEvent::Suspended) {
             error!("Failed to send Suspend Event to App: {}", e);
@@ -637,18 +662,14 @@ impl ApplicationHandler for AppRuntime {
                 None
             }
             WindowEvent::RedrawRequested => {
-                self.update();
-
-                let close_requested = self.process_app_changes();
-                if close_requested {
-                    event_loop.exit();
-                    return;
-                }
-
                 self.redraw();
 
                 #[cfg(feature = "auto_request_redraw")]
                 self.window.as_ref().unwrap().request_redraw();
+
+                if self.process_app_changes() {
+                    event_loop.exit();
+                }
 
                 None
             }
