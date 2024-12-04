@@ -7,7 +7,6 @@ use orbital::{
     log::{debug, info, warn},
     renderer::Renderer,
     resources::realizations::{Material, Pipeline},
-    timer::Timer,
     wgpu::{Device, Queue, SurfaceConfiguration, TextureView},
     world::{World, WorldChange},
 };
@@ -21,7 +20,6 @@ use elements::*;
 pub struct MyApp<RendererImpl: Renderer + Send> {
     renderer: Option<RendererImpl>,
     world: World,
-    timer: Timer,
     cache_settings_pipelines: CacheSettings,
     cache_settings_materials: CacheSettings,
     cache_timer_pipelines: Instant,
@@ -36,7 +34,6 @@ impl<RenderImpl: Renderer + Send> MyApp<RenderImpl> {
         Self {
             renderer: None,
             world: World::new(),
-            timer: Timer::new(),
             cache_settings_pipelines,
             cache_settings_materials,
             cache_timer_pipelines: Instant::now(),
@@ -151,16 +148,24 @@ impl<RenderImpl: Renderer + Send> App for MyApp<RenderImpl> {
         }
     }
 
-    async fn on_update(&mut self, input_state: &InputState) -> Option<Vec<AppChange>>
+    async fn on_update(
+        &mut self,
+        input_state: &InputState,
+        delta_time: f64,
+        cycle: Option<(f64, u64)>,
+    ) -> Option<Vec<AppChange>>
     where
         Self: Sized,
     {
-        let delta_time = self.timer.cycle_delta_time();
-        let app_changes = self.world.update(delta_time, input_state).await; // TODO: ?
+        let app_changes = self.world.update(delta_time, input_state).await;
 
         // TODO: Needed?
         if let Some(renderer) = &mut self.renderer {
             renderer.update(delta_time);
+        }
+
+        if cycle.is_some() {
+            self.cache_cleanup();
         }
 
         (!app_changes.is_empty()).then_some(app_changes)
@@ -174,13 +179,6 @@ impl<RenderImpl: Renderer + Send> App for MyApp<RenderImpl> {
 
         if let Some(renderer) = &mut self.renderer {
             renderer.render(target_view, device, queue, &self.world);
-        }
-
-        if let Some((delta_time, fps)) = self.timer.tick() {
-            debug!("FPS: {fps}");
-            debug!("Tick  Delta: {} ms", delta_time);
-
-            self.cache_cleanup();
         }
     }
 }

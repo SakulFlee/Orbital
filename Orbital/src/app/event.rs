@@ -11,5 +11,9 @@ pub enum AppEvent {
     Suspended,
     Resize(Vector2<u32>, Arc<Device>, Arc<Queue>),
     Render(SurfaceTexture, TextureView, Arc<Device>, Arc<Queue>),
-    Update(InputState),
+    Update {
+        input_state: InputState,
+        delta_time: f64,
+        cycle: Option<(f64, u64)>,
+    },
 }
