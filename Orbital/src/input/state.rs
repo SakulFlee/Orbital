@@ -76,9 +76,9 @@ impl InputState {
                 phase: _,
             } => {
                 let vector_delta = match delta {
-                    MouseScrollDelta::LineDelta(x, y) => Vector2::new(x as f64, y as f64),
+                    MouseScrollDelta::LineDelta(x, y) => Vector2::new(x as f64, -y as f64),
                     MouseScrollDelta::PixelDelta(physical_position) => {
-                        Vector2::new(physical_position.x, physical_position.y)
+                        Vector2::new(physical_position.x, -physical_position.y)
                     }
                 };
 
@@ -262,18 +262,14 @@ impl InputState {
         self.delta_states
             .iter()
             .find(|(_, state)| state.contains_key(input_axis))
-            .and_then(|(input_id, state)| {
-                state.get(input_axis).map(|delta| (*input_id, *delta))
-            })
+            .and_then(|(input_id, state)| state.get(input_axis).map(|delta| (*input_id, *delta)))
     }
 
     pub fn delta_state_all(&self, input_axis: &InputAxis) -> Vec<(InputId, Vector2<f64>)> {
         self.delta_states
             .iter()
             .filter(|(_, state)| state.contains_key(input_axis))
-            .filter_map(|(input_id, state)| {
-                state.get(input_axis).map(|delta| (*input_id, *delta))
-            })
+            .filter_map(|(input_id, state)| state.get(input_axis).map(|delta| (*input_id, *delta)))
             .collect()
     }
 
