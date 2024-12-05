@@ -459,8 +459,8 @@ impl WorldEnvironment {
             device,
         );
 
-        let max_mip_levels = dst_texture.calculate_max_mip_levels();
-        for mip_level in 0..max_mip_levels {
+        let max_mip_levels = dst_texture.calculate_max_mip_levels() - 1;
+        for mip_level in 0..=max_mip_levels {
             let dst_view = dst_texture.texture().create_view(&TextureViewDescriptor {
                 label: Some("PBR IBL Specular LoD processing view"),
                 dimension: Some(TextureViewDimension::D2Array),
