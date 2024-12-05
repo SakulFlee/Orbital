@@ -15,8 +15,8 @@ use wgpu::{
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
-    event::{self, DeviceEvent, DeviceId, WindowEvent},
-    event_loop::{self, ActiveEventLoop, EventLoop},
+    event::{DeviceEvent, DeviceId, WindowEvent},
+    event_loop::{ActiveEventLoop, EventLoop},
     window::{CursorGrabMode, Window, WindowId},
 };
 
@@ -52,8 +52,6 @@ pub struct AppRuntime {
     #[cfg(feature = "gamepad_input")]
     gil: Gilrs,
 }
-
-pub static mut WINDOW_HALF_SIZE: (i32, i32) = (0, 0);
 
 impl AppRuntime {
     pub fn liftoff(
@@ -363,19 +361,6 @@ impl AppRuntime {
         }
     }
 
-    pub fn calculate_center_point(&self) {
-        if let Some(window) = &self.window {
-            let size = window.inner_size();
-
-            let half_width = size.width as i32 / 2;
-            let half_height = size.height as i32 / 2;
-
-            unsafe {
-                WINDOW_HALF_SIZE = (half_width, half_height);
-            }
-        }
-    }
-
     pub fn redraw(&mut self) {
         // Skip if a frame is already acquired.
         // Prevents WGPU from throwing validation errors when we are
@@ -449,9 +434,6 @@ impl AppRuntime {
                 fps, total_delta, delta_time
             );
         }
-
-        // TODO: Needed?
-        self.calculate_center_point();
 
         // Check for gamepad input events if the feature is enabled
         #[cfg(feature = "gamepad_input_poll")]
