@@ -706,9 +706,9 @@ checksum = "f25c0e292a7ca6d6498557ff1df68f32c99850012b6ea401cf8daf771f22ff53"
 
 [[package]]
 name = "easy-gltf"
-version = "1.1.2"
+version = "1.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c12ab62969e9c7ee26d9eae2bb0c74bc4e3547dc0a47776e9282922fbcda3de"
+checksum = "b6cc16292992ce0d4874c93dbe7ef3b0a47a72234e797c1eeb10d73a1b9d7b73"
 dependencies = [
  "base64 0.22.1",
  "cgmath",
