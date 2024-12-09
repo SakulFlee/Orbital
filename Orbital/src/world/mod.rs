@@ -3,7 +3,8 @@ use std::time::Instant;
 use element_store::ElementStore;
 use hashbrown::HashMap;
 use log::{info, warn};
-use wgpu::{Device, Instance, Queue};
+use model_store::ModelStore;
+use wgpu::{Device, Queue};
 
 use crate::{
     app::AppChange,
@@ -11,7 +12,7 @@ use crate::{
     log::error,
     resources::{
         descriptors::{CameraDescriptor, MaterialDescriptor, ModelDescriptor},
-        realizations::{Camera, Model},
+        realizations::Camera,
     },
 };
 
@@ -28,6 +29,7 @@ pub mod loader_executor;
 pub use loader_executor::*;
 
 mod element_store;
+mod model_store;
 
 mod light_store;
 pub use light_store::*;
@@ -70,9 +72,7 @@ pub use light_store::*;
 #[derive(Debug)]
 pub struct World {
     element_store: ElementStore,
-    /// **Active** [Model]s and their [Ulid]s
-    models: HashMap<String, Model>,
-    /// --- Storages ---
+    model_store: ModelStore,
     light_store: LightStore,
     // --- Queues ---
     /// Queue for [WorldChange]s before being processed into other queues
@@ -119,7 +119,7 @@ impl World {
     pub fn new() -> Self {
         Self {
             element_store: ElementStore::new(),
-            models: Default::default(),
+            model_store: ModelStore::new(),
             light_store: LightStore::new(),
             queue_world_changes: Default::default(),
             queue_element_spawn: Default::default(),
@@ -204,19 +204,6 @@ impl World {
         });
     }
 
-    fn process_queue_model_despawn(&mut self) {
-        for model_ulid in self.queue_model_despawn.drain(..) {
-            self.models.remove(&model_ulid);
-        }
-    }
-
-    fn process_queue_model_spawn(&mut self) {
-        for model_descriptor in self.queue_model_spawn.drain(..) {
-            let model = Model::from_descriptor(model_descriptor);
-            self.models.insert(model.label().to_string(), model);
-        }
-    }
-
     pub fn process_world_changes(&mut self) -> Vec<AppChange> {
         let world_changes = std::mem::take(&mut self.queue_world_changes);
 
@@ -229,7 +216,6 @@ impl World {
 
         self.process_queue_spawn_element();
         self.process_queue_despawn_element();
-        self.process_queue_model_despawn();
 
         app_changes
     }
@@ -331,7 +317,7 @@ impl World {
                 self.element_store.clear();
 
                 // Models
-                self.models.clear();
+                self.model_store.clear();
 
                 // Lights
                 self.light_store.clear();
@@ -358,7 +344,7 @@ impl World {
                 .element_store
                 .remove_label(&element_label, labels_to_be_removed),
             WorldChange::SetTransformModel(model_label, transform) => {
-                if let Some(model) = self.models.get_mut(&model_label) {
+                if let Some(model) = self.model_store.get_mut(&model_label) {
                     model.set_transforms(vec![transform]);
                 } else {
                     error!(
@@ -368,7 +354,7 @@ impl World {
                 }
             }
             WorldChange::SetTransformSpecificModelInstance(model_label, transform, index) => {
-                if let Some(model) = self.models.get_mut(&model_label) {
+                if let Some(model) = self.model_store.get_mut(&model_label) {
                     model.set_specific_transform(transform, index);
                 } else {
                     error!(
@@ -378,7 +364,7 @@ impl World {
                 }
             }
             WorldChange::ApplyTransformModel(model_label, transform) => {
-                if let Some(model) = self.models.get_mut(&model_label) {
+                if let Some(model) = self.model_store.get_mut(&model_label) {
                     model.apply_transform(transform);
                 } else {
                     error!(
@@ -388,7 +374,7 @@ impl World {
                 }
             }
             WorldChange::ApplyTransformSpecificModelInstance(model_label, transform, index) => {
-                if let Some(model) = self.models.get_mut(&model_label) {
+                if let Some(model) = self.model_store.get_mut(&model_label) {
                     model.apply_transform_specific(transform, index);
                 } else {
                     error!(
@@ -398,7 +384,7 @@ impl World {
                 }
             }
             WorldChange::AddTransformsToModel(model_label, transforms) => {
-                if let Some(model) = self.models.get_mut(&model_label) {
+                if let Some(model) = self.model_store.get_mut(&model_label) {
                     model.add_transforms(transforms);
                 } else {
                     error!(
@@ -408,7 +394,7 @@ impl World {
                 }
             }
             WorldChange::RemoveTransformsFromModel(model_label, indices) => {
-                if let Some(model) = self.models.get_mut(&model_label) {
+                if let Some(model) = self.model_store.get_mut(&model_label) {
                     model.remove_transforms(indices);
                 } else {
                     error!("Model with label '{}' could not be found! Cannot remove transform at index '{:?}'", model_label, indices);
@@ -488,37 +474,22 @@ impl World {
     /// [GameRuntime]: crate::world::GameRuntime
     /// [WorldChanges]: WorldChange
     pub fn prepare_render(&mut self, device: &Device, queue: &Queue) {
-        self.process_queue_model_spawn();
         self.process_active_camera_change(device, queue);
         self.process_next_camera(device, queue);
 
         self.light_store.update_if_needed(device, queue);
-
-        self.models
-            .values_mut()
-            .for_each(|x| x.prepare_render(device, queue));
-    }
-
-    /// This function returns a [Vec<&Model>] of all [Models] that
-    /// need to be rendered.
-    /// This information is intended to be send to a [Renderer].
-    ///
-    /// [Models]: Model
-    /// [Renderer]: crate::renderer::Renderer
-    pub fn gather_render_resources(&self) -> (&Camera, Vec<&Model>) {
-        (
-            self.active_camera.as_ref().unwrap(),
-            self.models.values().collect::<Vec<_>>(),
-        )
     }
 
     pub fn active_camera(&self) -> &Camera {
         self.active_camera.as_ref().unwrap()
     }
 
-    pub fn models(&self) -> Vec<&Model> {
-        // TODO: Select models based on render radius
-        self.models.values().by_ref().collect()
+    pub fn element_store(&self) -> &ElementStore {
+        &self.element_store
+    }
+
+    pub fn model_store(&self) -> &ModelStore {
+        &self.model_store
     }
 
     pub fn light_store(&self) -> &LightStore {
