@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use element_store::ElementStore;
 use hashbrown::HashMap;
-use log::{debug, info, warn};
+use log::{info, warn};
 use model_store::ModelStore;
 use wgpu::{Device, Queue};
 
@@ -90,10 +90,6 @@ pub struct World {
     queue_element_spawn: Vec<Box<dyn Element>>,
     /// Queue for despawning [Element]s
     queue_element_despawn: Vec<String>,
-    /// Queue for spawning [Model]s
-    queue_model_spawn: Vec<ModelDescriptor>, // TODO: Needed?
-    /// Queue for despawning [Model]s
-    queue_model_despawn: Vec<String>, // TODO: Needed?
     /// Queue for messages being send to a target [Ulid]
     queue_messages: HashMap<String, Vec<Message>>,
     // --- Camera ---
@@ -134,8 +130,6 @@ impl World {
             queue_world_changes: Default::default(),
             queue_element_spawn: Default::default(),
             queue_element_despawn: Default::default(),
-            queue_model_spawn: Default::default(),
-            queue_model_despawn: Default::default(),
             queue_messages: Default::default(),
             active_camera: Default::default(),
             active_camera_change: Default::default(),
@@ -334,7 +328,6 @@ impl World {
 
                 // Clear spawning queues
                 self.queue_element_spawn.clear();
-                self.queue_model_spawn.clear();
 
                 // Elements
                 self.element_store.clear();
