@@ -1,7 +1,7 @@
 use orbital::{
     app::{AppRuntime, AppSettings},
     logging,
-    renderer::StandardRenderer,
+    renderer::NonCachingDirectRenderer,
     winit::{error::EventLoopError, event_loop::EventLoop},
 };
 
@@ -15,7 +15,8 @@ pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
     let mut app_settings = AppSettings::default();
     app_settings.vsync_enabled = false;
 
-    let app = MyApp::<StandardRenderer>::new(CacheSettings::default(), CacheSettings::default());
+    let app =
+        MyApp::<NonCachingDirectRenderer>::new(CacheSettings::default(), CacheSettings::default());
 
     AppRuntime::liftoff(event_loop, app_settings, app).expect("Runtime failure");
 }

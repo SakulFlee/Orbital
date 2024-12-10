@@ -15,12 +15,12 @@ use crate::world::World;
 
 use super::Renderer;
 
-pub struct StandardRenderer {
+pub struct NonCachingDirectRenderer {
     surface_format: TextureFormat,
     depth_texture: Texture,
 }
 
-impl StandardRenderer {
+impl NonCachingDirectRenderer {
     fn render_skybox(
         &self,
         world: &World,
@@ -157,7 +157,7 @@ impl StandardRenderer {
     }
 }
 
-impl Renderer for StandardRenderer {
+impl Renderer for NonCachingDirectRenderer {
     fn new(
         surface_texture_format: wgpu::TextureFormat,
         resolution: cgmath::Vector2<u32>,
