@@ -38,4 +38,8 @@ impl ModelStore {
     pub fn clear(&mut self) {
         self.models.clear();
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.models.is_empty()
+    }
 }
