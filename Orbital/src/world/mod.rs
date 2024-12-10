@@ -128,7 +128,6 @@ impl World {
             queue_world_changes: Default::default(),
             queue_element_spawn: Default::default(),
             queue_element_despawn: Default::default(),
-            queue_messages: Default::default(),
             active_camera: Default::default(),
             active_camera_change: Default::default(),
             camera_descriptors: Default::default(),
