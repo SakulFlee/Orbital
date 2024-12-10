@@ -468,10 +468,6 @@ impl World {
         // Process through `WorldChange`s and pass on any `AppChange`s
         let mut app_changes = self.process_world_changes().await;
         if app_changes.is_empty() && self.element_store.element_count() == 0 {
-            debug!(
-                "{:?} - {:?} - {:?}",
-                app_changes, self.element_store, self.close_requested_timer
-            );
             match self.close_requested_timer {
                 Some(timer) => {
                     // This should be after softly requesting!
