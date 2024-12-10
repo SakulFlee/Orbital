@@ -3,8 +3,8 @@ use wgpu::{Device, Queue, TextureFormat, TextureView};
 
 use crate::world::World;
 
-pub mod standard;
-pub use standard::*;
+pub mod non_caching_direct_renderer;
+pub use non_caching_direct_renderer::*;
 
 pub trait Renderer {
     fn new(
