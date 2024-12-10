@@ -1,20 +1,14 @@
 use crate::{
     app::AppChange,
-    world::Element,
     loader::Loader,
     resources::descriptors::{
         CameraDescriptor, LightDescriptor, MaterialDescriptor, ModelDescriptor, SkyboxType,
     },
     transform::Transform,
+    world::Element,
 };
 
-pub mod mode;
-pub use mode::*;
-
-pub mod camera;
-pub use camera::*;
-
-use super::Message;
+use super::{CameraChange, Message};
 
 /// A [WorldChange] is a _proposed change to the [World]_.  
 ///

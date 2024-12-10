@@ -6,7 +6,7 @@ use wgpu::{
 };
 
 use crate::log::error;
-use crate::resources::realizations::Material;
+use crate::resources::realizations::{Material, Model};
 use crate::resources::{
     descriptors::TextureDescriptor,
     realizations::{Pipeline, Texture},
@@ -106,7 +106,11 @@ impl StandardRenderer {
         });
 
         // Models
-        for model in world.models() {
+        for model_descriptor in world.model_store().get_all() {
+            // TODO: Copying Descriptor here could be costly
+            let mut model = Model::from_descriptor(model_descriptor.clone());
+            model.prepare_render(device, queue);
+
             let mesh = model.mesh();
             let material = model.material(&self.surface_format, device, queue);
             let instance_data = model.instance_data();
