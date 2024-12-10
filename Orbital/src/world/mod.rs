@@ -90,8 +90,6 @@ pub struct World {
     queue_element_spawn: Vec<Box<dyn Element>>,
     /// Queue for despawning [Element]s
     queue_element_despawn: Vec<String>,
-    /// Queue for messages being send to a target [Ulid]
-    queue_messages: HashMap<String, Vec<Message>>,
     // --- Camera ---
     /// Active Camera
     active_camera: Option<Camera>,
