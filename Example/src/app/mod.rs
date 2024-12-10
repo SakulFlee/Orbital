@@ -41,34 +41,41 @@ impl<RenderImpl: Renderer + Send> MyApp<RenderImpl> {
         }
     }
 
-    fn on_startup(&mut self) {
+    async fn on_startup(&mut self) {
         // Debug
         self.world
             .process_world_change(WorldChange::SpawnElement(Box::new(
                 DebugWorldEnvironment::new(),
-            )));
+            )))
+            .await;
 
         // Camera & Lights
         self.world
-            .process_world_change(WorldChange::SpawnElement(Box::new(Camera::new())));
+            .process_world_change(WorldChange::SpawnElement(Box::new(Camera::new())))
+            .await;
         self.world
-            .process_world_change(WorldChange::SpawnElement(Box::new(Lights {})));
+            .process_world_change(WorldChange::SpawnElement(Box::new(Lights {})))
+            .await;
 
         // Ping Pong
         self.world
             .process_world_change(WorldChange::SpawnElement(Box::new(PingPongElement::new(
                 true,
-            ))));
+            ))))
+            .await;
         self.world
             .process_world_change(WorldChange::SpawnElement(Box::new(PingPongElement::new(
                 false,
-            ))));
+            ))))
+            .await;
 
         // Models
         self.world
-            .process_world_change(WorldChange::SpawnElement(Box::new(PBRSpheres {})));
+            .process_world_change(WorldChange::SpawnElement(Box::new(PBRSpheres {})))
+            .await;
         self.world
-            .process_world_change(WorldChange::SpawnElement(Box::new(DamagedHelmet {})));
+            .process_world_change(WorldChange::SpawnElement(Box::new(DamagedHelmet {})))
+            .await;
     }
 
     fn cache_cleanup(&mut self) {
@@ -128,8 +135,8 @@ impl<RenderImpl: Renderer + Send> App for MyApp<RenderImpl> {
             queue,
         ));
 
-        if self.world.models().is_empty() {
-            self.on_startup();
+        if self.world.model_store().is_empty() {
+            self.on_startup().await;
         }
     }
 

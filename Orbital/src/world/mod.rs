@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use element_store::ElementStore;
 use hashbrown::HashMap;
-use log::{info, warn};
+use log::{debug, info, warn};
 use model_store::ModelStore;
 use wgpu::{Device, Queue};
 
@@ -16,8 +16,17 @@ use crate::{
     },
 };
 
-pub mod change;
-pub use change::*;
+mod change_list;
+pub use change_list::*;
+
+pub mod mode;
+pub use mode::*;
+
+pub mod camera_change;
+pub use camera_change::*;
+
+pub mod world_change;
+pub use world_change::*;
 
 pub mod element;
 pub use element::*;
@@ -82,9 +91,9 @@ pub struct World {
     /// Queue for despawning [Element]s
     queue_element_despawn: Vec<String>,
     /// Queue for spawning [Model]s
-    queue_model_spawn: Vec<ModelDescriptor>,
+    queue_model_spawn: Vec<ModelDescriptor>, // TODO: Needed?
     /// Queue for despawning [Model]s
-    queue_model_despawn: Vec<String>,
+    queue_model_despawn: Vec<String>, // TODO: Needed?
     /// Queue for messages being send to a target [Ulid]
     queue_messages: HashMap<String, Vec<Message>>,
     // --- Camera ---
@@ -107,6 +116,7 @@ pub struct World {
     world_environment: MaterialDescriptor,
     loader_executor: LoaderExecutor,
     close_requested_timer: Option<Instant>,
+    change_list: ChangeList,
 }
 
 impl Default for World {
@@ -134,6 +144,7 @@ impl World {
             world_environment: MaterialDescriptor::default_world_environment(),
             loader_executor: LoaderExecutor::new(None),
             close_requested_timer: None,
+            change_list: ChangeList::new(),
         }
     }
 
@@ -204,12 +215,12 @@ impl World {
         });
     }
 
-    pub fn process_world_changes(&mut self) -> Vec<AppChange> {
+    pub async fn process_world_changes(&mut self) -> Vec<AppChange> {
         let world_changes = std::mem::take(&mut self.queue_world_changes);
 
         let mut app_changes = Vec::new();
         for world_change in world_changes {
-            if let Some(app_change) = self.process_world_change(world_change) {
+            if let Some(app_change) = self.process_world_change(world_change).await {
                 app_changes.push(app_change);
             }
         }
@@ -223,16 +234,28 @@ impl World {
     /// Call this function to queue a given [WorldChange].  
     /// The [WorldChange] will be processed during the next possible
     /// cycle.
-    pub fn process_world_change(&mut self, world_change: WorldChange) -> Option<AppChange> {
+    pub async fn process_world_change(&mut self, world_change: WorldChange) -> Option<AppChange> {
         match world_change {
             WorldChange::SpawnElement(element) => self.queue_element_spawn.push(element),
             WorldChange::DespawnElement(element_label) => {
                 self.element_store.remove_element(&element_label);
             }
             WorldChange::SpawnModel(model_descriptor) => {
-                self.queue_model_spawn.push(model_descriptor)
+                self.change_list.push(ChangeListEntry {
+                    action: EntryAction::Added,
+                    ty: EntryType::Model,
+                    label: model_descriptor.label.clone(),
+                });
+                self.model_store.add(model_descriptor).await
             }
-            WorldChange::DespawnModel(model_label) => self.queue_model_despawn.push(model_label),
+            WorldChange::DespawnModel(model_label) => {
+                self.change_list.push(ChangeListEntry {
+                    action: EntryAction::Removed,
+                    ty: EntryType::Model,
+                    label: model_label.clone(),
+                });
+                self.model_store.remove(&model_label).await;
+            }
             WorldChange::SendMessage(message) => self.element_store.queue_message(message),
 
             WorldChange::SpawnCamera(descriptor) => self.spawn_camera(descriptor),
@@ -443,8 +466,12 @@ impl World {
             .for_each(|x| error!("Failed loading resource with loader: {:?}", x.unwrap_err()));
 
         // Process through `WorldChange`s and pass on any `AppChange`s
-        let mut app_changes = self.process_world_changes();
-        if self.element_store.element_count() == 0 {
+        let mut app_changes = self.process_world_changes().await;
+        if app_changes.is_empty() && self.element_store.element_count() == 0 {
+            debug!(
+                "{:?} - {:?} - {:?}",
+                app_changes, self.element_store, self.close_requested_timer
+            );
             match self.close_requested_timer {
                 Some(timer) => {
                     // This should be after softly requesting!
