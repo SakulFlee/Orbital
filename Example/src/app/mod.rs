@@ -164,6 +164,9 @@ impl<RenderImpl: Renderer + Send> App for MyApp<RenderImpl> {
     where
         Self: Sized,
     {
+        // Clear change list at the beginning of a update cycle
+        self.world.reset_change_list();
+
         let app_changes = self.world.update(delta_time, input_state).await;
 
         // TODO: Needed?
