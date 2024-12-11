@@ -512,4 +512,12 @@ impl World {
     pub fn world_environment(&self) -> &MaterialDescriptor {
         &self.world_environment
     }
+
+    pub fn change_list(&self) -> &ChangeList {
+        &self.change_list
+    }
+
+    pub fn reset_change_list(&mut self) {
+        self.change_list.clear();
+    }
 }
