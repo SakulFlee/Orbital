@@ -1,7 +1,6 @@
-use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
+use std::sync::Arc;
 
 use cgmath::{num_traits::ToBytes, Vector3};
-use log::info;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutEntry, BindingResource,

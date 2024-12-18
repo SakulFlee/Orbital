@@ -13,6 +13,12 @@ where
     models: HashMap<String, Arc<RwLock<ModelDescriptor>>>,
 }
 
+impl Default for ModelStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ModelStore {
     pub fn new() -> Self {
         Self {

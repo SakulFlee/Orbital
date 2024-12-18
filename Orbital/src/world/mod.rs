@@ -1,10 +1,9 @@
-use std::{cell::RefCell, time::Instant};
+use std::time::Instant;
 
-use async_std::sync::{Mutex, RwLock};
+use async_std::sync::Mutex;
 use element_store::ElementStore;
-use futures::{future::join_all, stream, StreamExt};
-use hashbrown::HashMap;
-use log::{debug, info, warn};
+use futures::StreamExt;
+use log::{info, warn};
 use model_store::ModelStore;
 use wgpu::{Device, Queue};
 
@@ -13,7 +12,7 @@ use crate::{
     input::InputState,
     log::error,
     resources::{
-        descriptors::{CameraDescriptor, MaterialDescriptor, ModelDescriptor},
+        descriptors::{CameraDescriptor, MaterialDescriptor},
         realizations::Camera,
     },
 };

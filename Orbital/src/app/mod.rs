@@ -1,6 +1,5 @@
 //! ⚠️ You are most likely looking for the [App] description!
 
-use log::debug;
 use wgpu::{Device, Queue, SurfaceConfiguration, TextureView};
 
 pub mod settings;

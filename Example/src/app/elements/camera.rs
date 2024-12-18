@@ -6,7 +6,6 @@ use orbital::{
     cgmath::{Point3, Vector3},
     gilrs::Button,
     input::{InputAxis, InputButton, InputState},
-    log::debug,
     resources::descriptors::CameraDescriptor,
     winit::keyboard::{KeyCode, PhysicalKey},
     world::{CameraChange, Element, ElementRegistration, Message, Mode, WorldChange},
