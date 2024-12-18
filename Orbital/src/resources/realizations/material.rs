@@ -1,4 +1,4 @@
-use std::sync::{Mutex, MutexGuard, OnceLock};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 
 use cgmath::{num_traits::ToBytes, Vector3};
 use log::info;
@@ -10,7 +10,7 @@ use wgpu::{
 };
 
 use crate::{
-    cache::Cache,
+    cache::{Cache, CacheEntry},
     error::Error,
     resources::{
         descriptors::{
@@ -21,87 +21,22 @@ use crate::{
     },
 };
 
-use super::{IblBrdf, Pipeline, Texture};
+use super::{IblBrdf, Pipeline, Shader, Texture};
 
 #[derive(Debug)]
 pub struct Material {
     bind_group: BindGroup,
-    pipeline_descriptor: PipelineDescriptor,
+    pipeline_descriptor: Arc<PipelineDescriptor>,
+    pipeline: Arc<Pipeline>,
 }
 
 impl Material {
     pub const PBR_PIPELINE_BIND_GROUP_NAME: &'static str = "PBR";
     pub const WORLD_ENVIRONMENT_PIPELINE_BIND_GROUP_NAME: &'static str = "WorldEnvironment";
 
-    // --- Static ---
-    /// Gives access to the internal pipeline cache.
-    /// If the cache doesn't exist yet, it gets initialized.
-    ///
-    /// # Safety
-    /// This is potentially a dangerous operation!
-    /// The Rust compiler says the following:
-    ///
-    /// > use of mutable static is unsafe and requires unsafe function or block
-    /// > mutable statics can be mutated by multiple threads: aliasing violations
-    /// > or data races will cause undefined behavior
-    ///
-    /// However, once initialized, the cell [OnceLock] should never change and
-    /// thus this should be safe.
-    ///
-    /// Additionally, we utilize a [Mutex] to ensure that access to the
-    /// cache map and texture format is actually exclusive.
-    pub unsafe fn cache() -> &'static mut Cache<MaterialDescriptor, Material> {
-        static mut CACHE: OnceLock<Mutex<Cache<MaterialDescriptor, Material>>> = OnceLock::new();
-
-        if CACHE.get().is_none() {
-            info!("Material cache doesn't exist! Initializing ...");
-            let _ = CACHE.get_or_init(|| Mutex::new(Cache::new()));
-        }
-
-        CACHE
-            .get_mut()
-            .unwrap()
-            .get_mut()
-            .expect("Cache access violation!")
-    }
-
-    /// Makes sure the cache is in the right state before accessing.
-    /// Should be ideally called before each cache access.
-    /// Once per context is enough though!
-    ///
-    /// This will set some cache parameters, if they don't exist yet
-    /// (e.g. in case of a new cache), and make sure the pipelines
-    /// still match the correct surface texture formats.
-    /// If needed, this will also attempt recompiling all pipelines
-    /// (and thus their shaders) to match a different format!
-    ///
-    /// > ⚠️ This is a copy of [Pipeline::prepare_cache_access](crate::resources::realizations::Pipeline::prepare_cache_access), without the [TextureFormat] stuff.
-    /// > This function currently doesn't really do anything, but is kept as-is in case we need to add some functionality here later + calling the unsafe static function.
-    pub fn prepare_cache_access() -> &'static mut Cache<MaterialDescriptor, Material> {
-        unsafe { Self::cache() }
-    }
-
-    pub unsafe fn get_or_generate_ibl_brdf_lut(
-        device: &Device,
-        queue: &Queue,
-    ) -> MutexGuard<'static, Texture> {
-        static mut CACHE: OnceLock<Mutex<Texture>> = OnceLock::new();
-
-        if CACHE.get().is_none() {
-            info!("IBL BRDF LUT cache doesn't exist! Initializing ...");
-            let _ = CACHE.get_or_init(|| {
-                let ibl_brdf = IblBrdf::generate(device, queue);
-                let texture = ibl_brdf.texture();
-
-                Mutex::new(texture)
-            });
-        }
-
-        CACHE
-            .get()
-            .unwrap()
-            .lock()
-            .expect("IBL BRDF LUT cache access violation!")
+    pub unsafe fn get_or_generate_ibl_brdf_lut(device: &Device, queue: &Queue) -> Texture {
+        let ibl_brdf = IblBrdf::generate(device, queue);
+        ibl_brdf.texture()
     }
 
     pub fn pbr_pipeline_bind_group_layout() -> PipelineBindGroupLayout {
@@ -300,10 +235,10 @@ impl Material {
         surface_format: &TextureFormat,
         device: &Device,
         queue: &Queue,
-    ) -> Result<&'static Self, Error> {
-        let cache = Self::prepare_cache_access();
-
-        cache.get_or_add_fallible(descriptor, |k| match k {
+        with_pipeline_cache: Option<&mut Cache<Arc<PipelineDescriptor>, Pipeline>>,
+        with_shader_cache: Option<&mut Cache<Arc<ShaderDescriptor>, Shader>>,
+    ) -> Result<Self, Error> {
+        match descriptor {
             MaterialDescriptor::PBR {
                 normal,
                 albedo,
@@ -328,6 +263,8 @@ impl Material {
                 surface_format,
                 device,
                 queue,
+                with_pipeline_cache,
+                with_shader_cache,
             ),
             MaterialDescriptor::PBRCustomShader {
                 normal,
@@ -354,11 +291,18 @@ impl Material {
                 surface_format,
                 device,
                 queue,
+                with_pipeline_cache,
+                with_shader_cache,
             ),
-            MaterialDescriptor::WorldEnvironment(world_environment) => {
-                Self::skybox(world_environment, surface_format, device, queue)
-            }
-        })
+            MaterialDescriptor::WorldEnvironment(world_environment) => Self::skybox(
+                world_environment,
+                surface_format,
+                device,
+                queue,
+                with_pipeline_cache,
+                with_shader_cache,
+            ),
+        }
     }
 
     pub fn skybox(
@@ -366,6 +310,8 @@ impl Material {
         surface_format: &TextureFormat,
         device: &Device,
         queue: &Queue,
+        with_pipeline_cache: Option<&mut Cache<Arc<PipelineDescriptor>, Pipeline>>,
+        with_shader_cache: Option<&mut Cache<Arc<ShaderDescriptor>, Shader>>,
     ) -> Result<Self, Error> {
         let world_environment = WorldEnvironment::from_descriptor(
             world_environment_descriptor,
@@ -375,9 +321,27 @@ impl Material {
         )?;
         let ibl_brdf_lut = unsafe { Self::get_or_generate_ibl_brdf_lut(device, queue) };
 
-        let pipeline_descriptor = PipelineDescriptor::default_skybox();
-        let pipeline =
-            Pipeline::from_descriptor(&pipeline_descriptor, surface_format, device, queue)?;
+        let pipeline_descriptor = Arc::new(PipelineDescriptor::default_skybox());
+        let pipeline = if let Some(cache) = with_pipeline_cache {
+            cache
+                .entry(pipeline_descriptor.clone())
+                .or_insert(CacheEntry::new(Pipeline::from_descriptor(
+                    &pipeline_descriptor,
+                    surface_format,
+                    device,
+                    queue,
+                    with_shader_cache,
+                )?))
+                .clone_inner()
+        } else {
+            Arc::new(Pipeline::from_descriptor(
+                &pipeline_descriptor,
+                surface_format,
+                device,
+                queue,
+                with_shader_cache,
+            )?)
+        };
 
         let bind_group_layout = pipeline
             .bind_group_layout(Self::WORLD_ENVIRONMENT_PIPELINE_BIND_GROUP_NAME)
@@ -441,7 +405,11 @@ impl Material {
             ],
         });
 
-        Ok(Self::from_existing(bind_group, pipeline_descriptor))
+        Ok(Self::from_existing(
+            bind_group,
+            pipeline_descriptor,
+            pipeline,
+        ))
     }
 
     pub fn standard_pbr(
@@ -458,6 +426,8 @@ impl Material {
         surface_format: &TextureFormat,
         device: &Device,
         queue: &Queue,
+        with_pipeline_cache: Option<&mut Cache<Arc<PipelineDescriptor>, Pipeline>>,
+        with_shader_cache: Option<&mut Cache<Arc<ShaderDescriptor>, Shader>>,
     ) -> Result<Self, Error> {
         let normal_texture = Texture::from_descriptor(normal_texture_descriptor, device, queue)?;
         let albedo_texture = Texture::from_descriptor(albedo_texture_descriptor, device, queue)?;
@@ -470,14 +440,32 @@ impl Material {
         let emissive_texture =
             Texture::from_descriptor(emissive_texture_descriptor, device, queue)?;
 
-        let pipeline_descriptor = if let Some(shader_descriptor) = shader_descriptor {
+        let pipeline_descriptor = Arc::new(if let Some(shader_descriptor) = shader_descriptor {
             PipelineDescriptor::default_with_shader(shader_descriptor)
         } else {
             PipelineDescriptor::default()
-        };
+        });
 
-        let pipeline =
-            Pipeline::from_descriptor(&pipeline_descriptor, surface_format, device, queue)?;
+        let pipeline = if let Some(cache) = with_pipeline_cache {
+            cache
+                .entry(pipeline_descriptor.clone())
+                .or_insert(CacheEntry::new(Pipeline::from_descriptor(
+                    &pipeline_descriptor,
+                    surface_format,
+                    device,
+                    queue,
+                    with_shader_cache,
+                )?))
+                .clone_inner()
+        } else {
+            Arc::new(Pipeline::from_descriptor(
+                &pipeline_descriptor,
+                surface_format,
+                device,
+                queue,
+                with_shader_cache,
+            )?)
+        };
 
         let bind_group_layout = pipeline
             .bind_group_layout(Self::PBR_PIPELINE_BIND_GROUP_NAME)
@@ -569,13 +557,22 @@ impl Material {
             ],
         });
 
-        Ok(Self::from_existing(bind_group, pipeline_descriptor))
+        Ok(Self::from_existing(
+            bind_group,
+            pipeline_descriptor,
+            pipeline,
+        ))
     }
 
-    pub fn from_existing(bind_group: BindGroup, pipeline_descriptor: PipelineDescriptor) -> Self {
+    pub fn from_existing(
+        bind_group: BindGroup,
+        pipeline_descriptor: Arc<PipelineDescriptor>,
+        pipeline: Arc<Pipeline>,
+    ) -> Self {
         Self {
             bind_group,
             pipeline_descriptor,
+            pipeline,
         }
     }
 
@@ -585,5 +582,9 @@ impl Material {
 
     pub fn pipeline_descriptor(&self) -> &PipelineDescriptor {
         &self.pipeline_descriptor
+    }
+
+    pub fn pipeline(&self) -> &Pipeline {
+        &self.pipeline
     }
 }

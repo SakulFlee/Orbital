@@ -14,13 +14,16 @@ use super::{CameraChange, Message};
 ///
 /// [World]: super::World
 #[derive(Debug)]
-pub enum WorldChange {
+pub enum WorldChange
+where
+    Self: Send + Sync,
+{
     /// Spawns (== adds) an [Element] to the [World].
     ///
     /// ⚠️ The given [Element] must be [Boxed](Box) as it's a `dyn Trait`!
     ///
     /// [World]: super::World
-    SpawnElement(Box<dyn Element>),
+    SpawnElement(Box<dyn Element + Send + Sync>),
     /// Queues one or many [Element(s)](Element) to be despawned.
     DespawnElement(String),
     ElementAddLabels {
@@ -234,5 +237,5 @@ pub enum WorldChange {
     ///
     /// [World]: super::World
     /// [Loader]: crate::loader::Loader
-    EnqueueLoader(Box<dyn Loader + Send>),
+    EnqueueLoader(Box<dyn Loader + Send + Sync>),
 }

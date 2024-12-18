@@ -11,8 +11,11 @@ use super::{Element, Message, WorldChange};
 type ElementIndexType = u64;
 
 #[derive(Debug)]
-pub struct ElementStore {
-    element_map: HashMap<ElementIndexType, Box<dyn Element + Send>>,
+pub struct ElementStore
+where
+    Self: Send + Sync,
+{
+    element_map: HashMap<ElementIndexType, Box<dyn Element + Send + Sync>>,
     cursor_index: ElementIndexType,
     label_map: HashMap<String, ElementIndexType>,
     message_queue: HashMap<String, Vec<Message>>,
@@ -37,7 +40,7 @@ impl ElementStore {
         self.message_queue.clear();
     }
 
-    pub fn store_element(&mut self, element: Box<dyn Element>, labels: Vec<String>) {
+    pub fn store_element(&mut self, element: Box<dyn Element + Send + Sync>, labels: Vec<String>) {
         // Get the next cursor index.
         // Realistically, this should never overflow ...
         let next_cursor_index =   self.cursor_index.checked_add(1).unwrap_or_else(|| panic!("Congratulations! You managed to run out of Element indices! This means, you have spawned {} Elements already and are attempting to spawn another one. Here's a question from me to you: How do you have so much memory?", ElementIndexType::MAX));
