@@ -237,14 +237,33 @@ impl World {
                 self.model_store.remove(&model_label).await;
             }
             WorldChange::SendMessage(message) => self.element_store.queue_message(message),
+            WorldChange::SpawnCamera(descriptor) => {
+                self.change_list.lock().await.push(ChangeListEntry {
+                    action: EntryAction::Added,
+                    ty: EntryType::Camera,
+                    label: descriptor.identifier.clone(),
+                });
 
-            WorldChange::SpawnCamera(descriptor) => self.spawn_camera(descriptor),
+                self.spawn_camera(descriptor);
+            }
             WorldChange::SpawnCameraAndMakeActive(descriptor) => {
+                self.change_list.lock().await.push(ChangeListEntry {
+                    action: EntryAction::Added,
+                    ty: EntryType::Camera,
+                    label: descriptor.identifier.clone(),
+                });
+
                 let identifier = descriptor.identifier.clone();
                 self.spawn_camera(descriptor);
                 self.next_camera = Some(identifier);
             }
             WorldChange::DespawnCamera(identifier) => {
+                self.change_list.lock().await.push(ChangeListEntry {
+                    action: EntryAction::Removed,
+                    ty: EntryType::Camera,
+                    label: identifier.clone(),
+                });
+
                 if let Some(camera) = &self.active_camera {
                     if camera.descriptor().identifier == identifier {
                         self.active_camera = None;
@@ -284,9 +303,19 @@ impl World {
             }
             WorldChange::AppChange(app_change) => return Some(app_change),
             WorldChange::SpawnLight(light_descriptor) => {
+                self.change_list.lock().await.push(ChangeListEntry {
+                    action: EntryAction::Added,
+                    ty: EntryType::Light,
+                    label: light_descriptor.label().into(),
+                });
                 self.light_store.add_light_descriptor(light_descriptor);
             }
             WorldChange::DespawnLight(label) => {
+                self.change_list.lock().await.push(ChangeListEntry {
+                    action: EntryAction::Removed,
+                    ty: EntryType::Light,
+                    label: label.clone(),
+                });
                 self.light_store.remove_any_light_with_label(&label)
             }
             WorldChange::ChangeWorldEnvironment {
@@ -324,6 +353,23 @@ impl World {
                 self.next_camera = None;
                 self.active_camera = None;
                 self.active_camera_change = None;
+
+                let mut change_list = self.change_list.lock().await;
+                change_list.push(ChangeListEntry {
+                    action: EntryAction::Clear,
+                    ty: EntryType::Model,
+                    label: String::new(),
+                });
+                change_list.push(ChangeListEntry {
+                    action: EntryAction::Clear,
+                    ty: EntryType::Light,
+                    label: String::new(),
+                });
+                change_list.push(ChangeListEntry {
+                    action: EntryAction::Clear,
+                    ty: EntryType::Camera,
+                    label: String::new(),
+                });
             }
             WorldChange::EnqueueLoader(loader) => {
                 self.loader_executor.schedule_loader_boxed(loader);
@@ -343,6 +389,12 @@ impl World {
             WorldChange::SetTransformModel(model_label, transform) => {
                 if let Some(model) = self.model_store.get(&model_label) {
                     model.write().await.set_transforms(vec![transform]);
+
+                    self.change_list.lock().await.push(ChangeListEntry {
+                        action: EntryAction::Changed,
+                        ty: EntryType::Model,
+                        label: model_label,
+                    });
                 } else {
                     error!(
                         "Model with label '{}' could not be found! Cannot set transform: {:?}",
@@ -353,6 +405,12 @@ impl World {
             WorldChange::SetTransformSpecificModelInstance(model_label, transform, index) => {
                 if let Some(model) = self.model_store.get(&model_label) {
                     model.write().await.set_specific_transform(transform, index);
+
+                    self.change_list.lock().await.push(ChangeListEntry {
+                        action: EntryAction::Changed,
+                        ty: EntryType::Model,
+                        label: model_label,
+                    });
                 } else {
                     error!(
                         "Model with label '{}' could not be found! Cannot set transform: {:?}",
@@ -363,6 +421,12 @@ impl World {
             WorldChange::ApplyTransformModel(model_label, transform) => {
                 if let Some(model) = self.model_store.get(&model_label) {
                     model.write().await.apply_transform(transform);
+
+                    self.change_list.lock().await.push(ChangeListEntry {
+                        action: EntryAction::Changed,
+                        ty: EntryType::Model,
+                        label: model_label,
+                    });
                 } else {
                     error!(
                         "Model with label '{}' could not be found! Cannot apply transform: {:?}",
@@ -376,6 +440,12 @@ impl World {
                         .write()
                         .await
                         .apply_transform_specific(transform, index);
+
+                    self.change_list.lock().await.push(ChangeListEntry {
+                        action: EntryAction::Changed,
+                        ty: EntryType::Model,
+                        label: model_label,
+                    });
                 } else {
                     error!(
                         "Model with label '{}' could not be found! Cannot apply transform: {:?}",
@@ -386,6 +456,12 @@ impl World {
             WorldChange::AddTransformsToModel(model_label, transforms) => {
                 if let Some(model) = self.model_store.get(&model_label) {
                     model.write().await.add_transforms(transforms);
+
+                    self.change_list.lock().await.push(ChangeListEntry {
+                        action: EntryAction::Changed,
+                        ty: EntryType::Model,
+                        label: model_label,
+                    });
                 } else {
                     error!(
                         "Model with label '{}' could not be found! Cannot add transforms: {:?}",
@@ -396,6 +472,12 @@ impl World {
             WorldChange::RemoveTransformsFromModel(model_label, indices) => {
                 if let Some(model) = self.model_store.get(&model_label) {
                     model.write().await.remove_transforms(indices);
+
+                    self.change_list.lock().await.push(ChangeListEntry {
+                        action: EntryAction::Changed,
+                        ty: EntryType::Model,
+                        label: model_label,
+                    });
                 } else {
                     error!("Model with label '{}' could not be found! Cannot remove transform at index '{:?}'", model_label, indices);
                 }

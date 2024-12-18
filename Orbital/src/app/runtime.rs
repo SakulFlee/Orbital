@@ -512,7 +512,7 @@ impl AppRuntime {
                     frame.present();
                     self.frame_acquired = false;
 
-                    self.input_state.reset_deltas(); // TODO: Move to update?
+                    self.input_state.reset_deltas();
 
                     // Trigger next update cycle after the frame was fully rendered!
                     self.update();
