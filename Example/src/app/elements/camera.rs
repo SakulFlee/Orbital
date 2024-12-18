@@ -6,6 +6,7 @@ use orbital::{
     cgmath::{Point3, Vector3},
     gilrs::Button,
     input::{InputAxis, InputButton, InputState},
+    log::debug,
     resources::descriptors::CameraDescriptor,
     winit::keyboard::{KeyCode, PhysicalKey},
     world::{CameraChange, Element, ElementRegistration, Message, Mode, WorldChange},
@@ -26,7 +27,7 @@ impl Camera {
     pub const MOVEMENT_SPEED: f64 = 5.0;
     pub const SPRINT_MULTIPLIER: f64 = 5.0;
 
-    pub const MOUSE_SENSITIVITY: f64 = 1.0;
+    pub const MOUSE_SENSITIVITY: f64 = 2.0;
     pub const GAMEPAD_MOVEMENT_SENSITIVITY: f64 = 2.5;
     pub const GAMEPAD_VIEW_SENSITIVITY: f64 = 2.5;
 
@@ -47,8 +48,6 @@ impl Camera {
 
     pub const KEYBOARD_DEBUG: InputButton =
         InputButton::Keyboard(PhysicalKey::Code(KeyCode::Space));
-
-    pub const ACTION_DEBUG: &'static str = "debug";
 
     pub fn new() -> Self {
         Self {}
