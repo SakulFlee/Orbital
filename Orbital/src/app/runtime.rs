@@ -447,6 +447,8 @@ impl AppRuntime {
         }) {
             error!("Failed to send update event: {}", e);
         }
+
+        self.input_state.reset_deltas();
     }
 
     fn process_app_changes(&mut self) -> bool {
@@ -511,8 +513,6 @@ impl AppRuntime {
                 AppChange::FinishedRedraw(frame) => {
                     frame.present();
                     self.frame_acquired = false;
-
-                    self.input_state.reset_deltas();
 
                     // Trigger next update cycle after the frame was fully rendered!
                     self.update();

@@ -1,6 +1,7 @@
 use cgmath::{Vector2, Zero};
 use gilrs::Axis;
 use hashbrown::HashMap;
+use log::debug;
 use winit::event::{ElementState, MouseScrollDelta};
 
 use super::{InputAxis, InputButton, InputEvent, InputId};
@@ -31,6 +32,8 @@ impl InputState {
     /// This should be called after updating, but before the next cycle.
     /// I.e. after rendering is a good time.
     pub fn reset_deltas(&mut self) {
+        debug!("Delta State: {:?}", self.delta_states);
+
         self.delta_states.iter_mut().for_each(|(_, state)| {
             state
                 .iter_mut()

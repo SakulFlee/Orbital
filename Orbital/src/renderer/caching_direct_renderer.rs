@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use cgmath::Vector2;
+use futures::future::join_all;
 use hashbrown::HashMap;
 use log::debug;
 use wgpu::{
@@ -131,21 +132,33 @@ impl CachingDirectRenderer {
         device: &Device,
         queue: &Queue,
     ) {
-        if !change_list.is_empty() {
-            debug!("GOT SOMETHING");
-        }
-
         // TODO: World Environment change
         for change in change_list {
-            if let Err(e) = match change.ty {
+            match change.ty {
                 EntryType::Model => {
-                    self.process_model_change(change, world, device, queue)
+                    if let Err(e) = self
+                        .process_model_change(change, world, device, queue)
                         .await
+                    {
+                        error!("Couldn't process model world change: {:?}", e);
+                    }
                 }
-                EntryType::Light => todo!(),
-                EntryType::Camera => todo!(),
-            } {
-                error!("Couldn't process world change: {:?}", e);
+                EntryType::Light => {
+                    if let Err(e) = self
+                        .process_light_change(change, world, device, queue)
+                        .await
+                    {
+                        error!("Couldn't process light world change: {:?}", e);
+                    }
+                }
+                EntryType::Camera => {
+                    if let Err(e) = self
+                        .process_camera_change(change, world, device, queue)
+                        .await
+                    {
+                        error!("Couldn't process camera world change: {:?}", e);
+                    }
+                }
             }
         }
     }
@@ -182,7 +195,34 @@ impl CachingDirectRenderer {
             EntryAction::Removed => {
                 self.model_cache.remove(&change.label.clone());
             }
+            EntryAction::Clear => {
+                self.model_cache.clear();
+            }
         }
+
+        Ok(())
+    }
+
+    async fn process_light_change(
+        &mut self,
+        _change: ChangeListEntry,
+        _world: &World,
+        _device: &Device,
+        _queue: &Queue,
+    ) -> Result<(), Error> {
+        // TODO: Once LightStore is descriptor based like ModelStore
+
+        Ok(())
+    }
+
+    async fn process_camera_change(
+        &mut self,
+        _change: ChangeListEntry,
+        _world: &World,
+        _device: &Device,
+        _queue: &Queue,
+    ) -> Result<(), Error> {
+        // TODO: Once CameraStore exists like ModelStore
 
         Ok(())
     }
