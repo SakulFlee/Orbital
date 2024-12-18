@@ -21,6 +21,12 @@ where
     message_queue: HashMap<String, Vec<Message>>,
 }
 
+impl Default for ElementStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ElementStore {
     pub const MAX_TIME_IN_SECONDS: u64 = 5;
 

@@ -19,6 +19,12 @@ pub struct MyApp<RendererImpl: Renderer + Send> {
     world: World,
 }
 
+impl<RenderImpl: Renderer + Send> Default for MyApp<RenderImpl> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<RenderImpl: Renderer + Send> MyApp<RenderImpl> {
     pub fn new(
     ) -> Self {

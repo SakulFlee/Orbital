@@ -10,7 +10,7 @@ use orbital::renderer::NonCachingDirectRenderer;
 #[cfg(feature = "caching_direct_renderer")]
 use orbital::renderer::CachingDirectRenderer;
 
-use crate::app::{CacheSettings, MyApp};
+use crate::app::MyApp;
 
 pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
     logging::init();
