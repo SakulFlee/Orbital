@@ -35,8 +35,7 @@ pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
         feature = "caching_direct_renderer",
         not(feature = "non_caching_direct_renderer")
     ))]
-    let app =
-        MyApp::<CachingDirectRenderer>::new(CacheSettings::default(), CacheSettings::default());
+    let app = MyApp::<CachingDirectRenderer>::new();
 
     AppRuntime::liftoff(event_loop, app_settings, app).expect("Runtime failure");
 }

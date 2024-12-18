@@ -2,13 +2,13 @@ use std::f32::consts::PI;
 
 use orbital::{
     app::AppChange,
-    async_trait::{async_trait},
+    async_trait::async_trait,
     cgmath::{Point3, Vector3},
-    world::{CameraChange, Element, ElementRegistration, Message, Mode, WorldChange},
     gilrs::Button,
     input::{InputAxis, InputButton, InputState},
     resources::descriptors::CameraDescriptor,
     winit::keyboard::{KeyCode, PhysicalKey},
+    world::{CameraChange, Element, ElementRegistration, Message, Mode, WorldChange},
 };
 
 #[derive(Debug)]
@@ -57,7 +57,7 @@ impl Camera {
 
 #[async_trait]
 impl Element for Camera {
-    fn on_registration(&mut self) -> ElementRegistration {
+    fn on_registration(&self) -> ElementRegistration {
         ElementRegistration::new(Self::IDENTIFIER)
             .with_initial_world_change(WorldChange::SpawnCameraAndMakeActive(CameraDescriptor {
                 identifier: Self::IDENTIFIER.into(),

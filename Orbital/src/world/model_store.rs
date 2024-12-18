@@ -1,10 +1,16 @@
+use std::sync::Arc;
+
+use async_std::sync::RwLock;
 use hashbrown::HashMap;
 
 use crate::resources::descriptors::ModelDescriptor;
 
 #[derive(Debug)]
-pub struct ModelStore {
-    models: HashMap<String, ModelDescriptor>,
+pub struct ModelStore
+where
+    Self: Send + Sync,
+{
+    models: HashMap<String, Arc<RwLock<ModelDescriptor>>>,
 }
 
 impl ModelStore {
@@ -16,22 +22,19 @@ impl ModelStore {
 
     pub async fn add(&mut self, model_descriptor: ModelDescriptor) {
         let label = model_descriptor.label.clone();
-        self.models.insert(label, model_descriptor);
+        self.models
+            .insert(label, Arc::new(RwLock::new(model_descriptor)));
     }
 
     pub async fn remove(&mut self, label: &str) {
         self.models.remove(label);
     }
 
-    pub fn get(&self, label: &str) -> Option<&ModelDescriptor> {
+    pub fn get(&self, label: &str) -> Option<&Arc<RwLock<ModelDescriptor>>> {
         self.models.get(label)
     }
 
-    pub fn get_mut(&mut self, label: &str) -> Option<&mut ModelDescriptor> {
-        self.models.get_mut(label)
-    }
-
-    pub fn get_all(&self) -> Vec<&ModelDescriptor> {
+    pub fn get_all(&self) -> Vec<&Arc<RwLock<ModelDescriptor>>> {
         self.models.values().collect()
     }
 

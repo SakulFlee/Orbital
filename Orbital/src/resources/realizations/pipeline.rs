@@ -1,5 +1,4 @@
-use log::info;
-use std::sync::{Mutex, OnceLock};
+use std::sync::Arc;
 use wgpu::{
     BindGroupLayout, BlendState, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
     DepthStencilState, Device, FragmentState, MultisampleState, PipelineCompilationOptions,
@@ -8,9 +7,12 @@ use wgpu::{
 };
 
 use crate::{
-    cache::Cache,
+    cache::{Cache, CacheEntry},
     error::Error,
-    resources::{descriptors::PipelineDescriptor, realizations::Shader},
+    resources::{
+        descriptors::{PipelineDescriptor, ShaderDescriptor},
+        realizations::Shader,
+    },
 };
 
 use super::{Instance, Vertex};
@@ -19,94 +21,16 @@ use super::{Instance, Vertex};
 pub struct Pipeline {
     render_pipeline: RenderPipeline,
     bind_group_layouts: Vec<(&'static str, BindGroupLayout)>,
-    shader: Shader,
+    shader: Arc<Shader>,
 }
 
 impl Pipeline {
-    // --- Static ---
-    /// Gives access to the internal pipeline cache.
-    /// If the cache doesn't exist yet, it gets initialized.
-    ///
-    /// # Safety
-    /// This is potentially a dangerous operation!
-    /// The Rust compiler says the following:
-    ///
-    /// > use of mutable static is unsafe and requires unsafe function or block
-    /// > mutable statics can be mutated by multiple threads: aliasing violations
-    /// > or data races will cause undefined behavior
-    ///
-    /// However, once initialized, the cell [OnceLock] should never change and
-    /// thus this should be safe.
-    ///
-    /// Additionally, we utilize a [Mutex] to ensure that access to the
-    /// cache map and texture format is actually exclusive.
-    pub unsafe fn cache() -> &'static mut (Cache<PipelineDescriptor, Pipeline>, TextureFormat) {
-        static mut CACHE: OnceLock<Mutex<(Cache<PipelineDescriptor, Pipeline>, TextureFormat)>> =
-            OnceLock::new();
-
-        if CACHE.get().is_none() {
-            info!("Pipeline cache doesn't exist! Initializing ...");
-            let _ = CACHE.get_or_init(|| Mutex::new((Cache::new(), TextureFormat::Bgra8UnormSrgb)));
-        }
-
-        CACHE
-            .get_mut()
-            .unwrap()
-            .get_mut()
-            .expect("Cache access violation!")
-    }
-
-    /// Makes sure the cache is in the right state before accessing.
-    /// Should be ideally called before each cache access.
-    /// Once per context is enough though!
-    ///
-    /// This will set some cache parameters, if they don't exist yet
-    /// (e.g. in case of a new cache), and make sure the pipelines
-    /// still match the correct surface texture formats.
-    /// If needed, this will also attempt recompiling all pipelines
-    /// (and thus their shaders) to match a different format!
-    pub fn prepare_cache_access(
-        potential_new_format_struct: Option<(&TextureFormat, &Device, &Queue)>,
-    ) -> &'static mut Cache<PipelineDescriptor, Pipeline> {
-        let (cache, cache_format) = unsafe { Self::cache() };
-
-        // Check the cache format if it's set to [Some]
-        if let Some((potential_new_format, device, queue)) = potential_new_format_struct {
-            // If they don't match, trigger a recompilation of the cache!
-            if cache_format != potential_new_format {
-                // If the formats don't match, we have to attempt to
-                // recompile the whole cache.
-
-                // Thus, set the new cache format BEFORE cache is accessed again ...
-                *cache_format = *potential_new_format;
-
-                // ... and rework the cache!
-                cache.rework(|k| Self::make_pipeline(k, potential_new_format, device, queue).ok());
-            }
-        }
-
-        cache
-    }
-
-    // --- Constructor ---
     pub fn from_descriptor(
         pipeline_descriptor: &PipelineDescriptor,
         surface_format: &TextureFormat,
         device: &Device,
         queue: &Queue,
-    ) -> Result<&'static Self, Error> {
-        let cache = Self::prepare_cache_access(Some((surface_format, device, queue)));
-
-        cache.get_or_add_fallible(pipeline_descriptor, |k| {
-            Self::make_pipeline(k, surface_format, device, queue)
-        })
-    }
-
-    fn make_pipeline(
-        pipeline_descriptor: &PipelineDescriptor,
-        surface_format: &TextureFormat,
-        device: &Device,
-        queue: &Queue,
+        with_shader_cache: Option<&mut Cache<Arc<ShaderDescriptor>, Shader>>,
     ) -> Result<Pipeline, Error> {
         let bind_group_layouts = pipeline_descriptor
             .bind_group_layouts
@@ -124,7 +48,22 @@ impl Pipeline {
             push_constant_ranges: &[],
         });
 
-        let shader = Shader::from_descriptor(pipeline_descriptor.shader_descriptor, device, queue)?;
+        let shader = if let Some(cache) = with_shader_cache {
+            cache
+                .entry(pipeline_descriptor.shader_descriptor.clone())
+                .or_insert(CacheEntry::new(Shader::from_descriptor(
+                    pipeline_descriptor.shader_descriptor.clone(),
+                    device,
+                    queue,
+                )?))
+                .clone_inner()
+        } else {
+            Arc::new(Shader::from_descriptor(
+                pipeline_descriptor.shader_descriptor.clone(),
+                device,
+                queue,
+            )?)
+        };
 
         let mut vertex_buffers = Vec::new();
         if pipeline_descriptor.include_vertex_buffer_layout {

@@ -1,6 +1,6 @@
-use std::mem::size_of;
+use std::{hash::Hash, mem::size_of};
 
-use cgmath::{Vector2, Vector3};
+use cgmath::{num_traits::Float, Vector2, Vector3};
 use wgpu::{VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -101,5 +101,32 @@ impl From<easy_gltf::model::Vertex> for Vertex {
             Vector3::new(value.tangent.x, value.tangent.y, value.tangent.z),
             value.tex_coords,
         )
+    }
+}
+
+/// Note: This ignores that f32 can't be Eq'd by default due to NaN.
+/// Vertices should **never** be using NaN.
+impl Eq for Vertex {}
+
+impl Hash for Vertex {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.position.x.integer_decode().hash(state);
+        self.position.y.integer_decode().hash(state);
+        self.position.z.integer_decode().hash(state);
+
+        self.normal.x.integer_decode().hash(state);
+        self.normal.y.integer_decode().hash(state);
+        self.normal.z.integer_decode().hash(state);
+
+        self.tangent.x.integer_decode().hash(state);
+        self.tangent.y.integer_decode().hash(state);
+        self.tangent.z.integer_decode().hash(state);
+
+        self.bitangent.x.integer_decode().hash(state);
+        self.bitangent.y.integer_decode().hash(state);
+        self.bitangent.z.integer_decode().hash(state);
+
+        self.uv.x.integer_decode().hash(state);
+        self.uv.y.integer_decode().hash(state);
     }
 }

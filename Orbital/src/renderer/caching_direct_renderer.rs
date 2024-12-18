@@ -1,13 +1,22 @@
+use std::sync::Arc;
+
+use async_trait::async_trait;
 use cgmath::Vector2;
 use hashbrown::HashMap;
+use log::debug;
 use wgpu::{
     CommandEncoder, CommandEncoderDescriptor, Device, IndexFormat, LoadOp, Operations, Queue,
     RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor, StoreOp,
     TextureFormat, TextureView,
 };
 
+use crate::cache::Cache;
+use crate::error::Error;
 use crate::log::error;
-use crate::resources::realizations::{Material, Model};
+use crate::resources::descriptors::{
+    MaterialDescriptor, MeshDescriptor, PipelineDescriptor, ShaderDescriptor,
+};
+use crate::resources::realizations::{Material, Mesh, Model, Shader};
 use crate::resources::{
     descriptors::TextureDescriptor,
     realizations::{Pipeline, Texture},
@@ -19,7 +28,13 @@ use super::Renderer;
 pub struct CachingDirectRenderer {
     surface_format: TextureFormat,
     depth_texture: Texture,
+    world_environment: Option<Material>,
+    world_environment_pipeline: Option<Pipeline>,
     model_cache: HashMap<String, Model>,
+    mesh_cache: Cache<Arc<MeshDescriptor>, Mesh>,
+    material_cache: Cache<Arc<MaterialDescriptor>, Material>,
+    pipeline_cache: Cache<Arc<PipelineDescriptor>, Pipeline>,
+    shader_cache: Cache<Arc<ShaderDescriptor>, Shader>,
 }
 
 impl CachingDirectRenderer {
@@ -28,8 +43,6 @@ impl CachingDirectRenderer {
         world: &World,
         encoder: &mut CommandEncoder,
         target_view: &TextureView,
-        device: &Device,
-        queue: &Queue,
     ) {
         let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
             label: Some("Render Pass"),
@@ -46,33 +59,17 @@ impl CachingDirectRenderer {
             occlusion_query_set: None,
         });
 
-        // SkyBox
-        let world_environment_material = match Material::from_descriptor(
-            world.world_environment(),
-            &self.surface_format,
-            device,
-            queue,
-        ) {
-            Ok(x) => x,
-            Err(e) => {
-                error!("SkyBox Material in invalid state: {:?}", e);
-                return;
-            }
-        };
-        let skybox_pipeline = match Pipeline::from_descriptor(
-            world_environment_material.pipeline_descriptor(),
-            &self.surface_format,
-            device,
-            queue,
-        ) {
-            Ok(pipeline) => pipeline,
-            Err(e) => {
-                error!("SkyBox Pipeline in invalid state: {:?}", e);
-                return;
-            }
-        };
-        render_pass.set_pipeline(skybox_pipeline.render_pipeline());
-        render_pass.set_bind_group(0, world_environment_material.bind_group(), &[]);
+        render_pass.set_pipeline(
+            self.world_environment_pipeline
+                .as_ref()
+                .unwrap()
+                .render_pipeline(),
+        );
+        render_pass.set_bind_group(
+            0,
+            self.world_environment.as_ref().unwrap().bind_group(),
+            &[],
+        );
         render_pass.set_bind_group(1, world.active_camera().bind_group(), &[]);
         render_pass.draw(0..3, 0..1);
     }
@@ -82,8 +79,6 @@ impl CachingDirectRenderer {
         world: &World,
         encoder: &mut CommandEncoder,
         target_view: &TextureView,
-        device: &Device,
-        queue: &Queue,
     ) {
         let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
             label: Some("Render Pass"),
@@ -109,82 +104,78 @@ impl CachingDirectRenderer {
 
         // Models
         for model in self.model_cache.values() {
-            let mesh = model.mesh();
-            let material = model.material(&self.surface_format, device, queue);
-            let instance_data = model.instance_data();
+            render_pass.set_pipeline(model.material().pipeline().render_pipeline());
 
-            let pipeline = match Pipeline::from_descriptor(
-                material.pipeline_descriptor(),
-                &self.surface_format,
-                device,
-                queue,
-            ) {
-                Ok(pipeline) => pipeline,
-                Err(e) => {
-                    error!("Pipeline in invalid state! Error: {:?}", e);
-                    continue;
-                }
-            };
-
-            render_pass.set_pipeline(pipeline.render_pipeline());
-
-            render_pass.set_bind_group(0, material.bind_group(), &[]);
+            render_pass.set_bind_group(0, model.material().bind_group(), &[]);
             render_pass.set_bind_group(1, world.active_camera().bind_group(), &[]);
             render_pass.set_bind_group(2, world.light_store().point_light_bind_group(), &[]);
+            render_pass.set_bind_group(
+                3,
+                self.world_environment.as_ref().unwrap().bind_group(),
+                &[],
+            );
 
-            let world_environment_material = match Material::from_descriptor(
-                world.world_environment(),
-                &self.surface_format,
-                device,
-                queue,
-            ) {
-                Ok(x) => x,
-                Err(e) => {
-                    error!("WorldEnvironment Material in invalid state: {:?}", e);
-                    return;
-                }
-            };
-            render_pass.set_bind_group(3, world_environment_material.bind_group(), &[]);
+            render_pass.set_vertex_buffer(0, model.mesh().vertex_buffer().slice(..));
+            render_pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
+            render_pass
+                .set_index_buffer(model.mesh().index_buffer().slice(..), IndexFormat::Uint32);
 
-            render_pass.set_vertex_buffer(0, mesh.vertex_buffer().slice(..));
-            render_pass.set_vertex_buffer(1, instance_data.buffer().slice(..));
-            render_pass.set_index_buffer(mesh.index_buffer().slice(..), IndexFormat::Uint32);
-
-            render_pass.draw_indexed(0..mesh.index_count(), 0, 0..instance_data.instance_count());
+            render_pass.draw_indexed(0..model.mesh().index_count(), 0, 0..model.instance_count());
         }
     }
 
-    fn process_change_list(
+    async fn process_change_list(
         &mut self,
-        change_list: &ChangeList,
+        change_list: ChangeList,
         world: &World,
         device: &Device,
         queue: &Queue,
     ) {
+        if !change_list.is_empty() {
+            debug!("GOT SOMETHING");
+        }
+
+        // TODO: World Environment change
         for change in change_list {
-            match change.ty {
-                EntryType::Model => self.process_model_change(change, world, device, queue),
+            if let Err(e) = match change.ty {
+                EntryType::Model => {
+                    self.process_model_change(change, world, device, queue)
+                        .await
+                }
                 EntryType::Light => todo!(),
                 EntryType::Camera => todo!(),
+            } {
+                error!("Couldn't process world change: {:?}", e);
             }
         }
     }
 
-    fn process_model_change(
+    async fn process_model_change(
         &mut self,
-        change: &ChangeListEntry,
+        change: ChangeListEntry,
         world: &World,
         device: &Device,
         queue: &Queue,
-    ) {
+    ) -> Result<(), Error> {
         match change.action {
             EntryAction::Added | EntryAction::Changed => {
                 let descriptor = world
                     .model_store()
                     .get(&change.label)
-                    .expect("Attempting to realize model that doesn't exist as descriptor!");
-                let mut model = Model::from_descriptor(descriptor.clone());
-                model.prepare_render(device, queue);
+                    .expect("Attempting to realize model that doesn't exist as descriptor!")
+                    .read()
+                    .await;
+
+                let model = Model::from_descriptor(
+                    &descriptor,
+                    &self.surface_format,
+                    device,
+                    queue,
+                    Some(&mut self.mesh_cache),
+                    Some(&mut self.material_cache),
+                    Some(&mut self.pipeline_cache),
+                    Some(&mut self.shader_cache),
+                )?;
 
                 self.model_cache.insert(change.label.clone(), model);
             }
@@ -192,9 +183,12 @@ impl CachingDirectRenderer {
                 self.model_cache.remove(&change.label.clone());
             }
         }
+
+        Ok(())
     }
 }
 
+#[async_trait]
 impl Renderer for CachingDirectRenderer {
     fn new(
         surface_texture_format: wgpu::TextureFormat,
@@ -210,38 +204,73 @@ impl Renderer for CachingDirectRenderer {
             surface_format: surface_texture_format,
             depth_texture,
             model_cache: HashMap::new(),
+            world_environment: None,
+            world_environment_pipeline: None,
+            mesh_cache: Cache::new(),
+            material_cache: Cache::new(),
+            pipeline_cache: Cache::new(),
+            shader_cache: Cache::new(),
+            // TODO: Texture cache
         }
     }
 
-    fn change_surface_texture_format(
+    async fn change_surface_texture_format(
         &mut self,
         surface_texture_format: TextureFormat,
-        device: &Device,
-        queue: &Queue,
+        _device: &Device,
+        _queue: &Queue,
     ) {
         // Set the format internally
         self.surface_format = surface_texture_format;
-
-        // The cache will automatically recompile itself
-        // once a new format is used to access the cache.
-        let _ = Pipeline::prepare_cache_access(Some((&surface_texture_format, device, queue)));
     }
 
-    fn change_resolution(&mut self, resolution: Vector2<u32>, device: &Device, queue: &Queue) {
+    async fn change_resolution(
+        &mut self,
+        resolution: Vector2<u32>,
+        device: &Device,
+        queue: &Queue,
+    ) {
         // Remake the depth texture with the new size
         self.depth_texture = Texture::depth_texture(&resolution, device, queue);
     }
 
-    fn update(&mut self, _delta_time: f64) {}
+    async fn render(
+        &mut self,
+        target_view: &TextureView,
+        device: &Device,
+        queue: &Queue,
+        world: &World, // TODO: Make generic if possible for other ECS like systems
+    ) {
+        if self.world_environment.is_none() || self.world_environment.is_none() {
+            self.world_environment = Some(Material::from_descriptor(
+                world.world_environment(),
+                &self.surface_format,
+                device,
+                queue,
+                Some(&mut self.pipeline_cache),
+                Some(&mut self.shader_cache),
+            ).expect("TODO! Should never happen and will be replaced once change list WorldChanges are implemented."));
 
-    fn render(&mut self, target_view: &TextureView, device: &Device, queue: &Queue, world: &World) {
-        self.process_change_list(world.change_list(), world, device, queue);
+            self.world_environment_pipeline = Some(Pipeline::from_descriptor(
+                self.world_environment
+                    .as_ref()
+                    .unwrap()
+                    .pipeline_descriptor(),
+                &self.surface_format,
+                device,
+                queue,
+                Some(&mut self.shader_cache),
+            ).expect("TODO! Should never happen and will be replaced once change list WorldChanges are implemented."));
+        }
+
+        self.process_change_list(world.take_change_list().await, world, device, queue)
+            .await;
 
         let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor { label: None });
         {
-            self.render_skybox(world, &mut encoder, target_view, device, queue);
+            self.render_skybox(world, &mut encoder, target_view);
 
-            self.render_models(world, &mut encoder, target_view, device, queue);
+            self.render_models(world, &mut encoder, target_view);
         }
 
         queue.submit(Some(encoder.finish()));
