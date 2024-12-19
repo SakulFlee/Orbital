@@ -20,7 +20,7 @@ use crate::resources::{
     descriptors::TextureDescriptor,
     realizations::{Pipeline, Texture},
 };
-use crate::world::{ChangeList, ChangeListEntry, EntryAction, EntryType, World};
+use crate::world::{Change, ChangeList, ChangeType, World};
 
 use super::Renderer;
 
@@ -132,97 +132,73 @@ impl CachingDirectRenderer {
     ) {
         // TODO: World Environment change
         for change in change_list {
-            match change.ty {
-                EntryType::Model => {
-                    if let Err(e) = self
-                        .process_model_change(change, world, device, queue)
-                        .await
-                    {
-                        error!("Couldn't process model world change: {:?}", e);
+            match change {
+                Change::Clear(change_type) => match change_type {
+                    ChangeType::Model { label: _ } => self.model_cache.clear(),
+                    ChangeType::Light { label: _ } => {
+                        // TODO: Once properly caching this entity
                     }
-                }
-                EntryType::Light => {
-                    if let Err(e) = self
-                        .process_light_change(change, world, device, queue)
-                        .await
-                    {
-                        error!("Couldn't process light world change: {:?}", e);
+                    ChangeType::Camera { label: _ } => {
+                        // TODO: Once properly caching this entity
                     }
-                }
-                EntryType::Camera => {
-                    if let Err(e) = self
-                        .process_camera_change(change, world, device, queue)
-                        .await
-                    {
-                        error!("Couldn't process camera world change: {:?}", e);
+                    ChangeType::WorldEnvironment { label: _ } => {
+                        // TODO: Once properly caching this entity
                     }
-                }
+                },
+                Change::Added(change_type) | Change::Changed(change_type) => match change_type {
+                    ChangeType::Model { label } => {
+                        let lbl = label.expect("Change is expected to have a label set!");
+
+                        let descriptor = world
+                            .model_store()
+                            .get(&lbl)
+                            .expect("Attempting to realize model that doesn't exist as descriptor!")
+                            .read()
+                            .await;
+
+                        match Model::from_descriptor(
+                            &descriptor,
+                            &self.surface_format,
+                            device,
+                            queue,
+                            Some(&mut self.mesh_cache),
+                            Some(&mut self.material_cache),
+                            Some(&mut self.pipeline_cache),
+                            Some(&mut self.shader_cache),
+                        ) {
+                            Ok(model) => {
+                                self.model_cache.insert(lbl, model);
+                            }
+                            Err(e) => error!("Failed realizing model from ChangeList: {:?}", e),
+                        }
+                    }
+                    ChangeType::Light { label } => {
+                        // TODO: Once properly caching this entity
+                    }
+                    ChangeType::Camera { label } => {
+                        // TODO: Once properly caching this entity
+                    }
+                    ChangeType::WorldEnvironment { label } => {
+                        // TODO: Once properly caching this entity
+                    }
+                },
+                Change::Removed(change_type) => match change_type {
+                    ChangeType::Model { label } => {
+                        let lbl = label.expect("Change is expected to have a label set!");
+                        self.model_cache.remove(&lbl);
+                    }
+                    ChangeType::Light { label } => {
+                        // TODO: Once properly caching this entity
+                    }
+                    ChangeType::Camera { label } => {
+                        // TODO: Once properly caching this entity
+                    }
+                    ChangeType::WorldEnvironment { label } => {
+                        // TODO: Once properly caching this entity
+                    }
+                },
             }
         }
-    }
-
-    async fn process_model_change(
-        &mut self,
-        change: ChangeListEntry,
-        world: &World,
-        device: &Device,
-        queue: &Queue,
-    ) -> Result<(), Error> {
-        match change.action {
-            EntryAction::Added | EntryAction::Changed => {
-                let descriptor = world
-                    .model_store()
-                    .get(&change.label)
-                    .expect("Attempting to realize model that doesn't exist as descriptor!")
-                    .read()
-                    .await;
-
-                let model = Model::from_descriptor(
-                    &descriptor,
-                    &self.surface_format,
-                    device,
-                    queue,
-                    Some(&mut self.mesh_cache),
-                    Some(&mut self.material_cache),
-                    Some(&mut self.pipeline_cache),
-                    Some(&mut self.shader_cache),
-                )?;
-
-                self.model_cache.insert(change.label.clone(), model);
-            }
-            EntryAction::Removed => {
-                self.model_cache.remove(&change.label.clone());
-            }
-            EntryAction::Clear => {
-                self.model_cache.clear();
-            }
-        }
-
-        Ok(())
-    }
-
-    async fn process_light_change(
-        &mut self,
-        _change: ChangeListEntry,
-        _world: &World,
-        _device: &Device,
-        _queue: &Queue,
-    ) -> Result<(), Error> {
-        // TODO: Once LightStore is descriptor based like ModelStore
-
-        Ok(())
-    }
-
-    async fn process_camera_change(
-        &mut self,
-        _change: ChangeListEntry,
-        _world: &World,
-        _device: &Device,
-        _queue: &Queue,
-    ) -> Result<(), Error> {
-        // TODO: Once CameraStore exists like ModelStore
-
-        Ok(())
     }
 }
 

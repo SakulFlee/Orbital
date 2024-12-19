@@ -48,7 +48,7 @@ where
 
         // Then remove anything past our threshold
         self.map.retain(|_, v| {
-            v.unused_since()
+            !v.unused_since()
                 .is_some_and(|x| x.elapsed() > Duration::from_secs(30))
         });
 
