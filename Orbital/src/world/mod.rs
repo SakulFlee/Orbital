@@ -90,10 +90,6 @@ where
     // --- Queues ---
     /// Queue for [WorldChange]s before being processed into other queues
     queue_world_changes: Vec<WorldChange>,
-    // /// Queue for spawning [Element]s
-    // queue_element_spawn: Vec<Box<dyn Element>>,
-    // /// Queue for despawning [Element]s
-    // queue_element_despawn: Vec<String>,
     // --- Camera ---
     /// Active Camera
     active_camera: Option<Camera>,
@@ -220,48 +216,53 @@ impl World {
                 self.element_store.remove_element(&element_label);
             }
             WorldChange::SpawnModel(model_descriptor) => {
-                self.change_list.lock().await.push(ChangeListEntry {
-                    action: EntryAction::Added,
-                    ty: EntryType::Model,
-                    label: model_descriptor.label.clone(),
-                });
+                self.change_list
+                    .lock()
+                    .await
+                    .push(Change::Added(ChangeType::Model {
+                        label: Some(model_descriptor.label.clone()),
+                    }));
                 self.model_store.add(model_descriptor).await
             }
             WorldChange::DespawnModel(model_label) => {
-                self.change_list.lock().await.push(ChangeListEntry {
-                    action: EntryAction::Removed,
-                    ty: EntryType::Model,
-                    label: model_label.clone(),
-                });
+                self.change_list
+                    .lock()
+                    .await
+                    .push(Change::Removed(ChangeType::Model {
+                        label: Some(model_label.clone()),
+                    }));
                 self.model_store.remove(&model_label).await;
             }
             WorldChange::SendMessage(message) => self.element_store.queue_message(message),
             WorldChange::SpawnCamera(descriptor) => {
-                self.change_list.lock().await.push(ChangeListEntry {
-                    action: EntryAction::Added,
-                    ty: EntryType::Camera,
-                    label: descriptor.identifier.clone(),
-                });
+                self.change_list
+                    .lock()
+                    .await
+                    .push(Change::Added(ChangeType::Camera {
+                        label: Some(descriptor.identifier.clone()),
+                    }));
 
                 self.spawn_camera(descriptor);
             }
             WorldChange::SpawnCameraAndMakeActive(descriptor) => {
-                self.change_list.lock().await.push(ChangeListEntry {
-                    action: EntryAction::Added,
-                    ty: EntryType::Camera,
-                    label: descriptor.identifier.clone(),
-                });
+                self.change_list
+                    .lock()
+                    .await
+                    .push(Change::Added(ChangeType::Camera {
+                        label: Some(descriptor.identifier.clone()),
+                    }));
 
                 let identifier = descriptor.identifier.clone();
                 self.spawn_camera(descriptor);
                 self.next_camera = Some(identifier);
             }
             WorldChange::DespawnCamera(identifier) => {
-                self.change_list.lock().await.push(ChangeListEntry {
-                    action: EntryAction::Removed,
-                    ty: EntryType::Camera,
-                    label: identifier.clone(),
-                });
+                self.change_list
+                    .lock()
+                    .await
+                    .push(Change::Removed(ChangeType::Camera {
+                        label: Some(identifier.clone()),
+                    }));
 
                 if let Some(camera) = &self.active_camera {
                     if camera.descriptor().identifier == identifier {
@@ -302,19 +303,21 @@ impl World {
             }
             WorldChange::AppChange(app_change) => return Some(app_change),
             WorldChange::SpawnLight(light_descriptor) => {
-                self.change_list.lock().await.push(ChangeListEntry {
-                    action: EntryAction::Added,
-                    ty: EntryType::Light,
-                    label: light_descriptor.label().into(),
-                });
+                self.change_list
+                    .lock()
+                    .await
+                    .push(Change::Added(ChangeType::Light {
+                        label: Some(light_descriptor.label().into()),
+                    }));
                 self.light_store.add_light_descriptor(light_descriptor);
             }
             WorldChange::DespawnLight(label) => {
-                self.change_list.lock().await.push(ChangeListEntry {
-                    action: EntryAction::Removed,
-                    ty: EntryType::Light,
-                    label: label.clone(),
-                });
+                self.change_list
+                    .lock()
+                    .await
+                    .push(Change::Removed(ChangeType::Light {
+                        label: Some(label.clone()),
+                    }));
                 self.light_store.remove_any_light_with_label(&label)
             }
             WorldChange::ChangeWorldEnvironment {
@@ -354,21 +357,9 @@ impl World {
                 self.active_camera_change = None;
 
                 let mut change_list = self.change_list.lock().await;
-                change_list.push(ChangeListEntry {
-                    action: EntryAction::Clear,
-                    ty: EntryType::Model,
-                    label: String::new(),
-                });
-                change_list.push(ChangeListEntry {
-                    action: EntryAction::Clear,
-                    ty: EntryType::Light,
-                    label: String::new(),
-                });
-                change_list.push(ChangeListEntry {
-                    action: EntryAction::Clear,
-                    ty: EntryType::Camera,
-                    label: String::new(),
-                });
+                change_list.push(Change::Clear(ChangeType::Model { label: None }));
+                change_list.push(Change::Clear(ChangeType::Light { label: None }));
+                change_list.push(Change::Clear(ChangeType::Camera { label: None }));
             }
             WorldChange::EnqueueLoader(loader) => {
                 self.loader_executor.schedule_loader_boxed(loader);
@@ -389,11 +380,12 @@ impl World {
                 if let Some(model) = self.model_store.get(&model_label) {
                     model.write().await.set_transforms(vec![transform]);
 
-                    self.change_list.lock().await.push(ChangeListEntry {
-                        action: EntryAction::Changed,
-                        ty: EntryType::Model,
-                        label: model_label,
-                    });
+                    self.change_list
+                        .lock()
+                        .await
+                        .push(Change::Changed(ChangeType::Model {
+                            label: Some(model_label),
+                        }));
                 } else {
                     error!(
                         "Model with label '{}' could not be found! Cannot set transform: {:?}",
@@ -405,11 +397,12 @@ impl World {
                 if let Some(model) = self.model_store.get(&model_label) {
                     model.write().await.set_specific_transform(transform, index);
 
-                    self.change_list.lock().await.push(ChangeListEntry {
-                        action: EntryAction::Changed,
-                        ty: EntryType::Model,
-                        label: model_label,
-                    });
+                    self.change_list
+                        .lock()
+                        .await
+                        .push(Change::Changed(ChangeType::Model {
+                            label: Some(model_label),
+                        }));
                 } else {
                     error!(
                         "Model with label '{}' could not be found! Cannot set transform: {:?}",
@@ -421,11 +414,12 @@ impl World {
                 if let Some(model) = self.model_store.get(&model_label) {
                     model.write().await.apply_transform(transform);
 
-                    self.change_list.lock().await.push(ChangeListEntry {
-                        action: EntryAction::Changed,
-                        ty: EntryType::Model,
-                        label: model_label,
-                    });
+                    self.change_list
+                        .lock()
+                        .await
+                        .push(Change::Changed(ChangeType::Model {
+                            label: Some(model_label),
+                        }));
                 } else {
                     error!(
                         "Model with label '{}' could not be found! Cannot apply transform: {:?}",
@@ -440,11 +434,12 @@ impl World {
                         .await
                         .apply_transform_specific(transform, index);
 
-                    self.change_list.lock().await.push(ChangeListEntry {
-                        action: EntryAction::Changed,
-                        ty: EntryType::Model,
-                        label: model_label,
-                    });
+                    self.change_list
+                        .lock()
+                        .await
+                        .push(Change::Changed(ChangeType::Model {
+                            label: Some(model_label),
+                        }));
                 } else {
                     error!(
                         "Model with label '{}' could not be found! Cannot apply transform: {:?}",
@@ -456,11 +451,12 @@ impl World {
                 if let Some(model) = self.model_store.get(&model_label) {
                     model.write().await.add_transforms(transforms);
 
-                    self.change_list.lock().await.push(ChangeListEntry {
-                        action: EntryAction::Changed,
-                        ty: EntryType::Model,
-                        label: model_label,
-                    });
+                    self.change_list
+                        .lock()
+                        .await
+                        .push(Change::Changed(ChangeType::Model {
+                            label: Some(model_label),
+                        }));
                 } else {
                     error!(
                         "Model with label '{}' could not be found! Cannot add transforms: {:?}",
@@ -472,11 +468,12 @@ impl World {
                 if let Some(model) = self.model_store.get(&model_label) {
                     model.write().await.remove_transforms(indices);
 
-                    self.change_list.lock().await.push(ChangeListEntry {
-                        action: EntryAction::Changed,
-                        ty: EntryType::Model,
-                        label: model_label,
-                    });
+                    self.change_list
+                        .lock()
+                        .await
+                        .push(Change::Changed(ChangeType::Model {
+                            label: Some(model_label),
+                        }));
                 } else {
                     error!("Model with label '{}' could not be found! Cannot remove transform at index '{:?}'", model_label, indices);
                 }

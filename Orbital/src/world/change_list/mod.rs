@@ -1,10 +1,7 @@
-mod entry_action;
-pub use entry_action::*;
+mod change;
+pub use change::*;
 
-mod entry_type;
-pub use entry_type::*;
+mod change_type;
+pub use change_type::*;
 
-mod entry;
-pub use entry::*;
-
-pub type ChangeList = Vec<ChangeListEntry>;
+pub type ChangeList = Vec<Change>;
