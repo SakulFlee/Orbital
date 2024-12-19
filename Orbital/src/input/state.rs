@@ -32,8 +32,6 @@ impl InputState {
     /// This should be called after updating, but before the next cycle.
     /// I.e. after rendering is a good time.
     pub fn reset_deltas(&mut self) {
-        debug!("Delta State: {:?}", self.delta_states);
-
         self.delta_states.iter_mut().for_each(|(_, state)| {
             state
                 .iter_mut()
