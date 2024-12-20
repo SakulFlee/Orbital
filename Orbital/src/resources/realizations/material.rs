@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use cgmath::{num_traits::ToBytes, Vector3};
+use cgmath::Vector3;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutEntry, BindingResource,
@@ -234,6 +234,7 @@ impl Material {
         surface_format: &TextureFormat,
         device: &Device,
         queue: &Queue,
+        with_texture_cache: Option<&mut Cache<Arc<TextureDescriptor>, Texture>>,
         with_pipeline_cache: Option<&mut Cache<Arc<PipelineDescriptor>, Pipeline>>,
         with_shader_cache: Option<&mut Cache<Arc<ShaderDescriptor>, Shader>>,
     ) -> Result<Self, Error> {
@@ -248,53 +249,29 @@ impl Material {
                 roughness_factor,
                 occlusion,
                 emissive,
-            } => Self::standard_pbr(
-                normal,
-                albedo,
-                albedo_factor,
-                metallic,
-                metallic_factor,
-                roughness,
-                roughness_factor,
-                occlusion,
-                emissive,
-                None,
-                surface_format,
-                device,
-                queue,
-                with_pipeline_cache,
-                with_shader_cache,
-            ),
-            MaterialDescriptor::PBRCustomShader {
-                normal,
-                albedo,
-                albedo_factor,
-                metallic,
-                metallic_factor,
-                roughness,
-                roughness_factor,
-                occlusion,
-                emissive,
                 custom_shader,
             } => Self::standard_pbr(
-                normal,
-                albedo,
+                normal.clone(),
+                albedo.clone(),
                 albedo_factor,
-                metallic,
+                metallic.clone(),
                 metallic_factor,
-                roughness,
+                roughness.clone(),
                 roughness_factor,
-                occlusion,
-                emissive,
-                Some(custom_shader),
+                occlusion.clone(),
+                emissive.clone(),
+                custom_shader.as_ref(),
                 surface_format,
                 device,
                 queue,
+                with_texture_cache,
                 with_pipeline_cache,
                 with_shader_cache,
             ),
+            // Note that, WorldEnvironment doesn't use the Texture Cache as it works a lot different from normal Textures and Materials.
+            // There also hardly is a need for a cache though, as only ever one `WorldEnvironment` is used at a time and while switching is possible, it shouldn't be switched so often that a cache will be needed.
             MaterialDescriptor::WorldEnvironment(world_environment) => Self::skybox(
-                world_environment,
+                &world_environment,
                 surface_format,
                 device,
                 queue,
@@ -312,12 +289,8 @@ impl Material {
         with_pipeline_cache: Option<&mut Cache<Arc<PipelineDescriptor>, Pipeline>>,
         with_shader_cache: Option<&mut Cache<Arc<ShaderDescriptor>, Shader>>,
     ) -> Result<Self, Error> {
-        let world_environment = WorldEnvironment::from_descriptor(
-            world_environment_descriptor,
-            &WorldEnvironmentDescriptor::DEFAULT_SAMPLING_TYPE,
-            device,
-            queue,
-        )?;
+        let world_environment =
+            WorldEnvironment::from_descriptor(world_environment_descriptor, device, queue)?;
         let ibl_brdf_lut = unsafe { Self::get_or_generate_ibl_brdf_lut(device, queue) };
 
         let pipeline_descriptor = Arc::new(PipelineDescriptor::default_skybox());
@@ -412,32 +385,113 @@ impl Material {
     }
 
     pub fn standard_pbr(
-        normal_texture_descriptor: &TextureDescriptor,
-        albedo_texture_descriptor: &TextureDescriptor,
+        normal_texture_descriptor: Arc<TextureDescriptor>,
+        albedo_texture_descriptor: Arc<TextureDescriptor>,
         albedo_factor: &Vector3<f32>,
-        metallic_texture_descriptor: &TextureDescriptor,
+        metallic_texture_descriptor: Arc<TextureDescriptor>,
         metallic_factor: &f32,
-        roughness_texture_descriptor: &TextureDescriptor,
+        roughness_texture_descriptor: Arc<TextureDescriptor>,
         roughness_factor: &f32,
-        occlusion_texture_descriptor: &TextureDescriptor,
-        emissive_texture_descriptor: &TextureDescriptor,
+        occlusion_texture_descriptor: Arc<TextureDescriptor>,
+        emissive_texture_descriptor: Arc<TextureDescriptor>,
         shader_descriptor: Option<&ShaderDescriptor>,
         surface_format: &TextureFormat,
         device: &Device,
         queue: &Queue,
+        mut with_texture_cache: Option<&mut Cache<Arc<TextureDescriptor>, Texture>>,
         with_pipeline_cache: Option<&mut Cache<Arc<PipelineDescriptor>, Pipeline>>,
         with_shader_cache: Option<&mut Cache<Arc<ShaderDescriptor>, Shader>>,
     ) -> Result<Self, Error> {
-        let normal_texture = Texture::from_descriptor(normal_texture_descriptor, device, queue)?;
-        let albedo_texture = Texture::from_descriptor(albedo_texture_descriptor, device, queue)?;
-        let metallic_texture =
-            Texture::from_descriptor(metallic_texture_descriptor, device, queue)?;
-        let roughness_texture =
-            Texture::from_descriptor(roughness_texture_descriptor, device, queue)?;
-        let occlusion_texture =
-            Texture::from_descriptor(occlusion_texture_descriptor, device, queue)?;
-        let emissive_texture =
-            Texture::from_descriptor(emissive_texture_descriptor, device, queue)?;
+        let normal_texture = match with_texture_cache {
+            Some(ref mut cache) => cache
+                .entry(normal_texture_descriptor.clone())
+                .or_insert(CacheEntry::new(Texture::from_descriptor(
+                    &normal_texture_descriptor,
+                    device,
+                    queue,
+                )?))
+                .clone_inner(),
+            None => Arc::new(Texture::from_descriptor(
+                &normal_texture_descriptor,
+                device,
+                queue,
+            )?),
+        };
+        let albedo_texture = match with_texture_cache {
+            Some(ref mut cache) => cache
+                .entry(albedo_texture_descriptor.clone())
+                .or_insert(CacheEntry::new(Texture::from_descriptor(
+                    &albedo_texture_descriptor,
+                    device,
+                    queue,
+                )?))
+                .clone_inner(),
+            None => Arc::new(Texture::from_descriptor(
+                &albedo_texture_descriptor,
+                device,
+                queue,
+            )?),
+        };
+        let metallic_texture = match with_texture_cache {
+            Some(ref mut cache) => cache
+                .entry(metallic_texture_descriptor.clone())
+                .or_insert(CacheEntry::new(Texture::from_descriptor(
+                    &metallic_texture_descriptor,
+                    device,
+                    queue,
+                )?))
+                .clone_inner(),
+            None => Arc::new(Texture::from_descriptor(
+                &metallic_texture_descriptor,
+                device,
+                queue,
+            )?),
+        };
+        let roughness_texture = match with_texture_cache {
+            Some(ref mut cache) => cache
+                .entry(roughness_texture_descriptor.clone())
+                .or_insert(CacheEntry::new(Texture::from_descriptor(
+                    &roughness_texture_descriptor,
+                    device,
+                    queue,
+                )?))
+                .clone_inner(),
+            None => Arc::new(Texture::from_descriptor(
+                &roughness_texture_descriptor,
+                device,
+                queue,
+            )?),
+        };
+        let occlusion_texture = match with_texture_cache {
+            Some(ref mut cache) => cache
+                .entry(occlusion_texture_descriptor.clone())
+                .or_insert(CacheEntry::new(Texture::from_descriptor(
+                    &occlusion_texture_descriptor,
+                    device,
+                    queue,
+                )?))
+                .clone_inner(),
+            None => Arc::new(Texture::from_descriptor(
+                &occlusion_texture_descriptor,
+                device,
+                queue,
+            )?),
+        };
+        let emissive_texture = match with_texture_cache {
+            Some(ref mut cache) => cache
+                .entry(emissive_texture_descriptor.clone())
+                .or_insert(CacheEntry::new(Texture::from_descriptor(
+                    &emissive_texture_descriptor,
+                    device,
+                    queue,
+                )?))
+                .clone_inner(),
+            None => Arc::new(Texture::from_descriptor(
+                &emissive_texture_descriptor,
+                device,
+                queue,
+            )?),
+        };
 
         let pipeline_descriptor = Arc::new(if let Some(shader_descriptor) = shader_descriptor {
             PipelineDescriptor::default_with_shader(shader_descriptor)
@@ -562,7 +616,6 @@ impl Material {
             pipeline,
         ))
     }
-
     pub fn from_existing(
         bind_group: BindGroup,
         pipeline_descriptor: Arc<PipelineDescriptor>,

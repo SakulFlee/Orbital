@@ -51,6 +51,7 @@ impl NonCachingDirectRenderer {
             queue,
             None,
             None,
+            None,
         ) {
             Ok(x) => x,
             Err(e) => {
@@ -106,6 +107,7 @@ impl NonCachingDirectRenderer {
                 None,
                 None,
                 None,
+                None,
             )?;
 
             render_pass.set_pipeline(model.material().pipeline().render_pipeline());
@@ -119,6 +121,7 @@ impl NonCachingDirectRenderer {
                 &self.surface_format,
                 device,
                 queue,
+                None,
                 None,
                 None,
             ) {
