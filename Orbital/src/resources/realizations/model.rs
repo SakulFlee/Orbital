@@ -10,10 +10,11 @@ use crate::{
     error::Error,
     resources::descriptors::{
         MaterialDescriptor, MeshDescriptor, ModelDescriptor, PipelineDescriptor, ShaderDescriptor,
+        TextureDescriptor,
     },
 };
 
-use super::{instance::Instance, Material, Mesh, Pipeline, Shader};
+use super::{instance::Instance, Material, Mesh, Pipeline, Shader, Texture};
 
 #[derive(Debug)]
 pub struct Model {
@@ -31,6 +32,7 @@ impl Model {
         queue: &Queue,
         with_mesh_cache: Option<&mut Cache<Arc<MeshDescriptor>, Mesh>>,
         with_material_cache: Option<&mut Cache<Arc<MaterialDescriptor>, Material>>,
+        with_texture_cache: Option<&mut Cache<Arc<TextureDescriptor>, Texture>>,
         with_pipeline_cache: Option<&mut Cache<Arc<PipelineDescriptor>, Pipeline>>,
         with_shader_cache: Option<&mut Cache<Arc<ShaderDescriptor>, Shader>>,
     ) -> Result<Self, Error> {
@@ -57,6 +59,7 @@ impl Model {
                     surface_format,
                     device,
                     queue,
+                    with_texture_cache,
                     with_pipeline_cache,
                     with_shader_cache,
                 )?))
@@ -67,6 +70,7 @@ impl Model {
                 surface_format,
                 device,
                 queue,
+                with_texture_cache,
                 with_pipeline_cache,
                 with_shader_cache,
             )?)

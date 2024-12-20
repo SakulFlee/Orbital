@@ -10,7 +10,6 @@ use wgpu::{
 };
 
 use crate::cache::Cache;
-use crate::error::Error;
 use crate::log::error;
 use crate::resources::descriptors::{
     MaterialDescriptor, MeshDescriptor, PipelineDescriptor, ShaderDescriptor,
@@ -32,6 +31,7 @@ pub struct CachingDirectRenderer {
     model_cache: HashMap<String, Model>,
     mesh_cache: Cache<Arc<MeshDescriptor>, Mesh>,
     material_cache: Cache<Arc<MaterialDescriptor>, Material>,
+    texture_cache: Cache<Arc<TextureDescriptor>, Texture>,
     pipeline_cache: Cache<Arc<PipelineDescriptor>, Pipeline>,
     shader_cache: Cache<Arc<ShaderDescriptor>, Shader>,
 }
@@ -130,7 +130,6 @@ impl CachingDirectRenderer {
         device: &Device,
         queue: &Queue,
     ) {
-        // TODO: World Environment change
         for change in change_list {
             match change {
                 Change::Clear(change_type) => match change_type {
@@ -163,6 +162,7 @@ impl CachingDirectRenderer {
                             queue,
                             Some(&mut self.mesh_cache),
                             Some(&mut self.material_cache),
+                            Some(&mut self.texture_cache),
                             Some(&mut self.pipeline_cache),
                             Some(&mut self.shader_cache),
                         ) {
@@ -222,9 +222,9 @@ impl Renderer for CachingDirectRenderer {
             world_environment_pipeline: None,
             mesh_cache: Cache::new(),
             material_cache: Cache::new(),
+            texture_cache: Cache::new(),
             pipeline_cache: Cache::new(),
             shader_cache: Cache::new(),
-            // TODO: Texture cache
         }
     }
 
@@ -261,6 +261,7 @@ impl Renderer for CachingDirectRenderer {
                 &self.surface_format,
                 device,
                 queue,
+                Some(&mut self.texture_cache),
                 Some(&mut self.pipeline_cache),
                 Some(&mut self.shader_cache),
             ).expect("TODO! Should never happen and will be replaced once change list WorldChanges are implemented."));
