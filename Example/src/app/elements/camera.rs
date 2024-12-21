@@ -58,7 +58,7 @@ impl Element for Camera {
     fn on_registration(&self) -> ElementRegistration {
         ElementRegistration::new(Self::IDENTIFIER)
             .with_initial_world_change(WorldChange::SpawnCameraAndMakeActive(CameraDescriptor {
-                identifier: Self::IDENTIFIER.into(),
+                label: Self::IDENTIFIER.into(),
                 position: Point3::new(5.0, 0.0, 0.0),
                 yaw: PI,
                 ..Default::default()
