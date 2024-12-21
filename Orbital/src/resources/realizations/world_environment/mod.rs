@@ -420,7 +420,7 @@ impl WorldEnvironment {
             ..Default::default()
         });
 
-        debug!("Generating PBR IBL Specular (LoD = 0 / Roughness = 0%) ...");
+        debug!("Generating RAW PBR IBL Specular (LoD = 0 / Roughness = 0%) ...");
         let workgroups = (dst_size + 15) / 16;
         pass.set_pipeline(&pipeline);
         pass.set_bind_group(0, &bind_group, &[]);
