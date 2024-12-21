@@ -104,7 +104,7 @@ use super::{Message, WorldChange};
 /// [WorldChanges]: super::WorldChange
 #[async_trait]
 pub trait Element: Debug + Send {
-    fn on_registration(&mut self) -> ElementRegistration {
+    fn on_registration(&self) -> ElementRegistration {
         ElementRegistration::default()
     }
 

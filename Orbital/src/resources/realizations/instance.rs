@@ -60,6 +60,33 @@ impl Instance {
             ],
         }
     }
+
+    pub fn to_buffer_data(&self) -> Vec<[u8; 4]> {
+        let matrix = self.make_model_space_matrix();
+
+        vec![
+            matrix.x.x.to_le_bytes(),
+            matrix.x.y.to_le_bytes(),
+            matrix.x.z.to_le_bytes(),
+            matrix.x.w.to_le_bytes(),
+            matrix.y.x.to_le_bytes(),
+            matrix.y.y.to_le_bytes(),
+            matrix.y.z.to_le_bytes(),
+            matrix.y.w.to_le_bytes(),
+            matrix.z.x.to_le_bytes(),
+            matrix.z.y.to_le_bytes(),
+            matrix.z.z.to_le_bytes(),
+            matrix.z.w.to_le_bytes(),
+            matrix.w.x.to_le_bytes(),
+            matrix.w.y.to_le_bytes(),
+            matrix.w.z.to_le_bytes(),
+            matrix.w.w.to_le_bytes(),
+        ]
+    }
+
+    pub fn to_buffer_data_flattened(&self) -> Vec<u8> {
+        self.to_buffer_data().into_flattened()
+    }
 }
 
 impl From<&Transform> for Instance {

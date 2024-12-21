@@ -38,7 +38,7 @@ impl DebugWorldEnvironment {
 
 #[async_trait]
 impl Element for DebugWorldEnvironment {
-    fn on_registration(&mut self) -> ElementRegistration {
+    fn on_registration(&self) -> ElementRegistration {
         ElementRegistration::new("debug_world_environment")
     }
 

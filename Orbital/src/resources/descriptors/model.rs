@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::transform::Transform;
 
 use super::{MaterialDescriptor, MeshDescriptor};
@@ -8,8 +10,8 @@ use super::{MaterialDescriptor, MeshDescriptor};
 #[derive(Debug, Clone)]
 pub struct ModelDescriptor {
     pub label: String,
-    pub mesh: MeshDescriptor,
-    pub material: MaterialDescriptor,
+    pub mesh: Arc<MeshDescriptor>,
+    pub material: Arc<MaterialDescriptor>,
     pub transforms: Vec<Transform>,
 }
 

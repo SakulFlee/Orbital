@@ -104,7 +104,7 @@ impl PartialEq for WorldEnvironmentDescriptor {
                 }
 
                 // Then, compare byte-by-byte with fail-fast.
-                return l_data.iter().zip(r_data.iter()).any(|(l, r)| l.eq(r));
+                l_data.iter().zip(r_data.iter()).any(|(l, r)| l.eq(r))
             }
             _ => false,
         }
