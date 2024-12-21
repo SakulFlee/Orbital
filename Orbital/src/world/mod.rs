@@ -1,10 +1,8 @@
 use std::time::Instant;
 
 use async_std::sync::Mutex;
-use element_store::ElementStore;
 use futures::StreamExt;
 use log::{info, warn};
-use model_store::ModelStore;
 use wgpu::{Device, Queue};
 
 use crate::{
@@ -38,11 +36,8 @@ pub use message::*;
 pub mod loader_executor;
 pub use loader_executor::*;
 
-mod element_store;
-mod model_store;
-
-mod light_store;
-pub use light_store::*;
+mod stores;
+pub use stores::*;
 
 /// A [World] keeps track of everything inside your [Game].  
 /// Mainly, [Elements] and [realized resources].
