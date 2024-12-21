@@ -1,9 +1,8 @@
 use std::time::Instant;
 
-use element_store::ElementStore;
-use hashbrown::HashMap;
+use async_std::sync::Mutex;
+use futures::StreamExt;
 use log::{info, warn};
-use model_store::ModelStore;
 use wgpu::{Device, Queue};
 
 use crate::{
@@ -11,7 +10,7 @@ use crate::{
     input::InputState,
     log::error,
     resources::{
-        descriptors::{CameraDescriptor, MaterialDescriptor, ModelDescriptor},
+        descriptors::{CameraDescriptor, MaterialDescriptor},
         realizations::Camera,
     },
 };
@@ -37,11 +36,8 @@ pub use message::*;
 pub mod loader_executor;
 pub use loader_executor::*;
 
-mod element_store;
-mod model_store;
-
-mod light_store;
-pub use light_store::*;
+mod stores;
+pub use stores::*;
 
 /// A [World] keeps track of everything inside your [Game].  
 /// Mainly, [Elements] and [realized resources].
@@ -79,17 +75,16 @@ pub use light_store::*;
 /// [realized resource]: crate::resources::realizations
 /// [realized resources]: crate::resources::realizations
 #[derive(Debug)]
-pub struct World {
+pub struct World
+where
+    Self: Send + Sync,
+{
     element_store: ElementStore,
     model_store: ModelStore,
     light_store: LightStore,
     // --- Queues ---
     /// Queue for [WorldChange]s before being processed into other queues
     queue_world_changes: Vec<WorldChange>,
-    /// Queue for spawning [Element]s
-    queue_element_spawn: Vec<Box<dyn Element>>,
-    /// Queue for despawning [Element]s
-    queue_element_despawn: Vec<String>,
     // --- Camera ---
     /// Active Camera
     active_camera: Option<Camera>,
@@ -110,7 +105,7 @@ pub struct World {
     world_environment: MaterialDescriptor,
     loader_executor: LoaderExecutor,
     close_requested_timer: Option<Instant>,
-    change_list: ChangeList,
+    change_list: Mutex<ChangeList>,
 }
 
 impl Default for World {
@@ -126,8 +121,8 @@ impl World {
             model_store: ModelStore::new(),
             light_store: LightStore::new(),
             queue_world_changes: Default::default(),
-            queue_element_spawn: Default::default(),
-            queue_element_despawn: Default::default(),
+            // queue_element_spawn: Default::default(),
+            // queue_element_despawn: Default::default(),
             active_camera: Default::default(),
             active_camera_change: Default::default(),
             camera_descriptors: Default::default(),
@@ -135,7 +130,7 @@ impl World {
             world_environment: MaterialDescriptor::default_world_environment(),
             loader_executor: LoaderExecutor::new(None),
             close_requested_timer: None,
-            change_list: ChangeList::new(),
+            change_list: Mutex::new(ChangeList::new()),
         }
     }
 
@@ -183,41 +178,15 @@ impl World {
         }
     }
 
-    fn process_queue_spawn_element(&mut self) {
-        for mut element in self.queue_element_spawn.drain(..) {
-            // Start element registration
-            let registration: ElementRegistration = element.on_registration();
-
-            let (labels, world_changes) = registration.extract();
-
-            // Store boxed element
-            self.element_store.store_element(element, labels);
-
-            // Queue any changes
-            self.queue_world_changes.extend(world_changes);
-        }
-    }
-
-    fn process_queue_despawn_element(&mut self) {
-        let drain = self.queue_element_despawn.drain(..).collect::<Vec<_>>();
-
-        drain.iter().for_each(|element_label| {
-            self.element_store.remove_element(element_label);
-        });
-    }
-
     pub async fn process_world_changes(&mut self) -> Vec<AppChange> {
         let world_changes = std::mem::take(&mut self.queue_world_changes);
-
         let mut app_changes = Vec::new();
-        for world_change in world_changes {
-            if let Some(app_change) = self.process_world_change(world_change).await {
+
+        for change in world_changes {
+            if let Some(app_change) = self.process_world_change(change).await {
                 app_changes.push(app_change);
             }
         }
-
-        self.process_queue_spawn_element();
-        self.process_queue_despawn_element();
 
         app_changes
     }
@@ -227,35 +196,69 @@ impl World {
     /// cycle.
     pub async fn process_world_change(&mut self, world_change: WorldChange) -> Option<AppChange> {
         match world_change {
-            WorldChange::SpawnElement(element) => self.queue_element_spawn.push(element),
+            WorldChange::SpawnElement(element) => {
+                // Register Element
+                let registration = element.on_registration();
+                let (labels, world_changes) = registration.extract();
+
+                // Enqueue new world changes
+                self.queue_world_changes.extend(world_changes);
+
+                // Properly store Element after registration
+                self.element_store.store_element(element, labels)
+            }
             WorldChange::DespawnElement(element_label) => {
                 self.element_store.remove_element(&element_label);
             }
             WorldChange::SpawnModel(model_descriptor) => {
-                self.change_list.push(ChangeListEntry {
-                    action: EntryAction::Added,
-                    ty: EntryType::Model,
-                    label: model_descriptor.label.clone(),
-                });
+                self.change_list
+                    .lock()
+                    .await
+                    .push(Change::Added(ChangeType::Model {
+                        label: Some(model_descriptor.label.clone()),
+                    }));
                 self.model_store.add(model_descriptor).await
             }
             WorldChange::DespawnModel(model_label) => {
-                self.change_list.push(ChangeListEntry {
-                    action: EntryAction::Removed,
-                    ty: EntryType::Model,
-                    label: model_label.clone(),
-                });
+                self.change_list
+                    .lock()
+                    .await
+                    .push(Change::Removed(ChangeType::Model {
+                        label: Some(model_label.clone()),
+                    }));
                 self.model_store.remove(&model_label).await;
             }
             WorldChange::SendMessage(message) => self.element_store.queue_message(message),
+            WorldChange::SpawnCamera(descriptor) => {
+                self.change_list
+                    .lock()
+                    .await
+                    .push(Change::Added(ChangeType::Camera {
+                        label: Some(descriptor.identifier.clone()),
+                    }));
 
-            WorldChange::SpawnCamera(descriptor) => self.spawn_camera(descriptor),
+                self.spawn_camera(descriptor);
+            }
             WorldChange::SpawnCameraAndMakeActive(descriptor) => {
+                self.change_list
+                    .lock()
+                    .await
+                    .push(Change::Added(ChangeType::Camera {
+                        label: Some(descriptor.identifier.clone()),
+                    }));
+
                 let identifier = descriptor.identifier.clone();
                 self.spawn_camera(descriptor);
                 self.next_camera = Some(identifier);
             }
             WorldChange::DespawnCamera(identifier) => {
+                self.change_list
+                    .lock()
+                    .await
+                    .push(Change::Removed(ChangeType::Camera {
+                        label: Some(identifier.clone()),
+                    }));
+
                 if let Some(camera) = &self.active_camera {
                     if camera.descriptor().identifier == identifier {
                         self.active_camera = None;
@@ -295,9 +298,21 @@ impl World {
             }
             WorldChange::AppChange(app_change) => return Some(app_change),
             WorldChange::SpawnLight(light_descriptor) => {
+                self.change_list
+                    .lock()
+                    .await
+                    .push(Change::Added(ChangeType::Light {
+                        label: Some(light_descriptor.label().into()),
+                    }));
                 self.light_store.add_light_descriptor(light_descriptor);
             }
             WorldChange::DespawnLight(label) => {
+                self.change_list
+                    .lock()
+                    .await
+                    .push(Change::Removed(ChangeType::Light {
+                        label: Some(label.clone()),
+                    }));
                 self.light_store.remove_any_light_with_label(&label)
             }
             WorldChange::ChangeWorldEnvironment {
@@ -321,11 +336,6 @@ impl World {
             WorldChange::CleanWorld => {
                 info!("WorldChange::CleanWorld received!");
 
-                // Note: Materials and such will automatically clean up after the given cache interval is hit
-
-                // Clear spawning queues
-                self.queue_element_spawn.clear();
-
                 // Elements
                 self.element_store.clear();
 
@@ -340,6 +350,11 @@ impl World {
                 self.next_camera = None;
                 self.active_camera = None;
                 self.active_camera_change = None;
+
+                let mut change_list = self.change_list.lock().await;
+                change_list.push(Change::Clear(ChangeType::Model { label: None }));
+                change_list.push(Change::Clear(ChangeType::Light { label: None }));
+                change_list.push(Change::Clear(ChangeType::Camera { label: None }));
             }
             WorldChange::EnqueueLoader(loader) => {
                 self.loader_executor.schedule_loader_boxed(loader);
@@ -357,8 +372,15 @@ impl World {
                 .element_store
                 .remove_label(&element_label, labels_to_be_removed),
             WorldChange::SetTransformModel(model_label, transform) => {
-                if let Some(model) = self.model_store.get_mut(&model_label) {
-                    model.set_transforms(vec![transform]);
+                if let Some(model) = self.model_store.get(&model_label) {
+                    model.write().await.set_transforms(vec![transform]);
+
+                    self.change_list
+                        .lock()
+                        .await
+                        .push(Change::Changed(ChangeType::Model {
+                            label: Some(model_label),
+                        }));
                 } else {
                     error!(
                         "Model with label '{}' could not be found! Cannot set transform: {:?}",
@@ -367,8 +389,15 @@ impl World {
                 }
             }
             WorldChange::SetTransformSpecificModelInstance(model_label, transform, index) => {
-                if let Some(model) = self.model_store.get_mut(&model_label) {
-                    model.set_specific_transform(transform, index);
+                if let Some(model) = self.model_store.get(&model_label) {
+                    model.write().await.set_specific_transform(transform, index);
+
+                    self.change_list
+                        .lock()
+                        .await
+                        .push(Change::Changed(ChangeType::Model {
+                            label: Some(model_label),
+                        }));
                 } else {
                     error!(
                         "Model with label '{}' could not be found! Cannot set transform: {:?}",
@@ -377,8 +406,15 @@ impl World {
                 }
             }
             WorldChange::ApplyTransformModel(model_label, transform) => {
-                if let Some(model) = self.model_store.get_mut(&model_label) {
-                    model.apply_transform(transform);
+                if let Some(model) = self.model_store.get(&model_label) {
+                    model.write().await.apply_transform(transform);
+
+                    self.change_list
+                        .lock()
+                        .await
+                        .push(Change::Changed(ChangeType::Model {
+                            label: Some(model_label),
+                        }));
                 } else {
                     error!(
                         "Model with label '{}' could not be found! Cannot apply transform: {:?}",
@@ -387,8 +423,18 @@ impl World {
                 }
             }
             WorldChange::ApplyTransformSpecificModelInstance(model_label, transform, index) => {
-                if let Some(model) = self.model_store.get_mut(&model_label) {
-                    model.apply_transform_specific(transform, index);
+                if let Some(model) = self.model_store.get(&model_label) {
+                    model
+                        .write()
+                        .await
+                        .apply_transform_specific(transform, index);
+
+                    self.change_list
+                        .lock()
+                        .await
+                        .push(Change::Changed(ChangeType::Model {
+                            label: Some(model_label),
+                        }));
                 } else {
                     error!(
                         "Model with label '{}' could not be found! Cannot apply transform: {:?}",
@@ -397,8 +443,15 @@ impl World {
                 }
             }
             WorldChange::AddTransformsToModel(model_label, transforms) => {
-                if let Some(model) = self.model_store.get_mut(&model_label) {
-                    model.add_transforms(transforms);
+                if let Some(model) = self.model_store.get(&model_label) {
+                    model.write().await.add_transforms(transforms);
+
+                    self.change_list
+                        .lock()
+                        .await
+                        .push(Change::Changed(ChangeType::Model {
+                            label: Some(model_label),
+                        }));
                 } else {
                     error!(
                         "Model with label '{}' could not be found! Cannot add transforms: {:?}",
@@ -407,8 +460,15 @@ impl World {
                 }
             }
             WorldChange::RemoveTransformsFromModel(model_label, indices) => {
-                if let Some(model) = self.model_store.get_mut(&model_label) {
-                    model.remove_transforms(indices);
+                if let Some(model) = self.model_store.get(&model_label) {
+                    model.write().await.remove_transforms(indices);
+
+                    self.change_list
+                        .lock()
+                        .await
+                        .push(Change::Changed(ChangeType::Model {
+                            label: Some(model_label),
+                        }));
                 } else {
                     error!("Model with label '{}' could not be found! Cannot remove transform at index '{:?}'", model_label, indices);
                 }
@@ -511,5 +571,11 @@ impl World {
 
     pub fn world_environment(&self) -> &MaterialDescriptor {
         &self.world_environment
+    }
+
+    /// **Takes** the current `ChangeList`, leaving behind an empty list.
+    /// Should only be called once per frame by whoever needs it, most likely a `Renderer`!
+    pub async fn take_change_list(&self) -> ChangeList {
+        self.change_list.lock().await.drain(..).collect()
     }
 }

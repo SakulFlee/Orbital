@@ -113,7 +113,6 @@ impl WorldEnvironment {
 
     pub fn from_descriptor(
         desc: &WorldEnvironmentDescriptor,
-        sampling_type: &SamplingType,
         device: &Device,
         queue: &Queue,
     ) -> Result<Self, Error> {

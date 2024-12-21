@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use wgpu::{Face, FrontFace, PolygonMode, PrimitiveTopology};
 
 use crate::{
@@ -12,7 +14,7 @@ pub use bind_group_layout::*;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct PipelineDescriptor {
-    pub shader_descriptor: ShaderDescriptor,
+    pub shader_descriptor: Arc<ShaderDescriptor>,
     pub bind_group_layouts: Vec<PipelineBindGroupLayout>,
     pub primitive_topology: PrimitiveTopology,
     pub front_face_order: FrontFace,
@@ -26,7 +28,7 @@ pub struct PipelineDescriptor {
 impl PipelineDescriptor {
     pub fn default_skybox() -> Self {
         Self {
-            shader_descriptor: include_str!("../shader/skybox.wgsl"),
+            shader_descriptor: Arc::new(include_str!("../shader/skybox.wgsl")),
             bind_group_layouts: vec![
                 Material::world_environment_pipeline_bind_group_layout(),
                 Camera::pipeline_bind_group_layout(),
@@ -46,7 +48,7 @@ impl Default for PipelineDescriptor {
     /// Default is PBR
     fn default() -> Self {
         Self {
-            shader_descriptor: include_str!("../shader/standard_pbr.wgsl"),
+            shader_descriptor: Arc::new(include_str!("../shader/standard_pbr.wgsl")),
             bind_group_layouts: vec![
                 Material::pbr_pipeline_bind_group_layout(),
                 Camera::pipeline_bind_group_layout(),
@@ -68,7 +70,7 @@ impl PipelineDescriptor {
     // Like `Default::default`, but with a custom shader
     pub fn default_with_shader(shader_descriptor: ShaderDescriptor) -> Self {
         Self {
-            shader_descriptor,
+            shader_descriptor: Arc::new(shader_descriptor),
             ..Default::default()
         }
     }

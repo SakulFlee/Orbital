@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use cgmath::{Vector2, Vector4};
 use image::ImageReader;
 use wgpu::{
@@ -7,7 +9,7 @@ use wgpu::{
     TextureView, TextureViewDescriptor,
 };
 
-use crate::{error::Error, resources::descriptors::TextureDescriptor};
+use crate::{cache::Cache, error::Error, resources::descriptors::TextureDescriptor};
 
 #[derive(Debug)]
 pub struct Texture {
@@ -365,7 +367,6 @@ impl Texture {
         let size_log = max_size.log2();
         let size_floor = size_log.floor();
 
-        
         (size_floor as u32) + 1
     }
 
