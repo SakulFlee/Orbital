@@ -158,7 +158,7 @@ impl World {
             match self
                 .camera_descriptors
                 .iter()
-                .find(|x| x.identifier == camera_identifier)
+                .find(|x| x.label == camera_identifier)
             {
                 Some(camera_descriptor) => {
                     // Realize camera
@@ -234,7 +234,7 @@ impl World {
                     .lock()
                     .await
                     .push(Change::Added(ChangeType::Camera {
-                        label: Some(descriptor.identifier.clone()),
+                        label: Some(descriptor.label.clone()),
                     }));
 
                 self.spawn_camera(descriptor);
@@ -244,10 +244,10 @@ impl World {
                     .lock()
                     .await
                     .push(Change::Added(ChangeType::Camera {
-                        label: Some(descriptor.identifier.clone()),
+                        label: Some(descriptor.label.clone()),
                     }));
 
-                let identifier = descriptor.identifier.clone();
+                let identifier = descriptor.label.clone();
                 self.spawn_camera(descriptor);
                 self.next_camera = Some(identifier);
             }
@@ -260,19 +260,18 @@ impl World {
                     }));
 
                 if let Some(camera) = &self.active_camera {
-                    if camera.descriptor().identifier == identifier {
+                    if camera.descriptor().label == identifier {
                         self.active_camera = None;
 
                         warn!("Despawned Camera was active!");
                     }
                 }
 
-                self.camera_descriptors
-                    .retain(|x| x.identifier != identifier);
+                self.camera_descriptors.retain(|x| x.label != identifier);
             }
             WorldChange::ChangeActiveCamera(identifier) => {
                 if let Some(camera) = &self.active_camera {
-                    if camera.descriptor().identifier == identifier {
+                    if camera.descriptor().label == identifier {
                         warn!("Attempting to activate already active camera!");
                         return None;
                     }
@@ -283,13 +282,13 @@ impl World {
             }
             WorldChange::UpdateCamera(change) => {
                 if let Some(camera) = &self.active_camera {
-                    if camera.descriptor().identifier == change.target {
+                    if camera.descriptor().label == change.target {
                         self.active_camera_change = Some(change);
                     }
                 } else if let Some(existing_camera_descriptor) = self
                     .camera_descriptors
                     .iter_mut()
-                    .find(|x| x.identifier == change.target)
+                    .find(|x| x.label == change.target)
                 {
                     existing_camera_descriptor.apply_change(change);
                 } else {
@@ -482,9 +481,9 @@ impl World {
         if self
             .camera_descriptors
             .iter()
-            .any(|x| x.identifier == descriptor.identifier)
+            .any(|x| x.label == descriptor.label)
         {
-            warn!("Trying to spawn Camera with identifier '{}', which already exists. Rejecting change!", descriptor.identifier);
+            warn!("Trying to spawn Camera with identifier '{}', which already exists. Rejecting change!", descriptor.label);
             return;
         }
 
