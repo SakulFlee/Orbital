@@ -12,7 +12,7 @@ use orbital::renderer::CachingDirectRenderer;
 
 use crate::app::MyApp;
 
-pub const NAME: &'static str = "Akimo-Demo-Project";
+pub const NAME: &str = "Akimo-Demo-Project";
 
 pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
     logging::init();

@@ -1,14 +1,8 @@
-use std::{
-    collections::HashMap,
-    fs::{self, File},
-    hash::{DefaultHasher, Hash, Hasher},
-    io::Write,
-};
+use std::hash::{DefaultHasher, Hash, Hasher};
 
 use cgmath::Vector2;
 use image::{GenericImageView, ImageReader};
 use log::{debug, warn};
-use serde::Serialize;
 use wgpu::{
     include_wgsl,
     util::{BufferInitDescriptor, DeviceExt},
@@ -16,9 +10,8 @@ use wgpu::{
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
     BufferBindingType, BufferUsages, CommandEncoder, ComputePassDescriptor, ComputePipeline,
     ComputePipelineDescriptor, Device, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout,
-    Origin3d, PipelineLayoutDescriptor, Queue, SamplerBindingType, SamplerDescriptor,
-    ShaderModuleDescriptor, ShaderStages, StorageTextureAccess, TextureAspect, TextureDescriptor,
-    TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView,
+    Origin3d, PipelineLayoutDescriptor, Queue, SamplerBindingType,
+    ShaderModuleDescriptor, ShaderStages, StorageTextureAccess, TextureAspect, TextureFormat, TextureSampleType, TextureUsages, TextureView,
     TextureViewDescriptor, TextureViewDimension,
 };
 
@@ -186,11 +179,11 @@ impl WorldEnvironment {
             };
             cache_file.to_path(ibl_cache_file)?;
 
-            return Ok(world_environment);
+            Ok(world_environment)
         } else {
             warn!("Disk caching for WorldEnvironment/IBL is not supported on this platform! Loading the skybox might take significantly longer.");
 
-            return Self::from_descriptor_without_disk_cache(descriptor, device, queue);
+            Self::from_descriptor_without_disk_cache(descriptor, device, queue)
         }
     }
 

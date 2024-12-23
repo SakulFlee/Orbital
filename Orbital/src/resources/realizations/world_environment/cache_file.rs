@@ -18,15 +18,15 @@ impl CacheFile {
     where
         P: AsRef<Path>,
     {
-        let mut file = File::open(path).map_err(|e| Error::IOError(e))?;
+        let mut file = File::open(path).map_err(Error::IOError)?;
     
         // Read sizes
         let mut size_buffer = [0u8; 8];
-        file.read_exact(&mut size_buffer).map_err(|e| Error::IOError(e))?;
+        file.read_exact(&mut size_buffer).map_err(Error::IOError)?;
         let diffuse_size = u64::from_le_bytes(size_buffer);
         debug!("IBL Diffuse expected size in bytes: {}", diffuse_size);
         
-        file.read_exact(&mut size_buffer).map_err(|e| Error::IOError(e))?;
+        file.read_exact(&mut size_buffer).map_err(Error::IOError)?;
         let specular_size = u64::from_le_bytes(size_buffer);
         debug!("IBL Specular expected size in bytes: {}", specular_size);
         
@@ -34,9 +34,9 @@ impl CacheFile {
         let mut ibl_diffuse_data = vec![0u8; diffuse_size as usize];
         let mut ibl_specular_data = vec![0u8; specular_size as usize];
         
-        file.read_exact(&mut ibl_diffuse_data).map_err(|e| Error::IOError(e))?;
+        file.read_exact(&mut ibl_diffuse_data).map_err(Error::IOError)?;
         debug!("IBL Diffuse actual size in bytes: {}", ibl_diffuse_data.len());
-        file.read_exact(&mut ibl_specular_data).map_err(|e| Error::IOError(e))?;
+        file.read_exact(&mut ibl_specular_data).map_err(Error::IOError)?;
         debug!("IBL Specular actual size in bytes: {}", ibl_specular_data.len());
 
         Ok(Self {
@@ -49,24 +49,24 @@ impl CacheFile {
         // Create parent folder(s) if they don't exist
         if let Some(parent) = path.as_ref().parent() {
             if !parent.exists() {
-                fs::create_dir_all(parent).map_err(|e| Error::IOError(e))?;
+                fs::create_dir_all(parent).map_err(Error::IOError)?;
             }
         } else {
             warn!("Path doesn't have a parent, the next step might fail to save the cache to disk!");
         }
 
         // Create the file if it doesn't exist, truncate if it does, and write self to it
-        let mut file = File::create(path).map_err(|e| Error::IOError(e))?;
+        let mut file = File::create(path).map_err(Error::IOError)?;
         
         // Write sizes first
-        file.write_all(&(self.ibl_diffuse_data.len() as u64).to_le_bytes()).map_err(|e| Error::IOError(e))?;
-        file.write_all(&(self.ibl_specular_data.len() as u64).to_le_bytes()).map_err(|e| Error::IOError(e))?;
+        file.write_all(&(self.ibl_diffuse_data.len() as u64).to_le_bytes()).map_err(Error::IOError)?;
+        file.write_all(&(self.ibl_specular_data.len() as u64).to_le_bytes()).map_err(Error::IOError)?;
         
         // Write actual data
-        file.write_all(&self.ibl_diffuse_data).map_err(|e| Error::IOError(e))?;
-        file.write_all(&self.ibl_specular_data).map_err(|e| Error::IOError(e))?;
+        file.write_all(&self.ibl_diffuse_data).map_err(Error::IOError)?;
+        file.write_all(&self.ibl_specular_data).map_err(Error::IOError)?;
 
-        file.flush().map_err(|e| Error::IOError(e))?;
+        file.flush().map_err(Error::IOError)?;
 
         Ok(())
     }

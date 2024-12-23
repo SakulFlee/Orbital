@@ -1,16 +1,15 @@
-use std::sync::Arc;
 
 use cgmath::{Vector2, Vector4};
 use image::ImageReader;
 use wgpu::{
-    AddressMode, Buffer, BufferAddress, BufferDescriptor, BufferUsages, CommandEncoderDescriptor,
+    AddressMode, BufferDescriptor, BufferUsages, CommandEncoderDescriptor,
     CompareFunction, Device, Extent3d, FilterMode, ImageCopyBuffer, ImageCopyTexture,
-    ImageDataLayout, MapMode, Origin3d, Queue, Sampler, SamplerDescriptor, Texture as WTexture,
+    ImageDataLayout, Origin3d, Queue, Sampler, SamplerDescriptor, Texture as WTexture,
     TextureAspect, TextureDescriptor as WTextureDescriptor, TextureDimension, TextureFormat,
     TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
 };
 
-use crate::{cache::Cache, error::Error, resources::descriptors::TextureDescriptor};
+use crate::{error::Error, resources::descriptors::TextureDescriptor};
 
 #[derive(Debug)]
 pub struct Texture {
@@ -66,7 +65,7 @@ impl Texture {
             sample_count: 1,
             dimension: TextureDimension::D2,
             format,
-            usage: usage,
+            usage,
             view_formats: &[],
         });
 
@@ -128,7 +127,7 @@ impl Texture {
             };
 
             let bytes_per_row = BYTES_PER_PIXEL * (mip_size.width as u64);
-            let aligned_bytes_per_row = ((bytes_per_row + ALIGN - 1) / ALIGN) * ALIGN;
+            let aligned_bytes_per_row = bytes_per_row.div_ceil(ALIGN) * ALIGN;
 
             let rows_per_layer = mip_size.height as u64;
             let bytes_per_layer = aligned_bytes_per_row * rows_per_layer;
@@ -516,7 +515,7 @@ impl Texture {
             };
 
             let bytes_per_row = BYTES_PER_PIXEL * (mip_size.width as u64);
-            let aligned_bytes_per_row = ((bytes_per_row + ALIGN - 1) / ALIGN) * ALIGN;
+            let aligned_bytes_per_row = bytes_per_row.div_ceil(ALIGN) * ALIGN;
 
             // Calculate how many complete layers we can fit in one buffer
             let rows_per_layer = mip_size.height as u64;
@@ -528,7 +527,7 @@ impl Texture {
                 (0..mip_size.depth_or_array_layers).step_by(layers_per_chunk as usize)
             {
                 let layer_count = ((mip_size.depth_or_array_layers - layer_start) as u64)
-                    .min(layers_per_chunk as u64) as u32;
+                    .min(layers_per_chunk) as u32;
                 let chunk_size = bytes_per_layer * layer_count as u64;
 
                 let buffer = device.create_buffer(&BufferDescriptor {

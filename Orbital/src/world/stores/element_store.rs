@@ -70,7 +70,7 @@ impl ElementStore {
     pub fn queue_message(&mut self, message: Message) {
         self.message_queue
             .entry(message.to().to_owned())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(message);
     }
 
