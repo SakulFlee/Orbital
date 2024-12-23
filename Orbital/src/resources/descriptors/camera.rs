@@ -6,7 +6,7 @@ use crate::world::{CameraChange, Mode};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CameraDescriptor {
-    pub identifier: String,
+    pub label: String,
     pub position: Point3<f32>,
     pub yaw: f32,
     pub pitch: f32,
@@ -94,7 +94,7 @@ impl CameraDescriptor {
 impl Default for CameraDescriptor {
     fn default() -> Self {
         Self {
-            identifier: Self::DEFAULT_NAME.into(),
+            label: Self::DEFAULT_NAME.into(),
             position: Point3::new(-1.0, 0.0, 0.0),
             yaw: 0f32,
             pitch: 0f32,
