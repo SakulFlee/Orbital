@@ -1,6 +1,8 @@
+use std::hash::{DefaultHasher, Hash, Hasher};
+
 use cgmath::Vector2;
 use image::{GenericImageView, ImageReader};
-use log::debug;
+use log::{debug, warn};
 use wgpu::{
     include_wgsl,
     util::{BufferInitDescriptor, DeviceExt},
@@ -8,9 +10,8 @@ use wgpu::{
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
     BufferBindingType, BufferUsages, CommandEncoder, ComputePassDescriptor, ComputePipeline,
     ComputePipelineDescriptor, Device, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout,
-    Origin3d, PipelineLayoutDescriptor, Queue, SamplerBindingType, SamplerDescriptor,
-    ShaderModuleDescriptor, ShaderStages, StorageTextureAccess, TextureAspect, TextureDescriptor,
-    TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView,
+    Origin3d, PipelineLayoutDescriptor, Queue, SamplerBindingType,
+    ShaderModuleDescriptor, ShaderStages, StorageTextureAccess, TextureAspect, TextureFormat, TextureSampleType, TextureUsages, TextureView,
     TextureViewDescriptor, TextureViewDimension,
 };
 
@@ -20,6 +21,9 @@ use crate::{
 };
 
 use super::Texture;
+
+mod cache_file;
+pub use cache_file::*;
 
 pub struct WorldEnvironment {
     skybox_type: SkyboxType,
@@ -112,11 +116,83 @@ impl WorldEnvironment {
     }
 
     pub fn from_descriptor(
-        desc: &WorldEnvironmentDescriptor,
+        descriptor: &WorldEnvironmentDescriptor,
+        device: &Device,
+        queue: &Queue,
+        app_name: &str,
+    ) -> Result<Self, Error> {
+        let mut hasher = DefaultHasher::new();
+        descriptor.hash(&mut hasher);
+        let hash = hasher.finish().to_string();
+
+        if let Some(platform_cache_dir) = dirs::cache_dir() {
+            let ibl_cache_file = platform_cache_dir
+                .join(app_name)
+                .join("IBLs")
+                .join(format!("{}.bin", hash));
+            debug!("WorldEnvironment/IBL Cache location: {:?}", ibl_cache_file);
+
+            // Try loading cache file
+            let cache_result = CacheFile::from_path(&ibl_cache_file);
+            if let Ok(cache_file) = cache_result {
+                let (pbr_ibl_diffuse, pbr_ibl_specular) =
+                    cache_file.make_textures(descriptor, device, queue);
+
+                debug!("Using cached WorldEnvironment/IBL!");
+                debug!(
+                    "Cached PBR IBL Diffuse Size: {:?} + Mip Levels: {:?}",
+                    pbr_ibl_diffuse.texture().size(),
+                    pbr_ibl_diffuse.texture().mip_level_count()
+                );
+                debug!(
+                    "Cached PBR IBL Specular Size: {:?} + Mip Levels: {:?}",
+                    pbr_ibl_specular.texture().size(),
+                    pbr_ibl_specular.texture().mip_level_count()
+                );
+
+                return Ok(Self {
+                    skybox_type: SkyboxType::Specular { lod: 0 },
+                    pbr_ibl_diffuse,
+                    pbr_ibl_specular,
+                });
+            }
+
+            warn!(
+                "WorldEnvironment/IBL cache failed to load! Generating new IBL ... Attempted cache status: {:?}",
+                cache_result
+            );
+
+            // If cache doesn't exist, or failed to load, reset and regenerate
+            let world_environment =
+                Self::from_descriptor_without_disk_cache(descriptor, device, queue)?;
+
+            let ibl_diffuse_data = world_environment
+                .pbr_ibl_diffuse
+                .read_as_binary(device, queue);
+            let ibl_specular_data = world_environment
+                .pbr_ibl_specular
+                .read_as_binary(device, queue);
+
+            let cache_file = CacheFile {
+                ibl_diffuse_data,
+                ibl_specular_data,
+            };
+            cache_file.to_path(ibl_cache_file)?;
+
+            Ok(world_environment)
+        } else {
+            warn!("Disk caching for WorldEnvironment/IBL is not supported on this platform! Loading the skybox might take significantly longer.");
+
+            Self::from_descriptor_without_disk_cache(descriptor, device, queue)
+        }
+    }
+
+    pub fn from_descriptor_without_disk_cache(
+        descriptor: &WorldEnvironmentDescriptor,
         device: &Device,
         queue: &Queue,
     ) -> Result<Self, Error> {
-        match desc {
+        match descriptor {
             WorldEnvironmentDescriptor::FromFile {
                 skybox_type,
                 cube_face_size,
@@ -146,56 +222,6 @@ impl WorldEnvironment {
                 queue,
             )),
         }
-    }
-
-    fn create_empty_cube_texture(
-        label: Option<&str>,
-        size: Vector2<u32>,
-        format: TextureFormat,
-        usage: TextureUsages,
-        with_mips: bool,
-        device: &Device,
-    ) -> Texture {
-        let size = Extent3d {
-            width: size.x,
-            height: size.y,
-            // A cube has 6 sides, so we need 6 layers
-            depth_or_array_layers: 6,
-        };
-        let texture = device.create_texture(&TextureDescriptor {
-            label,
-            size,
-            mip_level_count: if with_mips {
-                Texture::calculate_max_mip_levels_from_texture_size(&size)
-            } else {
-                1
-            },
-            sample_count: 1,
-            dimension: TextureDimension::D2,
-            format,
-            usage,
-            view_formats: &[],
-        });
-
-        let view = texture.create_view(&TextureViewDescriptor {
-            label,
-            dimension: Some(TextureViewDimension::Cube),
-            array_layer_count: Some(6),
-            ..Default::default()
-        });
-
-        let sampler = device.create_sampler(&SamplerDescriptor {
-            label,
-            address_mode_u: AddressMode::ClampToEdge,
-            address_mode_v: AddressMode::ClampToEdge,
-            address_mode_w: AddressMode::ClampToEdge,
-            mag_filter: FilterMode::Linear,
-            min_filter: FilterMode::Linear,
-            mipmap_filter: FilterMode::Linear,
-            ..Default::default()
-        });
-
-        Texture::from_existing(texture, view, sampler)
     }
 
     pub fn radiance_hdr_file(
@@ -320,14 +346,16 @@ impl WorldEnvironment {
             device,
         );
 
-        let dst_texture = Self::create_empty_cube_texture(
+        let dst_texture = Texture::create_empty_cube_texture(
             Some("PBR IBL Diffuse"),
             Vector2 {
                 x: dst_size,
                 y: dst_size,
             },
             TextureFormat::Rgba16Float,
-            TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+            TextureUsages::STORAGE_BINDING
+                | TextureUsages::TEXTURE_BINDING
+                | TextureUsages::COPY_SRC,
             false,
             device,
         );
@@ -381,14 +409,16 @@ impl WorldEnvironment {
             device,
         );
 
-        let dst_texture = Self::create_empty_cube_texture(
+        let dst_texture = Texture::create_empty_cube_texture(
             Some("PBR IBL Specular without LoDs"),
             Vector2 {
                 x: dst_size,
                 y: dst_size,
             },
             TextureFormat::Rgba16Float,
-            TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+            TextureUsages::STORAGE_BINDING
+                | TextureUsages::TEXTURE_BINDING
+                | TextureUsages::COPY_SRC,
             false,
             device,
         );
@@ -446,14 +476,16 @@ impl WorldEnvironment {
             device,
         );
 
-        let dst_texture = Self::create_empty_cube_texture(
+        let dst_texture = Texture::create_empty_cube_texture(
             Some("PBR IBL Specular with LoDs"),
             Vector2 {
                 x: src_specular_ibl.texture().width(),
                 y: src_specular_ibl.texture().height(),
             },
             TextureFormat::Rgba16Float,
-            TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+            TextureUsages::STORAGE_BINDING
+                | TextureUsages::TEXTURE_BINDING
+                | TextureUsages::COPY_SRC,
             true,
             device,
         );

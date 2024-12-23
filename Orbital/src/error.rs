@@ -23,4 +23,6 @@ pub enum Error {
     NotDoneProcessing,
     CrossbeamRecvError(crossbeam_channel::RecvError),
     NotFound,
+    TomlError(toml::de::Error),
+    SerdeJsonError(serde_json::Error),
 }

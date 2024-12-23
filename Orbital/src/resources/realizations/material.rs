@@ -234,6 +234,7 @@ impl Material {
         surface_format: &TextureFormat,
         device: &Device,
         queue: &Queue,
+        app_name: &str,
         with_texture_cache: Option<&mut Cache<Arc<TextureDescriptor>, Texture>>,
         with_pipeline_cache: Option<&mut Cache<Arc<PipelineDescriptor>, Pipeline>>,
         with_shader_cache: Option<&mut Cache<Arc<ShaderDescriptor>, Shader>>,
@@ -271,10 +272,11 @@ impl Material {
             // Note that, WorldEnvironment doesn't use the Texture Cache as it works a lot different from normal Textures and Materials.
             // There also hardly is a need for a cache though, as only ever one `WorldEnvironment` is used at a time and while switching is possible, it shouldn't be switched so often that a cache will be needed.
             MaterialDescriptor::WorldEnvironment(world_environment) => Self::skybox(
-                &world_environment,
+                world_environment,
                 surface_format,
                 device,
                 queue,
+                app_name,
                 with_pipeline_cache,
                 with_shader_cache,
             ),
@@ -286,11 +288,16 @@ impl Material {
         surface_format: &TextureFormat,
         device: &Device,
         queue: &Queue,
+        app_name: &str,
         with_pipeline_cache: Option<&mut Cache<Arc<PipelineDescriptor>, Pipeline>>,
         with_shader_cache: Option<&mut Cache<Arc<ShaderDescriptor>, Shader>>,
     ) -> Result<Self, Error> {
-        let world_environment =
-            WorldEnvironment::from_descriptor(world_environment_descriptor, device, queue)?;
+        let world_environment = WorldEnvironment::from_descriptor(
+            world_environment_descriptor,
+            device,
+            queue,
+            app_name,
+        )?;
         let ibl_brdf_lut = unsafe { Self::get_or_generate_ibl_brdf_lut(device, queue) };
 
         let pipeline_descriptor = Arc::new(PipelineDescriptor::default_skybox());
