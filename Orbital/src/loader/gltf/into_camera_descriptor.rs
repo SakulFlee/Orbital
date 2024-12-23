@@ -21,7 +21,7 @@ impl From<&Camera> for CameraDescriptor {
                 yfov: fovy,
                 aspect_ratio,
             } => CameraDescriptor {
-                identifier,
+                label: identifier,
                 position: Point3::from_vec(value.position()),
                 yaw,
                 pitch,
