@@ -272,7 +272,7 @@ impl Material {
             // Note that, WorldEnvironment doesn't use the Texture Cache as it works a lot different from normal Textures and Materials.
             // There also hardly is a need for a cache though, as only ever one `WorldEnvironment` is used at a time and while switching is possible, it shouldn't be switched so often that a cache will be needed.
             MaterialDescriptor::WorldEnvironment(world_environment) => Self::skybox(
-                &world_environment,
+                world_environment,
                 surface_format,
                 device,
                 queue,

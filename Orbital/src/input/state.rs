@@ -1,7 +1,6 @@
 use cgmath::{Vector2, Zero};
 use gilrs::Axis;
 use hashbrown::HashMap;
-use log::debug;
 use winit::event::{ElementState, MouseScrollDelta};
 
 use super::{InputAxis, InputButton, InputEvent, InputId};

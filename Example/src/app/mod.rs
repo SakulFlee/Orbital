@@ -80,7 +80,7 @@ impl<RenderImpl: Renderer + Send> App for MyApp<RenderImpl> {
             Vector2::new(config.width, config.height),
             device,
             queue,
-            &NAME,
+            NAME,
         ));
 
         if self.world.model_store().is_empty() {
