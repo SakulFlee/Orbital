@@ -24,6 +24,7 @@ use crate::world::{Change, ChangeList, ChangeType, World};
 use super::Renderer;
 
 pub struct CachingDirectRenderer {
+    app_name: String,
     surface_format: TextureFormat,
     depth_texture: Texture,
     world_environment: Option<Material>,
@@ -160,6 +161,7 @@ impl CachingDirectRenderer {
                             &self.surface_format,
                             device,
                             queue,
+                            &self.app_name,
                             Some(&mut self.mesh_cache),
                             Some(&mut self.material_cache),
                             Some(&mut self.texture_cache),
@@ -209,12 +211,14 @@ impl Renderer for CachingDirectRenderer {
         resolution: cgmath::Vector2<u32>,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
+        app_name: &str,
     ) -> Self {
         let depth_texture =
             Texture::from_descriptor(&TextureDescriptor::Depth(resolution), device, queue)
                 .expect("Depth texture realization failed!");
 
         Self {
+            app_name: app_name.to_string(),
             surface_format: surface_texture_format,
             depth_texture,
             model_cache: HashMap::new(),
@@ -261,6 +265,7 @@ impl Renderer for CachingDirectRenderer {
                 &self.surface_format,
                 device,
                 queue,
+                &self.app_name,
                 Some(&mut self.texture_cache),
                 Some(&mut self.pipeline_cache),
                 Some(&mut self.shader_cache),

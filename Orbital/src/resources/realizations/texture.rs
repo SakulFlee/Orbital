@@ -3,10 +3,11 @@ use std::sync::Arc;
 use cgmath::{Vector2, Vector4};
 use image::ImageReader;
 use wgpu::{
-    AddressMode, CompareFunction, Device, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout,
-    Origin3d, Queue, Sampler, SamplerDescriptor, Texture as WTexture, TextureAspect,
-    TextureDescriptor as WTextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-    TextureView, TextureViewDescriptor,
+    AddressMode, Buffer, BufferAddress, BufferDescriptor, BufferUsages, CommandEncoderDescriptor,
+    CompareFunction, Device, Extent3d, FilterMode, ImageCopyBuffer, ImageCopyTexture,
+    ImageDataLayout, MapMode, Origin3d, Queue, Sampler, SamplerDescriptor, Texture as WTexture,
+    TextureAspect, TextureDescriptor as WTextureDescriptor, TextureDimension, TextureFormat,
+    TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
 };
 
 use crate::{cache::Cache, error::Error, resources::descriptors::TextureDescriptor};
@@ -38,6 +39,132 @@ impl Texture {
             TextureDescriptor::UniformLuma { data } => Ok(Self::uniform_luma(data, device, queue)),
             TextureDescriptor::Depth(size) => Ok(Self::depth_texture(size, device, queue)),
         }
+    }
+
+    pub fn create_empty_cube_texture(
+        label: Option<&str>,
+        size: Vector2<u32>,
+        format: TextureFormat,
+        usage: TextureUsages,
+        with_mips: bool,
+        device: &Device,
+    ) -> Texture {
+        let size = Extent3d {
+            width: size.x,
+            height: size.y,
+            // A cube has 6 sides, so we need 6 layers
+            depth_or_array_layers: 6,
+        };
+        let texture = device.create_texture(&WTextureDescriptor {
+            label,
+            size,
+            mip_level_count: if with_mips {
+                Texture::calculate_max_mip_levels_from_texture_size(&size)
+            } else {
+                1
+            },
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format,
+            usage: usage,
+            view_formats: &[],
+        });
+
+        let view = texture.create_view(&TextureViewDescriptor {
+            label,
+            dimension: Some(TextureViewDimension::Cube),
+            array_layer_count: Some(6),
+            ..Default::default()
+        });
+
+        let sampler = device.create_sampler(&SamplerDescriptor {
+            label,
+            address_mode_u: AddressMode::ClampToEdge,
+            address_mode_v: AddressMode::ClampToEdge,
+            address_mode_w: AddressMode::ClampToEdge,
+            mag_filter: FilterMode::Linear,
+            min_filter: FilterMode::Linear,
+            mipmap_filter: FilterMode::Linear,
+            ..Default::default()
+        });
+
+        Texture::from_existing(texture, view, sampler)
+    }
+
+    pub fn from_binary_data(
+        data: &[u8],
+        label: Option<&str>,
+        size: Vector2<u32>,
+        format: TextureFormat,
+        usage: TextureUsages,
+        with_mips: bool,
+        device: &Device,
+        queue: &Queue,
+    ) -> Self {
+        const ALIGN: u64 = 256;
+        const BYTES_PER_PIXEL: u64 = 8; // Rgba16Float format
+
+        let texture = Self::create_empty_cube_texture(
+            label,
+            size,
+            format,
+            usage | TextureUsages::COPY_DST,
+            with_mips,
+            device,
+        );
+
+        let mut data_offset = 0;
+        let mip_count = if with_mips {
+            texture.calculate_max_mip_levels()
+        } else {
+            1
+        };
+
+        for mip_level in 0..mip_count {
+            let mip_size = Extent3d {
+                width: size.x >> mip_level,
+                height: size.y >> mip_level,
+                depth_or_array_layers: 6,
+            };
+
+            let bytes_per_row = BYTES_PER_PIXEL * (mip_size.width as u64);
+            let aligned_bytes_per_row = ((bytes_per_row + ALIGN - 1) / ALIGN) * ALIGN;
+
+            let rows_per_layer = mip_size.height as u64;
+            let bytes_per_layer = aligned_bytes_per_row * rows_per_layer;
+
+            for layer_start in (0..mip_size.depth_or_array_layers).step_by(1) {
+                let chunk_size = bytes_per_layer as usize;
+
+                queue.write_texture(
+                    ImageCopyTexture {
+                        texture: texture.texture(),
+                        mip_level,
+                        origin: Origin3d {
+                            x: 0,
+                            y: 0,
+                            z: layer_start,
+                        },
+                        aspect: TextureAspect::All,
+                    },
+                    &data[data_offset..data_offset + chunk_size],
+                    ImageDataLayout {
+                        offset: 0,
+                        bytes_per_row: Some(aligned_bytes_per_row as u32),
+                        rows_per_image: Some(mip_size.height),
+                    },
+                    Extent3d {
+                        width: mip_size.width,
+                        height: mip_size.height,
+                        depth_or_array_layers: 1,
+                    },
+                );
+
+                data_offset += chunk_size;
+            }
+        }
+
+        texture
     }
 
     pub fn from_file_path(file_path: &str, device: &Device, queue: &Queue) -> Result<Self, Error> {
@@ -368,6 +495,91 @@ impl Texture {
         let size_floor = size_log.floor();
 
         (size_floor as u32) + 1
+    }
+
+    pub fn read_as_binary(&self, device: &Device, queue: &Queue) -> Vec<u8> {
+        // 256MB, hard enforced by WGPU. A buffer cannot be bigger than this, thus we need to read in chunks.
+        const MAX_BUFFER_SIZE: u64 = 268_435_456;
+        // In WGPU a buffer has to be aligned with 2^8 bytes.
+        const ALIGN: u64 = 256;
+        // We use the Rgba16Float format, that's 16 bits per channel, thus 4 * 16 = 64 bits per whole pixel, which is 64 bits / 8 bits per byte = 8 bytes
+        const BYTES_PER_PIXEL: u64 = 8;
+
+        let mut final_data = Vec::new();
+        let mip_count = self.texture.mip_level_count();
+
+        for mip_level in 0..mip_count {
+            let mip_size = Extent3d {
+                width: self.texture.width() >> mip_level,
+                height: self.texture.height() >> mip_level,
+                depth_or_array_layers: self.texture.depth_or_array_layers(),
+            };
+
+            let bytes_per_row = BYTES_PER_PIXEL * (mip_size.width as u64);
+            let aligned_bytes_per_row = ((bytes_per_row + ALIGN - 1) / ALIGN) * ALIGN;
+
+            // Calculate how many complete layers we can fit in one buffer
+            let rows_per_layer = mip_size.height as u64;
+            let bytes_per_layer = aligned_bytes_per_row * rows_per_layer;
+            let layers_per_chunk = (MAX_BUFFER_SIZE / bytes_per_layer).max(1);
+
+            // Process layers in chunks
+            for layer_start in
+                (0..mip_size.depth_or_array_layers).step_by(layers_per_chunk as usize)
+            {
+                let layer_count = ((mip_size.depth_or_array_layers - layer_start) as u64)
+                    .min(layers_per_chunk as u64) as u32;
+                let chunk_size = bytes_per_layer * layer_count as u64;
+
+                let buffer = device.create_buffer(&BufferDescriptor {
+                    label: Some("Texture Read Buffer"),
+                    size: chunk_size,
+                    usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
+                    mapped_at_creation: false,
+                });
+
+                let mut encoder =
+                    device.create_command_encoder(&CommandEncoderDescriptor { label: None });
+                encoder.copy_texture_to_buffer(
+                    ImageCopyTexture {
+                        texture: &self.texture,
+                        mip_level,
+                        origin: Origin3d {
+                            x: 0,
+                            y: 0,
+                            z: layer_start,
+                        },
+                        aspect: TextureAspect::All,
+                    },
+                    ImageCopyBuffer {
+                        buffer: &buffer,
+                        layout: ImageDataLayout {
+                            offset: 0,
+                            bytes_per_row: Some(aligned_bytes_per_row as u32),
+                            rows_per_image: Some(mip_size.height),
+                        },
+                    },
+                    Extent3d {
+                        width: mip_size.width,
+                        height: mip_size.height,
+                        depth_or_array_layers: layer_count,
+                    },
+                );
+
+                // Submit the "copy texture to buffer" command and wait for it to finish
+                queue.submit([encoder.finish()]);
+                device.poll(wgpu::Maintain::Wait);
+
+                // Mark buffer as readable by mapping it and wait for it to finish
+                buffer.slice(..).map_async(wgpu::MapMode::Read, |_| {});
+                device.poll(wgpu::Maintain::Wait);
+
+                // Append our now readable data
+                final_data.extend_from_slice(&buffer.slice(..).get_mapped_range());
+            }
+        }
+
+        final_data
     }
 
     pub fn texture(&self) -> &WTexture {
