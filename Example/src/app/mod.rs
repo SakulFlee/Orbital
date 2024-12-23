@@ -14,6 +14,8 @@ pub use cache_settings::*;
 mod elements;
 use elements::*;
 
+use crate::entrypoint::NAME;
+
 pub struct MyApp<RendererImpl: Renderer + Send> {
     renderer: Option<RendererImpl>,
     world: World,
@@ -26,8 +28,7 @@ impl<RenderImpl: Renderer + Send> Default for MyApp<RenderImpl> {
 }
 
 impl<RenderImpl: Renderer + Send> MyApp<RenderImpl> {
-    pub fn new(
-    ) -> Self {
+    pub fn new() -> Self {
         Self {
             renderer: None,
             world: World::new(),
@@ -79,6 +80,7 @@ impl<RenderImpl: Renderer + Send> App for MyApp<RenderImpl> {
             Vector2::new(config.width, config.height),
             device,
             queue,
+            NAME,
         ));
 
         if self.world.model_store().is_empty() {
