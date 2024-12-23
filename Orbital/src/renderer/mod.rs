@@ -17,6 +17,8 @@ pub trait Renderer {
         resolution: Vector2<u32>,
         device: &Device,
         queue: &Queue,
+
+        app_name: &str,
     ) -> Self;
 
     async fn change_surface_texture_format(

@@ -15,6 +15,7 @@ use crate::world::World;
 use super::Renderer;
 
 pub struct NonCachingDirectRenderer {
+    app_name: String,
     surface_format: TextureFormat,
     depth_texture: Texture,
 }
@@ -49,6 +50,7 @@ impl NonCachingDirectRenderer {
             &self.surface_format,
             device,
             queue,
+            &self.app_name,
             None,
             None,
             None,
@@ -103,6 +105,7 @@ impl NonCachingDirectRenderer {
                 &self.surface_format,
                 device,
                 queue,
+                &self.app_name,
                 None,
                 None,
                 None,
@@ -121,6 +124,7 @@ impl NonCachingDirectRenderer {
                 &self.surface_format,
                 device,
                 queue,
+                &self.app_name,
                 None,
                 None,
                 None,
@@ -152,8 +156,10 @@ impl Renderer for NonCachingDirectRenderer {
         resolution: cgmath::Vector2<u32>,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
+        app_name: &str,
     ) -> Self {
         Self {
+            app_name: app_name.to_string(),
             surface_format: surface_texture_format,
             depth_texture: Texture::from_descriptor(
                 &TextureDescriptor::Depth(resolution),

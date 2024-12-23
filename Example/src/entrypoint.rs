@@ -12,6 +12,8 @@ use orbital::renderer::CachingDirectRenderer;
 
 use crate::app::MyApp;
 
+pub const NAME: &'static str = "Akimo-Demo-Project";
+
 pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
     logging::init();
 
@@ -19,6 +21,7 @@ pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
 
     let mut app_settings = AppSettings::default();
     app_settings.vsync_enabled = false;
+    app_settings.name = NAME.to_string();
 
     #[cfg(all(
         feature = "caching_direct_renderer",
