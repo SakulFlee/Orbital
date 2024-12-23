@@ -35,9 +35,7 @@ impl CacheFile {
         let mut ibl_specular_data = vec![0u8; specular_size as usize];
         
         file.read_exact(&mut ibl_diffuse_data).map_err(Error::IOError)?;
-        debug!("IBL Diffuse actual size in bytes: {}", ibl_diffuse_data.len());
         file.read_exact(&mut ibl_specular_data).map_err(Error::IOError)?;
-        debug!("IBL Specular actual size in bytes: {}", ibl_specular_data.len());
 
         Ok(Self {
             ibl_diffuse_data,
