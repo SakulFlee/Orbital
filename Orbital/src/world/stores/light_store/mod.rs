@@ -6,7 +6,10 @@ mod point;
 pub use point::*;
 
 #[derive(Debug)]
-pub struct LightStore {
+pub struct LightStore
+where
+    Self: Send + Sync,
+{
     point_light_store: PointLightStore,
 }
 

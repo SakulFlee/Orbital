@@ -1,4 +1,4 @@
-use std::u8;
+use std::{sync::Arc, u8};
 
 use cgmath::Vector3;
 use easy_gltf::Material;
@@ -86,19 +86,20 @@ impl From<&Material> for MaterialDescriptor {
             .unwrap_or(TextureDescriptor::UNIFORM_BLACK);
 
         Self::PBR {
-            normal,
-            albedo,
+            normal: Arc::new(normal),
+            albedo: Arc::new(albedo),
             albedo_factor: Vector3::new(
                 value.pbr.base_color_factor.x,
                 value.pbr.base_color_factor.y,
                 value.pbr.base_color_factor.z,
             ),
-            metallic,
+            metallic: Arc::new(metallic),
             metallic_factor: value.pbr.metallic_factor,
-            roughness,
+            roughness: Arc::new(roughness),
             roughness_factor: value.pbr.roughness_factor,
-            occlusion,
-            emissive,
+            occlusion: Arc::new(occlusion),
+            emissive: Arc::new(emissive),
+            custom_shader: None,
         }
     }
 }

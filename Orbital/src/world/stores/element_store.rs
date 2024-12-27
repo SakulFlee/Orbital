@@ -1,21 +1,31 @@
 use std::time::Instant;
 
 use futures::{stream::FuturesUnordered, StreamExt};
-use hashbrown::{hash_map::Entry, HashMap};
+use hashbrown::HashMap;
 use log::warn;
 
-use crate::input::InputState;
-
-use super::{Element, Message, WorldChange};
+use crate::{
+    input::InputState,
+    world::{Element, Message, WorldChange},
+};
 
 type ElementIndexType = u64;
 
 #[derive(Debug)]
-pub struct ElementStore {
-    element_map: HashMap<ElementIndexType, Box<dyn Element + Send>>,
+pub struct ElementStore
+where
+    Self: Send + Sync,
+{
+    element_map: HashMap<ElementIndexType, Box<dyn Element + Send + Sync>>,
     cursor_index: ElementIndexType,
     label_map: HashMap<String, ElementIndexType>,
     message_queue: HashMap<String, Vec<Message>>,
+}
+
+impl Default for ElementStore {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ElementStore {
@@ -37,21 +47,16 @@ impl ElementStore {
         self.message_queue.clear();
     }
 
-    pub fn store_element(&mut self, element: Box<dyn Element>, labels: Vec<String>) {
-        // Get the next cursor index.
-        // Realistically, this should never overflow ...
-        let next_cursor_index =   self.cursor_index.checked_add(1).unwrap_or_else(|| panic!("Congratulations! You managed to run out of Element indices! This means, you have spawned {} Elements already and are attempting to spawn another one. Here's a question from me to you: How do you have so much memory?", ElementIndexType::MAX));
-
-        // Update the cursor position to the current new index
+    pub fn store_element(&mut self, element: Box<dyn Element + Send + Sync>, labels: Vec<String>) {
+        let next_cursor_index = self.cursor_index + 1;
         self.cursor_index = next_cursor_index;
-
-        // Insert the Element
         self.element_map.insert(next_cursor_index, element);
 
-        // For each label, add the label as a key and index as the value
-        labels.into_iter().for_each(|label| {
+        // Reserve capacity for better performance with large label vectors
+        self.label_map.reserve(labels.len());
+        for label in labels {
             self.label_map.insert(label, next_cursor_index);
-        });
+        }
     }
 
     pub fn remove_element(&mut self, element_label: &str) {
@@ -63,15 +68,10 @@ impl ElementStore {
     }
 
     pub fn queue_message(&mut self, message: Message) {
-        // TODO: Potentially unnecessary string conversions!
-        match self.message_queue.entry(message.to().to_string()) {
-            Entry::Occupied(mut occupied_entry) => {
-                occupied_entry.get_mut().push(message);
-            }
-            Entry::Vacant(vacant_entry) => {
-                vacant_entry.insert(vec![message]);
-            }
-        }
+        self.message_queue
+            .entry(message.to().to_owned())
+            .or_default()
+            .push(message);
     }
 
     pub async fn update(&mut self, delta_time: f64, input_state: &InputState) -> Vec<WorldChange> {

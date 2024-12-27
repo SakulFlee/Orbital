@@ -1,6 +1,7 @@
 use std::{
     hash::{Hash, Hasher},
     mem,
+    sync::Arc,
 };
 
 use cgmath::Vector3;
@@ -11,30 +12,18 @@ use super::{SamplingType, ShaderDescriptor, TextureDescriptor, WorldEnvironmentD
 pub enum MaterialDescriptor {
     /// Creates a standard PBR (= Physically-Based-Rendering) material.
     PBR {
-        normal: TextureDescriptor,
-        albedo: TextureDescriptor,
+        normal: Arc<TextureDescriptor>,
+        albedo: Arc<TextureDescriptor>,
         albedo_factor: Vector3<f32>,
-        metallic: TextureDescriptor,
+        metallic: Arc<TextureDescriptor>,
         metallic_factor: f32,
-        roughness: TextureDescriptor,
+        roughness: Arc<TextureDescriptor>,
         roughness_factor: f32,
-        occlusion: TextureDescriptor,
-        emissive: TextureDescriptor,
+        occlusion: Arc<TextureDescriptor>,
+        emissive: Arc<TextureDescriptor>,
+        custom_shader: Option<ShaderDescriptor>,
     },
-    /// Creates a PBR (= Physically-Based-Rendering) material
-    /// with a custom shader.
-    PBRCustomShader {
-        normal: TextureDescriptor,
-        albedo: TextureDescriptor,
-        albedo_factor: Vector3<f32>,
-        metallic: TextureDescriptor,
-        metallic_factor: f32,
-        roughness: TextureDescriptor,
-        roughness_factor: f32,
-        occlusion: TextureDescriptor,
-        emissive: TextureDescriptor,
-        custom_shader: ShaderDescriptor,
-    },
+    // TODO
     WorldEnvironment(WorldEnvironmentDescriptor),
 }
 

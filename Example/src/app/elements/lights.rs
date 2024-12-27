@@ -8,7 +8,7 @@ use orbital::{
 pub struct Lights;
 
 impl Element for Lights {
-    fn on_registration(&mut self) -> ElementRegistration {
+    fn on_registration(&self) -> ElementRegistration {
         ElementRegistration::new("Lights").with_initial_world_changes(vec![
             WorldChange::SpawnLight(LightDescriptor::PointLight(PointLight {
                 label: "Scene Lights".into(),

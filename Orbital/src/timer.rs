@@ -1,4 +1,4 @@
-use std::{arch::x86_64::_SIDD_LEAST_SIGNIFICANT, time::Instant};
+use std::time::Instant;
 
 pub struct Timer {
     /// Last time when tick was called.
