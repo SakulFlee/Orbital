@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use cgmath::Vector2;
 use wgpu::{
     CommandEncoder, CommandEncoderDescriptor, Device, IndexFormat, LoadOp, Operations, Queue,
@@ -5,22 +6,21 @@ use wgpu::{
     TextureFormat, TextureView,
 };
 
+use crate::error::Error;
 use crate::log::error;
-use crate::resources::realizations::Material;
-use crate::resources::{
-    descriptors::TextureDescriptor,
-    realizations::{Pipeline, Texture},
-};
+use crate::resources::realizations::{Material, Model};
+use crate::resources::{descriptors::TextureDescriptor, realizations::Texture};
 use crate::world::World;
 
 use super::Renderer;
 
-pub struct StandardRenderer {
+pub struct NonCachingDirectRenderer {
+    app_name: String,
     surface_format: TextureFormat,
     depth_texture: Texture,
 }
 
-impl StandardRenderer {
+impl NonCachingDirectRenderer {
     fn render_skybox(
         &self,
         world: &World,
@@ -50,6 +50,10 @@ impl StandardRenderer {
             &self.surface_format,
             device,
             queue,
+            &self.app_name,
+            None,
+            None,
+            None,
         ) {
             Ok(x) => x,
             Err(e) => {
@@ -57,32 +61,21 @@ impl StandardRenderer {
                 return;
             }
         };
-        let skybox_pipeline = match Pipeline::from_descriptor(
-            world_environment_material.pipeline_descriptor(),
-            &self.surface_format,
-            device,
-            queue,
-        ) {
-            Ok(pipeline) => pipeline,
-            Err(e) => {
-                error!("SkyBox Pipeline in invalid state: {:?}", e);
-                return;
-            }
-        };
-        render_pass.set_pipeline(skybox_pipeline.render_pipeline());
+
+        render_pass.set_pipeline(world_environment_material.pipeline().render_pipeline());
         render_pass.set_bind_group(0, world_environment_material.bind_group(), &[]);
         render_pass.set_bind_group(1, world.active_camera().bind_group(), &[]);
         render_pass.draw(0..3, 0..1);
     }
 
-    fn render_models(
+    async fn render_models(
         &self,
         world: &World,
         encoder: &mut CommandEncoder,
         target_view: &TextureView,
         device: &Device,
         queue: &Queue,
-    ) {
+    ) -> Result<(), Error> {
         let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
             label: Some("Render Pass"),
             color_attachments: &[Some(RenderPassColorAttachment {
@@ -106,27 +99,23 @@ impl StandardRenderer {
         });
 
         // Models
-        for model in world.models() {
-            let mesh = model.mesh();
-            let material = model.material(&self.surface_format, device, queue);
-            let instance_data = model.instance_data();
-
-            let pipeline = match Pipeline::from_descriptor(
-                material.pipeline_descriptor(),
+        for model_descriptor in world.model_store().get_all() {
+            let model = Model::from_descriptor(
+                &*model_descriptor.read().await,
                 &self.surface_format,
                 device,
                 queue,
-            ) {
-                Ok(pipeline) => pipeline,
-                Err(e) => {
-                    error!("Pipeline in invalid state! Error: {:?}", e);
-                    continue;
-                }
-            };
+                &self.app_name,
+                None,
+                None,
+                None,
+                None,
+                None,
+            )?;
 
-            render_pass.set_pipeline(pipeline.render_pipeline());
+            render_pass.set_pipeline(model.material().pipeline().render_pipeline());
 
-            render_pass.set_bind_group(0, material.bind_group(), &[]);
+            render_pass.set_bind_group(0, model.material().bind_group(), &[]);
             render_pass.set_bind_group(1, world.active_camera().bind_group(), &[]);
             render_pass.set_bind_group(2, world.light_store().point_light_bind_group(), &[]);
 
@@ -135,32 +124,42 @@ impl StandardRenderer {
                 &self.surface_format,
                 device,
                 queue,
+                &self.app_name,
+                None,
+                None,
+                None,
             ) {
                 Ok(x) => x,
                 Err(e) => {
                     error!("WorldEnvironment Material in invalid state: {:?}", e);
-                    return;
+                    return Err(e);
                 }
             };
             render_pass.set_bind_group(3, world_environment_material.bind_group(), &[]);
 
-            render_pass.set_vertex_buffer(0, mesh.vertex_buffer().slice(..));
-            render_pass.set_vertex_buffer(1, instance_data.buffer().slice(..));
-            render_pass.set_index_buffer(mesh.index_buffer().slice(..), IndexFormat::Uint32);
+            render_pass.set_vertex_buffer(0, model.mesh().vertex_buffer().slice(..));
+            render_pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
+            render_pass
+                .set_index_buffer(model.mesh().index_buffer().slice(..), IndexFormat::Uint32);
 
-            render_pass.draw_indexed(0..mesh.index_count(), 0, 0..instance_data.instance_count());
+            render_pass.draw_indexed(0..model.mesh().index_count(), 0, 0..model.instance_count());
         }
+
+        Ok(())
     }
 }
 
-impl Renderer for StandardRenderer {
+#[async_trait]
+impl Renderer for NonCachingDirectRenderer {
     fn new(
         surface_texture_format: wgpu::TextureFormat,
         resolution: cgmath::Vector2<u32>,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
+        app_name: &str,
     ) -> Self {
         Self {
+            app_name: app_name.to_string(),
             surface_format: surface_texture_format,
             depth_texture: Texture::from_descriptor(
                 &TextureDescriptor::Depth(resolution),
@@ -171,33 +170,43 @@ impl Renderer for StandardRenderer {
         }
     }
 
-    fn change_surface_texture_format(
+    async fn change_surface_texture_format(
         &mut self,
         surface_texture_format: TextureFormat,
-        device: &Device,
-        queue: &Queue,
+        _device: &Device,
+        _queue: &Queue,
     ) {
         // Set the format internally
         self.surface_format = surface_texture_format;
-
-        // The cache will automatically recompile itself
-        // once a new format is used to access the cache.
-        let _ = Pipeline::prepare_cache_access(Some((&surface_texture_format, device, queue)));
     }
 
-    fn change_resolution(&mut self, resolution: Vector2<u32>, device: &Device, queue: &Queue) {
+    async fn change_resolution(
+        &mut self,
+        resolution: Vector2<u32>,
+        device: &Device,
+        queue: &Queue,
+    ) {
         // Remake the depth texture with the new size
         self.depth_texture = Texture::depth_texture(&resolution, device, queue);
     }
 
-    fn update(&mut self, _delta_time: f64) {}
-
-    fn render(&mut self, target_view: &TextureView, device: &Device, queue: &Queue, world: &World) {
+    async fn render(
+        &mut self,
+        target_view: &TextureView,
+        device: &Device,
+        queue: &Queue,
+        world: &World,
+    ) {
         let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor { label: None });
         {
             self.render_skybox(world, &mut encoder, target_view, device, queue);
 
-            self.render_models(world, &mut encoder, target_view, device, queue);
+            if let Err(e) = self
+                .render_models(world, &mut encoder, target_view, device, queue)
+                .await
+            {
+                error!("Failed to render models: {:?}", e);
+            }
         }
 
         queue.submit(Some(encoder.finish()));

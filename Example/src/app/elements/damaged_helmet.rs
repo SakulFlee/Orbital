@@ -16,7 +16,7 @@ impl DamagedHelmet {
 
 #[async_trait]
 impl Element for DamagedHelmet {
-    fn on_registration(&mut self) -> ElementRegistration {
+    fn on_registration(&self) -> ElementRegistration {
         ElementRegistration::new(Self::FILE_NAME).with_initial_world_change(
             WorldChange::EnqueueLoader(Box::new(GLTFLoader::new(
                 Self::FILE_NAME,

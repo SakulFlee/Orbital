@@ -2,13 +2,13 @@ use std::f32::consts::PI;
 
 use orbital::{
     app::AppChange,
-    async_trait::{async_trait},
+    async_trait::async_trait,
     cgmath::{Point3, Vector3},
-    world::{CameraChange, Element, ElementRegistration, Message, Mode, WorldChange},
     gilrs::Button,
     input::{InputAxis, InputButton, InputState},
     resources::descriptors::CameraDescriptor,
     winit::keyboard::{KeyCode, PhysicalKey},
+    world::{CameraChange, Element, ElementRegistration, Message, Mode, WorldChange},
 };
 
 #[derive(Debug)]
@@ -26,7 +26,7 @@ impl Camera {
     pub const MOVEMENT_SPEED: f64 = 5.0;
     pub const SPRINT_MULTIPLIER: f64 = 5.0;
 
-    pub const MOUSE_SENSITIVITY: f64 = 1.0;
+    pub const MOUSE_SENSITIVITY: f64 = 2.0;
     pub const GAMEPAD_MOVEMENT_SENSITIVITY: f64 = 2.5;
     pub const GAMEPAD_VIEW_SENSITIVITY: f64 = 2.5;
 
@@ -48,8 +48,6 @@ impl Camera {
     pub const KEYBOARD_DEBUG: InputButton =
         InputButton::Keyboard(PhysicalKey::Code(KeyCode::Space));
 
-    pub const ACTION_DEBUG: &'static str = "debug";
-
     pub fn new() -> Self {
         Self {}
     }
@@ -57,10 +55,10 @@ impl Camera {
 
 #[async_trait]
 impl Element for Camera {
-    fn on_registration(&mut self) -> ElementRegistration {
+    fn on_registration(&self) -> ElementRegistration {
         ElementRegistration::new(Self::IDENTIFIER)
             .with_initial_world_change(WorldChange::SpawnCameraAndMakeActive(CameraDescriptor {
-                identifier: Self::IDENTIFIER.into(),
+                label: Self::IDENTIFIER.into(),
                 position: Point3::new(5.0, 0.0, 0.0),
                 yaw: PI,
                 ..Default::default()

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use easy_gltf::Model;
 
 use crate::{resources::descriptors::ModelDescriptor, transform::Transform};
@@ -9,8 +11,8 @@ impl From<&Model> for ModelDescriptor {
             .map(|x| x.to_string())
             .unwrap_or(String::from("unlabelled glTF Model"));
 
-        let material = gltf_model.material().as_ref().into();
-        let mesh = gltf_model.into();
+        let material = Arc::new(gltf_model.material().as_ref().into());
+        let mesh = Arc::new(gltf_model.into());
 
         ModelDescriptor {
             label,

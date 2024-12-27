@@ -1,9 +1,9 @@
 use orbital::{
     async_trait::async_trait,
-    world::{Element, ElementRegistration, Message, WorldChange},
     hashbrown::HashMap,
     input::InputState,
     variant::Variant,
+    world::{Element, ElementRegistration, Message, WorldChange},
 };
 
 #[derive(Debug)]
@@ -24,7 +24,7 @@ impl PingPongElement {
 
 #[async_trait]
 impl Element for PingPongElement {
-    fn on_registration(&mut self) -> ElementRegistration {
+    fn on_registration(&self) -> ElementRegistration {
         let element_registration = ElementRegistration::new("PingPong");
 
         if self.is_ping {

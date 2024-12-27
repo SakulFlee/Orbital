@@ -30,7 +30,7 @@ pub enum WorldEnvironmentDescriptor {
 }
 
 impl WorldEnvironmentDescriptor {
-    pub const DEFAULT_SIZE: u32 = 1024;
+    pub const DEFAULT_SIZE: u32 = 4096;
     pub const DEFAULT_SAMPLING_TYPE: SamplingType = SamplingType::ImportanceSampling;
 
     pub fn set_skybox_type(&mut self, new_skybox_type: SkyboxType) {
@@ -104,7 +104,7 @@ impl PartialEq for WorldEnvironmentDescriptor {
                 }
 
                 // Then, compare byte-by-byte with fail-fast.
-                return l_data.iter().zip(r_data.iter()).any(|(l, r)| l.eq(r));
+                l_data.iter().zip(r_data.iter()).any(|(l, r)| l.eq(r))
             }
             _ => false,
         }

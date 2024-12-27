@@ -1,4 +1,4 @@
-use std::fmt::Write;
+use std::{fmt::Write, sync::Arc};
 use wgpu::{Device, Queue, ShaderModule, ShaderModuleDescriptor, ShaderSource};
 
 use crate::{error::Error, resources::descriptors::ShaderDescriptor};
@@ -10,13 +10,13 @@ pub struct Shader {
 
 impl Shader {
     pub fn from_descriptor(
-        shader_descriptor: ShaderDescriptor,
+        shader_descriptor: Arc<ShaderDescriptor>,
         device: &Device,
         _queue: &Queue,
     ) -> Result<Self, Error> {
         let shader_module = device.create_shader_module(ShaderModuleDescriptor {
             label: None,
-            source: ShaderSource::Wgsl(shader_descriptor.into()),
+            source: ShaderSource::Wgsl((*shader_descriptor).into()),
         });
 
         Ok(Self { shader_module })

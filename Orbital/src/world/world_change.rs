@@ -1,32 +1,29 @@
 use crate::{
     app::AppChange,
-    world::Element,
     loader::Loader,
     resources::descriptors::{
         CameraDescriptor, LightDescriptor, MaterialDescriptor, ModelDescriptor, SkyboxType,
     },
     transform::Transform,
+    world::Element,
 };
 
-pub mod mode;
-pub use mode::*;
-
-pub mod camera;
-pub use camera::*;
-
-use super::Message;
+use super::{CameraChange, Message};
 
 /// A [WorldChange] is a _proposed change to the [World]_.  
 ///
 /// [World]: super::World
 #[derive(Debug)]
-pub enum WorldChange {
+pub enum WorldChange
+where
+    Self: Send + Sync,
+{
     /// Spawns (== adds) an [Element] to the [World].
     ///
     /// ⚠️ The given [Element] must be [Boxed](Box) as it's a `dyn Trait`!
     ///
     /// [World]: super::World
-    SpawnElement(Box<dyn Element>),
+    SpawnElement(Box<dyn Element + Send + Sync>),
     /// Queues one or many [Element(s)](Element) to be despawned.
     DespawnElement(String),
     ElementAddLabels {
@@ -240,5 +237,5 @@ pub enum WorldChange {
     ///
     /// [World]: super::World
     /// [Loader]: crate::loader::Loader
-    EnqueueLoader(Box<dyn Loader + Send>),
+    EnqueueLoader(Box<dyn Loader + Send + Sync>),
 }

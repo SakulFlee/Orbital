@@ -1,12 +1,9 @@
-use std::time::Instant;
-
 use orbital::{
     app::{App, AppChange},
     cgmath::Vector2,
     input::InputState,
-    log::{debug, info, warn},
+    log::warn,
     renderer::Renderer,
-    resources::realizations::{Material, Pipeline},
     wgpu::{Device, Queue, SurfaceConfiguration, TextureView},
     world::{World, WorldChange},
 };
@@ -17,105 +14,62 @@ pub use cache_settings::*;
 mod elements;
 use elements::*;
 
+use crate::entrypoint::NAME;
+
 pub struct MyApp<RendererImpl: Renderer + Send> {
     renderer: Option<RendererImpl>,
     world: World,
-    cache_settings_pipelines: CacheSettings,
-    cache_settings_materials: CacheSettings,
-    cache_timer_pipelines: Instant,
-    cache_timer_materials: Instant,
+}
+
+impl<RenderImpl: Renderer + Send> Default for MyApp<RenderImpl> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<RenderImpl: Renderer + Send> MyApp<RenderImpl> {
-    pub fn new(
-        cache_settings_pipelines: CacheSettings,
-        cache_settings_materials: CacheSettings,
-    ) -> Self {
+    pub fn new() -> Self {
         Self {
             renderer: None,
             world: World::new(),
-            cache_settings_pipelines,
-            cache_settings_materials,
-            cache_timer_pipelines: Instant::now(),
-            cache_timer_materials: Instant::now(),
         }
     }
 
-    fn on_startup(&mut self) {
+    async fn on_startup(&mut self) {
         // Debug
         self.world
             .process_world_change(WorldChange::SpawnElement(Box::new(
                 DebugWorldEnvironment::new(),
-            )));
+            )))
+            .await;
 
         // Camera & Lights
         self.world
-            .process_world_change(WorldChange::SpawnElement(Box::new(Camera::new())));
+            .process_world_change(WorldChange::SpawnElement(Box::new(Camera::new())))
+            .await;
         self.world
-            .process_world_change(WorldChange::SpawnElement(Box::new(Lights {})));
+            .process_world_change(WorldChange::SpawnElement(Box::new(Lights {})))
+            .await;
 
         // Ping Pong
         self.world
             .process_world_change(WorldChange::SpawnElement(Box::new(PingPongElement::new(
                 true,
-            ))));
+            ))))
+            .await;
         self.world
             .process_world_change(WorldChange::SpawnElement(Box::new(PingPongElement::new(
                 false,
-            ))));
+            ))))
+            .await;
 
         // Models
         self.world
-            .process_world_change(WorldChange::SpawnElement(Box::new(PBRSpheres {})));
+            .process_world_change(WorldChange::SpawnElement(Box::new(PBRSpheres {})))
+            .await;
         self.world
-            .process_world_change(WorldChange::SpawnElement(Box::new(DamagedHelmet {})));
-    }
-
-    fn cache_cleanup(&mut self) {
-        self.cache_cleanup_pipelines();
-        self.cache_cleanup_materials();
-    }
-
-    fn cache_cleanup_pipelines(&mut self) {
-        if self.cache_timer_pipelines.elapsed() < self.cache_settings_pipelines.cleanup_interval {
-            return;
-        }
-
-        // Cache access
-        let cache = Pipeline::prepare_cache_access(None);
-
-        // Run cleanup
-        let change = cache.cleanup(self.cache_settings_pipelines.retain_period);
-        info!("Pipeline {}", change);
-
-        // Print out duration
-        debug!(
-            "Pipeline Cache Cleanup took {}ms!",
-            self.cache_timer_pipelines.elapsed().as_millis()
-        );
-
-        self.cache_timer_pipelines = Instant::now();
-    }
-
-    fn cache_cleanup_materials(&mut self) {
-        if self.cache_timer_materials.elapsed() < self.cache_settings_materials.cleanup_interval {
-            return;
-        }
-
-        // Cache access
-        let cache = Material::prepare_cache_access();
-
-        // Run cleanup
-        let change = cache.cleanup(self.cache_settings_materials.retain_period);
-        info!("Material {}", change);
-
-        // Print out duration
-        debug!(
-            "Material Cache Cleanup took {}ms!",
-            self.cache_timer_materials.elapsed().as_millis()
-        );
-
-        self.cache_timer_materials = Instant::now();
+            .process_world_change(WorldChange::SpawnElement(Box::new(DamagedHelmet {})))
+            .await;
     }
 }
 
@@ -126,10 +80,11 @@ impl<RenderImpl: Renderer + Send> App for MyApp<RenderImpl> {
             Vector2::new(config.width, config.height),
             device,
             queue,
+            NAME,
         ));
 
-        if self.world.models().is_empty() {
-            self.on_startup();
+        if self.world.model_store().is_empty() {
+            self.on_startup().await;
         }
     }
 
@@ -142,7 +97,7 @@ impl<RenderImpl: Renderer + Send> App for MyApp<RenderImpl> {
         Self: Sized,
     {
         if let Some(renderer) = &mut self.renderer {
-            renderer.change_resolution(new_size, device, queue);
+            renderer.change_resolution(new_size, device, queue).await;
         } else {
             warn!("Received resize event, but Renderer doesn't exist (yet?)");
         }
@@ -152,21 +107,12 @@ impl<RenderImpl: Renderer + Send> App for MyApp<RenderImpl> {
         &mut self,
         input_state: &InputState,
         delta_time: f64,
-        cycle: Option<(f64, u64)>,
+        _cycle: Option<(f64, u64)>,
     ) -> Option<Vec<AppChange>>
     where
         Self: Sized,
     {
         let app_changes = self.world.update(delta_time, input_state).await;
-
-        // TODO: Needed?
-        if let Some(renderer) = &mut self.renderer {
-            renderer.update(delta_time);
-        }
-
-        if cycle.is_some() {
-            self.cache_cleanup();
-        }
 
         (!app_changes.is_empty()).then_some(app_changes)
     }
@@ -178,7 +124,9 @@ impl<RenderImpl: Renderer + Send> App for MyApp<RenderImpl> {
         self.world.prepare_render(device, queue);
 
         if let Some(renderer) = &mut self.renderer {
-            renderer.render(target_view, device, queue, &self.world);
+            renderer
+                .render(target_view, device, queue, &self.world)
+                .await;
         }
     }
 }
