@@ -4,11 +4,20 @@ use wgpu::{Device, Queue, TextureFormat, TextureView};
 
 use crate::world::World;
 
+mod draw_indirect;
+pub use draw_indirect::*;
+
+mod draw_indexed_indirect;
+pub use draw_indexed_indirect::*;
+
 mod non_caching_direct_renderer;
 pub use non_caching_direct_renderer::*;
 
 mod caching_direct_renderer;
 pub use caching_direct_renderer::*;
+
+mod caching_indirect_renderer;
+pub use caching_indirect_renderer::*;
 
 #[async_trait]
 pub trait Renderer {

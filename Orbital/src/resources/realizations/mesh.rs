@@ -4,7 +4,7 @@ use wgpu::{
     Buffer, BufferUsages, Device, Queue,
 };
 
-use crate::{error::Error, resources::descriptors::MeshDescriptor};
+use crate::{bounding_box::BoundingBox, error::Error, resources::descriptors::MeshDescriptor};
 
 use super::Vertex;
 
@@ -13,14 +13,25 @@ pub struct Mesh {
     vertex_buffer: Buffer,
     index_buffer: Buffer,
     index_count: u32,
+    bounding_box_buffer: Option<Buffer>,
 }
 
 impl Mesh {
     pub fn from_descriptor(descriptor: &MeshDescriptor, device: &Device, _queue: &Queue) -> Self {
-        Self::from_data(&descriptor.vertices, &descriptor.indices, device)
+        Self::from_data(
+            &descriptor.vertices,
+            &descriptor.indices,
+            descriptor.bounding_box.as_ref(),
+            device,
+        )
     }
 
-    pub fn from_data(vertices: &[Vertex], indices: &[u32], device: &Device) -> Self {
+    pub fn from_data(
+        vertices: &[Vertex],
+        indices: &[u32],
+        bounding_box: Option<&BoundingBox>,
+        device: &Device,
+    ) -> Self {
         let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Mesh Vertex Buffer"),
             contents: &vertices
@@ -39,34 +50,18 @@ impl Mesh {
             usage: BufferUsages::INDEX,
         });
 
-        Self::from_buffer(vertex_buffer, index_buffer, indices.len() as u32)
-    }
+        let bounding_box_buffer = bounding_box.map(|x| x.to_binary_data()).map(|x| device.create_buffer_init(&BufferInitDescriptor {
+                label: Some("Bounding Box Buffer"),
+                contents: &x,
+                usage: BufferUsages::UNIFORM,
+            }));
 
-    pub fn from_buffer(vertex_buffer: Buffer, index_buffer: Buffer, index_count: u32) -> Self {
         Self {
             vertex_buffer,
             index_buffer,
-            index_count,
+            index_count: indices.len() as u32,
+            bounding_box_buffer,
         }
-    }
-
-    #[deprecated]
-    #[cfg(feature = "gltf")]
-    pub fn from_gltf(gltf_model: &easy_gltf::Model, device: &Device) -> Result<Self, Error> {
-        let vertices = gltf_model
-            .vertices()
-            .iter()
-            .map(|vertex| Into::<Vertex>::into(*vertex))
-            .collect::<Vec<Vertex>>();
-        let indices = match gltf_model.indices() {
-            Some(i) => i,
-            None => {
-                warn!("Trying to realize model from glTF without indices!");
-                return Err(Error::NoIndices);
-            }
-        };
-
-        Ok(Self::from_data(&vertices, indices, device))
     }
 
     pub fn vertex_buffer(&self) -> &Buffer {
@@ -79,5 +74,9 @@ impl Mesh {
 
     pub fn index_count(&self) -> u32 {
         self.index_count
+    }
+
+    pub fn bounding_box_buffer(&self) -> Option<&Buffer> {
+        self.bounding_box_buffer.as_ref()
     }
 }
