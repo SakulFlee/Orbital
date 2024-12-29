@@ -10,6 +10,9 @@ use orbital::renderer::NonCachingDirectRenderer;
 #[cfg(feature = "caching_direct_renderer")]
 use orbital::renderer::CachingDirectRenderer;
 
+#[cfg(feature = "caching_indirect_renderer")]
+use orbital::renderer::CachingIndirectRenderer;
+
 use crate::app::MyApp;
 
 pub const NAME: &str = "Orbital-Demo-Project";
@@ -25,20 +28,29 @@ pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
 
     #[cfg(all(
         feature = "caching_direct_renderer",
-        feature = "non_caching_direct_renderer"
+        feature = "non_caching_direct_renderer",
+        feature = "caching_indirect_renderer"
     ))]
-    compile_error!("Cannot enable both caching and non-caching renderers at the same time!");
+    compile_error!("Cannot enable all renderers at once!");
     #[cfg(all(
         feature = "non_caching_direct_renderer",
-        not(feature = "caching_direct_renderer")
+        not(feature = "caching_direct_renderer"),
+        not(feature = "caching_indirect_renderer")
     ))]
     let app =
         MyApp::<NonCachingDirectRenderer>::new(CacheSettings::default(), CacheSettings::default());
     #[cfg(all(
         feature = "caching_direct_renderer",
-        not(feature = "non_caching_direct_renderer")
+        not(feature = "non_caching_direct_renderer"),
+        not(feature = "caching_indirect_renderer")
     ))]
     let app = MyApp::<CachingDirectRenderer>::new();
+    #[cfg(all(
+        feature = "caching_indirect_renderer",
+        not(feature = "non_caching_direct_renderer"),
+        not(feature = "caching_direct_renderer")
+    ))]
+    let app = MyApp::<CachingIndirectRenderer>::new();
 
     AppRuntime::liftoff(event_loop, app_settings, app).expect("Runtime failure");
 }

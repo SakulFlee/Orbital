@@ -13,7 +13,7 @@ pub struct MeshDescriptor {
     /// Any `Mesh` without a bounding box will **always** be rendered and never be culled.
     /// This is useful for debugging and giant objects that, probably, are always on screen.
     /// Any other mesh should have a bounding box!
-    pub bounding_box: Option<BoundingBox<f32>>,
+    pub bounding_box: Option<BoundingBox>,
 }
 
 impl PartialEq for MeshDescriptor {

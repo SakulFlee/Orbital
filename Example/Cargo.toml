@@ -8,7 +8,8 @@ name = "app_example"
 crate-type = ["cdylib", "lib"]
 
 [features]
-default = ["caching_direct_renderer"]
+default = ["caching_indirect_renderer"]
+caching_indirect_renderer = []
 caching_direct_renderer = []
 non_caching_direct_renderer = []
 
