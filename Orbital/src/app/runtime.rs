@@ -10,7 +10,7 @@ use wgpu::{
     util::{backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env},
     Adapter, Backend, Backends, CompositeAlphaMode, Device, DeviceDescriptor, DeviceType, Features,
     Instance, InstanceDescriptor, InstanceFlags, Limits, MemoryHints, PresentMode, Queue, Surface,
-    SurfaceConfiguration, SurfaceTexture, TextureUsages, TextureViewDescriptor,
+    SurfaceConfiguration, SurfaceError, SurfaceTexture, TextureUsages, TextureViewDescriptor,
 };
 use winit::{
     application::ApplicationHandler,
@@ -276,7 +276,9 @@ impl AppRuntime {
         let (device, queue) = pollster::block_on(adapter.request_device(
             &DeviceDescriptor {
                 label: Some("Orbital GPU"),
-                required_features: Features::default() | Features::MULTIVIEW,
+                required_features: Features::default()
+                    | Features::MULTIVIEW
+                    | Features::POLYGON_MODE_LINE,
                 required_limits: Limits::default(),
                 memory_hints: MemoryHints::Performance,
             },
@@ -349,16 +351,10 @@ impl AppRuntime {
         }
     }
 
-    pub fn acquire_next_frame(&self) -> Option<SurfaceTexture> {
+    pub fn acquire_next_frame(&mut self) -> Result<SurfaceTexture, SurfaceError> {
         let surface = self.surface.as_ref().unwrap();
 
-        match surface.get_current_texture() {
-            Ok(frame) => Some(frame),
-            Err(e) => {
-                warn!("Surface next frame acquire failed: {}", e);
-                None
-            }
-        }
+        surface.get_current_texture()
     }
 
     pub fn redraw(&mut self) {
@@ -377,40 +373,71 @@ impl AppRuntime {
         }
 
         // Get next frame to render on
-        if let Some(frame) = self.acquire_next_frame() {
-            if let Some(format) = self
-                .surface_configuration
-                .as_ref()
-                .unwrap()
-                .view_formats
-                .first()
-            {
-                self.frame_acquired = true;
+        let frame = match self.acquire_next_frame() {
+            Ok(surface_texture) => surface_texture,
+            Err(e) => {
+                warn!("Failed to acquire next frame from surface: {}", e);
 
-                let view = frame.texture.create_view(&TextureViewDescriptor {
-                    format: Some(*format),
-                    ..TextureViewDescriptor::default()
-                });
+                warn!("Attempting reconfiguration ...");
+                self.reconfigure_surface();
 
-                // Trigger Render: This is NOT directly rendering, but sending
-                // an event on the message challenge to inform the App it should
-                // render "now". This is NOT blocking, meaning we can't expect
-                // the frame to be ready rendered immediately after.
-                // Instead, we move the `frame.present()` over after App
-                // actually received the event and DID the rendering!
-                if let Err(e) = self.event_tx.try_send(AppEvent::Render(
-                    frame,
-                    view,
-                    self.device.as_ref().unwrap().clone(),
-                    self.queue.as_ref().unwrap().clone(),
-                )) {
-                    error!("Failed to send render event: {}", e);
+                match self.acquire_next_frame() {
+                    Ok(surface_texture) => surface_texture,
+                    Err(e) => panic!(
+                        "Failed to acquire next frame from surface after reconfiguration! ({:?})",
+                        e
+                    ),
                 }
-            } else {
-                warn!("Surface configuration doesn't have any view formats!");
             }
-        } else {
-            warn!("No surface yet, but redraw was requested!");
+        };
+
+        let format = match self
+            .surface_configuration
+            .as_ref()
+            .unwrap()
+            .view_formats
+            .first()
+        {
+            Some(format) => format,
+            None => {
+                warn!("No view formats available for surface!");
+
+                warn!("Attempting reconfiguration ...");
+                self.reconfigure_surface();
+
+                match self
+                    .surface_configuration
+                    .as_ref()
+                    .unwrap()
+                    .view_formats
+                    .first()
+                {
+                    Some(format) => format,
+                    None => panic!("No view formats available for surface after reconfiguration!"),
+                }
+            }
+        };
+
+        self.frame_acquired = true;
+
+        let view = frame.texture.create_view(&TextureViewDescriptor {
+            format: Some(*format),
+            ..TextureViewDescriptor::default()
+        });
+
+        // Trigger Render: This is NOT directly rendering, but sending
+        // an event on the message challenge to inform the App it should
+        // render "now". This is NOT blocking, meaning we can't expect
+        // the frame to be ready rendered immediately after.
+        // Instead, we move the `frame.present()` over after App
+        // actually received the event and DID the rendering!
+        if let Err(e) = self.event_tx.try_send(AppEvent::Render(
+            frame,
+            view,
+            self.device.as_ref().unwrap().clone(),
+            self.queue.as_ref().unwrap().clone(),
+        )) {
+            error!("Failed to send render event: {}", e);
         }
     }
 
