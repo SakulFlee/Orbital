@@ -2,10 +2,11 @@ use orbital::{
     app::{App, AppChange},
     cgmath::Vector2,
     input::InputState,
-    log::warn,
+    log::{debug, warn},
     renderer::Renderer,
+    variant::Variant,
     wgpu::{Device, Queue, SurfaceConfiguration, TextureView},
-    world::{World, WorldChange},
+    world::{Message, World, WorldChange},
 };
 
 mod cache_settings;
@@ -40,6 +41,11 @@ impl<RenderImpl: Renderer + Send> MyApp<RenderImpl> {
         self.world
             .process_world_change(WorldChange::SpawnElement(Box::new(
                 DebugWorldEnvironment::new(),
+            )))
+            .await;
+        self.world
+            .process_world_change(WorldChange::SpawnElement(Box::new(
+                DebugController::default(),
             )))
             .await;
 
@@ -108,11 +114,22 @@ impl<RenderImpl: Renderer + Send> App for MyApp<RenderImpl> {
         input_state: &InputState,
         delta_time: f64,
         _cycle: Option<(f64, u64)>,
+        messages: Vec<Message>,
     ) -> Option<Vec<AppChange>>
     where
         Self: Sized,
     {
         let app_changes = self.world.update(delta_time, input_state).await;
+
+        if !messages.is_empty() {
+            for message in messages {
+                if message.to() == DebugController::RENDERER_IDENTIFIER {
+                    self.renderer.as_mut().unwrap().on_message(message).await;
+                } else {
+                    warn!("AppMessage received which doesn't seem to be going for a valid target! ({:?})", message);
+                }
+            }
+        }
 
         (!app_changes.is_empty()).then_some(app_changes)
     }

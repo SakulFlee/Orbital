@@ -1,3 +1,6 @@
+mod debug_controller;
+pub use debug_controller::*;
+
 mod camera;
 pub use camera::*;
 

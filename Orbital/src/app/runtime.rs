@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{mem::take, sync::Arc};
 
 use async_std::channel::{Receiver, Sender};
 use cgmath::Vector2;
@@ -24,6 +24,7 @@ use crate::{
     error::Error,
     input::{InputEvent, InputState},
     timer::Timer,
+    world::Message,
 };
 
 use super::{App, AppChange, AppEvent, AppSettings};
@@ -32,6 +33,7 @@ pub struct AppRuntime {
     // Events
     event_tx: Sender<AppEvent>,
     app_change_rx: Receiver<AppChange>,
+    app_messages: Vec<Message>,
     // App related
     runtime_settings: AppSettings,
     // Window related
@@ -68,6 +70,7 @@ impl AppRuntime {
         let mut app_runtime = Self {
             event_tx: event_tx.clone(),
             app_change_rx,
+            app_messages: Vec::new(),
             runtime_settings: settings,
             window: None,
             surface: None,
@@ -113,9 +116,11 @@ impl AppRuntime {
                             input_state,
                             delta_time,
                             cycle,
+                            messages,
                         } => {
-                            if let Some(changes) =
-                                app.on_update(&input_state, delta_time, cycle).await
+                            if let Some(changes) = app
+                                .on_update(&input_state, delta_time, cycle, messages)
+                                .await
                             {
                                 for app_change in changes {
                                     if let Err(e) = app_change_tx.send(app_change).await {
@@ -467,10 +472,12 @@ impl AppRuntime {
         self.receive_controller_inputs();
 
         // Trigger an update with the input state!
+        let messages = take(&mut self.app_messages);
         if let Err(e) = self.event_tx.try_send(AppEvent::Update {
             input_state: self.input_state.clone(),
             delta_time,
             cycle,
+            messages,
         }) {
             error!("Failed to send update event: {}", e);
         }
@@ -543,6 +550,9 @@ impl AppRuntime {
 
                     // Trigger next update cycle after the frame was fully rendered!
                     self.update();
+                }
+                AppChange::SendMessage(message) => {
+                    self.app_messages.push(message);
                 }
             }
         }

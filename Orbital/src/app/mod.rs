@@ -14,7 +14,7 @@ pub use runtime::*;
 pub mod app_changes;
 pub use app_changes::*;
 
-use crate::input::InputState;
+use crate::{input::InputState, world::Message};
 
 /// Implement this trait to make an [App].  
 /// An [App] is a entrypoint wrapper exposing a few functions for you to use.
@@ -326,6 +326,7 @@ pub trait App {
         _input_state: &InputState,
         _delta_time: f64,
         _cycle: Option<(f64, u64)>,
+        _messages: Vec<Message>,
     ) -> impl std::future::Future<Output = Option<Vec<AppChange>>> + Send
     where
         Self: Sized,

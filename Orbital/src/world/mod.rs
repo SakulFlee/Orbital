@@ -1,7 +1,6 @@
 use std::time::Instant;
 
 use async_std::sync::Mutex;
-use futures::StreamExt;
 use log::{info, warn};
 use wgpu::{Device, Queue};
 
@@ -229,6 +228,7 @@ impl World {
                 self.model_store.remove(&model_label).await;
             }
             WorldChange::SendMessage(message) => self.element_store.queue_message(message),
+            WorldChange::SendMessageToApp(message) => return Some(AppChange::SendMessage(message)),
             WorldChange::SpawnCamera(descriptor) => {
                 self.change_list
                     .lock()

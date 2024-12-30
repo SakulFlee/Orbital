@@ -1,7 +1,7 @@
 use crate::world::WorldChange;
 
 /// Used when registering an [Element](super::Element).
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct ElementRegistration {
     /// Each [Element] must have at least one _label_ defined.
     /// Any additional _labels_ will work the same as the main _label_.
