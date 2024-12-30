@@ -4,14 +4,16 @@ use async_trait::async_trait;
 use cgmath::Vector2;
 use hashbrown::HashMap;
 use log::debug;
+use serde::de;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use wgpu::{
     include_wgsl, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferBindingType, CommandEncoder,
-    CommandEncoderDescriptor, ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor,
-    Device, IndexFormat, LoadOp, MaintainBase, Operations, PipelineLayoutDescriptor, Queue,
-    RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor,
-    ShaderModuleDescriptor, ShaderStages, StoreOp, TextureFormat, TextureView,
+    BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferBindingType, CommandBuffer,
+    CommandEncoder, CommandEncoderDescriptor, ComputePassDescriptor, ComputePipeline,
+    ComputePipelineDescriptor, Device, IndexFormat, LoadOp, MaintainBase, Operations,
+    PipelineLayoutDescriptor, Queue, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
+    RenderPassDescriptor, ShaderModuleDescriptor, ShaderStages, StoreOp, TextureFormat,
+    TextureView,
 };
 
 use crate::cache::Cache;
@@ -197,14 +199,84 @@ impl CachingIndirectRenderer {
         indirect_draw_buffers
     }
 
+    fn render_debug_bounding_boxes(
+        &mut self,
+        world: &World,
+        device: &Device,
+        queue: &Queue,
+        target_view: &TextureView,
+    ) -> CommandBuffer {
+        let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
+            label: Some("Debug Bounding Box Encoder"),
+        });
+
+        let pipeline = Pipeline::from_descriptor(
+            &PipelineDescriptor::default_wireframe(),
+            &self.surface_format,
+            device,
+            queue,
+            Some(&mut self.shader_cache),
+        )
+        .expect("Setting up debug wireframe pipeline failed!");
+
+        let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
+            label: Some("Debug Bounding Box"),
+            color_attachments: &[Some(RenderPassColorAttachment {
+                view: target_view,
+                resolve_target: None,
+                ops: Operations {
+                    load: LoadOp::Load,
+                    store: StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                view: self.depth_texture.view(),
+                depth_ops: Some(Operations {
+                    load: LoadOp::Clear(1.0),
+                    store: StoreOp::Store,
+                }),
+                stencil_ops: None,
+            }),
+            timestamp_writes: None,
+            occlusion_query_set: None,
+        });
+
+        for model in self.model_cache.values() {
+            render_pass.set_pipeline(pipeline.render_pipeline());
+
+            render_pass.set_bind_group(0, model.material().bind_group(), &[]);
+            render_pass.set_bind_group(1, world.active_camera().bind_group(), &[]);
+            render_pass.set_bind_group(2, world.light_store().point_light_bind_group(), &[]);
+            render_pass.set_bind_group(
+                3,
+                self.world_environment.as_ref().unwrap().bind_group(),
+                &[],
+            );
+
+            render_pass.set_vertex_buffer(0, model.mesh().vertex_buffer().slice(..));
+            render_pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
+            render_pass
+                .set_index_buffer(model.mesh().index_buffer().slice(..), IndexFormat::Uint32);
+
+            render_pass.draw_indexed(0..model.mesh().index_count(), 0, 0..model.instance_count());
+        }
+
+        drop(render_pass);
+        encoder.finish()
+    }
+
     fn render_skybox(
         &self,
         world: &World,
-        encoder: &mut CommandEncoder,
+        device: &Device,
         target_view: &TextureView,
-    ) {
+    ) -> CommandBuffer {
+        let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
+            label: Some("Skybox Encoder"),
+        });
+
         let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
-            label: Some("Render Pass"),
+            label: Some("Skybox RenderPass"),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: target_view,
                 resolve_target: None,
@@ -231,16 +303,23 @@ impl CachingIndirectRenderer {
         );
         render_pass.set_bind_group(1, world.active_camera().bind_group(), &[]);
         render_pass.draw(0..3, 0..1);
+
+        drop(render_pass);
+        encoder.finish()
     }
 
     fn render_models(
         &self,
         world: &World,
-        encoder: &mut CommandEncoder,
+        device: &Device,
         target_view: &TextureView,
-    ) {
+    ) -> CommandBuffer {
+        let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
+            label: Some("Model Encoder"),
+        });
+
         let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
-            label: Some("Render Pass"),
+            label: Some("Model RenderPass"),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: target_view,
                 resolve_target: None,
@@ -281,6 +360,9 @@ impl CachingIndirectRenderer {
 
             render_pass.draw_indexed(0..model.mesh().index_count(), 0, 0..model.instance_count());
         }
+
+        drop(render_pass);
+        encoder.finish()
     }
 
     async fn process_change_list(
@@ -452,13 +534,10 @@ impl Renderer for CachingIndirectRenderer {
             indirect_draw_buffers.len()
         );
 
-        let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor { label: None });
-        {
-            self.render_skybox(world, &mut encoder, target_view);
-
-            self.render_models(world, &mut encoder, target_view);
-        }
-
-        queue.submit(Some(encoder.finish()));
+        queue.submit(vec![
+            self.render_skybox(world, device, target_view),
+            self.render_models(world, device, target_view),
+            self.render_debug_bounding_boxes(world, device, queue, target_view),
+        ]);
     }
 }

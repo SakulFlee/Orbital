@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use serde::de;
 use wgpu::{Face, FrontFace, PolygonMode, PrimitiveTopology};
 
 use crate::{
@@ -34,13 +35,22 @@ impl PipelineDescriptor {
                 Camera::pipeline_bind_group_layout(),
             ],
             primitive_topology: Default::default(),
-            front_face_order: Default::default(),
+            front_face_order: FrontFace::Ccw,
             cull_mode: None,
-            polygon_mode: Default::default(),
+            polygon_mode: PolygonMode::Fill,
             include_vertex_buffer_layout: false,
             include_instance_buffer_layout: false,
             depth_stencil: false,
         }
+    }
+
+    pub fn default_wireframe() -> Self {
+        let mut default = Self::default();
+
+        default.polygon_mode = PolygonMode::Line;
+        default.cull_mode = None;
+
+        default
     }
 }
 
