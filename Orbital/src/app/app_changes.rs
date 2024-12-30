@@ -1,6 +1,8 @@
 use wgpu::SurfaceTexture;
 use winit::{dpi::Position, window::Cursor};
 
+use crate::world::Message;
+
 #[derive(Debug)]
 pub enum AppChange {
     /// Changes the appearance (i.e. icon) of the mouse cursor.  
@@ -46,4 +48,6 @@ pub enum AppChange {
     RequestRedraw,
     /// TODO
     FinishedRedraw(SurfaceTexture),
+    /// TODO
+    SendMessage(Message),
 }

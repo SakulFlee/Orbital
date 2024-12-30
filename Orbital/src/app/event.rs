@@ -3,7 +3,7 @@ use std::sync::Arc;
 use cgmath::Vector2;
 use wgpu::{Device, Queue, SurfaceConfiguration, SurfaceTexture, TextureView};
 
-use crate::input::InputState;
+use crate::{input::InputState, world::Message};
 
 #[derive(Debug)]
 pub enum AppEvent {
@@ -15,5 +15,6 @@ pub enum AppEvent {
         input_state: InputState,
         delta_time: f64,
         cycle: Option<(f64, u64)>,
+        messages: Vec<Message>,
     },
 }

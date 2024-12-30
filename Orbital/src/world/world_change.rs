@@ -133,6 +133,8 @@ where
     /// not found.
     ///
     SendMessage(Message),
+    /// TODO
+    SendMessageToApp(Message),
     /// Spawns a [Camera] into the [World].
     ///
     /// # Rejection

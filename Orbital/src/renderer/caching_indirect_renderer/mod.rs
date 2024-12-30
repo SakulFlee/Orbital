@@ -3,7 +3,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use cgmath::Vector2;
 use hashbrown::HashMap;
-use log::debug;
+use log::{debug, warn};
 use serde::de;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use wgpu::{
@@ -26,7 +26,8 @@ use crate::resources::{
     descriptors::TextureDescriptor,
     realizations::{Pipeline, Texture},
 };
-use crate::world::{Change, ChangeList, ChangeType, World};
+use crate::variant::Variant;
+use crate::world::{Change, ChangeList, ChangeType, Message, World};
 
 use super::{DrawIndexedIndirect, Renderer};
 
@@ -42,6 +43,7 @@ pub struct CachingIndirectRenderer {
     texture_cache: Cache<Arc<TextureDescriptor>, Texture>,
     pipeline_cache: Cache<Arc<PipelineDescriptor>, Pipeline>,
     shader_cache: Cache<Arc<ShaderDescriptor>, Shader>,
+    debug_wireframes_enabled: bool,
 }
 
 impl CachingIndirectRenderer {
@@ -470,6 +472,7 @@ impl Renderer for CachingIndirectRenderer {
             texture_cache: Cache::new(),
             pipeline_cache: Cache::new(),
             shader_cache: Cache::new(),
+            debug_wireframes_enabled: false,
         }
     }
 
@@ -491,6 +494,23 @@ impl Renderer for CachingIndirectRenderer {
     ) {
         // Remake the depth texture with the new size
         self.depth_texture = Texture::depth_texture(&resolution, device, queue);
+    }
+
+    // TODO: Sort the whole DEBUG statements better ...
+    async fn on_message(&mut self, message: Message) {
+        if let Some(Variant::Boolean(enable)) = message.get("debug_wireframes_enabled") {
+            self.debug_wireframes_enabled = *enable;
+            debug!(
+                "Debug wireframes enabled: {}",
+                self.debug_wireframes_enabled
+            );
+            return;
+        }
+
+        warn!(
+            "Received message that didn't match any receiver: {:?}",
+            message
+        );
     }
 
     async fn render(
@@ -529,15 +549,25 @@ impl Renderer for CachingIndirectRenderer {
 
         let indirect_draw_buffers =
             self.frustum_culling_to_indirect_draw_buffers(world, device, queue);
-        debug!(
-            "Indirect draw buffer count: {:?}",
-            indirect_draw_buffers.len()
-        );
+        // debug!(
+        //     "Indirect draw buffer count: {:?}",
+        //     indirect_draw_buffers.len()
+        // );
 
-        queue.submit(vec![
-            self.render_skybox(world, device, target_view),
-            self.render_models(world, device, target_view),
-            self.render_debug_bounding_boxes(world, device, queue, target_view),
-        ]);
+        let mut queue_submissions = Vec::new();
+
+        queue_submissions.push(self.render_skybox(world, device, target_view));
+        queue_submissions.push(self.render_models(world, device, target_view));
+
+        if self.debug_wireframes_enabled {
+            queue_submissions.push(self.render_debug_bounding_boxes(
+                world,
+                device,
+                queue,
+                target_view,
+            ));
+        }
+
+        queue.submit(queue_submissions);
     }
 }

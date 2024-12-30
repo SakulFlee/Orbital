@@ -1,8 +1,9 @@
 use async_trait::async_trait;
 use cgmath::Vector2;
+use log::warn;
 use wgpu::{Device, Queue, TextureFormat, TextureView};
 
-use crate::world::World;
+use crate::world::{Message, World};
 
 mod draw_indirect;
 pub use draw_indirect::*;
@@ -38,6 +39,13 @@ pub trait Renderer {
     );
 
     async fn change_resolution(&mut self, resolution: Vector2<u32>, device: &Device, queue: &Queue);
+
+    async fn on_message(&mut self, message: Message) {
+        warn!(
+            "Message received which isn't handled by the renderer. Message: {:?}",
+            message
+        );
+    }
 
     async fn render(
         &mut self,
