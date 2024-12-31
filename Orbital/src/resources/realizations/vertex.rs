@@ -13,7 +13,7 @@ pub struct Vertex {
 }
 
 impl Vertex {
-    pub fn vertex_buffer_layout_descriptor() -> VertexBufferLayout<'static> {
+    pub fn complex_vertex_buffer_layout_descriptor() -> VertexBufferLayout<'static> {
         VertexBufferLayout {
             array_stride: size_of::<[f32; 3 * 4 + 2]>() as u64,
             step_mode: VertexStepMode::Vertex,
@@ -47,6 +47,21 @@ impl Vertex {
                     offset: size_of::<[f32; 3 * 4]>() as u64,
                     shader_location: 4,
                     format: VertexFormat::Float32x2,
+                },
+            ],
+        }
+    }
+
+    pub fn simple_vertex_buffer_layout_descriptor() -> VertexBufferLayout<'static> {
+        VertexBufferLayout {
+            array_stride: size_of::<[f32; 3]>() as u64,
+            step_mode: VertexStepMode::Vertex,
+            attributes: &[
+                // Position
+                VertexAttribute {
+                    offset: 0,
+                    shader_location: 0,
+                    format: VertexFormat::Float32x3,
                 },
             ],
         }

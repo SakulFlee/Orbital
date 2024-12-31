@@ -66,9 +66,20 @@ impl Pipeline {
         };
 
         let mut vertex_buffers = Vec::new();
-        if pipeline_descriptor.include_vertex_buffer_layout {
-            vertex_buffers.push(Vertex::vertex_buffer_layout_descriptor());
+        if pipeline_descriptor.include_complex_vertex_buffer_layout
+            && pipeline_descriptor.include_simple_vertex_buffer_layout
+        {
+            panic!("Cannot enable both complex and simple vertex buffer layout!");
         }
+
+        if pipeline_descriptor.include_complex_vertex_buffer_layout {
+            vertex_buffers.push(Vertex::complex_vertex_buffer_layout_descriptor());
+        }
+
+        if pipeline_descriptor.include_simple_vertex_buffer_layout {
+            vertex_buffers.push(Vertex::simple_vertex_buffer_layout_descriptor());
+        }
+
         if pipeline_descriptor.include_instance_buffer_layout {
             vertex_buffers.push(Instance::vertex_buffer_layout_descriptor());
         }
