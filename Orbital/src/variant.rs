@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub enum Variant {
+    Empty,
     // Normal types
     String(String),
     Boolean(bool),
