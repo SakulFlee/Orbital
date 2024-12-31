@@ -44,6 +44,7 @@ pub struct CachingIndirectRenderer {
     pipeline_cache: Cache<Arc<PipelineDescriptor>, Pipeline>,
     shader_cache: Cache<Arc<ShaderDescriptor>, Shader>,
     debug_wireframes_enabled: bool,
+    debug_bounding_box_wireframe_enabled: bool,
 }
 
 impl CachingIndirectRenderer {
@@ -539,6 +540,7 @@ impl Renderer for CachingIndirectRenderer {
             pipeline_cache: Cache::new(),
             shader_cache: Cache::new(),
             debug_wireframes_enabled: false,
+            debug_bounding_box_wireframe_enabled: false,
         }
     }
 
@@ -564,11 +566,20 @@ impl Renderer for CachingIndirectRenderer {
 
     // TODO: Sort the whole DEBUG statements better ...
     async fn on_message(&mut self, message: Message) {
-        if let Some(Variant::Boolean(enable)) = message.get("debug_wireframes_enabled") {
-            self.debug_wireframes_enabled = *enable;
+        if let Some(Variant::Empty) = message.get("debug_wireframes_enabled") {
+            self.debug_wireframes_enabled = !self.debug_wireframes_enabled;
             debug!(
                 "Debug wireframes enabled: {}",
                 self.debug_wireframes_enabled
+            );
+            return;
+        }
+
+        if let Some(Variant::Empty) = message.get("debug_bounding_box_wireframe_enabled") {
+            self.debug_bounding_box_wireframe_enabled = !self.debug_bounding_box_wireframe_enabled;
+            debug!(
+                "Debug bounding box wireframes enabled: {}",
+                self.debug_bounding_box_wireframe_enabled
             );
             return;
         }
@@ -630,7 +641,14 @@ impl Renderer for CachingIndirectRenderer {
             queue_submissions.push(self.render_debug_wireframes(world, device, queue, target_view));
         }
 
-        queue_submissions.push(self.render_debug_bounding_boxes(world, device, queue, target_view));
+        if self.debug_bounding_box_wireframe_enabled {
+            queue_submissions.push(self.render_debug_bounding_boxes(
+                world,
+                device,
+                queue,
+                target_view,
+            ));
+        }
 
         queue.submit(queue_submissions);
     }
