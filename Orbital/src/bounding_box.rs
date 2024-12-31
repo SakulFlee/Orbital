@@ -1,8 +1,8 @@
-use std::{cmp::Ordering, f32, hash::Hash, ops::Bound, sync::Arc};
+use std::{f32, hash::Hash, sync::Arc};
 
 use cgmath::{
-    num_traits::{Float, FloatConst},
-    Point3, Vector3,
+    num_traits::Float,
+    Point3,
 };
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
@@ -25,9 +25,7 @@ impl BoundingBox {
     }
 
     pub fn to_binary_data(&self) -> Vec<u8> {
-        vec![
-            // Min
-            self.min.x.to_le_bytes(),
+        [self.min.x.to_le_bytes(),
             self.min.y.to_le_bytes(),
             self.min.z.to_le_bytes(),
             // Max
@@ -36,30 +34,25 @@ impl BoundingBox {
             self.max.z.to_le_bytes(),
             // Buffer alignment to 32b
             [0u8; 4],
-            [0u8; 4],
-        ]
+            [0u8; 4]]
         .concat()
     }
 
     pub fn to_binary_data_disabled_frustum_culling() -> Vec<u8> {
-        vec![
-            [0u8; 4], [0u8; 4], [0u8; 4], // Min
-            [0u8; 4], [0u8; 4], [0u8; 4], // Max
-        ]
+        [[0u8; 4], [0u8; 4], [0u8; 4], // Min
+            [0u8; 4], [0u8; 4], [0u8; 4]]
         .concat()
     }
 
     pub fn to_vertices(&self) -> Vec<f32> {
-        vec![
-            [self.min.x, self.min.y, self.min.z], // Bottom-left-back (0)
+        [[self.min.x, self.min.y, self.min.z], // Bottom-left-back (0)
             [self.max.x, self.min.y, self.min.z], // Bottom-right-back (1)
             [self.max.x, self.max.y, self.min.z], // Top-right-back (2)
             [self.min.x, self.max.y, self.min.z], // Top-left-back (3)
             [self.min.x, self.min.y, self.max.z], // Bottom-left-front (4)
             [self.max.x, self.min.y, self.max.z], // Bottom-right-front (5)
             [self.max.x, self.max.y, self.max.z], // Top-right-front (6)
-            [self.min.x, self.max.y, self.max.z], // Top-left-front (7)
-        ]
+            [self.min.x, self.max.y, self.max.z]]
         .concat()
     }
 

@@ -27,12 +27,10 @@ impl DrawIndirect {
     }
 
     pub fn to_binary_data(&self) -> Vec<u8> {
-        vec![
-            self.vertex_count.to_le_bytes(),
+        [self.vertex_count.to_le_bytes(),
             self.instance_count.to_le_bytes(),
             self.first_index.to_le_bytes(),
-            self.first_instance.to_le_bytes(),
-        ]
+            self.first_instance.to_le_bytes()]
         .concat()
     }
 }

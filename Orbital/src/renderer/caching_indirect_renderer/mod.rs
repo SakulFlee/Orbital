@@ -4,12 +4,10 @@ use async_trait::async_trait;
 use cgmath::Vector2;
 use hashbrown::HashMap;
 use log::{debug, warn};
-use serde::de;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use wgpu::{
     include_wgsl, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferBindingType, CommandBuffer,
-    CommandEncoder, CommandEncoderDescriptor, ComputePassDescriptor, ComputePipeline,
+    BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferBindingType, CommandBuffer, CommandEncoderDescriptor, ComputePassDescriptor, ComputePipeline,
     ComputePipelineDescriptor, Device, IndexFormat, LoadOp, MaintainBase, Operations,
     PipelineLayoutDescriptor, Queue, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
     RenderPassDescriptor, ShaderModuleDescriptor, ShaderStages, StoreOp, TextureFormat,

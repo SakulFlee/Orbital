@@ -2,9 +2,8 @@ use orbital::{
     app::{App, AppChange},
     cgmath::Vector2,
     input::InputState,
-    log::{debug, warn},
+    log::warn,
     renderer::Renderer,
-    variant::Variant,
     wgpu::{Device, Queue, SurfaceConfiguration, TextureView},
     world::{Message, World, WorldChange},
 };
