@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use serde::de;
 use wgpu::{Face, FrontFace, PolygonMode, PrimitiveTopology};
 
 use crate::{
@@ -21,7 +20,8 @@ pub struct PipelineDescriptor {
     pub front_face_order: FrontFace,
     pub cull_mode: Option<Face>,
     pub polygon_mode: PolygonMode,
-    pub include_vertex_buffer_layout: bool,
+    pub include_complex_vertex_buffer_layout: bool,
+    pub include_simple_vertex_buffer_layout: bool,
     pub include_instance_buffer_layout: bool,
     pub depth_stencil: bool,
 }
@@ -38,7 +38,8 @@ impl PipelineDescriptor {
             front_face_order: FrontFace::Ccw,
             cull_mode: None,
             polygon_mode: PolygonMode::Fill,
-            include_vertex_buffer_layout: false,
+            include_complex_vertex_buffer_layout: false,
+            include_simple_vertex_buffer_layout: false,
             include_instance_buffer_layout: false,
             depth_stencil: false,
         }
@@ -49,6 +50,20 @@ impl PipelineDescriptor {
 
         default.polygon_mode = PolygonMode::Line;
         default.cull_mode = None;
+
+        default
+    }
+
+    pub fn debug_bounding_box() -> Self {
+        let mut default = Self::default();
+
+        default.shader_descriptor = Arc::new(include_str!("../shader/debug_bounding_box.wgsl"));
+        default.bind_group_layouts = vec![Camera::pipeline_bind_group_layout()];
+        default.polygon_mode = PolygonMode::Line;
+        default.cull_mode = None;
+        default.include_complex_vertex_buffer_layout = false;
+        default.include_simple_vertex_buffer_layout = true;
+        default.include_instance_buffer_layout = true;
 
         default
     }
@@ -69,7 +84,8 @@ impl Default for PipelineDescriptor {
             front_face_order: Default::default(),
             cull_mode: Some(Face::Back),
             polygon_mode: Default::default(),
-            include_vertex_buffer_layout: true,
+            include_complex_vertex_buffer_layout: true,
+            include_simple_vertex_buffer_layout: false,
             include_instance_buffer_layout: true,
             depth_stencil: true,
         }

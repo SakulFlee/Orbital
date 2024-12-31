@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{bounding_box::BoundingBox, resources::realizations::Vertex};
 
 #[derive(Debug, Clone, Eq, Hash)]
@@ -13,7 +15,7 @@ pub struct MeshDescriptor {
     /// Any `Mesh` without a bounding box will **always** be rendered and never be culled.
     /// This is useful for debugging and giant objects that, probably, are always on screen.
     /// Any other mesh should have a bounding box!
-    pub bounding_box: Option<BoundingBox>,
+    pub bounding_box: Option<Arc<BoundingBox>>,
 }
 
 impl PartialEq for MeshDescriptor {

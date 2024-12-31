@@ -213,6 +213,72 @@ impl CachingIndirectRenderer {
         });
 
         let pipeline = Pipeline::from_descriptor(
+            &PipelineDescriptor::debug_bounding_box(),
+            &self.surface_format,
+            device,
+            queue,
+            Some(&mut self.shader_cache),
+        )
+        .expect("Setting up debug debug bounding box pipeline failed!");
+
+        let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
+            label: Some("Debug Bounding Box"),
+            color_attachments: &[Some(RenderPassColorAttachment {
+                view: target_view,
+                resolve_target: None,
+                ops: Operations {
+                    load: LoadOp::Load,
+                    store: StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                view: self.depth_texture.view(),
+                depth_ops: Some(Operations {
+                    load: LoadOp::Clear(1.0),
+                    store: StoreOp::Store,
+                }),
+                stencil_ops: None,
+            }),
+            timestamp_writes: None,
+            occlusion_query_set: None,
+        });
+
+        for model in self.model_cache.values() {
+            let bounding_box = match model.mesh().bounding_box() {
+                Some(bounding_box) => bounding_box,
+                None => continue, // Skip models without bounding boxes
+            };
+
+            render_pass.set_pipeline(pipeline.render_pipeline());
+
+            render_pass.set_bind_group(0, world.active_camera().bind_group(), &[]);
+
+            let (vertex_buffer, index_buffer) =
+                bounding_box.to_debug_bounding_box_wireframe_buffers(device);
+
+            render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+            render_pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
+            render_pass.set_index_buffer(index_buffer.slice(..), IndexFormat::Uint32);
+
+            render_pass.draw_indexed(0..bounding_box.to_indices().len() as u32, 0, 0..1);
+        }
+
+        drop(render_pass);
+        encoder.finish()
+    }
+
+    fn render_debug_wireframes(
+        &mut self,
+        world: &World,
+        device: &Device,
+        queue: &Queue,
+        target_view: &TextureView,
+    ) -> CommandBuffer {
+        let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
+            label: Some("Debug Bounding Box Encoder"),
+        });
+
+        let pipeline = Pipeline::from_descriptor(
             &PipelineDescriptor::default_wireframe(),
             &self.surface_format,
             device,
@@ -556,17 +622,15 @@ impl Renderer for CachingIndirectRenderer {
 
         let mut queue_submissions = Vec::new();
 
+        // TODO: Using multiple encoders/passes seems to be a performance hit.
         queue_submissions.push(self.render_skybox(world, device, target_view));
         queue_submissions.push(self.render_models(world, device, target_view));
 
         if self.debug_wireframes_enabled {
-            queue_submissions.push(self.render_debug_bounding_boxes(
-                world,
-                device,
-                queue,
-                target_view,
-            ));
+            queue_submissions.push(self.render_debug_wireframes(world, device, queue, target_view));
         }
+
+        queue_submissions.push(self.render_debug_bounding_boxes(world, device, queue, target_view));
 
         queue.submit(queue_submissions);
     }

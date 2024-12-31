@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use cgmath::Point3;
 use easy_gltf::Model;
 
@@ -37,7 +39,7 @@ impl From<&Model> for MeshDescriptor {
             );
         }
 
-        let bounding_box = Some(BoundingBox { a: min, b: max });
+        let bounding_box = Some(Arc::new(BoundingBox { min, max }));
 
         MeshDescriptor {
             vertices,
