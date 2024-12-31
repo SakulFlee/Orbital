@@ -1,7 +1,6 @@
 use orbital::{
     async_trait::async_trait,
     input::{InputButton, InputState},
-    log::debug,
     variant::Variant,
     winit::keyboard::{KeyCode, PhysicalKey},
     world::{Element, ElementRegistration, Message, WorldChange},
