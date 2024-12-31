@@ -7,7 +7,8 @@ use log::{debug, warn};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use wgpu::{
     include_wgsl, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferBindingType, CommandBuffer, CommandEncoderDescriptor, ComputePassDescriptor, ComputePipeline,
+    BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferBindingType, BufferUsages,
+    CommandBuffer, CommandEncoderDescriptor, ComputePassDescriptor, ComputePipeline,
     ComputePipelineDescriptor, Device, IndexFormat, LoadOp, MaintainBase, Operations,
     PipelineLayoutDescriptor, Queue, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
     RenderPassDescriptor, ShaderModuleDescriptor, ShaderStages, StoreOp, TextureFormat,
@@ -17,7 +18,7 @@ use wgpu::{
 use crate::cache::Cache;
 use crate::log::error;
 use crate::resources::descriptors::{
-    MaterialDescriptor, MeshDescriptor, PipelineDescriptor, ShaderDescriptor,
+    MaterialDescriptor, MeshDescriptor, ModelDescriptor, PipelineDescriptor, ShaderDescriptor,
 };
 use crate::resources::realizations::{Material, Mesh, Model, Shader};
 use crate::resources::{
@@ -114,7 +115,7 @@ impl CachingIndirectRenderer {
         world: &World,
         device: &Device,
         queue: &Queue,
-    ) -> Vec<Buffer> {
+    ) -> HashMap<String, Buffer> {
         let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
             label: Some("Frustum Culling to Indirect Drawing Compute Encoder"),
         });
@@ -123,9 +124,9 @@ impl CachingIndirectRenderer {
             &Self::bind_group_layout_descriptor_frustum_culling_bounding_box_buffer(),
         );
 
-        let mut indirect_draw_buffers = Vec::new();
-        for model in self.model_cache.values() {
-            indirect_draw_buffers.push(
+        let mut indirect_draw_buffers = HashMap::new();
+        for (model_label, model) in &self.model_cache {
+            let entry = indirect_draw_buffers.entry(model_label.clone()).insert(
                 device.create_buffer_init(&BufferInitDescriptor {
                     // Initial indirect draw data being "draw nothing at all"
                     contents: &DrawIndexedIndirect::new(
@@ -133,11 +134,11 @@ impl CachingIndirectRenderer {
                         model.instance_count(),
                     )
                     .to_binary_data(),
-                    usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+                    usage: BufferUsages::STORAGE | BufferUsages::COPY_DST | BufferUsages::INDIRECT,
                     label: Some("Indirect Draw Buffer"),
                 }),
             );
-            let indirect_draw_buffer = indirect_draw_buffers.last().unwrap();
+            let indirect_draw_buffer = entry.get();
 
             let bounding_box_buffer = match model.mesh().bounding_box_buffer() {
                 Some(buffer) => buffer,
@@ -157,7 +158,7 @@ impl CachingIndirectRenderer {
             );
 
             let bind_group = device.create_bind_group(&BindGroupDescriptor {
-                label: Some("World Environment Processing Bind Group for PBR IBL Diffuse"),
+                label: Some("Frustum Culling to Indirect Drawing"),
                 layout: &bind_group_layout,
                 entries: &[
                     BindGroupEntry {
@@ -182,7 +183,7 @@ impl CachingIndirectRenderer {
             });
 
             let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor {
-                label: Some("Equirectangular Compute Task - Specular"),
+                label: Some("Frustum Culling to Indirect Drawing"),
                 ..Default::default()
             });
 
@@ -195,7 +196,7 @@ impl CachingIndirectRenderer {
 
         queue.submit(vec![encoder.finish()]);
 
-        device.poll(MaintainBase::Wait);
+        // device.poll(MaintainBase::Wait);
 
         indirect_draw_buffers
     }
@@ -380,6 +381,7 @@ impl CachingIndirectRenderer {
         world: &World,
         device: &Device,
         target_view: &TextureView,
+        indirect_draw_buffers: HashMap<String, Buffer>,
     ) -> CommandBuffer {
         let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
             label: Some("Model Encoder"),
@@ -408,7 +410,7 @@ impl CachingIndirectRenderer {
         });
 
         // Models
-        for model in self.model_cache.values() {
+        for (model_label, model) in &self.model_cache {
             render_pass.set_pipeline(model.material().pipeline().render_pipeline());
 
             render_pass.set_bind_group(0, model.material().bind_group(), &[]);
@@ -426,6 +428,12 @@ impl CachingIndirectRenderer {
                 .set_index_buffer(model.mesh().index_buffer().slice(..), IndexFormat::Uint32);
 
             render_pass.draw_indexed(0..model.mesh().index_count(), 0, 0..model.instance_count());
+
+            let indirect_draw_buffer = indirect_draw_buffers.get(model_label).expect(&format!(
+                "Indirect draw buffer is missing for model with label '{}'!",
+                model_label
+            ));
+            render_pass.draw_indexed_indirect(indirect_draw_buffer, 0);
         }
 
         drop(render_pass);
@@ -624,16 +632,17 @@ impl Renderer for CachingIndirectRenderer {
 
         let indirect_draw_buffers =
             self.frustum_culling_to_indirect_draw_buffers(world, device, queue);
-        // debug!(
-        //     "Indirect draw buffer count: {:?}",
-        //     indirect_draw_buffers.len()
-        // );
 
         let mut queue_submissions = Vec::new();
 
         // TODO: Using multiple encoders/passes seems to be a performance hit.
         queue_submissions.push(self.render_skybox(world, device, target_view));
-        queue_submissions.push(self.render_models(world, device, target_view));
+        queue_submissions.push(self.render_models(
+            world,
+            device,
+            target_view,
+            indirect_draw_buffers,
+        ));
 
         if self.debug_wireframes_enabled {
             queue_submissions.push(self.render_debug_wireframes(world, device, queue, target_view));
