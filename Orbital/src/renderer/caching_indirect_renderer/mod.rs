@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use cgmath::Vector2;
+use cgmath::{Vector2, Vector4};
 use hashbrown::HashMap;
 use log::{debug, warn};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
@@ -44,6 +44,8 @@ pub struct CachingIndirectRenderer {
     shader_cache: Cache<Arc<ShaderDescriptor>, Shader>,
     debug_wireframes_enabled: bool,
     debug_bounding_box_wireframe_enabled: bool,
+    debug_freeze_frustum_enabled: bool,
+    debug_frozen_frustum: Option<[Vector4<f32>; 6]>,
 }
 
 impl CachingIndirectRenderer {
@@ -66,7 +68,7 @@ impl CachingIndirectRenderer {
                     binding: 1,
                     visibility: ShaderStages::COMPUTE,
                     ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
+                        ty: BufferBindingType::Storage { read_only: true },
                         has_dynamic_offset: false,
                         min_binding_size: None,
                     },
@@ -550,6 +552,8 @@ impl Renderer for CachingIndirectRenderer {
             shader_cache: Cache::new(),
             debug_wireframes_enabled: false,
             debug_bounding_box_wireframe_enabled: false,
+            debug_freeze_frustum_enabled: false,
+            debug_frozen_frustum: None,
         }
     }
 
