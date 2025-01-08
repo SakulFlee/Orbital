@@ -64,7 +64,7 @@ impl NonCachingDirectRenderer {
 
         render_pass.set_pipeline(world_environment_material.pipeline().render_pipeline());
         render_pass.set_bind_group(0, world_environment_material.bind_group(), &[]);
-        render_pass.set_bind_group(1, world.active_camera().bind_group(), &[]);
+        render_pass.set_bind_group(1, world.active_camera().camera_bind_group(), &[]);
         render_pass.draw(0..3, 0..1);
     }
 
@@ -116,7 +116,7 @@ impl NonCachingDirectRenderer {
             render_pass.set_pipeline(model.material().pipeline().render_pipeline());
 
             render_pass.set_bind_group(0, model.material().bind_group(), &[]);
-            render_pass.set_bind_group(1, world.active_camera().bind_group(), &[]);
+            render_pass.set_bind_group(1, world.active_camera().camera_bind_group(), &[]);
             render_pass.set_bind_group(2, world.light_store().point_light_bind_group(), &[]);
 
             let world_environment_material = match Material::from_descriptor(

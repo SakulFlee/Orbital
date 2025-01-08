@@ -70,7 +70,7 @@ impl CachingDirectRenderer {
             self.world_environment.as_ref().unwrap().bind_group(),
             &[],
         );
-        render_pass.set_bind_group(1, world.active_camera().bind_group(), &[]);
+        render_pass.set_bind_group(1, world.active_camera().camera_bind_group(), &[]);
         render_pass.draw(0..3, 0..1);
     }
 
@@ -107,7 +107,7 @@ impl CachingDirectRenderer {
             render_pass.set_pipeline(model.material().pipeline().render_pipeline());
 
             render_pass.set_bind_group(0, model.material().bind_group(), &[]);
-            render_pass.set_bind_group(1, world.active_camera().bind_group(), &[]);
+            render_pass.set_bind_group(1, world.active_camera().camera_bind_group(), &[]);
             render_pass.set_bind_group(2, world.light_store().point_light_bind_group(), &[]);
             render_pass.set_bind_group(
                 3,
