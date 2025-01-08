@@ -21,10 +21,13 @@ impl DebugController {
         InputButton::Keyboard(PhysicalKey::Code(KeyCode::Digit4));
     pub const DEBUG_BOUNDING_BOX_WIREFRAMES_KEY: InputButton =
         InputButton::Keyboard(PhysicalKey::Code(KeyCode::Digit5));
+    pub const DEBUG_FREEZE_FRUSTUM_KEY: InputButton =
+        InputButton::Keyboard(PhysicalKey::Code(KeyCode::Digit6));
 
     pub const KEY_DEBUG_WIREFRAMES_ENABLED: &'static str = "debug_wireframes_enabled";
     pub const KEY_DEBUG_BOUNDING_BOX_WIREFRAMES_ENABLED: &'static str =
         "debug_bounding_box_wireframe_enabled";
+    pub const KEY_DEBUG_FREEZE_FRUSTUM: &'static str = "debug_freeze_frustum";
 
     pub const INPUT_TIMEOUT: f64 = 0.4;
 }
@@ -59,6 +62,7 @@ impl Element for DebugController {
             &Self::TRIGGER_KEY,
             &Self::DEBUG_WIREFRAMES_KEY,
             &Self::DEBUG_BOUNDING_BOX_WIREFRAMES_KEY,
+            &Self::DEBUG_FREEZE_FRUSTUM_KEY,
         ]);
 
         if let Some((_, triggered)) = inputs.get(&Self::TRIGGER_KEY) {
@@ -94,6 +98,19 @@ impl Element for DebugController {
                         Self::KEY_DEBUG_BOUNDING_BOX_WIREFRAMES_ENABLED.to_string(),
                         Variant::Empty,
                     );
+                    world_changes.push(WorldChange::SendMessageToApp(message));
+                }
+            }
+
+            if let Some((_, triggered)) = inputs.get(&Self::DEBUG_FREEZE_FRUSTUM_KEY) {
+                if *triggered {
+                    self.timeout_delta = Some(Self::INPUT_TIMEOUT);
+
+                    let mut message = Message::new(
+                        Self::IDENTIFIER.to_string(),
+                        Self::RENDERER_IDENTIFIER.to_string(),
+                    );
+                    message.add_content(Self::KEY_DEBUG_FREEZE_FRUSTUM.to_string(), Variant::Empty);
                     world_changes.push(WorldChange::SendMessageToApp(message));
                 }
             }
