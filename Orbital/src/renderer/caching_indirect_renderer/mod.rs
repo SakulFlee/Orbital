@@ -28,7 +28,7 @@ use crate::resources::{
 use crate::variant::Variant;
 use crate::world::{Change, ChangeList, ChangeType, Message, World};
 
-use super::{DrawIndexedIndirect, Renderer};
+use super::{IndirectIndexedDraw, Renderer};
 
 pub struct CachingIndirectRenderer {
     app_name: String,
@@ -129,7 +129,7 @@ impl CachingIndirectRenderer {
             let entry = indirect_draw_buffers.entry(model_label.clone()).insert(
                 device.create_buffer_init(&BufferInitDescriptor {
                     // Initial indirect draw data being "draw nothing at all"
-                    contents: &DrawIndexedIndirect::new(
+                    contents: &IndirectIndexedDraw::new(
                         model.mesh().index_count(),
                         model.instance_count(),
                     )
@@ -152,7 +152,7 @@ impl CachingIndirectRenderer {
 
             let pipeline = Self::make_compute_pipeline(
                 &[&bind_group_layout],
-                include_wgsl!("frustum_culling_to_indirect_drawing.wgsl"),
+                include_wgsl!("frustum_culling.wgsl"),
                 "main",
                 device,
             );
@@ -164,7 +164,10 @@ impl CachingIndirectRenderer {
                     BindGroupEntry {
                         binding: 0,
                         resource: BindingResource::Buffer(
-                            world.active_camera().buffer().as_entire_buffer_binding(),
+                            world
+                                .active_camera()
+                                .camera_buffer()
+                                .as_entire_buffer_binding(),
                         ),
                     },
                     BindGroupEntry {
@@ -251,7 +254,7 @@ impl CachingIndirectRenderer {
 
             render_pass.set_pipeline(pipeline.render_pipeline());
 
-            render_pass.set_bind_group(0, world.active_camera().bind_group(), &[]);
+            render_pass.set_bind_group(0, world.active_camera().camera_bind_group(), &[]);
 
             let (vertex_buffer, index_buffer) =
                 bounding_box.to_debug_bounding_box_wireframe_buffers(device);
@@ -313,7 +316,7 @@ impl CachingIndirectRenderer {
             render_pass.set_pipeline(pipeline.render_pipeline());
 
             render_pass.set_bind_group(0, model.material().bind_group(), &[]);
-            render_pass.set_bind_group(1, world.active_camera().bind_group(), &[]);
+            render_pass.set_bind_group(1, world.active_camera().camera_bind_group(), &[]);
             render_pass.set_bind_group(2, world.light_store().point_light_bind_group(), &[]);
             render_pass.set_bind_group(
                 3,
@@ -369,7 +372,7 @@ impl CachingIndirectRenderer {
             self.world_environment.as_ref().unwrap().bind_group(),
             &[],
         );
-        render_pass.set_bind_group(1, world.active_camera().bind_group(), &[]);
+        render_pass.set_bind_group(1, world.active_camera().camera_bind_group(), &[]);
         render_pass.draw(0..3, 0..1);
 
         drop(render_pass);
@@ -414,7 +417,7 @@ impl CachingIndirectRenderer {
             render_pass.set_pipeline(model.material().pipeline().render_pipeline());
 
             render_pass.set_bind_group(0, model.material().bind_group(), &[]);
-            render_pass.set_bind_group(1, world.active_camera().bind_group(), &[]);
+            render_pass.set_bind_group(1, world.active_camera().camera_bind_group(), &[]);
             render_pass.set_bind_group(2, world.light_store().point_light_bind_group(), &[]);
             render_pass.set_bind_group(
                 3,
@@ -630,19 +633,19 @@ impl Renderer for CachingIndirectRenderer {
         self.process_change_list(world.take_change_list().await, world, device, queue)
             .await;
 
-        let indirect_draw_buffers =
-            self.frustum_culling_to_indirect_draw_buffers(world, device, queue);
+        // let indirect_draw_buffers =
+        // self.frustum_culling_to_indirect_draw_buffers(world, device, queue);
 
         let mut queue_submissions = Vec::new();
 
         // TODO: Using multiple encoders/passes seems to be a performance hit.
-        queue_submissions.push(self.render_skybox(world, device, target_view));
-        queue_submissions.push(self.render_models(
-            world,
-            device,
-            target_view,
-            indirect_draw_buffers,
-        ));
+        // queue_submissions.push(self.render_skybox(world, device, target_view));
+        // queue_submissions.push(self.render_models(
+        //     world,
+        //     device,
+        //     target_view,
+        //     indirect_draw_buffers,
+        // ));
 
         if self.debug_wireframes_enabled {
             queue_submissions.push(self.render_debug_wireframes(world, device, queue, target_view));
