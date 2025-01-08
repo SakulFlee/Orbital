@@ -5,11 +5,11 @@ use wgpu::{Device, Queue, TextureFormat, TextureView};
 
 use crate::world::{Message, World};
 
-mod draw_indirect;
-pub use draw_indirect::*;
+mod indirect_draw;
+pub use indirect_draw::*;
 
-mod draw_indexed_indirect;
-pub use draw_indexed_indirect::*;
+mod indirect_indexed_draw;
+pub use indirect_indexed_draw::*;
 
 mod non_caching_direct_renderer;
 pub use non_caching_direct_renderer::*;
