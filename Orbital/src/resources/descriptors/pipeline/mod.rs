@@ -32,7 +32,7 @@ impl PipelineDescriptor {
             shader_descriptor: Arc::new(include_str!("../shader/skybox.wgsl")),
             bind_group_layouts: vec![
                 Material::world_environment_pipeline_bind_group_layout(),
-                Camera::pipeline_bind_group_layout(),
+                Camera::bind_group_layout(),
             ],
             primitive_topology: Default::default(),
             front_face_order: FrontFace::Ccw,
@@ -58,7 +58,7 @@ impl PipelineDescriptor {
         let mut default = Self::default();
 
         default.shader_descriptor = Arc::new(include_str!("../shader/debug_bounding_box.wgsl"));
-        default.bind_group_layouts = vec![Camera::pipeline_bind_group_layout()];
+        default.bind_group_layouts = vec![Camera::bind_group_layout()];
         default.polygon_mode = PolygonMode::Line;
         default.cull_mode = None;
         default.include_complex_vertex_buffer_layout = false;
@@ -76,7 +76,7 @@ impl Default for PipelineDescriptor {
             shader_descriptor: Arc::new(include_str!("../shader/standard_pbr.wgsl")),
             bind_group_layouts: vec![
                 Material::pbr_pipeline_bind_group_layout(),
-                Camera::pipeline_bind_group_layout(),
+                Camera::bind_group_layout(),
                 PointLightStore::pipeline_bind_group_layout(),
                 Material::world_environment_pipeline_bind_group_layout(),
             ],
