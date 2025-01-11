@@ -4,6 +4,9 @@ use crate::transform::Transform;
 
 use super::{MaterialDescriptor, MeshDescriptor};
 
+mod render_mode;
+pub use render_mode::*;
+
 /// Descriptor for a model
 ///
 /// TODO
@@ -13,6 +16,14 @@ pub struct ModelDescriptor {
     pub mesh: Arc<MeshDescriptor>,
     pub material: Arc<MaterialDescriptor>,
     pub transforms: Vec<Transform>,
+    /// Defines the mode we are rendering in.
+    /// Check out `RenderMode` for more.
+    ///
+    /// This is a bitflag field!  
+    /// You can choose from any of the defined `RenderMode`s, or, combine them via bitwise OR (`|`).
+    pub render_modes: RenderMode,
+    #[cfg(debug_assertions)]
+    pub render_bounding_box: bool,
 }
 
 impl ModelDescriptor {
