@@ -5,6 +5,7 @@ use std::{
 };
 
 use cgmath::Vector3;
+use wgpu::Color;
 
 use super::{SamplingType, ShaderDescriptor, TextureDescriptor, WorldEnvironmentDescriptor};
 
@@ -25,6 +26,7 @@ pub enum MaterialDescriptor {
     },
     // TODO
     WorldEnvironment(WorldEnvironmentDescriptor),
+    Wireframe(Color),
 }
 
 impl MaterialDescriptor {
