@@ -4,8 +4,8 @@ use cgmath::Vector3;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutEntry, BindingResource,
-    BindingType, BufferBindingType, BufferUsages, Device, Queue, SamplerBindingType, ShaderStages,
-    TextureFormat, TextureSampleType, TextureViewDimension,
+    BindingType, BufferBindingType, BufferUsages, Color, Device, Queue, SamplerBindingType,
+    ShaderStages, TextureFormat, TextureSampleType, TextureViewDimension,
 };
 
 use crate::{
@@ -271,8 +271,17 @@ impl Material {
             ),
             // Note that, WorldEnvironment doesn't use the Texture Cache as it works a lot different from normal Textures and Materials.
             // There also hardly is a need for a cache though, as only ever one `WorldEnvironment` is used at a time and while switching is possible, it shouldn't be switched so often that a cache will be needed.
-            MaterialDescriptor::WorldEnvironment(world_environment) => Self::skybox(
+            MaterialDescriptor::WorldEnvironment(world_environment) => Self::world_environment(
                 world_environment,
+                surface_format,
+                device,
+                queue,
+                app_name,
+                with_pipeline_cache,
+                with_shader_cache,
+            ),
+            MaterialDescriptor::Wireframe(color) => Self::wireframe(
+                color,
                 surface_format,
                 device,
                 queue,
@@ -283,7 +292,73 @@ impl Material {
         }
     }
 
-    pub fn skybox(
+    pub fn wireframe(
+        color: &Color,
+        surface_format: &TextureFormat,
+        device: &Device,
+        queue: &Queue,
+        app_name: &str,
+        with_pipeline_cache: Option<&mut Cache<Arc<PipelineDescriptor>, Pipeline>>,
+        with_shader_cache: Option<&mut Cache<Arc<ShaderDescriptor>, Shader>>,
+    ) -> Result<Self, Error> {
+        let color_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("Wireframe color buffer"),
+            contents: &[
+                color.r.to_le_bytes(),
+                color.g.to_le_bytes(),
+                color.b.to_le_bytes(),
+                color.a.to_le_bytes(),
+            ]
+            .concat(),
+            usage: BufferUsages::UNIFORM,
+        });
+
+        let pipeline_descriptor = Arc::new(PipelineDescriptor::default_wireframe());
+        let pipeline = if let Some(cache) = with_pipeline_cache {
+            cache
+                .entry(pipeline_descriptor.clone())
+                .or_insert(CacheEntry::new(Pipeline::from_descriptor(
+                    &pipeline_descriptor,
+                    surface_format,
+                    device,
+                    queue,
+                    with_shader_cache,
+                )?))
+                .clone_inner()
+        } else {
+            Arc::new(Pipeline::from_descriptor(
+                &pipeline_descriptor,
+                surface_format,
+                device,
+                queue,
+                with_shader_cache,
+            )?)
+        };
+
+        let bind_group_layout = pipeline
+            .bind_group_layout(Self::WORLD_ENVIRONMENT_PIPELINE_BIND_GROUP_NAME)
+            .ok_or(Error::BindGroupMissing)?;
+
+        let bind_group = device.create_bind_group(&BindGroupDescriptor {
+            label: None,
+            layout: bind_group_layout,
+            entries: &[
+                // Diffuse
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::Buffer(color_buffer.as_entire_buffer_binding()),
+                },
+            ],
+        });
+
+        Ok(Self::from_existing(
+            bind_group,
+            pipeline_descriptor,
+            pipeline,
+        ))
+    }
+
+    pub fn world_environment(
         world_environment_descriptor: &WorldEnvironmentDescriptor,
         surface_format: &TextureFormat,
         device: &Device,

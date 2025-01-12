@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use wgpu::{Face, FrontFace, PolygonMode, PrimitiveTopology};
+use wgpu::{
+    BindGroupDescriptor, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
+    BufferBindingType, Face, FrontFace, PolygonMode, PrimitiveTopology, ShaderStages,
+};
 
 use crate::{
     resources::realizations::{Camera, Material},
@@ -27,6 +30,22 @@ pub struct PipelineDescriptor {
 }
 
 impl PipelineDescriptor {
+    pub fn wireframe_color_bind_group_layout_descriptor() -> PipelineBindGroupLayout {
+        PipelineBindGroupLayout {
+            label: "Wireframe color bind group layout descriptor",
+            entries: vec![BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStages::VERTEX_FRAGMENT,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+        }
+    }
+
     pub fn default_skybox() -> Self {
         Self {
             shader_descriptor: Arc::new(include_str!("../shader/skybox.wgsl")),
@@ -48,22 +67,21 @@ impl PipelineDescriptor {
     pub fn default_wireframe() -> Self {
         let mut default = Self::default();
 
+        // Set shader
+        default.shader_descriptor = Arc::new(include_str!("../shader/wireframe.wgsl"));
+        // Set bind group layouts, including special wireframe color one
+        default.bind_group_layouts = vec![
+            Camera::bind_group_layout(),
+            Self::wireframe_color_bind_group_layout_descriptor(),
+        ];
+        // Set to line mode for wireframes
         default.polygon_mode = PolygonMode::Line;
-        default.cull_mode = None;
-
-        default
-    }
-
-    pub fn debug_bounding_box() -> Self {
-        let mut default = Self::default();
-
-        default.shader_descriptor = Arc::new(include_str!("../shader/debug_bounding_box.wgsl"));
-        default.bind_group_layouts = vec![Camera::bind_group_layout()];
-        default.polygon_mode = PolygonMode::Line;
-        default.cull_mode = None;
+        // Set simplified vertex layout and include buffer layout
         default.include_complex_vertex_buffer_layout = false;
         default.include_simple_vertex_buffer_layout = true;
         default.include_instance_buffer_layout = true;
+
+        // default.cull_mode = None; // TODO: Check?
 
         default
     }
@@ -71,6 +89,7 @@ impl PipelineDescriptor {
 
 impl Default for PipelineDescriptor {
     /// Default is PBR
+    // TODO: move to default_solid to match the rest above. Also decouple the above from using a default impl that might change.
     fn default() -> Self {
         Self {
             shader_descriptor: Arc::new(include_str!("../shader/standard_pbr.wgsl")),
