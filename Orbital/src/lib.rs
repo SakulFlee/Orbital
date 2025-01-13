@@ -315,7 +315,6 @@
 
 // Modules
 pub mod app;
-pub mod bounding_box;
 pub mod cache;
 pub mod error;
 pub mod input;

@@ -1,31 +1,26 @@
 use std::{f32, hash::Hash, sync::Arc};
 
-use cgmath::{
-    num_traits::Float,
-    Point3,
-};
+use cgmath::{num_traits::Float, Point3};
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     Buffer, BufferUsages, Device,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct BoundingBox {
+pub struct BoundingBoxDescriptor {
     pub min: Point3<f32>,
     pub max: Point3<f32>,
 }
 
-impl BoundingBox {
+impl BoundingBoxDescriptor {
     pub fn new(min: Point3<f32>, max: Point3<f32>) -> Self {
         Self { min, max }
     }
 
-    pub fn new_arc(min: Point3<f32>, max: Point3<f32>) -> Arc<Self> {
-        Arc::new(BoundingBox::new(min, max))
-    }
-
     pub fn to_binary_data(&self) -> Vec<u8> {
-        [self.min.x.to_le_bytes(),
+        [
+            // Min
+            self.min.x.to_le_bytes(),
             self.min.y.to_le_bytes(),
             self.min.z.to_le_bytes(),
             // Max
@@ -34,25 +29,30 @@ impl BoundingBox {
             self.max.z.to_le_bytes(),
             // Buffer alignment to 32b
             [0u8; 4],
-            [0u8; 4]]
+            [0u8; 4],
+        ]
         .concat()
     }
 
     pub fn to_binary_data_disabled_frustum_culling() -> Vec<u8> {
-        [[0u8; 4], [0u8; 4], [0u8; 4], // Min
-            [0u8; 4], [0u8; 4], [0u8; 4]]
+        [
+            [0u8; 4], [0u8; 4], [0u8; 4], // Min
+            [0u8; 4], [0u8; 4], [0u8; 4],
+        ]
         .concat()
     }
 
     pub fn to_vertices(&self) -> Vec<f32> {
-        [[self.min.x, self.min.y, self.min.z], // Bottom-left-back (0)
+        [
+            [self.min.x, self.min.y, self.min.z], // Bottom-left-back (0)
             [self.max.x, self.min.y, self.min.z], // Bottom-right-back (1)
             [self.max.x, self.max.y, self.min.z], // Top-right-back (2)
             [self.min.x, self.max.y, self.min.z], // Top-left-back (3)
             [self.min.x, self.min.y, self.max.z], // Bottom-left-front (4)
             [self.max.x, self.min.y, self.max.z], // Bottom-right-front (5)
             [self.max.x, self.max.y, self.max.z], // Top-right-front (6)
-            [self.min.x, self.max.y, self.max.z]]
+            [self.min.x, self.max.y, self.max.z],
+        ]
         .concat()
     }
 
@@ -104,9 +104,9 @@ impl BoundingBox {
     }
 }
 
-impl Eq for BoundingBox {}
+impl Eq for BoundingBoxDescriptor {}
 
-impl Hash for BoundingBox {
+impl Hash for BoundingBoxDescriptor {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.min.x.integer_decode().hash(state);
         self.min.y.integer_decode().hash(state);
