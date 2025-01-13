@@ -1,21 +1,43 @@
 use std::sync::Arc;
 
-use crate::{bounding_box::BoundingBox, resources::realizations::Vertex};
+use cgmath::{Point3, Vector3, Zero};
+
+use crate::resources::realizations::Vertex;
+
+use super::BoundingBoxDescriptor;
 
 #[derive(Debug, Clone, Eq, Hash)]
 pub struct MeshDescriptor {
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u32>,
-    /// Bounding box of the mesh.
-    /// Set this to `Some` to set a bounding box.
-    /// Set this to `None` to specifically not set a bounding box.
-    ///
-    /// Bounding boxes are used in Orbital in many places.
-    /// However, it's main usage is in the `Renderer` for culling.
-    /// Any `Mesh` without a bounding box will **always** be rendered and never be culled.
-    /// This is useful for debugging and giant objects that, probably, are always on screen.
-    /// Any other mesh should have a bounding box!
-    pub bounding_box: Option<Arc<BoundingBox>>,
+    pub bounding_box: BoundingBoxDescriptor,
+}
+
+impl MeshDescriptor {
+    pub fn new(vertices: Vec<Vertex>, indices: Vec<u32>) -> Self {
+        let mut min = Point3::new(f32::MAX, f32::MAX, f32::MAX);
+        let mut max = Point3::new(f32::MIN, f32::MIN, f32::MIN);
+        for vertex in &vertices {
+            let position = vertex.position;
+            min = Point3::new(
+                min.x.min(position.x),
+                min.y.min(position.y),
+                min.z.min(position.z),
+            );
+            max = Point3::new(
+                max.x.max(position.x),
+                max.y.max(position.y),
+                max.z.max(position.z),
+            );
+        }
+        let bounding_box = BoundingBoxDescriptor { min, max };
+
+        Self {
+            vertices,
+            indices,
+            bounding_box,
+        }
+    }
 }
 
 impl PartialEq for MeshDescriptor {

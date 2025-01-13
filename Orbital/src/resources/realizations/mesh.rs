@@ -1,21 +1,18 @@
-use std::sync::Arc;
-
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     Buffer, BufferUsages, Device, Queue,
 };
 
-use crate::{bounding_box::BoundingBox, resources::descriptors::MeshDescriptor};
+use crate::resources::descriptors::MeshDescriptor;
 
-use super::Vertex;
+use super::{BoundingBox, Vertex};
 
 #[derive(Debug)]
 pub struct Mesh {
     vertex_buffer: Buffer,
     index_buffer: Buffer,
     index_count: u32,
-    bounding_box: Option<Arc<BoundingBox>>,
-    bounding_box_buffer: Option<Buffer>,
+    bounding_box: BoundingBox,
 }
 
 impl Mesh {
@@ -23,7 +20,7 @@ impl Mesh {
         Self::from_data(
             &descriptor.vertices,
             &descriptor.indices,
-            descriptor.bounding_box.clone(),
+            BoundingBox::new(&descriptor.bounding_box, device),
             device,
         )
     }
@@ -31,7 +28,7 @@ impl Mesh {
     pub fn from_data(
         vertices: &[Vertex],
         indices: &[u32],
-        bounding_box: Option<Arc<BoundingBox>>,
+        bounding_box: BoundingBox,
         device: &Device,
     ) -> Self {
         let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
@@ -52,20 +49,11 @@ impl Mesh {
             usage: BufferUsages::INDEX,
         });
 
-        let bounding_box_buffer = bounding_box.clone().map(|x| x.to_binary_data()).map(|x| {
-            device.create_buffer_init(&BufferInitDescriptor {
-                label: Some("Bounding Box Buffer"),
-                contents: &x,
-                usage: BufferUsages::UNIFORM,
-            })
-        });
-
         Self {
             vertex_buffer,
             index_buffer,
             index_count: indices.len() as u32,
             bounding_box,
-            bounding_box_buffer,
         }
     }
 
@@ -81,11 +69,7 @@ impl Mesh {
         self.index_count
     }
 
-    pub fn bounding_box(&self) -> Option<Arc<BoundingBox>> {
-        self.bounding_box.clone()
-    }
-
-    pub fn bounding_box_buffer(&self) -> Option<&Buffer> {
-        self.bounding_box_buffer.as_ref()
+    pub fn bounding_box(&self) -> &BoundingBox {
+        &self.bounding_box
     }
 }

@@ -4,7 +4,6 @@ use cgmath::Point3;
 use easy_gltf::Model;
 
 use crate::{
-    bounding_box::BoundingBox,
     resources::{descriptors::MeshDescriptor, realizations::Vertex},
 };
 
@@ -21,30 +20,6 @@ impl From<&Model> for MeshDescriptor {
             .expect("Trying to load glTF model without Indices!")
             .clone();
 
-        // Bounding Box
-        let mut min = Point3::new(f32::MAX, f32::MAX, f32::MAX);
-        let mut max = Point3::new(f32::MIN, f32::MIN, f32::MIN);
-
-        for vertex in &vertices {
-            let position = vertex.position;
-            min = Point3::new(
-                min.x.min(position.x),
-                min.y.min(position.y),
-                min.z.min(position.z),
-            );
-            max = Point3::new(
-                max.x.max(position.x),
-                max.y.max(position.y),
-                max.z.max(position.z),
-            );
-        }
-
-        let bounding_box = Some(Arc::new(BoundingBox { min, max }));
-
-        MeshDescriptor {
-            vertices,
-            indices,
-            bounding_box,
-        }
+        MeshDescriptor::new(vertices, indices)
     }
 }

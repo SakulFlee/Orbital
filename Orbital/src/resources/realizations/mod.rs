@@ -10,6 +10,7 @@ pub mod shader;
 pub mod texture;
 pub mod vertex;
 pub mod world_environment;
+pub mod bounding_box;
 
 pub use camera::*;
 pub use ibl_brdf::*;
@@ -23,3 +24,4 @@ pub use shader::*;
 pub use texture::*;
 pub use vertex::*;
 pub use world_environment::*;
+pub use bounding_box::*;

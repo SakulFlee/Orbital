@@ -112,231 +112,245 @@ impl CachingIndirectRenderer {
         })
     }
 
-    fn frustum_culling_to_indirect_draw_buffers(
-        &self,
-        world: &World,
-        device: &Device,
-        queue: &Queue,
-    ) -> HashMap<String, Buffer> {
-        let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
-            label: Some("Frustum Culling to Indirect Drawing Compute Encoder"),
-        });
+    // fn frustum_culling(&self, world: &World, device: &Device, queue: &Queue) -> Option<Buffer> {
+    //     if self.model_cache.is_empty() {
+    //         // No models, means we don't have bounding boxes.
+    //         // This also means we can't render, so just skip here ...
 
-        let bind_group_layout = device.create_bind_group_layout(
-            &Self::bind_group_layout_descriptor_frustum_culling_bounding_box_buffer(),
-        );
+    //         return None;
+    //     }
 
-        let mut indirect_draw_buffers = HashMap::new();
-        for (model_label, model) in &self.model_cache {
-            let entry = indirect_draw_buffers.entry(model_label.clone()).insert(
-                device.create_buffer_init(&BufferInitDescriptor {
-                    // Initial indirect draw data being "draw nothing at all"
-                    contents: &IndirectIndexedDraw::new(
-                        model.mesh().index_count(),
-                        model.instance_count(),
-                    )
-                    .to_binary_data(),
-                    usage: BufferUsages::STORAGE | BufferUsages::COPY_DST | BufferUsages::INDIRECT,
-                    label: Some("Indirect Draw Buffer"),
-                }),
-            );
-            let indirect_draw_buffer = entry.get();
+    //     let bounding_box_data = self
+    //         .model_cache
+    //         .values()
+    //         .map(|x| x.mesh().bounding_box().to_binary_data())
+    //         .collect::<Vec<_>>()
+    //         .concat();
+    //     let bounding_box_buffer = device.create_buffer_init(&BufferInitDescriptor {
+    //         label: Some("Bounding Box Buffer"),
+    //         contents: &bounding_box_data,
+    //         usage: BufferUsages::STORAGE,
+    //     });
 
-            let bounding_box_buffer = match model.mesh().bounding_box_buffer() {
-                Some(buffer) => buffer,
-                None => {
-                    // If the model doesn't have a bounding box buffer, we can't, and shouldn't, frustum cull it.
-                    // The default indirect draw buffer is filled with the necessary data to always render the model.
-                    // Thus, if the model doesn't have a bounding box buffer, we can skip the whole step.
-                    continue;
-                }
-            };
+    //     let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
+    //         label: Some("Frustum Culling to Indirect Drawing Compute Encoder"),
+    //     });
 
-            let pipeline = Self::make_compute_pipeline(
-                &[&bind_group_layout],
-                include_wgsl!("frustum_culling.wgsl"),
-                "main",
-                device,
-            );
+    //     let bind_group_layout = device.create_bind_group_layout(
+    //         &Self::bind_group_layout_descriptor_frustum_culling_bounding_box_buffer(),
+    //     );
 
-            let bind_group = device.create_bind_group(&BindGroupDescriptor {
-                label: Some("Frustum Culling to Indirect Drawing"),
-                layout: &bind_group_layout,
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: BindingResource::Buffer(
-                            world
-                                .active_camera()
-                                .camera_buffer()
-                                .as_entire_buffer_binding(),
-                        ),
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: BindingResource::Buffer(
-                            bounding_box_buffer.as_entire_buffer_binding(),
-                        ),
-                    },
-                    BindGroupEntry {
-                        binding: 2,
-                        resource: BindingResource::Buffer(
-                            indirect_draw_buffer.as_entire_buffer_binding(),
-                        ),
-                    },
-                ],
-            });
+    //     let mut indirect_draw_buffers = HashMap::new();
+    //     for (model_label, model) in &self.model_cache {
+    //         let entry = indirect_draw_buffers.entry(model_label.clone()).insert(
+    //             device.create_buffer_init(&BufferInitDescriptor {
+    //                 // Initial indirect draw data being "draw nothing at all"
+    //                 contents: &IndirectIndexedDraw::new(
+    //                     model.mesh().index_count(),
+    //                     model.instance_count(),
+    //                 )
+    //                 .to_binary_data(),
+    //                 usage: BufferUsages::STORAGE | BufferUsages::COPY_DST | BufferUsages::INDIRECT,
+    //                 label: Some("Indirect Draw Buffer"),
+    //             }),
+    //         );
+    //         let indirect_draw_buffer = entry.get();
 
-            let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor {
-                label: Some("Frustum Culling to Indirect Drawing"),
-                ..Default::default()
-            });
+    //         let bounding_box_buffer = match model.mesh().bounding_box_buffer() {
+    //             Some(buffer) => buffer,
+    //             None => {
+    //                 // If the model doesn't have a bounding box buffer, we can't, and shouldn't, frustum cull it.
+    //                 // The default indirect draw buffer is filled with the necessary data to always render the model.
+    //                 // Thus, if the model doesn't have a bounding box buffer, we can skip the whole step.
+    //                 continue;
+    //             }
+    //         };
 
-            pass.set_pipeline(&pipeline);
-            pass.set_bind_group(0, &bind_group, &[]);
-            pass.dispatch_workgroups(1, 1, 1);
+    //         let pipeline = Self::make_compute_pipeline(
+    //             &[&bind_group_layout],
+    //             include_wgsl!("frustum_culling.wgsl"),
+    //             "main",
+    //             device,
+    //         );
 
-            drop(pass);
-        }
+    //         let bind_group = device.create_bind_group(&BindGroupDescriptor {
+    //             label: Some("Frustum Culling to Indirect Drawing"),
+    //             layout: &bind_group_layout,
+    //             entries: &[
+    //                 BindGroupEntry {
+    //                     binding: 0,
+    //                     resource: BindingResource::Buffer(
+    //                         world
+    //                             .active_camera()
+    //                             .camera_buffer()
+    //                             .as_entire_buffer_binding(),
+    //                     ),
+    //                 },
+    //                 BindGroupEntry {
+    //                     binding: 1,
+    //                     resource: BindingResource::Buffer(
+    //                         bounding_box_buffer.as_entire_buffer_binding(),
+    //                     ),
+    //                 },
+    //                 BindGroupEntry {
+    //                     binding: 2,
+    //                     resource: BindingResource::Buffer(
+    //                         indirect_draw_buffer.as_entire_buffer_binding(),
+    //                     ),
+    //                 },
+    //             ],
+    //         });
 
-        queue.submit(vec![encoder.finish()]);
+    //         let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor {
+    //             label: Some("Frustum Culling to Indirect Drawing"),
+    //             ..Default::default()
+    //         });
 
-        // device.poll(MaintainBase::Wait);
+    //         pass.set_pipeline(&pipeline);
+    //         pass.set_bind_group(0, &bind_group, &[]);
+    //         pass.dispatch_workgroups(1, 1, 1);
 
-        indirect_draw_buffers
-    }
+    //         drop(pass);
+    //     }
 
-    fn render_debug_bounding_boxes(
-        &mut self,
-        world: &World,
-        device: &Device,
-        queue: &Queue,
-        target_view: &TextureView,
-    ) -> CommandBuffer {
-        let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
-            label: Some("Debug Bounding Box Encoder"),
-        });
+    //     queue.submit(vec![encoder.finish()]);
 
-        let pipeline = Pipeline::from_descriptor(
-            &PipelineDescriptor::debug_bounding_box(),
-            &self.surface_format,
-            device,
-            queue,
-            Some(&mut self.shader_cache),
-        )
-        .expect("Setting up debug debug bounding box pipeline failed!");
+    //     // device.poll(MaintainBase::Wait);
 
-        let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
-            label: Some("Debug Bounding Box"),
-            color_attachments: &[Some(RenderPassColorAttachment {
-                view: target_view,
-                resolve_target: None,
-                ops: Operations {
-                    load: LoadOp::Load,
-                    store: StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                view: self.depth_texture.view(),
-                depth_ops: Some(Operations {
-                    load: LoadOp::Clear(1.0),
-                    store: StoreOp::Store,
-                }),
-                stencil_ops: None,
-            }),
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
+    //     indirect_draw_buffers
+    // }
 
-        for model in self.model_cache.values() {
-            let bounding_box = match model.mesh().bounding_box() {
-                Some(bounding_box) => bounding_box,
-                None => continue, // Skip models without bounding boxes
-            };
+    // fn render_debug_bounding_boxes(
+    //     &mut self,
+    //     world: &World,
+    //     device: &Device,
+    //     queue: &Queue,
+    //     target_view: &TextureView,
+    // ) -> CommandBuffer {
+    //     let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
+    //         label: Some("Debug Bounding Box Encoder"),
+    //     });
 
-            render_pass.set_pipeline(pipeline.render_pipeline());
+    //     let pipeline = Pipeline::from_descriptor(
+    //         &PipelineDescriptor::default_wireframe(),
+    //         &self.surface_format,
+    //         device,
+    //         queue,
+    //         Some(&mut self.shader_cache),
+    //     )
+    //     .expect("Setting up debug debug bounding box pipeline failed!");
 
-            render_pass.set_bind_group(0, world.active_camera().camera_bind_group(), &[]);
+    //     let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
+    //         label: Some("Debug Bounding Box"),
+    //         color_attachments: &[Some(RenderPassColorAttachment {
+    //             view: target_view,
+    //             resolve_target: None,
+    //             ops: Operations {
+    //                 load: LoadOp::Load,
+    //                 store: StoreOp::Store,
+    //             },
+    //         })],
+    //         depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+    //             view: self.depth_texture.view(),
+    //             depth_ops: Some(Operations {
+    //                 load: LoadOp::Clear(1.0),
+    //                 store: StoreOp::Store,
+    //             }),
+    //             stencil_ops: None,
+    //         }),
+    //         timestamp_writes: None,
+    //         occlusion_query_set: None,
+    //     });
 
-            let (vertex_buffer, index_buffer) =
-                bounding_box.to_debug_bounding_box_wireframe_buffers(device);
+    //     for model in self.model_cache.values() {
+    //         let bounding_box = match model.mesh().bounding_box() {
+    //             Some(bounding_box) => bounding_box,
+    //             None => continue, // Skip models without bounding boxes
+    //         };
 
-            render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-            render_pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
-            render_pass.set_index_buffer(index_buffer.slice(..), IndexFormat::Uint32);
+    //         render_pass.set_pipeline(pipeline.render_pipeline());
 
-            render_pass.draw_indexed(0..bounding_box.to_indices().len() as u32, 0, 0..1);
-        }
+    //         render_pass.set_bind_group(0, world.active_camera().camera_bind_group(), &[]);
 
-        drop(render_pass);
-        encoder.finish()
-    }
+    //         let (vertex_buffer, index_buffer) =
+    //             bounding_box.to_debug_bounding_box_wireframe_buffers(device);
 
-    fn render_debug_wireframes(
-        &mut self,
-        world: &World,
-        device: &Device,
-        queue: &Queue,
-        target_view: &TextureView,
-    ) -> CommandBuffer {
-        let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
-            label: Some("Debug Bounding Box Encoder"),
-        });
+    //         render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+    //         render_pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
+    //         render_pass.set_index_buffer(index_buffer.slice(..), IndexFormat::Uint32);
 
-        let pipeline = Pipeline::from_descriptor(
-            &PipelineDescriptor::default_wireframe(),
-            &self.surface_format,
-            device,
-            queue,
-            Some(&mut self.shader_cache),
-        )
-        .expect("Setting up debug wireframe pipeline failed!");
+    //         render_pass.draw_indexed(0..bounding_box.to_indices().len() as u32, 0, 0..1);
+    //     }
 
-        let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
-            label: Some("Debug Bounding Box"),
-            color_attachments: &[Some(RenderPassColorAttachment {
-                view: target_view,
-                resolve_target: None,
-                ops: Operations {
-                    load: LoadOp::Load,
-                    store: StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                view: self.depth_texture.view(),
-                depth_ops: Some(Operations {
-                    load: LoadOp::Clear(1.0),
-                    store: StoreOp::Store,
-                }),
-                stencil_ops: None,
-            }),
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
+    //     drop(render_pass);
+    //     encoder.finish()
+    // }
 
-        for model in self.model_cache.values() {
-            render_pass.set_pipeline(pipeline.render_pipeline());
+    // fn render_debug_wireframes(
+    //     &mut self,
+    //     world: &World,
+    //     device: &Device,
+    //     queue: &Queue,
+    //     target_view: &TextureView,
+    // ) -> CommandBuffer {
+    //     let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
+    //         label: Some("Debug Bounding Box Encoder"),
+    //     });
 
-            render_pass.set_bind_group(0, model.material().bind_group(), &[]);
-            render_pass.set_bind_group(1, world.active_camera().camera_bind_group(), &[]);
-            render_pass.set_bind_group(2, world.light_store().point_light_bind_group(), &[]);
-            render_pass.set_bind_group(
-                3,
-                self.world_environment.as_ref().unwrap().bind_group(),
-                &[],
-            );
+    //     let pipeline = Pipeline::from_descriptor(
+    //         &PipelineDescriptor::default_wireframe(),
+    //         &self.surface_format,
+    //         device,
+    //         queue,
+    //         Some(&mut self.shader_cache),
+    //     )
+    //     .expect("Setting up debug wireframe pipeline failed!");
 
-            render_pass.set_vertex_buffer(0, model.mesh().vertex_buffer().slice(..));
-            render_pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
-            render_pass
-                .set_index_buffer(model.mesh().index_buffer().slice(..), IndexFormat::Uint32);
+    //     let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
+    //         label: Some("Debug Bounding Box"),
+    //         color_attachments: &[Some(RenderPassColorAttachment {
+    //             view: target_view,
+    //             resolve_target: None,
+    //             ops: Operations {
+    //                 load: LoadOp::Load,
+    //                 store: StoreOp::Store,
+    //             },
+    //         })],
+    //         depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+    //             view: self.depth_texture.view(),
+    //             depth_ops: Some(Operations {
+    //                 load: LoadOp::Clear(1.0),
+    //                 store: StoreOp::Store,
+    //             }),
+    //             stencil_ops: None,
+    //         }),
+    //         timestamp_writes: None,
+    //         occlusion_query_set: None,
+    //     });
 
-            render_pass.draw_indexed(0..model.mesh().index_count(), 0, 0..model.instance_count());
-        }
+    //     for model in self.model_cache.values() {
+    //         render_pass.set_pipeline(pipeline.render_pipeline());
 
-        drop(render_pass);
-        encoder.finish()
-    }
+    //         render_pass.set_bind_group(0, model.material().bind_group(), &[]);
+    //         render_pass.set_bind_group(1, world.active_camera().camera_bind_group(), &[]);
+    //         render_pass.set_bind_group(2, world.light_store().point_light_bind_group(), &[]);
+    //         render_pass.set_bind_group(
+    //             3,
+    //             self.world_environment.as_ref().unwrap().bind_group(),
+    //             &[],
+    //         );
+
+    //         render_pass.set_vertex_buffer(0, model.mesh().vertex_buffer().slice(..));
+    //         render_pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
+    //         render_pass
+    //             .set_index_buffer(model.mesh().index_buffer().slice(..), IndexFormat::Uint32);
+
+    //         render_pass.draw_indexed(0..model.mesh().index_count(), 0, 0..model.instance_count());
+    //     }
+
+    //     drop(render_pass);
+    //     encoder.finish()
+    // }
 
     fn render_skybox(
         &self,
@@ -386,7 +400,7 @@ impl CachingIndirectRenderer {
         world: &World,
         device: &Device,
         target_view: &TextureView,
-        indirect_draw_buffers: HashMap<String, Buffer>,
+        indirect_indexed_draw_buffer: Buffer,
     ) -> CommandBuffer {
         let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
             label: Some("Model Encoder"),
@@ -414,8 +428,9 @@ impl CachingIndirectRenderer {
             occlusion_query_set: None,
         });
 
+        // TODO: Switch over to offset rendering using single buffer
         // Models
-        for (model_label, model) in &self.model_cache {
+        for (index, model) in self.model_cache.values().enumerate() {
             render_pass.set_pipeline(model.material().pipeline().render_pipeline());
 
             render_pass.set_bind_group(0, model.material().bind_group(), &[]);
@@ -434,11 +449,10 @@ impl CachingIndirectRenderer {
 
             render_pass.draw_indexed(0..model.mesh().index_count(), 0, 0..model.instance_count());
 
-            let indirect_draw_buffer = indirect_draw_buffers.get(model_label).expect(&format!(
-                "Indirect draw buffer is missing for model with label '{}'!",
-                model_label
-            ));
-            render_pass.draw_indexed_indirect(indirect_draw_buffer, 0);
+            render_pass.draw_indexed_indirect(
+                &indirect_indexed_draw_buffer,
+                (index * IndirectIndexedDraw::byte_space_requirement()) as u64,
+            );
         }
 
         drop(render_pass);
@@ -637,32 +651,43 @@ impl Renderer for CachingIndirectRenderer {
         self.process_change_list(world.take_change_list().await, world, device, queue)
             .await;
 
-        // let indirect_draw_buffers =
-        // self.frustum_culling_to_indirect_draw_buffers(world, device, queue);
+        let indirect_indexed_draw_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            contents: &self
+                .model_cache
+                .values()
+                .map(|x| IndirectIndexedDraw::new(x.mesh().index_count(), x.instance_count()))
+                .map(|x| x.to_binary_data())
+                .collect::<Vec<_>>()
+                .concat(),
+            usage: BufferUsages::STORAGE | BufferUsages::INDIRECT,
+            label: Some("Indirect Indexed Draw Buffer"),
+        });
+
+        // let indirect_draw_buffers = self.frustum_culling(world, device, queue);
 
         let mut queue_submissions = Vec::new();
 
         // TODO: Using multiple encoders/passes seems to be a performance hit.
-        // queue_submissions.push(self.render_skybox(world, device, target_view));
-        // queue_submissions.push(self.render_models(
-        //     world,
-        //     device,
-        //     target_view,
-        //     indirect_draw_buffers,
-        // ));
+        queue_submissions.push(self.render_skybox(world, device, target_view));
+        queue_submissions.push(self.render_models(
+            world,
+            device,
+            target_view,
+            indirect_indexed_draw_buffer,
+        ));
 
-        if self.debug_wireframes_enabled {
-            queue_submissions.push(self.render_debug_wireframes(world, device, queue, target_view));
-        }
+        // if self.debug_wireframes_enabled {
+        //     queue_submissions.push(self.render_debug_wireframes(world, device, queue, target_view));
+        // }
 
-        if self.debug_bounding_box_wireframe_enabled {
-            queue_submissions.push(self.render_debug_bounding_boxes(
-                world,
-                device,
-                queue,
-                target_view,
-            ));
-        }
+        // if self.debug_bounding_box_wireframe_enabled {
+        //     queue_submissions.push(self.render_debug_bounding_boxes(
+        //         world,
+        //         device,
+        //         queue,
+        //         target_view,
+        //     ));
+        // }
 
         queue.submit(queue_submissions);
     }
