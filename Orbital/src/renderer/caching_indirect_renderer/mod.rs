@@ -431,6 +431,8 @@ impl CachingIndirectRenderer {
         // TODO: Switch over to offset rendering using single buffer
         // Models
         for (index, model) in self.model_cache.values().enumerate() {
+
+
             render_pass.set_pipeline(model.material().pipeline().render_pipeline());
 
             render_pass.set_bind_group(0, model.material().bind_group(), &[]);
@@ -692,3 +694,8 @@ impl Renderer for CachingIndirectRenderer {
         queue.submit(queue_submissions);
     }
 }
+
+// TODO: Render wireframes if required
+// TODO: Render out bounding boxes for debugging
+// TODO: Re-Enable frustum culling
+// TODO: Debug render frustum to verify and fix frustum culling
