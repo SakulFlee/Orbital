@@ -52,8 +52,6 @@ impl NonCachingDirectRenderer {
             queue,
             &self.app_name,
             None,
-            None,
-            None,
         ) {
             Ok(x) => x,
             Err(e) => {
@@ -107,15 +105,18 @@ impl NonCachingDirectRenderer {
                 queue,
                 &self.app_name,
                 None,
-                None,
-                None,
-                None,
-                None,
             )?;
 
-            render_pass.set_pipeline(model.material().pipeline().render_pipeline());
+            render_pass.set_pipeline(
+                model
+                    .materials()
+                    .first()
+                    .unwrap()
+                    .pipeline()
+                    .render_pipeline(),
+            );
 
-            render_pass.set_bind_group(0, model.material().bind_group(), &[]);
+            render_pass.set_bind_group(0, model.materials().first().unwrap().bind_group(), &[]);
             render_pass.set_bind_group(1, world.active_camera().camera_bind_group(), &[]);
             render_pass.set_bind_group(2, world.light_store().point_light_bind_group(), &[]);
 
@@ -125,8 +126,6 @@ impl NonCachingDirectRenderer {
                 device,
                 queue,
                 &self.app_name,
-                None,
-                None,
                 None,
             ) {
                 Ok(x) => x,

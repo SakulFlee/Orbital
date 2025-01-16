@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{cell::RefCell, sync::Arc};
 
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
@@ -6,20 +6,16 @@ use wgpu::{
 };
 
 use crate::{
-    cache::{Cache, CacheEntry},
-    error::Error,
-    resources::descriptors::{
-        MaterialDescriptor, MeshDescriptor, ModelDescriptor, PipelineDescriptor, ShaderDescriptor,
-        TextureDescriptor,
-    },
+    cache::CacheEntry, cache_state::CacheState, error::Error,
+    resources::descriptors::ModelDescriptor,
 };
 
-use super::{instance::Instance, Material, Mesh, Pipeline, Shader, Texture};
+use super::{instance::Instance, Material, Mesh};
 
 #[derive(Debug)]
 pub struct Model {
     mesh: Arc<Mesh>,
-    material: Arc<Material>,
+    materials: Vec<Arc<Material>>,
     instance_count: u32,
     instance_buffer: Buffer,
 }
@@ -31,15 +27,13 @@ impl Model {
         device: &Device,
         queue: &Queue,
         app_name: &str,
-        with_mesh_cache: Option<&mut Cache<Arc<MeshDescriptor>, Mesh>>,
-        with_material_cache: Option<&mut Cache<Arc<MaterialDescriptor>, Material>>,
-        with_texture_cache: Option<&mut Cache<Arc<TextureDescriptor>, Texture>>,
-        with_pipeline_cache: Option<&mut Cache<Arc<PipelineDescriptor>, Pipeline>>,
-        with_shader_cache: Option<&mut Cache<Arc<ShaderDescriptor>, Shader>>,
+        with_cache_state: Option<&CacheState>,
     ) -> Result<Self, Error> {
         // --- Mesh ---
-        let mesh = if let Some(cache) = with_mesh_cache {
+        let mesh = if let Some(cache) = with_cache_state {
             cache
+                .mesh_cache
+                .borrow_mut()
                 .entry(descriptor.mesh.clone())
                 .or_insert(CacheEntry::new(Mesh::from_descriptor(
                     &descriptor.mesh,
@@ -52,30 +46,37 @@ impl Model {
         };
 
         // --- Material ---
-        let material = if let Some(cache) = with_material_cache {
-            cache
-                .entry(descriptor.material.clone())
-                .or_insert(CacheEntry::new(Material::from_descriptor(
-                    &descriptor.material,
+        let mut materials = Vec::new();
+        if let Some(cache) = with_cache_state {
+            for material_descriptor in &descriptor.materials {
+                materials.push(
+                    cache
+                        .material_cache
+                        .borrow_mut()
+                        .entry(material_descriptor.clone())
+                        .or_insert(CacheEntry::new(Material::from_descriptor(
+                            &material_descriptor,
+                            surface_format,
+                            device,
+                            queue,
+                            app_name,
+                            with_cache_state,
+                        )?))
+                        .clone_inner(),
+                );
+            }
+        } else {
+            for material_descriptor in &descriptor.materials {
+                materials.push(Arc::new(Material::from_descriptor(
+                    &material_descriptor,
                     surface_format,
                     device,
-                    queue, app_name,
-                    with_texture_cache,
-                    with_pipeline_cache,
-                    with_shader_cache,
-                )?))
-                .clone_inner()
-        } else {
-            Arc::new(Material::from_descriptor(
-                &descriptor.material,
-                surface_format,
-                device,
-                queue, app_name,
-                with_texture_cache,
-                with_pipeline_cache,
-                with_shader_cache,
-            )?)
-        };
+                    queue,
+                    app_name,
+                    with_cache_state,
+                )?));
+            }
+        }
 
         // --- Instances ---
         // Take Transform count == Instance count
@@ -101,7 +102,7 @@ impl Model {
 
         Ok(Self {
             mesh,
-            material,
+            materials,
             instance_count,
             instance_buffer,
         })
@@ -111,8 +112,8 @@ impl Model {
         &self.mesh
     }
 
-    pub fn material(&self) -> &Material {
-        &self.material
+    pub fn materials(&self) -> &Vec<Arc<Material>> {
+        &self.materials
     }
 
     pub fn instance_count(&self) -> u32 {

@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -16,6 +18,7 @@ use wgpu::{
 };
 
 use crate::cache::Cache;
+use crate::cache_state::CacheState;
 use crate::log::error;
 use crate::resources::descriptors::{
     MaterialDescriptor, MeshDescriptor, ModelDescriptor, PipelineDescriptor, ShaderDescriptor,
@@ -37,11 +40,7 @@ pub struct CachingIndirectRenderer {
     world_environment: Option<Material>,
     world_environment_pipeline: Option<Pipeline>,
     model_cache: HashMap<String, Model>,
-    mesh_cache: Cache<Arc<MeshDescriptor>, Mesh>,
-    material_cache: Cache<Arc<MaterialDescriptor>, Material>,
-    texture_cache: Cache<Arc<TextureDescriptor>, Texture>,
-    pipeline_cache: Cache<Arc<PipelineDescriptor>, Pipeline>,
-    shader_cache: Cache<Arc<ShaderDescriptor>, Shader>,
+    cache_state: CacheState,
     debug_wireframes_enabled: bool,
     debug_bounding_box_wireframe_enabled: bool,
     debug_freeze_frustum_enabled: bool,
@@ -431,30 +430,34 @@ impl CachingIndirectRenderer {
         // TODO: Switch over to offset rendering using single buffer
         // Models
         for (index, model) in self.model_cache.values().enumerate() {
+            for material in model.materials() {
+                render_pass.set_pipeline(material.pipeline().render_pipeline());
 
+                render_pass.set_bind_group(0, material.bind_group(), &[]);
+                render_pass.set_bind_group(1, world.active_camera().camera_bind_group(), &[]);
+                render_pass.set_bind_group(2, world.light_store().point_light_bind_group(), &[]);
+                render_pass.set_bind_group(
+                    3,
+                    self.world_environment.as_ref().unwrap().bind_group(),
+                    &[],
+                );
 
-            render_pass.set_pipeline(model.material().pipeline().render_pipeline());
+                render_pass.set_vertex_buffer(0, model.mesh().vertex_buffer().slice(..));
+                render_pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
+                render_pass
+                    .set_index_buffer(model.mesh().index_buffer().slice(..), IndexFormat::Uint32);
 
-            render_pass.set_bind_group(0, model.material().bind_group(), &[]);
-            render_pass.set_bind_group(1, world.active_camera().camera_bind_group(), &[]);
-            render_pass.set_bind_group(2, world.light_store().point_light_bind_group(), &[]);
-            render_pass.set_bind_group(
-                3,
-                self.world_environment.as_ref().unwrap().bind_group(),
-                &[],
-            );
+                render_pass.draw_indexed(
+                    0..model.mesh().index_count(),
+                    0,
+                    0..model.instance_count(),
+                );
 
-            render_pass.set_vertex_buffer(0, model.mesh().vertex_buffer().slice(..));
-            render_pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
-            render_pass
-                .set_index_buffer(model.mesh().index_buffer().slice(..), IndexFormat::Uint32);
-
-            render_pass.draw_indexed(0..model.mesh().index_count(), 0, 0..model.instance_count());
-
-            render_pass.draw_indexed_indirect(
-                &indirect_indexed_draw_buffer,
-                (index * IndirectIndexedDraw::byte_space_requirement()) as u64,
-            );
+                render_pass.draw_indexed_indirect(
+                    &indirect_indexed_draw_buffer,
+                    (index * IndirectIndexedDraw::byte_space_requirement()) as u64,
+                );
+            }
         }
 
         drop(render_pass);
@@ -499,11 +502,7 @@ impl CachingIndirectRenderer {
                             device,
                             queue,
                             &self.app_name,
-                            Some(&mut self.mesh_cache),
-                            Some(&mut self.material_cache),
-                            Some(&mut self.texture_cache),
-                            Some(&mut self.pipeline_cache),
-                            Some(&mut self.shader_cache),
+                            Some(&self.cache_state),
                         ) {
                             Ok(model) => {
                                 self.model_cache.insert(lbl, model);
@@ -561,11 +560,7 @@ impl Renderer for CachingIndirectRenderer {
             model_cache: HashMap::new(),
             world_environment: None,
             world_environment_pipeline: None,
-            mesh_cache: Cache::new(),
-            material_cache: Cache::new(),
-            texture_cache: Cache::new(),
-            pipeline_cache: Cache::new(),
-            shader_cache: Cache::new(),
+            cache_state: CacheState::new(),
             debug_wireframes_enabled: false,
             debug_bounding_box_wireframe_enabled: false,
             debug_freeze_frustum_enabled: false,
@@ -633,9 +628,7 @@ impl Renderer for CachingIndirectRenderer {
                 device,
                 queue,
                 &self.app_name,
-                Some(&mut self.texture_cache),
-                Some(&mut self.pipeline_cache),
-                Some(&mut self.shader_cache),
+                Some(&self.cache_state),
             ).expect("TODO! Should never happen and will be replaced once change list WorldChanges are implemented."));
 
             self.world_environment_pipeline = Some(Pipeline::from_descriptor(
@@ -646,7 +639,7 @@ impl Renderer for CachingIndirectRenderer {
                 &self.surface_format,
                 device,
                 queue,
-                Some(&mut self.shader_cache),
+                Some(&self.cache_state),
             ).expect("TODO! Should never happen and will be replaced once change list WorldChanges are implemented."));
         }
 

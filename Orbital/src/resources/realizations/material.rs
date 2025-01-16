@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{cell::RefCell, sync::Arc};
 
 use cgmath::Vector3;
 use wgpu::{
@@ -10,6 +10,7 @@ use wgpu::{
 
 use crate::{
     cache::{Cache, CacheEntry},
+    cache_state::CacheState,
     error::Error,
     resources::{
         descriptors::{
@@ -235,9 +236,7 @@ impl Material {
         device: &Device,
         queue: &Queue,
         app_name: &str,
-        with_texture_cache: Option<&mut Cache<Arc<TextureDescriptor>, Texture>>,
-        with_pipeline_cache: Option<&mut Cache<Arc<PipelineDescriptor>, Pipeline>>,
-        with_shader_cache: Option<&mut Cache<Arc<ShaderDescriptor>, Shader>>,
+        with_cache_state: Option<&CacheState>,
     ) -> Result<Self, Error> {
         match descriptor {
             MaterialDescriptor::PBR {
@@ -265,9 +264,7 @@ impl Material {
                 surface_format,
                 device,
                 queue,
-                with_texture_cache,
-                with_pipeline_cache,
-                with_shader_cache,
+                with_cache_state,
             ),
             // Note that, WorldEnvironment doesn't use the Texture Cache as it works a lot different from normal Textures and Materials.
             // There also hardly is a need for a cache though, as only ever one `WorldEnvironment` is used at a time and while switching is possible, it shouldn't be switched so often that a cache will be needed.
@@ -277,8 +274,7 @@ impl Material {
                 device,
                 queue,
                 app_name,
-                with_pipeline_cache,
-                with_shader_cache,
+                with_cache_state,
             ),
             MaterialDescriptor::Wireframe(color) => Self::wireframe(
                 color,
@@ -286,8 +282,7 @@ impl Material {
                 device,
                 queue,
                 app_name,
-                with_pipeline_cache,
-                with_shader_cache,
+                with_cache_state,
             ),
         }
     }
@@ -298,8 +293,7 @@ impl Material {
         device: &Device,
         queue: &Queue,
         app_name: &str,
-        with_pipeline_cache: Option<&mut Cache<Arc<PipelineDescriptor>, Pipeline>>,
-        with_shader_cache: Option<&mut Cache<Arc<ShaderDescriptor>, Shader>>,
+        with_cache_state: Option<&CacheState>,
     ) -> Result<Self, Error> {
         let color_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Wireframe color buffer"),
@@ -314,25 +308,26 @@ impl Material {
         });
 
         let pipeline_descriptor = Arc::new(PipelineDescriptor::default_wireframe());
-        let pipeline = if let Some(cache) = with_pipeline_cache {
-            cache
+        let pipeline = match with_cache_state {
+            Some(cache) => cache
+                .pipeline_cache
+                .borrow_mut()
                 .entry(pipeline_descriptor.clone())
                 .or_insert(CacheEntry::new(Pipeline::from_descriptor(
                     &pipeline_descriptor,
                     surface_format,
                     device,
                     queue,
-                    with_shader_cache,
+                    with_cache_state,
                 )?))
-                .clone_inner()
-        } else {
-            Arc::new(Pipeline::from_descriptor(
+                .clone_inner(),
+            None => Arc::new(Pipeline::from_descriptor(
                 &pipeline_descriptor,
                 surface_format,
                 device,
                 queue,
-                with_shader_cache,
-            )?)
+                with_cache_state,
+            )?),
         };
 
         let bind_group_layout = pipeline
@@ -364,8 +359,7 @@ impl Material {
         device: &Device,
         queue: &Queue,
         app_name: &str,
-        with_pipeline_cache: Option<&mut Cache<Arc<PipelineDescriptor>, Pipeline>>,
-        with_shader_cache: Option<&mut Cache<Arc<ShaderDescriptor>, Shader>>,
+        with_cache_state: Option<&CacheState>,
     ) -> Result<Self, Error> {
         let world_environment = WorldEnvironment::from_descriptor(
             world_environment_descriptor,
@@ -376,25 +370,26 @@ impl Material {
         let ibl_brdf_lut = unsafe { Self::get_or_generate_ibl_brdf_lut(device, queue) };
 
         let pipeline_descriptor = Arc::new(PipelineDescriptor::default_skybox());
-        let pipeline = if let Some(cache) = with_pipeline_cache {
-            cache
+        let pipeline = match with_cache_state {
+            Some(cache) => cache
+                .pipeline_cache
+                .borrow_mut()
                 .entry(pipeline_descriptor.clone())
                 .or_insert(CacheEntry::new(Pipeline::from_descriptor(
                     &pipeline_descriptor,
                     surface_format,
                     device,
                     queue,
-                    with_shader_cache,
+                    with_cache_state,
                 )?))
-                .clone_inner()
-        } else {
-            Arc::new(Pipeline::from_descriptor(
+                .clone_inner(),
+            None => Arc::new(Pipeline::from_descriptor(
                 &pipeline_descriptor,
                 surface_format,
                 device,
                 queue,
-                with_shader_cache,
-            )?)
+                with_cache_state,
+            )?),
         };
 
         let bind_group_layout = pipeline
@@ -480,12 +475,12 @@ impl Material {
         surface_format: &TextureFormat,
         device: &Device,
         queue: &Queue,
-        mut with_texture_cache: Option<&mut Cache<Arc<TextureDescriptor>, Texture>>,
-        with_pipeline_cache: Option<&mut Cache<Arc<PipelineDescriptor>, Pipeline>>,
-        with_shader_cache: Option<&mut Cache<Arc<ShaderDescriptor>, Shader>>,
+        with_cache_state: Option<&CacheState>,
     ) -> Result<Self, Error> {
-        let normal_texture = match with_texture_cache {
-            Some(ref mut cache) => cache
+        let normal_texture = match with_cache_state {
+            Some(cache) => cache
+                .texture_cache
+                .borrow_mut()
                 .entry(normal_texture_descriptor.clone())
                 .or_insert(CacheEntry::new(Texture::from_descriptor(
                     &normal_texture_descriptor,
@@ -499,8 +494,11 @@ impl Material {
                 queue,
             )?),
         };
-        let albedo_texture = match with_texture_cache {
-            Some(ref mut cache) => cache
+
+        let albedo_texture = match with_cache_state {
+            Some(cache) => cache
+                .texture_cache
+                .borrow_mut()
                 .entry(albedo_texture_descriptor.clone())
                 .or_insert(CacheEntry::new(Texture::from_descriptor(
                     &albedo_texture_descriptor,
@@ -514,8 +512,10 @@ impl Material {
                 queue,
             )?),
         };
-        let metallic_texture = match with_texture_cache {
-            Some(ref mut cache) => cache
+        let metallic_texture = match with_cache_state {
+            Some(cache) => cache
+                .texture_cache
+                .borrow_mut()
                 .entry(metallic_texture_descriptor.clone())
                 .or_insert(CacheEntry::new(Texture::from_descriptor(
                     &metallic_texture_descriptor,
@@ -529,8 +529,10 @@ impl Material {
                 queue,
             )?),
         };
-        let roughness_texture = match with_texture_cache {
-            Some(ref mut cache) => cache
+        let roughness_texture = match with_cache_state {
+            Some(cache) => cache
+                .texture_cache
+                .borrow_mut()
                 .entry(roughness_texture_descriptor.clone())
                 .or_insert(CacheEntry::new(Texture::from_descriptor(
                     &roughness_texture_descriptor,
@@ -544,8 +546,10 @@ impl Material {
                 queue,
             )?),
         };
-        let occlusion_texture = match with_texture_cache {
-            Some(ref mut cache) => cache
+        let occlusion_texture = match with_cache_state {
+            Some(cache) => cache
+                .texture_cache
+                .borrow_mut()
                 .entry(occlusion_texture_descriptor.clone())
                 .or_insert(CacheEntry::new(Texture::from_descriptor(
                     &occlusion_texture_descriptor,
@@ -559,8 +563,10 @@ impl Material {
                 queue,
             )?),
         };
-        let emissive_texture = match with_texture_cache {
-            Some(ref mut cache) => cache
+        let emissive_texture = match with_cache_state {
+            Some(cache) => cache
+                .texture_cache
+                .borrow_mut()
                 .entry(emissive_texture_descriptor.clone())
                 .or_insert(CacheEntry::new(Texture::from_descriptor(
                     &emissive_texture_descriptor,
@@ -581,25 +587,26 @@ impl Material {
             PipelineDescriptor::default()
         });
 
-        let pipeline = if let Some(cache) = with_pipeline_cache {
-            cache
+        let pipeline = match with_cache_state {
+            Some(cache) => cache
+                .pipeline_cache
+                .borrow_mut()
                 .entry(pipeline_descriptor.clone())
                 .or_insert(CacheEntry::new(Pipeline::from_descriptor(
                     &pipeline_descriptor,
                     surface_format,
                     device,
                     queue,
-                    with_shader_cache,
+                    with_cache_state,
                 )?))
-                .clone_inner()
-        } else {
-            Arc::new(Pipeline::from_descriptor(
+                .clone_inner(),
+            None => Arc::new(Pipeline::from_descriptor(
                 &pipeline_descriptor,
                 surface_format,
                 device,
                 queue,
-                with_shader_cache,
-            )?)
+                with_cache_state,
+            )?),
         };
 
         let bind_group_layout = pipeline

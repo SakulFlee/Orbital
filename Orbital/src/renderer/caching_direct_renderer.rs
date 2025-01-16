@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::cell::RefCell;
 
 use async_trait::async_trait;
 use cgmath::Vector2;
@@ -9,12 +9,9 @@ use wgpu::{
     TextureFormat, TextureView,
 };
 
-use crate::cache::Cache;
+use crate::cache_state::CacheState;
 use crate::log::error;
-use crate::resources::descriptors::{
-    MaterialDescriptor, MeshDescriptor, PipelineDescriptor, ShaderDescriptor,
-};
-use crate::resources::realizations::{Material, Mesh, Model, Shader};
+use crate::resources::realizations::{Material, Model};
 use crate::resources::{
     descriptors::TextureDescriptor,
     realizations::{Pipeline, Texture},
@@ -30,11 +27,7 @@ pub struct CachingDirectRenderer {
     world_environment: Option<Material>,
     world_environment_pipeline: Option<Pipeline>,
     model_cache: HashMap<String, Model>,
-    mesh_cache: Cache<Arc<MeshDescriptor>, Mesh>,
-    material_cache: Cache<Arc<MaterialDescriptor>, Material>,
-    texture_cache: Cache<Arc<TextureDescriptor>, Texture>,
-    pipeline_cache: Cache<Arc<PipelineDescriptor>, Pipeline>,
-    shader_cache: Cache<Arc<ShaderDescriptor>, Shader>,
+    cache_state: CacheState,
 }
 
 impl CachingDirectRenderer {
@@ -104,9 +97,16 @@ impl CachingDirectRenderer {
 
         // Models
         for model in self.model_cache.values() {
-            render_pass.set_pipeline(model.material().pipeline().render_pipeline());
+            render_pass.set_pipeline(
+                model
+                    .materials()
+                    .first()
+                    .unwrap()
+                    .pipeline()
+                    .render_pipeline(),
+            );
 
-            render_pass.set_bind_group(0, model.material().bind_group(), &[]);
+            render_pass.set_bind_group(0, model.materials().first().unwrap().bind_group(), &[]);
             render_pass.set_bind_group(1, world.active_camera().camera_bind_group(), &[]);
             render_pass.set_bind_group(2, world.light_store().point_light_bind_group(), &[]);
             render_pass.set_bind_group(
@@ -162,11 +162,7 @@ impl CachingDirectRenderer {
                             device,
                             queue,
                             &self.app_name,
-                            Some(&mut self.mesh_cache),
-                            Some(&mut self.material_cache),
-                            Some(&mut self.texture_cache),
-                            Some(&mut self.pipeline_cache),
-                            Some(&mut self.shader_cache),
+                            Some(&self.cache_state),
                         ) {
                             Ok(model) => {
                                 self.model_cache.insert(lbl, model);
@@ -224,11 +220,7 @@ impl Renderer for CachingDirectRenderer {
             model_cache: HashMap::new(),
             world_environment: None,
             world_environment_pipeline: None,
-            mesh_cache: Cache::new(),
-            material_cache: Cache::new(),
-            texture_cache: Cache::new(),
-            pipeline_cache: Cache::new(),
-            shader_cache: Cache::new(),
+            cache_state: CacheState::new(),
         }
     }
 
@@ -266,9 +258,7 @@ impl Renderer for CachingDirectRenderer {
                 device,
                 queue,
                 &self.app_name,
-                Some(&mut self.texture_cache),
-                Some(&mut self.pipeline_cache),
-                Some(&mut self.shader_cache),
+                Some(&self.cache_state),
             ).expect("TODO! Should never happen and will be replaced once change list WorldChanges are implemented."));
 
             self.world_environment_pipeline = Some(Pipeline::from_descriptor(
@@ -279,7 +269,7 @@ impl Renderer for CachingDirectRenderer {
                 &self.surface_format,
                 device,
                 queue,
-                Some(&mut self.shader_cache),
+                Some(&self.cache_state),
             ).expect("TODO! Should never happen and will be replaced once change list WorldChanges are implemented."));
         }
 

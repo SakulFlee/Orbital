@@ -4,9 +4,6 @@ use crate::transform::Transform;
 
 use super::{MaterialDescriptor, MeshDescriptor};
 
-mod render_mode;
-pub use render_mode::*;
-
 /// Descriptor for a model
 ///
 /// TODO
@@ -14,14 +11,13 @@ pub use render_mode::*;
 pub struct ModelDescriptor {
     pub label: String,
     pub mesh: Arc<MeshDescriptor>,
-    pub material: Arc<MaterialDescriptor>,
+    /// TODO
+    /// Multiple == Multiple materials being rendered ON-TOP
+    /// Only define multiple if really required, e.g. "wireframes on-top of solid"
+    pub materials: Vec<Arc<MaterialDescriptor>>,
+    /// TODO
+    /// Multiple == Multiple instances of the same model
     pub transforms: Vec<Transform>,
-    /// Defines the mode we are rendering in.
-    /// Check out `RenderMode` for more.
-    ///
-    /// This is a bitflag field!  
-    /// You can choose from any of the defined `RenderMode`s, or, combine them via bitwise OR (`|`).
-    pub render_modes: RenderMode,
     #[cfg(debug_assertions)]
     pub render_bounding_box: bool,
 }
