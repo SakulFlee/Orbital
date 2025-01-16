@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{cell::RefCell, sync::Arc};
 use wgpu::{
     BindGroupLayout, BlendState, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
     DepthStencilState, Device, FragmentState, MultisampleState, PipelineCompilationOptions,
@@ -8,6 +8,7 @@ use wgpu::{
 
 use crate::{
     cache::{Cache, CacheEntry},
+    cache_state::CacheState,
     error::Error,
     resources::{
         descriptors::{PipelineDescriptor, ShaderDescriptor},
@@ -30,7 +31,7 @@ impl Pipeline {
         surface_format: &TextureFormat,
         device: &Device,
         queue: &Queue,
-        with_shader_cache: Option<&mut Cache<Arc<ShaderDescriptor>, Shader>>,
+        with_cache_state: Option<&CacheState>,
     ) -> Result<Pipeline, Error> {
         let bind_group_layouts = pipeline_descriptor
             .bind_group_layouts
@@ -48,21 +49,22 @@ impl Pipeline {
             push_constant_ranges: &[],
         });
 
-        let shader = if let Some(cache) = with_shader_cache {
-            cache
+        let shader = match with_cache_state {
+            Some(cache) => cache
+                .shader_cache
+                .borrow_mut()
                 .entry(pipeline_descriptor.shader_descriptor.clone())
                 .or_insert(CacheEntry::new(Shader::from_descriptor(
                     pipeline_descriptor.shader_descriptor.clone(),
                     device,
                     queue,
                 )?))
-                .clone_inner()
-        } else {
-            Arc::new(Shader::from_descriptor(
+                .clone_inner(),
+            None => Arc::new(Shader::from_descriptor(
                 pipeline_descriptor.shader_descriptor.clone(),
                 device,
                 queue,
-            )?)
+            )?),
         };
 
         let mut vertex_buffers = Vec::new();

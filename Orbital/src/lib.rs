@@ -316,6 +316,7 @@
 // Modules
 pub mod app;
 pub mod cache;
+pub mod cache_state;
 pub mod error;
 pub mod input;
 pub mod loader;
