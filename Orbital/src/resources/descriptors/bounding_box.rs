@@ -1,4 +1,4 @@
-use std::{f32, hash::Hash, sync::Arc};
+use std::{f32, hash::Hash};
 
 use cgmath::{num_traits::Float, Point3};
 use wgpu::{

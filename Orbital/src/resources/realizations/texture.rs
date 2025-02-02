@@ -1,15 +1,19 @@
+use std::ffi::OsString;
 
-use cgmath::{Vector2, Vector4};
+use cgmath::{Vector2, Vector3, Vector4};
 use image::ImageReader;
 use wgpu::{
-    AddressMode, BufferDescriptor, BufferUsages, CommandEncoderDescriptor,
-    CompareFunction, Device, Extent3d, FilterMode, ImageCopyBuffer, ImageCopyTexture,
-    ImageDataLayout, Origin3d, Queue, Sampler, SamplerDescriptor, Texture as WTexture,
-    TextureAspect, TextureDescriptor as WTextureDescriptor, TextureDimension, TextureFormat,
-    TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
+    AddressMode, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, CompareFunction, Device,
+    Extent3d, FilterMode, ImageCopyBuffer, ImageCopyTexture, ImageDataLayout, Origin3d, Queue,
+    Sampler, SamplerDescriptor, Texture as WTexture, TextureAspect,
+    TextureDescriptor as WTextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+    TextureView, TextureViewDescriptor, TextureViewDimension,
 };
 
-use crate::{error::Error, resources::descriptors::TextureDescriptor};
+use crate::{
+    error::Error,
+    resources::descriptors::{TextureChannel, TextureDescriptor, TextureSize},
+};
 
 #[derive(Debug)]
 pub struct Texture {
@@ -25,18 +29,23 @@ impl Texture {
         queue: &Queue,
     ) -> Result<Self, Error> {
         match descriptor {
-            TextureDescriptor::FilePath(file_path) => {
-                Self::from_file_path(file_path, device, queue)
-            }
-            TextureDescriptor::StandardSRGBAu8Data(data, size) => {
-                Ok(Self::standard_srgba8_data(data, size, device, queue))
-            }
-            TextureDescriptor::UniformColor(color) => {
-                Ok(Self::uniform_color(*color, device, queue))
-            }
-            TextureDescriptor::Luma { data, size } => Ok(Self::luma(data, size, device, queue)),
-            TextureDescriptor::UniformLuma { data } => Ok(Self::uniform_luma(data, device, queue)),
-            TextureDescriptor::Depth(size) => Ok(Self::depth_texture(size, device, queue)),
+            TextureDescriptor::File { path } => Self::from_path(path, device, queue),
+            TextureDescriptor::Data {
+                pixels,
+                size: dimensions,
+                channels,
+            } => Ok(Self::from_data(pixels, dimensions, channels, device, queue)),
+            TextureDescriptor::Custom {
+                texture_descriptor,
+                view_descriptor,
+                sampler_descriptor,
+            } => Ok(Self::from_descriptors_and_data(
+                texture_descriptor,
+                view_descriptor,
+                sampler_descriptor,
+                device,
+                queue,
+            )),
         }
     }
 
@@ -166,7 +175,7 @@ impl Texture {
         texture
     }
 
-    pub fn from_file_path(file_path: &str, device: &Device, queue: &Queue) -> Result<Self, Error> {
+    pub fn from_path(file_path: &OsString, device: &Device, queue: &Queue) -> Result<Self, Error> {
         let img = ImageReader::open(file_path)
             .map_err(Error::IOError)?
             .decode()
@@ -179,12 +188,19 @@ impl Texture {
             .collect::<Vec<_>>()
             .concat();
 
-        Ok(Self::standard_srgba8_data(
-            &data,
-            &(img.width(), img.height()).into(),
+        Ok(Self::from_descriptor(
+            &TextureDescriptor::Data {
+                pixels: data,
+                size: TextureSize {
+                    width: 1,
+                    height: 1,
+                    ..Default::default()
+                },
+                channels: TextureChannel::RGBA,
+            },
             device,
             queue,
-        ))
+        )?)
     }
 
     /// In case you want a uniform, one color, image.
@@ -194,9 +210,14 @@ impl Texture {
     /// ⚠️ as possible data usage and this resource may not even arrive
     /// ⚠️ in the shader _if_ it is not used.
     pub fn uniform_color(color: Vector4<u8>, device: &Device, queue: &Queue) -> Self {
-        Self::standard_srgba8_data(
+        Self::from_data(
             &[color.x, color.y, color.z, color.w],
-            &(1, 1).into(),
+            &TextureSize {
+                width: 1,
+                height: 1,
+                ..Default::default()
+            },
+            &TextureChannel::RGBA,
             device,
             queue,
         )
@@ -204,7 +225,7 @@ impl Texture {
 
     /// Luma (Grayscale) textures
     pub fn luma(data: &Vec<u8>, size: &Vector2<u32>, device: &Device, queue: &Queue) -> Self {
-        let texture = Self::from_descriptors(
+        let texture = Self::from_descriptors_and_data(
             &WTextureDescriptor {
                 label: Some("Luma Texture"),
                 size: Extent3d {
@@ -262,7 +283,7 @@ impl Texture {
 
     /// Uniform Luma (Grayscale) textures
     pub fn uniform_luma(data: &u8, device: &Device, queue: &Queue) -> Self {
-        let texture = Self::from_descriptors(
+        let texture = Self::from_descriptors_and_data(
             &WTextureDescriptor {
                 label: Some("Luma Texture"),
                 size: Extent3d {
@@ -318,41 +339,92 @@ impl Texture {
         texture
     }
 
-    pub fn standard_srgba8_data(
-        data: &[u8],
-        size: &Vector2<u32>,
+    pub fn from_data(
+        pixels: &[u8],
+        size: &TextureSize,
+        channels: &TextureChannel,
         device: &Device,
         queue: &Queue,
     ) -> Self {
-        Self::from_data_srgb8(
-            data,
-            &WTextureDescriptor {
-                label: Some("Standard SRGB u8 Data Texture"),
-                size: Extent3d {
-                    width: size.x,
-                    height: size.y,
-                    ..Default::default()
-                },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::Rgba8UnormSrgb,
-                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
-                view_formats: &[],
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: None,
+            size: Extent3d {
+                width: size.width,
+                height: size.height,
+                depth_or_array_layers: size.depth_or_array_layers,
             },
-            &TextureViewDescriptor::default(),
-            &SamplerDescriptor {
-                label: Some("Standard SRGB u8 Data Texture Sampler"),
-                address_mode_u: AddressMode::Repeat,
-                address_mode_v: AddressMode::Repeat,
-                address_mode_w: AddressMode::Repeat,
-                mag_filter: FilterMode::Linear,
-                min_filter: FilterMode::Nearest,
-                ..Default::default()
+            format: match channels {
+                TextureChannel::R => TextureFormat::R8Unorm,
+                TextureChannel::RG => TextureFormat::Rg8Unorm,
+                TextureChannel::RGBA => TextureFormat::Rgba8Unorm,
             },
-            device,
-            queue,
-        )
+            mip_level_count: size.mip_levels,
+            sample_count: 1,
+            // TODO: Other dimensions cannot be set atm!
+            dimension: TextureDimension::D2,
+            usage: TextureUsages::COPY_DST
+                | TextureUsages::TEXTURE_BINDING
+                | TextureUsages::STORAGE_BINDING,
+            view_formats: &[],
+        });
+
+        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor {
+            label: None,
+            format: None,
+            // TODO: CubeMap cannot be set!
+            // TODO: 2D Array cannot be set!
+            dimension: None,
+            aspect: TextureAspect::All,
+            base_mip_level: size.base_mip,
+            mip_level_count: size.mip_levels.gt(&1).then_some(size.mip_levels),
+            ..Default::default()
+        });
+
+        let texture_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: None,
+            // TODO: AddressMode cannot be changed!
+            address_mode_u: AddressMode::Repeat,
+            address_mode_v: AddressMode::Repeat,
+            address_mode_w: AddressMode::Repeat,
+            // TODO: FilterMode cannot be changed!
+            mag_filter: FilterMode::Linear,
+            min_filter: FilterMode::Linear,
+            mipmap_filter: FilterMode::Nearest,
+            // TODO: Min/Max clamping cannot be changed!
+            lod_min_clamp: 0.0,
+            lod_max_clamp: 100.0,
+            ..Default::default()
+        });
+
+        // Create actual orbital texture
+        let texture = Self::from_existing(texture, texture_view, texture_sampler);
+
+        // Write the data into the texture buffer
+        queue.write_texture(
+            ImageCopyTexture {
+                texture: texture.texture(),
+                aspect: TextureAspect::All,
+                origin: Origin3d::ZERO,
+                mip_level: 0,
+            },
+            pixels,
+            ImageDataLayout {
+                offset: 0,
+                bytes_per_row: Some(match channels {
+                    TextureChannel::R => 1 * size.width,
+                    TextureChannel::RG => 2 * size.width,
+                    TextureChannel::RGBA => 4 * size.width,
+                }),
+                rows_per_image: Some(size.height),
+            },
+            Extent3d {
+                width: size.width,
+                height: size.height,
+                depth_or_array_layers: size.depth_or_array_layers,
+            },
+        );
+
+        texture
     }
 
     pub fn from_data_srgb8(
@@ -363,7 +435,8 @@ impl Texture {
         device: &Device,
         queue: &Queue,
     ) -> Self {
-        let texture = Self::from_descriptors(texture_desc, view_desc, sampler_desc, device, queue);
+        let texture =
+            Self::from_descriptors_and_data(texture_desc, view_desc, sampler_desc, device, queue);
 
         queue.write_texture(
             ImageCopyTexture {
@@ -387,7 +460,7 @@ impl Texture {
     }
 
     pub fn depth_texture(size: &Vector2<u32>, device: &Device, queue: &Queue) -> Texture {
-        Self::from_descriptors(
+        Self::from_descriptors_and_data(
             &WTextureDescriptor {
                 label: Some("Depth Texture"),
                 size: Extent3d {
@@ -429,7 +502,7 @@ impl Texture {
         device: &Device,
         queue: &Queue,
     ) -> Self {
-        Self::from_descriptors(
+        Self::from_descriptors_and_data(
             &WTextureDescriptor {
                 label,
                 size: Extent3d {
@@ -461,18 +534,34 @@ impl Texture {
         )
     }
 
-    pub fn from_descriptors(
-        texture_desc: &WTextureDescriptor,
-        view_desc: &TextureViewDescriptor,
-        sampler_desc: &SamplerDescriptor,
+    pub fn from_descriptors_and_data(
+        texture_descriptor: &WTextureDescriptor,
+        view_descriptor: &TextureViewDescriptor,
+        sampler_descriptor: &SamplerDescriptor,
+        data: &[u8],
+        size: Extent3d,
         device: &Device,
-        _queue: &Queue,
+        queue: &Queue,
     ) -> Self {
-        let texture = device.create_texture(texture_desc);
-        let view = texture.create_view(view_desc);
-        let sampler = device.create_sampler(sampler_desc);
+        let texture = device.create_texture(texture_descriptor);
+        let view = texture.create_view(view_descriptor);
+        let sampler = device.create_sampler(sampler_descriptor);
 
-        Self::from_existing(texture, view, sampler)
+        let self_texture = Self::from_existing(texture, view, sampler);
+
+        queue.write_texture(
+            ImageCopyTexture {
+                texture: self_texture.texture(),
+                aspect: TextureAspect::All,
+                origin: Origin3d::ZERO,
+                mip_level: 0,
+            },
+            data,
+            ImageDataLayout::default(),
+            size,
+        );
+
+        self_texture
     }
 
     pub fn from_existing(texture: WTexture, view: TextureView, sampler: Sampler) -> Self {
