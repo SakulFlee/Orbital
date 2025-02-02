@@ -67,5 +67,6 @@
         "zeroable",
         "zfar",
         "znear"
-    ]
+    ],
+    "CodeGPT.apiKey": "CodeGPT Plus Beta"
 }

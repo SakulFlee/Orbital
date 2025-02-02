@@ -1,25 +1,32 @@
 use std::{fmt::Write, sync::Arc};
 use wgpu::{Device, Queue, ShaderModule, ShaderModuleDescriptor, ShaderSource};
 
-use crate::{error::Error, resources::descriptors::ShaderDescriptor};
+use crate::{
+    error::Error,
+    resources::descriptors::{self, ShaderDescriptor, ShaderResource},
+};
 
 #[derive(Debug)]
 pub struct Shader {
-    shader_module: ShaderModule,
+    module: ShaderModule,
+    resources: Vec<ShaderResource>,
 }
 
 impl Shader {
     pub fn from_descriptor(
-        shader_descriptor: Arc<ShaderDescriptor>,
+        descriptor: Arc<ShaderDescriptor>,
         device: &Device,
         _queue: &Queue,
     ) -> Result<Self, Error> {
         let shader_module = device.create_shader_module(ShaderModuleDescriptor {
             label: None,
-            source: ShaderSource::Wgsl((*shader_descriptor).into()),
+            source: ShaderSource::Wgsl((*descriptor.source).into()),
         });
 
-        Ok(Self { shader_module })
+        Ok(Self {
+            module: shader_module,
+            resources: descriptor.resource_groups,
+        })
     }
 
     pub fn compile_shader(source: &str, includes: &str) -> String {
@@ -52,10 +59,12 @@ impl Shader {
     }
 
     pub fn from_existing(shader_module: ShaderModule) -> Self {
-        Self { shader_module }
+        Self {
+            module: shader_module,
+        }
     }
 
     pub fn shader_module(&self) -> &ShaderModule {
-        &self.shader_module
+        &self.module
     }
 }

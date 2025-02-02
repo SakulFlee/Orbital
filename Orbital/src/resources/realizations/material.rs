@@ -33,6 +33,7 @@ pub struct Material {
 impl Material {
     pub const PBR_PIPELINE_BIND_GROUP_NAME: &'static str = "PBR";
     pub const WORLD_ENVIRONMENT_PIPELINE_BIND_GROUP_NAME: &'static str = "WorldEnvironment";
+    pub const WIREFRAME_PIPELINE_BIND_GROUP_NAME: &'static str = "Wireframe";
 
     pub unsafe fn get_or_generate_ibl_brdf_lut(device: &Device, queue: &Queue) -> Texture {
         let ibl_brdf = IblBrdf::generate(device, queue);
@@ -331,7 +332,7 @@ impl Material {
         };
 
         let bind_group_layout = pipeline
-            .bind_group_layout(Self::WORLD_ENVIRONMENT_PIPELINE_BIND_GROUP_NAME)
+            .bind_group_layout(Self::WIREFRAME_PIPELINE_BIND_GROUP_NAME)
             .ok_or(Error::BindGroupMissing)?;
 
         let bind_group = device.create_bind_group(&BindGroupDescriptor {

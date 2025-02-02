@@ -32,7 +32,7 @@ pub struct PipelineDescriptor {
 impl PipelineDescriptor {
     pub fn wireframe_color_bind_group_layout_descriptor() -> PipelineBindGroupLayout {
         PipelineBindGroupLayout {
-            label: "Wireframe color bind group layout descriptor",
+            label: Material::WIREFRAME_PIPELINE_BIND_GROUP_NAME,
             entries: vec![BindGroupLayoutEntry {
                 binding: 0,
                 visibility: ShaderStages::VERTEX_FRAGMENT,

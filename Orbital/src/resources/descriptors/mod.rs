@@ -1,4 +1,5 @@
 pub mod bounding_box;
+pub mod buffer;
 pub mod camera;
 pub mod instance;
 pub mod light;
@@ -13,6 +14,7 @@ pub mod texture;
 pub mod world_environment;
 
 pub use bounding_box::*;
+pub use buffer::*;
 pub use camera::*;
 pub use instance::*;
 pub use light::*;
