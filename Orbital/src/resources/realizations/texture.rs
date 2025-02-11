@@ -1,13 +1,13 @@
 use std::ffi::OsString;
 
-use cgmath::{Vector2, Vector3, Vector4};
+use cgmath::{Vector2, Vector4};
 use image::ImageReader;
 use wgpu::{
-    AddressMode, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, CompareFunction, Device,
-    Extent3d, FilterMode, ImageCopyBuffer, ImageCopyTexture, ImageDataLayout, Origin3d, Queue,
-    Sampler, SamplerDescriptor, Texture as WTexture, TextureAspect,
-    TextureDescriptor as WTextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-    TextureView, TextureViewDescriptor, TextureViewDimension,
+    AddressMode, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Device, Extent3d,
+    FilterMode, ImageCopyBuffer, ImageCopyTexture, ImageDataLayout, Origin3d, Queue, Sampler,
+    SamplerDescriptor, Texture as WTexture, TextureAspect, TextureDescriptor as WTextureDescriptor,
+    TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView,
+    TextureViewDescriptor, TextureViewDimension,
 };
 
 use crate::{
@@ -20,6 +20,7 @@ pub struct Texture {
     texture: WTexture,
     view: TextureView,
     sampler: Sampler,
+    view_dimension: TextureViewDimension,
 }
 
 impl Texture {
@@ -39,10 +40,13 @@ impl Texture {
                 texture_descriptor,
                 view_descriptor,
                 sampler_descriptor,
+                data,
+                size,
             } => Ok(Self::from_descriptors_and_data(
                 texture_descriptor,
                 view_descriptor,
                 sampler_descriptor,
+                Some((data, *size)),
                 device,
                 queue,
             )),
@@ -96,7 +100,7 @@ impl Texture {
             ..Default::default()
         });
 
-        Texture::from_existing(texture, view, sampler)
+        Texture::from_existing(texture, view, sampler, TextureViewDimension::Cube)
     }
 
     pub fn from_binary_data(
@@ -223,122 +227,6 @@ impl Texture {
         )
     }
 
-    /// Luma (Grayscale) textures
-    pub fn luma(data: &Vec<u8>, size: &Vector2<u32>, device: &Device, queue: &Queue) -> Self {
-        let texture = Self::from_descriptors_and_data(
-            &WTextureDescriptor {
-                label: Some("Luma Texture"),
-                size: Extent3d {
-                    width: size.x,
-                    height: size.y,
-                    depth_or_array_layers: 1,
-                },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::R8Unorm,
-                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
-                view_formats: &[],
-            },
-            &TextureViewDescriptor::default(),
-            &SamplerDescriptor {
-                address_mode_u: AddressMode::Repeat,
-                address_mode_v: AddressMode::Repeat,
-                address_mode_w: AddressMode::Repeat,
-                mag_filter: FilterMode::Linear,
-                min_filter: FilterMode::Linear,
-                mipmap_filter: FilterMode::Nearest,
-                lod_min_clamp: 0.0,
-                lod_max_clamp: 100.0,
-                ..Default::default()
-            },
-            device,
-            queue,
-        );
-
-        queue.write_texture(
-            ImageCopyTexture {
-                texture: texture.texture(),
-                aspect: TextureAspect::All,
-                origin: Origin3d::ZERO,
-                mip_level: 0,
-            },
-            data,
-            ImageDataLayout {
-                offset: 0,
-                // 1 bytes (Luma), times the width
-                bytes_per_row: Some(size.x),
-                // ... times height
-                rows_per_image: Some(size.y),
-            },
-            Extent3d {
-                width: size.x,
-                height: size.y,
-                ..Default::default()
-            },
-        );
-
-        texture
-    }
-
-    /// Uniform Luma (Grayscale) textures
-    pub fn uniform_luma(data: &u8, device: &Device, queue: &Queue) -> Self {
-        let texture = Self::from_descriptors_and_data(
-            &WTextureDescriptor {
-                label: Some("Luma Texture"),
-                size: Extent3d {
-                    width: 1,
-                    height: 1,
-                    depth_or_array_layers: 1,
-                },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::R8Unorm,
-                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
-                view_formats: &[],
-            },
-            &TextureViewDescriptor::default(),
-            &SamplerDescriptor {
-                address_mode_u: AddressMode::Repeat,
-                address_mode_v: AddressMode::Repeat,
-                address_mode_w: AddressMode::Repeat,
-                mag_filter: FilterMode::Linear,
-                min_filter: FilterMode::Linear,
-                mipmap_filter: FilterMode::Nearest,
-                lod_min_clamp: 0.0,
-                lod_max_clamp: 100.0,
-                ..Default::default()
-            },
-            device,
-            queue,
-        );
-
-        queue.write_texture(
-            ImageCopyTexture {
-                texture: texture.texture(),
-                aspect: TextureAspect::All,
-                origin: Origin3d::ZERO,
-                mip_level: 0,
-            },
-            &[*data],
-            ImageDataLayout {
-                offset: 0,
-                // 1 bytes (Luma), times the width
-                bytes_per_row: Some(1),
-                // ... times height
-                rows_per_image: Some(1),
-            },
-            Extent3d {
-                width: 1,
-                height: 1,
-                ..Default::default()
-            },
-        );
-
-        texture
-    }
-
     pub fn from_data(
         pixels: &[u8],
         size: &TextureSize,
@@ -346,7 +234,7 @@ impl Texture {
         device: &Device,
         queue: &Queue,
     ) -> Self {
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
+        let texture_descriptor = wgpu::TextureDescriptor {
             label: None,
             size: Extent3d {
                 width: size.width,
@@ -366,9 +254,10 @@ impl Texture {
                 | TextureUsages::TEXTURE_BINDING
                 | TextureUsages::STORAGE_BINDING,
             view_formats: &[],
-        });
+        };
+        let texture = device.create_texture(&texture_descriptor);
 
-        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor {
+        let texture_view_descriptor = wgpu::TextureViewDescriptor {
             label: None,
             format: None,
             // TODO: CubeMap cannot be set!
@@ -378,7 +267,8 @@ impl Texture {
             base_mip_level: size.base_mip,
             mip_level_count: size.mip_levels.gt(&1).then_some(size.mip_levels),
             ..Default::default()
-        });
+        };
+        let texture_view = texture.create_view(&texture_view_descriptor);
 
         let texture_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: None,
@@ -397,7 +287,14 @@ impl Texture {
         });
 
         // Create actual orbital texture
-        let texture = Self::from_existing(texture, texture_view, texture_sampler);
+        let view_dimension = texture_view_descriptor.dimension.unwrap_or_else(|| {
+            match texture_descriptor.dimension {
+                TextureDimension::D1 => TextureViewDimension::D1,
+                TextureDimension::D2 => TextureViewDimension::D2,
+                TextureDimension::D3 => TextureViewDimension::D3,
+            }
+        });
+        let texture = Self::from_existing(texture, texture_view, texture_sampler, view_dimension);
 
         // Write the data into the texture buffer
         queue.write_texture(
@@ -422,38 +319,6 @@ impl Texture {
                 height: size.height,
                 depth_or_array_layers: size.depth_or_array_layers,
             },
-        );
-
-        texture
-    }
-
-    pub fn from_data_srgb8(
-        data: &[u8],
-        texture_desc: &WTextureDescriptor,
-        view_desc: &TextureViewDescriptor,
-        sampler_desc: &SamplerDescriptor,
-        device: &Device,
-        queue: &Queue,
-    ) -> Self {
-        let texture =
-            Self::from_descriptors_and_data(texture_desc, view_desc, sampler_desc, device, queue);
-
-        queue.write_texture(
-            ImageCopyTexture {
-                texture: texture.texture(),
-                aspect: TextureAspect::All,
-                origin: Origin3d::ZERO,
-                mip_level: 0,
-            },
-            data,
-            ImageDataLayout {
-                offset: 0,
-                // 4 bytes (RGBA), times the width
-                bytes_per_row: Some(4 * texture_desc.size.width),
-                // ... times height
-                rows_per_image: Some(texture_desc.size.height),
-            },
-            texture_desc.size,
         );
 
         texture
@@ -487,48 +352,7 @@ impl Texture {
                 lod_max_clamp: 100.0,
                 ..Default::default()
             },
-            device,
-            queue,
-        )
-    }
-
-    pub fn make_texture(
-        label: Option<&str>,
-        size: Vector2<u32>,
-        format: TextureFormat,
-        usage: TextureUsages,
-        filter: FilterMode,
-        address_mode: AddressMode,
-        device: &Device,
-        queue: &Queue,
-    ) -> Self {
-        Self::from_descriptors_and_data(
-            &WTextureDescriptor {
-                label,
-                size: Extent3d {
-                    width: size.x,
-                    height: size.y,
-                    ..Default::default()
-                },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format,
-                usage,
-                view_formats: &[],
-            },
-            &TextureViewDescriptor::default(),
-            &SamplerDescriptor {
-                label: Some("Radiance HDR Sampler"),
-                address_mode_u: address_mode,
-                address_mode_v: address_mode,
-                address_mode_w: address_mode,
-                mag_filter: filter,
-                min_filter: filter,
-                mipmap_filter: filter,
-                compare: Some(CompareFunction::Always),
-                ..Default::default()
-            },
+            None,
             device,
             queue,
         )
@@ -538,8 +362,7 @@ impl Texture {
         texture_descriptor: &WTextureDescriptor,
         view_descriptor: &TextureViewDescriptor,
         sampler_descriptor: &SamplerDescriptor,
-        data: &[u8],
-        size: Extent3d,
+        data_and_size: Option<(&[u8], Extent3d)>,
         device: &Device,
         queue: &Queue,
     ) -> Self {
@@ -547,28 +370,43 @@ impl Texture {
         let view = texture.create_view(view_descriptor);
         let sampler = device.create_sampler(sampler_descriptor);
 
-        let self_texture = Self::from_existing(texture, view, sampler);
+        let view_dimension = view_descriptor
+            .dimension
+            .unwrap_or_else(|| match texture_descriptor.dimension {
+                TextureDimension::D1 => TextureViewDimension::D1,
+                TextureDimension::D2 => TextureViewDimension::D2,
+                TextureDimension::D3 => TextureViewDimension::D3,
+            });
+        let self_texture = Self::from_existing(texture, view, sampler, view_dimension);
 
-        queue.write_texture(
-            ImageCopyTexture {
-                texture: self_texture.texture(),
-                aspect: TextureAspect::All,
-                origin: Origin3d::ZERO,
-                mip_level: 0,
-            },
-            data,
-            ImageDataLayout::default(),
-            size,
-        );
+        if let Some((data, size)) = data_and_size {
+            queue.write_texture(
+                ImageCopyTexture {
+                    texture: self_texture.texture(),
+                    aspect: TextureAspect::All,
+                    origin: Origin3d::ZERO,
+                    mip_level: 0,
+                },
+                data,
+                ImageDataLayout::default(),
+                size,
+            );
+        }
 
         self_texture
     }
 
-    pub fn from_existing(texture: WTexture, view: TextureView, sampler: Sampler) -> Self {
+    pub fn from_existing(
+        texture: WTexture,
+        view: TextureView,
+        sampler: Sampler,
+        view_dimension: TextureViewDimension,
+    ) -> Self {
         Self {
             texture,
             view,
             sampler,
+            view_dimension,
         }
     }
 
@@ -680,5 +518,9 @@ impl Texture {
 
     pub fn sampler(&self) -> &Sampler {
         &self.sampler
+    }
+
+    pub fn view_dimension(&self) -> &TextureViewDimension {
+        &self.view_dimension
     }
 }

@@ -1,7 +1,6 @@
 use std::{ffi::OsString, hash::Hash};
 
-use cgmath::Vector2;
-use wgpu::Color;
+use wgpu::{Color, Extent3d};
 
 mod channel;
 pub use channel::*;
@@ -29,10 +28,11 @@ pub enum TextureDescriptor {
     },
     /// In case you need a custom set of descriptors.
     Custom {
-        // TODO: Data? Pixels?
         texture_descriptor: wgpu::TextureDescriptor<'static>,
         view_descriptor: wgpu::TextureViewDescriptor<'static>,
         sampler_descriptor: wgpu::SamplerDescriptor<'static>,
+        data: Vec<u8>,
+        size: Extent3d,
     },
 }
 
@@ -174,7 +174,10 @@ impl Hash for TextureDescriptor {
             TextureDescriptor::Custom {
                 texture_descriptor,
                 view_descriptor,
+                
                 sampler_descriptor,
+                data,
+                size
             } => {
                 texture_descriptor.hash(state);
 
@@ -199,6 +202,9 @@ impl Hash for TextureDescriptor {
                 sampler_descriptor.compare.hash(state);
                 sampler_descriptor.anisotropy_clamp.hash(state);
                 sampler_descriptor.border_color.hash(state);
+
+                data.hash(state);
+                size.hash(state);
             }
         }
     }
