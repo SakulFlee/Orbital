@@ -8,10 +8,11 @@ use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
-    BufferBindingType, BufferUsages, CommandEncoder, ComputePassDescriptor, ComputePipeline,
-    ComputePipelineDescriptor, Device, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout,
-    Origin3d, PipelineLayoutDescriptor, Queue, SamplerBindingType,
-    ShaderModuleDescriptor, ShaderStages, StorageTextureAccess, TextureAspect, TextureFormat, TextureSampleType, TextureUsages, TextureView,
+    BufferBindingType, BufferUsages, CommandEncoder, CompareFunction, ComputePassDescriptor,
+    ComputePipeline, ComputePipelineDescriptor, Device, Extent3d, FilterMode, ImageCopyTexture,
+    ImageDataLayout, Origin3d, PipelineLayoutDescriptor, Queue, SamplerBindingType,
+    SamplerDescriptor, ShaderModuleDescriptor, ShaderStages, StorageTextureAccess, TextureAspect,
+    TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView,
     TextureViewDescriptor, TextureViewDimension,
 };
 
@@ -270,38 +271,43 @@ impl WorldEnvironment {
         device: &Device,
         queue: &Queue,
     ) -> Self {
-        let src_texture = Texture::make_texture(
-            Some("Equirectangular SRC"),
-            Vector2 {
-                x: src_size.x,
-                y: src_size.y,
+        let src_texture = Texture::from_descriptors_and_data(
+            &wgpu::TextureDescriptor {
+                label: Some("Equirectangular SRC"),
+                size: Extent3d {
+                    width: src_size.x,
+                    height: src_size.y,
+                    ..Default::default()
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::Rgba32Float,
+                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+                view_formats: &[],
             },
-            TextureFormat::Rgba32Float,
-            TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
-            FilterMode::Linear,
-            AddressMode::ClampToEdge,
-            device,
-            queue,
-        );
-
-        queue.write_texture(
-            ImageCopyTexture {
-                texture: src_texture.texture(),
-                mip_level: 0,
-                origin: Origin3d::ZERO,
-                aspect: TextureAspect::All,
-            },
-            data,
-            ImageDataLayout {
-                offset: 0,
-                bytes_per_row: Some(src_size.x * std::mem::size_of::<[f32; 4]>() as u32),
-                rows_per_image: Some(src_size.y),
-            },
-            Extent3d {
-                width: src_size.x,
-                height: src_size.y,
+            &TextureViewDescriptor::default(),
+            &SamplerDescriptor {
+                label: Some("Equirectangular SRC Sampler"),
+                address_mode_u: AddressMode::ClampToEdge,
+                address_mode_v: AddressMode::ClampToEdge,
+                address_mode_w: AddressMode::ClampToEdge,
+                mag_filter: FilterMode::Linear,
+                min_filter: FilterMode::Linear,
+                mipmap_filter: FilterMode::Linear,
+                compare: Some(CompareFunction::Always),
                 ..Default::default()
             },
+            Some((
+                data,
+                Extent3d {
+                    width: src_size.x,
+                    height: src_size.y,
+                    ..Default::default()
+                },
+            )),
+            device,
+            queue,
         );
 
         let mut encoder = device.create_command_encoder(&Default::default());

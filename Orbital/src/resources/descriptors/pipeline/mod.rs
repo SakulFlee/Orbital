@@ -29,6 +29,9 @@ pub struct PipelineDescriptor {
     pub depth_stencil: bool,
 }
 
+// TODO: Put this into a NEW descriptor and make pipeline in Material.
+// TODO: Also move shader related stuff like entrypoint names into a new descriptor
+
 impl PipelineDescriptor {
     pub fn wireframe_color_bind_group_layout_descriptor() -> PipelineBindGroupLayout {
         PipelineBindGroupLayout {
