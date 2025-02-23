@@ -13,11 +13,11 @@ pub use error::Error;
 #[cfg(test)]
 mod tests;
 
-pub struct Shaders {
+pub struct ShaderPreprocessor {
     known_imports: HashMap<String, String>,
 }
 
-impl Shaders {
+impl ShaderPreprocessor {
     /// The expected start expression of a directive.
     /// The full expression should be:
     /// ```wgsl
