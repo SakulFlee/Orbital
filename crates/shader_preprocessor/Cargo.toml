@@ -1,5 +1,5 @@
 [package]
-name = "orbital_shaders"
+name = "shader_preprocessor"
 version = "0.1.0"
 edition = "2021"
 
