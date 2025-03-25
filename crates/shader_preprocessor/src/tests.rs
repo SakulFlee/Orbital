@@ -4,9 +4,9 @@ use crate::ShaderPreprocessor;
 #[cfg(test)]
 #[test]
 fn test_parse_shader_default_imports() {
-    let shaders =
+    let shader_preprocessor =
         ShaderPreprocessor::new_with_defaults().expect("Failed constructing instance of Shaders!");
-    assert!(!shaders.known_imports.is_empty());
+    assert!(!shader_preprocessor.known_imports.is_empty());
 }
 
 /// Tests if a shader without any imports parses without any changes being done to it. The input must equal the output!
@@ -17,10 +17,10 @@ fn test_parse_shader_no_imports() {
     let i: i32 = 0;
 }";
 
-    let shaders = ShaderPreprocessor::new_empty();
-    assert!(shaders.known_imports.is_empty());
+    let shader_preprocessor = ShaderPreprocessor::new_empty();
+    assert!(shader_preprocessor.known_imports.is_empty());
 
-    let parsed_shader = shaders
+    let parsed_shader = shader_preprocessor
         .parse_shader(SHADER)
         .expect("Shader parsing failed!");
     // Make sure that nothing changed
@@ -35,14 +35,16 @@ fn test_parse_shader() {
     const IMPORT_DIRECTIVE: &'static str = "this/is/a/test";
     const IMPORT_CONTENT: &'static str = "TEST PASSED!";
 
-    let mut shaders = ShaderPreprocessor::new_empty();
-    shaders.add_import(IMPORT_DIRECTIVE, IMPORT_CONTENT);
+    let mut shader_preprocessor = ShaderPreprocessor::new_empty();
+    shader_preprocessor.add_import(IMPORT_DIRECTIVE, IMPORT_CONTENT);
 
-    assert!(!shaders.known_imports.is_empty());
-    assert_eq!(shaders.known_imports.len(), 1);
-    assert!(shaders.known_imports.contains_key(IMPORT_DIRECTIVE));
+    assert!(!shader_preprocessor.known_imports.is_empty());
+    assert_eq!(shader_preprocessor.known_imports.len(), 1);
+    assert!(shader_preprocessor
+        .known_imports
+        .contains_key(IMPORT_DIRECTIVE));
     assert_eq!(
-        shaders
+        shader_preprocessor
             .known_imports
             .get(IMPORT_DIRECTIVE)
             .expect("Missing import!"),
@@ -50,7 +52,7 @@ fn test_parse_shader() {
     );
 
     let shader_source = format!("#import <{}>", IMPORT_DIRECTIVE);
-    let parsed_shader = shaders
+    let parsed_shader = shader_preprocessor
         .parse_shader(shader_source)
         .expect("Shader parsing failed!");
     assert_eq!(parsed_shader, IMPORT_CONTENT);
@@ -75,41 +77,41 @@ fn test_parse_shader_multi_import() {
     const CONTENT_3: &'static str =
         "You might be surprised but there is actually EVEN MORE test content here!";
 
-    let mut shaders = ShaderPreprocessor::new_empty();
-    shaders.add_import(DIRECTIVE_0, CONTENT_0);
-    shaders.add_import(DIRECTIVE_1, CONTENT_1);
-    shaders.add_import(DIRECTIVE_2, CONTENT_2);
-    shaders.add_import(DIRECTIVE_3, CONTENT_3);
+    let mut shader_preprocessor = ShaderPreprocessor::new_empty();
+    shader_preprocessor.add_import(DIRECTIVE_0, CONTENT_0);
+    shader_preprocessor.add_import(DIRECTIVE_1, CONTENT_1);
+    shader_preprocessor.add_import(DIRECTIVE_2, CONTENT_2);
+    shader_preprocessor.add_import(DIRECTIVE_3, CONTENT_3);
 
-    assert!(!shaders.known_imports.is_empty());
-    assert_eq!(shaders.known_imports.len(), 4);
-    assert!(shaders.known_imports.contains_key(DIRECTIVE_0));
-    assert!(shaders.known_imports.contains_key(DIRECTIVE_1));
-    assert!(shaders.known_imports.contains_key(DIRECTIVE_2));
-    assert!(shaders.known_imports.contains_key(DIRECTIVE_3));
+    assert!(!shader_preprocessor.known_imports.is_empty());
+    assert_eq!(shader_preprocessor.known_imports.len(), 4);
+    assert!(shader_preprocessor.known_imports.contains_key(DIRECTIVE_0));
+    assert!(shader_preprocessor.known_imports.contains_key(DIRECTIVE_1));
+    assert!(shader_preprocessor.known_imports.contains_key(DIRECTIVE_2));
+    assert!(shader_preprocessor.known_imports.contains_key(DIRECTIVE_3));
     assert_eq!(
-        shaders
+        shader_preprocessor
             .known_imports
             .get(DIRECTIVE_0)
             .expect("Missing import!"),
         CONTENT_0
     );
     assert_eq!(
-        shaders
+        shader_preprocessor
             .known_imports
             .get(DIRECTIVE_1)
             .expect("Missing import!"),
         CONTENT_1
     );
     assert_eq!(
-        shaders
+        shader_preprocessor
             .known_imports
             .get(DIRECTIVE_2)
             .expect("Missing import!"),
         CONTENT_2
     );
     assert_eq!(
-        shaders
+        shader_preprocessor
             .known_imports
             .get(DIRECTIVE_3)
             .expect("Missing import!"),
@@ -122,7 +124,7 @@ fn test_parse_shader_multi_import() {
 #import <{DIRECTIVE_2}>
 #import <{DIRECTIVE_3}>"
     );
-    let parsed_shader = shaders
+    let parsed_shader = shader_preprocessor
         .parse_shader(shader_source)
         .expect("Shader parsing failed!");
     assert_eq!(
@@ -152,41 +154,41 @@ fn test_parse_shader_multi_import_order() {
     const CONTENT_3: &'static str =
         "You might be surprised but there is actually EVEN MORE test content here!";
 
-    let mut shaders = ShaderPreprocessor::new_empty();
-    shaders.add_import(DIRECTIVE_0, CONTENT_0);
-    shaders.add_import(DIRECTIVE_1, CONTENT_1);
-    shaders.add_import(DIRECTIVE_2, CONTENT_2);
-    shaders.add_import(DIRECTIVE_3, CONTENT_3);
+    let mut shader_preprocessor = ShaderPreprocessor::new_empty();
+    shader_preprocessor.add_import(DIRECTIVE_0, CONTENT_0);
+    shader_preprocessor.add_import(DIRECTIVE_1, CONTENT_1);
+    shader_preprocessor.add_import(DIRECTIVE_2, CONTENT_2);
+    shader_preprocessor.add_import(DIRECTIVE_3, CONTENT_3);
 
-    assert!(!shaders.known_imports.is_empty());
-    assert_eq!(shaders.known_imports.len(), 4);
-    assert!(shaders.known_imports.contains_key(DIRECTIVE_0));
-    assert!(shaders.known_imports.contains_key(DIRECTIVE_1));
-    assert!(shaders.known_imports.contains_key(DIRECTIVE_2));
-    assert!(shaders.known_imports.contains_key(DIRECTIVE_3));
+    assert!(!shader_preprocessor.known_imports.is_empty());
+    assert_eq!(shader_preprocessor.known_imports.len(), 4);
+    assert!(shader_preprocessor.known_imports.contains_key(DIRECTIVE_0));
+    assert!(shader_preprocessor.known_imports.contains_key(DIRECTIVE_1));
+    assert!(shader_preprocessor.known_imports.contains_key(DIRECTIVE_2));
+    assert!(shader_preprocessor.known_imports.contains_key(DIRECTIVE_3));
     assert_eq!(
-        shaders
+        shader_preprocessor
             .known_imports
             .get(DIRECTIVE_0)
             .expect("Missing import!"),
         CONTENT_0
     );
     assert_eq!(
-        shaders
+        shader_preprocessor
             .known_imports
             .get(DIRECTIVE_1)
             .expect("Missing import!"),
         CONTENT_1
     );
     assert_eq!(
-        shaders
+        shader_preprocessor
             .known_imports
             .get(DIRECTIVE_2)
             .expect("Missing import!"),
         CONTENT_2
     );
     assert_eq!(
-        shaders
+        shader_preprocessor
             .known_imports
             .get(DIRECTIVE_3)
             .expect("Missing import!"),
@@ -201,7 +203,7 @@ fn some_function() {{ ... }}
 const i: i32 = 123;
 #import <{DIRECTIVE_0}>"
     );
-    let parsed_shader = shaders
+    let parsed_shader = shader_preprocessor
         .parse_shader(shader_source)
         .expect("Shader parsing failed!");
     assert_eq!(
@@ -226,14 +228,16 @@ fn test_parse_shader_duplicate_import() {
     const IMPORT_DIRECTIVE: &'static str = "this/is/a/test";
     const IMPORT_CONTENT: &'static str = "TEST PASSED!";
 
-    let mut shaders = ShaderPreprocessor::new_empty();
-    shaders.add_import(IMPORT_DIRECTIVE, IMPORT_CONTENT);
+    let mut shader_preprocessor = ShaderPreprocessor::new_empty();
+    shader_preprocessor.add_import(IMPORT_DIRECTIVE, IMPORT_CONTENT);
 
-    assert!(!shaders.known_imports.is_empty());
-    assert_eq!(shaders.known_imports.len(), 1);
-    assert!(shaders.known_imports.contains_key(IMPORT_DIRECTIVE));
+    assert!(!shader_preprocessor.known_imports.is_empty());
+    assert_eq!(shader_preprocessor.known_imports.len(), 1);
+    assert!(shader_preprocessor
+        .known_imports
+        .contains_key(IMPORT_DIRECTIVE));
     assert_eq!(
-        shaders
+        shader_preprocessor
             .known_imports
             .get(IMPORT_DIRECTIVE)
             .expect("Missing import!"),
@@ -244,7 +248,7 @@ fn test_parse_shader_duplicate_import() {
         "#import <{IMPORT_DIRECTIVE}>
 #import <{IMPORT_DIRECTIVE}>"
     );
-    let parsed_shader = shaders
+    let parsed_shader = shader_preprocessor
         .parse_shader(shader_source)
         .expect("Shader parsing failed!");
 
@@ -266,14 +270,16 @@ fn test_parse_shader_recursive_import_itself() {
     const IMPORT_DIRECTIVE: &'static str = "this/is/a/test";
     let import_content = format!("#import <{IMPORT_DIRECTIVE}>");
 
-    let mut shaders = ShaderPreprocessor::new_empty();
-    shaders.add_import(IMPORT_DIRECTIVE, &import_content);
+    let mut shader_preprocessor = ShaderPreprocessor::new_empty();
+    shader_preprocessor.add_import(IMPORT_DIRECTIVE, &import_content);
 
-    assert!(!shaders.known_imports.is_empty());
-    assert_eq!(shaders.known_imports.len(), 1);
-    assert!(shaders.known_imports.contains_key(IMPORT_DIRECTIVE));
+    assert!(!shader_preprocessor.known_imports.is_empty());
+    assert_eq!(shader_preprocessor.known_imports.len(), 1);
+    assert!(shader_preprocessor
+        .known_imports
+        .contains_key(IMPORT_DIRECTIVE));
     assert_eq!(
-        shaders
+        shader_preprocessor
             .known_imports
             .get(IMPORT_DIRECTIVE)
             .expect("Missing import!"),
@@ -281,7 +287,7 @@ fn test_parse_shader_recursive_import_itself() {
     );
 
     let shader_source = format!("#import <{IMPORT_DIRECTIVE}>");
-    let parsed_shader = shaders
+    let parsed_shader = shader_preprocessor
         .parse_shader(shader_source)
         .expect("Shader parsing failed!");
 
@@ -310,23 +316,23 @@ fn test_parse_shader_recursive_import() {
     );
     let content_1 = format!("{DIRECTIVE_1}");
 
-    let mut shaders = ShaderPreprocessor::new_empty();
-    shaders.add_import(DIRECTIVE_0, &content_0);
-    shaders.add_import(DIRECTIVE_1, &content_1);
+    let mut shader_preprocessor = ShaderPreprocessor::new_empty();
+    shader_preprocessor.add_import(DIRECTIVE_0, &content_0);
+    shader_preprocessor.add_import(DIRECTIVE_1, &content_1);
 
-    assert!(!shaders.known_imports.is_empty());
-    assert_eq!(shaders.known_imports.len(), 2);
-    assert!(shaders.known_imports.contains_key(DIRECTIVE_0));
-    assert!(shaders.known_imports.contains_key(DIRECTIVE_1));
+    assert!(!shader_preprocessor.known_imports.is_empty());
+    assert_eq!(shader_preprocessor.known_imports.len(), 2);
+    assert!(shader_preprocessor.known_imports.contains_key(DIRECTIVE_0));
+    assert!(shader_preprocessor.known_imports.contains_key(DIRECTIVE_1));
     assert_eq!(
-        shaders
+        shader_preprocessor
             .known_imports
             .get(DIRECTIVE_0)
             .expect("Missing import!"),
         &content_0
     );
     assert_eq!(
-        shaders
+        shader_preprocessor
             .known_imports
             .get(DIRECTIVE_1)
             .expect("Missing import!"),
@@ -334,7 +340,7 @@ fn test_parse_shader_recursive_import() {
     );
 
     let shader_source = format!("#import <{DIRECTIVE_0}>");
-    let parsed_shader = shaders
+    let parsed_shader = shader_preprocessor
         .parse_shader(shader_source)
         .expect("Shader parsing failed!");
 
@@ -354,14 +360,14 @@ fn test_add_import() {
     const DIRECTIVE: &'static str = "this/is/a/test";
     const CONTENT: &'static str = "Just some example content!";
 
-    let mut shaders = ShaderPreprocessor::new_empty();
-    shaders.add_import(DIRECTIVE, CONTENT);
+    let mut shader_preprocessor = ShaderPreprocessor::new_empty();
+    shader_preprocessor.add_import(DIRECTIVE, CONTENT);
 
-    assert!(!shaders.known_imports.is_empty());
-    assert_eq!(shaders.known_imports.len(), 1);
-    assert!(shaders.known_imports.contains_key(DIRECTIVE));
+    assert!(!shader_preprocessor.known_imports.is_empty());
+    assert_eq!(shader_preprocessor.known_imports.len(), 1);
+    assert!(shader_preprocessor.known_imports.contains_key(DIRECTIVE));
     assert_eq!(
-        shaders
+        shader_preprocessor
             .known_imports
             .get(DIRECTIVE)
             .expect("Missing import!"),
@@ -377,16 +383,18 @@ fn test_add_file_import() {
     const CONTENT: &'static str = include_str!("../shaders/pbr/pbr.wgsl");
     const EXPECTED_DIRECTIVE: &'static str = "pbr";
 
-    let mut shaders = ShaderPreprocessor::new_empty();
-    shaders
+    let mut shader_preprocessor = ShaderPreprocessor::new_empty();
+    shader_preprocessor
         .add_file_import(None::<String>, PATH)
         .expect("Adding file import failed!");
 
-    assert!(!shaders.known_imports.is_empty());
-    assert_eq!(shaders.known_imports.len(), 1);
-    assert!(shaders.known_imports.contains_key(EXPECTED_DIRECTIVE));
+    assert!(!shader_preprocessor.known_imports.is_empty());
+    assert_eq!(shader_preprocessor.known_imports.len(), 1);
+    assert!(shader_preprocessor
+        .known_imports
+        .contains_key(EXPECTED_DIRECTIVE));
     assert_eq!(
-        shaders
+        shader_preprocessor
             .known_imports
             .get(EXPECTED_DIRECTIVE)
             .expect("Missing import!"),
@@ -402,16 +410,18 @@ fn test_add_file_import_custom_directive() {
     const CONTENT: &'static str = include_str!("../shaders/pbr/pbr.wgsl");
     const EXPECTED_DIRECTIVE: &'static str = "pbr/pbr";
 
-    let mut shaders = ShaderPreprocessor::new_empty();
-    shaders
+    let mut shader_preprocessor = ShaderPreprocessor::new_empty();
+    shader_preprocessor
         .add_file_import(Some(EXPECTED_DIRECTIVE.to_string()), PATH)
         .expect("Adding file import failed!");
 
-    assert!(!shaders.known_imports.is_empty());
-    assert_eq!(shaders.known_imports.len(), 1);
-    assert!(shaders.known_imports.contains_key(EXPECTED_DIRECTIVE));
+    assert!(!shader_preprocessor.known_imports.is_empty());
+    assert_eq!(shader_preprocessor.known_imports.len(), 1);
+    assert!(shader_preprocessor
+        .known_imports
+        .contains_key(EXPECTED_DIRECTIVE));
     assert_eq!(
-        shaders
+        shader_preprocessor
             .known_imports
             .get(EXPECTED_DIRECTIVE)
             .expect("Missing import!"),
@@ -423,34 +433,34 @@ fn test_add_file_import_custom_directive() {
 #[cfg(test)]
 #[test]
 fn test_folder_import() {
-    let mut shaders = ShaderPreprocessor::new_empty();
-    shaders
+    let mut shader_preprocessor = ShaderPreprocessor::new_empty();
+    shader_preprocessor
         .import_folder("../../crates/shaders/shaders")
         .expect("Failure to import shader lib!");
 
-    assert!(!shaders.known_imports.is_empty());
+    assert!(!shader_preprocessor.known_imports.is_empty());
 }
 
 /// Tests if a known directive, pbr/pbr in this case, can be found after folder import.
 #[cfg(test)]
 #[test]
 fn test_folder_import_contains_pbr() {
-    let mut shaders = ShaderPreprocessor::new_empty();
-    shaders
+    let mut shader_preprocessor = ShaderPreprocessor::new_empty();
+    shader_preprocessor
         .import_folder("../../crates/shaders/shaders")
         .expect("Failure to import shader lib!");
 
-    assert!(shaders.known_imports.contains_key("pbr/pbr"));
+    assert!(shader_preprocessor.known_imports.contains_key("pbr/pbr"));
 }
 
 /// Tests if there are any entries in the knowledge database after a folder got imported.
 #[cfg(test)]
 #[test]
 fn test_folder_import_not_empty() {
-    let mut shaders = ShaderPreprocessor::new_empty();
-    shaders
+    let mut shader_preprocessor = ShaderPreprocessor::new_empty();
+    shader_preprocessor
         .import_folder("../../crates/shaders/shaders")
         .expect("Failure to import shader lib!");
 
-    assert!(!shaders.known_imports.is_empty());
+    assert!(!shader_preprocessor.known_imports.is_empty());
 }

@@ -36,8 +36,7 @@ impl ShaderPreprocessor {
 
     /// Path to the expected shader lib to be used for default importing.
     #[cfg(debug_assertions)]
-    pub const SHADER_LIB_IMPORT_FOLDER_PATH_DEBUG_BUILD: &'static str =
-        "../../crates/shaders/shaders";
+    pub const SHADER_LIB_IMPORT_FOLDER_PATH_DEBUG_BUILD: &'static str = "../../Assets/Shaders";
 
     /// Path to the expected shader lib to be used for default importing.
     #[cfg(not(debug_assertions))]
