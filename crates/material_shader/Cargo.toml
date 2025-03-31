@@ -1,0 +1,14 @@
+[package]
+name = "material_shader"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+shader = { workspace = true }
+vertex = { workspace = true }
+instance = { workspace = true }
+
+wgpu = { workspace = true }
+
+[dev-dependencies]
+wgpu_test_adapter = { workspace = true }

@@ -14,3 +14,37 @@ opt-level = 3
 codegen-units = 1
 incremental = false
 debug = false
+
+[workspace.dependencies]
+# In-Workspace crates
+buffer = { path = "crates/buffer" }
+compute_shader = { path = "crates/compute_shader" }
+instance = { path = "crates/instance" }
+material_shader = { path = "crates/material_shader" }
+pbr_material_shader = { path = "crates/pbr_material_shader" }
+shader = { path = "crates/shader" }
+shader_preprocessor = { path = "crates/shader_preprocessor" }
+texture = { path = "crates/texture" }
+transform = { path = "crates/transform" }
+vertex = { path = "crates/vertex" }
+wgpu_test_adapter = { path = "crates/wgpu_test_adapter" }
+
+# External crates
+wgpu = { version = "23.0.0", features = [
+    "serde",
+    "naga-ir",
+    "wgsl",
+    "glsl",
+    "spirv",
+    "metal",
+    "angle",
+    "dx12",
+    "vulkan-portability",
+    "webgl",
+    "webgpu",
+] }
+image = "0.25.0"
+cgmath = "0.18.0"
+smol = "2.0.2"
+rand = "0.9.0"
+easy-gltf = "1.1.2"

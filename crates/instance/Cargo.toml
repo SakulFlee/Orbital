@@ -1,7 +1,10 @@
 [package]
-name = "pbr_material_shader_descriptor"
+name = "instance"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+transform = { workspace = true }
+
 wgpu = { workspace = true }
+cgmath = { workspace = true }

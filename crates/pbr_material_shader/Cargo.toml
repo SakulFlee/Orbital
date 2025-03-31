@@ -1,5 +1,5 @@
 [package]
-name = "material_shader_descriptor"
+name = "pbr_material_shader"
 version = "0.1.0"
 edition = "2024"
 

@@ -1,5 +1,5 @@
 [package]
-name = "compute_shader_descriptor"
+name = "compute_shader"
 version = "0.1.0"
 edition = "2024"
 
