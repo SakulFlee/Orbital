@@ -1,0 +1,13 @@
+[package]
+name = "vertex"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = ["gltf"]
+gltf = ["easy-gltf"]
+
+[dependencies]
+wgpu = { workspace = true }
+cgmath = { workspace = true }
+easy-gltf = { workspace = true, optional = true }

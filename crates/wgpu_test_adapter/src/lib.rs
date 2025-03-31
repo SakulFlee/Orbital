@@ -5,10 +5,15 @@ use wgpu::{
 };
 
 pub async fn make_wgpu_connection_async() -> (Adapter, Device, Queue) {
+    println!("{:#^80}", " WGPU Test Adapter ");
+    println!("# {: ^76} #", "!!! for testing only !!!");
+
     let instance = Instance::new(InstanceDescriptor {
         backends: Backends::all(),
         ..Default::default()
     });
+    println!("# {: <76} #", format!("Instance: {:?}", instance));
+
     let adapter = instance
         .request_adapter(&RequestAdapterOptions {
             power_preference: PowerPreference::None,
@@ -17,19 +22,6 @@ pub async fn make_wgpu_connection_async() -> (Adapter, Device, Queue) {
         })
         .await
         .expect("Failed to find any adapter");
-
-    let (device, queue) = adapter
-        .request_device(
-            &DeviceDescriptor {
-                ..Default::default()
-            },
-            None,
-        )
-        .await
-        .expect("Failed to create device");
-
-    println!("{:#^80}", " WGPU Test Adapter ");
-    println!("# {: ^76} #", "!!! for testing only !!!");
     println!("# {: <76} #", format!("Name: {}", adapter.get_info().name));
     println!(
         "# {: <76} #",
@@ -47,6 +39,19 @@ pub async fn make_wgpu_connection_async() -> (Adapter, Device, Queue) {
         "# {: <76} #",
         format!("Driver Info: {}", adapter.get_info().driver_info)
     );
+
+    let (device, queue) = adapter
+        .request_device(
+            &DeviceDescriptor {
+                ..Default::default()
+            },
+            None,
+        )
+        .await
+        .expect("Failed to create device");
+    println!("# {: <76} #", format!("Device: {:?}", device.features()));
+    println!("# {: <76} #", format!("Queue: {:?}", queue));
+
     println!("{:#^80}", "");
 
     (adapter, device, queue)

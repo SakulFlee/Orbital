@@ -1,6 +1,6 @@
 use std::{hash::Hash, mem::size_of};
 
-use cgmath::{num_traits::Float, Vector2, Vector3};
+use cgmath::{Vector2, Vector3, num_traits::Float};
 use wgpu::{VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -107,18 +107,6 @@ impl Vertex {
     }
 }
 
-impl From<easy_gltf::model::Vertex> for Vertex {
-    fn from(value: easy_gltf::model::Vertex) -> Self {
-        Self::new(
-            value.position,
-            value.normal,
-            // Note: Skipping `w` which defines the strength of the vector.
-            Vector3::new(value.tangent.x, value.tangent.y, value.tangent.z),
-            value.tex_coords,
-        )
-    }
-}
-
 /// Note: This ignores that f32 can't be Eq'd by default due to NaN.
 /// Vertices should **never** be using NaN.
 impl Eq for Vertex {}
@@ -143,5 +131,31 @@ impl Hash for Vertex {
 
         self.uv.x.integer_decode().hash(state);
         self.uv.y.integer_decode().hash(state);
+    }
+}
+
+/// A `Vertex` is already realized after describing it.
+/// Thus, it's both a _descriptor_ and a _realization_.
+///
+/// # Why?
+/// _Realizing_ a _descriptor_ involves **creating** (or: generating) the given resource and commonly putting the result into a e.g. Buffer to be used by the GPU at some point.
+///
+/// It doesn't make sense to have a buffer per-vertex, rather bundle them together into a **Model**.
+/// Furthermore, there isn't really any conversion or creation happening.
+/// The `Vertex` is already completely realized as it is described.
+///
+/// This certainly is a unique case!
+pub type VertexDescriptor = Vertex;
+
+#[cfg(feature = "gltf")]
+impl From<easy_gltf::model::Vertex> for Vertex {
+    fn from(value: easy_gltf::model::Vertex) -> Self {
+        Self::new(
+            value.position,
+            value.normal,
+            // Note: Skipping `w` which defines the strength of the vector.
+            Vector3::new(value.tangent.x, value.tangent.y, value.tangent.z),
+            value.tex_coords,
+        )
     }
 }

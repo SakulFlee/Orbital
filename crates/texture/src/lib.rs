@@ -10,10 +10,17 @@ use wgpu::{
     TextureViewDimension,
 };
 
-use texture_descriptor::{TextureChannel, TextureDescriptor, TextureSize};
+mod channel;
+pub use channel::*;
+
+mod size;
+pub use size::*;
 
 mod error;
 pub use error::*;
+
+mod descriptor;
+pub use descriptor::*;
 
 #[derive(Debug)]
 pub struct Texture {
@@ -30,12 +37,17 @@ impl Texture {
         queue: &Queue,
     ) -> Result<Self, Error> {
         match descriptor {
-            TextureDescriptor::File { path } => Self::from_path(path, device, queue),
+            TextureDescriptor::File { path, usages } => {
+                Self::from_path(path, *usages, device, queue)
+            }
             TextureDescriptor::Data {
                 pixels,
                 size: dimensions,
                 channels,
-            } => Ok(Self::from_data(pixels, dimensions, channels, device, queue)),
+                usages,
+            } => Ok(Self::from_data(
+                pixels, dimensions, channels, *usages, device, queue,
+            )),
             TextureDescriptor::Custom {
                 texture_descriptor,
                 view_descriptor,
@@ -179,11 +191,16 @@ impl Texture {
         texture
     }
 
-    pub fn from_path(file_path: &OsString, device: &Device, queue: &Queue) -> Result<Self, Error> {
+    pub fn from_path(
+        file_path: &OsString,
+        usages: TextureUsages,
+        device: &Device,
+        queue: &Queue,
+    ) -> Result<Self, Error> {
         let img = ImageReader::open(file_path)
-            .map_err(|e| Error::IOError(e))?
+            .map_err(Error::IOError)?
             .decode()
-            .map_err(|e| Error::ImageError(e))?;
+            .map_err(Error::ImageError)?;
 
         let data = img
             .to_rgba8()
@@ -201,6 +218,7 @@ impl Texture {
                     ..Default::default()
                 },
                 channels: TextureChannel::RGBA,
+                usages,
             },
             device,
             queue,
@@ -213,7 +231,12 @@ impl Texture {
     /// ⚠️ This can be used as an empty texture as there is as minimal
     /// ⚠️ as possible data usage and this resource may not even arrive
     /// ⚠️ in the shader _if_ it is not used.
-    pub fn uniform_color(color: Vector4<u8>, device: &Device, queue: &Queue) -> Self {
+    pub fn uniform_color(
+        color: Vector4<u8>,
+        usages: TextureUsages,
+        device: &Device,
+        queue: &Queue,
+    ) -> Self {
         Self::from_data(
             &[color.x, color.y, color.z, color.w],
             &TextureSize {
@@ -222,6 +245,7 @@ impl Texture {
                 ..Default::default()
             },
             &TextureChannel::RGBA,
+            usages,
             device,
             queue,
         )
@@ -231,6 +255,7 @@ impl Texture {
         pixels: &[u8],
         size: &TextureSize,
         channels: &TextureChannel,
+        usages: TextureUsages,
         device: &Device,
         queue: &Queue,
     ) -> Self {
@@ -250,7 +275,7 @@ impl Texture {
             sample_count: 1,
             // TODO: Other dimensions cannot be set atm!
             dimension: TextureDimension::D2,
-            usage: TextureUsages::COPY_DST | TextureUsages::TEXTURE_BINDING,
+            usage: usages,
             view_formats: &[],
         };
         let texture = device.create_texture(&texture_descriptor);
