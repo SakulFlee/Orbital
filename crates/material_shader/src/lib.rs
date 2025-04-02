@@ -17,6 +17,9 @@ pub use engine_bind_group_layout::*;
 #[cfg(test)]
 mod tests;
 
+pub type MaterialShader = MaterialShaderDescriptor;
+pub type MaterialDescriptor = MaterialShaderDescriptor;
+
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct MaterialShaderDescriptor {
     pub name: Option<&'static str>,
