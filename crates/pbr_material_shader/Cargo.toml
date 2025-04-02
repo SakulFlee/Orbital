@@ -4,4 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+material_shader = { workspace = true }
+texture = { workspace = true }
+shader = { workspace = true }
+buffer = { workspace = true }
+
 wgpu = { workspace = true }
+cgmath = { workspace = true }
