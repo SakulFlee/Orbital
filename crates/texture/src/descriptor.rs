@@ -165,6 +165,8 @@ impl TextureDescriptor {
     }
 }
 
+impl Eq for TextureDescriptor {}
+
 impl Hash for TextureDescriptor {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self {
