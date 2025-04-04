@@ -2,7 +2,7 @@ use instance::Instance;
 use vertex::Vertex;
 use wgpu::VertexBufferLayout;
 
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum VertexStageLayout {
     SimpleVertexData,
     ComplexVertexData,
