@@ -2,7 +2,7 @@ use buffer::BufferDescriptor;
 use texture::TextureDescriptor;
 use wgpu::TextureSampleType;
 
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum VariableType {
     Buffer(BufferDescriptor),
     Texture {
