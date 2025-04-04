@@ -20,7 +20,7 @@ mod tests;
 pub type MaterialShader = MaterialShaderDescriptor;
 pub type MaterialDescriptor = MaterialShaderDescriptor;
 
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct MaterialShaderDescriptor {
     pub name: Option<&'static str>,
     pub shader_source: ShaderSource,
@@ -42,7 +42,6 @@ impl MaterialShaderDescriptor {
         device: &Device,
         queue: &Queue,
     ) -> Result<wgpu::RenderPipeline, Error> {
-        // TODO: Cache
         let shader_module = self.shader_module(device)?;
 
         // Create pipeline layout and bind group
