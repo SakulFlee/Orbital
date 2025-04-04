@@ -21,35 +21,56 @@ gamepad_input_poll = ["gamepad_input"]
 auto_request_redraw = []
 
 [dependencies]
-shader_preprocessor = { path = "../crates/shader_preprocessor/" }
+buffer = { workspace = true }
+instance = { workspace = true }
+material_shader = { workspace = true }
+pbr_material_shader = { workspace = true }
+shader = { workspace = true }
+shader_preprocessor = { workspace = true }
+texture = { workspace = true }
+transform = { workspace = true }
+vertex = { workspace = true }
+wgpu_test_adapter = { workspace = true }
 
-wgpu = { workspace = true }
+wgpu = { workspace = true, features = [
+    "angle",
+    "dx12",
+    "glsl",
+    "metal",
+    "naga-ir",
+    "serde",
+    "spirv",
+    "vulkan-portability",
+    "webgl",
+    "webgpu",
+    "wgsl",
+] }
 
-serde = { version = "1.0.174", features = ["derive"] }
-winit = { version = "0.30.0" }
-log = { version = "0.4.21" }
-fern = { version = "0.7.0" }
-serde_json = { version = "1.0.103" }
-serde_derive = { version = "1.0.174" }
-hashbrown = { version = "0.15.0" }
-humantime = { version = "2.1.0" }
-pollster = { version = "0.4.0" }
-image = { version = "0.25.0" }
-cgmath = { version = "0.18.0" }
-easy-gltf = { version = "1.1.2", optional = true }
-gilrs = { version = "0.11.0", optional = true }
-crossbeam-channel = "0.5"
-num_cpus = "1.16.0"
-async-std = { version = "1.13.0" }
-async-trait = "0.1.83"
-futures = "0.3.31"
-dirs = "5.0.1"
-toml = "0.8.19"
-bitmask-enum = "2.2.5"
+serde = { workspace = true, features = ["derive"] }
+winit = { workspace = true }
+log = { workspace = true }
+fern = { workspace = true }
+serde_json = { workspace = true }
+serde_derive = { workspace = true }
+hashbrown = { workspace = true }
+humantime = { workspace = true }
+pollster = { workspace = true }
+image = { workspace = true }
+cgmath = { workspace = true }
+easy-gltf = { workspace = true, optional = true }
+gilrs = { workspace = true, optional = true }
+crossbeam-channel = { workspace = true }
+num_cpus = { workspace = true }
+async-std = { workspace = true }
+async-trait = { workspace = true }
+futures = { workspace = true }
+dirs = { workspace = true }
+toml = { workspace = true }
+bitmask-enum = { workspace = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
-winit = { version = "0.30.0", features = ["android-native-activity"] }
-android_logger = { version = "0.14.0" }
+android_logger = { workspace = true }
+winit = { workspace = true, features = ["android-native-activity"] }
 
 [build-dependencies]
-glob = "0.3.1"
+glob = { workspace = true }

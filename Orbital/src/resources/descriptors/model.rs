@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
-use crate::transform::Transform;
+use material_shader::MaterialShaderDescriptor;
+use transform::Transform;
 
-use super::{MaterialDescriptor, MeshDescriptor};
+use super::MeshDescriptor;
 
 /// Descriptor for a model
 ///
@@ -14,7 +15,7 @@ pub struct ModelDescriptor {
     /// TODO
     /// Multiple == Multiple materials being rendered ON-TOP
     /// Only define multiple if really required, e.g. "wireframes on-top of solid"
-    pub materials: Vec<Arc<MaterialDescriptor>>,
+    pub materials: Vec<Arc<MaterialShaderDescriptor>>,
     /// TODO
     /// Multiple == Multiple instances of the same model
     pub transforms: Vec<Transform>,

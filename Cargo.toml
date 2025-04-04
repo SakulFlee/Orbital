@@ -30,21 +30,29 @@ vertex = { path = "crates/vertex" }
 wgpu_test_adapter = { path = "crates/wgpu_test_adapter" }
 
 # External crates
-wgpu = { version = "23.0.0", features = [
-    "serde",
-    "naga-ir",
-    "wgsl",
-    "glsl",
-    "spirv",
-    "metal",
-    "angle",
-    "dx12",
-    "vulkan-portability",
-    "webgl",
-    "webgpu",
-] }
-image = "0.25.0"
+android_logger = "0.14.0"
+async-std = "1.13.0"
+async-trait = "0.1.83"
+bitmask-enum = "2.2.5"
 cgmath = "0.18.0"
-smol = "2.0.2"
-rand = "0.9.0"
+crossbeam-channel = "0.5"
+dirs = "5.0.1"
 easy-gltf = "1.1.2"
+fern = "0.7.0"
+futures = "0.3.31"
+gilrs = "0.11.0"
+glob = "0.3.1"
+hashbrown = "0.15.0"
+humantime = "2.1.0"
+image = "0.25.0"
+log = "0.4.21"
+num_cpus = "1.16.0"
+pollster = "0.4.0"
+rand = "0.9.0"
+serde = "1.0.174"
+serde_derive = "1.0.174"
+serde_json = "1.0.103"
+smol = "2.0.2"
+toml = "0.8.19"
+wgpu = "23.0.0"
+winit = "0.30.0"
