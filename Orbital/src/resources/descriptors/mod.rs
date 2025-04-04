@@ -5,7 +5,6 @@ pub mod light;
 pub mod mesh;
 pub mod model;
 pub mod sampling_type;
-pub mod shader;
 pub mod skybox_type;
 pub mod world_environment;
 
@@ -17,6 +16,5 @@ pub use light::*;
 pub use mesh::*;
 pub use model::*;
 pub use sampling_type::*;
-pub use shader::*;
 pub use skybox_type::*;
 pub use world_environment::*;
