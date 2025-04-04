@@ -1,8 +1,5 @@
-use std::sync::Arc;
-
-use cgmath::{Point3, Vector3, Zero};
-
-use crate::resources::realizations::Vertex;
+use cgmath::Point3;
+use vertex::Vertex;
 
 use super::BoundingBoxDescriptor;
 
