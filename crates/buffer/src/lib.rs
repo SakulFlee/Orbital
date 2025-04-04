@@ -2,7 +2,7 @@ use std::num::NonZero;
 
 use wgpu::{BufferBindingType, BufferUsages};
 
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct BufferDescriptor {
     pub data: Vec<u8>,
     pub ty: BufferBindingType,
