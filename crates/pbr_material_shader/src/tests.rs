@@ -180,6 +180,6 @@ fn default_conversion_to_material_shader_check_depth_stencil_persistence() {
         ..Default::default()
     });
 
-    let material_shader: MaterialShader = pbr_material.into();
-    assert_eq!(DEPTH_STENCIL, material_shader.depth_stencil);
+    let material_shader_descriptor: MaterialShaderDescriptor = pbr_material.into();
+    assert_eq!(DEPTH_STENCIL, material_shader_descriptor.depth_stencil);
 }
