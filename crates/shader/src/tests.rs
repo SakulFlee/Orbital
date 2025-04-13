@@ -58,7 +58,7 @@ fn test(buffer_count: u32, texture_count: u32) {
     let total_indices_expected = buffer_count as usize + texture_count as usize;
     assert_eq!(total_indices_expected, variables.len());
 
-    for (k, v) in &variables {
+    for (k, v) in &*variables {
         println!("# {k}: {v:?}");
     }
 }
