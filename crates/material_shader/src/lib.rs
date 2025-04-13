@@ -20,6 +20,7 @@ pub use engine_bind_group_layout::*;
 #[cfg(test)]
 mod tests;
 
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct MaterialShader {
     pipeline: RenderPipeline,
     variables: Variables,
