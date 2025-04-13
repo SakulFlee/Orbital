@@ -1,5 +1,7 @@
-use std::{cell::RefCell, sync::Arc};
+use std::sync::Arc;
 
+use instance::Instance;
+use material_shader::MaterialShader;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     Buffer, BufferUsages, Device, Queue, TextureFormat,
@@ -10,12 +12,12 @@ use crate::{
     resources::descriptors::ModelDescriptor,
 };
 
-use super::{instance::Instance, Material, Mesh};
+use super::Mesh;
 
 #[derive(Debug)]
 pub struct Model {
     mesh: Arc<Mesh>,
-    materials: Vec<Arc<Material>>,
+    materials: Vec<Arc<MaterialShader>>,
     instance_count: u32,
     instance_buffer: Buffer,
 }
@@ -54,27 +56,23 @@ impl Model {
                         .material_cache
                         .borrow_mut()
                         .entry(material_descriptor.clone())
-                        .or_insert(CacheEntry::new(Material::from_descriptor(
+                        .or_insert(CacheEntry::new(MaterialShader::from_descriptor(
                             &material_descriptor,
-                            surface_format,
+                            Some(*surface_format),
                             device,
                             queue,
-                            app_name,
-                            with_cache_state,
-                        )?))
+                        )))
                         .clone_inner(),
                 );
             }
         } else {
             for material_descriptor in &descriptor.materials {
-                materials.push(Arc::new(Material::from_descriptor(
+                materials.push(Arc::new(MaterialShader::from_descriptor(
                     &material_descriptor,
-                    surface_format,
+                    Some(*surface_format),
                     device,
                     queue,
-                    app_name,
-                    with_cache_state,
-                )?));
+                )));
             }
         }
 
@@ -112,7 +110,7 @@ impl Model {
         &self.mesh
     }
 
-    pub fn materials(&self) -> &Vec<Arc<Material>> {
+    pub fn materials(&self) -> &Vec<Arc<MaterialShader>> {
         &self.materials
     }
 
