@@ -1,3 +1,4 @@
+use vertex::Vertex;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     Buffer, BufferUsages, Device, Queue,
@@ -5,7 +6,7 @@ use wgpu::{
 
 use crate::resources::descriptors::MeshDescriptor;
 
-use super::{BoundingBox, Vertex};
+use super::BoundingBox;
 
 #[derive(Debug)]
 pub struct Mesh {
