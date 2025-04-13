@@ -1,14 +1,12 @@
 use cgmath::{perspective, Deg, InnerSpace, Matrix, Matrix4, SquareMatrix, Vector3, Vector4};
 use std::mem;
 use wgpu::{
-    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutEntry, BindingType, Buffer,
-    BufferBindingType, BufferDescriptor, BufferUsages, Device, Queue, ShaderStages,
+    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
+    BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferDescriptor, BufferUsages,
+    Device, Queue, ShaderStages,
 };
 
-use crate::{
-    resources::descriptors::{CameraDescriptor, PipelineBindGroupLayout},
-    world::CameraChange,
-};
+use crate::{resources::descriptors::CameraDescriptor, world::CameraChange};
 
 #[derive(Debug)]
 pub struct Camera {
@@ -20,22 +18,6 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn bind_group_layout() -> PipelineBindGroupLayout {
-        PipelineBindGroupLayout {
-            label: "Camera",
-            entries: vec![BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::VERTEX_FRAGMENT,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-        }
-    }
-
     pub fn from_descriptor(descriptor: CameraDescriptor, device: &Device, queue: &Queue) -> Self {
         let camera_buffer = device.create_buffer(&BufferDescriptor {
             label: Some("Camera Buffer"),
@@ -61,7 +43,21 @@ impl Camera {
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        let camera_bind_group_layout = Self::bind_group_layout().make_bind_group_layout(device);
+        let camera_bind_group_layout =
+            device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                label: Some("Camera"),
+                entries: &[BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::VERTEX_FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+            });
+
         let camera_bind_group = device.create_bind_group(&BindGroupDescriptor {
             label: Some("Camera Bind Group"),
             layout: &camera_bind_group_layout,
@@ -90,7 +86,20 @@ impl Camera {
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        let frustum_bind_group_layout = Self::bind_group_layout().make_bind_group_layout(device);
+        let frustum_bind_group_layout =
+            device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                label: Some("Frustum"),
+                entries: &[BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::VERTEX_FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+            });
         let frustum_bind_group = device.create_bind_group(&BindGroupDescriptor {
             label: Some("Camera Frustum Bind Group"),
             layout: &frustum_bind_group_layout,
