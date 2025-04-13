@@ -22,7 +22,7 @@ pub use error::*;
 mod descriptor;
 pub use descriptor::*;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Texture {
     texture: WTexture,
     view: TextureView,
