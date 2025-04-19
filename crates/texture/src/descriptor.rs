@@ -1,8 +1,8 @@
 use std::{ffi::OsString, hash::Hash};
 
-use wgpu::{Color, Extent3d, TextureUsages};
+use wgpu::{Color, Extent3d, TextureFormat, TextureUsages};
 
-use crate::{TextureChannel, TextureSize};
+use crate::TextureSize;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TextureDescriptor {
@@ -23,16 +23,22 @@ pub enum TextureDescriptor {
     Data {
         pixels: Vec<u8>,
         size: TextureSize,
-        channels: TextureChannel,
         usages: TextureUsages,
+        format: TextureFormat,
     },
     /// In case you need a custom set of descriptors.
     Custom {
+        /// Texture Descriptor.
+        /// Check `wgpu::TextureDescriptor` for more information.
         texture_descriptor: wgpu::TextureDescriptor<'static>,
+        /// Texture View Descriptor.
+        /// Check `wgpu::TextureViewDescriptor` for more information.
         view_descriptor: wgpu::TextureViewDescriptor<'static>,
+        /// Texture Sampler Descriptor.
+        /// Check `wgpu::SamplerDescriptor` for more information.
         sampler_descriptor: wgpu::SamplerDescriptor<'static>,
-        data: Vec<u8>,
         size: Extent3d,
+        data: Vec<u8>,
     },
 }
 
@@ -45,7 +51,7 @@ impl TextureDescriptor {
                 height: 1,
                 ..Default::default()
             },
-            channels: TextureChannel::RGBA,
+            format: TextureFormat::Rgba8UnormSrgb,
             usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
         }
     }
@@ -58,7 +64,7 @@ impl TextureDescriptor {
                 height: 1,
                 ..Default::default()
             },
-            channels: TextureChannel::RGBA,
+            format: TextureFormat::Rgba8UnormSrgb,
             usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
         }
     }
@@ -71,7 +77,7 @@ impl TextureDescriptor {
                 height: 1,
                 ..Default::default()
             },
-            channels: TextureChannel::RGBA,
+            format: TextureFormat::Rgba8UnormSrgb,
             usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
         }
     }
@@ -89,7 +95,7 @@ impl TextureDescriptor {
                 height: 1,
                 ..Default::default()
             },
-            channels: TextureChannel::RGBA,
+            format: TextureFormat::Rgba8UnormSrgb,
             usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
         }
     }
@@ -107,7 +113,7 @@ impl TextureDescriptor {
                 height: 1,
                 ..Default::default()
             },
-            channels: TextureChannel::R,
+            format: TextureFormat::Rgba8UnormSrgb,
             usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
         }
     }
@@ -120,7 +126,7 @@ impl TextureDescriptor {
                 height: 1,
                 ..Default::default()
             },
-            channels: TextureChannel::R,
+            format: TextureFormat::R8Unorm,
             usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
         }
     }
@@ -133,7 +139,7 @@ impl TextureDescriptor {
                 height: 1,
                 ..Default::default()
             },
-            channels: TextureChannel::R,
+            format: TextureFormat::R8Unorm,
             usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
         }
     }
@@ -146,7 +152,7 @@ impl TextureDescriptor {
                 height: 1,
                 ..Default::default()
             },
-            channels: TextureChannel::R,
+            format: TextureFormat::R8Unorm,
             usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
         }
     }
@@ -159,7 +165,7 @@ impl TextureDescriptor {
                 height: 1,
                 ..Default::default()
             },
-            channels: TextureChannel::R,
+            format: TextureFormat::R8Unorm,
             usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
         }
     }
@@ -176,22 +182,21 @@ impl Hash for TextureDescriptor {
             }
             TextureDescriptor::Data {
                 pixels,
-                size: dimensions,
-                channels,
+                size,
+                format,
                 usages,
             } => {
                 pixels.hash(state);
-                dimensions.hash(state);
-                channels.hash(state);
+                size.hash(state);
+                format.hash(state);
                 usages.hash(state);
             }
             TextureDescriptor::Custom {
                 texture_descriptor,
                 view_descriptor,
-
                 sampler_descriptor,
-                data,
                 size,
+                data,
             } => {
                 texture_descriptor.hash(state);
 

@@ -10,9 +10,6 @@ use wgpu::{
     TextureViewDimension,
 };
 
-mod channel;
-pub use channel::*;
-
 mod size;
 pub use size::*;
 
@@ -21,6 +18,9 @@ pub use error::*;
 
 mod descriptor;
 pub use descriptor::*;
+
+#[cfg(test)]
+mod tests;
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Texture {
@@ -42,18 +42,18 @@ impl Texture {
             }
             TextureDescriptor::Data {
                 pixels,
-                size: dimensions,
-                channels,
+                size,
+                format,
                 usages,
             } => Ok(Self::from_data(
-                pixels, dimensions, channels, *usages, device, queue,
+                pixels, size, *usages, *format, device, queue,
             )),
             TextureDescriptor::Custom {
                 texture_descriptor,
                 view_descriptor,
                 sampler_descriptor,
-                data,
                 size,
+                data,
             } => Ok(Self::from_descriptors_and_data(
                 texture_descriptor,
                 view_descriptor,
@@ -217,7 +217,7 @@ impl Texture {
                     height: 1,
                     ..Default::default()
                 },
-                channels: TextureChannel::RGBA,
+                format: TextureFormat::Rgba8UnormSrgb,
                 usages,
             },
             device,
@@ -234,6 +234,7 @@ impl Texture {
     pub fn uniform_color(
         color: Vector4<u8>,
         usages: TextureUsages,
+        format: TextureFormat,
         device: &Device,
         queue: &Queue,
     ) -> Self {
@@ -244,8 +245,8 @@ impl Texture {
                 height: 1,
                 ..Default::default()
             },
-            &TextureChannel::RGBA,
             usages,
+            format,
             device,
             queue,
         )
@@ -254,8 +255,8 @@ impl Texture {
     pub fn from_data(
         pixels: &[u8],
         size: &TextureSize,
-        channels: &TextureChannel,
         usages: TextureUsages,
+        format: TextureFormat,
         device: &Device,
         queue: &Queue,
     ) -> Self {
@@ -266,11 +267,7 @@ impl Texture {
                 height: size.height,
                 depth_or_array_layers: size.depth_or_array_layers,
             },
-            format: match channels {
-                TextureChannel::R => TextureFormat::R8Unorm,
-                TextureChannel::RG => TextureFormat::Rg8Unorm,
-                TextureChannel::RGBA => TextureFormat::Rgba8Unorm,
-            },
+            format,
             mip_level_count: size.mip_levels,
             sample_count: 1,
             // TODO: Other dimensions cannot be set atm!
@@ -330,11 +327,12 @@ impl Texture {
             pixels,
             ImageDataLayout {
                 offset: 0,
-                bytes_per_row: Some(match channels {
-                    TextureChannel::R => 1 * size.width,
-                    TextureChannel::RG => 2 * size.width,
-                    TextureChannel::RGBA => 4 * size.width,
-                }),
+                bytes_per_row: Some(
+                    size.width
+                        * format.target_pixel_byte_cost().expect(
+                            "Need to acquire target pixel byte cost for correct texture mapping!",
+                        ),
+                ),
                 rows_per_image: Some(size.height),
             },
             Extent3d {
@@ -389,6 +387,8 @@ impl Texture {
         device: &Device,
         queue: &Queue,
     ) -> Self {
+        let texture_format = texture_descriptor.format.clone();
+
         let texture = device.create_texture(texture_descriptor);
         let view = texture.create_view(view_descriptor);
         let sampler = device.create_sampler(sampler_descriptor);
@@ -411,7 +411,14 @@ impl Texture {
                     mip_level: 0,
                 },
                 data,
-                ImageDataLayout::default(),
+                ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: Some(
+                        size.width * texture_format.target_pixel_byte_cost().expect("Need to acquire target pixel byte cost for correct texture mapping!",
+                        ),
+                    ),
+                    rows_per_image: Some(size.height),
+                },
                 size,
             );
         }
