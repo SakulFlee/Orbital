@@ -1,3 +1,4 @@
+use log::debug;
 use smol::block_on;
 use wgpu::{
     Adapter, Backends, Device, DeviceDescriptor, Instance, InstanceDescriptor, PowerPreference,
@@ -5,14 +6,16 @@ use wgpu::{
 };
 
 pub async fn make_wgpu_connection_async() -> (Adapter, Device, Queue) {
-    println!("{:#^80}", " WGPU Test Adapter ");
-    println!("# {: ^76} #", "!!! for testing only !!!");
+    logging::init();
+
+    debug!("{:#^88}", " WGPU Test Adapter ");
+    debug!("# {: ^84} #", "!!! for testing only !!!");
 
     let instance = Instance::new(InstanceDescriptor {
         backends: Backends::all(),
         ..Default::default()
     });
-    println!("# {: <76} #", format!("Instance: {:?}", instance));
+    debug!("# {: <84} #", format!("Instance: {:?}", instance));
 
     let adapter = instance
         .request_adapter(&RequestAdapterOptions {
@@ -22,21 +25,21 @@ pub async fn make_wgpu_connection_async() -> (Adapter, Device, Queue) {
         })
         .await
         .expect("Failed to find any adapter");
-    println!("# {: <76} #", format!("Name: {}", adapter.get_info().name));
-    println!(
-        "# {: <76} #",
+    debug!("# {: <84} #", format!("Name: {}", adapter.get_info().name));
+    debug!(
+        "# {: <84} #",
         format!("Backend: {:?}", adapter.get_info().backend)
     );
-    println!(
-        "# {: <76} #",
+    debug!(
+        "# {: <84} #",
         format!("Device Type: {:?}", adapter.get_info().device_type)
     );
-    println!(
-        "# {: <76} #",
+    debug!(
+        "# {: <84} #",
         format!("Driver: {}", adapter.get_info().driver)
     );
-    println!(
-        "# {: <76} #",
+    debug!(
+        "# {: <84} #",
         format!("Driver Info: {}", adapter.get_info().driver_info)
     );
 
@@ -49,10 +52,10 @@ pub async fn make_wgpu_connection_async() -> (Adapter, Device, Queue) {
         )
         .await
         .expect("Failed to create device");
-    println!("# {: <76} #", format!("Device: {:?}", device.features()));
-    println!("# {: <76} #", format!("Queue: {:?}", queue));
+    debug!("# {: <84} #", format!("Device: {:?}", device.features()));
+    debug!("# {: <84} #", format!("Queue: {:?}", queue));
 
-    println!("{:#^80}", "");
+    debug!("{:#^88}", "");
 
     (adapter, device, queue)
 }
