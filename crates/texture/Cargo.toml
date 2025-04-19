@@ -7,3 +7,6 @@ edition = "2024"
 wgpu = { workspace = true }
 cgmath = { workspace = true }
 image = { workspace = true }
+logging = { workspace = true }
+wgpu_test_adapter = { workspace = true }
+log = { workspace = true }
