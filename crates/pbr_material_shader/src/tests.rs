@@ -1,4 +1,4 @@
-use material_shader::{MaterialShader, MaterialShaderDescriptor, VertexStageLayout};
+use material_shader::{MaterialShaderDescriptor, VertexStageLayout};
 use shader::ShaderSource;
 use wgpu::{Face, FrontFace, PolygonMode, PrimitiveTopology};
 

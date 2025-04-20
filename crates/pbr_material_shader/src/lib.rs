@@ -2,8 +2,8 @@ use buffer::BufferDescriptor;
 use cgmath::{Vector3, Zero};
 use material_shader::MaterialShaderDescriptor;
 use shader::VariableType;
-use texture::{TextureChannel, TextureDescriptor, TextureSize};
-use wgpu::{TextureSampleType, TextureUsages};
+use texture::{TextureDescriptor, TextureSize};
+use wgpu::{TextureFormat, TextureSampleType, TextureUsages};
 
 #[cfg(test)]
 mod tests;
@@ -54,7 +54,7 @@ impl Default for PBRMaterialShaderDescriptor {
                     height: 1,
                     ..Default::default()
                 },
-                channels: TextureChannel::RGBA,
+                format: TextureFormat::Rgba8UnormSrgb,
                 usages: TextureUsages::all(),
             },
             albedo: TextureDescriptor::Data {
@@ -64,7 +64,7 @@ impl Default for PBRMaterialShaderDescriptor {
                     height: 1,
                     ..Default::default()
                 },
-                channels: TextureChannel::RGBA,
+                format: TextureFormat::Rgba8UnormSrgb,
                 usages: TextureUsages::all(),
             },
             albedo_factor: Vector3::zero(),
@@ -75,7 +75,7 @@ impl Default for PBRMaterialShaderDescriptor {
                     height: 1,
                     ..Default::default()
                 },
-                channels: TextureChannel::R,
+                format: TextureFormat::R8Unorm,
                 usages: TextureUsages::all(),
             },
             metallic_factor: 0.0,
@@ -86,7 +86,7 @@ impl Default for PBRMaterialShaderDescriptor {
                     height: 1,
                     ..Default::default()
                 },
-                channels: TextureChannel::R,
+                format: TextureFormat::R8Unorm,
                 usages: TextureUsages::all(),
             },
             roughness_factor: 0.0,
@@ -97,7 +97,7 @@ impl Default for PBRMaterialShaderDescriptor {
                     height: 1,
                     ..Default::default()
                 },
-                channels: TextureChannel::R,
+                format: TextureFormat::R8Unorm,
                 usages: TextureUsages::all(),
             },
             emissive: TextureDescriptor::Data {
@@ -107,7 +107,7 @@ impl Default for PBRMaterialShaderDescriptor {
                     height: 1,
                     ..Default::default()
                 },
-                channels: TextureChannel::R,
+                format: TextureFormat::R8Unorm,
                 usages: TextureUsages::all(),
             },
             custom_material_shader: Default::default(),
