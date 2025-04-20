@@ -70,7 +70,7 @@ impl Texture {
         size: Vector2<u32>,
         format: TextureFormat,
         usage: TextureUsages,
-        with_mips: bool,
+        mip_levels: u32,
         device: &Device,
     ) -> Texture {
         let size = Extent3d {
@@ -82,11 +82,7 @@ impl Texture {
         let texture = device.create_texture(&WTextureDescriptor {
             label,
             size,
-            mip_level_count: if with_mips {
-                Texture::calculate_max_mip_levels_from_texture_size(&size)
-            } else {
-                1
-            },
+            mip_level_count: mip_levels,
             sample_count: 1,
             dimension: TextureDimension::D2,
             format,
@@ -121,7 +117,7 @@ impl Texture {
         size: Vector2<u32>,
         format: TextureFormat,
         usage: TextureUsages,
-        with_mips: bool,
+        mip_levels: u32,
         device: &Device,
         queue: &Queue,
     ) -> Self {
@@ -133,18 +129,12 @@ impl Texture {
             size,
             format,
             usage | TextureUsages::COPY_DST,
-            with_mips,
+            mip_levels,
             device,
         );
 
         let mut data_offset = 0;
-        let mip_count = if with_mips {
-            texture.calculate_max_mip_levels()
-        } else {
-            1
-        };
-
-        for mip_level in 0..mip_count {
+        for mip_level in 0..mip_levels {
             let mip_size = Extent3d {
                 width: size.x >> mip_level,
                 height: size.y >> mip_level,
@@ -438,19 +428,6 @@ impl Texture {
             sampler,
             view_dimension,
         }
-    }
-
-    pub fn calculate_max_mip_levels(&self) -> u32 {
-        Self::calculate_max_mip_levels_from_texture_size(&self.texture.size())
-    }
-
-    pub fn calculate_max_mip_levels_from_texture_size(texture_size: &Extent3d) -> u32 {
-        let max_size = texture_size.width.max(texture_size.height) as f32;
-
-        let size_log = max_size.log2();
-        let size_floor = size_log.floor();
-
-        (size_floor as u32) + 1
     }
 
     pub fn read_as_binary(&self, device: &Device, queue: &Queue) -> Vec<u8> {
