@@ -1743,6 +1743,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "logging"
+version = "0.1.0"
+dependencies = [
+ "fern",
+ "humantime",
+ "log",
+]
+
+[[package]]
 name = "loop9"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3072,7 +3081,10 @@ version = "0.1.0"
 dependencies = [
  "cgmath",
  "image",
+ "log",
+ "logging",
  "wgpu",
+ "wgpu_test_adapter",
 ]
 
 [[package]]
@@ -3645,6 +3657,8 @@ dependencies = [
 name = "wgpu_test_adapter"
 version = "0.1.0"
 dependencies = [
+ "log",
+ "logging",
  "smol",
  "wgpu",
 ]
@@ -4137,6 +4151,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3268f3d866458b787f390cf61f4bbb563b922d091359f9608842999eaee3943c"
 dependencies = [
  "bitflags 2.8.0",
+]
+
+[[package]]
+name = "world_environment"
+version = "0.1.0"
+dependencies = [
+ "cgmath",
+ "dirs 5.0.1",
+ "image",
+ "log",
+ "logging",
+ "serde",
+ "texture",
+ "wgpu",
+ "wgpu_test_adapter",
 ]
 
 [[package]]
