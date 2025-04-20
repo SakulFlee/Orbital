@@ -6,7 +6,7 @@ use wgpu::{
 };
 
 pub async fn make_wgpu_connection_async() -> (Adapter, Device, Queue) {
-    logging::init();
+    logging::test_init();
 
     debug!("{:#^88}", " WGPU Test Adapter ");
     debug!("# {: ^84} #", "!!! for testing only !!!");
