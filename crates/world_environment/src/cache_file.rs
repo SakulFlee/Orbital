@@ -71,9 +71,9 @@ impl CacheFile {
     }
 
     pub fn make_textures(&self, world_environment_descriptor: &WorldEnvironmentDescriptor, device: &Device, queue: &Queue) -> (OrbitalTexture, OrbitalTexture) {
-        let cube_face_size = *match world_environment_descriptor {
-            WorldEnvironmentDescriptor::FromFile { cube_face_size, path: _, sampling_type: _ } => cube_face_size,
-            WorldEnvironmentDescriptor::FromData { cube_face_size, data: _ , size: _, sampling_type : _} => cube_face_size,
+        let (cube_face_size, specular_mip_level_count) = match world_environment_descriptor {
+            WorldEnvironmentDescriptor::FromFile { cube_face_size, path: _, sampling_type: _, specular_mip_level_count } => (*cube_face_size, specular_mip_level_count.unwrap_or(1)),
+            WorldEnvironmentDescriptor::FromData { cube_face_size, data: _ , size: _, sampling_type : _, specular_mip_level_count } => (*cube_face_size, specular_mip_level_count.unwrap_or(1)),
         };
 
         let ibl_diffuse_texture = OrbitalTexture::from_binary_data(
@@ -87,7 +87,7 @@ impl CacheFile {
             TextureUsages::STORAGE_BINDING
                 | TextureUsages::TEXTURE_BINDING
                 | TextureUsages::COPY_SRC,
-            false,
+            1,
             device,
             queue,
         );
@@ -102,7 +102,7 @@ impl CacheFile {
             TextureUsages::STORAGE_BINDING
                 | TextureUsages::TEXTURE_BINDING
                 | TextureUsages::COPY_SRC,
-            true,
+            specular_mip_level_count,
             device,
             queue,
         );

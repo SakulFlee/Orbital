@@ -4,13 +4,13 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+log = { workspace = true }
+logging = { workspace = true }
 texture = { workspace = true }
 wgpu_test_adapter = { workspace = true }
 
 cgmath = { workspace = true }
 dirs = { workspace = true }
-log = { workspace = true }
 image = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
-logging = { workspace = true }
 wgpu = { workspace = true }
