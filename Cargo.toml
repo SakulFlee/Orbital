@@ -22,12 +22,14 @@ compute_shader = { path = "crates/compute_shader" }
 instance = { path = "crates/instance" }
 material_shader = { path = "crates/material_shader" }
 pbr_material_shader = { path = "crates/pbr_material_shader" }
+logging = { path = "crates/logging" }
 shader = { path = "crates/shader" }
 shader_preprocessor = { path = "crates/shader_preprocessor" }
 texture = { path = "crates/texture" }
 transform = { path = "crates/transform" }
 vertex = { path = "crates/vertex" }
 wgpu_test_adapter = { path = "crates/wgpu_test_adapter" }
+world_environment = { path = "crates/world_environment" }
 
 # External crates
 android_logger = "0.14.0"
