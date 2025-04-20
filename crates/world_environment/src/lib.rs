@@ -1,4 +1,7 @@
-use std::hash::{DefaultHasher, Hash, Hasher};
+use std::{
+    hash::{DefaultHasher, Hash, Hasher},
+    path::PathBuf,
+};
 
 use cgmath::Vector2;
 use image::{GenericImageView, ImageReader};
@@ -33,6 +36,7 @@ pub use descriptor::*;
 #[cfg(test)]
 mod tests;
 
+#[derive(Debug)]
 pub struct WorldEnvironment {
     pbr_ibl_diffuse: Texture,
     pbr_ibl_specular: Texture,
@@ -122,56 +126,73 @@ impl WorldEnvironment {
         }
     }
 
+    pub fn find_cache_dir() -> Option<PathBuf> {
+        if let Some(platform_cache_dir) = dirs::cache_dir() {
+            return Some(platform_cache_dir.join("Orbital").join("IBLs"));
+        }
+
+        None
+    }
+
+    pub fn find_cache_file(descriptor: &WorldEnvironmentDescriptor) -> Option<PathBuf> {
+        if let Some(cache_dir) = Self::find_cache_dir() {
+            let mut hasher = DefaultHasher::new();
+            descriptor.hash(&mut hasher);
+            let hash = hasher.finish().to_string();
+
+            return Some(cache_dir.join(format!("{}.bin", hash)));
+        }
+
+        None
+    }
+
     pub fn from_descriptor(
         descriptor: &WorldEnvironmentDescriptor,
         device: &Device,
         queue: &Queue,
-        app_name: &str,
     ) -> Result<Self, Error> {
-        let mut hasher = DefaultHasher::new();
-        descriptor.hash(&mut hasher);
-        let hash = hasher.finish().to_string();
+        let cache_file_option = Self::find_cache_file(&descriptor);
 
-        if let Some(platform_cache_dir) = dirs::cache_dir() {
-            let ibl_cache_file = platform_cache_dir
-                .join(app_name)
-                .join("IBLs")
-                .join(format!("{}.bin", hash));
-            debug!("WorldEnvironment/IBL Cache location: {:?}", ibl_cache_file);
-
+        if let Some(ref cache_file_path) = cache_file_option {
             // Try loading cache file
-            let cache_result = CacheFile::from_path(&ibl_cache_file);
-            if let Ok(cache_file) = cache_result {
-                let (pbr_ibl_diffuse, pbr_ibl_specular) =
-                    cache_file.make_textures(descriptor, device, queue);
+            let cache_result = CacheFile::from_path(&cache_file_path);
+            match cache_result {
+                Ok(cache_file) => {
+                    let (pbr_ibl_diffuse, pbr_ibl_specular) =
+                        cache_file.make_textures(descriptor, device, queue);
 
-                debug!("Using cached WorldEnvironment/IBL!");
-                debug!(
-                    "Cached PBR IBL Diffuse Size: {:?} + Mip Levels: {:?}",
-                    pbr_ibl_diffuse.texture().size(),
-                    pbr_ibl_diffuse.texture().mip_level_count()
-                );
-                debug!(
-                    "Cached PBR IBL Specular Size: {:?} + Mip Levels: {:?}",
-                    pbr_ibl_specular.texture().size(),
-                    pbr_ibl_specular.texture().mip_level_count()
-                );
+                    debug!("Using cached WorldEnvironment/IBL!");
+                    debug!(
+                        "Cached PBR IBL Diffuse Size: {:?} + Mip Levels: {:?}",
+                        pbr_ibl_diffuse.texture().size(),
+                        pbr_ibl_diffuse.texture().mip_level_count()
+                    );
+                    debug!(
+                        "Cached PBR IBL Specular Size: {:?} + Mip Levels: {:?}",
+                        pbr_ibl_specular.texture().size(),
+                        pbr_ibl_specular.texture().mip_level_count()
+                    );
 
-                return Ok(Self {
-                    pbr_ibl_diffuse,
-                    pbr_ibl_specular,
-                });
+                    return Ok(Self {
+                        pbr_ibl_diffuse,
+                        pbr_ibl_specular,
+                    });
+                }
+                Err(e) => {
+                    warn!(
+                        "WorldEnvironment/IBL cache failed to load! Will continue generating IBL from HDRI. Error: {:?}",
+                        e
+                    );
+                }
             }
+        }
 
-            warn!(
-                "WorldEnvironment/IBL cache failed to load! Generating new IBL ... Attempted cache status: {:?}",
-                cache_result
-            );
+        // In case cache doesn't exist, failed to load, or the platform doesn't support caching, generate the IBL
+        let world_environment =
+            Self::from_descriptor_without_disk_cache(descriptor, device, queue)?;
 
-            // If cache doesn't exist, or failed to load, reset and regenerate
-            let world_environment =
-                Self::from_descriptor_without_disk_cache(descriptor, device, queue)?;
-
+        // If cache is available, save the generated IBL to disk
+        if let Some(ref cache_file_path) = cache_file_option {
             let ibl_diffuse_data = world_environment
                 .pbr_ibl_diffuse
                 .read_as_binary(device, queue);
@@ -183,16 +204,10 @@ impl WorldEnvironment {
                 ibl_diffuse_data,
                 ibl_specular_data,
             };
-            cache_file.to_path(ibl_cache_file)?;
-
-            Ok(world_environment)
-        } else {
-            warn!(
-                "Disk caching for WorldEnvironment/IBL is not supported on this platform! Loading the skybox might take significantly longer."
-            );
-
-            Self::from_descriptor_without_disk_cache(descriptor, device, queue)
+            cache_file.to_path(cache_file_path)?;
         }
+
+        Ok(world_environment)
     }
 
     pub fn from_descriptor_without_disk_cache(
@@ -205,17 +220,27 @@ impl WorldEnvironment {
                 cube_face_size,
                 path,
                 sampling_type,
-            } => Self::radiance_hdr_file(path, *cube_face_size, sampling_type, device, queue),
+                specular_mip_level_count,
+            } => Self::radiance_hdr_file(
+                path,
+                *cube_face_size,
+                sampling_type,
+                specular_mip_level_count.unwrap_or(10),
+                device,
+                queue,
+            ),
             WorldEnvironmentDescriptor::FromData {
                 cube_face_size,
                 data,
                 size,
                 sampling_type,
+                specular_mip_level_count,
             } => Ok(Self::radiance_hdr_vec(
                 data,
                 *size,
                 *cube_face_size,
                 sampling_type,
+                specular_mip_level_count.unwrap_or(10),
                 device,
                 queue,
             )),
@@ -226,6 +251,7 @@ impl WorldEnvironment {
         file_path: &str,
         dst_size: u32,
         sampling_type: &SamplingType,
+        specular_mip_level_count: u32,
         device: &Device,
         queue: &Queue,
     ) -> Result<Self, Error> {
@@ -252,6 +278,7 @@ impl WorldEnvironment {
             },
             dst_size,
             sampling_type,
+            specular_mip_level_count,
             device,
             queue,
         ))
@@ -262,6 +289,7 @@ impl WorldEnvironment {
         src_size: Vector2<u32>,
         dst_size: u32,
         sampling_type: &SamplingType,
+        specular_mip_level_count: u32,
         device: &Device,
         queue: &Queue,
     ) -> Self {
@@ -317,11 +345,17 @@ impl WorldEnvironment {
             dst_size,
             &device.create_bind_group_layout(&Self::bind_group_layout_descriptor()),
             src_texture.view(),
+            specular_mip_level_count,
             &mut encoder,
             device,
         );
-        let specular =
-            Self::generate_specular_mip_maps(&raw_specular, sampling_type, &mut encoder, device);
+        let specular = Self::generate_specular_mip_maps(
+            &raw_specular,
+            sampling_type,
+            specular_mip_level_count,
+            &mut encoder,
+            device,
+        );
 
         queue.submit([encoder.finish()]);
 
@@ -355,7 +389,7 @@ impl WorldEnvironment {
             TextureUsages::STORAGE_BINDING
                 | TextureUsages::TEXTURE_BINDING
                 | TextureUsages::COPY_SRC,
-            false,
+            1,
             device,
         );
 
@@ -398,6 +432,7 @@ impl WorldEnvironment {
         dst_size: u32,
         bind_group_layout: &BindGroupLayout,
         src_view: &TextureView,
+        specular_mip_level_count: u32,
         encoder: &mut CommandEncoder,
         device: &Device,
     ) -> Texture {
@@ -418,13 +453,15 @@ impl WorldEnvironment {
             TextureUsages::STORAGE_BINDING
                 | TextureUsages::TEXTURE_BINDING
                 | TextureUsages::COPY_SRC,
-            false,
+            specular_mip_level_count,
             device,
         );
 
         let dst_view = dst_texture.texture().create_view(&TextureViewDescriptor {
             label: Some("PBR IBL Specular --- !!! PROCESSING VIEW !!!"),
             dimension: Some(TextureViewDimension::D2Array),
+            base_mip_level: 0,
+            mip_level_count: Some(1),
             ..Default::default()
         });
 
@@ -460,6 +497,7 @@ impl WorldEnvironment {
     fn generate_specular_mip_maps(
         src_specular_ibl: &Texture,
         sampling_type: &SamplingType,
+        specular_mip_level_count: u32,
         encoder: &mut CommandEncoder,
         device: &Device,
     ) -> Texture {
@@ -475,6 +513,8 @@ impl WorldEnvironment {
             device,
         );
 
+        let max_mip_levels = specular_mip_level_count;
+
         let dst_texture = Texture::create_empty_cube_texture(
             Some("PBR IBL Specular with LoDs"),
             Vector2 {
@@ -485,12 +525,11 @@ impl WorldEnvironment {
             TextureUsages::STORAGE_BINDING
                 | TextureUsages::TEXTURE_BINDING
                 | TextureUsages::COPY_SRC,
-            true,
+            max_mip_levels,
             device,
         );
 
-        let max_mip_levels = dst_texture.calculate_max_mip_levels() - 1;
-        for mip_level in 0..=max_mip_levels {
+        for mip_level in 0..max_mip_levels {
             let dst_view = dst_texture.texture().create_view(&TextureViewDescriptor {
                 label: Some("PBR IBL Specular LoD processing view"),
                 dimension: Some(TextureViewDimension::D2Array),
