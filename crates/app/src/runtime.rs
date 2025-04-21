@@ -61,6 +61,8 @@ impl AppRuntime {
         settings: AppSettings,
         mut app: impl App + Send + 'static,
     ) -> Result<(), EventLoopError> {
+        logging::init();
+
         info!("Orbital Runtime");
         info!(" --- @SakulFlee --- ");
 
