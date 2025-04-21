@@ -320,7 +320,6 @@ pub mod cache_state;
 pub mod error;
 pub mod input;
 pub mod loader;
-pub mod logging;
 pub mod renderer;
 pub mod resources;
 pub mod timer;
