@@ -1454,6 +1454,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 
 [[package]]
+name = "ibl_brdf"
+version = "0.1.0"
+dependencies = [
+ "cgmath",
+ "logging",
+ "texture",
+ "wgpu",
+ "wgpu_test_adapter",
+]
+
+[[package]]
 name = "image"
 version = "0.25.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
