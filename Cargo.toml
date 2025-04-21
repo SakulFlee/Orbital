@@ -19,7 +19,7 @@ debug = false
 # In-Workspace crates
 app = { path = "crates/app" }
 buffer = { path = "crates/buffer" }
-compute_shader = { path = "crates/compute_shader" }
+cache = { path = "crates/compute_shader" }
 ibl_brdf = { path = "crates/ibl_brdf" }
 instance = { path = "crates/instance" }
 logging = { path = "crates/logging" }
