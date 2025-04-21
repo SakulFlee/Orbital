@@ -168,6 +168,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6b964d184e89d9b6b67dd2715bc8e74cf3107fb2b529990c90cf517326150bf4"
 
 [[package]]
+name = "app"
+version = "0.1.0"
+dependencies = [
+ "async-std",
+ "cgmath",
+ "futures",
+ "gilrs",
+ "hashbrown",
+ "logging",
+ "message",
+ "pollster",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
 name = "approx"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -695,13 +711,6 @@ checksum = "ba5a308b75df32fe02788e748662718f03fde005016435c444eea572398219fd"
 dependencies = [
  "bytes",
  "memchr",
-]
-
-[[package]]
-name = "compute_shader"
-version = "0.1.0"
-dependencies = [
- "wgpu",
 ]
 
 [[package]]
@@ -1823,6 +1832,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd3f7eed9d3848f8b98834af67102b720745c4ec028fcd0aa0239277e7de374f"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "message"
+version = "0.1.0"
+dependencies = [
+ "hashbrown",
+ "variant",
 ]
 
 [[package]]
@@ -3295,6 +3312,13 @@ name = "value-bag"
 version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3ef4c4aa54d5d05a279399bfa921ec387b7aba77caf7a682ae8d86785b8fdad2"
+
+[[package]]
+name = "variant"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "vec_map"
