@@ -4,9 +4,6 @@ pub mod camera;
 pub mod light;
 pub mod mesh;
 pub mod model;
-pub mod sampling_type;
-pub mod skybox_type;
-pub mod world_environment;
 
 pub use bounding_box::*;
 pub use buffer::*;
@@ -15,6 +12,3 @@ pub use instance::*;
 pub use light::*;
 pub use mesh::*;
 pub use model::*;
-pub use sampling_type::*;
-pub use skybox_type::*;
-pub use world_environment::*;
