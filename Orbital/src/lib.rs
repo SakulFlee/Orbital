@@ -320,7 +320,6 @@ pub mod error;
 pub mod loader;
 pub mod renderer;
 pub mod resources;
-pub mod transform;
 pub mod util;
 pub mod world;
 
