@@ -314,7 +314,6 @@
 //! [EventLoop]: crate::winit::event_loop::EventLoop
 
 // Modules
-pub mod cache;
 pub mod cache_state;
 pub mod error;
 pub mod loader;

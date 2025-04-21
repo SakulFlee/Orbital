@@ -11,6 +11,7 @@ use crate::{
 };
 
 pub struct CacheState {
+    // TODO: Put into Renderer!
     pub mesh_cache: RefCell<Cache<Arc<MeshDescriptor>, Mesh>>,
     pub material_cache: RefCell<Cache<Arc<MaterialShaderDescriptor>, Material>>,
 }
