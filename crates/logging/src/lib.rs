@@ -1,6 +1,6 @@
 use std::{fs, path::Path, time::SystemTime};
 
-use log::*;
+pub use log::*;
 
 #[cfg(target_os = "android")]
 pub fn init() {
