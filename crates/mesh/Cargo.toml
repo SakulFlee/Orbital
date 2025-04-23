@@ -1,0 +1,11 @@
+[package]
+name = "mesh"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+vertex = { workspace = true }
+cgmath = { workspace = true }
+wgpu = { workspace = true }
+wgpu_test_adapter = { workspace = true }
+bounding_box = { workspace = true }
