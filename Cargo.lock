@@ -558,6 +558,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bounding_box"
+version = "0.1.0"
+dependencies = [
+ "cgmath",
+ "wgpu",
+ "wgpu_test_adapter",
+]
+
+[[package]]
 name = "buffer"
 version = "0.1.0"
 dependencies = [
@@ -1840,6 +1849,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd3f7eed9d3848f8b98834af67102b720745c4ec028fcd0aa0239277e7de374f"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "mesh"
+version = "0.1.0"
+dependencies = [
+ "bounding_box",
+ "cgmath",
+ "vertex",
+ "wgpu",
+ "wgpu_test_adapter",
 ]
 
 [[package]]
