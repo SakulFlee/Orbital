@@ -1902,6 +1902,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "model"
+version = "0.1.0"
+dependencies = [
+ "bounding_box",
+ "cache",
+ "cgmath",
+ "instance",
+ "material_shader",
+ "mesh",
+ "transform",
+ "vertex",
+ "wgpu",
+ "wgpu_test_adapter",
+]
+
+[[package]]
 name = "naga"
 version = "23.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
