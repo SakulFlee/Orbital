@@ -1,0 +1,16 @@
+[package]
+name = "model"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+mesh = { workspace = true }
+material_shader = { workspace = true }
+bounding_box = { workspace = true }
+vertex = { workspace = true }
+cache = { workspace = true }
+instance = { workspace = true }
+wgpu = { workspace = true }
+transform = { workspace = true }
+cgmath = { workspace = true }
+wgpu_test_adapter = { workspace = true }
