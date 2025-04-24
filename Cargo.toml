@@ -21,6 +21,7 @@ app = { path = "crates/app" }
 buffer = { path = "crates/buffer" }
 bounding_box = { path = "crates/bounding_box" }
 cache = { path = "crates/cache" }
+camera = { path = "crates/camera" }
 ibl_brdf = { path = "crates/ibl_brdf" }
 instance = { path = "crates/instance" }
 logging = { path = "crates/logging" }
