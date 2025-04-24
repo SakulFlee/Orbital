@@ -17,7 +17,7 @@ pub struct Mesh {
     vertex_buffer: Buffer,
     index_buffer: Buffer,
     index_count: u32,
-    bounding_box: BoundingBox,
+    bounding_box: BoundingBox, // TODO: probably not needed
 }
 
 impl Mesh {
