@@ -2,19 +2,6 @@
 resolver = "2"
 members = ["Orbital/", "Example/", "crates/*"]
 
-[profile.dev.package."*"]
-opt-level = 3
-
-[profile.dev]
-opt-level = 1
-
-[profile.release]
-lto = true
-opt-level = 3
-codegen-units = 1
-incremental = false
-debug = false
-
 [workspace.dependencies]
 # In-Workspace crates
 app = { path = "crates/app" }
@@ -66,3 +53,31 @@ smol = "2.0.2"
 toml = "0.8.19"
 wgpu = "23.0.0"
 winit = "0.30.0"
+
+[profile.release]
+lto = true
+opt-level = 3
+codegen-units = 1
+incremental = false
+debug = false
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package.wgpu]
+opt-level = 3
+
+[profile.dev.package.winit]
+opt-level = 3
+
+[profile.dev.package.hashbrown]
+opt-level = 3
+
+[profile.dev.package.pollster]
+opt-level = 3
+
+[profile.dev.package.async-std]
+opt-level = 3
+
+[profile.dev.package.cgmath]
+opt-level = 3
