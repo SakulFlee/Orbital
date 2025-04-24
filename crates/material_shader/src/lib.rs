@@ -6,7 +6,7 @@ use wgpu::{
     RenderPipelineDescriptor, TextureFormat, VertexState,
 };
 
-use shader::{Error, ShaderDescriptor, Variables};
+pub use shader::{Error, ShaderDescriptor, Variables};
 
 mod descriptor;
 pub use descriptor::*;
