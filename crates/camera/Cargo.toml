@@ -1,0 +1,11 @@
+[package]
+name = "camera"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+buffer = { workspace = true }
+cgmath = { workspace = true }
+logging = { workspace = true }
+wgpu = { workspace = true }
+wgpu_test_adapter = { workspace = true }
