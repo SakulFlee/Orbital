@@ -1,9 +1,0 @@
-[package]
-name = "change_list"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-camera = { workspace = true }
-model = { workspace = true }
-async-std = { workspace = true }

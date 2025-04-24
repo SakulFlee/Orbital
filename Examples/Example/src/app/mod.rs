@@ -139,7 +139,7 @@ impl App for MyApp {
         let events = self.element_store.update(delta_time, input_state).await;
 
         let mut physics_events = Vec::<PhysicsEvent>::new();
-        let mut element_events = Vec::<ElementEvent>::new();
+        let mut element_events = Vec::<ElementEvent>::new(); // TODO: USE 
         let mut runtime_events = Vec::<RuntimeEvent>::new();
 
         for event in events {
@@ -149,7 +149,7 @@ impl App for MyApp {
                     physics_events.push(PhysicsEvent::Camera(camera_event))
                 }
                 Event::Element(element_event) => element_events.push(element_event),
-                Event::App(runtime_event) => runtime_events.push(runtime_event),
+                Event::App(runtime_event) => runtime_events.push(runtime_event), // TODO Should be Runtime not App Events
                 Event::File(file_event) => todo!(),
                 Event::Clear => physics_events.push(PhysicsEvent::Clear),
             }
