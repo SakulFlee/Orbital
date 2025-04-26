@@ -72,7 +72,7 @@ impl CacheFile {
 
     pub fn make_textures(&self, world_environment_descriptor: &WorldEnvironmentDescriptor, device: &Device, queue: &Queue) -> (OrbitalTexture, OrbitalTexture) {
         let (cube_face_size, specular_mip_level_count) = match world_environment_descriptor {
-            WorldEnvironmentDescriptor::FromFile { cube_face_size, path: _, sampling_type: _, specular_mip_level_count } => (*cube_face_size, specular_mip_level_count.unwrap_or(1)),
+            WorldEnvironmentDescriptor::FromFile { cube_face_size, path: _, sampling_type: _, custom_specular_mip_level_count: specular_mip_level_count } => (*cube_face_size, specular_mip_level_count.unwrap_or(1)),
             WorldEnvironmentDescriptor::FromData { cube_face_size, data: _ , size: _, sampling_type : _, specular_mip_level_count } => (*cube_face_size, specular_mip_level_count.unwrap_or(1)),
         };
 
