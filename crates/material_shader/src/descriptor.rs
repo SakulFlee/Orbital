@@ -7,7 +7,7 @@ pub type MaterialDescriptor = MaterialShaderDescriptor;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct MaterialShaderDescriptor {
-    pub name: Option<&'static str>,
+    pub name: Option<String>,
     pub shader_source: ShaderSource,
     pub variables: Vec<VariableType>,
     pub entrypoint_vertex: &'static str,
@@ -21,8 +21,8 @@ pub struct MaterialShaderDescriptor {
 }
 
 impl ShaderDescriptor for MaterialShaderDescriptor {
-    fn name(&self) -> Option<&'static str> {
-        self.name
+    fn name(&self) -> Option<String> {
+        self.name.clone()
     }
 
     fn source(&self) -> ShaderSource {
@@ -41,7 +41,7 @@ impl ShaderDescriptor for MaterialShaderDescriptor {
 impl Default for MaterialShaderDescriptor {
     fn default() -> Self {
         Self {
-            name: Some("Default Material Shader"),
+            name: Some("Default Material Shader".to_string()),
             shader_source: ShaderSource::default(),
             variables: Vec::new(),
             entrypoint_vertex: "entrypoint_vertex",
