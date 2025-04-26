@@ -1,5 +1,7 @@
 use crate::ShaderPreprocessor;
 
+pub const SHADER_PATH: &'static str = "../../Assets/Shaders/";
+
 /// Tests if a shader without any imports parses without any changes being done to it. The input must equal the output!
 #[cfg(test)]
 #[test]
@@ -379,13 +381,13 @@ fn test_add_import() {
 #[cfg(test)]
 #[test]
 fn test_add_file_import() {
-    const PATH: &'static str = "../../crates/shaders/shaders/pbr/pbr.wgsl";
-    const CONTENT: &'static str = include_str!("../shaders/pbr/pbr.wgsl");
+    const PATH: &'static str = "pbr/pbr.wgsl";
+    const CONTENT: &'static str = include_str!("../../../Assets/Shaders/pbr/pbr.wgsl");
     const EXPECTED_DIRECTIVE: &'static str = "pbr";
 
     let mut shader_preprocessor = ShaderPreprocessor::new_empty();
     shader_preprocessor
-        .add_file_import(None::<String>, PATH)
+        .add_file_import(None::<String>, format!("{}/{}", SHADER_PATH, PATH))
         .expect("Adding file import failed!");
 
     assert!(!shader_preprocessor.known_imports.is_empty());
@@ -406,13 +408,16 @@ fn test_add_file_import() {
 #[cfg(test)]
 #[test]
 fn test_add_file_import_custom_directive() {
-    const PATH: &'static str = "../../crates/shaders/shaders/pbr/pbr.wgsl";
-    const CONTENT: &'static str = include_str!("../shaders/pbr/pbr.wgsl");
+    const PATH: &'static str = "pbr/pbr.wgsl";
+    const CONTENT: &'static str = include_str!("../../../Assets/Shaders/pbr/pbr.wgsl");
     const EXPECTED_DIRECTIVE: &'static str = "pbr/pbr";
 
     let mut shader_preprocessor = ShaderPreprocessor::new_empty();
     shader_preprocessor
-        .add_file_import(Some(EXPECTED_DIRECTIVE.to_string()), PATH)
+        .add_file_import(
+            Some(EXPECTED_DIRECTIVE.to_string()),
+            format!("{}/{}", SHADER_PATH, PATH),
+        )
         .expect("Adding file import failed!");
 
     assert!(!shader_preprocessor.known_imports.is_empty());
@@ -435,7 +440,7 @@ fn test_add_file_import_custom_directive() {
 fn test_folder_import() {
     let mut shader_preprocessor = ShaderPreprocessor::new_empty();
     shader_preprocessor
-        .import_folder("../../crates/shaders/shaders")
+        .import_folder(SHADER_PATH)
         .expect("Failure to import shader lib!");
 
     assert!(!shader_preprocessor.known_imports.is_empty());
@@ -447,7 +452,7 @@ fn test_folder_import() {
 fn test_folder_import_contains_pbr() {
     let mut shader_preprocessor = ShaderPreprocessor::new_empty();
     shader_preprocessor
-        .import_folder("../../crates/shaders/shaders")
+        .import_folder(SHADER_PATH)
         .expect("Failure to import shader lib!");
 
     assert!(shader_preprocessor.known_imports.contains_key("pbr/pbr"));
@@ -459,7 +464,7 @@ fn test_folder_import_contains_pbr() {
 fn test_folder_import_not_empty() {
     let mut shader_preprocessor = ShaderPreprocessor::new_empty();
     shader_preprocessor
-        .import_folder("../../crates/shaders/shaders")
+        .import_folder(SHADER_PATH)
         .expect("Failure to import shader lib!");
 
     assert!(!shader_preprocessor.known_imports.is_empty());
