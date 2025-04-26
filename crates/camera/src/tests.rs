@@ -34,6 +34,7 @@ fn realization_change_is_not_changing() {
     let mut to_be_changed_descriptor = original_descriptor.clone();
 
     let change = CameraChange {
+        target: CameraDescriptor::DEFAULT_NAME.to_string(),
         position: None,
         pitch: None,
         yaw: None,
@@ -57,6 +58,7 @@ fn realization_change_is_changing() {
     let mut to_be_changed_descriptor = original_descriptor.clone();
 
     let change = CameraChange {
+        target: CameraDescriptor::DEFAULT_NAME.to_string(),
         position: Some(Mode::Overwrite(Vector3 {
             x: POSITION_X,
             y: POSITION_Y,
@@ -88,6 +90,7 @@ fn realization_change_position_only() {
     let mut to_be_changed_descriptor = original_descriptor.clone();
 
     let change = CameraChange {
+        target: CameraDescriptor::DEFAULT_NAME.to_string(),
         position: Some(Mode::Overwrite(Vector3 {
             x: POSITION_X,
             y: POSITION_Y,
@@ -117,6 +120,7 @@ fn realization_change_pitch_only() {
     let mut to_be_changed_descriptor = original_descriptor.clone();
 
     let change = CameraChange {
+        target: CameraDescriptor::DEFAULT_NAME.to_string(),
         position: None,
         pitch: Some(Mode::Overwrite(PITCH)),
         yaw: None,
@@ -142,6 +146,7 @@ fn realization_change_yaw_only() {
     let mut to_be_changed_descriptor = original_descriptor.clone();
 
     let change = CameraChange {
+        target: CameraDescriptor::DEFAULT_NAME.to_string(),
         position: None,
         pitch: None,
         yaw: Some(Mode::Overwrite(YAW)),
@@ -164,6 +169,7 @@ fn pitch_clamping() {
     let mut to_be_changed_descriptor = CameraDescriptor::default();
 
     let change = CameraChange {
+        target: CameraDescriptor::DEFAULT_NAME.to_string(),
         position: None,
         pitch: Some(Mode::Overwrite(CameraDescriptor::SAFE_FRAC_PI_2 + 0.1)),
         yaw: None,
@@ -182,6 +188,7 @@ fn pitch_negative_clamping() {
     let mut to_be_changed_descriptor = CameraDescriptor::default();
 
     let change = CameraChange {
+        target: CameraDescriptor::DEFAULT_NAME.to_string(),
         position: None,
         pitch: Some(Mode::Overwrite(-CameraDescriptor::SAFE_FRAC_PI_2 - 0.1)),
         yaw: None,
