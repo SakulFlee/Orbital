@@ -1,6 +1,7 @@
-use bounding_box::BoundingBoxDescriptor;
 use cgmath::Point3;
-use vertex::Vertex;
+
+pub use bounding_box::*;
+pub use vertex::*;
 
 #[derive(Debug, Clone, Eq, Hash)]
 pub struct MeshDescriptor {
