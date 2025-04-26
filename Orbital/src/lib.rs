@@ -315,9 +315,7 @@
 
 // Modules
 pub mod error;
-pub mod loader;
 pub mod renderer;
-pub mod util;
 pub mod world;
 
 // Re-exports
