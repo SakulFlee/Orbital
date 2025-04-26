@@ -4,6 +4,7 @@ use super::Mode;
 
 #[derive(Debug, Default)]
 pub struct CameraChange {
+    pub target: String,
     pub position: Option<Mode<Vector3<f32>>>,
     pub pitch: Option<Mode<f32>>,
     pub yaw: Option<Mode<f32>>,
