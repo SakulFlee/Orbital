@@ -13,7 +13,7 @@ pub type PBRMaterialDescriptor = PBRMaterialShaderDescriptor;
 
 pub struct PBRMaterialShaderDescriptor {
     // --- General ---
-    pub name: Option<&'static str>,
+    pub name: Option<String>,
     // --- PBR specific ---
     pub normal: TextureDescriptor,
     pub albedo: TextureDescriptor,
@@ -46,7 +46,7 @@ impl PBRMaterialShaderDescriptor {}
 impl Default for PBRMaterialShaderDescriptor {
     fn default() -> Self {
         Self {
-            name: Some("Default PBR Material Shader"),
+            name: Some("Default PBR Material Shader".into()),
             normal: TextureDescriptor::Data {
                 pixels: vec![0, 0, 0, 0],
                 size: TextureSize {

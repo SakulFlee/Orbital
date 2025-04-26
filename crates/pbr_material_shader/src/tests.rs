@@ -43,7 +43,7 @@ fn default_conversion_to_material_shader_check_name_persistence() {
     const NAME: &'static str = "Test";
 
     let mut pbr_material = PBRMaterial::default();
-    pbr_material.name = Some(NAME);
+    pbr_material.name = Some(NAME.to_string());
 
     let material_shader: MaterialShaderDescriptor = pbr_material.into();
     assert_eq!(NAME, material_shader.name.expect("Name missing"));
