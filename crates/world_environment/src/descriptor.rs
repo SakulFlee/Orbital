@@ -28,7 +28,7 @@ pub enum WorldEnvironmentDescriptor {
         /// _It might also be a good idea to check what kind of device you we are running on and adjust this value accordingly._
         ///
         /// If set to `None`, will default to 10.
-        specular_mip_level_count: Option<u32>,
+        custom_specular_mip_level_count: Option<u32>,
     },
     /// Same as [WorldEnvironmentDescriptor::FromFile], but uses a data
     /// Vector instead.
@@ -74,13 +74,13 @@ impl PartialEq for WorldEnvironmentDescriptor {
                     cube_face_size: l_cube_face_size,
                     path: l_path,
                     sampling_type: l_sampling_type,
-                    specular_mip_level_count: l_specular_mip_level_count,
+                    custom_specular_mip_level_count: l_specular_mip_level_count,
                 },
                 Self::FromFile {
                     cube_face_size: r_cube_face_size,
                     path: r_path,
                     sampling_type: r_sampling_type,
-                    specular_mip_level_count: r_specular_mip_level_count,
+                    custom_specular_mip_level_count: r_specular_mip_level_count,
                 },
             ) => {
                 l_cube_face_size == r_cube_face_size

@@ -220,7 +220,7 @@ impl WorldEnvironment {
                 cube_face_size,
                 path,
                 sampling_type,
-                specular_mip_level_count,
+                custom_specular_mip_level_count: specular_mip_level_count,
             } => Self::radiance_hdr_file(
                 path,
                 *cube_face_size,
