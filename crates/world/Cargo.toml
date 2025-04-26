@@ -1,0 +1,28 @@
+[package]
+name = "world"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+app = { workspace = true }
+async-std = { workspace = true }
+async-trait = { workspace = true }
+camera = { workspace = true }
+cgmath = { workspace = true }
+crossbeam-channel = { workspace = true }
+easy-gltf = { workspace = true, features = ["names"] }
+futures = { workspace = true }
+hashbrown = { workspace = true }
+log = { workspace = true }
+material_shader = { workspace = true }
+mesh = { workspace = true }
+message = { workspace = true }
+model = { workspace = true }
+num_cpus = { workspace = true }
+pbr_material_shader = { workspace = true }
+shader = { workspace = true }
+texture = { workspace = true }
+transform = { workspace = true }
+vertex = { workspace = true }
+wgpu = { workspace = true }
+world_environment = { workspace = true }
