@@ -1,0 +1,12 @@
+[package]
+name = "world_change"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+app = { workspace = true }
+camera = { workspace = true }
+transform = { workspace = true }
+model = { workspace = true }
+message = { workspace = true }
+world_environment = { workspace = true }
