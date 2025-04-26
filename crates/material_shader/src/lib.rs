@@ -48,7 +48,7 @@ impl MaterialShader {
             .get_or_init(|| EngineBindGroupLayout::make_bind_group_layout(device));
 
         let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
-            label: descriptor.name,
+            label: descriptor.name.as_deref(),
             bind_group_layouts: &[&engine_bind_group_layout, &layout],
             push_constant_ranges: &[],
         });
@@ -79,8 +79,9 @@ impl MaterialShader {
         })];
 
         // Create the actual render pipeline
+        let label = descriptor.name();
         let pipeline_desc = RenderPipelineDescriptor {
-            label: descriptor.name(),
+            label: label.as_deref(),
             layout: Some(&pipeline_layout),
             vertex: VertexState {
                 module: &shader_module,
