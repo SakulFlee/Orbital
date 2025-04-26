@@ -86,23 +86,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc7eb209b1518d6bb87b283c20095f5228ecda460da70b44f0802523dea6da04"
 
 [[package]]
-name = "android_log-sys"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ecc8056bf6ab9892dcd53216c83d1597487d7dacac16c8df6b877d127df9937"
-
-[[package]]
-name = "android_logger"
-version = "0.14.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05b07e8e73d720a1f2e4b6014766e6039fd2e96a4fa44e2a78d0e1fa2ff49826"
-dependencies = [
- "android_log-sys",
- "env_filter",
- "log",
-]
-
-[[package]]
 name = "android_system_properties"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -220,9 +203,6 @@ name = "arrayvec"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "as-raw-xcb-connection"
@@ -512,16 +492,6 @@ name = "bitflags"
 version = "2.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f68f53c83ab957f72c32642f3868eec03eb974d1fb82e453128456482613d36"
-
-[[package]]
-name = "bitmask-enum"
-version = "2.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6cbbb8f56245b5a479b30a62cdc86d26e2f35c2b9f594bc4671654b03851380"
-dependencies = [
- "quote",
- "syn 2.0.98",
-]
 
 [[package]]
 name = "bitstream-io"
@@ -1018,15 +988,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "example"
-version = "0.1.0"
-dependencies = [
- "futures",
- "image",
- "orbital",
-]
-
-[[package]]
 name = "exr"
 version = "1.73.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1064,12 +1025,6 @@ checksum = "4316185f709b23713e41e3195f90edef7fb00c3ed4adc79769cf09cc762a3b29"
 dependencies = [
  "log",
 ]
-
-[[package]]
-name = "fixedbitset"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ce7134b9999ecaf8bcd65542e436736ef32ddca1b3e06094cb6ec5755203b80"
 
 [[package]]
 name = "flate2"
@@ -1942,8 +1897,6 @@ dependencies = [
  "hexf-parse",
  "indexmap",
  "log",
- "petgraph",
- "pp-rs",
  "rustc-hash",
  "spirv",
  "termcolor",
@@ -2339,46 +2292,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "orbital"
-version = "0.1.0"
-dependencies = [
- "android_logger",
- "async-std",
- "async-trait",
- "bitmask-enum",
- "buffer",
- "cgmath",
- "crossbeam-channel",
- "dirs 5.0.1",
- "easy-gltf",
- "fern",
- "futures",
- "gilrs",
- "glob",
- "hashbrown",
- "humantime",
- "image",
- "instance",
- "log",
- "material_shader",
- "num_cpus",
- "pbr_material_shader",
- "pollster",
- "serde",
- "serde_derive",
- "serde_json",
- "shader",
- "shader_preprocessor",
- "texture",
- "toml",
- "transform",
- "vertex",
- "wgpu",
- "wgpu_test_adapter",
- "winit",
-]
-
-[[package]]
 name = "owned_ttf_parser"
 version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2439,16 +2352,6 @@ name = "percent-encoding"
 version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3148f5046208a5d56bcfc03053e3ca6334e51da8dfb19b6cdc8b306fae3283e"
-
-[[package]]
-name = "petgraph"
-version = "0.6.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4c5cc86750666a3ed20bdaf5ca2a0344f9c67674cae0515bec2da16fbaa47db"
-dependencies = [
- "fixedbitset",
- "indexmap",
-]
 
 [[package]]
 name = "pin-project"
@@ -2532,15 +2435,6 @@ name = "pollster"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2f3a9f18d041e6d0e102a0a46750538147e5e8992d3b4873aaafee2520b00ce3"
-
-[[package]]
-name = "pp-rs"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb458bb7f6e250e6eb79d5026badc10a3ebb8f9a15d1fff0f13d17c71f4d6dee"
-dependencies = [
- "unicode-xid",
-]
 
 [[package]]
 name = "ppv-lite86"
@@ -3648,7 +3542,6 @@ dependencies = [
  "parking_lot",
  "profiling",
  "raw-window-handle",
- "serde",
  "smallvec",
  "static_assertions",
  "wasm-bindgen",
@@ -3668,7 +3561,6 @@ dependencies = [
  "arrayvec",
  "bit-vec",
  "bitflags 2.8.0",
- "bytemuck",
  "cfg_aliases 0.1.1",
  "document-features",
  "indexmap",
@@ -3679,7 +3571,6 @@ dependencies = [
  "profiling",
  "raw-window-handle",
  "rustc-hash",
- "serde",
  "smallvec",
  "thiserror 1.0.69",
  "wgpu-hal",
@@ -3739,7 +3630,6 @@ checksum = "610f6ff27778148c31093f3b03abc4840f9636d58d597ca2f5977433acfe0068"
 dependencies = [
  "bitflags 2.8.0",
  "js-sys",
- "serde",
  "web-sys",
 ]
 
@@ -4241,6 +4131,34 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3268f3d866458b787f390cf61f4bbb563b922d091359f9608842999eaee3943c"
 dependencies = [
  "bitflags 2.8.0",
+]
+
+[[package]]
+name = "world"
+version = "0.1.0"
+dependencies = [
+ "app",
+ "async-std",
+ "async-trait",
+ "camera",
+ "cgmath",
+ "crossbeam-channel",
+ "easy-gltf",
+ "futures",
+ "hashbrown",
+ "log",
+ "material_shader",
+ "mesh",
+ "message",
+ "model",
+ "num_cpus",
+ "pbr_material_shader",
+ "shader",
+ "texture",
+ "transform",
+ "vertex",
+ "wgpu",
+ "world_environment",
 ]
 
 [[package]]
