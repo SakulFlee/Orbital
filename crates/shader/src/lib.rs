@@ -27,7 +27,7 @@ pub use source::*;
 mod tests;
 
 pub trait ShaderDescriptor {
-    fn name(&self) -> Option<&'static str> {
+    fn name(&self) -> Option<String> {
         None
     }
 
@@ -58,7 +58,7 @@ pub trait ShaderDescriptor {
             .map_err(|e| Error::ShaderPreprocessor(e))?;
 
         Ok(device.create_shader_module(ShaderModuleDescriptor {
-            label: self.name(),
+            label: self.name().as_deref(),
             source: wgpu::ShaderSource::Wgsl(preprocessed_source.into()),
         }))
     }
@@ -140,7 +140,7 @@ pub trait ShaderDescriptor {
 
         Ok((
             device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: self.name(),
+                label: self.name().as_deref(),
                 entries: &entries,
             }),
             variables,
@@ -210,7 +210,7 @@ pub trait ShaderDescriptor {
 
         Ok((
             device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: self.name(),
+                label: self.name().as_deref(),
                 layout: &layout,
                 entries: &binds,
             }),
