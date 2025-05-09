@@ -86,6 +86,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc7eb209b1518d6bb87b283c20095f5228ecda460da70b44f0802523dea6da04"
 
 [[package]]
+name = "android_log-sys"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "84521a3cf562bc62942e294181d9eef17eb38ceb8c68677bc49f144e4c3d4f8d"
+
+[[package]]
+name = "android_logger"
+version = "0.14.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05b07e8e73d720a1f2e4b6014766e6039fd2e96a4fa44e2a78d0e1fa2ff49826"
+dependencies = [
+ "android_log-sys",
+ "env_filter",
+ "log",
+]
+
+[[package]]
 name = "android_system_properties"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -151,22 +168,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e16d2d3311acee920a9eb8d33b8cbc1787ce4a264e85f964c2404b969bdcd487"
 
 [[package]]
-name = "app"
-version = "0.1.0"
-dependencies = [
- "async-std",
- "cgmath",
- "futures",
- "gilrs",
- "hashbrown",
- "logging",
- "message",
- "pollster",
- "wgpu",
- "winit",
-]
-
-[[package]]
 name = "approx"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -203,6 +204,9 @@ name = "arrayvec"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "as-raw-xcb-connection"
@@ -494,6 +498,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5c8214115b7bf84099f1309324e63141d4c5d7cc26862f97a0a857dbefe165bd"
 
 [[package]]
+name = "bitmask-enum"
+version = "2.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6cbbb8f56245b5a479b30a62cdc86d26e2f35c2b9f594bc4671654b03851380"
+dependencies = [
+ "quote",
+ "syn 2.0.101",
+]
+
+[[package]]
 name = "bitstream-io"
 version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -525,15 +539,6 @@ dependencies = [
  "futures-io",
  "futures-lite",
  "piper",
-]
-
-[[package]]
-name = "bounding_box"
-version = "0.1.0"
-dependencies = [
- "cgmath",
- "wgpu",
- "wgpu_test_adapter",
 ]
 
 [[package]]
@@ -580,14 +585,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d71b6127be86fdcfddb610f7182ac57211d4b18a3e9c82eb2d17662f2227ad6a"
 
 [[package]]
-name = "cache"
-version = "0.1.0"
-dependencies = [
- "hashbrown",
- "log",
-]
-
-[[package]]
 name = "calloop"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -611,17 +608,6 @@ dependencies = [
  "rustix",
  "wayland-backend",
  "wayland-client",
-]
-
-[[package]]
-name = "camera"
-version = "0.1.0"
-dependencies = [
- "buffer",
- "cgmath",
- "logging",
- "wgpu",
- "wgpu_test_adapter",
 ]
 
 [[package]]
@@ -988,6 +974,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "example"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "image",
+ "orbital",
+]
+
+[[package]]
 name = "exr"
 version = "1.73.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1025,6 +1020,12 @@ checksum = "4316185f709b23713e41e3195f90edef7fb00c3ed4adc79769cf09cc762a3b29"
 dependencies = [
  "log",
 ]
+
+[[package]]
+name = "fixedbitset"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ce7134b9999ecaf8bcd65542e436736ef32ddca1b3e06094cb6ec5755203b80"
 
 [[package]]
 name = "flate2"
@@ -1446,17 +1447,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b112acc8b3adf4b107a8ec20977da0273a8c386765a3ec0229bd500a1443f9f"
 
 [[package]]
-name = "ibl_brdf"
-version = "0.1.0"
-dependencies = [
- "cgmath",
- "logging",
- "texture",
- "wgpu",
- "wgpu_test_adapter",
-]
-
-[[package]]
 name = "image"
 version = "0.25.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1843,25 +1833,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mesh"
-version = "0.1.0"
-dependencies = [
- "bounding_box",
- "cgmath",
- "vertex",
- "wgpu",
- "wgpu_test_adapter",
-]
-
-[[package]]
-name = "message"
-version = "0.1.0"
-dependencies = [
- "hashbrown",
- "variant",
-]
-
-[[package]]
 name = "metal"
 version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1893,22 +1864,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "model"
-version = "0.1.0"
-dependencies = [
- "bounding_box",
- "cache",
- "cgmath",
- "instance",
- "material_shader",
- "mesh",
- "transform",
- "vertex",
- "wgpu",
- "wgpu_test_adapter",
-]
-
-[[package]]
 name = "naga"
 version = "23.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1922,6 +1877,8 @@ dependencies = [
  "hexf-parse",
  "indexmap",
  "log",
+ "petgraph",
+ "pp-rs",
  "rustc-hash",
  "spirv",
  "termcolor",
@@ -2317,6 +2274,47 @@ dependencies = [
 ]
 
 [[package]]
+name = "orbital"
+version = "0.1.0"
+dependencies = [
+ "android_logger",
+ "async-std",
+ "async-trait",
+ "bitmask-enum",
+ "buffer",
+ "cgmath",
+ "crossbeam-channel",
+ "dirs 5.0.1",
+ "easy-gltf",
+ "fern",
+ "futures",
+ "gilrs",
+ "glob",
+ "hashbrown",
+ "humantime",
+ "image",
+ "instance",
+ "log",
+ "material_shader",
+ "num_cpus",
+ "pbr_material_shader",
+ "pollster",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "shader",
+ "shader_preprocessor",
+ "smol",
+ "texture",
+ "toml",
+ "transform",
+ "vertex",
+ "wgpu",
+ "wgpu_test_adapter",
+ "winit",
+]
+
+[[package]]
 name = "owned_ttf_parser"
 version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2377,6 +2375,16 @@ name = "percent-encoding"
 version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3148f5046208a5d56bcfc03053e3ca6334e51da8dfb19b6cdc8b306fae3283e"
+
+[[package]]
+name = "petgraph"
+version = "0.6.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b4c5cc86750666a3ed20bdaf5ca2a0344f9c67674cae0515bec2da16fbaa47db"
+dependencies = [
+ "fixedbitset",
+ "indexmap",
+]
 
 [[package]]
 name = "pin-project"
@@ -2474,6 +2482,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8a2f0d8d040d7848a709caf78912debcc3f33ee4b3cac47d73d1e1069e83507"
 dependencies = [
  "portable-atomic",
+]
+
+[[package]]
+name = "pp-rs"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb458bb7f6e250e6eb79d5026badc10a3ebb8f9a15d1fff0f13d17c71f4d6dee"
+dependencies = [
+ "unicode-xid",
 ]
 
 [[package]]
@@ -3215,8 +3232,15 @@ dependencies = [
  "serde",
  "serde_spanned",
  "toml_datetime",
+ "toml_write",
  "winnow",
 ]
+
+[[package]]
+name = "toml_write"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bfb942dfe1d8e29a7ee7fcbde5bd2b9a25fb89aa70caea2eba3bee836ff41076"
 
 [[package]]
 name = "tracing"
@@ -3305,13 +3329,6 @@ name = "value-bag"
 version = "1.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "943ce29a8a743eb10d6082545d861b24f9d1b160b7d741e0f2cdf726bec909c5"
-
-[[package]]
-name = "variant"
-version = "0.1.0"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "vec_map"
@@ -3586,6 +3603,7 @@ dependencies = [
  "parking_lot",
  "profiling",
  "raw-window-handle",
+ "serde",
  "smallvec",
  "static_assertions",
  "wasm-bindgen",
@@ -3605,6 +3623,7 @@ dependencies = [
  "arrayvec",
  "bit-vec",
  "bitflags 2.9.0",
+ "bytemuck",
  "cfg_aliases 0.1.1",
  "document-features",
  "indexmap",
@@ -3615,6 +3634,7 @@ dependencies = [
  "profiling",
  "raw-window-handle",
  "rustc-hash",
+ "serde",
  "smallvec",
  "thiserror 1.0.69",
  "wgpu-hal",
@@ -3674,6 +3694,7 @@ checksum = "610f6ff27778148c31093f3b03abc4840f9636d58d597ca2f5977433acfe0068"
 dependencies = [
  "bitflags 2.9.0",
  "js-sys",
+ "serde",
  "web-sys",
 ]
 
@@ -4143,49 +4164,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f42320e61fe2cfd34354ecb597f86f413484a798ba44a8ca1165c58d42da6c1"
 dependencies = [
  "bitflags 2.9.0",
-]
-
-[[package]]
-name = "world"
-version = "0.1.0"
-dependencies = [
- "app",
- "async-std",
- "async-trait",
- "camera",
- "cgmath",
- "crossbeam-channel",
- "easy-gltf",
- "futures",
- "hashbrown",
- "log",
- "material_shader",
- "mesh",
- "message",
- "model",
- "num_cpus",
- "pbr_material_shader",
- "shader",
- "texture",
- "transform",
- "vertex",
- "wgpu",
- "world_environment",
-]
-
-[[package]]
-name = "world_environment"
-version = "0.1.0"
-dependencies = [
- "cgmath",
- "dirs 5.0.1",
- "image",
- "log",
- "logging",
- "serde",
- "texture",
- "wgpu",
- "wgpu_test_adapter",
 ]
 
 [[package]]
