@@ -1,6 +1,4 @@
-use message::Message;
-
-pub use app::AppChange;
+use crate::{app::AppChange, element::Message};
 
 mod element;
 pub use element::*;
