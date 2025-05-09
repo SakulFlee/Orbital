@@ -1,0 +1,76 @@
+[package]
+name = "orbital"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["lib", "cdylib"]
+
+[features]
+default = ["gltf", "gamepad_input", "gamepad_input_poll", "auto_request_redraw"]
+# Enables glTF support.
+gltf = ["dep:easy-gltf", "easy-gltf/names"]
+# Enables gamepad inputs from being polled and processed.
+# Note: Winit _does_ have _some_ gamepad input support, but it's not very good at the moment, gilrs takes a much better approach (for now?).
+gamepad_input = ["dep:gilrs"]
+# Automatically polls gamepad inputs and processes them.
+gamepad_input_poll = ["gamepad_input"]
+# Will automatically request a redraw when the last frame was rendered.
+# Enable this for games and applications that need to constantly redraw.
+# Disable this for applications that only need to draw once every now and then.
+auto_request_redraw = []
+
+[dependencies]
+buffer = { workspace = true }
+instance = { workspace = true }
+material_shader = { workspace = true }
+pbr_material_shader = { workspace = true }
+shader = { workspace = true }
+shader_preprocessor = { workspace = true }
+texture = { workspace = true }
+transform = { workspace = true }
+vertex = { workspace = true }
+wgpu_test_adapter = { workspace = true }
+
+wgpu = { workspace = true, features = [
+    "angle",
+    "dx12",
+    "glsl",
+    "metal",
+    "naga-ir",
+    "serde",
+    "spirv",
+    "vulkan-portability",
+    "webgl",
+    "webgpu",
+    "wgsl",
+] }
+
+serde = { workspace = true, features = ["derive"] }
+winit = { workspace = true }
+log = { workspace = true }
+fern = { workspace = true }
+serde_json = { workspace = true }
+serde_derive = { workspace = true }
+hashbrown = { workspace = true }
+humantime = { workspace = true }
+pollster = { workspace = true }
+image = { workspace = true }
+cgmath = { workspace = true }
+easy-gltf = { workspace = true, optional = true }
+gilrs = { workspace = true, optional = true }
+crossbeam-channel = { workspace = true }
+num_cpus = { workspace = true }
+async-std = { workspace = true }
+async-trait = { workspace = true }
+futures = { workspace = true }
+dirs = { workspace = true }
+toml = { workspace = true }
+bitmask-enum = { workspace = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+android_logger = { workspace = true }
+winit = { workspace = true, features = ["android-native-activity"] }
+
+[build-dependencies]
+glob = { workspace = true }
