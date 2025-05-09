@@ -21,17 +21,6 @@ gamepad_input_poll = ["gamepad_input"]
 auto_request_redraw = []
 
 [dependencies]
-buffer = { workspace = true }
-instance = { workspace = true }
-material_shader = { workspace = true }
-pbr_material_shader = { workspace = true }
-shader = { workspace = true }
-shader_preprocessor = { workspace = true }
-texture = { workspace = true }
-transform = { workspace = true }
-vertex = { workspace = true }
-wgpu_test_adapter = { workspace = true }
-
 wgpu = { workspace = true, features = [
     "angle",
     "dx12",
@@ -45,7 +34,6 @@ wgpu = { workspace = true, features = [
     "webgpu",
     "wgsl",
 ] }
-
 serde = { workspace = true, features = ["derive"] }
 winit = { workspace = true }
 log = { workspace = true }
