@@ -4,9 +4,6 @@ use async_std::channel::{Receiver, Sender};
 use cgmath::Vector2;
 use futures::FutureExt;
 use gilrs::Gilrs;
-use logging::{debug, error, info, warn};
-
-use crate::element::Message;
 use wgpu::{
     util::{backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env},
     Adapter, Backend, Backends, CompositeAlphaMode, Device, DeviceDescriptor, DeviceType, Features,
@@ -22,9 +19,13 @@ use winit::{
     window::{CursorGrabMode, Window, WindowId},
 };
 
-use crate::{
+use super::{
     input::{InputEvent, InputState},
-    timer::Timer,
+    Timer,
+};
+use crate::{
+    element::Message,
+    logging::{debug, error, info, warn},
 };
 
 use super::{App, AppChange, AppEvent, AppSettings};
@@ -448,7 +449,7 @@ impl AppRuntime {
 
     #[cfg(feature = "gamepad_input")]
     fn receive_controller_inputs(&mut self) {
-        use crate::input::InputEvent;
+        use super::input::InputEvent;
 
         while let Some(gil_event) = self.gil.next_event() {
             if let Some(input_event) = InputEvent::convert_gil_event(gil_event) {
