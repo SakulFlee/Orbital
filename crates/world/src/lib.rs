@@ -1,15 +1,15 @@
+use std::sync::Arc;
 use std::time::Instant;
 
 use app::{AppChange, input::InputState};
-use async_std::sync::Mutex;
-use camera::{Camera, CameraChange, CameraDescriptor};
+use async_std::sync::{Mutex, RwLock};
+use camera::{Camera, CameraDescriptor, CameraTransform};
+use change_list::{ChangeList, ChangeListAction, ChangeListEntry, ChangeListType};
+use hashbrown::HashMap;
 use log::error;
 use log::{info, warn};
-use material_shader::MaterialShaderDescriptor;
+use model::ModelDescriptor;
 use wgpu::{Device, Queue};
-
-mod change_list;
-pub use change_list::*;
 
 mod world_change;
 pub use world_change::*;
@@ -65,116 +65,31 @@ where
     Self: Send + Sync,
 {
     element_store: ElementStore,
-    model_store: ModelStore,
-    // TODO
-    // light_store: LightStore,
-    // --- Queues ---
-    /// Queue for [WorldChange]s before being processed into other queues
-    queue_world_changes: Vec<WorldChange>,
-    // --- Camera ---
-    /// Active Camera
-    active_camera: Option<Camera>,
-    /// Active Camera Update  
-    /// In case the camera to be updated is the active one.
-    active_camera_change: Option<CameraChange>,
-    /// Cameras
-    camera_descriptors: Vec<CameraDescriptor>,
-    /// Next camera to be changed to upon next cycle.
-    /// Must be set to `Some` if we do change.
-    /// Must be set to `None` if we don't change.
-    /// Internal of `Some` must match existing camera descriptor.
-    ///
-    /// ⚠️ Only the most recent `WorldChange` request will be applied as we can
-    /// only ever have one single camera active!
-    next_camera: Option<String>,
-    // --- Environment ---
+    model_store: HashMap<String, Arc<RwLock<ModelDescriptor>>>,
+    camera_store: HashMap<String, Arc<RwLock<CameraDescriptor>>>,
     world_environment: WorldEnvironmentDescriptor,
     loader_executor: LoaderExecutor,
     close_requested_timer: Option<Instant>,
+    world_change_queue: Vec<WorldChange>,
     change_list: Mutex<ChangeList>,
 }
 
-impl Default for World {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl World {
-    pub fn new() -> Self {
+    pub fn new(world_environment: WorldEnvironmentDescriptor) -> Self {
         Self {
             element_store: ElementStore::new(),
-            model_store: ModelStore::new(),
-            // light_store: LightStore::new(),
-            queue_world_changes: Default::default(),
-            // queue_element_spawn: Default::default(),
-            // queue_element_despawn: Default::default(),
-            active_camera: Default::default(),
-            active_camera_change: Default::default(),
-            camera_descriptors: Default::default(),
-            next_camera: Default::default(),
-            world_environment: WorldEnvironmentDescriptor::FromFile {
-                path: "../../Assets/HDRs/lonely_road_afternoon_puresky_4k.hdr",
-                cube_face_size: WorldEnvironmentDescriptor::DEFAULT_SIZE,
-                sampling_type: WorldEnvironmentDescriptor::DEFAULT_SAMPLING_TYPE,
-                custom_specular_mip_level_count: None,
-            },
+            model_store: HashMap::new(),
+            camera_store: HashMap::new(),
+            world_change_queue: Default::default(),
+            world_environment,
             loader_executor: LoaderExecutor::new(None),
             close_requested_timer: None,
             change_list: Mutex::new(ChangeList::new()),
         }
     }
 
-    fn process_active_camera_change(&mut self, device: &Device, queue: &Queue) {
-        let update_option = self.active_camera_change.take();
-        if let Some(change) = update_option {
-            if let Some(camera) = &mut self.active_camera {
-                camera.update_from_change(change, device, queue);
-            } else {
-                error!(
-                    "Trying to apply camera change to active camera, but active camera does not exist!"
-                );
-            }
-        }
-    }
-
-    fn process_next_camera(&mut self, device: &Device, queue: &Queue) {
-        if self.active_camera.is_none() && self.next_camera.is_none() {
-            warn!(
-                "No active camera was set and no next camera is applied! Spawning a default camera ..."
-            );
-
-            self.camera_descriptors.push(CameraDescriptor::default());
-            self.next_camera = Some(CameraDescriptor::DEFAULT_NAME.into());
-        }
-
-        let taken = self.next_camera.take();
-        if let Some(camera_identifier) = taken {
-            match self
-                .camera_descriptors
-                .iter()
-                .find(|x| x.label == camera_identifier)
-            {
-                Some(camera_descriptor) => {
-                    // Realize camera
-                    self.active_camera = Some(Camera::from_descriptor(
-                        camera_descriptor.clone(),
-                        device,
-                        queue,
-                    ));
-                }
-                None => {
-                    error!(
-                        "Supposed to change to camera '{}', but no such camera exists!",
-                        camera_identifier
-                    );
-                }
-            }
-        }
-    }
-
     pub async fn process_world_changes(&mut self) -> Vec<AppChange> {
-        let world_changes = std::mem::take(&mut self.queue_world_changes);
+        let world_changes = std::mem::take(&mut self.world_change_queue);
         let mut app_changes = Vec::new();
 
         for change in world_changes {
@@ -197,7 +112,7 @@ impl World {
                 let (labels, world_changes) = registration.extract();
 
                 // Enqueue new world changes
-                self.queue_world_changes.extend(world_changes);
+                self.world_change_queue.extend(world_changes);
 
                 // Properly store Element after registration
                 self.element_store.store_element(element, labels)
@@ -206,117 +121,106 @@ impl World {
                 self.element_store.remove_element(&element_label);
             }
             WorldChange::SpawnModel(model_descriptor) => {
-                self.change_list
-                    .lock()
-                    .await
-                    .push(Change::Added(ChangeType::Model {
-                        label: Some(model_descriptor.label.clone()),
-                    }));
-                self.model_store.add(model_descriptor).await
+                let x = Arc::new(RwLock::new(model_descriptor));
+
+                self.change_list.lock().await.push(ChangeListEntry {
+                    change_type: ChangeListType::Model(x.clone()),
+                    action: ChangeListAction::Add,
+                });
+
+                self.model_store.insert(model_descriptor.label.clone(), x);
             }
             WorldChange::DespawnModel(model_label) => {
-                self.change_list
-                    .lock()
-                    .await
-                    .push(Change::Removed(ChangeType::Model {
-                        label: Some(model_label.clone()),
-                    }));
-                self.model_store.remove(&model_label).await;
+                if let Some(model) = self.model_store.remove(&model_label) {
+                    self.change_list.lock().await.push(ChangeListEntry {
+                        change_type: ChangeListType::Model(model),
+                        action: ChangeListAction::Remove,
+                    });
+                }
             }
             WorldChange::SendMessage(message) => self.element_store.queue_message(message),
             WorldChange::SendMessageToApp(message) => return Some(AppChange::SendMessage(message)),
             WorldChange::SpawnCamera(descriptor) => {
-                self.change_list
-                    .lock()
-                    .await
-                    .push(Change::Added(ChangeType::Camera {
-                        label: Some(descriptor.label.clone()),
-                    }));
+                let mut descriptor = descriptor;
+                if self.camera_store.is_empty() {
+                    descriptor.is_active = true;
+                }
+
+                let x = Arc::new(RwLock::new(descriptor));
+
+                self.change_list.lock().await.push(ChangeListEntry {
+                    change_type: ChangeListType::Camera(x.clone()),
+                    action: ChangeListAction::Add,
+                });
 
                 self.spawn_camera(descriptor);
-            }
-            WorldChange::SpawnCameraAndMakeActive(descriptor) => {
-                self.change_list
-                    .lock()
-                    .await
-                    .push(Change::Added(ChangeType::Camera {
-                        label: Some(descriptor.label.clone()),
-                    }));
-
-                let identifier = descriptor.label.clone();
-                self.spawn_camera(descriptor);
-                self.next_camera = Some(identifier);
             }
             WorldChange::DespawnCamera(identifier) => {
-                self.change_list
-                    .lock()
-                    .await
-                    .push(Change::Removed(ChangeType::Camera {
-                        label: Some(identifier.clone()),
-                    }));
+                if let Some(camera) = self.camera_store.remove(&identifier) {
+                    let change_list_lock = self.change_list.lock().await;
 
-                if let Some(camera) = &self.active_camera {
-                    if camera.descriptor().label == identifier {
-                        self.active_camera = None;
+                    change_list_lock.push(ChangeListEntry {
+                        change_type: ChangeListType::Camera(camera),
+                        action: ChangeListAction::Remove,
+                    });
 
-                        warn!("Despawned Camera was active!");
+                    // If we removed an *active* camera, we need to set the next one to be active. This will pick the next one in the list. This does not mean the exact next one in spawn order, but however this collection (map) is sorted.
+                    if self.camera_store.is_empty() && camera.read().await.is_active {
+                        let now_active_camera = self
+                            .camera_store
+                            .values_mut()
+                            .take(1)
+                            .map(|x| {
+                                let y = x.get_mut();
+
+                                // Set camera active
+                                y.is_active = true;
+
+                                // Clone the descriptor so we get a value and not a reference
+                                x.clone()
+                            })
+                            .collect::<Vec<_>>()
+                            // Removing here to "take" the camera from the store, instead of getting a reference
+                            .remove(0);
+
+                        change_list_lock.push(ChangeListEntry {
+                            change_type: ChangeListType::Camera(now_active_camera),
+                            action: ChangeListAction::Change,
+                        });
                     }
+                } else {
+                    warn!("Attempting to despawn non-existing camera: {}!", identifier);
                 }
-
-                self.camera_descriptors.retain(|x| x.label != identifier);
             }
-            WorldChange::ChangeActiveCamera(identifier) => {
-                if let Some(camera) = &self.active_camera {
-                    if camera.descriptor().label == identifier {
-                        warn!("Attempting to activate already active camera!");
-                        return None;
-                    }
-                }
+            WorldChange::MakeCameraActive(identifier) => {
+                if let Some(descriptor) = self.camera_store.get_mut(&identifier) {
+                    descriptor.write().await.is_active = true;
 
-                // If it exists or not will be handled by queue processor
-                self.next_camera = Some(identifier);
+                    self.change_list.lock().await.push(ChangeListEntry {
+                        change_type: ChangeListType::Camera(descriptor.clone()),
+                        action: ChangeListAction::Change,
+                    });
+                }
             }
             WorldChange::UpdateCamera(change) => {
-                if let Some(camera) = &self.active_camera {
-                    if camera.descriptor().label == change.target {
-                        self.active_camera_change = Some(change);
-                    }
-                } else if let Some(existing_camera_descriptor) = self
-                    .camera_descriptors
-                    .iter_mut()
-                    .find(|x| x.label == change.target)
-                {
-                    existing_camera_descriptor.apply_change(change);
+                if let Some(descriptor) = self.camera_store.get_mut(&change.target) {
+                    descriptor.write().await.apply_change(change);
+                    self.change_list.lock().await.push(ChangeListEntry {
+                        change_type: ChangeListType::Camera(descriptor.clone()),
+                        action: ChangeListAction::Change,
+                    });
                 } else {
-                    warn!("Attempting to update non-existing camera: {:?}!", change);
+                    warn!("Attempting to change non-existing camera: {:?}!", change);
                 }
             }
             WorldChange::AppChange(app_change) => return Some(app_change),
-            // WorldChange::SpawnLight(light_descriptor) => {
-            //     self.change_list
-            //         .lock()
-            //         .await
-            //         .push(Change::Added(ChangeType::Light {
-            //             label: Some(light_descriptor.label().into()),
-            //         }));
-            //     self.light_store.add_light_descriptor(light_descriptor);
-            // }
-            // WorldChange::DespawnLight(label) => {
-            //     self.change_list
-            //         .lock()
-            //         .await
-            //         .push(Change::Removed(ChangeType::Light {
-            //             label: Some(label.clone()),
-            //         }));
-            //     self.light_store.remove_any_light_with_label(&label)
-            // }
             WorldChange::ChangeWorldEnvironment {
                 world_environment_descriptor,
             } => {
                 self.world_environment = world_environment_descriptor;
             }
             WorldChange::CleanWorld => {
-                info!("WorldChange::CleanWorld received!");
+                info!("Cleaning world ...");
 
                 // Elements
                 self.element_store.clear();
@@ -324,19 +228,13 @@ impl World {
                 // Models
                 self.model_store.clear();
 
-                // Lights
-                // self.light_store.clear();
-
                 // Camera
-                self.camera_descriptors.clear();
-                self.next_camera = None;
-                self.active_camera = None;
-                self.active_camera_change = None;
+                self.camera_store.clear();
 
-                let mut change_list = self.change_list.lock().await;
-                change_list.push(Change::Clear(ChangeType::Model { label: None }));
-                change_list.push(Change::Clear(ChangeType::Light { label: None }));
-                change_list.push(Change::Clear(ChangeType::Camera { label: None }));
+                self.change_list.lock().await.push(ChangeListEntry {
+                    change_type: ChangeListType::All,
+                    action: ChangeListAction::Clear,
+                });
             }
             WorldChange::ElementAddLabels {
                 element_label,
@@ -350,16 +248,14 @@ impl World {
             } => self
                 .element_store
                 .remove_label(&element_label, labels_to_be_removed),
-            WorldChange::SetTransformModel(model_label, transform) => {
+            WorldChange::TransformModel(model_label, transform) => {
                 if let Some(model) = self.model_store.get(&model_label) {
                     model.write().await.set_transforms(vec![transform]);
 
-                    self.change_list
-                        .lock()
-                        .await
-                        .push(Change::Changed(ChangeType::Model {
-                            label: Some(model_label),
-                        }));
+                    self.change_list.lock().await.push(ChangeListEntry {
+                        change_type: ChangeListType::Model(model.clone()),
+                        action: ChangeListAction::Change,
+                    });
                 } else {
                     error!(
                         "Model with label '{}' could not be found! Cannot set transform: {:?}",
@@ -367,16 +263,14 @@ impl World {
                     );
                 }
             }
-            WorldChange::SetTransformSpecificModelInstance(model_label, transform, index) => {
+            WorldChange::ReplaceTransformSpecificModelInstance(model_label, transform, index) => {
                 if let Some(model) = self.model_store.get(&model_label) {
                     model.write().await.set_specific_transform(transform, index);
 
-                    self.change_list
-                        .lock()
-                        .await
-                        .push(Change::Changed(ChangeType::Model {
-                            label: Some(model_label),
-                        }));
+                    self.change_list.lock().await.push(ChangeListEntry {
+                        change_type: ChangeListType::Model(model.clone()),
+                        action: ChangeListAction::Change,
+                    });
                 } else {
                     error!(
                         "Model with label '{}' could not be found! Cannot set transform: {:?}",
@@ -388,12 +282,10 @@ impl World {
                 if let Some(model) = self.model_store.get(&model_label) {
                     model.write().await.apply_transform(transform);
 
-                    self.change_list
-                        .lock()
-                        .await
-                        .push(Change::Changed(ChangeType::Model {
-                            label: Some(model_label),
-                        }));
+                    self.change_list.lock().await.push(ChangeListEntry {
+                        change_type: ChangeListType::Model(model.clone()),
+                        action: ChangeListAction::Change,
+                    });
                 } else {
                     error!(
                         "Model with label '{}' could not be found! Cannot apply transform: {:?}",
@@ -408,12 +300,10 @@ impl World {
                         .await
                         .apply_transform_specific(transform, index);
 
-                    self.change_list
-                        .lock()
-                        .await
-                        .push(Change::Changed(ChangeType::Model {
-                            label: Some(model_label),
-                        }));
+                    self.change_list.lock().await.push(ChangeListEntry {
+                        change_type: ChangeListType::Model(model.clone()),
+                        action: ChangeListAction::Change,
+                    });
                 } else {
                     error!(
                         "Model with label '{}' could not be found! Cannot apply transform: {:?}",
@@ -425,12 +315,10 @@ impl World {
                 if let Some(model) = self.model_store.get(&model_label) {
                     model.write().await.add_transforms(transforms);
 
-                    self.change_list
-                        .lock()
-                        .await
-                        .push(Change::Changed(ChangeType::Model {
-                            label: Some(model_label),
-                        }));
+                    self.change_list.lock().await.push(ChangeListEntry {
+                        change_type: ChangeListType::Model(model.clone()),
+                        action: ChangeListAction::Change,
+                    });
                 } else {
                     error!(
                         "Model with label '{}' could not be found! Cannot add transforms: {:?}",
@@ -442,12 +330,10 @@ impl World {
                 if let Some(model) = self.model_store.get(&model_label) {
                     model.write().await.remove_transforms(indices);
 
-                    self.change_list
-                        .lock()
-                        .await
-                        .push(Change::Changed(ChangeType::Model {
-                            label: Some(model_label),
-                        }));
+                    self.change_list.lock().await.push(ChangeListEntry {
+                        change_type: ChangeListType::Model(model.clone()),
+                        action: ChangeListAction::Change,
+                    });
                 } else {
                     error!(
                         "Model with label '{}' could not be found! Cannot remove transform at index '{:?}'",
@@ -491,7 +377,7 @@ impl World {
     /// [GameRuntime]: crate::world::GameRuntime
     pub async fn update(&mut self, delta_time: f64, input_state: &InputState) -> Vec<AppChange> {
         let element_changes = self.element_store.update(delta_time, input_state).await; // TODO: ?
-        self.queue_world_changes.extend(element_changes);
+        self.world_change_queue.extend(element_changes);
 
         // Cycle loader, enqueue any `Ok`, report any `Err`
         let (ok, error): (Vec<_>, Vec<_>) = self
@@ -500,7 +386,7 @@ impl World {
             .into_iter()
             .partition(|x| x.is_ok());
 
-        self.queue_world_changes
+        self.world_change_queue
             .extend(ok.into_iter().flat_map(|x| x.unwrap()).collect::<Vec<_>>());
 
         error

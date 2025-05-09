@@ -2,11 +2,12 @@ use std::f32::consts::FRAC_PI_2;
 
 use cgmath::{InnerSpace, Point3, Vector3};
 
-use super::{CameraChange, Mode};
+use super::{CameraTransform, Mode};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CameraDescriptor {
     pub label: String,
+    pub is_active: bool,
     pub position: Point3<f32>,
     pub yaw: f32,
     pub pitch: f32,
@@ -21,7 +22,7 @@ impl CameraDescriptor {
     pub const DEFAULT_NAME: &'static str = "Default";
     pub const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
 
-    pub fn apply_change(&mut self, change: CameraChange) {
+    pub fn apply_change(&mut self, change: CameraTransform) {
         if let Some(mode) = change.pitch {
             match mode {
                 Mode::Overwrite(pitch) => self.pitch = pitch,
@@ -95,6 +96,7 @@ impl Default for CameraDescriptor {
     fn default() -> Self {
         Self {
             label: Self::DEFAULT_NAME.into(),
+            is_active: false,
             position: Point3::new(0.0, 0.0, 0.0),
             yaw: 0f32,
             pitch: 0f32,

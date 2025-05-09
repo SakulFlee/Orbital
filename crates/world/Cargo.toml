@@ -9,6 +9,7 @@ async-std = { workspace = true }
 async-trait = { workspace = true }
 camera = { workspace = true }
 cgmath = { workspace = true }
+change_list = { workspace = true }
 crossbeam-channel = { workspace = true }
 easy-gltf = { workspace = true, features = ["names"] }
 futures = { workspace = true }
@@ -16,7 +17,6 @@ hashbrown = { workspace = true }
 log = { workspace = true }
 material_shader = { workspace = true }
 mesh = { workspace = true }
-message = { workspace = true }
 model = { workspace = true }
 num_cpus = { workspace = true }
 pbr_material_shader = { workspace = true }

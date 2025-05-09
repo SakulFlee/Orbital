@@ -1,5 +1,5 @@
 use app::AppChange;
-use camera::{CameraChange, CameraDescriptor};
+use camera::{CameraDescriptor, CameraTransform};
 use message::Message;
 use model::{ModelDescriptor, Transform};
 use world_environment::WorldEnvironmentDescriptor;
@@ -54,14 +54,14 @@ where
     ///
     /// [Model]: crate::resources::realizations::Model
     /// [Instance]: crate::resources::realizations::Instance
-    SetTransformModel(String, Transform),
+    TransformModel(String, Transform),
     /// If the given [Model] can be found, will _replace_ a **specific**
     /// [Transform] by it's index. This should be used if you have multiple
     /// [Instance]s/[Transform]s on your [Model].
     ///
     /// [Model]: crate::resources::realizations::Model
     /// [Instance]: crate::resources::realizations::Instance
-    SetTransformSpecificModelInstance(String, Transform, usize),
+    ReplaceTransformSpecificModelInstance(String, Transform, usize),
     /// If the given [Model] can be found, will _apply_ a the given [Transform]
     /// to **all** defined [Transform]s. This should be used if you have
     /// multiple [Instance]s/[Transform]s on your [Model] and you want to
@@ -140,11 +140,6 @@ where
     /// [Camera]: crate::resources::realizations::Camera
     /// [World]: super::World
     SpawnCamera(CameraDescriptor),
-    /// Does the same as [WorldChange::SpawnCamera], but also makes the new
-    /// [Camera] become active.
-    ///
-    /// [Camera]: crate::resources::realizations::Camera
-    SpawnCameraAndMakeActive(CameraDescriptor),
     /// Despawns a [Camera] given a _Identifier_.
     ///
     /// # Rejection
@@ -165,7 +160,7 @@ where
     /// the change will be rejected.
     ///
     /// [Camera]: crate::resources::realizations::Camera
-    ChangeActiveCamera(String),
+    MakeCameraActive(String),
     /// Applies changes to the target [Camera].
     ///
     /// If a [Camera] exists with the specified [CameraDescriptor::identifier],
@@ -179,7 +174,7 @@ where
     ///
     /// [Camera]: crate::resources::realizations::Camera
     /// [Buffer]: wgpu::Buffer
-    UpdateCamera(CameraChange),
+    UpdateCamera(CameraTransform),
     /// Passes on _any_ [AppChange]s that need to be processed
     /// by the [AppRuntime].
     ///
