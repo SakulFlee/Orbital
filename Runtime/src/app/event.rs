@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
+use crate::element::Message;
 use cgmath::Vector2;
-use message::Message;
 use wgpu::{Device, Queue, SurfaceConfiguration, SurfaceTexture, TextureView};
 
 use crate::input::InputState;

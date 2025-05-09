@@ -4,7 +4,7 @@ use app::input::InputState;
 use futures::{StreamExt, stream::FuturesUnordered};
 use hashbrown::HashMap;
 use log::warn;
-use message::Message;
+use crate::element::Message;
 
 use crate::{Element, WorldChange};
 

@@ -1,6 +1,6 @@
 use app::AppChange;
 use camera::{CameraDescriptor, CameraTransform};
-use message::Message;
+use crate::element::Message;
 use model::{ModelDescriptor, Transform};
 use world_environment::WorldEnvironmentDescriptor;
 
