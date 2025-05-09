@@ -1,10 +1,11 @@
 use std::time::Instant;
+use hashbrown::HashMap;
 
 mod target;
-pub use target::Target;
+pub use target::*;
 
-pub use hashbrown::HashMap;
-pub use variant::Variant;
+mod variant;
+pub use variant::*;
 
 #[derive(Debug)]
 pub struct Message {
