@@ -4,7 +4,7 @@ use crate::element::Message;
 use cgmath::Vector2;
 use wgpu::{Device, Queue, SurfaceConfiguration, SurfaceTexture, TextureView};
 
-use crate::input::InputState;
+use super::input::InputState;
 
 #[derive(Debug)]
 pub enum AppEvent {
