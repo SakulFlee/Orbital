@@ -1,5 +1,4 @@
-use camera::Mode;
-use model::{ModelDescriptor, Transform};
+use crate::resources::{Mode, ModelDescriptor, Transform};
 
 #[derive(Debug)]
 pub enum ModelChange {
