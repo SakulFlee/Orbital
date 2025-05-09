@@ -1,9 +1,6 @@
 [workspace]
 resolver = "2"
-members = [
-    #"Example/", 
-    "crates/*",
-]
+members = ["Runtime/", "Examples/*"]
 
 [workspace.dependencies]
 # In-Workspace crates
@@ -12,22 +9,24 @@ bounding_box = { path = "crates/bounding_box" }
 buffer = { path = "crates/buffer" }
 cache = { path = "crates/cache" }
 camera = { path = "crates/camera" }
+change_list = { path = "crates/change_list" }
+element = { path = "crates/element" }
 ibl_brdf = { path = "crates/ibl_brdf" }
 instance = { path = "crates/instance" }
 logging = { path = "crates/logging" }
 material_shader = { path = "crates/material_shader" }
 mesh = { path = "crates/mesh" }
-message = { path = "crates/message" }
 model = { path = "crates/model" }
 pbr_material_shader = { path = "crates/pbr_material_shader" }
+renderer = { path = "crates/renderer" }
 shader = { path = "crates/shader" }
 shader_preprocessor = { path = "crates/shader_preprocessor" }
 texture = { path = "crates/texture" }
 transform = { path = "crates/transform" }
-variant = { path = "crates/variant" }
 vertex = { path = "crates/vertex" }
 wgpu_test_adapter = { path = "crates/wgpu_test_adapter" }
 world = { path = "crates/world" }
+world_change = { path = "crates/world_change" }
 world_environment = { path = "crates/world_environment" }
 
 # External crates
