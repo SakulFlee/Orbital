@@ -14,6 +14,6 @@ caching_direct_renderer = []
 non_caching_direct_renderer = []
 
 [dependencies]
-orbital = { path = "../Orbital/" }
+orbital = { path = "../../Runtime/" }
 image = "0.25.1"
 futures = "0.3.31"
