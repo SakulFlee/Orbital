@@ -120,6 +120,14 @@ impl<RenderImpl: Renderer + Send> App for MyApp<RenderImpl> {
     {
         let app_changes = self.world.update(delta_time, input_state).await;
 
+        // TODO: Messages get created by Elements as WorldChanges.
+        // World then transforms Message into AppChange.
+        // Calling World::update returns any AppChanges.
+        // We then return any AppChanges to the AppRuntime (if there are any).
+        // The AppRuntime processes changes and puts any AppMessages into a queue.
+        // And finally on the next update cycle we get the actual AppMessages.
+        // I.e. the message already has been here, we just didn't process it and send it on.
+
         if !messages.is_empty() {
             for message in messages {
                 if message.to() == DebugController::RENDERER_IDENTIFIER {
