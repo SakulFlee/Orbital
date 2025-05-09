@@ -1,0 +1,23 @@
+[package]
+name = "renderer"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bounding_box = { workspace = true }
+cache = { workspace = true }
+camera = { workspace = true }
+ibl_brdf = { workspace = true }
+instance = { workspace = true }
+material_shader = { workspace = true }
+mesh = { workspace = true }
+message = { workspace = true }
+model = { workspace = true }
+shader = { workspace = true }
+shader_preprocessor = { workspace = true }
+texture = { workspace = true }
+wgpu = { workspace = true }
+world = { workspace = true }
+world_environment = { workspace = true }
+hashbrown = { workspace = true }
+cgmath = { workspace = true }
