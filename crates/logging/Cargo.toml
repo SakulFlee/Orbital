@@ -1,9 +1,0 @@
-[package]
-name = "logging"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-fern = { workspace = true }
-log = { workspace = true }
-humantime = { workspace = true }
