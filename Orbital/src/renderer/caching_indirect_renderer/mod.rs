@@ -621,7 +621,7 @@ impl Renderer for CachingIndirectRenderer {
         queue: &Queue,
         world: &World, // TODO: Make generic if possible for other ECS like systems
     ) {
-        if self.world_environment.is_none() || self.world_environment.is_none() {
+        if self.world_environment.is_none() || self.world_environment_pipeline.is_none() {
             self.world_environment = Some(Material::from_descriptor(
                 world.world_environment(),
                 &self.surface_format,
@@ -687,8 +687,3 @@ impl Renderer for CachingIndirectRenderer {
         queue.submit(queue_submissions);
     }
 }
-
-// TODO: Render wireframes if required
-// TODO: Render out bounding boxes for debugging
-// TODO: Re-Enable frustum culling
-// TODO: Debug render frustum to verify and fix frustum culling
