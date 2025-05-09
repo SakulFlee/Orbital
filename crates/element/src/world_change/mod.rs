@@ -1,4 +1,4 @@
-use message::Message;
+use crate::element::Message;
 
 pub use app::AppChange;
 

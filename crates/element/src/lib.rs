@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use app::input::InputState;
 use async_trait::async_trait;
-use message::Message;
+use crate::element::Message;
 
 pub mod registration;
 pub use registration::*;

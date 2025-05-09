@@ -6,12 +6,12 @@ use futures::FutureExt;
 use gilrs::Gilrs;
 use logging::{debug, error, info, warn};
 
-use message::Message;
+use crate::element::Message;
 use wgpu::{
+    util::{backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env},
     Adapter, Backend, Backends, CompositeAlphaMode, Device, DeviceDescriptor, DeviceType, Features,
     Instance, InstanceDescriptor, InstanceFlags, Limits, MemoryHints, PresentMode, Queue, Surface,
     SurfaceConfiguration, SurfaceError, SurfaceTexture, TextureUsages, TextureViewDescriptor,
-    util::{backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env},
 };
 use winit::{
     application::ApplicationHandler,
