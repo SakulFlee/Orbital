@@ -1,5 +1,3 @@
-use crate::element::Message;
-
 #[derive(Debug)]
 pub enum ElementChange {
     Spawn(Box<dyn Element + Send + Sync>),
