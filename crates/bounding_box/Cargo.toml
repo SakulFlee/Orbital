@@ -1,9 +1,0 @@
-[package]
-name = "bounding_box"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-cgmath = { workspace = true }
-wgpu = { workspace = true }
-wgpu_test_adapter = { workspace = true }
