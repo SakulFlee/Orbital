@@ -1,5 +1,6 @@
 use std::{ops::Deref, sync::Arc, time::Instant};
 
+#[derive(Debug)]
 pub struct CacheEntry<Value> {
     inner: Arc<Value>,
     unused_since: Option<Instant>,

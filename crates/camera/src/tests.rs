@@ -1,6 +1,6 @@
 use cgmath::{Point3, Vector3};
 
-use crate::{Camera, CameraChange, CameraDescriptor, Mode};
+use crate::{Camera, CameraDescriptor, CameraTransform, Mode};
 
 #[test]
 fn realization_default() {
@@ -33,7 +33,7 @@ fn realization_change_is_not_changing() {
     let original_descriptor = CameraDescriptor::default();
     let mut to_be_changed_descriptor = original_descriptor.clone();
 
-    let change = CameraChange {
+    let change = CameraTransform {
         target: CameraDescriptor::DEFAULT_NAME.to_string(),
         position: None,
         pitch: None,
@@ -57,7 +57,7 @@ fn realization_change_is_changing() {
     let original_descriptor = CameraDescriptor::default();
     let mut to_be_changed_descriptor = original_descriptor.clone();
 
-    let change = CameraChange {
+    let change = CameraTransform {
         target: CameraDescriptor::DEFAULT_NAME.to_string(),
         position: Some(Mode::Overwrite(Vector3 {
             x: POSITION_X,
@@ -89,7 +89,7 @@ fn realization_change_position_only() {
     let original_descriptor = CameraDescriptor::default();
     let mut to_be_changed_descriptor = original_descriptor.clone();
 
-    let change = CameraChange {
+    let change = CameraTransform {
         target: CameraDescriptor::DEFAULT_NAME.to_string(),
         position: Some(Mode::Overwrite(Vector3 {
             x: POSITION_X,
@@ -119,7 +119,7 @@ fn realization_change_pitch_only() {
     let original_descriptor = CameraDescriptor::default();
     let mut to_be_changed_descriptor = original_descriptor.clone();
 
-    let change = CameraChange {
+    let change = CameraTransform {
         target: CameraDescriptor::DEFAULT_NAME.to_string(),
         position: None,
         pitch: Some(Mode::Overwrite(PITCH)),
@@ -145,7 +145,7 @@ fn realization_change_yaw_only() {
     let original_descriptor = CameraDescriptor::default();
     let mut to_be_changed_descriptor = original_descriptor.clone();
 
-    let change = CameraChange {
+    let change = CameraTransform {
         target: CameraDescriptor::DEFAULT_NAME.to_string(),
         position: None,
         pitch: None,
@@ -168,7 +168,7 @@ fn realization_change_yaw_only() {
 fn pitch_clamping() {
     let mut to_be_changed_descriptor = CameraDescriptor::default();
 
-    let change = CameraChange {
+    let change = CameraTransform {
         target: CameraDescriptor::DEFAULT_NAME.to_string(),
         position: None,
         pitch: Some(Mode::Overwrite(CameraDescriptor::SAFE_FRAC_PI_2 + 0.1)),
@@ -187,7 +187,7 @@ fn pitch_clamping() {
 fn pitch_negative_clamping() {
     let mut to_be_changed_descriptor = CameraDescriptor::default();
 
-    let change = CameraChange {
+    let change = CameraTransform {
         target: CameraDescriptor::DEFAULT_NAME.to_string(),
         position: None,
         pitch: Some(Mode::Overwrite(-CameraDescriptor::SAFE_FRAC_PI_2 - 0.1)),

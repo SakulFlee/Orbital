@@ -10,6 +10,7 @@ use log::debug;
 mod entry;
 pub use entry::*;
 
+#[derive(Debug)]
 pub struct Cache<Key, Value>
 where
     Key: Sized + Hash + PartialEq + Eq + Clone,

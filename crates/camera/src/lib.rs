@@ -131,7 +131,7 @@ impl Camera {
         camera
     }
 
-    pub fn update_from_change(&mut self, change: CameraChange, _device: &Device, queue: &Queue) {
+    pub fn update_from_change(&mut self, change: CameraTransform, _device: &Device, queue: &Queue) {
         self.descriptor.apply_change(change);
         self.update_buffers(queue);
     }

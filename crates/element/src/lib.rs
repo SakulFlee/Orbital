@@ -2,12 +2,19 @@ use std::fmt::Debug;
 
 use app::input::InputState;
 use async_trait::async_trait;
+use message::Message;
 
 pub mod registration;
-use message::Message;
 pub use registration::*;
 
-use super::WorldChange;
+mod variant;
+pub use variant::*;
+
+mod message;
+pub use message::*;
+
+mod world_change;
+pub use world_change::*;
 
 /// An [Element] is a **thing** inside a [World].  
 /// Whenever you need something in your world, be it static or updated,

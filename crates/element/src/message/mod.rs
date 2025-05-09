@@ -1,19 +1,21 @@
 use std::time::Instant;
 
-use hashbrown::HashMap;
+mod target;
+pub use target::Target;
 
+pub use hashbrown::HashMap;
 pub use variant::Variant;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Message {
     from: String,
-    to: String,
+    to: Target,
     creation_instant: Instant,
     content: HashMap<String, Variant>,
 }
 
 impl Message {
-    pub fn new_from_message(from: String, to: String, content: HashMap<String, Variant>) -> Self {
+    pub fn new_from_message(from: String, to: Target, content: HashMap<String, Variant>) -> Self {
         Self {
             from,
             to,
@@ -22,7 +24,7 @@ impl Message {
         }
     }
 
-    pub fn new(from: String, to: String) -> Self {
+    pub fn new(from: String, to: Target) -> Self {
         Self {
             from,
             to,
@@ -43,7 +45,7 @@ impl Message {
         &self.from
     }
 
-    pub fn to(&self) -> &str {
+    pub fn to(&self) -> &Target {
         &self.to
     }
 
