@@ -4,7 +4,7 @@ use wgpu::{
     Buffer, BufferUsages, Device, Queue,
 };
 
-pub use vertex::Vertex;
+pub use crate::resources::Vertex;
 
 mod descriptor;
 pub use descriptor::*;
