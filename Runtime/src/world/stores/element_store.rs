@@ -1,12 +1,14 @@
 use std::time::Instant;
 
-use app::input::InputState;
-use futures::{StreamExt, stream::FuturesUnordered};
+use futures::{stream::FuturesUnordered, StreamExt};
 use hashbrown::HashMap;
 use log::warn;
-use crate::element::Message;
 
-use crate::{Element, WorldChange};
+use crate::{
+    app::input::InputState,
+    element::{Element, Message},
+    world::WorldChange,
+};
 
 type ElementIndexType = u64;
 
