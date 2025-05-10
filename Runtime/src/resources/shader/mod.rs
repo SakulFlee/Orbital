@@ -45,17 +45,18 @@ pub trait ShaderDescriptor {
         None
     }
 
-    fn shader_module(&self, device: &Device) -> Result<ShaderModule, Error> {
+    fn shader_module(&self, device: &Device) -> Result<ShaderModule, ShaderError> {
         // TODO: Need a cache here
         let preprocessor = self.shader_preprocessor().unwrap_or(
-            ShaderPreprocessor::new_with_defaults().map_err(|e| Error::ShaderPreprocessor(e))?,
+            ShaderPreprocessor::new_with_defaults()
+                .map_err(|e| ShaderError::ShaderPreprocessor(e))?,
         );
 
         let shader_source = self.source().read_as_string()?;
 
         let preprocessed_source = preprocessor
             .parse_shader(shader_source)
-            .map_err(|e| Error::ShaderPreprocessor(e))?;
+            .map_err(|e| ShaderError::ShaderPreprocessor(e))?;
 
         Ok(device.create_shader_module(ShaderModuleDescriptor {
             label: self.name().as_deref(),
@@ -67,7 +68,7 @@ pub trait ShaderDescriptor {
         &self,
         device: &Device,
         queue: &Queue,
-    ) -> Result<(BindGroupLayout, Variables), Error> {
+    ) -> Result<(BindGroupLayout, Variables), ShaderError> {
         let mut entries = Vec::new();
         let mut variables: Variables = Variables::new();
 
@@ -108,7 +109,7 @@ pub trait ShaderDescriptor {
 
                         let insert_index = binding_count;
                         let texture = Texture::from_descriptor(&descriptor, device, queue)
-                            .map_err(|e| Error::Texture(e))?;
+                            .map_err(|e| ShaderError::Texture(e))?;
 
                         let texture_binding = BindGroupLayoutEntry {
                             binding: binding_count,
@@ -151,7 +152,7 @@ pub trait ShaderDescriptor {
         &self,
         device: &Device,
         queue: &Queue,
-    ) -> Result<(BindGroup, BindGroupLayout, Variables), Error> {
+    ) -> Result<(BindGroup, BindGroupLayout, Variables), ShaderError> {
         let (layout, variables) = self.bind_group_layout(device, queue)?;
 
         let mut binds = Vec::new();
