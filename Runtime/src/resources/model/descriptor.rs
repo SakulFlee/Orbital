@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{resources::MaterialShaderDescriptor, Transform};
+use crate::resources::{MaterialShaderDescriptor, Transform};
 
 use super::MeshDescriptor;
 
