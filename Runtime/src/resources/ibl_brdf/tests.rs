@@ -1,7 +1,7 @@
 use cgmath::Vector2;
 use wgpu::{TextureFormat, TextureUsages};
 
-use crate::IblBrdf;
+use super::IblBrdf;
 
 #[test]
 fn test_empty() {
