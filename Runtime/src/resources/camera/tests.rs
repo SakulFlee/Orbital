@@ -1,6 +1,6 @@
 use cgmath::{Point3, Vector3};
 
-use crate::{Camera, CameraDescriptor, CameraTransform, Mode};
+use super::{Camera, CameraDescriptor, CameraTransform, Mode};
 
 #[test]
 fn realization_default() {
