@@ -57,10 +57,8 @@ toml = { workspace = true }
 bitmask-enum = { workspace = true }
 smol = { workspace = true }
 rand = { workspace = true }
+glob = { workspace = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = { workspace = true }
 winit = { workspace = true, features = ["android-native-activity"] }
-
-[build-dependencies]
-glob = { workspace = true }
