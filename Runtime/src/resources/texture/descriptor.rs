@@ -2,7 +2,7 @@ use std::{ffi::OsString, hash::Hash};
 
 use wgpu::{Color, Extent3d, TextureFormat, TextureUsages};
 
-use crate::TextureSize;
+use crate::resources::TextureSize;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TextureDescriptor {
