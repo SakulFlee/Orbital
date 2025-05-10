@@ -32,7 +32,7 @@ impl Model {
         queue: &Queue,
         with_mesh_cache: Option<&RefCell<Cache<Arc<MeshDescriptor>, Mesh>>>,
         with_material_cache: Option<&RefCell<Cache<Arc<MaterialShaderDescriptor>, MaterialShader>>>,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, ShaderError> {
         // --- Mesh ---
         let mesh = if let Some(cache) = with_mesh_cache {
             cache
