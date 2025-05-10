@@ -6,7 +6,7 @@ use wgpu::{
     RenderPipelineDescriptor, TextureFormat, VertexState,
 };
 
-pub use shader::{Error, ShaderDescriptor, Variables};
+pub use crate::resources::shader::{ShaderDescriptor, ShaderError, Variables};
 
 mod descriptor;
 pub use descriptor::*;
@@ -37,7 +37,7 @@ impl MaterialShader {
         surface_format: Option<TextureFormat>,
         device: &Device,
         queue: &Queue,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, ShaderError> {
         let shader_module = descriptor.shader_module(device)?;
 
         // Create pipeline layout and bind group
