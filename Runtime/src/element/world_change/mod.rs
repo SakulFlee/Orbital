@@ -20,6 +20,5 @@ pub enum WorldChange {
     App(AppChange),
     FileManager(FileManager),
     SendMessage(Message),
-    Clean,
-    Clear = Self::Clean,
+    Clear,
 }
