@@ -2,7 +2,7 @@ use std::num::NonZero;
 
 use wgpu::{BufferBindingType, BufferUsages};
 
-use crate::BufferDescriptor;
+use super::BufferDescriptor;
 
 #[test]
 fn test_default_buffer_descriptor() {
