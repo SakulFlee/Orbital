@@ -1,6 +1,6 @@
 use std::fs::read_to_string;
 
-use crate::Error;
+use super::ShaderError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ShaderSource {
@@ -15,9 +15,9 @@ impl Default for ShaderSource {
 }
 
 impl ShaderSource {
-    pub fn read_as_string(self) -> Result<String, Error> {
+    pub fn read_as_string(self) -> Result<String, ShaderError> {
         match self {
-            ShaderSource::Path(path) => read_to_string(path).map_err(|e| Error::IO(e)),
+            ShaderSource::Path(path) => read_to_string(path).map_err(|e| ShaderError::IO(e)),
             ShaderSource::String(string) => Ok(string.to_string()),
         }
     }
