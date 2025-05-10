@@ -1,7 +1,11 @@
 use cgmath::Vector2;
 use log::{debug, warn};
 
-use crate::{logging, resources::{SamplingType, WorldEnvironment, WorldEnvironmentDescriptor}};
+use crate::{
+    logging,
+    resources::{SamplingType, WorldEnvironment, WorldEnvironmentDescriptor},
+    wgpu_test_adapter,
+};
 
 #[test]
 fn test_realization_no_mip_level_count_set() {
