@@ -1,6 +1,6 @@
-use instance::Instance;
-use vertex::Vertex;
 use wgpu::VertexBufferLayout;
+
+use crate::resources::{Instance, Vertex};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum VertexStageLayout {
