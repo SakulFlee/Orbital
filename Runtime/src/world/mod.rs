@@ -1,15 +1,15 @@
-use std::sync::Arc;
-use std::time::Instant;
+use std::{sync::Arc, time::Instant};
 
-use app::{AppChange, input::InputState};
 use async_std::sync::{Mutex, RwLock};
-use camera::{Camera, CameraDescriptor, CameraTransform};
-use change_list::{ChangeList, ChangeListAction, ChangeListEntry, ChangeListType};
 use hashbrown::HashMap;
-use log::error;
-use log::{info, warn};
-use model::ModelDescriptor;
+use log::{error, info, warn};
 use wgpu::{Device, Queue};
+
+use crate::{
+    app::{input::InputState, AppChange},
+    change_list::{ChangeList, ChangeListAction, ChangeListEntry, ChangeListType},
+    resources::{Camera, CameraDescriptor, ModelDescriptor, WorldEnvironmentDescriptor},
+};
 
 mod world_change;
 pub use world_change::*;
@@ -22,7 +22,6 @@ pub use loader::*;
 
 mod stores;
 pub use stores::*;
-use world_environment::WorldEnvironmentDescriptor;
 
 /// A [World] keeps track of everything inside your [Game].  
 /// Mainly, [Elements] and [realized resources].
