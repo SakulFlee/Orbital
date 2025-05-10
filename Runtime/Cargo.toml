@@ -56,6 +56,7 @@ dirs = { workspace = true }
 toml = { workspace = true }
 bitmask-enum = { workspace = true }
 smol = { workspace = true }
+rand = { workspace = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = { workspace = true }
