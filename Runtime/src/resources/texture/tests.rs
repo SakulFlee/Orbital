@@ -1,6 +1,6 @@
 use wgpu::{Extent3d, TextureDimension, TextureFormat, TextureUsages};
 
-use crate::resources::{Texture, TextureDescriptor, TextureSize};
+use crate::{resources::{Texture, TextureDescriptor, TextureSize}, wgpu_test_adapter};
 
 #[test]
 fn test_data_descriptor_realization() {
