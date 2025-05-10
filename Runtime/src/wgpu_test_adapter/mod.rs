@@ -5,6 +5,8 @@ use wgpu::{
     Queue, RequestAdapterOptions,
 };
 
+use crate::logging;
+
 pub async fn make_wgpu_connection_async() -> (Adapter, Device, Queue) {
     logging::test_init();
 
