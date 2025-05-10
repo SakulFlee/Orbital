@@ -1,7 +1,6 @@
-use shader::{ShaderDescriptor, ShaderSource, VariableType};
 use wgpu::{Face, FrontFace, PolygonMode, PrimitiveTopology, ShaderStages};
 
-use crate::VertexStageLayout;
+use crate::resources::{ShaderDescriptor, ShaderSource, VariableType, VertexStageLayout};
 
 pub type MaterialDescriptor = MaterialShaderDescriptor;
 
