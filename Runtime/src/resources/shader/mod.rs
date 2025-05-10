@@ -5,8 +5,7 @@ use wgpu::{
     ShaderModuleDescriptor, ShaderStages,
 };
 
-use shader_preprocessor::ShaderPreprocessor;
-use texture::Texture;
+use crate::{resources::Texture, shader_preprocessor::ShaderPreprocessor};
 
 mod error;
 pub use error::*;
