@@ -2,11 +2,9 @@ use std::time::Instant;
 
 use cgmath::{Quaternion, Vector3};
 use hashbrown::HashMap;
-use model::Transform;
 
-use super::{Loader, WorldChange};
-
-use crate::{GLTFIdentifier, GLTFLoader, GLTFWorkerMode};
+use super::{GLTFIdentifier, GLTFLoader, GLTFWorkerMode, Loader, WorldChange};
+use crate::resources::Transform;
 
 const TEST_FILE_PATH: &str = "../../Assets/Models/PBR_Spheres.glb";
 const TEST_FILE_WORLD_CHANGES: usize = 121;
