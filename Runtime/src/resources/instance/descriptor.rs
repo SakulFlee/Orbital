@@ -1,5 +1,5 @@
+use super::Transform;
 use cgmath::{Quaternion, Vector3, Zero};
-use transform::Transform;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct InstanceDescriptor {
