@@ -1,7 +1,6 @@
 use cgmath::Point3;
 
-pub use bounding_box::*;
-pub use vertex::*;
+use crate::resources::{BoundingBoxDescriptor, Vertex};
 
 #[derive(Debug, Clone, Eq, Hash)]
 pub struct MeshDescriptor {
