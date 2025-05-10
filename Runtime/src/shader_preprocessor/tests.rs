@@ -1,4 +1,4 @@
-use crate::ShaderPreprocessor;
+use super::ShaderPreprocessor;
 
 pub const SHADER_PATH: &'static str = "../../Assets/Shaders/";
 
