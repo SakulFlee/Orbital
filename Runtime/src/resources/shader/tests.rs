@@ -1,8 +1,11 @@
 use rand::{rng, Rng};
 use wgpu::TextureSampleType;
 
-use crate::resources::{
-    BufferDescriptor, ShaderDescriptor, ShaderSource, TextureDescriptor, VariableType,
+use crate::{
+    resources::{
+        BufferDescriptor, ShaderDescriptor, ShaderSource, TextureDescriptor, VariableType,
+    },
+    wgpu_test_adapter,
 };
 
 #[derive(Debug)]
