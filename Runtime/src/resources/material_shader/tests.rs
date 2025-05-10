@@ -1,6 +1,9 @@
 use wgpu::TextureFormat;
 
-use crate::resources::{MaterialDescriptor, MaterialShader, MaterialShaderDescriptor};
+use crate::{
+    resources::{MaterialDescriptor, MaterialShader, MaterialShaderDescriptor},
+    wgpu_test_adapter,
+};
 
 #[test]
 fn default_realization() {
