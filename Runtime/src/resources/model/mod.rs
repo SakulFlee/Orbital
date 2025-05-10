@@ -1,14 +1,16 @@
 use std::{cell::RefCell, sync::Arc};
 
 use wgpu::{
-    Buffer, BufferUsages, Device, Queue, TextureFormat,
     util::{BufferInitDescriptor, DeviceExt},
+    Buffer, BufferUsages, Device, Queue, TextureFormat,
 };
 
-pub use cache::{Cache, CacheEntry};
-pub use instance::Instance;
-pub use material_shader::{Error, MaterialShader, MaterialShaderDescriptor};
+use super::ShaderError;
 pub use super::{Mesh, MeshDescriptor};
+use crate::{
+    cache::{Cache, CacheEntry},
+    resources::{Instance, MaterialShader, MaterialShaderDescriptor},
+};
 
 mod descriptor;
 pub use descriptor::*;
