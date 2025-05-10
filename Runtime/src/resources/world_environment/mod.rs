@@ -376,7 +376,7 @@ impl WorldEnvironment {
     ) -> Texture {
         let pipeline = Self::make_compute_pipeline(
             &[bind_group_layout],
-            include_wgsl!("../shader/world_environment_diffuse.wgsl"),
+            include_wgsl!("./shader/world_environment_diffuse.wgsl"),
             "main",
             device,
         );
@@ -440,7 +440,7 @@ impl WorldEnvironment {
     ) -> Texture {
         let pipeline = Self::make_compute_pipeline(
             &[bind_group_layout],
-            include_wgsl!("../shader/world_environment_specular.wgsl"),
+            include_wgsl!("./shader/world_environment_specular.wgsl"),
             "main",
             device,
         );
@@ -510,7 +510,7 @@ impl WorldEnvironment {
 
         let pipeline = Self::make_compute_pipeline(
             &[&bind_group_layout, &mip_buffer_bind_group_layout],
-            include_wgsl!("../shader/world_environment_mip_mapping.wgsl"),
+            include_wgsl!("./shader/world_environment_mip_mapping.wgsl"),
             "main",
             device,
         );
