@@ -25,7 +25,7 @@ use super::{
 };
 use crate::{
     element::Message,
-    logging::{debug, error, info, warn},
+    logging::{self, debug, error, info, warn},
 };
 
 use super::{App, AppChange, AppEvent, AppSettings};
