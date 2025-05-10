@@ -1,6 +1,6 @@
-use buffer::BufferDescriptor;
-use texture::TextureDescriptor;
 use wgpu::TextureSampleType;
+
+use crate::resources::{BufferDescriptor, TextureDescriptor};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum VariableType {
