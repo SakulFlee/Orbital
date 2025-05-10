@@ -20,6 +20,10 @@ pub use loader::*;
 mod stores;
 pub use stores::*;
 
+pub type Store<T> = HashMap<String, Arc<RwLock<T>>>;
+pub type ModelStore = Store<ModelDescriptor>;
+pub type CameraStore = Store<CameraDescriptor>;
+
 /// A [World] keeps track of everything inside your [Game].  
 /// Mainly, [Elements] and [realized resources].
 ///
