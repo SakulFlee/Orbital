@@ -16,7 +16,7 @@ impl ShaderDescriptor for TestImplementation {
         ShaderSource::String("")
     }
 
-    fn variables(&self) -> Option<Vec<crate::VariableType>> {
+    fn variables(&self) -> Option<Vec<VariableType>> {
         if self.buffer_count > 0 || self.texture_count > 0 {
             let mut variables = Vec::new();
 
