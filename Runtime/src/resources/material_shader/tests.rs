@@ -1,6 +1,6 @@
 use wgpu::TextureFormat;
 
-use crate::{MaterialDescriptor, MaterialShader, MaterialShaderDescriptor};
+use crate::resources::{MaterialDescriptor, MaterialShader, MaterialShaderDescriptor};
 
 #[test]
 fn default_realization() {
@@ -16,13 +16,9 @@ fn realization_custom_texture_format() {
     let (_adapter, device, queue) = wgpu_test_adapter::make_wgpu_connection();
 
     let descriptor = MaterialShaderDescriptor::default();
-    let _render_pipeline = MaterialShader::from_descriptor(
-        &descriptor,
-        Some(TextureFormat::R8Unorm),
-        &device,
-        &queue,
-    )
-    .expect("Failed turning default material shader descriptor into render pipeline!");
+    let _render_pipeline =
+        MaterialShader::from_descriptor(&descriptor, Some(TextureFormat::R8Unorm), &device, &queue)
+            .expect("Failed turning default material shader descriptor into render pipeline!");
 }
 
 #[test]
