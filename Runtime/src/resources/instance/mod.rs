@@ -1,8 +1,9 @@
 use std::mem;
 
 use cgmath::Matrix4;
-use transform::Transform;
 use wgpu::{VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode};
+
+use super::Transform;
 
 mod descriptor;
 pub use descriptor::*;
