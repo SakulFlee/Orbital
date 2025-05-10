@@ -8,7 +8,7 @@ use glob::glob;
 use log::debug;
 
 mod error;
-pub use error::Error;
+pub use error::ShaderPreprocessorError;
 
 #[cfg(test)]
 mod tests;
@@ -44,7 +44,7 @@ impl ShaderPreprocessor {
 
     /// Creates a new shader compiler.
     /// Note that each instance of this needs to have your imports imported!
-    pub fn new_with_defaults() -> Result<Self, Error> {
+    pub fn new_with_defaults() -> Result<Self, ShaderPreprocessorError> {
         let mut s = Self {
             known_imports: HashMap::new(),
         };
@@ -91,7 +91,7 @@ impl ShaderPreprocessor {
         &mut self,
         directive: Option<D>,
         path: P,
-    ) -> Result<(), Error> {
+    ) -> Result<(), ShaderPreprocessorError> {
         let path: PathBuf = path.into();
 
         // Get the file name without the extension as the directive
@@ -99,14 +99,14 @@ impl ShaderPreprocessor {
             (&path.file_stem())
                 .expect("A filename must be present")
                 .to_str()
-                .ok_or(Error::NonUTF8FileName {
+                .ok_or(ShaderPreprocessorError::NonUTF8FileName {
                     file_name: path.clone().into_os_string(),
                 })?
                 .to_string(),
         );
 
         // Read the file content
-        let content = read_to_string(&path).map_err(|e| Error::IOError(e))?;
+        let content = read_to_string(&path).map_err(|e| ShaderPreprocessorError::IOError(e))?;
 
         // Register the directive and content using add_known_import
         self.add_import(directive, content);
@@ -124,7 +124,10 @@ impl ShaderPreprocessor {
     ///
     /// # Arguments
     /// * `path` - The path to the directory containing the WGSL files to import.
-    pub fn import_folder<S: Into<String>>(&mut self, path: S) -> Result<(), Error> {
+    pub fn import_folder<S: Into<String>>(
+        &mut self,
+        path: S,
+    ) -> Result<(), ShaderPreprocessorError> {
         const PATTERN: &'static str = "**/*.wgsl";
 
         let path_into = path.into();
@@ -141,21 +144,22 @@ impl ShaderPreprocessor {
         pattern_path += PATTERN;
         debug!("Pattern: {:?}", pattern_path);
         for entry in glob(&pattern_path)
-            .map_err(|e| Error::PatternError(e))?
+            .map_err(|e| ShaderPreprocessorError::PatternError(e))?
             .filter_map(Result::ok)
         {
             let directive = &entry
                 .strip_prefix(&path_into)
                 .expect("Base got merged into pattern. It cannot not be here.")
                 .to_str()
-                .ok_or(Error::NonUTF8FileName {
+                .ok_or(ShaderPreprocessorError::NonUTF8FileName {
                     file_name: entry.clone().into_os_string(),
                 })?
                 .replace("\\", "/")
                 .replace(".wgsl", "")
                 .to_lowercase();
 
-            let content = read_to_string(&entry).map_err(|e| Error::IOError(e))?;
+            let content =
+                read_to_string(&entry).map_err(|e| ShaderPreprocessorError::IOError(e))?;
             debug!(
                 "Imported content for directive '{}' ({:?}):\n{}\n",
                 directive,
@@ -172,7 +176,10 @@ impl ShaderPreprocessor {
 
     /// Parses a shader from source code.
     /// Any supported preprocessor definitions will be added as they are imported.
-    pub fn parse_shader<S: Into<String>>(&self, source: S) -> Result<String, Error> {
+    pub fn parse_shader<S: Into<String>>(
+        &self,
+        source: S,
+    ) -> Result<String, ShaderPreprocessorError> {
         let source = source.into();
         let imported_directives = Vec::new();
         self.parse_shader_(source, imported_directives)
@@ -184,7 +191,7 @@ impl ShaderPreprocessor {
         &self,
         source: String,
         imported_directives: Vec<&str>,
-    ) -> Result<String, Error> {
+    ) -> Result<String, ShaderPreprocessorError> {
         let mut output = String::new();
         let mut imported_directives = imported_directives;
         let mut import_found = false;
@@ -204,12 +211,11 @@ impl ShaderPreprocessor {
                         import_found = true;
                     }
 
-                    let import =
-                        self.known_imports
-                            .get(directive)
-                            .ok_or(Error::UnknownDirective {
-                                directive: directive.to_string(),
-                            })?;
+                    let import = self.known_imports.get(directive).ok_or(
+                        ShaderPreprocessorError::UnknownDirective {
+                            directive: directive.to_string(),
+                        },
+                    )?;
 
                     if output.is_empty() {
                         output = import.clone();
