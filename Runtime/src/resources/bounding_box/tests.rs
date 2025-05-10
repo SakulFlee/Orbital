@@ -1,6 +1,6 @@
 use cgmath::Point3;
 
-use crate::{BoundingBox, BoundingBoxDescriptor};
+use super::{BoundingBox, BoundingBoxDescriptor};
 
 #[test]
 fn realization() {
