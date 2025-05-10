@@ -1,5 +1,7 @@
 use cgmath::Point3;
 
+use crate::wgpu_test_adapter;
+
 use super::{BoundingBox, BoundingBoxDescriptor};
 
 #[test]
