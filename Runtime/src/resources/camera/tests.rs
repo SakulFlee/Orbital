@@ -1,6 +1,6 @@
 use cgmath::{Point3, Vector3};
 
-use crate::wgpu_test_adapter;
+use crate::{logging, wgpu_test_adapter};
 
 use super::{Camera, CameraDescriptor, CameraTransform, Mode};
 
