@@ -1,6 +1,8 @@
 use cgmath::Vector2;
 use wgpu::{TextureFormat, TextureUsages};
 
+use crate::wgpu_test_adapter;
+
 use super::IblBrdf;
 
 #[test]
