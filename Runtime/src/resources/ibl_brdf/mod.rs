@@ -153,7 +153,7 @@ impl IblBrdf {
             push_constant_ranges: &[],
         });
 
-        let shader = device.create_shader_module(include_wgsl!("../shaders/ibl_brdf.wgsl"));
+        let shader = device.create_shader_module(include_wgsl!("./shaders/ibl_brdf.wgsl"));
 
         device.create_compute_pipeline(&ComputePipelineDescriptor {
             label: Some("IRL BRDF"),
