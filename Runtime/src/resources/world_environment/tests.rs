@@ -1,7 +1,7 @@
 use cgmath::Vector2;
 use log::{debug, warn};
 
-use crate::{SamplingType, WorldEnvironment, WorldEnvironmentDescriptor};
+use crate::resources::{SamplingType, WorldEnvironment, WorldEnvironmentDescriptor};
 
 #[test]
 fn test_realization_no_mip_level_count_set() {
@@ -93,11 +93,9 @@ fn test_caching() {
         WorldEnvironment::find_cache_file(&descriptor).expect("Cache file not resolved!");
 
     assert!(&cache_file.exists());
-    assert!(
-        std::fs::metadata(&cache_file)
-            .expect("Cache file metadata missing!")
-            .is_file()
-    );
+    assert!(std::fs::metadata(&cache_file)
+        .expect("Cache file metadata missing!")
+        .is_file());
     assert!(
         std::fs::metadata(&cache_file)
             .expect("Cache file metadata missing!")
