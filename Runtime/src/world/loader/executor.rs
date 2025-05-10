@@ -1,8 +1,6 @@
 use std::{error::Error, fmt::Debug};
 
-use crate::loader::Loader;
-
-use super::WorldChange;
+use super::{Loader, WorldChange};
 
 pub struct LoaderExecutor {
     /// Total amount of tasks that can run in parallel.
