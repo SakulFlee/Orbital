@@ -1,8 +1,9 @@
-use material_shader::{MaterialShaderDescriptor, VertexStageLayout};
-use shader::ShaderSource;
 use wgpu::{Face, FrontFace, PolygonMode, PrimitiveTopology};
 
-use crate::{PBRMaterial, PBRMaterialDescriptor, PBRMaterialShaderDescriptor};
+use crate::resources::{
+    MaterialShaderDescriptor, PBRMaterial, PBRMaterialDescriptor, PBRMaterialShaderDescriptor,
+    ShaderSource, VertexStageLayout,
+};
 
 #[test]
 fn default() {
