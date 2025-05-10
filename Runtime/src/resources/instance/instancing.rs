@@ -1,4 +1,4 @@
-use crate::InstanceDescriptor;
+use super::InstanceDescriptor;
 
 #[derive(Debug, Clone)]
 pub enum Instancing {
