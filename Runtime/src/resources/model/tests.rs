@@ -1,6 +1,6 @@
 use cgmath::{Point3, Vector2, Vector3};
 
-use crate::resources::{Mesh, MeshDescriptor, BoundingBoxDescriptor, Vertex};
+use crate::{resources::{BoundingBoxDescriptor, Mesh, MeshDescriptor, Vertex}, wgpu_test_adapter};
 
 #[test]
 fn realization() {
