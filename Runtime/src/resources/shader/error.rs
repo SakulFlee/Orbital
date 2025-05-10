@@ -1,6 +1,10 @@
+use std::io::Error as IOError;
+
+use crate::{resources::TextureError, shader_preprocessor::ShaderPreprocessorError};
+
 #[derive(Debug)]
 pub enum ShaderError {
-    ShaderPreprocessor(shader_preprocessor::Error),
-    Texture(texture::Error),
-    IO(std::io::Error),
+    ShaderPreprocessor(ShaderPreprocessorError),
+    Texture(TextureError),
+    IO(IOError),
 }
