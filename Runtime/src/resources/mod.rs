@@ -10,6 +10,7 @@ pub mod pbr_material_shader;
 pub mod shader;
 pub mod shader_preprocessor;
 pub mod texture;
+pub mod transform;
 pub mod vertex;
 pub mod world_environment;
 
@@ -25,5 +26,6 @@ pub use pbr_material_shader::*;
 pub use shader::*;
 pub use shader_preprocessor::*;
 pub use texture::*;
+pub use transform::*;
 pub use vertex::*;
 pub use world_environment::*;

@@ -6,7 +6,6 @@ pub mod logging;
 pub mod renderer;
 pub mod resources;
 pub mod shader_preprocessor;
-pub mod transform;
 pub mod world;
 
 #[cfg(test)]
