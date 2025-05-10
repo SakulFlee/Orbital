@@ -1,9 +1,9 @@
-use buffer::BufferDescriptor;
 use cgmath::{Vector3, Zero};
-use material_shader::MaterialShaderDescriptor;
-use shader::VariableType;
-use texture::{TextureDescriptor, TextureSize};
 use wgpu::{TextureFormat, TextureSampleType, TextureUsages};
+
+use crate::resources::{
+    BufferDescriptor, MaterialShaderDescriptor, VariableType, {TextureDescriptor, TextureSize},
+};
 
 #[cfg(test)]
 mod tests;
