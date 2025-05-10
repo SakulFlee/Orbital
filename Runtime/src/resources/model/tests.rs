@@ -1,8 +1,6 @@
-use bounding_box::BoundingBoxDescriptor;
 use cgmath::{Point3, Vector2, Vector3};
-use vertex::Vertex;
 
-use crate::{Mesh, MeshDescriptor};
+use crate::resources::{Mesh, MeshDescriptor, BoundingBoxDescriptor, Vertex};
 
 #[test]
 fn realization() {
