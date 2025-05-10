@@ -6,17 +6,19 @@ use std::{
 use cgmath::Vector2;
 use image::{GenericImageView, ImageReader};
 use log::{debug, warn};
-use texture::Texture;
 use wgpu::{
+    include_wgsl,
+    util::{BufferInitDescriptor, DeviceExt},
     AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
     BufferBindingType, BufferUsages, CommandEncoder, CompareFunction, ComputePassDescriptor,
     ComputePipeline, ComputePipelineDescriptor, Device, Extent3d, FilterMode,
     PipelineLayoutDescriptor, Queue, SamplerBindingType, SamplerDescriptor, ShaderModuleDescriptor,
     ShaderStages, StorageTextureAccess, TextureDimension, TextureFormat, TextureSampleType,
-    TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension, include_wgsl,
-    util::{BufferInitDescriptor, DeviceExt},
+    TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
 };
+
+use crate::resources::Texture;
 
 mod error;
 pub use error::*;
@@ -150,7 +152,7 @@ impl WorldEnvironment {
         descriptor: &WorldEnvironmentDescriptor,
         device: &Device,
         queue: &Queue,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, WorldEnvironmentError> {
         let cache_file_option = Self::find_cache_file(&descriptor);
 
         if let Some(ref cache_file_path) = cache_file_option {
@@ -214,7 +216,7 @@ impl WorldEnvironment {
         descriptor: &WorldEnvironmentDescriptor,
         device: &Device,
         queue: &Queue,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, WorldEnvironmentError> {
         match descriptor {
             WorldEnvironmentDescriptor::FromFile {
                 cube_face_size,
@@ -254,11 +256,11 @@ impl WorldEnvironment {
         specular_mip_level_count: u32,
         device: &Device,
         queue: &Queue,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, WorldEnvironmentError> {
         let img = ImageReader::open(file_path)
-            .map_err(Error::IO)?
+            .map_err(WorldEnvironmentError::IO)?
             .decode()
-            .map_err(Error::Image)?;
+            .map_err(WorldEnvironmentError::Image)?;
 
         let width = img.dimensions().0;
         let height = img.dimensions().1;
