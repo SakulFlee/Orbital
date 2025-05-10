@@ -1,4 +1,4 @@
-use crate::{action::ChangeListAction, ty::ChangeListType};
+use super::{ChangeListAction, ChangeListType};
 
 #[derive(Debug)]
 pub struct ChangeListEntry {
