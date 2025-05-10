@@ -1,10 +1,10 @@
-use app::AppChange;
-use camera::{CameraDescriptor, CameraTransform};
-use crate::element::Message;
-use model::{ModelDescriptor, Transform};
-use world_environment::WorldEnvironmentDescriptor;
-
-use crate::Element;
+use crate::{
+    app::AppChange,
+    element::{Element, Message},
+    resources::{
+        CameraDescriptor, CameraTransform, ModelDescriptor, Transform, WorldEnvironmentDescriptor,
+    },
+};
 
 /// A [WorldChange] is a _proposed change to the [World]_.  
 ///
