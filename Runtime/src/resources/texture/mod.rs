@@ -35,7 +35,7 @@ impl Texture {
         descriptor: &TextureDescriptor,
         device: &Device,
         queue: &Queue,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, TextureError> {
         match descriptor {
             TextureDescriptor::File { path, usages } => {
                 Self::from_path(path, *usages, device, queue)
@@ -186,11 +186,11 @@ impl Texture {
         usages: TextureUsages,
         device: &Device,
         queue: &Queue,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, TextureError> {
         let img = ImageReader::open(file_path)
-            .map_err(Error::IOError)?
+            .map_err(TextureError::IOError)?
             .decode()
-            .map_err(Error::ImageError)?;
+            .map_err(TextureError::ImageError)?;
 
         let data = img
             .to_rgba8()

@@ -1,5 +1,5 @@
 #[derive(Debug)]
-pub enum Error {
+pub enum TextureError {
     ImageError(image::ImageError),
     IOError(std::io::Error),
 }
