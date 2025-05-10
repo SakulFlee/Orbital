@@ -1,7 +1,6 @@
 use async_std::sync::{Arc, RwLock};
 
-use camera::CameraDescriptor;
-use model::ModelDescriptor;
+use crate::resources::{CameraDescriptor, ModelDescriptor};
 
 #[derive(Debug)]
 pub enum ChangeListType {
