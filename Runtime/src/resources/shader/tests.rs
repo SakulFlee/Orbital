@@ -1,10 +1,9 @@
 use rand::{rng, Rng};
 use wgpu::TextureSampleType;
 
-use buffer::BufferDescriptor;
-use texture::TextureDescriptor;
-
-use crate::{ShaderDescriptor, ShaderSource, VariableType};
+use crate::resources::{
+    BufferDescriptor, ShaderDescriptor, ShaderSource, TextureDescriptor, VariableType,
+};
 
 #[derive(Debug)]
 struct TestImplementation {
