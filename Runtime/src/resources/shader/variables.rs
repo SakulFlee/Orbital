@@ -4,7 +4,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use crate::Variable;
+use crate::resources::Variable;
 
 /// Variables bundled into a struct to support `Eq` and `Hash`.
 /// **This struct implements `Deref`!**  
