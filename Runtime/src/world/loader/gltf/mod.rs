@@ -4,19 +4,20 @@ use std::{
     thread::{self},
 };
 
-use crate::WorldChange;
-
-use super::{Loader, LoaderError};
-use camera::CameraDescriptor;
 use cgmath::{EuclideanSpace, Point3, Vector3};
 use crossbeam_channel::TryRecvError;
 use easy_gltf::{Projection, Scene};
 use log::{debug, error, warn};
-use model::{MaterialShaderDescriptor, MeshDescriptor, ModelDescriptor, Transform};
-use pbr_material_shader::PBRMaterialDescriptor;
-use texture::{TextureDescriptor, TextureSize};
-use vertex::Vertex;
 use wgpu::{Color, TextureFormat, TextureUsages};
+
+use crate::{
+    element::WorldChange,
+    resources::{
+        CameraDescriptor, MaterialShaderDescriptor, MeshDescriptor, ModelDescriptor,
+        PBRMaterialDescriptor, TextureDescriptor, TextureSize, Transform, Vertex,
+    },
+    world::loader::{Loader, LoaderError},
+};
 
 mod identifier;
 pub use identifier::*;
