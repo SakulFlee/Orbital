@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::resources::{MaterialShaderDescriptor, Transform};
+use crate::resources::{MaterialShaderDescriptor, Mode, Transform};
 
 use super::MeshDescriptor;
 
@@ -67,9 +67,12 @@ impl ModelDescriptor {
     /// Applies the given [Transform] to the [Model].
     /// _All_ defined [Transform]s will be offset by the given
     /// [Transform].
-    pub fn apply_transform(&mut self, transform: Transform) {
-        self.transforms.iter_mut().for_each(|x| {
-            x.apply_transform(transform);
+    pub fn apply_transform(&mut self, mode: Mode<Transform>) {
+        self.transforms.iter_mut().for_each(|x| match mode {
+            Mode::Overwrite(transform) => *x = transform,
+            Mode::Offset(transform)
+            | Mode::OffsetViewAligned(transform)
+            | Mode::OffsetViewAlignedWithY(transform) => x.apply_transform(transform),
         });
     }
 
@@ -77,9 +80,16 @@ impl ModelDescriptor {
     /// the [Transform] selection.
     /// _Only_ the defined [Transform] will be offset by the given
     /// [Transform].
-    pub fn apply_transform_specific(&mut self, transform: Transform, index: usize) {
+    pub fn apply_transform_specific(&mut self, mode: Mode<Transform>, index: usize) {
         if let Some(model_transform) = self.transforms.get_mut(index) {
-            *model_transform = transform;
+            match mode {
+                Mode::Overwrite(transform) => *model_transform = transform,
+                Mode::Offset(transform)
+                | Mode::OffsetViewAligned(transform)
+                | Mode::OffsetViewAlignedWithY(transform) => {
+                    model_transform.apply_transform(transform)
+                }
+            }
         }
     }
 }
