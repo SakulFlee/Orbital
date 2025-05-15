@@ -2,11 +2,11 @@ use std::time::Instant;
 
 use futures::{stream::FuturesUnordered, StreamExt};
 use hashbrown::HashMap;
-use log::warn;
+use log::{error, warn};
 
 use crate::{
     app::input::InputState,
-    element::{Element, Message},
+    element::{Element, Message, Target},
     world::WorldChange,
 };
 
@@ -69,10 +69,15 @@ impl ElementStore {
     }
 
     pub fn queue_message(&mut self, message: Message) {
-        self.message_queue
-            .entry(message.to().to_owned())
-            .or_default()
-            .push(message);
+        let label = match message.to() {
+            Target::Element { label } => label.clone(),
+            Target::App => {
+                error!("Attempted queueing message in ElementStore with target 'App'. This is not allowed!");
+                return;
+            }
+        };
+
+        self.message_queue.entry(label).or_default().push(message);
     }
 
     pub async fn update(&mut self, delta_time: f64, input_state: &InputState) -> Vec<WorldChange> {
