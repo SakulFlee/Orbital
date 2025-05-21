@@ -173,7 +173,26 @@ impl World {
     }
 
     async fn process_camera_change(&self, camera_change: CameraChange) -> Option<AppChange> {
-        let lock = self.camera_store.write().await;
+        match camera_change {
+            CameraChange::Spawn(camera_descriptor) => {
+                let mut  lock = self.camera_store.write().await;
+
+                let label = camera_descriptor.label.clone();
+                let arc = Arc::new(RwLock::new(camera_descriptor));
+                lock.insert(label, arc);
+            },           
+            CameraChange::Despawn(label) => {
+                let mut  lock = self.camera_store.write().await;
+
+                lock.remove(&label);
+            },
+            CameraChange::Target(label) => {
+                let mut  lock = self.camera_store.write().await;
+
+                // TODO: Change for Renderer? Or pass on?
+            },
+            CameraChange::Transform(_, camera_transform) => todo!(),
+        }
 
         None // TODO
     }
