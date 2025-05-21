@@ -7,7 +7,6 @@ use super::{CameraTransform, Mode};
 #[derive(Debug, Clone, PartialEq)]
 pub struct CameraDescriptor {
     pub label: String,
-    pub is_active: bool,
     pub position: Point3<f32>,
     pub yaw: f32,
     pub pitch: f32,
@@ -96,7 +95,6 @@ impl Default for CameraDescriptor {
     fn default() -> Self {
         Self {
             label: Self::DEFAULT_NAME.into(),
-            is_active: false,
             position: Point3::new(0.0, 0.0, 0.0),
             yaw: 0f32,
             pitch: 0f32,
