@@ -1,4 +1,4 @@
-use crate::element::Element;
+use crate::element::{Element, Message};
 
 #[derive(Debug)]
 pub enum ElementEvent {
@@ -14,4 +14,5 @@ pub enum ElementEvent {
         element_label: String,
         new_labels: Vec<String>,
     },
+    SendMessage(Message),
 }
