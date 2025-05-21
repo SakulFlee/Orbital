@@ -4,10 +4,10 @@ use futures::{stream::FuturesUnordered, StreamExt};
 use hashbrown::HashMap;
 use log::{error, warn};
 
+use super::WorldChange;
 use crate::{
     app::input::InputState,
     element::{Element, Message, Target},
-    world::WorldChange,
 };
 
 type ElementIndexType = u64;
