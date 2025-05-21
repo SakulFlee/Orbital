@@ -1,10 +1,9 @@
-use crate::resources::{CameraDescriptor, CameraTransform, Mode, ModelDescriptor, Transform};
+use crate::resources::{CameraDescriptor, CameraTransform};
 
 #[derive(Debug)]
 pub enum CameraChange {
     Spawn(CameraDescriptor),
     Despawn(String),
-    Activate(String),
-    Deactivate(String),
+    Target(String),
     Transform(String, CameraTransform),
 }
