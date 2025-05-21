@@ -7,6 +7,9 @@ use crate::app::input::InputState;
 pub mod registration;
 pub use registration::*;
 
+pub mod store;
+pub use store::*;
+
 pub mod message;
 pub use message::*;
 
