@@ -19,6 +19,5 @@ pub enum Event {
     Element(ElementEvent),
     App(RuntimeEvent),
     File(FileEvent),
-    SendMessage(Message),
     Clear,
 }
