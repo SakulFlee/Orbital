@@ -7,7 +7,7 @@ use wgpu::{Device, Queue, SurfaceConfiguration, SurfaceTexture, TextureView};
 use super::input::InputState;
 
 #[derive(Debug)]
-pub enum AppEvent {
+pub enum RuntimeEvent {
     Resumed(SurfaceConfiguration, Arc<Device>, Arc<Queue>),
     Suspended,
     Resize(Vector2<u32>, Arc<Device>, Arc<Queue>),

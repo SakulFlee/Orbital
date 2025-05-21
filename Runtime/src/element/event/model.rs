@@ -1,7 +1,7 @@
 use crate::resources::{Mode, ModelDescriptor, Transform};
 
 #[derive(Debug)]
-pub enum ModelChange {
+pub enum ModelEvent {
     Spawn(ModelDescriptor),
     Despawn(String),
     Transform(String, Mode<Transform>),

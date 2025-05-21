@@ -1,4 +1,4 @@
-use super::WorldChange;
+use super::Event;
 
 /// Used when registering an [Element](super::Element).
 #[derive(Debug)]
@@ -7,7 +7,7 @@ pub struct ElementRegistration {
     /// Any additional _labels_ will work the same as the main _label_.
     /// [Element]s can share _labels_ to
     labels: Vec<String>,
-    initial_world_changes: Vec<WorldChange>,
+    initial_world_changes: Vec<Event>,
 }
 
 impl ElementRegistration {
@@ -31,19 +31,19 @@ impl ElementRegistration {
         self
     }
 
-    pub fn with_initial_world_change(mut self, world_change: WorldChange) -> Self {
+    pub fn with_initial_world_change(mut self, world_change: Event) -> Self {
         self.initial_world_changes.push(world_change);
 
         self
     }
 
-    pub fn with_initial_world_changes(mut self, world_changes: Vec<WorldChange>) -> Self {
+    pub fn with_initial_world_changes(mut self, world_changes: Vec<Event>) -> Self {
         self.initial_world_changes.extend(world_changes);
 
         self
     }
 
-    pub fn extract(self) -> (Vec<String>, Vec<WorldChange>) {
+    pub fn extract(self) -> (Vec<String>, Vec<Event>) {
         (self.labels, self.initial_world_changes)
     }
 }

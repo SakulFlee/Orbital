@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
 use orbital::{
-    app::AppChange,
+    app::RuntimeEvent,
     async_trait::async_trait,
     cgmath::{Point3, Vector3},
     gilrs::Button,
@@ -63,10 +63,12 @@ impl Element for Camera {
                 yaw: PI,
                 ..Default::default()
             }))
-            .with_initial_world_change(WorldChange::AppChange(AppChange::ChangeCursorVisible(
+            .with_initial_world_change(WorldChange::AppChange(RuntimeEvent::ChangeCursorVisible(
                 false,
             )))
-            .with_initial_world_change(WorldChange::AppChange(AppChange::ChangeCursorGrabbed(true)))
+            .with_initial_world_change(WorldChange::AppChange(RuntimeEvent::ChangeCursorGrabbed(
+                true,
+            )))
     }
 
     async fn on_update(

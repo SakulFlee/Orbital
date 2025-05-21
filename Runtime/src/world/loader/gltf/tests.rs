@@ -3,7 +3,7 @@ use std::time::Instant;
 use cgmath::{Quaternion, Vector3};
 use hashbrown::HashMap;
 
-use super::{GLTFIdentifier, GLTFLoader, GLTFWorkerMode, Loader, WorldChange};
+use super::{Event, GLTFIdentifier, GLTFLoader, GLTFWorkerMode, Loader};
 use crate::resources::Transform;
 
 const TEST_FILE_PATH: &str = "../../Assets/Models/PBR_Spheres.glb";
@@ -201,7 +201,7 @@ fn test_transform_single() {
     );
     assert_eq!(world_changes.len(), 1);
 
-    if let WorldChange::SpawnModel(model_descriptor) = world_changes.first().unwrap() {
+    if let Event::SpawnModel(model_descriptor) = world_changes.first().unwrap() {
         let model_transform = model_descriptor.transforms.first().unwrap();
 
         assert_eq!(model_transform.position.x, transform.position.x);
@@ -257,7 +257,7 @@ fn test_transform_multiple_same() {
         println!("#{}", i);
         i += 1;
 
-        if let WorldChange::SpawnModel(model_descriptor) = world_change {
+        if let Event::SpawnModel(model_descriptor) = world_change {
             println!(">>> {}", model_descriptor.transforms.len());
             let model_transform = model_descriptor.transforms.first().unwrap();
 

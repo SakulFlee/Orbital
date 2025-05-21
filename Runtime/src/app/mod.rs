@@ -6,14 +6,14 @@ use wgpu::{Device, Queue, SurfaceConfiguration, TextureView};
 mod settings;
 pub use settings::*;
 
-mod event;
-pub use event::*;
+mod runtime_event;
+pub use runtime_event::*;
 
 mod runtime;
 pub use runtime::*;
 
-mod app_changes;
-pub use app_changes::*;
+mod app_event;
+pub use app_event::*;
 
 mod timer;
 pub use timer::*;
@@ -147,7 +147,7 @@ pub trait App {
         _delta_time: f64,
         _cycle: Option<(f64, u64)>,
         _messages: Vec<Message>,
-    ) -> impl std::future::Future<Output = Option<Vec<AppChange>>> + Send
+    ) -> impl std::future::Future<Output = Option<Vec<RuntimeEvent>>> + Send
     where
         Self: Sized,
     {
