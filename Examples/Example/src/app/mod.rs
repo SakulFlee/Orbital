@@ -118,6 +118,17 @@ impl<RenderImpl: Renderer + Send> App for MyApp<RenderImpl> {
     where
         Self: Sized,
     {
+        // TODO: New approach:
+        // 1. ElementStore updates Elements and returns WorldChanges (Events).
+        // 2. Events get separated here into whatever categories are needed.
+        // 3. Update PhysicsSystem with Events and generate ChangeList.
+        // 4. Update Renderer with remaining Events + ChangeList.
+        // 5. Return any AppEvents ("AppChanges") to the AppRuntime to be processed.
+        // (6. Actually start rendering the frame after all events have been processed.)
+        // ---
+        // Anything "transformable" goes into the PhysicsSystem.
+        // No matter if it can change or not (static).
+
         let app_changes = self.world.update(delta_time, input_state).await;
 
         // TODO: Messages get created by Elements as WorldChanges.
