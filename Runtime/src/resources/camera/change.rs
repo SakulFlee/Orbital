@@ -4,9 +4,16 @@ use super::Mode;
 
 #[derive(Debug, Default)]
 pub struct CameraTransform {
-    pub target: String,
+    /// Label of the camera this change should be applied to.
+    pub label: String,
+    /// If `Some`, will change the camera's position.
+    /// If `None`, will be ignored.
     pub position: Option<Mode<Vector3<f32>>>,
+    /// If `Some`, will change the camera's pitch.
+    /// If `None`, will be ignored.
     pub pitch: Option<Mode<f32>>,
+    /// If `Some`, will change the camera's yaw.
+    /// If `None`, will be ignored.
     pub yaw: Option<Mode<f32>>,
 }
 
