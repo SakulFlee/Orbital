@@ -1,6 +1,6 @@
 use std::{error::Error, fmt::Debug};
 
-use super::{Loader, WorldChange};
+use super::{Event, Loader};
 
 pub struct LoaderExecutor {
     /// Total amount of tasks that can run in parallel.
@@ -34,7 +34,7 @@ impl LoaderExecutor {
         self.scheduled_loaders = Some(scheduled_loaders);
     }
 
-    pub fn cycle(&mut self) -> Vec<Result<Vec<WorldChange>, Box<dyn Error + Send + Sync>>> {
+    pub fn cycle(&mut self) -> Vec<Result<Vec<Event>, Box<dyn Error + Send + Sync>>> {
         let finished_results = self.do_check_finished_loaders();
         self.do_start_new_loaders();
         finished_results
@@ -42,7 +42,7 @@ impl LoaderExecutor {
 
     pub fn do_check_finished_loaders(
         &mut self,
-    ) -> Vec<Result<Vec<WorldChange>, Box<dyn Error + Send + Sync>>> {
+    ) -> Vec<Result<Vec<Event>, Box<dyn Error + Send + Sync>>> {
         // Take the current list of active loaders
         let active_loaders = self.active_loaders.take().unwrap();
 

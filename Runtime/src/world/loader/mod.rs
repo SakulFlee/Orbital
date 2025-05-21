@@ -1,6 +1,6 @@
 use std::{error::Error, fmt::Debug};
 
-use super::WorldChange;
+use super::Event;
 
 mod error;
 pub use error::*;
@@ -15,5 +15,5 @@ pub use gltf::*;
 pub trait Loader: Debug + Send + Sync {
     fn begin_processing(&mut self);
     fn is_done_processing(&self) -> bool;
-    fn finish_processing(&mut self) -> Result<Vec<WorldChange>, Box<dyn Error + Send + Sync>>;
+    fn finish_processing(&mut self) -> Result<Vec<Event>, Box<dyn Error + Send + Sync>>;
 }

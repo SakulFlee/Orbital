@@ -7,9 +7,9 @@ use log::{error, info, warn};
 use wgpu::{Device, Queue};
 
 use crate::{
-    app::{input::InputState, AppChange},
+    app::{input::InputState, RuntimeEvent},
     change_list::{ChangeList, ChangeListAction, ChangeListEntry, ChangeListType},
-    element::{CameraChange, ElementChange, FileManager, Message, ModelChange, WorldChange},
+    element::{CameraEvent, ElementEvent, FileEvent, Message, ModelEvent, Event},
     resources::{Camera, CameraDescriptor, ModelDescriptor, WorldEnvironmentDescriptor},
 };
 
@@ -66,7 +66,7 @@ where
     world_environment: WorldEnvironmentDescriptor,
     loader_executor: LoaderExecutor,
     close_requested_timer: Option<Instant>,
-    world_change_queue: Vec<WorldChange>,
+    world_change_queue: Vec<Event>,
     change_list: Mutex<ChangeList>,
 }
 
@@ -84,7 +84,7 @@ impl World {
         }
     }
 
-    pub async fn process_world_changes(&mut self) -> Vec<AppChange> {
+    pub async fn process_world_changes(&mut self) -> Vec<RuntimeEvent> {
         let world_changes = std::mem::take(&mut self.world_change_queue);
 
         let futures = world_changes.into_iter().map(|x| self.process_world_change(x));
@@ -95,23 +95,23 @@ impl World {
         filtered_results
     }
 
-    async fn process_model_change(&self, model_change: ModelChange) -> Option<AppChange> {
+    async fn process_model_change(&self, model_change: ModelEvent) -> Option<RuntimeEvent> {
         match model_change {
-            ModelChange::Spawn(model_descriptor) => {
+            ModelEvent::Spawn(model_descriptor) => {
                 let mut model_store = self.model_store.write().await;
 
                 let label = model_descriptor.label.clone();
                 let arc = Arc::new(RwLock::new(model_descriptor));
                 model_store.insert(label, arc);
             },
-            ModelChange::Despawn(label) => {
+            ModelEvent::Despawn(label) => {
                 let mut model_store = self.model_store.write().await;
 
                 if let None = model_store.remove(&label) {
                     warn!("Attempting to despawn non-existing model: {}!", label);
                 }
             },
-            ModelChange::Transform(label, mode) => {
+            ModelEvent::Transform(label, mode) => {
                 let model_store = self.model_store.read().await;
 
                 match model_store.get(&label) {
@@ -125,7 +125,7 @@ impl World {
                     }
                 }
             },
-            ModelChange::TransformInstance(label, mode, index) => {
+            ModelEvent::TransformInstance(label, mode, index) => {
                 let model_store = self.model_store.read().await;
 
                 match model_store.get(&label) {
@@ -139,7 +139,7 @@ impl World {
                     }
                 }
             },
-            ModelChange::AddInstance(label, transform) => {
+            ModelEvent::AddInstance(label, transform) => {
                 let model_store = self.model_store.read().await;
 
                 match model_store.get(&label) {
@@ -153,7 +153,7 @@ impl World {
                     }
                 }
             },
-            ModelChange::RemoveInstance(label, index) => {
+            ModelEvent::RemoveInstance(label, index) => {
                 let model_store = self.model_store.read().await;
 
                 match model_store.get(&label) {
@@ -172,70 +172,70 @@ impl World {
         None // TODO
     }
 
-    async fn process_camera_change(&self, camera_change: CameraChange) -> Option<AppChange> {
+    async fn process_camera_change(&self, camera_change: CameraEvent) -> Option<RuntimeEvent> {
         match camera_change {
-            CameraChange::Spawn(camera_descriptor) => {
+            CameraEvent::Spawn(camera_descriptor) => {
                 let mut  lock = self.camera_store.write().await;
 
                 let label = camera_descriptor.label.clone();
                 let arc = Arc::new(RwLock::new(camera_descriptor));
                 lock.insert(label, arc);
             },           
-            CameraChange::Despawn(label) => {
+            CameraEvent::Despawn(label) => {
                 let mut  lock = self.camera_store.write().await;
 
                 lock.remove(&label);
             },
-            CameraChange::Target(label) => {
+            CameraEvent::Target(label) => {
                 let mut  lock = self.camera_store.write().await;
 
                 // TODO: Change for Renderer? Or pass on?
             },
-            CameraChange::Transform(_, camera_transform) => todo!(),
+            CameraEvent::Transform(_, camera_transform) => todo!(),
         }
 
         None // TODO
     }
 
-    async fn process_element_change(&self, element_change: ElementChange) -> Option<AppChange> {
+    async fn process_element_change(&self, element_change: ElementEvent) -> Option<RuntimeEvent> {
         let lock = self.element_store.write().await;
 
         None // TODO
     }
 
-    async fn process_app_change(&self, app_change: AppChange) -> Option<AppChange> {
+    async fn process_app_change(&self, app_change: RuntimeEvent) -> Option<RuntimeEvent> {
         // let lock = self.app_store.write().await;
 
         None // TODO
     }
 
-    async fn process_file_manager(&self, file_manager: FileManager) -> Option<AppChange> {
+    async fn process_file_manager(&self, file_manager: FileEvent) -> Option<RuntimeEvent> {
         // let lock = self.file_manager_store.write().await;
 
         None // TODO
     }
 
-    async fn process_send_message(&self, message: Message) -> Option<AppChange> {
+    async fn process_send_message(&self, message: Message) -> Option<RuntimeEvent> {
         // let lock = self.send_message.write().await;
 
         None // TODO
     }
 
-    async fn process_clear(&self) -> Option<AppChange> {
+    async fn process_clear(&self) -> Option<RuntimeEvent> {
         // let lock = self.app_store.write().await;
 
         None // TODO
     }
 
-    async fn process_world_change(&self, world_change: WorldChange) -> Option<AppChange> {
+    async fn process_world_change(&self, world_change: Event) -> Option<RuntimeEvent> {
         match world_change {
-            WorldChange::Model(model_change) => self.process_model_change(model_change).await,
-            WorldChange::Camera(camera_change) => self.process_camera_change(camera_change).await,
-            WorldChange::Element(element_change) => self.process_element_change(element_change).await,
-            WorldChange::App(app_change) => self.process_app_change(app_change).await,
-            WorldChange::FileManager(file_manager) => self.process_file_manager(file_manager).await,
-            WorldChange::SendMessage(message) => self.process_send_message(message).await,
-            WorldChange::Clear => self.process_clear().await,
+            Event::Model(model_change) => self.process_model_change(model_change).await,
+            Event::Camera(camera_change) => self.process_camera_change(camera_change).await,
+            Event::Element(element_change) => self.process_element_change(element_change).await,
+            Event::App(app_change) => self.process_app_change(app_change).await,
+            Event::File(file_manager) => self.process_file_manager(file_manager).await,
+            Event::SendMessage(message) => self.process_send_message(message).await,
+            Event::Clear => self.process_clear().await,
         }
 
         // WorldChange::SpawnElement(element) => {
@@ -504,7 +504,7 @@ impl World {
     /// ⚠️ You will only need to call this if you are making your own thing.
     ///
     /// [GameRuntime]: crate::world::GameRuntime
-    pub async fn update(&mut self, delta_time: f64, input_state: &InputState) -> Vec<AppChange> {
+    pub async fn update(&mut self, delta_time: f64, input_state: &InputState) -> Vec<RuntimeEvent> {
         let element_changes = self.element_store.update(delta_time, input_state).await; todo!(): ?
         self.world_change_queue.extend(element_changes);
 
@@ -532,7 +532,7 @@ impl World {
                         warn!(
                             "No more elements in World and close request didn't work yet! Force Quitting!"
                         );
-                        app_changes.push(AppChange::ForceAppClosure { exit_code: 0 });
+                        app_changes.push(RuntimeEvent::ForceAppClosure { exit_code: 0 });
                     }
                 }
                 None => {
@@ -540,7 +540,7 @@ impl World {
                     // Attempt to softly request the app to close first.
                     self.close_requested_timer = Some(Instant::now());
                     warn!("No more elements in World! Exiting ...");
-                    app_changes.push(AppChange::RequestAppClosure);
+                    app_changes.push(RuntimeEvent::RequestAppClosure);
                 }
             }
         }

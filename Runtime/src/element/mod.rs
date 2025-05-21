@@ -13,8 +13,8 @@ pub use store::*;
 pub mod message;
 pub use message::*;
 
-mod world_change;
-pub use world_change::*;
+mod event;
+pub use event::*;
 
 /// An [Element] is a **thing** inside a [World].  
 /// Whenever you need something in your world, be it static or updated,
@@ -118,7 +118,7 @@ pub trait Element: Debug + Send {
         _delta_time: f64,
         _input_state: &InputState,
         _messages: Option<Vec<Message>>,
-    ) -> Option<Vec<WorldChange>> {
+    ) -> Option<Vec<Event>> {
         None
     }
 }

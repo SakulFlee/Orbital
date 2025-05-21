@@ -28,12 +28,12 @@ use crate::{
     logging::{self, debug, error, info, warn},
 };
 
-use super::{App, AppChange, AppEvent, AppSettings};
+use super::{App, AppSettings, RuntimeEvent, RuntimeEvent};
 
 pub struct AppRuntime {
     // Events
-    event_tx: Sender<AppEvent>,
-    app_change_rx: Receiver<AppChange>,
+    event_tx: Sender<RuntimeEvent>,
+    app_change_rx: Receiver<RuntimeEvent>,
     app_messages: Vec<Message>,
     // App related
     runtime_settings: AppSettings,
@@ -67,8 +67,8 @@ impl AppRuntime {
         info!("Orbital Runtime");
         info!(" --- @SakulFlee --- ");
 
-        let (event_tx, event_rx) = async_std::channel::unbounded::<AppEvent>();
-        let (app_change_tx, app_change_rx) = async_std::channel::unbounded::<AppChange>();
+        let (event_tx, event_rx) = async_std::channel::unbounded::<RuntimeEvent>();
+        let (app_change_tx, app_change_rx) = async_std::channel::unbounded::<RuntimeEvent>();
 
         let mut app_runtime = Self {
             event_tx: event_tx.clone(),
@@ -99,23 +99,24 @@ impl AppRuntime {
             loop {
                 if let Ok(event) = event_rx.recv().await {
                     match event {
-                        AppEvent::Resumed(surface_configuration, device, queue) => {
+                        RuntimeEvent::Resumed(surface_configuration, device, queue) => {
                             app.on_resume(&surface_configuration, &device, &queue).await;
                         }
-                        AppEvent::Suspended => app.on_suspend().await,
-                        AppEvent::Resize(size, device, queue) => {
+                        RuntimeEvent::Suspended => app.on_suspend().await,
+                        RuntimeEvent::Resize(size, device, queue) => {
                             app.on_resize(size, &device, &queue).await
                         }
-                        AppEvent::Render(frame, view, device, queue) => {
+                        RuntimeEvent::Render(frame, view, device, queue) => {
                             app.on_render(&view, &device, &queue).await;
 
-                            if let Err(e) =
-                                app_change_tx.send(AppChange::FinishedRedraw(frame)).await
+                            if let Err(e) = app_change_tx
+                                .send(RuntimeEvent::FinishedRedraw(frame))
+                                .await
                             {
                                 error!("Failed to send app change to app change channel: {}", e);
                             }
                         }
-                        AppEvent::Update {
+                        RuntimeEvent::Update {
                             input_state,
                             delta_time,
                             cycle,
@@ -345,7 +346,7 @@ impl AppRuntime {
 
         let config_ref = self.surface_configuration.as_ref().unwrap();
 
-        if let Err(e) = self.event_tx.try_send(AppEvent::Resize(
+        if let Err(e) = self.event_tx.try_send(RuntimeEvent::Resize(
             Vector2 {
                 x: config_ref.width,
                 y: config_ref.height,
@@ -437,7 +438,7 @@ impl AppRuntime {
         // the frame to be ready rendered immediately after.
         // Instead, we move the `frame.present()` over after App
         // actually received the event and DID the rendering!
-        if let Err(e) = self.event_tx.try_send(AppEvent::Render(
+        if let Err(e) = self.event_tx.try_send(RuntimeEvent::Render(
             frame,
             view,
             self.device.as_ref().unwrap().clone(),
@@ -474,7 +475,7 @@ impl AppRuntime {
 
         // Trigger an update with the input state!
         let messages = take(&mut self.app_messages);
-        if let Err(e) = self.event_tx.try_send(AppEvent::Update {
+        if let Err(e) = self.event_tx.try_send(RuntimeEvent::Update {
             input_state: self.input_state.clone(),
             delta_time,
             cycle,
@@ -491,14 +492,14 @@ impl AppRuntime {
 
         while let Ok(app_change) = self.app_change_rx.try_recv() {
             match app_change {
-                AppChange::ChangeCursorAppearance(cursor) => {
+                RuntimeEvent::ChangeCursorAppearance(cursor) => {
                     if let Some(window) = &self.window {
                         window.set_cursor(cursor);
                     } else {
                         warn!("Change cursor appearance requested, but window does not exist!");
                     }
                 }
-                AppChange::ChangeCursorPosition(position) => {
+                RuntimeEvent::ChangeCursorPosition(position) => {
                     if let Some(window) = &self.window {
                         if let Err(e) = window.set_cursor_position(position) {
                             error!("Failed to set cursor position: {}", e);
@@ -507,14 +508,14 @@ impl AppRuntime {
                         warn!("Change cursor position requested, but window does not exist!");
                     }
                 }
-                AppChange::ChangeCursorVisible(visible) => {
+                RuntimeEvent::ChangeCursorVisible(visible) => {
                     if let Some(window) = &self.window {
                         window.set_cursor_visible(visible);
                     } else {
                         warn!("Change cursor visibility requested, but window does not exist!");
                     }
                 }
-                AppChange::ChangeCursorGrabbed(grab) => {
+                RuntimeEvent::ChangeCursorGrabbed(grab) => {
                     if let Some(window) = &self.window {
                         if grab {
                             if let Err(e) = window.set_cursor_grab(CursorGrabMode::Confined) {
@@ -530,32 +531,32 @@ impl AppRuntime {
                         warn!("Change cursor grabbing requested, but window does not exist!");
                     }
                 }
-                AppChange::RequestAppClosure => {
+                RuntimeEvent::RequestAppClosure => {
                     warn!("App closure was requested!");
                     exit_requested = true;
                 }
-                AppChange::ForceAppClosure { exit_code } => {
+                RuntimeEvent::ForceAppClosure { exit_code } => {
                     warn!(
                         "Force app closure was requested with exit code {}!",
                         exit_code
                     );
                     std::process::exit(exit_code);
                 }
-                AppChange::RequestRedraw => {
+                RuntimeEvent::RequestRedraw => {
                     if let Some(window) = &self.window {
                         window.request_redraw();
                     } else {
                         warn!("Redraw requested, but window does not exist!");
                     }
                 }
-                AppChange::FinishedRedraw(frame) => {
+                RuntimeEvent::FinishedRedraw(frame) => {
                     frame.present();
                     self.frame_acquired = false;
 
                     // Trigger next update cycle after the frame was fully rendered!
                     self.update();
                 }
-                AppChange::SendMessage(message) => {
+                RuntimeEvent::SendMessage(message) => {
                     self.app_messages.push(message);
                 }
             }
@@ -634,7 +635,7 @@ impl ApplicationHandler for AppRuntime {
 
         self.reconfigure_surface();
 
-        if let Err(e) = self.event_tx.try_send(AppEvent::Resumed(
+        if let Err(e) = self.event_tx.try_send(RuntimeEvent::Resumed(
             self.surface_configuration
                 .as_ref()
                 .expect("Expected a SurfaceConfiguration to exist by now!")
@@ -663,7 +664,7 @@ impl ApplicationHandler for AppRuntime {
         self.queue = None;
         self.timer = None;
 
-        if let Err(e) = self.event_tx.try_send(AppEvent::Suspended) {
+        if let Err(e) = self.event_tx.try_send(RuntimeEvent::Suspended) {
             error!("Failed to send Suspend Event to App: {}", e);
         }
     }

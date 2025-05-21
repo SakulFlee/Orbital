@@ -1,5 +1,5 @@
 use orbital::{
-    app::{App, AppChange},
+    app::{App, RuntimeEvent},
     cgmath::Vector2,
     input::InputState,
     log::warn,
@@ -114,7 +114,7 @@ impl<RenderImpl: Renderer + Send> App for MyApp<RenderImpl> {
         delta_time: f64,
         _cycle: Option<(f64, u64)>,
         messages: Vec<Message>,
-    ) -> Option<Vec<AppChange>>
+    ) -> Option<Vec<RuntimeEvent>>
     where
         Self: Sized,
     {

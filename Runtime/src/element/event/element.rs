@@ -1,7 +1,7 @@
 use crate::element::Element;
 
 #[derive(Debug)]
-pub enum ElementChange {
+pub enum ElementEvent {
     Spawn(Box<dyn Element + Send + Sync>),
     Despawn(String),
     // TODO: Make singular

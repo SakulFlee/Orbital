@@ -11,7 +11,7 @@ use log::{debug, error, warn};
 use wgpu::{Color, TextureFormat, TextureUsages};
 
 use crate::{
-    element::WorldChange,
+    element::Event,
     resources::{
         CameraDescriptor, MaterialShaderDescriptor, MeshDescriptor, ModelDescriptor,
         PBRMaterialDescriptor, TextureDescriptor, TextureSize, Transform, Vertex,
@@ -55,7 +55,7 @@ impl GLTFLoader {
     fn loader_gltf_scene_to_world_changes(
         gltf_scene: &Scene,
         option_model_transforms: &Option<Transform>,
-    ) -> Vec<WorldChange> {
+    ) -> Vec<Event> {
         let mut world_changes = Vec::new();
 
         // TODO: Parallelise!
@@ -68,7 +68,7 @@ impl GLTFLoader {
                 model_descriptor.transforms = vec![*model_transform];
             }
 
-            let world_change = WorldChange::SpawnModel(model_descriptor);
+            let world_change = Event::SpawnModel(model_descriptor);
 
             world_changes.push(world_change);
         }
@@ -83,7 +83,7 @@ impl GLTFLoader {
 
         for gltf_camera in &gltf_scene.cameras {
             let camera_descriptor = Self::camera_from_gltf(gltf_camera);
-            let world_change = WorldChange::SpawnCamera(camera_descriptor);
+            let world_change = Event::SpawnCamera(camera_descriptor);
 
             world_changes.push(world_change);
         }
@@ -94,7 +94,7 @@ impl GLTFLoader {
     fn loader_load_everything(
         gltf_scenes: &[Scene],
         option_model_transform: &Option<Transform>,
-    ) -> Vec<WorldChange> {
+    ) -> Vec<Event> {
         let mut world_changes = Vec::new();
 
         // TODO: Parallelise!
@@ -113,7 +113,7 @@ impl GLTFLoader {
         gltf_scenes: &[Scene],
         identifier: &GLTFIdentifier,
         option_model_transform: &Option<Transform>,
-    ) -> Vec<WorldChange> {
+    ) -> Vec<Event> {
         // TODO: Parallelise!
 
         match identifier {
@@ -450,7 +450,7 @@ impl Loader for GLTFLoader {
                         // Convert to world changes
                         let model_world_changes = models
                             .into_iter()
-                            .map(WorldChange::SpawnModel)
+                            .map(Event::SpawnModel)
                             .collect::<Vec<_>>();
 
                         world_changes.extend(model_world_changes);
@@ -565,7 +565,7 @@ impl Loader for GLTFLoader {
                             // Convert to descriptors
                             .map(Self::camera_from_gltf)
                             // Convert to world changes
-                            .map(WorldChange::SpawnCamera)
+                            .map(Event::SpawnCamera)
                             .collect::<Vec<_>>();
 
                         world_changes.extend(camera_world_changes);
@@ -591,7 +591,7 @@ impl Loader for GLTFLoader {
         }
     }
 
-    fn finish_processing(&mut self) -> Result<Vec<WorldChange>, Box<dyn Error + Send + Sync>> {
+    fn finish_processing(&mut self) -> Result<Vec<Event>, Box<dyn Error + Send + Sync>> {
         if !self.is_done_processing() {
             return Err(Box::new(LoaderError::NotDoneProcessing));
         }
@@ -604,7 +604,7 @@ impl Loader for GLTFLoader {
             .join()
             .expect("Worker thread didn't exit correctly!");
 
-        let result: Result<Vec<WorldChange>, Box<dyn Error + Send + Sync>> =
+        let result: Result<Vec<Event>, Box<dyn Error + Send + Sync>> =
             match worker.receiver.try_recv() {
                 Ok(x) => x,
                 Err(e) => match e {

@@ -1,7 +1,7 @@
 use crate::resources::{CameraDescriptor, CameraTransform};
 
 #[derive(Debug)]
-pub enum CameraChange {
+pub enum CameraEvent {
     Spawn(CameraDescriptor),
     Despawn(String),
     Target(String),
