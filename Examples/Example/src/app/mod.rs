@@ -120,10 +120,13 @@ impl<RenderImpl: Renderer + Send> App for MyApp<RenderImpl> {
     {
         // TODO: New approach:
         // 1. ElementStore updates Elements and returns WorldChanges (Events).
-        // 2. Events get separated here into whatever categories are needed.
-        // 3. Update PhysicsSystem with Events and generate ChangeList.
+        // 2. ❌ Events get separated here into whatever categories are needed.
+        //    Events will be sent to each System as a mutable reference.
+        //    Each system can remove the events it processed, unless they are universal.
+        // 3. ⏩ Update PhysicsSystem with Events and generate ChangeList.
+        //    PhysicsSystem is not yet implemented, a dummy system will be implemented.
         // 4. Update Renderer with remaining Events + ChangeList.
-        // 5. Return any AppEvents ("AppChanges") to the AppRuntime to be processed.
+        // 5. Return any AppEvents to the AppRuntime to be processed.
         // (6. Actually start rendering the frame after all events have been processed.)
         // ---
         // Anything "transformable" goes into the PhysicsSystem.
