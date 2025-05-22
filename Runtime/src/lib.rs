@@ -7,7 +7,7 @@ pub mod physics;
 pub mod renderer;
 pub mod resources;
 pub mod shader_preprocessor;
-pub mod world;
+// TODO pub mod world;
 
 #[cfg(test)]
 pub mod wgpu_test_adapter;
