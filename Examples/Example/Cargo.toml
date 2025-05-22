@@ -7,13 +7,5 @@ edition = "2021"
 name = "app_example"
 crate-type = ["cdylib", "lib"]
 
-[features]
-default = ["caching_indirect_renderer"]
-caching_indirect_renderer = []
-caching_direct_renderer = []
-non_caching_direct_renderer = []
-
 [dependencies]
 orbital = { path = "../../Runtime/" }
-image = "0.25.1"
-futures = "0.3.31"
