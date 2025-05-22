@@ -17,7 +17,7 @@ pub enum Event {
     Model(ModelEvent),
     Camera(CameraEvent),
     Element(ElementEvent),
-    App(RuntimeEvent),
-    File(FileEvent),
+    App(RuntimeEvent), // TODO
+    File(FileEvent), // TODO
     Clear,
 }
