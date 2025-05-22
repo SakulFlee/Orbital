@@ -1,11 +1,9 @@
 use orbital::{
-    app::{App, RuntimeEvent},
+    app::{App, AppEvent, RuntimeEvent},
     cgmath::Vector2,
-    input::InputState,
-    log::warn,
-    renderer::Renderer,
+    element::{ElementEvent, ElementStore, Event},
+    physics::{Physics, PhysicsEvent},
     wgpu::{Device, Queue, SurfaceConfiguration, TextureView},
-    world::{Message, World, WorldChange},
 };
 
 mod cache_settings;
@@ -16,22 +14,24 @@ use elements::*;
 
 use crate::entrypoint::NAME;
 
-pub struct MyApp<RendererImpl: Renderer + Send> {
-    renderer: Option<RendererImpl>,
+pub struct MyApp {
+    // renderer: Option<RendererImpl>,
     element_store: ElementStore,
+    physics: Physics,
 }
 
-impl<RenderImpl: Renderer + Send> Default for MyApp<RenderImpl> {
+impl Default for MyApp {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<RenderImpl: Renderer + Send> MyApp<RenderImpl> {
+impl MyApp {
     pub fn new() -> Self {
         Self {
-            renderer: None,
+            // renderer: None,
             element_store: ElementStore::new(),
+            physics: Physics::new(),
             // world: World::new(),
         }
     }
@@ -79,7 +79,7 @@ impl<RenderImpl: Renderer + Send> MyApp<RenderImpl> {
     }
 }
 
-impl<RenderImpl: Renderer + Send> App for MyApp<RenderImpl> {
+impl App for MyApp {
     async fn on_resume(&mut self, config: &SurfaceConfiguration, device: &Device, queue: &Queue) {
         self.renderer = Some(RenderImpl::new(
             config.format,
@@ -137,6 +137,28 @@ impl<RenderImpl: Renderer + Send> App for MyApp<RenderImpl> {
         // Anything World related, like WorldEnvironment, goes into the Renderer.
 
         let events = self.element_store.update(delta_time, input_state).await;
+
+        let mut physics_events = Vec::<PhysicsEvent>::new();
+        let mut element_events = Vec::<ElementEvent>::new();
+        let mut runtime_events = Vec::<RuntimeEvent>::new();
+
+        for event in events {
+            match event {
+                Event::Model(model_event) => physics_events.push(PhysicsEvent::Model(model_event)),
+                Event::Camera(camera_event) => {
+                    physics_events.push(PhysicsEvent::Camera(camera_event))
+                }
+                Event::Element(element_event) => element_events.push(element_event),
+                Event::App(runtime_event) => runtime_events.push(runtime_event),
+                Event::File(file_event) => todo!(),
+                Event::Clear => physics_events.push(PhysicsEvent::Clear),
+            }
+        }
+
+        // TODO: Sort events into buckets/categories.
+        // TODO: Call each system async with the events.
+        // TODO: "All" meaning Physics + File + Element
+        // TODO: Renderer e.g. only needs ChangeList and needs to happen after the PhysicsSystem
 
         // TODO: Messages get created by Elements as WorldChanges.
         // World then transforms Message into AppChange.
