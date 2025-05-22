@@ -4,7 +4,7 @@ use futures::{stream::FuturesUnordered, StreamExt};
 use hashbrown::HashMap;
 use log::{error, warn};
 
-use super::Event;
+use super::{ElementEvent, Event};
 use crate::{
     app::input::InputState,
     element::{Element, Message, Target},
@@ -80,10 +80,40 @@ impl ElementStore {
         self.message_queue.entry(label).or_default().push(message);
     }
 
+    pub async fn process_events(&mut self, events: Vec<ElementEvent>) -> Vec<Event> {
+        let mut result_events = Vec::new();
+
+        for event in events {
+            match event {
+                ElementEvent::Spawn(element) => {
+                    let registration = element.on_registration();
+                    let (labels, new_events) = registration.extract();
+
+                    self.store_element(element, labels);
+
+                    result_events.extend(new_events);
+                }
+                ElementEvent::Despawn(label) => self.remove_element(&label),
+                ElementEvent::AddLabels {
+                    element_label,
+                    new_labels,
+                } => self.add_label(&element_label, new_labels),
+                ElementEvent::RemoveLabels {
+                    element_label,
+                    labels_to_be_removed,
+                } => self.remove_label(&element_label, labels_to_be_removed),
+                ElementEvent::SendMessage(message) => self.queue_message(message),
+            }
+        }
+
+        result_events
+    }
+
     pub async fn update(&mut self, delta_time: f64, input_state: &InputState) -> Vec<Event> {
         // Draining here will remove the messages from the queue so we don't need to clean/clear after!
         let mut messages = self.message_queue.drain().collect::<HashMap<_, _>>();
 
+        // TODO: Sending messages to elements with different labels will trigger a duplicated update call (I THINK).
         let x = self
             .element_map
             .iter_mut()
