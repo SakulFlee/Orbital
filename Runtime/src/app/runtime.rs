@@ -24,16 +24,17 @@ use super::{
     Timer,
 };
 use crate::{
+    app::AppEvent,
     element::Message,
     logging::{self, debug, error, info, warn},
 };
 
-use super::{App, AppSettings, RuntimeEvent, RuntimeEvent};
+use super::{App, AppSettings, RuntimeEvent};
 
 pub struct AppRuntime {
     // Events
     event_tx: Sender<RuntimeEvent>,
-    app_change_rx: Receiver<RuntimeEvent>,
+    app_change_rx: Receiver<AppEvent>,
     app_messages: Vec<Message>,
     // App related
     runtime_settings: AppSettings,
@@ -68,7 +69,7 @@ impl AppRuntime {
         info!(" --- @SakulFlee --- ");
 
         let (event_tx, event_rx) = async_std::channel::unbounded::<RuntimeEvent>();
-        let (app_change_tx, app_change_rx) = async_std::channel::unbounded::<RuntimeEvent>();
+        let (app_change_tx, app_change_rx) = async_std::channel::unbounded::<AppEvent>();
 
         let mut app_runtime = Self {
             event_tx: event_tx.clone(),
@@ -109,9 +110,8 @@ impl AppRuntime {
                         RuntimeEvent::Render(frame, view, device, queue) => {
                             app.on_render(&view, &device, &queue).await;
 
-                            if let Err(e) = app_change_tx
-                                .send(RuntimeEvent::FinishedRedraw(frame))
-                                .await
+                            if let Err(e) =
+                                app_change_tx.send(AppEvent::FinishedRedraw(frame)).await
                             {
                                 error!("Failed to send app change to app change channel: {}", e);
                             }
@@ -126,14 +126,22 @@ impl AppRuntime {
                                 .on_update(&input_state, delta_time, cycle, messages)
                                 .await
                             {
-                                for app_change in changes {
-                                    if let Err(e) = app_change_tx.send(app_change).await {
-                                        error!(
-                                            "Failed to send app change to app change channel: {}",
-                                            e
-                                        );
+                                if !changes.is_empty() {
+                                    error!("App returned changes, but this isn't handled yet!");
+                                    // TODO
+
+                                    for change in changes {
+                                        error!("DROPPING: {:?}", change);
                                     }
                                 }
+                                // for app_change in changes {
+                                //     if let Err(e) = app_change_tx.send(app_change).await {
+                                //         error!(
+                                //             "Failed to send app change to app change channel: {}",
+                                //             e
+                                //         );
+                                //     }
+                                // }
                             }
                         }
                     }
@@ -492,14 +500,14 @@ impl AppRuntime {
 
         while let Ok(app_change) = self.app_change_rx.try_recv() {
             match app_change {
-                RuntimeEvent::ChangeCursorAppearance(cursor) => {
+                AppEvent::ChangeCursorAppearance(cursor) => {
                     if let Some(window) = &self.window {
                         window.set_cursor(cursor);
                     } else {
                         warn!("Change cursor appearance requested, but window does not exist!");
                     }
                 }
-                RuntimeEvent::ChangeCursorPosition(position) => {
+                AppEvent::ChangeCursorPosition(position) => {
                     if let Some(window) = &self.window {
                         if let Err(e) = window.set_cursor_position(position) {
                             error!("Failed to set cursor position: {}", e);
@@ -508,14 +516,14 @@ impl AppRuntime {
                         warn!("Change cursor position requested, but window does not exist!");
                     }
                 }
-                RuntimeEvent::ChangeCursorVisible(visible) => {
+                AppEvent::ChangeCursorVisible(visible) => {
                     if let Some(window) = &self.window {
                         window.set_cursor_visible(visible);
                     } else {
                         warn!("Change cursor visibility requested, but window does not exist!");
                     }
                 }
-                RuntimeEvent::ChangeCursorGrabbed(grab) => {
+                AppEvent::ChangeCursorGrabbed(grab) => {
                     if let Some(window) = &self.window {
                         if grab {
                             if let Err(e) = window.set_cursor_grab(CursorGrabMode::Confined) {
@@ -531,32 +539,32 @@ impl AppRuntime {
                         warn!("Change cursor grabbing requested, but window does not exist!");
                     }
                 }
-                RuntimeEvent::RequestAppClosure => {
+                AppEvent::RequestAppClosure => {
                     warn!("App closure was requested!");
                     exit_requested = true;
                 }
-                RuntimeEvent::ForceAppClosure { exit_code } => {
+                AppEvent::ForceAppClosure { exit_code } => {
                     warn!(
                         "Force app closure was requested with exit code {}!",
                         exit_code
                     );
                     std::process::exit(exit_code);
                 }
-                RuntimeEvent::RequestRedraw => {
+                AppEvent::RequestRedraw => {
                     if let Some(window) = &self.window {
                         window.request_redraw();
                     } else {
                         warn!("Redraw requested, but window does not exist!");
                     }
                 }
-                RuntimeEvent::FinishedRedraw(frame) => {
+                AppEvent::FinishedRedraw(frame) => {
                     frame.present();
                     self.frame_acquired = false;
 
                     // Trigger next update cycle after the frame was fully rendered!
                     self.update();
                 }
-                RuntimeEvent::SendMessage(message) => {
+                AppEvent::SendMessage(message) => {
                     self.app_messages.push(message);
                 }
             }
