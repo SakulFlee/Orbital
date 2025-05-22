@@ -12,7 +12,7 @@ pub enum ElementEvent {
     // TODO: Make singular
     RemoveLabels {
         element_label: String,
-        new_labels: Vec<String>,
+        labels_to_be_removed: Vec<String>,
     },
     SendMessage(Message),
 }
