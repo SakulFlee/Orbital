@@ -3,6 +3,7 @@ pub mod cache;
 pub mod change_list;
 pub mod element;
 pub mod logging;
+pub mod physics;
 pub mod renderer;
 pub mod resources;
 pub mod shader_preprocessor;
