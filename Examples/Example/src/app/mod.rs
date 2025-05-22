@@ -18,7 +18,7 @@ use crate::entrypoint::NAME;
 
 pub struct MyApp<RendererImpl: Renderer + Send> {
     renderer: Option<RendererImpl>,
-    world: World,
+    element_store: ElementStore,
 }
 
 impl<RenderImpl: Renderer + Send> Default for MyApp<RenderImpl> {
@@ -31,50 +31,51 @@ impl<RenderImpl: Renderer + Send> MyApp<RenderImpl> {
     pub fn new() -> Self {
         Self {
             renderer: None,
-            world: World::new(),
+            element_store: ElementStore::new(),
+            // world: World::new(),
         }
     }
 
     async fn on_startup(&mut self) {
-        // Debug
-        self.world
-            .process_world_change(WorldChange::SpawnElement(Box::new(
-                DebugWorldEnvironment::new(),
-            )))
-            .await;
-        self.world
-            .process_world_change(WorldChange::SpawnElement(Box::new(
-                DebugController::default(),
-            )))
-            .await;
+        // // Debug
+        // self.world
+        //     .process_world_change(WorldChange::SpawnElement(Box::new(
+        //         DebugWorldEnvironment::new(),
+        //     )))
+        //     .await;
+        // self.world
+        //     .process_world_change(WorldChange::SpawnElement(Box::new(
+        //         DebugController::default(),
+        //     )))
+        //     .await;
 
-        // Camera & Lights
-        self.world
-            .process_world_change(WorldChange::SpawnElement(Box::new(Camera::new())))
-            .await;
-        self.world
-            .process_world_change(WorldChange::SpawnElement(Box::new(Lights {})))
-            .await;
+        // // Camera & Lights
+        // self.world
+        //     .process_world_change(WorldChange::SpawnElement(Box::new(Camera::new())))
+        //     .await;
+        // self.world
+        //     .process_world_change(WorldChange::SpawnElement(Box::new(Lights {})))
+        //     .await;
 
-        // Ping Pong
-        self.world
-            .process_world_change(WorldChange::SpawnElement(Box::new(PingPongElement::new(
-                true,
-            ))))
-            .await;
-        self.world
-            .process_world_change(WorldChange::SpawnElement(Box::new(PingPongElement::new(
-                false,
-            ))))
-            .await;
+        // // Ping Pong
+        // self.world
+        //     .process_world_change(WorldChange::SpawnElement(Box::new(PingPongElement::new(
+        //         true,
+        //     ))))
+        //     .await;
+        // self.world
+        //     .process_world_change(WorldChange::SpawnElement(Box::new(PingPongElement::new(
+        //         false,
+        //     ))))
+        //     .await;
 
-        // Models
-        self.world
-            .process_world_change(WorldChange::SpawnElement(Box::new(PBRSpheres {})))
-            .await;
-        self.world
-            .process_world_change(WorldChange::SpawnElement(Box::new(DamagedHelmet {})))
-            .await;
+        // // Models
+        // self.world
+        //     .process_world_change(WorldChange::SpawnElement(Box::new(PBRSpheres {})))
+        //     .await;
+        // self.world
+        //     .process_world_change(WorldChange::SpawnElement(Box::new(DamagedHelmet {})))
+        //     .await;
     }
 }
 
@@ -119,7 +120,7 @@ impl<RenderImpl: Renderer + Send> App for MyApp<RenderImpl> {
         Self: Sized,
     {
         // TODO: New approach:
-        // 1. ElementStore updates Elements and returns WorldChanges (Events).
+        // 1. ✅ ElementStore updates Elements and returns WorldChanges (Events).
         // 2. ❌ Events get separated here into whatever categories are needed.
         //    Events will be sent to each System as a mutable reference.
         //    Each system can remove the events it processed, unless they are universal.
@@ -131,8 +132,11 @@ impl<RenderImpl: Renderer + Send> App for MyApp<RenderImpl> {
         // ---
         // Anything "transformable" goes into the PhysicsSystem.
         // No matter if it can change or not (static).
+        //
+        // The PhysicsSystem will replace the World.
+        // Anything World related, like WorldEnvironment, goes into the Renderer.
 
-        let app_changes = self.world.update(delta_time, input_state).await;
+        let events = self.element_store.update(delta_time, input_state).await;
 
         // TODO: Messages get created by Elements as WorldChanges.
         // World then transforms Message into AppChange.
