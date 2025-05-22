@@ -11,3 +11,7 @@ pub mod shader_preprocessor;
 
 #[cfg(test)]
 pub mod wgpu_test_adapter;
+
+// Re-exports
+pub use cgmath;
+pub use wgpu;
