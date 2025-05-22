@@ -15,3 +15,4 @@ pub mod wgpu_test_adapter;
 // Re-exports
 pub use cgmath;
 pub use wgpu;
+pub use winit;
