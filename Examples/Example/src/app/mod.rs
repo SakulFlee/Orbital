@@ -155,6 +155,8 @@ impl App for MyApp {
             }
         }
 
+        let change_list = self.physics.update(delta_time, physics_events).await;
+
         // TODO: Sort events into buckets/categories.
         // TODO: Call each system async with the events.
         // TODO: "All" meaning Physics + File + Element

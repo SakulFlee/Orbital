@@ -41,27 +41,19 @@ impl ModelDescriptor {
 
     /// Adds one or many [Transform]_s_ to the [Model].
     /// Effectively, instancing the [Model].
-    pub fn add_transforms(&mut self, transforms: Vec<Transform>) {
-        self.transforms.extend(transforms);
+    pub fn add_transform(&mut self, transforms: Transform) {
+        self.transforms.push(transforms);
     }
 
     /// Removes a [Transform] from the [Model].
     ///
     /// ⚠️ Make sure at least one [Transform] is present!
-    pub fn remove_transforms(&mut self, indices: Vec<usize>) {
-        let transform_drain = self.transforms.drain(..);
+    pub fn remove_transform(&mut self, index: usize) -> Option<Transform> {
+        if index >= self.transforms.len() {
+            return None; // Index out of bounds
+        }
 
-        self.transforms = transform_drain
-            .into_iter()
-            .enumerate()
-            .filter_map(|(i, transform)| {
-                if indices.contains(&i) {
-                    None
-                } else {
-                    Some(transform)
-                }
-            })
-            .collect();
+        Some(self.transforms.remove(index))
     }
 
     /// Applies the given [Transform] to the [Model].
