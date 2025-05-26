@@ -106,7 +106,9 @@ impl Physics {
                 if let Some(arc) = self.model_store.get(&label) {
                     arc.write().await.remove_transform(index);
 
-                    Some(ChangeListEntry(ModelChangeListEntry::Change(*arc)))
+                    Some(ChangeListEntry::Model(ModelChangeListEntry::Change(
+                        arc.clone(),
+                    )))
                 } else {
                     None
                 }
