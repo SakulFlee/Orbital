@@ -1,7 +1,8 @@
 use orbital::{
-    app::{App, AppEvent, RuntimeEvent},
+    app::{input::InputState, App, RuntimeEvent},
     cgmath::Vector2,
     element::{ElementEvent, ElementStore, Event},
+    logging::warn,
     physics::{Physics, PhysicsEvent},
     wgpu::{Device, Queue, SurfaceConfiguration, TextureView},
 };
@@ -81,32 +82,32 @@ impl MyApp {
 
 impl App for MyApp {
     async fn on_resume(&mut self, config: &SurfaceConfiguration, device: &Device, queue: &Queue) {
-        self.renderer = Some(RenderImpl::new(
-            config.format,
-            Vector2::new(config.width, config.height),
-            device,
-            queue,
-            NAME,
-        ));
+        // self.renderer = Some(RenderImpl::new(
+        //     config.format,
+        //     Vector2::new(config.width, config.height),
+        //     device,
+        //     queue,
+        //     NAME,
+        // ));
 
-        if self.world.model_store().is_empty() {
-            self.on_startup().await;
-        }
+        // if self.world.model_store().is_empty() {
+        //     self.on_startup().await;
+        // }
     }
 
     async fn on_suspend(&mut self) {
-        self.renderer = None;
+        // self.renderer = None;
     }
 
     async fn on_resize(&mut self, new_size: Vector2<u32>, device: &Device, queue: &Queue)
     where
         Self: Sized,
     {
-        if let Some(renderer) = &mut self.renderer {
-            renderer.change_resolution(new_size, device, queue).await;
-        } else {
-            warn!("Received resize event, but Renderer doesn't exist (yet?)");
-        }
+        // if let Some(renderer) = &mut self.renderer {
+        //     renderer.change_resolution(new_size, device, queue).await;
+        // } else {
+        //     warn!("Received resize event, but Renderer doesn't exist (yet?)");
+        // }
     }
 
     async fn on_update(
@@ -114,7 +115,6 @@ impl App for MyApp {
         input_state: &InputState,
         delta_time: f64,
         _cycle: Option<(f64, u64)>,
-        messages: Vec<Message>,
     ) -> Option<Vec<RuntimeEvent>>
     where
         Self: Sized,
@@ -124,8 +124,8 @@ impl App for MyApp {
         // 2. ❌ Events get separated here into whatever categories are needed.
         //    Events will be sent to each System as a mutable reference.
         //    Each system can remove the events it processed, unless they are universal.
-        // 3. ⏩ Update PhysicsSystem with Events and generate ChangeList.
-        //    PhysicsSystem is not yet implemented, a dummy system will be implemented.
+        // 3. ✅ Update PhysicsSystem with Events and generate ChangeList.
+        //    ⚠️ PhysicsSystem is not yet implemented, a dummy system will be implemented.
         // 4. Update Renderer with remaining Events + ChangeList.
         // 5. Return any AppEvents to the AppRuntime to be processed.
         // (6. Actually start rendering the frame after all events have been processed.)
@@ -170,29 +170,19 @@ impl App for MyApp {
         // And finally on the next update cycle we get the actual AppMessages.
         // I.e. the message already has been here, we just didn't process it and send it on.
 
-        if !messages.is_empty() {
-            for message in messages {
-                if message.to() == DebugController::RENDERER_IDENTIFIER {
-                    self.renderer.as_mut().unwrap().on_message(message).await;
-                } else {
-                    warn!("AppMessage received which doesn't seem to be going for a valid target! ({:?})", message);
-                }
-            }
-        }
-
-        (!app_changes.is_empty()).then_some(app_changes)
+        (!runtime_events.is_empty()).then_some(runtime_events)
     }
 
     async fn on_render(&mut self, target_view: &TextureView, device: &Device, queue: &Queue)
     where
         Self: Sized,
     {
-        self.world.prepare_render(device, queue);
+        // self.world.prepare_render(device, queue);
 
-        if let Some(renderer) = &mut self.renderer {
-            renderer
-                .render(target_view, device, queue, &self.world)
-                .await;
-        }
+        // if let Some(renderer) = &mut self.renderer {
+        //     renderer
+        //         .render(target_view, device, queue, &self.world)
+        //         .await;
+        // }
     }
 }
