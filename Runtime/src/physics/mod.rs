@@ -52,7 +52,7 @@ impl Physics {
             }
         }
 
-        change_list.is_empty().then_some(change_list)
+        (!change_list.is_empty()).then_some(change_list)
     }
 
     async fn handle_model_event(&mut self, event: ModelEvent) -> Option<ChangeListEntry> {
