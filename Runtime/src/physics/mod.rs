@@ -33,7 +33,11 @@ impl Physics {
         }
     }
 
-    pub async fn update(&mut self, _delta_time: f64, events: Vec<PhysicsEvent>) -> ChangeList {
+    pub async fn update(
+        &mut self,
+        _delta_time: f64,
+        events: Vec<PhysicsEvent>,
+    ) -> Option<ChangeList> {
         let mut change_list = ChangeList::new();
 
         for event in events {
@@ -48,7 +52,7 @@ impl Physics {
             }
         }
 
-        change_list
+        change_list.is_empty().then_some(change_list)
     }
 
     async fn handle_model_event(&mut self, event: ModelEvent) -> Option<ChangeListEntry> {
