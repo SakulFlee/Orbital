@@ -120,10 +120,10 @@ impl AppRuntime {
                             input_state,
                             delta_time,
                             cycle,
-                            messages,
+                            messages, // TODO: Remove
                         } => {
                             if let Some(changes) = app
-                                .on_update(&input_state, delta_time, cycle, messages)
+                                .on_update(&input_state, delta_time, cycle)
                                 .await
                             {
                                 if !changes.is_empty() {
