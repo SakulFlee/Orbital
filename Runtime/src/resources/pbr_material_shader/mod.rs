@@ -124,32 +124,32 @@ impl Into<MaterialShaderDescriptor> for PBRMaterialShaderDescriptor {
             // Normal
             VariableType::Texture {
                 descriptor: self.normal,
-                sampler_type: TextureSampleType::Float { filterable: true },
+                sample_type: TextureSampleType::Float { filterable: true },
             },
             // Albedo
             VariableType::Texture {
                 descriptor: self.albedo,
-                sampler_type: TextureSampleType::Float { filterable: true },
+                sample_type: TextureSampleType::Float { filterable: true },
             },
             // Metallic
             VariableType::Texture {
                 descriptor: self.metallic,
-                sampler_type: TextureSampleType::Float { filterable: true },
+                sample_type: TextureSampleType::Float { filterable: true },
             },
             // Roughness
             VariableType::Texture {
                 descriptor: self.roughness,
-                sampler_type: TextureSampleType::Float { filterable: true },
+                sample_type: TextureSampleType::Float { filterable: true },
             },
             // Occlusion
             VariableType::Texture {
                 descriptor: self.occlusion,
-                sampler_type: TextureSampleType::Float { filterable: true },
+                sample_type: TextureSampleType::Float { filterable: true },
             },
             // Emissive
             VariableType::Texture {
                 descriptor: self.emissive,
-                sampler_type: TextureSampleType::Float { filterable: true },
+                sample_type: TextureSampleType::Float { filterable: true },
             },
             // Factors
             // Note: Combines all factors in one buffer

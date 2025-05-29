@@ -32,7 +32,7 @@ pub trait ShaderDescriptor {
 
     fn source(&self) -> ShaderSource;
 
-    fn variables(&self) -> Option<Vec<VariableType>> {
+    fn variables(&self) -> Option<&Vec<VariableType>> {
         None
     }
 
@@ -99,7 +99,7 @@ pub trait ShaderDescriptor {
                     }
                     VariableType::Texture {
                         descriptor,
-                        sampler_type: sample_type,
+                        sample_type,
                     } => {
                         // Note:
                         // We are skipping over the sampler binding as it is already contained inside the `Texture` realization!
@@ -114,7 +114,7 @@ pub trait ShaderDescriptor {
                             binding: binding_count,
                             visibility: self.stages(),
                             ty: BindingType::Texture {
-                                sample_type: sample_type,
+                                sample_type: *sample_type,
                                 view_dimension: *texture.view_dimension(),
                                 multisampled: false,
                             },
@@ -178,7 +178,7 @@ pub trait ShaderDescriptor {
                     }
                     VariableType::Texture {
                         descriptor: _,
-                        sampler_type: _,
+                        sample_type: _,
                     } => {
                         // Note:
                         // Check `bind_group_layout` above for information on why the binding index is skipped here.
