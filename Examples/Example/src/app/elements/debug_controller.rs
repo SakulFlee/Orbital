@@ -3,7 +3,7 @@ use orbital::{
     input::{InputButton, InputState},
     variant::Variant,
     winit::keyboard::{KeyCode, PhysicalKey},
-    world::{Element, ElementRegistration, Message, WorldChange},
+    world_old::{Element, ElementRegistration, Message, WorldChange},
 };
 
 #[derive(Debug, Default)]

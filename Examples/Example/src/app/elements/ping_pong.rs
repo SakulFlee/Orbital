@@ -3,7 +3,7 @@ use orbital::{
     hashbrown::HashMap,
     input::InputState,
     variant::Variant,
-    world::{Element, ElementRegistration, Message, WorldChange},
+    world_old::{Element, ElementRegistration, Message, WorldChange},
 };
 
 #[derive(Debug)]

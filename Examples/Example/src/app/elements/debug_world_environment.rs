@@ -6,7 +6,7 @@ use orbital::{
     log::debug,
     resources::descriptors::SkyboxType,
     winit::keyboard::{KeyCode, PhysicalKey},
-    world::{Element, ElementRegistration, Message, WorldChange},
+    world_old::{Element, ElementRegistration, Message, WorldChange},
 };
 
 #[derive(Debug)]

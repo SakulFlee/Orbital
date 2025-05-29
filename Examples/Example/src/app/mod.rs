@@ -5,6 +5,7 @@ use orbital::{
     logging::warn,
     physics::{Physics, PhysicsEvent},
     wgpu::{Device, Queue, SurfaceConfiguration, TextureView},
+    world::World,
 };
 
 mod cache_settings;
@@ -16,9 +17,10 @@ use elements::*;
 use crate::entrypoint::NAME;
 
 pub struct MyApp {
-    // renderer: Option<RendererImpl>,
     element_store: ElementStore,
+    world: World,
     physics: Physics,
+    // renderer: Option<RendererImpl>,
 }
 
 impl Default for MyApp {
@@ -30,10 +32,10 @@ impl Default for MyApp {
 impl MyApp {
     pub fn new() -> Self {
         Self {
-            // renderer: None,
             element_store: ElementStore::new(),
+            world: World::new(),
             physics: Physics::new(),
-            // world: World::new(),
+            // renderer: None,
         }
     }
 
@@ -139,7 +141,8 @@ impl App for MyApp {
         let events = self.element_store.update(delta_time, input_state).await;
 
         let mut physics_events = Vec::<PhysicsEvent>::new();
-        let mut element_events = Vec::<ElementEvent>::new(); // TODO: USE 
+        // TODO: Sort for World Environment Events
+        let mut element_events = Vec::<ElementEvent>::new(); // TODO: USE
         let mut runtime_events = Vec::<RuntimeEvent>::new();
 
         for event in events {
