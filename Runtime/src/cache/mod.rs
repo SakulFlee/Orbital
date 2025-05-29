@@ -16,6 +16,7 @@ where
     Key: Sized + Hash + PartialEq + Eq + Clone,
     Value: Sized,
 {
+    timeout: Duration,
     map: HashMap<Key, CacheEntry<Value>>,
 }
 
@@ -25,7 +26,7 @@ where
     Value: Sized,
 {
     fn default() -> Self {
-        Self::new()
+        Self::new(Duration::from_secs(5))
     }
 }
 
@@ -34,8 +35,9 @@ where
     Key: Sized + Hash + PartialEq + Eq + Clone,
     Value: Sized,
 {
-    pub fn new() -> Self {
+    pub fn new(timeout: Duration) -> Self {
         Self {
+            timeout,
             map: HashMap::new(),
         }
     }
@@ -48,10 +50,8 @@ where
         let before = self.map.len();
 
         // Then remove anything past our threshold
-        self.map.retain(|_, v| {
-            v.unused_since()
-                .is_none_or(|x| x.elapsed() <= Duration::from_secs(30))
-        });
+        self.map
+            .retain(|_, v| v.unused_since().is_none_or(|x| x.elapsed() <= self.timeout));
 
         #[cfg(debug_assertions)]
         {
