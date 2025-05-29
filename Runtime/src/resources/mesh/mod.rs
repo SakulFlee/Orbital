@@ -1,4 +1,3 @@
-use super::bounding_box::BoundingBox;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     Buffer, BufferUsages, Device, Queue,
@@ -17,25 +16,14 @@ pub struct Mesh {
     vertex_buffer: Buffer,
     index_buffer: Buffer,
     index_count: u32,
-    bounding_box: BoundingBox, // TODO: probably not needed
 }
 
 impl Mesh {
     pub fn from_descriptor(descriptor: &MeshDescriptor, device: &Device, _queue: &Queue) -> Self {
-        Self::from_data(
-            &descriptor.vertices,
-            &descriptor.indices,
-            BoundingBox::new(&descriptor.bounding_box, device),
-            device,
-        )
+        Self::from_data(&descriptor.vertices, &descriptor.indices, device)
     }
 
-    pub fn from_data(
-        vertices: &[Vertex],
-        indices: &[u32],
-        bounding_box: BoundingBox,
-        device: &Device,
-    ) -> Self {
+    pub fn from_data(vertices: &[Vertex], indices: &[u32], device: &Device) -> Self {
         let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Mesh Vertex Buffer"),
             contents: &vertices
@@ -58,7 +46,6 @@ impl Mesh {
             vertex_buffer,
             index_buffer,
             index_count: indices.len() as u32,
-            bounding_box,
         }
     }
 
@@ -72,9 +59,5 @@ impl Mesh {
 
     pub fn index_count(&self) -> u32 {
         self.index_count
-    }
-
-    pub fn bounding_box(&self) -> &BoundingBox {
-        &self.bounding_box
     }
 }
