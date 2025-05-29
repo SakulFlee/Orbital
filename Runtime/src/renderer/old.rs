@@ -1,53 +1,40 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::sync::Arc;
-
-use async_trait::async_trait;
-use cgmath::{Vector2, Vector4};
-use hashbrown::HashMap;
-use log::{debug, warn};
-use wgpu::util::{BufferInitDescriptor, DeviceExt};
+use cgmath::Vector2;
 use wgpu::{
-    include_wgsl, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferBindingType, BufferUsages,
-    CommandBuffer, CommandEncoderDescriptor, ComputePassDescriptor, ComputePipeline,
-    ComputePipelineDescriptor, Device, IndexFormat, LoadOp, MaintainBase, Operations,
-    PipelineLayoutDescriptor, Queue, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
-    RenderPassDescriptor, ShaderModuleDescriptor, ShaderStages, StoreOp, TextureFormat,
-    TextureView,
+    BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
+    BufferBindingType, CommandBuffer, CommandEncoderDescriptor, ComputePipeline,
+    ComputePipelineDescriptor, Device, LoadOp, Operations, PipelineLayoutDescriptor, Queue,
+    RenderPassColorAttachment, RenderPassDescriptor, ShaderModuleDescriptor, ShaderStages, StoreOp,
+    TextureFormat, TextureView,
 };
 
-use crate::cache::Cache;
-use crate::cache_state::CacheState;
-use crate::log::error;
-use crate::resources::descriptors::{
-    MaterialDescriptor, MeshDescriptor, ModelDescriptor, PipelineDescriptor, ShaderDescriptor,
-};
-use crate::resources::realizations::{Material, Mesh, Model, Shader};
-use crate::resources::{
-    descriptors::TextureDescriptor,
-    realizations::{Pipeline, Texture},
-};
-use crate::variant::Variant;
-use crate::world::{Change, ChangeList, ChangeType, Message, World};
+use crate::resources::{Texture, WorldEnvironment};
 
-use super::{IndirectIndexedDraw, Renderer};
+mod skybox;
+mod model;
+mod frustum_check;
 
-pub struct CachingIndirectRenderer {
-    app_name: String,
+pub struct Renderer {
     surface_format: TextureFormat,
     depth_texture: Texture,
-    world_environment: Option<Material>,
-    world_environment_pipeline: Option<Pipeline>,
-    model_cache: HashMap<String, Model>,
-    cache_state: CacheState,
-    debug_wireframes_enabled: bool,
-    debug_bounding_box_wireframe_enabled: bool,
-    debug_freeze_frustum_enabled: bool,
-    debug_frozen_frustum: Option<[Vector4<f32>; 6]>,
+    world_environment: Option<WorldEnvironment>,
 }
 
-impl CachingIndirectRenderer {
+impl Renderer {
+    fn new(
+        surface_texture_format: TextureFormat,
+        resolution: Vector2<u32>,
+        device: &Device,
+        queue: &Queue,
+    ) -> Self {
+        let depth_texture = Texture::depth_texture(&resolution, device, queue);
+
+        Self {
+            surface_format: surface_texture_format,
+            depth_texture,
+            world_environment: None,
+        }
+    }
+
     pub fn bind_group_layout_descriptor_frustum_culling_bounding_box_buffer(
     ) -> BindGroupLayoutDescriptor<'static> {
         BindGroupLayoutDescriptor {
@@ -353,9 +340,9 @@ impl CachingIndirectRenderer {
 
     fn render_skybox(
         &self,
-        world: &World,
-        device: &Device,
         target_view: &TextureView,
+        device: &Device,
+        queue: &Queue,
     ) -> CommandBuffer {
         let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
             label: Some("Skybox Encoder"),
@@ -536,35 +523,6 @@ impl CachingIndirectRenderer {
                     }
                 },
             }
-        }
-    }
-}
-
-#[async_trait]
-impl Renderer for CachingIndirectRenderer {
-    fn new(
-        surface_texture_format: wgpu::TextureFormat,
-        resolution: cgmath::Vector2<u32>,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        app_name: &str,
-    ) -> Self {
-        let depth_texture =
-            Texture::from_descriptor(&TextureDescriptor::Depth(resolution), device, queue)
-                .expect("Depth texture realization failed!");
-
-        Self {
-            app_name: app_name.to_string(),
-            surface_format: surface_texture_format,
-            depth_texture,
-            model_cache: HashMap::new(),
-            world_environment: None,
-            world_environment_pipeline: None,
-            cache_state: CacheState::new(),
-            debug_wireframes_enabled: false,
-            debug_bounding_box_wireframe_enabled: false,
-            debug_freeze_frustum_enabled: false,
-            debug_frozen_frustum: None,
         }
     }
 
