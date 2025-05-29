@@ -1,23 +1,17 @@
-use crate::{app::RuntimeEvent, element::Message};
+use crate::app::RuntimeEvent;
 
 mod element;
 pub use element::*;
 
-mod model;
-pub use model::*;
-
-mod camera;
-pub use camera::*;
+mod world;
+pub use world::*;
 
 mod file_manager;
 pub use file_manager::*;
 
 #[derive(Debug)]
 pub enum Event {
-    Model(ModelEvent),
-    Camera(CameraEvent),
     Element(ElementEvent),
+    World(WorldEvent),
     App(RuntimeEvent), // TODO
-    File(FileEvent), // TODO
-    Clear,
 }
