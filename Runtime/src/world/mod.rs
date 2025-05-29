@@ -1,7 +1,6 @@
 mod store;
 pub use store::*;
 
-// TODO: Should make a namespace for Systems
 // TODO: World should keep track of realized Models/Cameras (caching)
 // TODO: World should contain a quick way to get **all* BoundingBox buffers
 // TODO: Frustum Checking should be a separate System (outside of Renderer)
