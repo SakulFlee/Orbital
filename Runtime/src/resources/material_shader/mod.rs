@@ -1,8 +1,8 @@
 use std::sync::OnceLock;
 
 use wgpu::{
-    BlendState, ColorTargetState, ColorWrites, CompareFunction, DepthStencilState, Device,
-    FragmentState, PipelineLayoutDescriptor, PrimitiveState, Queue, RenderPipeline,
+    BindGroup, BlendState, ColorTargetState, ColorWrites, CompareFunction, DepthStencilState,
+    Device, FragmentState, PipelineLayoutDescriptor, PrimitiveState, Queue, RenderPipeline,
     RenderPipelineDescriptor, TextureFormat, VertexState,
 };
 
@@ -23,6 +23,7 @@ mod tests;
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct MaterialShader {
     pipeline: RenderPipeline,
+    bind_group: BindGroup,
     variables: Variables,
 }
 
@@ -41,7 +42,7 @@ impl MaterialShader {
         let shader_module = descriptor.shader_module(device)?;
 
         // Create pipeline layout and bind group
-        let (layout, variables) = descriptor.bind_group_layout(device, queue)?;
+        let (bind_group, layout, variables) = descriptor.bind_group(device, queue)?;
 
         let engine_bind_group_layout_once = OnceLock::new();
         let engine_bind_group_layout = engine_bind_group_layout_once
@@ -113,12 +114,17 @@ impl MaterialShader {
         let pipeline = device.create_render_pipeline(&pipeline_desc);
         Ok(Self {
             pipeline,
+            bind_group,
             variables,
         })
     }
 
     pub fn pipeline(&self) -> &RenderPipeline {
         &self.pipeline
+    }
+
+    pub fn bind_group(&self) -> &BindGroup {
+        &self.bind_group
     }
 
     pub fn variables(&self) -> &Variables {

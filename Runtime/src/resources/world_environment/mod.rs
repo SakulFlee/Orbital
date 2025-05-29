@@ -18,7 +18,7 @@ use wgpu::{
     TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
 };
 
-use crate::resources::Texture;
+use crate::resources::{Texture, TextureSize};
 
 mod error;
 pub use error::*;
@@ -34,6 +34,10 @@ pub use sampling_type::*;
 
 mod descriptor;
 pub use descriptor::*;
+
+use super::{
+    MaterialShader, MaterialShaderDescriptor, ShaderSource, TextureDescriptor, VariableType,
+};
 
 #[cfg(test)]
 mod tests;
@@ -645,5 +649,68 @@ impl WorldEnvironment {
 
     pub fn pbr_ibl_specular(&self) -> &Texture {
         &self.pbr_ibl_specular
+    }
+
+    pub fn into_texture_descriptors(
+        &self,
+        device: &Device,
+        queue: &Queue,
+    ) -> (TextureDescriptor, TextureDescriptor) {
+        let ibl_diffuse_data = self.pbr_ibl_diffuse.read_as_binary(device, queue);
+        let ibl_diffuse_size = self.pbr_ibl_diffuse.texture().size();
+        let ibl_diffuse_descriptor = TextureDescriptor::Data {
+            pixels: ibl_diffuse_data,
+            size: TextureSize {
+                width: ibl_diffuse_size.width,
+                height: ibl_diffuse_size.height,
+                depth_or_array_layers: ibl_diffuse_size.depth_or_array_layers,
+                base_mip: 0,
+                mip_levels: self.pbr_ibl_diffuse.texture().mip_level_count(),
+            },
+            usages: TextureUsages::TEXTURE_BINDING,
+            format: self.pbr_ibl_diffuse.texture().format(),
+        };
+
+        let ibl_specular_data = self.pbr_ibl_specular.read_as_binary(device, queue);
+        let ibl_specular_size = self.pbr_ibl_specular.texture().size();
+        let ibl_specular_descriptor = TextureDescriptor::Data {
+            pixels: ibl_specular_data,
+            size: TextureSize {
+                width: ibl_specular_size.width,
+                height: ibl_specular_size.height,
+                depth_or_array_layers: ibl_specular_size.depth_or_array_layers,
+                base_mip: 0,
+                mip_levels: self.pbr_ibl_specular.texture().mip_level_count(),
+            },
+            usages: TextureUsages::TEXTURE_BINDING,
+            format: self.pbr_ibl_specular.texture().format(),
+        };
+
+        (ibl_diffuse_descriptor, ibl_specular_descriptor)
+    }
+
+    pub fn into_material_shader_descriptor(
+        &self,
+        device: &Device,
+        queue: &Queue,
+    ) -> MaterialShaderDescriptor {
+        let (ibl_diffuse_descriptor, ibl_specular_descriptor) =
+            self.into_texture_descriptors(device, queue);
+
+        MaterialShaderDescriptor {
+            name: Some(String::from("WorldEnvironment MaterialShader")),
+            shader_source: ShaderSource::String("TODO"), // TODO Add way of invoking shader precompiler automatically
+            variables: vec![
+                VariableType::Texture {
+                    descriptor: ibl_diffuse_descriptor,
+                    sample_type: TextureSampleType::Float { filterable: false },
+                },
+                VariableType::Texture {
+                    descriptor: ibl_specular_descriptor,
+                    sample_type: TextureSampleType::Float { filterable: false },
+                },
+            ],
+            ..Default::default()
+        }
     }
 }

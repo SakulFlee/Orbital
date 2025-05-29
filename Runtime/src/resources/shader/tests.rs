@@ -8,10 +8,35 @@ use crate::{
     wgpu_test_adapter,
 };
 
+use super::Variable;
+
 #[derive(Debug)]
 struct TestImplementation {
+    variables: Vec<VariableType>,
     buffer_count: u32,
     texture_count: u32,
+}
+
+impl TestImplementation {
+    fn do_work(&mut self) {
+        if self.buffer_count > 0 || self.texture_count > 0 {
+            self.variables = Vec::new();
+
+            for _ in 0..self.buffer_count {
+                self.variables.push(VariableType::Buffer(BufferDescriptor {
+                    data: vec![0u8],
+                    ..Default::default()
+                }));
+            }
+
+            for _ in 0..self.texture_count {
+                self.variables.push(VariableType::Texture {
+                    descriptor: TextureDescriptor::uniform_luma_black(),
+                    sample_type: TextureSampleType::Float { filterable: false },
+                });
+            }
+        }
+    }
 }
 
 impl ShaderDescriptor for TestImplementation {
@@ -19,28 +44,8 @@ impl ShaderDescriptor for TestImplementation {
         ShaderSource::String("")
     }
 
-    fn variables(&self) -> Option<Vec<VariableType>> {
-        if self.buffer_count > 0 || self.texture_count > 0 {
-            let mut variables = Vec::new();
-
-            for _ in 0..self.buffer_count {
-                variables.push(VariableType::Buffer(BufferDescriptor {
-                    data: vec![0u8],
-                    ..Default::default()
-                }));
-            }
-
-            for _ in 0..self.texture_count {
-                variables.push(VariableType::Texture {
-                    descriptor: TextureDescriptor::uniform_luma_black(),
-                    sampler_type: TextureSampleType::Float { filterable: false },
-                });
-            }
-
-            return Some(variables);
-        }
-
-        None
+    fn variables(&self) -> Option<&Vec<VariableType>> {
+        (!self.variables.is_empty()).then_some(&self.variables)
     }
 }
 
@@ -48,6 +53,7 @@ fn test(buffer_count: u32, texture_count: u32) {
     let (_, device, queue) = wgpu_test_adapter::make_wgpu_connection();
 
     let test_impl = TestImplementation {
+        variables: Vec::new(),
         buffer_count,
         texture_count,
     };

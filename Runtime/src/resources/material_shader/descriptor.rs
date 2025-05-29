@@ -4,7 +4,7 @@ use crate::resources::{ShaderDescriptor, ShaderSource, VariableType, VertexStage
 
 pub type MaterialDescriptor = MaterialShaderDescriptor;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Eq, PartialEq, Hash)]
 pub struct MaterialShaderDescriptor {
     pub name: Option<String>,
     pub shader_source: ShaderSource,
@@ -28,8 +28,8 @@ impl ShaderDescriptor for MaterialShaderDescriptor {
         self.shader_source
     }
 
-    fn variables(&self) -> Option<Vec<VariableType>> {
-        Some(self.variables.clone())
+    fn variables(&self) -> Option<&Vec<VariableType>> {
+        Some(&self.variables)
     }
 
     fn stages(&self) -> ShaderStages {
