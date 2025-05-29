@@ -8,7 +8,7 @@ use orbital::{
     input::{InputAxis, InputButton, InputState},
     resources::descriptors::CameraDescriptor,
     winit::keyboard::{KeyCode, PhysicalKey},
-    world::{CameraChange, Element, ElementRegistration, Message, Mode, WorldChange},
+    world_old::{CameraChange, Element, ElementRegistration, Message, Mode, WorldChange},
 };
 
 #[derive(Debug)]
