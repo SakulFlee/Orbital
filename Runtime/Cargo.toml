@@ -20,6 +20,9 @@ gamepad_input_poll = ["gamepad_input"]
 # Disable this for applications that only need to draw once every now and then.
 auto_request_redraw = []
 
+[build-dependencies]
+glob = { workspace = true }
+
 [dependencies]
 wgpu = { workspace = true, features = [
     "angle",
