@@ -5,7 +5,7 @@ pub mod logging;
 pub mod renderer;
 pub mod resources;
 pub mod shader_preprocessor;
-// TODO pub mod world;
+pub mod world;
 
 #[cfg(test)]
 pub mod wgpu_test_adapter;
