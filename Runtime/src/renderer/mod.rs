@@ -2,15 +2,12 @@ use cgmath::Vector2;
 use model::ModelRenderer;
 use skybox::SkyBoxRenderer;
 use wgpu::{
-    BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
-    BufferBindingType, CommandBuffer, CommandEncoderDescriptor, ComputePipeline,
-    ComputePipelineDescriptor, Device, LoadOp, Operations, PipelineLayoutDescriptor, Queue,
-    RenderPassColorAttachment, RenderPassDescriptor, ShaderModuleDescriptor, ShaderStages, StoreOp,
+    Device, Queue,
     TextureFormat, TextureView,
 };
 
 use crate::{
-    resources::{Texture, WorldEnvironment},
+    resources::Texture,
     world::World,
 };
 
