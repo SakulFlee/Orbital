@@ -17,7 +17,7 @@ impl Default for ShaderSource {
 impl ShaderSource {
     pub fn read_as_string(self) -> Result<String, ShaderError> {
         match self {
-            ShaderSource::Path(path) => read_to_string(path).map_err(|e| ShaderError::IO(e)),
+            ShaderSource::Path(path) => read_to_string(path).map_err(ShaderError::IO),
             ShaderSource::String(string) => Ok(string.to_string()),
         }
     }
