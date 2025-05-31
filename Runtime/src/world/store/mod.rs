@@ -9,4 +9,7 @@ pub use model::*;
 mod camera;
 pub use camera::*;
 
+mod error;
+pub use error::*;
+
 pub type Store<T> = HashMap<String, Arc<RwLock<T>>>;
