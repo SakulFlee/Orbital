@@ -199,7 +199,7 @@ impl Texture {
             .collect::<Vec<_>>()
             .concat();
 
-        Ok(Self::from_descriptor(
+        Self::from_descriptor(
             &TextureDescriptor::Data {
                 pixels: data,
                 size: TextureSize {
@@ -212,7 +212,7 @@ impl Texture {
             },
             device,
             queue,
-        )?)
+        )
     }
 
     /// In case you want a uniform, one color, image.
@@ -297,7 +297,7 @@ impl Texture {
         });
 
         // Create actual orbital texture
-        let view_dimension = texture_view_descriptor.dimension.unwrap_or_else(|| {
+        let view_dimension = texture_view_descriptor.dimension.unwrap_or({
             match texture_descriptor.dimension {
                 TextureDimension::D1 => TextureViewDimension::D1,
                 TextureDimension::D2 => TextureViewDimension::D2,
@@ -377,7 +377,7 @@ impl Texture {
         device: &Device,
         queue: &Queue,
     ) -> Self {
-        let texture_format = texture_descriptor.format.clone();
+        let texture_format = texture_descriptor.format;
 
         let texture = device.create_texture(texture_descriptor);
         let view = texture.create_view(view_descriptor);
@@ -385,7 +385,7 @@ impl Texture {
 
         let view_dimension = view_descriptor
             .dimension
-            .unwrap_or_else(|| match texture_descriptor.dimension {
+            .unwrap_or(match texture_descriptor.dimension {
                 TextureDimension::D1 => TextureViewDimension::D1,
                 TextureDimension::D2 => TextureViewDimension::D2,
                 TextureDimension::D3 => TextureViewDimension::D3,
