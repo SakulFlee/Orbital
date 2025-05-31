@@ -96,7 +96,7 @@ impl ShaderPreprocessor {
 
         // Get the file name without the extension as the directive
         let directive: String = directive.map(|x| x.into()).unwrap_or(
-            (&path.file_stem())
+            path.file_stem()
                 .expect("A filename must be present")
                 .to_str()
                 .ok_or(ShaderPreprocessorError::NonUTF8FileName {
@@ -106,7 +106,7 @@ impl ShaderPreprocessor {
         );
 
         // Read the file content
-        let content = read_to_string(&path).map_err(|e| ShaderPreprocessorError::IOError(e))?;
+        let content = read_to_string(&path).map_err(ShaderPreprocessorError::IOError)?;
 
         // Register the directive and content using add_known_import
         self.add_import(directive, content);
@@ -128,7 +128,7 @@ impl ShaderPreprocessor {
         &mut self,
         path: S,
     ) -> Result<(), ShaderPreprocessorError> {
-        const PATTERN: &'static str = "**/*.wgsl";
+        const PATTERN: &str = "**/*.wgsl";
 
         let path_into = path.into();
 
@@ -144,7 +144,7 @@ impl ShaderPreprocessor {
         pattern_path += PATTERN;
         debug!("Pattern: {:?}", pattern_path);
         for entry in glob(&pattern_path)
-            .map_err(|e| ShaderPreprocessorError::PatternError(e))?
+            .map_err(ShaderPreprocessorError::PatternError)?
             .filter_map(Result::ok)
         {
             let directive = &entry
@@ -159,7 +159,7 @@ impl ShaderPreprocessor {
                 .to_lowercase();
 
             let content =
-                read_to_string(&entry).map_err(|e| ShaderPreprocessorError::IOError(e))?;
+                read_to_string(&entry).map_err(ShaderPreprocessorError::IOError)?;
             debug!(
                 "Imported content for directive '{}' ({:?}):\n{}\n",
                 directive,
