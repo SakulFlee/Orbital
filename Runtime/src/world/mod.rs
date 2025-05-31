@@ -1,7 +1,7 @@
 mod store;
 pub use store::*;
 
-// TODO: World should keep track of realized Models/Cameras (caching)
+// TODO: World -> CameraStore should keep track of realized Models/Cameras (caching)
 // TODO: World should contain a quick way to get **all* BoundingBox buffers
 // TODO: Frustum Checking should be a separate System (outside of Renderer)
 // TODO: Result of Frustum Check + Active Camera should be extracted from World and be provided when **calling** the RenderSystem
