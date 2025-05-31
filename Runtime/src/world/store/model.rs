@@ -1,10 +1,7 @@
-use core::error;
-use std::{cell::RefCell, error::Error, fmt::Display, sync::Arc, time::Instant};
+use std::{cell::RefCell, error::Error, sync::Arc};
 
-use cgmath::num_traits::real;
 use hashbrown::{hash_map::Values, HashMap};
-use log::{error, warn};
-use rand::seq::index;
+use log::warn;
 use wgpu::{Device, Queue, TextureFormat};
 
 use crate::{
@@ -67,12 +64,12 @@ impl ModelStore {
             self.cache_realizations.remove(&idx);
 
             // Must exist!
-            if let None = self.map_bounding_boxes.remove(&idx) {
+            if self.map_bounding_boxes.remove(&idx).is_none() {
                 panic!("ModelStore Desync! No associated BoundingBox found!");
             }
 
             // Mus also exist!
-            if let None = self.map_label.remove(&descriptor.label) {
+            if self.map_label.remove(&descriptor.label).is_none() {
                 panic!("ModelStore Desync! No associated Label found!");
             }
 
@@ -88,8 +85,7 @@ impl ModelStore {
 
     pub fn id_to_label(&self, id: u128) -> Option<&str> {
         self.map_descriptors
-            .get(&id)
-            .and_then(|descriptor| Some(descriptor.label.as_str()))
+            .get(&id).map(|descriptor| descriptor.label.as_str())
     }
 
     pub fn get_bounding_boxes(&self) -> Values<u128, BoundingBox> {
