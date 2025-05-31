@@ -12,7 +12,6 @@ pub use store::*;
 // TODO: AFTER lighting and rendering has been fully implemented, figure out how to implement a physics system (probably 3rd-party).
 // TODO: World needs a cache cleanup
 // TODO: Associate Model IDs with Models (needed for Frustum checking)
-// TODO: ModelStore should contain Descriptors + Realization cache + Bounding Boxes + ModelID association
 
 pub struct World {
     model_store: ModelStore,
