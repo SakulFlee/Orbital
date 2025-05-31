@@ -50,7 +50,7 @@ impl MaterialShader {
 
         let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: descriptor.name.as_deref(),
-            bind_group_layouts: &[&engine_bind_group_layout, &layout],
+            bind_group_layouts: &[engine_bind_group_layout, &layout],
             push_constant_ranges: &[],
         });
 
