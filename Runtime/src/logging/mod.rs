@@ -26,7 +26,7 @@ pub fn init() {
 
         if path.exists() {
             if i == END {
-                fs::remove_file(&path).expect("failed removing last index log file");
+                fs::remove_file(path).expect("failed removing last index log file");
             } else {
                 let next_log_file = format!("game-{}.log", i + 1);
 
