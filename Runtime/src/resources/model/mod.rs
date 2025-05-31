@@ -32,50 +32,35 @@ impl Model {
         surface_format: &TextureFormat,
         device: &Device,
         queue: &Queue,
-        with_mesh_cache: Option<&RefCell<Cache<Arc<MeshDescriptor>, Mesh>>>,
-        with_material_cache: Option<&RefCell<Cache<Arc<MaterialShaderDescriptor>, MaterialShader>>>,
+        mesh_cache: &RefCell<Cache<Arc<MeshDescriptor>, Mesh>>,
+        material_cache: &RefCell<Cache<Arc<MaterialShaderDescriptor>, MaterialShader>>,
     ) -> Result<Self, ShaderError> {
         // --- Mesh ---
-        let mesh = if let Some(cache) = with_mesh_cache {
-            cache
-                .borrow_mut()
-                .entry(descriptor.mesh.clone())
-                .or_insert(CacheEntry::new(Mesh::from_descriptor(
-                    &descriptor.mesh,
-                    device,
-                    queue,
-                )))
-                .clone_inner()
-        } else {
-            Arc::new(Mesh::from_descriptor(&descriptor.mesh, device, queue))
-        };
+        let mesh = mesh_cache
+            .borrow_mut()
+            .entry(descriptor.mesh.clone())
+            .or_insert(CacheEntry::new(Mesh::from_descriptor(
+                &descriptor.mesh,
+                device,
+                queue,
+            )))
+            .clone_inner();
 
         // --- Material ---
         let mut materials = Vec::new();
-        if let Some(cache) = with_material_cache {
-            for material_descriptor in &descriptor.materials {
-                materials.push(
-                    cache
-                        .borrow_mut()
-                        .entry(material_descriptor.clone())
-                        .or_insert(CacheEntry::new(MaterialShader::from_descriptor(
-                            &material_descriptor,
-                            Some(*surface_format),
-                            device,
-                            queue,
-                        )?))
-                        .clone_inner(),
-                );
-            }
-        } else {
-            for material_descriptor in &descriptor.materials {
-                materials.push(Arc::new(MaterialShader::from_descriptor(
-                    &material_descriptor,
-                    Some(*surface_format),
-                    device,
-                    queue,
-                )?));
-            }
+        for material_descriptor in &descriptor.materials {
+            materials.push(
+                material_cache
+                    .borrow_mut()
+                    .entry(material_descriptor.clone())
+                    .or_insert(CacheEntry::new(MaterialShader::from_descriptor(
+                        &material_descriptor,
+                        Some(*surface_format),
+                        device,
+                        queue,
+                    )?))
+                    .clone_inner(),
+            );
         }
 
         // --- Instances ---
