@@ -48,14 +48,14 @@ pub trait ShaderDescriptor {
         // TODO: Need a cache here
         let preprocessor = self.shader_preprocessor().unwrap_or(
             ShaderPreprocessor::new_with_defaults()
-                .map_err(|e| ShaderError::ShaderPreprocessor(e))?,
+                .map_err(ShaderError::ShaderPreprocessor)?,
         );
 
         let shader_source = self.source().read_as_string()?;
 
         let preprocessed_source = preprocessor
             .parse_shader(shader_source)
-            .map_err(|e| ShaderError::ShaderPreprocessor(e))?;
+            .map_err(ShaderError::ShaderPreprocessor)?;
 
         Ok(device.create_shader_module(ShaderModuleDescriptor {
             label: self.name().as_deref(),
@@ -107,8 +107,8 @@ pub trait ShaderDescriptor {
                         // Regardless, we still need to skip over the binding index of the sampler, as later we will do the same in reverse: 1x `Texture` == 1x Texture binding + 1x Sampler binding.
 
                         let insert_index = binding_count;
-                        let texture = Texture::from_descriptor(&descriptor, device, queue)
-                            .map_err(|e| ShaderError::Texture(e))?;
+                        let texture = Texture::from_descriptor(descriptor, device, queue)
+                            .map_err(ShaderError::Texture)?;
 
                         let texture_binding = BindGroupLayoutEntry {
                             binding: binding_count,
