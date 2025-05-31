@@ -135,7 +135,7 @@ impl IblBrdf {
             ..Default::default()
         });
 
-        let workgroups = (Self::SIZE + 15) / 16;
+        let workgroups = Self::SIZE.div_ceil(16);
         pass.set_pipeline(&pipeline);
         pass.set_bind_group(0, &bind_group, &[]);
         pass.dispatch_workgroups(workgroups, workgroups, 1);
