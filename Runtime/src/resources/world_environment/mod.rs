@@ -36,7 +36,7 @@ mod descriptor;
 pub use descriptor::*;
 
 use super::{
-    MaterialShader, MaterialShaderDescriptor, ShaderSource, TextureDescriptor, VariableType,
+    MaterialShaderDescriptor, ShaderSource, TextureDescriptor, VariableType,
 };
 
 #[cfg(test)]
@@ -157,11 +157,11 @@ impl WorldEnvironment {
         device: &Device,
         queue: &Queue,
     ) -> Result<Self, WorldEnvironmentError> {
-        let cache_file_option = Self::find_cache_file(&descriptor);
+        let cache_file_option = Self::find_cache_file(descriptor);
 
         if let Some(ref cache_file_path) = cache_file_option {
             // Try loading cache file
-            let cache_result = CacheFile::from_path(&cache_file_path);
+            let cache_result = CacheFile::from_path(cache_file_path);
             match cache_result {
                 Ok(cache_file) => {
                     let (pbr_ibl_diffuse, pbr_ibl_specular) =
@@ -426,7 +426,7 @@ impl WorldEnvironment {
         });
 
         debug!("Generating PBR IBL Diffuse ...");
-        let workgroups = (dst_size + 15) / 16;
+        let workgroups = dst_size.div_ceil(16);
         pass.set_pipeline(&pipeline);
         pass.set_bind_group(0, &bind_group, &[]);
         pass.dispatch_workgroups(workgroups, workgroups, 6);
@@ -492,7 +492,7 @@ impl WorldEnvironment {
         });
 
         debug!("Generating RAW PBR IBL Specular (LoD = 0 / Roughness = 0%) ...");
-        let workgroups = (dst_size + 15) / 16;
+        let workgroups = dst_size.div_ceil(16);
         pass.set_pipeline(&pipeline);
         pass.set_bind_group(0, &bind_group, &[]);
         pass.dispatch_workgroups(workgroups, workgroups, 6);
@@ -581,7 +581,7 @@ impl WorldEnvironment {
                 mip_level,
                 (mip_level as f32 / max_mip_levels as f32) * 100.0
             );
-            let workgroups = (src_specular_ibl.texture().size().width + 15) / 16;
+            let workgroups = src_specular_ibl.texture().size().width.div_ceil(16);
             pass.set_pipeline(&pipeline);
             pass.set_bind_group(0, &bind_group, &[]);
             pass.set_bind_group(1, &mip_bind_group, &[]);
