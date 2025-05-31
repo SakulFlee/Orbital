@@ -1,6 +1,5 @@
 //! ⚠️ You are most likely looking for the [App] description!
 
-use crate::element::Message;
 use wgpu::{Device, Queue, SurfaceConfiguration, TextureView};
 
 mod settings;
