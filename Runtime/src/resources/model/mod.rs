@@ -54,7 +54,7 @@ impl Model {
                     .borrow_mut()
                     .entry(material_descriptor.clone())
                     .or_insert(CacheEntry::new(MaterialShader::from_descriptor(
-                        &material_descriptor,
+                        material_descriptor,
                         Some(*surface_format),
                         device,
                         queue,
