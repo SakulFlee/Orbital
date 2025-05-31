@@ -115,40 +115,40 @@ impl Default for PBRMaterialShaderDescriptor {
     }
 }
 
-impl Into<MaterialShaderDescriptor> for PBRMaterialShaderDescriptor {
-    fn into(self) -> MaterialShaderDescriptor {
-        let mut base = self.custom_material_shader.unwrap_or_default();
+impl From<PBRMaterialShaderDescriptor> for MaterialShaderDescriptor {
+    fn from(val: PBRMaterialShaderDescriptor) -> Self {
+        let mut base = val.custom_material_shader.unwrap_or_default();
 
-        base.name = self.name;
+        base.name = val.name;
         base.variables = vec![
             // Normal
             VariableType::Texture {
-                descriptor: self.normal,
+                descriptor: val.normal,
                 sample_type: TextureSampleType::Float { filterable: true },
             },
             // Albedo
             VariableType::Texture {
-                descriptor: self.albedo,
+                descriptor: val.albedo,
                 sample_type: TextureSampleType::Float { filterable: true },
             },
             // Metallic
             VariableType::Texture {
-                descriptor: self.metallic,
+                descriptor: val.metallic,
                 sample_type: TextureSampleType::Float { filterable: true },
             },
             // Roughness
             VariableType::Texture {
-                descriptor: self.roughness,
+                descriptor: val.roughness,
                 sample_type: TextureSampleType::Float { filterable: true },
             },
             // Occlusion
             VariableType::Texture {
-                descriptor: self.occlusion,
+                descriptor: val.occlusion,
                 sample_type: TextureSampleType::Float { filterable: true },
             },
             // Emissive
             VariableType::Texture {
-                descriptor: self.emissive,
+                descriptor: val.emissive,
                 sample_type: TextureSampleType::Float { filterable: true },
             },
             // Factors
@@ -156,13 +156,13 @@ impl Into<MaterialShaderDescriptor> for PBRMaterialShaderDescriptor {
             VariableType::Buffer(BufferDescriptor {
                 data: [
                     // Albedo Factor
-                    self.albedo_factor.x.to_le_bytes(), // R
-                    self.albedo_factor.y.to_le_bytes(), // G
-                    self.albedo_factor.z.to_le_bytes(), // B
+                    val.albedo_factor.x.to_le_bytes(), // R
+                    val.albedo_factor.y.to_le_bytes(), // G
+                    val.albedo_factor.z.to_le_bytes(), // B
                     // Metallic Factor
-                    self.metallic_factor.to_le_bytes(), // LUMA
+                    val.metallic_factor.to_le_bytes(), // LUMA
                     // Roughness Factor
-                    self.roughness_factor.to_le_bytes(), // LUMA
+                    val.roughness_factor.to_le_bytes(), // LUMA
                     // Padding to reach 32
                     [0; 4],
                     [0; 4],
