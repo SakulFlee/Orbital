@@ -28,6 +28,12 @@ pub struct Variables {
     variables: HashMap<u32, Variable>,
 }
 
+impl Default for Variables {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Variables {
     pub fn new() -> Self {
         Self {
