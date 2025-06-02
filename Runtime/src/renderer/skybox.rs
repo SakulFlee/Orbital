@@ -6,9 +6,7 @@ use wgpu::{
 };
 
 use crate::{
-    resources::{
-        Camera, MaterialShader, WorldEnvironment, WorldEnvironmentDescriptor,
-    },
+    resources::{Camera, MaterialShader, WorldEnvironment, WorldEnvironmentDescriptor},
     world::World,
 };
 
