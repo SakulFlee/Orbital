@@ -1,5 +1,5 @@
-use std::time::Instant;
 use hashbrown::HashMap;
+use std::time::Instant;
 
 mod target;
 pub use target::*;
