@@ -35,9 +35,7 @@ pub use sampling_type::*;
 mod descriptor;
 pub use descriptor::*;
 
-use super::{
-    MaterialShaderDescriptor, ShaderSource, TextureDescriptor, VariableType,
-};
+use super::{MaterialShaderDescriptor, ShaderSource, TextureDescriptor, VariableType};
 
 #[cfg(test)]
 mod tests;
