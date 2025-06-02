@@ -47,8 +47,7 @@ pub trait ShaderDescriptor {
     fn shader_module(&self, device: &Device) -> Result<ShaderModule, ShaderError> {
         // TODO: Need a cache here
         let preprocessor = self.shader_preprocessor().unwrap_or(
-            ShaderPreprocessor::new_with_defaults()
-                .map_err(ShaderError::ShaderPreprocessor)?,
+            ShaderPreprocessor::new_with_defaults().map_err(ShaderError::ShaderPreprocessor)?,
         );
 
         let shader_source = self.source().read_as_string()?;
