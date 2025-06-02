@@ -8,7 +8,6 @@ use crate::{
     wgpu_test_adapter,
 };
 
-
 #[derive(Debug)]
 struct TestImplementation {
     variables: Vec<VariableType>,
