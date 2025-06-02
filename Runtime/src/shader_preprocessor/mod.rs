@@ -158,8 +158,7 @@ impl ShaderPreprocessor {
                 .replace(".wgsl", "")
                 .to_lowercase();
 
-            let content =
-                read_to_string(&entry).map_err(ShaderPreprocessorError::IOError)?;
+            let content = read_to_string(&entry).map_err(ShaderPreprocessorError::IOError)?;
             debug!(
                 "Imported content for directive '{}' ({:?}):\n{}\n",
                 directive,
