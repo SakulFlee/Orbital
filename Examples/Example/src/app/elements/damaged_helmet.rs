@@ -1,10 +1,10 @@
 use orbital::{
     async_trait::async_trait,
     cgmath::Vector3,
-    world_old::{Element, ElementRegistration, Message, WorldChange},
     input::InputState,
     loader::{GLTFLoader, GLTFWorkerMode},
     transform::Transform,
+    world_old::{Element, ElementRegistration, Message, WorldChange},
 };
 
 #[derive(Debug)]
