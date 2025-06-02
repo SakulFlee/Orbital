@@ -8,7 +8,6 @@ use crate::{
     wgpu_test_adapter,
 };
 
-use super::Variable;
 
 #[derive(Debug)]
 struct TestImplementation {
