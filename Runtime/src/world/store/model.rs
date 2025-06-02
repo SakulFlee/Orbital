@@ -68,9 +68,13 @@ impl ModelStore {
                 panic!("ModelStore Desync! No associated BoundingBox found!");
             }
 
-            // Mus also exist!
+            // Must also exist!
             if self.map_label.remove(&descriptor.label).is_none() {
                 panic!("ModelStore Desync! No associated Label found!");
+            }
+
+            if idx <= self.id_counter {
+                self.free_ids.push(idx);
             }
 
             true
