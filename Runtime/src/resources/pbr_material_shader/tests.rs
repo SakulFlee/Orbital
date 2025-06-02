@@ -41,7 +41,7 @@ fn default_conversion_to_material_shader_check_variable_count() {
 
 #[test]
 fn default_conversion_to_material_shader_check_name_persistence() {
-    const NAME: &'static str = "Test";
+    const NAME: &str = "Test";
 
     let mut pbr_material = PBRMaterial::default();
     pbr_material.name = Some(NAME.to_string());
@@ -66,7 +66,7 @@ fn default_conversion_to_material_shader_check_shader_source_persistence() {
 
 #[test]
 fn default_conversion_to_material_shader_check_entrypoint_vertex_persistence() {
-    const ENTRYPOINT_VERTEX: &'static str = "Testing";
+    const ENTRYPOINT_VERTEX: &str = "Testing";
 
     let mut pbr_material = PBRMaterial::default();
     pbr_material.custom_material_shader = Some(MaterialShaderDescriptor {
@@ -80,7 +80,7 @@ fn default_conversion_to_material_shader_check_entrypoint_vertex_persistence() {
 
 #[test]
 fn default_conversion_to_material_shader_check_entrypoint_fragment_persistence() {
-    const ENTRYPOINT_FRAGMENT: &'static str = "Testing";
+    const ENTRYPOINT_FRAGMENT: &str = "Testing";
 
     let mut pbr_material = PBRMaterial::default();
     pbr_material.custom_material_shader = Some(MaterialShaderDescriptor {
