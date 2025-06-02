@@ -1,6 +1,6 @@
 use orbital::{
-    world_old::{Element, ElementRegistration, WorldChange},
     loader::{GLTFLoader, GLTFWorkerMode},
+    world_old::{Element, ElementRegistration, WorldChange},
 };
 
 #[derive(Debug)]
