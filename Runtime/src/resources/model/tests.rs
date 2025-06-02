@@ -1,12 +1,12 @@
 use std::{cell::RefCell, sync::Arc, time::Duration};
 
-use cgmath::{Point3, Vector2, Vector3};
+use cgmath::{Vector2, Vector3};
 use wgpu::TextureFormat;
 
 use crate::{
     cache::Cache,
     resources::{
-        BoundingBoxDescriptor, MaterialDescriptor, MaterialShader, MaterialShaderDescriptor, Mesh,
+        MaterialDescriptor, MaterialShader, MaterialShaderDescriptor, Mesh,
         MeshDescriptor, Transform, Vertex,
     },
     wgpu_test_adapter,
