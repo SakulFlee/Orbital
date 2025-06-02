@@ -10,7 +10,7 @@ fn test_default_buffer_descriptor() {
     assert_eq!(default_descriptor.data.len(), 0);
     assert_eq!(default_descriptor.ty, BufferBindingType::Uniform);
     assert_eq!(default_descriptor.usage, BufferUsages::UNIFORM);
-    assert_eq!(default_descriptor.has_dynamic_offset, false);
+    assert!(!default_descriptor.has_dynamic_offset);
     assert_eq!(default_descriptor.min_binding_size, None);
     assert_eq!(default_descriptor.count, None);
 }
@@ -33,7 +33,7 @@ fn test_buffer_descriptor_construction() {
         BufferBindingType::Storage { read_only: true }
     );
     assert_eq!(descriptor.usage, BufferUsages::STORAGE);
-    assert_eq!(descriptor.has_dynamic_offset, true);
+    assert!(descriptor.has_dynamic_offset);
     assert_eq!(descriptor.min_binding_size, Some(NonZero::new(16).unwrap()));
     assert_eq!(descriptor.count, Some(NonZero::new(2).unwrap()));
 }
