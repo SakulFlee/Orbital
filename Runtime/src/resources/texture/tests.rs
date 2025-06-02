@@ -1,6 +1,9 @@
 use wgpu::{Extent3d, TextureDimension, TextureFormat, TextureUsages};
 
-use crate::{resources::{Texture, TextureDescriptor, TextureSize}, wgpu_test_adapter};
+use crate::{
+    resources::{Texture, TextureDescriptor, TextureSize},
+    wgpu_test_adapter,
+};
 
 #[test]
 fn test_data_descriptor_realization() {
@@ -9,9 +12,7 @@ fn test_data_descriptor_realization() {
     let (_, device, queue) = wgpu_test_adapter::make_wgpu_connection();
 
     let descriptor = TextureDescriptor::Data {
-        pixels: (0..SIZE * SIZE)
-            .flat_map(|_| [0u8; 8])
-            .collect(),
+        pixels: (0..SIZE * SIZE).flat_map(|_| [0u8; 8]).collect(),
         size: TextureSize {
             width: SIZE,
             height: SIZE,
