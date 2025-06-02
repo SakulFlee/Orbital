@@ -1,6 +1,6 @@
 use super::ShaderPreprocessor;
 
-pub const SHADER_PATH: &'static str = "../../Assets/Shaders/";
+pub const SHADER_PATH: &str = "../../Assets/Shaders/";
 
 /// Tests if a shader without any imports parses without any changes being done to it. The input must equal the output!
 #[cfg(test)]
@@ -15,7 +15,7 @@ fn test_parse_shader_default_imports() {
 #[cfg(test)]
 #[test]
 fn test_parse_shader_no_imports() {
-    const SHADER: &'static str = "fn main() {
+    const SHADER: &str = "fn main() {
     let i: i32 = 0;
 }";
 
@@ -34,8 +34,8 @@ fn test_parse_shader_no_imports() {
 #[cfg(test)]
 #[test]
 fn test_parse_shader() {
-    const IMPORT_DIRECTIVE: &'static str = "this/is/a/test";
-    const IMPORT_CONTENT: &'static str = "TEST PASSED!";
+    const IMPORT_DIRECTIVE: &str = "this/is/a/test";
+    const IMPORT_CONTENT: &str = "TEST PASSED!";
 
     let mut shader_preprocessor = ShaderPreprocessor::new_empty();
     shader_preprocessor.add_import(IMPORT_DIRECTIVE, IMPORT_CONTENT);
@@ -69,14 +69,14 @@ fn test_parse_shader() {
 #[cfg(test)]
 #[test]
 fn test_parse_shader_multi_import() {
-    const DIRECTIVE_0: &'static str = "test0";
-    const DIRECTIVE_1: &'static str = "test1";
-    const DIRECTIVE_2: &'static str = "test2";
-    const DIRECTIVE_3: &'static str = "test3";
-    const CONTENT_0: &'static str = "Just some example content!";
-    const CONTENT_1: &'static str = "ABCD";
-    const CONTENT_2: &'static str = "Even More testing content!";
-    const CONTENT_3: &'static str =
+    const DIRECTIVE_0: &str = "test0";
+    const DIRECTIVE_1: &str = "test1";
+    const DIRECTIVE_2: &str = "test2";
+    const DIRECTIVE_3: &str = "test3";
+    const CONTENT_0: &str = "Just some example content!";
+    const CONTENT_1: &str = "ABCD";
+    const CONTENT_2: &str = "Even More testing content!";
+    const CONTENT_3: &str =
         "You might be surprised but there is actually EVEN MORE test content here!";
 
     let mut shader_preprocessor = ShaderPreprocessor::new_empty();
@@ -146,14 +146,14 @@ fn test_parse_shader_multi_import() {
 #[cfg(test)]
 #[test]
 fn test_parse_shader_multi_import_order() {
-    const DIRECTIVE_0: &'static str = "test0";
-    const DIRECTIVE_1: &'static str = "test1";
-    const DIRECTIVE_2: &'static str = "test2";
-    const DIRECTIVE_3: &'static str = "test3";
-    const CONTENT_0: &'static str = "Just some example content!";
-    const CONTENT_1: &'static str = "ABCD";
-    const CONTENT_2: &'static str = "Even More testing content!";
-    const CONTENT_3: &'static str =
+    const DIRECTIVE_0: &str = "test0";
+    const DIRECTIVE_1: &str = "test1";
+    const DIRECTIVE_2: &str = "test2";
+    const DIRECTIVE_3: &str = "test3";
+    const CONTENT_0: &str = "Just some example content!";
+    const CONTENT_1: &str = "ABCD";
+    const CONTENT_2: &str = "Even More testing content!";
+    const CONTENT_3: &str =
         "You might be surprised but there is actually EVEN MORE test content here!";
 
     let mut shader_preprocessor = ShaderPreprocessor::new_empty();
@@ -227,8 +227,8 @@ const i: i32 = 123;
 #[cfg(test)]
 #[test]
 fn test_parse_shader_duplicate_import() {
-    const IMPORT_DIRECTIVE: &'static str = "this/is/a/test";
-    const IMPORT_CONTENT: &'static str = "TEST PASSED!";
+    const IMPORT_DIRECTIVE: &str = "this/is/a/test";
+    const IMPORT_CONTENT: &str = "TEST PASSED!";
 
     let mut shader_preprocessor = ShaderPreprocessor::new_empty();
     shader_preprocessor.add_import(IMPORT_DIRECTIVE, IMPORT_CONTENT);
@@ -269,7 +269,7 @@ fn test_parse_shader_duplicate_import() {
 #[cfg(test)]
 #[test]
 fn test_parse_shader_recursive_import_itself() {
-    const IMPORT_DIRECTIVE: &'static str = "this/is/a/test";
+    const IMPORT_DIRECTIVE: &str = "this/is/a/test";
     let import_content = format!("#import <{IMPORT_DIRECTIVE}>");
 
     let mut shader_preprocessor = ShaderPreprocessor::new_empty();
@@ -310,13 +310,13 @@ fn test_parse_shader_recursive_import_itself() {
 #[cfg(test)]
 #[test]
 fn test_parse_shader_recursive_import() {
-    const DIRECTIVE_0: &'static str = "test0";
-    const DIRECTIVE_1: &'static str = "test1";
+    const DIRECTIVE_0: &str = "test0";
+    const DIRECTIVE_1: &str = "test1";
     let content_0 = format!(
         "#import <{DIRECTIVE_1}>
 {DIRECTIVE_0}"
     );
-    let content_1 = format!("{DIRECTIVE_1}");
+    let content_1 = DIRECTIVE_1.to_string();
 
     let mut shader_preprocessor = ShaderPreprocessor::new_empty();
     shader_preprocessor.add_import(DIRECTIVE_0, &content_0);
@@ -359,8 +359,8 @@ fn test_parse_shader_recursive_import() {
 #[cfg(test)]
 #[test]
 fn test_add_import() {
-    const DIRECTIVE: &'static str = "this/is/a/test";
-    const CONTENT: &'static str = "Just some example content!";
+    const DIRECTIVE: &str = "this/is/a/test";
+    const CONTENT: &str = "Just some example content!";
 
     let mut shader_preprocessor = ShaderPreprocessor::new_empty();
     shader_preprocessor.add_import(DIRECTIVE, CONTENT);
@@ -381,9 +381,9 @@ fn test_add_import() {
 #[cfg(test)]
 #[test]
 fn test_add_file_import() {
-    const PATH: &'static str = "pbr/pbr.wgsl";
-    const CONTENT: &'static str = include_str!("../../../Assets/Shaders/pbr/pbr.wgsl");
-    const EXPECTED_DIRECTIVE: &'static str = "pbr";
+    const PATH: &str = "pbr/pbr.wgsl";
+    const CONTENT: &str = include_str!("../../../Assets/Shaders/pbr/pbr.wgsl");
+    const EXPECTED_DIRECTIVE: &str = "pbr";
 
     let mut shader_preprocessor = ShaderPreprocessor::new_empty();
     shader_preprocessor
@@ -408,9 +408,9 @@ fn test_add_file_import() {
 #[cfg(test)]
 #[test]
 fn test_add_file_import_custom_directive() {
-    const PATH: &'static str = "pbr/pbr.wgsl";
-    const CONTENT: &'static str = include_str!("../../../Assets/Shaders/pbr/pbr.wgsl");
-    const EXPECTED_DIRECTIVE: &'static str = "pbr/pbr";
+    const PATH: &str = "pbr/pbr.wgsl";
+    const CONTENT: &str = include_str!("../../../Assets/Shaders/pbr/pbr.wgsl");
+    const EXPECTED_DIRECTIVE: &str = "pbr/pbr";
 
     let mut shader_preprocessor = ShaderPreprocessor::new_empty();
     shader_preprocessor
