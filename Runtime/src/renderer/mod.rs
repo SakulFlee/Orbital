@@ -1,15 +1,9 @@
 use cgmath::Vector2;
 use model::ModelRenderer;
 use skybox::SkyBoxRenderer;
-use wgpu::{
-    Device, Queue,
-    TextureFormat, TextureView,
-};
+use wgpu::{Device, Queue, TextureFormat, TextureView};
 
-use crate::{
-    resources::Texture,
-    world::World,
-};
+use crate::{resources::Texture, world::World};
 
 mod frustum_check;
 mod model;
