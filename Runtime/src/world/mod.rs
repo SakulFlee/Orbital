@@ -1,7 +1,6 @@
 mod store;
 pub use store::*;
 
-
 // TODO: Frustum Checking should be a separate System (outside of Renderer)
 // TODO: Result of Frustum Check + Active Camera should be extracted from World and be provided when **calling** the RenderSystem
 // TODO: Frustum Check -is-> System --> Rename to "ObserverSystem"
