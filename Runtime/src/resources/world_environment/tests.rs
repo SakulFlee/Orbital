@@ -21,9 +21,7 @@ fn test_realization_no_mip_level_count_set() {
     let descriptor = WorldEnvironmentDescriptor::FromData {
         cube_face_size: SIZE,
         data: (0..SIZE * SIZE * 6)
-            .into_iter()
-            .map(|_| [[0u8; 4]; 4])
-            .flatten()
+            .flat_map(|_| [[0u8; 4]; 4])
             .flatten()
             .collect(),
         size: Vector2 { x: SIZE, y: SIZE },
@@ -52,9 +50,7 @@ fn test_realization_some_mip_level_count_set() {
         let descriptor = WorldEnvironmentDescriptor::FromData {
             cube_face_size: SIZE,
             data: (0..SIZE * SIZE * 6)
-                .into_iter()
-                .map(|_| [[0u8; 4]; 4])
-                .flatten()
+                .flat_map(|_| [[0u8; 4]; 4])
                 .flatten()
                 .collect(),
             size: Vector2 { x: SIZE, y: SIZE },
@@ -81,9 +77,7 @@ fn test_caching() {
     let descriptor = WorldEnvironmentDescriptor::FromData {
         cube_face_size: SIZE,
         data: (0..SIZE * SIZE * 6)
-            .into_iter()
-            .map(|_| [[0u8; 4]; 4])
-            .flatten()
+            .flat_map(|_| [[0u8; 4]; 4])
             .flatten()
             .collect(),
         size: Vector2 { x: SIZE, y: SIZE },
@@ -132,9 +126,7 @@ fn test_cache_file() {
     let descriptor = WorldEnvironmentDescriptor::FromData {
         cube_face_size: SIZE,
         data: (0..SIZE * SIZE * 6)
-            .into_iter()
-            .map(|_| [[0u8; 4]; 4])
-            .flatten()
+            .flat_map(|_| [[0u8; 4]; 4])
             .flatten()
             .collect(),
         size: Vector2 { x: SIZE, y: SIZE },
