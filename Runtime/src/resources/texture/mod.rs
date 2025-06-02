@@ -383,13 +383,14 @@ impl Texture {
         let view = texture.create_view(view_descriptor);
         let sampler = device.create_sampler(sampler_descriptor);
 
-        let view_dimension = view_descriptor
-            .dimension
-            .unwrap_or(match texture_descriptor.dimension {
-                TextureDimension::D1 => TextureViewDimension::D1,
-                TextureDimension::D2 => TextureViewDimension::D2,
-                TextureDimension::D3 => TextureViewDimension::D3,
-            });
+        let view_dimension =
+            view_descriptor
+                .dimension
+                .unwrap_or(match texture_descriptor.dimension {
+                    TextureDimension::D1 => TextureViewDimension::D1,
+                    TextureDimension::D2 => TextureViewDimension::D2,
+                    TextureDimension::D3 => TextureViewDimension::D3,
+                });
         let self_texture = Self::from_existing(texture, view, sampler, view_dimension);
 
         if let Some((data, size)) = data_and_size {
