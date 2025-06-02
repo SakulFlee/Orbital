@@ -1,6 +1,6 @@
 use wgpu::{
-    Buffer, BufferUsages, Device,
     util::{BufferInitDescriptor, DeviceExt},
+    Buffer, BufferUsages, Device,
 };
 
 mod descriptor;
