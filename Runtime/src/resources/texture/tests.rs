@@ -10,9 +10,7 @@ fn test_data_descriptor_realization() {
 
     let descriptor = TextureDescriptor::Data {
         pixels: (0..SIZE * SIZE)
-            .into_iter()
-            .map(|_| [0u8; 8])
-            .flatten()
+            .flat_map(|_| [0u8; 8])
             .collect(),
         size: TextureSize {
             width: SIZE,
@@ -57,7 +55,7 @@ fn test_custom_descriptor_realization() {
             label: Some("Test"),
             ..Default::default()
         },
-        data: (0..WIDTH * HEIGHT).into_iter().map(|_| 0u8).collect(),
+        data: (0..WIDTH * HEIGHT).map(|_| 0u8).collect(),
         size: Extent3d {
             width: WIDTH / 4,
             height: HEIGHT / 4,
