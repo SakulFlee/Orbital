@@ -1,6 +1,6 @@
 use std::mem;
 
-use cgmath::{Deg, InnerSpace, Matrix, Matrix4, SquareMatrix, Vector3, Vector4, perspective};
+use cgmath::{perspective, Deg, InnerSpace, Matrix, Matrix4, SquareMatrix, Vector3, Vector4};
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferDescriptor, BufferUsages,
