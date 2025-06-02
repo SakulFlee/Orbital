@@ -19,6 +19,7 @@ pub struct CameraStore {
     map_label: HashMap<String, u128>,
     map_descriptors: HashMap<u128, CameraDescriptor>,
     cache_realizations: Cache<u128, Camera>,
+    active_camera: u128,
 }
 
 impl CameraStore {
@@ -108,7 +109,17 @@ impl CameraStore {
         errors
     }
 
-    pub fn get_realizations(&mut self, ids: Vec<u128>) -> Vec<&Camera> {
+    pub fn realize_and_cache_active_camera(
+        &mut self,
+        device: &Device,
+        queue: &Queue,
+    ) -> Option<(u128, Box<dyn Error>)> {
+        // There can only be one result, if at all
+        self.realize_and_cache(vec![self.active_camera], device, queue)
+            .pop()
+    }
+
+    pub fn get_realizations(&self, ids: Vec<u128>) -> Vec<&Camera> {
         ids.into_iter()
             .filter_map(|id| match self.cache_realizations.get(&id) {
                 Some(model) => Some(model.inner()),
@@ -118,6 +129,10 @@ impl CameraStore {
                 }
             })
             .collect::<Vec<_>>()
+    }
+
+    pub fn get_realized_active_camera(&self) -> Option<&Camera> {
+        self.get_realizations(vec![self.active_camera]).pop()
     }
 
     pub fn cleanup(&mut self) {
