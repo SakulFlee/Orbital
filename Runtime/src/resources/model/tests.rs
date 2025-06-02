@@ -1,33 +1,51 @@
-use cgmath::{Point3, Vector2, Vector3};
+use std::{cell::RefCell, sync::Arc, time::Duration};
 
-use crate::{resources::{BoundingBoxDescriptor, Mesh, MeshDescriptor, Vertex}, wgpu_test_adapter};
+use cgmath::{Point3, Vector2, Vector3};
+use wgpu::TextureFormat;
+
+use crate::{
+    cache::Cache,
+    resources::{
+        BoundingBoxDescriptor, MaterialDescriptor, MaterialShader, MaterialShaderDescriptor, Mesh,
+        MeshDescriptor, Transform, Vertex,
+    },
+    wgpu_test_adapter,
+};
+
+use super::{Model, ModelDescriptor};
 
 #[test]
 fn realization() {
     let (_, device, queue) = wgpu_test_adapter::make_wgpu_connection();
 
-    let descriptor = MeshDescriptor {
-        vertices: vec![Vertex {
-            position: Vector3::new(1.0, 2.0, 3.0),
-            normal: Vector3::new(1.0, 2.0, 3.0),
-            tangent: Vector3::new(1.0, 2.0, 3.0),
-            bitangent: Vector3::new(1.0, 2.0, 3.0),
-            uv: Vector2::new(1.0, 2.0),
-        }],
-        indices: vec![0],
-        bounding_box: BoundingBoxDescriptor {
-            min: Point3 {
-                x: 1.0,
-                y: 2.0,
-                z: 3.0,
-            },
-            max: Point3 {
-                x: 4.0,
-                y: 5.0,
-                z: 6.0,
-            },
-        },
+    let descriptor = ModelDescriptor {
+        label: "Test".to_string(),
+        mesh: Arc::new(MeshDescriptor {
+            vertices: vec![Vertex {
+                position: Vector3::new(1.0, 2.0, 3.0),
+                normal: Vector3::new(1.0, 2.0, 3.0),
+                tangent: Vector3::new(1.0, 2.0, 3.0),
+                bitangent: Vector3::new(1.0, 2.0, 3.0),
+                uv: Vector2::new(1.0, 2.0),
+            }],
+            indices: vec![0],
+        }),
+        materials: vec![Arc::new(MaterialDescriptor::default())],
+        transforms: vec![Transform::default()],
     };
 
-    let _realization = Mesh::from_descriptor(&descriptor, &device, &queue);
+    let cache_mesh: RefCell<Cache<Arc<MeshDescriptor>, Mesh>> =
+        RefCell::new(Cache::new(Duration::from_secs(5)));
+    let cache_material: RefCell<Cache<Arc<MaterialShaderDescriptor>, MaterialShader>> =
+        RefCell::new(Cache::new(Duration::from_secs(5)));
+
+    let _realization = Model::from_descriptor(
+        &descriptor,
+        &TextureFormat::Rgba8Uint,
+        &device,
+        &queue,
+        &cache_mesh,
+        &cache_material,
+    )
+    .expect("Failure realizing test model");
 }
