@@ -16,8 +16,6 @@ pub struct ModelDescriptor {
     /// TODO
     /// Multiple == Multiple instances of the same model
     pub transforms: Vec<Transform>,
-    #[cfg(debug_assertions)]
-    pub render_bounding_box: bool,
 }
 
 impl ModelDescriptor {
