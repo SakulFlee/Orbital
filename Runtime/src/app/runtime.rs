@@ -122,9 +122,8 @@ impl AppRuntime {
                             cycle,
                             messages, // TODO: Remove
                         } => {
-                            if let Some(changes) = app
-                                .on_update(&input_state, delta_time, cycle)
-                                .await
+                            if let Some(changes) =
+                                app.on_update(&input_state, delta_time, cycle).await
                             {
                                 if !changes.is_empty() {
                                     error!("App returned changes, but this isn't handled yet!");
