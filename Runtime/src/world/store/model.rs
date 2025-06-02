@@ -32,7 +32,7 @@ impl ModelStore {
         Self::default()
     }
 
-    pub fn store_model(&mut self, descriptor: ModelDescriptor, device: &Device) {
+    pub fn store(&mut self, descriptor: ModelDescriptor, device: &Device) {
         let id = match self.free_ids.pop() {
             Some(id) => id,
             None => {
@@ -50,7 +50,7 @@ impl ModelStore {
         self.map_bounding_boxes.insert(id, bounding_box);
     }
 
-    pub fn remove_model(&mut self, id: Or<&str, u128>) -> bool {
+    pub fn remove(&mut self, id: Or<&str, u128>) -> bool {
         let idx = match id {
             Or::Left(label) => match self.label_to_id(label) {
                 Some(id) => id,
@@ -89,14 +89,15 @@ impl ModelStore {
 
     pub fn id_to_label(&self, id: u128) -> Option<&str> {
         self.map_descriptors
-            .get(&id).map(|descriptor| descriptor.label.as_str())
+            .get(&id)
+            .map(|descriptor| descriptor.label.as_str())
     }
 
     pub fn get_bounding_boxes(&self) -> Values<u128, BoundingBox> {
         self.map_bounding_boxes.values()
     }
 
-    pub fn realize_and_cache_models(
+    pub fn realize_and_cache(
         &mut self,
         ids: Vec<u128>,
         surface_format: &TextureFormat,
@@ -140,7 +141,7 @@ impl ModelStore {
         errors
     }
 
-    pub fn get_realized_models(&mut self, ids: Vec<u128>) -> Vec<&Model> {
+    pub fn get_realizations(&mut self, ids: Vec<u128>) -> Vec<&Model> {
         ids.into_iter()
             .filter_map(|id| match self.cache_realizations.get(&id) {
                 Some(model) => Some(model.inner()),
