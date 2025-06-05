@@ -6,6 +6,7 @@ use wgpu::{Device, Queue, TextureFormat};
 
 use crate::{
     cache::{Cache, CacheEntry},
+    element::ModelEvent,
     or::Or,
     resources::{
         BoundingBox, MaterialShader, MaterialShaderDescriptor, Mesh, MeshDescriptor, Model,
@@ -19,9 +20,12 @@ use super::StoreError;
 pub struct ModelStore {
     map_descriptors: HashMap<u128, ModelDescriptor>,
     cache_realizations: Cache<u128, Model>,
-    map_bounding_boxes: HashMap<u128, BoundingBox>,
+    // Descriptors that are queued to be realized
+    queue_realizations: Vec<u128>,
+    map_bounding_boxes: HashMap<u128, BoundingBox>, // TODO: WIP
     map_label: HashMap<String, u128>,
-    id_counter: u128,
+    id_counter: u128, // TODO: Is that high of a number needed? u64, u32, ...
+    // TODO: Dynamic number type that increases in size automatically?
     free_ids: Vec<u128>,
     cache_mesh: RefCell<Cache<Arc<MeshDescriptor>, Mesh>>,
     cache_material: RefCell<Cache<Arc<MaterialShaderDescriptor>, MaterialShader>>,
@@ -97,16 +101,35 @@ impl ModelStore {
         self.map_bounding_boxes.values()
     }
 
+    pub fn flag_realization(&mut self, ids: Vec<u128>, update_existing: bool) {
+        for id in ids {
+            if self.cache_realizations.contains_key(&id) && !update_existing {
+                // Skip any existing realisations if we aren't updating existing entries.
+                continue;
+            }
+
+            // Filter out any non-existing descriptors
+            if !self.map_descriptors.contains_key(&id) {
+                warn!("Attempting to flag realization for non existing descriptor with id #{id}!");
+                continue;
+            }
+
+            self.queue_realizations.push(id);
+        }
+    }
+
     pub fn realize_and_cache(
         &mut self,
-        ids: Vec<u128>,
         surface_format: &TextureFormat,
         device: &Device,
         queue: &Queue,
     ) -> Vec<(u128, Box<dyn Error>)> {
         let mut errors: Vec<(u128, Box<dyn Error>)> = Vec::new();
 
-        for id in ids {
+        for id in self
+            .queue_realizations
+            .drain(0..self.queue_realizations.len())
+        {
             if self.cache_realizations.contains_key(&id) {
                 continue;
             }
@@ -157,5 +180,81 @@ impl ModelStore {
         self.cache_realizations.cleanup();
         self.cache_mesh.borrow_mut().cleanup();
         self.cache_material.borrow_mut().cleanup();
+    }
+
+    pub fn clear(&mut self) {
+        self.map_label.clear();
+        self.map_descriptors.clear();
+        self.map_bounding_boxes.clear();
+        self.cache_realizations.clear();
+        self.cache_mesh.borrow_mut().clear();
+        self.cache_material.borrow_mut().clear();
+    }
+
+    pub fn handle_event(&mut self, model_event: ModelEvent, device: &Device) {
+        match model_event {
+            ModelEvent::Spawn(descriptor) => {
+                self.store(descriptor, device);
+            }
+            ModelEvent::Despawn(label) => {
+                self.remove(Or::Left(&label));
+            }
+            ModelEvent::Transform(label, mode) => {
+                if let Some(idx) = self.label_to_id(&label) {
+                    let descriptor = self.map_descriptors.get_mut(&idx).unwrap();
+                    descriptor.apply_transform(mode);
+
+                    if self.cache_realizations.contains_key(&idx) {
+                        self.flag_realization(vec![idx], true);
+                    }
+                } else {
+                    warn!(
+                        "Attempting to modify Model with label '{label}', which cannot be found!"
+                    );
+                }
+            }
+            ModelEvent::TransformInstance(label, mode, transform_idx) => {
+                if let Some(idx) = self.label_to_id(&label) {
+                    let descriptor = self.map_descriptors.get_mut(&idx).unwrap();
+                    descriptor.apply_transform_specific(mode, transform_idx);
+
+                    if self.cache_realizations.contains_key(&idx) {
+                        self.flag_realization(vec![idx], true);
+                    }
+                } else {
+                    warn!(
+                        "Attempting to modify Model with label '{label}', which cannot be found!"
+                    );
+                }
+            }
+            ModelEvent::AddInstance(label, transform) => {
+                if let Some(idx) = self.label_to_id(&label) {
+                    let descriptor = self.map_descriptors.get_mut(&idx).unwrap();
+                    descriptor.add_transform(transform);
+
+                    if self.cache_realizations.contains_key(&idx) {
+                        self.flag_realization(vec![idx], true);
+                    }
+                } else {
+                    warn!(
+                        "Attempting to add instance to Model with label '{label}', which cannot be found!"
+                    );
+                }
+            }
+            ModelEvent::RemoveInstance(label, transform_idx) => {
+                if let Some(idx) = self.label_to_id(&label) {
+                    let descriptor = self.map_descriptors.get_mut(&idx).unwrap();
+                    descriptor.remove_transform(transform_idx);
+
+                    if self.cache_realizations.contains_key(&idx) {
+                        self.flag_realization(vec![idx], true);
+                    }
+                } else {
+                    warn!(
+                        "Attempting to add instance to Model with label '{label}', which cannot be found!"
+                    );
+                }
+            }
+        }
     }
 }
