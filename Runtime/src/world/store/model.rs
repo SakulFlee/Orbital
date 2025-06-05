@@ -130,10 +130,6 @@ impl ModelStore {
             .queue_realizations
             .drain(0..self.queue_realizations.len())
         {
-            if self.cache_realizations.contains_key(&id) {
-                continue;
-            }
-
             let descriptor = match self.map_descriptors.get(&id) {
                 Some(descriptor) => descriptor,
                 None => {
