@@ -1,11 +1,12 @@
 use std::error::Error;
 
 use hashbrown::HashMap;
-use log::warn;
+use log::{error, warn};
 use wgpu::{Device, Queue};
 
 use crate::{
     cache::{Cache, CacheEntry},
+    element::CameraEvent,
     or::Or,
     resources::{Camera, CameraDescriptor},
 };
@@ -78,6 +79,16 @@ impl CameraStore {
         self.map_descriptors
             .get(&id)
             .map(|descriptor| descriptor.label.as_str())
+    }
+
+    pub fn target_camera(&mut self, id: u128) {
+        if !self.map_descriptors.contains_key(&id) {
+            error!("Attempting to target a Camera with id #{id}, which doesn't exist!");
+            return;
+        }
+
+        self.active_camera = id;
+        self.flag_realization(vec![id], true);
     }
 
     pub fn flag_realization(&mut self, ids: Vec<u128>, update_existing: bool) {
@@ -159,5 +170,45 @@ impl CameraStore {
         self.map_descriptors.clear();
         self.map_label.clear();
         self.cache_realizations.clear();
+    }
+
+    pub fn handle_event(&mut self, camera_event: CameraEvent) {
+        match camera_event {
+            CameraEvent::Spawn(camera_descriptor) => {
+                self.store(camera_descriptor);
+            }
+            CameraEvent::Despawn(label) => {
+                self.remove(Or::Left(&label));
+            }
+            CameraEvent::Target(label) => {
+                match self.label_to_id(&label) {
+                    Some(id) => self.target_camera(id),
+                    None => warn!("Attempting to target Camera with label '{label}', but Descriptor does not exist!"),
+                }
+            },
+            CameraEvent::Transform(label, camera_transform) => {
+                let id = match self.label_to_id(&label) {
+                    Some(x) => x,
+                    None => {
+                        warn!("Attempting to transform Camera with label '{label}', but label cannot be found!");
+                        return;
+                    },
+                };
+
+                let descriptor = match self.map_descriptors.get_mut(&id) {
+                    Some(x) => x,
+                    None => {
+                        warn!("Attempting to transform Camera with label '{label}', but Descriptor does not exist!");
+                        return;
+                    },
+                };
+
+                descriptor.apply_change(camera_transform);
+
+                if self.cache_realizations.contains_key(&id) {
+                    self.flag_realization(vec![id], true);
+                }
+            },
+        }
     }
 }
