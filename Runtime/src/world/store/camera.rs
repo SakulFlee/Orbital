@@ -19,6 +19,7 @@ pub struct CameraStore {
     map_label: HashMap<String, u128>,
     map_descriptors: HashMap<u128, CameraDescriptor>,
     cache_realizations: Cache<u128, Camera>,
+    queue_realizations: Vec<u128>,
     active_camera: u128,
 }
 
@@ -79,19 +80,34 @@ impl CameraStore {
             .map(|descriptor| descriptor.label.as_str())
     }
 
+    pub fn flag_realization(&mut self, ids: Vec<u128>, update_existing: bool) {
+        for id in ids {
+            if self.cache_realizations.contains_key(&id) && !update_existing {
+                // Skip any existing realisations if we aren't updating existing entries.
+                continue;
+            }
+
+            // Filter out any non-existing descriptors
+            if !self.map_descriptors.contains_key(&id) {
+                warn!("Attempting to flag realization for non existing descriptor with id #{id}!");
+                continue;
+            }
+
+            self.queue_realizations.push(id);
+        }
+    }
+
     pub fn realize_and_cache(
         &mut self,
-        ids: Vec<u128>,
         device: &Device,
         queue: &Queue,
     ) -> Vec<(u128, Box<dyn Error>)> {
         let mut errors: Vec<(u128, Box<dyn Error>)> = Vec::new();
 
-        for id in ids {
-            if self.cache_realizations.contains_key(&id) {
-                continue;
-            }
-
+        for id in self
+            .queue_realizations
+            .drain(0..self.queue_realizations.len())
+        {
             let descriptor = match self.map_descriptors.get(&id) {
                 Some(descriptor) => descriptor,
                 None => {
@@ -115,8 +131,8 @@ impl CameraStore {
         queue: &Queue,
     ) -> Option<(u128, Box<dyn Error>)> {
         // There can only be one result, if at all
-        self.realize_and_cache(vec![self.active_camera], device, queue)
-            .pop()
+        self.flag_realization(vec![self.active_camera], true);
+        self.realize_and_cache(device, queue).pop()
     }
 
     pub fn get_realizations(&self, ids: Vec<u128>) -> Vec<&Camera> {
@@ -137,5 +153,11 @@ impl CameraStore {
 
     pub fn cleanup(&mut self) {
         self.cache_realizations.cleanup();
+    }
+
+    pub fn clear(&mut self) {
+        self.map_descriptors.clear();
+        self.map_label.clear();
+        self.cache_realizations.clear();
     }
 }
