@@ -13,11 +13,10 @@ pub use cache_settings::*;
 mod elements;
 use elements::*;
 
-use crate::entrypoint::NAME;
-
 pub struct MyApp {
     element_store: ElementStore,
     world: World,
+    queue_events: Vec<Event>,
     // renderer: Option<RendererImpl>,
 }
 
@@ -32,6 +31,7 @@ impl MyApp {
         Self {
             element_store: ElementStore::new(),
             world: World::new(),
+            queue_events: Vec::new(),
             // renderer: None,
         }
     }
@@ -118,10 +118,13 @@ impl App for MyApp {
     where
         Self: Sized,
     {
-        let events = self.element_store.update(delta_time, input_state).await;
+        let mut events = self.element_store.update(delta_time, input_state).await;
+        let old_events = self.queue_events.drain(0..self.queue_events.len());
+
+        events.extend(old_events);
 
         let mut world_events = Vec::<WorldEvent>::new();
-        let mut element_events = Vec::<ElementEvent>::new(); // TODO: USE
+        let mut element_events = Vec::<ElementEvent>::new();
         let mut runtime_events = Vec::<RuntimeEvent>::new();
 
         for event in events {
@@ -140,6 +143,7 @@ impl App for MyApp {
         }
 
         self.world.update(world_events);
+        self.element_store.process_events(element_events);
 
         (!runtime_events.is_empty()).then_some(runtime_events)
     }
