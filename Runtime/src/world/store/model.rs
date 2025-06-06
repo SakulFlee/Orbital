@@ -22,6 +22,7 @@ pub struct ModelStore {
     cache_realizations: Cache<u128, Model>,
     // Descriptors that are queued to be realized
     queue_realizations: Vec<u128>,
+    queue_bounding_boxes: Vec<u128>,
     map_bounding_boxes: HashMap<u128, BoundingBox>, // TODO: WIP
     map_label: HashMap<String, u128>,
     id_counter: u128, // TODO: Is that high of a number needed? u64, u32, ...
@@ -36,7 +37,7 @@ impl ModelStore {
         Self::default()
     }
 
-    pub fn store(&mut self, descriptor: ModelDescriptor, device: &Device) {
+    pub fn store(&mut self, descriptor: ModelDescriptor) {
         let id = match self.free_ids.pop() {
             Some(id) => id,
             None => {
@@ -46,12 +47,8 @@ impl ModelStore {
             }
         };
 
-        let bounding_box_descriptor = descriptor.mesh.find_bounding_box();
-        let bounding_box = BoundingBox::new(&bounding_box_descriptor, device);
-
         self.map_label.insert(descriptor.label.clone(), id);
         self.map_descriptors.insert(id, descriptor);
-        self.map_bounding_boxes.insert(id, bounding_box);
     }
 
     pub fn remove(&mut self, id: Or<&str, u128>) -> bool {
@@ -115,6 +112,25 @@ impl ModelStore {
             }
 
             self.queue_realizations.push(id);
+        }
+    }
+
+    pub fn process_bounding_boxes(&mut self, device: &Device) {
+        for id in self
+            .queue_bounding_boxes
+            .drain(0..self.queue_bounding_boxes.len())
+        {
+            let descriptor = match self.map_descriptors.get(&id) {
+                Some(x) => x,
+                None => {
+                    warn!("Attempting to process BoundingBox for id #{id}, but Descriptor cannot be found!");
+                    continue;
+                }
+            };
+
+            let bounding_box_descriptor = descriptor.mesh.find_bounding_box();
+            let bounding_box = BoundingBox::new(&bounding_box_descriptor, device);
+            self.map_bounding_boxes.insert(id, bounding_box);
         }
     }
 
@@ -187,10 +203,10 @@ impl ModelStore {
         self.cache_material.borrow_mut().clear();
     }
 
-    pub fn handle_event(&mut self, model_event: ModelEvent, device: &Device) {
+    pub fn handle_event(&mut self, model_event: ModelEvent) {
         match model_event {
             ModelEvent::Spawn(descriptor) => {
-                self.store(descriptor, device);
+                self.store(descriptor);
             }
             ModelEvent::Despawn(label) => {
                 self.remove(Or::Left(&label));

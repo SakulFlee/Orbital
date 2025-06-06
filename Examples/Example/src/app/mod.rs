@@ -1,9 +1,8 @@
 use orbital::{
     app::{input::InputState, App, RuntimeEvent},
     cgmath::Vector2,
-    element::{ElementEvent, ElementStore, Event},
+    element::{ElementEvent, ElementStore, Event, WorldEvent},
     logging::warn,
-    physics::{Physics, PhysicsEvent},
     wgpu::{Device, Queue, SurfaceConfiguration, TextureView},
     world::World,
 };
@@ -19,7 +18,6 @@ use crate::entrypoint::NAME;
 pub struct MyApp {
     element_store: ElementStore,
     world: World,
-    physics: Physics,
     // renderer: Option<RendererImpl>,
 }
 
@@ -34,7 +32,6 @@ impl MyApp {
         Self {
             element_store: ElementStore::new(),
             world: World::new(),
-            physics: Physics::new(),
             // renderer: None,
         }
     }
@@ -121,57 +118,28 @@ impl App for MyApp {
     where
         Self: Sized,
     {
-        // TODO: New approach:
-        // 1. ✅ ElementStore updates Elements and returns WorldChanges (Events).
-        // 2. ❌ Events get separated here into whatever categories are needed.
-        //    Events will be sent to each System as a mutable reference.
-        //    Each system can remove the events it processed, unless they are universal.
-        // 3. ✅ Update PhysicsSystem with Events and generate ChangeList.
-        //    ⚠️ PhysicsSystem is not yet implemented, a dummy system will be implemented.
-        // 4. Update Renderer with remaining Events + ChangeList.
-        // 5. Return any AppEvents to the AppRuntime to be processed.
-        // (6. Actually start rendering the frame after all events have been processed.)
-        // ---
-        // Anything "transformable" goes into the PhysicsSystem.
-        // No matter if it can change or not (static).
-        //
-        // The PhysicsSystem will replace the World.
-        // Anything World related, like WorldEnvironment, goes into the Renderer.
-
         let events = self.element_store.update(delta_time, input_state).await;
 
-        let mut physics_events = Vec::<PhysicsEvent>::new();
-        // TODO: Sort for World Environment Events
+        let mut world_events = Vec::<WorldEvent>::new();
         let mut element_events = Vec::<ElementEvent>::new(); // TODO: USE
         let mut runtime_events = Vec::<RuntimeEvent>::new();
 
         for event in events {
             match event {
-                Event::Model(model_event) => physics_events.push(PhysicsEvent::Model(model_event)),
-                Event::Camera(camera_event) => {
-                    physics_events.push(PhysicsEvent::Camera(camera_event))
+                Event::World(world_event) => {
+                    world_events.push(world_event);
                 }
-                Event::Element(element_event) => element_events.push(element_event),
-                Event::App(runtime_event) => runtime_events.push(runtime_event), // TODO Should be Runtime not App Events
-                Event::File(file_event) => todo!(),
-                Event::Clear => physics_events.push(PhysicsEvent::Clear),
+                Event::Element(element_event) => {
+                    element_events.push(element_event);
+                }
+                Event::App(runtime_event) => {
+                    runtime_events.push(runtime_event);
+                    // TODO Should be Runtime not App Events},
+                }
             }
         }
 
-        let change_list = self.physics.update(delta_time, physics_events).await;
-
-        // TODO: Sort events into buckets/categories.
-        // TODO: Call each system async with the events.
-        // TODO: "All" meaning Physics + File + Element
-        // TODO: Renderer e.g. only needs ChangeList and needs to happen after the PhysicsSystem
-
-        // TODO: Messages get created by Elements as WorldChanges.
-        // World then transforms Message into AppChange.
-        // Calling World::update returns any AppChanges.
-        // We then return any AppChanges to the AppRuntime (if there are any).
-        // The AppRuntime processes changes and puts any AppMessages into a queue.
-        // And finally on the next update cycle we get the actual AppMessages.
-        // I.e. the message already has been here, we just didn't process it and send it on.
+        self.world.update(world_events);
 
         (!runtime_events.is_empty()).then_some(runtime_events)
     }
@@ -180,7 +148,7 @@ impl App for MyApp {
     where
         Self: Sized,
     {
-        // self.world.prepare_render(device, queue);
+        self.world.prepare_render(device);
 
         // if let Some(renderer) = &mut self.renderer {
         //     renderer

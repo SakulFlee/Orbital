@@ -37,18 +37,18 @@ impl World {
         &mut self.environment_store
     }
 
-    pub fn update(&mut self, world_events: Vec<WorldEvent>, device: &Device) {
+    pub fn update(&mut self, world_events: Vec<WorldEvent>) {
         for world_event in world_events {
-            self.process_event(world_event, device);
+            self.process_event(world_event);
         }
 
         self.model_store.cleanup();
         self.camera_store.cleanup();
     }
 
-    fn process_event(&mut self, event: WorldEvent, device: &Device) {
+    fn process_event(&mut self, event: WorldEvent) {
         match event {
-            WorldEvent::Model(model_event) => self.model_store.handle_event(model_event, device),
+            WorldEvent::Model(model_event) => self.model_store.handle_event(model_event),
             WorldEvent::Camera(camera_event) => self.camera_store.handle_event(camera_event),
             WorldEvent::Environment(environment_event) => {
                 self.environment_store.handle_event(environment_event);
@@ -59,5 +59,9 @@ impl World {
                 self.environment_store.clear();
             }
         }
+    }
+
+    pub fn prepare_render(&mut self, device: &Device) {
+        self.model_store.process_bounding_boxes(device);
     }
 }
