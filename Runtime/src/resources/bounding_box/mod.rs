@@ -11,6 +11,7 @@ mod tests;
 
 #[derive(Debug)]
 pub struct BoundingBox {
+    // TODO: Add Index (or smth.)
     buffer: Buffer,
 }
 
