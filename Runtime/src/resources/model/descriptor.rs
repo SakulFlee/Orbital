@@ -39,8 +39,8 @@ impl ModelDescriptor {
 
     /// Adds one or many [Transform]_s_ to the [Model].
     /// Effectively, instancing the [Model].
-    pub fn add_transform(&mut self, transforms: Transform) {
-        self.transforms.push(transforms);
+    pub fn add_transform(&mut self, transform: Transform) {
+        self.transforms.push(transform);
     }
 
     /// Removes a [Transform] from the [Model].
