@@ -1,17 +1,13 @@
 mod store;
 pub use store::*;
+use wgpu::Device;
 
-// TODO: Frustum Checking should be a separate System (outside of Renderer)
-// TODO: Result of Frustum Check + Active Camera should be extracted from World and be provided when **calling** the RenderSystem
-// TODO: Frustum Check -is-> System --> Rename to "ObserverSystem"
-// TODO: Renderer -is-> System
-// TODO: Physics -is-> System
-// TODO: World should handle WorldEvents (previously PhysicsEvents)
-// TODO: AFTER lighting and rendering has been fully implemented, figure out how to implement a physics system (probably 3rd-party).
+use crate::element::WorldEvent;
 
 pub struct World {
     model_store: ModelStore,
     camera_store: CameraStore,
+    environment_store: EnvironmentStore,
 }
 
 impl Default for World {
@@ -25,6 +21,7 @@ impl World {
         Self {
             model_store: ModelStore::new(),
             camera_store: CameraStore::new(),
+            environment_store: EnvironmentStore::new(),
         }
     }
 
@@ -34,5 +31,33 @@ impl World {
 
     pub fn camera_store(&mut self) -> &mut CameraStore {
         &mut self.camera_store
+    }
+
+    pub fn environment_store(&mut self) -> &mut EnvironmentStore {
+        &mut self.environment_store
+    }
+
+    pub fn update(&mut self, world_events: Vec<WorldEvent>, device: &Device) {
+        for world_event in world_events {
+            self.process_event(world_event, device);
+        }
+
+        self.model_store.cleanup();
+        self.camera_store.cleanup();
+    }
+
+    fn process_event(&mut self, event: WorldEvent, device: &Device) {
+        match event {
+            WorldEvent::Model(model_event) => self.model_store.handle_event(model_event, device),
+            WorldEvent::Camera(camera_event) => self.camera_store.handle_event(camera_event),
+            WorldEvent::Environment(environment_event) => {
+                self.environment_store.handle_event(environment_event);
+            }
+            WorldEvent::Clear => {
+                self.model_store.clear();
+                self.camera_store.clear();
+                self.environment_store.clear();
+            }
+        }
     }
 }
