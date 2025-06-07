@@ -1,5 +1,7 @@
+use std::time::{Duration, Instant};
+
 use orbital::{
-    app::{input::InputState, App, RuntimeEvent},
+    app::{input::InputState, App, AppEvent},
     cgmath::Vector2,
     element::{ElementEvent, ElementStore, Event, WorldEvent},
     logging::warn,
@@ -19,6 +21,7 @@ pub struct MyApp {
     world: World,
     queue_events: Vec<Event>,
     renderer: Option<Renderer>,
+    empty_since: Option<Instant>,
 }
 
 impl Default for MyApp {
@@ -34,6 +37,7 @@ impl MyApp {
             world: World::new(),
             queue_events: Vec::new(),
             renderer: None,
+            empty_since: None,
         }
     }
 
@@ -114,7 +118,7 @@ impl App for MyApp {
         input_state: &InputState,
         delta_time: f64,
         _cycle: Option<(f64, u64)>,
-    ) -> Option<Vec<RuntimeEvent>>
+    ) -> Option<Vec<AppEvent>>
     where
         Self: Sized,
     {
@@ -125,7 +129,7 @@ impl App for MyApp {
 
         let mut world_events = Vec::<WorldEvent>::new();
         let mut element_events = Vec::<ElementEvent>::new();
-        let mut runtime_events = Vec::<RuntimeEvent>::new();
+        let mut app_events = Vec::<AppEvent>::new();
 
         for event in events {
             match event {
@@ -135,17 +139,29 @@ impl App for MyApp {
                 Event::Element(element_event) => {
                     element_events.push(element_event);
                 }
-                Event::App(runtime_event) => {
-                    runtime_events.push(runtime_event);
-                    // TODO Should be Runtime not App Events},
+                Event::App(app_event) => {
+                    app_events.push(app_event);
                 }
             }
         }
 
         self.world.update(world_events);
-        self.element_store.process_events(element_events);
 
-        (!runtime_events.is_empty()).then_some(runtime_events)
+        let new_events = self.element_store.process_events(element_events).await;
+        self.queue_events.extend(new_events);
+
+        if self.world.model_store().is_empty() {
+            if let Some(since) = self.empty_since {
+                if since.elapsed() >= Duration::from_secs(5) {
+                    warn!("Empty world detected! Closing app ...");
+                    app_events.push(AppEvent::RequestAppClosure);
+                }
+            } else {
+                self.empty_since = Some(Instant::now());
+            }
+        }
+
+        (!app_events.is_empty()).then_some(app_events)
     }
 
     async fn on_render(&mut self, target_view: &TextureView, device: &Device, queue: &Queue)

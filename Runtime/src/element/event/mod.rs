@@ -1,4 +1,4 @@
-use crate::app::RuntimeEvent;
+use crate::app::AppEvent;
 
 mod element;
 pub use element::*;
@@ -13,5 +13,5 @@ pub use file_manager::*;
 pub enum Event {
     Element(ElementEvent),
     World(WorldEvent),
-    App(RuntimeEvent), // TODO
+    App(AppEvent),
 }

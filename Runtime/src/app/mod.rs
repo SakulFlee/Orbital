@@ -145,7 +145,7 @@ pub trait App {
         _input_state: &InputState,
         _delta_time: f64,
         _cycle: Option<(f64, u64)>,
-    ) -> impl std::future::Future<Output = Option<Vec<RuntimeEvent>>> + Send
+    ) -> impl std::future::Future<Output = Option<Vec<AppEvent>>> + Send
     where
         Self: Sized,
     {
