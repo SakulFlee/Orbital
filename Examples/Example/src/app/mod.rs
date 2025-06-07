@@ -3,6 +3,7 @@ use orbital::{
     cgmath::Vector2,
     element::{ElementEvent, ElementStore, Event, WorldEvent},
     logging::warn,
+    renderer::Renderer,
     wgpu::{Device, Queue, SurfaceConfiguration, TextureView},
     world::World,
 };
@@ -17,7 +18,7 @@ pub struct MyApp {
     element_store: ElementStore,
     world: World,
     queue_events: Vec<Event>,
-    // renderer: Option<RendererImpl>,
+    renderer: Option<Renderer>,
 }
 
 impl Default for MyApp {
@@ -32,7 +33,7 @@ impl MyApp {
             element_store: ElementStore::new(),
             world: World::new(),
             queue_events: Vec::new(),
-            // renderer: None,
+            renderer: None,
         }
     }
 
@@ -81,32 +82,31 @@ impl MyApp {
 
 impl App for MyApp {
     async fn on_resume(&mut self, config: &SurfaceConfiguration, device: &Device, queue: &Queue) {
-        // self.renderer = Some(RenderImpl::new(
-        //     config.format,
-        //     Vector2::new(config.width, config.height),
-        //     device,
-        //     queue,
-        //     NAME,
-        // ));
+        self.renderer = Some(Renderer::new(
+            config.format,
+            Vector2::new(config.width, config.height),
+            device,
+            queue,
+        ));
 
-        // if self.world.model_store().is_empty() {
-        //     self.on_startup().await;
-        // }
+        if self.world.model_store().is_empty() {
+            self.on_startup().await;
+        }
     }
 
     async fn on_suspend(&mut self) {
-        // self.renderer = None;
+        self.renderer = None;
     }
 
     async fn on_resize(&mut self, new_size: Vector2<u32>, device: &Device, queue: &Queue)
     where
         Self: Sized,
     {
-        // if let Some(renderer) = &mut self.renderer {
-        //     renderer.change_resolution(new_size, device, queue).await;
-        // } else {
-        //     warn!("Received resize event, but Renderer doesn't exist (yet?)");
-        // }
+        if let Some(renderer) = &mut self.renderer {
+            renderer.change_resolution(new_size, device, queue);
+        } else {
+            warn!("Received resize event, but Renderer doesn't exist (yet?)");
+        }
     }
 
     async fn on_update(
@@ -152,12 +152,15 @@ impl App for MyApp {
     where
         Self: Sized,
     {
-        self.world.prepare_render(device);
+        if let Some(renderer) = &mut self.renderer {
+            self.world.prepare_render(device);
 
-        // if let Some(renderer) = &mut self.renderer {
-        //     renderer
-        //         .render(target_view, device, queue, &self.world)
-        //         .await;
-        // }
+            let world_environment = self.world.environment_store().world_environment();
+            let models = Vec::new();
+
+            renderer
+                .render(target_view, world_environment, models, device, queue)
+                .await;
+        }
     }
 }
