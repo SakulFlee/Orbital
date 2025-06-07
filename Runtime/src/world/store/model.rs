@@ -201,6 +201,9 @@ impl ModelStore {
         self.cache_realizations.clear();
         self.cache_mesh.borrow_mut().clear();
         self.cache_material.borrow_mut().clear();
+        self.free_ids.clear();
+        self.id_counter = 0;
+    }
     }
 
     pub fn handle_event(&mut self, model_event: ModelEvent) {
