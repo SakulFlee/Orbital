@@ -170,6 +170,8 @@ impl CameraStore {
         self.map_descriptors.clear();
         self.map_label.clear();
         self.cache_realizations.clear();
+        self.free_ids.clear();
+        self.id_counter = 0;
     }
 
     pub fn handle_event(&mut self, camera_event: CameraEvent) {
