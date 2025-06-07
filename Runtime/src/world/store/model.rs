@@ -204,6 +204,9 @@ impl ModelStore {
         self.free_ids.clear();
         self.id_counter = 0;
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.map_descriptors.is_empty()
     }
 
     pub fn handle_event(&mut self, model_event: ModelEvent) {
