@@ -1,22 +1,12 @@
 use cgmath::Vector2;
-use model::ModelRenderer;
-use skybox::SkyBoxRenderer;
+use log::debug;
 use wgpu::{Device, Queue, TextureFormat, TextureView};
 
-use crate::{resources::Texture, world::World};
-
-mod frustum_check;
-mod model;
-mod skybox;
-mod system;
-
-mod event;
-pub use event::*;
+use crate::resources::{Model, Texture, WorldEnvironment};
 
 pub struct Renderer {
     surface_texture_format: TextureFormat,
-    renderer_skybox: SkyBoxRenderer,
-    renderer_model: ModelRenderer,
+    depth_texture: Texture,
 }
 
 impl Renderer {
@@ -30,8 +20,7 @@ impl Renderer {
 
         Self {
             surface_texture_format,
-            renderer_skybox: SkyBoxRenderer::new(surface_texture_format, device, queue),
-            renderer_model: ModelRenderer::new(depth_texture),
+            depth_texture,
         }
     }
 
@@ -42,21 +31,20 @@ impl Renderer {
         _queue: &Queue,
     ) {
         self.surface_texture_format = surface_texture_format;
-
-        // TODO: maybe remake renderer?
     }
 
     pub fn change_resolution(&mut self, resolution: Vector2<u32>, device: &Device, queue: &Queue) {
-        let depth_texture = Texture::depth_texture(&resolution, device, queue);
-
-        self.renderer_model = ModelRenderer::new(depth_texture);
-
-        // TODO: Skybox Renderer?
+        self.depth_texture = Texture::depth_texture(&resolution, device, queue);
     }
 
-    pub async fn update(&mut self, world: &World, render_events: Option<Vec<RenderEvent>>) {}
-
-    pub async fn render(&mut self, target_view: &TextureView, device: &Device, queue: &Queue) {
-        todo!()
+    pub async fn render(
+        &mut self,
+        target_view: &TextureView,
+        world_environment: Option<&WorldEnvironment>,
+        models: Vec<&Model>,
+        device: &Device,
+        queue: &Queue,
+    ) {
+        debug!("RENDER");
     }
 }
