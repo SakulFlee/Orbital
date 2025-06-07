@@ -125,22 +125,14 @@ impl AppRuntime {
                             if let Some(changes) =
                                 app.on_update(&input_state, delta_time, cycle).await
                             {
-                                if !changes.is_empty() {
-                                    error!("App returned changes, but this isn't handled yet!");
-                                    // TODO
-
-                                    for change in changes {
-                                        error!("DROPPING: {:?}", change);
+                                for app_change in changes {
+                                    if let Err(e) = app_change_tx.send(app_change).await {
+                                        error!(
+                                            "Failed to send app change to app change channel: {}",
+                                            e
+                                        );
                                     }
                                 }
-                                // for app_change in changes {
-                                //     if let Err(e) = app_change_tx.send(app_change).await {
-                                //         error!(
-                                //             "Failed to send app change to app change channel: {}",
-                                //             e
-                                //         );
-                                //     }
-                                // }
                             }
                         }
                     }
