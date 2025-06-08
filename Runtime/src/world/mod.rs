@@ -1,4 +1,6 @@
 mod store;
+use std::time::{Duration, Instant};
+
 pub use store::*;
 use wgpu::Device;
 
@@ -8,6 +10,7 @@ pub struct World {
     model_store: ModelStore,
     camera_store: CameraStore,
     environment_store: EnvironmentStore,
+    last_cleanup: Instant,
 }
 
 impl Default for World {
@@ -22,6 +25,7 @@ impl World {
             model_store: ModelStore::new(),
             camera_store: CameraStore::new(),
             environment_store: EnvironmentStore::new(),
+            last_cleanup: Instant::now(),
         }
     }
 
@@ -42,8 +46,14 @@ impl World {
             self.process_event(world_event);
         }
 
-        self.model_store.cleanup();
-        self.camera_store.cleanup();
+        // Needs to be at most the same as the cache timeout time!
+        // Otherwise, cache cleanup will never be efficient.
+        if self.last_cleanup.elapsed() >= Duration::from_secs(5) {
+            self.model_store.cleanup();
+            self.camera_store.cleanup();
+
+            self.last_cleanup = Instant::now();
+        }
     }
 
     fn process_event(&mut self, event: WorldEvent) {
