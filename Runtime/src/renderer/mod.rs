@@ -46,5 +46,7 @@ impl Renderer {
         queue: &Queue,
     ) {
         debug!("RENDER");
+        debug!("World Environment: {world_environment:?}");
+        debug!("Models: {models:?}");
     }
 }
