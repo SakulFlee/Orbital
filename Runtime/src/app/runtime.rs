@@ -1,4 +1,4 @@
-use std::{mem::take, sync::Arc};
+use std::{mem::take, process::exit, sync::Arc, thread::sleep, time::Duration};
 
 use async_std::channel::{Receiver, Sender};
 use cgmath::Vector2;
@@ -52,6 +52,7 @@ pub struct AppRuntime {
     /// "in flight" to prevent WGPU from crashing if we re-request the next
     /// frame while the previous one isn't presented yet.
     frame_acquired: bool,
+    close_requested: bool,
     input_state: InputState,
     #[cfg(feature = "gamepad_input")]
     gil: Gilrs,
@@ -85,6 +86,7 @@ impl AppRuntime {
             queue: None,
             timer: None,
             frame_acquired: false,
+            close_requested: false,
             input_state: InputState::new(),
             #[cfg(feature = "gamepad_input")]
             gil: Gilrs::new().expect("Gamepad input initialization failed!"),
@@ -145,7 +147,16 @@ impl AppRuntime {
         // Terminate app handle
         let _ = app_handle.cancel().now_or_never();
 
-        result
+        // Note: Fixes a bug with a surface handle being destroyed before the surface texture gets cleaned up.
+        // Since we are exiting here anyways, this should be fine ... for now.
+        // I couldn't find the cause of this yet, but it'll be fixed once I find it!
+        match result {
+            Ok(_) => exit(0),
+            Err(e) => {
+                error!("Error occurred: {:?}", e);
+                exit(-1);
+            }
+        }
     }
 
     fn make_instance() -> Instance {
@@ -691,13 +702,13 @@ impl ApplicationHandler for AppRuntime {
                 None
             }
             WindowEvent::RedrawRequested => {
-                self.redraw();
-
-                #[cfg(feature = "auto_request_redraw")]
-                self.window.as_ref().unwrap().request_redraw();
-
                 if self.process_app_changes() {
                     event_loop.exit();
+                } else {
+                    self.redraw();
+
+                    #[cfg(feature = "auto_request_redraw")]
+                    self.window.as_ref().unwrap().request_redraw();
                 }
 
                 None
