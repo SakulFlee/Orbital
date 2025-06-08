@@ -676,6 +676,12 @@ impl ApplicationHandler for AppRuntime {
     ) {
         // Skip if exiting
         if event_loop.exiting() {
+            if let Some(instance) = &self.instance {
+                if !instance.poll_all(true) {
+                    panic!("Polled to wait for everything to finish up, yet not everything resolved after waiting!");
+                }
+            }
+
             return;
         }
 
