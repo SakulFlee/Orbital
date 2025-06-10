@@ -33,7 +33,11 @@ use super::{App, AppSettings, RuntimeEvent};
 
 pub struct AppRuntime {
     // Events
+    /// The whole runtime happens in different threads and is quite complicated.
+    /// This channel is used to send [`RuntimeEvent`]s from the Winit windowing event loop thread into the App thread.
     event_tx: Sender<RuntimeEvent>,
+    /// The whole runtime happens in different threads and is quite complicated.
+    /// This channel is used to send [`AppEvent`]s from the App thread into the Winit windowing event loop thread.
     app_change_rx: Receiver<AppEvent>,
     app_messages: Vec<Message>,
     // App related
