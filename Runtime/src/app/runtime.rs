@@ -151,9 +151,6 @@ impl AppRuntime {
         // Terminate app handle
         let _ = app_handle.cancel().now_or_never();
 
-        // Note: Fixes a bug with a surface handle being destroyed before the surface texture gets cleaned up.
-        // Since we are exiting here anyways, this should be fine ... for now.
-        // I couldn't find the cause of this yet, but it'll be fixed once I find it!
         match result {
             Ok(_) => exit(0),
             Err(e) => {
