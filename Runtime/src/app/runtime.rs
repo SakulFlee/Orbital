@@ -151,6 +151,7 @@ impl AppRuntime {
         // Terminate app handle
         let _ = app_handle.cancel().now_or_never();
 
+        // Note: Ensures the app actually quits "properly" without any traces left behind or crashes at the last second.
         match result {
             Ok(_) => exit(0),
             Err(e) => {
