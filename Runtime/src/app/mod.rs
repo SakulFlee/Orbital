@@ -1,5 +1,7 @@
 //! ⚠️ You are most likely looking for the [App] description!
 
+use std::future::Future;
+
 use wgpu::{Device, Queue, SurfaceConfiguration, TextureView};
 
 mod settings;
@@ -92,7 +94,18 @@ use input::*;
 /// [Games]: crate::world::Game
 /// [GameRuntime]: crate::world::GameRuntime
 /// [winit]: crate::winit
-pub trait App {
+pub trait App: Send + Sync {
+    /// TODO
+    fn new() -> Self;
+
+    /// TODO
+    fn on_startup(&mut self) -> impl Future<Output = ()> + Send
+    where
+        Self: Sized,
+    {
+        async {}
+    }
+
     /// Gets called upon the [App] getting resumed _OR_ when the [App] got initiated first time and we know have access to the GPU via [Device] & [Queue].
     /// Depending on the state, we might want to reinitialize things for the GPU related to memory between suspension and resumption might have been dropped.
     fn on_resume(
@@ -100,7 +113,7 @@ pub trait App {
         _config: &SurfaceConfiguration,
         _device: &Device,
         _queue: &Queue,
-    ) -> impl std::future::Future<Output = ()> + Send
+    ) -> impl Future<Output = ()> + Send
     where
         Self: Sized,
     {
@@ -109,7 +122,7 @@ pub trait App {
 
     /// Gets called upon the [App] getting suspended.
     /// On some operating systems this will invalidate the [Device], [Queue], [Surface](wgpu::Surface) and [Window](winit::window::Window).
-    fn on_suspend(&mut self) -> impl std::future::Future<Output = ()> + Send
+    fn on_suspend(&mut self) -> impl Future<Output = ()> + Send
     where
         Self: Sized,
     {
@@ -124,14 +137,14 @@ pub trait App {
         _new_size: cgmath::Vector2<u32>,
         _device: &Device,
         _queue: &Queue,
-    ) -> impl std::future::Future<Output = ()> + Send
+    ) -> impl Future<Output = ()> + Send
     where
         Self: Sized,
     {
         async {}
     }
 
-    fn on_focus_change(&mut self, _focused: bool) -> impl std::future::Future<Output = ()> + Send
+    fn on_focus_change(&mut self, _focused: bool) -> impl Future<Output = ()> + Send
     where
         Self: Sized,
     {
@@ -145,7 +158,7 @@ pub trait App {
         _input_state: &InputState,
         _delta_time: f64,
         _cycle: Option<(f64, u64)>,
-    ) -> impl std::future::Future<Output = Option<Vec<AppEvent>>> + Send
+    ) -> impl Future<Output = Option<Vec<AppEvent>>> + Send
     where
         Self: Sized,
     {
@@ -159,7 +172,7 @@ pub trait App {
         _target_view: &TextureView,
         _device: &Device,
         _queue: &Queue,
-    ) -> impl std::future::Future<Output = ()> + Send
+    ) -> impl Future<Output = ()> + Send
     where
         Self: Sized,
     {
