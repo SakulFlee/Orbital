@@ -1,5 +1,4 @@
 use std::{
-    cell::RefCell,
     sync::{Arc, RwLock},
     time::Duration,
 };
@@ -10,7 +9,7 @@ use wgpu::TextureFormat;
 use crate::{
     cache::Cache,
     resources::{
-        MaterialDescriptor, MaterialShader, MaterialShaderDescriptor, Mesh, MeshDescriptor,
+        MaterialDescriptor, MeshDescriptor,
         Transform, Vertex,
     },
     wgpu_test_adapter,
