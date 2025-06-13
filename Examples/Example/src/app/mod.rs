@@ -85,6 +85,10 @@ impl MyApp {
 }
 
 impl App for MyApp {
+    fn new() -> Self {
+        Self::default()
+    }
+
     async fn on_resume(&mut self, config: &SurfaceConfiguration, device: &Device, queue: &Queue) {
         self.renderer = Some(Renderer::new(
             config.format,
