@@ -1,5 +1,4 @@
 use std::{
-    cell::RefCell,
     error::Error,
     sync::{Arc, RwLock},
 };
