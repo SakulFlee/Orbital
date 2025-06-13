@@ -1,4 +1,8 @@
-use std::{cell::RefCell, sync::Arc, time::Duration};
+use std::{
+    cell::RefCell,
+    sync::{Arc, RwLock},
+    time::Duration,
+};
 
 use cgmath::{Vector2, Vector3};
 use wgpu::TextureFormat;
@@ -34,10 +38,8 @@ fn realization() {
         transforms: vec![Transform::default()],
     };
 
-    let cache_mesh: RefCell<Cache<Arc<MeshDescriptor>, Mesh>> =
-        RefCell::new(Cache::new(Duration::from_secs(5)));
-    let cache_material: RefCell<Cache<Arc<MaterialShaderDescriptor>, MaterialShader>> =
-        RefCell::new(Cache::new(Duration::from_secs(5)));
+    let cache_mesh = RwLock::new(Cache::new(Duration::from_secs(5)));
+    let cache_material = RwLock::new(Cache::new(Duration::from_secs(5)));
 
     let _realization = Model::from_descriptor(
         &descriptor,
