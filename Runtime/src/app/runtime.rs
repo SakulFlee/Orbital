@@ -1,4 +1,11 @@
-use std::{mem::take, process::exit, sync::Arc, thread::sleep, time::Duration};
+use std::{
+    cell::Ref,
+    mem::{take, transmute},
+    process::exit,
+    sync::Arc,
+    thread::sleep,
+    time::Duration,
+};
 
 use async_std::{
     channel::{Receiver, Sender},
@@ -561,12 +568,15 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
 
         self.instance = Some(AppRuntime::<AppImpl>::make_instance());
 
-        let instance_ref = self.instance.as_ref().unwrap();
-        let window_ref = self.window.as_ref().unwrap();
-        let surface: Surface<'static> =
-            unsafe { std::mem::transmute(instance_ref.create_surface(window_ref).unwrap()) };
-
-        self.surface = Some(surface);
+        self.surface = Some(unsafe {
+            transmute(
+                self.instance
+                    .as_ref()
+                    .unwrap()
+                    .create_surface(self.window.as_ref().unwrap())
+                    .expect("Failed creating Surface!"),
+            )
+        });
 
         let mut adapters_ranked = AppRuntime::<AppImpl>::retrieve_and_rank_adapters(
             self.instance
