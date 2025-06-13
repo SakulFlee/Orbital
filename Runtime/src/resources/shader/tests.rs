@@ -50,23 +50,24 @@ impl ShaderDescriptor for TestImplementation {
 fn test(buffer_count: u32, texture_count: u32) {
     let (_, device, queue) = wgpu_test_adapter::make_wgpu_connection();
 
-    let test_impl = TestImplementation {
+    let mut test_impl = TestImplementation {
         variables: Vec::new(),
         buffer_count,
         texture_count,
     };
+    test_impl.do_work();
     println!("{:?}", test_impl);
 
     let (_bind_group, _bind_group_layout, variables) = test_impl
         .bind_group(&device, &queue)
         .expect("Acquiring BindGroup failed");
 
-    let total_indices_expected = buffer_count as usize + texture_count as usize;
-    assert_eq!(total_indices_expected, variables.len());
-
     for (k, v) in &*variables {
         println!("# {k}: {v:?}");
     }
+
+    let total_indices_expected = buffer_count as usize + texture_count as usize;
+    assert_eq!(total_indices_expected, variables.len());
 }
 
 /// Attempts to create an empty bind group.
