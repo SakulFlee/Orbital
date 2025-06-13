@@ -17,7 +17,5 @@ pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
     app_settings.vsync_enabled = false;
     app_settings.name = NAME.to_string();
 
-    let app = MyApp::new();
-
-    AppRuntime::liftoff(event_loop, app_settings, app).expect("Runtime failure");
+    AppRuntime::<MyApp>::liftoff(event_loop, app_settings).expect("Runtime invocation failure");
 }
