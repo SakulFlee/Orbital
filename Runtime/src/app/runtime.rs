@@ -2,7 +2,6 @@ use std::mem::transmute;
 
 use async_std::task::block_on;
 use cgmath::Vector2;
-use futures::FutureExt;
 use gilrs::Gilrs;
 use wgpu::{
     util::{backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env},
@@ -77,46 +76,6 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
             #[cfg(feature = "gamepad_input")]
             gil: Gilrs::new().expect("Gamepad input initialization failed!"),
         };
-
-        // match event {
-        //     RuntimeEvent::Resumed(surface_configuration, device, queue) => {
-        //         app.on_resume(&surface_configuration, &device, &queue).await;
-        //     }
-        //     RuntimeEvent::Suspended => app.on_suspend().await,
-        //     RuntimeEvent::Resize(size, device, queue) => {
-        //         app.on_resize(size, &device, &queue).await
-        //     }
-        //     RuntimeEvent::Render(frame, view, device, queue) => {
-        //         app.on_render(&view, &device, &queue).await;
-
-        //         if let Err(e) =
-        //             app_change_tx.send(AppEvent::FinishedRedraw(frame)).await
-        //         {
-        //             error!("Failed to send app change to app change channel: {}", e);
-        //         }
-        //     }
-        //     RuntimeEvent::Update {
-        //         input_state,
-        //         delta_time,
-        //         cycle,
-        //         messages, // TODO: Remove
-        //     } => {
-        //         if let Some(changes) =
-        //             app.on_update(&input_state, delta_time, cycle).await
-        //         {
-        //             for app_change in changes {
-        //                 if let Err(e) = app_change_tx.send(app_change).await {
-        //                     error!(
-        //                         "Failed to send app change to app change channel: {}",
-        //                         e
-        //                     );
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
-
-        
 
         event_loop.run_app(&mut app_runtime)
     }
@@ -609,16 +568,13 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
 
         block_on(
             self.app.on_resume(
-                self
-                    .surface_configuration
+                self.surface_configuration
                     .as_ref()
                     .expect("SurfaceConfiguration must exist at this point!"),
-                self
-                    .device
+                self.device
                     .as_ref()
                     .expect("Device must exist at this point!"),
-                self
-                    .queue
+                self.queue
                     .as_ref()
                     .expect("Queue must exist at this point!"),
             ),
