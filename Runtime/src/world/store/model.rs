@@ -1,4 +1,8 @@
-use std::{cell::RefCell, error::Error, sync::Arc};
+use std::{
+    cell::RefCell,
+    error::Error,
+    sync::{Arc, RwLock},
+};
 
 use hashbrown::{hash_map::Values, HashMap};
 use log::warn;
@@ -28,8 +32,8 @@ pub struct ModelStore {
     id_counter: u128, // TODO: Is that high of a number needed? u64, u32, ...
     // TODO: Dynamic number type that increases in size automatically?
     free_ids: Vec<u128>,
-    cache_mesh: RefCell<Cache<Arc<MeshDescriptor>, Mesh>>,
-    cache_material: RefCell<Cache<Arc<MaterialShaderDescriptor>, MaterialShader>>,
+    cache_mesh: RwLock<Cache<Arc<MeshDescriptor>, Mesh>>,
+    cache_material: RwLock<Cache<Arc<MaterialShaderDescriptor>, MaterialShader>>,
 }
 
 impl ModelStore {
@@ -139,7 +143,7 @@ impl ModelStore {
         surface_format: &TextureFormat,
         device: &Device,
         queue: &Queue,
-    ) -> Vec<(u128, Box<dyn Error>)> {
+    ) -> Vec<(u128, Box<dyn Error + '_>)> {
         let mut errors: Vec<(u128, Box<dyn Error>)> = Vec::new();
 
         for id in self
@@ -164,7 +168,7 @@ impl ModelStore {
             ) {
                 Ok(model) => model,
                 Err(e) => {
-                    errors.push((id, Box::new(e)));
+                    errors.push((id, e));
                     continue;
                 }
             };
@@ -188,21 +192,43 @@ impl ModelStore {
             .collect::<Vec<_>>()
     }
 
-    pub fn cleanup(&mut self) {
+    pub fn cleanup(&mut self) -> Result<(), Box<dyn Error + '_>> {
         self.cache_realizations.cleanup();
-        self.cache_mesh.borrow_mut().cleanup();
-        self.cache_material.borrow_mut().cleanup();
+        match self.cache_mesh.write() {
+            Ok(mut lock) => lock.cleanup(),
+            Err(e) => {
+                return Err(Box::new(e));
+            }
+        }
+        match self.cache_material.write() {
+            Ok(mut lock) => lock.cleanup(),
+            Err(e) => {
+                return Err(Box::new(e));
+            }
+        }
+
+        Ok(())
     }
 
-    pub fn clear(&mut self) {
+    pub fn clear(&mut self) -> Result<(), Box<dyn Error + '_>> {
+        match self.cache_mesh.write() {
+            Ok(mut lock) => lock.clear(),
+            Err(e) => return Err(Box::new(e)),
+        };
+        
+        match self.cache_material.write() {
+            Ok(mut lock) => lock.clear(),
+            Err(e) => return Err(Box::new(e)),
+        };
+
         self.map_label.clear();
         self.map_descriptors.clear();
         self.map_bounding_boxes.clear();
         self.cache_realizations.clear();
-        self.cache_mesh.borrow_mut().clear();
-        self.cache_material.borrow_mut().clear();
         self.free_ids.clear();
         self.id_counter = 0;
+
+        Ok(())
     }
 
     pub fn is_empty(&self) -> bool {

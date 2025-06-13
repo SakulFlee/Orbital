@@ -1,4 +1,8 @@
-use std::{cell::RefCell, sync::Arc};
+use std::{
+    cell::RefCell,
+    error::Error,
+    sync::{Arc, RwLock},
+};
 
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
@@ -27,31 +31,33 @@ pub struct Model {
 }
 
 impl Model {
-    pub fn from_descriptor(
+    pub fn from_descriptor<'cache>(
         descriptor: &ModelDescriptor,
         surface_format: &TextureFormat,
         device: &Device,
         queue: &Queue,
-        mesh_cache: &RefCell<Cache<Arc<MeshDescriptor>, Mesh>>,
-        material_cache: &RefCell<Cache<Arc<MaterialShaderDescriptor>, MaterialShader>>,
-    ) -> Result<Self, ShaderError> {
+        mesh_cache: &'cache RwLock<Cache<Arc<MeshDescriptor>, Mesh>>,
+        material_cache: &'cache RwLock<Cache<Arc<MaterialShaderDescriptor>, MaterialShader>>,
+    ) -> Result<Self, Box<dyn Error + 'cache>>
+    {
         // --- Mesh ---
-        let mesh = mesh_cache
-            .borrow_mut()
-            .entry(descriptor.mesh.clone())
-            .or_insert(CacheEntry::new(Mesh::from_descriptor(
-                &descriptor.mesh,
-                device,
-                queue,
-            )))
-            .clone_inner();
+        let mesh = match mesh_cache.write() {
+            Ok(mut lock) => lock
+                .entry(descriptor.mesh.clone())
+                .or_insert(CacheEntry::new(Mesh::from_descriptor(
+                    &descriptor.mesh,
+                    device,
+                    queue,
+                )))
+                .clone_inner(),
+            Err(e) => return Err(Box::new(e)),
+        };
 
         // --- Material ---
         let mut materials = Vec::new();
         for material_descriptor in &descriptor.materials {
-            materials.push(
-                material_cache
-                    .borrow_mut()
+            materials.push(match material_cache.write() {
+                Ok(mut lock) => lock
                     .entry(material_descriptor.clone())
                     .or_insert(CacheEntry::new(MaterialShader::from_descriptor(
                         material_descriptor,
@@ -60,7 +66,8 @@ impl Model {
                         queue,
                     )?))
                     .clone_inner(),
-            );
+                Err(e) => return Err(Box::new(e)),
+            });
         }
 
         // --- Instances ---
