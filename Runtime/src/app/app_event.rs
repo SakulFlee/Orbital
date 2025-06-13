@@ -1,5 +1,4 @@
 use crate::element::Message;
-use wgpu::SurfaceTexture;
 use winit::{dpi::Position, window::Cursor};
 
 #[derive(Debug)]
