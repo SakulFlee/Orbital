@@ -1,5 +1,4 @@
 use std::{
-    cell::RefCell,
     error::Error,
     sync::{Arc, RwLock},
 };
@@ -9,7 +8,6 @@ use wgpu::{
     Buffer, BufferUsages, Device, Queue, TextureFormat,
 };
 
-use super::ShaderError;
 pub use super::{Mesh, MeshDescriptor};
 use crate::{
     cache::{Cache, CacheEntry},
