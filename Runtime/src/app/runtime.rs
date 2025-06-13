@@ -1,9 +1,13 @@
 use std::{mem::take, process::exit, sync::Arc, thread::sleep, time::Duration};
 
-use async_std::channel::{Receiver, Sender};
+use async_std::{
+    channel::{Receiver, Sender},
+    task::{block_on, spawn_blocking},
+};
 use cgmath::Vector2;
 use futures::FutureExt;
 use gilrs::Gilrs;
+use rand::rand_core::block;
 use wgpu::{
     util::{backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env},
     Adapter, Backend, Backends, CompositeAlphaMode, Device, DeviceDescriptor, DeviceType, Features,
@@ -29,16 +33,10 @@ use crate::{
     logging::{self, debug, error, info, warn},
 };
 
-use super::{App, AppSettings, RuntimeEvent};
+use super::{App, AppSettings};
 
-pub struct AppRuntime {
-    // Events
-    /// The whole runtime happens in different threads and is quite complicated.
-    /// This channel is used to send [`RuntimeEvent`]s from the Winit windowing event loop thread into the App thread.
-    event_tx: Sender<RuntimeEvent>,
-    /// The whole runtime happens in different threads and is quite complicated.
-    /// This channel is used to send [`AppEvent`]s from the App thread into the Winit windowing event loop thread.
-    app_change_rx: Receiver<AppEvent>,
+pub struct AppRuntime<AppImpl: App> {
+    app: AppImpl,
     app_messages: Vec<Message>,
     // App related
     runtime_settings: AppSettings,
@@ -49,36 +47,26 @@ pub struct AppRuntime {
     // Device related
     instance: Option<Instance>,
     adapter: Option<Adapter>,
-    device: Option<Arc<Device>>,
-    queue: Option<Arc<Queue>>,
+    device: Option<Device>,
+    queue: Option<Queue>,
     timer: Option<Timer>,
-    /// Indicates whether we already have a frame acquired that is currently
-    /// "in flight" to prevent WGPU from crashing if we re-request the next
-    /// frame while the previous one isn't presented yet.
-    frame_acquired: bool,
-    close_requested: bool,
     input_state: InputState,
     #[cfg(feature = "gamepad_input")]
     gil: Gilrs,
 }
 
-impl AppRuntime {
-    pub fn liftoff(
-        event_loop: EventLoop<()>,
-        settings: AppSettings,
-        mut app: impl App + Send + 'static,
-    ) -> Result<(), EventLoopError> {
+impl<AppImpl: App> AppRuntime<AppImpl> {
+    pub fn liftoff(event_loop: EventLoop<()>, settings: AppSettings) -> Result<(), EventLoopError> {
         logging::init();
 
         info!("Orbital Runtime");
         info!(" --- @SakulFlee --- ");
 
-        let (event_tx, event_rx) = async_std::channel::unbounded::<RuntimeEvent>();
-        let (app_change_tx, app_change_rx) = async_std::channel::unbounded::<AppEvent>();
+        let mut app: AppImpl = App::new();
+        block_on(app.on_startup());
 
         let mut app_runtime = Self {
-            event_tx: event_tx.clone(),
-            app_change_rx,
+            app,
             app_messages: Vec::new(),
             runtime_settings: settings,
             window: None,
@@ -89,76 +77,52 @@ impl AppRuntime {
             device: None,
             queue: None,
             timer: None,
-            frame_acquired: false,
-            close_requested: false,
             input_state: InputState::new(),
             #[cfg(feature = "gamepad_input")]
             gil: Gilrs::new().expect("Gamepad input initialization failed!"),
         };
 
-        let app_handle = async_std::task::spawn(async move {
-            debug!(
-                "App thread: {:?} [{}]",
-                std::thread::current().id(),
-                std::thread::current().name().unwrap_or("UNNAMED")
-            );
+        // match event {
+        //     RuntimeEvent::Resumed(surface_configuration, device, queue) => {
+        //         app.on_resume(&surface_configuration, &device, &queue).await;
+        //     }
+        //     RuntimeEvent::Suspended => app.on_suspend().await,
+        //     RuntimeEvent::Resize(size, device, queue) => {
+        //         app.on_resize(size, &device, &queue).await
+        //     }
+        //     RuntimeEvent::Render(frame, view, device, queue) => {
+        //         app.on_render(&view, &device, &queue).await;
 
-            loop {
-                if let Ok(event) = event_rx.recv().await {
-                    match event {
-                        RuntimeEvent::Resumed(surface_configuration, device, queue) => {
-                            app.on_resume(&surface_configuration, &device, &queue).await;
-                        }
-                        RuntimeEvent::Suspended => app.on_suspend().await,
-                        RuntimeEvent::Resize(size, device, queue) => {
-                            app.on_resize(size, &device, &queue).await
-                        }
-                        RuntimeEvent::Render(frame, view, device, queue) => {
-                            app.on_render(&view, &device, &queue).await;
-
-                            if let Err(e) =
-                                app_change_tx.send(AppEvent::FinishedRedraw(frame)).await
-                            {
-                                error!("Failed to send app change to app change channel: {}", e);
-                            }
-                        }
-                        RuntimeEvent::Update {
-                            input_state,
-                            delta_time,
-                            cycle,
-                            messages, // TODO: Remove
-                        } => {
-                            if let Some(changes) =
-                                app.on_update(&input_state, delta_time, cycle).await
-                            {
-                                for app_change in changes {
-                                    if let Err(e) = app_change_tx.send(app_change).await {
-                                        error!(
-                                            "Failed to send app change to app change channel: {}",
-                                            e
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        });
+        //         if let Err(e) =
+        //             app_change_tx.send(AppEvent::FinishedRedraw(frame)).await
+        //         {
+        //             error!("Failed to send app change to app change channel: {}", e);
+        //         }
+        //     }
+        //     RuntimeEvent::Update {
+        //         input_state,
+        //         delta_time,
+        //         cycle,
+        //         messages, // TODO: Remove
+        //     } => {
+        //         if let Some(changes) =
+        //             app.on_update(&input_state, delta_time, cycle).await
+        //         {
+        //             for app_change in changes {
+        //                 if let Err(e) = app_change_tx.send(app_change).await {
+        //                     error!(
+        //                         "Failed to send app change to app change channel: {}",
+        //                         e
+        //                     );
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
 
         let result = event_loop.run_app(&mut app_runtime);
 
-        // Terminate app handle
-        let _ = app_handle.cancel().now_or_never();
-
-        // Note: Ensures the app actually quits "properly" without any traces left behind or crashes at the last second.
-        match result {
-            Ok(_) => exit(0),
-            Err(e) => {
-                error!("Error occurred: {:?}", e);
-                exit(-1);
-            }
-        }
+        result
     }
 
     fn make_instance() -> Instance {
@@ -351,6 +315,8 @@ impl AppRuntime {
     where
         Self: Sized + Send,
     {
+        debug!("Reconfiguring Surface");
+
         self.surface.as_ref().unwrap().configure(
             self.device.as_ref().unwrap(),
             self.surface_configuration.as_ref().unwrap(),
@@ -358,32 +324,35 @@ impl AppRuntime {
 
         let config_ref = self.surface_configuration.as_ref().unwrap();
 
-        if let Err(e) = self.event_tx.try_send(RuntimeEvent::Resize(
+        block_on(self.app.on_resize(
             Vector2 {
                 x: config_ref.width,
                 y: config_ref.height,
             },
-            self.device.as_ref().unwrap().clone(),
-            self.queue.as_ref().unwrap().clone(),
-        )) {
-            error!("Failed to send resize event: {}", e);
-        }
+            &self.device.as_ref().unwrap(),
+            &self.queue.as_ref().unwrap(),
+        ));
     }
 
     pub fn acquire_next_frame(&mut self) -> Result<SurfaceTexture, SurfaceError> {
+        debug!("Acquiring next frame");
+
         let surface = self.surface.as_ref().unwrap();
 
         surface.get_current_texture()
     }
 
     pub fn redraw(&mut self) {
-        // Skip if a frame is already acquired.
-        // Prevents WGPU from throwing validation errors when we are
-        // re-requesting the next frame, when the current frame isn't
-        // presented yet.
-        if self.frame_acquired {
-            return;
-        }
+        debug!("Redrawing");
+
+        // TODO: Not sure if still needed after sync-change?
+        // // Skip if a frame is already acquired.
+        // // Prevents WGPU from throwing validation errors when we are
+        // // re-requesting the next frame, when the current frame isn't
+        // // presented yet.
+        // if self.frame_acquired {
+        //     return;
+        // }
 
         // Check if surface and device are present
         if self.surface.is_none() || self.device.is_none() {
@@ -437,31 +406,27 @@ impl AppRuntime {
             }
         };
 
-        self.frame_acquired = true;
+        // TODO: Not sure if still needed!
+        // self.frame_acquired = true;
 
-        let view = frame.texture.create_view(&TextureViewDescriptor {
+        let view: wgpu::TextureView = frame.texture.create_view(&TextureViewDescriptor {
             format: Some(*format),
             ..TextureViewDescriptor::default()
         });
 
-        // Trigger Render: This is NOT directly rendering, but sending
-        // an event on the message challenge to inform the App it should
-        // render "now". This is NOT blocking, meaning we can't expect
-        // the frame to be ready rendered immediately after.
-        // Instead, we move the `frame.present()` over after App
-        // actually received the event and DID the rendering!
-        if let Err(e) = self.event_tx.try_send(RuntimeEvent::Render(
-            frame,
-            view,
-            self.device.as_ref().unwrap().clone(),
-            self.queue.as_ref().unwrap().clone(),
-        )) {
-            error!("Failed to send render event: {}", e);
-        }
+        block_on(self.app.on_render(
+            &view,
+            &self.device.as_ref().unwrap(),
+            &self.queue.as_ref().unwrap(),
+        ));
+
+        frame.present();
     }
 
     #[cfg(feature = "gamepad_input")]
     fn receive_controller_inputs(&mut self) {
+        debug!("Receiving controller inputs");
+
         use super::input::InputEvent;
 
         while let Some(gil_event) = self.gil.next_event() {
@@ -471,7 +436,9 @@ impl AppRuntime {
         }
     }
 
-    fn update(&mut self) {
+    fn update(&mut self) -> bool {
+        debug!("Updating");
+
         let (delta_time, cycle) = self.timer.as_mut().expect("Timer went missing").tick();
 
         if let Some((total_delta, fps)) = cycle {
@@ -485,25 +452,25 @@ impl AppRuntime {
         #[cfg(feature = "gamepad_input_poll")]
         self.receive_controller_inputs();
 
-        // Trigger an update with the input state!
-        let messages = take(&mut self.app_messages);
-        if let Err(e) = self.event_tx.try_send(RuntimeEvent::Update {
-            input_state: self.input_state.clone(),
-            delta_time,
-            cycle,
-            messages,
-        }) {
-            error!("Failed to send update event: {}", e);
-        }
+        let result = if let Some(app_events) =
+            block_on(self.app.on_update(&self.input_state, delta_time, cycle))
+        {
+            self.process_app_events(app_events)
+        } else {
+            false
+        };
 
         self.input_state.reset_deltas();
+
+        result
     }
 
-    fn process_app_changes(&mut self) -> bool {
+    fn process_app_events(&mut self, app_events: Vec<AppEvent>) -> bool {
+        debug!("Processing app events");
         let mut exit_requested = false;
 
-        while let Ok(app_change) = self.app_change_rx.try_recv() {
-            match app_change {
+        for event in app_events {
+            match event {
                 AppEvent::ChangeCursorAppearance(cursor) => {
                     if let Some(window) = &self.window {
                         window.set_cursor(cursor);
@@ -561,13 +528,6 @@ impl AppRuntime {
                         warn!("Redraw requested, but window does not exist!");
                     }
                 }
-                AppEvent::FinishedRedraw(frame) => {
-                    frame.present();
-                    self.frame_acquired = false;
-
-                    // Trigger next update cycle after the frame was fully rendered!
-                    self.update();
-                }
                 AppEvent::SendMessage(message) => {
                     self.app_messages.push(message);
                 }
@@ -578,8 +538,10 @@ impl AppRuntime {
     }
 }
 
-impl ApplicationHandler for AppRuntime {
+impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        debug!("Resuming");
+
         // Fill window handle and remake the device & queue chain
         self.window = Some(Arc::new(
             event_loop
@@ -592,7 +554,7 @@ impl ApplicationHandler for AppRuntime {
                 .unwrap(),
         ));
 
-        self.instance = Some(AppRuntime::make_instance());
+        self.instance = Some(AppRuntime::<AppImpl>::make_instance());
 
         self.surface = Some(
             self.instance
@@ -607,7 +569,7 @@ impl ApplicationHandler for AppRuntime {
                 .expect("Surface creation failed"),
         );
 
-        let mut adapters_ranked = AppRuntime::retrieve_and_rank_adapters(
+        let mut adapters_ranked = AppRuntime::<AppImpl>::retrieve_and_rank_adapters(
             self.instance
                 .as_ref()
                 .expect("Expected an Instance to exist by now!"),
@@ -624,7 +586,7 @@ impl ApplicationHandler for AppRuntime {
         self.adapter = Some(chosen_adapter);
 
         let window_size = self.window.as_ref().unwrap().inner_size();
-        self.surface_configuration = Some(AppRuntime::make_surface_configuration(
+        self.surface_configuration = Some(AppRuntime::<AppImpl>::make_surface_configuration(
             self.surface
                 .as_ref()
                 .expect("Expected a Surface to exist by now!"),
@@ -635,50 +597,50 @@ impl ApplicationHandler for AppRuntime {
             self.runtime_settings.vsync_enabled,
         ));
 
-        let (device, queue) = AppRuntime::make_device_and_queue(
+        let (device, queue) = AppRuntime::<AppImpl>::make_device_and_queue(
             self.adapter
                 .as_ref()
                 .expect("Expected an Adapter to be set by now!"),
         );
-        self.device = Some(Arc::new(device));
-        self.queue = Some(Arc::new(queue));
+        self.device = Some(device);
+        self.queue = Some(queue);
 
         self.timer = Some(Timer::new());
 
         self.reconfigure_surface();
 
-        if let Err(e) = self.event_tx.try_send(RuntimeEvent::Resumed(
-            self.surface_configuration
-                .as_ref()
-                .expect("Expected a SurfaceConfiguration to exist by now!")
-                .clone(),
-            self.device
-                .as_ref()
-                .expect("Expected a Device to exist by now!")
-                .clone(),
-            self.queue
-                .as_ref()
-                .expect("Expected a Queue to exist by now!")
-                .clone(),
-        )) {
-            error!("Failed to send WindowEvent to App: {}", e);
-        }
+        block_on(
+            self.app.on_resume(
+                &self
+                    .surface_configuration
+                    .as_ref()
+                    .expect("SurfaceConfiguration must exist at this point!"),
+                &self
+                    .device
+                    .as_ref()
+                    .expect("Device must exist at this point!"),
+                &self
+                    .queue
+                    .as_ref()
+                    .expect("Queue must exist at this point!"),
+            ),
+        );
     }
 
     fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
+        debug!("Suspending");
+
         // Invalidate everything related to the window, surface and device.
-        self.window = None;
         self.surface = None;
         self.surface_configuration = None;
-        self.instance = None;
-        self.adapter = None;
-        self.device = None;
         self.queue = None;
+        self.device = None;
+        self.adapter = None;
+        self.instance = None;
+        self.window = None;
         self.timer = None;
 
-        if let Err(e) = self.event_tx.try_send(RuntimeEvent::Suspended) {
-            error!("Failed to send Suspend Event to App: {}", e);
-        }
+        block_on(self.app.on_suspend());
     }
 
     fn window_event(
@@ -689,6 +651,8 @@ impl ApplicationHandler for AppRuntime {
     ) {
         // Skip if exiting
         if event_loop.exiting() {
+            debug!("EventLoop marked exiting!");
+
             if let Some(instance) = &self.instance {
                 if !instance.poll_all(true) {
                     panic!("Polled to wait for everything to finish up, yet not everything resolved after waiting!");
@@ -700,18 +664,23 @@ impl ApplicationHandler for AppRuntime {
 
         let input_event = match event {
             WindowEvent::CloseRequested => {
+                debug!("Close requested");
+
+                self.suspended(event_loop);
                 event_loop.exit();
                 None
             }
             WindowEvent::RedrawRequested => {
-                if self.process_app_changes() {
-                    event_loop.exit();
-                } else {
-                    self.redraw();
+                if self.update() {
+                    debug!("Updating requests closure!");
 
-                    #[cfg(feature = "auto_request_redraw")]
-                    self.window.as_ref().unwrap().request_redraw();
+                    event_loop.exit();
+                    return;
                 }
+                self.redraw();
+
+                #[cfg(feature = "auto_request_redraw")]
+                self.window.as_ref().unwrap().request_redraw();
 
                 None
             }
@@ -750,12 +719,13 @@ impl ApplicationHandler for AppRuntime {
                 position,
             }),
             WindowEvent::Resized(new_size) => {
-                self.surface_configuration = Some(AppRuntime::make_surface_configuration(
-                    self.surface.as_ref().unwrap(),
-                    self.adapter.as_ref().unwrap(),
-                    new_size,
-                    self.runtime_settings.vsync_enabled,
-                ));
+                self.surface_configuration =
+                    Some(AppRuntime::<AppImpl>::make_surface_configuration(
+                        self.surface.as_ref().unwrap(),
+                        self.adapter.as_ref().unwrap(),
+                        new_size,
+                        self.runtime_settings.vsync_enabled,
+                    ));
 
                 self.reconfigure_surface();
 

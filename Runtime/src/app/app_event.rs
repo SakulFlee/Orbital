@@ -46,7 +46,5 @@ pub enum AppEvent {
     /// TODO
     RequestRedraw,
     /// TODO
-    FinishedRedraw(SurfaceTexture),
-    /// TODO
     SendMessage(Message),
 }
