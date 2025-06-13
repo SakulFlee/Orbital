@@ -1,20 +1,9 @@
-use std::{
-    cell::Ref,
-    mem::{take, transmute},
-    process::exit,
-    sync::Arc,
-    thread::sleep,
-    time::Duration,
-};
+use std::mem::transmute;
 
-use async_std::{
-    channel::{Receiver, Sender},
-    task::{block_on, spawn_blocking},
-};
+use async_std::task::block_on;
 use cgmath::Vector2;
 use futures::FutureExt;
 use gilrs::Gilrs;
-use rand::rand_core::block;
 use wgpu::{
     util::{backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env},
     Adapter, Backend, Backends, CompositeAlphaMode, Device, DeviceDescriptor, DeviceType, Features,
@@ -25,9 +14,9 @@ use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
     error::EventLoopError,
-    event::{self, DeviceEvent, DeviceId, WindowEvent},
+    event::{DeviceEvent, DeviceId, WindowEvent},
     event_loop::{ActiveEventLoop, EventLoop},
-    window::{self, CursorGrabMode, Window, WindowId},
+    window::{CursorGrabMode, Window, WindowId},
 };
 
 use super::{
@@ -127,9 +116,9 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
         //     }
         // }
 
-        let result = event_loop.run_app(&mut app_runtime);
+        
 
-        result
+        event_loop.run_app(&mut app_runtime)
     }
 
     fn make_instance() -> Instance {
@@ -336,8 +325,8 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
                 x: config_ref.width,
                 y: config_ref.height,
             },
-            &self.device.as_ref().unwrap(),
-            &self.queue.as_ref().unwrap(),
+            self.device.as_ref().unwrap(),
+            self.queue.as_ref().unwrap(),
         ));
     }
 
@@ -423,8 +412,8 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
 
         block_on(self.app.on_render(
             &view,
-            &self.device.as_ref().unwrap(),
-            &self.queue.as_ref().unwrap(),
+            self.device.as_ref().unwrap(),
+            self.queue.as_ref().unwrap(),
         ));
 
         frame.present();
@@ -620,15 +609,15 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
 
         block_on(
             self.app.on_resume(
-                &self
+                self
                     .surface_configuration
                     .as_ref()
                     .expect("SurfaceConfiguration must exist at this point!"),
-                &self
+                self
                     .device
                     .as_ref()
                     .expect("Device must exist at this point!"),
-                &self
+                self
                     .queue
                     .as_ref()
                     .expect("Queue must exist at this point!"),
