@@ -18,9 +18,9 @@ use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
     error::EventLoopError,
-    event::{DeviceEvent, DeviceId, WindowEvent},
+    event::{self, DeviceEvent, DeviceId, WindowEvent},
     event_loop::{ActiveEventLoop, EventLoop},
-    window::{CursorGrabMode, Window, WindowId},
+    window::{self, CursorGrabMode, Window, WindowId},
 };
 
 use super::{
@@ -41,7 +41,7 @@ pub struct AppRuntime<AppImpl: App> {
     // App related
     runtime_settings: AppSettings,
     // Window related
-    window: Option<Arc<Window>>,
+    window: Option<Window>,
     surface: Option<Surface<'static>>,
     surface_configuration: Option<SurfaceConfiguration>,
     // Device related
@@ -536,14 +536,19 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
 
         exit_requested
     }
+
+    fn exit(&mut self, event_loop: &ActiveEventLoop) {
+        self.suspended(event_loop);
+        event_loop.exit();
+    }
 }
 
 impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         debug!("Resuming");
+        // Remake all window, device, queue, etc. related structures
 
-        // Fill window handle and remake the device & queue chain
-        self.window = Some(Arc::new(
+        self.window = Some(
             event_loop
                 .create_window(
                     Window::default_attributes()
@@ -552,22 +557,16 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
                         .with_title(self.runtime_settings.name.clone()),
                 )
                 .unwrap(),
-        ));
+        );
 
         self.instance = Some(AppRuntime::<AppImpl>::make_instance());
 
-        self.surface = Some(
-            self.instance
-                .as_ref()
-                .unwrap()
-                .create_surface(
-                    self.window
-                        .as_ref()
-                        .expect("Expected a Window to exist by now!")
-                        .clone(),
-                )
-                .expect("Surface creation failed"),
-        );
+        let instance_ref = self.instance.as_ref().unwrap();
+        let window_ref = self.window.as_ref().unwrap();
+        let surface: Surface<'static> =
+            unsafe { std::mem::transmute(instance_ref.create_surface(window_ref).unwrap()) };
+
+        self.surface = Some(surface);
 
         let mut adapters_ranked = AppRuntime::<AppImpl>::retrieve_and_rank_adapters(
             self.instance
@@ -652,13 +651,6 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
         // Skip if exiting
         if event_loop.exiting() {
             debug!("EventLoop marked exiting!");
-
-            if let Some(instance) = &self.instance {
-                if !instance.poll_all(true) {
-                    panic!("Polled to wait for everything to finish up, yet not everything resolved after waiting!");
-                }
-            }
-
             return;
         }
 
@@ -666,15 +658,14 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
             WindowEvent::CloseRequested => {
                 debug!("Close requested");
 
-                self.suspended(event_loop);
-                event_loop.exit();
-                None
+                self.exit(event_loop);
+                return;
             }
             WindowEvent::RedrawRequested => {
                 if self.update() {
                     debug!("Updating requests closure!");
 
-                    event_loop.exit();
+                    self.exit(event_loop);
                     return;
                 }
                 self.redraw();
