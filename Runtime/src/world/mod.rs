@@ -56,7 +56,7 @@ impl World {
         }
     }
 
-    fn process_event(&mut self, event: WorldEvent) {
+    pub fn process_event(&mut self, event: WorldEvent) {
         match event {
             WorldEvent::Model(model_event) => self.model_store.handle_event(model_event),
             WorldEvent::Camera(camera_event) => self.camera_store.handle_event(camera_event),
