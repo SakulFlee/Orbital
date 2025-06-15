@@ -34,21 +34,23 @@ enum WorldEnvironments {
 impl WorldEnvironments {
     fn to_descriptor(&self) -> WorldEnvironmentDescriptor {
         WorldEnvironmentDescriptor::FromFile {
+            cube_face_size: WorldEnvironmentDescriptor::DEFAULT_SIZE,
             path: self.to_path(),
-            ..Default::default()
+            sampling_type: WorldEnvironmentDescriptor::DEFAULT_SAMPLING_TYPE,
+            custom_specular_mip_level_count: None,
         }
     }
 
-    fn to_path(&self) -> &str {
+    fn to_path(&self) -> String {
         match self {
             WorldEnvironments::PhotoStudio => {
-                "Examples/SharedAssets/WorldEnvironments/PhotoStudio.hdr"
+                "Examples/SharedAssets/WorldEnvironments/PhotoStudio.hdr".to_owned()
             }
             WorldEnvironments::Kloppenheim => {
-                "Examples/SharedAssets/WorldEnvironments/Kloppenheim.hdr"
+                "Examples/SharedAssets/WorldEnvironments/Kloppenheim.hdr".to_owned()
             }
             WorldEnvironments::LonelyRoad => {
-                "Examples/SharedAssets/WorldEnvironments/LonelyRoad.hdr"
+                "Examples/SharedAssets/WorldEnvironments/LonelyRoad.hdr".to_owned()
             }
         }
     }
