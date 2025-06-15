@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["Runtime/", "Examples/*"]
+exclude = ["Examples/SharedAssets/"]
 
 [workspace.dependencies]
 # In-Workspace crates
