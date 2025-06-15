@@ -1,17 +1,19 @@
 use std::time::Instant;
 
+use orbital::element::EnvironmentEvent;
+use orbital::resources::WorldEnvironmentDescriptor;
 use orbital::{
+    app::input::{InputButton, InputState},
     async_trait::async_trait,
-    input::{InputButton, InputState},
-    log::debug,
-    resources::descriptors::SkyboxType,
+    element::{Element, ElementRegistration, Event, Message, WorldEvent},
+    logging::debug,
+    resources::SkyboxType,
     winit::keyboard::{KeyCode, PhysicalKey},
-    world_old::{Element, ElementRegistration, Message, WorldChange},
 };
 
 #[derive(Debug)]
 pub struct DebugWorldEnvironment {
-    current_skybox_type: SkyboxType,
+    current_world_environment: WorldEnvironments,
     last_trigger: Instant,
 }
 
@@ -21,16 +23,52 @@ impl Default for DebugWorldEnvironment {
     }
 }
 
+#[derive(Debug, Default)]
+enum WorldEnvironments {
+    PhotoStudio,
+    #[default]
+    Kloppenheim,
+    LonelyRoad,
+}
+
+impl WorldEnvironments {
+    fn to_descriptor(&self) -> WorldEnvironmentDescriptor {
+        WorldEnvironmentDescriptor::FromFile {
+            path: self.to_path(),
+            ..Default::default()
+        }
+    }
+
+    fn to_path(&self) -> &str {
+        match self {
+            WorldEnvironments::PhotoStudio => {
+                "Examples/SharedAssets/WorldEnvironments/PhotoStudio.hdr"
+            }
+            WorldEnvironments::Kloppenheim => {
+                "Examples/SharedAssets/WorldEnvironments/Kloppenheim.hdr"
+            }
+            WorldEnvironments::LonelyRoad => {
+                "Examples/SharedAssets/WorldEnvironments/LonelyRoad.hdr"
+            }
+        }
+    }
+
+    fn next(&self) -> Self {
+        match self {
+            WorldEnvironments::PhotoStudio => WorldEnvironments::LonelyRoad,
+            WorldEnvironments::Kloppenheim => WorldEnvironments::PhotoStudio,
+            WorldEnvironments::LonelyRoad => WorldEnvironments::Kloppenheim,
+        }
+    }
+}
+
 impl DebugWorldEnvironment {
-    pub const KEY_DEBUG_DOWN: InputButton =
-        InputButton::Keyboard(PhysicalKey::Code(KeyCode::Digit1));
-    pub const KEY_DEBUG_RESET: InputButton =
-        InputButton::Keyboard(PhysicalKey::Code(KeyCode::Digit2));
-    pub const KEY_DEBUG_UP: InputButton = InputButton::Keyboard(PhysicalKey::Code(KeyCode::Digit3));
+    pub const KEY_DEBUG_NEXT: InputButton =
+        InputButton::Keyboard(PhysicalKey::Code(KeyCode::Digit3));
 
     pub fn new() -> Self {
         Self {
-            current_skybox_type: SkyboxType::default(),
+            current_world_environment: WorldEnvironments::default(),
             last_trigger: Instant::now(),
         }
     }
@@ -47,76 +85,30 @@ impl Element for DebugWorldEnvironment {
         _delta_time: f64,
         input_state: &InputState,
         _messages: Option<Vec<Message>>,
-    ) -> Option<Vec<WorldChange>> {
+    ) -> Option<Vec<Event>> {
         if self.last_trigger.elapsed().as_secs() < 1 {
             return None;
         }
 
         if let Some(pressed) = input_state
-            .button_state_any(&Self::KEY_DEBUG_UP)
+            .button_state_any(&Self::KEY_DEBUG_NEXT)
             .map(|(_, pressed)| pressed)
         {
-            if pressed {
-                match self.current_skybox_type {
-                    SkyboxType::Diffuse => {
-                        self.current_skybox_type = SkyboxType::Specular { lod: 0 };
-                    }
-                    SkyboxType::Specular { lod } => {
-                        if lod == 10 {
-                            self.current_skybox_type = SkyboxType::Diffuse;
-                        } else {
-                            self.current_skybox_type = SkyboxType::Specular { lod: lod + 1 };
-                        }
-                    }
-                }
-                self.last_trigger = Instant::now();
-
-                debug!("Changing skybox to {:?}!", self.current_skybox_type);
-                return Some(vec![WorldChange::ChangeWorldEnvironmentSkyboxType {
-                    skybox_type: self.current_skybox_type,
-                }]);
+            if !pressed {
+                return None;
             }
-        }
 
-        if let Some(pressed) = input_state
-            .button_state_any(&Self::KEY_DEBUG_DOWN)
-            .map(|(_, pressed)| pressed)
-        {
-            if pressed {
-                match self.current_skybox_type {
-                    SkyboxType::Diffuse => {
-                        self.current_skybox_type = SkyboxType::Specular { lod: 10 };
-                    }
-                    SkyboxType::Specular { lod } => {
-                        if lod == 0 {
-                            self.current_skybox_type = SkyboxType::Diffuse;
-                        } else {
-                            self.current_skybox_type = SkyboxType::Specular { lod: lod - 1 };
-                        }
-                    }
-                }
-                self.last_trigger = Instant::now();
+            self.last_trigger = Instant::now();
 
-                debug!("Changing skybox to {:?}!", self.current_skybox_type);
-                return Some(vec![WorldChange::ChangeWorldEnvironmentSkyboxType {
-                    skybox_type: self.current_skybox_type,
-                }]);
-            }
-        }
-
-        if let Some(pressed) = input_state
-            .button_state_any(&Self::KEY_DEBUG_RESET)
-            .map(|(_, pressed)| pressed)
-        {
-            if pressed {
-                self.current_skybox_type = SkyboxType::Specular { lod: 0 };
-                debug!("Resetting skybox to {:?}!", self.current_skybox_type);
-
-                self.last_trigger = Instant::now();
-                return Some(vec![WorldChange::ChangeWorldEnvironmentSkyboxType {
-                    skybox_type: self.current_skybox_type,
-                }]);
-            }
+            self.current_world_environment = self.current_world_environment.next();
+            debug!("Changing skybox to {:?}!", self.current_world_environment);
+            let descriptor = self.current_world_environment.to_descriptor();
+            return Some(vec![Event::World(WorldEvent::Environment(
+                EnvironmentEvent::Change {
+                    descriptor,
+                    enable_ibl: true,
+                },
+            ))]);
         }
 
         None
