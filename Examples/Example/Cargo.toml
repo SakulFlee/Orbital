@@ -3,9 +3,14 @@ name = "example"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "example_desktop"
+path = "src/lib.rs"
+
 [lib]
-name = "app_example"
+name = "example_android"
+path = "src/lib.rs"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-orbital = { path = "../../Runtime/" }
+orbital = { path = "../../Runtime" }
