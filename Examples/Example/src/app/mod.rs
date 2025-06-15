@@ -30,15 +30,9 @@ impl Default for MyApp {
     }
 }
 
-impl MyApp {
-    pub fn new() -> Self {
-        Self {
-            element_store: ElementStore::new(),
-            world: World::new(),
-            queue_events: Vec::new(),
-            renderer: None,
-            empty_since: None,
-        }
+impl App for MyApp {
+    fn new() -> Self {
+        Self::default()
     }
 
     async fn on_startup(&mut self) {
