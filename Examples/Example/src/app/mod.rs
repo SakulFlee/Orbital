@@ -15,6 +15,7 @@ pub use cache_settings::*;
 
 mod elements;
 use elements::*;
+use orbital::element::Target::Element;
 
 pub struct MyApp {
     element_store: ElementStore,
@@ -26,7 +27,13 @@ pub struct MyApp {
 
 impl Default for MyApp {
     fn default() -> Self {
-        Self::new()
+        Self {
+            element_store: ElementStore::default(),
+            world: World::default(),
+            queue_events: vec![],
+            renderer: None,
+            empty_since: None,
+        }
     }
 }
 
