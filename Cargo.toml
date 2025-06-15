@@ -4,33 +4,6 @@ members = ["Runtime/", "Examples/*"]
 exclude = ["Examples/SharedAssets/"]
 
 [workspace.dependencies]
-# In-Workspace crates
-app = { path = "crates/app" }
-bounding_box = { path = "crates/bounding_box" }
-buffer = { path = "crates/buffer" }
-cache = { path = "crates/cache" }
-camera = { path = "crates/camera" }
-change_list = { path = "crates/change_list" }
-element = { path = "crates/element" }
-ibl_brdf = { path = "crates/ibl_brdf" }
-instance = { path = "crates/instance" }
-logging = { path = "crates/logging" }
-material_shader = { path = "crates/material_shader" }
-mesh = { path = "crates/mesh" }
-model = { path = "crates/model" }
-pbr_material_shader = { path = "crates/pbr_material_shader" }
-renderer = { path = "crates/renderer" }
-shader = { path = "crates/shader" }
-shader_preprocessor = { path = "crates/shader_preprocessor" }
-texture = { path = "crates/texture" }
-transform = { path = "crates/transform" }
-vertex = { path = "crates/vertex" }
-wgpu_test_adapter = { path = "crates/wgpu_test_adapter" }
-world = { path = "crates/world" }
-world_change = { path = "crates/world_change" }
-world_environment = { path = "crates/world_environment" }
-
-# External crates
 android_logger = "0.14.0"
 async-std = "1.13.0"
 async-trait = "0.1.83"
