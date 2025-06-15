@@ -36,51 +36,45 @@ impl App for MyApp {
     }
 
     async fn on_startup(&mut self) {
-        // // Debug
+        self.element_store.process_events(vec![
+            // Debug
+            ElementEvent::Spawn(Box::new(DebugWorldEnvironment::new())),
+        ]);
+
+        // self.world.process_event(WorldEvent::SpawnElement()).await;
         // self.world
-        //     .process_world_change(WorldChange::SpawnElement(Box::new(
-        //         DebugWorldEnvironment::new(),
-        //     )))
-        //     .await;
-        // self.world
-        //     .process_world_change(WorldChange::SpawnElement(Box::new(
+        //     .process_event(WorldEvent::SpawnElement(Box::new(
         //         DebugController::default(),
         //     )))
         //     .await;
 
         // // Camera & Lights
         // self.world
-        //     .process_world_change(WorldChange::SpawnElement(Box::new(Camera::new())))
+        //     .process_event(WorldEvent::SpawnElement(Box::new(Camera::new())))
         //     .await;
         // self.world
-        //     .process_world_change(WorldChange::SpawnElement(Box::new(Lights {})))
+        //     .process_event(WorldEvent::SpawnElement(Box::new(Lights {})))
         //     .await;
 
         // // Ping Pong
         // self.world
-        //     .process_world_change(WorldChange::SpawnElement(Box::new(PingPongElement::new(
+        //     .process_event(WorldEvent::SpawnElement(Box::new(PingPongElement::new(
         //         true,
         //     ))))
         //     .await;
         // self.world
-        //     .process_world_change(WorldChange::SpawnElement(Box::new(PingPongElement::new(
+        //     .process_event(WorldEvent::SpawnElement(Box::new(PingPongElement::new(
         //         false,
         //     ))))
         //     .await;
 
         // // Models
         // self.world
-        //     .process_world_change(WorldChange::SpawnElement(Box::new(PBRSpheres {})))
+        //     .process_event(WorldEvent::SpawnElement(Box::new(PBRSpheres {})))
         //     .await;
         // self.world
-        //     .process_world_change(WorldChange::SpawnElement(Box::new(DamagedHelmet {})))
+        //     .process_event(WorldEvent::SpawnElement(Box::new(DamagedHelmet {})))
         //     .await;
-    }
-}
-
-impl App for MyApp {
-    fn new() -> Self {
-        Self::default()
     }
 
     async fn on_resume(&mut self, config: &SurfaceConfiguration, device: &Device, queue: &Queue) {
