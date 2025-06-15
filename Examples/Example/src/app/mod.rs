@@ -43,10 +43,12 @@ impl App for MyApp {
     }
 
     async fn on_startup(&mut self) {
-        self.element_store.process_events(vec![
-            // Debug
-            ElementEvent::Spawn(Box::new(DebugWorldEnvironment::new())),
-        ]);
+        self.element_store
+            .process_events(vec![
+                // Debug
+                ElementEvent::Spawn(Box::new(DebugWorldEnvironment::new())),
+            ])
+            .await;
 
         // self.world.process_event(WorldEvent::SpawnElement()).await;
         // self.world
