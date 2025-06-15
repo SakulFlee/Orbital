@@ -14,6 +14,7 @@ pub mod wgpu_test_adapter;
 
 // Re-exports
 pub use async_std;
+pub use async_trait;
 pub use cgmath;
 pub use wgpu;
 pub use winit;
