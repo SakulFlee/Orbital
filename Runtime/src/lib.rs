@@ -13,6 +13,7 @@ pub mod world;
 pub mod wgpu_test_adapter;
 
 // Re-exports
+pub use async_std;
 pub use cgmath;
 pub use wgpu;
 pub use winit;
