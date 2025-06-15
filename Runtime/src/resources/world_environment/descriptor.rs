@@ -11,7 +11,7 @@ pub enum WorldEnvironmentDescriptor {
     /// (irradiance) and specular (radiance) _cube texture_.
     FromFile {
         cube_face_size: u32,
-        path: &'static str,
+        path: String,
         sampling_type: SamplingType,
         /// Defines how many mip levels the specular texture will have.
         /// The first (index: 0) will be the base level, which is also used as the skybox.
