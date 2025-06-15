@@ -2,6 +2,7 @@ pub mod app;
 pub mod cache;
 pub mod element;
 pub mod logging;
+pub mod macros;
 pub mod or;
 pub mod renderer;
 pub mod resources;
