@@ -5,11 +5,12 @@ use orbital::{
     winit::{error::EventLoopError, event_loop::EventLoop},
 };
 
-pub mod app;
-use app::*;
-use orbital::app::App;
+use orbital::app::standard::StandardApp;
 
-pub const NAME: &str = "Orbital-Demo-Project";
+mod element;
+use element::*;
+
+pub const NAME: &str = "Orbital-Demo-Project: Skybox";
 
 pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
     logging::init();
@@ -20,7 +21,9 @@ pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
     app_settings.vsync_enabled = false;
     app_settings.name = NAME.to_string();
 
-    match AppRuntime::liftoff(event_loop, app_settings, MyApp::new()) {
+    let app = StandardApp::with_initial_elements(vec![Box::new(DebugWorldEnvironment::new())]);
+
+    match AppRuntime::liftoff(event_loop, app_settings, app) {
         Ok(()) => info!("Cleanly exited!"),
         Err(e) => error!("Runtime failure: {e:?}"),
     }
