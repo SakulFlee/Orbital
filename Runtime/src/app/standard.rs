@@ -54,8 +54,6 @@ impl App for StandardApp {
         if self.element_store.element_count() == 0 {
             panic!("StandardApp requires at least one element to be spawned @Startup! Make sure to use StandardApp::with_initial_elements() to initialize with elements.");
         }
-
-        let registrations = self.element_store.call_registration();
     }
 
     async fn on_resume(&mut self, config: &SurfaceConfiguration, device: &Device, queue: &Queue) {
