@@ -22,6 +22,8 @@ pub use timer::*;
 pub mod input;
 use input::*;
 
+pub mod standard;
+
 /// Implement this trait to make an [App].  
 /// An [App] is a entrypoint wrapper exposing a few functions for you to use.
 /// The main goal of an [App] is to simplify and streamline the process to
