@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use futures::{stream::FuturesUnordered, StreamExt};
 use hashbrown::HashMap;
-use log::{debug, error, warn};
+use log::{error, warn};
 
 use super::{ElementEvent, Event};
 use crate::{
@@ -111,11 +111,6 @@ impl ElementStore {
     pub async fn update(&mut self, delta_time: f64, input_state: &InputState) -> Vec<Event> {
         // Draining here will remove the messages from the queue so we don't need to clean/clear after!
         let mut messages = self.message_queue.drain().collect::<HashMap<_, _>>();
-
-        debug!("Element Count: {}", self.element_count());
-        self.element_map
-            .iter()
-            .for_each(|(key, _)| debug!("Element ID: {}", key));
 
         let x = self
             .element_map
