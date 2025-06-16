@@ -22,13 +22,14 @@ use super::{
     input::{InputEvent, InputState},
     Timer,
 };
+use super::{App, AppSettings};
+use crate::app::standard::StandardApp;
+use crate::element::{Element, ElementEvent};
 use crate::{
     app::AppEvent,
     element::Message,
     logging::{self, debug, error, info, warn},
 };
-
-use super::{App, AppSettings};
 
 pub struct AppRuntime<AppImpl: App> {
     app: AppImpl,
@@ -51,13 +52,16 @@ pub struct AppRuntime<AppImpl: App> {
 }
 
 impl<AppImpl: App> AppRuntime<AppImpl> {
-    pub fn liftoff(event_loop: EventLoop<()>, settings: AppSettings) -> Result<(), EventLoopError> {
+    pub fn liftoff(
+        event_loop: EventLoop<()>,
+        settings: AppSettings,
+        mut app: AppImpl,
+    ) -> Result<(), EventLoopError> {
         logging::init();
 
         info!("Orbital Runtime");
         info!(" --- @SakulFlee --- ");
 
-        let mut app: AppImpl = App::new();
         block_on(app.on_startup());
 
         let mut app_runtime = Self {
