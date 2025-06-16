@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use futures::{stream::FuturesUnordered, StreamExt};
 use hashbrown::HashMap;
-use log::{error, warn};
+use log::{debug, error, warn};
 
 use super::{ElementEvent, Event};
 use crate::{
@@ -108,29 +108,46 @@ impl ElementStore {
 
         result_events
     }
-
     pub async fn update(&mut self, delta_time: f64, input_state: &InputState) -> Vec<Event> {
         // Draining here will remove the messages from the queue so we don't need to clean/clear after!
         let mut messages = self.message_queue.drain().collect::<HashMap<_, _>>();
 
-        // TODO: Sending messages to elements with different labels will trigger a duplicated update call (I THINK).
+        debug!("Element Count: {}", self.element_count());
+        self.element_map
+            .iter()
+            .for_each(|(key, _)| debug!("Element ID: {}", key));
+
         let x = self
             .element_map
             .iter_mut()
+            // Loop over each element and retrieve its label
             .map(|(element_id, element)| {
                 (
                     self.label_map
                         .iter()
-                        .find(|(_, id)| element_id == *id)
-                        .map(|(label, _)| label)
-                        .expect("Cannot find element label from id! This should never happen..."),
+                        .filter_map(|(label, id)| if element_id == id { Some(label) } else { None })
+                        .collect::<Vec<_>>(),
                     element,
                 )
             })
+            // For each element label, retrieve messages from the queue
             .map(|(label, element)| {
-                let messages = messages.remove(label);
+                let messages_vec = label
+                    .into_iter()
+                    .map(|label| messages.remove(label))
+                    .flatten()
+                    .flatten()
+                    .collect::<Vec<_>>();
+                let messages = if messages.is_empty() {
+                    None
+                } else {
+                    Some(messages_vec)
+                };
+
+                // Call the update function or without messages
                 element.on_update(delta_time, input_state, messages)
             })
+            // Await all futures
             .collect::<FuturesUnordered<_>>()
             .filter_map(|changes| async move { changes })
             .flat_map(futures::stream::iter)
@@ -171,6 +188,10 @@ impl ElementStore {
             self.label_map
                 .retain(|k, v| element_id.eq(v) && labels_to_be_removed.contains(k));
         }
+    }
+
+    pub fn label_to_index(&self, label: &str) -> Option<ElementIndexType> {
+        self.label_map.get(label).cloned()
     }
 
     pub fn element_count(&self) -> usize {
