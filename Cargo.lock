@@ -3,6 +3,34 @@
 version = 4
 
 [[package]]
+name = "Camera"
+version = "0.1.0"
+dependencies = [
+ "orbital",
+]
+
+[[package]]
+name = "DamagedHelmet"
+version = "0.1.0"
+dependencies = [
+ "orbital",
+]
+
+[[package]]
+name = "PBRSpheres"
+version = "0.1.0"
+dependencies = [
+ "orbital",
+]
+
+[[package]]
+name = "PingPong"
+version = "0.1.0"
+dependencies = [
+ "orbital",
+]
+
+[[package]]
 name = "Skybox"
 version = "0.1.0"
 dependencies = [
@@ -870,13 +898,6 @@ checksum = "8be9f3dfaaffdae2972880079a491a1a8bb7cbed0b8dd7a347f668b4150a3b93"
 dependencies = [
  "event-listener 5.4.0",
  "pin-project-lite",
-]
-
-[[package]]
-name = "example"
-version = "0.1.0"
-dependencies = [
- "orbital",
 ]
 
 [[package]]
