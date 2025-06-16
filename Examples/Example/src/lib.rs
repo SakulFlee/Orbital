@@ -7,6 +7,7 @@ use orbital::{
 
 pub mod app;
 use app::*;
+use orbital::app::App;
 
 pub const NAME: &str = "Orbital-Demo-Project";
 
@@ -19,7 +20,7 @@ pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
     app_settings.vsync_enabled = false;
     app_settings.name = NAME.to_string();
 
-    match AppRuntime::<MyApp>::liftoff(event_loop, app_settings) {
+    match AppRuntime::liftoff(event_loop, app_settings, MyApp::new()) {
         Ok(()) => info!("Cleanly exited!"),
         Err(e) => error!("Runtime failure: {e:?}"),
     }
