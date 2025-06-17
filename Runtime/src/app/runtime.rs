@@ -300,8 +300,6 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
     }
 
     pub fn redraw(&mut self) {
-        debug!("Redrawing");
-
         // TODO: Not sure if still needed after sync-change?
         // // Skip if a frame is already acquired.
         // // Prevents WGPU from throwing validation errors when we are
