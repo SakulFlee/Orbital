@@ -378,7 +378,7 @@ impl WorldEnvironment {
     ) -> Texture {
         let pipeline = Self::make_compute_pipeline(
             &[bind_group_layout],
-            include_wgsl!("./shader/world_environment_diffuse.wgsl"),
+            include_wgsl!("make_ibl_diffuse.wgsl"),
             "main",
             device,
         );
@@ -442,7 +442,7 @@ impl WorldEnvironment {
     ) -> Texture {
         let pipeline = Self::make_compute_pipeline(
             &[bind_group_layout],
-            include_wgsl!("./shader/world_environment_specular.wgsl"),
+            include_wgsl!("make_ibl_specular.wgsl"),
             "main",
             device,
         );
@@ -512,7 +512,7 @@ impl WorldEnvironment {
 
         let pipeline = Self::make_compute_pipeline(
             &[&bind_group_layout, &mip_buffer_bind_group_layout],
-            include_wgsl!("./shader/world_environment_mip_mapping.wgsl"),
+            include_wgsl!("make_mip_maps.wgsl"),
             "main",
             device,
         );
@@ -697,7 +697,7 @@ impl WorldEnvironment {
 
         MaterialShaderDescriptor {
             name: Some(String::from("WorldEnvironment MaterialShader")),
-            shader_source: ShaderSource::String("TODO"), // TODO Add way of invoking shader precompiler automatically
+            shader_source: ShaderSource::String(&include_str!("material_shader.wgsl")),
             variables: vec![
                 VariableType::Texture {
                     descriptor: ibl_diffuse_descriptor,
