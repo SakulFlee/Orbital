@@ -66,7 +66,7 @@ impl WorldEnvironments {
 
 impl DebugWorldEnvironment {
     pub const KEY_DEBUG_NEXT: InputButton =
-        InputButton::Keyboard(PhysicalKey::Code(KeyCode::Digit3));
+        InputButton::Keyboard(PhysicalKey::Code(KeyCode::Space));
 
     pub fn new() -> Self {
         Self {
