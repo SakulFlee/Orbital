@@ -415,7 +415,6 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
     }
 
     fn process_app_events(&mut self, app_events: Vec<AppEvent>) -> bool {
-        debug!("Processing app events");
         let mut exit_requested = false;
 
         for event in app_events {
