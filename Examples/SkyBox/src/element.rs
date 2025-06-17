@@ -6,8 +6,6 @@ use orbital::{
     app::input::{InputButton, InputState},
     async_trait::async_trait,
     element::{Element, ElementRegistration, Event, Message, WorldEvent},
-    logging::debug,
-    resources::SkyboxType,
     winit::keyboard::{KeyCode, PhysicalKey},
 };
 
@@ -79,7 +77,12 @@ impl DebugWorldEnvironment {
 #[async_trait]
 impl Element for DebugWorldEnvironment {
     fn on_registration(&self) -> ElementRegistration {
-        ElementRegistration::new("debug_world_environment")
+        ElementRegistration::new("debug_world_environment").with_initial_world_change(Event::World(
+            WorldEvent::Environment(EnvironmentEvent::Change {
+                descriptor: self.current_world_environment.to_descriptor(),
+                enable_ibl: true,
+            }),
+        ))
     }
 
     async fn on_update(
@@ -103,7 +106,6 @@ impl Element for DebugWorldEnvironment {
             self.last_trigger = Instant::now();
 
             self.current_world_environment = self.current_world_environment.next();
-            debug!("Changing skybox to {:?}!", self.current_world_environment);
             let descriptor = self.current_world_environment.to_descriptor();
             return Some(vec![Event::World(WorldEvent::Environment(
                 EnvironmentEvent::Change {
