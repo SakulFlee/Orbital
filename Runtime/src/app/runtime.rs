@@ -388,8 +388,6 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
     }
 
     fn update(&mut self) -> bool {
-        debug!("Updating");
-
         let (delta_time, cycle) = self.timer.as_mut().expect("Timer went missing").tick();
 
         if let Some((total_delta, fps)) = cycle {
@@ -496,7 +494,6 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
 
 impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        debug!("Resuming");
         // Remake all window, device, queue, etc. related structures
 
         self.window = Some(
