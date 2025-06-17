@@ -127,20 +127,20 @@ impl ElementStore {
             })
             // For each element label, retrieve messages from the queue
             .map(|(label, element)| {
-                let messages_vec = label
+                let messages = label
                     .into_iter()
-                    .map(|label| messages.remove(label))
-                    .flatten()
+                    .filter_map(|label| messages.remove(label))
                     .flatten()
                     .collect::<Vec<_>>();
-                let messages = if messages.is_empty() {
+
+                let messages_option = if messages.is_empty() {
                     None
                 } else {
-                    Some(messages_vec)
+                    Some(messages)
                 };
 
                 // Call the update function or without messages
-                element.on_update(delta_time, input_state, messages)
+                element.on_update(delta_time, input_state, messages_option)
             })
             // Await all futures
             .collect::<FuturesUnordered<_>>()
