@@ -274,8 +274,6 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
     where
         Self: Sized + Send,
     {
-        debug!("Reconfiguring Surface");
-
         self.surface.as_ref().unwrap().configure(
             self.device.as_ref().unwrap(),
             self.surface_configuration.as_ref().unwrap(),
