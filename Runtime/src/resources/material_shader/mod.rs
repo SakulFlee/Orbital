@@ -41,7 +41,7 @@ impl MaterialShader {
     ) -> Result<Self, ShaderError> {
         let shader_module = descriptor.shader_module(device)?;
 
-        // Create pipeline layout and bind group
+        // Create a pipeline layout and bind group
         let (bind_group, layout, variables) = descriptor.bind_group(device, queue)?;
 
         let engine_bind_group_layout_once = OnceLock::new();
