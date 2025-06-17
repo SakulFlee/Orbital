@@ -384,8 +384,6 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
 
     #[cfg(feature = "gamepad_input")]
     fn receive_controller_inputs(&mut self) {
-        debug!("Receiving controller inputs");
-
         use super::input::InputEvent;
 
         while let Some(gil_event) = self.gil.next_event() {
