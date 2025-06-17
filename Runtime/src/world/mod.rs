@@ -2,7 +2,7 @@ mod store;
 use std::time::{Duration, Instant};
 
 pub use store::*;
-use wgpu::Device;
+use wgpu::{Device, Queue, TextureFormat};
 
 use crate::element::WorldEvent;
 
@@ -49,7 +49,7 @@ impl World {
         // Needs to be at most the same as the cache timeout time!
         // Otherwise, cache cleanup will never be efficient.
         if self.last_cleanup.elapsed() >= Duration::from_secs(5) {
-            self.model_store.cleanup();
+            self.model_store.cleanup(); // TODO
             self.camera_store.cleanup();
 
             self.last_cleanup = Instant::now();
@@ -71,7 +71,18 @@ impl World {
         }
     }
 
-    pub fn prepare_render(&mut self, device: &Device) {
+    pub fn prepare_render(
+        &mut self,
+        surface_texture_format: &TextureFormat,
+        device: &Device,
+        queue: &Queue,
+    ) {
         self.model_store.process_bounding_boxes(device);
+        self.model_store
+            .realize_and_cache(surface_texture_format, device, queue);
+        self.camera_store.realize_and_cache(device, queue);
+        if let Err(e) = self.environment_store.realize_and_cache(device, queue) {
+            panic!("Failed to realize environment: {}", e);
+        }
     }
 }
