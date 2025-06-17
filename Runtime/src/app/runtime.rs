@@ -602,14 +602,14 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
 
         let input_event = match event {
             WindowEvent::CloseRequested => {
-                debug!("Close requested");
+                info!("App shutdown requested!");
 
                 self.exit(event_loop);
                 return;
             }
             WindowEvent::RedrawRequested => {
                 if self.update() {
-                    debug!("Updating requests closure!");
+                    info!("App shutdown requested!");
 
                     self.exit(event_loop);
                     return;
