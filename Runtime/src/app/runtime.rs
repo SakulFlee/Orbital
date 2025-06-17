@@ -596,7 +596,7 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
     ) {
         // Skip if exiting
         if event_loop.exiting() {
-            debug!("EventLoop marked exiting!");
+            debug!("EventLoop marked exiting! Further events will be skipped ...");
             return;
         }
 
