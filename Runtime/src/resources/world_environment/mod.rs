@@ -665,7 +665,7 @@ impl WorldEnvironment {
                 base_mip: 0,
                 mip_levels: self.pbr_ibl_diffuse.texture().mip_level_count(),
             },
-            usages: TextureUsages::TEXTURE_BINDING,
+            usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
             format: self.pbr_ibl_diffuse.texture().format(),
         };
 
@@ -680,7 +680,7 @@ impl WorldEnvironment {
                 base_mip: 0,
                 mip_levels: self.pbr_ibl_specular.texture().mip_level_count(),
             },
-            usages: TextureUsages::TEXTURE_BINDING,
+            usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
             format: self.pbr_ibl_specular.texture().format(),
         };
 
