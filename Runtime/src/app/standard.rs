@@ -16,6 +16,7 @@ pub struct StandardApp {
     pub(crate) world: World,
     pub(crate) queue_events: Vec<Event>,
     pub(crate) renderer: Option<Renderer>,
+    #[cfg(feature = "standard_app_detect_no_more_elements")]
     pub(crate) empty_since: Option<Instant>,
 }
 
@@ -121,18 +122,21 @@ impl App for StandardApp {
         let new_events = self.element_store.process_events(element_events).await;
         self.queue_events.extend(new_events);
 
-        if self.element_store.element_count() == 0 {
-            if let Some(since) = self.empty_since {
-                if since.elapsed() >= Duration::from_secs(5) {
-                    warn!("No more elements present, requesting app closure ...");
-                    app_events.push(AppEvent::RequestAppClosure);
+        #[cfg(feature = "standard_app_detect_no_more_elements")]
+        {
+            if self.element_store.element_count() == 0 {
+                if let Some(since) = self.empty_since {
+                    if since.elapsed() >= Duration::from_secs(5) {
+                        warn!("No more elements present, requesting app closure ...");
+                        app_events.push(AppEvent::RequestAppClosure);
+                    }
+                } else {
+                    self.empty_since = Some(Instant::now());
                 }
             } else {
-                self.empty_since = Some(Instant::now());
-            }
-        } else {
-            if self.empty_since.is_some() {
-                self.empty_since = None;
+                if self.empty_since.is_some() {
+                    self.empty_since = None;
+                }
             }
         }
 
