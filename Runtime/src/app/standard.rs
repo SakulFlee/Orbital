@@ -28,7 +28,8 @@ impl StandardApp {
             .into_iter()
             .map(|x| ElementEvent::Spawn(x))
             .collect::<Vec<_>>();
-        block_on(s.element_store.process_events(events));
+        let new_events = block_on(s.element_store.process_events(events));
+        s.queue_events.extend(new_events);
 
         s
     }
