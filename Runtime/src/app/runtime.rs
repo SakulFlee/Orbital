@@ -575,8 +575,6 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
     }
 
     fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
-        debug!("Suspending");
-
         // Invalidate everything related to the window, surface and device.
         self.surface = None;
         self.surface_configuration = None;
