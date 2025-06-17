@@ -121,14 +121,18 @@ impl App for StandardApp {
         let new_events = self.element_store.process_events(element_events).await;
         self.queue_events.extend(new_events);
 
-        if self.world.model_store().is_empty() {
+        if self.element_store.element_count() == 0 {
             if let Some(since) = self.empty_since {
                 if since.elapsed() >= Duration::from_secs(5) {
-                    warn!("Empty world detected! Closing app ...");
+                    warn!("No more elements present, requesting app closure ...");
                     app_events.push(AppEvent::RequestAppClosure);
                 }
             } else {
                 self.empty_since = Some(Instant::now());
+            }
+        } else {
+            if self.empty_since.is_some() {
+                self.empty_since = None;
             }
         }
 
