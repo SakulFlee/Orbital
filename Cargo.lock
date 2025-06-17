@@ -24,20 +24,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "PingPong"
-version = "0.1.0"
-dependencies = [
- "orbital",
-]
-
-[[package]]
-name = "Skybox"
-version = "0.1.0"
-dependencies = [
- "orbital",
-]
-
-[[package]]
 name = "ab_glyph"
 version = "0.2.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2216,6 +2202,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
+name = "ping_pong"
+version = "0.1.0"
+dependencies = [
+ "orbital",
+]
+
+[[package]]
 name = "piper"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2711,6 +2704,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95890f873bec569a0362c235787f3aca6e1e887302ba4840839bcc6459c42da6"
 dependencies = [
  "quote",
+]
+
+[[package]]
+name = "skybox"
+version = "0.1.0"
+dependencies = [
+ "orbital",
 ]
 
 [[package]]
