@@ -10,7 +10,7 @@ use orbital::app::standard::StandardApp;
 mod element;
 use element::*;
 
-pub const NAME: &str = "Orbital-Demo-Project: Skybox";
+pub const NAME: &str = "Orbital-Demo-Project: SkyBox";
 
 pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
     logging::init();
