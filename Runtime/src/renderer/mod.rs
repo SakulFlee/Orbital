@@ -1,12 +1,22 @@
-use cgmath::Vector2;
+use cgmath::{Point3, Vector2, Vector3};
 use log::debug;
-use wgpu::{Device, Queue, TextureFormat, TextureView};
+use wgpu::{
+    Color, CommandBuffer, CommandEncoder, CommandEncoderDescriptor, Device, IndexFormat, LoadOp,
+    Operations, Queue, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, TextureFormat,
+    TextureView,
+};
 
-use crate::resources::{Model, Texture, WorldEnvironment};
+use crate::resources::{MaterialShader, Mesh, Model, Texture, Vertex, WorldEnvironment};
 
 pub struct Renderer {
     surface_texture_format: TextureFormat,
     depth_texture: Texture,
+}
+
+impl Renderer {
+    pub fn surface_texture_format(&self) -> &TextureFormat {
+        &self.surface_texture_format
+    }
 }
 
 impl Renderer {
@@ -48,5 +58,66 @@ impl Renderer {
         debug!("RENDER");
         debug!("World Environment: {world_environment:?}");
         debug!("Models: {models:?}");
+
+        let mut command_encoder = device.create_command_encoder(&CommandEncoderDescriptor {
+            label: Some("Test Encoder"),
+        });
+
+        if let Some(world_environment) = world_environment {
+            self.render_skybox(
+                target_view,
+                world_environment,
+                &mut command_encoder,
+                device,
+                queue,
+            )
+        }
+
+        queue.submit(vec![command_encoder.finish()]);
+    }
+
+    fn render_skybox(
+        &self,
+        target_view: &TextureView,
+        world_environment: &WorldEnvironment,
+        command_encoder: &mut CommandEncoder,
+        device: &Device,
+        queue: &Queue,
+    ) {
+        let material_shader_descriptor =
+            world_environment.into_material_shader_descriptor(device, queue);
+        let material_shader = MaterialShader::from_descriptor(
+            &material_shader_descriptor,
+            Some(self.surface_texture_format),
+            device,
+            queue,
+        )
+        .expect("Failed to create MaterialShader!");
+
+        // Scope to drop RenderPass once done
+        {
+            let mut render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
+                label: Some("RenderPass::SkyBox"),
+                color_attachments: &[Some(RenderPassColorAttachment {
+                    view: target_view,
+                    resolve_target: None,
+                    ops: Operations {
+                        load: LoadOp::Load, // TODO: Possibly should be discard?
+                        store: StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+
+            render_pass.set_pipeline(material_shader.pipeline());
+
+            render_pass.set_bind_group(0, material_shader.bind_group(), &[]);
+
+            // render_pass.set_bind_group(1, camera.camera_bind_group(), &[]);
+
+            render_pass.draw(0..3, 0..1);
+        }
     }
 }

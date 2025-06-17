@@ -149,7 +149,8 @@ impl App for StandardApp {
         Self: Sized,
     {
         if let Some(renderer) = &mut self.renderer {
-            self.world.prepare_render(device);
+            self.world
+                .prepare_render(renderer.surface_texture_format(), device, queue);
 
             let world_environment = self.world.environment_store().world_environment();
             let models = Vec::new();
