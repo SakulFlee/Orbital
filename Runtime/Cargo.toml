@@ -7,7 +7,7 @@ edition = "2021"
 crate-type = ["lib", "cdylib"]
 
 [features]
-default = ["gltf", "gamepad_input", "gamepad_input_poll", "auto_request_redraw"]
+default = ["gltf", "gamepad_input", "gamepad_input_poll", "auto_request_redraw", "standard_app_detect_no_more_elements"]
 # Enables glTF support.
 gltf = ["dep:easy-gltf", "easy-gltf/names"]
 # Enables gamepad inputs from being polled and processed.
@@ -19,6 +19,8 @@ gamepad_input_poll = ["gamepad_input"]
 # Enable this for games and applications that need to constantly redraw.
 # Disable this for applications that only need to draw once every now and then.
 auto_request_redraw = []
+# Enable to detect if there are no more elements in the StandardApp and force a closure of the app if found to be true.
+standard_app_detect_no_more_elements = []
 
 [build-dependencies]
 glob = { workspace = true }
