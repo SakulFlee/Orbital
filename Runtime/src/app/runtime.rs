@@ -294,8 +294,6 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
     }
 
     pub fn acquire_next_frame(&mut self) -> Result<SurfaceTexture, SurfaceError> {
-        debug!("Acquiring next frame");
-
         let surface = self.surface.as_ref().unwrap();
 
         surface.get_current_texture()
