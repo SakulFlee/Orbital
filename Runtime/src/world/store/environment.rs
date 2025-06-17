@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use log::warn;
+use log::{debug, warn};
 use wgpu::{Device, Queue};
 
 use crate::{
