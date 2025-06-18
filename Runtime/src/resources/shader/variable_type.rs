@@ -1,4 +1,4 @@
-use wgpu::TextureSampleType;
+use wgpu::{SamplerBindingType, TextureSampleType};
 
 use crate::resources::{BufferDescriptor, TextureDescriptor};
 
@@ -8,5 +8,6 @@ pub enum VariableType {
     Texture {
         descriptor: TextureDescriptor,
         sample_type: TextureSampleType,
+        sampler_binding_type: SamplerBindingType,
     },
 }

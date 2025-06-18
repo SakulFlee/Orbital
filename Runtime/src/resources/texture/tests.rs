@@ -1,5 +1,6 @@
-use wgpu::{Extent3d, TextureDimension, TextureFormat, TextureUsages};
+use wgpu::{Extent3d, TextureDimension, TextureFormat, TextureUsages, TextureViewDimension};
 
+use crate::resources::FilterMode;
 use crate::{
     resources::{Texture, TextureDescriptor, TextureSize},
     wgpu_test_adapter,
@@ -20,6 +21,9 @@ fn test_data_descriptor_realization() {
         },
         format: TextureFormat::Rgba8UnormSrgb,
         usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+        texture_dimension: TextureDimension::D2,
+        texture_view_dimension: TextureViewDimension::D2,
+        filter_mode: FilterMode::default(),
     };
 
     let _texture =

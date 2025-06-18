@@ -18,18 +18,18 @@ struct Info {
     lod: i32,
 }
 
-@group(0) @binding(0) var diffuse_env_map: texture_cube<f32>;
-@group(0) @binding(1) var diffuse_env_sampler: sampler;
+@group(1) @binding(0) var diffuse_env_map: texture_cube<f32>;
+@group(1) @binding(1) var diffuse_env_sampler: sampler;
 
-@group(0) @binding(2) var specular_env_map: texture_cube<f32>;
-@group(0) @binding(3) var specular_env_sampler: sampler;
+@group(1) @binding(2) var specular_env_map: texture_cube<f32>;
+@group(1) @binding(3) var specular_env_sampler: sampler;
 
 // @group(0) @binding(4) var ibl_brdf_env_map: texture_cube<f32>;
 // @group(0) @binding(5) var ibl_brdf_env_sampler: sampler;
 
-@group(0) @binding(6) var<uniform> info: Info;
+// @group(1) @binding(6) var<uniform> info: Info;
 
-@group(1) @binding(0) var<uniform> camera: CameraUniform;
+@group(0) @binding(0) var<uniform> camera: CameraUniform;
 
 @vertex
 fn entrypoint_vertex(
@@ -55,11 +55,12 @@ fn entrypoint_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 
     // Sample HDRI WorldEnvironemnt as Sky Box, based on LoD (-1 = diffuse)
     var sample: vec3<f32>;
-    if info.lod < 0 {
+    // TODO
+//    if info.lod < 0 {
         sample = textureSample(diffuse_env_map, diffuse_env_sampler, ray_direction).rgb;
-    } else {
-        sample = textureSampleLevel(specular_env_map, specular_env_sampler, ray_direction, f32(info.lod)).rgb;
-    }
+//    } else {
+//        sample = textureSampleLevel(specular_env_map, specular_env_sampler, ray_direction, f32(info.lod)).rgb;
+//    }
 
     // Clamp sample to be within range (possible detail loss if there is data past >1.0)
     let clamped = clamp(sample, vec3(0.0), vec3(1.0));
