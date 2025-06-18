@@ -4,10 +4,10 @@ use cgmath::{Vector2, Vector4};
 use image::ImageReader;
 use wgpu::{
     AddressMode, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Device, Extent3d,
-    FilterMode, ImageCopyBuffer, ImageCopyTexture, ImageDataLayout, Origin3d, Queue, Sampler,
-    SamplerDescriptor, Texture as WTexture, TextureAspect, TextureDescriptor as WTextureDescriptor,
-    TextureDimension, TextureFormat, TextureUsages, TextureView, TextureViewDescriptor,
-    TextureViewDimension,
+    FilterMode as WFilterMode, ImageCopyBuffer, ImageCopyTexture, ImageDataLayout, Origin3d, Queue,
+    Sampler, SamplerDescriptor, Texture as WTexture, TextureAspect,
+    TextureDescriptor as WTextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+    TextureView, TextureViewDescriptor, TextureViewDimension,
 };
 
 mod size;
@@ -18,6 +18,9 @@ pub use error::*;
 
 mod descriptor;
 pub use descriptor::*;
+
+mod filter_mode;
+pub use filter_mode::*;
 
 #[cfg(test)]
 mod tests;
@@ -45,8 +48,20 @@ impl Texture {
                 size,
                 format,
                 usages,
+
+                texture_dimension,
+                texture_view_dimension,
+                filter_mode,
             } => Ok(Self::from_data(
-                pixels, size, *usages, *format, device, queue,
+                pixels,
+                size,
+                *usages,
+                *format,
+                *texture_dimension,
+                *texture_view_dimension,
+                *filter_mode,
+                device,
+                queue,
             )),
             TextureDescriptor::Custom {
                 texture_descriptor,
@@ -102,9 +117,9 @@ impl Texture {
             address_mode_u: AddressMode::ClampToEdge,
             address_mode_v: AddressMode::ClampToEdge,
             address_mode_w: AddressMode::ClampToEdge,
-            mag_filter: FilterMode::Linear,
-            min_filter: FilterMode::Linear,
-            mipmap_filter: FilterMode::Linear,
+            mag_filter: WFilterMode::Linear,
+            min_filter: WFilterMode::Linear,
+            mipmap_filter: WFilterMode::Linear,
             ..Default::default()
         });
 
@@ -209,6 +224,10 @@ impl Texture {
                 },
                 format: TextureFormat::Rgba8UnormSrgb,
                 usages,
+
+                texture_dimension: TextureDimension::D2,
+                texture_view_dimension: TextureViewDimension::D2,
+                filter_mode: FilterMode::default(),
             },
             device,
             queue,
@@ -237,6 +256,9 @@ impl Texture {
             },
             usages,
             format,
+            TextureDimension::D2,
+            TextureViewDimension::D2,
+            FilterMode::default(),
             device,
             queue,
         )
@@ -247,6 +269,9 @@ impl Texture {
         size: &TextureSize,
         usages: TextureUsages,
         format: TextureFormat,
+        texture_dimension: TextureDimension,
+        texture_view_dimension: TextureViewDimension,
+        filter_mode: FilterMode,
         device: &Device,
         queue: &Queue,
     ) -> Self {
@@ -260,8 +285,7 @@ impl Texture {
             format,
             mip_level_count: size.mip_levels,
             sample_count: 1,
-            // TODO: Other dimensions cannot be set atm!
-            dimension: TextureDimension::D2,
+            dimension: texture_dimension,
             usage: usages,
             view_formats: &[],
         };
@@ -270,9 +294,7 @@ impl Texture {
         let texture_view_descriptor = wgpu::TextureViewDescriptor {
             label: None,
             format: None,
-            // TODO: CubeMap cannot be set!
-            // TODO: 2D Array cannot be set!
-            dimension: None,
+            dimension: Some(texture_view_dimension),
             aspect: TextureAspect::All,
             base_mip_level: size.base_mip,
             mip_level_count: size.mip_levels.gt(&1).then_some(size.mip_levels),
@@ -286,10 +308,9 @@ impl Texture {
             address_mode_u: AddressMode::Repeat,
             address_mode_v: AddressMode::Repeat,
             address_mode_w: AddressMode::Repeat,
-            // TODO: FilterMode cannot be changed!
-            mag_filter: FilterMode::Linear,
-            min_filter: FilterMode::Linear,
-            mipmap_filter: FilterMode::Nearest,
+            mag_filter: filter_mode.mag,
+            min_filter: filter_mode.min,
+            mipmap_filter: filter_mode.mipmap,
             // TODO: Min/Max clamping cannot be changed!
             lod_min_clamp: 0.0,
             lod_max_clamp: 100.0,
@@ -297,14 +318,20 @@ impl Texture {
         });
 
         // Create actual orbital texture
-        let view_dimension = texture_view_descriptor.dimension.unwrap_or({
-            match texture_descriptor.dimension {
-                TextureDimension::D1 => TextureViewDimension::D1,
-                TextureDimension::D2 => TextureViewDimension::D2,
-                TextureDimension::D3 => TextureViewDimension::D3,
-            }
-        });
-        let texture = Self::from_existing(texture, texture_view, texture_sampler, view_dimension);
+        // TODO: Probably no longer needed as we can set the TextureViewDimensions ourselfs now.
+        // let view_dimension = texture_view_descriptor.dimension.unwrap_or({
+        //     match texture_descriptor.dimension {
+        //         TextureDimension::D1 => TextureViewDimension::D1,
+        //         TextureDimension::D2 => TextureViewDimension::D2,
+        //         TextureDimension::D3 => TextureViewDimension::D3,
+        //     }
+        // });
+        let texture = Self::from_existing(
+            texture,
+            texture_view,
+            texture_sampler,
+            texture_view_dimension,
+        );
 
         // Write the data into the texture buffer
         queue.write_texture(
@@ -356,9 +383,9 @@ impl Texture {
                 address_mode_u: AddressMode::Repeat,
                 address_mode_v: AddressMode::Repeat,
                 address_mode_w: AddressMode::Repeat,
-                mag_filter: FilterMode::Linear,
-                min_filter: FilterMode::Linear,
-                mipmap_filter: FilterMode::Nearest,
+                mag_filter: WFilterMode::Linear,
+                min_filter: WFilterMode::Linear,
+                mipmap_filter: WFilterMode::Nearest,
                 lod_min_clamp: 0.0,
                 lod_max_clamp: 100.0,
                 ..Default::default()

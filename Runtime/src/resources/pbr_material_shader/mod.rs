@@ -1,8 +1,12 @@
 use cgmath::{Vector3, Zero};
-use wgpu::{TextureFormat, TextureSampleType, TextureUsages};
+use wgpu::{
+    SamplerBindingType, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+    TextureViewDimension,
+};
 
 use crate::resources::{
-    BufferDescriptor, MaterialShaderDescriptor, VariableType, {TextureDescriptor, TextureSize},
+    BufferDescriptor, FilterMode, MaterialShaderDescriptor, VariableType,
+    {TextureDescriptor, TextureSize},
 };
 
 #[cfg(test)]
@@ -56,6 +60,10 @@ impl Default for PBRMaterialShaderDescriptor {
                 },
                 format: TextureFormat::Rgba8UnormSrgb,
                 usages: TextureUsages::all(),
+
+                texture_dimension: TextureDimension::D2,
+                texture_view_dimension: TextureViewDimension::D2,
+                filter_mode: FilterMode::default(),
             },
             albedo: TextureDescriptor::Data {
                 pixels: vec![0, 0, 0, 0],
@@ -66,6 +74,9 @@ impl Default for PBRMaterialShaderDescriptor {
                 },
                 format: TextureFormat::Rgba8UnormSrgb,
                 usages: TextureUsages::all(),
+                texture_dimension: TextureDimension::D2,
+                texture_view_dimension: TextureViewDimension::D2,
+                filter_mode: FilterMode::default(),
             },
             albedo_factor: Vector3::zero(),
             metallic: TextureDescriptor::Data {
@@ -77,6 +88,9 @@ impl Default for PBRMaterialShaderDescriptor {
                 },
                 format: TextureFormat::R8Unorm,
                 usages: TextureUsages::all(),
+                texture_dimension: TextureDimension::D2,
+                texture_view_dimension: TextureViewDimension::D2,
+                filter_mode: FilterMode::default(),
             },
             metallic_factor: 0.0,
             roughness: TextureDescriptor::Data {
@@ -88,6 +102,9 @@ impl Default for PBRMaterialShaderDescriptor {
                 },
                 format: TextureFormat::R8Unorm,
                 usages: TextureUsages::all(),
+                texture_dimension: TextureDimension::D2,
+                texture_view_dimension: TextureViewDimension::D2,
+                filter_mode: FilterMode::default(),
             },
             roughness_factor: 0.0,
             occlusion: TextureDescriptor::Data {
@@ -99,6 +116,9 @@ impl Default for PBRMaterialShaderDescriptor {
                 },
                 format: TextureFormat::R8Unorm,
                 usages: TextureUsages::all(),
+                texture_dimension: TextureDimension::D2,
+                texture_view_dimension: TextureViewDimension::D2,
+                filter_mode: FilterMode::default(),
             },
             emissive: TextureDescriptor::Data {
                 pixels: vec![0],
@@ -109,6 +129,9 @@ impl Default for PBRMaterialShaderDescriptor {
                 },
                 format: TextureFormat::R8Unorm,
                 usages: TextureUsages::all(),
+                texture_dimension: TextureDimension::D2,
+                texture_view_dimension: TextureViewDimension::D2,
+                filter_mode: FilterMode::default(),
             },
             custom_material_shader: Default::default(),
         }
@@ -125,31 +148,37 @@ impl From<PBRMaterialShaderDescriptor> for MaterialShaderDescriptor {
             VariableType::Texture {
                 descriptor: val.normal,
                 sample_type: TextureSampleType::Float { filterable: true },
+                sampler_binding_type: SamplerBindingType::Filtering,
             },
             // Albedo
             VariableType::Texture {
                 descriptor: val.albedo,
                 sample_type: TextureSampleType::Float { filterable: true },
+                sampler_binding_type: SamplerBindingType::Filtering,
             },
             // Metallic
             VariableType::Texture {
                 descriptor: val.metallic,
                 sample_type: TextureSampleType::Float { filterable: true },
+                sampler_binding_type: SamplerBindingType::Filtering,
             },
             // Roughness
             VariableType::Texture {
                 descriptor: val.roughness,
                 sample_type: TextureSampleType::Float { filterable: true },
+                sampler_binding_type: SamplerBindingType::Filtering,
             },
             // Occlusion
             VariableType::Texture {
                 descriptor: val.occlusion,
                 sample_type: TextureSampleType::Float { filterable: true },
+                sampler_binding_type: SamplerBindingType::Filtering,
             },
             // Emissive
             VariableType::Texture {
                 descriptor: val.emissive,
                 sample_type: TextureSampleType::Float { filterable: true },
+                sampler_binding_type: SamplerBindingType::Filtering,
             },
             // Factors
             // Note: Combines all factors in one buffer

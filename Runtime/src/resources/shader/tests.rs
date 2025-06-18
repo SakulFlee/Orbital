@@ -1,5 +1,5 @@
 use rand::{rng, Rng};
-use wgpu::TextureSampleType;
+use wgpu::{SamplerBindingType, TextureSampleType};
 
 use crate::{
     resources::{
@@ -31,6 +31,7 @@ impl TestImplementation {
                 self.variables.push(VariableType::Texture {
                     descriptor: TextureDescriptor::uniform_luma_black(),
                     sample_type: TextureSampleType::Float { filterable: false },
+                    sampler_binding_type: SamplerBindingType::Filtering,
                 });
             }
         }

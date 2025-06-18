@@ -1,8 +1,8 @@
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     BindGroup, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
-    BindingResource, BindingType, Device, Queue, SamplerBindingType, ShaderModule,
-    ShaderModuleDescriptor, ShaderStages,
+    BindingResource, BindingType, Device, Queue, ShaderModule, ShaderModuleDescriptor,
+    ShaderStages,
 };
 
 use crate::{resources::Texture, shader_preprocessor::ShaderPreprocessor};
@@ -99,6 +99,7 @@ pub trait ShaderDescriptor {
                     VariableType::Texture {
                         descriptor,
                         sample_type,
+                        sampler_binding_type,
                     } => {
                         // Note:
                         // We are skipping over the sampler binding as it is already contained inside the `Texture` realization!
@@ -125,7 +126,7 @@ pub trait ShaderDescriptor {
                         let sampler_binding = BindGroupLayoutEntry {
                             binding: binding_count,
                             visibility: self.stages(),
-                            ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                            ty: BindingType::Sampler(*sampler_binding_type),
                             count: None,
                         };
                         entries.push(sampler_binding);
@@ -178,6 +179,7 @@ pub trait ShaderDescriptor {
                     VariableType::Texture {
                         descriptor: _,
                         sample_type: _,
+                        sampler_binding_type: _,
                     } => {
                         // Note:
                         // Check `bind_group_layout` above for information on why the binding index is skipped here.

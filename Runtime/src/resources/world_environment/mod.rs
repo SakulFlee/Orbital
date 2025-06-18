@@ -12,13 +12,13 @@ use wgpu::{
     AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
     BufferBindingType, BufferUsages, CommandEncoder, CompareFunction, ComputePassDescriptor,
-    ComputePipeline, ComputePipelineDescriptor, Device, Extent3d, FilterMode,
+    ComputePipeline, ComputePipelineDescriptor, Device, Extent3d, FilterMode as WFilterMode,
     PipelineLayoutDescriptor, Queue, SamplerBindingType, SamplerDescriptor, ShaderModuleDescriptor,
     ShaderStages, StorageTextureAccess, TextureDimension, TextureFormat, TextureSampleType,
     TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
 };
 
-use crate::resources::{Texture, TextureSize};
+use crate::resources::{FilterMode, Texture, TextureSize};
 
 mod error;
 pub use error::*;
@@ -309,7 +309,9 @@ impl WorldEnvironment {
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: TextureFormat::Rgba32Float,
-                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+                usage: TextureUsages::STORAGE_BINDING
+                    | TextureUsages::TEXTURE_BINDING
+                    | TextureUsages::COPY_DST,
                 view_formats: &[],
             },
             &TextureViewDescriptor::default(),
@@ -318,9 +320,9 @@ impl WorldEnvironment {
                 address_mode_u: AddressMode::ClampToEdge,
                 address_mode_v: AddressMode::ClampToEdge,
                 address_mode_w: AddressMode::ClampToEdge,
-                mag_filter: FilterMode::Linear,
-                min_filter: FilterMode::Linear,
-                mipmap_filter: FilterMode::Linear,
+                mag_filter: WFilterMode::Linear,
+                min_filter: WFilterMode::Linear,
+                mipmap_filter: WFilterMode::Linear,
                 compare: Some(CompareFunction::Always),
                 ..Default::default()
             },
@@ -667,7 +669,14 @@ impl WorldEnvironment {
             },
             usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
             format: self.pbr_ibl_diffuse.texture().format(),
+            texture_dimension: TextureDimension::D2,
+            texture_view_dimension: TextureViewDimension::Cube,
+            filter_mode: FilterMode::nearest(),
         };
+        debug!(
+            "self.pbr_ibl_diffuse.texture().format(): {:?}",
+            self.pbr_ibl_diffuse.texture().format()
+        );
 
         let ibl_specular_data = self.pbr_ibl_specular.read_as_binary(device, queue);
         let ibl_specular_size = self.pbr_ibl_specular.texture().size();
@@ -682,7 +691,15 @@ impl WorldEnvironment {
             },
             usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
             format: self.pbr_ibl_specular.texture().format(),
+
+            texture_dimension: TextureDimension::D2,
+            texture_view_dimension: TextureViewDimension::Cube,
+            filter_mode: FilterMode::nearest(),
         };
+        debug!(
+            "self.pbr_ibl_specular.texture().format(): {:?}",
+            self.pbr_ibl_specular.texture().format()
+        );
 
         (ibl_diffuse_descriptor, ibl_specular_descriptor)
     }
@@ -702,10 +719,12 @@ impl WorldEnvironment {
                 VariableType::Texture {
                     descriptor: ibl_diffuse_descriptor,
                     sample_type: TextureSampleType::Float { filterable: false },
+                    sampler_binding_type: SamplerBindingType::NonFiltering,
                 },
                 VariableType::Texture {
                     descriptor: ibl_specular_descriptor,
                     sample_type: TextureSampleType::Float { filterable: false },
+                    sampler_binding_type: SamplerBindingType::NonFiltering,
                 },
             ],
             ..Default::default()

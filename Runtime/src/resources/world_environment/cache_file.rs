@@ -118,9 +118,7 @@ impl CacheFile {
                 y: cube_face_size,
             },
             TextureFormat::Rgba16Float,
-            TextureUsages::STORAGE_BINDING
-                | TextureUsages::TEXTURE_BINDING
-                | TextureUsages::COPY_SRC,
+            TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_SRC,
             1,
             device,
             queue,
@@ -133,9 +131,7 @@ impl CacheFile {
                 y: cube_face_size,
             },
             TextureFormat::Rgba16Float,
-            TextureUsages::STORAGE_BINDING
-                | TextureUsages::TEXTURE_BINDING
-                | TextureUsages::COPY_SRC,
+            TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_SRC,
             specular_mip_level_count,
             device,
             queue,
@@ -145,8 +141,8 @@ impl CacheFile {
     }
 
     pub fn validate(&self) -> bool {
-        !self.ibl_diffuse_data.is_empty() && 
-        // Check if IBL Specular's exist
-        !self.ibl_specular_data.is_empty()
+        !self.ibl_diffuse_data.is_empty() &&
+            // Check if IBL Specular's exist
+            !self.ibl_specular_data.is_empty()
     }
 }

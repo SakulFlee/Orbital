@@ -1,8 +1,8 @@
 use std::{ffi::OsString, hash::Hash};
 
-use wgpu::{Color, Extent3d, TextureFormat, TextureUsages};
-
+use crate::resources::texture::filter_mode::FilterMode;
 use crate::resources::TextureSize;
+use wgpu::{Color, Extent3d, TextureDimension, TextureFormat, TextureUsages, TextureViewDimension};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TextureDescriptor {
@@ -25,6 +25,9 @@ pub enum TextureDescriptor {
         size: TextureSize,
         usages: TextureUsages,
         format: TextureFormat,
+        texture_dimension: TextureDimension,
+        texture_view_dimension: TextureViewDimension,
+        filter_mode: FilterMode,
     },
     /// In case you need a custom set of descriptors.
     Custom {
@@ -53,6 +56,11 @@ impl TextureDescriptor {
             },
             format: TextureFormat::Rgba8UnormSrgb,
             usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+
+            texture_dimension: TextureDimension::D2,
+            texture_view_dimension: TextureViewDimension::D2,
+
+            filter_mode: FilterMode::default(),
         }
     }
 
@@ -66,6 +74,10 @@ impl TextureDescriptor {
             },
             format: TextureFormat::Rgba8UnormSrgb,
             usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+
+            texture_dimension: TextureDimension::D2,
+            texture_view_dimension: TextureViewDimension::D2,
+            filter_mode: FilterMode::default(),
         }
     }
 
@@ -79,6 +91,10 @@ impl TextureDescriptor {
             },
             format: TextureFormat::Rgba8UnormSrgb,
             usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+
+            texture_dimension: TextureDimension::D2,
+            texture_view_dimension: TextureViewDimension::D2,
+            filter_mode: FilterMode::default(),
         }
     }
 
@@ -97,6 +113,9 @@ impl TextureDescriptor {
             },
             format: TextureFormat::Rgba8UnormSrgb,
             usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+            texture_dimension: TextureDimension::D2,
+            texture_view_dimension: TextureViewDimension::D2,
+            filter_mode: FilterMode::default(),
         }
     }
 
@@ -115,6 +134,9 @@ impl TextureDescriptor {
             },
             format: TextureFormat::Rgba8UnormSrgb,
             usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+            texture_dimension: TextureDimension::D2,
+            texture_view_dimension: TextureViewDimension::D2,
+            filter_mode: FilterMode::default(),
         }
     }
 
@@ -128,6 +150,9 @@ impl TextureDescriptor {
             },
             format: TextureFormat::R8Unorm,
             usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+            texture_dimension: TextureDimension::D2,
+            texture_view_dimension: TextureViewDimension::D2,
+            filter_mode: FilterMode::default(),
         }
     }
 
@@ -141,6 +166,9 @@ impl TextureDescriptor {
             },
             format: TextureFormat::R8Unorm,
             usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+            texture_dimension: TextureDimension::D2,
+            texture_view_dimension: TextureViewDimension::D2,
+            filter_mode: FilterMode::default(),
         }
     }
 
@@ -154,6 +182,10 @@ impl TextureDescriptor {
             },
             format: TextureFormat::R8Unorm,
             usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+
+            texture_dimension: TextureDimension::D2,
+            texture_view_dimension: TextureViewDimension::D2,
+            filter_mode: FilterMode::default(),
         }
     }
 
@@ -167,6 +199,9 @@ impl TextureDescriptor {
             },
             format: TextureFormat::R8Unorm,
             usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+            texture_dimension: TextureDimension::D2,
+            texture_view_dimension: TextureViewDimension::D2,
+            filter_mode: FilterMode::default(),
         }
     }
 }
@@ -185,11 +220,17 @@ impl Hash for TextureDescriptor {
                 size,
                 format,
                 usages,
+                texture_dimension,
+                texture_view_dimension,
+                filter_mode,
             } => {
                 pixels.hash(state);
                 size.hash(state);
                 format.hash(state);
                 usages.hash(state);
+                texture_dimension.hash(state);
+                texture_view_dimension.hash(state);
+                filter_mode.hash(state);
             }
             TextureDescriptor::Custom {
                 texture_descriptor,
