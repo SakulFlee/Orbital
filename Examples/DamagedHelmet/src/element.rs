@@ -1,8 +1,8 @@
 use orbital::{
+    app::input::InputState,
     async_trait::async_trait,
     cgmath::Vector3,
-    app::input::InputState,
-    element::{Element, ElementRegistration, Event, Message},
+    element::{Element, ElementRegistration, Message},
     loader::{GLTFLoader, GLTFWorkerMode},
     transform::Transform,
     world_old::WorldChange,

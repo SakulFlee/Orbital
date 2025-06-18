@@ -8,10 +8,7 @@ use wgpu::TextureFormat;
 
 use crate::{
     cache::Cache,
-    resources::{
-        MaterialDescriptor, MeshDescriptor,
-        Transform, Vertex,
-    },
+    resources::{MaterialDescriptor, MeshDescriptor, Transform, Vertex},
     wgpu_test_adapter,
 };
 

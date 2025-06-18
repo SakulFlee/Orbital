@@ -214,7 +214,7 @@ impl ModelStore {
             Ok(mut lock) => lock.clear(),
             Err(e) => return Err(Box::new(e)),
         };
-        
+
         match self.cache_material.write() {
             Ok(mut lock) => lock.clear(),
             Err(e) => return Err(Box::new(e)),
