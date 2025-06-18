@@ -36,8 +36,7 @@ impl Model {
         queue: &Queue,
         mesh_cache: &'cache RwLock<Cache<Arc<MeshDescriptor>, Mesh>>,
         material_cache: &'cache RwLock<Cache<Arc<MaterialShaderDescriptor>, MaterialShader>>,
-    ) -> Result<Self, Box<dyn Error + 'cache>>
-    {
+    ) -> Result<Self, Box<dyn Error + 'cache>> {
         // --- Mesh ---
         let mesh = match mesh_cache.write() {
             Ok(mut lock) => lock
