@@ -97,8 +97,8 @@ impl ModelStore {
             .map(|descriptor| descriptor.label.as_str())
     }
 
-    pub fn get_bounding_boxes(&self) -> Values<u128, BoundingBox> {
-        self.map_bounding_boxes.values()
+    pub fn get_bounding_boxes(&self) -> &HashMap<u128, BoundingBox> {
+        &self.map_bounding_boxes
     }
 
     pub fn flag_realization(&mut self, ids: Vec<u128>, update_existing: bool) {
@@ -179,7 +179,7 @@ impl ModelStore {
         errors
     }
 
-    pub fn get_realizations(&mut self, ids: Vec<u128>) -> Vec<&Model> {
+    pub fn get_realizations(&self, ids: Vec<u128>) -> Vec<&Model> {
         ids.into_iter()
             .filter_map(|id| match self.cache_realizations.get(&id) {
                 Some(model) => Some(model.inner()),
