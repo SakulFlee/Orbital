@@ -3,6 +3,7 @@ use std::{error::Error, fmt::Display};
 #[derive(Debug)]
 pub enum StoreError {
     InvalidIndex { index: u128 },
+    NoActiveEntry,
 }
 
 impl Display for StoreError {
@@ -10,6 +11,9 @@ impl Display for StoreError {
         match self {
             StoreError::InvalidIndex { index } => {
                 write!(f, "StoreError::InvalidIndex: #{index}")
+            }
+            StoreError::NoActiveEntry => {
+                write!(f, "StoreError::NoActiveCamera")
             }
         }
     }

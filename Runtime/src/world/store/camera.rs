@@ -21,7 +21,7 @@ pub struct CameraStore {
     map_descriptors: HashMap<u128, CameraDescriptor>,
     cache_realizations: Cache<u128, Camera>,
     queue_realizations: Vec<u128>,
-    active_camera: u128,
+    active_camera: Option<u128>,
 }
 
 impl CameraStore {
@@ -87,7 +87,7 @@ impl CameraStore {
             return;
         }
 
-        self.active_camera = id;
+        self.active_camera = Some(id);
         self.flag_realization(vec![id], true);
     }
 
@@ -108,12 +108,8 @@ impl CameraStore {
         }
     }
 
-    pub fn realize_and_cache(
-        &mut self,
-        device: &Device,
-        queue: &Queue,
-    ) -> Vec<(u128, Box<dyn Error>)> {
-        let mut errors: Vec<(u128, Box<dyn Error>)> = Vec::new();
+    pub fn realize_and_cache(&mut self, device: &Device, queue: &Queue) -> Vec<Box<dyn Error>> {
+        let mut errors: Vec<Box<dyn Error>> = Vec::new();
 
         for id in self
             .queue_realizations
@@ -122,7 +118,7 @@ impl CameraStore {
             let descriptor = match self.map_descriptors.get(&id) {
                 Some(descriptor) => descriptor,
                 None => {
-                    errors.push((id, Box::new(StoreError::InvalidIndex { index: id })));
+                    errors.push(Box::new(StoreError::InvalidIndex { index: id }));
                     continue;
                 }
             };
@@ -140,10 +136,35 @@ impl CameraStore {
         &mut self,
         device: &Device,
         queue: &Queue,
-    ) -> Option<(u128, Box<dyn Error>)> {
-        // There can only be one result, if at all
-        self.flag_realization(vec![self.active_camera], true);
-        self.realize_and_cache(device, queue).pop()
+    ) -> Result<(), Box<dyn Error>> {
+        match self.active_camera {
+            None => return Err(Box::new(StoreError::NoActiveEntry)),
+            Some(active_camera_index) => {
+                // Temporarily remove all queued realizations as we want to **only** realize the active camera.
+                let mut remaining_realizations = None;
+                if !self.queue_realizations.is_empty() {
+                    let queued_realizations = std::mem::take(&mut self.queue_realizations);
+                    remaining_realizations = Some(queued_realizations);
+                }
+
+                // Flag the active camera for realization and realize it.
+                self.flag_realization(vec![active_camera_index], true);
+                let mut failed_realizations = self.realize_and_cache(device, queue);
+                // Ensure there is at most one failed realization.
+                // If this assertion fails, something else is interfering with the camera store.
+                assert!(failed_realizations.len() <= 1);
+
+                // Put back any queued realizations.
+                if let Some(queued_realizations) = remaining_realizations {
+                    self.queue_realizations = queued_realizations;
+                }
+
+                match failed_realizations.pop() {
+                    None => Ok(()),
+                    Some(e) => Err(e),
+                }
+            }
+        }
     }
 
     pub fn get_realizations(&self, ids: Vec<u128>) -> Vec<&Camera> {
@@ -159,7 +180,10 @@ impl CameraStore {
     }
 
     pub fn get_realized_active_camera(&self) -> Option<&Camera> {
-        self.get_realizations(vec![self.active_camera]).pop()
+        match self.active_camera {
+            None => None,
+            Some(active_camera_index) => self.get_realizations(vec![active_camera_index]).pop(),
+        }
     }
 
     pub fn cleanup(&mut self) {
