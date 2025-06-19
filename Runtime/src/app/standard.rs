@@ -1,4 +1,5 @@
 use crate::element::Element;
+use crate::resources::Camera;
 use crate::{
     app::{input::InputState, App, AppEvent},
     cgmath::Vector2,
@@ -152,11 +153,24 @@ impl App for StandardApp {
             self.world
                 .prepare_render(renderer.surface_texture_format(), device, queue);
 
-            let world_environment = self.world.environment_store().world_environment();
-            let models = Vec::new();
+            let (camera, world_environment, models) = self.world.retrieve_render_resources();
+            let camera = match camera {
+                Some(camera) => camera,
+                None => {
+                    warn!("No active camera found! Skipping render.");
+                    return;
+                }
+            };
 
             renderer
-                .render(target_view, world_environment, models, device, queue)
+                .render(
+                    target_view,
+                    world_environment,
+                    models,
+                    camera.camera_bind_group(),
+                    device,
+                    queue,
+                )
                 .await;
         }
     }

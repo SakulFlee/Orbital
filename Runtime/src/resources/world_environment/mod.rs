@@ -727,6 +727,7 @@ impl WorldEnvironment {
                     sampler_binding_type: SamplerBindingType::NonFiltering,
                 },
             ],
+            depth_stencil: false,
             ..Default::default()
         }
     }

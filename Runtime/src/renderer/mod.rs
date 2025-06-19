@@ -1,9 +1,9 @@
 use cgmath::{Point3, Vector2, Vector3};
 use log::debug;
 use wgpu::{
-    Color, CommandBuffer, CommandEncoder, CommandEncoderDescriptor, Device, IndexFormat, LoadOp,
-    Operations, Queue, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, TextureFormat,
-    TextureView,
+    BindGroup, Color, CommandBuffer, CommandEncoder, CommandEncoderDescriptor, Device, IndexFormat,
+    LoadOp, Operations, Queue, RenderPassColorAttachment, RenderPassDescriptor, StoreOp,
+    TextureFormat, TextureView,
 };
 
 use crate::resources::{MaterialShader, Mesh, Model, Texture, Vertex, WorldEnvironment};
@@ -52,6 +52,7 @@ impl Renderer {
         target_view: &TextureView,
         world_environment: Option<&WorldEnvironment>,
         models: Vec<&Model>,
+        camera_bind_group: &BindGroup, // TODO: Engine bind group!
         device: &Device,
         queue: &Queue,
     ) {
@@ -67,6 +68,7 @@ impl Renderer {
             self.render_skybox(
                 target_view,
                 world_environment,
+                camera_bind_group,
                 &mut command_encoder,
                 device,
                 queue,
@@ -80,6 +82,7 @@ impl Renderer {
         &self,
         target_view: &TextureView,
         world_environment: &WorldEnvironment,
+        camera_bind_group: &BindGroup, // TODO: Engine bind group!
         command_encoder: &mut CommandEncoder,
         device: &Device,
         queue: &Queue,
@@ -113,10 +116,10 @@ impl Renderer {
 
             render_pass.set_pipeline(material_shader.pipeline());
 
-            render_pass.set_bind_group(0, material_shader.bind_group(), &[]);
+            render_pass.set_bind_group(0, camera_bind_group, &[]);
+            render_pass.set_bind_group(1, material_shader.bind_group(), &[]);
 
             // render_pass.set_bind_group(1, camera.camera_bind_group(), &[]);
-
             render_pass.draw(0..3, 0..1);
         }
     }

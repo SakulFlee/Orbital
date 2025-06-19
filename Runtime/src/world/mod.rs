@@ -5,6 +5,7 @@ pub use store::*;
 use wgpu::{Device, Queue, TextureFormat};
 
 use crate::element::WorldEvent;
+use crate::resources::{Camera, Model, WorldEnvironment};
 
 pub struct World {
     model_store: ModelStore,
@@ -84,5 +85,19 @@ impl World {
         if let Err(e) = self.environment_store.realize_and_cache(device, queue) {
             panic!("Failed to realize environment: {}", e);
         }
+    }
+
+    pub fn retrieve_render_resources(
+        &self,
+    ) -> (Option<&Camera>, Option<&WorldEnvironment>, Vec<&Model>) {
+        let camera = self.camera_store.get_realized_active_camera();
+
+        let world_environment = self.environment_store.world_environment();
+
+        let bounding_boxes = self.model_store.get_bounding_boxes();
+        let ids = bounding_boxes.keys().copied().collect::<Vec<_>>();
+        let models = self.model_store.get_realizations(ids);
+
+        (camera, world_environment, models)
     }
 }
