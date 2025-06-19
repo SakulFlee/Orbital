@@ -151,7 +151,7 @@ impl CameraStore {
             .filter_map(|id| match self.cache_realizations.get(&id) {
                 Some(model) => Some(model.inner()),
                 None => {
-                    warn!("Model with id #{id} has not yet been realized! Skipping ...");
+                    warn!("Camera with id #{id} has not yet been realized! Skipping ...");
                     None
                 }
             })
