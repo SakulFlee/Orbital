@@ -65,7 +65,7 @@ impl World {
                 self.environment_store.handle_event(environment_event);
             }
             WorldEvent::Clear => {
-                self.model_store.clear();
+                self.model_store.clear(); // TODO
                 self.camera_store.clear();
                 self.environment_store.clear();
             }
