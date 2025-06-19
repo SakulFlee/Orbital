@@ -142,6 +142,16 @@ impl App for StandardApp {
             }
         }
 
+        // TODO: REMOVE
+        let model_ids = self
+            .world
+            .model_store()
+            .get_bounding_boxes()
+            .keys()
+            .copied()
+            .collect();
+        self.world.model_store().flag_realization(model_ids, false);
+
         (!app_events.is_empty()).then_some(app_events)
     }
 
