@@ -1,5 +1,6 @@
 pub mod app;
 pub mod cache;
+pub mod camera_controller;
 pub mod element;
 pub mod logging;
 pub mod macros;

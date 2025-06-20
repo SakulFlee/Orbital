@@ -9,6 +9,10 @@ use orbital::app::standard::StandardApp;
 
 mod element;
 use element::*;
+use orbital::camera_controller::{
+    CameraController, CameraControllerDescriptor, CameraControllerMovementType,
+    CameraControllerRotationType,
+};
 
 pub const NAME: &str = "Orbital-Demo-Project: SkyBox";
 
@@ -21,7 +25,14 @@ pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
     app_settings.vsync_enabled = false;
     app_settings.name = NAME.to_string();
 
-    let app = StandardApp::with_initial_elements(vec![Box::new(DebugWorldEnvironment::new())]);
+    let app = StandardApp::with_initial_elements(vec![
+        Box::new(CameraController::new(CameraControllerDescriptor {
+            movement_type: CameraControllerMovementType::Static,
+            rotation_type: CameraControllerRotationType::Locked,
+            camera_descriptor: Default::default(),
+        })),
+        Box::new(DebugWorldEnvironment::new()),
+    ]);
 
     match AppRuntime::liftoff(event_loop, app_settings, app) {
         Ok(()) => info!("Cleanly exited!"),
