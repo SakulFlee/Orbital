@@ -103,16 +103,20 @@ fn default_conversion_to_material_shader_check_vertex_stage_layouts_persistence(
 
     let mut pbr_material = PBRMaterial::default();
     pbr_material.custom_material_shader = Some(MaterialShaderDescriptor {
-        vertex_stage_layouts: vertex_stage_layouts.clone(),
+        vertex_stage_layouts: Some(vertex_stage_layouts.clone()),
         ..Default::default()
     });
 
     let material_shader: MaterialShaderDescriptor = pbr_material.into();
+    let vertex_stage_layouts_extracted = match material_shader.vertex_stage_layouts {
+        None => panic!("Vertex stage layouts missing"),
+        Some(x) => x,
+    };
     assert_eq!(
         vertex_stage_layouts.len(),
-        material_shader.vertex_stage_layouts.len()
+        vertex_stage_layouts_extracted.len()
     );
-    assert_eq!(vertex_stage_layouts, material_shader.vertex_stage_layouts);
+    assert_eq!(vertex_stage_layouts, vertex_stage_layouts_extracted);
 }
 
 #[test]

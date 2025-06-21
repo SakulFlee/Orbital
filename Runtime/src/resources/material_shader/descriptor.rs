@@ -11,7 +11,7 @@ pub struct MaterialShaderDescriptor {
     pub variables: Vec<VariableType>,
     pub entrypoint_vertex: &'static str,
     pub entrypoint_fragment: &'static str,
-    pub vertex_stage_layouts: Vec<VertexStageLayout>,
+    pub vertex_stage_layouts: Option<Vec<VertexStageLayout>>,
     pub primitive_topology: PrimitiveTopology,
     pub front_face_order: FrontFace,
     pub cull_mode: Option<Face>,
@@ -45,10 +45,10 @@ impl Default for MaterialShaderDescriptor {
             variables: Vec::new(),
             entrypoint_vertex: "entrypoint_vertex",
             entrypoint_fragment: "entrypoint_fragment",
-            vertex_stage_layouts: vec![
+            vertex_stage_layouts: Some(vec![
                 VertexStageLayout::SimpleVertexData,
                 VertexStageLayout::InstanceData,
-            ],
+            ]),
             primitive_topology: PrimitiveTopology::TriangleList,
             front_face_order: FrontFace::Ccw,
             cull_mode: Some(Face::Front),
