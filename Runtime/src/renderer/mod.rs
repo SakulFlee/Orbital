@@ -1,12 +1,10 @@
-use cgmath::{Point3, Vector2, Vector3};
-use log::debug;
+use cgmath::Vector2;
 use wgpu::{
-    BindGroup, Color, CommandBuffer, CommandEncoder, CommandEncoderDescriptor, Device, IndexFormat,
-    LoadOp, Operations, Queue, RenderPassColorAttachment, RenderPassDescriptor, StoreOp,
-    TextureFormat, TextureView,
+    BindGroup, Color, CommandEncoder, CommandEncoderDescriptor, Device, LoadOp, Operations, Queue,
+    RenderPassColorAttachment, RenderPassDescriptor, StoreOp, TextureFormat, TextureView,
 };
 
-use crate::resources::{MaterialShader, Mesh, Model, Texture, Vertex, WorldEnvironment};
+use crate::resources::{MaterialShader, Model, Texture, WorldEnvironment};
 
 pub struct Renderer {
     surface_texture_format: TextureFormat,
@@ -56,12 +54,8 @@ impl Renderer {
         device: &Device,
         queue: &Queue,
     ) {
-        debug!("RENDER");
-        debug!("World Environment: {world_environment:?}");
-        debug!("Models: {models:?}");
-
         let mut command_encoder = device.create_command_encoder(&CommandEncoderDescriptor {
-            label: Some("Test Encoder"),
+            label: Some("Orbital::Render::Encoder"),
         });
 
         if let Some(world_environment) = world_environment {
@@ -119,7 +113,6 @@ impl Renderer {
             render_pass.set_bind_group(0, camera_bind_group, &[]);
             render_pass.set_bind_group(1, material_shader.bind_group(), &[]);
 
-            // render_pass.set_bind_group(1, camera.camera_bind_group(), &[]);
             render_pass.draw(0..3, 0..1);
         }
     }
