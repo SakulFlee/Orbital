@@ -721,6 +721,7 @@ impl WorldEnvironment {
             ],
             depth_stencil: false,
             vertex_stage_layouts: None,
+            cull_mode: None,
             ..Default::default()
         }
     }
