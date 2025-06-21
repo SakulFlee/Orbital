@@ -136,13 +136,8 @@ impl ShaderPreprocessor {
         if !pattern_path.ends_with("/") {
             pattern_path.push('/');
         }
-        debug!(
-            "Folder import path canonicalized: {:?}",
-            canonicalize(&pattern_path)
-        );
 
         pattern_path += PATTERN;
-        debug!("Pattern: {:?}", pattern_path);
         for entry in glob(&pattern_path)
             .map_err(ShaderPreprocessorError::PatternError)?
             .filter_map(Result::ok)
