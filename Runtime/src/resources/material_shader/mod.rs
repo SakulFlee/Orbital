@@ -57,9 +57,16 @@ impl MaterialShader {
         let vertex_buffer_layouts = descriptor
             .vertex_stage_layouts
             .clone()
-            .into_iter()
-            .map(|x| x.vertex_buffer_layout())
-            .collect::<Vec<_>>();
+            .and_then(|vertex_stage_layouts| {
+                Some(
+                    vertex_stage_layouts
+                        .clone()
+                        .into_iter()
+                        .map(|x| x.vertex_buffer_layout())
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .unwrap_or(Vec::new());
 
         let depth_stencil = if descriptor.depth_stencil {
             Some(DepthStencilState {
