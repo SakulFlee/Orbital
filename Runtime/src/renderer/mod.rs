@@ -66,7 +66,7 @@ impl Renderer {
                 &mut command_encoder,
                 device,
                 queue,
-            )
+            );
         }
 
         queue.submit(vec![command_encoder.finish()]);
