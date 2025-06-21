@@ -673,10 +673,6 @@ impl WorldEnvironment {
             texture_view_dimension: TextureViewDimension::Cube,
             filter_mode: FilterMode::nearest(),
         };
-        debug!(
-            "self.pbr_ibl_diffuse.texture().format(): {:?}",
-            self.pbr_ibl_diffuse.texture().format()
-        );
 
         let ibl_specular_data = self.pbr_ibl_specular.read_as_binary(device, queue);
         let ibl_specular_size = self.pbr_ibl_specular.texture().size();
@@ -696,10 +692,6 @@ impl WorldEnvironment {
             texture_view_dimension: TextureViewDimension::Cube,
             filter_mode: FilterMode::nearest(),
         };
-        debug!(
-            "self.pbr_ibl_specular.texture().format(): {:?}",
-            self.pbr_ibl_specular.texture().format()
-        );
 
         (ibl_diffuse_descriptor, ibl_specular_descriptor)
     }
@@ -728,6 +720,7 @@ impl WorldEnvironment {
                 },
             ],
             depth_stencil: false,
+            vertex_stage_layouts: None,
             ..Default::default()
         }
     }
