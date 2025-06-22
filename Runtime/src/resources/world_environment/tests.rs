@@ -29,7 +29,7 @@ fn test_realization_no_mip_level_count_set() {
         specular_mip_level_count: None,
     };
 
-    let _realization = WorldEnvironment::from_descriptor(&descriptor, &device, &queue)
+    let _realization = WorldEnvironment::from_descriptor(&descriptor, None, &device, &queue)
         .expect("Failed to create realization");
 }
 
@@ -58,7 +58,7 @@ fn test_realization_some_mip_level_count_set() {
             specular_mip_level_count: Some(i),
         };
 
-        let _realization = WorldEnvironment::from_descriptor(&descriptor, &device, &queue)
+        let _realization = WorldEnvironment::from_descriptor(&descriptor, None, &device, &queue)
             .expect("Failed to create realization");
     }
 }
@@ -84,7 +84,7 @@ fn test_caching() {
         sampling_type: SamplingType::BoxBlur,
         specular_mip_level_count: None,
     };
-    let _realization = WorldEnvironment::from_descriptor(&descriptor, &device, &queue)
+    let _realization = WorldEnvironment::from_descriptor(&descriptor, None, &device, &queue)
         .expect("Failed to create realization");
 
     let cache_file =
@@ -133,7 +133,7 @@ fn test_cache_file() {
         sampling_type: SamplingType::BoxBlur,
         specular_mip_level_count: None,
     };
-    let _realization = WorldEnvironment::from_descriptor(&descriptor, &device, &queue)
+    let _realization = WorldEnvironment::from_descriptor(&descriptor, None, &device, &queue)
         .expect("Failed to create realization");
 
     let _cache_file =

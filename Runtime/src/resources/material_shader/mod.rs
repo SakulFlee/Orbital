@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::sync::OnceLock;
 
 use wgpu::{
@@ -38,7 +39,7 @@ impl MaterialShader {
         surface_format: Option<TextureFormat>,
         device: &Device,
         queue: &Queue,
-    ) -> Result<Self, ShaderError> {
+    ) -> Result<Self, Box<dyn Error>> {
         let shader_module = descriptor.shader_module(device)?;
 
         // Create a pipeline layout and bind group

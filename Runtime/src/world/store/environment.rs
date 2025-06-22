@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use log::{debug, warn};
-use wgpu::{Device, Queue};
+use wgpu::{Device, Queue, TextureFormat};
 
 use crate::{
     element::EnvironmentEvent,
@@ -29,6 +29,7 @@ impl EnvironmentStore {
 
     pub fn realize_and_cache(
         &mut self,
+        surface_format: &TextureFormat,
         device: &Device,
         queue: &Queue,
     ) -> Result<(), Box<dyn Error>> {
@@ -37,11 +38,12 @@ impl EnvironmentStore {
             None => return Ok(()),
         };
 
-        let realization = match WorldEnvironment::from_descriptor(&descriptor, device, queue) {
-            Ok(x) => x,
-            Err(e) => return Err(Box::new(e)),
-        };
-        self.world_environment = Some(realization);
+        self.world_environment = Some(WorldEnvironment::from_descriptor(
+            &descriptor,
+            Some(*surface_format),
+            device,
+            queue,
+        )?);
 
         Ok(())
     }
