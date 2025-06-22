@@ -82,7 +82,10 @@ impl World {
         self.model_store
             .realize_and_cache(surface_texture_format, device, queue);
         self.camera_store.realize_and_cache(device, queue);
-        if let Err(e) = self.environment_store.realize_and_cache(device, queue) {
+        if let Err(e) =
+            self.environment_store
+                .realize_and_cache(surface_texture_format, device, queue)
+        {
             panic!("Failed to realize environment: {}", e);
         }
     }

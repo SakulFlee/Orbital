@@ -1,11 +1,11 @@
+use cgmath::Vector2;
+use image::{GenericImageView, ImageReader};
+use log::{debug, warn};
+use std::error::Error;
 use std::{
     hash::{DefaultHasher, Hash, Hasher},
     path::PathBuf,
 };
-
-use cgmath::Vector2;
-use image::{GenericImageView, ImageReader};
-use log::{debug, warn};
 use wgpu::{
     include_wgsl,
     util::{BufferInitDescriptor, DeviceExt},
@@ -18,7 +18,7 @@ use wgpu::{
     TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
 };
 
-use crate::resources::{FilterMode, Texture, TextureSize};
+use crate::resources::{FilterMode, MaterialShader, Texture, TextureSize};
 
 mod error;
 pub use error::*;
@@ -42,8 +42,7 @@ mod tests;
 
 #[derive(Debug)]
 pub struct WorldEnvironment {
-    pbr_ibl_diffuse: Texture,
-    pbr_ibl_specular: Texture,
+    material_shader: MaterialShader,
 }
 
 impl WorldEnvironment {
@@ -152,9 +151,10 @@ impl WorldEnvironment {
 
     pub fn from_descriptor(
         descriptor: &WorldEnvironmentDescriptor,
+        surface_texture_format: Option<TextureFormat>,
         device: &Device,
         queue: &Queue,
-    ) -> Result<Self, WorldEnvironmentError> {
+    ) -> Result<Self, Box<dyn Error>> {
         let cache_file_option = Self::find_cache_file(descriptor);
 
         if let Some(ref cache_file_path) = cache_file_option {
@@ -177,10 +177,14 @@ impl WorldEnvironment {
                         pbr_ibl_specular.texture().mip_level_count()
                     );
 
-                    return Ok(Self {
+                    return Self::make_self(
                         pbr_ibl_diffuse,
                         pbr_ibl_specular,
-                    });
+                        None, // Since we just loaded the cache, we don't need to repopulate it as it exists already.
+                        surface_texture_format,
+                        device,
+                        queue,
+                    );
                 }
                 Err(e) => {
                     warn!(
@@ -191,34 +195,23 @@ impl WorldEnvironment {
             }
         }
 
-        // In case cache doesn't exist, failed to load, or the platform doesn't support caching, generate the IBL
-        let world_environment =
-            Self::from_descriptor_without_disk_cache(descriptor, device, queue)?;
-
-        // If cache is available, save the generated IBL to disk
-        if let Some(ref cache_file_path) = cache_file_option {
-            let ibl_diffuse_data = world_environment
-                .pbr_ibl_diffuse
-                .read_as_binary(device, queue);
-            let ibl_specular_data = world_environment
-                .pbr_ibl_specular
-                .read_as_binary(device, queue);
-
-            let cache_file = CacheFile {
-                ibl_diffuse_data,
-                ibl_specular_data,
-            };
-            cache_file.to_path(cache_file_path)?;
-        }
-
-        Ok(world_environment)
+        // In case the cache doesn't exist, failed to load, or the platform doesn't support caching, generate the IBL
+        Self::from_descriptor_without_disk_cache(
+            descriptor,
+            surface_texture_format,
+            cache_file_option,
+            device,
+            queue,
+        )
     }
 
     pub fn from_descriptor_without_disk_cache(
         descriptor: &WorldEnvironmentDescriptor,
+        surface_texture_format: Option<TextureFormat>,
+        cache_file: Option<PathBuf>,
         device: &Device,
         queue: &Queue,
-    ) -> Result<Self, WorldEnvironmentError> {
+    ) -> Result<Self, Box<dyn Error>> {
         match descriptor {
             WorldEnvironmentDescriptor::FromFile {
                 cube_face_size,
@@ -230,6 +223,8 @@ impl WorldEnvironment {
                 *cube_face_size,
                 sampling_type,
                 specular_mip_level_count.unwrap_or(10),
+                cache_file,
+                surface_texture_format,
                 device,
                 queue,
             ),
@@ -239,15 +234,17 @@ impl WorldEnvironment {
                 size,
                 sampling_type,
                 specular_mip_level_count,
-            } => Ok(Self::radiance_hdr_vec(
+            } => Self::radiance_hdr_vec(
                 data,
                 *size,
                 *cube_face_size,
                 sampling_type,
                 specular_mip_level_count.unwrap_or(10),
+                cache_file,
+                surface_texture_format,
                 device,
                 queue,
-            )),
+            ),
         }
     }
 
@@ -256,9 +253,11 @@ impl WorldEnvironment {
         dst_size: u32,
         sampling_type: &SamplingType,
         specular_mip_level_count: u32,
+        cache_file: Option<PathBuf>,
+        surface_texture_format: Option<TextureFormat>,
         device: &Device,
         queue: &Queue,
-    ) -> Result<Self, WorldEnvironmentError> {
+    ) -> Result<Self, Box<dyn Error>> {
         let img = ImageReader::open(file_path)
             .map_err(WorldEnvironmentError::IO)?
             .decode()
@@ -274,7 +273,7 @@ impl WorldEnvironment {
             .collect::<Vec<_>>()
             .concat();
 
-        Ok(Self::radiance_hdr_vec(
+        Self::radiance_hdr_vec(
             &data,
             Vector2 {
                 x: width,
@@ -283,9 +282,11 @@ impl WorldEnvironment {
             dst_size,
             sampling_type,
             specular_mip_level_count,
+            cache_file,
+            surface_texture_format,
             device,
             queue,
-        ))
+        )
     }
 
     pub fn radiance_hdr_vec(
@@ -294,9 +295,11 @@ impl WorldEnvironment {
         dst_size: u32,
         sampling_type: &SamplingType,
         specular_mip_level_count: u32,
+        cache_file: Option<PathBuf>,
+        surface_texture_format: Option<TextureFormat>,
         device: &Device,
         queue: &Queue,
-    ) -> Self {
+    ) -> Result<Self, Box<dyn Error>> {
         let src_texture = Texture::from_descriptors_and_data(
             &wgpu::TextureDescriptor {
                 label: Some("Equirectangular SRC"),
@@ -365,10 +368,14 @@ impl WorldEnvironment {
 
         queue.submit([encoder.finish()]);
 
-        Self {
-            pbr_ibl_diffuse: diffuse,
-            pbr_ibl_specular: specular,
-        }
+        Self::make_self(
+            diffuse,
+            specular,
+            cache_file,
+            surface_texture_format,
+            device,
+            queue,
+        )
     }
 
     fn make_ibl_diffuse(
@@ -643,21 +650,14 @@ impl WorldEnvironment {
         })
     }
 
-    pub fn pbr_ibl_diffuse(&self) -> &Texture {
-        &self.pbr_ibl_diffuse
-    }
-
-    pub fn pbr_ibl_specular(&self) -> &Texture {
-        &self.pbr_ibl_specular
-    }
-
-    pub fn into_texture_descriptors(
-        &self,
+    pub fn textures_to_texture_descriptors(
+        pbr_ibl_diffuse: Texture,
+        pbr_ibl_specular: Texture,
         device: &Device,
         queue: &Queue,
     ) -> (TextureDescriptor, TextureDescriptor) {
-        let ibl_diffuse_data = self.pbr_ibl_diffuse.read_as_binary(device, queue);
-        let ibl_diffuse_size = self.pbr_ibl_diffuse.texture().size();
+        let ibl_diffuse_data = pbr_ibl_diffuse.read_as_binary(device, queue);
+        let ibl_diffuse_size = pbr_ibl_diffuse.texture().size();
         let ibl_diffuse_descriptor = TextureDescriptor::Data {
             pixels: ibl_diffuse_data,
             size: TextureSize {
@@ -665,17 +665,17 @@ impl WorldEnvironment {
                 height: ibl_diffuse_size.height,
                 depth_or_array_layers: ibl_diffuse_size.depth_or_array_layers,
                 base_mip: 0,
-                mip_levels: self.pbr_ibl_diffuse.texture().mip_level_count(),
+                mip_levels: pbr_ibl_diffuse.texture().mip_level_count(),
             },
             usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
-            format: self.pbr_ibl_diffuse.texture().format(),
+            format: pbr_ibl_diffuse.texture().format(),
             texture_dimension: TextureDimension::D2,
             texture_view_dimension: TextureViewDimension::Cube,
             filter_mode: FilterMode::nearest(),
         };
 
-        let ibl_specular_data = self.pbr_ibl_specular.read_as_binary(device, queue);
-        let ibl_specular_size = self.pbr_ibl_specular.texture().size();
+        let ibl_specular_data = pbr_ibl_specular.read_as_binary(device, queue);
+        let ibl_specular_size = pbr_ibl_specular.texture().size();
         let ibl_specular_descriptor = TextureDescriptor::Data {
             pixels: ibl_specular_data,
             size: TextureSize {
@@ -683,10 +683,10 @@ impl WorldEnvironment {
                 height: ibl_specular_size.height,
                 depth_or_array_layers: ibl_specular_size.depth_or_array_layers,
                 base_mip: 0,
-                mip_levels: self.pbr_ibl_specular.texture().mip_level_count(),
+                mip_levels: pbr_ibl_specular.texture().mip_level_count(),
             },
             usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
-            format: self.pbr_ibl_specular.texture().format(),
+            format: pbr_ibl_specular.texture().format(),
 
             texture_dimension: TextureDimension::D2,
             texture_view_dimension: TextureViewDimension::Cube,
@@ -696,13 +696,19 @@ impl WorldEnvironment {
         (ibl_diffuse_descriptor, ibl_specular_descriptor)
     }
 
-    pub fn into_material_shader_descriptor(
-        &self,
+    pub fn make_material_shader_descriptor(
+        ibl_diffuse_texture: Texture,
+        ibl_specular_texture: Texture,
         device: &Device,
         queue: &Queue,
     ) -> MaterialShaderDescriptor {
         let (ibl_diffuse_descriptor, ibl_specular_descriptor) =
-            self.into_texture_descriptors(device, queue);
+            Self::textures_to_texture_descriptors(
+                ibl_diffuse_texture,
+                ibl_specular_texture,
+                device,
+                queue,
+            );
 
         MaterialShaderDescriptor {
             name: Some(String::from("WorldEnvironment MaterialShader")),
@@ -724,5 +730,58 @@ impl WorldEnvironment {
             cull_mode: None,
             ..Default::default()
         }
+    }
+
+    pub fn make_material_shader(
+        ibl_diffuse_texture: Texture,
+        ibl_specular_texture: Texture,
+        surface_texture_format: Option<TextureFormat>,
+        device: &Device,
+        queue: &Queue,
+    ) -> Result<MaterialShader, Box<dyn Error>> {
+        let descriptor = Self::make_material_shader_descriptor(
+            ibl_diffuse_texture,
+            ibl_specular_texture,
+            device,
+            queue,
+        );
+        let realization: Result<MaterialShader, Box<dyn Error>> =
+            MaterialShader::from_descriptor(&descriptor, surface_texture_format, device, queue);
+
+        realization
+    }
+
+    pub fn make_self(
+        ibl_diffuse_texture: Texture,
+        ibl_specular_texture: Texture,
+        cache_file: Option<PathBuf>,
+        surface_texture_format: Option<TextureFormat>,
+        device: &Device,
+        queue: &Queue,
+    ) -> Result<Self, Box<dyn Error>> {
+        // If cache is available, save the generated IBL to disk
+        if let Some(ref cache_file_path) = cache_file {
+            let ibl_diffuse_data = ibl_diffuse_texture.read_as_binary(device, queue);
+            let ibl_specular_data = ibl_specular_texture.read_as_binary(device, queue);
+
+            let cache_file = CacheFile {
+                ibl_diffuse_data,
+                ibl_specular_data,
+            };
+            cache_file.to_path(cache_file_path)?;
+        }
+
+        let material_shader = Self::make_material_shader(
+            ibl_diffuse_texture,
+            ibl_specular_texture,
+            surface_texture_format,
+            device,
+            queue,
+        )?;
+        Ok(Self { material_shader })
+    }
+
+    pub fn material_shader(&self) -> &MaterialShader {
+        &self.material_shader
     }
 }

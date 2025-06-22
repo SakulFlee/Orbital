@@ -4,7 +4,7 @@ use wgpu::{
     RenderPassColorAttachment, RenderPassDescriptor, StoreOp, TextureFormat, TextureView,
 };
 
-use crate::resources::{MaterialShader, Model, Texture, WorldEnvironment};
+use crate::resources::{Model, Texture, WorldEnvironment};
 
 pub struct Renderer {
     surface_texture_format: TextureFormat,
@@ -81,15 +81,7 @@ impl Renderer {
         device: &Device,
         queue: &Queue,
     ) {
-        let material_shader_descriptor =
-            world_environment.into_material_shader_descriptor(device, queue);
-        let material_shader = MaterialShader::from_descriptor(
-            &material_shader_descriptor,
-            Some(self.surface_texture_format),
-            device,
-            queue,
-        )
-        .expect("Failed to create MaterialShader!");
+        let material_shader = world_environment.material_shader();
 
         // Scope to drop RenderPass once done
         {
