@@ -5,7 +5,7 @@ use orbital::resources::WorldEnvironmentDescriptor;
 use orbital::{
     app::input::{InputButton, InputState},
     async_trait::async_trait,
-    element::{Element, ElementRegistration, Event, Message, WorldEvent},
+    element::{Element, ElementRegistration, Event, WorldEvent},
     winit::keyboard::{KeyCode, PhysicalKey},
 };
 
@@ -89,7 +89,6 @@ impl Element for DebugWorldEnvironment {
         &mut self,
         _delta_time: f64,
         input_state: &InputState,
-        _messages: Option<Vec<Message>>,
     ) -> Option<Vec<Event>> {
         if self.last_trigger.elapsed().as_secs() < 1 {
             return None;
