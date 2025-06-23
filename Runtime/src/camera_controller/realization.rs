@@ -1,4 +1,5 @@
 use crate::app::input::{InputAxis, InputState};
+use crate::app::AppEvent;
 use crate::camera_controller::{
     CameraControllerDescriptor, CameraControllerMouseInputMode, CameraControllerMouseInputType,
     CameraControllerMovementType, CameraControllerRotationType,
@@ -125,12 +126,32 @@ impl CameraController {
 #[async_trait]
 impl Element for CameraController {
     fn on_registration(&self) -> ElementRegistration {
-        ElementRegistration::new(self.camera_label()).with_initial_world_changes(vec![
-            Event::World(WorldEvent::Camera(CameraEvent::Spawn(
-                self.descriptor.camera_descriptor.clone(),
-            ))),
-            Event::World(WorldEvent::Camera(CameraEvent::Target(self.camera_label()))),
-        ])
+        let mut registration = ElementRegistration::new(self.camera_label())
+            .with_initial_world_changes(vec![
+                Event::World(WorldEvent::Camera(CameraEvent::Spawn(
+                    self.descriptor.camera_descriptor.clone(),
+                ))),
+                Event::World(WorldEvent::Camera(CameraEvent::Target(self.camera_label()))),
+            ]);
+
+        if let CameraControllerRotationType::Free { mouse_input, .. } =
+            &self.descriptor.rotation_type
+        {
+            if let Some(input_mode) = mouse_input {
+                if input_mode.grab_cursor {
+                    registration = registration
+                        .with_initial_world_change(Event::App(AppEvent::ChangeCursorGrabbed(true)));
+                }
+
+                if input_mode.hide_cursor {
+                    registration = registration.with_initial_world_change(Event::App(
+                        AppEvent::ChangeCursorVisible(false),
+                    ));
+                }
+            }
+        }
+
+        registration
     }
 
     async fn on_update(&mut self, delta_time: f64, input_state: &InputState) -> Option<Vec<Event>> {
