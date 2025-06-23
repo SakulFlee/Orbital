@@ -4,9 +4,6 @@
 pub enum Origin {
     /// Used if a message originates from the app.
     App,
-    System,
     /// Used if a message originates from an element.
-    Element {
-        label: String,
-    },
+    Element { label: String },
 }
