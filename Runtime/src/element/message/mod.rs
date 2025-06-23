@@ -10,13 +10,13 @@ pub use variant::*;
 #[derive(Debug)]
 pub struct Message {
     from: String,
-    to: Target,
+    to: Origin,
     creation_instant: Instant,
     content: HashMap<String, Variant>,
 }
 
 impl Message {
-    pub fn new_from_message(from: String, to: Target, content: HashMap<String, Variant>) -> Self {
+    pub fn new_from_message(from: String, to: Origin, content: HashMap<String, Variant>) -> Self {
         Self {
             from,
             to,
@@ -25,7 +25,7 @@ impl Message {
         }
     }
 
-    pub fn new(from: String, to: Target) -> Self {
+    pub fn new(from: String, to: Origin) -> Self {
         Self {
             from,
             to,
@@ -46,7 +46,7 @@ impl Message {
         &self.from
     }
 
-    pub fn to(&self) -> &Target {
+    pub fn to(&self) -> &Origin {
         &self.to
     }
 

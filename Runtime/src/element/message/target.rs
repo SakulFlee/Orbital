@@ -1,5 +1,5 @@
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub enum Target {
+pub enum Origin {
     App,
     Element { label: String },
 }

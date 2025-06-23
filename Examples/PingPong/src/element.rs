@@ -2,7 +2,7 @@ use orbital::logging::{debug, error, info, warn};
 use orbital::{
     app::input::InputState,
     async_trait::async_trait,
-    element::{Element, ElementEvent, ElementRegistration, Event, Message, Target, Variant},
+    element::{Element, ElementEvent, ElementRegistration, Event, Message, Origin, Variant},
 };
 
 #[derive(Debug)]
@@ -25,7 +25,7 @@ impl PingPongElement {
             } else {
                 Self::LABEL_PONG.to_string()
             },
-            Target::Element {
+            Origin::Element {
                 label: if self.is_ping {
                     Self::LABEL_PONG.to_string()
                 } else {
