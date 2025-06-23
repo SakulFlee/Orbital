@@ -5,5 +5,5 @@ pub enum CameraEvent {
     Spawn(CameraDescriptor),
     Despawn(String),
     Target(String),
-    Transform(String, CameraTransform),
+    Transform(CameraTransform),
 }
