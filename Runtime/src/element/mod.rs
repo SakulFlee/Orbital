@@ -1,8 +1,8 @@
-use std::fmt::Debug;
-
-use async_trait::async_trait;
-
 use crate::app::input::InputState;
+use async_trait::async_trait;
+use log::info;
+use std::fmt::Debug;
+use std::sync::Arc;
 
 pub mod registration;
 pub use registration::*;
@@ -113,11 +113,18 @@ pub use event::*;
 pub trait Element: Debug + Send {
     fn on_registration(&self) -> ElementRegistration;
 
+    async fn on_message(&mut self, message: &Arc<Message>) -> Option<Vec<Event>> {
+        if let Target::Element { .. } = message.to() {
+            info!("Received message that isn't handled: {:?}", message);
+        }
+
+        None
+    }
+
     async fn on_update(
         &mut self,
         _delta_time: f64,
         _input_state: &InputState,
-        _messages: Option<Vec<Message>>,
     ) -> Option<Vec<Event>> {
         None
     }

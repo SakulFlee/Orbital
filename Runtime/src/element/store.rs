@@ -1,14 +1,18 @@
+use std::error::Error;
+use std::future::Future;
+use std::sync::Arc;
 use std::time::Instant;
 
-use futures::{stream::FuturesUnordered, StreamExt};
-use hashbrown::HashMap;
-use log::{error, warn};
-
-use super::{ElementEvent, Event};
+use super::{ElementEvent, Event, Target};
 use crate::{
     app::input::InputState,
     element::{Element, Message, Origin},
 };
+use futures::future::{join_all, JoinAll};
+use futures::{stream::FuturesUnordered, StreamExt};
+use hashbrown::HashMap;
+use log::{error, warn};
+use winit::event_loop::DeviceEvents;
 
 type ElementIndexType = u64;
 
@@ -20,7 +24,7 @@ where
     element_map: HashMap<ElementIndexType, Box<dyn Element + Send + Sync>>,
     cursor_index: ElementIndexType,
     label_map: HashMap<String, ElementIndexType>,
-    message_queue: HashMap<String, Vec<Message>>,
+    message_queue: HashMap<ElementIndexType, Vec<Arc<Message>>>,
 }
 
 impl Default for ElementStore {
@@ -52,6 +56,7 @@ impl ElementStore {
         let next_cursor_index = self.cursor_index + 1;
         self.cursor_index = next_cursor_index;
         self.element_map.insert(next_cursor_index, element);
+        self.message_queue.insert(next_cursor_index, Vec::new());
 
         // Reserve capacity for better performance with large label vectors
         self.label_map.reserve(labels.len());
@@ -63,21 +68,34 @@ impl ElementStore {
     pub fn remove_element(&mut self, element_label: &str) {
         if let Some(element_id) = self.label_map.get(element_label).cloned() {
             self.element_map.remove(&element_id);
+            self.message_queue.remove(&element_id);
 
             self.label_map.retain(|_, v| element_id.eq(v));
         }
     }
 
     pub fn queue_message(&mut self, message: Message) {
-        let label = match message.to() {
-            Origin::Element { label } => label.clone(),
-            Origin::App => {
-                error!("Attempted queueing message in ElementStore with target 'App'. This is not allowed!");
-                return;
-            }
+        let labels = match message.to() {
+            Target::Broadcast => self.label_map.keys().cloned().collect(),
+            Target::Element { labels } => labels.to_owned(),
         };
 
-        self.message_queue.entry(label).or_default().push(message);
+        let arc = Arc::new(message);
+        for label in labels {
+            let idx = match self.label_to_index(&label) {
+                None => {
+                    warn!("Trying to queue message {arc:#?} but couldn't find element with label '{label}'!");
+                    continue;
+                }
+                Some(label) => label,
+            };
+
+            let messages = self
+                .message_queue
+                .get_mut(&idx)
+                .expect("Element must have a message queue!");
+            messages.push(arc.clone());
+        }
     }
 
     pub async fn process_events(&mut self, events: Vec<ElementEvent>) -> Vec<Event> {
@@ -108,66 +126,44 @@ impl ElementStore {
 
         result_events
     }
-    pub async fn update(&mut self, delta_time: f64, input_state: &InputState) -> Vec<Event> {
-        // Draining here will remove the messages from the queue so we don't need to clean/clear after!
-        let mut messages = self.message_queue.drain().collect::<HashMap<_, _>>();
 
-        let x = self
-            .element_map
-            .iter_mut()
-            // Loop over each element and retrieve its label
-            .map(|(element_id, element)| {
-                (
-                    self.label_map
-                        .iter()
-                        .filter_map(|(label, id)| if element_id == id { Some(label) } else { None })
-                        .collect::<Vec<_>>(),
-                    element,
-                )
-            })
-            // For each element label, retrieve messages from the queue
-            .map(|(label, element)| {
-                let messages = label
-                    .into_iter()
-                    .filter_map(|label| messages.remove(label))
-                    .flatten()
-                    .collect::<Vec<_>>();
+    async fn send_messages(&mut self) -> Vec<Event> {
+        let messages = std::mem::take(&mut self.message_queue);
+        let mut events = Vec::new();
 
-                let messages_option = if messages.is_empty() {
-                    None
-                } else {
-                    Some(messages)
-                };
-
-                // Call the update function or without messages
-                element.on_update(delta_time, input_state, messages_option)
-            })
-            // Await all futures
-            .collect::<FuturesUnordered<_>>()
-            .filter_map(|changes| async move { changes })
-            .flat_map(futures::stream::iter)
-            .collect()
-            .await;
-
-        if !messages.is_empty() {
-            let now = Instant::now();
-            messages
-                .values_mut()
-                .for_each(|messages| {
-                    messages.retain(|message| {
-                        if message.creation_instant().duration_since(now).as_secs() >= Self::MAX_TIME_IN_SECONDS {
-                            warn!("Message has exceeded the maximum time of {} seconds. Removing message: '{:?}'", Self::MAX_TIME_IN_SECONDS, message);
-                            return false;
+        for (element_id, messages) in messages {
+            match self.element_map.get_mut(&element_id) {
+                None => {
+                    warn!("Got a message in queue that is supposed to be send to element with ID #{element_id}, but element does not exist! Messages to be dropped: {messages:#?}");
+                    continue;
+                }
+                Some(element) => {
+                    for message in messages {
+                        if let Some(new_events) = element.on_message(&message).await {
+                            events.extend(new_events);
                         }
-
-                        true
-                    });
-                });
-
-            self.message_queue.extend(messages);
+                    }
+                }
+            }
         }
 
-        x
+        events
+    }
+
+    pub async fn update(&mut self, delta_time: f64, input_state: &InputState) -> Vec<Event> {
+        let mut events = self.send_messages().await;
+
+        let futures: Vec<_> = self
+            .element_map
+            .iter_mut()
+            .map(|(_, x)| x.on_update(delta_time, input_state))
+            .collect();
+
+        let future_results = join_all(futures).await;
+        let new_events: Vec<Event> = future_results.into_iter().flatten().flatten().collect();
+        events.extend(new_events);
+
+        events
     }
 
     pub fn add_label(&mut self, element_label: &str, new_labels: Vec<String>) {

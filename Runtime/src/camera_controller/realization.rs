@@ -133,12 +133,7 @@ impl Element for CameraController {
         ])
     }
 
-    async fn on_update(
-        &mut self,
-        delta_time: f64,
-        input_state: &InputState,
-        _messages: Option<Vec<Message>>,
-    ) -> Option<Vec<Event>> {
+    async fn on_update(&mut self, delta_time: f64, input_state: &InputState) -> Option<Vec<Event>> {
         self.update_camera(delta_time, input_state).map(|x| vec![x])
     }
 }
