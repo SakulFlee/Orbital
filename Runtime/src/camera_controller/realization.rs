@@ -158,5 +158,3 @@ impl Element for CameraController {
         self.update_camera(delta_time, input_state).map(|x| vec![x])
     }
 }
-
-// TODO: Make settings like grabbing cursor changable somehow?
