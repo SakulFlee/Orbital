@@ -1,4 +1,4 @@
-use crate::element::Element;
+use crate::element::{Element, Message};
 use crate::resources::Camera;
 use crate::{
     app::{input::InputState, App, AppEvent},

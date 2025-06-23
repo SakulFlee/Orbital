@@ -212,8 +212,9 @@ impl CameraStore {
                     None => warn!("Attempting to target Camera with label '{label}', but Descriptor does not exist!"),
                 }
             },
-            CameraEvent::Transform(label, camera_transform) => {
-                let id = match self.label_to_id(&label) {
+            CameraEvent::Transform(camera_transform) => {
+                let label = &camera_transform.label;
+                let id = match self.label_to_id(label) {
                     Some(x) => x,
                     None => {
                         warn!("Attempting to transform Camera with label '{label}', but label cannot be found!");

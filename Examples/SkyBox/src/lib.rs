@@ -10,8 +10,8 @@ use orbital::app::standard::StandardApp;
 mod element;
 use element::*;
 use orbital::camera_controller::{
-    CameraController, CameraControllerDescriptor, CameraControllerMovementType,
-    CameraControllerRotationType,
+    CameraController, CameraControllerDescriptor, CameraControllerMouseInputMode,
+    CameraControllerMouseInputType, CameraControllerMovementType, CameraControllerRotationType,
 };
 
 pub const NAME: &str = "Orbital-Demo-Project: SkyBox";
@@ -28,7 +28,17 @@ pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
     let app = StandardApp::with_initial_elements(vec![
         Box::new(CameraController::new(CameraControllerDescriptor {
             movement_type: CameraControllerMovementType::Static,
-            rotation_type: CameraControllerRotationType::Locked,
+            rotation_type: CameraControllerRotationType::Free {
+                mouse_input: Some(CameraControllerMouseInputMode {
+                    input_type: CameraControllerMouseInputType::Always,
+                    sensitivity: 2.0,
+                    grab_cursor: true,
+                    hide_cursor: true,
+                }),
+                axis_input: None,
+                button_input: None,
+                ignore_pitch_for_forward_movement: false,
+            },
             camera_descriptor: Default::default(),
         })),
         Box::new(DebugWorldEnvironment::new()),

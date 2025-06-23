@@ -1,7 +1,13 @@
-use crate::app::input::InputState;
-use crate::camera_controller::CameraControllerDescriptor;
+use crate::app::input::{InputAxis, InputState};
+use crate::camera_controller::{
+    CameraControllerDescriptor, CameraControllerMouseInputMode, CameraControllerMouseInputType,
+    CameraControllerMovementType, CameraControllerRotationType,
+};
 use crate::element::{CameraEvent, Element, ElementRegistration, Event, Message, WorldEvent};
+use crate::resources::{CameraTransform, Mode};
 use async_trait::async_trait;
+use cgmath::Zero;
+use log::debug;
 
 #[derive(Debug)]
 pub struct CameraController {
@@ -23,6 +29,97 @@ impl CameraController {
     pub fn camera_label(&self) -> String {
         self.descriptor.camera_descriptor.label.clone()
     }
+
+    fn update_camera(&mut self, delta_time: f64, input_state: &InputState) -> Option<Event> {
+        let mut transform = CameraTransform {
+            label: self.camera_label(),
+            position: None,
+            pitch: None,
+            yaw: None,
+        };
+
+        match &self.descriptor.movement_type {
+            CameraControllerMovementType::Input { .. } => {}
+            CameraControllerMovementType::Following { .. } => {
+                todo!("Following mode isn't supported yet!");
+            }
+            CameraControllerMovementType::Static => {
+                // Nothing here as this means there won't be any automatic movement!
+            }
+        }
+
+        self.handle_rotation(delta_time, &mut transform, input_state);
+
+        if transform.is_introducing_change() {
+            Some(Event::World(WorldEvent::Camera(CameraEvent::Transform(
+                transform,
+            ))))
+        } else {
+            None
+        }
+    }
+
+    fn handle_rotation(
+        &self,
+        delta_time: f64,
+        transform: &mut CameraTransform,
+        input_state: &InputState,
+    ) {
+        match &self.descriptor.rotation_type {
+            CameraControllerRotationType::Free {
+                mouse_input,
+                axis_input,
+                button_input,
+                ignore_pitch_for_forward_movement,
+            } => {
+                if let Some(x) = mouse_input {
+                    if x.input_type.is_triggering(input_state) {
+                        self.apply_mouse_view(
+                            transform,
+                            delta_time,
+                            input_state,
+                            *ignore_pitch_for_forward_movement,
+                            x.sensitivity,
+                        );
+                    }
+                }
+            }
+            CameraControllerRotationType::Locked => {
+                // Nothing here as this means there won't be any automatic rotation!
+            }
+        }
+    }
+
+    fn apply_mouse_view(
+        &self,
+        transform: &mut CameraTransform,
+        delta_time: f64,
+        input_state: &InputState,
+        ignore_pitch: bool,
+        sensitivity: f32,
+    ) {
+        if let Some((_, view_vector)) = input_state.delta_state_any(&InputAxis::MouseMovement) {
+            if !view_vector.is_zero() {
+                debug!("View Vector: {:?}", view_vector);
+
+                if ignore_pitch {
+                    transform.pitch = Some(Mode::OffsetViewAlignedWithY(
+                        ((view_vector.x * delta_time) as f32) * sensitivity,
+                    ));
+                    transform.yaw = Some(Mode::OffsetViewAlignedWithY(
+                        ((view_vector.y * delta_time) as f32) * sensitivity,
+                    ));
+                } else {
+                    transform.pitch = (Some(Mode::OffsetViewAligned(
+                        (view_vector.x * delta_time) as f32 * sensitivity,
+                    )));
+                    transform.yaw = (Some(Mode::OffsetViewAligned(
+                        (view_vector.y * delta_time) as f32 * sensitivity,
+                    )));
+                }
+            }
+        }
+    }
 }
 
 #[async_trait]
@@ -38,10 +135,12 @@ impl Element for CameraController {
 
     async fn on_update(
         &mut self,
-        _delta_time: f64,
-        _input_state: &InputState,
+        delta_time: f64,
+        input_state: &InputState,
         _messages: Option<Vec<Message>>,
     ) -> Option<Vec<Event>> {
-        None
+        self.update_camera(delta_time, input_state).map(|x| vec![x])
     }
 }
+
+// TODO: Make settings like grabbing cursor changable somehow?
