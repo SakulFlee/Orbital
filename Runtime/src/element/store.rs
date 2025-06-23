@@ -7,7 +7,7 @@ use log::{error, warn};
 use super::{ElementEvent, Event};
 use crate::{
     app::input::InputState,
-    element::{Element, Message, Target},
+    element::{Element, Message, Origin},
 };
 
 type ElementIndexType = u64;
@@ -70,8 +70,8 @@ impl ElementStore {
 
     pub fn queue_message(&mut self, message: Message) {
         let label = match message.to() {
-            Target::Element { label } => label.clone(),
-            Target::App => {
+            Origin::Element { label } => label.clone(),
+            Origin::App => {
                 error!("Attempted queueing message in ElementStore with target 'App'. This is not allowed!");
                 return;
             }
