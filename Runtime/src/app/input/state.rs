@@ -265,6 +265,24 @@ impl InputState {
             .and_then(|(input_id, state)| state.get(input_axis).map(|delta| (*input_id, *delta)))
     }
 
+    pub fn delta_state_any_normalized(
+        &self,
+        input_axis: &InputAxis,
+        window_size: Vector2<u32>,
+    ) -> Option<(InputId, Vector2<f64>)> {
+        if let Some((id, delta_state)) = self.delta_state_any(input_axis) {
+            let half_width = window_size.x as f64 / 2.0;
+            let half_height = window_size.y as f64 / 2.0;
+
+            let delta_normalized_x = delta_state.x / half_width;
+            let delta_normalized_y = delta_state.y / half_height;
+
+            return Some((id, Vector2::new(delta_normalized_x, delta_normalized_y)));
+        }
+
+        None
+    }
+
     pub fn delta_state_all(&self, input_axis: &InputAxis) -> Vec<(InputId, Vector2<f64>)> {
         self.delta_states
             .iter()
