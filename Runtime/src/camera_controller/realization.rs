@@ -4,20 +4,27 @@ use crate::camera_controller::{
     CameraControllerDescriptor, CameraControllerMouseInputMode, CameraControllerMouseInputType,
     CameraControllerMovementType, CameraControllerRotationType,
 };
-use crate::element::{CameraEvent, Element, ElementRegistration, Event, Message, WorldEvent};
+use crate::element::{
+    CameraEvent, Element, ElementRegistration, Event, Message, Variant, WorldEvent,
+};
 use crate::resources::{CameraTransform, Mode};
 use async_trait::async_trait;
-use cgmath::Zero;
-use log::debug;
+use cgmath::{Vector2, Zero};
+use log::{debug, warn};
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct CameraController {
     descriptor: CameraControllerDescriptor,
+    resolution: Option<Vector2<u32>>,
 }
 
 impl CameraController {
     pub fn new(descriptor: CameraControllerDescriptor) -> Self {
-        Self { descriptor }
+        Self {
+            descriptor,
+            resolution: None,
+        }
     }
 
     pub fn controller_label(&self) -> String {
@@ -99,10 +106,16 @@ impl CameraController {
         ignore_pitch: bool,
         sensitivity: f32,
     ) {
-        if let Some((_, view_vector)) = input_state.delta_state_any(&InputAxis::MouseMovement) {
+        let resolution = if let Some(resolution) = self.resolution {
+            resolution
+        } else {
+            warn!("No resolution set! Using default");
+            Vector2::new(1, 1)
+        };
+        if let Some((_, view_vector)) =
+            input_state.delta_state_any_normalized(&InputAxis::MouseMovement, resolution)
+        {
             if !view_vector.is_zero() {
-                debug!("View Vector: {:?}", view_vector);
-
                 if ignore_pitch {
                     transform.pitch = Some(Mode::OffsetViewAlignedWithY(
                         ((view_vector.x * delta_time) as f32) * sensitivity,
@@ -152,6 +165,26 @@ impl Element for CameraController {
         }
 
         registration
+    }
+
+    async fn on_message(&mut self, message: &Arc<Message>) -> Option<Vec<Event>> {
+        if let Some(Variant::String(type_string)) = message.content().get("Type") {
+            if type_string == "WindowResize" {
+                if let Some(Variant::U32(width)) = message.content().get("Width") {
+                    if let Some(Variant::U32(height)) = message.content().get("Height") {
+                        let resolution = Vector2::new(*width, *height);
+                        self.resolution = Some(resolution);
+
+                        return None;
+                    }
+                }
+            }
+        }
+
+        #[cfg(debug_assertions)]
+        warn!("Received unknown message: {:#?}", message);
+
+        None
     }
 
     async fn on_update(&mut self, delta_time: f64, input_state: &InputState) -> Option<Vec<Event>> {
