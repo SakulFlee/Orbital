@@ -80,6 +80,10 @@ impl CameraController {
                 button_input,
                 ignore_pitch_for_forward_movement,
             } => {
+                // TODO: Delta input
+                // TODO: Button input
+                // NOTE: Each input type is handled separately, but should be exclusive.
+                //       I.e. Delta over buttons over mouse!
                 if let Some(x) = mouse_input {
                     if x.input_type.is_triggering(input_state) {
                         self.apply_mouse_view(
