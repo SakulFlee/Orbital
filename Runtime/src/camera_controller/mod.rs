@@ -4,6 +4,9 @@ pub use descriptor::*;
 mod movement_type;
 pub use movement_type::*;
 
+mod button_axis;
+pub use button_axis::*;
+
 mod rotation_type;
 pub use rotation_type::*;
 
