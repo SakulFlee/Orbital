@@ -31,7 +31,7 @@ pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
             rotation_type: CameraControllerRotationType::Free {
                 mouse_input: Some(CameraControllerMouseInputMode {
                     input_type: CameraControllerMouseInputType::Always,
-                    sensitivity: 100.0,
+                    sensitivity: 1.0,
                     grab_cursor: true,
                     hide_cursor: true,
                 }),
