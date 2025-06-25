@@ -1,25 +1,31 @@
 use crate::app::input::{InputAxis, InputButton};
-use crate::or::Or;
+use crate::camera_controller::ButtonAxis;
 use cgmath::Vector3;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum CameraControllerMovementType {
     /// Directly listens for inputs and moves the camera accordingly.
     Input {
-        /// Buttons to move forward.
-        move_forward: Option<Vec<Or<InputButton, InputAxis>>>,
-        /// Buttons to move backward.
-        move_backward: Option<Vec<Or<InputButton, InputAxis>>>,
-        /// Buttons to move left.
-        move_left: Option<Vec<Or<InputButton, InputAxis>>>,
-        /// Buttons to move right.
-        move_right: Option<Vec<Or<InputButton, InputAxis>>>,
-        /// Buttons to move up.
-        move_up: Option<Vec<Or<InputButton, InputAxis>>>,
-        /// Buttons to move down.
-        move_down: Option<Vec<Or<InputButton, InputAxis>>>,
+        /// Axis for movement
+        axis: Option<InputAxis>,
+        /// Button axis for movement
+        button_axis: Option<Vec<ButtonAxis>>,
+        /// Button to move up
+        button_up: Option<InputButton>,
+        /// Button to move down
+        button_down: Option<InputButton>,
         /// Speed that the camera moves at.
         speed: f32,
+        /// If true, the camera will ignore the pitch when moving forward.
+        /// Meaning, only the yaw value will be used to determine where "forward" is.
+        /// If false, the camera will take pitch into consideration.
+        ///
+        /// In most cases you want this set to true so that the forward vector doesn't move the
+        /// camera up and down.
+        /// However, there are some exceptions like, for example, _"creative flight"_, _free flight_,
+        /// diving/swimming or space.
+        /// TODO: Check if it's actually pitch and not yaw
+        ignore_pitch_for_forward_movement: bool,
     },
     /// Follows an entity with a given offset.
     Following {

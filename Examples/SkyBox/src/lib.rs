@@ -9,10 +9,12 @@ use orbital::app::standard::StandardApp;
 
 mod element;
 use element::*;
+use orbital::app::input::{InputAxis, InputButton};
 use orbital::camera_controller::{
-    CameraController, CameraControllerDescriptor, CameraControllerMouseInputMode,
+    ButtonAxis, CameraController, CameraControllerDescriptor, CameraControllerMouseInputMode,
     CameraControllerMouseInputType, CameraControllerMovementType, CameraControllerRotationType,
 };
+use orbital::winit::keyboard::{KeyCode, PhysicalKey};
 
 pub const NAME: &str = "Orbital-Demo-Project: SkyBox";
 
@@ -27,7 +29,19 @@ pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
 
     let app = StandardApp::with_initial_elements(vec![
         Box::new(CameraController::new(CameraControllerDescriptor {
-            movement_type: CameraControllerMovementType::Static,
+            movement_type: CameraControllerMovementType::Input {
+                axis: Some(InputAxis::GamepadLeftStick),
+                button_axis: Some(vec![ButtonAxis {
+                    forward: InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyW)),
+                    backward: InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyS)),
+                    left: InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyA)),
+                    right: InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyD)),
+                }]),
+                button_up: Some(InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyE))),
+                button_down: Some(InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyQ))),
+                speed: 1.0,
+                ignore_pitch_for_forward_movement: true,
+            },
             rotation_type: CameraControllerRotationType::Free {
                 mouse_input: Some(CameraControllerMouseInputMode {
                     input_type: CameraControllerMouseInputType::Always,
@@ -37,7 +51,6 @@ pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
                 }),
                 axis_input: None,
                 button_input: None,
-                ignore_pitch_for_forward_movement: false,
             },
             camera_descriptor: Default::default(),
         })),
