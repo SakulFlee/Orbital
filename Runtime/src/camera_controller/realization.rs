@@ -8,7 +8,6 @@ use crate::element::{CameraEvent, Element, ElementRegistration, Event, Message, 
 use crate::resources::{CameraTransform, Mode};
 use async_trait::async_trait;
 use cgmath::{Vector2, Vector3, Zero};
-use log::debug;
 use std::sync::Arc;
 
 #[derive(Debug)]
@@ -124,8 +123,6 @@ impl CameraController {
                 // Nothing here as this means there won't be any automatic movement!
             }
         }
-
-        debug!("{:?}", transform.position);
     }
 
     fn read_button_axis(&self, axis: &ButtonAxis, input_state: &InputState) -> Vector2<f64> {
