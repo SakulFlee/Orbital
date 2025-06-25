@@ -1,6 +1,8 @@
 use cgmath::{Vector2, Zero};
 use gilrs::Axis;
 use hashbrown::HashMap;
+use log::warn;
+use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, MouseScrollDelta};
 
 use super::{InputAxis, InputButton, InputEvent, InputId};
@@ -10,6 +12,7 @@ pub struct InputState {
     button_states: HashMap<InputId, HashMap<InputButton, bool>>,
     delta_states: HashMap<InputId, HashMap<InputAxis, Vector2<f64>>>,
     mouse_cursor_position_state: Vector2<f64>,
+    surface_size: Option<Vector2<u64>>,
 }
 
 impl Default for InputState {
@@ -24,6 +27,7 @@ impl InputState {
             button_states: HashMap::new(),
             delta_states: HashMap::new(),
             mouse_cursor_position_state: Vector2::zero(),
+            surface_size: None,
         }
     }
 
@@ -161,12 +165,24 @@ impl InputState {
             // In Winit + Gil "up and down" is X and "left and right" is Y.
             // Additionally, the mouse wheel delta for "up" is inverted, so we need to invert that as well.
             // Gamepad inputs will also be clamped to not allow cheating.
-            let flipped_delta =
-                if InputAxis::MouseMovement.eq(&axis) || InputAxis::MouseScrollWheel.eq(&axis) {
-                    Vector2::new(-delta.y, delta.x)
+            let flipped_delta = if InputAxis::MouseMovement.eq(&axis) {
+                if let Some(surface_size) = self.surface_size {
+                    let half_surface_x = surface_size.x as f64 / 2.0;
+                    let half_surface_y = surface_size.y as f64 / 2.0;
+
+                    let new_delta_x = -delta.y / half_surface_x;
+                    let new_delta_y = delta.x / half_surface_y;
+
+                    Vector2::new(new_delta_x, new_delta_y)
                 } else {
-                    Vector2::new(delta.y.clamp(-1.0, 1.0), delta.x.clamp(-1.0, 1.0))
-                };
+                    warn!("No surface size received yet! Won't normalize input deltas.");
+                    Vector2::new(-delta.y, delta.x)
+                }
+            } else if InputAxis::MouseScrollWheel.eq(&axis) {
+                Vector2::new(-delta.y, delta.x)
+            } else {
+                Vector2::new(delta.y.clamp(-1.0, 1.0), delta.x.clamp(-1.0, 1.0))
+            };
             self.delta_states
                 .entry(input_id)
                 .or_insert(HashMap::new())
@@ -383,5 +399,9 @@ impl InputState {
         }
 
         (false, Vector2::zero())
+    }
+
+    pub fn surface_resize(&mut self, size: PhysicalSize<u32>) {
+        self.surface_size = Some(Vector2::new(size.width as u64, size.height as u64));
     }
 }

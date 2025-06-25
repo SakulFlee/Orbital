@@ -665,6 +665,8 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
 
                 self.reconfigure_surface();
 
+                self.input_state.surface_resize(new_size);
+
                 None
             }
             _ => None,

@@ -82,16 +82,6 @@ impl App for StandardApp {
     {
         if let Some(renderer) = &mut self.renderer {
             renderer.change_resolution(new_size, device, queue);
-
-            self.element_store.queue_message(
-                Message::new(Origin::App, Target::Broadcast)
-                    .add_content(
-                        "Type".to_string(),
-                        Variant::String("WindowResize".to_string()),
-                    )
-                    .add_content("Width".to_string(), Variant::U32(new_size.x))
-                    .add_content("Height".to_string(), Variant::U32(new_size.y)),
-            )
         } else {
             warn!("Received resize event, but Renderer doesn't exist (yet?)");
         }
