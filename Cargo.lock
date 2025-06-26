@@ -3,13 +3,6 @@
 version = 4
 
 [[package]]
-name = "Camera"
-version = "0.1.0"
-dependencies = [
- "orbital",
-]
-
-[[package]]
 name = "DamagedHelmet"
 version = "0.1.0"
 dependencies = [
