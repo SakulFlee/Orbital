@@ -9,11 +9,14 @@ use orbital::app::standard::StandardApp;
 
 mod element;
 use element::*;
+use orbital::app::input::InputEvent::GamepadButton;
 use orbital::app::input::{InputAxis, InputButton};
 use orbital::camera_controller::{
-    ButtonAxis, CameraController, CameraControllerDescriptor, CameraControllerMouseInputMode,
-    CameraControllerMouseInputType, CameraControllerMovementType, CameraControllerRotationType,
+    ButtonAxis, CameraController, CameraControllerAxisInputMode, CameraControllerButtonInputMode,
+    CameraControllerDescriptor, CameraControllerMouseInputMode, CameraControllerMouseInputType,
+    CameraControllerMovementType, CameraControllerRotationType,
 };
+use orbital::gilrs::Button;
 use orbital::winit::keyboard::{KeyCode, PhysicalKey};
 
 pub const NAME: &str = "Orbital-Demo-Project: SkyBox";
@@ -50,8 +53,27 @@ pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
                     grab_cursor: true,
                     hide_cursor: true,
                 }),
-                axis_input: None,
-                button_input: None,
+                axis_input: Some(CameraControllerAxisInputMode {
+                    axis: vec![InputAxis::GamepadRightStick],
+                    sensitivity: 1.0,
+                }),
+                button_input: Some(CameraControllerButtonInputMode {
+                    button_axis: vec![
+                        ButtonAxis {
+                            forward: InputButton::Keyboard(PhysicalKey::Code(KeyCode::ArrowUp)),
+                            backward: InputButton::Keyboard(PhysicalKey::Code(KeyCode::ArrowDown)),
+                            left: InputButton::Keyboard(PhysicalKey::Code(KeyCode::ArrowLeft)),
+                            right: InputButton::Keyboard(PhysicalKey::Code(KeyCode::ArrowRight)),
+                        },
+                        ButtonAxis {
+                            forward: InputButton::Gamepad(Button::DPadUp),
+                            backward: InputButton::Gamepad(Button::DPadDown),
+                            left: InputButton::Gamepad(Button::DPadLeft),
+                            right: InputButton::Gamepad(Button::DPadRight),
+                        },
+                    ],
+                    sensitivity: 1.0,
+                }),
                 axis_dead_zone: 0.1,
             },
             camera_descriptor: Default::default(),
