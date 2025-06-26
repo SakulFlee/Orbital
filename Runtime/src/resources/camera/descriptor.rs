@@ -2,7 +2,6 @@ use std::f32::consts::FRAC_PI_2;
 
 use super::{CameraTransform, Mode};
 use cgmath::{InnerSpace, Point3, Vector3};
-use log::debug;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CameraDescriptor {
@@ -88,8 +87,6 @@ impl CameraDescriptor {
                 }
             }
         }
-
-        debug!("Camera: {:?}", self);
     }
 }
 
