@@ -1,8 +1,8 @@
 use crate::app::input::{InputAxis, InputButton, InputState};
 use crate::app::AppEvent;
 use crate::camera_controller::{
-    ButtonAxis, CameraControllerDescriptor, CameraControllerMovementType,
-    CameraControllerRotationType,
+    ButtonAxis, CameraControllerAxisInputMode, CameraControllerButtonInputMode,
+    CameraControllerDescriptor, CameraControllerMovementType, CameraControllerRotationType,
 };
 use crate::element::{CameraEvent, Element, ElementRegistration, Event, Message, WorldEvent};
 use crate::resources::{CameraTransform, Mode};
@@ -160,6 +160,29 @@ impl CameraController {
         result
     }
 
+    /// Returns `true` if a delta axis with a non-zero value got found and applied to the [`CameraTransform`].
+    /// Returns `false` if no delta axis have been found, or, all values returned are zero.
+    fn apply_delta_axis_rotation(
+        &self,
+        mode: &CameraControllerAxisInputMode,
+        transform: &mut CameraTransform,
+        input_state: &InputState,
+    ) -> bool {
+        for axis in &mode.input_type {
+            if let Some(delta) = self.read_delta(axis, input_state) {
+                if !delta.is_zero() {
+                    transform.pitch = Some(Mode::Offset(delta.x as f32 * mode.sensitivity));
+                    transform.yaw = Some(Mode::Offset(delta.y as f32 * mode.sensitivity));
+
+                    // Early return on the first non-zero existing axis delta
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
     fn handle_rotation(
         &self,
         delta_time: f64,
@@ -168,18 +191,35 @@ impl CameraController {
     ) {
         match &self.descriptor.rotation_type {
             CameraControllerRotationType::Free {
-                mouse_input,
                 axis_input,
                 button_input,
+                mouse_input,
             } => {
-                // TODO: Delta input
+                // Delta inputs (gamepad) first
+                if axis_input
+                    .as_ref()
+                    .map(|x| self.apply_delta_axis_rotation(x, transform, input_state))
+                    .unwrap_or(false)
+                {
+                    return;
+                }
+
                 // TODO: Button input
                 // NOTE: Each input type is handled separately, but should be exclusive.
                 //       I.e. Delta over buttons over mouse!
+                if button_input
+                    .as_ref()
+                    .map(|x| self.apply_button_axis_rotation(x, transform, input_state))
+                    .unwrap_or(false)
+                {
+                    return;
+                }
+
+                // Mouse inputs last
                 if let Some(x) = mouse_input {
-                    if x.input_type.is_triggering(input_state) {
-                        self.apply_mouse_view(transform, delta_time, input_state, x.sensitivity);
-                    }
+                    x.input_type.is_triggering(input_state).then(|| {
+                        self.apply_mouse_view(transform, delta_time, input_state, x.sensitivity)
+                    });
                 }
             }
             CameraControllerRotationType::Locked => {
@@ -201,19 +241,44 @@ impl CameraController {
         input_state.delta_state_any(axis).map(|(_, x)| x)
     }
 
+    /// Returns `true` if mouse movement was detected and got applied.
+    /// Returns `false` otherwise.
     fn apply_mouse_view(
         &self,
         transform: &mut CameraTransform,
         delta_time: f64,
         input_state: &InputState,
         sensitivity: f32,
-    ) {
+    ) -> bool {
         if let Some(view_vector) = self.read_delta(&InputAxis::MouseMovement, &input_state) {
             if !view_vector.is_zero() {
                 transform.pitch = Some(Mode::Offset(view_vector.x as f32 * sensitivity));
                 transform.yaw = Some(Mode::Offset(view_vector.y as f32 * sensitivity));
+
+                return true;
             }
         }
+
+        false
+    }
+
+    fn apply_button_axis_rotation(
+        &self,
+        mode: &CameraControllerButtonInputMode,
+        transform: &mut CameraTransform,
+        input_state: &InputState,
+    ) -> bool {
+        for button_axis in &mode.input_type {
+            let delta = self.read_button_axis(button_axis, input_state);
+            if !delta.is_zero() {
+                transform.pitch = Some(Mode::Offset(delta.x as f32 * mode.sensitivity));
+                transform.yaw = Some(Mode::Offset(delta.y as f32 * mode.sensitivity));
+
+                return true;
+            }
+        }
+
+        false
     }
 }
 
@@ -258,3 +323,5 @@ impl Element for CameraController {
 }
 
 // TODO: Reset mouse cursor to center to prevent it from hovering over something else accidentally and escaping the window even though it's grabbed
+
+// TODO: Test and verify controller inputs
