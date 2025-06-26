@@ -314,6 +314,7 @@ impl Element for CameraController {
     }
 
     async fn on_message(&mut self, message: &Arc<Message>) -> Option<Vec<Event>> {
+        // Prevents default message log spam
         None
     }
 
