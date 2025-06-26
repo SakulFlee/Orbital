@@ -90,11 +90,11 @@ impl ElementStore {
                 Some(label) => label,
             };
 
-            let messages = self
-                .message_queue
-                .get_mut(&idx)
-                .expect("Element must have a message queue!");
-            messages.push(arc.clone());
+            if let Some(messages) = self.message_queue.get_mut(&idx) {
+                messages.push(arc.clone());
+            } else {
+                warn!("Failed sending message to element: No message queue found associated with element label '{}'! The message will be dropped.", label);
+            }
         }
     }
 
