@@ -41,6 +41,7 @@ pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
                 button_down: Some(InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyQ))),
                 speed: 1.0,
                 ignore_pitch_for_forward_movement: true,
+                axis_dead_zone: 0.1,
             },
             rotation_type: CameraControllerRotationType::Free {
                 mouse_input: Some(CameraControllerMouseInputMode {
@@ -51,6 +52,7 @@ pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
                 }),
                 axis_input: None,
                 button_input: None,
+                axis_dead_zone: 0.1,
             },
             camera_descriptor: Default::default(),
         })),
