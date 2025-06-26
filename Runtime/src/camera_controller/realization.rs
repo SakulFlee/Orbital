@@ -353,7 +353,3 @@ impl Element for CameraController {
         self.update_camera(delta_time, input_state).map(|x| vec![x])
     }
 }
-
-// TODO: Reset mouse cursor to center to prevent it from hovering over something else accidentally and escaping the window even though it's grabbed
-
-// TODO: Test and verify controller inputs
