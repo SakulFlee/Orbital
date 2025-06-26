@@ -26,6 +26,11 @@ pub enum CameraControllerMovementType {
         /// diving/swimming or space.
         /// TODO: Check if it's actually pitch and not yaw
         ignore_pitch_for_forward_movement: bool,
+        /// For most controllers/gamepads, something around 0.1 should suffice.
+        /// This value depends highly on your controller and how much e.g. "stick drift" you have.
+        /// Some platforms may manage controller dead zones, but settings this regardless should
+        /// not interfere with anything.
+        axis_dead_zone: f64,
     },
     /// Follows an entity with a given offset.
     Following {

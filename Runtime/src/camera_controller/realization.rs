@@ -7,6 +7,7 @@ use crate::camera_controller::{
 use crate::element::{CameraEvent, Element, ElementRegistration, Event, Message, WorldEvent};
 use crate::resources::{CameraTransform, Mode};
 use async_trait::async_trait;
+use cgmath::num_traits::abs;
 use cgmath::{Vector2, Vector3, Zero};
 use std::sync::Arc;
 
@@ -65,11 +66,13 @@ impl CameraController {
                 button_down,
                 speed,
                 ignore_pitch_for_forward_movement,
+                axis_dead_zone,
             } => {
                 let mut movement_vector = Vector3::<f64>::zero();
 
                 if let Some(axis) = axis {
-                    if let Some(delta_vector) = self.read_delta(axis, input_state) {
+                    if let Some(delta_vector) = self.read_delta(axis, input_state, *axis_dead_zone)
+                    {
                         movement_vector.x += delta_vector.x;
                         movement_vector.z += delta_vector.y;
                     }
@@ -160,6 +163,23 @@ impl CameraController {
         result
     }
 
+    fn apply_delta_to_transform(
+        &self,
+        delta: &Vector2<f64>,
+        transform: &mut CameraTransform,
+        sensitivity: f32,
+    ) -> bool {
+        if !delta.is_zero() {
+            transform.pitch = Some(Mode::Offset(delta.x as f32 * sensitivity));
+            transform.yaw = Some(Mode::Offset(delta.y as f32 * sensitivity));
+
+            // Early return on the first non-zero existing axis delta
+            return true;
+        }
+
+        false
+    }
+
     /// Returns `true` if a delta axis with a non-zero value got found and applied to the [`CameraTransform`].
     /// Returns `false` if no delta axis have been found, or, all values returned are zero.
     fn apply_delta_axis_rotation(
@@ -167,16 +187,11 @@ impl CameraController {
         mode: &CameraControllerAxisInputMode,
         transform: &mut CameraTransform,
         input_state: &InputState,
+        axis_dead_zone: f64,
     ) -> bool {
         for axis in &mode.input_type {
-            if let Some(delta) = self.read_delta(axis, input_state) {
-                if !delta.is_zero() {
-                    transform.pitch = Some(Mode::Offset(delta.x as f32 * mode.sensitivity));
-                    transform.yaw = Some(Mode::Offset(delta.y as f32 * mode.sensitivity));
-
-                    // Early return on the first non-zero existing axis delta
-                    return true;
-                }
+            if let Some(delta) = self.read_delta(axis, input_state, axis_dead_zone) {
+                return self.apply_delta_to_transform(&delta, transform, mode.sensitivity);
             }
         }
 
@@ -194,11 +209,14 @@ impl CameraController {
                 axis_input,
                 button_input,
                 mouse_input,
+                axis_dead_zone,
             } => {
                 // Delta inputs (gamepad) first
                 if axis_input
                     .as_ref()
-                    .map(|x| self.apply_delta_axis_rotation(x, transform, input_state))
+                    .map(|x| {
+                        self.apply_delta_axis_rotation(x, transform, input_state, *axis_dead_zone)
+                    })
                     .unwrap_or(false)
                 {
                     return;
@@ -218,7 +236,13 @@ impl CameraController {
                 // Mouse inputs last
                 if let Some(x) = mouse_input {
                     x.input_type.is_triggering(input_state).then(|| {
-                        self.apply_mouse_view(transform, delta_time, input_state, x.sensitivity)
+                        self.apply_mouse_view(
+                            transform,
+                            delta_time,
+                            input_state,
+                            x.sensitivity,
+                            *axis_dead_zone,
+                        )
                     });
                 }
             }
@@ -237,8 +261,22 @@ impl CameraController {
     /// it will be normalized. A value can only be normalized if a resolution has been set prior.
     /// If no resolution has been set beforehand, the value will be dropped, but only if it exceeds
     /// the standard range as defined above.
-    fn read_delta(&self, axis: &InputAxis, input_state: &InputState) -> Option<Vector2<f64>> {
-        input_state.delta_state_any(axis).map(|(_, x)| x)
+    fn read_delta(
+        &self,
+        axis: &InputAxis,
+        input_state: &InputState,
+        dead_zone: f64,
+    ) -> Option<Vector2<f64>> {
+        input_state
+            .delta_state_any(axis)
+            .map(|(_, d)| {
+                if abs(d.x) > dead_zone || abs(d.y) > dead_zone {
+                    Some(d)
+                } else {
+                    None
+                }
+            })
+            .flatten()
     }
 
     /// Returns `true` if mouse movement was detected and got applied.
@@ -249,14 +287,12 @@ impl CameraController {
         delta_time: f64,
         input_state: &InputState,
         sensitivity: f32,
+        axis_dead_zone: f64,
     ) -> bool {
-        if let Some(view_vector) = self.read_delta(&InputAxis::MouseMovement, &input_state) {
-            if !view_vector.is_zero() {
-                transform.pitch = Some(Mode::Offset(view_vector.x as f32 * sensitivity));
-                transform.yaw = Some(Mode::Offset(view_vector.y as f32 * sensitivity));
-
-                return true;
-            }
+        if let Some(delta) =
+            self.read_delta(&InputAxis::MouseMovement, &input_state, axis_dead_zone)
+        {
+            return self.apply_delta_to_transform(&delta, transform, sensitivity);
         }
 
         false
@@ -270,12 +306,7 @@ impl CameraController {
     ) -> bool {
         for button_axis in &mode.input_type {
             let delta = self.read_button_axis(button_axis, input_state);
-            if !delta.is_zero() {
-                transform.pitch = Some(Mode::Offset(delta.x as f32 * mode.sensitivity));
-                transform.yaw = Some(Mode::Offset(delta.y as f32 * mode.sensitivity));
-
-                return true;
-            }
+            return self.apply_delta_to_transform(&delta, transform, mode.sensitivity);
         }
 
         false
