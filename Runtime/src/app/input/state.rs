@@ -1,7 +1,7 @@
 use cgmath::{Vector2, Zero};
 use gilrs::Axis;
 use hashbrown::HashMap;
-use log::warn;
+use log::{debug, warn};
 use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, MouseScrollDelta};
 

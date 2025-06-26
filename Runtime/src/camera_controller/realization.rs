@@ -1,4 +1,4 @@
-use crate::app::input::{InputAxis, InputButton, InputState};
+use crate::app::input::{InputAxis, InputState};
 use crate::app::AppEvent;
 use crate::camera_controller::{
     ButtonAxis, CameraControllerAxisInputMode, CameraControllerButtonInputMode,
@@ -17,6 +17,8 @@ pub struct CameraController {
 }
 
 impl CameraController {
+    const AXIS_NORMALIZATION_TO_MATCH_MOUSE_SENSITIVITY: f32 = 0.01;
+
     pub fn new(descriptor: CameraControllerDescriptor) -> Self {
         Self { descriptor }
     }
@@ -148,16 +150,16 @@ impl CameraController {
 
         let mut result = Vector2::zero();
         if forward {
-            result.x += 1.0;
+            result.x += 1.0 * Self::AXIS_NORMALIZATION_TO_MATCH_MOUSE_SENSITIVITY as f64;
         }
         if backward {
-            result.x -= 1.0;
+            result.x -= 1.0 * Self::AXIS_NORMALIZATION_TO_MATCH_MOUSE_SENSITIVITY as f64;
         }
         if left {
-            result.y += 1.0;
+            result.y -= 1.0 * Self::AXIS_NORMALIZATION_TO_MATCH_MOUSE_SENSITIVITY as f64;
         }
         if right {
-            result.y -= 1.0;
+            result.y += 1.0 * Self::AXIS_NORMALIZATION_TO_MATCH_MOUSE_SENSITIVITY as f64;
         }
 
         result
@@ -189,9 +191,13 @@ impl CameraController {
         input_state: &InputState,
         axis_dead_zone: f64,
     ) -> bool {
-        for axis in &mode.input_type {
+        for axis in &mode.axis {
             if let Some(delta) = self.read_delta(axis, input_state, axis_dead_zone) {
-                return self.apply_delta_to_transform(&delta, transform, mode.sensitivity);
+                return self.apply_delta_to_transform(
+                    &delta,
+                    transform,
+                    mode.sensitivity * Self::AXIS_NORMALIZATION_TO_MATCH_MOUSE_SENSITIVITY,
+                );
             }
         }
 
@@ -222,9 +228,7 @@ impl CameraController {
                     return;
                 }
 
-                // TODO: Button input
-                // NOTE: Each input type is handled separately, but should be exclusive.
-                //       I.e. Delta over buttons over mouse!
+                // Button inputs next
                 if button_input
                     .as_ref()
                     .map(|x| self.apply_button_axis_rotation(x, transform, input_state))
@@ -233,7 +237,7 @@ impl CameraController {
                     return;
                 }
 
-                // Mouse inputs last
+                // Lastly, mouse inputs
                 if let Some(x) = mouse_input {
                     x.input_type.is_triggering(input_state).then(|| {
                         self.apply_mouse_view(
@@ -241,7 +245,7 @@ impl CameraController {
                             delta_time,
                             input_state,
                             x.sensitivity,
-                            *axis_dead_zone,
+                            0.0,
                         )
                     });
                 }
@@ -250,10 +254,6 @@ impl CameraController {
                 // Nothing here as this means there won't be any automatic rotation!
             }
         }
-    }
-
-    fn read_button(&self, button: &InputButton, input_state: &InputState) -> Option<bool> {
-        input_state.button_state_any(button).map(|(_, x)| x)
     }
 
     /// Will read a delta state (axis) and return its value if any input got recorded by the [`InputState`].
@@ -304,7 +304,7 @@ impl CameraController {
         transform: &mut CameraTransform,
         input_state: &InputState,
     ) -> bool {
-        for button_axis in &mode.input_type {
+        for button_axis in &mode.button_axis {
             let delta = self.read_button_axis(button_axis, input_state);
             return self.apply_delta_to_transform(&delta, transform, mode.sensitivity);
         }
