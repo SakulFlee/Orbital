@@ -6,6 +6,8 @@
         "bindgen",
         "binormal",
         "bitangent",
+        "bitflag",
+        "bitmask",
         "brdf",
         "BRDF",
         "bytemuck",
@@ -16,6 +18,7 @@
         "despawned",
         "despawning",
         "despawns",
+        "Desync",
         "equirectangular",
         "Equirectangular",
         "EQUIRECTANGULAR",
@@ -47,6 +50,7 @@
         "sakulflee",
         "scancode",
         "skybox",
+        "smol",
         "srgb",
         "srgba",
         "tokio",
@@ -65,5 +69,5 @@
         "zeroable",
         "zfar",
         "znear"
-    ]
+    ],
 }
