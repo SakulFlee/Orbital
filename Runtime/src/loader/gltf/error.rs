@@ -4,17 +4,14 @@ use gltf::Node;
 
 #[derive(Debug)]
 pub enum GltfError {
-    /// Thrown if a given node is supposed to be parsed as _Mesh_, but isn't of type _Mesh_.
-    NodeNotMesh,
-    /// Thrown if a given node is supposed to be parsed as _Camera_, but isn't of type _Camera_.
-    NodeNotCamera,
+    /// Thrown if a given operation is unsupported
+    Unsupported
 }
 
 impl Display for GltfError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            GltfError::NodeNotMesh => write!(f, "Node is not of type Mesh!"),
-            GltfError::NodeNotCamera => write!(f, "Node is not of type Camera!"),
+            GltfError::Unsupported => write!(f, "Unsupported!"),
         }
     }
 }
