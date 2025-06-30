@@ -6,6 +6,12 @@ use crate::loader::gltf::import_type::GltfImportType;
 /// Some applications may have a specific setting to _enable label support_.
 #[derive(Debug)]
 pub enum GltfImport {
+    /// To import the whole file.
+    /// Note that this will import **all** scenes, but scenes aren't a concept of Orbital (yet?).
+    /// Meaning, if you have e.g. multiple levels defined and sorted by scenes, you will import them
+    /// all on-top of each other.
+    /// However, caching or further changing the position of each imported resource might work!
+    WholeFile,
     /// To import a whole scene from a glTF file.
     WholeScene {
         /// The label of the scene
