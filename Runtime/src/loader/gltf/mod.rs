@@ -9,6 +9,7 @@ use gltf::image::{Data, Format};
 use gltf::texture::Info;
 use log::{debug, warn};
 use wgpu::{Color, TextureDimension, TextureFormat, TextureUsages, TextureViewDimension};
+use wgpu::TextureFormat::R32Float;
 use crate::resources::{CameraDescriptor, FilterMode, MaterialDescriptor, MaterialShader, MeshDescriptor, ModelDescriptor, PBRMaterialDescriptor, TextureDescriptor, TextureSize, Transform, Vertex};
 
 mod import;
@@ -187,6 +188,18 @@ impl GltfLoader {
                     pixels_1.push(*pixel);
                 }
             }
+        
+        let actual_format = match data.format{
+            Format::R8 |
+            Format::R8G8 |
+            Format::R8G8B8 |
+            Format::R8G8B8A8 => {TextureFormat::R8Unorm}
+             Format::R16 |
+             Format::R16G16 |
+             Format::R16G16B16 |
+             Format::R16G16B16A16 => {TextureFormat::R16Unorm}
+            Format::R32G32B32FLOAT | Format::R32G32B32A32FLOAT => {R32Float}
+        };
 
         let texture_0 = TextureDescriptor::Data {
             pixels: pixels_0,
@@ -198,7 +211,7 @@ impl GltfLoader {
                 mip_levels: 0,
             },
             usages: TextureUsages::RENDER_ATTACHMENT,
-            format, // TODO Should be R8/16/32 based on actual format, not split/dual-formats!
+            format: actual_format,
             texture_dimension: TextureDimension::D1,
             texture_view_dimension: TextureViewDimension::D1,
             filter_mode: FilterMode::linear(),
@@ -213,7 +226,7 @@ impl GltfLoader {
                 mip_levels: 0,
             },
             usages: TextureUsages::RENDER_ATTACHMENT,
-            format,
+            format: actual_format,
             texture_dimension: TextureDimension::D1,
             texture_view_dimension: TextureViewDimension::D1,
             filter_mode: FilterMode::linear(),
