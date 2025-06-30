@@ -7,9 +7,7 @@ edition = "2021"
 crate-type = ["lib", "cdylib"]
 
 [features]
-default = ["gltf", "gamepad_input", "gamepad_input_poll", "auto_request_redraw", "standard_app_detect_no_more_elements"]
-# Enables glTF support.
-gltf = ["dep:easy-gltf", "easy-gltf/names"]
+default = ["gamepad_input", "gamepad_input_poll", "auto_request_redraw", "standard_app_detect_no_more_elements"]
 # Enables gamepad inputs from being polled and processed.
 # Note: Winit _does_ have _some_ gamepad input support, but it's not very good at the moment, gilrs takes a much better approach (for now?).
 gamepad_input = ["dep:gilrs"]
@@ -48,7 +46,7 @@ humantime = { workspace = true }
 pollster = { workspace = true }
 image = { workspace = true }
 cgmath = { workspace = true }
-easy-gltf = { workspace = true, optional = true }
+gltf = { workspace = true }
 gilrs = { workspace = true, optional = true }
 async-std = { workspace = true }
 async-trait = { workspace = true }

@@ -9,6 +9,7 @@ pub mod renderer;
 pub mod resources;
 pub mod shader_preprocessor;
 pub mod world;
+pub mod loader;
 
 #[cfg(test)]
 pub mod wgpu_test_adapter;
