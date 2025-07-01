@@ -3,8 +3,9 @@ use std::{fs, io};
 use std::path::Path;
 use std::sync::Arc;
 use cgmath::{Deg, Euler, Point3, Quaternion, Vector2, Vector3, Zero};
+use futures::future::err;
 use gltf::camera::Projection;
-use gltf::{Attribute, Buffer, Camera, Document, Gltf, Material, Mesh, Node, Semantic};
+use gltf::{Attribute, Buffer, Camera, Document, Gltf, Material, Mesh, Node, Scene, Semantic};
 use gltf::image::{Data, Format};
 use gltf::texture::Info;
 use log::{debug, warn};
@@ -14,6 +15,9 @@ use crate::resources::{CameraDescriptor, FilterMode, MaterialDescriptor, Materia
 
 mod import;
 pub use import::*;
+
+mod specific_import;
+pub use specific_import::*;
 
 mod task;
 pub use task::*;
@@ -41,85 +45,72 @@ mod tests;
 /// - URL references to websites, e.g. to download an image, are not supported.
 ///   Any resources are required to be local and accessible.
 #[derive(Debug)]
-pub struct GltfLoader;
+pub struct GltfImporter;
 
-impl GltfLoader {
+impl GltfImporter {
 
     /// TODO
     /// TODO: Add note about instancing!
-    pub async fn load(import_task: GltfImportTask) -> Result<GltfImportResult, Box<dyn Error>> {
+    pub async fn import(import_task: GltfImportTask) -> Result<GltfImportResult, Box<dyn Error>> {
         let (document, buffers, textures) = gltf::import(&import_task.file).map_err(|e| Box::new(e))?;
 
-            let mut i = 0;
+        let (models, cameras, scenes) = match import_task.import {
+            GltfImport::WholeFile => {
+                Self::import_whole_file(document, buffers, textures)
+            }
+            GltfImport::Specific(specific_gltf_imports) => {
+                todo!()
+            }
+        };
+
+        todo!()
+    }
+
+    fn import_whole_file(document: Document, buffers: Vec<gltf::buffer::Data>, textures: Vec<gltf::image::Data>) -> (Vec<ModelDescriptor>, Vec<CameraDescriptor>, Vec<Box<dyn Error>>) {
+        let mut model_descriptors = Vec::new();
+        let mut camera_descriptors = Vec::new();
+        let mut errors = Vec::new();
+
         for scene in document.scenes() {
-            for node in scene.nodes() {
-                debug!("");
-                debug!("#{}: {:?}", i, &node);
-                i += 1;
+            let (scene_models, scene_cameras, scene_errors) = Self::import_whole_scene(scene, document, buffers, textures);
 
-                if let Some(camera) = node.camera() {
-                    debug!("Is camera!");
-                    debug!("Name: {:?}", node.name());
-                    debug!("Projection: {:?}", camera.projection());
-                    debug!("Transform: {:?}", node.transform());
-                } else if let Some(mesh) = node.mesh() {
-                    debug!("Is mesh!");
-                    debug!("Name: {:?}", node.name());
-                    debug!("Transform: {:?}", node.transform());
-                    debug!("Primitives count: {}", mesh.primitives().len());
+            model_descriptors.extend(scene_models);
+            camera_descriptors.extend(scene_cameras);
+            errors.extend(scene_errors);
+        }
 
-                    let mut a = 0;
-                    for primitive in mesh.primitives() {
-                        debug!("#{i}-{a} Bounding Box: {:?}", primitive.bounding_box());
-                        debug!("#{i}-{a} Indices: {:?}", primitive.indices());
-                        debug!("#{i}-{a} Material: {:?}", primitive.material());
+        (model_descriptors, camera_descriptors, errors)
+    }
 
-                        let primitive_reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
+    fn import_whole_scene(scene: Scene, document: Document, buffers: Vec<gltf::buffer::Data>, textures: Vec<gltf::image::Data>) -> (Vec<ModelDescriptor>, Vec<CameraDescriptor>, Vec<Box<dyn Error>>) {
+        let nodes: Vec<_> = scene.nodes().collect();
+        let results = Self::import_nodes(nodes, buffers, textures);
+        results
+    }
 
-                        debug!("#{i}-{a} Attribute count: {:?}", primitive.attributes().len());
-                        let mut b = 0;
-                        for attribute in primitive.attributes() {
-                            match attribute.0 {
-                                Semantic::Positions => {
-                                    debug!("#{i}-{a}-{b} Position: {:?}", attribute.1);
-                                    debug!("#{i}-{a}-{b} Data Type: {:?}", attribute.1.data_type());
-                                    debug!("#{i}-{a}-{b} Normalized: {:?}", attribute.1.normalized());
-                                    debug!("#{i}-{a}-{b} Count: {:?}", attribute.1.count());
-                                    debug!("#{i}-{a}-{b} index: {:?}", attribute.1.index());
-                                    debug!("#{i}-{a}-{b} view: {:?}", attribute.1.view());
+    fn import_nodes(nodes: Vec<Node>, buffers: Vec<gltf::buffer::Data>, textures: Vec<gltf::image::Data>) -> (Vec<ModelDescriptor>, Vec<CameraDescriptor>, Vec<Box<dyn Error>>) {
+        let mut model_descriptors = Vec::new();
+        let mut camera_descriptors = Vec::new();
+        let mut errors = Vec::new();
 
-                                    if let Some(positions_iter) = primitive_reader.read_positions() {
-                                        for (idx, position) in positions_iter.enumerate() {
-                                            debug!("#{} {:?}", idx, position);
-                                        }
-                                    }
-                                }
-                                _ => {warn!("Unimplemented sematic: {:?}", attribute.0)},
-                            }
-
-                            b+= 1;
-                        }
-
-                        debug!("#{i}-{a} Morph Targets: {:?}", primitive.morph_targets());
-                        let mut b = 0;
-                        for target in primitive.morph_targets() {
-                            debug!("#{i}-{a}-{b} Positions: {:?}", target.positions());
-                            debug!("#{i}-{a}-{b} Normals: {:?}", target.normals());
-                            debug!("#{i}-{a}-{b} Tangents: {:?}", target.tangents());
-
-                            b += 1;
-                        }
-
-                        a+= 1;
-                    }
-                } else {
-                    debug!("Is unknown!");
-                    debug!("Name: {:?}", node.name());
+        for node in nodes{
+            if let Some(mesh) = node.mesh() {
+                match Self::parse_models(&node, &mesh, &buffers, &textures) {
+                    Ok(models) => {model_descriptors.extend(models)}
+                    Err(e) => {errors.push(e)}
                 }
+            } else if let Some(camera) = node.camera() {
+                match Self::parse_camera(&node, &camera, &buffers) {
+                    Ok(camera) => {camera_descriptors.push(camera)}
+                    Err(e) => {errors.push(e)}
+                }
+            } else {
+                warn!("Unknown node type: {:?}", node);
             }
         }
 
-        todo!()
+
+        (model_descriptors, camera_descriptors, errors)
     }
 
     /// Returns the Orbital/WGPU [`TextureFormat`] as well as a boolean.
