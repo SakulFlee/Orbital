@@ -1,6 +1,6 @@
 use async_std::task::block_on;
 use log::debug;
-use crate::loader::gltf::{GltfImport, GltfImportTask, GltfLoader};
+use crate::loader::gltf::{GltfImport, GltfImportTask, GltfImporter};
 use crate::logging;
 
 #[test]
@@ -14,7 +14,7 @@ fn test_load_camera() {
         },
     };
     
-    let x = GltfLoader::load(task);
+    let x = GltfImporter::import(task);
     let y = block_on(x);
     debug!("{:?}", y);
     assert!(y.is_ok());
