@@ -24,9 +24,5 @@ jniLibs/
 # Blender Backup Fiiles
 *.blend[0-99]
 
-# GLTF/GLB Files
-*.gltf
-*.glb
-
 # Temporary files
 *~
