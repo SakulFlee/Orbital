@@ -390,7 +390,7 @@ impl GltfImporter {
             } ;
 
             let model = ModelDescriptor {
-                label: mesh.name().map(|x| x.to_string()).unwrap_or("Unnamed".to_string()),
+                label: node.name().map(|x| x.to_string()).unwrap_or("Unnamed".to_string()),
                 mesh: Arc::new(mesh_descriptor),
                 materials: vec![Arc::new(material)],
                 transforms: vec![transform],
