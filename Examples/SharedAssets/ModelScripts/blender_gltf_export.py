@@ -15,7 +15,7 @@ def export(gltf_format, output_file_path):
     bpy.ops.export_scene.gltf(
         filepath=output_file_path,
         export_format=gltf_format,
-        check_existing=False,
+        check_existing=True,
         export_cameras=True
     )
 
