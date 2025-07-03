@@ -18,4 +18,4 @@ bpy.ops.export_scene.gltf(export_format="GLB", filepath=output_file)
 if export_gltf:
     output_file = output_dir + "/" + filename_without_extension + ".gltf"
     print("Output File: " + output_file)
-    bpy.ops.export_scene.gltf(export_format="GLTF", filepath=output_file)
+    bpy.ops.export_scene.gltf(export_format="GLTF_SEPARATE", filepath=output_file)
