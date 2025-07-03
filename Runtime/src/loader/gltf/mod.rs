@@ -51,89 +51,76 @@ impl GltfImporter {
 
     /// TODO
     /// TODO: Add note about instancing!
-    pub async fn import(import_task: GltfImportTask) -> (Vec<ModelDescriptor>, Vec<CameraDescriptor>, Vec<Box<dyn Error>>) {
+    pub async fn import(import_task: GltfImportTask) -> GltfImportResult {
         let (document, buffers, textures) = match gltf::import(&import_task.file) {
             Ok(x) => x,
-            Err(e) => return (Vec::new(), Vec::new(), vec![Box::new(e)]),
+            Err(e) => return GltfImportResult {
+                errors: vec![Box::new(e)],
+                ..Default::default()
+            },
         };
 
-        let (models, cameras, errors) = match import_task.import {
+        match import_task.import {
             GltfImport::WholeFile => {
                 Self::import_whole_file(&document, &buffers, &textures)
             }
             GltfImport::Specific(specific_gltf_imports) => {
-                let mut models = Vec::new();
-                let mut cameras = Vec::new();
-                let mut errors = Vec::new();
+                let mut result = GltfImportResult::empty();
 
                 for specific_import in specific_gltf_imports {
-                    let (local_models, local_cameras, local_errors) = Self::import_specific(specific_import, &document, &buffers, &textures);
-                    models.extend(local_models);
-                    cameras.extend(local_cameras);
-                    errors.extend(local_errors);
+                    let import_result = Self::import_specific(specific_import, &document, &buffers, &textures);
+                    result.extend(import_result);
                 }
 
-                (models, cameras, errors)
+                result
             }
-        };
-        (models, cameras, errors)
+        }
     }
 
-    fn import_specific(specific_import: SpecificGltfImport, document: &Document, buffers: &Vec<gltf::buffer::Data>, textures: &Vec<gltf::image::Data>) -> (Vec<ModelDescriptor>, Vec<CameraDescriptor>, Vec<Box<dyn Error>>)
+    fn import_specific(specific_import: SpecificGltfImport, document: &Document, buffers: &Vec<gltf::buffer::Data>, textures: &Vec<gltf::image::Data>) -> GltfImportResult
     {
-        let mut models = Vec::new();
-        let mut cameras = Vec::new();
-        let mut errors = Vec::new();
+        let mut result = GltfImportResult::empty();
 
         match specific_import.import_type {
             GltfImportType::Scene => {
                 if let Some(scene) = document.scenes().find(|scene| scene.name().is_some_and(|x| x == specific_import.label)) {
-                    let (local_models, local_cameras, local_errors) = Self::import_whole_scene(scene, document, buffers, textures);
-                    models.extend(local_models);
-                    cameras.extend(local_cameras);
-                    errors.extend(local_errors);
+                    let import_result = Self::import_whole_scene(scene, document, buffers, textures);
+                    result.extend(import_result);
                 } else {
-                    errors.push(Box::new(GltfError::NotFound(specific_import)));
+                    result.errors.push(Box::new(GltfError::NotFound(specific_import)));
                 }
             }
             GltfImportType::Model | GltfImportType::Camera => {
                 if let Some(node) = document.scenes().find_map(|scene| scene.nodes().find(|node| node.name().is_some_and(|name| name == specific_import.label))) {
-                    let (local_models, local_cameras, local_errors) = Self::import_nodes(vec![node], buffers, textures);
-                    models.extend(local_models);
-                    cameras.extend(local_cameras);
-                    errors.extend(local_errors);
+                    let import_result = Self::import_nodes(vec![node], buffers, textures);
+                    result.extend(import_result);
                 } else {
-                    errors.push(Box::new(GltfError::NotFound(specific_import)));
+                    result.errors.push(Box::new(GltfError::NotFound(specific_import)));
                 }
             }
         }
 
-        (models, cameras, errors)
+        result
     }
 
-    fn import_whole_file(document: &Document, buffers: &Vec<gltf::buffer::Data>, textures: &Vec<gltf::image::Data>) -> (Vec<ModelDescriptor>, Vec<CameraDescriptor>, Vec<Box<dyn Error>>) {
-        let mut model_descriptors = Vec::new();
-        let mut camera_descriptors = Vec::new();
-        let mut errors = Vec::new();
+    fn import_whole_file(document: &Document, buffers: &Vec<gltf::buffer::Data>, textures: &Vec<gltf::image::Data>) -> GltfImportResult {
+        let mut result = GltfImportResult::empty();
 
         for scene in document.scenes() {
-            let (scene_models, scene_cameras, scene_errors) = Self::import_whole_scene(scene, document, buffers, textures);
-
-            model_descriptors.extend(scene_models);
-            camera_descriptors.extend(scene_cameras);
-            errors.extend(scene_errors);
+            let import_result = Self::import_whole_scene(scene, document, buffers, textures);
+            result.extend(import_result);
         }
 
-        (model_descriptors, camera_descriptors, errors)
+        result
     }
 
-    fn import_whole_scene(scene: Scene, document: &Document, buffers: &Vec<gltf::buffer::Data>, textures: &Vec<gltf::image::Data>) -> (Vec<ModelDescriptor>, Vec<CameraDescriptor>, Vec<Box<dyn Error>>) {
+    fn import_whole_scene(scene: Scene, document: &Document, buffers: &Vec<gltf::buffer::Data>, textures: &Vec<gltf::image::Data>) -> GltfImportResult {
         let nodes: Vec<_> = scene.nodes().collect();
         let results = Self::import_nodes(nodes, buffers, textures);
         results
     }
 
-    fn import_nodes(nodes: Vec<Node>, buffers: &Vec<gltf::buffer::Data>, textures: &Vec<gltf::image::Data>) -> (Vec<ModelDescriptor>, Vec<CameraDescriptor>, Vec<Box<dyn Error>>) {
+    fn import_nodes(nodes: Vec<Node>, buffers: &Vec<gltf::buffer::Data>, textures: &Vec<gltf::image::Data>) -> GltfImportResult {
         let mut model_descriptors = Vec::new();
         let mut camera_descriptors = Vec::new();
         let mut errors = Vec::new();
@@ -155,7 +142,11 @@ impl GltfImporter {
         }
 
 
-        (model_descriptors, camera_descriptors, errors)
+        GltfImportResult {
+            models: model_descriptors,
+            cameras: camera_descriptors,
+            errors,
+        }
     }
 
     /// Returns the Orbital/WGPU [`TextureFormat`] as well as a boolean.
