@@ -107,5 +107,5 @@ fn check_top_camera_position_matches() {
     assert_eq!(result.cameras.len(), 1);
 
     let camera = &result.cameras[0];
-    assert_eq!(camera.position, Point3::new(0.0, 0.0, 5.0));
+    assert_eq!(camera.position, Point3::new(0.0, 5.0, 0.0));
 }

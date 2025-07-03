@@ -417,7 +417,7 @@ impl GltfImporter {
 
         let camera_descriptor = CameraDescriptor {
             label: node.name().map(|x| x.to_string()).unwrap_or("Unnamed".to_string()),
-            position: Point3::new(decomposed.0[0], decomposed.0[2], decomposed.0[2]),
+            position: Point3::new(decomposed.0[0], decomposed.0[1], decomposed.0[2]),
             yaw: decomposed.1[0],
             pitch: decomposed.1[1],
             aspect: perspective.aspect_ratio().unwrap_or(16.0/9.0),
