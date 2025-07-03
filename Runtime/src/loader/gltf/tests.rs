@@ -13,9 +13,10 @@ fn load_gltf() {
     };
 
     let x = GltfImporter::import(task);
-    let (_models, _cameras, errors) = block_on(x);
-    debug!("{:?}", errors);
-    assert!(errors.is_empty());
+    let result = block_on(x);
+    debug!("{:?}", result);
+
+    assert!(result.errors.is_empty());
 }
 
 
@@ -29,7 +30,8 @@ fn load_glb() {
     };
 
     let x = GltfImporter::import(task);
-    let (_models, _cameras, errors) = block_on(x);
-    debug!("{:?}", errors);
-    assert!(errors.is_empty());
+    let result = block_on(x);
+    debug!("{:?}", result);
+
+    assert!(result.errors.is_empty());
 }
