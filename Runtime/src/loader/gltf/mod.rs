@@ -51,10 +51,13 @@ impl GltfImporter {
 
     /// TODO
     /// TODO: Add note about instancing!
-    pub async fn import(import_task: GltfImportTask) -> Result<GltfImportResult, Box<dyn Error>> {
-        let (document, buffers, textures) = gltf::import(&import_task.file).map_err(|e| Box::new(e))?;
+    pub async fn import(import_task: GltfImportTask) -> (Vec<ModelDescriptor>, Vec<CameraDescriptor>, Vec<Box<dyn Error>>) {
+        let (document, buffers, textures) = match gltf::import(&import_task.file) {
+            Ok(x) => x,
+            Err(e) => return (Vec::new(), Vec::new(), vec![Box::new(e)]),
+        };
 
-        let (models, cameras, scenes) = match import_task.import {
+        let (models, cameras, errors) = match import_task.import {
             GltfImport::WholeFile => {
                 Self::import_whole_file(&document, &buffers, &textures)
             }
@@ -73,8 +76,7 @@ impl GltfImporter {
                 (models, cameras, errors)
             }
         };
-
-        todo!()
+        (models, cameras, errors)
     }
 
     fn import_specific(specific_import: SpecificGltfImport, document: &Document, buffers: &Vec<gltf::buffer::Data>, textures: &Vec<gltf::image::Data>) -> (Vec<ModelDescriptor>, Vec<CameraDescriptor>, Vec<Box<dyn Error>>)
