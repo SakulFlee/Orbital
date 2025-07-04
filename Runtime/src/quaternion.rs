@@ -1,4 +1,3 @@
-use cgmath::num_traits::Pow;
 use cgmath::Quaternion;
 
 pub fn quaternion_to_pitch_yaw(q: &Quaternion<f32>) -> (f32, f32) {

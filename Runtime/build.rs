@@ -1,12 +1,12 @@
 use std::path::PathBuf;
 use std::process::Command;
 
-const MODEL_FILES_DIR: &'static str = "../Examples/SharedAssets/ModelFiles";
-const MODEL_SCRIPT_GLTF_EXPORT: &'static str =
+const MODEL_FILES_DIR: &str = "../Examples/SharedAssets/ModelFiles";
+const MODEL_SCRIPT_GLTF_EXPORT: &str =
     "../Examples/SharedAssets/ModelScripts/blender_gltf_export.py";
-const MODEL_SCRIPT_PBR_SPHERE_GEN: &'static str =
+const MODEL_SCRIPT_PBR_SPHERE_GEN: &str =
     "../Examples/SharedAssets/ModelScripts/pbr_sphere_gen.py";
-const MODELS_DIR: &'static str = "../Examples/SharedAssets/Models";
+const MODELS_DIR: &str = "../Examples/SharedAssets/Models";
 
 fn main() {
     blender_pbr_spheres();

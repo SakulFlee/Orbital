@@ -1,18 +1,14 @@
 use crate::resources::{
-    CameraDescriptor, FilterMode, MaterialDescriptor, MaterialShader, MeshDescriptor,
+    CameraDescriptor, FilterMode, MaterialDescriptor, MeshDescriptor,
     ModelDescriptor, PBRMaterialDescriptor, TextureDescriptor, TextureSize, Transform, Vertex,
 };
-use cgmath::{Deg, Euler, Point3, Quaternion, Vector2, Vector3, Zero};
-use futures::future::err;
+use cgmath::{Point3, Quaternion, Vector2, Vector3, Zero};
 use gltf::camera::Projection;
-use gltf::image::{Data, Format};
-use gltf::texture::Info;
-use gltf::{Attribute, Buffer, Camera, Document, Gltf, Material, Mesh, Node, Scene, Semantic};
-use log::{debug, warn};
+use gltf::image::Format;
+use gltf::{Camera, Document, Material, Mesh, Node, Scene, Semantic};
+use log::warn;
 use std::error::Error;
-use std::path::Path;
 use std::sync::Arc;
-use std::{fs, io};
 use wgpu::TextureFormat::R32Float;
 use wgpu::{Color, TextureDimension, TextureFormat, TextureUsages, TextureViewDimension};
 
@@ -163,8 +159,8 @@ impl GltfImporter {
         textures: &Vec<gltf::image::Data>,
     ) -> GltfImportResult {
         let nodes: Vec<_> = scene.nodes().collect();
-        let results = Self::import_nodes(nodes, buffers, textures);
-        results
+        
+        Self::import_nodes(nodes, buffers, textures)
     }
 
     /// Handles importing a specific set of [`Node`]s from a glTF [`Document`].
@@ -179,12 +175,12 @@ impl GltfImporter {
 
         for node in nodes {
             if let Some(mesh) = node.mesh() {
-                match Self::parse_models(&node, &mesh, &buffers, &textures) {
+                match Self::parse_models(&node, &mesh, buffers, textures) {
                     Ok(models) => model_descriptors.extend(models),
                     Err(e) => errors.push(e),
                 }
             } else if let Some(camera) = node.camera() {
-                match Self::parse_camera(&node, &camera, &buffers) {
+                match Self::parse_camera(&node, &camera, buffers) {
                     Ok(camera) => camera_descriptors.push(camera),
                     Err(e) => errors.push(e),
                 }
@@ -424,13 +420,13 @@ impl GltfImporter {
                 warn!("Primitive has no positions. Skipping mesh primitive.");
                 continue;
             };
-            let Some(indices) = reader.read_indices().and_then(|x| Some(x.into_u32())) else {
+            let Some(indices) = reader.read_indices().map(|x| x.into_u32()) else {
                 warn!("Primitive has no indices. Skipping mesh primitive.");
                 continue;
             };
             let mut normals = reader.read_normals();
             let mut tangents = reader.read_tangents();
-            let mut uvs = reader.read_tex_coords(0).and_then(|x| Some(x.into_f32()));
+            let mut uvs = reader.read_tex_coords(0).map(|x| x.into_f32());
             primitive.attributes().for_each(|x| {
                 if let Semantic::TexCoords(indices) = x.0 {
                     if indices > 1 {
