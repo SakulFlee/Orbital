@@ -1,3 +1,6 @@
+# Temporary files
+*~
+
 # Rust
 target/
 
@@ -10,19 +13,18 @@ mandelbrot.png
 # Local Android configuration
 local.properties
 
-# Android
+# Android & Gradle
 build/
 gen/
 jniLibs/
-
-# IDEA
-.idea/
-
-# Gradle
 .gradle/
+
+# Jetbrains IDEs
+.idea/
 
 # Blender Backup Fiiles
 *.blend[0-99]
 
-# Temporary files
-*~
+# Exported models, except for pre-exported
+Examples/SharedAssets/Models/*
+!Examples/SharedAssets/Models/DamagedHelmet.glb
