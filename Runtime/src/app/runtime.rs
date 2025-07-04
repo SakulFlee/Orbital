@@ -23,8 +23,7 @@ use super::{
     Timer,
 };
 use super::{App, AppSettings};
-use crate::app::standard::StandardApp;
-use crate::element::{Element, ElementEvent};
+use crate::element::Element;
 use crate::{
     app::AppEvent,
     element::Message,

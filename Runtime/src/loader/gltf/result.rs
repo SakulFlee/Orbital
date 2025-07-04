@@ -3,6 +3,7 @@ use std::error::Error;
 
 /// Contains the results of a glTF Import.
 #[derive(Debug)]
+#[derive(Default)]
 pub struct GltfImportResult {
     pub models: Vec<ModelDescriptor>,
     pub cameras: Vec<CameraDescriptor>,
@@ -21,12 +22,3 @@ impl GltfImportResult {
     }
 }
 
-impl Default for GltfImportResult {
-    fn default() -> Self {
-        Self {
-            models: vec![],
-            cameras: vec![],
-            errors: vec![],
-        }
-    }
-}

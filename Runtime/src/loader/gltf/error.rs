@@ -1,5 +1,4 @@
-use crate::loader::gltf::{GltfImportType, SpecificGltfImport};
-use gltf::Node;
+use crate::loader::gltf::SpecificGltfImport;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 

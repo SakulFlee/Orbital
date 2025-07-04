@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use log::{debug, warn};
+use log::warn;
 use wgpu::{Device, Queue, TextureFormat};
 
 use crate::{
