@@ -138,7 +138,7 @@ impl CameraStore {
         queue: &Queue,
     ) -> Result<(), Box<dyn Error>> {
         match self.active_camera {
-            None => return Err(Box::new(StoreError::NoActiveEntry)),
+            None => Err(Box::new(StoreError::NoActiveEntry)),
             Some(active_camera_index) => {
                 // Temporarily remove all queued realizations as we want to **only** realize the active camera.
                 let mut remaining_realizations = None;

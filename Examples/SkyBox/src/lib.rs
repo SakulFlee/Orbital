@@ -9,7 +9,6 @@ use orbital::app::standard::StandardApp;
 
 mod element;
 use element::*;
-use orbital::app::input::InputEvent::GamepadButton;
 use orbital::app::input::{InputAxis, InputButton};
 use orbital::camera_controller::{
     ButtonAxis, CameraController, CameraControllerAxisInputMode, CameraControllerButtonInputMode,

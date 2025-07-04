@@ -19,6 +19,7 @@ pub struct CameraDescriptor {
 impl CameraDescriptor {
     pub const DEFAULT_NAME: &'static str = "Default";
     pub const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
+    pub const DEFAULT_GAMMA: f32 = 2.2;
 
     pub fn apply_change(&mut self, change: CameraTransform) {
         if let Some(mode) = change.pitch {
@@ -101,7 +102,7 @@ impl Default for CameraDescriptor {
             fovy: 45.0,
             near: 0.1,
             far: 10000.0,
-            global_gamma: 2.2,
+            global_gamma: Self::DEFAULT_GAMMA,
         }
     }
 }

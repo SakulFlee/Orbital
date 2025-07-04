@@ -1,16 +1,12 @@
+use std::path::PathBuf;
 use std::process::Command;
 
-fn path_to_models_dir() -> String {
-    const MODELS_DIR: &str = "../Assets/Models/";
-    let current_dir = std::env::current_dir().unwrap();
-    let current_dir_str = current_dir.to_str().unwrap();
-
-    let concat = format!("{}/{}", current_dir_str, MODELS_DIR);
-    let canonicalize = std::fs::canonicalize(&concat).unwrap();
-
-    let canonicalize_str = canonicalize.to_str().unwrap().to_string();
-    canonicalize_str
-}
+const MODEL_FILES_DIR: &str = "../Examples/SharedAssets/ModelFiles";
+const MODEL_SCRIPT_GLTF_EXPORT: &str =
+    "../Examples/SharedAssets/ModelScripts/blender_gltf_export.py";
+const MODEL_SCRIPT_PBR_SPHERE_GEN: &str =
+    "../Examples/SharedAssets/ModelScripts/pbr_sphere_gen.py";
+const MODELS_DIR: &str = "../Examples/SharedAssets/Models";
 
 fn main() {
     blender_pbr_spheres();
@@ -18,16 +14,23 @@ fn main() {
 }
 
 fn blender_pbr_spheres() {
+    let script_path = std::fs::canonicalize(MODEL_SCRIPT_PBR_SPHERE_GEN)
+        .expect("Failed to canonicalize script path!");
     println!(
-        "cargo::rerun-if-changed={}/pbr_sphere_gen.py",
-        path_to_models_dir()
+        "cargo::rerun-if-changed={}",
+        script_path
+            .to_str()
+            .expect("Failed converting script path to string!")
     );
+
+    let output_path =
+        std::fs::canonicalize(MODELS_DIR).expect("Failed to canonicalize models output folder!");
 
     let mut handle = Command::new("blender")
         .arg("--background")
         .arg("--python")
-        .arg(format!("{}/pbr_sphere_gen.py", path_to_models_dir()))
-        .current_dir(path_to_models_dir())
+        .arg(script_path)
+        .current_dir(output_path)
         .spawn()
         .expect("Failed to run Blender command!");
 
@@ -41,27 +44,45 @@ fn blender_pbr_spheres() {
 }
 
 fn blender_model_files() {
+    let script_path = std::fs::canonicalize(MODEL_SCRIPT_GLTF_EXPORT)
+        .expect("Failed to canonicalize script path!");
     println!(
-        "cargo::rerun-if-changed={}/blender_gltf_export.py",
-        path_to_models_dir()
+        "cargo::rerun-if-changed={}",
+        script_path
+            .to_str()
+            .expect("Failed converting script path to string!")
     );
 
-    for entry in glob::glob(&format!("{}/*.blend", path_to_models_dir())).unwrap() {
+    println!("{:?}", MODEL_FILES_DIR);
+    let model_files_path_ =
+        std::fs::canonicalize(MODEL_FILES_DIR).expect("Failed to canonicalize script path!");
+    let model_files_path = model_files_path_
+        .to_str()
+        .expect("Conversion from PathBuf to String failed!");
+
+    let output_path =
+        std::fs::canonicalize(MODELS_DIR).expect("Failed to canonicalize models output folder!");
+
+    for entry in glob::glob(&format!("{}/*.blend", model_files_path)).unwrap() {
         let path = entry.unwrap();
 
-        blender_convert_to_gltf(path.into_os_string().into_string().unwrap().as_str());
+        blender_convert_to_gltf(
+            path.into_os_string().into_string().unwrap().as_str(),
+            &script_path,
+            &output_path,
+        );
     }
 }
 
-fn blender_convert_to_gltf(filepath: &str) {
+fn blender_convert_to_gltf(filepath: &str, script_path: &PathBuf, output_path: &PathBuf) {
     println!("cargo::rerun-if-changed={}", filepath);
 
     let mut handle = Command::new("blender")
         .arg("--background")
         .arg(filepath)
         .arg("--python")
-        .arg(format!("{}/blender_gltf_export.py", path_to_models_dir()))
-        .current_dir(path_to_models_dir())
+        .arg(script_path)
+        .current_dir(output_path)
         .spawn()
         .expect("Failed to run Blender command!");
 

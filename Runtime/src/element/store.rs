@@ -1,18 +1,14 @@
-use std::error::Error;
-use std::future::Future;
 use std::sync::Arc;
-use std::time::Instant;
 
 use super::{ElementEvent, Event, Target};
 use crate::{
     app::input::InputState,
-    element::{Element, Message, Origin},
+    element::{Element, Message},
 };
-use futures::future::{join_all, JoinAll};
-use futures::{stream::FuturesUnordered, StreamExt};
+use futures::future::join_all;
+use futures::StreamExt;
 use hashbrown::HashMap;
-use log::{error, warn};
-use winit::event_loop::DeviceEvents;
+use log::warn;
 
 type ElementIndexType = u64;
 

@@ -10,9 +10,7 @@ use crate::resources::Variable;
 /// **This struct implements `Deref`!**  
 /// Most, if not all, operations have to be done after dereferencing the value like so:
 /// ```rust
-/// # use shader::Variable;
-/// # use shader::Variables;
-///
+/// # use orbital::resources::Variables;
 /// let variables = Variables::new();
 ///
 /// let first_variable = (*variables).get(&0);

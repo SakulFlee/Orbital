@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use hashbrown::{hash_map::Values, HashMap};
+use hashbrown::HashMap;
 use log::warn;
 use wgpu::{Device, Queue, TextureFormat};
 
