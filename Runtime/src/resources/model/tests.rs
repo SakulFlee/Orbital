@@ -39,7 +39,7 @@ fn realization() {
 
     let _realization = Model::from_descriptor(
         &descriptor,
-        &TextureFormat::Rgba8Uint,
+        &TextureFormat::Rgba16Float,
         &device,
         &queue,
         &cache_mesh,
