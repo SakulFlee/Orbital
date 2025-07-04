@@ -2,7 +2,7 @@ use crate::loader::gltf::import_type::GltfImportType;
 use crate::loader::gltf::SpecificGltfImport;
 
 /// Used to define what is being imported from a glTF file.
-/// 
+///
 /// Please note that labels in glTF is an _optional_ feature and _can be disabled_.
 /// Some applications may have a specific setting to _enable label support_.
 #[derive(Debug)]
