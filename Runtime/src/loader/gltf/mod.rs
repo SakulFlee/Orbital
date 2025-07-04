@@ -30,6 +30,7 @@ pub use result::*;
 
 mod error;
 pub use error::*;
+use crate::quaternion::quaternion_to_pitch_yaw;
 
 #[cfg(test)]
 mod tests;
@@ -375,12 +376,11 @@ impl GltfImporter {
                     y: decomposed.0[1],
                     z: decomposed.0[2],
                 },
-                rotation: Quaternion::from(
-                    Euler::new(
-                    Deg(decomposed.1[0]),
-                    Deg(decomposed.1[1]),
-                    Deg(decomposed.1[2]),
-                    )
+                rotation: Quaternion::new(
+                    decomposed.1[0],
+                    decomposed.1[1],
+                    decomposed.1[2],
+                    decomposed.1[3],
                 ),
                 scale: Vector3 {
                     x: decomposed.2[0],
@@ -415,11 +415,19 @@ impl GltfImporter {
         let transform = node.transform();
         let decomposed = transform.decomposed();
 
+        let quaternion = Quaternion::new(
+            decomposed.1[0],
+            decomposed.1[1],
+            decomposed.1[2],
+            decomposed.1[3],
+        );
+        let (pitch, yaw) = quaternion_to_pitch_yaw(&quaternion);
+
         let camera_descriptor = CameraDescriptor {
             label: node.name().map(|x| x.to_string()).unwrap_or("Unnamed".to_string()),
             position: Point3::new(decomposed.0[0], decomposed.0[1], decomposed.0[2]),
-            yaw: decomposed.1[0],
-            pitch: decomposed.1[1],
+            yaw,
+            pitch,
             aspect: perspective.aspect_ratio().unwrap_or(16.0/9.0),
             fovy: perspective.yfov(),
             near: perspective.znear(),

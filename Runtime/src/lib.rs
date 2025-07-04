@@ -10,6 +10,7 @@ pub mod resources;
 pub mod shader_preprocessor;
 pub mod world;
 pub mod loader;
+pub mod quaternion;
 
 #[cfg(test)]
 pub mod wgpu_test_adapter;
