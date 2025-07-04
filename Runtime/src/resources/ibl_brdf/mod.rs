@@ -99,7 +99,7 @@ impl IblBrdf {
                 y: Self::SIZE,
             },
             TextureFormat::Rgba32Float,
-            TextureUsages::TEXTURE_BINDING,
+            TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING,
             device,
         );
 
