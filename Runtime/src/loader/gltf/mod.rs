@@ -49,9 +49,22 @@ mod tests;
 pub struct GltfImporter;
 
 impl GltfImporter {
-
-    /// TODO
-    /// TODO: Add note about instancing!
+    /// Starts the import of a glTF file given settings defined in [`GltfImportTask`].
+    ///
+    /// This function will return a [`GltfImportResult`] which is different from the classical
+    /// [`Result`] type Rust commonly uses.
+    /// The reason for this is that a glTF file can contain many different types of targets to import
+    /// such as Cameras, Meshes/Models, Materials, Lights, etc.
+    /// The normally used [`Result`] type would result in an import ending as soon as the first issue
+    /// is found. Using the [`GltfImportResult`] struct allows us to still try importing everything
+    /// else before failing. The user then can decide if the result is acceptable or not.
+    ///
+    /// Note that this does **NOT** handle instancing automatically.
+    /// If a given model/mesh (_glTF primitive mesh_) is in the scene multiple times, it will also be
+    /// imported multiple times, based on the [`GltfImportTask`].
+    /// If you are aware of a model being used multiple times in a scene, import it once, then modify
+    /// the transform to match your instances.
+    /// _This feature will be implemented in the future: [#292](https://github.com/SakulFlee/Orbital/issues/292)!_
     pub async fn import(import_task: GltfImportTask) -> GltfImportResult {
         let (document, buffers, textures) = match gltf::import(&import_task.file) {
             Ok(x) => x,
@@ -78,6 +91,7 @@ impl GltfImporter {
         }
     }
 
+    /// Handles importing from a glTF [`Document`] given a [`SpecificGltfImport`].
     fn import_specific(specific_import: SpecificGltfImport, document: &Document, buffers: &Vec<gltf::buffer::Data>, textures: &Vec<gltf::image::Data>) -> GltfImportResult
     {
         let mut result = GltfImportResult::empty();
@@ -104,6 +118,7 @@ impl GltfImporter {
         result
     }
 
+    /// Handles importing a whole glTF file
     fn import_whole_file(document: &Document, buffers: &Vec<gltf::buffer::Data>, textures: &Vec<gltf::image::Data>) -> GltfImportResult {
         let mut result = GltfImportResult::empty();
 
@@ -115,12 +130,14 @@ impl GltfImporter {
         result
     }
 
+    /// Handles importing a whole scene from a glTF [`Document`].
     fn import_whole_scene(scene: Scene, document: &Document, buffers: &Vec<gltf::buffer::Data>, textures: &Vec<gltf::image::Data>) -> GltfImportResult {
         let nodes: Vec<_> = scene.nodes().collect();
         let results = Self::import_nodes(nodes, buffers, textures);
         results
     }
 
+    /// Handles importing a specific set of [`Node`]s from a glTF [`Document`].
     fn import_nodes(nodes: Vec<Node>, buffers: &Vec<gltf::buffer::Data>, textures: &Vec<gltf::image::Data>) -> GltfImportResult {
         let mut model_descriptors = Vec::new();
         let mut camera_descriptors = Vec::new();
@@ -168,6 +185,7 @@ impl GltfImporter {
         }
     }
 
+    /// Handles parsing of glTF textures ([`gltf::image::Data`]) and turns it into a [`TextureDescriptor`].
     fn parse_texture(data: &gltf::image::Data) -> TextureDescriptor {
         let (format, need_alpha_channel) = Self::gltf_texture_format_to_orbital(data.format);
 
@@ -202,6 +220,9 @@ impl GltfImporter {
         }
     }
 
+    /// Handles parsing a "dual" texture.
+    /// Same as [`Self::parse_texture`], but splits the R(ed) and G(reen) channel into two separate
+    /// textures. Only supports R+G dual textures at the moment.
     fn parse_dual_texture(data: &gltf::image::Data) -> (TextureDescriptor, TextureDescriptor) {
         let (format, need_alpha_channel) = Self::gltf_texture_format_to_orbital(data.format);
 
@@ -263,6 +284,7 @@ impl GltfImporter {
         (texture_0, texture_1)
     }
 
+    /// Handles parsing a glTF [`Material`] into an Orbital [`MaterialDescriptor`].
     fn parse_materials(material: &Material, textures: &Vec<gltf::image::Data>) -> MaterialDescriptor {
         let normal = if let Some(normal_info) = material.normal_texture() {
             Self::parse_texture(&textures[normal_info.texture().source().index()]) } else {TextureDescriptor::uniform_luma_black()};
@@ -308,6 +330,9 @@ impl GltfImporter {
     pbr_material.into()
 }
 
+    /// Handles parsing of a glTF [`Mesh`] into multiple [`ModelDescriptor`]s.
+    /// A _glTF Primitive_ is what Orbital considers a [`Model`].
+    /// A _glTF Attribute_ is, in some sense, what Orbital considers a [`Mesh`] and [`Vertex`]
     fn parse_models(node: &Node, mesh: &Mesh, buffers: &Vec<gltf::buffer::Data>, textures: &Vec<gltf::image::Data>) -> Result<Vec<ModelDescriptor>, Box<dyn Error>> {
         let primitives = mesh.primitives();
         let mut results = Vec::new();
@@ -402,6 +427,7 @@ impl GltfImporter {
         Ok(results)
     }
 
+    /// Handles parsing of glTF [`Camera`] and turns it into an Orbital [`CameraDescriptor`].
     fn parse_camera(node: &Node, camera: &Camera, buffers: &Vec<gltf::buffer::Data>) -> Result<CameraDescriptor, Box<dyn Error>> {
         let perspective = match camera.projection() {
             Projection::Orthographic(_) => {
