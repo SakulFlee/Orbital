@@ -10,7 +10,7 @@ pub enum ShaderSource {
 
 impl Default for ShaderSource {
     fn default() -> Self {
-        Self::String("#import <default>")
+        Self::String(include_str!("default_shader.wgsl"))
     }
 }
 

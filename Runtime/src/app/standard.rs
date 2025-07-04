@@ -1,5 +1,4 @@
-use crate::element::{Element, Message, Origin, Target, Variant};
-use crate::resources::Camera;
+use crate::element::Element;
 use crate::{
     app::{input::InputState, App, AppEvent},
     cgmath::Vector2,
@@ -12,6 +11,7 @@ use crate::{
 use async_std::task::block_on;
 use std::time::{Duration, Instant};
 
+#[derive(Default)]
 pub struct StandardApp {
     pub(crate) element_store: ElementStore,
     pub(crate) world: World,
@@ -27,7 +27,7 @@ impl StandardApp {
 
         let events = elements
             .into_iter()
-            .map(|x| ElementEvent::Spawn(x))
+            .map(ElementEvent::Spawn)
             .collect::<Vec<_>>();
         let new_events = block_on(s.element_store.process_events(events));
         s.queue_events.extend(new_events);
@@ -36,17 +36,6 @@ impl StandardApp {
     }
 }
 
-impl Default for StandardApp {
-    fn default() -> Self {
-        Self {
-            element_store: Default::default(),
-            world: Default::default(),
-            queue_events: vec![],
-            renderer: None,
-            empty_since: None,
-        }
-    }
-}
 
 impl App for StandardApp {
     fn new() -> Self {
@@ -135,10 +124,8 @@ impl App for StandardApp {
                 } else {
                     self.empty_since = Some(Instant::now());
                 }
-            } else {
-                if self.empty_since.is_some() {
-                    self.empty_since = None;
-                }
+            } else if self.empty_since.is_some() {
+                self.empty_since = None;
             }
         }
 

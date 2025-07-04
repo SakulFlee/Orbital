@@ -712,7 +712,7 @@ impl WorldEnvironment {
 
         MaterialShaderDescriptor {
             name: Some(String::from("WorldEnvironment MaterialShader")),
-            shader_source: ShaderSource::String(&include_str!("material_shader.wgsl")),
+            shader_source: ShaderSource::String(include_str!("material_shader.wgsl")),
             variables: vec![
                 VariableType::Texture {
                     descriptor: ibl_diffuse_descriptor,
