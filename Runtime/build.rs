@@ -2,8 +2,10 @@ use std::path::PathBuf;
 use std::process::Command;
 
 const MODEL_FILES_DIR: &'static str = "../Examples/SharedAssets/ModelFiles";
-const MODEL_SCRIPT_GLTF_EXPORT: &'static str = "../Examples/SharedAssets/ModelScripts/blender_gltf_export.py";
-const MODEL_SCRIPT_PBR_SPHERE_GEN: &'static str = "../Examples/SharedAssets/ModelScripts/pbr_sphere_gen.py";
+const MODEL_SCRIPT_GLTF_EXPORT: &'static str =
+    "../Examples/SharedAssets/ModelScripts/blender_gltf_export.py";
+const MODEL_SCRIPT_PBR_SPHERE_GEN: &'static str =
+    "../Examples/SharedAssets/ModelScripts/pbr_sphere_gen.py";
 const MODELS_DIR: &'static str = "../Examples/SharedAssets/Models";
 
 fn main() {
@@ -16,11 +18,13 @@ fn blender_pbr_spheres() {
         .expect("Failed to canonicalize script path!");
     println!(
         "cargo::rerun-if-changed={}",
-        script_path.to_str().expect("Failed converting script path to string!")
+        script_path
+            .to_str()
+            .expect("Failed converting script path to string!")
     );
 
-    let output_path = std::fs::canonicalize(MODELS_DIR)
-        .expect("Failed to canonicalize models output folder!");
+    let output_path =
+        std::fs::canonicalize(MODELS_DIR).expect("Failed to canonicalize models output folder!");
 
     let mut handle = Command::new("blender")
         .arg("--background")
@@ -44,23 +48,29 @@ fn blender_model_files() {
         .expect("Failed to canonicalize script path!");
     println!(
         "cargo::rerun-if-changed={}",
-        script_path.to_str().expect("Failed converting script path to string!")
+        script_path
+            .to_str()
+            .expect("Failed converting script path to string!")
     );
 
     println!("{:?}", MODEL_FILES_DIR);
-    let model_files_path_ = std::fs::canonicalize(MODEL_FILES_DIR)
-        .expect("Failed to canonicalize script path!");
+    let model_files_path_ =
+        std::fs::canonicalize(MODEL_FILES_DIR).expect("Failed to canonicalize script path!");
     let model_files_path = model_files_path_
         .to_str()
         .expect("Conversion from PathBuf to String failed!");
 
-    let output_path = std::fs::canonicalize(MODELS_DIR)
-        .expect("Failed to canonicalize models output folder!");
+    let output_path =
+        std::fs::canonicalize(MODELS_DIR).expect("Failed to canonicalize models output folder!");
 
     for entry in glob::glob(&format!("{}/*.blend", model_files_path)).unwrap() {
         let path = entry.unwrap();
 
-        blender_convert_to_gltf(path.into_os_string().into_string().unwrap().as_str(), &script_path, &output_path);
+        blender_convert_to_gltf(
+            path.into_os_string().into_string().unwrap().as_str(),
+            &script_path,
+            &output_path,
+        );
     }
 }
 

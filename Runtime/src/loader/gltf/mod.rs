@@ -1,17 +1,20 @@
-use std::error::Error;
-use std::{fs, io};
-use std::path::Path;
-use std::sync::Arc;
+use crate::resources::{
+    CameraDescriptor, FilterMode, MaterialDescriptor, MaterialShader, MeshDescriptor,
+    ModelDescriptor, PBRMaterialDescriptor, TextureDescriptor, TextureSize, Transform, Vertex,
+};
 use cgmath::{Deg, Euler, Point3, Quaternion, Vector2, Vector3, Zero};
 use futures::future::err;
 use gltf::camera::Projection;
-use gltf::{Attribute, Buffer, Camera, Document, Gltf, Material, Mesh, Node, Scene, Semantic};
 use gltf::image::{Data, Format};
 use gltf::texture::Info;
+use gltf::{Attribute, Buffer, Camera, Document, Gltf, Material, Mesh, Node, Scene, Semantic};
 use log::{debug, warn};
-use wgpu::{Color, TextureDimension, TextureFormat, TextureUsages, TextureViewDimension};
+use std::error::Error;
+use std::path::Path;
+use std::sync::Arc;
+use std::{fs, io};
 use wgpu::TextureFormat::R32Float;
-use crate::resources::{CameraDescriptor, FilterMode, MaterialDescriptor, MaterialShader, MeshDescriptor, ModelDescriptor, PBRMaterialDescriptor, TextureDescriptor, TextureSize, Transform, Vertex};
+use wgpu::{Color, TextureDimension, TextureFormat, TextureUsages, TextureViewDimension};
 
 mod import;
 pub use import::*;
@@ -29,19 +32,19 @@ mod result;
 pub use result::*;
 
 mod error;
-pub use error::*;
 use crate::quaternion::quaternion_to_pitch_yaw;
+pub use error::*;
 
 #[cfg(test)]
 mod tests;
 
 /// Used to load/import "things" from a glTF file.
 /// This should support most variants of glTF files but not necessarily everything.
-/// 
+///
 /// Since most imports require labels to be used, make sure that your glTF file does include support
 /// for labels! Labels is an _optional feature_ in glTF files. Most applications export glTF files
 /// directly with the label without any modification being necessary, other apps might have a toggle.
-/// 
+///
 /// # Known unsupported behaviors:
 /// - URL references to websites, e.g. to download an image, are not supported.
 ///   Any resources are required to be local and accessible.
@@ -68,21 +71,22 @@ impl GltfImporter {
     pub async fn import(import_task: GltfImportTask) -> GltfImportResult {
         let (document, buffers, textures) = match gltf::import(&import_task.file) {
             Ok(x) => x,
-            Err(e) => return GltfImportResult {
-                errors: vec![Box::new(e)],
-                ..Default::default()
-            },
+            Err(e) => {
+                return GltfImportResult {
+                    errors: vec![Box::new(e)],
+                    ..Default::default()
+                }
+            }
         };
 
         match import_task.import {
-            GltfImport::WholeFile => {
-                Self::import_whole_file(&document, &buffers, &textures)
-            }
+            GltfImport::WholeFile => Self::import_whole_file(&document, &buffers, &textures),
             GltfImport::Specific(specific_gltf_imports) => {
                 let mut result = GltfImportResult::empty();
 
                 for specific_import in specific_gltf_imports {
-                    let import_result = Self::import_specific(specific_import, &document, &buffers, &textures);
+                    let import_result =
+                        Self::import_specific(specific_import, &document, &buffers, &textures);
                     result.extend(import_result);
                 }
 
@@ -92,25 +96,42 @@ impl GltfImporter {
     }
 
     /// Handles importing from a glTF [`Document`] given a [`SpecificGltfImport`].
-    fn import_specific(specific_import: SpecificGltfImport, document: &Document, buffers: &Vec<gltf::buffer::Data>, textures: &Vec<gltf::image::Data>) -> GltfImportResult
-    {
+    fn import_specific(
+        specific_import: SpecificGltfImport,
+        document: &Document,
+        buffers: &Vec<gltf::buffer::Data>,
+        textures: &Vec<gltf::image::Data>,
+    ) -> GltfImportResult {
         let mut result = GltfImportResult::empty();
 
         match specific_import.import_type {
             GltfImportType::Scene => {
-                if let Some(scene) = document.scenes().find(|scene| scene.name().is_some_and(|x| x == specific_import.label)) {
-                    let import_result = Self::import_whole_scene(scene, document, buffers, textures);
+                if let Some(scene) = document
+                    .scenes()
+                    .find(|scene| scene.name().is_some_and(|x| x == specific_import.label))
+                {
+                    let import_result =
+                        Self::import_whole_scene(scene, document, buffers, textures);
                     result.extend(import_result);
                 } else {
-                    result.errors.push(Box::new(GltfError::NotFound(specific_import)));
+                    result
+                        .errors
+                        .push(Box::new(GltfError::NotFound(specific_import)));
                 }
             }
             GltfImportType::Model | GltfImportType::Camera => {
-                if let Some(node) = document.scenes().find_map(|scene| scene.nodes().find(|node| node.name().is_some_and(|name| name == specific_import.label))) {
+                if let Some(node) = document.scenes().find_map(|scene| {
+                    scene.nodes().find(|node| {
+                        node.name()
+                            .is_some_and(|name| name == specific_import.label)
+                    })
+                }) {
                     let import_result = Self::import_nodes(vec![node], buffers, textures);
                     result.extend(import_result);
                 } else {
-                    result.errors.push(Box::new(GltfError::NotFound(specific_import)));
+                    result
+                        .errors
+                        .push(Box::new(GltfError::NotFound(specific_import)));
                 }
             }
         }
@@ -119,7 +140,11 @@ impl GltfImporter {
     }
 
     /// Handles importing a whole glTF file
-    fn import_whole_file(document: &Document, buffers: &Vec<gltf::buffer::Data>, textures: &Vec<gltf::image::Data>) -> GltfImportResult {
+    fn import_whole_file(
+        document: &Document,
+        buffers: &Vec<gltf::buffer::Data>,
+        textures: &Vec<gltf::image::Data>,
+    ) -> GltfImportResult {
         let mut result = GltfImportResult::empty();
 
         for scene in document.scenes() {
@@ -131,34 +156,42 @@ impl GltfImporter {
     }
 
     /// Handles importing a whole scene from a glTF [`Document`].
-    fn import_whole_scene(scene: Scene, document: &Document, buffers: &Vec<gltf::buffer::Data>, textures: &Vec<gltf::image::Data>) -> GltfImportResult {
+    fn import_whole_scene(
+        scene: Scene,
+        document: &Document,
+        buffers: &Vec<gltf::buffer::Data>,
+        textures: &Vec<gltf::image::Data>,
+    ) -> GltfImportResult {
         let nodes: Vec<_> = scene.nodes().collect();
         let results = Self::import_nodes(nodes, buffers, textures);
         results
     }
 
     /// Handles importing a specific set of [`Node`]s from a glTF [`Document`].
-    fn import_nodes(nodes: Vec<Node>, buffers: &Vec<gltf::buffer::Data>, textures: &Vec<gltf::image::Data>) -> GltfImportResult {
+    fn import_nodes(
+        nodes: Vec<Node>,
+        buffers: &Vec<gltf::buffer::Data>,
+        textures: &Vec<gltf::image::Data>,
+    ) -> GltfImportResult {
         let mut model_descriptors = Vec::new();
         let mut camera_descriptors = Vec::new();
         let mut errors = Vec::new();
 
-        for node in nodes{
+        for node in nodes {
             if let Some(mesh) = node.mesh() {
                 match Self::parse_models(&node, &mesh, &buffers, &textures) {
-                    Ok(models) => {model_descriptors.extend(models)}
-                    Err(e) => {errors.push(e)}
+                    Ok(models) => model_descriptors.extend(models),
+                    Err(e) => errors.push(e),
                 }
             } else if let Some(camera) = node.camera() {
                 match Self::parse_camera(&node, &camera, &buffers) {
-                    Ok(camera) => {camera_descriptors.push(camera)}
-                    Err(e) => {errors.push(e)}
+                    Ok(camera) => camera_descriptors.push(camera),
+                    Err(e) => errors.push(e),
                 }
             } else {
                 warn!("Unknown node type: {:?}", node);
             }
         }
-
 
         GltfImportResult {
             models: model_descriptors,
@@ -172,16 +205,16 @@ impl GltfImporter {
     /// This is due to WGPU not supporting RGB textures without an alpha channel.
     fn gltf_texture_format_to_orbital(format: Format) -> (TextureFormat, bool) {
         match format {
-            Format::R8 => {(TextureFormat::R8Unorm, false)}
-            Format::R8G8 => {(TextureFormat::Rg8Unorm, false)}
-            Format::R8G8B8 => {(TextureFormat::Rgba8Unorm, true)}
-            Format::R8G8B8A8 => {(TextureFormat::Rgba8Unorm, false)}
-            Format::R16 => {(TextureFormat::R16Unorm, false)}
-            Format::R16G16 => {(TextureFormat::Rg16Unorm, false)}
-            Format::R16G16B16 => {(TextureFormat::Rgba16Unorm, true)}
-            Format::R16G16B16A16 => {(TextureFormat::Rgba16Unorm, false)}
-            Format::R32G32B32FLOAT => {(TextureFormat::Rgba32Float, true)}
-            Format::R32G32B32A32FLOAT => {(TextureFormat::Rgba32Float, false)}
+            Format::R8 => (TextureFormat::R8Unorm, false),
+            Format::R8G8 => (TextureFormat::Rg8Unorm, false),
+            Format::R8G8B8 => (TextureFormat::Rgba8Unorm, true),
+            Format::R8G8B8A8 => (TextureFormat::Rgba8Unorm, false),
+            Format::R16 => (TextureFormat::R16Unorm, false),
+            Format::R16G16 => (TextureFormat::Rg16Unorm, false),
+            Format::R16G16B16 => (TextureFormat::Rgba16Unorm, true),
+            Format::R16G16B16A16 => (TextureFormat::Rgba16Unorm, false),
+            Format::R32G32B32FLOAT => (TextureFormat::Rgba32Float, true),
+            Format::R32G32B32A32FLOAT => (TextureFormat::Rgba32Float, false),
         }
     }
 
@@ -190,8 +223,9 @@ impl GltfImporter {
         let (format, need_alpha_channel) = Self::gltf_texture_format_to_orbital(data.format);
 
         let byte_requirement = format.target_component_alignment().unwrap_or(1) as usize;
-        let mut pixels = Vec::with_capacity(data.pixels.len() + (data.pixels.len() / (byte_requirement - 1)));
-        if need_alpha_channel{
+        let mut pixels =
+            Vec::with_capacity(data.pixels.len() + (data.pixels.len() / (byte_requirement - 1)));
+        if need_alpha_channel {
             for (i, pixel) in data.pixels.iter().enumerate() {
                 if i % byte_requirement == 0 {
                     for _ in 0..byte_requirement {
@@ -229,25 +263,21 @@ impl GltfImporter {
         let byte_requirement = format.target_component_alignment().unwrap_or(1) as usize;
         let mut pixels_0 = Vec::with_capacity(data.pixels.len() / byte_requirement);
         let mut pixels_1 = Vec::with_capacity(data.pixels.len() / byte_requirement);
-            
+
         for (i, pixel) in data.pixels.iter().enumerate() {
-                if i % byte_requirement == 0 {
-                    pixels_0.push(*pixel);
-                } else {
-                    pixels_1.push(*pixel);
-                }
+            if i % byte_requirement == 0 {
+                pixels_0.push(*pixel);
+            } else {
+                pixels_1.push(*pixel);
             }
-        
-        let actual_format = match data.format{
-            Format::R8 |
-            Format::R8G8 |
-            Format::R8G8B8 |
-            Format::R8G8B8A8 => {TextureFormat::R8Unorm}
-             Format::R16 |
-             Format::R16G16 |
-             Format::R16G16B16 |
-             Format::R16G16B16A16 => {TextureFormat::R16Unorm}
-            Format::R32G32B32FLOAT | Format::R32G32B32A32FLOAT => {R32Float}
+        }
+
+        let actual_format = match data.format {
+            Format::R8 | Format::R8G8 | Format::R8G8B8 | Format::R8G8B8A8 => TextureFormat::R8Unorm,
+            Format::R16 | Format::R16G16 | Format::R16G16B16 | Format::R16G16B16A16 => {
+                TextureFormat::R16Unorm
+            }
+            Format::R32G32B32FLOAT | Format::R32G32B32A32FLOAT => R32Float,
         };
 
         let texture_0 = TextureDescriptor::Data {
@@ -285,33 +315,77 @@ impl GltfImporter {
     }
 
     /// Handles parsing a glTF [`Material`] into an Orbital [`MaterialDescriptor`].
-    fn parse_materials(material: &Material, textures: &Vec<gltf::image::Data>) -> MaterialDescriptor {
+    fn parse_materials(
+        material: &Material,
+        textures: &Vec<gltf::image::Data>,
+    ) -> MaterialDescriptor {
         let normal = if let Some(normal_info) = material.normal_texture() {
-            Self::parse_texture(&textures[normal_info.texture().source().index()]) } else {TextureDescriptor::uniform_luma_black()};
+            Self::parse_texture(&textures[normal_info.texture().source().index()])
+        } else {
+            TextureDescriptor::uniform_luma_black()
+        };
 
-        let albedo = if let Some(albedo_info) = material.pbr_metallic_roughness().base_color_texture() {Self::parse_texture(&textures[albedo_info.texture().source().index()]) } else {TextureDescriptor::uniform_rgba_color(Color { r: 0.5, g: 0.0, b: 0.5, a: 1.0})};
+        let albedo =
+            if let Some(albedo_info) = material.pbr_metallic_roughness().base_color_texture() {
+                Self::parse_texture(&textures[albedo_info.texture().source().index()])
+            } else {
+                TextureDescriptor::uniform_rgba_color(Color {
+                    r: 0.5,
+                    g: 0.0,
+                    b: 0.5,
+                    a: 1.0,
+                })
+            };
         let albedo_factor_raw = material.pbr_metallic_roughness().base_color_factor();
         // Note: Skipping 'w' here!
-        let albedo_factor = Vector3::new(albedo_factor_raw[0], albedo_factor_raw[1], albedo_factor_raw[2]);
+        let albedo_factor = Vector3::new(
+            albedo_factor_raw[0],
+            albedo_factor_raw[1],
+            albedo_factor_raw[2],
+        );
 
-        let (metallic, roughness) = if let Some(metallic_and_roughness_info) = material.pbr_metallic_roughness().metallic_roughness_texture() {Self::parse_dual_texture(&textures[metallic_and_roughness_info.texture().source().index()]) } else {
+        let (metallic, roughness) = if let Some(metallic_and_roughness_info) = material
+            .pbr_metallic_roughness()
+            .metallic_roughness_texture()
+        {
+            Self::parse_dual_texture(
+                &textures[metallic_and_roughness_info.texture().source().index()],
+            )
+        } else {
             (
-                TextureDescriptor::uniform_rgba_color(Color { r: 0.5, g: 0.0, b: 0.5, a: 1.0}),
-                TextureDescriptor::uniform_rgba_color(Color { r: 0.5, g: 0.0, b: 0.5, a: 1.0})
+                TextureDescriptor::uniform_rgba_color(Color {
+                    r: 0.5,
+                    g: 0.0,
+                    b: 0.5,
+                    a: 1.0,
+                }),
+                TextureDescriptor::uniform_rgba_color(Color {
+                    r: 0.5,
+                    g: 0.0,
+                    b: 0.5,
+                    a: 1.0,
+                }),
             )
         };
         let metallic_factor = material.pbr_metallic_roughness().metallic_factor();
         let roughness_factor = material.pbr_metallic_roughness().roughness_factor();
 
-        let occlusion = if let Some(occlusion_info) = material.occlusion_texture() {Self::parse_texture(&textures[occlusion_info.texture().source().index()]) } else {TextureDescriptor::uniform_rgba_black()};
-        let emissive = if let Some(emissive_info) = material.emissive_texture() {Self::parse_texture(&textures[emissive_info.texture().source().index()]) } else {
+        let occlusion = if let Some(occlusion_info) = material.occlusion_texture() {
+            Self::parse_texture(&textures[occlusion_info.texture().source().index()])
+        } else {
+            TextureDescriptor::uniform_rgba_black()
+        };
+        let emissive = if let Some(emissive_info) = material.emissive_texture() {
+            Self::parse_texture(&textures[emissive_info.texture().source().index()])
+        } else {
             let emissive_color = material.emissive_factor();
             TextureDescriptor::uniform_rgba_color(Color {
                 r: emissive_color[0] as f64,
                 g: emissive_color[1] as f64,
                 b: emissive_color[2] as f64,
                 a: 1.0,
-            })};
+            })
+        };
 
         let pbr_material = PBRMaterialDescriptor {
             name: material.name().map(|x| x.to_string()),
@@ -327,13 +401,18 @@ impl GltfImporter {
             custom_material_shader: None,
         };
 
-    pbr_material.into()
-}
+        pbr_material.into()
+    }
 
     /// Handles parsing of a glTF [`Mesh`] into multiple [`ModelDescriptor`]s.
     /// A _glTF Primitive_ is what Orbital considers a [`Model`].
     /// A _glTF Attribute_ is, in some sense, what Orbital considers a [`Mesh`] and [`Vertex`]
-    fn parse_models(node: &Node, mesh: &Mesh, buffers: &Vec<gltf::buffer::Data>, textures: &Vec<gltf::image::Data>) -> Result<Vec<ModelDescriptor>, Box<dyn Error>> {
+    fn parse_models(
+        node: &Node,
+        mesh: &Mesh,
+        buffers: &Vec<gltf::buffer::Data>,
+        textures: &Vec<gltf::image::Data>,
+    ) -> Result<Vec<ModelDescriptor>, Box<dyn Error>> {
         let primitives = mesh.primitives();
         let mut results = Vec::new();
 
@@ -352,9 +431,11 @@ impl GltfImporter {
             let mut normals = reader.read_normals();
             let mut tangents = reader.read_tangents();
             let mut uvs = reader.read_tex_coords(0).and_then(|x| Some(x.into_f32()));
-            primitive.attributes().for_each(|x| if let Semantic::TexCoords(indices) = x.0 {
-                if indices > 1 {
-                    warn!("More than one UV index found, only the first will be imported!");
+            primitive.attributes().for_each(|x| {
+                if let Semantic::TexCoords(indices) = x.0 {
+                    if indices > 1 {
+                        warn!("More than one UV index found, only the first will be imported!");
+                    }
                 }
             });
 
@@ -362,7 +443,9 @@ impl GltfImporter {
             for (i, position_raw) in positions.enumerate() {
                 let position = Vector3::new(position_raw[0], position_raw[1], position_raw[2]);
 
-                let normal = normals.as_mut().and_then(|iter| iter.nth(i))
+                let normal = normals
+                    .as_mut()
+                    .and_then(|iter| iter.nth(i))
                     .map(|n| Vector3::new(n[0], n[1], n[2]))
                     .unwrap_or_else(|| {
                         warn!("Normal missing for vertex {}. Using default!", i);
@@ -370,20 +453,24 @@ impl GltfImporter {
                     });
 
                 // Note: `w` is being ignored here!
-                let tangent = tangents.as_mut().and_then(|iter| iter.nth(i))
+                let tangent = tangents
+                    .as_mut()
+                    .and_then(|iter| iter.nth(i))
                     .map(|n| Vector3::new(n[0], n[1], n[2]))
                     .unwrap_or_else(|| {
                         warn!("Tangent missing for vertex {}. Using default!", i);
                         Vector3::zero()
                     });
 
-                let uv = uvs.as_mut().and_then(|iter| iter.nth(i))
+                let uv = uvs
+                    .as_mut()
+                    .and_then(|iter| iter.nth(i))
                     .map(|n| Vector2::new(n[0], n[1]))
                     .unwrap_or_else(|| {
                         warn!("Tangent missing for vertex {}. Using default!", i);
                         Vector2::zero()
                     });
-                
+
                 let vertex = Vertex::new(position, normal, tangent, uv);
                 vertices.push(vertex);
             }
@@ -395,7 +482,7 @@ impl GltfImporter {
             let material = Self::parse_materials(&primitive.material(), textures);
 
             let decomposed = node.transform().decomposed();
-            let transform =Transform {
+            let transform = Transform {
                 position: Vector3 {
                     x: decomposed.0[0],
                     y: decomposed.0[1],
@@ -412,10 +499,13 @@ impl GltfImporter {
                     y: decomposed.2[1],
                     z: decomposed.2[2],
                 },
-            } ;
+            };
 
             let model = ModelDescriptor {
-                label: node.name().map(|x| x.to_string()).unwrap_or("Unnamed".to_string()),
+                label: node
+                    .name()
+                    .map(|x| x.to_string())
+                    .unwrap_or("Unnamed".to_string()),
                 mesh: Arc::new(mesh_descriptor),
                 materials: vec![Arc::new(material)],
                 transforms: vec![transform],
@@ -428,14 +518,16 @@ impl GltfImporter {
     }
 
     /// Handles parsing of glTF [`Camera`] and turns it into an Orbital [`CameraDescriptor`].
-    fn parse_camera(node: &Node, camera: &Camera, buffers: &Vec<gltf::buffer::Data>) -> Result<CameraDescriptor, Box<dyn Error>> {
+    fn parse_camera(
+        node: &Node,
+        camera: &Camera,
+        buffers: &Vec<gltf::buffer::Data>,
+    ) -> Result<CameraDescriptor, Box<dyn Error>> {
         let perspective = match camera.projection() {
             Projection::Orthographic(_) => {
                 return Err(Box::new(GltfError::Unsupported));
             }
-            Projection::Perspective(perspective) => {
-                perspective
-            }
+            Projection::Perspective(perspective) => perspective,
         };
 
         let transform = node.transform();
@@ -450,11 +542,14 @@ impl GltfImporter {
         let (pitch, yaw) = quaternion_to_pitch_yaw(&quaternion);
 
         let camera_descriptor = CameraDescriptor {
-            label: node.name().map(|x| x.to_string()).unwrap_or("Unnamed".to_string()),
+            label: node
+                .name()
+                .map(|x| x.to_string())
+                .unwrap_or("Unnamed".to_string()),
             position: Point3::new(decomposed.0[0], decomposed.0[1], decomposed.0[2]),
             yaw,
             pitch,
-            aspect: perspective.aspect_ratio().unwrap_or(16.0/9.0),
+            aspect: perspective.aspect_ratio().unwrap_or(16.0 / 9.0),
             fovy: perspective.yfov(),
             near: perspective.znear(),
             far: perspective.znear(),

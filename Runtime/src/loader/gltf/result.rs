@@ -1,5 +1,5 @@
-use std::error::Error;
 use crate::resources::{CameraDescriptor, ModelDescriptor};
+use std::error::Error;
 
 /// Contains the results of a glTF Import.
 #[derive(Debug)]
@@ -13,7 +13,7 @@ impl GltfImportResult {
     pub fn empty() -> Self {
         Self::default()
     }
-    
+
     pub fn extend(&mut self, other: Self) {
         self.models.extend(other.models);
         self.cameras.extend(other.cameras);

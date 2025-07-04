@@ -1,8 +1,10 @@
+use crate::loader::gltf::{
+    GltfImport, GltfImportResult, GltfImportTask, GltfImportType, GltfImporter, SpecificGltfImport,
+};
+use crate::logging;
 use async_std::task::block_on;
 use cgmath::{Point3, Quaternion, Vector3};
 use log::debug;
-use crate::loader::gltf::{GltfImport, GltfImportResult, GltfImportTask, GltfImportType, GltfImporter, SpecificGltfImport};
-use crate::logging;
 
 #[test]
 fn load_gltf() {
@@ -19,7 +21,6 @@ fn load_gltf() {
 
     assert!(result.errors.is_empty());
 }
-
 
 #[test]
 fn load_glb() {
@@ -110,7 +111,6 @@ fn check_top_camera_position_matches() {
     assert_eq!(camera.position, Point3::new(0.0, 5.0, 0.0));
 }
 
-
 #[test]
 fn check_top_camera_rotation_matches() {
     let result = query(SpecificGltfImport {
@@ -147,7 +147,10 @@ fn check_red_cube_rotation_matches() {
 
     let model = &result.models[0];
     assert!(!model.transforms.is_empty());
-    assert_eq!(model.transforms[0].rotation, Quaternion::new(0.0, 0.0, 0.0, 1.0));
+    assert_eq!(
+        model.transforms[0].rotation,
+        Quaternion::new(0.0, 0.0, 0.0, 1.0)
+    );
 }
 
 #[test]
@@ -186,7 +189,10 @@ fn check_blue_cube_rotation_matches() {
 
     let model = &result.models[0];
     assert!(!model.transforms.is_empty());
-    assert_eq!(model.transforms[0].rotation, Quaternion::new(0.0, 0.0, 0.0, 1.0));
+    assert_eq!(
+        model.transforms[0].rotation,
+        Quaternion::new(0.0, 0.0, 0.0, 1.0)
+    );
 }
 
 #[test]
@@ -225,7 +231,10 @@ fn check_green_cube_rotation_matches() {
 
     let model = &result.models[0];
     assert!(!model.transforms.is_empty());
-    assert_eq!(model.transforms[0].rotation, Quaternion::new(0.0, 0.0, 0.0, 1.0));
+    assert_eq!(
+        model.transforms[0].rotation,
+        Quaternion::new(0.0, 0.0, 0.0, 1.0)
+    );
 }
 
 #[test]

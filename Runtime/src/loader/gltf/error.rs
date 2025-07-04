@@ -1,20 +1,22 @@
+use crate::loader::gltf::{GltfImportType, SpecificGltfImport};
+use gltf::Node;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
-use gltf::Node;
-use crate::loader::gltf::{GltfImportType, SpecificGltfImport};
 
 #[derive(Debug)]
 pub enum GltfError {
     /// Thrown if a given operation is unsupported
     Unsupported,
-    NotFound(SpecificGltfImport)
+    NotFound(SpecificGltfImport),
 }
 
 impl Display for GltfError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             GltfError::Unsupported => write!(f, "Unsupported!"),
-            GltfError::NotFound(import) => write!(f, "Couldn't find specific glTF import: {:?}", import),
+            GltfError::NotFound(import) => {
+                write!(f, "Couldn't find specific glTF import: {:?}", import)
+            }
         }
     }
 }
