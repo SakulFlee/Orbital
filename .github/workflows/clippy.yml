@@ -21,7 +21,16 @@ jobs:
       with:
         path: target/
         key: target
-    
+
+    - name: Rust channel
+      run: rustup default stable
+
+    - name: Rust update
+      run: rustup update
+
+    - name: Install Blender
+      run: apt-get install -y blender
+
     - name: Clippy
       run: cargo clippy --fix
       
