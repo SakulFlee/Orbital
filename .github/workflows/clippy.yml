@@ -38,6 +38,7 @@ jobs:
       run: |
         git config --global user.name '@SakulFlee | Lukas Weber'
         git config --global user.email 'dev@sakul-flee.de'
+        git status
         git commit -am "Automated clippy run"
         git push
       continue-on-error: true
