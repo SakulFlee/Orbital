@@ -185,7 +185,7 @@ impl GltfImporter {
                     Err(e) => errors.push(e),
                 }
             } else {
-                warn!("Unknown node type: {:?}", node);
+                warn!("Unknown node type: {node:?}");
             }
         }
 
@@ -444,7 +444,7 @@ impl GltfImporter {
                     .and_then(|iter| iter.nth(i))
                     .map(|n| Vector3::new(n[0], n[1], n[2]))
                     .unwrap_or_else(|| {
-                        warn!("Normal missing for vertex {}. Using default!", i);
+                        warn!("Normal missing for vertex {i}. Using default!");
                         Vector3::zero()
                     });
 
@@ -454,7 +454,7 @@ impl GltfImporter {
                     .and_then(|iter| iter.nth(i))
                     .map(|n| Vector3::new(n[0], n[1], n[2]))
                     .unwrap_or_else(|| {
-                        warn!("Tangent missing for vertex {}. Using default!", i);
+                        warn!("Tangent missing for vertex {i}. Using default!");
                         Vector3::zero()
                     });
 
@@ -463,7 +463,7 @@ impl GltfImporter {
                     .and_then(|iter| iter.nth(i))
                     .map(|n| Vector2::new(n[0], n[1]))
                     .unwrap_or_else(|| {
-                        warn!("Tangent missing for vertex {}. Using default!", i);
+                        warn!("Tangent missing for vertex {i}. Using default!");
                         Vector2::zero()
                     });
 

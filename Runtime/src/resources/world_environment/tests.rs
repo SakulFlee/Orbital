@@ -45,7 +45,7 @@ fn test_realization_some_mip_level_count_set() {
     let (_, device, queue) = wgpu_test_adapter::make_wgpu_connection();
 
     for i in 1..10 {
-        debug!("Testing with mip level count: {}", i);
+        debug!("Testing with mip level count: {i}");
 
         let descriptor = WorldEnvironmentDescriptor::FromData {
             cube_face_size: SIZE,
