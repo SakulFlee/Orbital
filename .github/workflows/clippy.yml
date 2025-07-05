@@ -14,24 +14,28 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - name: ⏬ Checkout
+      uses: actions/checkout@v4
 
-    - name: Cache
+    - name: 💾 Cache
       uses: actions/cache@v4.2.0
       with:
         path: target/
         key: target
 
-    - name: Rust channel
+    - name: 🦀🧰 Rust channel
       run: rustup default stable
 
-    - name: Rust update
+    - name: 🦀🔄 Rust update
       run: rustup update
 
-    - name: Clippy
+    - name: 🛠️ Install LibUDev
+      run: sudo apt-get install -y libudev-dev
+
+    - name: 📎 Clippy
       run: cargo clippy --fix
       
-    - name: Commit & Push if changes are found
+    - name: ⏫ Commit & Push if changes are found
       run: |
         git config --global user.name '@SakulFlee | Lukas Weber'
         git config --global user.email 'dev@sakul-flee.de'
