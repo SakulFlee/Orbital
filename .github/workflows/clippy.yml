@@ -34,7 +34,7 @@ jobs:
     - name: 📎 Clippy
       run: cargo clippy --fix
       
-    - name: ⏫ Commit & Push if changes are found
+    - name: ⏫ Commit changes
       run: |
         git config --global user.name '@SakulFlee | Lukas Weber'
         git config --global user.email 'dev@sakul-flee.de'
