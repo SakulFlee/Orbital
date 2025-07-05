@@ -44,8 +44,7 @@ fn blender_pbr_spheres() {
     let exit_code = handle.wait().expect("Failed to wait for process to finish");
     if !exit_code.success() {
         panic!(
-            "Failed generating PBR Spheres and export to glTF! Blender exited with code: {}",
-            exit_code
+            "Failed generating PBR Spheres and export to glTF! Blender exited with code: {exit_code}"
         );
     }
 }
@@ -60,7 +59,7 @@ fn blender_model_files() {
             .expect("Failed converting script path to string!")
     );
 
-    println!("{:?}", MODEL_FILES_DIR);
+    println!("{MODEL_FILES_DIR:?}");
     let model_files_path_ =
         std::fs::canonicalize(MODEL_FILES_DIR).expect("Failed to canonicalize script path!");
     let model_files_path = model_files_path_
@@ -70,7 +69,7 @@ fn blender_model_files() {
     let output_path =
         std::fs::canonicalize(MODELS_DIR).expect("Failed to canonicalize models output folder!");
 
-    for entry in glob::glob(&format!("{}/*.blend", model_files_path)).unwrap() {
+    for entry in glob::glob(&format!("{model_files_path}/*.blend")).unwrap() {
         let path = entry.unwrap();
 
         blender_convert_to_gltf(
@@ -82,7 +81,7 @@ fn blender_model_files() {
 }
 
 fn blender_convert_to_gltf(filepath: &str, script_path: &PathBuf, output_path: &PathBuf) {
-    println!("cargo::rerun-if-changed={}", filepath);
+    println!("cargo::rerun-if-changed={filepath}");
 
     let mut handle = Command::new("blender")
         .arg("--background")
@@ -96,8 +95,7 @@ fn blender_convert_to_gltf(filepath: &str, script_path: &PathBuf, output_path: &
     let exit_code = handle.wait().expect("Failed to wait for process to finish");
     if !exit_code.success() {
         panic!(
-            "Failed converting Blender file to glTF! Blender exited with code: {}",
-            exit_code
+            "Failed converting Blender file to glTF! Blender exited with code: {exit_code}"
         );
     }
 }

@@ -14,7 +14,7 @@ impl Display for GltfError {
         match self {
             GltfError::Unsupported => write!(f, "Unsupported!"),
             GltfError::NotFound(import) => {
-                write!(f, "Couldn't find specific glTF import: {:?}", import)
+                write!(f, "Couldn't find specific glTF import: {import:?}")
             }
         }
     }
