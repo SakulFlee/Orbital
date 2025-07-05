@@ -16,6 +16,8 @@ jobs:
     steps:
     - name: ⏬ Checkout
       uses: actions/checkout@v4
+      with:
+        ref: ${{ github.head_ref }}
 
     - name: 💾 Cache
       uses: actions/cache@v4.2.0
@@ -39,6 +41,7 @@ jobs:
         git config --global user.name '@SakulFlee | Lukas Weber'
         git config --global user.email 'dev@sakul-flee.de'
         git status
+        git add --all
         git commit -am "Automated clippy run"
         git push
       continue-on-error: true
