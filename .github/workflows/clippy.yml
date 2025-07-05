@@ -23,11 +23,10 @@ jobs:
         path: target/
         key: target
 
-    - name: 🦀🧰 Rust channel
-      run: rustup default stable
-
-    - name: 🦀🔄 Rust update
-      run: rustup update
+    - name: 🦀 Rust setup
+      run: |
+        rustup default stable
+        rustup update
 
     - name: 🛠️ Install LibUDev
       run: sudo apt-get install -y libudev-dev
@@ -35,10 +34,11 @@ jobs:
     - name: 📎 Clippy
       run: cargo clippy --fix
       
-    - name: ⏫ Commit & Push if changes are found
+    - name: ⏫ Commit changes
       run: |
         git config --global user.name '@SakulFlee | Lukas Weber'
         git config --global user.email 'dev@sakul-flee.de'
+        git status
         git commit -am "Automated clippy run"
         git push
       continue-on-error: true
