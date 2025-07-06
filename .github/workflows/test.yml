@@ -28,8 +28,7 @@ jobs:
           rustup update
 
       - name: 🛠️ Install Blender and dependencies
-        run: sudo apt-get install -y blender libudev-dev libegl-mesa0
-        # libglapi-mesa mesa-opencl-icd mesa-utils mesa-vulkan-drivers libgl1-mesa-dev
+        run: sudo apt-get install -y blender libudev-dev mesa-utils
 
       - name: 🧪 Test
         env:
