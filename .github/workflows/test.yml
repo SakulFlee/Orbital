@@ -1,4 +1,4 @@
-name: check
+name: Test
 
 on:
   pull_request:
