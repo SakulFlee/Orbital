@@ -56,9 +56,7 @@ where
         #[cfg(debug_assertions)]
         {
             let after = self.map.len();
-            debug!(
-                "Cache cleanup: {before} -> {after} entries (before -> after)"
-            );
+            debug!("Cache cleanup: {before} -> {after} entries (before -> after)");
         }
     }
 }

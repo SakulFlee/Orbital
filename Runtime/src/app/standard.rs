@@ -36,7 +36,6 @@ impl StandardApp {
     }
 }
 
-
 impl App for StandardApp {
     fn new() -> Self {
         panic!("Do not call StandardApp::new() directly, use App::new() instead!")

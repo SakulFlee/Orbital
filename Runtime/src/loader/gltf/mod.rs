@@ -1,6 +1,6 @@
 use crate::resources::{
-    CameraDescriptor, FilterMode, MaterialDescriptor, MeshDescriptor,
-    ModelDescriptor, PBRMaterialDescriptor, TextureDescriptor, TextureSize, Transform, Vertex,
+    CameraDescriptor, FilterMode, MaterialDescriptor, MeshDescriptor, ModelDescriptor,
+    PBRMaterialDescriptor, TextureDescriptor, TextureSize, Transform, Vertex,
 };
 use cgmath::{Point3, Quaternion, Vector2, Vector3, Zero};
 use gltf::camera::Projection;
@@ -159,7 +159,7 @@ impl GltfImporter {
         textures: &Vec<gltf::image::Data>,
     ) -> GltfImportResult {
         let nodes: Vec<_> = scene.nodes().collect();
-        
+
         Self::import_nodes(nodes, buffers, textures)
     }
 

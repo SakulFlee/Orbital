@@ -389,9 +389,7 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
         let (delta_time, cycle) = self.timer.as_mut().expect("Timer went missing").tick();
 
         if let Some((total_delta, fps)) = cycle {
-            debug!(
-                "FPS: {fps} | TDT: {total_delta}s | CDT: {delta_time}s"
-            );
+            debug!("FPS: {fps} | TDT: {total_delta}s | CDT: {delta_time}s");
         }
 
         // Check for gamepad input events if the feature is enabled
@@ -459,9 +457,7 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
                     exit_requested = true;
                 }
                 AppEvent::ForceAppClosure { exit_code } => {
-                    warn!(
-                        "Force app closure was requested with exit code {exit_code}!"
-                    );
+                    warn!("Force app closure was requested with exit code {exit_code}!");
                     std::process::exit(exit_code);
                 }
                 AppEvent::RequestRedraw => {

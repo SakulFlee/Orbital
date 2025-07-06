@@ -4,8 +4,7 @@ use std::process::Command;
 const MODEL_FILES_DIR: &str = "../Examples/SharedAssets/ModelFiles";
 const MODEL_SCRIPT_GLTF_EXPORT: &str =
     "../Examples/SharedAssets/ModelScripts/blender_gltf_export.py";
-const MODEL_SCRIPT_PBR_SPHERE_GEN: &str =
-    "../Examples/SharedAssets/ModelScripts/pbr_sphere_gen.py";
+const MODEL_SCRIPT_PBR_SPHERE_GEN: &str = "../Examples/SharedAssets/ModelScripts/pbr_sphere_gen.py";
 const MODELS_DIR: &str = "../Examples/SharedAssets/Models";
 
 fn main() {
@@ -94,8 +93,6 @@ fn blender_convert_to_gltf(filepath: &str, script_path: &PathBuf, output_path: &
 
     let exit_code = handle.wait().expect("Failed to wait for process to finish");
     if !exit_code.success() {
-        panic!(
-            "Failed converting Blender file to glTF! Blender exited with code: {exit_code}"
-        );
+        panic!("Failed converting Blender file to glTF! Blender exited with code: {exit_code}");
     }
 }
