@@ -48,3 +48,5 @@ for z in range(0, entries):
 cwd = os.getcwd()
 export_path = cwd + "/PBR_Spheres.glb"
 bpy.ops.export_scene.gltf(export_format="GLB", filepath=export_path)
+
+print("### FINISHED ###")
