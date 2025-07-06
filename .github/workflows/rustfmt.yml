@@ -34,7 +34,7 @@ jobs:
       run: sudo apt-get install -y libudev-dev
 
     - name: 🧹 RustFmt
-      run: cargo fmt
+      run: cargo fmt --verbose --all
       
     - name: ⏫ Push changes
       run: |
