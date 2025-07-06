@@ -57,8 +57,7 @@ where
         {
             let after = self.map.len();
             debug!(
-                "Cache cleanup: {} -> {} entries (before -> after)",
-                before, after
+                "Cache cleanup: {before} -> {after} entries (before -> after)"
             );
         }
     }

@@ -31,12 +31,12 @@ impl CacheFile {
         file.read_exact(&mut size_buffer)
             .map_err(WorldEnvironmentError::IO)?;
         let diffuse_size = u64::from_le_bytes(size_buffer);
-        debug!("IBL Diffuse expected size in bytes: {}", diffuse_size);
+        debug!("IBL Diffuse expected size in bytes: {diffuse_size}");
 
         file.read_exact(&mut size_buffer)
             .map_err(WorldEnvironmentError::IO)?;
         let specular_size = u64::from_le_bytes(size_buffer);
-        debug!("IBL Specular expected size in bytes: {}", specular_size);
+        debug!("IBL Specular expected size in bytes: {specular_size}");
 
         // Read data
         let mut ibl_diffuse_data = vec![0u8; diffuse_size as usize];

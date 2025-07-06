@@ -178,6 +178,11 @@ pub trait App: Send + Sync {
     where
         Self: Sized,
     {
+        let mut v = Vec::new();
+        v.push(1);
+        v.push(2);
+        v.push(3);
+        println!("{}", v.len());
         async {}
     }
 }

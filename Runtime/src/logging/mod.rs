@@ -23,7 +23,7 @@ pub fn init() {
         const END: u32 = 4;
 
         for i in (START..=END).rev() {
-            let log_file = format!("game-{}.log", i);
+            let log_file = format!("game-{i}.log");
             let path = Path::new(&log_file);
 
             if path.exists() {
@@ -59,7 +59,7 @@ pub fn init() {
                     // Write to StdOut
                     .chain(std::io::stdout())
                     .chain(
-                        fern::log_file(format!("game-{}.log", START))
+                        fern::log_file(format!("game-{START}.log"))
                             .expect("failed building file log"),
                     ),
             )
@@ -67,8 +67,7 @@ pub fn init() {
             .apply()
         {
             error!(
-            "Failure creating logger. This is commonly due to a logger already being initialized beforehand. Error: {}",
-            e
+            "Failure creating logger. This is commonly due to a logger already being initialized beforehand. Error: {e}"
         );
         }
 
@@ -104,8 +103,7 @@ pub fn test_init() {
         .apply()
     {
         error!(
-            "Failure creating logger. This is commonly due to a logger already being initialized beforehand. Error: {}",
-            e
+            "Failure creating logger. This is commonly due to a logger already being initialized beforehand. Error: {e}"
         );
     }
 

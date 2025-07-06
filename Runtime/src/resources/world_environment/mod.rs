@@ -143,7 +143,7 @@ impl WorldEnvironment {
             descriptor.hash(&mut hasher);
             let hash = hasher.finish().to_string();
 
-            return Some(cache_dir.join(format!("{}.bin", hash)));
+            return Some(cache_dir.join(format!("{hash}.bin")));
         }
 
         None
@@ -188,8 +188,7 @@ impl WorldEnvironment {
                 }
                 Err(e) => {
                     warn!(
-                        "WorldEnvironment/IBL cache failed to load! Will continue generating IBL from HDRI. Error: {:?}",
-                        e
+                        "WorldEnvironment/IBL cache failed to load! Will continue generating IBL from HDRI. Error: {e:?}"
                     );
                 }
             }
