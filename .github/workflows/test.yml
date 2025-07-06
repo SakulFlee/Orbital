@@ -30,5 +30,10 @@ jobs:
       - name: 🛠️ Install LibUDev
         run: sudo apt-get install -y libudev-dev
 
+      - name: 🛠️ Install Blender
+        run: sudo apt-get install -y blender
+
       - name: 🧪 Test
+        env:
+          RUN_BUILD_SCRIPT: true
         run: cargo test
