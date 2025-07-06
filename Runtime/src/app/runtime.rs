@@ -91,7 +91,7 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
             gles_minor_version: gles_minor_version_from_env().unwrap_or_default(),
         });
 
-        debug!("Instance: {:#?}", instance);
+        debug!("Instance: {instance:#?}");
 
         instance
     }
@@ -226,8 +226,8 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
             None,
         ))
         .expect("Failed creating device from chosen adapter!");
-        debug!("Device: {:?}", device);
-        debug!("Queue: {:?}", queue);
+        debug!("Device: {device:?}");
+        debug!("Queue: {queue:?}");
 
         (device, queue)
     }
@@ -316,7 +316,7 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
         let frame = match self.acquire_next_frame() {
             Ok(surface_texture) => surface_texture,
             Err(e) => {
-                warn!("Failed to acquire next frame from surface: {}", e);
+                warn!("Failed to acquire next frame from surface: {e}");
 
                 warn!("Attempting reconfiguration ...");
                 self.reconfigure_surface();
@@ -324,8 +324,7 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
                 match self.acquire_next_frame() {
                     Ok(surface_texture) => surface_texture,
                     Err(e) => panic!(
-                        "Failed to acquire next frame from surface after reconfiguration! ({:?})",
-                        e
+                        "Failed to acquire next frame from surface after reconfiguration! ({e:?})"
                     ),
                 }
             }
@@ -390,10 +389,7 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
         let (delta_time, cycle) = self.timer.as_mut().expect("Timer went missing").tick();
 
         if let Some((total_delta, fps)) = cycle {
-            debug!(
-                "FPS: {} | TDT: {}s | CDT: {}s",
-                fps, total_delta, delta_time
-            );
+            debug!("FPS: {fps} | TDT: {total_delta}s | CDT: {delta_time}s");
         }
 
         // Check for gamepad input events if the feature is enabled
@@ -428,7 +424,7 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
                 AppEvent::ChangeCursorPosition(position) => {
                     if let Some(window) = &self.window {
                         if let Err(e) = window.set_cursor_position(position) {
-                            error!("Failed to set cursor position: {}", e);
+                            error!("Failed to set cursor position: {e}");
                         }
                     } else {
                         warn!("Change cursor position requested, but window does not exist!");
@@ -446,12 +442,11 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
                         if grab {
                             if let Err(e) = window.set_cursor_grab(CursorGrabMode::Confined) {
                                 error!(
-                                    "Failed to set cursor grab! This might not be supported on your platform. Error: {}",
-                                    e
+                                    "Failed to set cursor grab! This might not be supported on your platform. Error: {e}"
                                 );
                             }
                         } else if let Err(e) = window.set_cursor_grab(CursorGrabMode::None) {
-                            error!("Failed to unset cursor grab! Error: {}", e);
+                            error!("Failed to unset cursor grab! Error: {e}");
                         }
                     } else {
                         warn!("Change cursor grabbing requested, but window does not exist!");
@@ -462,10 +457,7 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
                     exit_requested = true;
                 }
                 AppEvent::ForceAppClosure { exit_code } => {
-                    warn!(
-                        "Force app closure was requested with exit code {}!",
-                        exit_code
-                    );
+                    warn!("Force app closure was requested with exit code {exit_code}!");
                     std::process::exit(exit_code);
                 }
                 AppEvent::RequestRedraw => {
