@@ -30,8 +30,8 @@ jobs:
         rustup default stable
         rustup update
 
-    - name: 🛠️ Install Blender and dependencies
-      run: sudo apt-get install -y blender libudev-dev mesa-utils
+    - name: 🛠️ Install dependencies
+      run: sudo apt-get install -y blender python-numpy libudev-dev mesa-utils
 
     - name: 📎 Clippy
       run: cargo clippy --fix
