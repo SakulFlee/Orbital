@@ -10,6 +10,8 @@ const MODELS_DIR: &str = "../Examples/SharedAssets/Models";
 fn main() {
     blender_pbr_spheres();
     blender_model_files();
+
+    panic!("Intentional panic for debugging!");
 }
 
 fn blender_pbr_spheres() {
