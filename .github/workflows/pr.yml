@@ -2,6 +2,7 @@ name: Main
 
 on:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -61,12 +62,9 @@ jobs:
         git push
       
         echo "Git push completed."
-        echo "Subsequent tasks should be skipped until above tasks return a clean state!"
 
     - name: 🔍 Check
-      if: ${{ steps.changes.outputs.status == '' }}
       run: cargo check
 
     - name: 🧪 Test
-      if: ${{ steps.changes.outputs.status == '' }}
       run: cargo test
