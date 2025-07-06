@@ -1,4 +1,4 @@
-name: Main
+name: PR
 
 on:
   pull_request:
@@ -11,7 +11,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  main:
+  pr:
     runs-on: ubuntu-latest
     steps:
     - name: ⏬ Checkout
@@ -31,7 +31,7 @@ jobs:
         rustup update
 
     - name: 🛠️ Install Blender and dependencies
-      run: sudo apt-get install -y blender libudev-dev
+      run: sudo apt-get install -y blender libudev-dev mesa-utils
 
     - name: 📎 Clippy
       run: cargo clippy --fix
