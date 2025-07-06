@@ -30,8 +30,8 @@ jobs:
         rustup default stable
         rustup update
 
-    - name: 🛠️ Install LibUDev
-      run: sudo apt-get install -y libudev-dev
+    - name: 🛠️ Install Blender and dependencies
+      run: sudo apt-get install -y blender libudev-dev
 
     - name: 🧹 RustFmt
       run: cargo fmt --verbose --all
