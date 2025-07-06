@@ -1,0 +1,72 @@
+name: Main
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  main:
+    runs-on: ubuntu-latest
+    steps:
+    - name: ⏬ Checkout
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.head_ref }}
+
+    - name: 💾 Cache
+      uses: actions/cache@v4.2.0
+      with:
+        path: target/
+        key: target
+
+    - name: 🦀 Rust setup
+      run: |
+        rustup default stable
+        rustup update
+
+    - name: 🛠️ Install Blender and dependencies
+      run: sudo apt-get install -y blender libudev-dev
+
+    - name: 📎 Clippy
+      run: cargo clippy --fix
+
+    - name: 🧹 RustFmt
+      run: cargo fmt --verbose --all
+
+    - name: 👀 Checking for changes ...
+      id: changes
+      run: |
+        STATUS="$(git status --porcelain)"
+        echo -e "Status:\n$STATUS"
+        echo "$STATUS" >> "$GITHUB_OUTPUT"
+
+    - name: ⏫ Push changes
+      if: ${{ steps.changes.outputs != '' }}
+      run: |
+        echo "Changes detected. Committing and pushing..."
+        
+        # Print status to visually see what changed
+        git status
+      
+        git config --global user.name 'github-actions[bot]'
+        git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
+      
+        git add --all
+        git commit -m "Automated clippy run by CI"
+        git push
+      
+        echo "Git push completed."
+        echo "Subsequent tasks should be skipped until above tasks return a clean state!"
+
+    - name: 🔍 Check
+      if: ${{ steps.changes.outputs == '' }}
+      run: cargo check
+
+    - name: 🧪 Test
+      if: ${{ steps.changes.outputs == '' }}
+      run: cargo test
