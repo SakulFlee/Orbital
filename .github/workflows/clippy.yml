@@ -36,7 +36,7 @@ jobs:
     - name: 📎 Clippy
       run: cargo clippy --fix
       
-    - name: ⏫ Commit changes
+    - name: ⏫ Push changes
       run: |
         if [[ -z "$(git status --porcelain)" ]]; then
           echo "No changes to commit, working tree clean. Skipping commit and push."
