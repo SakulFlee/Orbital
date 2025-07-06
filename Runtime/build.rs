@@ -38,10 +38,10 @@ fn blender_pbr_spheres() {
     let stderr = str::from_utf8(&output.stderr).expect("Failed to convert stderr to string");
 
     if !stdout.is_empty() {
-        println!("cargo:warning=Blender stdout:\n{}", stdout);
+        println!("cargo:warning=Blender stdout:\n{stdout}");
     }
     if !stderr.is_empty() {
-        println!("cargo:warning=Blender stderr:\n{}", stderr);
+        println!("cargo:warning=Blender stderr:\n{stderr}");
     }
 
     if !output.status.success() || !stdout.contains("### FINISHED ###") {
@@ -76,11 +76,7 @@ fn blender_model_files() {
     for entry in glob::glob(&format!("{model_files_path}/*.blend")).unwrap() {
         let path = entry.unwrap();
 
-        blender_convert_to_gltf(
-            path.to_str().unwrap(),
-            &script_path,
-            &output_path,
-        );
+        blender_convert_to_gltf(path.to_str().unwrap(), &script_path, &output_path);
     }
 }
 
@@ -100,10 +96,10 @@ fn blender_convert_to_gltf(filepath: &str, script_path: &PathBuf, output_path: &
     let stderr = str::from_utf8(&output.stderr).expect("Failed to convert stderr to string");
 
     if !stdout.is_empty() {
-        println!("cargo:warning=Blender stdout for '{}':\n{}", filepath, stdout);
+        println!("cargo:warning=Blender stdout for '{filepath}':\n{stdout}");
     }
     if !stderr.is_empty() {
-        println!("cargo:warning=Blender stderr for '{}':\n{}", filepath, stderr);
+        println!("cargo:warning=Blender stderr for '{filepath}':\n{stderr}");
     }
 
     if !output.status.success() || !stdout.contains("### FINISHED ###") {
