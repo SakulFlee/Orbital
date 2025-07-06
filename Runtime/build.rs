@@ -15,7 +15,7 @@ fn main() {
 fn blender_pbr_spheres() {
     let script_path = std::fs::canonicalize(MODEL_SCRIPT_PBR_SPHERE_GEN)
         .expect("Failed to canonicalize script path!");
-    println!(
+    println!(SA
         "cargo::rerun-if-changed={}",
         script_path
             .to_str()
@@ -38,6 +38,8 @@ fn blender_pbr_spheres() {
         panic!(
             "Failed generating PBR Spheres and export to glTF! Blender exited with code: {exit_code}"
         );
+    } else {
+        println!("cargo:warn=Exported PBR Spheres successfully!");
     }
 }
 
@@ -87,5 +89,7 @@ fn blender_convert_to_gltf(filepath: &str, script_path: &PathBuf, output_path: &
     let exit_code = handle.wait().expect("Failed to wait for process to finish");
     if !exit_code.success() {
         panic!("Failed converting Blender file to glTF! Blender exited with code: {exit_code}");
+    } else {
+        println!("cargo:warn=Exported Blender file '{}' successfully!", filepath);
     }
 }
