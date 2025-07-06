@@ -2,8 +2,7 @@ use crate::resources::{CameraDescriptor, ModelDescriptor};
 use std::error::Error;
 
 /// Contains the results of a glTF Import.
-#[derive(Debug)]
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct GltfImportResult {
     pub models: Vec<ModelDescriptor>,
     pub cameras: Vec<CameraDescriptor>,
@@ -21,4 +20,3 @@ impl GltfImportResult {
         self.errors.extend(other.errors);
     }
 }
-
