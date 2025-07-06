@@ -38,11 +38,20 @@ jobs:
       
     - name: ⏫ Commit changes
       run: |
-        git config --global user.name 'github-actions[bot]'
-        git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
-        git add --all
-        git status
-        git commit -am "Automated clippy run"
-        git status
-        git push
-      continue-on-error: true
+        if [[ -z "$(git status --porcelain)" ]]; then
+          echo "No changes to commit, working tree clean. Skipping commit and push."
+        else
+          echo "Changes detected. Committing and pushing..."
+        
+          # Print status to visually see what changed
+          git status
+        
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
+        
+          git add --all
+          git commit -m "Automated clippy run by CI"
+          git push
+        
+          echo "Git push completed."
+        fi
