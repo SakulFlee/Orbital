@@ -66,5 +66,8 @@ jobs:
     - name: 🔍 Check
       run: cargo check
 
+    - name: Debug
+      run: ls -al -R Examples/SharedAssets/
+
     - name: 🧪 Test
       run: cargo test
