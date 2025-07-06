@@ -45,7 +45,7 @@ fn blender_pbr_spheres() {
         println!("cargo:warning=Blender stderr:\n{}", stderr);
     }
 
-    if !output.status.success() || stdout.contains("Error") || stderr.contains("Error") {
+    if !output.status.success() || !stdout.contains("### FINISHED ###") {
         panic!(
             "Failed generating PBR Spheres and export to glTF! Blender exited with code: {}\nStdout: {}\nStderr: {}",
             output.status, stdout, stderr
@@ -65,7 +65,6 @@ fn blender_model_files() {
             .expect("Failed converting script path to string!")
     );
 
-    println!("{:?}", MODEL_FILES_DIR);
     let model_files_path_ =
         std::fs::canonicalize(MODEL_FILES_DIR).expect("Failed to canonicalize script path!");
     let model_files_path = model_files_path_
@@ -108,7 +107,7 @@ fn blender_convert_to_gltf(filepath: &str, script_path: &PathBuf, output_path: &
         println!("cargo:warning=Blender stderr for '{}':\n{}", filepath, stderr);
     }
 
-    if !output.status.success() || stdout.contains("Error") || stderr.contains("Error") {
+    if !output.status.success() || !stdout.contains("### FINISHED ###") {
         panic!(
             "Failed converting Blender file '{}' to glTF! Blender exited with code: {}\nStdout: {}\nStderr: {}",
             filepath, output.status, stdout, stderr

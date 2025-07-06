@@ -25,3 +25,5 @@ export("GLB", output_file)
 
 if export_gltf:
     export("GLTF_SEPARATE", output_file)
+
+print("### FINISHED ###")
