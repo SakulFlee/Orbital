@@ -16,8 +16,7 @@ fn main() {
 fn blender_pbr_spheres() {
     let script_path = std::fs::canonicalize(MODEL_SCRIPT_PBR_SPHERE_GEN)
         .expect("Failed to canonicalize script path!");
-    println!(SA
-        "cargo::rerun-if-changed={}",
+    println!("cargo::rerun-if-changed={}",
         script_path
             .to_str()
             .expect("Failed converting script path to string!")
