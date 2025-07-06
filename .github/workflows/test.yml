@@ -27,11 +27,8 @@ jobs:
           rustup default stable
           rustup update
 
-      - name: 🛠️ Install LibUDev
-        run: sudo apt-get install -y libudev-dev
-
-      - name: 🛠️ Install Blender
-        run: sudo apt-get install -y blender
+      - name: 🛠️ Install Blender and dependencies
+        run: sudo apt-get install -y blender libgl1-mesa-dri libudev-dev libegl1-mesa-dev libgl1-mesa-dev libglapi-mesa mesa-opencl-icd mesa-utils mesa-vulkan-drivers libegl-mesa0
 
       - name: 🧪 Test
         env:
