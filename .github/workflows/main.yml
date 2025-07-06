@@ -42,11 +42,10 @@ jobs:
       id: changes
       run: |
         STATUS="$(git status --porcelain)"
-        echo -e "Status:\n$STATUS"
-        echo "$STATUS" >> "$GITHUB_OUTPUT"
+        echo "status=$STATUS" >> "$GITHUB_OUTPUT"
 
     - name: ⏫ Push changes
-      if: ${{ steps.changes.outputs != '' }}
+      if: ${{ steps.changes.outputs.status != '' }}
       run: |
         echo "Changes detected. Committing and pushing..."
         
@@ -64,9 +63,9 @@ jobs:
         echo "Subsequent tasks should be skipped until above tasks return a clean state!"
 
     - name: 🔍 Check
-      if: ${{ steps.changes.outputs == '' }}
+      if: ${{ steps.changes.outputs.status == '' }}
       run: cargo check
 
     - name: 🧪 Test
-      if: ${{ steps.changes.outputs == '' }}
+      if: ${{ steps.changes.outputs.status == '' }}
       run: cargo test
