@@ -33,8 +33,8 @@ jobs:
     - name: 🛠️ Install LibUDev
       run: sudo apt-get install -y libudev-dev
 
-    - name: 📎 Clippy
-      run: cargo clippy --fix
+    - name: 🧹 RustFmt
+      run: cargo fmt
       
     - name: ⏫ Push changes
       run: |
@@ -50,7 +50,7 @@ jobs:
           git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
         
           git add --all
-          git commit -m "Automated clippy run by CI"
+          git commit -m "Automated rustfmt run by CI"
           git push
         
           echo "Git push completed."
