@@ -42,6 +42,7 @@ jobs:
       id: changes
       run: |
         STATUS="$(git status --porcelain)"
+        echo -e "Status:\n$STATUS"
         echo "status=$STATUS" >> "$GITHUB_OUTPUT"
 
     - name: ⏫ Push changes
