@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 use std::process::Command;
+use std::str; // Import for converting bytes to string
 
 const MODEL_FILES_DIR: &str = "../Examples/SharedAssets/ModelFiles";
 const MODEL_SCRIPT_GLTF_EXPORT: &str =
@@ -11,14 +12,13 @@ const MODELS_DIR: &str = "../Examples/SharedAssets/Models";
 fn main() {
     blender_pbr_spheres();
     blender_model_files();
-
-    panic!("Intentional panic for debugging!");
 }
 
 fn blender_pbr_spheres() {
     let script_path = std::fs::canonicalize(MODEL_SCRIPT_PBR_SPHERE_GEN)
         .expect("Failed to canonicalize script path!");
-    println!("cargo::rerun-if-changed={}",
+    println!(
+        "cargo::rerun-if-changed={}",
         script_path
             .to_str()
             .expect("Failed converting script path to string!")
@@ -27,19 +27,28 @@ fn blender_pbr_spheres() {
     let output_path =
         std::fs::canonicalize(MODELS_DIR).expect("Failed to canonicalize models output folder!");
 
-    let mut handle = Command::new("blender")
+    let output = Command::new("blender")
         .arg("--background")
         .arg("--python")
-        .arg(script_path)
-        .current_dir(output_path)
-        .spawn()
+        .arg(&script_path) // Use &script_path as Command::arg takes AsRef<OsStr>
+        .current_dir(&output_path) // Use &output_path
+        .output() // Use output() to capture stdout and stderr
         .expect("Failed to run Blender command!");
 
-    let exit_code = handle.wait().expect("Failed to wait for process to finish");
-    if !exit_code.success() {
+    let stdout = str::from_utf8(&output.stdout).expect("Failed to convert stdout to string");
+    let stderr = str::from_utf8(&output.stderr).expect("Failed to convert stderr to string");
+
+    if !stdout.is_empty() {
+        println!("cargo:warning=Blender stdout:\n{}", stdout);
+    }
+    if !stderr.is_empty() {
+        println!("cargo:warning=Blender stderr:\n{}", stderr);
+    }
+
+    if !output.status.success() || stdout.contains("Error") || stderr.contains("Error") {
         panic!(
-            "Failed generating PBR Spheres and export to glTF! Blender exited with code: {}",
-            exit_code
+            "Failed generating PBR Spheres and export to glTF! Blender exited with code: {}\nStdout: {}\nStderr: {}",
+            output.status, stdout, stderr
         );
     } else {
         println!("cargo:warn=Exported PBR Spheres successfully!");
@@ -70,7 +79,7 @@ fn blender_model_files() {
         let path = entry.unwrap();
 
         blender_convert_to_gltf(
-            path.into_os_string().into_string().unwrap().as_str(),
+            path.to_str().unwrap(),
             &script_path,
             &output_path,
         );
@@ -80,20 +89,29 @@ fn blender_model_files() {
 fn blender_convert_to_gltf(filepath: &str, script_path: &PathBuf, output_path: &PathBuf) {
     println!("cargo::rerun-if-changed={}", filepath);
 
-    let mut handle = Command::new("blender")
+    let output = Command::new("blender")
         .arg("--background")
         .arg(filepath)
         .arg("--python")
         .arg(script_path)
         .current_dir(output_path)
-        .spawn()
+        .output()
         .expect("Failed to run Blender command!");
 
-    let exit_code = handle.wait().expect("Failed to wait for process to finish");
-    if !exit_code.success() {
+    let stdout = str::from_utf8(&output.stdout).expect("Failed to convert stdout to string");
+    let stderr = str::from_utf8(&output.stderr).expect("Failed to convert stderr to string");
+
+    if !stdout.is_empty() {
+        println!("cargo:warning=Blender stdout for '{}':\n{}", filepath, stdout);
+    }
+    if !stderr.is_empty() {
+        println!("cargo:warning=Blender stderr for '{}':\n{}", filepath, stderr);
+    }
+
+    if !output.status.success() || stdout.contains("Error") || stderr.contains("Error") {
         panic!(
-            "Failed converting Blender file to glTF! Blender exited with code: {}",
-            exit_code
+            "Failed converting Blender file '{}' to glTF! Blender exited with code: {}\nStdout: {}\nStderr: {}",
+            filepath, output.status, stdout, stderr
         );
     } else {
         println!("cargo:warn=Exported Blender file '{}' successfully!", filepath);
