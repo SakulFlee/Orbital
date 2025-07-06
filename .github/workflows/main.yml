@@ -1,0 +1,184 @@
+name: Main
+
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    tags:
+      - '**'
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⏬ Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: 💾 Cache
+        uses: actions/cache@v4.2.0
+        with:
+          path: target/
+          key: target
+
+      - name: 🦀 Rust setup
+        run: |
+          rustup default stable
+          rustup update
+
+      - name: 🛠️ Install dependencies
+        run: sudo apt-get install -y blender python3-numpy libudev-dev mesa-utils libdraco-dev draco
+
+      - name: 📎 Clippy
+        run: cargo clippy --fix
+
+      - name: 🧹 RustFmt
+        run: cargo fmt --verbose --all
+
+      - name: 👀 Checking for changes ...
+        id: changes
+        run: |
+          STATUS="$(git status --porcelain)"
+          echo -e "Status:\n$STATUS"
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+
+      - name: ⏫ Push changes
+        if: ${{ steps.changes.outputs.status != '' }}
+        run: |
+          echo "Changes detected. Committing and pushing..."
+          
+          # Print status to visually see what changed
+          git status
+          
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          
+          git add --all
+          git commit -m "Automated commit by CI"
+          git push
+          
+          echo "Git push completed."
+
+      - name: 🔍 Check
+        run: cargo check
+
+      - name: 🧪 Test
+        run: cargo test
+
+  release-linux:
+    runs-on: ubuntu-latest
+    needs: pr
+    if: ${{ startsWith(github.ref, 'refs/tags/') }}
+    steps:
+      - name: ⏬ Checkout
+        uses: actions/checkout@v4
+
+      - name: 💾 Cache
+        uses: actions/cache@v4.2.0
+        with:
+          path: target/
+          key: target
+
+      - name: 🦀 Rust setup
+        run: |
+          rustup default stable
+          rustup update
+
+      - name: 🛠️ Install dependencies
+        run: sudo apt-get install -y blender python3-numpy libudev-dev mesa-utils libdraco-dev draco
+
+      - name: 🔨 Build
+        run: cargo build --release
+
+      - name: ⬆️ Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-linux
+          path: |
+            target/release/lib*
+            target/release/example*
+
+  release-windows:
+    runs-on: windows-latest
+    needs: pr
+    if: ${{ startsWith(github.ref, 'refs/tags/') }}
+    steps:
+      - name: ⏬ Checkout
+        uses: actions/checkout@v4
+
+      - name: 💾 Cache
+        uses: actions/cache@v4.2.0
+        with:
+          path: target/
+          key: target
+
+      - name: 🦀 Rust setup
+        run: |
+          rustup default stable
+          rustup update
+
+      - name: 🛠️ Install dependencies
+        run: sudo apt-get install -y blender python3-numpy libudev-dev mesa-utils libdraco-dev draco
+
+      - name: 🔨 Build
+        run: cargo build --release
+
+      - name: ⬆️ Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-linux
+          path: |
+            target/release/lib*
+            target/release/example*
+
+  release-macos:
+    runs-on: macos-latest
+    needs: pr
+    if: ${{ startsWith(github.ref, 'refs/tags/') }}
+    steps:
+      - name: ⏬ Checkout
+        uses: actions/checkout@v4
+
+      - name: 💾 Cache
+        uses: actions/cache@v4.2.0
+        with:
+          path: target/
+          key: target
+
+      - name: 🦀 Rust setup
+        run: |
+          rustup default stable
+          rustup update
+
+      - name: 🛠️ Install dependencies
+        run: sudo apt-get install -y blender python3-numpy libudev-dev mesa-utils libdraco-dev draco
+
+      - name: 🔨 Build
+        run: cargo build --release
+
+      - name: ⬆️ Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-linux
+          path: |
+            target/release/lib*
+            target/release/example*
+
+  release-github:
+    runs-on: ubuntu-latest
+    needs:
+      - release-linux
+      - release-windows
+      - release-macos
+    if: ${{ startsWith(github.ref, 'refs/tags/') }}
+    steps:
+      - uses: actions/download-artifact@v4
+      - name: Display structure of downloaded files
+        run: ls -R
