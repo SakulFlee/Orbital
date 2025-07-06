@@ -9,13 +9,6 @@ const MODEL_SCRIPT_PBR_SPHERE_GEN: &str =
 const MODELS_DIR: &str = "../Examples/SharedAssets/Models";
 
 fn main() {
-    // Only run script in CIs if `RUN_BUILD_SCRIPT` is explicitly set!
-    let run_script = std::env::var("CI").is_err_and(|_| std::env::var("RUN_BUILD_SCRIPT").is_ok());
-    if !run_script {
-        println!("cargo::warning=Skipping build.rs as in CI and RUN_BUILD_SCRIPT isn't set!");
-        return;
-    }
-
     blender_pbr_spheres();
     blender_model_files();
 }
