@@ -90,9 +90,6 @@ fn blender_convert_to_gltf(filepath: &str, script_path: &PathBuf, output_path: &
     if !exit_code.success() {
         panic!("Failed converting Blender file to glTF! Blender exited with code: {exit_code}");
     } else {
-        println!(
-            "cargo:warn=Exported Blender file '{}' successfully!",
-            filepath
-        );
+        println!("cargo:warn=Exported Blender file '{filepath}' successfully!");
     }
 }
