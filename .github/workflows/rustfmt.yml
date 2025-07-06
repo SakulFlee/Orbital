@@ -1,4 +1,4 @@
-name: Clippy
+name: RustFmt
 
 on:
   pull_request:
@@ -10,7 +10,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  rustfmt:
     runs-on: ubuntu-latest
 
     steps:
