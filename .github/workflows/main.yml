@@ -189,7 +189,6 @@ jobs:
             short_arch: "arm64"
             os: "ubuntu-latest"
             additional_dependencies: "gcc-aarch64-linux-gnu libudev-dev:arm64"
-            short_arch: "arm64"
           - arch: "armv7-unknown-linux-gnueabihf"
             os: "ubuntu-latest"
             additional_dependencies: "gcc-arm-linux-gnueabi libudev-dev:arm64"
