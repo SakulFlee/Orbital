@@ -182,21 +182,28 @@ jobs:
         include:
           # Linux
           - arch: "x86_64-unknown-linux-gnu"
+            short_arch: "amd64"
             os: "ubuntu-latest"
             additional_dependencies: "gcc libudev-dev:amd64"
           - arch: "aarch64-unknown-linux-gnu"
+            short_arch: "arm64"
             os: "ubuntu-latest"
             additional_dependencies: "gcc-aarch64-linux-gnu libudev-dev:arm64"
+            short_arch: "arm64"
           - arch: "armv7-unknown-linux-gnueabihf"
             os: "ubuntu-latest"
             additional_dependencies: "gcc-arm-linux-gnueabi libudev-dev:arm64"
+            short_arch: "arm64"
           - arch: "arm-unknown-linux-gnueabihf"
             os: "ubuntu-latest"
             additional_dependencies: "gcc-arm-linux-gnueabihf libudev-dev:armhf"
+            short_arch: "armhf"
           - arch: "arm-unknown-linux-gnueabi"
             os: "ubuntu-latest"
             additional_dependencies: "gcc-arm-linux-gnueabi libudev-dev:arm64"
+            short_arch: "arm64"
           - arch: "aarch64-unknown-linux-musl"
+            short_arch: "arm64"
             os: "ubuntu-latest"
             additional_dependencies: "musl-dev libudev-dev:arm64"
           # macOS
@@ -254,6 +261,12 @@ jobs:
           rustup default stable
           rustup update
           rustup target add ${{ matrix.arch }}
+
+      - name: 🛠️ Setup DPKG arch (Linux)
+        if: ${{ startsWith(matrix.os, 'ubuntu') }}
+        run: |
+          sudo dpkg --add-architecture ${{ matrix.short_arch }}
+          sudo apt-get update
 
       - name: 🛠️ Install dependencies (Linux)
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
