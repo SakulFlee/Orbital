@@ -37,8 +37,9 @@ jobs:
         run: sudo apt-get install -y libudev-dev
 
       - name: 📎 Clippy
-        # Note: All default features but export_gltf as we do not need to export them here and are saving a lot of time doing this!
-        run: cargo clippy --fix --no-default-features --features gamepad_input,gamepad_input_poll,auto_request_redraw,standard_app_detect_no_more_elements
+        env:
+          SKIP_GLTF_EXPORT: true
+        run: cargo clippy --fix
 
       - name: 👀 Checking for changes ...
         id: changes
@@ -87,8 +88,9 @@ jobs:
         run: sudo apt-get install -y libudev-dev
 
       - name: 🧹 RustFmt
-        # Note: All default features but export_gltf as we do not need to export them here and are saving a lot of time doing this!
-        run: cargo fmt --verbose --all --no-default-features --features gamepad_input,gamepad_input_poll,auto_request_redraw,standard_app_detect_no_more_elements
+        env:
+          SKIP_GLTF_EXPORT: true
+        run: cargo fmt --verbose --all
 
       - name: 👀 Checking for changes ...
         id: changes
@@ -137,8 +139,9 @@ jobs:
         run: sudo apt-get install -y libudev-dev
 
       - name: 🔍 Check
-        # Note: All default features but export_gltf as we do not need to export them here and are saving a lot of time doing this!
-        run: cargo check --no-default-features --features gamepad_input,gamepad_input_poll,auto_request_redraw,standard_app_detect_no_more_elements
+        env:
+          SKIP_GLTF_EXPORT: true
+        run: cargo check
 
   test:
     runs-on: ubuntu-latest
