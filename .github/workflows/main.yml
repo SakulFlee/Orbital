@@ -132,7 +132,7 @@ jobs:
           # Deployed to 'C:\Program Files\Blender Foundation\Blender 4.4\'
           # We need to extract that path.
           # Find the line that starts with 'Deployed to ' and extract the path
-          $blenderPath = (Get-Content C:\ProgramData\chocolatey\logs\chocolatey.log | Select-String -Pattern "Deployed to '" | ForEach-Object { $_.ToString() -split "'")[1] } | Select-Object -First 1)
+          $blenderPath = (Get-Content C:\ProgramData\chocolatey\logs\chocolatey.log | Select-String -Pattern "Deployed to " | ForEach-Object { $_.ToString() -split "'")[1] } | Select-Object -First 1)
           # Construct the full path to the Blender executable directory
           $blenderExePath = Join-Path $blenderPath "blender.exe"
           # Extract the directory containing blender.exe
