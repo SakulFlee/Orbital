@@ -216,9 +216,6 @@ jobs:
           - arch: "aarch64-pc-windows-msvc"
             os: "windows-latest"
             additional_dependencies: ""
-          - arch: "aarch64-pc-windows-gnullvm"
-            os: "windows-latest"
-            additional_dependencies: ""
           # Android
           - arch: "armv7-linux-androideabi"
             os: "ubuntu-latest"
