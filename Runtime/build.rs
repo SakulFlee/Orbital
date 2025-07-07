@@ -10,10 +10,10 @@ const MODELS_DIR: &str = "../Examples/SharedAssets/Models";
 
 fn main() {
     if !cfg!(feature = "export_gltf") {
-        println!("cargo::warn=Exporting glTF isn't enabled! Skipping export script ...");
+        println!("cargo::warning=Exporting glTF isn't enabled! Skipping export script ...");
         return;
     }
-    
+
     blender_pbr_spheres();
     blender_model_files();
 }
@@ -43,10 +43,10 @@ fn blender_pbr_spheres() {
     let stderr = str::from_utf8(&output.stderr).expect("Failed to convert stderr to string");
 
     if !stdout.is_empty() {
-        println!("cargo:warning=Blender PBR Spheres stdout:\n{stdout}");
+        println!("cargo::warning=Blender PBR Spheres stdout:\n{stdout}");
     }
     if !stderr.is_empty() {
-        println!("cargo:warning=Blender PBR Spheres stderr:\n{stderr}");
+        println!("cargo::warning=Blender PBR Spheres stderr:\n{stderr}");
     }
 
     if !output.status.success() || !stdout.contains("### FINISHED ###") {
@@ -55,7 +55,7 @@ fn blender_pbr_spheres() {
             output.status, stdout, stderr
         );
     } else {
-        println!("cargo:warn=Exported PBR Spheres successfully!");
+        println!("cargo::warning=Exported PBR Spheres successfully!");
     }
 }
 
@@ -86,7 +86,7 @@ fn blender_model_files() {
 }
 
 fn blender_convert_to_gltf(filepath: &str, script_path: &PathBuf, output_path: &PathBuf) {
-    println!("cargo::rerun-if-changed={filepath}");
+    println!("cargo:::rerun-if-changed={filepath}");
 
     let output = Command::new("blender")
         .arg("--background")
@@ -101,10 +101,10 @@ fn blender_convert_to_gltf(filepath: &str, script_path: &PathBuf, output_path: &
     let stderr = str::from_utf8(&output.stderr).expect("Failed to convert stderr to string");
 
     if !stdout.is_empty() {
-        println!("cargo:warning=Blender stdout for '{filepath}':\n{stdout}");
+        println!("cargo::warning=Blender stdout for '{filepath}':\n{stdout}");
     }
     if !stderr.is_empty() {
-        println!("cargo:warning=Blender stderr for '{filepath}':\n{stderr}");
+        println!("cargo::warning=Blender stderr for '{filepath}':\n{stderr}");
     }
 
     if !output.status.success() || !stdout.contains("### FINISHED ###") {
@@ -113,6 +113,6 @@ fn blender_convert_to_gltf(filepath: &str, script_path: &PathBuf, output_path: &
             filepath, output.status, stdout, stderr
         );
     } else {
-        println!("cargo:warn=Exported Blender file '{filepath}' successfully!");
+        println!("cargo::warning=Exported Blender file '{filepath}' successfully!");
     }
 }
