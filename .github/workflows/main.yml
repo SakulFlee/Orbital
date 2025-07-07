@@ -14,7 +14,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  cleanup-and-checks:
+  clippy:
     runs-on: ubuntu-latest
     steps:
       - name: ⏬ Checkout
@@ -34,13 +34,61 @@ jobs:
           rustup update
 
       - name: 🛠️ Install dependencies
-        run: sudo apt-get install -y blender python3-numpy libudev-dev mesa-utils libdraco-dev draco
+        run: sudo apt-get install -y libudev-dev
 
       - name: 📎 Clippy
-        run: cargo clippy --fix
+        # Note: All default features but export_gltf as we do not need to export them here and are saving a lot of time doing this!
+        run: cargo clippy --fix --no-default-features --features gamepad_input,gamepad_input_poll,auto_request_redraw,standard_app_detect_no_more_elements
+
+      - name: 👀 Checking for changes ...
+        id: changes
+        run: |
+          STATUS="$(git status --porcelain)"
+          echo -e "Status:\n$STATUS"
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+
+      - name: ⏫ Push changes
+        if: ${{ steps.changes.outputs.status != '' }}
+        run: |
+          echo "Changes detected. Committing and pushing..."
+
+          # Print status to visually see what changed
+          git status
+
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          git add --all
+          git commit -m "Automated commit by CI"
+          git push
+
+          echo "Git push completed."
+
+  rustfmt:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⏬ Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: 💾 Cache
+        uses: actions/cache@v4.2.0
+        with:
+          path: target/
+          key: target
+
+      - name: 🦀 Rust setup
+        run: |
+          rustup default stable
+          rustup update
+
+      - name: 🛠️ Install dependencies
+        run: sudo apt-get install -y libudev-dev
 
       - name: 🧹 RustFmt
-        run: cargo fmt --verbose --all
+        # Note: All default features but export_gltf as we do not need to export them here and are saving a lot of time doing this!
+        run: cargo fmt --verbose --all --no-default-features --features gamepad_input,gamepad_input_poll,auto_request_redraw,standard_app_detect_no_more_elements
 
       - name: 👀 Checking for changes ...
         id: changes
@@ -66,15 +114,64 @@ jobs:
           
           echo "Git push completed."
 
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⏬ Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: 💾 Cache
+        uses: actions/cache@v4.2.0
+        with:
+          path: target/
+          key: target
+
+      - name: 🦀 Rust setup
+        run: |
+          rustup default stable
+          rustup update
+
+      - name: 🛠️ Install dependencies
+        run: sudo apt-get install -y libudev-dev
+
       - name: 🔍 Check
-        run: cargo check
+        # Note: All default features but export_gltf as we do not need to export them here and are saving a lot of time doing this!
+        run: cargo check --no-default-features --features gamepad_input,gamepad_input_poll,auto_request_redraw,standard_app_detect_no_more_elements
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⏬ Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: 💾 Cache
+        uses: actions/cache@v4.2.0
+        with:
+          path: target/
+          key: target
+
+      - name: 🦀 Rust setup
+        run: |
+          rustup default stable
+          rustup update
+
+      - name: 🛠️ Install dependencies
+        run: sudo apt-get install -y blender python3-numpy libudev-dev mesa-utils libdraco-dev draco
 
       - name: 🧪 Test
         run: cargo test
 
   build:
     runs-on: ${{ matrix.os }}
-    needs: cleanup-and-checks
+    needs:
+      - clippy
+      - rustfmt
+      - check
+      - test
     if: ${{ startsWith(github.ref, 'refs/tags/') }}
     strategy:
       fail-fast: false
