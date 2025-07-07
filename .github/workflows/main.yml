@@ -181,29 +181,35 @@ jobs:
       matrix:
         include:
           # Linux
-          - arch: "x86_64-unknown-linux-gnu"
+          - target: "x86_64-unknown-linux-gnu"
+            arch: "amd64"
             os: "ubuntu-latest"
-          - arch: "aarch64-unknown-linux-gnu"
+          - target: "aarch64-unknown-linux-gnu"
+            arch: "arm64"
             os: "ubuntu-latest"
-          - arch: "armv7-unknown-linux-gnueabihf"
+          - target: "armv7-unknown-linux-gnueabihf"
+            arch: "armhf"
             os: "ubuntu-latest"
-          - arch: "arm-unknown-linux-gnueabihf"
+          - target: "arm-unknown-linux-gnueabihf"
+            arch: "armhf"
             os: "ubuntu-latest"
-          - arch: "arm-unknown-linux-gnueabi"
+          - target: "arm-unknown-linux-gnueabi"
+            arch: "arm64"
             os: "ubuntu-latest"
-          - arch: "aarch64-unknown-linux-musl"
+          - target: "aarch64-unknown-linux-musl"
+            arch: "arm64"
             os: "ubuntu-latest"
           # macOS
-          - arch: "aarch64-apple-darwin"
+          - target: "aarch64-apple-darwin"
             os: "macos-latest"
-          - arch: "x86_64-apple-darwin"
+          - target: "x86_64-apple-darwin"
             os: "macos-latest"
           # Windows
-          - arch: "x86_64-pc-windows-gnu"
+          - target: "x86_64-pc-windows-gnu"
             os: "windows-latest"
-          - arch: "x86_64-pc-windows-msvc"
+          - target: "x86_64-pc-windows-msvc"
             os: "windows-latest"
-          - arch: "aarch64-pc-windows-msvc"
+          - target: "aarch64-pc-windows-msvc"
             os: "windows-latest"
     steps:
       - name: ⏬ Checkout
@@ -219,29 +225,31 @@ jobs:
         run: |
           rustup default stable
           rustup update
-          rustup target add ${{ matrix.arch }}
+          rustup target add ${{ matrix.target }}
 
-      - name: 🛠️ Install Blender & dependencies (Linux)
-        if: ${{ startsWith(matrix.os, 'ubuntu') }}
+      - name: 🛠️ Configure repositories (Linux)
+        if: ${{ startsWith(matrix.os, 'ubuntu') && matrix.arch != 'amd64' }}
         run: |
-          # LibUDev with arch-specific target
-          if [ "${{ matrix.arch }}" = "aarch64-unknown-linux-gnu" ]; then
-            sudo apt-get install -y gcc-aarch64-linux-gnu libudev-dev:arm64
-          fi
-          if [ "${{ matrix.arch }}" = "armv7-unknown-linux-gnueabihf" ]; then
-            sudo apt-get install -y gcc-arm-linux-gnueabihf libudev-dev:armhf
-          fi
-          if [ "${{ matrix.arch }}" = "x86_64-unknown-linux-gnu" ]; then
-            sudo apt-get install -y libudev-dev
-          fi
-          if [ "${{ matrix.arch }}" = "aarch64-unknown-linux-musl" ]; then
-            sudo apt-get install -y musl-tools
-          fi
-               
-          # Note: Draco is required for glTF compression and doesn't come with Blender
-          # Note: Mesa is required for software rendering using llvmpipe
-          # Note: LibUDev is for GilRs (controller inputs)
-          sudo apt-get install -y blender python3-numpy mesa-utils libdraco-dev draco
+          sudo dpkg --add-architecture ${{ matrix.arch }}
+          echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ noble main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list.d/ports-${{ matrix.arch }}.list
+          echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ noble-updates main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list.d/ports-${{ matrix.arch }}.list
+          echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ noble-security main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list.d/ports-${{ matrix.arch }}.list
+          sudo apt-get update
+
+      - name: 🛠️ Install LibUDev (Linux)
+        if: ${{ startsWith(matrix.os, 'ubuntu') }}
+        # Note: LibUDev is for GilRs (controller inputs)
+        run: sudo apt-get install -y libudev-dev:${{ matrix.arch }}
+
+      - name: 🛠️ Install Mesa (Linux)
+        if: ${{ startsWith(matrix.os, 'ubuntu') }}
+        # Note: Mesa is required for software rendering using llvmpipe
+        run: sudo apt-get install -y mesa-utils
+
+      - name: 🛠️ Install Blender (Linux)
+        if: ${{ startsWith(matrix.os, 'ubuntu') }}
+        # Note: Draco is required for glTF compression and doesn't come with Blender
+        run: sudo apt-get install -y blender python3-numpy libdraco-dev draco
 
       - name: 🛠️ Install Blender (macOS)
         if: ${{ startsWith(matrix.os, 'macos') }}
@@ -283,7 +291,7 @@ jobs:
           }        
 
       - name: 🔨 Build
-        run: cargo build --release --target ${{ matrix.arch }}
+        run: cargo build --release --target ${{ matrix.target }}
 
       - name: ➕ Prepare upload folder
         run: mkdir upload
