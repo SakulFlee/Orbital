@@ -319,8 +319,13 @@ jobs:
       - name: ➕ Prepare upload folder
         run: mkdir upload
 
-      - name: 🔎 Find files to upload
+      - name: 🔎 Find files to upload (Linux / macOS)
+        if: ${{ ! startsWith(matrix.os, 'windows') }}
         run:  find target/ -mindepth 2 -maxdepth 2 -type f -not -name '*.d' -not -name '*.rlib' -not -name '.cargo-lock'
+
+      - name: 🔎 Find files to upload (Windows)
+        if: ${{ startsWith(matrix.os, 'windows') }}
+        run: Get-ChildItem -Path target\ -Recurse -File | Where-Object { $_.Extension -notin '.d', '.rlib', '.cargo-lock' } | Select-Object -ExpandProperty FullName
 
       - name: ⬆️ Upload artifacts
         uses: actions/upload-artifact@v4
