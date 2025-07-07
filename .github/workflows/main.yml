@@ -184,21 +184,27 @@ jobs:
           - arch: "x86_64-unknown-linux-gnu"
             os: "ubuntu-latest"
             additional_dependencies: "gcc"
+            dpkg_arch: "amd64"
           - arch: "aarch64-unknown-linux-gnu"
             os: "ubuntu-latest"
             additional_dependencies: "gcc-aarch64-linux-gnu"
+            dpkg_arch: "arm64"
           - arch: "armv7-unknown-linux-gnueabihf"
             os: "ubuntu-latest"
             additional_dependencies: "gcc-arm-linux-gnueabi"
+            dpkg_arch: "arm64"
           - arch: "arm-unknown-linux-gnueabihf"
             os: "ubuntu-latest"
             additional_dependencies: "gcc-arm-linux-gnueabihf"
+            dpkg_arch: "armhf"
           - arch: "arm-unknown-linux-gnueabi"
             os: "ubuntu-latest"
             additional_dependencies: "gcc-arm-linux-gnueabi"
+            dpkg_arch: "arm64"
           - arch: "aarch64-unknown-linux-musl"
             os: "ubuntu-latest"
             additional_dependencies: "musl-dev"
+            dpkg_arch: "arm64"
           # macOS
           - arch: "aarch64-apple-darwin"
             os: "macos-latest"
@@ -252,15 +258,20 @@ jobs:
           rustup update
           rustup target add ${{ matrix.arch }}
 
-      - name: 🛠️ Setup Cross (Linux)
+      - name: 🛠️ Setup package repositories (Linux)
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
-        run: cargo install cross --git https://github.com/cross-rs/cross
+        run: |
+          sudo dpkg --add-architecture ${{ matrix.dpkg_arch }}
+          echo "deb [arch=${{ matrix.dpkg_arch }}] http://archive.ubuntu.com/ubuntu noble main restricted universe multiverse" | sudo tee /etc/apt/sources.list
+          echo "deb [arch=${{ matrix.dpkg_arch }}] http://archive.ubuntu.com/ubuntu noble-updates main restricted universe multiverse" | sudo tee --append /etc/apt/sources.list
+          echo "deb [arch=${{ matrix.dpkg_arch }}] http://archive.ubuntu.com/ubuntu noble-security main restricted universe multiverse" | sudo tee --append /etc/apt/sources.list 
 
       - name: 🛠️ Install dependencies (Linux)
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
         # Note: Draco is required for glTF compression and doesn't come with Blender
         # Note: Mesa is required for software rendering using llvmpipe
-        run: sudo apt-get install -y blender python3-numpy mesa-utils libdraco-dev draco libudev-dev ${{ matrix.additional_dependencies }}
+        # Note: LibUDev is for GilRs (controller inputs)
+        run: sudo apt-get install -y blender python3-numpy mesa-utils libdraco-dev draco libudev-dev:${{ matrix.dpkg_arch }} ${{ matrix.additional_dependencies }}
 
       - name: 🛠️ Install dependencies (Windows)
         if: ${{ startsWith(matrix.os, 'windows') }}
@@ -301,12 +312,7 @@ jobs:
              Exit 1 # Fail the step if no directory is found
           }        
 
-      - name: 🔨 Build (Linux)
-        if: ${{ startsWith(matrix.os, 'ubuntu') }}
-        run: cross build --release --target ${{ matrix.arch }}
-
-      - name: 🔨 Build (Windows / macOS)
-        if: ${{ ! startsWith(matrix.os, 'ubuntu') }}
+      - name: 🔨 Build
         run: cargo build --release --target ${{ matrix.arch }}
 
       - name: ➕ Prepare upload folder
