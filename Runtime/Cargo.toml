@@ -7,7 +7,7 @@ edition = "2021"
 crate-type = ["lib", "cdylib"]
 
 [features]
-default = ["gamepad_input", "gamepad_input_poll", "auto_request_redraw", "standard_app_detect_no_more_elements", "export_gltf"]
+default = ["gamepad_input", "gamepad_input_poll", "auto_request_redraw", "standard_app_detect_no_more_elements"]
 # Enables gamepad inputs from being polled and processed.
 # Note: Winit _does_ have _some_ gamepad input support, but it's not very good at the moment, gilrs takes a much better approach (for now?).
 gamepad_input = ["dep:gilrs"]
@@ -19,7 +19,6 @@ gamepad_input_poll = ["gamepad_input"]
 auto_request_redraw = []
 # Enable to detect if there are no more elements in the StandardApp and force a closure of the app if found to be true.
 standard_app_detect_no_more_elements = []
-export_gltf = []
 
 [build-dependencies]
 glob = { workspace = true }
