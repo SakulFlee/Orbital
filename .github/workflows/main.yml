@@ -185,20 +185,20 @@ jobs:
             os: "ubuntu-latest"
             additional_dependencies: "gcc"
           - arch: "aarch64-unknown-linux-gnu"
-            os: "ubuntu-latest"
-            additional_dependencies: "gcc-aarch64-linux-gnu"
+            os: "ubuntu-latest libudev-dev:amd64"
+            additional_dependencies: "gcc-aarch64-linux-gnu libudev-dev:arm64"
           - arch: "armv7-unknown-linux-gnueabihf"
             os: "ubuntu-latest"
-            additional_dependencies: "gcc-arm-linux-gnueabi"
+            additional_dependencies: "gcc-arm-linux-gnueabi libudev-dev:arm64"
           - arch: "arm-unknown-linux-gnueabihf"
             os: "ubuntu-latest"
-            additional_dependencies: "gcc-arm-linux-gnueabihf"
+            additional_dependencies: "gcc-arm-linux-gnueabihf libudev-dev:armhf"
           - arch: "arm-unknown-linux-gnueabi"
             os: "ubuntu-latest"
-            additional_dependencies: "gcc-arm-linux-gnueabi"
+            additional_dependencies: "gcc-arm-linux-gnueabi libudev-dev:arm64"
           - arch: "aarch64-unknown-linux-musl"
             os: "ubuntu-latest"
-            additional_dependencies: "musl-dev"
+            additional_dependencies: "musl-dev libudev-dev:arm64"
           # macOS
           - arch: "aarch64-apple-darwin"
             os: "macos-latest"
@@ -259,8 +259,7 @@ jobs:
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
         # Note: Draco is required for glTF compression and doesn't come with Blender
         # Note: Mesa is required for software rendering using llvmpipe
-        # Note: LibUDev is required for GilRs (controller input)
-        run: sudo apt-get install -y blender python3-numpy libudev-dev mesa-utils libdraco-dev draco ${{ matrix.additional_dependencies }}
+        run: sudo apt-get install -y blender python3-numpy mesa-utils libdraco-dev draco ${{ matrix.additional_dependencies }}
 
       - name: 🛠️ Install dependencies (Windows)
         if: ${{ startsWith(matrix.os, 'windows') }}
