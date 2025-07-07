@@ -267,15 +267,13 @@ impl CameraController {
         input_state: &InputState,
         dead_zone: f64,
     ) -> Option<Vector2<f64>> {
-        input_state
-            .delta_state_any(axis)
-            .and_then(|(_, d)| {
-                if abs(d.x) > dead_zone || abs(d.y) > dead_zone {
-                    Some(d)
-                } else {
-                    None
-                }
-            })
+        input_state.delta_state_any(axis).and_then(|(_, d)| {
+            if abs(d.x) > dead_zone || abs(d.y) > dead_zone {
+                Some(d)
+            } else {
+                None
+            }
+        })
     }
 
     /// Returns `true` if mouse movement was detected and got applied.
@@ -288,8 +286,7 @@ impl CameraController {
         sensitivity: f32,
         axis_dead_zone: f64,
     ) -> bool {
-        if let Some(delta) =
-            self.read_delta(&InputAxis::MouseMovement, input_state, axis_dead_zone)
+        if let Some(delta) = self.read_delta(&InputAxis::MouseMovement, input_state, axis_dead_zone)
         {
             return self.apply_delta_to_transform(&delta, transform, sensitivity);
         }

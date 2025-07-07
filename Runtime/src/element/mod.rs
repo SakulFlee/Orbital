@@ -115,7 +115,7 @@ pub trait Element: Debug + Send {
 
     async fn on_message(&mut self, message: &Arc<Message>) -> Option<Vec<Event>> {
         if let Target::Element { .. } = message.to() {
-            info!("Received message that isn't handled: {:?}", message);
+            info!("Received message that isn't handled: {message:?}");
         }
 
         None

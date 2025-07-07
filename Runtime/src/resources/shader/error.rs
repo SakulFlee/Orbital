@@ -15,7 +15,7 @@ pub enum ShaderError {
 
 impl Display for ShaderError {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
