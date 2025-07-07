@@ -183,65 +183,28 @@ jobs:
           # Linux
           - arch: "x86_64-unknown-linux-gnu"
             os: "ubuntu-latest"
-            additional_dependencies: "gcc"
-            dpkg_arch: "amd64"
           - arch: "aarch64-unknown-linux-gnu"
             os: "ubuntu-latest"
-            additional_dependencies: "gcc-aarch64-linux-gnu"
-            dpkg_arch: "arm64"
           - arch: "armv7-unknown-linux-gnueabihf"
             os: "ubuntu-latest"
-            additional_dependencies: "gcc-arm-linux-gnueabi"
-            dpkg_arch: "arm64"
           - arch: "arm-unknown-linux-gnueabihf"
             os: "ubuntu-latest"
-            additional_dependencies: "gcc-arm-linux-gnueabihf"
-            dpkg_arch: "armhf"
           - arch: "arm-unknown-linux-gnueabi"
             os: "ubuntu-latest"
-            additional_dependencies: "gcc-arm-linux-gnueabi"
-            dpkg_arch: "arm64"
           - arch: "aarch64-unknown-linux-musl"
             os: "ubuntu-latest"
-            additional_dependencies: "musl-dev"
-            dpkg_arch: "arm64"
           # macOS
           - arch: "aarch64-apple-darwin"
             os: "macos-latest"
-            additional_dependencies: ""
           - arch: "x86_64-apple-darwin"
             os: "macos-latest"
-            additional_dependencies: ""
           # Windows
           - arch: "x86_64-pc-windows-gnu"
             os: "windows-latest"
-            additional_dependencies: ""
           - arch: "x86_64-pc-windows-msvc"
             os: "windows-latest"
-            additional_dependencies: ""
           - arch: "aarch64-pc-windows-msvc"
             os: "windows-latest"
-            additional_dependencies: ""
-#          # Android
-#          - arch: "armv7-linux-androideabi"
-#            os: "ubuntu-latest"
-#            additional_dependencies: ""
-#          - arch: "aarch64-linux-android"
-#            os: "ubuntu-latest"
-#            additional_dependencies: ""
-#          - arch: "i686-linux-android"
-#            os: "ubuntu-latest"
-#            additional_dependencies: ""
-#          - arch: "x86_64-linux-android"
-#            os: "ubuntu-latest"
-#            additional_dependencies: ""
-#          # iOS
-#          - arch: "aarch64-apple-ios"
-#            os: "macos-latest"
-#            additional_dependencies: ""
-#          - arch: "x86_64-apple-ios"
-#            os: "macos-latest"
-#            additional_dependencies: ""
     steps:
       - name: ⏬ Checkout
         uses: actions/checkout@v4
@@ -258,32 +221,36 @@ jobs:
           rustup update
           rustup target add ${{ matrix.arch }}
 
-      - name: 🛠️ Setup package repositories (Linux)
+      - name: 🛠️ Install Blender & dependencies (Linux)
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
         run: |
-          sudo dpkg --add-architecture ${{ matrix.dpkg_arch }}
-          sudo rm /etc/apt/sources.list
-          sudo rm -rf /etc/apt/sources.list.d
-          echo "deb [arch=${{ matrix.dpkg_arch }}] http://archive.ubuntu.com/ubuntu noble main restricted universe multiverse" | sudo tee /etc/apt/sources.list
-          echo "deb [arch=${{ matrix.dpkg_arch }}] http://archive.ubuntu.com/ubuntu noble-updates main restricted universe multiverse" | sudo tee --append /etc/apt/sources.list
-          echo "deb [arch=${{ matrix.dpkg_arch }}] http://archive.ubuntu.com/ubuntu noble-security main restricted universe multiverse" | sudo tee --append /etc/apt/sources.list
-          sudo apt-get update
+          # LibUDev with arch-specific target
+          if [ "${{ matrix.arch }}" = "aarch64-unknown-linux-gnu" ]; then
+            sudo apt-get install -y gcc-aarch64-linux-gnu libudev-dev:arm64
+          fi
+          if [ "${{ matrix.arch }}" = "armv7-unknown-linux-gnueabihf" ]; then
+            sudo apt-get install -y gcc-arm-linux-gnueabihf libudev-dev:armhf
+          fi
+          if [ "${{ matrix.arch }}" = "x86_64-unknown-linux-gnu" ]; then
+            sudo apt-get install -y libudev-dev
+          fi
+          if [ "${{ matrix.arch }}" = "aarch64-unknown-linux-musl" ]; then
+            sudo apt-get install -y musl-tools
+          fi
+               
+          # Note: Draco is required for glTF compression and doesn't come with Blender
+          # Note: Mesa is required for software rendering using llvmpipe
+          # Note: LibUDev is for GilRs (controller inputs)
+          sudo apt-get install -y blender python3-numpy mesa-utils libdraco-dev draco
 
-      - name: 🛠️ Install dependencies (Linux)
-        if: ${{ startsWith(matrix.os, 'ubuntu') }}
-        # Note: Draco is required for glTF compression and doesn't come with Blender
-        # Note: Mesa is required for software rendering using llvmpipe
-        # Note: LibUDev is for GilRs (controller inputs)
-        run: sudo apt-get install -y blender python3-numpy mesa-utils libdraco-dev draco libudev-dev:${{ matrix.dpkg_arch }} ${{ matrix.additional_dependencies }}
+      - name: 🛠️ Install Blender (macOS)
+        if: ${{ startsWith(matrix.os, 'macos') }}
+        run: brew install blender
 
-      - name: 🛠️ Install dependencies (Windows)
+      - name: 🛠️ Install Blender (Windows)
         if: ${{ startsWith(matrix.os, 'windows') }}
         shell: pwsh
         run: choco install blender --no-progress
-
-      - name: 🛠️ Install dependencies (macOS)
-        if: ${{ startsWith(matrix.os, 'macos') }}
-        run: brew install blender
 
       - name: ➕ Add Blender to PATH (Windows)
         if: ${{ startsWith(matrix.os, 'windows') }}
