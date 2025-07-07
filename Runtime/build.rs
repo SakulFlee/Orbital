@@ -86,7 +86,7 @@ fn blender_model_files() {
 }
 
 fn blender_convert_to_gltf(filepath: &str, script_path: &PathBuf, output_path: &PathBuf) {
-    println!("cargo:::rerun-if-changed={filepath}");
+    println!("cargo::rerun-if-changed={filepath}");
 
     let output = Command::new("blender")
         .arg("--background")
