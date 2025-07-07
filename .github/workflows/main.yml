@@ -125,7 +125,7 @@ jobs:
           rustup update
 
       - name: 🛠️ Install dependencies
-        run: sudo apt-get install -y blender python3-numpy libudev-dev mesa-utils libdraco-dev draco
+        run: winget install blender
 
       - name: 🔨 Build
         run: cargo build --release
@@ -158,7 +158,7 @@ jobs:
           rustup update
 
       - name: 🛠️ Install dependencies
-        run: sudo apt-get install -y blender python3-numpy libudev-dev mesa-utils libdraco-dev draco
+        run: brew install blender
 
       - name: 🔨 Build
         run: cargo build --release
