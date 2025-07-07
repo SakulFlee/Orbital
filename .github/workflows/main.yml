@@ -230,10 +230,23 @@ jobs:
       - name: 🛠️ Configure repositories (Linux)
         if: ${{ startsWith(matrix.os, 'ubuntu') && matrix.arch != 'amd64' }}
         run: |
+          # Add architecture
           sudo dpkg --add-architecture ${{ matrix.arch }}
-          echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ noble main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list.d/ports-${{ matrix.arch }}.list
-          echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ noble-updates main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list.d/ports-${{ matrix.arch }}.list
-          echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ noble-security main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list.d/ports-${{ matrix.arch }}.list
+          
+          # Removing any current sources
+          sudo rm -rf /etc/apt/sources.list.d/
+          sudo rm -f /etc/apt/sources.list
+          
+          # Set expected source mirrors
+          echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
+          echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble-updates main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
+          echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble-security main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
+          echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble-backports main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
+          echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ noble main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
+          echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ noble-updates main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
+          echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ noble-security main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
+          
+          # Update mirrors
           sudo apt-get update
 
       - name: 🛠️ Install LibUDev (Linux)
