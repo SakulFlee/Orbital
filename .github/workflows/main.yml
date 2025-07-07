@@ -262,6 +262,8 @@ jobs:
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
         run: |
           sudo dpkg --add-architecture ${{ matrix.dpkg_arch }}
+          sudo rm /etc/apt/sources.list
+          sudo rm -rf /etc/apt/sources.list.d
           echo "deb [arch=${{ matrix.dpkg_arch }}] http://archive.ubuntu.com/ubuntu noble main restricted universe multiverse" | sudo tee /etc/apt/sources.list
           echo "deb [arch=${{ matrix.dpkg_arch }}] http://archive.ubuntu.com/ubuntu noble-updates main restricted universe multiverse" | sudo tee --append /etc/apt/sources.list
           echo "deb [arch=${{ matrix.dpkg_arch }}] http://archive.ubuntu.com/ubuntu noble-security main restricted universe multiverse" | sudo tee --append /etc/apt/sources.list
