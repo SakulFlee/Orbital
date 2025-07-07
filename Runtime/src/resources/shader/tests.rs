@@ -57,7 +57,7 @@ fn test(buffer_count: u32, texture_count: u32) {
         texture_count,
     };
     test_impl.do_work();
-    println!("{:?}", test_impl);
+    println!("{test_impl:?}");
 
     let (_bind_group, _bind_group_layout, variables) = test_impl
         .bind_group(&device, &queue)

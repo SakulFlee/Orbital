@@ -17,7 +17,7 @@ fn load_gltf() {
 
     let x = GltfImporter::import(task);
     let result = block_on(x);
-    debug!("{:?}", result);
+    debug!("{result:?}");
 
     assert!(result.errors.is_empty());
 }
@@ -33,7 +33,7 @@ fn load_glb() {
 
     let x = GltfImporter::import(task);
     let result = block_on(x);
-    debug!("{:?}", result);
+    debug!("{result:?}");
 
     assert!(result.errors.is_empty());
 }
@@ -48,7 +48,7 @@ fn query(import: SpecificGltfImport) -> GltfImportResult {
 
     let x = GltfImporter::import(task);
     let result = block_on(x);
-    debug!("{:?}", result);
+    debug!("{result:?}");
     assert!(result.errors.is_empty());
 
     result
