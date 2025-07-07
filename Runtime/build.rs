@@ -9,6 +9,8 @@ const MODEL_SCRIPT_PBR_SPHERE_GEN: &str = "../Examples/SharedAssets/ModelScripts
 const MODELS_DIR: &str = "../Examples/SharedAssets/Models";
 
 fn main() {
+    println!("cargo::rerun-if-env-changed=SKIP_GLTF_EXPORT");
+
     if std::env::var("SKIP_GLTF_EXPORT").is_ok() {
         println!("cargo::warning=Exporting glTF is disabled! Skipping export script ...");
         return;
