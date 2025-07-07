@@ -264,7 +264,8 @@ jobs:
           sudo dpkg --add-architecture ${{ matrix.dpkg_arch }}
           echo "deb [arch=${{ matrix.dpkg_arch }}] http://archive.ubuntu.com/ubuntu noble main restricted universe multiverse" | sudo tee /etc/apt/sources.list
           echo "deb [arch=${{ matrix.dpkg_arch }}] http://archive.ubuntu.com/ubuntu noble-updates main restricted universe multiverse" | sudo tee --append /etc/apt/sources.list
-          echo "deb [arch=${{ matrix.dpkg_arch }}] http://archive.ubuntu.com/ubuntu noble-security main restricted universe multiverse" | sudo tee --append /etc/apt/sources.list 
+          echo "deb [arch=${{ matrix.dpkg_arch }}] http://archive.ubuntu.com/ubuntu noble-security main restricted universe multiverse" | sudo tee --append /etc/apt/sources.list
+          sudo apt-get update
 
       - name: 🛠️ Install dependencies (Linux)
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
