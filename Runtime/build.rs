@@ -9,6 +9,11 @@ const MODEL_SCRIPT_PBR_SPHERE_GEN: &str = "../Examples/SharedAssets/ModelScripts
 const MODELS_DIR: &str = "../Examples/SharedAssets/Models";
 
 fn main() {
+    if !cfg!(feature = "export_gltf") {
+        println!("cargo::warn=Exporting glTF isn't enabled! Skipping export script ...");
+        return;
+    }
+    
     blender_pbr_spheres();
     blender_model_files();
 }
