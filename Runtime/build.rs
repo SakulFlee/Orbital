@@ -38,10 +38,10 @@ fn blender_pbr_spheres() {
     let stderr = str::from_utf8(&output.stderr).expect("Failed to convert stderr to string");
 
     if !stdout.is_empty() {
-        println!("cargo:warning=Blender stdout:\n{stdout}");
+        println!("cargo:warning=Blender PBR Spheres stdout:\n{stdout}");
     }
     if !stderr.is_empty() {
-        println!("cargo:warning=Blender stderr:\n{stderr}");
+        println!("cargo:warning=Blender PBR Spheres stderr:\n{stderr}");
     }
 
     if !output.status.success() || !stdout.contains("### FINISHED ###") {
