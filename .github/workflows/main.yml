@@ -182,29 +182,23 @@ jobs:
         include:
           # Linux
           - arch: "x86_64-unknown-linux-gnu"
-            short_arch: "amd64"
             os: "ubuntu-latest"
-            additional_dependencies: "gcc libudev-dev:amd64"
+            additional_dependencies: "gcc"
           - arch: "aarch64-unknown-linux-gnu"
-            short_arch: "arm64"
             os: "ubuntu-latest"
-            additional_dependencies: "gcc-aarch64-linux-gnu libudev-dev:arm64"
+            additional_dependencies: "gcc-aarch64-linux-gnu"
           - arch: "armv7-unknown-linux-gnueabihf"
             os: "ubuntu-latest"
-            additional_dependencies: "gcc-arm-linux-gnueabi libudev-dev:arm64"
-            short_arch: "arm64"
+            additional_dependencies: "gcc-arm-linux-gnueabi"
           - arch: "arm-unknown-linux-gnueabihf"
             os: "ubuntu-latest"
-            additional_dependencies: "gcc-arm-linux-gnueabihf libudev-dev:armhf"
-            short_arch: "armhf"
+            additional_dependencies: "gcc-arm-linux-gnueabihf"
           - arch: "arm-unknown-linux-gnueabi"
             os: "ubuntu-latest"
-            additional_dependencies: "gcc-arm-linux-gnueabi libudev-dev:arm64"
-            short_arch: "arm64"
+            additional_dependencies: "gcc-arm-linux-gnueabi"
           - arch: "aarch64-unknown-linux-musl"
-            short_arch: "arm64"
             os: "ubuntu-latest"
-            additional_dependencies: "musl-dev libudev-dev:arm64"
+            additional_dependencies: "musl-dev"
           # macOS
           - arch: "aarch64-apple-darwin"
             os: "macos-latest"
@@ -261,17 +255,15 @@ jobs:
           rustup update
           rustup target add ${{ matrix.arch }}
 
-      - name: 🛠️ Setup DPKG arch (Linux)
+      - name: 🛠️ Setup Cross (Linux)
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
-        run: |
-          sudo dpkg --add-architecture ${{ matrix.short_arch }}
-          sudo apt-get update
+        run: cargo install cross --git https://github.com/cross-rs/cross
 
       - name: 🛠️ Install dependencies (Linux)
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
         # Note: Draco is required for glTF compression and doesn't come with Blender
         # Note: Mesa is required for software rendering using llvmpipe
-        run: sudo apt-get install -y blender python3-numpy mesa-utils libdraco-dev draco ${{ matrix.additional_dependencies }}
+        run: sudo apt-get install -y blender python3-numpy mesa-utils libdraco-dev draco libudev-dev ${{ matrix.additional_dependencies }}
 
       - name: 🛠️ Install dependencies (Windows)
         if: ${{ startsWith(matrix.os, 'windows') }}
@@ -313,7 +305,7 @@ jobs:
           }        
 
       - name: 🔨 Build
-        run: cargo build --release --target ${{ matrix.arch }}
+        run: cross build --release --target ${{ matrix.arch }}
 
       - name: ➕ Prepare upload folder
         run: mkdir upload
