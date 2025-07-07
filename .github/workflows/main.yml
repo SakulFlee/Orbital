@@ -131,31 +131,30 @@ jobs:
           Write-Host "Chocolatey Install Output:"
           Write-Host "$installOutput"
   
-          # Look for the "Deployed to" line directly in the captured output
-          $blenderPathLine = $installOutput | Select-String -Pattern "Deployed to '" | Select-Object -First 1
+          # Look for the "Deployed to" line directly in the captured output,
+          # ensuring it starts with 'Deployed to '.
+          $blenderPathLine = $installOutput | Select-String -Pattern "^ *Deployed to '" | Select-Object -First 1
   
           if ($blenderPathLine) {
-          # Extract the path from the line: Deployed to 'C:\Program Files\Blender Foundation\Blender 4.4\'
-          $blenderPath = ($blenderPathLine.ToString() -split "'")[1]
-          Write-Host "Extracted Blender installation base path: $blenderPath"
-          
-          # Construct the full path to the Blender executable directory
-          # Blender.exe is typically directly in the folder Chocolatey deploys to.
-          # Example: C:\Program Files\Blender Foundation\Blender 4.4\blender.exe
-          # So, $blenderDir is the same as $blenderPath.
-          $blenderDir = $blenderPath
-          
-          # Verify that blender.exe exists in that directory
-          $blenderExeFullPath = Join-Path $blenderDir "blender.exe"
-          if (Test-Path $blenderExeFullPath) {
-          Write-Host "Confirmed blender.exe exists at: $blenderExeFullPath"
-          Write-Host "Blender installed to: $blenderDir"
-          # Add the Blender installation directory to the PATH for subsequent steps
-          echo "$blenderDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          } else {
-            Write-Host "ERROR: blender.exe not found at expected path: $blenderExeFullPath"
-            Exit 1 # Fail the step
-          }
+            # Extract the path from the line: Deployed to 'C:\Program Files\Blender Foundation\Blender 4.4\'
+            # This line specifically extracts the content between the first and second single quote
+            $blenderPath = ($blenderPathLine.ToString() -split "'")[1]
+            Write-Host "Extracted Blender installation base path: $blenderPath"
+            
+            # For Blender, the executable is usually directly in this folder
+            $blenderDir = $blenderPath
+            
+            # Verify that blender.exe exists in that directory
+            $blenderExeFullPath = Join-Path $blenderDir "blender.exe"
+            if (Test-Path $blenderExeFullPath) {
+              Write-Host "Confirmed blender.exe exists at: $blenderExeFullPath"
+              Write-Host "Blender installed to: $blenderDir"
+              # Add the Blender installation directory to the PATH for subsequent steps
+              echo "$blenderDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+            } else {
+              Write-Host "ERROR: blender.exe not found at expected path: $blenderExeFullPath"
+              Exit 1 # Fail the step
+            }
           } else {
             Write-Host "ERROR: Could not find 'Deployed to ' line in Chocolatey install output."
             Exit 1 # Fail the step
