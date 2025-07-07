@@ -301,8 +301,13 @@ jobs:
              Exit 1 # Fail the step if no directory is found
           }        
 
-      - name: 🔨 Build
+      - name: 🔨 Build (Linux)
+        if: ${{ startsWith(matrix.os, 'ubuntu') }}
         run: cross build --release --target ${{ matrix.arch }}
+
+      - name: 🔨 Build (Windows / macOS)
+        if: ${{ ! startsWith(matrix.os, 'ubuntu') }}
+        run: cargo build --release --target ${{ matrix.arch }}
 
       - name: ➕ Prepare upload folder
         run: mkdir upload
