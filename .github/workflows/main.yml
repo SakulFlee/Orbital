@@ -183,46 +183,62 @@ jobs:
           # Linux
           - arch: "x86_64-unknown-linux-gnu"
             os: "ubuntu-latest"
-          - arch: "i686-unknown-linux-gnu"
-            os: "ubuntu-latest"
+            additional_dependencies: "gcc"
           - arch: "aarch64-unknown-linux-gnu"
             os: "ubuntu-latest"
+            additional_dependencies: "gcc-aarch64-linux-gnu"
           - arch: "armv7-unknown-linux-gnueabihf"
             os: "ubuntu-latest"
+            additional_dependencies: "gcc-arm-linux-gnueabi"
           - arch: "arm-unknown-linux-gnueabihf"
             os: "ubuntu-latest"
+            additional_dependencies: "gcc-arm-linux-gnueabihf"
           - arch: "arm-unknown-linux-gnueabi"
             os: "ubuntu-latest"
+            additional_dependencies: "gcc-arm-linux-gnueabi"
           - arch: "aarch64-unknown-linux-musl"
             os: "ubuntu-latest"
+            additional_dependencies: "musl-dev"
           # macOS
           - arch: "aarch64-apple-darwin"
             os: "macos-latest"
+            additional_dependencies: ""
           - arch: "x86_64-apple-darwin"
             os: "macos-latest"
+            additional_dependencies: ""
           # Windows
           - arch: "x86_64-pc-windows-gnu"
             os: "windows-latest"
+            additional_dependencies: ""
           - arch: "x86_64-pc-windows-msvc"
             os: "windows-latest"
+            additional_dependencies: ""
           - arch: "aarch64-pc-windows-msvc"
             os: "windows-latest"
+            additional_dependencies: ""
           - arch: "aarch64-pc-windows-gnullvm"
             os: "windows-latest"
+            additional_dependencies: ""
           # Android
           - arch: "armv7-linux-androideabi"
             os: "ubuntu-latest"
+            additional_dependencies: ""
           - arch: "aarch64-linux-android"
             os: "ubuntu-latest"
+            additional_dependencies: ""
           - arch: "i686-linux-android"
             os: "ubuntu-latest"
+            additional_dependencies: ""
           - arch: "x86_64-linux-android"
             os: "ubuntu-latest"
+            additional_dependencies: ""
           # iOS
           - arch: "aarch64-apple-ios"
             os: "macos-latest"
+            additional_dependencies: ""
           - arch: "x86_64-apple-ios"
             os: "macos-latest"
+            additional_dependencies: ""
     steps:
       - name: ⏬ Checkout
         uses: actions/checkout@v4
@@ -244,7 +260,7 @@ jobs:
         # Note: Draco is required for glTF compression and doesn't come with Blender
         # Note: Mesa is required for software rendering using llvmpipe
         # Note: LibUDev is required for GilRs (controller input)
-        run: sudo apt-get install -y blender python3-numpy libudev-dev mesa-utils libdraco-dev draco
+        run: sudo apt-get install -y blender python3-numpy libudev-dev mesa-utils libdraco-dev draco ${{ matrix.additional_dependencies }}
 
       - name: 🛠️ Install dependencies (Windows)
         if: ${{ startsWith(matrix.os, 'windows') }}
