@@ -44,10 +44,10 @@ fn blender_pbr_spheres() {
     let stdout = str::from_utf8(&output.stdout).expect("Failed to convert stdout to string");
     let stderr = str::from_utf8(&output.stderr).expect("Failed to convert stderr to string");
 
-    if !stdout.is_empty() {
+    if !stdout.trim().is_empty() {
         println!("cargo::warning=Blender PBR Spheres stdout:\n{stdout}");
     }
-    if !stderr.is_empty() {
+    if !stderr.trim().is_empty() {
         println!("cargo::warning=Blender PBR Spheres stderr:\n{stderr}");
     }
 
@@ -102,10 +102,10 @@ fn blender_convert_to_gltf(filepath: &str, script_path: &PathBuf, output_path: &
     let stdout = str::from_utf8(&output.stdout).expect("Failed to convert stdout to string");
     let stderr = str::from_utf8(&output.stderr).expect("Failed to convert stderr to string");
 
-    if !stdout.is_empty() {
+    if !stdout.trim().is_empty() {
         println!("cargo::warning=Blender stdout for '{filepath}':\n{stdout}");
     }
-    if !stderr.is_empty() {
+    if !stderr.trim().is_empty() {
         println!("cargo::warning=Blender stderr for '{filepath}':\n{stderr}");
     }
 
