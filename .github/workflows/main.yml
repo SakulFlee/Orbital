@@ -380,3 +380,8 @@ jobs:
 
       - name: 👀 Show files to be uploaded
         run: ls -al -R upload
+
+      - name: 📝 Make release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: upload/**
