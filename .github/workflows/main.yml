@@ -340,7 +340,7 @@ jobs:
       - name: ⬆️ Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: build-linux
+          name: build-${{ matrix.target }}
           path: upload/**
 
   release:
