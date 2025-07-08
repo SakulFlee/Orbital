@@ -328,11 +328,11 @@ jobs:
 
       - name: 🔎 Find files to upload (Linux / macOS)
         if: ${{ ! startsWith(matrix.os, 'windows') }}
-        run: find target/${{ matrix.arch }} -mindepth 1 -maxdepth 1 -type f -not -name '*.d' -not -name '*.rlib' -not -name '.cargo-lock' -not -name 'CACHEDIR.TAG' -exec mv {} upload/ \;
+        run: find target/${{ matrix.arch }} -mindepth 2 -maxdepth 2 -type f -not -name '*.d' -not -name '*.rlib' -not -name '.cargo-lock' -not -name 'CACHEDIR.TAG' -exec mv {} upload/ \;
 
       - name: 🔎 Find files to upload (Windows)
         if: ${{ startsWith(matrix.os, 'windows') }}
-        run: Get-ChildItem -Path "target/${{ matrix.arch }}" -Recurse -Depth 1 -File -Exclude "*.d", "*.rlib", ".cargo-lock", "CACHEDIR.TAG" | Move-Item -Destination "upload/" -Force
+        run: Get-ChildItem -Path "target/${{ matrix.arch }}" -Recurse -Depth 2 -File -Exclude "*.d", "*.rlib", ".cargo-lock", "CACHEDIR.TAG" | Move-Item -Destination "upload/" -Force
 
       - name: 👀 Show files to be uploaded (Linux / macOS)
         if: ${{ ! startsWith(matrix.os, 'windows') }}
