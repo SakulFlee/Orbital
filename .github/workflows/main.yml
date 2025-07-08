@@ -363,12 +363,12 @@ jobs:
 
       - name: 🔄 Rename and move files to upload folder
         run: |
-          for arch_dir in "./build-*"; do
+          for arch_dir in "$(find . -type d -depth 1 -name 'build-*')"; do
             # Get the architecture name from the build directory
             arch=$(basename "$arch_dir")
           
             # Iterate over each file and subdirectory within the build directory
-            for item in $(find "$arch_dir" -depth -print0); do
+            for item in "$(find '$arch_dir' -depth 1)"; do
               filename=$(basename "$item")
               
               # Move and rename files
