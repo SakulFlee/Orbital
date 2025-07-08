@@ -62,7 +62,7 @@ jobs:
           REPO_LOWERCASE=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           
           # Use the rust_target as the tag
-          IMAGE_NAME="ghcr.io/${REPO_LOWERCASE}-cross-${{ matrix.rust_target }}"
+          IMAGE_NAME="ghcr.io/${REPO_LOWERCASE}-${{ matrix.rust_target }}"
           echo "IMAGE_NAME=$IMAGE_NAME" >> "$GITHUB_ENV"
           
           IMAGE_TAG="${{ github.sha }}"
