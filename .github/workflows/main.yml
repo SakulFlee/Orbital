@@ -374,7 +374,7 @@ jobs:
             for item in "$arch_dir"/*; do
               [ -e "$item" ] || continue
               filename=$(basename "$item")
-              mv -n "$item" "upload/${filename}_${arch}"
+              mv -n "$item" "upload/${arch}_${filename}"
             done
           done
 
