@@ -2,5 +2,5 @@ FROM {{CROSS_BASE_IMAGE}}
 
 # Install libudev-dev
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends libudev-dev && \
+    apt-get install -y --no-install-recommends libudev-dev blender python3-numpy libdraco-dev draco mesa-utils && \
     rm -rf /var/lib/apt/lists/*
