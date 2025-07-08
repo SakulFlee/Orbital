@@ -1,0 +1,78 @@
+name: Build and Push Cross Images
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/docker/Dockerfile.template'
+      - '.github/workflows/docker.yml'
+
+jobs:
+  build_and_push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rust_target: "x86_64-unknown-linux-gnu"
+            cross_base_image: "ghcr.io/cross-rs/x86_64-unknown-linux-gnu:latest"
+          - rust_target: "aarch64-unknown-linux-gnu"
+            cross_base_image: "ghcr.io/cross-rs/aarch64-unknown-linux-gnu:latest"
+          - rust_target: "armv7-unknown-linux-gnueabihf"
+            cross_base_image: "ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:latest"
+          - rust_target: "arm-unknown-linux-gnueabihf"
+            cross_base_image: "ghcr.io/cross-rs/arm-unknown-linux-gnueabihf:latest"
+          - rust_target: "arm-unknown-linux-gnueabi"
+            cross_base_image: "ghcr.io/cross-rs/arm-unknown-linux-gnueabi:latest"
+          - rust_target: "aarch64-unknown-linux-musl"
+            cross_base_image: "ghcr.io/cross-rs/aarch64-unknown-linux-musl:latest"
+
+    steps:
+      - name: ⏬ Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 📝 Prepare Dockerfile from template
+        id: prepare_dockerfile
+        run: |
+          # Replace the placeholder with the actual cross_base_image
+          sed "s|{{CROSS_BASE_IMAGE}}|${{ matrix.cross_base_image }}|" .github/docker/cross-libudev/Dockerfile.template > .github/docker/cross-libudev/Dockerfile
+          echo "Generated Dockerfile for ${{ matrix.rust_target }}:"
+          cat .github/docker/cross-libudev/Dockerfile
+
+      - name: 📦 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🏷️ Determine image tag
+        id: image_tag
+        run: |
+          # Use github.repository for the image name to match the repo
+          # Use the rust_target as the tag
+          IMAGE_NAME="ghcr.io/${{ github.repository }}/cross-libudev-${{ matrix.rust_target }}"
+          echo "IMAGE_NAME=$IMAGE_NAME" >> "$GITHUB_ENV"
+          
+          IMAGE_TAG="${{ github.sha }}"
+          echo "IMAGE_TAGS=${IMAGE_NAME}:latest,${IMAGE_NAME}:${IMAGE_TAG}" >> "$GITHUB_ENV"
+
+      - name: 🚀 Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .github/docker/
+          file: .github/docker/Dockerfile
+          push: true
+          tags: ${{ env.IMAGE_TAGS }}
+          build-args: CROSS_BASE_IMAGE=${{ matrix.cross_base_image }}
+          cache-from: type=gha,scope=${{ matrix.rust_target }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.rust_target }}
