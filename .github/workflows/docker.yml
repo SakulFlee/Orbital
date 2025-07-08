@@ -41,7 +41,7 @@ jobs:
         id: prepare_dockerfile
         run: |
           # Replace the placeholder with the actual cross_base_image
-          sed "s|{{CROSS_BASE_IMAGE}}|${{ matrix.cross_base_image }}|" .github/docker/cross-libudev/Dockerfile.template > .github/docker/cross-libudev/Dockerfile
+          sed "s|{{CROSS_BASE_IMAGE}}|${{ matrix.cross_base_image }}|" .github/docker/Dockerfile.template > .github/docker/Dockerfile
           echo "Generated Dockerfile for ${{ matrix.rust_target }}:"
           cat .github/docker/cross-libudev/Dockerfile
 
