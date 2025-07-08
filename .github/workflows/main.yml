@@ -334,8 +334,13 @@ jobs:
         if: ${{ startsWith(matrix.os, 'windows') }}
         run: Get-ChildItem -Path "target/" -Recurse -Depth 2 -File -Exclude "*.d", "*.rlib", ".cargo-lock", "CACHEDIR.TAG" | Move-Item -Destination "upload/" -Force
 
-      - name: 👀 Show files to be uploaded
+      - name: 👀 Show files to be uploaded (Linux / macOS)
+        if: ${{ ! startsWith(matrix.os, 'windows') }}
         run: ls -al upload/
+
+      - name: 👀 Show files to be uploaded (Windows)
+        if: ${{ startsWith(matrix.os, 'windows') }}
+        run: Get-ChildItem -Path upload/
 
       - name: ⬆️ Upload artifacts
         uses: actions/upload-artifact@v4
