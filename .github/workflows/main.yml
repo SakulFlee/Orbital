@@ -183,21 +183,23 @@ jobs:
           # Linux
           - target: "x86_64-unknown-linux-gnu"
             arch: "amd64"
+            pc: "/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig"
             os: "ubuntu-latest"
           - target: "aarch64-unknown-linux-gnu"
             arch: "arm64"
+            pc: "/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig"
             os: "ubuntu-latest"
           - target: "armv7-unknown-linux-gnueabihf"
             arch: "armhf"
+            pc: "/usr/lib/arm-linux-gnueabihf/pkgconfig:/usr/share/pkgconfig"
             os: "ubuntu-latest"
           - target: "arm-unknown-linux-gnueabihf"
             arch: "armhf"
+            pc: "/usr/lib/arm-linux-gnueabihf/pkgconfig:/usr/share/pkgconfig"
             os: "ubuntu-latest"
           - target: "arm-unknown-linux-gnueabi"
             arch: "arm64"
-            os: "ubuntu-latest"
-          - target: "aarch64-unknown-linux-musl"
-            arch: "arm64"
+            pc: "/usr/lib/arm-linux-gnueabi/pkgconfig:/usr/share/pkgconfig"
             os: "ubuntu-latest"
           # macOS
           - target: "aarch64-apple-darwin"
@@ -304,6 +306,9 @@ jobs:
           }        
 
       - name: 🔨 Build
+        env:
+          PKG_CONFIG_SYSROOT_DIR: /
+          PKG_CONFIG_PATH: ${{ matrix.pc }}
         run: cargo build --release --target ${{ matrix.target }}
 
       - name: ➕ Prepare upload folder
