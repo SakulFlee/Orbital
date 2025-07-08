@@ -210,11 +210,6 @@ jobs:
             pc: "/usr/lib/arm-linux-gnueabihf/pkgconfig:/usr/share/pkgconfig"
             os: "ubuntu-latest"
             gcc: "gcc-arm-linux-gnueabihf"
-          - target: "arm-unknown-linux-gnueabi"
-            arch: "arm64"
-            pc: "/usr/lib/arm-linux-gnueabi/pkgconfig:/usr/share/pkgconfig"
-            os: "ubuntu-latest"
-            gcc: "gcc-arm-linux-gnueabi"
           # macOS
           - target: "aarch64-apple-darwin"
             os: "macos-latest"
