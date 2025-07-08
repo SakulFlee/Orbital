@@ -373,9 +373,9 @@ jobs:
             arch=$(basename "$arch_dir" | sed 's/build-//g')
             for item in "$arch_dir"/*; do
               [ -e "$item" ] || continue
-              filename=$(basename -- "$item")
-              extension="${filename##*.}"
-              filename="${filename%.*}"
+              filename_with_ext=$(basename -- "$item"); 
+              filename="${filename_with_ext%%.*}"; 
+              extension=".${filename_with_ext#*.}"
               mv -n "$item" "upload/${filename}_${arch}.${extension}"
             done
           done
