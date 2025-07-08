@@ -162,8 +162,17 @@ jobs:
           rustup default stable
           rustup update
 
-      - name: 🛠️ Install dependencies
-        run: sudo apt-get install -y blender python3-numpy libudev-dev mesa-utils libdraco-dev draco
+      - name: 🛠️ Install LibUDev (Linux)
+        # Note: LibUDev is for GilRs (controller inputs)
+        run: sudo apt-get install -y libudev-dev:${{ matrix.arch }}
+
+      - name: 🛠️ Install Mesa (Linux)
+        # Note: Mesa is required for software rendering using llvmpipe
+        run: sudo apt-get install -y mesa-utils
+
+      - name: 🛠️ Install Blender (Linux)
+        # Note: Draco is required for glTF compression and doesn't come with Blender
+        run: sudo apt-get install -y blender python3-numpy libdraco-dev draco
 
       - name: 🧪 Test
         run: cargo test
@@ -185,22 +194,27 @@ jobs:
             arch: "amd64"
             pc: "/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig"
             os: "ubuntu-latest"
+            gcc: "gcc-x86-64-linux-gnu"
           - target: "aarch64-unknown-linux-gnu"
             arch: "arm64"
             pc: "/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig"
             os: "ubuntu-latest"
+            gcc: "gcc-aarch64-linux-gnu"
           - target: "armv7-unknown-linux-gnueabihf"
             arch: "armhf"
             pc: "/usr/lib/arm-linux-gnueabihf/pkgconfig:/usr/share/pkgconfig"
             os: "ubuntu-latest"
+            gcc: "gcc-arm-linux-gnueabihf"
           - target: "arm-unknown-linux-gnueabihf"
             arch: "armhf"
             pc: "/usr/lib/arm-linux-gnueabihf/pkgconfig:/usr/share/pkgconfig"
             os: "ubuntu-latest"
+            gcc: "gcc-arm-linux-gnueabihf"
           - target: "arm-unknown-linux-gnueabi"
             arch: "arm64"
             pc: "/usr/lib/arm-linux-gnueabi/pkgconfig:/usr/share/pkgconfig"
             os: "ubuntu-latest"
+            gcc: "gcc-arm-linux-gnueabi"
           # macOS
           - target: "aarch64-apple-darwin"
             os: "macos-latest"
@@ -250,6 +264,10 @@ jobs:
           
           # Update mirrors
           sudo apt-get update
+
+      - name: 🛠️ Install GCC (Linux)
+        if: ${{ startsWith(matrix.os, 'ubuntu') }}
+        run: sudo apt-get install -y ${{ matrix.gcc }}
 
       - name: 🛠️ Install LibUDev (Linux)
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
