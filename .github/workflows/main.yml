@@ -334,7 +334,7 @@ jobs:
 
       - name: 🔎 Find files to upload (Linux / macOS)
         if: ${{ ! startsWith(matrix.os, 'windows') }}
-        run: find target/${{ matrix.target }} -mindepth 1 -maxdepth 1 -type f -not -name '*.d' -not -name '*.rlib' -not -name '.cargo-lock' -not -name 'CACHEDIR.TAG' -exec mv {} upload/ \;
+        run: find target/${{ matrix.target }}/release -mindepth 1 -maxdepth 1 -type f -not -name '*.d' -not -name '*.rlib' -not -name '.cargo-lock' -not -name 'CACHEDIR.TAG' -exec mv {} upload/ \;
 
       - name: 🔎 Find files to upload (Windows)
         if: ${{ startsWith(matrix.os, 'windows') }}
