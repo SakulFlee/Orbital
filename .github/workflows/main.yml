@@ -332,7 +332,7 @@ jobs:
 
       - name: 🔎 Find files to upload (Windows)
         if: ${{ startsWith(matrix.os, 'windows') }}
-        run: Get-ChildItem -Path "target/${{ matrix.arch }}/release" -Recurse -Depth 0 -File -Exclude "*.d", "*.rlib", ".cargo-lock", "CACHEDIR.TAG" | Move-Item -Destination "upload/" -Force
+        run: Get-ChildItem -Path "target/${{ matrix.target }}/release" -Recurse -Depth 0 -File -Exclude "*.d", "*.rlib", ".cargo-lock", "CACHEDIR.TAG" | Move-Item -Destination "upload/" -Force
 
       - name: 👀 Show files to be uploaded (Linux / macOS)
         if: ${{ ! startsWith(matrix.os, 'windows') }}
