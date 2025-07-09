@@ -347,6 +347,7 @@ jobs:
         with:
           name: build-${{ matrix.target }}
           path: upload/**
+          if-no-files-found: 'error'
 
   release:
     runs-on: ubuntu-latest
