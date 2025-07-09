@@ -328,25 +328,29 @@ jobs:
 
       - name: 🔎 Find files to upload (Linux / macOS)
         if: ${{ ! startsWith(matrix.os, 'windows') }}
-        run: find target/${{ matrix.target }}/release -mindepth 1 -maxdepth 1 -type f -not -name '*.d' -not -name '*.rlib' -not -name '.cargo-lock' -not -name 'CACHEDIR.TAG' -exec mv {} upload/ \;
+        run: |
+          find target/${{ matrix.target }}/release -mindepth 1 -maxdepth 1 -type f -not -name '*.d' -not -name '*.rlib' -not -name '.cargo-lock' -not -name 'CACHEDIR.TAG' -exec mv {} upload/ \;
+          mv Examples/SharedAssets/ upload/ \;
 
       - name: 🔎 Find files to upload (Windows)
         if: ${{ startsWith(matrix.os, 'windows') }}
-        run: Get-ChildItem -Path "target/${{ matrix.target }}/release" -Recurse -Depth 0 -File -Exclude "*.d", "*.rlib", ".cargo-lock", "CACHEDIR.TAG" | Move-Item -Destination "upload/" -Force
+        run: |
+          Get-ChildItem -Path "target/${{ matrix.target }}/release" -Recurse -Depth 0 -File -Exclude "*.d", "*.rlib", ".cargo-lock", "CACHEDIR.TAG" | Move-Item -Destination "upload/" -Force
+          Move-Item -Force -Path "Examples/SharedAssets/" -Destination "upload/"
 
-      - name: 👀 Show files to be uploaded (Linux / macOS)
+      - name: 📦 Make archive (Linux / macOS)
         if: ${{ ! startsWith(matrix.os, 'windows') }}
-        run: ls -al upload/
+        run: zip -r build-${{ matrix.target }}.zip upload
 
-      - name: 👀 Show files to be uploaded (Windows)
+      - name: 📦 Make archive (Windows)
         if: ${{ startsWith(matrix.os, 'windows') }}
-        run: Get-ChildItem -Path upload/
+        run: Compress-Archive -Destination build-${{ matrix.target }}.zip -Path upload/
 
       - name: ⬆️ Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: build-${{ matrix.target }}
-          path: upload/**
+          path: build-${{ matrix.target }}.zip
           if-no-files-found: 'error'
 
   release:
