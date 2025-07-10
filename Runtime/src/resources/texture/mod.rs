@@ -2,13 +2,8 @@ use std::ffi::OsString;
 
 use cgmath::{Vector2, Vector4};
 use image::ImageReader;
-use wgpu::{
-    AddressMode, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Device, Extent3d,
-    FilterMode as WFilterMode, ImageCopyBuffer, ImageCopyTexture, ImageDataLayout, Origin3d, Queue,
-    Sampler, SamplerDescriptor, Texture as WTexture, TextureAspect,
-    TextureDescriptor as WTextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-    TextureView, TextureViewDescriptor, TextureViewDimension,
-};
+use wgpu::{AddressMode, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Device, Extent3d, FilterMode as WFilterMode, Origin3d, Queue, Sampler, SamplerDescriptor, TexelCopyBufferInfo, TexelCopyBufferLayout, TexelCopyTextureInfo, Texture as WTexture, TextureAspect, TextureDescriptor as WTextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension};
+use wgpu::wgt::PollType;
 
 mod size;
 pub use size::*;
@@ -166,7 +161,7 @@ impl Texture {
                 let chunk_size = bytes_per_layer as usize;
 
                 queue.write_texture(
-                    ImageCopyTexture {
+                    TexelCopyTextureInfo {
                         texture: texture.texture(),
                         mip_level,
                         origin: Origin3d {
@@ -177,7 +172,7 @@ impl Texture {
                         aspect: TextureAspect::All,
                     },
                     &data[data_offset..data_offset + chunk_size],
-                    ImageDataLayout {
+                    TexelCopyBufferLayout {
                         offset: 0,
                         bytes_per_row: Some(aligned_bytes_per_row as u32),
                         rows_per_image: Some(mip_size.height),
@@ -335,14 +330,14 @@ impl Texture {
 
         // Write the data into the texture buffer
         queue.write_texture(
-            ImageCopyTexture {
+            TexelCopyTextureInfo {
                 texture: texture.texture(),
                 aspect: TextureAspect::All,
                 origin: Origin3d::ZERO,
                 mip_level: 0,
             },
             pixels,
-            ImageDataLayout {
+            TexelCopyBufferLayout {
                 offset: 0,
                 bytes_per_row: Some(
                     size.width
@@ -422,14 +417,14 @@ impl Texture {
 
         if let Some((data, size)) = data_and_size {
             queue.write_texture(
-                ImageCopyTexture {
+                TexelCopyTextureInfo {
                     texture: self_texture.texture(),
                     aspect: TextureAspect::All,
                     origin: Origin3d::ZERO,
                     mip_level: 0,
                 },
                 data,
-                ImageDataLayout {
+                TexelCopyBufferLayout {
                     offset: 0,
                     bytes_per_row: Some(
                         size.width * texture_format.target_pixel_byte_cost().expect("Need to acquire target pixel byte cost for correct texture mapping!",
@@ -502,7 +497,7 @@ impl Texture {
                 let mut encoder =
                     device.create_command_encoder(&CommandEncoderDescriptor { label: None });
                 encoder.copy_texture_to_buffer(
-                    ImageCopyTexture {
+                    TexelCopyTextureInfo {
                         texture: &self.texture,
                         mip_level,
                         origin: Origin3d {
@@ -512,9 +507,9 @@ impl Texture {
                         },
                         aspect: TextureAspect::All,
                     },
-                    ImageCopyBuffer {
+                    TexelCopyBufferInfo {
                         buffer: &buffer,
-                        layout: ImageDataLayout {
+                        layout: TexelCopyBufferLayout{
                             offset: 0,
                             bytes_per_row: Some(aligned_bytes_per_row as u32),
                             rows_per_image: Some(mip_size.height),
@@ -529,11 +524,11 @@ impl Texture {
 
                 // Submit the "copy texture to buffer" command and wait for it to finish
                 queue.submit([encoder.finish()]);
-                device.poll(wgpu::Maintain::Wait);
+                device.poll(PollType::Wait).expect("Waiting for queue submission failed!");
 
                 // Mark buffer as readable by mapping it and wait for it to finish
                 buffer.slice(..).map_async(wgpu::MapMode::Read, |_| {});
-                device.poll(wgpu::Maintain::Wait);
+                device.poll(PollType::Wait).expect("Waiting for texture mapping failed!");
 
                 // Append our now readable data
                 final_data.extend_from_slice(&buffer.slice(..).get_mapped_range());
