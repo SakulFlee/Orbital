@@ -340,11 +340,13 @@ jobs:
 
       - name: 📦 Make archive (Linux / macOS)
         if: ${{ ! startsWith(matrix.os, 'windows') }}
-        run: zip -r build-${{ matrix.target }}.zip upload
+        working-directory: upload
+        run: zip -r ../${{ matrix.target }}.zip .
 
       - name: 📦 Make archive (Windows)
         if: ${{ startsWith(matrix.os, 'windows') }}
-        run: Compress-Archive -Destination build-${{ matrix.target }}.zip -Path upload/
+        working-directory: upload
+        run: Compress-Archive -Destination ../${{ matrix.target }}.zip -Path .
 
       - name: ⬆️ Upload artifacts
         uses: actions/upload-artifact@v4
