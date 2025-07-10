@@ -3,7 +3,7 @@ use std::mem::transmute;
 use async_std::task::block_on;
 use cgmath::Vector2;
 use gilrs::Gilrs;
-use wgpu::{Adapter, Backend, BackendOptions, Backends, CompositeAlphaMode, Device, DeviceDescriptor, DeviceType, Features, Instance, InstanceDescriptor, InstanceFlags, Limits, MemoryBudgetThresholds, MemoryHints, PresentMode, Queue, Surface, SurfaceConfiguration, SurfaceError, SurfaceTexture, TextureUsages, TextureViewDescriptor};
+use wgpu::{Adapter, Backend, BackendOptions, Backends, CompositeAlphaMode, Device, DeviceDescriptor, DeviceType, Features, Instance, InstanceDescriptor, InstanceFlags, Limits, MemoryBudgetThresholds, MemoryHints, PresentMode, Queue, Surface, SurfaceConfiguration, SurfaceError, SurfaceTexture, TextureUsages, TextureViewDescriptor, Trace};
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
@@ -217,8 +217,8 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
                     | Features::POLYGON_MODE_LINE,
                 required_limits: Limits::default(),
                 memory_hints: MemoryHints::Performance,
+                trace: Trace::Off,
             },
-            None,
         ))
         .expect("Failed creating device from chosen adapter!");
         debug!("Device: {device:?}");
