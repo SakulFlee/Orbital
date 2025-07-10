@@ -2,8 +2,14 @@ use std::ffi::OsString;
 
 use cgmath::{Vector2, Vector4};
 use image::ImageReader;
-use wgpu::{AddressMode, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Device, Extent3d, FilterMode as WFilterMode, Origin3d, Queue, Sampler, SamplerDescriptor, TexelCopyBufferInfo, TexelCopyBufferLayout, TexelCopyTextureInfo, Texture as WTexture, TextureAspect, TextureDescriptor as WTextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension};
 use wgpu::wgt::PollType;
+use wgpu::{
+    AddressMode, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Device, Extent3d,
+    FilterMode as WFilterMode, Origin3d, Queue, Sampler, SamplerDescriptor, TexelCopyBufferInfo,
+    TexelCopyBufferLayout, TexelCopyTextureInfo, Texture as WTexture, TextureAspect,
+    TextureDescriptor as WTextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+    TextureView, TextureViewDescriptor, TextureViewDimension,
+};
 
 mod size;
 pub use size::*;
@@ -509,7 +515,7 @@ impl Texture {
                     },
                     TexelCopyBufferInfo {
                         buffer: &buffer,
-                        layout: TexelCopyBufferLayout{
+                        layout: TexelCopyBufferLayout {
                             offset: 0,
                             bytes_per_row: Some(aligned_bytes_per_row as u32),
                             rows_per_image: Some(mip_size.height),
@@ -524,11 +530,15 @@ impl Texture {
 
                 // Submit the "copy texture to buffer" command and wait for it to finish
                 queue.submit([encoder.finish()]);
-                device.poll(PollType::Wait).expect("Waiting for queue submission failed!");
+                device
+                    .poll(PollType::Wait)
+                    .expect("Waiting for queue submission failed!");
 
                 // Mark buffer as readable by mapping it and wait for it to finish
                 buffer.slice(..).map_async(wgpu::MapMode::Read, |_| {});
-                device.poll(PollType::Wait).expect("Waiting for texture mapping failed!");
+                device
+                    .poll(PollType::Wait)
+                    .expect("Waiting for texture mapping failed!");
 
                 // Append our now readable data
                 final_data.extend_from_slice(&buffer.slice(..).get_mapped_range());

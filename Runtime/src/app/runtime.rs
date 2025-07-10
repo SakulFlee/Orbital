@@ -3,7 +3,12 @@ use std::mem::transmute;
 use async_std::task::block_on;
 use cgmath::Vector2;
 use gilrs::Gilrs;
-use wgpu::{Adapter, Backend, BackendOptions, Backends, CompositeAlphaMode, Device, DeviceDescriptor, DeviceType, Features, Instance, InstanceDescriptor, InstanceFlags, Limits, MemoryBudgetThresholds, MemoryHints, PresentMode, Queue, Surface, SurfaceConfiguration, SurfaceError, SurfaceTexture, TextureUsages, TextureViewDescriptor, Trace};
+use wgpu::{
+    Adapter, Backend, BackendOptions, Backends, CompositeAlphaMode, Device, DeviceDescriptor,
+    DeviceType, Features, Instance, InstanceDescriptor, InstanceFlags, Limits,
+    MemoryBudgetThresholds, MemoryHints, PresentMode, Queue, Surface, SurfaceConfiguration,
+    SurfaceError, SurfaceTexture, TextureUsages, TextureViewDescriptor, Trace,
+};
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
@@ -19,10 +24,10 @@ use super::{
 };
 use super::{App, AppSettings};
 use crate::{
-    element::Element,
     app::AppEvent,
+    element::Element,
     element::Message,
-    logging::{self, debug, error, info, warn}
+    logging::{self, debug, error, info, warn},
 };
 
 pub struct AppRuntime<AppImpl: App> {
@@ -209,17 +214,15 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
     }
 
     fn make_device_and_queue(adapter: &Adapter) -> (Device, Queue) {
-        let (device, queue) = pollster::block_on(adapter.request_device(
-            &DeviceDescriptor {
-                label: Some("Orbital GPU"),
-                required_features: Features::default()
-                    | Features::MULTIVIEW
-                    | Features::POLYGON_MODE_LINE,
-                required_limits: Limits::default(),
-                memory_hints: MemoryHints::Performance,
-                trace: Trace::Off,
-            },
-        ))
+        let (device, queue) = pollster::block_on(adapter.request_device(&DeviceDescriptor {
+            label: Some("Orbital GPU"),
+            required_features: Features::default()
+                | Features::MULTIVIEW
+                | Features::POLYGON_MODE_LINE,
+            required_limits: Limits::default(),
+            memory_hints: MemoryHints::Performance,
+            trace: Trace::Off,
+        }))
         .expect("Failed creating device from chosen adapter!");
         debug!("Device: {device:?}");
         debug!("Queue: {queue:?}");
