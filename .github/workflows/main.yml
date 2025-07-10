@@ -366,7 +366,7 @@ jobs:
         uses: actions/download-artifact@v4
 
       - name: 👀 Show files to be uploaded
-        run: ls -al -R upload
+        run: ls -al .
 
       - name: 📝 Make release
         uses: softprops/action-gh-release@v2
