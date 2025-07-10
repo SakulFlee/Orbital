@@ -343,7 +343,7 @@ jobs:
       - name: 📦 Make archive (Windows)
         if: ${{ startsWith(matrix.os, 'windows') }}
         working-directory: upload
-        run: Compress-Archive -Destination ../${{ matrix.target }}.zip -Path .
+        run: Compress-Archive -Destination ../${{ matrix.target }}.zip -Path ./*
 
       - name: ⬆️ Upload artifacts
         uses: actions/upload-artifact@v4
