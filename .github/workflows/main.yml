@@ -365,27 +365,11 @@ jobs:
       - name: ⬇️ Download artifacts from this run
         uses: actions/download-artifact@v4
 
-      - name: ➕ Prepare upload folder
-        run: mkdir upload
-
-      - name: 🔄 Rename and move files to upload folder
-        run: |
-          for arch_dir in $(find . -maxdepth 1 -type d -name 'build-*'); do
-            arch=$(basename "$arch_dir" | sed 's/build-//g')
-            for item in "$arch_dir"/*; do
-              [ -e "$item" ] || continue
-              filename_with_ext=$(basename -- "$item"); 
-              filename="${filename_with_ext%%.*}"; 
-              extension=".${filename_with_ext#*.}"
-              mv -n "$item" "upload/${filename}_${arch}.${extension}"
-            done
-          done
-
       - name: 👀 Show files to be uploaded
         run: ls -al -R upload
 
       - name: 📝 Make release
         uses: softprops/action-gh-release@v2
         with:
-          files: upload/**
+          files: *
           generate_release_notes: true
