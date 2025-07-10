@@ -371,6 +371,6 @@ jobs:
       - name: 📝 Make release
         uses: softprops/action-gh-release@v2
         with:
-          files: *
+          files: ./*
           draft: false
           generate_release_notes: true
