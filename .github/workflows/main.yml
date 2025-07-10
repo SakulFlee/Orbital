@@ -94,13 +94,10 @@ jobs:
 
       - name: 👀 Checking for changes ...
         id: changes
-        run: |
-          STATUS="$(git status --porcelain)"
-          echo -e "Status:\n$STATUS"
-          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+        run: echo "status=$(git status --porcelain | wc -l)" >> "$GITHUB_OUTPUT"
 
       - name: ⏫ Push changes
-        if: ${{ steps.changes.outputs.status != '' }}
+        if: ${{ steps.changes.outputs.status != '' && steps.changes.outputs.status > 0 }}
         run: |
           echo "Changes detected. Committing and pushing..."
           
@@ -330,13 +327,13 @@ jobs:
         if: ${{ ! startsWith(matrix.os, 'windows') }}
         run: |
           find target/${{ matrix.target }}/release -mindepth 1 -maxdepth 1 -type f -not -name '*.d' -not -name '*.rlib' -not -name '.cargo-lock' -not -name 'CACHEDIR.TAG' -exec mv {} upload/ \;
-          mv Examples/SharedAssets/ upload/
+          mv Assets/ upload/
 
       - name: 🔎 Find files to upload (Windows)
         if: ${{ startsWith(matrix.os, 'windows') }}
         run: |
           Get-ChildItem -Path "target/${{ matrix.target }}/release" -Recurse -Depth 0 -File -Exclude "*.d", "*.rlib", ".cargo-lock", "CACHEDIR.TAG" | Move-Item -Destination "upload/" -Force
-          Move-Item -Force -Path "Examples/SharedAssets/" -Destination "upload/"
+          Move-Item -Force -Path "Assets/" -Destination "upload/"
 
       - name: 📦 Make archive (Linux / macOS)
         if: ${{ ! startsWith(matrix.os, 'windows') }}
