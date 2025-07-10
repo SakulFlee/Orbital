@@ -4,10 +4,10 @@ use async_std::task::block_on;
 use cgmath::Vector2;
 use gilrs::Gilrs;
 use wgpu::{
-    util::{backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env},
-    Adapter, Backend, Backends, CompositeAlphaMode, Device, DeviceDescriptor, DeviceType, Features,
-    Instance, InstanceDescriptor, InstanceFlags, Limits, MemoryHints, PresentMode, Queue, Surface,
-    SurfaceConfiguration, SurfaceError, SurfaceTexture, TextureUsages, TextureViewDescriptor,
+    Adapter, Backend, BackendOptions, Backends, CompositeAlphaMode, Device, DeviceDescriptor,
+    DeviceType, Features, Instance, InstanceDescriptor, InstanceFlags, Limits,
+    MemoryBudgetThresholds, MemoryHints, PresentMode, Queue, Surface, SurfaceConfiguration,
+    SurfaceError, SurfaceTexture, TextureUsages, TextureViewDescriptor, Trace,
 };
 use winit::{
     application::ApplicationHandler,
@@ -23,9 +23,9 @@ use super::{
     Timer,
 };
 use super::{App, AppSettings};
-use crate::element::Element;
 use crate::{
     app::AppEvent,
+    element::Element,
     element::Message,
     logging::{self, debug, error, info, warn},
 };
@@ -84,11 +84,11 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
     }
 
     fn make_instance() -> Instance {
-        let instance = Instance::new(InstanceDescriptor {
-            backends: backend_bits_from_env().unwrap_or_default(),
+        let instance = Instance::new(&InstanceDescriptor {
+            backends: Backends::from_env().unwrap_or(Backends::all()),
             flags: InstanceFlags::from_build_config().with_env(),
-            dx12_shader_compiler: dx12_shader_compiler_from_env().unwrap_or_default(),
-            gles_minor_version: gles_minor_version_from_env().unwrap_or_default(),
+            memory_budget_thresholds: MemoryBudgetThresholds::default(),
+            backend_options: BackendOptions::from_env_or_default(),
         });
 
         debug!("Instance: {instance:#?}");
@@ -133,8 +133,8 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
                     // In Webbrowsers, only WebGPU should be available (or WebGL which should fall below into Backend::Gl). To prevent this from being chosen, somehow, on Desktop platforms over something more performant we set a lower score than above, but higher than OpenGL.
                     Backend::BrowserWebGpu => 50,
                     // OpenGL and Empty are not recommended at all and may not even work at all
-                    Backend::Gl => 0,
-                    Backend::Empty => 0,
+                    Backend::Gl => 10,
+                    Backend::Noop => 0,
                 };
 
                 (adapter, score + local_score)
@@ -214,17 +214,15 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
     }
 
     fn make_device_and_queue(adapter: &Adapter) -> (Device, Queue) {
-        let (device, queue) = pollster::block_on(adapter.request_device(
-            &DeviceDescriptor {
-                label: Some("Orbital GPU"),
-                required_features: Features::default()
-                    | Features::MULTIVIEW
-                    | Features::POLYGON_MODE_LINE,
-                required_limits: Limits::default(),
-                memory_hints: MemoryHints::Performance,
-            },
-            None,
-        ))
+        let (device, queue) = pollster::block_on(adapter.request_device(&DeviceDescriptor {
+            label: Some("Orbital GPU"),
+            required_features: Features::default()
+                | Features::MULTIVIEW
+                | Features::POLYGON_MODE_LINE,
+            required_limits: Limits::default(),
+            memory_hints: MemoryHints::Performance,
+            trace: Trace::Off,
+        }))
         .expect("Failed creating device from chosen adapter!");
         debug!("Device: {device:?}");
         debug!("Queue: {queue:?}");
