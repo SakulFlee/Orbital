@@ -323,7 +323,7 @@ jobs:
           PKG_CONFIG_PATH: ${{ matrix.pc }}
         run: cargo build --release --target ${{ matrix.target }}
 
-      - name: ➕ Prepare upload folder
+      - name: ➕ Make upload folder
         run: mkdir upload
 
       - name: 🔎 Find files to upload (Linux / macOS)
@@ -365,12 +365,18 @@ jobs:
       - name: ⬇️ Download artifacts from this run
         uses: actions/download-artifact@v4
 
+      - name: ➕ Make upload folder
+        run: mkdir upload
+
+      - name: 🔄 Move files to upload folder
+        run: find . -type f -name '*.zip' -exec mv {} upload/ \;
+
       - name: 👀 Show files to be uploaded
-        run: ls -al .
+        run: ls -al upload/
 
       - name: 📝 Make release
         uses: softprops/action-gh-release@v2
         with:
-          files: ./*
+          files: upload/*
           draft: false
           generate_release_notes: true
