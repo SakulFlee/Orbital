@@ -2,11 +2,11 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::str;
 
-const MODEL_FILES_DIR: &str = "../Examples/SharedAssets/ModelFiles";
+const MODEL_FILES_DIR: &str = "../Assets/ModelFiles";
 const MODEL_SCRIPT_GLTF_EXPORT: &str =
-    "../Examples/SharedAssets/ModelScripts/blender_gltf_export.py";
-const MODEL_SCRIPT_PBR_SPHERE_GEN: &str = "../Examples/SharedAssets/ModelScripts/pbr_sphere_gen.py";
-const MODELS_DIR: &str = "../Examples/SharedAssets/Models";
+    "../Assets/ModelScripts/blender_gltf_export.py";
+const MODEL_SCRIPT_PBR_SPHERE_GEN: &str = "../Assets/ModelScripts/pbr_sphere_gen.py";
+const MODELS_DIR: &str = "../Assets/Models";
 
 fn main() {
     println!("cargo::rerun-if-env-changed=SKIP_GLTF_EXPORT");
