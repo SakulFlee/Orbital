@@ -351,8 +351,8 @@ jobs:
       - name: ⬆️ Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: build-${{ matrix.target }}
-          path: build-${{ matrix.target }}.zip
+          name: ${{ matrix.target }}
+          path: ${{ matrix.target }}.zip
           if-no-files-found: 'error'
 
   release:
