@@ -323,30 +323,36 @@ jobs:
           PKG_CONFIG_PATH: ${{ matrix.pc }}
         run: cargo build --release --target ${{ matrix.target }}
 
-      - name: ➕ Prepare upload folder
+      - name: ➕ Make upload folder
         run: mkdir upload
 
       - name: 🔎 Find files to upload (Linux / macOS)
         if: ${{ ! startsWith(matrix.os, 'windows') }}
-        run: find target/${{ matrix.target }}/release -mindepth 1 -maxdepth 1 -type f -not -name '*.d' -not -name '*.rlib' -not -name '.cargo-lock' -not -name 'CACHEDIR.TAG' -exec mv {} upload/ \;
+        run: |
+          find target/${{ matrix.target }}/release -mindepth 1 -maxdepth 1 -type f -not -name '*.d' -not -name '*.rlib' -not -name '.cargo-lock' -not -name 'CACHEDIR.TAG' -exec mv {} upload/ \;
+          mv Examples/SharedAssets/ upload/
 
       - name: 🔎 Find files to upload (Windows)
         if: ${{ startsWith(matrix.os, 'windows') }}
-        run: Get-ChildItem -Path "target/${{ matrix.target }}/release" -Recurse -Depth 0 -File -Exclude "*.d", "*.rlib", ".cargo-lock", "CACHEDIR.TAG" | Move-Item -Destination "upload/" -Force
+        run: |
+          Get-ChildItem -Path "target/${{ matrix.target }}/release" -Recurse -Depth 0 -File -Exclude "*.d", "*.rlib", ".cargo-lock", "CACHEDIR.TAG" | Move-Item -Destination "upload/" -Force
+          Move-Item -Force -Path "Examples/SharedAssets/" -Destination "upload/"
 
-      - name: 👀 Show files to be uploaded (Linux / macOS)
+      - name: 📦 Make archive (Linux / macOS)
         if: ${{ ! startsWith(matrix.os, 'windows') }}
-        run: ls -al upload/
+        working-directory: upload
+        run: zip -r ../${{ matrix.target }}.zip .
 
-      - name: 👀 Show files to be uploaded (Windows)
+      - name: 📦 Make archive (Windows)
         if: ${{ startsWith(matrix.os, 'windows') }}
-        run: Get-ChildItem -Path upload/
+        working-directory: upload
+        run: Compress-Archive -Destination ../${{ matrix.target }}.zip -Path .
 
       - name: ⬆️ Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: build-${{ matrix.target }}
-          path: upload/**
+          name: ${{ matrix.target }}
+          path: ${{ matrix.target }}.zip
           if-no-files-found: 'error'
 
   release:
@@ -359,69 +365,18 @@ jobs:
       - name: ⬇️ Download artifacts from this run
         uses: actions/download-artifact@v4
 
-      - name: ➕ Prepare upload folder
+      - name: ➕ Make upload folder
         run: mkdir upload
 
-      - name: 🔄 Rename and move files to upload folder
-        run: |
-          for arch_dir in $(find . -maxdepth 1 -type d -name 'build-*'); do
-            arch=$(basename "$arch_dir" | sed 's/build-//g')
-            for item in "$arch_dir"/*; do
-              [ -e "$item" ] || continue
-              filename_with_ext=$(basename -- "$item"); 
-              filename="${filename_with_ext%%.*}"; 
-              extension=".${filename_with_ext#*.}"
-              mv -n "$item" "upload/${filename}_${arch}.${extension}"
-            done
-          done
+      - name: 🔄 Move files to upload folder
+        run: find . -type f -name '*.zip' -exec mv {} upload/ \;
 
       - name: 👀 Show files to be uploaded
-        run: ls -al -R upload
+        run: ls -al upload/
 
       - name: 📝 Make release
         uses: softprops/action-gh-release@v2
         with:
-          body: |
-            # ${{ github.ref_name }}
-            
-            ## Examples
-
-            ### Example: SkyBox
-
-            | Platform | Arch | Download |
-            | - | - | - |
-            | Windows | x86_64 (GNU) | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_skybox_desktop_x86_64-pc-windows-gnu.exe) |
-            | Windows | x86_64 (MSVC) | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_skybox_desktop_x86_64-pc-windows-msvc.exe) |
-            | Linux | x86_64 (GNU) | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_skybox_desktop_x86_64-unknown-linux-gnu) |
-            | Linux | ARMv7 (GNU) | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_skybox_desktop_armv7-unknown-linux-gnueabihf.example_skybox_desktop) |
-            | Linux | ARM | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_skybox_desktop_arm-unknown-linux-gnueabihf.example_skybox_desktop) |
-            | Linux | AARCH64 | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_skybox_desktop_aarch64-unknown-linux-gnu.example_skybox_desktop) |
-            | macOS | AARCH64 | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_skybox_desktop_aarch64-apple-darwin.example_skybox_desktop) |
-            | macOS | x86_64 | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_skybox_desktop_x86_64-apple-darwin.example_skybox_desktop) |
-
-            ### Example: DamagedHelmet
-
-            | Platform | Arch | Download |
-            | - | - | - |
-            | Windows | x86_64 (GNU) | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_damaged_helmet_desktop_x86_64-pc-windows-gnu.exe) |
-            | Windows | x86_64 (MSVC) | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_damaged_helmet_desktop_x86_64-pc-windows-msvc.exe) |
-            | Linux | x86_64 (GNU) | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_damaged_helmet_desktop_x86_64-unknown-linux-gnu) |
-            | Linux | ARMv7 (GNU) | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_damaged_helmet_desktop_armv7-unknown-linux-gnueabihf.example_damaged_helmet_desktop) |
-            | Linux | ARM | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_damaged_helmet_desktop_arm-unknown-linux-gnueabihf.example_damaged_helmet_desktop) |
-            | Linux | AARCH64 | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_damaged_helmet_desktop_aarch64-unknown-linux-gnu.example_damaged_helmet_desktop) |
-            | macOS | AARCH64 | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_damaged_helmet_desktop_aarch64-apple-darwin.example_damaged_helmet_desktop) |
-            | macOS | x86_64 | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_damaged_helmet_desktop_x86_64-apple-darwin.example_damaged_helmet_desktop) |
-
-            ### Example: PBR Spheres
-
-            | Platform | Arch | Download |
-            | - | - | - |
-            | Windows | x86_64 (GNU) | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_pbr_spheres_desktop_x86_64-pc-windows-gnu.exe) |
-            | Windows | x86_64 (MSVC) | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_pbr_spheres_desktop_x86_64-pc-windows-msvc.exe) |
-            | Linux | x86_64 (GNU) | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_pbr_spheres_desktop_x86_64-unknown-linux-gnu) |
-            | Linux | ARMv7 (GNU) | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_pbr_spheres_desktop_armv7-unknown-linux-gnueabihf.example_pbr_spheres_desktop) |
-            | Linux | ARM | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_pbr_spheres_desktop_arm-unknown-linux-gnueabihf.example_pbr_spheres_desktop) |
-            | Linux | AARCH64 | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_pbr_spheres_desktop_aarch64-unknown-linux-gnu.example_pbr_spheres_desktop) |
-            | macOS | AARCH64 | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_pbr_spheres_desktop_aarch64-apple-darwin.example_pbr_spheres_desktop) |
-            | macOS | x86_64 | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_pbr_spheres_desktop_x86_64-apple-darwin.example_pbr_spheres_desktop) |
-          files: upload/**
+          files: upload/*
+          draft: false
+          generate_release_notes: true
