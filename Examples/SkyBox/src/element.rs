@@ -42,13 +42,13 @@ impl WorldEnvironments {
     fn to_path(&self) -> String {
         match self {
             WorldEnvironments::PhotoStudio => {
-                "Examples/SharedAssets/WorldEnvironments/PhotoStudio.hdr".to_owned()
+                "Assets/WorldEnvironments/PhotoStudio.hdr".to_owned()
             }
             WorldEnvironments::Kloppenheim => {
-                "Examples/SharedAssets/WorldEnvironments/Kloppenheim.hdr".to_owned()
+                "Assets/WorldEnvironments/Kloppenheim.hdr".to_owned()
             }
             WorldEnvironments::LonelyRoad => {
-                "Examples/SharedAssets/WorldEnvironments/LonelyRoad.hdr".to_owned()
+                "Assets/WorldEnvironments/LonelyRoad.hdr".to_owned()
             }
         }
     }
