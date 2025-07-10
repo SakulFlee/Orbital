@@ -387,47 +387,5 @@ jobs:
       - name: 📝 Make release
         uses: softprops/action-gh-release@v2
         with:
-          body: |
-            # ${{ github.ref_name }}
-            
-            ## Examples
-
-            ### Example: SkyBox
-
-            | Platform | Arch | Download |
-            | - | - | - |
-            | Windows | x86_64 (GNU) | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_skybox_desktop_x86_64-pc-windows-gnu.exe) |
-            | Windows | x86_64 (MSVC) | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_skybox_desktop_x86_64-pc-windows-msvc.exe) |
-            | Linux | x86_64 (GNU) | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_skybox_desktop_x86_64-unknown-linux-gnu) |
-            | Linux | ARMv7 (GNU) | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_skybox_desktop_armv7-unknown-linux-gnueabihf.example_skybox_desktop) |
-            | Linux | ARM | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_skybox_desktop_arm-unknown-linux-gnueabihf.example_skybox_desktop) |
-            | Linux | AARCH64 | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_skybox_desktop_aarch64-unknown-linux-gnu.example_skybox_desktop) |
-            | macOS | AARCH64 | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_skybox_desktop_aarch64-apple-darwin.example_skybox_desktop) |
-            | macOS | x86_64 | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_skybox_desktop_x86_64-apple-darwin.example_skybox_desktop) |
-
-            ### Example: DamagedHelmet
-
-            | Platform | Arch | Download |
-            | - | - | - |
-            | Windows | x86_64 (GNU) | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_damaged_helmet_desktop_x86_64-pc-windows-gnu.exe) |
-            | Windows | x86_64 (MSVC) | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_damaged_helmet_desktop_x86_64-pc-windows-msvc.exe) |
-            | Linux | x86_64 (GNU) | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_damaged_helmet_desktop_x86_64-unknown-linux-gnu) |
-            | Linux | ARMv7 (GNU) | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_damaged_helmet_desktop_armv7-unknown-linux-gnueabihf.example_damaged_helmet_desktop) |
-            | Linux | ARM | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_damaged_helmet_desktop_arm-unknown-linux-gnueabihf.example_damaged_helmet_desktop) |
-            | Linux | AARCH64 | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_damaged_helmet_desktop_aarch64-unknown-linux-gnu.example_damaged_helmet_desktop) |
-            | macOS | AARCH64 | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_damaged_helmet_desktop_aarch64-apple-darwin.example_damaged_helmet_desktop) |
-            | macOS | x86_64 | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_damaged_helmet_desktop_x86_64-apple-darwin.example_damaged_helmet_desktop) |
-
-            ### Example: PBR Spheres
-
-            | Platform | Arch | Download |
-            | - | - | - |
-            | Windows | x86_64 (GNU) | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_pbr_spheres_desktop_x86_64-pc-windows-gnu.exe) |
-            | Windows | x86_64 (MSVC) | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_pbr_spheres_desktop_x86_64-pc-windows-msvc.exe) |
-            | Linux | x86_64 (GNU) | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_pbr_spheres_desktop_x86_64-unknown-linux-gnu) |
-            | Linux | ARMv7 (GNU) | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_pbr_spheres_desktop_armv7-unknown-linux-gnueabihf.example_pbr_spheres_desktop) |
-            | Linux | ARM | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_pbr_spheres_desktop_arm-unknown-linux-gnueabihf.example_pbr_spheres_desktop) |
-            | Linux | AARCH64 | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_pbr_spheres_desktop_aarch64-unknown-linux-gnu.example_pbr_spheres_desktop) |
-            | macOS | AARCH64 | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_pbr_spheres_desktop_aarch64-apple-darwin.example_pbr_spheres_desktop) |
-            | macOS | x86_64 | [⏬ Download](https://github.com/SakulFlee/Orbital/releases/download/${{ github.ref_name }}/example_pbr_spheres_desktop_x86_64-apple-darwin.example_pbr_spheres_desktop) |
           files: upload/**
+          generate_release_notes: true
