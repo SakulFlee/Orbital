@@ -13,7 +13,7 @@ pub async fn make_wgpu_connection_async() -> (Adapter, Device, Queue) {
     debug!("{:#^88}", " WGPU Test Adapter ");
     debug!("# {: ^84} #", "!!! for testing only !!!");
 
-    let instance = Instance::new(InstanceDescriptor {
+    let instance = Instance::new(&InstanceDescriptor {
         backends: Backends::all(),
         ..Default::default()
     });
@@ -50,7 +50,6 @@ pub async fn make_wgpu_connection_async() -> (Adapter, Device, Queue) {
             &DeviceDescriptor {
                 ..Default::default()
             },
-            None,
         )
         .await
         .expect("Failed to create device");
