@@ -26,5 +26,5 @@ jniLibs/
 *.blend[0-99]
 
 # Exported models, except for pre-exported
-Examples/SharedAssets/Models/*
-!Examples/SharedAssets/Models/DamagedHelmet.glb
+Assets/Models/*
+!Assets/Models/DamagedHelmet.glb
