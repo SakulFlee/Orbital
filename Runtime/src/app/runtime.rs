@@ -128,8 +128,8 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
                     // In Webbrowsers, only WebGPU should be available (or WebGL which should fall below into Backend::Gl). To prevent this from being chosen, somehow, on Desktop platforms over something more performant we set a lower score than above, but higher than OpenGL.
                     Backend::BrowserWebGpu => 50,
                     // OpenGL and Empty are not recommended at all and may not even work at all
-                    Backend::Gl => 0,
-                    Backend::Empty => 0,
+                    Backend::Gl => 10,
+                    Backend::Noop => 0,
                 };
 
                 (adapter, score + local_score)
