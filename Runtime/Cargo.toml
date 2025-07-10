@@ -21,10 +21,10 @@ auto_request_redraw = []
 standard_app_detect_no_more_elements = []
 
 [build-dependencies]
-glob = { workspace = true }
+glob = "0.3.1"
 
 [dependencies]
-wgpu = { workspace = true, features = [
+wgpu = { version = "26.0.0", features = [
     "angle",
     "dx12",
     "glsl",
@@ -37,25 +37,26 @@ wgpu = { workspace = true, features = [
     "webgpu",
     "wgsl",
 ] }
-serde = { workspace = true, features = ["derive"] }
-winit = { workspace = true }
-log = { workspace = true }
-fern = { workspace = true }
-hashbrown = { workspace = true }
-humantime = { workspace = true }
-pollster = { workspace = true }
-image = { workspace = true }
-cgmath = { workspace = true }
-gltf = { workspace = true }
-gilrs = { workspace = true, optional = true }
-async-std = { workspace = true }
-async-trait = { workspace = true }
-futures = { workspace = true }
-dirs = { workspace = true }
-smol = { workspace = true }
-rand = { workspace = true }
-glob = { workspace = true }
+async-std = "1.13.0"
+async-trait = "0.1.83"
+cgmath = "0.18.0"
+dirs = "6.0.0"
+gltf = "1.4.1"
+fern = "0.7.0"
+futures = "0.3.31"
+hashbrown = "0.15.0"
+humantime = "2.1.0"
+image = "0.25.0"
+log = "0.4.21"
+pollster = "0.4.0"
+rand = "0.9.0"
+serde = { version = "1.0.174", features = ["derive"] }
+smol = "2.0.2"
+winit = "0.30.0"
+glob = "0.3.1"
+
+gilrs = { version = "0.11.0", optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
-android_logger = { workspace = true }
-winit = { workspace = true, features = ["android-native-activity"] }
+android_logger = "0.15.0"
+winit = { version = "0.30.0", features = ["android-native-activity"] }
