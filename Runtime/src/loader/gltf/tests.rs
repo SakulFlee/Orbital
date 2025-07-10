@@ -11,7 +11,7 @@ fn load_gltf() {
     logging::test_init();
 
     let task = GltfImportTask {
-        file: "../Examples/SharedAssets/Models/TestScene.gltf".to_string(),
+        file: "../Assets/Models/TestScene.gltf".to_string(),
         import: GltfImport::WholeFile,
     };
 
@@ -27,7 +27,7 @@ fn load_glb() {
     logging::test_init();
 
     let task = GltfImportTask {
-        file: "../Examples/SharedAssets/Models/TestScene.glb".to_string(),
+        file: "../Assets/Models/TestScene.glb".to_string(),
         import: GltfImport::WholeFile,
     };
 
@@ -42,7 +42,7 @@ fn query(import: SpecificGltfImport) -> GltfImportResult {
     logging::test_init();
 
     let task = GltfImportTask {
-        file: "../Examples/SharedAssets/Models/TestScene.gltf".to_string(),
+        file: "../Assets/Models/TestScene.gltf".to_string(),
         import: GltfImport::Specific(vec![import]),
     };
 
