@@ -3,12 +3,7 @@ use std::mem::transmute;
 use async_std::task::block_on;
 use cgmath::Vector2;
 use gilrs::Gilrs;
-use wgpu::{
-    util::{backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env},
-    Adapter, Backend, Backends, CompositeAlphaMode, Device, DeviceDescriptor, DeviceType, Features,
-    Instance, InstanceDescriptor, InstanceFlags, Limits, MemoryHints, PresentMode, Queue, Surface,
-    SurfaceConfiguration, SurfaceError, SurfaceTexture, TextureUsages, TextureViewDescriptor,
-};
+use wgpu::{Adapter, Backend, BackendOptions, Backends, CompositeAlphaMode, Device, DeviceDescriptor, DeviceType, Features, Instance, InstanceDescriptor, InstanceFlags, Limits, MemoryBudgetThresholds, MemoryHints, PresentMode, Queue, Surface, SurfaceConfiguration, SurfaceError, SurfaceTexture, TextureUsages, TextureViewDescriptor};
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
@@ -23,11 +18,11 @@ use super::{
     Timer,
 };
 use super::{App, AppSettings};
-use crate::element::Element;
 use crate::{
+    element::Element,
     app::AppEvent,
     element::Message,
-    logging::{self, debug, error, info, warn},
+    logging::{self, debug, error, info, warn}
 };
 
 pub struct AppRuntime<AppImpl: App> {
@@ -84,11 +79,11 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
     }
 
     fn make_instance() -> Instance {
-        let instance = Instance::new(InstanceDescriptor {
-            backends: backend_bits_from_env().unwrap_or_default(),
+        let instance = Instance::new(&InstanceDescriptor {
+            backends: Backends::from_env().unwrap_or(Backends::all()),
             flags: InstanceFlags::from_build_config().with_env(),
-            dx12_shader_compiler: dx12_shader_compiler_from_env().unwrap_or_default(),
-            gles_minor_version: gles_minor_version_from_env().unwrap_or_default(),
+            memory_budget_thresholds: MemoryBudgetThresholds::default(),
+            backend_options: BackendOptions::from_env_or_default(),
         });
 
         debug!("Instance: {instance:#?}");
