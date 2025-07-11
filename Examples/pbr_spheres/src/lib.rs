@@ -29,7 +29,11 @@
 //     }
 // }
 
-use orbital::{logging::{self, info}, make_android_main, winit::{error::EventLoopError, event_loop::EventLoop}};
+use orbital::{
+    logging::{self, info},
+    make_android_main,
+    winit::{error::EventLoopError, event_loop::EventLoop},
+};
 
 pub fn entrypoint(_event_loop_result: Result<EventLoop<()>, EventLoopError>) {
     logging::init();
