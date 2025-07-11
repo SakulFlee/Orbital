@@ -1,7 +1,7 @@
 use orbital::{
     app::{AppRuntime, AppSettings},
     logging::{self, error, info},
-    make_main,
+    make_android_main,
     winit::{error::EventLoopError, event_loop::EventLoop},
 };
 
@@ -86,4 +86,4 @@ pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
     }
 }
 
-make_main!(entrypoint);
+make_android_main!(entrypoint);

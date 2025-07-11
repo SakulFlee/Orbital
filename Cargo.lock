@@ -3,20 +3,6 @@
 version = 4
 
 [[package]]
-name = "DamagedHelmet"
-version = "0.1.0"
-dependencies = [
- "orbital",
-]
-
-[[package]]
-name = "PBRSpheres"
-version = "0.1.0"
-dependencies = [
- "orbital",
-]
-
-[[package]]
 name = "ab_glyph"
 version = "0.2.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -750,6 +736,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96a6ac251f4a2aca6b3f91340350eab87ae57c3f127ffeb585e92bd336717991"
 
 [[package]]
+name = "damaged_helmet"
+version = "0.1.0"
+dependencies = [
+ "orbital",
+]
+
+[[package]]
 name = "dirs"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -863,6 +856,20 @@ checksum = "8be9f3dfaaffdae2972880079a491a1a8bb7cbed0b8dd7a347f668b4150a3b93"
 dependencies = [
  "event-listener 5.4.0",
  "pin-project-lite",
+]
+
+[[package]]
+name = "example_pbr_spheres"
+version = "0.1.0"
+dependencies = [
+ "orbital",
+]
+
+[[package]]
+name = "example_skybox"
+version = "0.1.0"
+dependencies = [
+ "orbital",
 ]
 
 [[package]]
@@ -2725,13 +2732,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95890f873bec569a0362c235787f3aca6e1e887302ba4840839bcc6459c42da6"
 dependencies = [
  "quote",
-]
-
-[[package]]
-name = "skybox"
-version = "0.1.0"
-dependencies = [
- "orbital",
 ]
 
 [[package]]

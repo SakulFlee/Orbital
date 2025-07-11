@@ -1,5 +1,5 @@
 #[macro_export]
-macro_rules! make_main {
+macro_rules! make_desktop_main {
     ($entrypoint_fn:ident) => {
         #[cfg(not(target_os = "android"))]
         #[allow(dead_code)]
@@ -10,7 +10,12 @@ macro_rules! make_main {
 
             entrypoint(event_loop);
         }
+    };
+}
 
+#[macro_export]
+macro_rules! make_android_main {
+    ($entrypoint_fn:ident) => {
         #[cfg(target_os = "android")]
         #[allow(dead_code)]
         #[no_mangle]

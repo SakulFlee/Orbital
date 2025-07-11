@@ -1,14 +1,14 @@
 [package]
-name = "DamagedHelmet"
+name = "damaged_helmet"
 version = "0.1.0"
 edition = "2024"
 
 [[bin]]
 name = "example_damaged_helmet_desktop"
-path = "src/lib.rs"
+path = "src/main.rs"
 
 [lib]
-name = "example_damaged_helmet_android"
+name = "example_damaged_helmet"
 path = "src/lib.rs"
 crate-type = ["cdylib", "lib"]
 
