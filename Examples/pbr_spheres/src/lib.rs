@@ -28,7 +28,13 @@
 //         Err(e) => error!("Runtime failure: {e:?}"),
 //     }
 // }
-//
-// make_main!(entrypoint);
 
-fn main() {}
+use orbital::{logging::{self, info}, make_android_main, winit::{error::EventLoopError, event_loop::EventLoop}};
+
+pub fn entrypoint(_event_loop_result: Result<EventLoop<()>, EventLoopError>) {
+    logging::init();
+
+    info!("EMPTY FOR NOW!");
+}
+
+make_android_main!(entrypoint);

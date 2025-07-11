@@ -1,14 +1,14 @@
 [package]
-name = "PBRSpheres"
+name = "example_pbr_spheres"
 version = "0.1.0"
 edition = "2024"
 
 [[bin]]
 name = "example_pbr_spheres_desktop"
-path = "src/lib.rs"
+path = "src/main.rs"
 
 [lib]
-name = "example_pbr_spheres_android"
+name = "example_pbr_spheres"
 path = "src/lib.rs"
 crate-type = ["cdylib", "lib"]
 
