@@ -15,7 +15,7 @@ macro_rules! make_desktop_main {
 
 #[macro_export]
 macro_rules! make_android_main {
-    ($entrypoint_fn:ident) => {        
+    ($entrypoint_fn:ident) => {
         #[cfg(target_os = "android")]
         #[allow(dead_code)]
         #[no_mangle]
