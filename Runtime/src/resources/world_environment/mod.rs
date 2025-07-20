@@ -18,6 +18,7 @@ use wgpu::{
     TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
 };
 
+use crate::mip_level::{self, max_mip_level};
 use crate::resources::{FilterMode, MaterialShader, Texture, TextureSize};
 
 mod error;
@@ -204,6 +205,28 @@ impl WorldEnvironment {
         )
     }
 
+    fn calculate_specular_mip_level_count(
+        cube_face_size: u32,
+        requested_mip_level_count: Option<&u32>,
+    ) -> u32 {
+        let max_possible_mip_levels = cube_face_size.ilog2() + 1;
+        let requested_mip_levels = requested_mip_level_count
+            .copied()
+            .unwrap_or(max_possible_mip_levels);
+        let clamped_mip_levels = requested_mip_levels.min(max_possible_mip_levels);
+
+        if let Some(requested) = requested_mip_level_count {
+            if *requested > max_possible_mip_levels {
+                warn!(
+                    "Requested specular mip level count {} exceeds maximum possible {} for cube face size {}. Clamping to {}.",
+                    requested, max_possible_mip_levels, cube_face_size, clamped_mip_levels
+                );
+            }
+        }
+
+        clamped_mip_levels
+    }
+
     pub fn from_descriptor_without_disk_cache(
         descriptor: &WorldEnvironmentDescriptor,
         surface_texture_format: Option<TextureFormat>,
@@ -217,33 +240,47 @@ impl WorldEnvironment {
                 path,
                 sampling_type,
                 custom_specular_mip_level_count: specular_mip_level_count,
-            } => Self::radiance_hdr_file(
-                path,
-                *cube_face_size,
-                sampling_type,
-                specular_mip_level_count.unwrap_or(10),
-                cache_file,
-                surface_texture_format,
-                device,
-                queue,
-            ),
+            } => {
+                let clamped_mip_levels = Self::calculate_specular_mip_level_count(
+                    *cube_face_size,
+                    specular_mip_level_count.as_ref(),
+                );
+
+                Self::radiance_hdr_file(
+                    path,
+                    *cube_face_size,
+                    sampling_type,
+                    clamped_mip_levels,
+                    cache_file,
+                    surface_texture_format,
+                    device,
+                    queue,
+                )
+            }
             WorldEnvironmentDescriptor::FromData {
                 cube_face_size,
                 data,
                 size,
                 sampling_type,
                 specular_mip_level_count,
-            } => Self::radiance_hdr_vec(
-                data,
-                *size,
-                *cube_face_size,
-                sampling_type,
-                specular_mip_level_count.unwrap_or(10),
-                cache_file,
-                surface_texture_format,
-                device,
-                queue,
-            ),
+            } => {
+                let clamped_mip_levels = Self::calculate_specular_mip_level_count(
+                    *cube_face_size,
+                    specular_mip_level_count.as_ref(),
+                );
+
+                Self::radiance_hdr_vec(
+                    data,
+                    *size,
+                    *cube_face_size,
+                    sampling_type,
+                    clamped_mip_levels,
+                    cache_file,
+                    surface_texture_format,
+                    device,
+                    queue,
+                )
+            }
         }
     }
 
@@ -455,6 +492,14 @@ impl WorldEnvironment {
             device,
         );
 
+        let max_mip_level = max_mip_level(dst_size);
+        let specular_mip_level = if specular_mip_level_count >= max_mip_level {
+            warn!("Attempting to create specular texture with size {dst_size}, which gives a max allowed mip level of {max_mip_level}, but {specular_mip_level_count} was set! Defaulting to the maximum allowed value.");
+            max_mip_level
+        } else {
+            specular_mip_level_count
+        };
+
         let dst_texture = Texture::create_empty_cube_texture(
             Some("PBR IBL Specular without LoDs"),
             Vector2 {
@@ -465,7 +510,7 @@ impl WorldEnvironment {
             TextureUsages::STORAGE_BINDING
                 | TextureUsages::TEXTURE_BINDING
                 | TextureUsages::COPY_SRC,
-            specular_mip_level_count,
+            specular_mip_level,
             device,
         );
 
