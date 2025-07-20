@@ -7,30 +7,15 @@ use crate::{
     wgpu_test_adapter,
 };
 
-fn check_if_ci() -> bool {
-    if std::env::var("CI").is_ok() {
-        warn!("CI environment detected!");
-        warn!("Will skip this test and pass it due to it being too heavy on software rendering required by CI.");
-        warn!("This does NOT mean it passed.");
-
-        return true;
-    }
-
-    false
-}
-
 #[test]
 fn test_realization_no_mip_level_count_set() {
     logging::test_init();
-    if check_if_ci() {
-        return;
-    }
 
     warn!("This test utilizes caching!");
     warn!("On unexpected results, make sure to delete the cache first!");
     warn!("The cache location should be printed in the log below somewhere.");
 
-    const SIZE: u32 = 512;
+    const SIZE: u32 = 32;
 
     let (_, device, queue) = wgpu_test_adapter::make_wgpu_connection();
 
@@ -52,15 +37,12 @@ fn test_realization_no_mip_level_count_set() {
 #[test]
 fn test_realization_some_mip_level_count_set() {
     logging::test_init();
-    if check_if_ci() {
-        return;
-    }
 
     warn!("This test utilizes caching!");
     warn!("On unexpected results, make sure to delete the cache first!");
     warn!("The cache location should be printed in the log below somewhere.");
 
-    const SIZE: u32 = 512;
+    const SIZE: u32 = 32;
 
     let (_, device, queue) = wgpu_test_adapter::make_wgpu_connection();
 
@@ -86,15 +68,12 @@ fn test_realization_some_mip_level_count_set() {
 #[test]
 fn test_caching() {
     logging::test_init();
-    if check_if_ci() {
-        return;
-    }
 
     warn!("This test utilizes caching!");
     warn!("On unexpected results, make sure to delete the cache first!");
     warn!("The cache location should be printed in the log below somewhere.");
 
-    const SIZE: u32 = 512;
+    const SIZE: u32 = 32;
 
     let (_, device, queue) = wgpu_test_adapter::make_wgpu_connection();
 
@@ -129,9 +108,6 @@ fn test_caching() {
 #[test]
 fn test_cache_dir() {
     logging::test_init();
-    if check_if_ci() {
-        return;
-    }
 
     warn!("This test utilizes caching!");
     warn!("On unexpected results, make sure to delete the cache first!");
@@ -143,15 +119,12 @@ fn test_cache_dir() {
 #[test]
 fn test_cache_file() {
     logging::test_init();
-    if check_if_ci() {
-        return;
-    }
 
     warn!("This test utilizes caching!");
     warn!("On unexpected results, make sure to delete the cache first!");
     warn!("The cache location should be printed in the log below somewhere.");
 
-    const SIZE: u32 = 512;
+    const SIZE: u32 = 32;
 
     let (_, device, queue) = wgpu_test_adapter::make_wgpu_connection();
 
