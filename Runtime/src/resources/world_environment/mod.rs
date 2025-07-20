@@ -18,7 +18,7 @@ use wgpu::{
     TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
 };
 
-use crate::mip_level::{self, max_mip_level};
+use crate::mip_level::max_mip_level;
 use crate::resources::{FilterMode, MaterialShader, Texture, TextureSize};
 
 mod error;
@@ -218,8 +218,7 @@ impl WorldEnvironment {
         if let Some(requested) = requested_mip_level_count {
             if *requested > max_possible_mip_levels {
                 warn!(
-                    "Requested specular mip level count {} exceeds maximum possible {} for cube face size {}. Clamping to {}.",
-                    requested, max_possible_mip_levels, cube_face_size, clamped_mip_levels
+                    "Requested specular mip level count {requested} exceeds maximum possible {max_possible_mip_levels} for cube face size {cube_face_size}. Clamping to {clamped_mip_levels}."
                 );
             }
         }
