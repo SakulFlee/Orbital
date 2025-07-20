@@ -492,7 +492,7 @@ impl WorldEnvironment {
         );
 
         let max_mip_level = max_mip_level(dst_size);
-        let specular_mip_level = if specular_mip_level_count >= max_mip_level {
+        let specular_mip_level = if specular_mip_level_count > max_mip_level {
             warn!("Attempting to create specular texture with size {dst_size}, which gives a max allowed mip level of {max_mip_level}, but {specular_mip_level_count} was set! Defaulting to the maximum allowed value.");
             max_mip_level
         } else {
