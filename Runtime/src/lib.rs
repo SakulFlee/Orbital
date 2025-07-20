@@ -5,6 +5,7 @@ pub mod element;
 pub mod loader;
 pub mod logging;
 pub mod macros;
+pub mod mip_level;
 pub mod or;
 pub mod quaternion;
 pub mod renderer;
