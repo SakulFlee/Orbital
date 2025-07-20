@@ -9,8 +9,9 @@ use log::{debug, warn};
 use serde::{Deserialize, Serialize};
 use wgpu::{Device, Queue, TextureFormat, TextureUsages};
 
-use crate::resources::{
-    Texture as OrbitalTexture, WorldEnvironmentDescriptor, WorldEnvironmentError,
+use crate::{
+    mip_level::max_mip_level,
+    resources::{Texture as OrbitalTexture, WorldEnvironmentDescriptor, WorldEnvironmentError},
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -110,6 +111,14 @@ impl CacheFile {
             } => (*cube_face_size, specular_mip_level_count.unwrap_or(1)),
         };
 
+        let max_mip_level = max_mip_level(cube_face_size);
+        let specular_mip_level = if specular_mip_level_count >= max_mip_level {
+            warn!("Attempting to create specular texture with size {cube_face_size}, which gives a max allowed mip level of {max_mip_level}, but {specular_mip_level_count} was set! Defaulting to the maximum allowed value.");
+            max_mip_level
+        } else {
+            specular_mip_level_count
+        };
+
         let ibl_diffuse_texture = OrbitalTexture::from_binary_data(
             &self.ibl_diffuse_data,
             Some("PBR IBL Diffuse"),
@@ -132,7 +141,7 @@ impl CacheFile {
             },
             TextureFormat::Rgba16Float,
             TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_SRC,
-            specular_mip_level_count,
+            specular_mip_level,
             device,
             queue,
         );
