@@ -1,54 +1,84 @@
-use std::future::Future;
-
 use crate::{
-    element::Event,
     loader::gltf::{GltfImport, GltfImportTask, GltfImporter},
     resources::{CameraDescriptor, ModelDescriptor},
+};
+use async_std::task;
+use futures::{
+    stream::{FuturesUnordered, StreamExt},
+    FutureExt,
 };
 
 pub mod gltf;
 
 pub enum ImportTask {
-    Gltf {
-        file_path: &str,
-        import_task: ImportTask,
-    }
+    Gltf { file_path: String, task: GltfImport },
 }
 
+#[derive(Default)]
 pub struct ImportResult {
-    models: Vec<ModelDescriptor>,
-    cameras: Vec<CameraDescriptor>,
-}
-
-pub trait ImportTaskExecuter {
-    fn import(&self, path: &str) -> ImportResult;
+    pub models: Vec<ModelDescriptor>,
+    pub cameras: Vec<CameraDescriptor>,
 }
 
 pub struct Importer {
     queued_tasks: Vec<ImportTask>,
-    running_tasks: Vec<?>, // TODO: Async type?
+    running_tasks: FuturesUnordered<task::JoinHandle<ImportResult>>,
     allowed_parallel_tasks: u8,
 }
 
 impl Importer {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             queued_tasks: Vec::new(),
-            running_tasks: Vec::new(),
+            running_tasks: FuturesUnordered::new(),
             allowed_parallel_tasks: 4,
         }
     }
-    
-    fn register_task(&mut self, task: ImportTask) {
-        // Register tasks to queue
+
+    pub fn with_allowed_parallel_tasks(mut self, allowed_parallel_tasks: u8) -> Self {
+        self.allowed_parallel_tasks = allowed_parallel_tasks;
+        self
     }
 
-    fn update(&mut self) {
-        // Check if any running tasks are ready
-        // If so: Extract the results
-        
-        // Check if less tasks are running than the allowed parallel tasks and if more tasks are queued
-        // If so: Start a new task
+    pub fn register_task(&mut self, task: ImportTask) {
+        self.queued_tasks.push(task);
+    }
+
+    pub async fn update(&mut self) -> Vec<ImportResult> {
+        let mut results = Vec::new();
+
+        // Poll the set of running tasks to drain any that have completed.
+        // This is non-blocking and will only process futures that are already ready.
+        while let Some(result) = self.running_tasks.next().await {
+            results.push(result);
+        }
+
+        // Check if we can start new tasks.
+        while self.running_tasks.len() < self.allowed_parallel_tasks as usize
+            && !self.queued_tasks.is_empty()
+        {
+            let task_desc = self.queued_tasks.remove(0);
+
+            let handle = task::spawn(async move {
+                match task_desc {
+                    ImportTask::Gltf { file_path, task } => {
+                        let gltf_result = GltfImporter::import(GltfImportTask {
+                            file: file_path,
+                            import: task,
+                        })
+                        .await;
+
+                        ImportResult {
+                            models: gltf_result.models,
+                            cameras: gltf_result.cameras,
+                        }
+                    }
+                }
+            });
+
+            self.running_tasks.push(handle);
+        }
+
+        results
     }
 }
-
