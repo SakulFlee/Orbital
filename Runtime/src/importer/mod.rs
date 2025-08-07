@@ -1,5 +1,5 @@
 use crate::{
-    loader::gltf::{GltfImport, GltfImportTask, GltfImporter},
+    importer::gltf::{GltfImport, GltfImportTask, GltfImporter},
     resources::{CameraDescriptor, ModelDescriptor},
 };
 use async_std::task;
