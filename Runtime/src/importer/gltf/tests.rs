@@ -1,4 +1,4 @@
-use crate::loader::gltf::{
+use crate::importer::gltf::{
     GltfImport, GltfImportResult, GltfImportTask, GltfImportType, GltfImporter, SpecificGltfImport,
 };
 use crate::logging;
