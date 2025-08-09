@@ -3,13 +3,11 @@ use crate::{
     resources::{CameraDescriptor, ModelDescriptor},
 };
 use async_std::task;
-use futures::{
-    stream::{FuturesUnordered, StreamExt},
-    FutureExt,
-};
+use futures::stream::{FuturesUnordered, StreamExt};
 
 pub mod gltf;
 
+#[derive(Debug)]
 pub enum ImportTask {
     Gltf { file_path: String, task: GltfImport },
 }
@@ -27,17 +25,12 @@ pub struct Importer {
 }
 
 impl Importer {
-    pub fn new() -> Self {
+    pub fn new(allowed_parallel_tasks: u8) -> Self {
         Self {
             queued_tasks: Vec::new(),
             running_tasks: FuturesUnordered::new(),
-            allowed_parallel_tasks: 4,
+            allowed_parallel_tasks,
         }
-    }
-
-    pub fn with_allowed_parallel_tasks(mut self, allowed_parallel_tasks: u8) -> Self {
-        self.allowed_parallel_tasks = allowed_parallel_tasks;
-        self
     }
 
     pub fn register_task(&mut self, task: ImportTask) {

@@ -1,10 +1,12 @@
 mod store;
 use std::time::{Duration, Instant};
 
+use log::debug;
 pub use store::*;
 use wgpu::{Device, Queue, TextureFormat};
 
-use crate::element::WorldEvent;
+use crate::element::{CameraEvent, ModelEvent, WorldEvent};
+use crate::importer::Importer;
 use crate::resources::{Camera, Model, WorldEnvironment};
 
 pub struct World {
@@ -12,6 +14,7 @@ pub struct World {
     camera_store: CameraStore,
     environment_store: EnvironmentStore,
     last_cleanup: Instant,
+    importer: Option<Importer>,
 }
 
 impl Default for World {
@@ -27,6 +30,7 @@ impl World {
             camera_store: CameraStore::new(),
             environment_store: EnvironmentStore::new(),
             last_cleanup: Instant::now(),
+            importer: Some(Importer::new(4)),
         }
     }
 
@@ -42,9 +46,29 @@ impl World {
         &mut self.environment_store
     }
 
-    pub fn update(&mut self, world_events: Vec<WorldEvent>) {
+    pub async fn update(&mut self, world_events: Vec<WorldEvent>) {
+        // Take temporary ownership of importer
+        let mut importer = self.importer.take().unwrap();
+        // Call async future early so it might be done by the time we check it
+        let importer_future = importer.update();
+
+        // Process through other world events
         for world_event in world_events {
             self.process_event(world_event);
+        }
+
+        // Await on importer future
+        let importer_results = importer_future.await;
+        // Put importer back
+        self.importer = Some(importer);
+
+        for importer_result in importer_results {
+            for model in importer_result.models {
+                self.process_event(WorldEvent::Model(ModelEvent::Spawn(model)));
+            }
+            for camera in importer_result.cameras {
+                self.process_event(WorldEvent::Camera(CameraEvent::Spawn(camera)));
+            }
         }
 
         // Needs to be at most the same as the cache timeout time!
@@ -58,11 +82,16 @@ impl World {
     }
 
     pub fn process_event(&mut self, event: WorldEvent) {
+        debug!("Processing event: {:?}", event);
+
         match event {
             WorldEvent::Model(model_event) => self.model_store.handle_event(model_event),
             WorldEvent::Camera(camera_event) => self.camera_store.handle_event(camera_event),
             WorldEvent::Environment(environment_event) => {
                 self.environment_store.handle_event(environment_event);
+            }
+            WorldEvent::Import(import_task) => {
+                self.importer.as_mut().unwrap().register_task(import_task);
             }
             WorldEvent::Clear => {
                 self.model_store.clear(); // TODO
