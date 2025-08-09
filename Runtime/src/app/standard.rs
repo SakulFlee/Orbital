@@ -107,7 +107,8 @@ impl App for StandardApp {
             }
         }
 
-        self.world.update(world_events);
+        // Kick off world future to process world updates while we handle other things
+        let world_future = self.world.update(world_events);
 
         let new_events = self.element_store.process_events(element_events).await;
         self.queue_events.extend(new_events);
@@ -127,6 +128,9 @@ impl App for StandardApp {
                 self.empty_since = None;
             }
         }
+
+        // Await world future before we need access to the world again.
+        world_future.await;
 
         // TODO: REMOVE
         let model_ids = self
