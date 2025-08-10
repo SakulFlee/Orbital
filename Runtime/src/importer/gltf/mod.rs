@@ -218,28 +218,52 @@ impl GltfImporter {
     fn parse_texture(data: &gltf::image::Data) -> TextureDescriptor {
         let (format, need_alpha_channel) = Self::gltf_texture_format_to_orbital(data.format);
 
-        let byte_requirement = format.target_component_alignment().unwrap_or(1) as usize;
-        // Avoid division by zero if byte_requirement is 1.
-        let capacity = if byte_requirement > 1 {
-            data.pixels.len() + (data.pixels.len() / (byte_requirement - 1))
-        } else {
-            data.pixels.len()
-        };
-        let mut pixels = Vec::with_capacity(capacity);
-        if need_alpha_channel {
-            for (i, pixel) in data.pixels.iter().enumerate() {
-                if i % byte_requirement == 0 {
-                    for _ in 0..byte_requirement {
-                        pixels.push(0u8);
-                    }
-                }
+        // Debug log to verify the determined format
+        log::debug!("Parsing texture: glTF format {:?} -> Orbital format {:?}, need_alpha: {}", data.format, format, need_alpha_channel);
 
-                pixels.push(*pixel);
+        // The `pixels` data to be uploaded. Initialize with original data.
+        let pixel_data = if need_alpha_channel {
+            // If an alpha channel needs to be generated (e.g., RGB -> RGBA),
+            // process the original data.
+            // The gltf crate provides data without alpha in the cases where
+            // `need_alpha_channel` is true (e.g., Format::R8G8B8).
+            // wgpu requires a 4-component format (e.g., Rgba8Unorm), so we need to add alpha.
+            // Standard assumption: Add an opaque alpha channel (255).
+            let mut processed_pixels = Vec::with_capacity((data.pixels.len() * 4) / 3);
+            // Iterate through chunks of 3 bytes (RGB)
+            for chunk in data.pixels.chunks(3) {
+                if chunk.len() == 3 {
+                    // Add R, G, B from the chunk
+                    processed_pixels.push(chunk[0]);
+                    processed_pixels.push(chunk[1]);
+                    processed_pixels.push(chunk[2]);
+                    // Add full alpha (255)
+                    processed_pixels.push(255u8);
+                } else {
+                    // Handle potential incomplete chunk at the end (shouldn't happen for valid RGB)
+                    // But push the remaining bytes and pad with 0s/255 if necessary.
+                    // For simplicity, and because it shouldn't happen, just push what's there and
+                    // potentially add a default alpha. This part might need more robust handling
+                    // depending on data validity guarantees.
+                    for &byte in chunk {
+                        processed_pixels.push(byte);
+                    }
+                    // If less than 3, pad up to 3, then add alpha.
+                    for _ in chunk.len()..3 {
+                        processed_pixels.push(0u8); // or another default
+                    }
+                    processed_pixels.push(255u8); // Add alpha
+                }
             }
-        }
+            processed_pixels
+        } else {
+            // No processing needed, use the original data.
+            data.pixels.clone()
+        };
 
         TextureDescriptor::Data {
-            pixels: data.pixels.clone(),
+            // Use the correctly determined pixel data
+            pixels: pixel_data,
             size: TextureSize {
                 width: data.width,
                 height: data.height,
@@ -247,7 +271,7 @@ impl GltfImporter {
                 base_mip: 0,
                 mip_levels: 1, // glTF image data is typically just the base mip level
             },
-            usages: TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_DST,
+            usages: TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_DST, // Ensure COPY_DST for Queue::write_texture
             format,
             // Determine dimension based on data. For glTF images, D2 is standard.
             texture_dimension: TextureDimension::D2,
