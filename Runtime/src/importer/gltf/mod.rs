@@ -245,9 +245,9 @@ impl GltfImporter {
                 height: data.height,
                 depth_or_array_layers: 1, // A standard 2D texture has 1 layer
                 base_mip: 0,
-                mip_levels: 0, // 0 often means generate automatically, but specify if needed
+                mip_levels: 1, // glTF image data is typically just the base mip level
             },
-            usages: TextureUsages::RENDER_ATTACHMENT,
+            usages: TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_DST,
             format,
             // Determine dimension based on data. For glTF images, D2 is standard.
             texture_dimension: TextureDimension::D2,
@@ -291,7 +291,7 @@ impl GltfImporter {
                 base_mip: 0,
                 mip_levels: 0,
             },
-            usages: TextureUsages::RENDER_ATTACHMENT,
+            usages: TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_DST,
             format: actual_format,
             texture_dimension: TextureDimension::D1,
             texture_view_dimension: TextureViewDimension::D1,
@@ -306,7 +306,7 @@ impl GltfImporter {
                 base_mip: 0,
                 mip_levels: 0,
             },
-            usages: TextureUsages::RENDER_ATTACHMENT,
+            usages: TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_DST,
             format: actual_format,
             texture_dimension: TextureDimension::D1,
             texture_view_dimension: TextureViewDimension::D1,
