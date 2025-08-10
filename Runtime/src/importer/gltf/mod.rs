@@ -243,14 +243,15 @@ impl GltfImporter {
             size: TextureSize {
                 width: data.width,
                 height: data.height,
-                depth_or_array_layers: 0,
+                depth_or_array_layers: 1, // A standard 2D texture has 1 layer
                 base_mip: 0,
-                mip_levels: 0,
+                mip_levels: 0, // 0 often means generate automatically, but specify if needed
             },
             usages: TextureUsages::RENDER_ATTACHMENT,
             format,
-            texture_dimension: TextureDimension::D1,
-            texture_view_dimension: TextureViewDimension::D1,
+            // Determine dimension based on data. For glTF images, D2 is standard.
+            texture_dimension: TextureDimension::D2,
+            texture_view_dimension: TextureViewDimension::D2,
             filter_mode: FilterMode::linear(),
         }
     }
