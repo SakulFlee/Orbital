@@ -52,6 +52,7 @@ impl ModelStore {
 
         self.map_label.insert(descriptor.label.clone(), id);
         self.map_descriptors.insert(id, descriptor);
+        self.queue_bounding_boxes.push(id);
     }
 
     pub fn remove(&mut self, id: Or<&str, u128>) -> bool {
