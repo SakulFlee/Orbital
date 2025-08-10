@@ -47,11 +47,6 @@ impl World {
     }
 
     pub async fn update(&mut self, world_events: Vec<WorldEvent>) {
-        // Take temporary ownership of importer
-        let mut importer = self.importer.take().unwrap();
-        // Call async future early so it might be done by the time we check it
-        let importer_future = importer.update();
-
         // Process through other world events
         for world_event in world_events {
             self.process_event(world_event);
