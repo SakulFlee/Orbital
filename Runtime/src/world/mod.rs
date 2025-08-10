@@ -57,8 +57,10 @@ impl World {
             self.process_event(world_event);
         }
 
-        // Await on importer future
-        let importer_results = importer_future.await;
+        // Take temporary ownership of importer
+        let mut importer = self.importer.take().unwrap();
+        // Call async future early so it might be done by the time we check it
+        let importer_results = importer.update().await;
         // Put importer back
         self.importer = Some(importer);
 
