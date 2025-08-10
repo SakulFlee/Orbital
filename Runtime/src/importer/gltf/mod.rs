@@ -219,8 +219,13 @@ impl GltfImporter {
         let (format, need_alpha_channel) = Self::gltf_texture_format_to_orbital(data.format);
 
         let byte_requirement = format.target_component_alignment().unwrap_or(1) as usize;
-        let mut pixels =
-            Vec::with_capacity(data.pixels.len() + (data.pixels.len() / (byte_requirement - 1)));
+        // Avoid division by zero if byte_requirement is 1.
+        let capacity = if byte_requirement > 1 {
+            data.pixels.len() + (data.pixels.len() / (byte_requirement - 1))
+        } else {
+            data.pixels.len()
+        };
+        let mut pixels = Vec::with_capacity(capacity);
         if need_alpha_channel {
             for (i, pixel) in data.pixels.iter().enumerate() {
                 if i % byte_requirement == 0 {
