@@ -2,6 +2,7 @@ use orbital::{
     async_trait::async_trait,
     element::{Element, ElementRegistration, Event, WorldEvent},
     importer::{ImportTask, gltf::GltfImport},
+    logging::debug,
 };
 
 #[derive(Debug)]
