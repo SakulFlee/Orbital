@@ -222,56 +222,94 @@ impl GltfImporter {
         log::debug!("Parsing texture: glTF format {:?} -> Orbital format {:?}, need_alpha: {}", data.format, format, need_alpha_channel);
 
         // The `pixels` data to be uploaded. Initialize with original data.
-        let pixel_data = if need_alpha_channel {
+        let (pixel_data, width, height) = if need_alpha_channel {
             // If an alpha channel needs to be generated (e.g., RGB -> RGBA),
             // process the original data.
             // The gltf crate provides data without alpha in the cases where
-            // `need_alpha_channel` is true (e.g., Format::R8G8B8).
+            // `need_alpha_channel` is true.
             // wgpu requires a 4-component format (e.g., Rgba8Unorm), so we need to add alpha.
             // Standard assumption: Add an opaque alpha channel (255).
-            let mut processed_pixels = Vec::with_capacity((data.pixels.len() * 4) / 3);
-            // Iterate through chunks of 3 bytes (RGB)
-            for chunk in data.pixels.chunks(3) {
-                if chunk.len() == 3 {
-                    // Add R, G, B from the chunk
-                    processed_pixels.push(chunk[0]);
-                    processed_pixels.push(chunk[1]);
-                    processed_pixels.push(chunk[2]);
-                    // Add full alpha (255)
-                    processed_pixels.push(255u8);
-                } else {
-                    // Handle potential incomplete chunk at the end (shouldn't happen for valid RGB)
-                    // But push the remaining bytes and pad with 0s/255 if necessary.
-                    // For simplicity, and because it shouldn't happen, just push what's there and
-                    // potentially add a default alpha. This part might need more robust handling
-                    // depending on data validity guarantees.
-                    for &byte in chunk {
-                        processed_pixels.push(byte);
-                    }
-                    // If less than 3, pad up to 3, then add alpha.
-                    for _ in chunk.len()..3 {
-                        processed_pixels.push(0u8); // or another default
-                    }
-                    processed_pixels.push(255u8); // Add alpha
-                }
+            let original_width = data.width;
+            let original_height = data.height;
+            
+            // Calculate the number of channels in the source format
+            let source_channels = match data.format {
+                Format::R8 => 1,
+                Format::R8G8 => 2,
+                Format::R8G8B8 => 3,
+                // These shouldn't happen when need_alpha_channel is true, but just in case:
+                Format::R8G8B8A8 => 4,
+                Format::R16 => 1,
+                Format::R16G16 => 2,
+                Format::R16G16B16 => 3,
+                // These shouldn't happen when need_alpha_channel is true, but just in case:
+                Format::R16G16B16A16 => 4,
+                Format::R32G32B32FLOAT => 3,
+                // These shouldn't happen when need_alpha_channel is true, but just in case:
+                Format::R32G32B32A32FLOAT => 4,
+            };
+            
+            // Calculate expected pixel count
+            let pixel_count = (data.pixels.len() / source_channels) as u32;
+            let expected_pixel_count = original_width * original_height;
+            
+            // Validate that we have the correct amount of data
+            if pixel_count != expected_pixel_count {
+                log::warn!(
+                    "Texture data size mismatch: expected {} pixels ({}x{}), got {} pixels from {} bytes with {} channels",
+                    expected_pixel_count,
+                    original_width,
+                    original_height,
+                    pixel_count,
+                    data.pixels.len(),
+                    source_channels
+                );
             }
-            processed_pixels
+            
+            let mut processed_pixels = Vec::with_capacity(data.pixels.len() / source_channels * 4);
+            // Iterate through chunks based on the source channel count
+            for chunk in data.pixels.chunks(source_channels) {
+                // Add all the source channels (R, G, B, etc.)
+                for &byte in chunk {
+                    processed_pixels.push(byte);
+                }
+                // Pad with zeros if needed to reach 3 channels (RGB)
+                for _ in chunk.len()..3 {
+                    processed_pixels.push(0u8);
+                }
+                // Add full alpha (255)
+                processed_pixels.push(255u8);
+            }
+            
+            // Debug log to verify the processed data size
+            let expected_processed_size = (original_width as usize) * (original_height as usize) * 4;
+            if processed_pixels.len() != expected_processed_size {
+                log::warn!(
+                    "Processed texture data size mismatch: expected {} bytes ({}x{}x4), got {} bytes",
+                    expected_processed_size,
+                    original_width,
+                    original_height,
+                    processed_pixels.len()
+                );
+            }
+            
+            (processed_pixels, original_width, original_height)
         } else {
             // No processing needed, use the original data.
-            data.pixels.clone()
+            (data.pixels.clone(), data.width, data.height)
         };
 
         TextureDescriptor::Data {
             // Use the correctly determined pixel data
             pixels: pixel_data,
             size: TextureSize {
-                width: data.width,
-                height: data.height,
+                width,
+                height,
                 depth_or_array_layers: 1, // A standard 2D texture has 1 layer
                 base_mip: 0,
                 mip_levels: 1, // glTF image data is typically just the base mip level
             },
-            usages: TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_DST, // Ensure COPY_DST for Queue::write_texture
+            usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST | TextureUsages::RENDER_ATTACHMENT, // Ensure required usages for textures
             format,
             // Determine dimension based on data. For glTF images, D2 is standard.
             texture_dimension: TextureDimension::D2,
@@ -286,15 +324,31 @@ impl GltfImporter {
     fn parse_dual_texture(data: &gltf::image::Data) -> (TextureDescriptor, TextureDescriptor) {
         let (format, need_alpha_channel) = Self::gltf_texture_format_to_orbital(data.format);
 
-        let byte_requirement = format.target_component_alignment().unwrap_or(1) as usize;
-        let mut pixels_0 = Vec::with_capacity(data.pixels.len() / byte_requirement);
-        let mut pixels_1 = Vec::with_capacity(data.pixels.len() / byte_requirement);
+        // Calculate the number of channels in the source format
+        let source_channels = match data.format {
+            Format::R8 => 1,
+            Format::R8G8 => 2,
+            Format::R8G8B8 => 3,
+            Format::R8G8B8A8 => 4,
+            Format::R16 => 1,
+            Format::R16G16 => 2,
+            Format::R16G16B16 => 3,
+            Format::R16G16B16A16 => 4,
+            Format::R32G32B32FLOAT => 3,
+            Format::R32G32B32A32FLOAT => 4,
+        };
+        
+        let mut pixels_0 = Vec::with_capacity(data.pixels.len() / source_channels);
+        let mut pixels_1 = Vec::with_capacity(data.pixels.len() / source_channels);
 
-        for (i, pixel) in data.pixels.iter().enumerate() {
-            if i % byte_requirement == 0 {
-                pixels_0.push(*pixel);
-            } else {
-                pixels_1.push(*pixel);
+        for chunk in data.pixels.chunks(source_channels) {
+            // First channel (Red)
+            if chunk.len() > 0 {
+                pixels_0.push(chunk[0]);
+            }
+            // Second channel (Green)
+            if chunk.len() > 1 {
+                pixels_1.push(chunk[1]);
             }
         }
 
@@ -311,14 +365,14 @@ impl GltfImporter {
             size: TextureSize {
                 width: data.width,
                 height: data.height,
-                depth_or_array_layers: 0,
+                depth_or_array_layers: 1,
                 base_mip: 0,
-                mip_levels: 0,
+                mip_levels: 1,
             },
-            usages: TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_DST,
+            usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST | TextureUsages::RENDER_ATTACHMENT,
             format: actual_format,
-            texture_dimension: TextureDimension::D1,
-            texture_view_dimension: TextureViewDimension::D1,
+            texture_dimension: TextureDimension::D2,
+            texture_view_dimension: TextureViewDimension::D2,
             filter_mode: FilterMode::linear(),
         };
         let texture_1 = TextureDescriptor::Data {
@@ -326,14 +380,14 @@ impl GltfImporter {
             size: TextureSize {
                 width: data.width,
                 height: data.height,
-                depth_or_array_layers: 0,
+                depth_or_array_layers: 1,
                 base_mip: 0,
-                mip_levels: 0,
+                mip_levels: 1,
             },
-            usages: TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_DST,
+            usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST | TextureUsages::RENDER_ATTACHMENT,
             format: actual_format,
-            texture_dimension: TextureDimension::D1,
-            texture_view_dimension: TextureViewDimension::D1,
+            texture_dimension: TextureDimension::D2,
+            texture_view_dimension: TextureViewDimension::D2,
             filter_mode: FilterMode::linear(),
         };
 
