@@ -158,8 +158,8 @@ impl Renderer {
             for material in model.materials() {
                 render_pass.set_pipeline(material.pipeline());
 
-                render_pass.set_bind_group(0, material.bind_group(), &[]);
-                render_pass.set_bind_group(1, camera_bind_group, &[]);
+                render_pass.set_bind_group(0, camera_bind_group, &[]);
+                render_pass.set_bind_group(1, material.bind_group(), &[]);
 
                 if let Some(world_environment) = world_environment {
                     render_pass.set_bind_group(
@@ -173,12 +173,6 @@ impl Renderer {
                 render_pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
                 render_pass
                     .set_index_buffer(model.mesh().index_buffer().slice(..), IndexFormat::Uint32);
-
-                render_pass.draw_indexed(
-                    0..model.mesh().index_count(),
-                    0,
-                    0..model.instance_count(),
-                );
 
                 render_pass.draw_indexed(
                     0..model.mesh().index_count(),
