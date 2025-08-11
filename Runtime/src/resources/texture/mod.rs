@@ -334,6 +334,40 @@ impl Texture {
             texture_view_dimension,
         );
 
+        // Calculate bytes per row based on the format
+        // Manual calculation instead of target_pixel_byte_cost() to avoid potential bugs
+        let bytes_per_pixel = match format {
+            TextureFormat::R8Unorm | TextureFormat::R8Snorm | TextureFormat::R8Uint | TextureFormat::R8Sint => 1,
+            TextureFormat::Rg8Unorm | TextureFormat::Rg8Snorm | TextureFormat::Rg8Uint | TextureFormat::Rg8Sint => 2,
+            TextureFormat::Rgba8Unorm | TextureFormat::Rgba8UnormSrgb | TextureFormat::Rgba8Snorm | TextureFormat::Rgba8Uint | TextureFormat::Rgba8Sint => 4,
+            TextureFormat::R16Unorm | TextureFormat::R16Snorm | TextureFormat::R16Uint | TextureFormat::R16Sint | TextureFormat::R16Float => 2,
+            TextureFormat::Rg16Unorm | TextureFormat::Rg16Snorm | TextureFormat::Rg16Uint | TextureFormat::Rg16Sint | TextureFormat::Rg16Float => 4,
+            TextureFormat::Rgba16Unorm | TextureFormat::Rgba16Snorm | TextureFormat::Rgba16Uint | TextureFormat::Rgba16Sint | TextureFormat::Rgba16Float => 8,
+            TextureFormat::R32Uint | TextureFormat::R32Sint | TextureFormat::R32Float => 4,
+            TextureFormat::Rg32Uint | TextureFormat::Rg32Sint | TextureFormat::Rg32Float => 8,
+            TextureFormat::Rgba32Uint | TextureFormat::Rgba32Sint | TextureFormat::Rgba32Float => 16,
+            // Add other formats as needed
+            _ => {
+                // Fallback to the original method
+                format.target_pixel_byte_cost().expect("Need to acquire target pixel byte cost for correct texture mapping!")
+            }
+        };
+        let calculated_bytes_per_row = size.width * bytes_per_pixel;
+        
+        // Debug logging to help diagnose buffer size issues
+        let expected_data_size = calculated_bytes_per_row * size.height;
+        if pixels.len() != expected_data_size as usize {
+            log::warn!(
+                "Texture data size mismatch: expected {} bytes ({}x{}x{}), got {} bytes. Format: {:?}",
+                expected_data_size,
+                size.width,
+                size.height,
+                bytes_per_pixel,
+                pixels.len(),
+                format
+            );
+        }
+
         // Write the data into the texture buffer
         queue.write_texture(
             TexelCopyTextureInfo {
@@ -345,12 +379,7 @@ impl Texture {
             pixels,
             TexelCopyBufferLayout {
                 offset: 0,
-                bytes_per_row: Some(
-                    size.width
-                        * format.target_pixel_byte_cost().expect(
-                            "Need to acquire target pixel byte cost for correct texture mapping!",
-                        ),
-                ),
+                bytes_per_row: Some(calculated_bytes_per_row),
                 rows_per_image: Some(size.height),
             },
             Extent3d {
