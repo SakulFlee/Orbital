@@ -1,12 +1,12 @@
 use cgmath::{Vector3, Zero};
 use wgpu::{
-    SamplerBindingType, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
-    TextureViewDimension,
+    rwh::WebOffscreenCanvasWindowHandle, SamplerBindingType, TextureDimension, TextureFormat,
+    TextureSampleType, TextureUsages, TextureViewDimension,
 };
 
 use crate::resources::{
-    BufferDescriptor, FilterMode, MaterialShaderDescriptor, VariableType,
-    {TextureDescriptor, TextureSize},
+    BufferDescriptor, FilterMode, MaterialShaderDescriptor, ShaderSource, TextureDescriptor,
+    TextureSize, VariableType, VertexStageLayout,
 };
 
 #[cfg(test)]
@@ -44,8 +44,6 @@ pub struct PBRMaterialShaderDescriptor {
     /// 🚀 If you have any suggestions for improvement, feel free to open an issue!
     pub custom_material_shader: Option<MaterialShaderDescriptor>,
 }
-
-impl PBRMaterialShaderDescriptor {}
 
 impl Default for PBRMaterialShaderDescriptor {
     fn default() -> Self {
@@ -140,7 +138,18 @@ impl Default for PBRMaterialShaderDescriptor {
 
 impl From<PBRMaterialShaderDescriptor> for MaterialShaderDescriptor {
     fn from(val: PBRMaterialShaderDescriptor) -> Self {
-        let mut base = val.custom_material_shader.unwrap_or_default();
+        let mut base = match val.custom_material_shader {
+            Some(base) => base,
+            None => {
+                let mut base = MaterialShaderDescriptor::default();
+                base.shader_source = ShaderSource::Path("Assets/Shaders/pbr.wgsl");
+                base.vertex_stage_layouts = Some(vec![
+                    VertexStageLayout::ComplexVertexData,
+                    VertexStageLayout::InstanceData,
+                ]);
+                base
+            }
+        };
 
         base.name = val.name;
         base.variables = vec![
