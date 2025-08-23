@@ -77,25 +77,25 @@ impl Camera {
             }],
         });
 
-        let frustum_buffer = device.create_buffer(&BufferDescriptor {
-            label: Some("Camera Buffer"),
-            size: (
-                // Left
-                mem::size_of::<f32>() * 4 +
-                // Right
-                mem::size_of::<f32>() * 4 +
-                // Top
-                mem::size_of::<f32>() * 4 +
-                // Bottom
-                mem::size_of::<f32>() * 4 +
-                // Near
-                mem::size_of::<f32>() * 4 +
-                // Far
-                mem::size_of::<f32>() * 4
-            ) as u64,
-            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
+        // let frustum_buffer = device.create_buffer(&BufferDescriptor {
+        //     label: Some("Camera Buffer"),
+        //     size: (
+        //         // Left
+        //         mem::size_of::<f32>() * 4 +
+        //         // Right
+        //         mem::size_of::<f32>() * 4 +
+        //         // Top
+        //         mem::size_of::<f32>() * 4 +
+        //         // Bottom
+        //         mem::size_of::<f32>() * 4 +
+        //         // Near
+        //         mem::size_of::<f32>() * 4 +
+        //         // Far
+        //         mem::size_of::<f32>() * 4
+        //     ) as u64,
+        //     usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+        //     mapped_at_creation: false,
+        // });
         // let frustum_bind_group_layout =
         //     device.create_bind_group_layout(&BindGroupLayoutDescriptor {
         //         label: Some("Frustum"),
