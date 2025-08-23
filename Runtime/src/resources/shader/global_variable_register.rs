@@ -17,7 +17,7 @@ impl GlobalSharedVariableRegister {
         }
     }
 
-    pub fn register(&mut self, variable: VariableType) {
-        variable
+    pub fn register(&mut self, variable_type: VariableType) {
+        Variable::
     }
 }
