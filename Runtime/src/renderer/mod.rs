@@ -5,7 +5,7 @@ use wgpu::{
     RenderPassDescriptor, StoreOp, TextureFormat, TextureView,
 };
 
-use crate::resources::{Model, Texture, WorldEnvironment};
+use crate::resources::{world_environment, MaterialShader, Model, Texture, WorldEnvironment};
 
 pub struct Renderer {
     surface_texture_format: TextureFormat,
@@ -49,9 +49,9 @@ impl Renderer {
     pub async fn render(
         &mut self,
         target_view: &TextureView,
-        world_environment: Option<&WorldEnvironment>,
+        world_bind_group: &BindGroup,
+        world_environment_option: Option<&WorldEnvironment>,
         models: Vec<&Model>,
-        camera_bind_group: &BindGroup, // TODO: Engine bind group!
         device: &Device,
         queue: &Queue,
     ) {
@@ -59,42 +59,37 @@ impl Renderer {
             label: Some("Orbital::Render::Encoder"),
         });
 
-        if let Some(world_environment) = world_environment {
-            self.render_skybox(
+        if let Some(world_environment) = world_environment_option {
+            let sky_box_shader = world_environment.material_shader();
+            self.render_sky_box(
                 target_view,
-                world_environment,
-                camera_bind_group,
+                sky_box_shader,
+                world_bind_group,
                 &mut command_encoder,
-                device,
-                queue,
             );
         }
 
-        self.render_models(
-            models,
-            target_view,
-            world_environment,
-            camera_bind_group,
-            &mut command_encoder,
-            device,
-            queue,
-        );
+        // self.render_models(
+        //     models,
+        //     target_view,
+        //     world_bind_group,
+        //     &mut command_encoder,
+        //     device,
+        //     queue,
+        // );
 
         queue.submit(vec![command_encoder.finish()]);
     }
 
-    fn render_skybox(
+    fn render_sky_box(
         &self,
         target_view: &TextureView,
-        world_environment: &WorldEnvironment,
-        camera_bind_group: &BindGroup, // TODO: Engine bind group!
+        sky_box_shader: &MaterialShader,
+        world_bind_group: &BindGroup,
         command_encoder: &mut CommandEncoder,
-        device: &Device,
-        queue: &Queue,
     ) {
-        let material_shader = world_environment.material_shader();
-
         // Scope to drop RenderPass once done
+        // TODO: Needed?
         {
             let mut render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
                 label: Some("RenderPass::SkyBox"),
@@ -112,10 +107,9 @@ impl Renderer {
                 occlusion_query_set: None,
             });
 
-            render_pass.set_pipeline(material_shader.pipeline());
+            render_pass.set_pipeline(sky_box_shader.pipeline());
 
-            render_pass.set_bind_group(0, camera_bind_group, &[]);
-            render_pass.set_bind_group(1, material_shader.bind_group(), &[]);
+            render_pass.set_bind_group(0, world_bind_group, &[]);
 
             render_pass.draw(0..3, 0..1);
         }
@@ -126,10 +120,8 @@ impl Renderer {
         models: Vec<&Model>,
         target_view: &TextureView,
         world_environment: Option<&WorldEnvironment>,
-        camera_bind_group: &BindGroup, // TODO: Engine bind group!
+        world_bind_group: &BindGroup,
         command_encoder: &mut CommandEncoder,
-        device: &Device,
-        queue: &Queue,
     ) {
         let mut render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
             label: Some("Model RenderPass"),
@@ -158,7 +150,7 @@ impl Renderer {
             for material in model.materials() {
                 render_pass.set_pipeline(material.pipeline());
 
-                render_pass.set_bind_group(0, camera_bind_group, &[]);
+                render_pass.set_bind_group(0, world_bind_group, &[]);
                 render_pass.set_bind_group(1, material.bind_group(), &[]);
 
                 if let Some(world_environment) = world_environment {
