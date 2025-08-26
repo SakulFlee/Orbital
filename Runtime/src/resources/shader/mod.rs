@@ -22,9 +22,6 @@ pub use variable_type::*;
 mod source;
 pub use source::*;
 
-mod global_variable_register;
-pub use global_variable_register::*;
-
 #[cfg(test)]
 mod tests;
 
