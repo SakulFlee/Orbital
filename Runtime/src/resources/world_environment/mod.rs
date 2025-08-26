@@ -2,7 +2,6 @@ use cgmath::Vector2;
 use image::{GenericImageView, ImageReader};
 use log::{debug, info, warn};
 use std::error::Error;
-use std::ops::Deref;
 use std::sync::OnceLock;
 use std::{
     hash::{DefaultHasher, Hash, Hasher},
@@ -21,7 +20,7 @@ use wgpu::{
 };
 
 use crate::mip_level::max_mip_level;
-use crate::resources::{FilterMode, MaterialShader, Texture, TextureSize};
+use crate::resources::{FilterMode, IblBrdf, MaterialShader, Texture, TextureSize};
 
 mod error;
 pub use error::*;
@@ -802,5 +801,17 @@ impl WorldEnvironment {
             ibl_specular_data,
         };
         cache_file.to_path(cache_path)
+    }
+
+    pub fn ibl_diffuse(&self) -> &Texture {
+        &self.ibl_diffuse
+    }
+
+    pub fn ibl_specular(&self) -> &Texture {
+        &self.ibl_specular
+    }
+
+    pub fn material_shader(&self) -> &MaterialShader {
+        &self.material_shader
     }
 }
