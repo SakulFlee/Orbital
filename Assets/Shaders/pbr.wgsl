@@ -1,4 +1,3 @@
-
 const PI: f32 = 3.14159265359; 
 const F0_DEFAULT: f32 = 0.04;
 
@@ -75,6 +74,15 @@ struct PBRData {
 
 @group(0) @binding(0) var<uniform> camera: CameraUniform;
 
+@group(0) @binding(1) var diffuse_env_map: texture_cube<f32>;
+@group(0) @binding(2) var diffuse_sampler: sampler;
+
+@group(0) @binding(3) var specular_env_map: texture_cube<f32>;
+@group(0) @binding(4) var specular_sampler: sampler;
+
+@group(0) @binding(5) var ibl_brdf_lut_texture: texture_2d<f32>;
+@group(0) @binding(6) var ibl_brdf_lut_sampler: sampler;
+
 @group(1) @binding(0) var normal_texture: texture_2d<f32>;
 @group(1) @binding(1) var normal_sampler: sampler;
 
@@ -97,14 +105,8 @@ struct PBRData {
 
 //@group(2) @binding(6) var<storage> point_light_store: array<PointLight>; // reserved, later
 
-@group(2) @binding(0) var diffuse_env_map: texture_cube<f32>;
-@group(2) @binding(1) var diffuse_sampler: sampler;
 
-@group(2) @binding(2) var specular_env_map: texture_cube<f32>;
-@group(2) @binding(3) var specular_sampler: sampler;
 
-@group(2) @binding(4) var ibl_brdf_lut_texture: texture_2d<f32>;
-@group(2) @binding(5) var ibl_brdf_lut_sampler: sampler;
 
 @vertex
 fn entrypoint_vertex(
