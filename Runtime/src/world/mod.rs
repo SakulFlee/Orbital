@@ -71,7 +71,7 @@ impl World {
                     visibility: ShaderStages::all(),
                     ty: BindingType::Texture {
                         sample_type: TextureSampleType::Float { filterable: false },
-                        view_dimension: TextureViewDimension::D2,
+                        view_dimension: TextureViewDimension::Cube,
                         multisampled: false,
                     },
                     count: None,
@@ -88,7 +88,7 @@ impl World {
                     visibility: ShaderStages::all(),
                     ty: BindingType::Texture {
                         sample_type: TextureSampleType::Float { filterable: false },
-                        view_dimension: TextureViewDimension::D2,
+                        view_dimension: TextureViewDimension::Cube,
                         multisampled: false,
                     },
                     count: None,
