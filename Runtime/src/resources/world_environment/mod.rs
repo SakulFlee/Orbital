@@ -206,7 +206,8 @@ impl WorldEnvironment {
         };
 
         if write_to_cache {
-            s.write_to_cache(&cache_file, device, queue);
+            s.write_to_cache(&cache_file, device, queue)
+                .expect("Failed to write to cache!");
         }
 
         Ok(s)
