@@ -24,7 +24,7 @@ standard_app_detect_no_more_elements = []
 glob = "0.3.1"
 
 [dependencies]
-wgpu = { version = "26.0.0", features = [
+wgpu = { version = "26.0.1", features = [
     "angle",
     "dx12",
     "glsl",
