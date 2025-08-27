@@ -26,7 +26,7 @@ impl EngineBindGroupLayout {
                     visibility: ShaderStages::all(),
                     ty: BindingType::Texture {
                         sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                        view_dimension: TextureViewDimension::D2,
+                        view_dimension: TextureViewDimension::Cube,
                         multisampled: false,
                     },
                     count: None,
@@ -43,7 +43,7 @@ impl EngineBindGroupLayout {
                     visibility: ShaderStages::all(),
                     ty: BindingType::Texture {
                         sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                        view_dimension: TextureViewDimension::D2,
+                        view_dimension: TextureViewDimension::Cube,
                         multisampled: false,
                     },
                     count: None,
@@ -60,7 +60,7 @@ impl EngineBindGroupLayout {
                     visibility: ShaderStages::all(),
                     ty: BindingType::Texture {
                         sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                        view_dimension: TextureViewDimension::D2,
+                        view_dimension: TextureViewDimension::Cube,
                         multisampled: false,
                     },
                     count: None,
