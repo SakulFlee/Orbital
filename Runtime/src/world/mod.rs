@@ -71,7 +71,7 @@ impl World {
                     visibility: ShaderStages::all(),
                     ty: BindingType::Texture {
                         sample_type: TextureSampleType::Float { filterable: false },
-                        view_dimension: TextureViewDimension::Cube,
+                        view_dimension: TextureViewDimension::D2,
                         multisampled: false,
                     },
                     count: None,
@@ -79,7 +79,7 @@ impl World {
                 BindGroupLayoutEntry {
                     binding: 2,
                     visibility: ShaderStages::all(),
-                    ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
                 },
                 // IBL Specular
@@ -88,7 +88,7 @@ impl World {
                     visibility: ShaderStages::all(),
                     ty: BindingType::Texture {
                         sample_type: TextureSampleType::Float { filterable: false },
-                        view_dimension: TextureViewDimension::Cube,
+                        view_dimension: TextureViewDimension::D2,
                         multisampled: false,
                     },
                     count: None,
@@ -96,7 +96,7 @@ impl World {
                 BindGroupLayoutEntry {
                     binding: 4,
                     visibility: ShaderStages::all(),
-                    ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
                 },
                 // IBL BRDF
@@ -113,7 +113,7 @@ impl World {
                 BindGroupLayoutEntry {
                     binding: 6,
                     visibility: ShaderStages::all(),
-                    ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
                 },
             ],
