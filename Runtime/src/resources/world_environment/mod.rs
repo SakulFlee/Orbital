@@ -197,13 +197,7 @@ impl WorldEnvironment {
             }
         };
 
-        let shader = Self::make_material_shader(
-            &pbr_ibl_diffuse,
-            &pbr_ibl_specular,
-            surface_texture_format,
-            device,
-            queue,
-        )?;
+        let shader = Self::make_material_shader(surface_texture_format, device, queue)?;
 
         let s = Self {
             ibl_diffuse: pbr_ibl_diffuse,
@@ -734,20 +728,7 @@ impl WorldEnvironment {
         (ibl_diffuse_descriptor, ibl_specular_descriptor)
     }
 
-    pub fn make_material_shader_descriptor(
-        ibl_diffuse_texture: &Texture,
-        ibl_specular_texture: &Texture,
-        device: &Device,
-        queue: &Queue,
-    ) -> MaterialShaderDescriptor {
-        let (ibl_diffuse_descriptor, ibl_specular_descriptor) =
-            Self::textures_to_texture_descriptors(
-                ibl_diffuse_texture,
-                ibl_specular_texture,
-                device,
-                queue,
-            );
-
+    pub fn make_material_shader_descriptor() -> MaterialShaderDescriptor {
         MaterialShaderDescriptor {
             name: Some(String::from("WorldEnvironment MaterialShader")),
             shader_source: ShaderSource::String(include_str!("material_shader.wgsl")),
@@ -760,18 +741,11 @@ impl WorldEnvironment {
     }
 
     fn make_material_shader(
-        ibl_diffuse_texture: &Texture,
-        ibl_specular_texture: &Texture,
         surface_texture_format: Option<TextureFormat>,
         device: &Device,
         queue: &Queue,
     ) -> Result<MaterialShader, Box<dyn Error>> {
-        let descriptor = Self::make_material_shader_descriptor(
-            ibl_diffuse_texture,
-            ibl_specular_texture,
-            device,
-            queue,
-        );
+        let descriptor = Self::make_material_shader_descriptor();
 
         MaterialShader::from_descriptor(&descriptor, surface_texture_format, device, queue)
     }
