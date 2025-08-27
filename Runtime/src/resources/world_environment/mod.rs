@@ -751,18 +751,7 @@ impl WorldEnvironment {
         MaterialShaderDescriptor {
             name: Some(String::from("WorldEnvironment MaterialShader")),
             shader_source: ShaderSource::String(include_str!("material_shader.wgsl")),
-            variables: vec![
-                VariableType::Texture {
-                    descriptor: ibl_diffuse_descriptor,
-                    sample_type: TextureSampleType::Float { filterable: false },
-                    sampler_binding_type: SamplerBindingType::NonFiltering,
-                },
-                VariableType::Texture {
-                    descriptor: ibl_specular_descriptor,
-                    sample_type: TextureSampleType::Float { filterable: false },
-                    sampler_binding_type: SamplerBindingType::NonFiltering,
-                },
-            ],
+            variables: vec![],
             depth_stencil: false,
             vertex_stage_layouts: None,
             cull_mode: None,
