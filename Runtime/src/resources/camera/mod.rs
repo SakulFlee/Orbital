@@ -44,7 +44,7 @@ impl Camera {
                 mem::size_of::<f32>() * 4 * 4 +
                 // global_gamma:
                 mem::size_of::<f32>() +
-                // skybox_gamma:
+                // sky_box_gamma:
                 mem::size_of::<f32>() +
                 // Padding ... This should align the buffer to 288.
                 12
