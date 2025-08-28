@@ -16,9 +16,6 @@ pub use descriptor::*;
 mod vertex_stage_layout;
 pub use vertex_stage_layout::*;
 
-mod engine_bind_group_layout;
-pub use engine_bind_group_layout::*;
-
 #[cfg(test)]
 mod tests;
 
