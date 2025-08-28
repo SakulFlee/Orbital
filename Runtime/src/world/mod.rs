@@ -4,11 +4,10 @@ use std::time::{Duration, Instant};
 use crate::element::{CameraEvent, ModelEvent, WorldEvent};
 use crate::importer::Importer;
 use crate::resources::{
-    Camera, CameraDescriptor, IblBrdf, MaterialShader, Model, Texture, WorldEnvironment,
+    Camera, CameraDescriptor, IblBrdf, Model, Texture, WorldEnvironment,
 };
 use cgmath::Vector2;
-use log::{debug, warn};
-use wgpu::wgc::id::TextureViewId;
+use log::debug;
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BindingResource, BindingType, BufferBindingType, Device, Queue,
@@ -18,8 +17,6 @@ use wgpu::{
 
 mod store;
 pub use store::*;
-
-static IBL_BRDF_CELL: OnceLock<IblBrdf> = OnceLock::new();
 
 pub struct World {
     model_store: ModelStore,

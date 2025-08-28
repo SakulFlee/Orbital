@@ -1,6 +1,5 @@
 use cgmath::Vector2;
 
-use crate::resources::{MaterialShader, MaterialShaderDescriptor};
 
 use super::SamplingType;
 

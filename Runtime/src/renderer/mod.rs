@@ -5,7 +5,7 @@ use wgpu::{
     RenderPassDescriptor, StoreOp, TextureFormat, TextureView,
 };
 
-use crate::resources::{world_environment, MaterialShader, Model, Texture, WorldEnvironment};
+use crate::resources::{MaterialShader, Model, Texture, WorldEnvironment};
 
 pub struct Renderer {
     surface_texture_format: TextureFormat,
