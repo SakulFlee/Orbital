@@ -1,6 +1,5 @@
 use cgmath::Vector2;
 
-
 use super::SamplingType;
 
 #[derive(Debug, Clone, Hash, Eq)]

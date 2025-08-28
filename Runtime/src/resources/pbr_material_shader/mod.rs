@@ -1,7 +1,7 @@
 use cgmath::{Vector3, Zero};
 use wgpu::{
-    SamplerBindingType, TextureDimension, TextureFormat,
-    TextureSampleType, TextureUsages, TextureViewDimension,
+    SamplerBindingType, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+    TextureViewDimension,
 };
 
 use crate::resources::{
