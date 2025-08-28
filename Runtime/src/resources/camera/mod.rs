@@ -21,7 +21,6 @@ mod tests;
 
 #[derive(Debug)]
 pub struct Camera {
-    camera_bind_group: BindGroup,
     camera_buffer: Buffer,
     // frustum_bind_group: BindGroup,
     // frustum_buffer: Buffer,
@@ -68,15 +67,6 @@ impl Camera {
                 }],
             });
 
-        let camera_bind_group = device.create_bind_group(&BindGroupDescriptor {
-            label: Some("Camera Bind Group"),
-            layout: &camera_bind_group_layout,
-            entries: &[BindGroupEntry {
-                binding: 0,
-                resource: camera_buffer.as_entire_binding(),
-            }],
-        });
-
         // let frustum_buffer = device.create_buffer(&BufferDescriptor {
         //     label: Some("Camera Buffer"),
         //     size: (
@@ -120,7 +110,6 @@ impl Camera {
         // });
 
         let mut camera = Self {
-            camera_bind_group,
             camera_buffer,
             // frustum_bind_group,
             // frustum_buffer,
@@ -343,10 +332,6 @@ impl Camera {
             descriptor.near,
             descriptor.far,
         )
-    }
-
-    pub fn camera_bind_group(&self) -> &BindGroup {
-        &self.camera_bind_group
     }
 
     pub fn camera_buffer(&self) -> &Buffer {
