@@ -94,7 +94,7 @@ impl CameraStore {
     pub fn flag_realization(&mut self, ids: Vec<u128>, update_existing: bool) {
         for id in ids {
             if self.cache_realizations.contains_key(&id) && !update_existing {
-                // Skip any existing realisations if we aren't updating existing entries.
+                // Skip any existing realizations if we aren't updating existing entries.
                 continue;
             }
 
