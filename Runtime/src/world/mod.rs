@@ -322,7 +322,6 @@ impl World {
             panic!("Failed to realize environment: {e}");
         }
 
-        self.world_bind_group = None;
         if self.world_bind_group.is_none() {
             self.recreate_bind_group(device, queue);
         }
