@@ -1,6 +1,6 @@
 use cgmath::{Vector3, Zero};
 use wgpu::{
-    rwh::WebOffscreenCanvasWindowHandle, SamplerBindingType, TextureDimension, TextureFormat,
+    SamplerBindingType, TextureDimension, TextureFormat,
     TextureSampleType, TextureUsages, TextureViewDimension,
 };
 

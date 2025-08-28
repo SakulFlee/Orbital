@@ -1,12 +1,11 @@
-use image::imageops::FilterType::CatmullRom;
-use wgpu::{NoopBackendOptions, PolygonMode, PrimitiveTopology};
+use wgpu::{PolygonMode, PrimitiveTopology};
 
 use crate::resources::{MaterialShaderDescriptor, ShaderSource, VertexStageLayout};
 
 pub struct DebugMaterialShader;
 
-impl Into<MaterialShaderDescriptor> for DebugMaterialShader {
-    fn into(self) -> MaterialShaderDescriptor {
+impl From<DebugMaterialShader> for MaterialShaderDescriptor {
+    fn from(val: DebugMaterialShader) -> Self {
         MaterialShaderDescriptor {
             name: Some("Debug Material Shader".to_string()),
             shader_source: ShaderSource::Path("Assets/Shaders/old/wireframe.wgsl"),

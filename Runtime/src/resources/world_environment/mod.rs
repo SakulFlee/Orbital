@@ -2,7 +2,6 @@ use cgmath::Vector2;
 use image::{GenericImageView, ImageReader};
 use log::{debug, info, warn};
 use std::error::Error;
-use std::sync::OnceLock;
 use std::{
     hash::{DefaultHasher, Hash, Hasher},
     path::PathBuf,
@@ -20,7 +19,7 @@ use wgpu::{
 };
 
 use crate::mip_level::max_mip_level;
-use crate::resources::{FilterMode, IblBrdf, MaterialShader, Texture, TextureSize};
+use crate::resources::{FilterMode, MaterialShader, Texture, TextureSize};
 
 mod error;
 pub use error::*;
@@ -37,7 +36,7 @@ pub use sampling_type::*;
 mod descriptor;
 pub use descriptor::*;
 
-use super::{MaterialShaderDescriptor, ShaderSource, TextureDescriptor, VariableType};
+use super::{MaterialShaderDescriptor, ShaderSource, TextureDescriptor};
 
 #[cfg(test)]
 mod tests;
@@ -156,7 +155,7 @@ impl WorldEnvironment {
         descriptor.hash(&mut hasher);
         let hash = hasher.finish().to_string();
 
-        return cache_dir.join(format!("{hash}.bin"));
+        cache_dir.join(format!("{hash}.bin"))
     }
 
     pub fn from_descriptor(

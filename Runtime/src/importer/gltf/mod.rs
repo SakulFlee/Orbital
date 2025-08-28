@@ -343,7 +343,7 @@ impl GltfImporter {
 
         for chunk in data.pixels.chunks(source_channels) {
             // First channel (Red)
-            if chunk.len() > 0 {
+            if !chunk.is_empty() {
                 pixels_0.push(chunk[0]);
             }
             // Second channel (Green)
