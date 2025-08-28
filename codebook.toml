@@ -4,5 +4,6 @@ words = [
     "hdri",
     "ibl",
     "mip",
+    "wgpu",
     "wgsl",
 ]
