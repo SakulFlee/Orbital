@@ -3,9 +3,7 @@ use std::time::{Duration, Instant};
 
 use crate::element::{CameraEvent, ModelEvent, WorldEvent};
 use crate::importer::Importer;
-use crate::resources::{
-    Camera, CameraDescriptor, IblBrdf, Model, Texture, WorldEnvironment,
-};
+use crate::resources::{Camera, CameraDescriptor, IblBrdf, Model, Texture, WorldEnvironment};
 use cgmath::Vector2;
 use log::debug;
 use wgpu::{

@@ -219,7 +219,12 @@ impl GltfImporter {
         let (format, need_alpha_channel) = Self::gltf_texture_format_to_orbital(data.format);
 
         // Debug log to verify the determined format
-        log::debug!("Parsing texture: glTF format {:?} -> Orbital format {:?}, need_alpha: {}", data.format, format, need_alpha_channel);
+        log::debug!(
+            "Parsing texture: glTF format {:?} -> Orbital format {:?}, need_alpha: {}",
+            data.format,
+            format,
+            need_alpha_channel
+        );
 
         // The `pixels` data to be uploaded. Initialize with original data.
         let (pixel_data, width, height) = if need_alpha_channel {
@@ -231,7 +236,7 @@ impl GltfImporter {
             // Standard assumption: Add an opaque alpha channel (255).
             let original_width = data.width;
             let original_height = data.height;
-            
+
             // Calculate the number of channels in the source format
             let source_channels = match data.format {
                 Format::R8 => 1,
@@ -248,11 +253,11 @@ impl GltfImporter {
                 // These shouldn't happen when need_alpha_channel is true, but just in case:
                 Format::R32G32B32A32FLOAT => 4,
             };
-            
+
             // Calculate expected pixel count
             let pixel_count = (data.pixels.len() / source_channels) as u32;
             let expected_pixel_count = original_width * original_height;
-            
+
             // Validate that we have the correct amount of data
             if pixel_count != expected_pixel_count {
                 log::warn!(
@@ -265,7 +270,7 @@ impl GltfImporter {
                     source_channels
                 );
             }
-            
+
             let mut processed_pixels = Vec::with_capacity(data.pixels.len() / source_channels * 4);
             // Iterate through chunks based on the source channel count
             for chunk in data.pixels.chunks(source_channels) {
@@ -280,9 +285,10 @@ impl GltfImporter {
                 // Add full alpha (255)
                 processed_pixels.push(255u8);
             }
-            
+
             // Debug log to verify the processed data size
-            let expected_processed_size = (original_width as usize) * (original_height as usize) * 4;
+            let expected_processed_size =
+                (original_width as usize) * (original_height as usize) * 4;
             if processed_pixels.len() != expected_processed_size {
                 log::warn!(
                     "Processed texture data size mismatch: expected {} bytes ({}x{}x4), got {} bytes",
@@ -292,7 +298,7 @@ impl GltfImporter {
                     processed_pixels.len()
                 );
             }
-            
+
             (processed_pixels, original_width, original_height)
         } else {
             // No processing needed, use the original data.
@@ -309,7 +315,9 @@ impl GltfImporter {
                 base_mip: 0,
                 mip_levels: 1, // glTF image data is typically just the base mip level
             },
-            usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST | TextureUsages::RENDER_ATTACHMENT, // Ensure required usages for textures
+            usages: TextureUsages::TEXTURE_BINDING
+                | TextureUsages::COPY_DST
+                | TextureUsages::RENDER_ATTACHMENT, // Ensure required usages for textures
             format,
             // Determine dimension based on data. For glTF images, D2 is standard.
             texture_dimension: TextureDimension::D2,
@@ -337,7 +345,7 @@ impl GltfImporter {
             Format::R32G32B32FLOAT => 3,
             Format::R32G32B32A32FLOAT => 4,
         };
-        
+
         let mut pixels_0 = Vec::with_capacity(data.pixels.len() / source_channels);
         let mut pixels_1 = Vec::with_capacity(data.pixels.len() / source_channels);
 
@@ -369,7 +377,9 @@ impl GltfImporter {
                 base_mip: 0,
                 mip_levels: 1,
             },
-            usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST | TextureUsages::RENDER_ATTACHMENT,
+            usages: TextureUsages::TEXTURE_BINDING
+                | TextureUsages::COPY_DST
+                | TextureUsages::RENDER_ATTACHMENT,
             format: actual_format,
             texture_dimension: TextureDimension::D2,
             texture_view_dimension: TextureViewDimension::D2,
@@ -384,7 +394,9 @@ impl GltfImporter {
                 base_mip: 0,
                 mip_levels: 1,
             },
-            usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST | TextureUsages::RENDER_ATTACHMENT,
+            usages: TextureUsages::TEXTURE_BINDING
+                | TextureUsages::COPY_DST
+                | TextureUsages::RENDER_ATTACHMENT,
             format: actual_format,
             texture_dimension: TextureDimension::D2,
             texture_view_dimension: TextureViewDimension::D2,
