@@ -8,6 +8,7 @@ use wgpu::{
 };
 
 pub use crate::resources::shader::{ShaderDescriptor, ShaderError, Variables};
+use crate::world::World;
 
 mod descriptor;
 pub use descriptor::*;
@@ -47,7 +48,7 @@ impl MaterialShader {
 
         let engine_bind_group_layout_once = OnceLock::new();
         let engine_bind_group_layout = engine_bind_group_layout_once
-            .get_or_init(|| EngineBindGroupLayout::make_bind_group_layout(device));
+            .get_or_init(|| World::make_world_bind_group_layout(device));
 
         let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: descriptor.name.as_deref(),
