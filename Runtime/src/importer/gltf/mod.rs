@@ -565,8 +565,9 @@ impl GltfImporter {
                     let handedness = tangent_raw[3]; // w component defines handedness
                     
                     // Calculate bitangent using the normal and tangent with correct handedness
-                    // Bitangent = cross(tangent, normal) * handedness
-                    let calculated_bitangent = tangent_vec.cross(normal) * handedness;
+                    // Bitangent = cross(normal, tangent) * handedness
+                    // Note: The correct formula is cross(normal, tangent), not cross(tangent, normal)
+                    let calculated_bitangent = normal.cross(tangent_vec) * handedness;
                     (tangent_vec, calculated_bitangent)
                 } else {
                     // When tangent is missing, we'll compute it based on UV gradients
@@ -578,7 +579,7 @@ impl GltfImporter {
                 let uv = uvs_vec
                     .as_ref()
                     .and_then(|uvs| uvs.get(i))
-                    .map(|uv| Vector2::new(uv.x, 1.0 - uv.y)) // Flip V coordinate
+                    .map(|uv| Vector2::new(uv.x, uv.y)) // No V coordinate flipping needed for glTF
                     .unwrap_or_else(|| {
                         warn!("UV missing for vertex {i}. Using default!");
                         Vector2::zero()
@@ -589,9 +590,23 @@ impl GltfImporter {
                 vertices.push(vertex);
             }
 
+            // Collect indices into a vector first
+            let indices_vec: Vec<u32> = indices.collect();
+            
+            // Flip the winding order of indices to account for coordinate system conversion
+            let mut indices_flipped = Vec::new();
+            for i in (0..indices_vec.len()).step_by(3) {
+                if i + 2 < indices_vec.len() {
+                    // Flip the triangle winding order
+                    indices_flipped.push(indices_vec[i]);
+                    indices_flipped.push(indices_vec[i + 2]);
+                    indices_flipped.push(indices_vec[i + 1]);
+                }
+            }
+
             let mesh_descriptor = MeshDescriptor {
                 vertices,
-                indices: indices.collect(),
+                indices: indices_flipped,
             };
             let material = Self::parse_materials(&primitive.material(), textures);
 
