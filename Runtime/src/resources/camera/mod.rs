@@ -100,7 +100,7 @@ impl Camera {
             // frustum_bind_group,
             // frustum_buffer,
         };
-        camera.write_buffer(&descriptor, queue);
+        camera.update_buffer(&descriptor, queue);
         camera
     }
 
@@ -179,7 +179,7 @@ impl Camera {
     //     Self::frustum_to_bytes(&frustum_planes)
     // }
 
-    fn write_buffer(&mut self, descriptor: &CameraDescriptor, queue: &Queue) {
+    pub fn update_buffer(&mut self, descriptor: &CameraDescriptor, queue: &Queue) {
         let view_projection_matrix = self.calculate_view_projection_matrix(descriptor);
         let perspective_projection_matrix =
             self.calculate_perspective_projection_matrix(descriptor);
