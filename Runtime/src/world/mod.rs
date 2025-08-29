@@ -27,14 +27,6 @@ pub struct World {
     /// > This may also be called _World_ [`BindGroup`]!
     ///
     /// Any relevant _Engine_ resources, such as the Camera and IBL, are contained here.
-    ///
-    /// # Option<_>
-    /// If this field is set to `None`, we cannot render at the moment.
-    /// The [`BindGroup`] has to be remade.
-    /// This will be necessary if a underlying resource is switched out.
-    /// For example, if a [`Camera`] gets switched out, not just moved around.
-    ///
-    /// If this file is set to `Some(_)`, we can render, no further updating required.
     world_bind_group: Option<BindGroup>,
 }
 
@@ -322,9 +314,7 @@ impl World {
             panic!("Failed to realize environment: {e}");
         }
 
-        if self.world_bind_group.is_none() {
-            self.recreate_bind_group(device, queue);
-        }
+        self.recreate_bind_group(device, queue);
     }
 
     pub fn retrieve_render_resources(
