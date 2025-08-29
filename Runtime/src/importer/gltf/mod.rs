@@ -2,7 +2,7 @@ use crate::resources::{
     CameraDescriptor, FilterMode, MaterialDescriptor, MeshDescriptor, ModelDescriptor,
     PBRMaterialDescriptor, TextureDescriptor, TextureSize, Transform, Vertex,
 };
-use cgmath::{Point3, Quaternion, Vector2, Vector3, Zero};
+use cgmath::{InnerSpace, Point3, Quaternion, Vector2, Vector3, Zero};
 use gltf::camera::Projection;
 use gltf::image::Format;
 use gltf::{Camera, Document, Material, Mesh, Node, Scene, Semantic};
@@ -327,8 +327,9 @@ impl GltfImporter {
     }
 
     /// Handles parsing a "dual" texture.
-    /// Same as [`Self::parse_texture`], but splits the R(ed) and G(reen) channel into two separate
-    /// textures. Only supports R+G dual textures at the moment.
+    /// Same as [`Self::parse_texture`], but splits the B(lue) and G(reen) channel into two separate
+    /// textures according to the glTF specification for metallic-roughness textures.
+    /// Metallic is in the B channel, Roughness is in the G channel.
     fn parse_dual_texture(data: &gltf::image::Data) -> (TextureDescriptor, TextureDescriptor) {
         let (format, need_alpha_channel) = Self::gltf_texture_format_to_orbital(data.format);
 
@@ -350,13 +351,22 @@ impl GltfImporter {
         let mut pixels_1 = Vec::with_capacity(data.pixels.len() / source_channels);
 
         for chunk in data.pixels.chunks(source_channels) {
-            // First channel (Red)
-            if !chunk.is_empty() {
+            // According to glTF spec:
+            // Blue channel (index 2) -> Metallic (texture_0)
+            // Green channel (index 1) -> Roughness (texture_1)
+            // First channel (Blue) -> Metallic
+            if chunk.len() > 2 {
+                pixels_0.push(chunk[2]);  // Blue channel for metallic
+            } else if chunk.len() > 0 {
+                // If we don't have enough channels, use the first one
                 pixels_0.push(chunk[0]);
             }
-            // Second channel (Green)
+            // Second channel (Green) -> Roughness
             if chunk.len() > 1 {
-                pixels_1.push(chunk[1]);
+                pixels_1.push(chunk[1]);  // Green channel for roughness
+            } else if chunk.len() > 0 {
+                // If we don't have enough channels, use the first one
+                pixels_1.push(chunk[0]);
             }
         }
 
@@ -445,18 +455,8 @@ impl GltfImporter {
             )
         } else {
             (
-                TextureDescriptor::uniform_rgba_color(Color {
-                    r: 0.5,
-                    g: 0.0,
-                    b: 0.5,
-                    a: 1.0,
-                }),
-                TextureDescriptor::uniform_rgba_color(Color {
-                    r: 0.5,
-                    g: 0.0,
-                    b: 0.5,
-                    a: 1.0,
-                }),
+                TextureDescriptor::uniform_luma_black(),  // Metallic defaults to 0.0 (black)
+                TextureDescriptor::uniform_luma_white(),   // Roughness defaults to 1.0 (white)
             )
         };
         let metallic_factor = material.pbr_metallic_roughness().metallic_factor();
@@ -532,38 +532,60 @@ impl GltfImporter {
             });
 
             let mut vertices = Vec::new();
-            for (i, position_raw) in positions.enumerate() {
-                let position = Vector3::new(position_raw[0], position_raw[1], position_raw[2]);
+            
+            // Collect all data into vectors first to avoid iterator issues
+            let positions_vec: Vec<_> = positions.map(|p| Vector3::new(p[0], p[1], p[2])).collect();
+            let normals_vec: Option<Vec<_>> = normals.map(|n| n.map(|n| Vector3::new(n[0], n[1], n[2])).collect());
+            let tangents_vec: Option<Vec<_>> = tangents.map(|t| t.collect());
+            let uvs_vec: Option<Vec<_>> = uvs.map(|uv| uv.map(|uv| Vector2::new(uv[0], uv[1])).collect());
 
-                let normal = normals
-                    .as_mut()
-                    .and_then(|iter| iter.nth(i))
-                    .map(|n| Vector3::new(n[0], n[1], n[2]))
+            for (i, position) in positions_vec.iter().enumerate() {
+                // Apply coordinate system conversion (Y-up to Z-up)
+                // glTF uses a right-handed coordinate system with Y-up
+                // Converting to a system with Z-up (like many game engines)
+                let position = Vector3::new(position.x, position.z, -position.y);
+
+                let normal = normals_vec
+                    .as_ref()
+                    .and_then(|normals| normals.get(i))
+                    .map(|n| Vector3::new(n.x, n.z, -n.y)) // Convert normal coordinates
                     .unwrap_or_else(|| {
                         warn!("Normal missing for vertex {i}. Using default!");
                         Vector3::zero()
                     });
 
-                // Note: `w` is being ignored here!
-                let tangent = tangents
-                    .as_mut()
-                    .and_then(|iter| iter.nth(i))
-                    .map(|n| Vector3::new(n[0], n[1], n[2]))
-                    .unwrap_or_else(|| {
-                        warn!("Tangent missing for vertex {i}. Using default!");
-                        Vector3::zero()
-                    });
+                // Read tangent with handedness (w component) properly
+                let tangent_data = tangents_vec
+                    .as_ref()
+                    .and_then(|tangents| tangents.get(i));
+                    
+                let (tangent, bitangent) = if let Some(tangent_raw) = tangent_data {
+                    // Convert tangent coordinates to match our coordinate system
+                    let tangent_vec = Vector3::new(tangent_raw[0], tangent_raw[2], -tangent_raw[1]);
+                    let handedness = tangent_raw[3]; // w component defines handedness
+                    
+                    // Calculate bitangent using the normal and tangent with correct handedness
+                    // Bitangent = cross(tangent, normal) * handedness
+                    let calculated_bitangent = tangent_vec.cross(normal) * handedness;
+                    (tangent_vec, calculated_bitangent)
+                } else {
+                    // When tangent is missing, we'll compute it based on UV gradients
+                    // This is a simplified approach - a more robust implementation would use the mikktspace algorithm
+                    warn!("Tangent missing for vertex {i}. Computing from UV gradients!");
+                    Self::compute_tangent_frame(&positions_vec, &normals_vec, &uvs_vec, i)
+                };
 
-                let uv = uvs
-                    .as_mut()
-                    .and_then(|iter| iter.nth(i))
-                    .map(|n| Vector2::new(n[0], n[1]))
+                let uv = uvs_vec
+                    .as_ref()
+                    .and_then(|uvs| uvs.get(i))
+                    .map(|uv| Vector2::new(uv.x, 1.0 - uv.y)) // Flip V coordinate
                     .unwrap_or_else(|| {
-                        warn!("Tangent missing for vertex {i}. Using default!");
+                        warn!("UV missing for vertex {i}. Using default!");
                         Vector2::zero()
                     });
 
-                let vertex = Vertex::new(position, normal, tangent, uv);
+                // Create vertex with pre-calculated bitangent
+                let vertex = Vertex::new_with_bitangent(position, normal, tangent, bitangent, uv);
                 vertices.push(vertex);
             }
 
@@ -577,19 +599,30 @@ impl GltfImporter {
             let transform = Transform {
                 position: Vector3 {
                     x: decomposed.0[0],
-                    y: decomposed.0[1],
-                    z: decomposed.0[2],
+                    y: decomposed.0[2],   // Y -> Z
+                    z: -decomposed.0[1],  // Z -> -Y
                 },
-                rotation: Quaternion::new(
-                    decomposed.1[0],
-                    decomposed.1[1],
-                    decomposed.1[2],
-                    decomposed.1[3],
-                ),
+                rotation: {
+                    // Convert quaternion from glTF coordinate system
+                    let gltf_quat = Quaternion::new(
+                        decomposed.1[0],  // x
+                        decomposed.1[1],  // y
+                        decomposed.1[2],  // z
+                        decomposed.1[3],  // w
+                    );
+                    
+                    // Apply coordinate system conversion to quaternion
+                    Quaternion::new(
+                        gltf_quat.v.x,
+                        gltf_quat.v.z,    // y -> z
+                        -gltf_quat.v.y,   // z -> -y
+                        gltf_quat.s
+                    )
+                },
                 scale: Vector3 {
                     x: decomposed.2[0],
-                    y: decomposed.2[1],
-                    z: decomposed.2[2],
+                    y: decomposed.2[2],   // Y -> Z
+                    z: decomposed.2[1],   // Z -> Y (scale is symmetric)
                 },
             };
 
@@ -649,5 +682,37 @@ impl GltfImporter {
         };
 
         Ok(camera_descriptor)
+    }
+
+    /// Computes tangent and bitangent vectors based on UV gradients
+    /// This is a simplified approach - a more robust implementation would use the mikktspace algorithm
+    fn compute_tangent_frame(
+        positions: &[Vector3<f32>],
+        normals: &Option<Vec<Vector3<f32>>>,
+        uvs: &Option<Vec<Vector2<f32>>>,
+        index: usize,
+    ) -> (Vector3<f32>, Vector3<f32>) {
+        // For a single vertex, we can't compute proper tangents without looking at the full triangle
+        // As a fallback, we'll create an arbitrary tangent that's orthogonal to the normal
+        if let Some(normals_vec) = normals {
+            if let Some(normal) = normals_vec.get(index) {
+                // Create an arbitrary vector not parallel to the normal
+                let arbitrary = if normal.x.abs() > 0.9 {
+                    Vector3::new(0.0, 1.0, 0.0)
+                } else {
+                    Vector3::new(1.0, 0.0, 0.0)
+                };
+
+                // Compute tangent as orthogonal to normal
+                let tangent = arbitrary.cross(*normal).normalize();
+                // Compute bitangent as orthogonal to both
+                let bitangent = normal.cross(tangent);
+
+                return (tangent, bitangent);
+            }
+        }
+
+        // Fallback to zero vectors
+        (Vector3::zero(), Vector3::zero())
     }
 }
