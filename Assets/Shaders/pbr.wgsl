@@ -132,8 +132,8 @@ fn entrypoint_vertex(
     // Actual position in world (no perspective)
     out.world_position = world_position.xyz;
 
-    // Transform UV
-    out.uv = (model_space_matrix * vec4<f32>(vertex.uv, 0.0, 0.0)).xy;
+    // Pass UV coordinates unchanged (they are 2D texture coordinates, not 3D positions)
+    out.uv = vertex.uv;
 
     // Transform Tangent
     out.tangent = (model_space_matrix * vec4<f32>(vertex.tangent, 0.0)).xyz;
@@ -166,6 +166,8 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     // Tonemap / HDR 
     let tone_mapped_color = aces_tone_map(output);
     return vec4<f32>(tone_mapped_color, 1.0);
+
+    return vec4<f32>(output, 1.0);
 }
 
 // Note: Unused in favor of ACES
