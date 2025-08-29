@@ -69,14 +69,7 @@ impl Renderer {
             );
         }
 
-        // self.render_models(
-        //     models,
-        //     target_view,
-        //     world_bind_group,
-        //     &mut command_encoder,
-        //     device,
-        //     queue,
-        // );
+        self.render_models(models, target_view, world_bind_group, &mut command_encoder);
 
         queue.submit(vec![command_encoder.finish()]);
     }
@@ -119,7 +112,6 @@ impl Renderer {
         &self,
         models: Vec<&Model>,
         target_view: &TextureView,
-        world_environment: Option<&WorldEnvironment>,
         world_bind_group: &BindGroup,
         command_encoder: &mut CommandEncoder,
     ) {
@@ -152,14 +144,6 @@ impl Renderer {
 
                 render_pass.set_bind_group(0, world_bind_group, &[]);
                 render_pass.set_bind_group(1, material.bind_group(), &[]);
-
-                if let Some(world_environment) = world_environment {
-                    render_pass.set_bind_group(
-                        2,
-                        world_environment.material_shader().bind_group(),
-                        &[],
-                    );
-                }
 
                 render_pass.set_vertex_buffer(0, model.mesh().vertex_buffer().slice(..));
                 render_pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
