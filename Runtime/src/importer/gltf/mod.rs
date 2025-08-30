@@ -674,7 +674,9 @@ impl GltfImporter {
                     (tangent_vec, calculated_bitangent)
                 } else {
                     // When tangent is missing, warn and use a robust generalized calculation
-                    warn!("Tangent missing for vertex {i}. Using generalized fallback calculation.");
+                    warn!(
+                        "Tangent missing for vertex {i}. Using generalized fallback calculation."
+                    );
                     // Use the new, more robust arbitrary tangent frame generator
                     tangent_utils::generate_arbitrary_tangent_frame(*normal)
                 };
@@ -717,8 +719,8 @@ impl GltfImporter {
             let transform = Transform {
                 position: Vector3 {
                     x: decomposed.0[0],
-                    y: decomposed.0[2],  // Y -> Z
-                    z: -decomposed.0[1], // Z -> -Y
+                    y: decomposed.0[1],
+                    z: decomposed.0[2],
                 },
                 rotation: {
                     // Convert quaternion from glTF coordinate system
@@ -730,17 +732,12 @@ impl GltfImporter {
                     );
 
                     // Apply coordinate system conversion to quaternion
-                    Quaternion::new(
-                        gltf_quat.v.x,
-                        gltf_quat.v.z,  // y -> z
-                        -gltf_quat.v.y, // z -> -y
-                        gltf_quat.s,
-                    )
+                    Quaternion::new(gltf_quat.v.x, gltf_quat.v.y, gltf_quat.v.z, gltf_quat.s)
                 },
                 scale: Vector3 {
                     x: decomposed.2[0],
-                    y: decomposed.2[2], // Y -> Z
-                    z: decomposed.2[1], // Z -> Y (scale is symmetric)
+                    y: decomposed.2[1],
+                    z: decomposed.2[2],
                 },
             };
 
