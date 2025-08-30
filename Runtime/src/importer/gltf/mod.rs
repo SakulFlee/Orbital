@@ -356,14 +356,14 @@ impl GltfImporter {
             // Green channel (index 1) -> Roughness (texture_1)
             // First channel (Blue) -> Metallic
             if chunk.len() > 2 {
-                pixels_0.push(chunk[2]);  // Blue channel for metallic
+                pixels_0.push(chunk[2]); // Blue channel for metallic
             } else if chunk.len() > 0 {
                 // If we don't have enough channels, use the first one
                 pixels_0.push(chunk[0]);
             }
             // Second channel (Green) -> Roughness
             if chunk.len() > 1 {
-                pixels_1.push(chunk[1]);  // Green channel for roughness
+                pixels_1.push(chunk[1]); // Green channel for roughness
             } else if chunk.len() > 0 {
                 // If we don't have enough channels, use the first one
                 pixels_1.push(chunk[0]);
@@ -427,45 +427,69 @@ impl GltfImporter {
             TextureDescriptor::uniform_luma_black()
         };
 
-        let albedo =
-            if let Some(albedo_info) = material.pbr_metallic_roughness().base_color_texture() {
-                Self::parse_texture(&textures[albedo_info.texture().source().index()])
-            } else {
-                TextureDescriptor::uniform_rgba_color(Color {
-                    r: 0.5,
-                    g: 0.0,
-                    b: 0.5,
-                    a: 1.0,
-                })
-            };
-        let albedo_factor_raw = material.pbr_metallic_roughness().base_color_factor();
-        // Note: Skipping 'w' here!
-        let albedo_factor = Vector3::new(
-            albedo_factor_raw[0],
-            albedo_factor_raw[1],
-            albedo_factor_raw[2],
-        );
-
-        let (metallic, roughness) = if let Some(metallic_and_roughness_info) = material
-            .pbr_metallic_roughness()
-            .metallic_roughness_texture()
+        // NOTE: 'W' (Opacity / Transparency) is skipped here!
+        let (albedo, albedo_factor) = if let Some(albedo_info) =
+            material.pbr_metallic_roughness().base_color_texture()
         {
-            Self::parse_dual_texture(
-                &textures[metallic_and_roughness_info.texture().source().index()],
-            )
+            let texture = Self::parse_texture(&textures[albedo_info.texture().source().index()]);
+            let factor = material.pbr_metallic_roughness().base_color_factor();
+            (texture, Vector3::new(factor[0], factor[1], factor[2]))
         } else {
-            (
-                TextureDescriptor::uniform_luma_black(),  // Metallic defaults to 0.0 (black)
-                TextureDescriptor::uniform_luma_white(),   // Roughness defaults to 1.0 (white)
-            )
+            let factor = material.pbr_metallic_roughness().base_color_factor();
+            let texture = TextureDescriptor::uniform_rgba_value(
+                factor[0] as f64,
+                factor[1] as f64,
+                factor[2] as f64,
+                factor[3] as f64,
+            );
+
+            (texture, Vector3::new(1.0, 1.0, 1.0))
         };
-        let metallic_factor = material.pbr_metallic_roughness().metallic_factor();
-        let roughness_factor = material.pbr_metallic_roughness().roughness_factor();
+
+        let (metallic, roughness, metallic_factor, roughness_factor) =
+            if let Some(metallic_and_roughness_info) = material
+                .pbr_metallic_roughness()
+                .metallic_roughness_texture()
+            {
+                // If a metallic & roughness texture is set, the factors will be needed to multiplied with the texture.
+
+                let (texture_descriptor_metallic, texture_descriptor_roughness) =
+                    Self::parse_dual_texture(
+                        &textures[metallic_and_roughness_info.texture().source().index()],
+                    );
+
+                let factor_metallic = material.pbr_metallic_roughness().metallic_factor();
+                let factor_roughness = material.pbr_metallic_roughness().roughness_factor();
+
+                (
+                    texture_descriptor_metallic,
+                    texture_descriptor_roughness,
+                    factor_metallic,
+                    factor_roughness,
+                )
+            } else {
+                // If no metallic/roughness texture is set, the factors will act as a global texture and the factors inside the shader should be set to 1.0!
+
+                let factor_metallic = material.pbr_metallic_roughness().metallic_factor();
+                let texture_descriptor_metallic =
+                    TextureDescriptor::uniform_rgba_value(factor_metallic as f64, 0.0, 0.0, 1.0);
+
+                let factor_roughness = material.pbr_metallic_roughness().roughness_factor();
+                let texture_descriptor_roughness =
+                    TextureDescriptor::uniform_rgba_value(factor_roughness as f64, 0.0, 0.0, 1.0);
+
+                (
+                    texture_descriptor_metallic,
+                    texture_descriptor_roughness,
+                    1.0,
+                    1.0,
+                )
+            };
 
         let occlusion = if let Some(occlusion_info) = material.occlusion_texture() {
             Self::parse_texture(&textures[occlusion_info.texture().source().index()])
         } else {
-            TextureDescriptor::uniform_rgba_black()
+            TextureDescriptor::uniform_rgba_white()
         };
         let emissive = if let Some(emissive_info) = material.emissive_texture() {
             Self::parse_texture(&textures[emissive_info.texture().source().index()])
@@ -532,12 +556,14 @@ impl GltfImporter {
             });
 
             let mut vertices = Vec::new();
-            
+
             // Collect all data into vectors first to avoid iterator issues
             let positions_vec: Vec<_> = positions.map(|p| Vector3::new(p[0], p[1], p[2])).collect();
-            let normals_vec: Option<Vec<_>> = normals.map(|n| n.map(|n| Vector3::new(n[0], n[1], n[2])).collect());
+            let normals_vec: Option<Vec<_>> =
+                normals.map(|n| n.map(|n| Vector3::new(n[0], n[1], n[2])).collect());
             let tangents_vec: Option<Vec<_>> = tangents.map(|t| t.collect());
-            let uvs_vec: Option<Vec<_>> = uvs.map(|uv| uv.map(|uv| Vector2::new(uv[0], uv[1])).collect());
+            let uvs_vec: Option<Vec<_>> =
+                uvs.map(|uv| uv.map(|uv| Vector2::new(uv[0], uv[1])).collect());
 
             for (i, position) in positions_vec.iter().enumerate() {
                 // Apply coordinate system conversion (Y-up to Z-up)
@@ -555,15 +581,13 @@ impl GltfImporter {
                     });
 
                 // Read tangent with handedness (w component) properly
-                let tangent_data = tangents_vec
-                    .as_ref()
-                    .and_then(|tangents| tangents.get(i));
-                    
+                let tangent_data = tangents_vec.as_ref().and_then(|tangents| tangents.get(i));
+
                 let (tangent, bitangent) = if let Some(tangent_raw) = tangent_data {
                     // Convert tangent coordinates to match our coordinate system
                     let tangent_vec = Vector3::new(tangent_raw[0], tangent_raw[2], -tangent_raw[1]);
                     let handedness = tangent_raw[3]; // w component defines handedness
-                    
+
                     // Calculate bitangent using the normal and tangent with correct handedness
                     // Bitangent = cross(normal, tangent) * handedness
                     // Note: The correct formula is cross(normal, tangent), not cross(tangent, normal)
@@ -592,7 +616,7 @@ impl GltfImporter {
 
             // Collect indices into a vector first
             let indices_vec: Vec<u32> = indices.collect();
-            
+
             // Flip the winding order of indices to account for coordinate system conversion
             let mut indices_flipped = Vec::new();
             for i in (0..indices_vec.len()).step_by(3) {
@@ -614,30 +638,30 @@ impl GltfImporter {
             let transform = Transform {
                 position: Vector3 {
                     x: decomposed.0[0],
-                    y: decomposed.0[2],   // Y -> Z
-                    z: -decomposed.0[1],  // Z -> -Y
+                    y: decomposed.0[2],  // Y -> Z
+                    z: -decomposed.0[1], // Z -> -Y
                 },
                 rotation: {
                     // Convert quaternion from glTF coordinate system
                     let gltf_quat = Quaternion::new(
-                        decomposed.1[0],  // x
-                        decomposed.1[1],  // y
-                        decomposed.1[2],  // z
-                        decomposed.1[3],  // w
+                        decomposed.1[0], // x
+                        decomposed.1[1], // y
+                        decomposed.1[2], // z
+                        decomposed.1[3], // w
                     );
-                    
+
                     // Apply coordinate system conversion to quaternion
                     Quaternion::new(
                         gltf_quat.v.x,
-                        gltf_quat.v.z,    // y -> z
-                        -gltf_quat.v.y,   // z -> -y
-                        gltf_quat.s
+                        gltf_quat.v.z,  // y -> z
+                        -gltf_quat.v.y, // z -> -y
+                        gltf_quat.s,
                     )
                 },
                 scale: Vector3 {
                     x: decomposed.2[0],
-                    y: decomposed.2[2],   // Y -> Z
-                    z: decomposed.2[1],   // Z -> Y (scale is symmetric)
+                    y: decomposed.2[2], // Y -> Z
+                    z: decomposed.2[1], // Z -> Y (scale is symmetric)
                 },
             };
 
