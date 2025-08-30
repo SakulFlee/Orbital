@@ -31,6 +31,9 @@ mod error;
 use crate::quaternion::quaternion_to_pitch_yaw;
 pub use error::*;
 
+// Import the new tangent utility function
+mod tangent_utils;
+
 #[cfg(test)]
 mod tests;
 
@@ -670,19 +673,10 @@ impl GltfImporter {
                     let calculated_bitangent = normal.cross(tangent_vec) * handedness;
                     (tangent_vec, calculated_bitangent)
                 } else {
-                    // When tangent is missing, warn and use a placeholder calculation
-                    // A more robust implementation (e.g., MikkTSpace) would be better if normal mapping is used.
-                    warn!("Tangent missing for vertex {i}. Using placeholder calculation. Consider providing tangents or using a robust tangent generation algorithm.");
-                    // Placeholder: Create an arbitrary tangent orthogonal to the normal
-                    let arbitrary = if normal.x.abs() > 0.9 {
-                        Vector3::new(0.0, 1.0, 0.0)
-                    } else {
-                        Vector3::new(1.0, 0.0, 0.0)
-                    };
-                    let tangent = arbitrary.cross(*normal).normalize();
-                    // Assume positive handedness for the placeholder bitangent calculation
-                    let bitangent = normal.cross(tangent);
-                    (tangent, bitangent)
+                    // When tangent is missing, warn and use a robust generalized calculation
+                    warn!("Tangent missing for vertex {i}. Using generalized fallback calculation.");
+                    // Use the new, more robust arbitrary tangent frame generator
+                    tangent_utils::generate_arbitrary_tangent_frame(*normal)
                 };
 
                 let uv = uvs_vec
