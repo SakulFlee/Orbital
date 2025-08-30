@@ -47,7 +47,6 @@ impl MaterialShader {
 
         // Create a pipeline layout and bind group
         let bind_group_option = descriptor.bind_group(device, queue)?;
-        debug!(">>> {:?}", bind_group_option);
 
         let mut bind_group_layouts = vec![engine_bind_group_layout];
         if let Some((_, layout, _)) = bind_group_option.as_ref() {
