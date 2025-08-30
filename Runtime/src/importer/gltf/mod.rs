@@ -555,30 +555,108 @@ impl GltfImporter {
                 }
             });
 
-            let mut vertices = Vec::new();
+            // TODO: CLEANUP
 
             // Collect all data into vectors first to avoid iterator issues
             let positions_vec: Vec<_> = positions.map(|p| Vector3::new(p[0], p[1], p[2])).collect();
-            let normals_vec: Option<Vec<_>> =
-                normals.map(|n| n.map(|n| Vector3::new(n[0], n[1], n[2])).collect());
+            // Collect indices early as they are needed for normal calculation if normals are missing
+            let indices_vec: Vec<u32> = reader
+                .read_indices()
+                .map(|x| x.into_u32())
+                .map(|indices| indices.collect())
+                .unwrap_or_default(); // Get indices_vec here
+
+            // --- Normal Calculation Logic Start ---
+            let normals_vec = if let Some(normals_iter) = normals {
+                // If normals are provided in the glTF file, collect and convert them as before
+                normals_iter
+                    .map(|n| Vector3::new(n[0], n[1], n[2]))
+                    .collect()
+            } else {
+                // If normals are *not* provided, calculate them generically
+                warn!("Primitive has no normals. Calculating them based on triangle geometry.");
+
+                // Ensure we have positions and indices to work with for normal calculation
+                if positions_vec.is_empty() || indices_vec.is_empty() {
+                    warn!("Cannot calculate normals: Missing positions or indices.");
+                    (0..positions_vec.len()).map(|_| Vector3::zero()).collect()
+                } else {
+                    // Allocate a vector to accumulate normals for each vertex
+                    let mut calculated_normals: Vec<Vector3<f32>> =
+                        vec![Vector3::new(0.0, 0.0, 0.0); positions_vec.len()];
+
+                    // Iterate through triangles using indices to calculate face normals
+                    // Use indices_vec for calculating normals based on triangle connectivity.
+                    for i in (0..indices_vec.len()).step_by(3) {
+                        if i + 2 < indices_vec.len() {
+                            let idx_a = indices_vec[i] as usize;
+                            let idx_b = indices_vec[i + 1] as usize;
+                            let idx_c = indices_vec[i + 2] as usize;
+
+                            // Bounds check for indices
+                            if idx_a < positions_vec.len()
+                                && idx_b < positions_vec.len()
+                                && idx_c < positions_vec.len()
+                            {
+                                let p_a = positions_vec[idx_a];
+                                let p_b = positions_vec[idx_b];
+                                let p_c = positions_vec[idx_c];
+
+                                // Calculate face normal using the cross product
+                                // This assumes a right-handed coordinate system and standard CCW winding for front faces.
+                                // The vector order is important for correct normal direction.
+                                let edge_ab = p_b - p_a;
+                                let edge_ac = p_c - p_a;
+                                let face_normal = edge_ab.cross(edge_ac); // Not normalized yet, magnitude is proportional to area
+
+                                // Accumulate the un-normalized face normal for all three vertices
+                                // This weights the vertex normal by the area of the contributing face.
+                                calculated_normals[idx_a] += face_normal;
+                                calculated_normals[idx_b] += face_normal;
+                                calculated_normals[idx_c] += face_normal;
+                            } else {
+                                warn!("Index out of bounds during normal calculation at triangle starting index {}", i);
+                            }
+                        }
+                    }
+
+                    // Normalize the accumulated vertex normals to get the final unit vectors
+                    for normal in calculated_normals.iter_mut() {
+                        // Handle potential zero vectors (e.g., isolated vertex, degenerate faces)
+                        let norm_magnitude = normal.magnitude();
+                        if norm_magnitude > f32::EPSILON {
+                            // Check for non-zero length before normalizing
+                            *normal = *normal / norm_magnitude;
+                        } else {
+                            // If the normal remains zero, a default is needed.
+                            // Keeping as zero for consistency with previous behavior,
+                            // though a context-specific default (e.g., 'up') might be better.
+                            // Log a trace message as it's usually not critical but good to know.
+                            log::trace!(
+                                "Calculated normal resulted in zero vector, keeping as zero."
+                            );
+                        }
+                    }
+
+                    calculated_normals
+                }
+            };
+            // --- Normal Calculation Logic End ---
+
+            // Collect other data needed for vertex creation
             let tangents_vec: Option<Vec<_>> = tangents.map(|t| t.collect());
             let uvs_vec: Option<Vec<_>> =
                 uvs.map(|uv| uv.map(|uv| Vector2::new(uv[0], uv[1])).collect());
 
+            // Main vertex processing loop
+            let mut vertices = Vec::new();
             for (i, position) in positions_vec.iter().enumerate() {
                 // Apply coordinate system conversion (Y-up to Z-up)
                 // glTF uses a right-handed coordinate system with Y-up
                 // Converting to a system with Z-up (like many game engines)
                 let position = Vector3::new(position.x, position.z, -position.y);
 
-                let normal = normals_vec
-                    .as_ref()
-                    .and_then(|normals| normals.get(i))
-                    .map(|n| Vector3::new(n.x, n.z, -n.y)) // Convert normal coordinates
-                    .unwrap_or_else(|| {
-                        warn!("Normal missing for vertex {i}. Using default!");
-                        Vector3::zero()
-                    });
+                let normal = normals_vec.get(i).unwrap();
 
                 // Read tangent with handedness (w component) properly
                 let tangent_data = tangents_vec.as_ref().and_then(|tangents| tangents.get(i));
@@ -588,29 +666,36 @@ impl GltfImporter {
                     let tangent_vec = Vector3::new(tangent_raw[0], tangent_raw[2], -tangent_raw[1]);
                     let handedness = tangent_raw[3]; // w component defines handedness
 
-                    // Calculate bitangent using the normal and tangent with correct handedness
-                    // Bitangent = cross(normal, tangent) * handedness
-                    // Note: The correct formula is cross(normal, tangent), not cross(tangent, normal)
+                    // Calculate bitangent using the (potentially calculated) normal and tangent with correct handedness
                     let calculated_bitangent = normal.cross(tangent_vec) * handedness;
                     (tangent_vec, calculated_bitangent)
                 } else {
-                    // When tangent is missing, we'll compute it based on UV gradients
-                    // This is a simplified approach - a more robust implementation would use the mikktspace algorithm
-                    warn!("Tangent missing for vertex {i}. Computing from UV gradients!");
-                    Self::compute_tangent_frame(&positions_vec, &normals_vec, &uvs_vec, i)
+                    // When tangent is missing, warn and use a placeholder calculation
+                    // A more robust implementation (e.g., MikkTSpace) would be better if normal mapping is used.
+                    warn!("Tangent missing for vertex {i}. Using placeholder calculation. Consider providing tangents or using a robust tangent generation algorithm.");
+                    // Placeholder: Create an arbitrary tangent orthogonal to the normal
+                    let arbitrary = if normal.x.abs() > 0.9 {
+                        Vector3::new(0.0, 1.0, 0.0)
+                    } else {
+                        Vector3::new(1.0, 0.0, 0.0)
+                    };
+                    let tangent = arbitrary.cross(*normal).normalize();
+                    // Assume positive handedness for the placeholder bitangent calculation
+                    let bitangent = normal.cross(tangent);
+                    (tangent, bitangent)
                 };
 
                 let uv = uvs_vec
                     .as_ref()
                     .and_then(|uvs| uvs.get(i))
-                    .map(|uv| Vector2::new(uv.x, uv.y)) // No V coordinate flipping needed for glTF
+                    .map(|uv| Vector2::new(uv.x, uv.y)) // No V coordinate flipping needed for glTF *data*, handled by API/sampler
                     .unwrap_or_else(|| {
                         warn!("UV missing for vertex {i}. Using default!");
                         Vector2::zero()
                     });
 
-                // Create vertex with pre-calculated bitangent
-                let vertex = Vertex::new_with_bitangent(position, normal, tangent, bitangent, uv);
+                // Create vertex with the calculated or provided normal, tangent, and bitangent
+                let vertex = Vertex::new_with_bitangent(position, *normal, tangent, bitangent, uv);
                 vertices.push(vertex);
             }
 
