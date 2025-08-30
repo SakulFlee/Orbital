@@ -166,8 +166,6 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     // Tonemap / HDR 
     let tone_mapped_color = aces_tone_map(output);
     return vec4<f32>(tone_mapped_color, 1.0);
-
-    return vec4<f32>(output, 1.0);
 }
 
 // Note: Unused in favor of ACES
@@ -295,6 +293,7 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     out.NdotV = clamp(dot(out.N, out.V), 0.0, 1.0);
 
     // Material properties
+    // Sample albedo texture and apply factor. Assume texture is sRGB/gamma-encoded.
     let albedo_sample = textureSample(
         albedo_texture,
         albedo_sampler,
@@ -302,8 +301,9 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     ).rgb;
     let albedo_factored = albedo_sample * pbr_factors.albedo_factor.rgb;
     let albedo_clamped = clamp(albedo_factored, vec3(0.0), vec3(1.0));
-    let albedo_gamma_applied = pow(albedo_clamped, vec3(camera.global_gamma));
-    out.albedo = albedo_gamma_applied;
+    // Convert from sRGB/gamma to linear space for PBR calculations
+    let albedo_linear = pow(albedo_clamped, vec3(camera.global_gamma));
+    out.albedo = albedo_linear;
 
     let metallic_sample = textureSample(
         metallic_texture,
@@ -331,24 +331,29 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     let occlusion_clamped = clamp(occlusion_sample, 0.0, 1.0);
     out.occlusion = occlusion_clamped;
 
+    // Sample Emissive map. Assume it's stored in sRGB/gamma-encoded format.
     let emissive_sample = textureSample(
         emissive_texture,
         emissive_sampler,
         fragment_data.uv
     ).rgb;
     let emissive_clamped = clamp(emissive_sample, vec3(0.0), vec3(1.0));
-    let emissive_gamma_applied = pow(emissive_clamped, vec3(camera.global_gamma));
-    out.emissive = emissive_gamma_applied;
+    // Convert from sRGB/gamma to linear space. Emissive is added directly to the final linear color.
+    let emissive_linear = pow(emissive_clamped, vec3(camera.global_gamma));
+    out.emissive = emissive_linear;
 
+    // Sample IBL Diffuse map. Assume it's stored in sRGB/gamma-encoded format.
     let diffuse_sample = textureSample(
         diffuse_env_map,
         diffuse_sampler,
         out.N
     ).rgb;
     let diffuse_clamped = clamp(diffuse_sample, vec3(0.0), vec3(1.0));
-    let diffuse_gamma_applied = pow(diffuse_clamped, vec3(camera.global_gamma));
-    out.ibl_diffuse = diffuse_gamma_applied;
+    // Convert from sRGB/gamma to linear space for PBR calculations
+    let diffuse_linear = pow(diffuse_clamped, vec3(camera.global_gamma));
+    out.ibl_diffuse = diffuse_linear;
 
+    // Sample IBL Specular map (from the pre-filtered MIP map). Assume it's stored in sRGB/gamma-encoded format.
     let specular_mip_count = textureNumLevels(specular_env_map);
     let specular_mip_level = out.roughness * out.roughness * f32(specular_mip_count - 1u);
     let specular_sample = textureSampleLevel(
@@ -358,8 +363,9 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
         specular_mip_level
     ).rgb;
     let specular_clamped = clamp(specular_sample, vec3(0.0), vec3(1.0));
-    let specular_gamma_applied = pow(specular_clamped, vec3(camera.global_gamma));
-    out.ibl_specular = specular_gamma_applied;
+    // Convert from sRGB/gamma to linear space for PBR calculations
+    let specular_linear = pow(specular_clamped, vec3(camera.global_gamma));
+    out.ibl_specular = specular_linear;
 
     let brdf_lut_sample = textureSample(
         ibl_brdf_lut_texture,
