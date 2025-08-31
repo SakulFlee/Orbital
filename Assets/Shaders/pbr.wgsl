@@ -342,18 +342,17 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     let emissive_linear = pow(emissive_clamped, vec3(camera.global_gamma));
     out.emissive = emissive_linear;
 
-    // Sample IBL Diffuse map. Assume it's stored in sRGB/gamma-encoded format.
+    // Sample IBL Diffuse map. It's stored in a linear HDR format (rgba16float).
     let diffuse_sample = textureSample(
         diffuse_env_map,
         diffuse_sampler,
         out.N
     ).rgb;
-    let diffuse_clamped = clamp(diffuse_sample, vec3(0.0), vec3(1.0));
-    // Convert from sRGB/gamma to linear space for PBR calculations
-    let diffuse_linear = pow(diffuse_clamped, vec3(camera.global_gamma));
-    out.ibl_diffuse = diffuse_linear;
+    // Clamp to a reasonable HDR range to prevent extreme outliers, but allow values > 1.0
+    let diffuse_clamped = clamp(diffuse_sample, vec3(0.0), vec3(100.0)); // Higher clamp for HDR
+    out.ibl_diffuse = diffuse_clamped; // Use directly as linear input for PBR
 
-    // Sample IBL Specular map (from the pre-filtered MIP map). Assume it's stored in sRGB/gamma-encoded format.
+    // Sample IBL Specular map (from the pre-filtered MIP map). Assume it's stored in linear HDR format.
     let specular_mip_count = textureNumLevels(specular_env_map);
     let specular_mip_level = out.roughness * out.roughness * f32(specular_mip_count - 1u);
     let specular_sample = textureSampleLevel(
@@ -362,10 +361,9 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
         R,
         specular_mip_level
     ).rgb;
-    let specular_clamped = clamp(specular_sample, vec3(0.0), vec3(1.0));
-    // Convert from sRGB/gamma to linear space for PBR calculations
-    let specular_linear = pow(specular_clamped, vec3(camera.global_gamma));
-    out.ibl_specular = specular_linear;
+    // Clamp to a reasonable HDR range to prevent extreme outliers, but allow values > 1.0
+    let specular_clamped = clamp(specular_sample, vec3(0.0), vec3(100.0)); // Higher clamp for HDR
+    out.ibl_specular = specular_clamped; // Use directly as linear input for PBR
 
     let brdf_lut_sample = textureSample(
         ibl_brdf_lut_texture,

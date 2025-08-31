@@ -77,6 +77,7 @@ fn gid_z_to_face(gid_z: u32) -> Face {
 
 fn calculate_pbr_ibl_diffuse(N: vec3<f32>, gid: vec3<u32>) {
     var irradiance = vec3(0.0);
+    var total_weight = 0.0; // Accumulate weights for proper normalization
     let sample_delta = PI * 0.5 / 64.0;
 
     for(var phi = 0.0; phi < 2.0 * PI; phi += sample_delta) {
@@ -85,15 +86,21 @@ fn calculate_pbr_ibl_diffuse(N: vec3<f32>, gid: vec3<u32>) {
             let L = normalize(tangent);
             let NdotL = max(dot(N, L), 0.0);
 
+            // Solid angle for this sample
+            // dw = sin(theta) * dtheta * dphi
+            let dw = sin(theta) * sample_delta * sample_delta;
+
             let eq_uv = vec2(atan2(L.z, L.x), asin(L.y)) * INV_ATAN + 0.5;
             let eq_pixel = vec2<i32>(eq_uv * vec2<f32>(textureDimensions(src)));
             
             let sample = textureLoad(src, eq_pixel, 0);
-            irradiance += sample.rgb * cos(theta) * sin(theta) * NdotL;
+            irradiance += sample.rgb * NdotL * dw;
+            total_weight += NdotL * dw;
         }
     }
 
-    let prefiltered_color = irradiance * PI * (1.0 / 64.0) * (1.0 / 64.0);
+    // Normalize by total weight and apply Lambertian BRDF (1/PI)
+    let prefiltered_color = (irradiance / total_weight) * (1.0 / PI);
     textureStore(dst, gid.xy, gid.z, vec4(prefiltered_color, 1.0));
 }
 
