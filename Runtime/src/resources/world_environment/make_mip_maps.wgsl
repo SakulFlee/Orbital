@@ -153,9 +153,13 @@ fn sample_importance(N: vec3<f32>, roughness: f32) -> vec4<f32> {
         }
     }
     
-    // Return the linear HDR result, normalized by weight.
-    // Tone mapping should happen during final compositing, not pre-filtering.
-    return vec4<f32>(result.rgb / total_weight, result.a / total_weight);
+    // Avoid division by zero or very small numbers
+    if (total_weight > 0.0) {
+        return vec4<f32>(result.rgb / total_weight, result.a / total_weight);
+    } else {
+        // Return a small positive value to avoid pure black
+        return vec4<f32>(0.0001, 0.0001, 0.0001, 0.0);
+    }
 }
 
 // Box filtering
@@ -173,7 +177,12 @@ fn sample_filtered_box(N: vec3<f32>, mip_level: f32) -> vec4<f32> {
         result += textureSampleLevel(src, src_sampler, offset_N, 0.0);
     }
     
-    return result / f32(sample_count);
+    // Avoid division by zero
+    if (sample_count > 0u) {
+        return result / f32(sample_count);
+    } else {
+        return vec4(0.0);
+    }
 }
 
 // Gaussian filtering
@@ -196,7 +205,12 @@ fn sample_filtered_gaussian(N: vec3<f32>, mip_level: f32) -> vec4<f32> {
         total_weight += weight;
     }
     
-    return result / total_weight;
+    // Avoid division by zero
+    if (total_weight > 0.0) {
+        return result / total_weight;
+    } else {
+        return vec4(0.0);
+    }
 }
 
 @compute
