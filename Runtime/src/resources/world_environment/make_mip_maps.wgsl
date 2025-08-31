@@ -153,7 +153,9 @@ fn sample_importance(N: vec3<f32>, roughness: f32) -> vec4<f32> {
         }
     }
     
-    return vec4<f32>(aces_tone_map(result.rgb / total_weight), result.a / total_weight);
+    // Return the linear HDR result, normalized by weight.
+    // Tone mapping should happen during final compositing, not pre-filtering.
+    return vec4<f32>(result.rgb / total_weight, result.a / total_weight);
 }
 
 // Box filtering

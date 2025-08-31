@@ -54,32 +54,34 @@ fn entrypoint_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let view_ray_direction = view_position.xyz / view_position.w;
     var ray_direction = normalize((camera.view_projection_transposed * vec4(view_ray_direction, 0.0)).xyz);
 
-    // Sample HDRI WorldEnvironemnt as Sky Box, based on LoD (-1 = diffuse)
+    // Sample HDRI WorldEnvironment as Sky Box, based on LoD (-1 = diffuse)
+    // Sample the base level (mip 0) of the specular IBL map for the skybox.
     var world_environment_sample = textureSampleLevel(specular_env_map, specular_env_sampler, ray_direction, 0.0).rgb;
 
-//    var sample: vec3<f32>;
-    // TODO
-//    if info.lod < 0 {
-//        sample = textureSample(diffuse_env_map, diffuse_env_sampler, ray_direction).rgb;
-//    } else {
-//        sample = textureSampleLevel(specular_env_map, specular_env_sampler, ray_direction, f32(info.lod)).rgb;
-//    }
+    // Clamp sample to a reasonable HDR range to prevent extreme outliers, but allow values > 1.0.
+    // This preserves HDR information for the tone mapper.
+    let clamped = clamp(world_environment_sample, vec3(0.0), vec3(100.0));
 
-    // Clamp sample to be within range (possible detail loss if there is data past >1.0)
-    let clamped = clamp(world_environment_sample, vec3(0.0), vec3(1.0));
+    // Apply gamma correction for display. 
+    // Note: This assumes the IBL data itself is linear. If the IBL is stored in sRGB, 
+    // sampling it should automatically decode it to linear, and this step would be incorrect.
+    // Given it's Rgba16Float, it's likely linear HDR data.
+    // However, for final display, we often apply the inverse gamma (encoding) if the 
+    // output target expects sRGB. This is a common practice but depends on the final render target.
+    // For now, let's assume the output expects linear, and tone mapping will handle display mapping.
+    // let gamma_adjustment = pow(clamped, vec3(camera.global_gamma)); 
 
-    // Adjust for gamma
-    let gamma_adjustment = pow(clamped, vec3(camera.global_gamma));
+    // ACES Tone Map (HDR mapping) - This is the standard way to map HDR to LDR for display.
+    let aces_tone_mapped = aces_tone_map(clamped);
 
-    // ACES Tone Map (HDR mapping)
-    let aces_tone_mapped = aces_tone_map(gamma_adjustment);
+    // Return the tone-mapped color.
+    return vec4<f32>(aces_tone_mapped, 1.0);
 
-    return vec4<f32>(gamma_adjustment, 1.0);
-
-    // Generated SkyBox:
+    // Generated SkyBox (Alternative):
     // let sky_color = vec3<f32>(0.0, 0.75, 1.0);
     // let horizon_color = vec3<f32>(0.5, 0.5, 0.5);
     // let color = mix(horizon_color, sky_color, ray_direction.y);
+    // return vec4<f32>(color, 1.0);
 }
 
 // ACES tone mapping

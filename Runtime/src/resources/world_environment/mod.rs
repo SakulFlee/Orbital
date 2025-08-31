@@ -758,10 +758,16 @@ impl WorldEnvironment {
     ) -> Result<(), WorldEnvironmentError> {
         let ibl_diffuse_data = self.ibl_diffuse.read_as_binary(device, queue);
         let ibl_specular_data = self.ibl_specular.read_as_binary(device, queue);
+        // Store the actual number of mip levels generated for the specular texture.
+        // This ensures that when loading from cache, the texture is created with
+        // the correct number of mip levels, regardless of the descriptor used for loading.
+        let ibl_specular_mip_level_count = self.ibl_specular.texture().mip_level_count();
+        debug!("Writing IBL Specular cache with {} mip levels", ibl_specular_mip_level_count); // <-- Shortened log
 
         let cache_file = CacheFile {
             ibl_diffuse_data,
             ibl_specular_data,
+            ibl_specular_mip_level_count,
         };
         cache_file.to_path(cache_path)
     }
