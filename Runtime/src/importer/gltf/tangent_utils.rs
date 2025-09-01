@@ -8,50 +8,42 @@ use cgmath::{Vector3, InnerSpace};
 /// - Orthogonal: Tangent . Normal = 0, Bitangent . Normal = 0, Tangent . Bitangent = 0
 /// - Right-handed: Bitangent = Normal.cross(Tangent)
 ///
+/// This version uses a more consistent approach to avoid discontinuities that can cause
+/// visual artifacts like "X" shapes on spheres.
+///
 /// # Arguments
 /// * `normal` - The vertex normal (must be normalized).
 ///
 /// # Returns
 /// A tuple (Tangent, Bitangent).
 pub fn generate_arbitrary_tangent_frame(normal: Vector3<f32>) -> (Vector3<f32>, Vector3<f32>) {
-    // --- Strategy: Find an arbitrary orthogonal vector ---
-    // We need a vector that is not parallel (or near-parallel) to the normal.
-    // A common and effective way is to compare the normal's components.
+    // --- Strategy: Use a fixed, consistent reference axis ---
+    // Choose a reference vector that is not parallel to the normal.
+    // We'll use World Z-axis (0, 0, 1) as the primary reference.
+    // If the normal is very close to the Z-axis, we'll use the X-axis (1, 0, 0) instead.
+    // This avoids the discontinuity of switching reference axes based on normal components.
 
-    let tangent: Vector3<f32>;
+    let reference: Vector3<f32>;
 
-    // Find the axis with the smallest absolute component.
-    // This axis is the "furthest" from the normal's direction.
-    // Using `abs()` handles normals pointing in negative directions correctly.
-    let abs_normal_x = normal.x.abs();
-    let abs_normal_y = normal.y.abs();
-    let abs_normal_z = normal.z.abs();
-
-    // Check which component is the smallest. In case of ties, the first match determines the path.
-    if abs_normal_x <= abs_normal_y && abs_normal_x <= abs_normal_z {
-        // X component is smallest (or tied for smallest).
-        // Use World X-axis (1, 0, 0) as the reference vector.
-        let reference = Vector3::new(1.0, 0.0, 0.0);
-        // Calculate tangent: perpendicular to both normal and reference.
-        tangent = normal.cross(reference).normalize();
-    } else if abs_normal_y <= abs_normal_z {
-        // Y component is smallest (or tied for smallest, and X was larger).
-        // Use World Y-axis (0, 1, 0) as the reference vector.
-        let reference = Vector3::new(0.0, 1.0, 0.0);
-        // Calculate tangent: perpendicular to both normal and reference.
-        tangent = normal.cross(reference).normalize();
+    // Check if the normal is pointing close to the World Z-axis.
+    // The dot product N . Z = N.z. If |N.z| is close to 1.0, they are parallel.
+    if normal.z.abs() < 0.999_999 {
+        // Normal is not close to Z-axis, safe to use Z as reference.
+        reference = Vector3::new(0.0, 0.0, 1.0);
     } else {
-        // Z component must be the smallest.
-        // Use World Z-axis (0, 0, 1) as the reference vector.
-        let reference = Vector3::new(0.0, 0.0, 1.0);
-        // Calculate tangent: perpendicular to both normal and reference.
-        tangent = normal.cross(reference).normalize();
+        // Normal is very close to the Z-axis (pointing up or down).
+        // Using Z as a reference would result in a zero or near-zero tangent.
+        // Use World X-axis instead.
+        reference = Vector3::new(1.0, 0.0, 0.0);
     }
 
-    // --- Calculate Bitangent ---
-    // Ensure a proper right-handed TBN matrix.
-    // B = N.cross(T) is the standard form.
-    let bitangent = normal.cross(tangent);
+    // Calculate tangent: perpendicular to both normal and reference.
+    // This is guaranteed to be non-zero due to the reference choice.
+    let tangent: Vector3<f32> = normal.cross(reference).normalize();
+
+    // Calculate bitangent: perpendicular to both normal and tangent.
+    // This ensures a right-handed TBN matrix.
+    let bitangent: Vector3<f32> = normal.cross(tangent);
 
     (tangent, bitangent)
 }
