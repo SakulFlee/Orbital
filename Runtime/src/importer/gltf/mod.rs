@@ -723,16 +723,12 @@ impl GltfImporter {
                     z: decomposed.0[2],
                 },
                 rotation: {
-                    // Convert quaternion from glTF coordinate system
-                    let gltf_quat = Quaternion::new(
-                        decomposed.1[0], // x
-                        decomposed.1[1], // y
-                        decomposed.1[2], // z
-                        decomposed.1[3], // w
-                    );
-
-                    // Apply coordinate system conversion to quaternion
-                    Quaternion::new(gltf_quat.v.x, gltf_quat.v.y, gltf_quat.v.z, gltf_quat.s)
+                    Quaternion::new(
+                        decomposed.1[1],
+                        decomposed.1[0],
+                        decomposed.1[2],
+                        decomposed.1[3],
+                    )
                 },
                 scale: Vector3 {
                     x: decomposed.2[0],
