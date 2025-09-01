@@ -770,8 +770,8 @@ impl GltfImporter {
         let decomposed = transform.decomposed();
 
         let quaternion = Quaternion::new(
-            decomposed.1[0],
             decomposed.1[1],
+            decomposed.1[0],
             decomposed.1[2],
             decomposed.1[3],
         );
