@@ -55,8 +55,7 @@ fn entrypoint_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     var ray_direction = normalize((camera.view_projection_transposed * vec4(view_ray_direction, 0.0)).xyz);
 
     // Sample HDRI WorldEnvironment as Sky Box, based on LoD (-1 = diffuse)
-    // Compensate for the L = -L fix applied in IBL mip-map generation
-    var world_environment_sample = textureSampleLevel(specular_env_map, specular_env_sampler, -ray_direction, 0.0).rgb;
+    var world_environment_sample = textureSampleLevel(specular_env_map, specular_env_sampler, ray_direction, 0.0).rgb;
 
 //    var sample: vec3<f32>;
     // TODO

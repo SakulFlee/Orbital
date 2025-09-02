@@ -427,7 +427,8 @@ impl GltfImporter {
         let normal = if let Some(normal_info) = material.normal_texture() {
             Self::parse_texture(&textures[normal_info.texture().source().index()])
         } else {
-            TextureDescriptor::uniform_luma_black()
+            // Default normal map value: (0.5, 0.5, 1.0, 1.0) maps to (0, 0, 1) in tangent space after 2*x-1
+            TextureDescriptor::uniform_rgba_value(0.5, 0.5, 1.0, 1.0)
         };
 
         // NOTE: 'W' (Opacity / Transparency) is skipped here!
@@ -659,7 +660,9 @@ impl GltfImporter {
                 // Converting to a system with Z-up (like many game engines)
                 let position = Vector3::new(position.x, position.z, -position.y);
 
-                let normal = normals_vec.get(i).unwrap();
+                // Apply coordinate system conversion (Y-up to Z-up) to normal
+                let normal_gltf = normals_vec.get(i).unwrap();
+                let normal = Vector3::new(normal_gltf.x, normal_gltf.z, -normal_gltf.y);
 
                 // Read tangent with handedness (w component) properly
                 let tangent_data = tangents_vec.as_ref().and_then(|tangents| tangents.get(i));
@@ -678,7 +681,7 @@ impl GltfImporter {
                         "Tangent missing for vertex {i}. Using generalized fallback calculation."
                     );
                     // Use the new, more robust arbitrary tangent frame generator
-                    tangent_utils::generate_arbitrary_tangent_frame(*normal)
+                    tangent_utils::generate_arbitrary_tangent_frame(normal)
                 };
 
                 let uv = uvs_vec
@@ -691,7 +694,7 @@ impl GltfImporter {
                     });
 
                 // Create vertex with the calculated or provided normal, tangent, and bitangent
-                let vertex = Vertex::new_with_bitangent(position, *normal, tangent, bitangent, uv);
+                let vertex = Vertex::new_with_bitangent(position, normal, tangent, bitangent, uv);
                 vertices.push(vertex);
             }
 
