@@ -143,9 +143,16 @@ fn sample_importance(N: vec3<f32>, roughness: f32) -> vec4<f32> {
         let H = importance_sample_ggx(Xi, roughness, N);
         let L = normalize(2.0 * dot(N, H) * H - N);
         
+        // --- TEMPORARY TEST: Negate L ---
+        let L_negated = -L;
+        // --- END TEMPORARY TEST ---
+        
         let NdotL = max(dot(N, L), 0.0);
         if(NdotL > 0.0) {
-            let sample = textureSampleLevel(src, src_sampler, L, 0.0);
+            // --- TEMPORARY TEST: Use negated L ---
+            let sample = textureSampleLevel(src, src_sampler, L_negated, 0.0);
+            // --- END TEMPORARY TEST ---
+            // let sample = textureSampleLevel(src, src_sampler, L, 0.0); // Original
             let lum_weight = 1.0 / (1.0 + luminance(sample.rgb));
             
             result += sample * (NdotL * lum_weight);
