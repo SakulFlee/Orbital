@@ -4,7 +4,7 @@ const ACES_B: f32 = 0.03;
 const ACES_C: f32 = 2.43;
 const ACES_D: f32 = 0.59;
 const ACES_E: f32 = 0.14;
-const IMPORTANCE_SAMPLE_COUNT: u32 = 1024u;
+const IMPORTANCE_SAMPLE_COUNT: u32 = 2048u;
 
 @group(0) @binding(0)
 var src: texture_cube<f32>; 
@@ -22,6 +22,8 @@ struct MipInfo {
     mip_level: u32,
     max_mip_level: u32,
     sampling_type: u32,
+    current_mip_width: u32,
+    current_mip_height: u32,
 }
 
 struct Face {
@@ -134,7 +136,35 @@ fn importance_sample_ggx(Xi: vec2<f32>, roughness: f32, N: vec3<f32>) -> vec3<f3
     return normalize(tangent * H.x + bitangent * H.y + N * H.z);
 }
 
+// --- DEBUG CONFIGURATION ---
+// Set to true to enable debug visualization for specific conditions
+const DEBUG_IMPORTANCE_SAMPLING: bool = false;
+// --- END DEBUG CONFIGURATION ---
+
 fn sample_importance(N: vec3<f32>, roughness: f32) -> vec4<f32> {
+    // --- DEBUG VISUALIZATION MODE ---
+    // Example: Visualize L.z for samples when N is close to +Z (0,0,1) and roughness is mid-range
+    if (DEBUG_IMPORTANCE_SAMPLING && 
+        abs(N.x) < 0.1 && abs(N.y) < 0.1 && abs(N.z - 1.0) < 0.1 && // N close to (0,0,1)
+        roughness > 0.4 && roughness < 0.6) { // Mid-range roughness
+        
+        var avg_Lz = 0.0;
+        var count = 0.0;
+        for(var i = 0u; i < IMPORTANCE_SAMPLE_COUNT; i++) {
+            let Xi = vec2(f32(i) / f32(IMPORTANCE_SAMPLE_COUNT), fract(f32(i) * 0.618034));
+            let H = importance_sample_ggx(Xi, roughness, N);
+            let L = normalize(2.0 * dot(N, H) * H - N);
+            // Accumulate L.z to see directional bias
+            avg_Lz += L.z;
+            count += 1.0;
+        }
+        let avg_Lz_norm = avg_Lz / max(count, 1.0);
+        // Map L.z from [-1, 1] to [0, 1] for visualization (blue to red)
+        let viz_value = (avg_Lz_norm + 1.0) * 0.5;
+        return vec4<f32>(viz_value, 0.0, 1.0 - viz_value, 1.0); // Blue to Red gradient
+    }
+    // --- END DEBUG MODE ---
+
     var result = vec4(0.0);
     var total_weight = 0.0;
     
@@ -146,7 +176,8 @@ fn sample_importance(N: vec3<f32>, roughness: f32) -> vec4<f32> {
         let NdotL = max(dot(N, L), 0.0);
         if(NdotL > 0.0) {
             let sample = textureSampleLevel(src, src_sampler, L, 0.0);
-            let lum_weight = 1.0 / (1.0 + luminance(sample.rgb));
+            // Improved lum_weight calculation to prevent over-dampening of bright samples
+            let lum_weight = 1.0 / (1.0 + 0.1 * min(luminance(sample.rgb), 10.0));
             
             result += sample * (NdotL * lum_weight);
             total_weight += NdotL * lum_weight;
@@ -221,17 +252,20 @@ fn main(
 ) {
     let src_dimensions = vec2<f32>(textureDimensions(src));
     let dst_dimensions = vec2<f32>(textureDimensions(dst));
-    let mip_dimensions = vec2<f32>(dst_dimensions / pow(2.0, f32(mip_info.mip_level)));
 
     // Return early if outside of mip bounds
-    if gid.x >= u32(mip_dimensions.x) || gid.y >= u32(mip_dimensions.y) {
+    if gid.x >= mip_info.current_mip_width || gid.y >= mip_info.current_mip_height {
         return;
     }
 
-        // Scale UV coordinates based on mip level
+    // Calculate mip dimensions for UV calculation
+    let mip_dimensions = vec2<f32>(f32(mip_info.current_mip_width), f32(mip_info.current_mip_height));
+
+    // Scale UV coordinates based on mip level
     let cube_uv = vec2<f32>(gid.xy) / mip_dimensions * 2.0 - 1.0;
     let face = gid_z_to_face(gid.z);
     let N = normalize(face.forward + face.right * cube_uv.x + face.up * cube_uv.y);
+    // Re-add Nmod line to compensate for coordinate system mismatch
     let Nmod = vec3(N.x, -N.y, N.z);
 
     // Sample based on sampling type
