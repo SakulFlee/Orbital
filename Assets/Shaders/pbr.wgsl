@@ -355,6 +355,19 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     // Sample IBL Specular map (from the pre-filtered MIP map). Assume it's stored in linear HDR format.
     let specular_mip_count = textureNumLevels(specular_env_map);
     let specular_mip_level = out.roughness * out.roughness * f32(specular_mip_count - 1u);
+    
+    // --- DEBUG VISUALIZATION ---
+    // Visualize specular_mip_level for mid-range roughness values
+    // Uncomment the following lines to enable debug visualization
+    /*
+    if (out.roughness > 0.4 && out.roughness < 0.6) {
+        // Map mip level to a color for visualization
+        let normalized_mip = specular_mip_level / f32(specular_mip_count - 1u);
+        return vec3<f32>(normalized_mip, 0.0, 1.0 - normalized_mip); // Blue to Red gradient
+    }
+    */
+    // --- END DEBUG VISUALIZATION ---
+    
     let specular_sample = textureSampleLevel(
         specular_env_map,
         specular_sampler,

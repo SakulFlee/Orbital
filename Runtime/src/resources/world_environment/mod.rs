@@ -620,11 +620,17 @@ impl WorldEnvironment {
                 mip_level,
                 (mip_level as f32 / max_mip_levels as f32) * 100.0
             );
-            let workgroups = src_specular_ibl.texture().size().width.div_ceil(16);
+            // Calculate the dimensions of the current mip level
+            let dst_size = dst_texture.texture().size();
+            let current_mip_width = (dst_size.width >> mip_level).max(1);
+            let current_mip_height = (dst_size.height >> mip_level).max(1);
+            // Calculate workgroup count based on current mip level dimensions
+            let workgroups_x = current_mip_width.div_ceil(16);
+            let workgroups_y = current_mip_height.div_ceil(16);
             pass.set_pipeline(&pipeline);
             pass.set_bind_group(0, &bind_group, &[]);
             pass.set_bind_group(1, &mip_bind_group, &[]);
-            pass.dispatch_workgroups(workgroups, workgroups, 6);
+            pass.dispatch_workgroups(workgroups_x, workgroups_y, 6);
         }
 
         dst_texture
@@ -637,12 +643,21 @@ impl WorldEnvironment {
         mip_buffer_bind_group_layout: &BindGroupLayout,
         device: &Device,
     ) -> BindGroup {
+        // Calculate the dimensions of the current mip level
+        // TODO: Get base dimensions from the texture instead of hardcoding
+        let base_width = 2048u32;
+        let base_height = 2048u32;
+        let current_mip_width = (base_width >> mip_level).max(1);
+        let current_mip_height = (base_height >> mip_level).max(1);
+        
         let buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Mip Buffer"),
             contents: &[
                 mip_level.to_le_bytes(),
                 max_mip_level.to_le_bytes(),
                 sampling_type.to_le_bytes(),
+                current_mip_width.to_le_bytes(),
+                current_mip_height.to_le_bytes(),
             ]
             .concat(),
             usage: BufferUsages::UNIFORM,
