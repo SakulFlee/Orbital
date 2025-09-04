@@ -39,61 +39,70 @@ fn gid_z_to_face(gid_z: u32) -> Face {
     }
 }
 
-// Main function to calculate diffuse IBL for a given normal
+// Generates a single dimension of a low-discrepancy sequence (Radical Inverse base 2)
+fn radical_inverse_vdc(bits: u32) -> f32 {
+    var reversed_bits = reverseBits(bits);
+    reversed_bits = (reversed_bits & 0x55555555u) << 1u | (reversed_bits & 0xAAAAAAAAu) >> 1u;
+    reversed_bits = (reversed_bits & 0x33333333u) << 2u | (reversed_bits & 0xCCCCCCCCu) >> 2u;
+    reversed_bits = (reversed_bits & 0x0F0F0F0Fu) << 4u | (reversed_bits & 0xF0F0F0F0u) >> 4u;
+    reversed_bits = (reversed_bits & 0x00FF00FFu) << 8u | (reversed_bits & 0xFF00FF00u) >> 8u;
+    // Scale to the [0, 1] range
+    return f32(reversed_bits) * 2.3283064365386963e-10; // / 0x100000000
+}
+
+// Generates a 2D low-discrepancy Hammersley sequence point
+fn hammersley(i: u32, N: u32) -> vec2<f32> {
+    return vec2<f32>(f32(i) / f32(N), radical_inverse_vdc(i));
+}
+
+// Generates a cosine-weighted sample vector in tangent space for diffuse lighting
+fn importance_sample_lambert(xi: vec2<f32>) -> vec3<f32> {
+    let cos_theta = sqrt(1.0 - xi.y);
+    let sin_theta = sqrt(xi.y); // This is sqrt(1.0 - cos_theta^2)
+    let phi = 2.0 * PI * xi.x;
+    let sample_vec = vec3<f32>(cos(phi) * sin_theta, sin(phi) * sin_theta, cos_theta);
+    return sample_vec;
+}
+
 fn calculate_pbr_ibl_diffuse(N: vec3<f32>, gid: vec3<u32>) {
-    var irradiance = vec3(0.0);
+    var total_radiance = vec3(0.0);
 
-    // Use a reasonable number of samples for quality vs. performance
-    const SAMPLE_COUNT_THETA: u32 = 64u;
-    const SAMPLE_COUNT_PHI: u32 = 128u;
+    const SAMPLE_COUNT: u32 = 1024u; // 1024 or 2048 is a good number
 
-    // Define separate deltas for theta and phi for correct integration
-    let theta_delta: f32 = (0.5 * PI) / f32(SAMPLE_COUNT_THETA);
-    let phi_delta: f32 = (2.0 * PI) / f32(SAMPLE_COUNT_PHI);
+    // Create the TBN matrix once before the loop
+    let up = select(vec3(0.0, 0.0, 1.0), vec3(0.0, 1.0, 0.0), abs(N.y) > 0.999);
+    let tangent = normalize(cross(up, N));
+    let bitangent = cross(N, tangent);
 
-    // Integrate over the hemisphere around N
-    for (var i: u32 = 0u; i < SAMPLE_COUNT_PHI; i++) {
-        // Phi goes from 0 to 2*PI
-        let phi = (f32(i) + 0.5) * phi_delta;
-        for (var j: u32 = 0u; j < SAMPLE_COUNT_THETA; j++) {
-            // Theta goes from 0 to PI/2
-            let theta = (f32(j) + 0.5) * theta_delta;
+    for (var i: u32 = 0u; i < SAMPLE_COUNT; i++) {
+        // 1. Get a low-discrepancy point on the unit square
+        let xi = hammersley(i, SAMPLE_COUNT);
 
-            // 1. Generate sample direction in tangent space
-            let sin_theta = sin(theta);
-            let cos_theta = cos(theta);
-            let tangent_sample = vec3(
-                sin_theta * cos(phi),
-                sin_theta * sin(phi),
-                cos_theta
-            );
+        // 2. Generate a cosine-weighted sample direction in tangent space
+        let tangent_sample = importance_sample_lambert(xi);
 
-            // 2. Create TBN matrix to transform sample to world space
-            let up = select(vec3(0.0, 0.0, 1.0), vec3(0.0, 1.0, 0.0), abs(N.y) > 0.999);
-            let tangent = normalize(cross(up, N));
-            let bitangent = cross(N, tangent);
-            let L = normalize(
-                tangent * tangent_sample.x +
-                bitangent * tangent_sample.y +
-                N * tangent_sample.z
-            );
+        // 3. Transform sample to world space
+        let L = normalize(
+            tangent * tangent_sample.x +
+            bitangent * tangent_sample.y +
+            N * tangent_sample.z
+        );
 
-            // 3. Sample environment map
-            let eq_uv = vec2(atan2(L.z, L.x), asin(L.y)) * INV_ATAN + 0.5;
-            let src_dims = vec2<f32>(textureDimensions(src));
-            let eq_pixel = vec2<i32>(eq_uv * src_dims);
-            let sample = textureLoad(src, clamp(eq_pixel, vec2(0), vec2<i32>(src_dims) - 1), 0);
+        // 4. Sample environment map
+        let eq_uv = vec2(atan2(L.z, L.x), asin(L.y)) * INV_ATAN + 0.5;
+        let src_dims = vec2<f32>(textureDimensions(src));
+        let eq_pixel = vec2<i32>(eq_uv * src_dims);
+        let sample_color = textureLoad(src, clamp(eq_pixel, vec2(0), vec2<i32>(src_dims) - 1), 0).rgb;
 
-            // 4. Accumulate irradiance, weighted by the solid angle and cosine factor
-            // The integral is L * cos(theta) * sin(theta) d(theta) d(phi)
-            irradiance += sample.rgb * cos_theta * sin_theta;
-        }
+        // 5. Accumulate radiance.
+        // With importance sampling, the PDF cancels out the cosine term,
+        // so we just sum the sampled colors.
+        total_radiance += sample_color;
     }
 
-    // 5. Normalize and apply Lambertian BRDF
-    // The integral of (cos(theta) * sin(theta)) over the hemisphere is PI.
-    // We multiply by the differential area and divide by PI (the BRDF) which cancels out.
-    let prefiltered_color = irradiance * theta_delta * phi_delta * (1.0 / PI);
+    // 6. The final irradiance is the average radiance scaled by the Lambertian BRDF (1/PI)
+    let irradiance = total_radiance / f32(SAMPLE_COUNT);
+    let prefiltered_color = irradiance; // The 1/PI factor is applied in the main render shader, not here.
 
     textureStore(dst, gid.xy, gid.z, vec4(prefiltered_color, 1.0));
 }
