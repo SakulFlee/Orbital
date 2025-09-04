@@ -1,5 +1,6 @@
 const PI: f32 = 3.14159265359;
 const INV_ATAN: vec2<f32> = vec2(0.1591, 0.3183); // 1/(2*PI), 1/PI
+const TWO_PI: f32 = 6.28318530718;
 
 // Bindings for textures
 @group(0) @binding(0) var src: texture_2d<f32>; // Equirectangular source
@@ -39,61 +40,65 @@ fn gid_z_to_face(gid_z: u32) -> Face {
     }
 }
 
+const PCG_MULTIPLIER: u32 = 747796405u;
+const PCG_INCREMENT: u32 = 2891336453u;
+fn pcg_hash(seed: u32) -> f32 {
+    var state = seed;
+    state = state * PCG_MULTIPLIER + PCG_INCREMENT;
+    let word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    return f32(word >> 16u) / 65535.0; // Returns a value in [0, 1]
+}
+
 // Main function to calculate diffuse IBL for a given normal
 fn calculate_pbr_ibl_diffuse(N: vec3<f32>, gid: vec3<u32>) {
     var irradiance = vec3(0.0);
 
-    // Use a reasonable number of samples for quality vs. performance
-    const SAMPLE_COUNT_THETA: u32 = 64u;
-    const SAMPLE_COUNT_PHI: u32 = 128u;
+    // Number of samples
+    const SAMPLE_COUNT: u32 = 8192u; 
 
-    // Define separate deltas for theta and phi for correct integration
-    let theta_delta: f32 = (0.5 * PI) / f32(SAMPLE_COUNT_THETA);
-    let phi_delta: f32 = (2.0 * PI) / f32(SAMPLE_COUNT_PHI);
+    // Use gid as a seed for the random number generator
+    let seed = gid.x * 19u + gid.y * 13u + gid.z * 11u;
 
-    // Integrate over the hemisphere around N
-    for (var i: u32 = 0u; i < SAMPLE_COUNT_PHI; i++) {
-        // Phi goes from 0 to 2*PI
-        let phi = (f32(i) + 0.5) * phi_delta;
-        for (var j: u32 = 0u; j < SAMPLE_COUNT_THETA; j++) {
-            // Theta goes from 0 to PI/2
-            let theta = (f32(j) + 0.5) * theta_delta;
+    // Create a TBN matrix for transforming samples
+    let up = select(vec3(0.0, 0.0, 1.0), vec3(0.0, 1.0, 0.0), abs(N.y) > 0.999);
+    let tangent = normalize(cross(up, N));
+    let bitangent = cross(N, tangent);
 
-            // 1. Generate sample direction in tangent space
-            let sin_theta = sin(theta);
-            let cos_theta = cos(theta);
-            let tangent_sample = vec3(
-                sin_theta * cos(phi),
-                sin_theta * sin(phi),
-                cos_theta
-            );
+    for (var i: u32 = 0u; i < SAMPLE_COUNT; i++) {
+        // Generate two random numbers from our hash function
+        let r1 = pcg_hash(seed + i * 3u);
+        let r2 = pcg_hash(seed + i * 5u);
 
-            // 2. Create TBN matrix to transform sample to world space
-            let up = select(vec3(0.0, 0.0, 1.0), vec3(0.0, 1.0, 0.0), abs(N.y) > 0.999);
-            let tangent = normalize(cross(up, N));
-            let bitangent = cross(N, tangent);
-            let L = normalize(
-                tangent * tangent_sample.x +
-                bitangent * tangent_sample.y +
-                N * tangent_sample.z
-            );
+        // Cosine-weighted importance sampling in tangent space
+        let phi = r1 * TWO_PI;
+        let cos_theta = sqrt(1.0 - r2);
+        let sin_theta = sqrt(r2);
 
-            // 3. Sample environment map
-            let eq_uv = vec2(atan2(L.z, L.x), asin(L.y)) * INV_ATAN + 0.5;
-            let src_dims = vec2<f32>(textureDimensions(src));
-            let eq_pixel = vec2<i32>(eq_uv * src_dims);
-            let sample = textureLoad(src, clamp(eq_pixel, vec2(0), vec2<i32>(src_dims) - 1), 0);
+        let tangent_sample = vec3(
+            sin_theta * cos(phi),
+            sin_theta * sin(phi),
+            cos_theta
+        );
 
-            // 4. Accumulate irradiance, weighted by the solid angle and cosine factor
-            // The integral is L * cos(theta) * sin(theta) d(theta) d(phi)
-            irradiance += sample.rgb * cos_theta * sin_theta;
-        }
+        // Transform sample from tangent space to world space
+        let L = normalize(
+            tangent * tangent_sample.x +
+            bitangent * tangent_sample.y +
+            N * tangent_sample.z
+        );
+        
+        // Sample environment map
+        let eq_uv = vec2(atan2(L.z, L.x), asin(L.y)) * INV_ATAN + 0.5;
+        let src_dims = vec2<f32>(textureDimensions(src));
+        let eq_pixel = vec2<i32>(eq_uv * src_dims);
+        let sample_color = textureLoad(src, clamp(eq_pixel, vec2(0), vec2<i32>(src_dims) - 1), 0);
+
+        // Accumulate irradiance
+        irradiance += sample_color.rgb;
     }
 
-    // 5. Normalize and apply Lambertian BRDF
-    // The integral of (cos(theta) * sin(theta)) over the hemisphere is PI.
-    // We multiply by the differential area and divide by PI (the BRDF) which cancels out.
-    let prefiltered_color = irradiance * theta_delta * phi_delta * (1.0 / PI);
+    // Correct normalization: simply average the accumulated samples.
+    let prefiltered_color = irradiance / f32(SAMPLE_COUNT);
 
     textureStore(dst, gid.xy, gid.z, vec4(prefiltered_color, 1.0));
 }
@@ -125,3 +130,4 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     // Calculate diffuse IBL
     calculate_pbr_ibl_diffuse(N, gid);
 }
+
