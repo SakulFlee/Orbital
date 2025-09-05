@@ -238,11 +238,30 @@ fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
 
 /// Samples the fragment's normal and transforms it into world space
 fn sample_normal_from_map(fragment_data: FragmentData) -> vec3<f32> {
+    // For now, always use the vertex normal directly to avoid TBN matrix issues
+    // This will eliminate swirl artifacts caused by inconsistent tangent/bitangent data
+    return normalize(fragment_data.normal);
+    
+    // TODO: Re-enable normal map support once tangent/bitangent generation is fully stable
+    /*
     let normal_sample = textureSample(
         normal_texture,
         normal_sampler,
         fragment_data.uv
     ).rgb;
+    
+    // Check if this is a default/white normal map (no normal map provided)
+    // If the normal map is white (0.5, 0.5, 1.0), it means no normal map is being used
+    let is_default_normal = (normal_sample.r - 0.5).abs() < 0.1 && 
+                           (normal_sample.g - 0.5).abs() < 0.1 && 
+                           (normal_sample.b - 1.0).abs() < 0.1;
+    
+    if is_default_normal {
+        // No normal map provided, use the vertex normal directly
+        return normalize(fragment_data.normal);
+    }
+    
+    // Normal map provided, transform using TBN matrix
     let tangent_normal = 2.0 * normal_sample - 1.0;
 
     let TBN = mat3x3(
@@ -252,6 +271,7 @@ fn sample_normal_from_map(fragment_data: FragmentData) -> vec3<f32> {
     );
     let N = normalize(TBN * tangent_normal);
     return N;
+    */
 }
 
 // Fresnel

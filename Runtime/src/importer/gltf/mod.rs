@@ -562,7 +562,8 @@ impl GltfImporter {
             // TODO: CLEANUP
 
             // Collect all data into vectors first to avoid iterator issues
-            let positions_vec: Vec<_> = positions.map(|p| Vector3::new(p[0], p[1], p[2])).collect();
+            let original_positions_vec: Vec<_> = positions.map(|p| Vector3::new(p[0], p[1], p[2])).collect();
+            let positions_vec: Vec<_> = original_positions_vec.iter().map(|p| Vector3::new(p.x, p.z, -p.y)).collect();
             // Collect indices early as they are needed for normal calculation if normals are missing
             let indices_vec: Vec<u32> = reader
                 .read_indices()
@@ -652,6 +653,54 @@ impl GltfImporter {
             let uvs_vec: Option<Vec<_>> =
                 uvs.map(|uv| uv.map(|uv| Vector2::new(uv[0], uv[1])).collect());
 
+            // Detect if this is likely a UV sphere mesh for better tangent generation
+            let is_uv_sphere = if tangents_vec.is_none() {
+                if let Some(uvs) = &uvs_vec {
+                    // Analyze UV coordinates to detect UV sphere pattern
+                    let mut has_pole_vertices = false;
+                    let mut has_equator_vertices = false;
+                    
+                    for uv in uvs {
+                        // Check for pole vertices (V = 0 or V = 1)
+                        if uv.y < 0.01 || uv.y > 0.99 {
+                            has_pole_vertices = true;
+                        }
+                        // Check for equator vertices (V ≈ 0.5)
+                        if uv.y > 0.49 && uv.y < 0.51 {
+                            has_equator_vertices = true;
+                        }
+                    }
+                    
+                    // If we have both pole and equator vertices, it's likely a UV sphere
+                    has_pole_vertices && has_equator_vertices
+                } else {
+                    // No UVs provided - check if this looks like a sphere by analyzing vertex positions
+                    // A sphere should have vertices at various distances from center, with some at radius 1
+                    let mut has_center_distance_vertices = false;
+                    let mut has_unit_radius_vertices = false;
+                    
+                    for position in &original_positions_vec {
+                        let distance = position.magnitude();
+                        if distance < 0.1 {
+                            has_center_distance_vertices = true;
+                        }
+                        if (distance - 1.0).abs() < 0.1 {
+                            has_unit_radius_vertices = true;
+                        }
+                    }
+                    
+                    // If we have vertices at various distances and some at unit radius, likely a sphere
+                    has_center_distance_vertices && has_unit_radius_vertices
+                }
+            } else {
+                false
+            };
+            
+            if is_uv_sphere {
+                log::debug!("Detected UV sphere mesh - using sphere-specific tangent generation");
+                log::debug!("Sphere has {} vertices, UVs provided: {}", positions_vec.len(), uvs_vec.is_some());
+            }
+
             // Main vertex processing loop
             let mut vertices = Vec::new();
             for (i, position) in positions_vec.iter().enumerate() {
@@ -676,12 +725,31 @@ impl GltfImporter {
                     let calculated_bitangent = normal.cross(tangent_vec) * handedness;
                     (tangent_vec, calculated_bitangent)
                 } else {
-                    // When tangent is missing, warn and use a robust generalized calculation
-                    warn!(
-                        "Tangent missing for vertex {i}. Using generalized fallback calculation."
-                    );
-                    // Use the new, more robust arbitrary tangent frame generator
-                    tangent_utils::generate_arbitrary_tangent_frame(normal)
+                    // When tangent is missing, try to detect if this is a sphere-like mesh
+                    // and use appropriate tangent generation
+                    let uv = uvs_vec
+                        .as_ref()
+                        .and_then(|uvs| uvs.get(i))
+                        .map(|uv| (uv.x, uv.y));
+                    
+                    // Use the detected UV sphere information for better tangent generation
+                    if is_uv_sphere {
+                        // Use sphere-specific tangent generation for better pole handling
+                        log::trace!("Using sphere-specific tangent generation for vertex {}", i);
+                        // For sphere tangent generation, we need to use the original normal (before coordinate conversion)
+                        let original_normal = normals_vec.get(i).unwrap();
+                        let (original_tangent, original_bitangent) = tangent_utils::generate_sphere_tangent_frame(*original_normal, uv);
+                        
+                        // Convert tangent and bitangent from glTF coordinate system to our coordinate system
+                        let tangent = Vector3::new(original_tangent.x, original_tangent.z, -original_tangent.y);
+                        let bitangent = Vector3::new(original_bitangent.x, original_bitangent.z, -original_bitangent.y);
+                        
+                        (tangent, bitangent)
+                    } else {
+                        // Use the general arbitrary tangent frame generator
+                        log::trace!("Using arbitrary tangent generation for vertex {}", i);
+                        tangent_utils::generate_arbitrary_tangent_frame(normal)
+                    }
                 };
 
                 let uv = uvs_vec
@@ -689,8 +757,26 @@ impl GltfImporter {
                     .and_then(|uvs| uvs.get(i))
                     .map(|uv| Vector2::new(uv.x, uv.y)) // No V coordinate flipping needed for glTF *data*, handled by API/sampler
                     .unwrap_or_else(|| {
-                        warn!("UV missing for vertex {i}. Using default!");
-                        Vector2::zero()
+                        if is_uv_sphere {
+                            // Generate proper UV coordinates for sphere vertices
+                            // Use the original glTF position (before coordinate system conversion) for UV generation
+                            let original_pos = original_positions_vec[i];
+                            
+                            // Convert to spherical coordinates using glTF's Y-up coordinate system
+                            // For a UV sphere in glTF: Y is up, so theta is measured from Y axis
+                            let theta = original_pos.y.acos(); // polar angle (0 to π) - from Y axis
+                            let phi = original_pos.x.atan2(original_pos.z); // azimuthal angle (-π to π)
+                            
+                            // Map to UV coordinates
+                            let u = (phi + std::f32::consts::PI) / (2.0 * std::f32::consts::PI); // 0 to 1
+                            let v = theta / std::f32::consts::PI; // 0 to 1
+                            
+                            log::trace!("Generated UV ({}, {}) for sphere vertex {} with original position {:?}", u, v, i, original_pos);
+                            Vector2::new(u, v)
+                        } else {
+                            warn!("UV missing for vertex {i}. Using default!");
+                            Vector2::zero()
+                        }
                     });
 
                 // Create vertex with the calculated or provided normal, tangent, and bitangent
