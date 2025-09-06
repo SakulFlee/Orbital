@@ -250,8 +250,8 @@ fn sample_normal_from_map(fragment_data: FragmentData) -> vec3<f32> {
     // If so, no normal map was probably provided ... int hat case we simply return the fragment (passed on by vertex stage) normal.
     if normal_dimensions.x == 1 && normal_dimensions.y == 1 {
         if (abs(normal_sample.r - 0.5) < 0.01) && 
-                           (abs(normal_sample.g - 0.5) < 0.01) && 
-                           (abs(normal_sample.b - 1.0) < 0.01) {
+           (abs(normal_sample.g - 0.5) < 0.01) && 
+           (abs(normal_sample.b - 1.0) < 0.01) {
             return normalize(fragment_data.normal);
         }
     }
