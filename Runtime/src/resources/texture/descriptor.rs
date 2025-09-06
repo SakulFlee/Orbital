@@ -108,18 +108,15 @@ impl TextureDescriptor {
             ],
             size: TextureSize {
                 width: 1,
-                height: 1,
-                ..Default::default()
-            },
-            format: TextureFormat::Rgba8UnormSrgb,
-            usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+                heig            usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
             texture_dimension: TextureDimension::D2,
             texture_view_dimension: TextureViewDimension::D2,
             filter_mode: FilterMode::default(),
         }
     }
 
-    pub fn uniform_rgba_value(r: f64, g: f64, b: f64, a: f64) -> Self {
+    pub fn uniform_rgba_value(r: f64, g: f64, b: f64, a: f64) -> Self {dimension: TextureDimension::D2,
+               pub fn uniform_rgba_value(r: f64, g: f64, b: f64, a: f64) -> Self {
         Self::Data {
             pixels: vec![
                 ((r.clamp(0.0, 1.0)) * 255.0) as u8,
@@ -135,6 +132,33 @@ impl TextureDescriptor {
             format: TextureFormat::Rgba8UnormSrgb,
             usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
             texture_dimension: TextureDimension::D2,
+            texture_view_dimension: TextureViewDimension::D2,
+            filter_mode: FilterMode::default(),
+        }
+    }
+
+    /// Creates a uniform texture with linear format (no sRGB conversion)
+    /// This should be used for normal maps, metallic/roughness maps, etc.
+    pub fn uniform_rgba_value_linear(r: f64, g: f64, b: f64, a: f64) -> Self {
+        Self::Data {
+            pixels: vec![
+                ((r.clamp(0.0, 1.0)) * 255.0) as u8,
+                ((g.clamp(0.0, 1.0)) * 255.0) as u8,
+                ((b.clamp(0.0, 1.0)) * 255.0) as u8,
+                ((a.clamp(0.0, 1.0)) * 255.0) as u8,
+            ],
+            size: TextureSize {
+                width: 1,
+                height: 1,
+                ..Default::default()
+            },
+            format: TextureFormat::Rgba8Unorm, // Linear format, no sRGB conversion
+            usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+            texture_dimension: TextureDimension::D2,
+            texture_view_dimension: TextureViewDimension::D2,
+            filter_mode: FilterMode::default(),
+        }
+    }nsion::D2,
             texture_view_dimension: TextureViewDimension::D2,
             filter_mode: FilterMode::default(),
         }
