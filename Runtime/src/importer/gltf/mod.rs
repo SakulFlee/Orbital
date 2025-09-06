@@ -207,7 +207,7 @@ impl GltfImporter {
             Format::R8 => (TextureFormat::R8Unorm, false),
             Format::R8G8 => (TextureFormat::Rg8Unorm, false),
             Format::R8G8B8 => (TextureFormat::Rgba8Unorm, true),
-            Format::R8G8B8A8 => (TextureFormat::Rgba8Unorm, false),
+            Format::R8G8B8A8 => (TextureFormat::Rgba8UnormSrgb, false),
             Format::R16 => (TextureFormat::R16Unorm, false),
             Format::R16G16 => (TextureFormat::Rg16Unorm, false),
             Format::R16G16B16 => (TextureFormat::Rgba16Unorm, true),
@@ -233,7 +233,7 @@ impl GltfImporter {
         let (pixel_data, width, height) = if need_alpha_channel {
             // If an alpha channel needs to be generated (e.g., RGB -> RGBA),
             // process the original data.
-            // The gltf crate provides data without alpha in the cases where
+            // The glTF crate provides data without alpha in the cases where
             // `need_alpha_channel` is true.
             // wgpu requires a 4-component format (e.g., Rgba8Unorm), so we need to add alpha.
             // Standard assumption: Add an opaque alpha channel (255).
@@ -430,6 +430,7 @@ impl GltfImporter {
             // Default normal map value: (0.5, 0.5, 1.0, 1.0) maps to (0, 0, 1) in tangent space after 2*x-1
             // Use linear format for normal maps (no sRGB conversion)
             let mut normal_desc = TextureDescriptor::uniform_rgba_value(0.5, 0.5, 1.0, 1.0, false);
+            // TODO: duplicated!
             // Override the format to be linear instead of sRGB
             if let TextureDescriptor::Data { format, .. } = &mut normal_desc {
                 *format = TextureFormat::Rgba8Unorm; // Linear format for normal maps
