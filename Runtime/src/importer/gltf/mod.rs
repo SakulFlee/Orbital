@@ -429,13 +429,7 @@ impl GltfImporter {
         } else {
             // Default normal map value: (0.5, 0.5, 1.0, 1.0) maps to (0, 0, 1) in tangent space after 2*x-1
             // Use linear format for normal maps (no sRGB conversion)
-            let mut normal_desc = TextureDescriptor::uniform_rgba_value(0.5, 0.5, 1.0, 1.0, false);
-            // TODO: duplicated!
-            // Override the format to be linear instead of sRGB
-            if let TextureDescriptor::Data { format, .. } = &mut normal_desc {
-                *format = TextureFormat::Rgba8Unorm; // Linear format for normal maps
-            }
-            normal_desc
+            TextureDescriptor::uniform_rgba_value(0.5, 0.5, 1.0, 1.0, false)
         };
 
         // NOTE: 'W' (Opacity / Transparency) is skipped here!
