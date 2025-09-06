@@ -70,6 +70,7 @@ pub fn generate_sphere_tangent_frame(normal: Vector3<f32>, uv: Option<(f32, f32)
         
         // For poles, use a completely fixed tangent direction
         // This ensures ALL vertices at the pole have the EXACT same tangent
+        // In Y-up coordinate system, use X direction for consistency
         let tangent = Vector3::new(1.0, 0.0, 0.0);
         let bitangent = normal.cross(tangent);
         
@@ -78,7 +79,7 @@ pub fn generate_sphere_tangent_frame(normal: Vector3<f32>, uv: Option<(f32, f32)
     
     // For non-pole vertices, use the standard spherical coordinate approach
     // Calculate tangent (U direction) - this is the derivative with respect to phi
-    // For a unit sphere: x = sin(theta) * cos(phi), y = cos(theta), z = sin(theta) * sin(phi)
+    // For a unit sphere in Y-up: x = sin(theta) * cos(phi), y = cos(theta), z = sin(theta) * sin(phi)
     // d/dphi = (-sin(theta) * sin(phi), 0, sin(theta) * cos(phi))
     let tangent = Vector3::new(
         -normal.z,  // -sin(theta) * sin(phi)
