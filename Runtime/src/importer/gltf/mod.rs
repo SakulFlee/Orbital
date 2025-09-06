@@ -429,7 +429,7 @@ impl GltfImporter {
         } else {
             // Default normal map value: (0.5, 0.5, 1.0, 1.0) maps to (0, 0, 1) in tangent space after 2*x-1
             // Use linear format for normal maps (no sRGB conversion)
-            let mut normal_desc = TextureDescriptor::uniform_rgba_value(0.5, 0.5, 1.0, 1.0);
+            let mut normal_desc = TextureDescriptor::uniform_rgba_value(0.5, 0.5, 1.0, 1.0, false);
             // Override the format to be linear instead of sRGB
             if let TextureDescriptor::Data { format, .. } = &mut normal_desc {
                 *format = TextureFormat::Rgba8Unorm; // Linear format for normal maps
@@ -451,6 +451,7 @@ impl GltfImporter {
                 factor[1] as f64,
                 factor[2] as f64,
                 factor[3] as f64,
+                true,
             );
 
             (texture, Vector3::new(1.0, 1.0, 1.0))
@@ -481,12 +482,22 @@ impl GltfImporter {
                 // If no metallic/roughness texture is set, the factors will act as a global texture and the factors inside the shader should be set to 1.0!
 
                 let factor_metallic = material.pbr_metallic_roughness().metallic_factor();
-                let texture_descriptor_metallic =
-                    TextureDescriptor::uniform_rgba_value(factor_metallic as f64, 0.0, 0.0, 1.0);
+                let texture_descriptor_metallic = TextureDescriptor::uniform_rgba_value(
+                    factor_metallic as f64,
+                    0.0,
+                    0.0,
+                    1.0,
+                    true,
+                );
 
                 let factor_roughness = material.pbr_metallic_roughness().roughness_factor();
-                let texture_descriptor_roughness =
-                    TextureDescriptor::uniform_rgba_value(factor_roughness as f64, 0.0, 0.0, 1.0);
+                let texture_descriptor_roughness = TextureDescriptor::uniform_rgba_value(
+                    factor_roughness as f64,
+                    0.0,
+                    0.0,
+                    1.0,
+                    true,
+                );
 
                 (
                     texture_descriptor_metallic,
@@ -499,18 +510,21 @@ impl GltfImporter {
         let occlusion = if let Some(occlusion_info) = material.occlusion_texture() {
             Self::parse_texture(&textures[occlusion_info.texture().source().index()])
         } else {
-            TextureDescriptor::uniform_rgba_white()
+            TextureDescriptor::uniform_rgba_white(false)
         };
         let emissive = if let Some(emissive_info) = material.emissive_texture() {
             Self::parse_texture(&textures[emissive_info.texture().source().index()])
         } else {
             let emissive_color = material.emissive_factor();
-            TextureDescriptor::uniform_rgba_color(Color {
-                r: emissive_color[0] as f64,
-                g: emissive_color[1] as f64,
-                b: emissive_color[2] as f64,
-                a: 1.0,
-            })
+            TextureDescriptor::uniform_rgba_color(
+                Color {
+                    r: emissive_color[0] as f64,
+                    g: emissive_color[1] as f64,
+                    b: emissive_color[2] as f64,
+                    a: 1.0,
+                },
+                true,
+            )
         };
 
         let pbr_material = PBRMaterialDescriptor {
@@ -664,7 +678,7 @@ impl GltfImporter {
                     // Analyze UV coordinates to detect UV sphere pattern
                     let mut has_pole_vertices = false;
                     let mut has_equator_vertices = false;
-                    
+
                     for uv in uvs {
                         // Check for pole vertices (V = 0 or V = 1)
                         if uv.y < 0.01 || uv.y > 0.99 {
@@ -675,7 +689,7 @@ impl GltfImporter {
                             has_equator_vertices = true;
                         }
                     }
-                    
+
                     // If we have both pole and equator vertices, it's likely a UV sphere
                     has_pole_vertices && has_equator_vertices
                 } else {
@@ -683,7 +697,7 @@ impl GltfImporter {
                     // A sphere should have vertices at various distances from center, with some at radius 1
                     let mut has_center_distance_vertices = false;
                     let mut has_unit_radius_vertices = false;
-                    
+
                     for position in &positions_vec {
                         let distance = position.magnitude();
                         if distance < 0.1 {
@@ -693,17 +707,21 @@ impl GltfImporter {
                             has_unit_radius_vertices = true;
                         }
                     }
-                    
+
                     // If we have vertices at various distances and some at unit radius, likely a sphere
                     has_center_distance_vertices && has_unit_radius_vertices
                 }
             } else {
                 false
             };
-            
+
             if is_uv_sphere {
                 log::debug!("Detected UV sphere mesh - using sphere-specific tangent generation");
-                log::debug!("Sphere has {} vertices, UVs provided: {}", positions_vec.len(), uvs_vec.is_some());
+                log::debug!(
+                    "Sphere has {} vertices, UVs provided: {}",
+                    positions_vec.len(),
+                    uvs_vec.is_some()
+                );
             }
 
             // Main vertex processing loop
@@ -734,7 +752,7 @@ impl GltfImporter {
                         .as_ref()
                         .and_then(|uvs| uvs.get(i))
                         .map(|uv| (uv.x, uv.y));
-                    
+
                     // Use the detected UV sphere information for better tangent generation
                     if is_uv_sphere {
                         // Use sphere-specific tangent generation for better pole handling
