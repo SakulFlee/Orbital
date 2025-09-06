@@ -243,22 +243,17 @@ fn sample_normal_from_map(fragment_data: FragmentData) -> vec3<f32> {
         normal_sampler,
         fragment_data.uv
     ).rgb;
-    
-    // Check if this is a default normal map
-    // The default normal map is now stored in linear format as (0.5, 0.5, 1.0)
-    let r_val = normal_sample.r;
-    let g_val = normal_sample.g;
-    let b_val = normal_sample.b;
-    
-    // Check if values match the default normal map in linear format
-    let is_default_normal = (abs(r_val - 0.5) < 0.01) && 
-                           (abs(g_val - 0.5) < 0.01) && 
-                           (abs(b_val - 1.0) < 0.01);
-    
-    if is_default_normal {
-        // No normal map provided, use the vertex normal directly
-        // This avoids TBN matrix issues with inconsistent tangent/bitangent data
-        return normalize(fragment_data.normal);
+
+    let normal_dimensions = textureDimensions(normal_texture);    
+   
+    // Check if normal texture dimension and sample data match a generated texture.
+    // If so, no normal map was probably provided ... int hat case we simply return the fragment (passed on by vertex stage) normal.
+    if normal_dimensions.x == 1 && normal_dimensions.y == 1 {
+        if (abs(normal_sample.r - 0.5) < 0.01) && 
+                           (abs(normal_sample.g - 0.5) < 0.01) && 
+                           (abs(normal_sample.b - 1.0) < 0.01) {
+            return normalize(fragment_data.normal);
+        }
     }
     
     // Normal map provided, transform using TBN matrix
