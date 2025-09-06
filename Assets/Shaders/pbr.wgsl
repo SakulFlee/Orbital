@@ -238,40 +238,40 @@ fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
 
 /// Samples the fragment's normal and transforms it into world space
 fn sample_normal_from_map(fragment_data: FragmentData) -> vec3<f32> {
-    // For now, always use the vertex normal directly to avoid TBN matrix issues
-    // This will eliminate swirl artifacts caused by inconsistent tangent/bitangent data
-    return normalize(fragment_data.normal);
-    
-    // TODO: Re-enable normal map support once tangent/bitangent generation is fully stable
-    /*
     let normal_sample = textureSample(
         normal_texture,
         normal_sampler,
         fragment_data.uv
     ).rgb;
     
-    // Check if this is a default/white normal map (no normal map provided)
-    // If the normal map is white (0.5, 0.5, 1.0), it means no normal map is being used
-    let is_default_normal = (normal_sample.r - 0.5).abs() < 0.1 && 
-                           (normal_sample.g - 0.5).abs() < 0.1 && 
-                           (normal_sample.b - 1.0).abs() < 0.1;
+    // Check if this is a default normal map
+    // The default normal map is now stored in linear format as (0.5, 0.5, 1.0)
+    let r_val = normal_sample.r;
+    let g_val = normal_sample.g;
+    let b_val = normal_sample.b;
+    
+    // Check if values match the default normal map in linear format
+    let is_default_normal = (abs(r_val - 0.5) < 0.01) && 
+                           (abs(g_val - 0.5) < 0.01) && 
+                           (abs(b_val - 1.0) < 0.01);
     
     if is_default_normal {
         // No normal map provided, use the vertex normal directly
+        // This avoids TBN matrix issues with inconsistent tangent/bitangent data
         return normalize(fragment_data.normal);
     }
     
     // Normal map provided, transform using TBN matrix
     let tangent_normal = 2.0 * normal_sample - 1.0;
 
-    let TBN = mat3x3(
-        fragment_data.tangent,
-        fragment_data.bitangent,
-        fragment_data.normal,
-    );
+    // Ensure TBN matrix vectors are normalized
+    let tangent = normalize(fragment_data.tangent);
+    let bitangent = normalize(fragment_data.bitangent);
+    let normal = normalize(fragment_data.normal);
+    
+    let TBN = mat3x3(tangent, bitangent, normal);
     let N = normalize(TBN * tangent_normal);
     return N;
-    */
 }
 
 // Fresnel

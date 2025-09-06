@@ -428,7 +428,13 @@ impl GltfImporter {
             Self::parse_texture(&textures[normal_info.texture().source().index()])
         } else {
             // Default normal map value: (0.5, 0.5, 1.0, 1.0) maps to (0, 0, 1) in tangent space after 2*x-1
-            TextureDescriptor::uniform_rgba_value(0.5, 0.5, 1.0, 1.0)
+            // Use linear format for normal maps (no sRGB conversion)
+            let mut normal_desc = TextureDescriptor::uniform_rgba_value(0.5, 0.5, 1.0, 1.0);
+            // Override the format to be linear instead of sRGB
+            if let TextureDescriptor::Data { format, .. } = &mut normal_desc {
+                *format = TextureFormat::Rgba8Unorm; // Linear format for normal maps
+            }
+            normal_desc
         };
 
         // NOTE: 'W' (Opacity / Transparency) is skipped here!
@@ -698,9 +704,6 @@ impl GltfImporter {
             if is_uv_sphere {
                 log::debug!("Detected UV sphere mesh - using sphere-specific tangent generation");
                 log::debug!("Sphere has {} vertices, UVs provided: {}", positions_vec.len(), uvs_vec.is_some());
-                if let Some(uvs) = &uvs_vec {
-                    log::debug!("Sample UVs: {:?}", uvs.iter().take(5).collect::<Vec<_>>());
-                }
             }
 
             // Main vertex processing loop
@@ -736,7 +739,6 @@ impl GltfImporter {
                     if is_uv_sphere {
                         // Use sphere-specific tangent generation for better pole handling
                         log::trace!("Using sphere-specific tangent generation for vertex {}", i);
-                        // Use normal directly from glTF (no coordinate conversion needed)
                         tangent_utils::generate_sphere_tangent_frame(normal, uv)
                     } else {
                         // Use the general arbitrary tangent frame generator

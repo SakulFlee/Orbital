@@ -66,8 +66,6 @@ pub fn generate_sphere_tangent_frame(normal: Vector3<f32>, uv: Option<(f32, f32)
         // At poles, we want a consistent tangent direction for all vertices
         // Use a fixed reference direction that's perpendicular to the pole normal
         
-        log::trace!("Detected pole vertex with normal: {:?}", normal);
-        
         // For poles, use a completely fixed tangent direction
         // This ensures ALL vertices at the pole have the EXACT same tangent
         // In Y-up coordinate system, use X direction for consistency
