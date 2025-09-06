@@ -767,9 +767,20 @@ impl GltfImporter {
             // Collect indices into a vector first
             let indices_vec: Vec<u32> = indices.collect();
 
+            // Flip the winding order of indices to account for coordinate system handedness
+            let mut indices_flipped = Vec::new();
+            for i in (0..indices_vec.len()).step_by(3) {
+                if i + 2 < indices_vec.len() {
+                    // Flip the triangle winding order
+                    indices_flipped.push(indices_vec[i]);
+                    indices_flipped.push(indices_vec[i + 2]);
+                    indices_flipped.push(indices_vec[i + 1]);
+                }
+            }
+
             let mesh_descriptor = MeshDescriptor {
                 vertices,
-                indices: indices_vec,
+                indices: indices_flipped,
             };
             let material = Self::parse_materials(&primitive.material(), textures);
 
