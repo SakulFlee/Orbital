@@ -168,8 +168,15 @@ fn sample_importance(N: vec3<f32>, roughness: f32) -> vec4<f32> {
     var result = vec4(0.0);
     var total_weight = 0.0;
     
-    for(var i = 0u; i < IMPORTANCE_SAMPLE_COUNT; i++) {
-        let Xi = vec2(f32(i) / f32(IMPORTANCE_SAMPLE_COUNT), fract(f32(i) * 0.618034));
+    // Adaptive sampling: fewer samples for lower roughness values, more for higher
+    // This provides better performance where quality differences are less noticeable
+    // while maintaining quality where it matters most (high roughness materials)
+    let min_samples = 256u;
+    let max_samples = IMPORTANCE_SAMPLE_COUNT;
+    let adaptive_sample_count = min_samples + u32(f32(max_samples - min_samples) * roughness * roughness);
+    
+    for(var i = 0u; i < adaptive_sample_count; i++) {
+        let Xi = vec2(f32(i) / f32(adaptive_sample_count), fract(f32(i) * 0.618034));
         let H = importance_sample_ggx(Xi, roughness, N);
         let L = normalize(2.0 * dot(N, H) * H - N);
         
@@ -189,7 +196,7 @@ fn sample_importance(N: vec3<f32>, roughness: f32) -> vec4<f32> {
         return vec4<f32>(result.rgb / total_weight, result.a / total_weight);
     } else {
         // Return a small positive value to avoid pure black
-        return vec4<f32>(0.0001, 0.0001, 0.0001, 0.0);
+        return vec4<f32>(0.0001, 0.0001, 0.0001, 1.0);
     }
 }
 
