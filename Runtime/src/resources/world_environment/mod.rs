@@ -623,9 +623,9 @@ impl WorldEnvironment {
             });
 
             debug!(
-                "Generating PBR IBL Specular (LoD = {} / Roughness = {}%) ...",
+                "Generating PBR IBL Specular (LoD = {} / Roughness = {:.1}%) ...",
                 mip_level,
-                (mip_level as f32 / max_mip_levels as f32) * 100.0
+                (mip_level as f32 / (max_mip_levels - 1) as f32) * 100.0
             );
             // Calculate the dimensions of the current mip level
             let dst_size = dst_texture.texture().size();
