@@ -722,19 +722,21 @@ impl GltfImporter {
             // Main vertex processing loop
             let mut vertices = Vec::new();
             for (i, position) in positions_vec.iter().enumerate() {
-                // No coordinate system conversion needed - engine uses Y-up like glTF
-                let position = *position;
+                // Apply coordinate system conversion (Y-up to Z-up)
+                // glTF uses a right-handed coordinate system with Y-up
+                // Converting to a system with Z-up (like many game engines)
+                let position = Vector3::new(position.x, position.z, -position.y);
 
-                // Use normal directly from glTF (no coordinate conversion needed)
+                // Apply coordinate system conversion (Y-up to Z-up) to normal
                 let normal_gltf = normals_vec.get(i).unwrap();
-                let normal = *normal_gltf;
+                let normal = Vector3::new(normal_gltf.x, normal_gltf.z, -normal_gltf.y);
 
                 // Read tangent with handedness (w component) properly
                 let tangent_data = tangents_vec.as_ref().and_then(|tangents| tangents.get(i));
 
                 let (tangent, bitangent) = if let Some(tangent_raw) = tangent_data {
-                    // Use tangent coordinates directly from glTF (no coordinate conversion needed)
-                    let tangent_vec = Vector3::new(tangent_raw[0], tangent_raw[1], tangent_raw[2]);
+                    // Convert tangent coordinates to match our coordinate system
+                    let tangent_vec = Vector3::new(tangent_raw[0], tangent_raw[2], -tangent_raw[1]);
                     let handedness = tangent_raw[3]; // w component defines handedness
 
                     // Calculate bitangent using the (potentially calculated) normal and tangent with correct handedness
