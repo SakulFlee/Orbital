@@ -245,7 +245,7 @@ fn sample_filtered_gaussian(N: vec3<f32>, mip_level: f32) -> vec4<f32> {
 }
 
 @compute
-@workgroup_size(16, 16, 1)
+@workgroup_size(8, 8, 1)
 fn main(
     @builtin(global_invocation_id)
     gid: vec3<u32>,
