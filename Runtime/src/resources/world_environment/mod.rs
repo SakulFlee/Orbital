@@ -464,7 +464,9 @@ impl WorldEnvironment {
         });
 
         debug!("Generating PBR IBL Diffuse ...");
-        let workgroups = dst_size.div_ceil(16);
+        // Using 8x8 workgroups for better occupancy
+        let workgroup_size = 8u32;
+        let workgroups = dst_size.div_ceil(workgroup_size);
         pass.set_pipeline(&pipeline);
         pass.set_bind_group(0, &bind_group, &[]);
         pass.dispatch_workgroups(workgroups, workgroups, 6);
@@ -538,7 +540,9 @@ impl WorldEnvironment {
         });
 
         debug!("Generating RAW PBR IBL Specular (LoD = 0 / Roughness = 0%) ...");
-        let workgroups = dst_size.div_ceil(16);
+        // Using 8x8 workgroups for better occupancy
+        let workgroup_size = 8u32;
+        let workgroups = dst_size.div_ceil(workgroup_size);
         pass.set_pipeline(&pipeline);
         pass.set_bind_group(0, &bind_group, &[]);
         pass.dispatch_workgroups(workgroups, workgroups, 6);
@@ -632,8 +636,10 @@ impl WorldEnvironment {
             let current_mip_width = (dst_size.width >> mip_level).max(1);
             let current_mip_height = (dst_size.height >> mip_level).max(1);
             // Calculate workgroup count based on current mip level dimensions
-            let workgroups_x = current_mip_width.div_ceil(16);
-            let workgroups_y = current_mip_height.div_ceil(16);
+            // Using 8x8 workgroups for better occupancy
+            let workgroup_size = 8u32;
+            let workgroups_x = current_mip_width.div_ceil(workgroup_size);
+            let workgroups_y = current_mip_height.div_ceil(workgroup_size);
             pass.set_pipeline(&pipeline);
             pass.set_bind_group(0, &bind_group, &[]);
             pass.set_bind_group(1, &mip_bind_group, &[]);
