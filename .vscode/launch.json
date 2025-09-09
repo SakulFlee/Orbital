@@ -4,7 +4,24 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Example: DamagedHelmet",
+            "name": "Example: PBR Spheres",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=example_pbr_spheres_desktop"
+                ],
+                "filter": {
+                    "name": "example_pbr_spheres_desktop",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Example: Damaged Helmet",
             "cargo": {
                 "args": [
                     "build",
