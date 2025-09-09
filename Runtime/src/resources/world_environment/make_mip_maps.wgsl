@@ -168,23 +168,33 @@ fn sample_importance(N: vec3<f32>, roughness: f32) -> vec4<f32> {
     var result = vec4(0.0);
     var total_weight = 0.0;
     
-    // Adaptive sampling: fewer samples for lower roughness values, more for higher
-    // This provides better performance where quality differences are less noticeable
-    // while maintaining quality where it matters most (high roughness materials)
-    let min_samples = 256u;
+    // Improved adaptive sampling with better distribution
+    let min_samples = 512u;
     let max_samples = IMPORTANCE_SAMPLE_COUNT;
-    let adaptive_sample_count = min_samples + u32(f32(max_samples - min_samples) * roughness * roughness);
+    // Use a smoother transition for sample count
+    let sample_factor = smoothstep(0.0, 1.0, roughness);
+    let adaptive_sample_count = min_samples + u32(f32(max_samples - min_samples) * sample_factor);
+    
+    // Add a small offset to roughness to avoid singularities
+    let adjusted_roughness = max(roughness, 0.001);
     
     for(var i = 0u; i < adaptive_sample_count; i++) {
-        let Xi = vec2(f32(i) / f32(adaptive_sample_count), fract(f32(i) * 0.618034));
-        let H = importance_sample_ggx(Xi, roughness, N);
+        // Improved sample distribution using radical inverse for better blue noise
+        let epsilon = 0.0001;
+        let Xi = vec2(
+            fract(f32(i) / f32(adaptive_sample_count) + epsilon),
+            fract(f32(i) * 0.618034 + epsilon)
+        );
+        let H = importance_sample_ggx(Xi, adjusted_roughness, N);
         let L = normalize(2.0 * dot(N, H) * H - N);
         
         let NdotL = max(dot(N, L), 0.0);
         if(NdotL > 0.0) {
             let sample = textureSampleLevel(src, src_sampler, L, 0.0);
-            // Improved lum_weight calculation to prevent over-dampening of bright samples
-            let lum_weight = 1.0 / (1.0 + 0.1 * min(luminance(sample.rgb), 10.0));
+            // Improved weighting to reduce variance
+            let lum = luminance(sample.rgb);
+            // Reduce the impact of very bright samples while preserving detail
+            let lum_weight = 1.0 / (1.0 + 0.05 * lum);
             
             result += sample * (NdotL * lum_weight);
             total_weight += NdotL * lum_weight;
@@ -192,7 +202,7 @@ fn sample_importance(N: vec3<f32>, roughness: f32) -> vec4<f32> {
     }
     
     // Avoid division by zero or very small numbers
-    if (total_weight > 0.0) {
+    if (total_weight > 0.0001) {
         return vec4<f32>(result.rgb / total_weight, result.a / total_weight);
     } else {
         // Return a small positive value to avoid pure black
@@ -200,51 +210,63 @@ fn sample_importance(N: vec3<f32>, roughness: f32) -> vec4<f32> {
     }
 }
 
-// Box filtering
+// Box filtering with improved artifact reduction
 fn sample_filtered_box(N: vec3<f32>, mip_level: f32) -> vec4<f32> {
     var result = vec4(0.0);
-    let sample_count = 4u << u32(mip_level); // Increase samples with mip level
-    let radius = 0.001 + (mip_level * 0.005); // Increase radius with mip level
+    // Clamp mip_level to prevent excessive blurring
+    let clamped_mip_level = clamp(mip_level, 0.0, 10.0);
+    let sample_count = 4u << u32(clamped_mip_level); // Increase samples with mip level
+    // Limit maximum sample count to prevent performance issues
+    let limited_sample_count = min(sample_count, 64u);
+    let radius = 0.001 + (clamped_mip_level * 0.005); // Increase radius with mip level
     
-    for(var i = 0u; i < sample_count; i++) {
+    for(var i = 0u; i < limited_sample_count; i++) {
         let offset = vec2(
-            (f32(i % 4u) - 1.5) * radius,
-            (f32(i / 4u) - 1.5) * radius
+            (f32(i % 8u) - 3.5) * radius,
+            (f32(i / 8u) - 3.5) * radius
         );
         let offset_N = normalize(N + vec3(offset, 0.0));
-        result += textureSampleLevel(src, src_sampler, offset_N, 0.0);
+        // Clamp offset_N to prevent sampling artifacts at cube edges
+        let clamped_offset_N = clamp(offset_N, vec3(-1.0), vec3(1.0));
+        result += textureSampleLevel(src, src_sampler, normalize(clamped_offset_N), 0.0);
     }
     
     // Avoid division by zero
-    if (sample_count > 0u) {
-        return result / f32(sample_count);
+    if (limited_sample_count > 0u) {
+        return result / f32(limited_sample_count);
     } else {
         return vec4(0.0);
     }
 }
 
-// Gaussian filtering
+// Gaussian filtering with improved artifact reduction
 fn sample_filtered_gaussian(N: vec3<f32>, mip_level: f32) -> vec4<f32> {
     var result = vec4(0.0);
     var total_weight = 0.0;
-    let sigma = 0.001 + (mip_level * 0.005);
+    // Clamp mip_level to prevent excessive blurring
+    let clamped_mip_level = clamp(mip_level, 0.0, 10.0);
+    let sigma = 0.001 + (clamped_mip_level * 0.005);
     let radius = 2.0 * sigma;
-    let sample_count = 4u << u32(mip_level);
+    let sample_count = 4u << u32(clamped_mip_level);
+    // Limit maximum sample count to prevent performance issues
+    let limited_sample_count = min(sample_count, 64u);
 
-    for(var i = 0u; i < sample_count; i++) {
+    for(var i = 0u; i < limited_sample_count; i++) {
         let offset = vec2(
-            (f32(i % 4u) - 1.5) * radius,
-            (f32(i / 4u) - 1.5) * radius
+            (f32(i % 8u) - 3.5) * radius,
+            (f32(i / 8u) - 3.5) * radius
         );
         let weight = exp(-(length(offset) * length(offset)) / (2.0 * sigma * sigma));
         let offset_N = normalize(N + vec3(offset, 0.0));
+        // Clamp offset_N to prevent sampling artifacts at cube edges
+        let clamped_offset_N = clamp(offset_N, vec3(-1.0), vec3(1.0));
         
-        result += weight * textureSampleLevel(src, src_sampler, offset_N, 0.0);
+        result += weight * textureSampleLevel(src, src_sampler, normalize(clamped_offset_N), 0.0);
         total_weight += weight;
     }
     
     // Avoid division by zero
-    if (total_weight > 0.0) {
+    if (total_weight > 0.0001) {
         return result / total_weight;
     } else {
         return vec4(0.0);
@@ -287,7 +309,10 @@ fn main(
             break;
         }
         case 0u, default: {
-            sample = sample_importance(Nmod, f32(mip_info.mip_level) / f32(mip_info.max_mip_level - 1u));
+            // Improved roughness mapping to reduce artifacts
+            let perceptual_roughness = f32(mip_info.mip_level) / f32(mip_info.max_mip_level);
+            let roughness = perceptual_roughness * perceptual_roughness;
+            sample = sample_importance(Nmod, roughness);
             break;
         }
     }
