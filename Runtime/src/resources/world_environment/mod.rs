@@ -218,13 +218,13 @@ impl WorldEnvironment {
         requested_mip_level_count: Option<&u32>,
     ) -> u32 {
         let max_possible_mip_levels = cube_face_size.ilog2() + 1;
-        
+
         // Use a reasonable default of 7 levels (base level + 6 additional mipmap levels)
         // instead of generating the maximum possible number of mipmap levels
         // This provides good quality reflections while avoiding unnecessary computation
         // for very small mip levels (1x1, 2x2, 4x4) that don't contribute much to visual quality
         let reasonable_default_mip_levels = 7.min(max_possible_mip_levels);
-        
+
         let requested_mip_levels = requested_mip_level_count
             .copied()
             .unwrap_or(reasonable_default_mip_levels);
@@ -662,7 +662,7 @@ impl WorldEnvironment {
         let base_height = 2048u32;
         let current_mip_width = (base_width >> mip_level).max(1);
         let current_mip_height = (base_height >> mip_level).max(1);
-        
+
         let buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Mip Buffer"),
             contents: &[
@@ -790,7 +790,10 @@ impl WorldEnvironment {
         // This ensures that when loading from cache, the texture is created with
         // the correct number of mip levels, regardless of the descriptor used for loading.
         let ibl_specular_mip_level_count = self.ibl_specular.texture().mip_level_count();
-        debug!("Writing IBL Specular cache with {} mip levels", ibl_specular_mip_level_count);
+        debug!(
+            "Writing IBL Specular cache with {} mip levels",
+            ibl_specular_mip_level_count
+        );
 
         let cache_file = CacheFile {
             ibl_diffuse_data,
