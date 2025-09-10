@@ -224,9 +224,7 @@ impl GltfImporter {
         // Debug log to verify the determined format
         debug!(
             "Parsing texture: glTF format {:?} -> Orbital format {:?}, need_alpha: {}",
-            data.format,
-            format,
-            need_alpha_channel
+            data.format, format, need_alpha_channel
         );
 
         // The `pixels` data to be uploaded. Initialize with original data.
@@ -649,9 +647,7 @@ impl GltfImporter {
                             // Keeping as zero for consistency with previous behavior,
                             // though a context-specific default (e.g., 'up') might be better.
                             // Log a trace message as it's usually not critical but good to know.
-                            trace!(
-                                "Calculated normal resulted in zero vector, keeping as zero."
-                            );
+                            trace!("Calculated normal resulted in zero vector, keeping as zero.");
                         }
                     }
 
