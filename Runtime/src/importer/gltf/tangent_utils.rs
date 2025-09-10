@@ -17,7 +17,7 @@ use cgmath::{Vector3, InnerSpace};
 /// # Returns
 /// A tuple (Tangent, Bitangent).
 pub fn generate_arbitrary_tangent_frame(normal: Vector3<f32>) -> (Vector3<f32>, Vector3<f32>) {
-    // --- Strategy: Use a fixed, consistent reference axis ---
+    // Strategy: Use a fixed, consistent reference axis
     // Choose a reference vector that is not parallel to the normal.
     // We'll use World Z-axis (0, 0, 1) as the primary reference.
     // If the normal is very close to the Z-axis, we'll use the X-axis (1, 0, 0) instead.
