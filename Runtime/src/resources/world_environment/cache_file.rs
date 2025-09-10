@@ -48,7 +48,7 @@ impl CacheFile {
         file.read_exact(&mut mip_level_buffer)
             .map_err(WorldEnvironmentError::IO)?;
         let ibl_specular_mip_level_count = u32::from_le_bytes(mip_level_buffer);
-        log::debug!("IBL Specular mip level count read from cache: {ibl_specular_mip_level_count}"); // <-- Add debug log
+        log::debug!("IBL Specular mip level count read from cache: {ibl_specular_mip_level_count}");
 
         // Read data
         let mut ibl_diffuse_data = vec![0u8; diffuse_size as usize];
