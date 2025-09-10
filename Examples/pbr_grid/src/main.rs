@@ -1,4 +1,4 @@
-use example_pbr_spheres::entrypoint;
+use example_pbr_grid::entrypoint;
 
 use orbital::make_desktop_main;
 
