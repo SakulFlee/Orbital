@@ -6,7 +6,7 @@ use cgmath::{InnerSpace, Point3, Quaternion, Vector2, Vector3, Zero};
 use gltf::camera::Projection;
 use gltf::image::Format;
 use gltf::{Camera, Document, Material, Mesh, Node, Scene, Semantic};
-use log::warn;
+use log::{debug, trace, warn};
 use std::error::Error;
 use std::sync::Arc;
 use wgpu::TextureFormat::R32Float;
@@ -222,7 +222,7 @@ impl GltfImporter {
         let (format, need_alpha_channel) = Self::gltf_texture_format_to_orbital(data.format);
 
         // Debug log to verify the determined format
-        log::debug!(
+        debug!(
             "Parsing texture: glTF format {:?} -> Orbital format {:?}, need_alpha: {}",
             data.format,
             format,
@@ -293,7 +293,7 @@ impl GltfImporter {
             let expected_processed_size =
                 (original_width as usize) * (original_height as usize) * 4;
             if processed_pixels.len() != expected_processed_size {
-                log::warn!(
+                warn!(
                     "Processed texture data size mismatch: expected {} bytes ({}x{}x4), got {} bytes",
                     expected_processed_size,
                     original_width,
@@ -574,8 +574,6 @@ impl GltfImporter {
                 }
             });
 
-            // TODO: CLEANUP
-
             // Collect all data into vectors first to avoid iterator issues
             let positions_vec: Vec<_> = positions.map(|p| Vector3::new(p[0], p[1], p[2])).collect();
             // Collect indices early as they are needed for normal calculation if normals are missing
@@ -651,7 +649,7 @@ impl GltfImporter {
                             // Keeping as zero for consistency with previous behavior,
                             // though a context-specific default (e.g., 'up') might be better.
                             // Log a trace message as it's usually not critical but good to know.
-                            log::trace!(
+                            trace!(
                                 "Calculated normal resulted in zero vector, keeping as zero."
                             );
                         }
@@ -711,8 +709,8 @@ impl GltfImporter {
             };
 
             if is_uv_sphere {
-                log::debug!("Detected UV sphere mesh - using sphere-specific tangent generation");
-                log::debug!(
+                debug!("Detected UV sphere mesh - using sphere-specific tangent generation");
+                debug!(
                     "Sphere has {} vertices, UVs provided: {}",
                     positions_vec.len(),
                     uvs_vec.is_some()
@@ -753,11 +751,11 @@ impl GltfImporter {
                     // Use the detected UV sphere information for better tangent generation
                     if is_uv_sphere {
                         // Use sphere-specific tangent generation for better pole handling
-                        log::trace!("Using sphere-specific tangent generation for vertex {}", i);
+                        trace!("Using sphere-specific tangent generation for vertex {}", i);
                         tangent_utils::generate_sphere_tangent_frame(normal, uv)
                     } else {
                         // Use the general arbitrary tangent frame generator
-                        log::trace!("Using arbitrary tangent generation for vertex {}", i);
+                        trace!("Using arbitrary tangent generation for vertex {}", i);
                         tangent_utils::generate_arbitrary_tangent_frame(normal)
                     }
                 };
