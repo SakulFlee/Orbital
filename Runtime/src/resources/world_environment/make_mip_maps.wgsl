@@ -136,35 +136,7 @@ fn importance_sample_ggx(Xi: vec2<f32>, roughness: f32, N: vec3<f32>) -> vec3<f3
     return normalize(tangent * H.x + bitangent * H.y + N * H.z);
 }
 
-// --- DEBUG CONFIGURATION ---
-// Set to true to enable debug visualization for specific conditions
-const DEBUG_IMPORTANCE_SAMPLING: bool = false;
-// --- END DEBUG CONFIGURATION ---
-
 fn sample_importance(N: vec3<f32>, roughness: f32) -> vec4<f32> {
-    // --- DEBUG VISUALIZATION MODE ---
-    // Example: Visualize L.z for samples when N is close to +Z (0,0,1) and roughness is mid-range
-    if (DEBUG_IMPORTANCE_SAMPLING && 
-        abs(N.x) < 0.1 && abs(N.y) < 0.1 && abs(N.z - 1.0) < 0.1 && // N close to (0,0,1)
-        roughness > 0.4 && roughness < 0.6) { // Mid-range roughness
-        
-        var avg_Lz = 0.0;
-        var count = 0.0;
-        for(var i = 0u; i < IMPORTANCE_SAMPLE_COUNT; i++) {
-            let Xi = vec2(f32(i) / f32(IMPORTANCE_SAMPLE_COUNT), fract(f32(i) * 0.618034));
-            let H = importance_sample_ggx(Xi, roughness, N);
-            let L = normalize(2.0 * dot(N, H) * H - N);
-            // Accumulate L.z to see directional bias
-            avg_Lz += L.z;
-            count += 1.0;
-        }
-        let avg_Lz_norm = avg_Lz / max(count, 1.0);
-        // Map L.z from [-1, 1] to [0, 1] for visualization (blue to red)
-        let viz_value = (avg_Lz_norm + 1.0) * 0.5;
-        return vec4<f32>(viz_value, 0.0, 1.0 - viz_value, 1.0); // Blue to Red gradient
-    }
-    // --- END DEBUG MODE ---
-
     var result = vec4(0.0);
     var total_weight = 0.0;
     
