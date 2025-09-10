@@ -4,14 +4,14 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Example: PBR Spheres",
+            "name": "Example: PBR Grid",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=example_pbr_spheres_desktop"
+                    "--bin=example_pbr_grid_desktop"
                 ],
                 "filter": {
-                    "name": "example_pbr_spheres_desktop",
+                    "name": "example_pbr_grid_desktop",
                     "kind": "bin"
                 }
             },

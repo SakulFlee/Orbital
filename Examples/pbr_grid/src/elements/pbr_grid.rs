@@ -7,7 +7,7 @@ use orbital::{
 pub struct PBRSpheres;
 
 impl PBRSpheres {
-    const FILE_NAME: &'static str = "Assets/Models/PBR_Spheres.glb";
+    const FILE_NAME: &'static str = "Assets/Models/PBR_Grid.glb";
 }
 
 impl Element for PBRSpheres {
