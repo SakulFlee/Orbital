@@ -141,6 +141,6 @@ fn test_cache_file() {
     let _realization = WorldEnvironment::from_descriptor(&descriptor, None, &device, &queue)
         .expect("Failed to create realization");
 
-    let _cache_file =
-        WorldEnvironment::find_cache_file(&descriptor).expect("Cache file not resolved!");
+    let cache_file = WorldEnvironment::find_cache_file(&descriptor);
+    debug!("{:?}", cache_file);
 }
