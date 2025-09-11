@@ -1,14 +1,14 @@
 [package]
-name = "example_pbr_spheres"
+name = "example_pbr_grid"
 version = "0.1.0"
 edition = "2024"
 
 [[bin]]
-name = "example_pbr_spheres_desktop"
+name = "example_pbr_grid_desktop"
 path = "src/main.rs"
 
 [lib]
-name = "example_pbr_spheres"
+name = "example_pbr_grid"
 path = "src/lib.rs"
 crate-type = ["cdylib", "lib"]
 

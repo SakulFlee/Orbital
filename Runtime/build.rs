@@ -4,7 +4,7 @@ use std::str;
 
 const MODEL_FILES_DIR: &str = "../Assets/ModelFiles";
 const MODEL_SCRIPT_GLTF_EXPORT: &str = "../Assets/ModelScripts/blender_gltf_export.py";
-const MODEL_SCRIPT_PBR_SPHERE_GEN: &str = "../Assets/ModelScripts/pbr_sphere_gen.py";
+const MODEL_SCRIPT_PBR_SPHERE_GEN: &str = "../Assets/ModelScripts/pbr_grid.py";
 const MODELS_DIR: &str = "../Assets/Models";
 
 fn main() {
@@ -15,11 +15,11 @@ fn main() {
         return;
     }
 
-    blender_pbr_spheres();
+    blender_pbr_grid();
     blender_model_files();
 }
 
-fn blender_pbr_spheres() {
+fn blender_pbr_grid() {
     let script_path = std::fs::canonicalize(MODEL_SCRIPT_PBR_SPHERE_GEN)
         .expect("Failed to canonicalize script path!");
     println!(
@@ -44,19 +44,19 @@ fn blender_pbr_spheres() {
     let stderr = str::from_utf8(&output.stderr).expect("Failed to convert stderr to string");
 
     if !stdout.trim().is_empty() {
-        println!("cargo::warning=Blender PBR Spheres stdout:\n{stdout}");
+        println!("cargo::warning=Blender PBR Grid stdout:\n{stdout}");
     }
     if !stderr.trim().is_empty() {
-        println!("cargo::warning=Blender PBR Spheres stderr:\n{stderr}");
+        println!("cargo::warning=Blender PBR Grid stderr:\n{stderr}");
     }
 
     if !output.status.success() || !stdout.contains("### FINISHED ###") {
         panic!(
-            "Failed generating PBR Spheres and export to glTF! Blender exited with code: {}\nStdout: {}\nStderr: {}",
+            "Failed generating PBR Grid and export to glTF! Blender exited with code: {}\nStdout: {}\nStderr: {}",
             output.status, stdout, stderr
         );
     } else {
-        println!("cargo::warning=Exported PBR Spheres successfully!");
+        println!("cargo::warning=Exported PBR Grid successfully!");
     }
 }
 

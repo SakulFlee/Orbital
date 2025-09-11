@@ -74,7 +74,7 @@ fn gid_z_to_face(gid_z: u32) -> Face {
 }
 
 @compute
-@workgroup_size(16, 16, 1)
+@workgroup_size(8, 8, 1)
 fn main(
     @builtin(global_invocation_id)
     gid: vec3<u32>,

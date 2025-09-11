@@ -1,4 +1,4 @@
-use crate::loader::gltf::SpecificGltfImport;
+use crate::importer::gltf::SpecificGltfImport;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 

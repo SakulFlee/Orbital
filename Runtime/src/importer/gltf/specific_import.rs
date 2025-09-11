@@ -1,4 +1,4 @@
-use crate::loader::gltf::GltfImportType;
+use crate::importer::gltf::GltfImportType;
 
 #[derive(Debug)]
 pub struct SpecificGltfImport {

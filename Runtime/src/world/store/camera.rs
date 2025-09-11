@@ -94,7 +94,7 @@ impl CameraStore {
     pub fn flag_realization(&mut self, ids: Vec<u128>, update_existing: bool) {
         for id in ids {
             if self.cache_realizations.contains_key(&id) && !update_existing {
-                // Skip any existing realisations if we aren't updating existing entries.
+                // Skip any existing realizations if we aren't updating existing entries.
                 continue;
             }
 
@@ -123,48 +123,13 @@ impl CameraStore {
                 }
             };
 
+            // Recreate the Camera and replace it inside our cache
             let camera = Camera::from_descriptor(descriptor.clone(), device, queue);
-
             let cache_entry = CacheEntry::new(camera);
             self.cache_realizations.insert(id, cache_entry);
         }
 
         errors
-    }
-
-    pub fn realize_and_cache_active_camera(
-        &mut self,
-        device: &Device,
-        queue: &Queue,
-    ) -> Result<(), Box<dyn Error>> {
-        match self.active_camera {
-            None => Err(Box::new(StoreError::NoActiveEntry)),
-            Some(active_camera_index) => {
-                // Temporarily remove all queued realizations as we want to **only** realize the active camera.
-                let mut remaining_realizations = None;
-                if !self.queue_realizations.is_empty() {
-                    let queued_realizations = std::mem::take(&mut self.queue_realizations);
-                    remaining_realizations = Some(queued_realizations);
-                }
-
-                // Flag the active camera for realization and realize it.
-                self.flag_realization(vec![active_camera_index], true);
-                let mut failed_realizations = self.realize_and_cache(device, queue);
-                // Ensure there is at most one failed realization.
-                // If this assertion fails, something else is interfering with the camera store.
-                assert!(failed_realizations.len() <= 1);
-
-                // Put back any queued realizations.
-                if let Some(queued_realizations) = remaining_realizations {
-                    self.queue_realizations = queued_realizations;
-                }
-
-                match failed_realizations.pop() {
-                    None => Ok(()),
-                    Some(e) => Err(e),
-                }
-            }
-        }
     }
 
     pub fn get_realizations(&self, ids: Vec<u128>) -> Vec<&Camera> {

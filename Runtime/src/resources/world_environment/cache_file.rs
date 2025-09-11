@@ -9,15 +9,18 @@ use log::{debug, warn};
 use serde::{Deserialize, Serialize};
 use wgpu::{Device, Queue, TextureFormat, TextureUsages};
 
-use crate::{
-    mip_level::max_mip_level,
-    resources::{Texture as OrbitalTexture, WorldEnvironmentDescriptor, WorldEnvironmentError},
+use crate::resources::{
+    Texture as OrbitalTexture, WorldEnvironmentDescriptor, WorldEnvironmentError,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CacheFile {
     pub ibl_diffuse_data: Vec<u8>,
     pub ibl_specular_data: Vec<u8>,
+    /// The actual number of mip levels generated for the specular IBL texture.
+    /// This is stored in the cache to ensure correct texture creation on load,
+    /// regardless of the `WorldEnvironmentDescriptor` used for loading.
+    pub ibl_specular_mip_level_count: u32,
 }
 
 impl CacheFile {
@@ -39,6 +42,13 @@ impl CacheFile {
         let specular_size = u64::from_le_bytes(size_buffer);
         debug!("IBL Specular expected size in bytes: {specular_size}");
 
+        // Read specular mip level count
+        let mut mip_level_buffer = [0u8; 4];
+        file.read_exact(&mut mip_level_buffer)
+            .map_err(WorldEnvironmentError::IO)?;
+        let ibl_specular_mip_level_count = u32::from_le_bytes(mip_level_buffer);
+        log::debug!("IBL Specular mip level count read from cache: {ibl_specular_mip_level_count}");
+
         // Read data
         let mut ibl_diffuse_data = vec![0u8; diffuse_size as usize];
         let mut ibl_specular_data = vec![0u8; specular_size as usize];
@@ -51,6 +61,7 @@ impl CacheFile {
         Ok(Self {
             ibl_diffuse_data,
             ibl_specular_data,
+            ibl_specular_mip_level_count,
         })
     }
 
@@ -78,6 +89,10 @@ impl CacheFile {
         file.write_all(&(self.ibl_specular_data.len() as u64).to_le_bytes())
             .map_err(WorldEnvironmentError::IO)?;
 
+        // Write specular mip level count
+        file.write_all(&self.ibl_specular_mip_level_count.to_le_bytes())
+            .map_err(WorldEnvironmentError::IO)?;
+
         // Write actual data
         file.write_all(&self.ibl_diffuse_data)
             .map_err(WorldEnvironmentError::IO)?;
@@ -95,29 +110,14 @@ impl CacheFile {
         device: &Device,
         queue: &Queue,
     ) -> (OrbitalTexture, OrbitalTexture) {
-        let (cube_face_size, specular_mip_level_count) = match world_environment_descriptor {
-            WorldEnvironmentDescriptor::FromFile {
-                cube_face_size,
-                path: _,
-                sampling_type: _,
-                custom_specular_mip_level_count: specular_mip_level_count,
-            } => (*cube_face_size, specular_mip_level_count.unwrap_or(1)),
-            WorldEnvironmentDescriptor::FromData {
-                cube_face_size,
-                data: _,
-                size: _,
-                sampling_type: _,
-                specular_mip_level_count,
-            } => (*cube_face_size, specular_mip_level_count.unwrap_or(1)),
+        let cube_face_size = match world_environment_descriptor {
+            WorldEnvironmentDescriptor::FromFile { cube_face_size, .. } => *cube_face_size,
+            WorldEnvironmentDescriptor::FromData { cube_face_size, .. } => *cube_face_size,
         };
 
-        let max_mip_level = max_mip_level(cube_face_size);
-        let specular_mip_level = if specular_mip_level_count > max_mip_level {
-            warn!("Attempting to create specular texture with size {cube_face_size}, which gives a max allowed mip level of {max_mip_level}, but {specular_mip_level_count} was set! Defaulting to the maximum allowed value.");
-            max_mip_level
-        } else {
-            specular_mip_level_count
-        };
+        // Use the cached mip level count for the specular texture to ensure
+        // consistency between generation and loading.
+        let specular_mip_level = self.ibl_specular_mip_level_count;
 
         let ibl_diffuse_texture = OrbitalTexture::from_binary_data(
             &self.ibl_diffuse_data,
@@ -128,7 +128,7 @@ impl CacheFile {
             },
             TextureFormat::Rgba16Float,
             TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_SRC,
-            1,
+            1, // Diffuse IBL always has 1 mip level
             device,
             queue,
         );
@@ -141,7 +141,7 @@ impl CacheFile {
             },
             TextureFormat::Rgba16Float,
             TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_SRC,
-            specular_mip_level,
+            specular_mip_level, // Use the cached mip level count
             device,
             queue,
         );

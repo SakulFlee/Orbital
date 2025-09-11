@@ -4,15 +4,31 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Example",
+            "name": "Example: PBR Grid",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=example",
-                    "--package=example"
+                    "--bin=example_pbr_grid_desktop"
                 ],
                 "filter": {
-                    "name": "example",
+                    "name": "example_pbr_grid_desktop",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Example: Damaged Helmet",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=example_damaged_helmet_desktop"
+                ],
+                "filter": {
+                    "name": "example_damaged_helmet_desktop",
                     "kind": "bin"
                 }
             },

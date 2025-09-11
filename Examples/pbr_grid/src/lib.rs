@@ -14,10 +14,10 @@ use orbital::{
     winit::{error::EventLoopError, event_loop::EventLoop},
 };
 
-mod element;
-use element::*;
+mod elements;
+use elements::*;
 
-pub const NAME: &str = "Orbital-Demo-Project: DamagedHelmet";
+pub const NAME: &str = "Orbital-Demo-Project: PBRSpheres";
 
 pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
     logging::init();
@@ -77,7 +77,7 @@ pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
             camera_descriptor: Default::default(),
         })),
         Box::new(WorldEnvironment),
-        Box::new(DamagedHelmet),
+        Box::new(PBRSpheres),
     ]);
 
     match AppRuntime::liftoff(event_loop, app_settings, app) {

@@ -11,8 +11,6 @@ fn main(
     @builtin(global_invocation_id)
     gid: vec3<u32>,
 ) {
-    // TODO: First column of pixels is BROKEN. Needs fixing!
-
     let base = 1.0 / f32(DIMENSIONS);
     let x = base * f32(gid.x + 1);
     let y = base * f32(gid.y + 1);
