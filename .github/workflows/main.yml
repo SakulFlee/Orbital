@@ -43,13 +43,10 @@ jobs:
 
       - name: 👀 Checking for changes ...
         id: changes
-        run: |
-          STATUS="$(git status --porcelain)"
-          echo -e "Status:\n$STATUS"
-          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+        run: echo "status=$(git status --porcelain | wc -l)" >> "$GITHUB_OUTPUT"
 
       - name: ⏫ Push changes
-        if: ${{ steps.changes.outputs.status != '' }}
+        if: ${{ steps.changes.outputs.status != '' && steps.changes.outputs.status > 0 }}
         run: |
           echo "Changes detected. Committing and pushing..."
 
