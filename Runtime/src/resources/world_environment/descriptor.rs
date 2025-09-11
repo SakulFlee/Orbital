@@ -22,12 +22,18 @@ pub enum WorldEnvironmentDescriptor {
         /// A higher level here means more accurate blurry reflections, but will take a lot longer to process and uses a lot more VRAM, as well as cache space if caching is enabled.
         /// On the other hand, a lower level will give you much faster and space efficient (VRAM & cache) results, but the reflections will be less accurate.
         ///
-        /// A good choice here is either 5 or 10.  
-        /// 5 gives you base + 25% increments of the base level, which is a good trade-off between performance and quality.  
-        /// 10 gives you base + 10% increments of the base level, which is realistically the highest you should go for.  
-        /// _It might also be a good idea to check what kind of device you we are running on and adjust this value accordingly._
+        /// A good choice here is either 5 or 7.  
+        /// 5 gives you the base level + 4 additional mipmap levels (5 total)
+        /// 7 gives you the base level + 6 additional mipmap levels (7 total)
+        /// The additional mipmap levels provide progressively blurrier reflections for materials with higher roughness values.
         ///
-        /// If set to `None`, will default to 10.
+        /// By default, a reasonable maximum of 7 levels (the base level + 6 additional mipmap levels) is used to balance quality and performance.
+        /// This prevents generating very small mipmap levels that don't contribute much to visual quality.
+        ///
+        /// If you need more or fewer levels, you can explicitly set this value.
+        /// The maximum allowed value is determined by the cube face size (log2(size) + 1).
+        ///
+        /// If set to `None`, will default to 7 (or the maximum possible if less than 7).
         custom_specular_mip_level_count: Option<u32>,
     },
     /// Same as [WorldEnvironmentDescriptor::FromFile], but uses a data
@@ -49,14 +55,20 @@ pub enum WorldEnvironmentDescriptor {
         /// A higher level here means more accurate blurry reflections, but will take a lot longer to process and uses a lot more VRAM, as well as cache space if caching is enabled.
         /// On the other hand, a lower level will give you much faster and space efficient (VRAM & cache) results, but the reflections will be less accurate.
         ///
-        /// A good choice here is either 5 or 10.  
-        /// 5 gives you base + 25% increments of the base level, which is a good trade-off between performance and quality.  
-        /// 10 gives you base + 10% increments of the base level, which is realistically the highest you should go for.  
-        /// _It might also be a good idea to check what kind of device you we are running on and adjust this value accordingly._
+        /// A good choice here is either 5 or 7.  
+        /// 5 gives you the base level + 4 additional mipmap levels (5 total)
+        /// 7 gives you the base level + 6 additional mipmap levels (7 total)
+        /// The additional mipmap levels provide progressively blurrier reflections for materials with higher roughness values.
         ///
-        /// If set to `None`, will default to 10.
+        /// By default, a reasonable maximum of 7 levels (the base level + 6 additional mipmap levels) is used to balance quality and performance.
+        /// This prevents generating very small mipmap levels that don't contribute much to visual quality.
         ///
-        /// 10 is the **maximum** mip level count allowed by WGPU!
+        /// If you need more or fewer levels, you can explicitly set this value.
+        /// The maximum allowed value is determined by the cube face size (log2(size) + 1).
+        ///
+        /// If set to `None`, will default to 7 (or the maximum possible if less than 7).
+        ///
+        /// Note: The maximum mip level count is determined by the texture size (log2(size) + 1).
         specular_mip_level_count: Option<u32>,
     },
 }
