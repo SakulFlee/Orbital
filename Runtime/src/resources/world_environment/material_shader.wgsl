@@ -20,11 +20,11 @@ struct VertexOutput {
 
 @group(0) @binding(0) var<uniform> camera: CameraUniform;
 
-@group(1) @binding(0) var diffuse_env_map: texture_cube<f32>;
-@group(1) @binding(1) var diffuse_env_sampler: sampler;
+@group(0) @binding(1) var diffuse_env_map: texture_cube<f32>;
+@group(0) @binding(2) var diffuse_env_sampler: sampler;
 
-@group(1) @binding(2) var specular_env_map: texture_cube<f32>;
-@group(1) @binding(3) var specular_env_sampler: sampler;
+@group(0) @binding(3) var specular_env_map: texture_cube<f32>;
+@group(0) @binding(4) var specular_env_sampler: sampler;
 
 // @group(0) @binding(4) var ibl_brdf_env_map: texture_cube<f32>;
 // @group(0) @binding(5) var ibl_brdf_env_sampler: sampler;
@@ -54,7 +54,7 @@ fn entrypoint_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let view_ray_direction = view_position.xyz / view_position.w;
     var ray_direction = normalize((camera.view_projection_transposed * vec4(view_ray_direction, 0.0)).xyz);
 
-    // Sample HDRI WorldEnvironemnt as Sky Box, based on LoD (-1 = diffuse)
+    // Sample HDRI WorldEnvironment as Sky Box, based on LoD (-1 = diffuse)
     var world_environment_sample = textureSampleLevel(specular_env_map, specular_env_sampler, ray_direction, 0.0).rgb;
 
 //    var sample: vec3<f32>;

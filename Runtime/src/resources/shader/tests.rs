@@ -1,3 +1,4 @@
+use log::warn;
 use rand::{rng, Rng};
 use wgpu::{SamplerBindingType, TextureSampleType};
 
@@ -59,16 +60,21 @@ fn test(buffer_count: u32, texture_count: u32) {
     test_impl.do_work();
     println!("{test_impl:?}");
 
-    let (_bind_group, _bind_group_layout, variables) = test_impl
+    if let Some((_bind_group, _bind_group_layout, variables)) = test_impl
         .bind_group(&device, &queue)
-        .expect("Acquiring BindGroup failed");
+        .expect("Acquiring BindGroup failed")
+    {
+        for (k, v) in &*variables {
+            println!("# {k}: {v:?}");
+        }
 
-    for (k, v) in &*variables {
-        println!("# {k}: {v:?}");
+        let total_indices_expected = buffer_count as usize + texture_count as usize;
+        assert_eq!(total_indices_expected, variables.len());
+    } else {
+        if !test_impl.variables.is_empty() {
+            panic!("Was expecting to get 'Some' realized Variables back, got None instead.");
+        }
     }
-
-    let total_indices_expected = buffer_count as usize + texture_count as usize;
-    assert_eq!(total_indices_expected, variables.len());
 }
 
 /// Attempts to create an empty bind group.

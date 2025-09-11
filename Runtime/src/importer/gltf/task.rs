@@ -1,4 +1,4 @@
-use crate::loader::gltf::GltfImport;
+use crate::importer::gltf::GltfImport;
 
 /// Defines how a given glTF file is being imported.
 #[derive(Debug)]

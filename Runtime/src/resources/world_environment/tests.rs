@@ -90,8 +90,7 @@ fn test_caching() {
     let _realization = WorldEnvironment::from_descriptor(&descriptor, None, &device, &queue)
         .expect("Failed to create realization");
 
-    let cache_file =
-        WorldEnvironment::find_cache_file(&descriptor).expect("Cache file not resolved!");
+    let cache_file = WorldEnvironment::find_cache_file(&descriptor);
 
     assert!(&cache_file.exists());
     assert!(std::fs::metadata(&cache_file)
@@ -113,7 +112,8 @@ fn test_cache_dir() {
     warn!("On unexpected results, make sure to delete the cache first!");
     warn!("The cache location should be printed in the log below somewhere.");
 
-    WorldEnvironment::find_cache_dir().expect("Cache dir not resolved! NOTE: Make sure this test is running on a platform that supports caching!");
+    let cache_file = WorldEnvironment::find_cache_dir();
+    debug!("{:?}", cache_file);
 }
 
 #[test]
@@ -141,6 +141,6 @@ fn test_cache_file() {
     let _realization = WorldEnvironment::from_descriptor(&descriptor, None, &device, &queue)
         .expect("Failed to create realization");
 
-    let _cache_file =
-        WorldEnvironment::find_cache_file(&descriptor).expect("Cache file not resolved!");
+    let cache_file = WorldEnvironment::find_cache_file(&descriptor);
+    debug!("{:?}", cache_file);
 }

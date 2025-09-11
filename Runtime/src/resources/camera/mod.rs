@@ -1,11 +1,7 @@
 use std::mem;
 
 use cgmath::{perspective, Deg, InnerSpace, Matrix, Matrix4, SquareMatrix, Vector3};
-use wgpu::{
-    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferDescriptor, BufferUsages,
-    Device, Queue, ShaderStages,
-};
+use wgpu::{Buffer, BufferDescriptor, BufferUsages, Device, Queue};
 
 mod change;
 pub use change::*;
@@ -21,7 +17,6 @@ mod tests;
 
 #[derive(Debug)]
 pub struct Camera {
-    camera_bind_group: BindGroup,
     camera_buffer: Buffer,
     // frustum_bind_group: BindGroup,
     // frustum_buffer: Buffer,
@@ -45,7 +40,7 @@ impl Camera {
                 mem::size_of::<f32>() * 4 * 4 +
                 // global_gamma:
                 mem::size_of::<f32>() +
-                // skybox_gamma:
+                // sky_box_gamma:
                 mem::size_of::<f32>() +
                 // Padding ... This should align the buffer to 288.
                 12
@@ -53,49 +48,26 @@ impl Camera {
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        let camera_bind_group_layout =
-            device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("Camera"),
-                entries: &[BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::all(),
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-            });
 
-        let camera_bind_group = device.create_bind_group(&BindGroupDescriptor {
-            label: Some("Camera Bind Group"),
-            layout: &camera_bind_group_layout,
-            entries: &[BindGroupEntry {
-                binding: 0,
-                resource: camera_buffer.as_entire_binding(),
-            }],
-        });
-
-        let frustum_buffer = device.create_buffer(&BufferDescriptor {
-            label: Some("Camera Buffer"),
-            size: (
-                // Left
-                mem::size_of::<f32>() * 4 +
-                // Right
-                mem::size_of::<f32>() * 4 +
-                // Top
-                mem::size_of::<f32>() * 4 +
-                // Bottom
-                mem::size_of::<f32>() * 4 +
-                // Near
-                mem::size_of::<f32>() * 4 +
-                // Far
-                mem::size_of::<f32>() * 4
-            ) as u64,
-            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
+        // let frustum_buffer = device.create_buffer(&BufferDescriptor {
+        //     label: Some("Camera Buffer"),
+        //     size: (
+        //         // Left
+        //         mem::size_of::<f32>() * 4 +
+        //         // Right
+        //         mem::size_of::<f32>() * 4 +
+        //         // Top
+        //         mem::size_of::<f32>() * 4 +
+        //         // Bottom
+        //         mem::size_of::<f32>() * 4 +
+        //         // Near
+        //         mem::size_of::<f32>() * 4 +
+        //         // Far
+        //         mem::size_of::<f32>() * 4
+        //     ) as u64,
+        //     usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+        //     mapped_at_creation: false,
+        // });
         // let frustum_bind_group_layout =
         //     device.create_bind_group_layout(&BindGroupLayoutDescriptor {
         //         label: Some("Frustum"),
@@ -120,12 +92,11 @@ impl Camera {
         // });
 
         let mut camera = Self {
-            camera_bind_group,
             camera_buffer,
             // frustum_bind_group,
             // frustum_buffer,
         };
-        camera.write_buffer(&descriptor, queue);
+        camera.update_buffer(&descriptor, queue);
         camera
     }
 
@@ -204,7 +175,7 @@ impl Camera {
     //     Self::frustum_to_bytes(&frustum_planes)
     // }
 
-    fn write_buffer(&mut self, descriptor: &CameraDescriptor, queue: &Queue) {
+    pub fn update_buffer(&mut self, descriptor: &CameraDescriptor, queue: &Queue) {
         let view_projection_matrix = self.calculate_view_projection_matrix(descriptor);
         let perspective_projection_matrix =
             self.calculate_perspective_projection_matrix(descriptor);
@@ -343,10 +314,6 @@ impl Camera {
             descriptor.near,
             descriptor.far,
         )
-    }
-
-    pub fn camera_bind_group(&self) -> &BindGroup {
-        &self.camera_bind_group
     }
 
     pub fn camera_buffer(&self) -> &Buffer {
