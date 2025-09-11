@@ -61,7 +61,8 @@ fn test(buffer_count: u32, texture_count: u32) {
 
     let (_bind_group, _bind_group_layout, variables) = test_impl
         .bind_group(&device, &queue)
-        .expect("Acquiring BindGroup failed");
+        .expect("Acquiring BindGroup failed")
+        .expect("Expected Some(...) when None was returned!");
 
     for (k, v) in &*variables {
         println!("# {k}: {v:?}");
