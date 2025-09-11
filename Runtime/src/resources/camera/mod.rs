@@ -1,10 +1,7 @@
 use std::mem;
 
 use cgmath::{perspective, Deg, InnerSpace, Matrix, Matrix4, SquareMatrix, Vector3};
-use wgpu::{
-    Buffer, BufferDescriptor, BufferUsages,
-    Device, Queue,
-};
+use wgpu::{Buffer, BufferDescriptor, BufferUsages, Device, Queue};
 
 mod change;
 pub use change::*;
