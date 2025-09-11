@@ -82,6 +82,22 @@ impl Vertex {
         }
     }
 
+    pub fn new_with_bitangent(
+        position: Vector3<f32>,
+        normal: Vector3<f32>,
+        tangent: Vector3<f32>,
+        bitangent: Vector3<f32>,
+        uv: Vector2<f32>,
+    ) -> Self {
+        Self {
+            position,
+            normal,
+            tangent,
+            bitangent,
+            uv,
+        }
+    }
+
     pub fn calculate_binormal(tangent: Vector3<f32>, normal: Vector3<f32>) -> Vector3<f32> {
         tangent.cross(normal)
     }

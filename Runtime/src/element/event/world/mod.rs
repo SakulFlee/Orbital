@@ -7,10 +7,13 @@ pub use camera::*;
 mod environment;
 pub use environment::*;
 
+use crate::importer::ImportTask;
+
 #[derive(Debug)]
 pub enum WorldEvent {
     Model(ModelEvent),
     Camera(CameraEvent),
     Environment(EnvironmentEvent),
+    Import(ImportTask),
     Clear,
 }

@@ -1,0 +1,11 @@
+words = [
+    "brdf",
+    "equirectangular",
+    "hdri",
+    "ibl",
+    "luma",
+    "mip",
+    "srgb",
+    "wgpu",
+    "wgsl",
+]

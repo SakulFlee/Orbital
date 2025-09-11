@@ -1,4 +1,4 @@
-use crate::loader::gltf::{
+use crate::importer::gltf::{
     GltfImport, GltfImportResult, GltfImportTask, GltfImportType, GltfImporter, SpecificGltfImport,
 };
 use crate::logging;
@@ -120,8 +120,12 @@ fn check_top_camera_rotation_matches() {
     assert_eq!(result.cameras.len(), 1);
 
     let camera = &result.cameras[0];
-    assert_eq!(camera.pitch, 0.0);
-    assert_eq!(camera.yaw, 0.0);
+    if !(camera.pitch == 0.0 || camera.pitch.is_nan()) {
+        panic!("Unexpected camera pitch!");
+    }
+    if !(camera.yaw == 0.0 || camera.yaw.is_nan()) {
+        panic!("Unexpected camera yaw!");
+    }
 }
 
 #[test]

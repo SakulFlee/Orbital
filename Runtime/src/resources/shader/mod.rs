@@ -66,7 +66,11 @@ pub trait ShaderDescriptor {
         &self,
         device: &Device,
         queue: &Queue,
-    ) -> Result<(BindGroupLayout, Variables), ShaderError> {
+    ) -> Result<Option<(BindGroupLayout, Variables)>, ShaderError> {
+        if self.variables().is_none() || self.variables().as_ref().unwrap().is_empty() {
+            return Ok(None);
+        }
+
         let mut entries = Vec::new();
         let mut variables: Variables = Variables::new();
 
@@ -138,21 +142,24 @@ pub trait ShaderDescriptor {
             }
         }
 
-        Ok((
+        Ok(Some((
             device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: self.name().as_deref(),
                 entries: &entries,
             }),
             variables,
-        ))
+        )))
     }
 
     fn bind_group(
         &self,
         device: &Device,
         queue: &Queue,
-    ) -> Result<(BindGroup, BindGroupLayout, Variables), ShaderError> {
-        let (layout, variables) = self.bind_group_layout(device, queue)?;
+    ) -> Result<Option<(BindGroup, BindGroupLayout, Variables)>, ShaderError> {
+        let (layout, variables) = match self.bind_group_layout(device, queue)? {
+            Some((x, y)) => (x, y),
+            None => return Ok(None),
+        };
 
         let mut binds = Vec::new();
         let mut binding_index = 0u32;
@@ -209,7 +216,7 @@ pub trait ShaderDescriptor {
             }
         }
 
-        Ok((
+        Ok(Some((
             device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: self.name().as_deref(),
                 layout: &layout,
@@ -217,6 +224,6 @@ pub trait ShaderDescriptor {
             }),
             layout,
             variables,
-        ))
+        )))
     }
 }

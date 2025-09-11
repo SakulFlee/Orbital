@@ -1,4 +1,4 @@
-use crate::loader::gltf::SpecificGltfImport;
+use crate::importer::gltf::SpecificGltfImport;
 
 /// Used to define what is being imported from a glTF file.
 ///
