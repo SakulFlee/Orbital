@@ -358,14 +358,14 @@ impl GltfImporter {
             // First channel (Blue) -> Metallic
             if chunk.len() > 2 {
                 pixels_0.push(chunk[2]); // Blue channel for metallic
-            } else if chunk.len() > 0 {
+            } else if !chunk.is_empty() {
                 // If we don't have enough channels, use the first one
                 pixels_0.push(chunk[0]);
             }
             // Second channel (Green) -> Roughness
             if chunk.len() > 1 {
                 pixels_1.push(chunk[1]); // Green channel for roughness
-            } else if chunk.len() > 0 {
+            } else if !chunk.is_empty() {
                 // If we don't have enough channels, use the first one
                 pixels_1.push(chunk[0]);
             }
@@ -561,9 +561,9 @@ impl GltfImporter {
                 warn!("Primitive has no indices. Skipping mesh primitive.");
                 continue;
             };
-            let mut normals = reader.read_normals();
-            let mut tangents = reader.read_tangents();
-            let mut uvs = reader.read_tex_coords(0).map(|x| x.into_f32());
+            let normals = reader.read_normals();
+            let tangents = reader.read_tangents();
+            let uvs = reader.read_tex_coords(0).map(|x| x.into_f32());
             primitive.attributes().for_each(|x| {
                 if let Semantic::TexCoords(indices) = x.0 {
                     if indices > 1 {
@@ -641,7 +641,7 @@ impl GltfImporter {
                         let norm_magnitude = normal.magnitude();
                         if norm_magnitude > f32::EPSILON {
                             // Check for non-zero length before normalizing
-                            *normal = *normal / norm_magnitude;
+                            *normal /= norm_magnitude;
                         } else {
                             // If the normal remains zero, a default is needed.
                             // Keeping as zero for consistency with previous behavior,
