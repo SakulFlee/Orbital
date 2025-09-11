@@ -2,9 +2,8 @@ use std::mem;
 
 use cgmath::{perspective, Deg, InnerSpace, Matrix, Matrix4, SquareMatrix, Vector3};
 use wgpu::{
-    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferDescriptor, BufferUsages,
-    Device, Queue, ShaderStages,
+    Buffer, BufferDescriptor, BufferUsages,
+    Device, Queue,
 };
 
 mod change;

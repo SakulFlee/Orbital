@@ -1,7 +1,6 @@
 use std::error::Error;
 use std::sync::OnceLock;
 
-use log::debug;
 use wgpu::{
     BindGroup, BlendState, ColorTargetState, ColorWrites, CompareFunction, DepthStencilState,
     Device, FragmentState, PipelineLayoutDescriptor, PrimitiveState, Queue, RenderPipeline,

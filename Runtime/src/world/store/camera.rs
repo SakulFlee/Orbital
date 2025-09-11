@@ -1,7 +1,7 @@
-use std::{error::Error, sync::MutexGuard};
+use std::error::Error;
 
 use hashbrown::HashMap;
-use log::{debug, error, warn};
+use log::{error, warn};
 use wgpu::{Device, Queue};
 
 use crate::{
