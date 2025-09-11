@@ -46,59 +46,41 @@ pub enum TextureDescriptor {
 }
 
 impl TextureDescriptor {
-    pub fn uniform_rgba_black() -> Self {
-        Self::Data {
-            pixels: vec![0u8, 0u8, 0u8, 255u8],
-            size: TextureSize {
-                width: 1,
-                height: 1,
-                ..Default::default()
+    pub fn uniform_rgba_white(srgb: bool) -> Self {
+        Self::uniform_rgba_color(
+            Color {
+                r: 1.0,
+                g: 1.0,
+                b: 1.0,
+                a: 1.0,
             },
-            format: TextureFormat::Rgba8UnormSrgb,
-            usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
-
-            texture_dimension: TextureDimension::D2,
-            texture_view_dimension: TextureViewDimension::D2,
-
-            filter_mode: FilterMode::default(),
-        }
+            srgb,
+        )
+    }
+    pub fn uniform_rgba_black(srgb: bool) -> Self {
+        Self::uniform_rgba_color(
+            Color {
+                r: 0.0,
+                g: 0.0,
+                b: 0.0,
+                a: 1.0,
+            },
+            srgb,
+        )
+    }
+    pub fn uniform_rgba_gray(srgb: bool) -> Self {
+        Self::uniform_rgba_color(
+            Color {
+                r: 0.5,
+                g: 0.5,
+                b: 0.5,
+                a: 1.0,
+            },
+            srgb,
+        )
     }
 
-    pub fn uniform_rgba_white() -> Self {
-        Self::Data {
-            pixels: vec![255u8, 255u8, 255u8, 255u8],
-            size: TextureSize {
-                width: 1,
-                height: 1,
-                ..Default::default()
-            },
-            format: TextureFormat::Rgba8UnormSrgb,
-            usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
-
-            texture_dimension: TextureDimension::D2,
-            texture_view_dimension: TextureViewDimension::D2,
-            filter_mode: FilterMode::default(),
-        }
-    }
-
-    pub fn uniform_rgba_gray() -> Self {
-        Self::Data {
-            pixels: vec![128u8, 128u8, 128u8, 255u8],
-            size: TextureSize {
-                width: 1,
-                height: 1,
-                ..Default::default()
-            },
-            format: TextureFormat::Rgba8UnormSrgb,
-            usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
-
-            texture_dimension: TextureDimension::D2,
-            texture_view_dimension: TextureViewDimension::D2,
-            filter_mode: FilterMode::default(),
-        }
-    }
-
-    pub fn uniform_rgba_color(color: Color) -> Self {
+    pub fn uniform_rgba_color(color: Color, srgb: bool) -> Self {
         Self::Data {
             pixels: vec![
                 ((color.r.clamp(0.0, 1.0)) * 255.0) as u8,
@@ -109,35 +91,24 @@ impl TextureDescriptor {
             size: TextureSize {
                 width: 1,
                 height: 1,
-                ..Default::default()
+                depth_or_array_layers: 1,
+                base_mip: 0,
+                mip_levels: 1,
             },
-            format: TextureFormat::Rgba8UnormSrgb,
             usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+            format: if srgb {
+                TextureFormat::Rgba8UnormSrgb
+            } else {
+                TextureFormat::Rgba8Unorm
+            },
             texture_dimension: TextureDimension::D2,
             texture_view_dimension: TextureViewDimension::D2,
             filter_mode: FilterMode::default(),
         }
     }
 
-    pub fn uniform_rgba_value(r: f64, g: f64, b: f64, a: f64) -> Self {
-        Self::Data {
-            pixels: vec![
-                ((r.clamp(0.0, 1.0)) * 255.0) as u8,
-                ((g.clamp(0.0, 1.0)) * 255.0) as u8,
-                ((b.clamp(0.0, 1.0)) * 255.0) as u8,
-                ((a.clamp(0.0, 1.0)) * 255.0) as u8,
-            ],
-            size: TextureSize {
-                width: 1,
-                height: 1,
-                ..Default::default()
-            },
-            format: TextureFormat::Rgba8UnormSrgb,
-            usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
-            texture_dimension: TextureDimension::D2,
-            texture_view_dimension: TextureViewDimension::D2,
-            filter_mode: FilterMode::default(),
-        }
+    pub fn uniform_rgba_value(r: f64, g: f64, b: f64, a: f64, srgb: bool) -> Self {
+        Self::uniform_rgba_color(Color { r, g, b, a }, srgb)
     }
 
     pub fn uniform_luma_black() -> Self {

@@ -8,6 +8,7 @@ use wgpu::{
 };
 
 pub use crate::resources::shader::{ShaderDescriptor, ShaderError, Variables};
+use crate::world::World;
 
 mod descriptor;
 pub use descriptor::*;
@@ -15,17 +16,14 @@ pub use descriptor::*;
 mod vertex_stage_layout;
 pub use vertex_stage_layout::*;
 
-mod engine_bind_group_layout;
-pub use engine_bind_group_layout::*;
-
 #[cfg(test)]
 mod tests;
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct MaterialShader {
     pipeline: RenderPipeline,
-    bind_group: BindGroup,
-    variables: Variables,
+    bind_group: Option<BindGroup>,
+    variables: Option<Variables>,
 }
 
 impl MaterialShader {
@@ -42,16 +40,21 @@ impl MaterialShader {
     ) -> Result<Self, Box<dyn Error>> {
         let shader_module = descriptor.shader_module(device)?;
 
-        // Create a pipeline layout and bind group
-        let (bind_group, layout, variables) = descriptor.bind_group(device, queue)?;
-
         let engine_bind_group_layout_once = OnceLock::new();
         let engine_bind_group_layout = engine_bind_group_layout_once
-            .get_or_init(|| EngineBindGroupLayout::make_bind_group_layout(device));
+            .get_or_init(|| World::make_world_bind_group_layout(device));
+
+        // Create a pipeline layout and bind group
+        let bind_group_option = descriptor.bind_group(device, queue)?;
+
+        let mut bind_group_layouts = vec![engine_bind_group_layout];
+        if let Some((_, layout, _)) = bind_group_option.as_ref() {
+            bind_group_layouts.push(layout);
+        }
 
         let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: descriptor.name.as_deref(),
-            bind_group_layouts: &[engine_bind_group_layout, &layout],
+            bind_group_layouts: &bind_group_layouts,
             push_constant_ranges: &[],
         });
 
@@ -117,6 +120,11 @@ impl MaterialShader {
             multisample: Default::default(),
         };
 
+        let (bind_group, variables) = match bind_group_option {
+            Some((x, _, y)) => (Some(x), Some(y)),
+            None => (None, None),
+        };
+
         let pipeline = device.create_render_pipeline(&pipeline_desc);
         Ok(Self {
             pipeline,
@@ -129,11 +137,11 @@ impl MaterialShader {
         &self.pipeline
     }
 
-    pub fn bind_group(&self) -> &BindGroup {
-        &self.bind_group
+    pub fn bind_group(&self) -> Option<&BindGroup> {
+        self.bind_group.as_ref()
     }
 
-    pub fn variables(&self) -> &Variables {
-        &self.variables
+    pub fn variables(&self) -> Option<&Variables> {
+        self.variables.as_ref()
     }
 }

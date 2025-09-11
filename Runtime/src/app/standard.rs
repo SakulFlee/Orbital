@@ -55,7 +55,7 @@ impl App for StandardApp {
             queue,
         ));
 
-        if self.world.model_store().is_empty() {
+        if self.world.model_store_mut().is_empty() {
             self.on_startup().await;
         }
     }
@@ -107,7 +107,8 @@ impl App for StandardApp {
             }
         }
 
-        self.world.update(world_events);
+        // Kick off world future to process world updates while we handle other things
+        let world_future = self.world.update(world_events);
 
         let new_events = self.element_store.process_events(element_events).await;
         self.queue_events.extend(new_events);
@@ -128,15 +129,20 @@ impl App for StandardApp {
             }
         }
 
+        // Await world future before we need access to the world again.
+        world_future.await;
+
         // TODO: REMOVE
         let model_ids = self
             .world
-            .model_store()
+            .model_store_mut()
             .get_bounding_boxes()
             .keys()
             .copied()
             .collect();
-        self.world.model_store().flag_realization(model_ids, false);
+        self.world
+            .model_store_mut()
+            .flag_realization(model_ids, false);
 
         (!app_events.is_empty()).then_some(app_events)
     }
@@ -149,11 +155,12 @@ impl App for StandardApp {
             self.world
                 .prepare_render(renderer.surface_texture_format(), device, queue);
 
-            let (camera, world_environment, models) = self.world.retrieve_render_resources();
-            let camera = match camera {
-                Some(camera) => camera,
+            let (world_bind_group_option, world_environment_option, models) =
+                self.world.retrieve_render_resources();
+            let world_bind_group = match world_bind_group_option {
+                Some(x) => x,
                 None => {
-                    warn!("No active camera found! Skipping render.");
+                    warn!("No World BindGroup found! Something went wrong. This is a bug.");
                     return;
                 }
             };
@@ -161,9 +168,9 @@ impl App for StandardApp {
             renderer
                 .render(
                     target_view,
-                    world_environment,
+                    world_bind_group,
+                    world_environment_option,
                     models,
-                    camera.camera_bind_group(),
                     device,
                     queue,
                 )
