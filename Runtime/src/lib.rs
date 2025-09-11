@@ -2,7 +2,7 @@ pub mod app;
 pub mod cache;
 pub mod camera_controller;
 pub mod element;
-pub mod loader;
+pub mod importer;
 pub mod logging;
 pub mod macros;
 pub mod mip_level;
