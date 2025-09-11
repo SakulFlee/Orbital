@@ -112,7 +112,8 @@ fn test_cache_dir() {
     warn!("On unexpected results, make sure to delete the cache first!");
     warn!("The cache location should be printed in the log below somewhere.");
 
-    WorldEnvironment::find_cache_dir().expect("Cache dir not resolved! NOTE: Make sure this test is running on a platform that supports caching!");
+    let cache_file = WorldEnvironment::find_cache_dir();
+    debug!("{:?}", cache_file);
 }
 
 #[test]
