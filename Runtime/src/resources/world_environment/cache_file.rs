@@ -9,7 +9,9 @@ use log::{debug, warn};
 use serde::{Deserialize, Serialize};
 use wgpu::{Device, Queue, TextureFormat, TextureUsages};
 
-use crate::resources::{Texture as OrbitalTexture, WorldEnvironmentDescriptor, WorldEnvironmentError};
+use crate::resources::{
+    Texture as OrbitalTexture, WorldEnvironmentDescriptor, WorldEnvironmentError,
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CacheFile {
