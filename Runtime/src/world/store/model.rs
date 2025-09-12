@@ -250,7 +250,8 @@ impl ModelStore {
                 if let Some(&base_id) = self.instance_map.get(&hash) {
                     // Found duplicate - create instance
                     let base_descriptor = self.map_descriptors.get_mut(&base_id).unwrap();
-                    let transform_ulid = base_descriptor.add_transform(descriptor.transforms.values().next().unwrap().clone());
+                    let transform_ulid = base_descriptor
+                        .add_transform(descriptor.transforms.values().next().unwrap().clone());
 
                     // Use the original label from descriptor, or generate new if it conflicts
                     let instance_label = if self.map_label.contains_key(&descriptor.label) {
@@ -261,7 +262,8 @@ impl ModelStore {
                     let base_label = base_descriptor.label.clone();
 
                     // Track the instance
-                    self.instance_tracker.insert(instance_label.clone(), (base_label, transform_ulid));
+                    self.instance_tracker
+                        .insert(instance_label.clone(), (base_label, transform_ulid));
                     self.map_label.insert(instance_label, base_id);
 
                     // Flag for re-realization
@@ -284,7 +286,9 @@ impl ModelStore {
                 }
             }
             ModelEvent::Despawn(label) => {
-                if let Some((base_label, transform_ulid)) = self.instance_tracker.get(&label).cloned() {
+                if let Some((base_label, transform_ulid)) =
+                    self.instance_tracker.get(&label).cloned()
+                {
                     // This is an instance - remove the specific transform
                     if let Some(base_id) = self.label_to_id(&base_label) {
                         let base_descriptor = self.map_descriptors.get_mut(&base_id).unwrap();
@@ -299,7 +303,8 @@ impl ModelStore {
                     // This is a base model - remove it and all its instances
                     if let Some(id) = self.label_to_id(&label) {
                         // Remove all instances of this base model
-                        let instances_to_remove: Vec<String> = self.instance_tracker
+                        let instances_to_remove: Vec<String> = self
+                            .instance_tracker
                             .iter()
                             .filter_map(|(inst_label, (base_l, _))| {
                                 if base_l == &label {

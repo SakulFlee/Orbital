@@ -404,7 +404,6 @@ impl WorldEnvironment {
             device,
         );
 
-        
         queue.submit([encoder.finish()]);
 
         Ok((diffuse, specular))
