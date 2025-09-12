@@ -1,4 +1,8 @@
-use std::{collections::hash_map::DefaultHasher, hash::{Hash, Hasher}, sync::Arc};
+use std::{
+    collections::hash_map::DefaultHasher,
+    hash::{Hash, Hasher},
+    sync::Arc,
+};
 
 use hashbrown::HashMap;
 use ulid::Ulid;

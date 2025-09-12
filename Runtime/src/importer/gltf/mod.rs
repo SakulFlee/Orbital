@@ -2,15 +2,15 @@ use crate::resources::{
     CameraDescriptor, FilterMode, MaterialDescriptor, MeshDescriptor, ModelDescriptor,
     PBRMaterialDescriptor, TextureDescriptor, TextureSize, Transform, Vertex,
 };
-use hashbrown::HashMap;
-use ulid::Ulid;
 use cgmath::{InnerSpace, Point3, Quaternion, Vector2, Vector3, Zero};
 use gltf::camera::Projection;
 use gltf::image::Format;
 use gltf::{Camera, Document, Material, Mesh, Node, Scene, Semantic};
+use hashbrown::HashMap;
 use log::{debug, trace, warn};
 use std::error::Error;
 use std::sync::Arc;
+use ulid::Ulid;
 use wgpu::TextureFormat::R32Float;
 use wgpu::{Color, TextureDimension, TextureFormat, TextureUsages, TextureViewDimension};
 
