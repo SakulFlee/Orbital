@@ -1,4 +1,4 @@
-use example_damaged_helmet::entrypoint;
+use test_skybox::entrypoint;
 
 use orbital::make_desktop_main;
 

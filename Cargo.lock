@@ -739,13 +739,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f27ae1dd37df86211c42e150270f82743308803d90a6f6e6651cd730d5e1732f"
 
 [[package]]
-name = "damaged_helmet"
-version = "0.1.0"
-dependencies = [
- "orbital",
-]
-
-[[package]]
 name = "dirs"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -882,21 +875,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "example_instancing_test"
-version = "0.1.0"
-dependencies = [
- "orbital",
-]
-
-[[package]]
-name = "example_pbr_grid"
-version = "0.1.0"
-dependencies = [
- "orbital",
-]
-
-[[package]]
-name = "example_skybox"
+name = "example_empty"
 version = "0.1.0"
 dependencies = [
  "orbital",
@@ -1288,6 +1267,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "gltf_pbr_damaged_helmet"
+version = "0.1.0"
+dependencies = [
+ "orbital",
+]
+
+[[package]]
 name = "glutin_wgl_sys"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1479,6 +1465,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e05c02b5e89bff3b946cedeca278abc628fe811e604f027c45a8aa3cf793d0eb"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "instancing"
+version = "0.1.0"
+dependencies = [
+ "orbital",
 ]
 
 [[package]]
@@ -2259,6 +2252,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
+name = "pbr_grid"
+version = "0.1.0"
+dependencies = [
+ "orbital",
+]
+
+[[package]]
 name = "percent-encoding"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2839,6 +2839,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95890f873bec569a0362c235787f3aca6e1e887302ba4840839bcc6459c42da6"
 dependencies = [
  "quote",
+]
+
+[[package]]
+name = "skybox"
+version = "0.1.0"
+dependencies = [
+ "orbital",
 ]
 
 [[package]]

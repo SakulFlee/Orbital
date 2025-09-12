@@ -1,4 +1,4 @@
-use example_pbr_grid::entrypoint;
+use example_empty::entrypoint;
 
 use orbital::make_desktop_main;
 
