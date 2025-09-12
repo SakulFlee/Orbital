@@ -138,7 +138,7 @@ fn check_red_cube_position_matches() {
 
     let model = &result.models[0];
     assert!(!model.transforms.is_empty());
-    assert_eq!(model.transforms[0].position, Vector3::new(0.0, 1.0, 0.0));
+    assert_eq!(model.transforms.values().next().unwrap().position, Vector3::new(0.0, 1.0, 0.0));
 }
 
 #[test]
@@ -152,7 +152,7 @@ fn check_red_cube_rotation_matches() {
     let model = &result.models[0];
     assert!(!model.transforms.is_empty());
     assert_eq!(
-        model.transforms[0].rotation,
+        model.transforms.values().next().unwrap().rotation,
         Quaternion::new(0.0, 0.0, 0.0, 1.0)
     );
 }
@@ -167,7 +167,7 @@ fn check_red_cube_scale_matches() {
 
     let model = &result.models[0];
     assert!(!model.transforms.is_empty());
-    assert_eq!(model.transforms[0].scale, Vector3::new(1.0, 1.0, 1.0));
+    assert_eq!(model.transforms.values().next().unwrap().scale, Vector3::new(1.0, 1.0, 1.0));
 }
 
 #[test]
@@ -180,7 +180,7 @@ fn check_blue_cube_position_matches() {
 
     let model = &result.models[0];
     assert!(!model.transforms.is_empty());
-    assert_eq!(model.transforms[0].position, Vector3::new(0.0, 3.25, 0.0));
+    assert_eq!(model.transforms.values().next().unwrap().position, Vector3::new(0.0, 3.25, 0.0));
 }
 
 #[test]
@@ -194,7 +194,7 @@ fn check_blue_cube_rotation_matches() {
     let model = &result.models[0];
     assert!(!model.transforms.is_empty());
     assert_eq!(
-        model.transforms[0].rotation,
+        model.transforms.values().next().unwrap().rotation,
         Quaternion::new(0.0, 0.0, 0.0, 1.0)
     );
 }
@@ -209,7 +209,7 @@ fn check_blue_cube_scale_matches() {
 
     let model = &result.models[0];
     assert!(!model.transforms.is_empty());
-    assert_eq!(model.transforms[0].scale, Vector3::new(0.25, 0.25, 0.25));
+    assert_eq!(model.transforms.values().next().unwrap().scale, Vector3::new(0.25, 0.25, 0.25));
 }
 
 #[test]
@@ -222,7 +222,7 @@ fn check_green_cube_position_matches() {
 
     let model = &result.models[0];
     assert!(!model.transforms.is_empty());
-    assert_eq!(model.transforms[0].position, Vector3::new(0.0, 2.5, 0.0));
+    assert_eq!(model.transforms.values().next().unwrap().position, Vector3::new(0.0, 2.5, 0.0));
 }
 
 #[test]
@@ -236,7 +236,7 @@ fn check_green_cube_rotation_matches() {
     let model = &result.models[0];
     assert!(!model.transforms.is_empty());
     assert_eq!(
-        model.transforms[0].rotation,
+        model.transforms.values().next().unwrap().rotation,
         Quaternion::new(0.0, 0.0, 0.0, 1.0)
     );
 }
@@ -251,5 +251,5 @@ fn check_green_cube_scale_matches() {
 
     let model = &result.models[0];
     assert!(!model.transforms.is_empty());
-    assert_eq!(model.transforms[0].scale, Vector3::new(0.5, 0.5, 0.5));
+    assert_eq!(model.transforms.values().next().unwrap().scale, Vector3::new(0.5, 0.5, 0.5));
 }
