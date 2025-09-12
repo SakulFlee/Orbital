@@ -1,14 +1,14 @@
 [package]
-name = "example_instancing_test"
+name = "instancing"
 version = "0.1.0"
 edition = "2024"
 
 [[bin]]
-name = "example_instancing_test_desktop"
+name = "test_instancing_desktop"
 path = "src/main.rs"
 
 [lib]
-name = "example_instancing_test"
+name = "test_instancing"
 path = "src/lib.rs"
 crate-type = ["cdylib", "lib"]
 
