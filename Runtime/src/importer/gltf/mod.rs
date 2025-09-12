@@ -2,6 +2,8 @@ use crate::resources::{
     CameraDescriptor, FilterMode, MaterialDescriptor, MeshDescriptor, ModelDescriptor,
     PBRMaterialDescriptor, TextureDescriptor, TextureSize, Transform, Vertex,
 };
+use hashbrown::HashMap;
+use ulid::Ulid;
 use cgmath::{InnerSpace, Point3, Quaternion, Vector2, Vector3, Zero};
 use gltf::camera::Projection;
 use gltf::image::Format;
@@ -61,12 +63,10 @@ impl GltfImporter {
     /// is found. Using the [`GltfImportResult`] struct allows us to still try importing everything
     /// else before failing. The user then can decide if the result is acceptable or not.
     ///
-    /// Note that this does **NOT** handle instancing automatically.
-    /// If a given model/mesh (_glTF primitive mesh_) is in the scene multiple times, it will also be
-    /// imported multiple times, based on the [`GltfImportTask`].
-    /// If you are aware of a model being used multiple times in a scene, import it once, then modify
-    /// the transform to match your instances.
-    /// _This feature will be implemented in the future: [#292](https://github.com/SakulFlee/Orbital/issues/292)!_
+    /// Note that this **automatically handles instancing**.
+    /// If a given model/mesh (_glTF primitive mesh_) appears multiple times in the scene with the same
+    /// materials, it will be automatically instanced by the World system.
+    /// Each instance gets a unique transform that preserves the original positioning.
     pub async fn import(import_task: GltfImportTask) -> GltfImportResult {
         let (document, buffers, textures) = match gltf::import(&import_task.file) {
             Ok(x) => x,
@@ -817,6 +817,10 @@ impl GltfImporter {
                 },
             };
 
+            let mut transforms = HashMap::new();
+            let ulid = Ulid::new();
+            transforms.insert(ulid, transform);
+
             let model = ModelDescriptor {
                 label: node
                     .name()
@@ -824,7 +828,7 @@ impl GltfImporter {
                     .unwrap_or("Unnamed".to_string()),
                 mesh: Arc::new(mesh_descriptor),
                 materials: vec![Arc::new(material)],
-                transforms: vec![transform],
+                transforms,
             };
 
             results.push(model);

@@ -74,7 +74,7 @@ impl Model {
         // Turn Transforms into Instances
         let instances = descriptor
             .transforms
-            .iter()
+            .values()
             .map(Instance::from)
             .collect::<Vec<_>>();
         // Turn Instances into buffer data (bytes)
