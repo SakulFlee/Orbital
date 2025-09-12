@@ -35,5 +35,22 @@
             "args": [],
             "cwd": "${workspaceFolder}"
         },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Example: Instancing Test",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=example_instancing_test_desktop"
+                ],
+                "filter": {
+                    "name": "example_instancing_test_desktop",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
     ]
 }
