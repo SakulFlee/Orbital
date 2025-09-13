@@ -14,6 +14,60 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⏬ Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: 💾 Cache
+        uses: actions/cache@v4.2.4
+        with:
+          path: target/
+          key: target
+
+      - name: 🦀 Rust setup
+        run: |
+          rustup default stable
+          rustup update
+
+      - name: 🛠️ Install dependencies
+        run: sudo apt-get install -y libudev-dev
+
+      - name: 📎 Clippy
+        env:
+          SKIP_GLTF_EXPORT: true
+        run: cargo clippy -- -D warnings
+
+  rustfmt:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⏬ Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: 💾 Cache
+        uses: actions/cache@v4.2.4
+        with:
+          path: target/
+          key: target
+
+      - name: 🦀 Rust setup
+        run: |
+          rustup default stable
+          rustup update
+
+      - name: 🛠️ Install dependencies
+        run: sudo apt-get install -y libudev-dev
+
+      - name: 🧹 RustFmt
+        env:
+          SKIP_GLTF_EXPORT: true
+        run: cargo fmt --all --check
+
   check:
     runs-on: ubuntu-latest
     steps:
