@@ -64,10 +64,10 @@ impl ModelDescriptor {
     /// [Transform].
     pub fn apply_transform(&mut self, mode: Mode<Transform>) {
         self.transforms.values_mut().for_each(|x| match mode {
-            Mode::Overwrite(transform) => *x = transform.clone(),
+            Mode::Overwrite(transform) => *x = transform,
             Mode::Offset(transform)
             | Mode::OffsetViewAligned(transform)
-            | Mode::OffsetViewAlignedWithY(transform) => x.apply_transform(transform.clone()),
+            | Mode::OffsetViewAlignedWithY(transform) => x.apply_transform(transform),
         });
     }
 
