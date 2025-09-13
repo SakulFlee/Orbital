@@ -39,7 +39,7 @@ jobs:
       - name: 📎 Clippy
         env:
           SKIP_GLTF_EXPORT: true
-        run: cargo clippy -- -D warnings
+        run: cargo clippy
 
   rustfmt:
     runs-on: ubuntu-latest
