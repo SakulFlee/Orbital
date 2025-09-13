@@ -1,4 +1,4 @@
-name: Checkup
+name: Cleanup
 
 on:
   pull_request:
