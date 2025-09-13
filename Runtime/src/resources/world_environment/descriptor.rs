@@ -1,8 +1,10 @@
+use std::hash::Hash;
+
 use cgmath::Vector2;
 
 use super::SamplingType;
 
-#[derive(Debug, Clone, Hash, Eq)]
+#[derive(Debug, Clone, Eq)]
 pub enum WorldEnvironmentDescriptor {
     /// Loading an HDRI from file.  
     /// First of all, will convert the HDRI _equirectangular_ image
@@ -129,6 +131,37 @@ impl PartialEq for WorldEnvironmentDescriptor {
                 l_data.iter().zip(r_data.iter()).any(|(l, r)| l.eq(r))
             }
             _ => false,
+        }
+    }
+}
+
+impl Hash for WorldEnvironmentDescriptor {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            WorldEnvironmentDescriptor::FromFile {
+                cube_face_size,
+                path,
+                sampling_type,
+                custom_specular_mip_level_count,
+            } => {
+                cube_face_size.hash(state);
+                path.hash(state);
+                sampling_type.hash(state);
+                custom_specular_mip_level_count.hash(state);
+            }
+            WorldEnvironmentDescriptor::FromData {
+                cube_face_size,
+                data,
+                size,
+                sampling_type,
+                specular_mip_level_count,
+            } => {
+                cube_face_size.hash(state);
+                data.hash(state);
+                size.hash(state);
+                sampling_type.hash(state);
+                specular_mip_level_count.hash(state);
+            }
         }
     }
 }

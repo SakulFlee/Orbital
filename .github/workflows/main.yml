@@ -1,8 +1,8 @@
 name: Main
 
 on:
-  pull_request:
   workflow_dispatch:
+  pull_request:
   push:
     tags:
       - 'v*'
@@ -39,28 +39,7 @@ jobs:
       - name: 📎 Clippy
         env:
           SKIP_GLTF_EXPORT: true
-        run: cargo clippy --fix
-
-      - name: 👀 Checking for changes ...
-        id: changes
-        run: echo "status=$(git status --porcelain | wc -l)" >> "$GITHUB_OUTPUT"
-
-      - name: ⏫ Push changes
-        if: ${{ steps.changes.outputs.status != '' && steps.changes.outputs.status > 0 }}
-        run: |
-          echo "Changes detected. Committing and pushing..."
-
-          # Print status to visually see what changed
-          git status
-
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
-
-          git add --all
-          git commit -a -m "Automated commit by CI"
-          git push
-
-          echo "Git push completed."
+        run: cargo clippy
 
   rustfmt:
     runs-on: ubuntu-latest
@@ -87,31 +66,13 @@ jobs:
       - name: 🧹 RustFmt
         env:
           SKIP_GLTF_EXPORT: true
-        run: cargo fmt --verbose --all
-
-      - name: 👀 Checking for changes ...
-        id: changes
-        run: echo "status=$(git status --porcelain | wc -l)" >> "$GITHUB_OUTPUT"
-
-      - name: ⏫ Push changes
-        if: ${{ steps.changes.outputs.status != '' && steps.changes.outputs.status > 0 }}
-        run: |
-          echo "Changes detected. Committing and pushing..."
-          
-          # Print status to visually see what changed
-          git status
-          
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          
-          git add --all
-          git commit -a -m "Automated commit by CI"
-          git push
-          
-          echo "Git push completed."
+        run: cargo fmt --all --check
 
   check:
     runs-on: ubuntu-latest
+    needs:
+      - rustfmt
+      - clippy
     steps:
       - name: ⏬ Checkout
         uses: actions/checkout@v5
@@ -174,8 +135,6 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     needs:
-      - clippy
-      - rustfmt
       - check
     if: ${{ startsWith(github.ref, 'refs/tags/') }}
     strategy:
