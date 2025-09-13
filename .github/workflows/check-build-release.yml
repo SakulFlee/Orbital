@@ -1,8 +1,12 @@
 name: Check, Build & Release
 
 on:
-  pull_request:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["rustfmt", "clippy"]
+    types:
+      - completed
+  pull_request:
   push:
     tags:
       - 'v*'
