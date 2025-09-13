@@ -244,14 +244,14 @@ impl ModelStore {
 
     pub fn handle_event(&mut self, model_event: ModelEvent) {
         match model_event {
-            ModelEvent::Spawn(mut descriptor) => {
+            ModelEvent::Spawn(descriptor) => {
                 // Check for duplicate models
                 let hash = descriptor.instance_hash();
                 if let Some(&base_id) = self.instance_map.get(&hash) {
                     // Found duplicate - create instance
                     let base_descriptor = self.map_descriptors.get_mut(&base_id).unwrap();
                     let transform_ulid = base_descriptor
-                        .add_transform(descriptor.transforms.values().next().unwrap().clone());
+                        .add_transform(*descriptor.transforms.values().next().unwrap());
 
                     // Use the original label from descriptor, or generate new if it conflicts
                     let instance_label = if self.map_label.contains_key(&descriptor.label) {
