@@ -6,10 +6,7 @@ on:
     workflows: ["rustfmt", "clippy"]
     types:
       - completed
-  pull_request:
   push:
-    tags:
-      - 'v*'
 
 permissions:
   contents: write
