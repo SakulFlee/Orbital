@@ -4,14 +4,14 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Example: PBR Grid",
+            "name": "Test: SkyBox",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=example_pbr_grid_desktop"
+                    "--bin=test_skybox_desktop"
                 ],
                 "filter": {
-                    "name": "example_pbr_grid_desktop",
+                    "name": "test_skybox_desktop",
                     "kind": "bin"
                 }
             },
@@ -21,7 +21,7 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Example: Damaged Helmet",
+            "name": "Test: glTF PBR Damaged Helmet",
             "cargo": {
                 "args": [
                     "build",
@@ -29,6 +29,40 @@
                 ],
                 "filter": {
                     "name": "example_damaged_helmet_desktop",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Test: PBR Grid",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=test_pbr_grid_desktop"
+                ],
+                "filter": {
+                    "name": "test_pbr_grid_desktop",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Test: Instancing",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=test_instancing_desktop"
+                ],
+                "filter": {
+                    "name": "test_instancing_desktop",
                     "kind": "bin"
                 }
             },

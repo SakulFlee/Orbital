@@ -5,7 +5,11 @@ use std::{
 
 use hashbrown::HashMap;
 use log::warn;
+use ulid::Ulid;
 use wgpu::{Device, Queue, TextureFormat};
+
+#[cfg(test)]
+mod tests;
 
 use crate::{
     cache::{Cache, CacheEntry},
@@ -33,6 +37,9 @@ pub struct ModelStore {
     free_ids: Vec<u128>,
     cache_mesh: RwLock<Cache<Arc<MeshDescriptor>, Mesh>>,
     cache_material: RwLock<Cache<Arc<MaterialShaderDescriptor>, MaterialShader>>,
+    // Instancing support
+    instance_map: HashMap<u64, u128>, // hash -> base_model_id
+    instance_tracker: HashMap<String, (String, Ulid)>, // instance_label -> (base_label, transform_ulid)
 }
 
 impl ModelStore {
@@ -68,10 +75,8 @@ impl ModelStore {
             // Possibly, might not exist!
             self.cache_realizations.remove(&idx);
 
-            // Must exist!
-            if self.map_bounding_boxes.remove(&idx).is_none() {
-                panic!("ModelStore Desync! No associated BoundingBox found!");
-            }
+            // Remove bounding box if it exists (may not be processed yet)
+            self.map_bounding_boxes.remove(&idx);
 
             // Must also exist!
             if self.map_label.remove(&descriptor.label).is_none() {
@@ -227,6 +232,8 @@ impl ModelStore {
         self.cache_realizations.clear();
         self.free_ids.clear();
         self.id_counter = 0;
+        self.instance_map.clear();
+        self.instance_tracker.clear();
 
         Ok(())
     }
@@ -238,10 +245,85 @@ impl ModelStore {
     pub fn handle_event(&mut self, model_event: ModelEvent) {
         match model_event {
             ModelEvent::Spawn(descriptor) => {
-                self.store(descriptor);
+                // Check for duplicate models
+                let hash = descriptor.instance_hash();
+                if let Some(&base_id) = self.instance_map.get(&hash) {
+                    // Found duplicate - create instance
+                    let base_descriptor = self.map_descriptors.get_mut(&base_id).unwrap();
+                    let transform_ulid = base_descriptor
+                        .add_transform(*descriptor.transforms.values().next().unwrap());
+
+                    // Use the original label from descriptor, or generate new if it conflicts
+                    let instance_label = if self.map_label.contains_key(&descriptor.label) {
+                        format!("instance_{}", Ulid::new().to_string())
+                    } else {
+                        descriptor.label.clone()
+                    };
+                    let base_label = base_descriptor.label.clone();
+
+                    // Track the instance
+                    self.instance_tracker
+                        .insert(instance_label.clone(), (base_label, transform_ulid));
+                    self.map_label.insert(instance_label, base_id);
+
+                    // Flag for re-realization
+                    self.flag_realization(vec![base_id], true);
+                } else {
+                    // No duplicate - store as base model
+                    let id = match self.free_ids.pop() {
+                        Some(id) => id,
+                        None => {
+                            let id = self.id_counter;
+                            self.id_counter += 1;
+                            id
+                        }
+                    };
+
+                    self.map_label.insert(descriptor.label.clone(), id);
+                    self.map_descriptors.insert(id, descriptor);
+                    self.instance_map.insert(hash, id);
+                    self.queue_bounding_boxes.push(id);
+                }
             }
             ModelEvent::Despawn(label) => {
-                self.remove(Or::Left(&label));
+                if let Some((base_label, transform_ulid)) =
+                    self.instance_tracker.get(&label).cloned()
+                {
+                    // This is an instance - remove the specific transform
+                    if let Some(base_id) = self.label_to_id(&base_label) {
+                        let base_descriptor = self.map_descriptors.get_mut(&base_id).unwrap();
+                        base_descriptor.remove_transform(&transform_ulid);
+                        self.instance_tracker.remove(&label);
+                        self.map_label.remove(&label);
+
+                        // Flag for re-realization
+                        self.flag_realization(vec![base_id], true);
+                    }
+                } else {
+                    // This is a base model - remove it and all its instances
+                    if let Some(id) = self.label_to_id(&label) {
+                        // Remove all instances of this base model
+                        let instances_to_remove: Vec<String> = self
+                            .instance_tracker
+                            .iter()
+                            .filter_map(|(inst_label, (base_l, _))| {
+                                if base_l == &label {
+                                    Some(inst_label.clone())
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect();
+
+                        for inst_label in instances_to_remove {
+                            self.instance_tracker.remove(&inst_label);
+                            self.map_label.remove(&inst_label);
+                        }
+
+                        // Remove the base model
+                        self.remove(Or::Right(id));
+                    }
+                }
             }
             ModelEvent::Transform(label, mode) => {
                 if let Some(idx) = self.label_to_id(&label) {
@@ -257,18 +339,22 @@ impl ModelStore {
                     );
                 }
             }
-            ModelEvent::TransformInstance(label, mode, transform_idx) => {
-                if let Some(idx) = self.label_to_id(&label) {
-                    let descriptor = self.map_descriptors.get_mut(&idx).unwrap();
-                    descriptor.apply_transform_specific(mode, transform_idx);
+            ModelEvent::TransformInstance(label, mode, transform_ulid_str) => {
+                if let Ok(transform_ulid) = Ulid::from_string(&transform_ulid_str) {
+                    if let Some(idx) = self.label_to_id(&label) {
+                        let descriptor = self.map_descriptors.get_mut(&idx).unwrap();
+                        descriptor.apply_transform_specific(mode, &transform_ulid);
 
-                    if self.cache_realizations.contains_key(&idx) {
-                        self.flag_realization(vec![idx], true);
+                        if self.cache_realizations.contains_key(&idx) {
+                            self.flag_realization(vec![idx], true);
+                        }
+                    } else {
+                        warn!(
+                            "Attempting to modify Model with label '{label}', which cannot be found!"
+                        );
                     }
                 } else {
-                    warn!(
-                        "Attempting to modify Model with label '{label}', which cannot be found!"
-                    );
+                    warn!("Invalid ULID string: {}", transform_ulid_str);
                 }
             }
             ModelEvent::AddInstance(label, transform) => {
@@ -285,18 +371,22 @@ impl ModelStore {
                     );
                 }
             }
-            ModelEvent::RemoveInstance(label, transform_idx) => {
-                if let Some(idx) = self.label_to_id(&label) {
-                    let descriptor = self.map_descriptors.get_mut(&idx).unwrap();
-                    descriptor.remove_transform(transform_idx);
+            ModelEvent::RemoveInstance(label, transform_ulid_str) => {
+                if let Ok(transform_ulid) = Ulid::from_string(&transform_ulid_str) {
+                    if let Some(idx) = self.label_to_id(&label) {
+                        let descriptor = self.map_descriptors.get_mut(&idx).unwrap();
+                        descriptor.remove_transform(&transform_ulid);
 
-                    if self.cache_realizations.contains_key(&idx) {
-                        self.flag_realization(vec![idx], true);
+                        if self.cache_realizations.contains_key(&idx) {
+                            self.flag_realization(vec![idx], true);
+                        }
+                    } else {
+                        warn!(
+                            "Attempting to remove instance from Model with label '{label}', which cannot be found!"
+                        );
                     }
                 } else {
-                    warn!(
-                        "Attempting to add instance to Model with label '{label}', which cannot be found!"
-                    );
+                    warn!("Invalid ULID string: {}", transform_ulid_str);
                 }
             }
         }
