@@ -20,6 +20,13 @@ fn main() {
 }
 
 fn blender_pbr_grid() {
+
+
+
+
+
+
+    
     let script_path = std::fs::canonicalize(MODEL_SCRIPT_PBR_SPHERE_GEN)
         .expect("Failed to canonicalize script path!");
     println!(
