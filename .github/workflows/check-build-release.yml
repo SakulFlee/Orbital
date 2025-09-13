@@ -2,11 +2,10 @@ name: Check, Build & Release
 
 on:
   workflow_dispatch:
-  workflow_run:
-    workflows: ["rustfmt", "clippy"]
-    types:
-      - completed
+  pull_request:
   push:
+    tags:
+      - 'v*'
 
 permissions:
   contents: write
