@@ -1,8 +1,10 @@
+use std::hash::Hash;
+
 use cgmath::Point3;
 
 use crate::resources::{BoundingBoxDescriptor, Vertex};
 
-#[derive(Debug, Clone, Eq, Hash)]
+#[derive(Debug, Clone, Eq)]
 pub struct MeshDescriptor {
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u32>,
@@ -43,5 +45,12 @@ impl PartialEq for MeshDescriptor {
 
         // Then compare the actual data
         self.vertices == other.vertices && self.indices == other.indices
+    }
+}
+
+impl Hash for MeshDescriptor {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.vertices.hash(state);
+        self.indices.hash(state);
     }
 }
