@@ -60,7 +60,7 @@ jobs:
 
           git add --all
           git commit -a -m "Automated commit by CI"
-          git push "https://${GH_PAT}@github.com/${{ github.repository }}.git" HEAD:${{ github.ref_name }}
+          git push "https://${GH_PAT}@github.com/${{ github.repository }}.git"
 
           echo "Git push completed."
 
@@ -110,7 +110,7 @@ jobs:
 
           git add --all
           git commit -a -m "Automated commit by CI"
-          git push "https://${GH_PAT}@github.com/${{ github.repository }}.git" HEAD:${{ github.ref_name }}
+          git push "https://${GH_PAT}@github.com/${{ github.repository }}.git"
 
           echo "Git push completed."
 
