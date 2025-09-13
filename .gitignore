@@ -28,3 +28,4 @@ jniLibs/
 # Exported models, except for pre-exported
 Assets/Models/*
 !Assets/Models/DamagedHelmet.glb
+!Assets/Models/InstancingTest.glb

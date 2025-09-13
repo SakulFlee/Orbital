@@ -1,0 +1,16 @@
+[package]
+name = "skybox"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "test_skybox_desktop"
+path = "src/main.rs"
+
+[lib]
+name = "test_skybox"
+path = "src/lib.rs"
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+orbital = { path = "../../Runtime" }

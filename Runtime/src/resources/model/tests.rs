@@ -4,6 +4,8 @@ use std::{
 };
 
 use cgmath::{Vector2, Vector3};
+use hashbrown::HashMap;
+use ulid::Ulid;
 use wgpu::TextureFormat;
 
 use crate::{
@@ -18,6 +20,9 @@ use super::{Model, ModelDescriptor};
 fn realization() {
     let (_, device, queue) = wgpu_test_adapter::make_wgpu_connection();
 
+    let mut transforms = HashMap::new();
+    transforms.insert(Ulid::new(), Transform::default());
+
     let descriptor = ModelDescriptor {
         label: "Test".to_string(),
         mesh: Arc::new(MeshDescriptor {
@@ -31,7 +36,7 @@ fn realization() {
             indices: vec![0],
         }),
         materials: vec![Arc::new(MaterialDescriptor::default())],
-        transforms: vec![Transform::default()],
+        transforms,
     };
 
     let cache_mesh = RwLock::new(Cache::new(Duration::from_secs(5)));
