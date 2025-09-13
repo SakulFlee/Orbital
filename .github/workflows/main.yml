@@ -47,6 +47,8 @@ jobs:
 
       - name: ⏫ Push changes
         if: ${{ steps.changes.outputs.status != '' && steps.changes.outputs.status > 0 }}
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
         run: |
           echo "Changes detected. Committing and pushing..."
 
@@ -58,7 +60,7 @@ jobs:
 
           git add --all
           git commit -a -m "Automated commit by CI"
-          git push
+          git push "https://${GH_PAT}@github.com/${{ github.repository }}.git" HEAD:${{ github.ref_name }}
 
           echo "Git push completed."
 
@@ -95,19 +97,21 @@ jobs:
 
       - name: ⏫ Push changes
         if: ${{ steps.changes.outputs.status != '' && steps.changes.outputs.status > 0 }}
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
         run: |
           echo "Changes detected. Committing and pushing..."
-          
+
           # Print status to visually see what changed
           git status
-          
+
           git config --global user.name 'github-actions[bot]'
           git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          
+
           git add --all
           git commit -a -m "Automated commit by CI"
-          git push
-          
+          git push "https://${GH_PAT}@github.com/${{ github.repository }}.git" HEAD:${{ github.ref_name }}
+
           echo "Git push completed."
 
   check:
