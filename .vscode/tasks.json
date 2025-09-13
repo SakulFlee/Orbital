@@ -2,6 +2,45 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "[Rust] Clippy Fix",
+            "command": "cargo clippy --fix",
+            "type": "shell",
+            "args": [],
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "group": "build"
+        },
+        {
+            "label": "[Rust] Clippy Check",
+            "command": "cargo clippy",
+            "type": "shell",
+            "args": [],
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "group": "build"
+        },
+        {
+            "label": "[Rust] Format fix",
+            "command": "cargo fmt --all",
+            "type": "shell",
+            "args": [],
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "group": "build"
+        },
+        {
             "label": "[Rust] Build Workspace",
             "command": "cargo build --workspace",
             "type": "shell",
