@@ -109,7 +109,7 @@ impl CameraController {
                 {
                     if state {
                         movement_vector.y =
-                            -1.0 * Self::AXIS_NORMALIZATION_TO_MATCH_MOUSE_SENSITIVITY as f64;
+                            -(Self::AXIS_NORMALIZATION_TO_MATCH_MOUSE_SENSITIVITY as f64);
                     }
                 }
 
