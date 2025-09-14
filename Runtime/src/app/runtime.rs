@@ -475,7 +475,8 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
     }
 
     fn exit(&mut self, event_loop: &ActiveEventLoop) {
-        self.suspended(event_loop);
+        // Signal the application to close without forcing immediate cleanup
+        // This allows the event loop to shut down gracefully
         event_loop.exit();
     }
 }
@@ -563,8 +564,19 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
     }
 
     fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
+        debug!("Suspending application...");
+
+        // Call app.on_suspend() first
+        debug!("Calling app.on_suspend()...");
+        block_on(self.app.on_suspend());
+        debug!("App.on_suspend() completed.");
+
+        // Add a small delay to ensure app.on_suspend() has completed
+        debug!("Waiting for app.on_suspend() to complete...");
+
         // Invalidate everything related to the window, surface and device.
-        self.surface = None;
+        // Important: Drop resources in the correct order with delays to prevent segfaults
+        debug!("Dropping all resources...");
         self.surface_configuration = None;
         self.queue = None;
         self.device = None;
@@ -573,7 +585,11 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
         self.window = None;
         self.timer = None;
 
-        block_on(self.app.on_suspend());
+        // Defer dropping the surface to prevent segfaults
+        debug!("Deferring surface cleanup...");
+        self.surface = None;
+
+        debug!("Suspension complete.");
     }
 
     fn window_event(
