@@ -97,7 +97,8 @@ impl CameraController {
                     .map(|(_, state)| state)
                 {
                     if state {
-                        movement_vector.y = 1.0 * Self::AXIS_NORMALIZATION_TO_MATCH_MOUSE_SENSITIVITY as f64;
+                        movement_vector.y =
+                            1.0 * Self::AXIS_NORMALIZATION_TO_MATCH_MOUSE_SENSITIVITY as f64;
                     }
                 }
 
@@ -107,7 +108,8 @@ impl CameraController {
                     .map(|(_, state)| state)
                 {
                     if state {
-                        movement_vector.y = -1.0 * Self::AXIS_NORMALIZATION_TO_MATCH_MOUSE_SENSITIVITY as f64;
+                        movement_vector.y =
+                            -(Self::AXIS_NORMALIZATION_TO_MATCH_MOUSE_SENSITIVITY as f64);
                     }
                 }
 
