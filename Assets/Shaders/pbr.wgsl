@@ -152,6 +152,18 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     let pbr = pbr_data(in);
     var output = vec3(0.0);
 
+    // Check if UVs are missing (i.e. a default texture with just an R and G channel set to 0.5, being 1x1 pixels in size)
+    let uv_missing = is_uv_missing_or_default(in.uv);
+    if uv_missing {
+        // If we detect that there is no UV map, that means we also can't correctly calculate normals, tangents and bi-tangents.
+        // These components are crucial for proper IBL lighting.
+        // This also means the model must be extremely basic and probably **should not** be used in a PBR pipeline!
+        //
+        // To render it anyways, we'll simply write the albedo (i.e. color channels) to the output and later add the emissive "ontop".
+        // There will be no light calculation what-so-ever!
+        // If you want IBL, export the model **with** an UV map.
+        output += pbr.albedo;
+    } else {
     // IBL Ambient light
     var ambient = calculate_ambient_ibl(pbr);
     output += ambient;
@@ -159,6 +171,7 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     // Point Light reflectance light
     let point_light_reflectance = calculate_point_light_specular_contribution(pbr, in.world_position);
     output += point_light_reflectance;
+    }
 
     // Add emissive "ontop"
     output += pbr.emissive;
@@ -234,6 +247,22 @@ fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
 
     // Ambient light calculation (IBL), multiplied by ambient occlusion
     return (diffuse_ibl + specular_ibl) * pbr.occlusion;
+}
+
+// Checks if the current UV is missing or a default one got generated.
+// A default UV can be detected by the following conditions (all must be true!):
+// - width & height of 1x1 pixel
+// - Red and Green channel (R & G / X & Y) to be exactly 0.5 f32 for both
+fn is_uv_missing_or_default(uv: vec2<f32>) -> bool {
+    // First, check for the texture dimension as it is incredibly unlikely to be used in a "real" UV map
+    let albedo_dimensions = textureDimensions(albedo_texture);
+    if albedo_dimensions.x == 1 && albedo_dimensions.y == 1 {
+        if uv.x == 0.5 && uv.y == 0.5 {
+            return true;
+        }
+    }
+    
+    return false;
 }
 
 /// Samples the fragment's normal and transforms it into world space
