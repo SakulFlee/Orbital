@@ -42,7 +42,7 @@ impl Texture {
     ) -> Result<Self, TextureError> {
         match descriptor {
             TextureDescriptor::File { path, usages } => {
-                Self::from_path(path, *usages, device, queue)
+                Self::from_path_srgb(path, *usages, device, queue)
             }
             TextureDescriptor::Data {
                 pixels,
@@ -200,6 +200,7 @@ impl Texture {
     pub fn from_path(
         file_path: &OsString,
         usages: TextureUsages,
+        format: TextureFormat,
         device: &Device,
         queue: &Queue,
     ) -> Result<Self, TextureError> {
@@ -219,11 +220,11 @@ impl Texture {
             &TextureDescriptor::Data {
                 pixels: data,
                 size: TextureSize {
-                    width: 1,
-                    height: 1,
+                    width: img.width(),
+                    height: img.height(),
                     ..Default::default()
                 },
-                format: TextureFormat::Rgba8UnormSrgb,
+                format,
                 usages,
 
                 texture_dimension: TextureDimension::D2,
@@ -233,6 +234,15 @@ impl Texture {
             device,
             queue,
         )
+    }
+
+    pub fn from_path_srgb(
+        file_path: &OsString,
+        usages: TextureUsages,
+        device: &Device,
+        queue: &Queue,
+    ) -> Result<Self, TextureError> {
+        Self::from_path(file_path, usages, TextureFormat::Rgba8UnormSrgb, device, queue)
     }
 
     /// In case you want a uniform, one color, image.
