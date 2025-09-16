@@ -10,7 +10,7 @@ impl WorldEnvironment {}
 
 impl Element for WorldEnvironment {
     fn on_registration(&self) -> ElementRegistration {
-        ElementRegistration::new("world_environment").with_initial_world_change(Event::World(
+        ElementRegistration::new("world_environment").with_initial_event(Event::World(
             WorldEvent::Environment(EnvironmentEvent::Change {
                 descriptor: WorldEnvironmentDescriptor::FromFile {
                     cube_face_size: 2048,
