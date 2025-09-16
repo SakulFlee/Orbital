@@ -54,6 +54,19 @@
             "group": "build"
         },
         {
+            "label": "[Rust] Test Workspace",
+            "command": "cargo test --workspace",
+            "type": "shell",
+            "args": [],
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "group": "build"
+        },
+        {
             "label": "[Rust] Build Orbital",
             "command": "cargo build --package orbital",
             "type": "shell",

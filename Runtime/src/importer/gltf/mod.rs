@@ -33,9 +33,6 @@ mod error;
 use crate::quaternion::quaternion_to_pitch_yaw;
 pub use error::*;
 
-// Import the new tangent utility function
-mod tangent_utils;
-
 #[cfg(test)]
 mod tests;
 
@@ -683,58 +680,6 @@ impl GltfImporter {
             let uvs_vec: Option<Vec<_>> =
                 uvs.map(|uv| uv.map(|uv| Vector2::new(uv[0], uv[1])).collect());
 
-            // Detect if this is likely a UV sphere mesh for better tangent generation
-            let is_uv_sphere = if tangents_vec.is_none() {
-                if let Some(uvs) = &uvs_vec {
-                    // Analyze UV coordinates to detect UV sphere pattern
-                    let mut has_pole_vertices = false;
-                    let mut has_equator_vertices = false;
-
-                    for uv in uvs {
-                        // Check for pole vertices (V = 0 or V = 1)
-                        if uv.y < 0.01 || uv.y > 0.99 {
-                            has_pole_vertices = true;
-                        }
-                        // Check for equator vertices (V ≈ 0.5)
-                        if uv.y > 0.49 && uv.y < 0.51 {
-                            has_equator_vertices = true;
-                        }
-                    }
-
-                    // If we have both pole and equator vertices, it's likely a UV sphere
-                    has_pole_vertices && has_equator_vertices
-                } else {
-                    // No UVs provided - check if this looks like a sphere by analyzing vertex positions
-                    // A sphere should have vertices at various distances from center, with some at radius 1
-                    let mut has_center_distance_vertices = false;
-                    let mut has_unit_radius_vertices = false;
-
-                    for position in &positions_vec {
-                        let distance = position.magnitude();
-                        if distance < 0.1 {
-                            has_center_distance_vertices = true;
-                        }
-                        if (distance - 1.0).abs() < 0.1 {
-                            has_unit_radius_vertices = true;
-                        }
-                    }
-
-                    // If we have vertices at various distances and some at unit radius, likely a sphere
-                    has_center_distance_vertices && has_unit_radius_vertices
-                }
-            } else {
-                false
-            };
-
-            if is_uv_sphere {
-                debug!("Detected UV sphere mesh - using sphere-specific tangent generation");
-                debug!(
-                    "Sphere has {} vertices, UVs provided: {}",
-                    positions_vec.len(),
-                    uvs_vec.is_some()
-                );
-            }
-
             // Main vertex processing loop
             let mut vertices = Vec::new();
             for (i, position) in positions_vec.iter().enumerate() {
@@ -759,23 +704,21 @@ impl GltfImporter {
                     let calculated_bitangent = normal.cross(tangent_vec) * handedness;
                     (tangent_vec, calculated_bitangent)
                 } else {
-                    // When tangent is missing, try to detect if this is a sphere-like mesh
-                    // and use appropriate tangent generation
-                    let uv = uvs_vec
-                        .as_ref()
-                        .and_then(|uvs| uvs.get(i))
-                        .map(|uv| (uv.x, uv.y));
-
-                    // Use the detected UV sphere information for better tangent generation
-                    if is_uv_sphere {
-                        // Use sphere-specific tangent generation for better pole handling
-                        trace!("Using sphere-specific tangent generation for vertex {}", i);
-                        tangent_utils::generate_sphere_tangent_frame(normal, uv)
+                    // When tangent is missing, create a simple orthogonal tangent
+                    trace!("Using simple tangent generation for vertex {}", i);
+                    // Create an arbitrary vector not parallel to the normal
+                    let arbitrary = if normal.x.abs() > 0.9 {
+                        Vector3::new(0.0, 1.0, 0.0)
                     } else {
-                        // Use the general arbitrary tangent frame generator
-                        trace!("Using arbitrary tangent generation for vertex {}", i);
-                        tangent_utils::generate_arbitrary_tangent_frame(normal)
-                    }
+                        Vector3::new(1.0, 0.0, 0.0)
+                    };
+
+                    // Compute tangent as orthogonal to normal
+                    let tangent = arbitrary.cross(normal).normalize();
+                    // Compute bitangent as orthogonal to both
+                    let bitangent = normal.cross(tangent);
+
+                    (tangent, bitangent)
                 };
 
                 let uv = if let Some(uvs) = &uvs_vec {
