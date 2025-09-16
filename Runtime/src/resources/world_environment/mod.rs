@@ -379,32 +379,45 @@ impl WorldEnvironment {
             queue,
         );
 
-        let mut encoder = device.create_command_encoder(&Default::default());
+        // Generate diffuse IBL and wait for completion
+        let diffuse = {
+            let mut encoder = device.create_command_encoder(&Default::default());
+            let result = Self::make_ibl_diffuse(
+                dst_size,
+                &device.create_bind_group_layout(&Self::bind_group_layout_descriptor()),
+                src_texture.view(),
+                &mut encoder,
+                device,
+            );
+            let _ = queue.submit([encoder.finish()]);
+            // Note: In wgpu, submissions are automatically synchronized
+            result
+        };
 
-        let diffuse = Self::make_ibl_diffuse(
-            dst_size,
-            &device.create_bind_group_layout(&Self::bind_group_layout_descriptor()),
-            src_texture.view(),
-            &mut encoder,
-            device,
-        );
-        let raw_specular = Self::make_ibl_specular(
-            dst_size,
-            &device.create_bind_group_layout(&Self::bind_group_layout_descriptor()),
-            src_texture.view(),
-            specular_mip_level_count,
-            &mut encoder,
-            device,
-        );
-        let specular = Self::generate_specular_mip_maps(
+        // Generate specular IBL base level and wait for completion
+        let raw_specular = {
+            let mut encoder = device.create_command_encoder(&Default::default());
+            let result = Self::make_ibl_specular(
+                dst_size,
+                &device.create_bind_group_layout(&Self::bind_group_layout_descriptor()),
+                src_texture.view(),
+                specular_mip_level_count,
+                &mut encoder,
+                device,
+            );
+            let _ = queue.submit([encoder.finish()]);
+            // Note: In wgpu, submissions are automatically synchronized
+            result
+        };
+
+        // Generate specular mip maps incrementally
+        let specular = Self::generate_specular_mip_maps_incremental(
             &raw_specular,
             sampling_type,
             specular_mip_level_count,
-            &mut encoder,
             device,
+            queue,
         );
-
-        queue.submit([encoder.finish()]);
 
         Ok((diffuse, specular))
     }
@@ -646,6 +659,108 @@ impl WorldEnvironment {
             pass.dispatch_workgroups(workgroups_x, workgroups_y, 6);
         }
 
+        dst_texture
+    }
+
+    fn generate_specular_mip_maps_incremental(
+        src_specular_ibl: &Texture,
+        sampling_type: &SamplingType,
+        specular_mip_level_count: u32,
+        device: &Device,
+        queue: &Queue,
+    ) -> Texture {
+        let bind_group_layout =
+            device.create_bind_group_layout(&Self::bind_group_layout_descriptor_mip_mapping());
+        let mip_buffer_bind_group_layout =
+            device.create_bind_group_layout(&Self::bind_group_layout_descriptor_buffer());
+
+        let pipeline = Self::make_compute_pipeline(
+            &[&bind_group_layout, &mip_buffer_bind_group_layout],
+            include_wgsl!("make_mip_maps.wgsl"),
+            "main",
+            device,
+        );
+
+        let max_mip_levels = specular_mip_level_count;
+
+        let dst_texture = Texture::create_empty_cube_texture(
+            Some("PBR IBL Specular with LoDs"),
+            Vector2 {
+                x: src_specular_ibl.texture().width(),
+                y: src_specular_ibl.texture().height(),
+            },
+            TextureFormat::Rgba16Float,
+            TextureUsages::STORAGE_BINDING
+                | TextureUsages::TEXTURE_BINDING
+                | TextureUsages::COPY_SRC,
+            max_mip_levels,
+            device,
+        );
+
+        let mut encoder = device.create_command_encoder(&Default::default());
+
+        for mip_level in 0..max_mip_levels {
+            let dst_view = dst_texture.texture().create_view(&TextureViewDescriptor {
+                label: Some("PBR IBL Specular LoD processing view"),
+                dimension: Some(TextureViewDimension::D2Array),
+                base_mip_level: mip_level,
+                mip_level_count: Some(1),
+                ..Default::default()
+            });
+
+            let bind_group = device.create_bind_group(&BindGroupDescriptor {
+                label: Some("World Environment Processing Bind Group for PBR IBL Diffuse"),
+                layout: &bind_group_layout,
+                entries: &[
+                    BindGroupEntry {
+                        binding: 0,
+                        resource: BindingResource::TextureView(src_specular_ibl.view()),
+                    },
+                    BindGroupEntry {
+                        binding: 1,
+                        resource: BindingResource::Sampler(src_specular_ibl.sampler()),
+                    },
+                    BindGroupEntry {
+                        binding: 2,
+                        resource: BindingResource::TextureView(&dst_view),
+                    },
+                ],
+            });
+
+            let mip_bind_group = Self::make_mip_buffer(
+                mip_level,
+                max_mip_levels,
+                sampling_type,
+                &mip_buffer_bind_group_layout,
+                device,
+            );
+
+            let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor {
+                label: Some("PBR IBL Specular Mip Mapping task"),
+                ..Default::default()
+            });
+
+            debug!(
+                "Generating PBR IBL Specular (LoD = {} / Roughness = {:.1}%) ...",
+                mip_level,
+                (mip_level as f32 / (max_mip_levels - 1) as f32) * 100.0
+            );
+            // Calculate the dimensions of the current mip level
+            let dst_size = dst_texture.texture().size();
+            let current_mip_width = (dst_size.width >> mip_level).max(1);
+            let current_mip_height = (dst_size.height >> mip_level).max(1);
+            // Calculate workgroup count based on current mip level dimensions
+            // Using 8x8 workgroups for better occupancy
+            let workgroup_size = 8u32;
+            let workgroups_x = current_mip_width.div_ceil(workgroup_size);
+            let workgroups_y = current_mip_height.div_ceil(workgroup_size);
+            pass.set_pipeline(&pipeline);
+            pass.set_bind_group(0, &bind_group, &[]);
+            pass.set_bind_group(1, &mip_bind_group, &[]);
+            pass.dispatch_workgroups(workgroups_x, workgroups_y, 6);
+        }
+
+        let _ = queue.submit([encoder.finish()]);
         dst_texture
     }
 
