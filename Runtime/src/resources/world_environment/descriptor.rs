@@ -76,7 +76,7 @@ pub enum WorldEnvironmentDescriptor {
 }
 
 impl WorldEnvironmentDescriptor {
-    pub const DEFAULT_SIZE: u32 = 2048r;
+    pub const DEFAULT_SIZE: u32 = 2048;
     pub const DEFAULT_SAMPLING_TYPE: SamplingType = SamplingType::ImportanceSampling;
 }
 
