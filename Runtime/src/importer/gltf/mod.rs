@@ -453,24 +453,24 @@ impl GltfImporter {
         };
 
         // NOTE: 'W' (Opacity / Transparency) is skipped here!
-        let (albedo, albedo_factor) = if let Some(albedo_info) =
-            material.pbr_metallic_roughness().base_color_texture()
-        {
-            let texture = Self::parse_texture_srgb(&textures[albedo_info.texture().source().index()]);
-            let factor = material.pbr_metallic_roughness().base_color_factor();
-            (texture, Vector3::new(factor[0], factor[1], factor[2]))
-        } else {
-            let factor = material.pbr_metallic_roughness().base_color_factor();
-            let texture = TextureDescriptor::uniform_rgba_value(
-                factor[0] as f64,
-                factor[1] as f64,
-                factor[2] as f64,
-                factor[3] as f64,
-                true,
-            );
+        let (albedo, albedo_factor) =
+            if let Some(albedo_info) = material.pbr_metallic_roughness().base_color_texture() {
+                let texture =
+                    Self::parse_texture_srgb(&textures[albedo_info.texture().source().index()]);
+                let factor = material.pbr_metallic_roughness().base_color_factor();
+                (texture, Vector3::new(factor[0], factor[1], factor[2]))
+            } else {
+                let factor = material.pbr_metallic_roughness().base_color_factor();
+                let texture = TextureDescriptor::uniform_rgba_value(
+                    factor[0] as f64,
+                    factor[1] as f64,
+                    factor[2] as f64,
+                    factor[3] as f64,
+                    true,
+                );
 
-            (texture, Vector3::new(1.0, 1.0, 1.0))
-        };
+                (texture, Vector3::new(1.0, 1.0, 1.0))
+            };
 
         let (metallic, roughness, metallic_factor, roughness_factor) =
             if let Some(metallic_and_roughness_info) = material
