@@ -658,7 +658,6 @@ impl GltfImporter {
             let uvs_vec: Option<Vec<_>> =
                 uvs.map(|uv| uv.map(|uv| Vector2::new(uv[0], uv[1])).collect());
 
-
             // Main vertex processing loop
             let mut vertices = Vec::new();
             for (i, position) in positions_vec.iter().enumerate() {
