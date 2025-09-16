@@ -216,9 +216,7 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
     fn make_device_and_queue(adapter: &Adapter) -> (Device, Queue) {
         let (device, queue) = pollster::block_on(adapter.request_device(&DeviceDescriptor {
             label: Some("Orbital GPU"),
-            required_features: Features::default()
-                | Features::MULTIVIEW
-                | Features::POLYGON_MODE_LINE,
+            required_features: Features::default() | Features::POLYGON_MODE_LINE,
             required_limits: Limits::default(),
             memory_hints: MemoryHints::Performance,
             trace: Trace::Off,
