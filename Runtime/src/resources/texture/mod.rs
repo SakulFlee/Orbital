@@ -242,7 +242,13 @@ impl Texture {
         device: &Device,
         queue: &Queue,
     ) -> Result<Self, TextureError> {
-        Self::from_path(file_path, usages, TextureFormat::Rgba8UnormSrgb, device, queue)
+        Self::from_path(
+            file_path,
+            usages,
+            TextureFormat::Rgba8UnormSrgb,
+            device,
+            queue,
+        )
     }
 
     /// In case you want a uniform, one color, image.
