@@ -31,14 +31,14 @@ impl ElementRegistration {
         self
     }
 
-    pub fn with_initial_world_change(mut self, world_change: Event) -> Self {
-        self.initial_world_changes.push(world_change);
+    pub fn with_initial_event(mut self, event: Event) -> Self {
+        self.initial_world_changes.push(event);
 
         self
     }
 
-    pub fn with_initial_world_changes(mut self, world_changes: Vec<Event>) -> Self {
-        self.initial_world_changes.extend(world_changes);
+    pub fn with_initial_events(mut self, events: Vec<Event>) -> Self {
+        self.initial_world_changes.extend(events);
 
         self
     }

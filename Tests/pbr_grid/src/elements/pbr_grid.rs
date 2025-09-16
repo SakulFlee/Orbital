@@ -12,7 +12,7 @@ impl PBRSpheres {
 
 impl Element for PBRSpheres {
     fn on_registration(&self) -> ElementRegistration {
-        ElementRegistration::new(Self::FILE_NAME).with_initial_world_change(Event::World(
+        ElementRegistration::new(Self::FILE_NAME).with_initial_event(Event::World(
             WorldEvent::Import(ImportTask::Gltf {
                 file_path: Self::FILE_NAME.into(),
                 task: GltfImport::WholeFile,
