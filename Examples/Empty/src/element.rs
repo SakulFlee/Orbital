@@ -71,7 +71,7 @@ impl DebugWorldEnvironment {
 #[async_trait]
 impl Element for DebugWorldEnvironment {
     fn on_registration(&self) -> ElementRegistration {
-        ElementRegistration::new("debug_world_environment").with_initial_world_change(Event::World(
+        ElementRegistration::new("debug_world_environment").with_initial_event(Event::World(
             WorldEvent::Environment(EnvironmentEvent::Change {
                 descriptor: self.current_world_environment.to_descriptor(),
                 enable_ibl: true,

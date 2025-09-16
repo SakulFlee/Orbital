@@ -314,8 +314,8 @@ impl CameraController {
 #[async_trait]
 impl Element for CameraController {
     fn on_registration(&self) -> ElementRegistration {
-        let mut registration = ElementRegistration::new(self.camera_label())
-            .with_initial_world_changes(vec![
+        let mut registration =
+            ElementRegistration::new(self.camera_label()).with_initial_events(vec![
                 Event::World(WorldEvent::Camera(CameraEvent::Spawn(
                     self.descriptor.camera_descriptor.clone(),
                 ))),
@@ -328,13 +328,12 @@ impl Element for CameraController {
             if let Some(input_mode) = mouse_input {
                 if input_mode.grab_cursor {
                     registration = registration
-                        .with_initial_world_change(Event::App(AppEvent::ChangeCursorGrabbed(true)));
+                        .with_initial_event(Event::App(AppEvent::ChangeCursorGrabbed(true)));
                 }
 
                 if input_mode.hide_cursor {
-                    registration = registration.with_initial_world_change(Event::App(
-                        AppEvent::ChangeCursorVisible(false),
-                    ));
+                    registration = registration
+                        .with_initial_event(Event::App(AppEvent::ChangeCursorVisible(false)));
                 }
             }
         }
