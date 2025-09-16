@@ -25,10 +25,10 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=gltf_pbr_damaged_helmet_desktop"
+                    "--bin=test_gltf_pbr_damaged_helmet_desktop"
                 ],
                 "filter": {
-                    "name": "gltf_pbr_damaged_helmet_desktop",
+                    "name": "test_gltf_pbr_damaged_helmet_desktop",
                     "kind": "bin"
                 }
             },
