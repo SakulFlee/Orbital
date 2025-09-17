@@ -40,6 +40,7 @@ impl CameraController {
             position: None,
             pitch: None,
             yaw: None,
+            roll: None,
         };
 
         self.handle_movement(delta_time, &mut transform, input_state);

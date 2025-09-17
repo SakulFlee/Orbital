@@ -15,6 +15,9 @@ pub struct CameraTransform {
     /// If `Some`, will change the camera's yaw.
     /// If `None`, will be ignored.
     pub yaw: Option<Mode<f32>>,
+    /// If `Some`, will change the camera's roll.
+    /// If `None`, will be ignored.
+    pub roll: Option<Mode<f32>>,
 }
 
 impl CameraTransform {
@@ -44,6 +47,15 @@ impl CameraTransform {
         }
 
         if self.pitch.as_ref().is_some_and(|pitch| match pitch {
+            Mode::Overwrite(v)
+            | Mode::Offset(v)
+            | Mode::OffsetViewAligned(v)
+            | Mode::OffsetViewAlignedWithY(v) => v.abs() >= 0.0001,
+        }) {
+            return true;
+        }
+
+        if self.roll.as_ref().is_some_and(|roll| match roll {
             Mode::Overwrite(v)
             | Mode::Offset(v)
             | Mode::OffsetViewAligned(v)

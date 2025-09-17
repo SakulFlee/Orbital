@@ -204,3 +204,61 @@ fn pitch_negative_clamping() {
         -CameraDescriptor::SAFE_FRAC_PI_2
     );
 }
+
+#[test]
+fn realization_change_roll_only() {
+    const ROLL: f32 = 0.54321;
+
+    let original_descriptor = CameraDescriptor::default();
+    let mut to_be_changed_descriptor = original_descriptor.clone();
+
+    let change = CameraTransform {
+        label: CameraDescriptor::DEFAULT_NAME.to_string(),
+        position: None,
+        pitch: None,
+        yaw: None,
+        roll: Some(Mode::Overwrite(ROLL)),
+        ..Default::default()
+    };
+    assert!(change.is_introducing_change());
+
+    to_be_changed_descriptor.apply_change(change);
+    assert_ne!(original_descriptor, to_be_changed_descriptor);
+
+    assert_eq!(
+        to_be_changed_descriptor.position,
+        original_descriptor.position
+    );
+    assert_eq!(to_be_changed_descriptor.pitch, original_descriptor.pitch);
+    assert_eq!(to_be_changed_descriptor.yaw, original_descriptor.yaw);
+    assert_eq!(to_be_changed_descriptor.roll, ROLL);
+}
+
+#[test]
+fn realization_change_roll_offset() {
+    const ROLL_OFFSET: f32 = 0.12345;
+
+    let original_descriptor = CameraDescriptor::default();
+    let mut to_be_changed_descriptor = original_descriptor.clone();
+
+    let change = CameraTransform {
+        label: CameraDescriptor::DEFAULT_NAME.to_string(),
+        position: None,
+        pitch: None,
+        yaw: None,
+        roll: Some(Mode::Offset(ROLL_OFFSET)),
+        ..Default::default()
+    };
+    assert!(change.is_introducing_change());
+
+    to_be_changed_descriptor.apply_change(change);
+    assert_ne!(original_descriptor, to_be_changed_descriptor);
+
+    assert_eq!(
+        to_be_changed_descriptor.position,
+        original_descriptor.position
+    );
+    assert_eq!(to_be_changed_descriptor.pitch, original_descriptor.pitch);
+    assert_eq!(to_be_changed_descriptor.yaw, original_descriptor.yaw);
+    assert_eq!(to_be_changed_descriptor.roll, ROLL_OFFSET); // Should be the offset value since default is 0
+}

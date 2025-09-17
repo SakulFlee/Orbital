@@ -1,0 +1,16 @@
+[package]
+name = "test-roll-camera"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "test_roll_camera"
+path = "src/lib.rs"
+
+[[bin]]
+name = "test-roll-camera"
+path = "src/main.rs"
+
+[dependencies]
+orbital = { path = "../../Runtime" }
+async-trait = "0.1"

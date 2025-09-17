@@ -30,7 +30,7 @@ impl Camera {
                 // We have the following variables in our Buffer:
                 // position:                            vec4<f32>   -> 4x f32
                 mem::size_of::<f32>() * 3 +
-                // view_projection_matrix:              mat4x4<f32> -> 4x4x f32
+                // view_projection_matrix:              mat4x4<f32> -> 4x f32
                 mem::size_of::<f32>() * 4 * 4 +
                 // perspective_view_projection_matrix:  mat4x4<f32> -> 4x4x f32
                 mem::size_of::<f32>() * 4 * 4 +
@@ -295,12 +295,22 @@ impl Camera {
         // Takes yaw and pitch values and converts them into a target vector for our camera.
         let (pitch_sin, pitch_cos) = descriptor.pitch.sin_cos();
         let (yaw_sin, yaw_cos) = descriptor.yaw.sin_cos();
+        let (roll_sin, roll_cos) = descriptor.roll.sin_cos();
+
+        // Calculate the forward, right, and up vectors
+        let forward = Vector3::new(pitch_cos * yaw_cos, pitch_sin, pitch_cos * yaw_sin).normalize();
+        let right = Vector3::new(-yaw_sin, 0.0, yaw_cos).normalize();
+        let up = right.cross(forward).normalize();
+
+        // Apply roll rotation to the up and right vectors
+        let rotated_right = right * roll_cos + up * roll_sin;
+        let rotated_up = -right * roll_sin + up * roll_cos;
 
         // Calculates the view project matrix
         Matrix4::look_to_rh(
             descriptor.position,
-            Vector3::new(pitch_cos * yaw_cos, pitch_sin, pitch_cos * yaw_sin).normalize(),
-            Vector3::unit_y(),
+            forward,
+            rotated_up,
         )
     }
 
