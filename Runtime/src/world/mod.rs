@@ -205,7 +205,7 @@ impl World {
                                 Vector2::new(1, 1),
                                 TextureFormat::R8Unorm,
                                 TextureUsages::TEXTURE_BINDING,
-                                0,
+                                1,
                                 device,
                             ),
                             Texture::create_empty_cube_texture(
@@ -213,7 +213,7 @@ impl World {
                                 Vector2::new(1, 1),
                                 TextureFormat::R8Unorm,
                                 TextureUsages::TEXTURE_BINDING,
-                                0,
+                                1,
                                 device,
                             ),
                         )
