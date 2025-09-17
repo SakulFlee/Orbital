@@ -69,5 +69,22 @@
             "args": [],
             "cwd": "${workspaceFolder}"
         },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Test: Roll Camera",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=test-roll-camera"
+                ],
+                "filter": {
+                    "name": "test-roll-camera",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
     ]
 }

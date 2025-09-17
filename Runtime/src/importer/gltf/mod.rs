@@ -834,6 +834,7 @@ impl GltfImporter {
             position: Point3::new(decomposed.0[0], decomposed.0[1], decomposed.0[2]),
             yaw,
             pitch,
+            roll: 0.0,
             aspect: perspective.aspect_ratio().unwrap_or(16.0 / 9.0),
             fovy: perspective.yfov(),
             near: perspective.znear(),

@@ -9,6 +9,7 @@ pub struct CameraDescriptor {
     pub position: Point3<f32>,
     pub yaw: f32,
     pub pitch: f32,
+    pub roll: f32,
     pub aspect: f32,
     pub fovy: f32,
     pub near: f32,
@@ -43,6 +44,15 @@ impl CameraDescriptor {
                 Mode::Offset(yaw)
                 | Mode::OffsetViewAligned(yaw)
                 | Mode::OffsetViewAlignedWithY(yaw) => self.yaw += yaw,
+            }
+        }
+
+        if let Some(mode) = change.roll {
+            match mode {
+                Mode::Overwrite(roll) => self.roll = roll,
+                Mode::Offset(roll)
+                | Mode::OffsetViewAligned(roll)
+                | Mode::OffsetViewAlignedWithY(roll) => self.roll += roll,
             }
         }
 
@@ -98,6 +108,7 @@ impl Default for CameraDescriptor {
             position: Point3::new(0.0, 0.0, 0.0),
             yaw: 0f32,
             pitch: 0f32,
+            roll: 0f32,
             aspect: 16.0 / 9.0,
             fovy: 45.0,
             near: 0.1,
