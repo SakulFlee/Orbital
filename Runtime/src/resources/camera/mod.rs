@@ -307,11 +307,7 @@ impl Camera {
         let rotated_up = -right * roll_sin + up * roll_cos;
 
         // Calculates the view project matrix
-        Matrix4::look_to_rh(
-            descriptor.position,
-            forward,
-            rotated_up,
-        )
+        Matrix4::look_to_rh(descriptor.position, forward, rotated_up)
     }
 
     pub fn calculate_perspective_projection_matrix(
