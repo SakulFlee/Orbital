@@ -16,7 +16,6 @@ use super::StoreError;
 
 #[derive(Debug, Default)]
 pub struct CameraStore {
-    free_ids: Vec<Ulid>,
     map_label: HashMap<String, Ulid>,
     map_descriptors: HashMap<Ulid, CameraDescriptor>,
     cache_realizations: Cache<Ulid, Camera>,
@@ -30,10 +29,7 @@ impl CameraStore {
     }
 
     pub fn store(&mut self, descriptor: CameraDescriptor) {
-        let id = match self.free_ids.pop() {
-            Some(id) => id,
-            None => Ulid::new(),
-        };
+        let id = Ulid::new();
 
         self.map_label.insert(descriptor.label.clone(), id);
         self.map_descriptors.insert(id, descriptor);
@@ -56,8 +52,6 @@ impl CameraStore {
             if self.map_label.remove(&descriptor.label).is_none() {
                 panic!("CameraStore Desync! No associated Label found!");
             }
-
-            self.free_ids.push(idx);
 
             true
         } else {
@@ -153,7 +147,6 @@ impl CameraStore {
         self.map_descriptors.clear();
         self.map_label.clear();
         self.cache_realizations.clear();
-        self.free_ids.clear();
     }
 
     pub fn handle_event(&mut self, camera_event: CameraEvent) {
