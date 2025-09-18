@@ -32,7 +32,6 @@ pub struct ModelStore {
     queue_bounding_boxes: Vec<Ulid>,
     map_bounding_boxes: HashMap<Ulid, BoundingBox>, // TODO: WIP
     map_label: HashMap<String, Ulid>,
-    free_ids: Vec<Ulid>,
     cache_mesh: RwLock<Cache<Arc<MeshDescriptor>, Mesh>>,
     cache_material: RwLock<Cache<Arc<MaterialShaderDescriptor>, MaterialShader>>,
     // Instancing support
@@ -46,10 +45,7 @@ impl ModelStore {
     }
 
     pub fn store(&mut self, descriptor: ModelDescriptor) {
-        let id = match self.free_ids.pop() {
-            Some(id) => id,
-            None => Ulid::new(),
-        };
+        let id = Ulid::new();
 
         self.map_label.insert(descriptor.label.clone(), id);
         self.map_descriptors.insert(id, descriptor);
@@ -76,8 +72,6 @@ impl ModelStore {
             if self.map_label.remove(&descriptor.label).is_none() {
                 panic!("ModelStore Desync! No associated Label found!");
             }
-
-            self.free_ids.push(idx);
 
             true
         } else {
@@ -222,7 +216,6 @@ impl ModelStore {
         self.map_descriptors.clear();
         self.map_bounding_boxes.clear();
         self.cache_realizations.clear();
-        self.free_ids.clear();
         self.instance_map.clear();
         self.instance_tracker.clear();
 
@@ -261,10 +254,7 @@ impl ModelStore {
                     self.flag_realization(vec![base_id], true);
                 } else {
                     // No duplicate - store as base model
-                    let id = match self.free_ids.pop() {
-                        Some(id) => id,
-                        None => Ulid::new(),
-                    };
+                    let id = Ulid::new();
 
                     self.map_label.insert(descriptor.label.clone(), id);
                     self.map_descriptors.insert(id, descriptor);
