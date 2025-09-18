@@ -89,7 +89,7 @@ impl ModelDescriptor {
     }
 
     /// Computes a hash for instance detection based on mesh and materials.
-    pub fn instance_hash(&self) -> u64 {
+    pub fn instance_hash(&self) -> Ulid {
         let mut hasher = DefaultHasher::new();
 
         // Hash mesh vertices and indices
@@ -101,6 +101,21 @@ impl ModelDescriptor {
             material.hash(&mut hasher);
         }
 
-        hasher.finish()
+        let hash_u64 = hasher.finish();
+        // Convert u64 hash to Ulid by using it as the lower 64 bits
+        // and setting timestamp to 0 (deterministic for same inputs)
+        let bytes = [
+            0, 0, 0, 0, 0, 0, // timestamp (6 bytes, set to 0)
+            (hash_u64 >> 56) as u8,
+            (hash_u64 >> 48) as u8,
+            (hash_u64 >> 40) as u8,
+            (hash_u64 >> 32) as u8,
+            (hash_u64 >> 24) as u8,
+            (hash_u64 >> 16) as u8,
+            (hash_u64 >> 8) as u8,
+            hash_u64 as u8,
+            0, 0, // randomness (2 bytes, set to 0)
+        ];
+        Ulid::from_bytes(bytes)
     }
 }

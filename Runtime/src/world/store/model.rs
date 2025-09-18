@@ -25,20 +25,18 @@ use super::StoreError;
 
 #[derive(Debug, Default)]
 pub struct ModelStore {
-    map_descriptors: HashMap<u128, ModelDescriptor>,
-    cache_realizations: Cache<u128, Model>,
+    map_descriptors: HashMap<Ulid, ModelDescriptor>,
+    cache_realizations: Cache<Ulid, Model>,
     // Descriptors that are queued to be realized
-    queue_realizations: Vec<u128>,
-    queue_bounding_boxes: Vec<u128>,
-    map_bounding_boxes: HashMap<u128, BoundingBox>, // TODO: WIP
-    map_label: HashMap<String, u128>,
-    id_counter: u128, // TODO: Is that high of a number needed? u64, u32, ...
-    // TODO: Dynamic number type that increases in size automatically?
-    free_ids: Vec<u128>,
+    queue_realizations: Vec<Ulid>,
+    queue_bounding_boxes: Vec<Ulid>,
+    map_bounding_boxes: HashMap<Ulid, BoundingBox>, // TODO: WIP
+    map_label: HashMap<String, Ulid>,
+    free_ids: Vec<Ulid>,
     cache_mesh: RwLock<Cache<Arc<MeshDescriptor>, Mesh>>,
     cache_material: RwLock<Cache<Arc<MaterialShaderDescriptor>, MaterialShader>>,
     // Instancing support
-    instance_map: HashMap<u64, u128>, // hash -> base_model_id
+    instance_map: HashMap<Ulid, Ulid>, // hash -> base_model_id
     instance_tracker: HashMap<String, (String, Ulid)>, // instance_label -> (base_label, transform_ulid)
 }
 
@@ -50,11 +48,7 @@ impl ModelStore {
     pub fn store(&mut self, descriptor: ModelDescriptor) {
         let id = match self.free_ids.pop() {
             Some(id) => id,
-            None => {
-                let id = self.id_counter;
-                self.id_counter += 1;
-                id
-            }
+            None => Ulid::new(),
         };
 
         self.map_label.insert(descriptor.label.clone(), id);
@@ -62,7 +56,7 @@ impl ModelStore {
         self.queue_bounding_boxes.push(id);
     }
 
-    pub fn remove(&mut self, id: Or<&str, u128>) -> bool {
+    pub fn remove(&mut self, id: Or<&str, Ulid>) -> bool {
         let idx = match id {
             Or::Left(label) => match self.label_to_id(label) {
                 Some(id) => id,
@@ -83,9 +77,7 @@ impl ModelStore {
                 panic!("ModelStore Desync! No associated Label found!");
             }
 
-            if idx <= self.id_counter {
-                self.free_ids.push(idx);
-            }
+            self.free_ids.push(idx);
 
             true
         } else {
@@ -93,21 +85,21 @@ impl ModelStore {
         }
     }
 
-    pub fn label_to_id(&self, label: &str) -> Option<u128> {
+    pub fn label_to_id(&self, label: &str) -> Option<Ulid> {
         self.map_label.get(label).copied()
     }
 
-    pub fn id_to_label(&self, id: u128) -> Option<&str> {
+    pub fn id_to_label(&self, id: Ulid) -> Option<&str> {
         self.map_descriptors
             .get(&id)
             .map(|descriptor| descriptor.label.as_str())
     }
 
-    pub fn get_bounding_boxes(&self) -> &HashMap<u128, BoundingBox> {
+    pub fn get_bounding_boxes(&self) -> &HashMap<Ulid, BoundingBox> {
         &self.map_bounding_boxes
     }
 
-    pub fn flag_realization(&mut self, ids: Vec<u128>, update_existing: bool) {
+    pub fn flag_realization(&mut self, ids: Vec<Ulid>, update_existing: bool) {
         for id in ids {
             if self.cache_realizations.contains_key(&id) && !update_existing {
                 // Skip any existing realisations if we aren't updating existing entries.
@@ -148,8 +140,8 @@ impl ModelStore {
         surface_format: &TextureFormat,
         device: &Device,
         queue: &Queue,
-    ) -> Vec<(u128, Box<dyn Error + '_>)> {
-        let mut errors: Vec<(u128, Box<dyn Error>)> = Vec::new();
+    ) -> Vec<(Ulid, Box<dyn Error + '_>)> {
+        let mut errors: Vec<(Ulid, Box<dyn Error>)> = Vec::new();
 
         for id in self
             .queue_realizations
@@ -185,7 +177,7 @@ impl ModelStore {
         errors
     }
 
-    pub fn get_realizations(&self, ids: Vec<u128>) -> Vec<&Model> {
+    pub fn get_realizations(&self, ids: Vec<Ulid>) -> Vec<&Model> {
         ids.into_iter()
             .filter_map(|id| match self.cache_realizations.get(&id) {
                 Some(model) => Some(model.inner()),
@@ -231,7 +223,6 @@ impl ModelStore {
         self.map_bounding_boxes.clear();
         self.cache_realizations.clear();
         self.free_ids.clear();
-        self.id_counter = 0;
         self.instance_map.clear();
         self.instance_tracker.clear();
 
@@ -272,11 +263,7 @@ impl ModelStore {
                     // No duplicate - store as base model
                     let id = match self.free_ids.pop() {
                         Some(id) => id,
-                        None => {
-                            let id = self.id_counter;
-                            self.id_counter += 1;
-                            id
-                        }
+                        None => Ulid::new(),
                     };
 
                     self.map_label.insert(descriptor.label.clone(), id);

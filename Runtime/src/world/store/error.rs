@@ -1,8 +1,9 @@
 use std::{error::Error, fmt::Display};
+use ulid::Ulid;
 
 #[derive(Debug)]
 pub enum StoreError {
-    InvalidIndex { index: u128 },
+    InvalidIndex { index: Ulid },
     NoActiveEntry,
 }
 
