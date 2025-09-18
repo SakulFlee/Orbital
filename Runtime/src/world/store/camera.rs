@@ -2,6 +2,7 @@ use std::error::Error;
 
 use hashbrown::HashMap;
 use log::{error, warn};
+use ulid::Ulid;
 use wgpu::{Device, Queue};
 
 use crate::{
@@ -15,13 +16,12 @@ use super::StoreError;
 
 #[derive(Debug, Default)]
 pub struct CameraStore {
-    id_counter: u128,
-    free_ids: Vec<u128>,
-    map_label: HashMap<String, u128>,
-    map_descriptors: HashMap<u128, CameraDescriptor>,
-    cache_realizations: Cache<u128, Camera>,
-    queue_realizations: Vec<u128>,
-    active_camera: Option<u128>,
+    free_ids: Vec<Ulid>,
+    map_label: HashMap<String, Ulid>,
+    map_descriptors: HashMap<Ulid, CameraDescriptor>,
+    cache_realizations: Cache<Ulid, Camera>,
+    queue_realizations: Vec<Ulid>,
+    active_camera: Option<Ulid>,
 }
 
 impl CameraStore {
@@ -32,18 +32,14 @@ impl CameraStore {
     pub fn store(&mut self, descriptor: CameraDescriptor) {
         let id = match self.free_ids.pop() {
             Some(id) => id,
-            None => {
-                let id = self.id_counter;
-                self.id_counter += 1;
-                id
-            }
+            None => Ulid::new(),
         };
 
         self.map_label.insert(descriptor.label.clone(), id);
         self.map_descriptors.insert(id, descriptor);
     }
 
-    pub fn remove(&mut self, id: Or<&str, u128>) -> bool {
+    pub fn remove(&mut self, id: Or<&str, Ulid>) -> bool {
         let idx = match id {
             Or::Left(label) => match self.label_to_id(label) {
                 Some(id) => id,
@@ -61,9 +57,7 @@ impl CameraStore {
                 panic!("CameraStore Desync! No associated Label found!");
             }
 
-            if idx <= self.id_counter {
-                self.free_ids.push(idx);
-            }
+            self.free_ids.push(idx);
 
             true
         } else {
@@ -71,17 +65,17 @@ impl CameraStore {
         }
     }
 
-    pub fn label_to_id(&self, label: &str) -> Option<u128> {
+    pub fn label_to_id(&self, label: &str) -> Option<Ulid> {
         self.map_label.get(label).copied()
     }
 
-    pub fn id_to_label(&self, id: u128) -> Option<&str> {
+    pub fn id_to_label(&self, id: Ulid) -> Option<&str> {
         self.map_descriptors
             .get(&id)
             .map(|descriptor| descriptor.label.as_str())
     }
 
-    pub fn target_camera(&mut self, id: u128) {
+    pub fn target_camera(&mut self, id: Ulid) {
         if !self.map_descriptors.contains_key(&id) {
             error!("Attempting to target a Camera with id #{id}, which doesn't exist!");
             return;
@@ -91,7 +85,7 @@ impl CameraStore {
         self.flag_realization(vec![id], true);
     }
 
-    pub fn flag_realization(&mut self, ids: Vec<u128>, update_existing: bool) {
+    pub fn flag_realization(&mut self, ids: Vec<Ulid>, update_existing: bool) {
         for id in ids {
             if self.cache_realizations.contains_key(&id) && !update_existing {
                 // Skip any existing realizations if we aren't updating existing entries.
@@ -132,7 +126,7 @@ impl CameraStore {
         errors
     }
 
-    pub fn get_realizations(&self, ids: Vec<u128>) -> Vec<&Camera> {
+    pub fn get_realizations(&self, ids: Vec<Ulid>) -> Vec<&Camera> {
         ids.into_iter()
             .filter_map(|id| match self.cache_realizations.get(&id) {
                 Some(model) => Some(model.inner()),
@@ -160,7 +154,6 @@ impl CameraStore {
         self.map_label.clear();
         self.cache_realizations.clear();
         self.free_ids.clear();
-        self.id_counter = 0;
     }
 
     pub fn handle_event(&mut self, camera_event: CameraEvent) {
