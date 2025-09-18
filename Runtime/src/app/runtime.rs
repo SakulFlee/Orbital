@@ -99,7 +99,7 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
     fn retrieve_and_rank_adapters(
         instance: &Instance,
         compatible_surface: Option<&Surface>,
-    ) -> Vec<(Adapter, u128)> {
+    ) -> Vec<(Adapter, (u8, u8, u128, usize))> {
         let mut valid_adapters_ranked: Vec<_> = instance
             .enumerate_adapters(Backends::all())
             .into_iter()
@@ -109,94 +109,94 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
                     || adapter.is_surface_supported(compatible_surface.unwrap())
             })
             // Initialize scoring
-            .map(|adapter| (adapter, 0u128))
+            .map(|adapter| (adapter, (0u8, 0u8, 0u128, 0usize)))
             // Map and match device types based on preference
-            .map(|(adapter, score)| {
-                let local_score = match adapter.get_info().device_type {
-                    DeviceType::DiscreteGpu => 1000,
-                    DeviceType::IntegratedGpu => 100,
-                    DeviceType::VirtualGpu => 0,
+            .map(|(adapter, pri)| {
+                let device_pri = match adapter.get_info().device_type {
+                    DeviceType::DiscreteGpu => 3,
+                    DeviceType::IntegratedGpu => 2,
+                    DeviceType::VirtualGpu => 1,
                     DeviceType::Cpu => 0,
                     DeviceType::Other => 0,
                 };
 
-                (adapter, score + local_score)
+                (adapter, (device_pri, pri.1, pri.2, pri.3))
             })
             // Map and match device backends based on preference
-            .map(|(adapter, score)| {
-                let local_score = match adapter.get_info().backend {
+            .map(|(adapter, pri)| {
+                let backend_pri = match adapter.get_info().backend {
                     // DX12 and Metal should be preferred where available (i.e. on Windows and macOS) over Vulkan
-                    Backend::Dx12 => 1000,
-                    Backend::Metal => 1000,
+                    Backend::Dx12 => 4,
+                    Backend::Metal => 4,
                     // Vulkan is the universal default
-                    Backend::Vulkan => 100,
+                    Backend::Vulkan => 3,
                     // In Webbrowsers, only WebGPU should be available (or WebGL which should fall below into Backend::Gl). To prevent this from being chosen, somehow, on Desktop platforms over something more performant we set a lower score than above, but higher than OpenGL.
-                    Backend::BrowserWebGpu => 50,
+                    Backend::BrowserWebGpu => 2,
                     // OpenGL and Empty are not recommended at all and may not even work at all
-                    Backend::Gl => 10,
+                    Backend::Gl => 1,
                     Backend::Noop => 0,
                 };
 
-                (adapter, score + local_score)
+                (adapter, (pri.0, backend_pri, pri.2, pri.3))
             })
             // For each limit, increase the score.
             // Thus, higher limits == higher score.
-            .map(|(adapter, score)| {
-                let mut local_score = score;
-                local_score += adapter.limits().max_texture_dimension_1d as u128;
-                local_score += adapter.limits().max_texture_dimension_2d as u128;
-                local_score += adapter.limits().max_texture_dimension_3d as u128;
-                local_score += adapter.limits().max_texture_array_layers as u128;
-                local_score += adapter.limits().max_bind_groups as u128;
-                local_score += adapter.limits().max_bindings_per_bind_group as u128;
-                local_score += adapter
+            .map(|(adapter, pri)| {
+                let mut limits_sum = 0u128;
+                limits_sum += adapter.limits().max_texture_dimension_1d as u128;
+                limits_sum += adapter.limits().max_texture_dimension_2d as u128;
+                limits_sum += adapter.limits().max_texture_dimension_3d as u128;
+                limits_sum += adapter.limits().max_texture_array_layers as u128;
+                limits_sum += adapter.limits().max_bind_groups as u128;
+                limits_sum += adapter.limits().max_bindings_per_bind_group as u128;
+                limits_sum += adapter
                     .limits()
                     .max_dynamic_uniform_buffers_per_pipeline_layout
                     as u128;
-                local_score += adapter
+                limits_sum += adapter
                     .limits()
                     .max_dynamic_storage_buffers_per_pipeline_layout
                     as u128;
-                local_score += adapter.limits().max_sampled_textures_per_shader_stage as u128;
-                local_score += adapter.limits().max_samplers_per_shader_stage as u128;
-                local_score += adapter.limits().max_storage_buffers_per_shader_stage as u128;
-                local_score += adapter.limits().max_storage_textures_per_shader_stage as u128;
-                local_score += adapter.limits().max_uniform_buffers_per_shader_stage as u128;
-                local_score += adapter.limits().max_uniform_buffer_binding_size as u128;
-                local_score += adapter.limits().max_storage_buffer_binding_size as u128;
-                local_score += adapter.limits().max_vertex_buffers as u128;
-                local_score += adapter.limits().max_buffer_size as u128;
-                local_score += adapter.limits().max_vertex_attributes as u128;
-                local_score += adapter.limits().max_vertex_buffer_array_stride as u128;
-                local_score += adapter.limits().min_uniform_buffer_offset_alignment as u128;
-                local_score += adapter.limits().min_storage_buffer_offset_alignment as u128;
-                local_score += adapter.limits().max_inter_stage_shader_components as u128;
-                local_score += adapter.limits().max_color_attachments as u128;
-                local_score += adapter.limits().max_color_attachment_bytes_per_sample as u128;
-                local_score += adapter.limits().max_compute_workgroup_storage_size as u128;
-                local_score += adapter.limits().max_compute_invocations_per_workgroup as u128;
-                local_score += adapter.limits().max_compute_workgroup_size_x as u128;
-                local_score += adapter.limits().max_compute_workgroup_size_y as u128;
-                local_score += adapter.limits().max_compute_workgroup_size_z as u128;
-                local_score += adapter.limits().max_compute_workgroups_per_dimension as u128;
-                local_score += adapter.limits().min_subgroup_size as u128;
-                local_score += adapter.limits().max_subgroup_size as u128;
-                local_score += adapter.limits().max_push_constant_size as u128;
-                local_score += adapter.limits().max_non_sampler_bindings as u128;
+                limits_sum += adapter.limits().max_sampled_textures_per_shader_stage as u128;
+                limits_sum += adapter.limits().max_samplers_per_shader_stage as u128;
+                limits_sum += adapter.limits().max_storage_buffers_per_shader_stage as u128;
+                limits_sum += adapter.limits().max_storage_textures_per_shader_stage as u128;
+                limits_sum += adapter.limits().max_uniform_buffers_per_shader_stage as u128;
+                limits_sum += adapter.limits().max_uniform_buffer_binding_size as u128;
+                limits_sum += adapter.limits().max_storage_buffer_binding_size as u128;
+                limits_sum += adapter.limits().max_vertex_buffers as u128;
+                limits_sum += adapter.limits().max_buffer_size as u128;
+                limits_sum += adapter.limits().max_vertex_attributes as u128;
+                limits_sum += adapter.limits().max_vertex_buffer_array_stride as u128;
+                limits_sum += adapter.limits().min_uniform_buffer_offset_alignment as u128;
+                limits_sum += adapter.limits().min_storage_buffer_offset_alignment as u128;
+                limits_sum += adapter.limits().max_inter_stage_shader_components as u128;
+                limits_sum += adapter.limits().max_color_attachments as u128;
+                limits_sum += adapter.limits().max_color_attachment_bytes_per_sample as u128;
+                limits_sum += adapter.limits().max_compute_workgroup_storage_size as u128;
+                limits_sum += adapter.limits().max_compute_invocations_per_workgroup as u128;
+                limits_sum += adapter.limits().max_compute_workgroup_size_x as u128;
+                limits_sum += adapter.limits().max_compute_workgroup_size_y as u128;
+                limits_sum += adapter.limits().max_compute_workgroup_size_z as u128;
+                limits_sum += adapter.limits().max_compute_workgroups_per_dimension as u128;
+                limits_sum += adapter.limits().min_subgroup_size as u128;
+                limits_sum += adapter.limits().max_subgroup_size as u128;
+                limits_sum += adapter.limits().max_push_constant_size as u128;
+                limits_sum += adapter.limits().max_non_sampler_bindings as u128;
 
-                (adapter, score + local_score)
+                (adapter, (pri.0, pri.1, limits_sum, pri.3))
             })
             // For each feature, increase the score.
             // Thus, more features == higher score.
-            .map(|(adapter, score)| {
-                let feature_count = adapter.features().iter().count();
+            .map(|(adapter, pri)| {
+                let features_count = adapter.features().iter().count();
 
-                (adapter, score + feature_count as u128)
+                (adapter, (pri.0, pri.1, pri.2, features_count))
             })
             .collect::<Vec<_>>();
 
         // Sort adapters
-        valid_adapters_ranked.sort_by_key(|(_adapter, score)| *score);
+        valid_adapters_ranked.sort_by(|a, b| b.1.cmp(&a.1));
 
         if valid_adapters_ranked.is_empty() {
             panic!("No suitable GPU adapters found!");
@@ -207,7 +207,7 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
             .iter()
             .enumerate()
             .for_each(|(i, (adapter, score))| {
-                info!("#{}: {} [{}]", i, adapter.get_info().name, score)
+                info!("#{}: {} {:?}", i, adapter.get_info().name, score)
             });
 
         valid_adapters_ranked
@@ -515,7 +515,7 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
 
         let (chosen_adapter, chosen_score) = adapters_ranked.swap_remove(adapters_ranked.len() - 1);
         info!(
-            "Chosen adapter: {} [{} points]\n{:?}",
+            "Chosen adapter: {} {:?}\n{:?}",
             chosen_adapter.get_info().name,
             chosen_score,
             chosen_adapter.get_info()
