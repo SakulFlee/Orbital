@@ -8,7 +8,7 @@ use cgmath::Vector2;
 use log::debug;
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingResource, BindingType, BufferBindingType, Device, Queue,
+    BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferBindingType, Device, Queue,
     SamplerBindingType, ShaderStages, TextureFormat, TextureSampleType, TextureUsages,
     TextureViewDimension,
 };
@@ -20,6 +20,7 @@ pub struct World {
     model_store: ModelStore,
     camera_store: CameraStore,
     environment_store: EnvironmentStore,
+    light_store: LightStore,
     last_cleanup: Instant,
     importer: Option<Importer>,
     ibl_brdf: Option<Texture>,
@@ -103,6 +104,17 @@ impl World {
                     ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
                     count: None,
                 },
+                // Light Store (Storage Buffer)
+                BindGroupLayoutEntry {
+                    binding: 7,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
             ],
         })
     }
@@ -112,6 +124,7 @@ impl World {
             model_store: ModelStore::new(),
             camera_store: CameraStore::new(),
             environment_store: EnvironmentStore::new(),
+            light_store: LightStore::new(),
             last_cleanup: Instant::now(),
             importer: Some(Importer::new(4)),
             world_bind_group: None,
@@ -176,6 +189,29 @@ impl World {
     }
 
     fn recreate_bind_group(&mut self, device: &Device, queue: &Queue) {
+        // Create light buffer first to avoid borrowing issues
+        self.light_store.create_light_buffer(device, queue);
+        
+        // Get the light buffer binding first to avoid borrowing conflicts
+        let light_buffer_binding = {
+            let light_buffer = self.light_store.light_buffer();
+            light_buffer
+                .map(|buffer| buffer.as_entire_buffer_binding())
+                .unwrap_or_else(|| {
+                    // Create a dummy buffer binding if no lights
+                    static FALLBACK_ONCE: OnceLock<Buffer> = OnceLock::new();
+                    let fallback = FALLBACK_ONCE.get_or_init(|| {
+                        device.create_buffer(&wgpu::BufferDescriptor {
+                            label: Some("Fallback Light Buffer"),
+                            size: 4,
+                            usage: wgpu::BufferUsages::STORAGE,
+                            mapped_at_creation: false,
+                        })
+                    });
+                    fallback.as_entire_buffer_binding()
+                })
+        };
+        
         if self.ibl_brdf.is_none() {
             self.ibl_brdf = Some(IblBrdf::generate(device, queue).texture());
         }
@@ -273,6 +309,10 @@ impl World {
                     binding: 6,
                     resource: BindingResource::Sampler(ibl_brdf_sampler),
                 },
+                BindGroupEntry {
+                    binding: 7,
+                    resource: BindingResource::Buffer(light_buffer_binding),
+                },
             ],
         });
 
@@ -286,6 +326,9 @@ impl World {
             WorldEvent::Environment(environment_event) => {
                 self.environment_store.handle_event(environment_event);
             }
+            WorldEvent::Light(light_event) => {
+                self.light_store.handle_event(light_event);
+            }
             WorldEvent::Import(import_task) => {
                 self.importer.as_mut().unwrap().register_task(import_task);
             }
@@ -293,6 +336,7 @@ impl World {
                 self.model_store.clear(); // TODO
                 self.camera_store.clear();
                 self.environment_store.clear();
+                self.light_store.clear();
             }
         }
     }
@@ -313,6 +357,7 @@ impl World {
         {
             panic!("Failed to realize environment: {e}");
         }
+        self.light_store.realize_and_cache(device, queue);
 
         self.recreate_bind_group(device, queue);
     }
