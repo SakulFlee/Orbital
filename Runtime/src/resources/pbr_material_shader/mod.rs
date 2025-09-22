@@ -212,6 +212,9 @@ impl From<PBRMaterialShaderDescriptor> for MaterialShaderDescriptor {
             }),
         ];
 
+        // Add light buffer if it doesn't exist yet
+        // For now, we'll rely on the World bind group for lights
+
         base
     }
 }
