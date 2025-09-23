@@ -104,7 +104,7 @@ impl World {
                     ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
                     count: None,
                 },
-// Light Store (Storage Buffer)
+                // Light Store (Storage Buffer)
                 BindGroupLayoutEntry {
                     binding: 13,
                     visibility: ShaderStages::FRAGMENT,
@@ -191,7 +191,7 @@ impl World {
     fn recreate_bind_group(&mut self, device: &Device, queue: &Queue) {
         // Create light buffer first to avoid borrowing issues
         self.light_store.create_light_buffer(device, queue);
-        
+
         // Get the light buffer binding first to avoid borrowing conflicts
         let light_buffer_binding = {
             let light_buffer = self.light_store.light_buffer();
@@ -211,7 +211,7 @@ impl World {
                     fallback.as_entire_buffer_binding()
                 })
         };
-        
+
         if self.ibl_brdf.is_none() {
             self.ibl_brdf = Some(IblBrdf::generate(device, queue).texture());
         }
@@ -309,7 +309,7 @@ impl World {
                     binding: 6,
                     resource: BindingResource::Sampler(ibl_brdf_sampler),
                 },
-BindGroupEntry {
+                BindGroupEntry {
                     binding: 13,
                     resource: BindingResource::Buffer(light_buffer_binding),
                 },

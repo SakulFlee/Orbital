@@ -105,7 +105,12 @@ impl ModelDescriptor {
         // Convert u64 hash to Ulid by using it as the lower 64 bits
         // and setting timestamp to 0 (deterministic for same inputs)
         let bytes = [
-            0, 0, 0, 0, 0, 0, // timestamp (6 bytes, set to 0)
+            0,
+            0,
+            0,
+            0,
+            0,
+            0, // timestamp (6 bytes, set to 0)
             (hash_u64 >> 56) as u8,
             (hash_u64 >> 48) as u8,
             (hash_u64 >> 40) as u8,
@@ -114,7 +119,8 @@ impl ModelDescriptor {
             (hash_u64 >> 16) as u8,
             (hash_u64 >> 8) as u8,
             hash_u64 as u8,
-            0, 0, // randomness (2 bytes, set to 0)
+            0,
+            0, // randomness (2 bytes, set to 0)
         ];
         Ulid::from_bytes(bytes)
     }

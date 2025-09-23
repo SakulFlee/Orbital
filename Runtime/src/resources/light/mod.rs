@@ -14,7 +14,11 @@ pub struct Light {
 }
 
 impl Light {
-    pub fn from_descriptor(descriptor: &LightDescriptor, _device: &Device, _queue: &Queue) -> Result<Self, Box<dyn Error>> {
+    pub fn from_descriptor(
+        descriptor: &LightDescriptor,
+        _device: &Device,
+        _queue: &Queue,
+    ) -> Result<Self, Box<dyn Error>> {
         let light = Self {
             descriptor: descriptor.clone(),
         };
