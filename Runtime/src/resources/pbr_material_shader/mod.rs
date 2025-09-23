@@ -147,6 +147,7 @@ impl From<PBRMaterialShaderDescriptor> for MaterialShaderDescriptor {
                     VertexStageLayout::ComplexVertexData,
                     VertexStageLayout::InstanceData,
                 ]);
+                base.cull_mode = None; // Disable culling to prevent model from disappearing
                 base
             }
         };

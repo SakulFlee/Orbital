@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use hashbrown::HashMap;
-use log::{error, warn};
+use log::warn;
 use ulid::Ulid;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
@@ -146,18 +146,19 @@ impl LightStore {
         // Create a buffer with all light data
         let light_count = self.map_descriptors.len();
         if light_count == 0 {
-            // Create an empty buffer if no lights
+            // Create an empty buffer with sufficient size to satisfy shader requirements
+            // Shader expects at least 64 bytes for the light buffer
             self.light_buffer = Some(device.create_buffer(&BufferDescriptor {
                 label: Some("Light Storage Buffer"),
-                size: 4, // Minimum size
+                size: 64, // Minimum size that satisfies shader requirements
                 usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             }));
             return;
         }
 
-        // Calculate buffer size: Each light needs 48 bytes (position: 16, color: 16, direction: 16)
-        let light_size = 48;
+        // Calculate buffer size: Each light needs 64 bytes (position: 16, color: 16, direction: 16, params: 16)
+        let light_size = 64;
         let buffer_size = (light_count * light_size) as u64;
 
         // Create buffer data
