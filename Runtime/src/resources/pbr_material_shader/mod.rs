@@ -147,6 +147,7 @@ impl From<PBRMaterialShaderDescriptor> for MaterialShaderDescriptor {
                     VertexStageLayout::ComplexVertexData,
                     VertexStageLayout::InstanceData,
                 ]);
+                base.cull_mode = None; // Disable culling to prevent model from disappearing
                 base
             }
         };
@@ -211,6 +212,9 @@ impl From<PBRMaterialShaderDescriptor> for MaterialShaderDescriptor {
                 ..Default::default()
             }),
         ];
+
+        // Add light buffer if it doesn't exist yet
+        // For now, we'll rely on the World bind group for lights
 
         base
     }
