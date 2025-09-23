@@ -9,7 +9,6 @@ use crate::{
     world::World,
 };
 use async_std::task::block_on;
-use log::debug;
 use std::time::{Duration, Instant};
 
 #[derive(Default)]
