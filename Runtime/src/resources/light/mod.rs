@@ -1,9 +1,6 @@
 use std::error::Error;
-use std::sync::Arc;
 
-use wgpu::{Buffer, BufferDescriptor, BufferUsages, Device, Queue};
-
-use crate::resources::Transform;
+use wgpu::{Device, Queue};
 
 mod descriptor;
 pub use descriptor::*;

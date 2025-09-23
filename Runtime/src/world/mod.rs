@@ -104,9 +104,9 @@ impl World {
                     ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
                     count: None,
                 },
-                // Light Store (Storage Buffer)
+// Light Store (Storage Buffer)
                 BindGroupLayoutEntry {
-                    binding: 7,
+                    binding: 13,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Storage { read_only: true },
@@ -309,8 +309,8 @@ impl World {
                     binding: 6,
                     resource: BindingResource::Sampler(ibl_brdf_sampler),
                 },
-                BindGroupEntry {
-                    binding: 7,
+BindGroupEntry {
+                    binding: 13,
                     resource: BindingResource::Buffer(light_buffer_binding),
                 },
             ],

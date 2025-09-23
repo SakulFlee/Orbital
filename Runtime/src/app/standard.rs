@@ -9,6 +9,7 @@ use crate::{
     world::World,
 };
 use async_std::task::block_on;
+use log::debug;
 use std::time::{Duration, Instant};
 
 #[derive(Default)]
@@ -106,6 +107,8 @@ impl App for StandardApp {
                 }
             }
         }
+
+        debug!("WE: {:?}", world_events);
 
         // Kick off world future to process world updates while we handle other things
         let world_future = self.world.update(world_events);

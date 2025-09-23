@@ -1,5 +1,4 @@
 use cgmath::{Vector3, Zero};
-use std::f32::consts::PI;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LightType {
@@ -75,47 +74,61 @@ impl LightDescriptor {
     pub fn to_buffer_data(&self) -> Vec<u8> {
         let mut data = Vec::new();
         
-        // Position (vec3) - 12 bytes
+        // Position (vec4) - 16 bytes
+        // xyz: position, w: padding
         data.extend_from_slice(&self.position.x.to_le_bytes());
         data.extend_from_slice(&self.position.y.to_le_bytes());
         data.extend_from_slice(&self.position.z.to_le_bytes());
-        data.extend_from_slice(&0f32.to_le_bytes()); // Padding to 16 bytes
+        data.extend_from_slice(&0f32.to_le_bytes()); // Padding
         
-        // Color (vec3) - 12 bytes
+        // Color (vec4) - 16 bytes
+        // xyz: color, w: intensity
         data.extend_from_slice(&self.color.x.to_le_bytes());
         data.extend_from_slice(&self.color.y.to_le_bytes());
         data.extend_from_slice(&self.color.z.to_le_bytes());
-        data.extend_from_slice(&0f32.to_le_bytes()); // Padding to 16 bytes
+        let intensity = match &self.light_type {
+            LightType::Point { intensity } => *intensity,
+            LightType::Directional { intensity } => *intensity,
+            LightType::Spot { intensity, .. } => *intensity,
+        };
+        data.extend_from_slice(&intensity.to_le_bytes()); // Intensity
         
-        // Direction (vec3) - 12 bytes
+        // Direction (vec4) - 16 bytes
+        // xyz: direction, w: type
         data.extend_from_slice(&self.direction.x.to_le_bytes());
         data.extend_from_slice(&self.direction.y.to_le_bytes());
         data.extend_from_slice(&self.direction.z.to_le_bytes());
-        data.extend_from_slice(&0f32.to_le_bytes()); // Padding to 16 bytes
+        let light_type_value = match &self.light_type {
+            LightType::Point { .. } => 0.0f32, // LIGHT_TYPE_POINT
+            LightType::Directional { .. } => 1.0f32, // LIGHT_TYPE_DIRECTIONAL
+            LightType::Spot { .. } => 2.0f32, // LIGHT_TYPE_SPOT
+        };
+        data.extend_from_slice(&light_type_value.to_le_bytes()); // Light type
         
-        // Light type specific data
+        // Params (vec4) - 16 bytes
+        // x: inner cone angle, y: outer cone angle, zw: padding
         match &self.light_type {
-            LightType::Point { intensity } => {
-                data.extend_from_slice(&intensity.to_le_bytes());
-                data.extend_from_slice(&0f32.to_le_bytes()); // Padding
+            LightType::Point { .. } => {
+                data.extend_from_slice(&0f32.to_le_bytes()); // Inner cone angle
+                data.extend_from_slice(&0f32.to_le_bytes()); // Outer cone angle
                 data.extend_from_slice(&0f32.to_le_bytes()); // Padding
                 data.extend_from_slice(&0f32.to_le_bytes()); // Padding
             }
-            LightType::Directional { intensity } => {
-                data.extend_from_slice(&intensity.to_le_bytes());
-                data.extend_from_slice(&1f32.to_le_bytes()); // Type identifier
+            LightType::Directional { .. } => {
+                data.extend_from_slice(&0f32.to_le_bytes()); // Inner cone angle
+                data.extend_from_slice(&0f32.to_le_bytes()); // Outer cone angle
                 data.extend_from_slice(&0f32.to_le_bytes()); // Padding
                 data.extend_from_slice(&0f32.to_le_bytes()); // Padding
             }
             LightType::Spot {
-                intensity,
                 inner_cone_angle,
                 outer_cone_angle,
+                ..
             } => {
-                data.extend_from_slice(&intensity.to_le_bytes());
-                data.extend_from_slice(&2f32.to_le_bytes()); // Type identifier
-                data.extend_from_slice(&inner_cone_angle.to_le_bytes());
-                data.extend_from_slice(&outer_cone_angle.to_le_bytes());
+                data.extend_from_slice(&inner_cone_angle.to_le_bytes()); // Inner cone angle
+                data.extend_from_slice(&outer_cone_angle.to_le_bytes()); // Outer cone angle
+                data.extend_from_slice(&0f32.to_le_bytes()); // Padding
+                data.extend_from_slice(&0f32.to_le_bytes()); // Padding
             }
         }
         

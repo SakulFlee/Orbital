@@ -35,10 +35,16 @@ struct CameraUniform {
     global_gamma: f32,
 }
 
-// Reserved for future point lights
-struct PointLight {
-    position: vec4<f32>,
-    color: vec4<f32>,
+// Light types
+const LIGHT_TYPE_POINT: f32 = 0.0;
+const LIGHT_TYPE_DIRECTIONAL: f32 = 1.0;
+const LIGHT_TYPE_SPOT: f32 = 2.0;
+
+struct Light {
+    position: vec4<f32>,     // xyz: position, w: padding
+    color: vec4<f32>,        // xyz: color, w: intensity
+    direction: vec4<f32>,    // xyz: direction, w: type
+    params: vec4<f32>,       // x: inner cone angle, y: outer cone angle, zw: padding
 }
 
 struct PBRFactors {
@@ -72,17 +78,6 @@ struct PBRData {
     NdotV: f32,
 }
 
-@group(0) @binding(0) var<uniform> camera: CameraUniform;
-
-@group(0) @binding(1) var diffuse_env_map: texture_cube<f32>;
-@group(0) @binding(2) var diffuse_sampler: sampler;
-
-@group(0) @binding(3) var specular_env_map: texture_cube<f32>;
-@group(0) @binding(4) var specular_sampler: sampler;
-
-@group(0) @binding(5) var ibl_brdf_lut_texture: texture_2d<f32>;
-@group(0) @binding(6) var ibl_brdf_lut_sampler: sampler;
-
 @group(1) @binding(0) var normal_texture: texture_2d<f32>;
 @group(1) @binding(1) var normal_sampler: sampler;
 
@@ -103,10 +98,18 @@ struct PBRData {
 
 @group(1) @binding(12) var<uniform> pbr_factors: PBRFactors;
 
-//@group(2) @binding(6) var<storage> point_light_store: array<PointLight>; // reserved, later
+@group(0) @binding(0) var<uniform> camera: CameraUniform;
 
+@group(0) @binding(13) var<storage> light_store: array<Light>;
 
+@group(0) @binding(1) var diffuse_env_map: texture_cube<f32>;
+@group(0) @binding(2) var diffuse_sampler: sampler;
 
+@group(0) @binding(3) var specular_env_map: texture_cube<f32>;
+@group(0) @binding(4) var specular_sampler: sampler;
+
+@group(0) @binding(5) var ibl_brdf_lut_texture: texture_2d<f32>;
+@group(0) @binding(6) var ibl_brdf_lut_sampler: sampler;
 
 @vertex
 fn entrypoint_vertex(
@@ -132,8 +135,8 @@ fn entrypoint_vertex(
     // Actual position in world (no perspective)
     out.world_position = world_position.xyz;
 
-    // Pass UV coordinates unchanged (they are 2D texture coordinates, not 3D positions)
-    out.uv = vertex.uv;
+    // Transform UV
+    out.uv = (model_space_matrix * vec4<f32>(vertex.uv, 0.0, 0.0)).xy;
 
     // Transform Tangent
     out.tangent = (model_space_matrix * vec4<f32>(vertex.tangent, 0.0)).xyz;
@@ -152,26 +155,13 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     let pbr = pbr_data(in);
     var output = vec3(0.0);
 
-    // Check if UVs are missing (i.e. a default texture with just an R and G channel set to 0.5, being 1x1 pixels in size)
-    let uv_missing = is_uv_missing_or_default(in.uv);
-    if uv_missing {
-        // If we detect that there is no UV map, that means we also can't correctly calculate normals, tangents and bi-tangents.
-        // These components are crucial for proper IBL lighting.
-        // This also means the model must be extremely basic and probably **should not** be used in a PBR pipeline!
-        //
-        // To render it anyways, we'll simply write the albedo (i.e. color channels) to the output and later add the emissive "ontop".
-        // There will be no light calculation what-so-ever!
-        // If you want IBL, export the model **with** an UV map.
-        output += pbr.albedo;
-    } else {
     // IBL Ambient light
     var ambient = calculate_ambient_ibl(pbr);
     output += ambient;
 
-    // Point Light reflectance light
-    let point_light_reflectance = calculate_point_light_specular_contribution(pbr, in.world_position);
-    output += point_light_reflectance;
-    }
+    // Light reflectance
+    let light_reflectance = calculate_light_contribution(pbr, in.world_position);
+    output += light_reflectance;
 
     // Add emissive "ontop"
     output += pbr.emissive;
@@ -203,10 +193,58 @@ fn aces_tone_map(color: vec3<f32>) -> vec3<f32> {
     );
 }
 
-fn brdf(point_light: PointLight, pbr: PBRData, world_position: vec3<f32>) -> vec3<f32> {
-    let L = normalize(point_light.position.xyz - world_position);
-    let H = normalize(pbr.V + L);
+fn calculate_light_contribution(pbr: PBRData, world_position: vec3<f32>) -> vec3<f32> {
+    var Lo = vec3(0.0);
 
+    for (var i = u32(0); i < arrayLength(&light_store); i++) {
+        let light = light_store[i];
+        Lo += calculate_light_brdf(light, pbr, world_position); 
+    }
+
+    return Lo;
+}
+
+fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -> vec3<f32> {
+    var L: vec3<f32>;
+    var light_distance: f32 = 1.0;
+    var attenuation: f32 = 1.0;
+    
+    // Determine light type and calculate light direction and attenuation
+    if (light.direction.w == LIGHT_TYPE_POINT) {
+        // Point light
+        L = light.position.xyz - world_position;
+        light_distance = length(L);
+        L = normalize(L);
+        // Attenuation for point lights: 1.0 / (constant + linear * distance + quadratic * distance^2)
+        // Using a simple quadratic attenuation for now
+        attenuation = 1.0 / (light_distance * light_distance);
+    } else if (light.direction.w == LIGHT_TYPE_DIRECTIONAL) {
+        // Directional light
+        L = normalize(-light.direction.xyz);
+        // No attenuation for directional lights
+        attenuation = 1.0;
+    } else if (light.direction.w == LIGHT_TYPE_SPOT) {
+        // Spot light
+        L = light.position.xyz - world_position;
+        light_distance = length(L);
+        L = normalize(L);
+        // Attenuation for spot lights
+        attenuation = 1.0 / (light_distance * light_distance);
+        
+        // Spot light angle calculation
+        let light_direction = normalize(-light.direction.xyz);
+        let theta = dot(L, light_direction);
+        let epsilon = light.params.x - light.params.y; // inner - outer
+        let intensity = clamp((theta - light.params.y) / epsilon, 0.0, 1.0);
+        
+        // Apply spot light intensity
+        attenuation *= intensity;
+    } else {
+        // Unknown light type, return zero contribution
+        return vec3(0.0);
+    }
+
+    let H = normalize(pbr.V + L);
     let NdotL = clamp(dot(pbr.N, L), 0.0, 1.0);
     let NdotH = clamp(dot(pbr.N, H), 0.0, 1.0);
 
@@ -222,14 +260,15 @@ fn brdf(point_light: PointLight, pbr: PBRData, world_position: vec3<f32>) -> vec
         let nominator = D * F * G;
         let denominator = 4.0 * NdotL * pbr.NdotV + 0.0001; // +0.0001 prevents division by zero
         let specular = nominator / denominator;
-        Lo += specular * NdotL * point_light.color.rgb;
+        
+        // Combine diffuse and specular components
+        let kS = F;
+        let kD = vec3(1.0) - kS;
+        let diffuse = kD * pbr.albedo / PI;
+        
+        Lo += (diffuse + specular) * light.color.rgb * light.color.w * attenuation * NdotL;
     }
     return Lo;
-}
-
-fn calculate_point_light_specular_contribution(pbr: PBRData, world_position: vec3<f32>) -> vec3<f32> {
-    // No dynamic lights bound yet
-    return vec3(0.0);
 }
 
 fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
@@ -249,22 +288,6 @@ fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
     return (diffuse_ibl + specular_ibl) * pbr.occlusion;
 }
 
-// Checks if the current UV is missing or a default one got generated.
-// A default UV can be detected by the following conditions (all must be true!):
-// - width & height of 1x1 pixel
-// - Red and Green channel (R & G / X & Y) to be exactly 0.5 f32 for both
-fn is_uv_missing_or_default(uv: vec2<f32>) -> bool {
-    // First, check for the texture dimension as it is incredibly unlikely to be used in a "real" UV map
-    let albedo_dimensions = textureDimensions(albedo_texture);
-    if albedo_dimensions.x == 1 && albedo_dimensions.y == 1 {
-        if uv.x == 0.5 && uv.y == 0.5 {
-            return true;
-        }
-    }
-    
-    return false;
-}
-
 /// Samples the fragment's normal and transforms it into world space
 fn sample_normal_from_map(fragment_data: FragmentData) -> vec3<f32> {
     let normal_sample = textureSample(
@@ -272,28 +295,13 @@ fn sample_normal_from_map(fragment_data: FragmentData) -> vec3<f32> {
         normal_sampler,
         fragment_data.uv
     ).rgb;
-
-    let normal_dimensions = textureDimensions(normal_texture);    
-   
-    // Check if normal texture dimension and sample data match a generated texture.
-    // If so, no normal map was probably provided ... int hat case we simply return the fragment (passed on by vertex stage) normal.
-    if normal_dimensions.x == 1 && normal_dimensions.y == 1 {
-        if (abs(normal_sample.r - 0.5) < 0.01) && 
-           (abs(normal_sample.g - 0.5) < 0.01) && 
-           (abs(normal_sample.b - 1.0) < 0.01) {
-            return normalize(fragment_data.normal);
-        }
-    }
-    
-    // Normal map provided, transform using TBN matrix
     let tangent_normal = 2.0 * normal_sample - 1.0;
 
-    // Ensure TBN matrix vectors are normalized
-    let tangent = normalize(fragment_data.tangent);
-    let bitangent = normalize(fragment_data.bitangent);
-    let normal = normalize(fragment_data.normal);
-    
-    let TBN = mat3x3(tangent, bitangent, normal);
+    let TBN = mat3x3(
+        fragment_data.tangent,
+        fragment_data.bitangent,
+        fragment_data.normal,
+    );
     let N = normalize(TBN * tangent_normal);
     return N;
 }
@@ -324,7 +332,7 @@ fn distribution_ggx(NdotH: f32, roughness: f32) -> f32 {
     let alpha_squared = alpha * alpha;
 
     let denom = (NdotH * NdotH) * (alpha_squared - 1.0) + 1.0;
-    return alpha_squared / (PI * denom * denom);
+    return alpha_squared / (PI * denom);
 }
 
 fn pbr_data(fragment_data: FragmentData) -> PBRData {
@@ -337,7 +345,6 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     out.NdotV = clamp(dot(out.N, out.V), 0.0, 1.0);
 
     // Material properties
-    // Sample albedo texture and apply factor. Assume texture is sRGB/gamma-encoded.
     let albedo_sample = textureSample(
         albedo_texture,
         albedo_sampler,
@@ -345,9 +352,8 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     ).rgb;
     let albedo_factored = albedo_sample * pbr_factors.albedo_factor.rgb;
     let albedo_clamped = clamp(albedo_factored, vec3(0.0), vec3(1.0));
-    // Convert from sRGB/gamma to linear space for PBR calculations
-    let albedo_linear = pow(albedo_clamped, vec3(camera.global_gamma));
-    out.albedo = albedo_linear;
+    let albedo_gamma_applied = pow(albedo_clamped, vec3(camera.global_gamma));
+    out.albedo = albedo_gamma_applied;
 
     let metallic_sample = textureSample(
         metallic_texture,
@@ -375,46 +381,41 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
     let occlusion_clamped = clamp(occlusion_sample, 0.0, 1.0);
     out.occlusion = occlusion_clamped;
 
-    // Sample Emissive map. Assume it's stored in sRGB/gamma-encoded format.
     let emissive_sample = textureSample(
         emissive_texture,
         emissive_sampler,
         fragment_data.uv
     ).rgb;
     let emissive_clamped = clamp(emissive_sample, vec3(0.0), vec3(1.0));
-    // Convert from sRGB/gamma to linear space. Emissive is added directly to the final linear color.
-    let emissive_linear = pow(emissive_clamped, vec3(camera.global_gamma));
-    out.emissive = emissive_linear;
+    let emissive_gamma_applied = pow(emissive_clamped, vec3(camera.global_gamma));
+    out.emissive = emissive_gamma_applied;
 
-    // Sample IBL Diffuse map. It's stored in a linear HDR format (rgba16float).
     let diffuse_sample = textureSample(
         diffuse_env_map,
         diffuse_sampler,
         out.N
     ).rgb;
-    // Clamp to a reasonable HDR range to prevent extreme outliers, but allow values > 1.0
-    let diffuse_clamped = clamp(diffuse_sample, vec3(0.0), vec3(100.0)); // Higher clamp for HDR
-    out.ibl_diffuse = diffuse_clamped; // Use directly as linear input for PBR
+    let diffuse_clamped = clamp(diffuse_sample, vec3(0.0), vec3(1.0));
+    let diffuse_gamma_applied = pow(diffuse_clamped, vec3(camera.global_gamma));
+    out.ibl_diffuse = diffuse_gamma_applied;
 
-    // Sample IBL Specular map (from the pre-filtered MIP map). Assume it's stored in linear HDR format.
     let specular_mip_count = textureNumLevels(specular_env_map);
-    let specular_mip_level = clamp(sqrt(out.roughness) * f32(specular_mip_count - 1u), 0.0, f32(specular_mip_count - 1u));
-    
+    let specular_mip_level = out.roughness * out.roughness * f32(specular_mip_count - 1u);
     let specular_sample = textureSampleLevel(
         specular_env_map,
         specular_sampler,
         R,
         specular_mip_level
     ).rgb;
-    // Clamp to a reasonable HDR range to prevent extreme outliers, but allow values > 1.0
-    let specular_clamped = clamp(specular_sample, vec3(0.0), vec3(100.0)); // Higher clamp for HDR
-    out.ibl_specular = specular_clamped; // Use directly as linear input for PBR
+    let specular_clamped = clamp(specular_sample, vec3(0.0), vec3(1.0));
+    let specular_gamma_applied = pow(specular_clamped, vec3(camera.global_gamma));
+    out.ibl_specular = specular_gamma_applied;
 
     let brdf_lut_sample = textureSample(
         ibl_brdf_lut_texture,
         ibl_brdf_lut_sampler,
         vec2<f32>(
-            clamp(out.NdotV, 0.0001, 1.0), 
+            max(out.NdotV, 0.0001), 
             clamp(1.0 - out.roughness, 0.0001, 1.0)
     )).rg;
     out.brdf_lut = brdf_lut_sample;
