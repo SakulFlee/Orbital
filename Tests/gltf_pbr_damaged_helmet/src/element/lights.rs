@@ -1,7 +1,7 @@
 use orbital::{
     async_trait::async_trait,
     cgmath::Vector3,
-    element::{Element, ElementRegistration, Event, WorldEvent, LightEvent},
+    element::{Element, ElementRegistration, Event, LightEvent, WorldEvent},
     resources::LightDescriptor,
 };
 
