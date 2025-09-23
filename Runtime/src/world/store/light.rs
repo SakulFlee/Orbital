@@ -199,15 +199,15 @@ impl LightStore {
                     None => {
                         warn!("Attempting to update Light with label '{label}', but label cannot be found!");
                         return;
-                    },
+                    }
                 };
 
                 self.map_descriptors.insert(id, new_descriptor);
-                
+
                 if self.cache_realizations.contains_key(&id) {
                     self.flag_realization(vec![id], true);
                 }
-            },
+            }
         }
     }
 }

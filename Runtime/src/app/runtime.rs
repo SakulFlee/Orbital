@@ -578,13 +578,13 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
         // Important: Drop resources in the correct order with delays to prevent segfaults
         debug!("Dropping all resources...");
         self.surface_configuration = None;
-        
+
         // Drop the surface before the device to prevent Vulkan validation errors
         self.surface = None;
-        
+
         // Add a small delay before dropping device to ensure all GPU operations complete
         thread::sleep(std::time::Duration::from_millis(50));
-        
+
         self.queue = None;
         self.device = None;
         self.adapter = None;

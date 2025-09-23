@@ -25,7 +25,12 @@ pub struct LightDescriptor {
 }
 
 impl LightDescriptor {
-    pub fn new_point(label: String, position: Vector3<f32>, color: Vector3<f32>, intensity: f32) -> Self {
+    pub fn new_point(
+        label: String,
+        position: Vector3<f32>,
+        color: Vector3<f32>,
+        intensity: f32,
+    ) -> Self {
         Self {
             label,
             light_type: LightType::Point { intensity },
@@ -35,7 +40,12 @@ impl LightDescriptor {
         }
     }
 
-    pub fn new_directional(label: String, direction: Vector3<f32>, color: Vector3<f32>, intensity: f32) -> Self {
+    pub fn new_directional(
+        label: String,
+        direction: Vector3<f32>,
+        color: Vector3<f32>,
+        intensity: f32,
+    ) -> Self {
         Self {
             label,
             light_type: LightType::Directional { intensity },
@@ -73,14 +83,14 @@ impl LightDescriptor {
 
     pub fn to_buffer_data(&self) -> Vec<u8> {
         let mut data = Vec::new();
-        
+
         // Position (vec4) - 16 bytes
         // xyz: position, w: padding
         data.extend_from_slice(&self.position.x.to_le_bytes());
         data.extend_from_slice(&self.position.y.to_le_bytes());
         data.extend_from_slice(&self.position.z.to_le_bytes());
         data.extend_from_slice(&0f32.to_le_bytes()); // Padding
-        
+
         // Color (vec4) - 16 bytes
         // xyz: color, w: intensity
         data.extend_from_slice(&self.color.x.to_le_bytes());
@@ -92,19 +102,19 @@ impl LightDescriptor {
             LightType::Spot { intensity, .. } => *intensity,
         };
         data.extend_from_slice(&intensity.to_le_bytes()); // Intensity
-        
+
         // Direction (vec4) - 16 bytes
         // xyz: direction, w: type
         data.extend_from_slice(&self.direction.x.to_le_bytes());
         data.extend_from_slice(&self.direction.y.to_le_bytes());
         data.extend_from_slice(&self.direction.z.to_le_bytes());
         let light_type_value = match &self.light_type {
-            LightType::Point { .. } => 0.0f32, // LIGHT_TYPE_POINT
+            LightType::Point { .. } => 0.0f32,       // LIGHT_TYPE_POINT
             LightType::Directional { .. } => 1.0f32, // LIGHT_TYPE_DIRECTIONAL
-            LightType::Spot { .. } => 2.0f32, // LIGHT_TYPE_SPOT
+            LightType::Spot { .. } => 2.0f32,        // LIGHT_TYPE_SPOT
         };
         data.extend_from_slice(&light_type_value.to_le_bytes()); // Light type
-        
+
         // Params (vec4) - 16 bytes
         // x: inner cone angle, y: outer cone angle, zw: padding
         match &self.light_type {
@@ -131,7 +141,7 @@ impl LightDescriptor {
                 data.extend_from_slice(&0f32.to_le_bytes()); // Padding
             }
         }
-        
+
         data
     }
 }
