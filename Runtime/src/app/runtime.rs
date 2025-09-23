@@ -1,4 +1,5 @@
 use std::mem::transmute;
+use std::thread;
 
 use async_std::task::block_on;
 use cgmath::Vector2;
@@ -571,21 +572,25 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
 
         // Add a small delay to ensure app.on_suspend() has completed
         debug!("Waiting for app.on_suspend() to complete...");
+        thread::sleep(std::time::Duration::from_millis(100));
 
         // Invalidate everything related to the window, surface and device.
         // Important: Drop resources in the correct order with delays to prevent segfaults
         debug!("Dropping all resources...");
         self.surface_configuration = None;
+
+        // Drop the surface before the device to prevent Vulkan validation errors
+        self.surface = None;
+
+        // Add a small delay before dropping device to ensure all GPU operations complete
+        thread::sleep(std::time::Duration::from_millis(50));
+
         self.queue = None;
         self.device = None;
         self.adapter = None;
         self.instance = None;
         self.window = None;
         self.timer = None;
-
-        // Defer dropping the surface to prevent segfaults
-        debug!("Deferring surface cleanup...");
-        self.surface = None;
 
         debug!("Suspension complete.");
     }

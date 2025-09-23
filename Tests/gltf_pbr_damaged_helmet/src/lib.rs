@@ -78,6 +78,7 @@ pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
         })),
         Box::new(WorldEnvironment),
         Box::new(DamagedHelmet),
+        Box::new(TestLights),
     ]);
 
     match AppRuntime::liftoff(event_loop, app_settings, app) {
