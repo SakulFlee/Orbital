@@ -78,6 +78,20 @@ struct PBRData {
     NdotV: f32,
 }
 
+@group(0) @binding(0) var<uniform> camera: CameraUniform;
+
+@group(0) @binding(1) var diffuse_env_map: texture_cube<f32>;
+@group(0) @binding(2) var diffuse_sampler: sampler;
+
+@group(0) @binding(3) var specular_env_map: texture_cube<f32>;
+@group(0) @binding(4) var specular_sampler: sampler;
+
+@group(0) @binding(5) var ibl_brdf_lut_texture: texture_2d<f32>;
+@group(0) @binding(6) var ibl_brdf_lut_sampler: sampler;
+
+// TODO: 13?! Could be changed to 1, then increment the above numbers.
+@group(0) @binding(13) var<storage> light_store: array<Light>;
+
 @group(1) @binding(0) var normal_texture: texture_2d<f32>;
 @group(1) @binding(1) var normal_sampler: sampler;
 
@@ -97,19 +111,6 @@ struct PBRData {
 @group(1) @binding(11) var emissive_sampler: sampler;
 
 @group(1) @binding(12) var<uniform> pbr_factors: PBRFactors;
-
-@group(0) @binding(0) var<uniform> camera: CameraUniform;
-
-@group(0) @binding(13) var<storage> light_store: array<Light>;
-
-@group(0) @binding(1) var diffuse_env_map: texture_cube<f32>;
-@group(0) @binding(2) var diffuse_sampler: sampler;
-
-@group(0) @binding(3) var specular_env_map: texture_cube<f32>;
-@group(0) @binding(4) var specular_sampler: sampler;
-
-@group(0) @binding(5) var ibl_brdf_lut_texture: texture_2d<f32>;
-@group(0) @binding(6) var ibl_brdf_lut_sampler: sampler;
 
 @vertex
 fn entrypoint_vertex(
@@ -134,9 +135,9 @@ fn entrypoint_vertex(
 
     // Actual position in world (no perspective)
     out.world_position = world_position.xyz;
-
-    // Transform UV
-    out.uv = (model_space_matrix * vec4<f32>(vertex.uv, 0.0, 0.0)).xy;
+    
+    // Pass UV coordinates unchanged (they are 2D texture coordinates, not 3D positions)
+    out.uv = vertex.uv;
 
     // Transform Tangent
     out.tangent = (model_space_matrix * vec4<f32>(vertex.tangent, 0.0)).xyz;
