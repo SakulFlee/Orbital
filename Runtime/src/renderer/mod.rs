@@ -81,31 +81,27 @@ impl Renderer {
         world_bind_group: &BindGroup,
         command_encoder: &mut CommandEncoder,
     ) {
-        // Scope to drop RenderPass once done
-        // TODO: Needed?
-        {
-            let mut render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
-                label: Some("RenderPass::SkyBox"),
-                color_attachments: &[Some(RenderPassColorAttachment {
-                    view: target_view,
-                    resolve_target: None,
-                    ops: Operations {
-                        load: LoadOp::Clear(Color::BLACK),
-                        store: StoreOp::Store,
-                    },
-                    depth_slice: None,
-                })],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-            });
+        let mut render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
+            label: Some("RenderPass::SkyBox"),
+            color_attachments: &[Some(RenderPassColorAttachment {
+                view: target_view,
+                resolve_target: None,
+                ops: Operations {
+                    load: LoadOp::Clear(Color::BLACK),
+                    store: StoreOp::Store,
+                },
+                depth_slice: None,
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+        });
 
-            render_pass.set_pipeline(sky_box_shader.pipeline());
+        render_pass.set_pipeline(sky_box_shader.pipeline());
 
-            render_pass.set_bind_group(0, world_bind_group, &[]);
+        render_pass.set_bind_group(0, world_bind_group, &[]);
 
-            render_pass.draw(0..3, 0..1);
-        }
+        render_pass.draw(0..3, 0..1);
     }
 
     fn render_models(
