@@ -132,7 +132,8 @@ impl App for StandardApp {
         // Await world future before we need access to the world again.
         world_future.await;
 
-        // TODO: REMOVE
+        // Note: Currently **all** models are flagged for realization.
+        // Once a system for culling or another way of selecting which models should be realized and what shouldn't be realized is in place, this can be changed.
         let model_ids = self
             .world
             .model_store_mut()
