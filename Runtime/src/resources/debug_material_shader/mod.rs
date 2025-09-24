@@ -8,7 +8,7 @@ impl From<DebugMaterialShader> for MaterialShaderDescriptor {
     fn from(val: DebugMaterialShader) -> Self {
         MaterialShaderDescriptor {
             name: Some("Debug Material Shader".to_string()),
-            shader_source: ShaderSource::Path("Assets/Shaders/old/wireframe.wgsl"),
+            shader_source: ShaderSource::Path("Assets/Shaders/wireframe.wgsl"),
             variables: Vec::new(),
             entrypoint_vertex: "entrypoint_vertex",
             entrypoint_fragment: "entrypoint_fragment",
