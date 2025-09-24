@@ -294,15 +294,6 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
     }
 
     pub fn redraw(&mut self) {
-        // TODO: Not sure if still needed after sync-change?
-        // // Skip if a frame is already acquired.
-        // // Prevents WGPU from throwing validation errors when we are
-        // // re-requesting the next frame, when the current frame isn't
-        // // presented yet.
-        // if self.frame_acquired {
-        //     return;
-        // }
-
         // Check if surface and device are present
         if self.surface.is_none() || self.device.is_none() {
             warn!("Redraw requested, but runtime is in an incomplete state!");
@@ -353,9 +344,6 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
                 }
             }
         };
-
-        // TODO: Not sure if still needed!
-        // self.frame_acquired = true;
 
         let view: wgpu::TextureView = frame.texture.create_view(&TextureViewDescriptor {
             format: Some(*format),
