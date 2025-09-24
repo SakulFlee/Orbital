@@ -53,9 +53,20 @@ impl World {
                     },
                     count: None,
                 },
-                // IBL Diffuse
+                // Light Store (Storage Buffer)
                 BindGroupLayoutEntry {
                     binding: 1,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                // IBL Diffuse
+                BindGroupLayoutEntry {
+                    binding: 2,
                     visibility: ShaderStages::all(),
                     ty: BindingType::Texture {
                         sample_type: TextureSampleType::Float { filterable: true },
@@ -65,14 +76,14 @@ impl World {
                     count: None,
                 },
                 BindGroupLayoutEntry {
-                    binding: 2,
+                    binding: 3,
                     visibility: ShaderStages::all(),
                     ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
                 },
                 // IBL Specular
                 BindGroupLayoutEntry {
-                    binding: 3,
+                    binding: 4,
                     visibility: ShaderStages::all(),
                     ty: BindingType::Texture {
                         sample_type: TextureSampleType::Float { filterable: true },
@@ -82,14 +93,14 @@ impl World {
                     count: None,
                 },
                 BindGroupLayoutEntry {
-                    binding: 4,
+                    binding: 5,
                     visibility: ShaderStages::all(),
                     ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
                 },
                 // IBL BRDF
                 BindGroupLayoutEntry {
-                    binding: 5,
+                    binding: 6,
                     visibility: ShaderStages::all(),
                     ty: BindingType::Texture {
                         sample_type: TextureSampleType::Float { filterable: false },
@@ -99,20 +110,9 @@ impl World {
                     count: None,
                 },
                 BindGroupLayoutEntry {
-                    binding: 6,
+                    binding: 7,
                     visibility: ShaderStages::all(),
                     ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
-                    count: None,
-                },
-                // Light Store (Storage Buffer)
-                BindGroupLayoutEntry {
-                    binding: 13,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
                     count: None,
                 },
             ],
@@ -287,31 +287,31 @@ impl World {
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::TextureView(world_environment_ibl_diffuse_view),
+                    resource: BindingResource::Buffer(light_buffer_binding),
                 },
                 BindGroupEntry {
                     binding: 2,
-                    resource: BindingResource::Sampler(world_environment_ibl_diffuse_sampler),
+                    resource: BindingResource::TextureView(world_environment_ibl_diffuse_view),
                 },
                 BindGroupEntry {
                     binding: 3,
-                    resource: BindingResource::TextureView(world_environment_ibl_specular_view),
+                    resource: BindingResource::Sampler(world_environment_ibl_diffuse_sampler),
                 },
                 BindGroupEntry {
                     binding: 4,
-                    resource: BindingResource::Sampler(world_environment_ibl_specular_sampler),
+                    resource: BindingResource::TextureView(world_environment_ibl_specular_view),
                 },
                 BindGroupEntry {
                     binding: 5,
-                    resource: BindingResource::TextureView(ibl_brdf_view),
+                    resource: BindingResource::Sampler(world_environment_ibl_specular_sampler),
                 },
                 BindGroupEntry {
                     binding: 6,
-                    resource: BindingResource::Sampler(ibl_brdf_sampler),
+                    resource: BindingResource::TextureView(ibl_brdf_view),
                 },
                 BindGroupEntry {
-                    binding: 13,
-                    resource: BindingResource::Buffer(light_buffer_binding),
+                    binding: 7,
+                    resource: BindingResource::Sampler(ibl_brdf_sampler),
                 },
             ],
         });

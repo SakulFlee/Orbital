@@ -80,17 +80,16 @@ struct PBRData {
 
 @group(0) @binding(0) var<uniform> camera: CameraUniform;
 
-@group(0) @binding(1) var diffuse_env_map: texture_cube<f32>;
-@group(0) @binding(2) var diffuse_sampler: sampler;
+@group(0) @binding(1) var<storage> light_store: array<Light>;
 
-@group(0) @binding(3) var specular_env_map: texture_cube<f32>;
-@group(0) @binding(4) var specular_sampler: sampler;
+@group(0) @binding(2) var diffuse_env_map: texture_cube<f32>;
+@group(0) @binding(3) var diffuse_sampler: sampler;
 
-@group(0) @binding(5) var ibl_brdf_lut_texture: texture_2d<f32>;
-@group(0) @binding(6) var ibl_brdf_lut_sampler: sampler;
+@group(0) @binding(4) var specular_env_map: texture_cube<f32>;
+@group(0) @binding(5) var specular_sampler: sampler;
 
-// TODO: 13?! Could be changed to 1, then increment the above numbers.
-@group(0) @binding(13) var<storage> light_store: array<Light>;
+@group(0) @binding(6) var ibl_brdf_lut_texture: texture_2d<f32>;
+@group(0) @binding(7) var ibl_brdf_lut_sampler: sampler;
 
 @group(1) @binding(0) var normal_texture: texture_2d<f32>;
 @group(1) @binding(1) var normal_sampler: sampler;
