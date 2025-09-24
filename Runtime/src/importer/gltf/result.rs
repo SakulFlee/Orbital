@@ -1,4 +1,4 @@
-use crate::resources::{CameraDescriptor, ModelDescriptor};
+use crate::resources::{CameraDescriptor, LightDescriptor, ModelDescriptor};
 use std::error::Error;
 
 /// Contains the results of a glTF Import.
@@ -6,6 +6,7 @@ use std::error::Error;
 pub struct GltfImportResult {
     pub models: Vec<ModelDescriptor>,
     pub cameras: Vec<CameraDescriptor>,
+    pub lights: Vec<LightDescriptor>,
     pub errors: Vec<Box<dyn Error>>,
 }
 
@@ -17,6 +18,7 @@ impl GltfImportResult {
     pub fn extend(&mut self, other: Self) {
         self.models.extend(other.models);
         self.cameras.extend(other.cameras);
+        self.lights.extend(other.lights);
         self.errors.extend(other.errors);
     }
 }
