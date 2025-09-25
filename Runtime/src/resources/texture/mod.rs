@@ -321,28 +321,17 @@ impl Texture {
 
         let texture_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: None,
-            // TODO: AddressMode cannot be changed!
             address_mode_u: AddressMode::Repeat,
             address_mode_v: AddressMode::Repeat,
             address_mode_w: AddressMode::Repeat,
             mag_filter: filter_mode.mag,
             min_filter: filter_mode.min,
             mipmap_filter: filter_mode.mipmap,
-            // TODO: Min/Max clamping cannot be changed!
             lod_min_clamp: 0.0,
             lod_max_clamp: 100.0,
             ..Default::default()
         });
 
-        // Create actual orbital texture
-        // TODO: Probably no longer needed as we can set the TextureViewDimensions ourselfs now.
-        // let view_dimension = texture_view_descriptor.dimension.unwrap_or({
-        //     match texture_descriptor.dimension {
-        //         TextureDimension::D1 => TextureViewDimension::D1,
-        //         TextureDimension::D2 => TextureViewDimension::D2,
-        //         TextureDimension::D3 => TextureViewDimension::D3,
-        //     }
-        // });
         let texture = Self::from_existing(
             texture,
             texture_view,
