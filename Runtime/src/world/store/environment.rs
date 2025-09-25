@@ -60,7 +60,6 @@ impl EnvironmentStore {
         match environment_event {
             EnvironmentEvent::Change {
                 descriptor,
-                enable_ibl, // TODO
             } => {
                 self.queue_change(descriptor);
             }
