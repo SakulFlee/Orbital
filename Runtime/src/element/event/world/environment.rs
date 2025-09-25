@@ -4,6 +4,5 @@ use crate::resources::WorldEnvironmentDescriptor;
 pub enum EnvironmentEvent {
     Change {
         descriptor: WorldEnvironmentDescriptor,
-        enable_ibl: bool,
     },
 }
