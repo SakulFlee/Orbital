@@ -1,3 +1,21 @@
+//! # Importer Module
+//!
+//! The importer module handles asynchronous asset loading and processing for the Orbital engine.
+//! It provides a system for importing various asset formats (primarily GLTF) and converting
+//! them into engine resources like models and cameras.
+//!
+//! ## Key Components
+//!
+//! - **Importer**: Manages the import task queue and runs import operations asynchronously
+//! - **ImportTask**: Represents different types of import operations that can be queued
+//! - **ImportResult**: Contains the results of an import operation (models, cameras, etc.)
+//! - **GLTF Import**: Specialized support for GLTF format assets with materials and scenes
+//!
+//! ## Asynchronous Processing
+//!
+//! The importer processes tasks asynchronously with configurable parallelism, allowing
+//! multiple assets to be loaded simultaneously without blocking the main application thread.
+
 use crate::{
     importer::gltf::{GltfImport, GltfImportTask, GltfImporter},
     resources::{CameraDescriptor, ModelDescriptor},
@@ -7,17 +25,23 @@ use futures::stream::{FuturesUnordered, StreamExt};
 
 pub mod gltf;
 
+/// Represents different types of import operations that can be queued.
+/// Currently supports GLTF format assets, but designed to support additional formats.
 #[derive(Debug)]
 pub enum ImportTask {
     Gltf { file_path: String, task: GltfImport },
 }
 
+/// Contains the results of an import operation, including any models and cameras
+/// that were created during the import process.
 #[derive(Default)]
 pub struct ImportResult {
     pub models: Vec<ModelDescriptor>,
     pub cameras: Vec<CameraDescriptor>,
 }
 
+/// The main importer that manages the import task queue and runs import operations
+/// asynchronously with configurable parallelism.
 pub struct Importer {
     queued_tasks: Vec<ImportTask>,
     running_tasks: FuturesUnordered<task::JoinHandle<ImportResult>>,

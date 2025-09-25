@@ -1,3 +1,22 @@
+//! # World Module
+//!
+//! The world module manages the global state of the application, including resource stores,
+//! the import system, and the global bind group that contains engine-wide resources.
+//!
+//! ## Key Components
+//!
+//! - **World**: The main struct that manages all resources and handles world events
+//! - **Stores**: ModelStore, CameraStore, EnvironmentStore, and LightStore for managing resources
+//! - **Importer**: Handles asynchronous asset loading and processing
+//! - **World Bind Group**: A global bind group containing shared resources for shaders
+//!
+//! ## Resource Management
+//!
+//! The World manages resources through various stores that handle creation, caching,
+//! and cleanup of resources. It also manages the global bind group that contains
+//! resources shared across all draw calls, such as camera data, lighting information,
+//! and IBL (Image-Based Lighting) textures.
+
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
@@ -16,6 +35,11 @@ use wgpu::{
 mod store;
 pub use store::*;
 
+/// The main world state manager that handles all resources and their lifecycle.
+/// 
+/// The World struct maintains stores for different types of resources (models, cameras, 
+/// environments, lights), manages the asset import system, and creates the global
+/// bind group used by shaders.
 pub struct World {
     model_store: ModelStore,
     camera_store: CameraStore,

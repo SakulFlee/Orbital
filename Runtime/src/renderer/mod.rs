@@ -1,3 +1,22 @@
+//! # Renderer Module
+//!
+//! The renderer module implements the rendering pipeline for the Orbital engine.
+//! It handles the rendering of models, sky boxes, and other scene elements using
+//! the wgpu graphics API.
+//!
+//! ## Key Components
+//!
+//! - **Renderer**: Manages the rendering state and executes the rendering pipeline
+//! - **Render Passes**: Handles color and depth stencil attachments for proper rendering
+//! - **Sky Box Rendering**: Specialized rendering for environment maps
+//! - **Model Rendering**: Draws models with their associated materials and instances
+//!
+//! ## Rendering Pipeline
+//!
+//! The renderer follows a two-stage process:
+//! 1. Sky box rendering (if environment is present)
+//! 2. Model rendering with depth testing and proper material handling
+
 use cgmath::Vector2;
 use wgpu::{
     BindGroup, Color, CommandEncoder, CommandEncoderDescriptor, Device, IndexFormat, LoadOp,
@@ -7,6 +26,9 @@ use wgpu::{
 
 use crate::resources::{MaterialShader, Model, Texture, WorldEnvironment};
 
+/// The main renderer that manages the rendering state and executes the rendering pipeline.
+/// It handles both sky box rendering for environment maps and model rendering with
+/// proper depth testing and material handling.
 pub struct Renderer {
     surface_texture_format: TextureFormat,
     depth_texture: Texture,
