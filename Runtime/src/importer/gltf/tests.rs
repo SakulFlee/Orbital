@@ -271,3 +271,44 @@ fn check_green_cube_scale_matches() {
         Vector3::new(0.5, 0.5, 0.5)
     );
 }
+
+#[test]
+fn check_light_import_specific() {
+    // Test light import with a specific glTF import
+    // This will pass if there are no lights in the test file, but it tests that
+    // the light import pathway doesn't crash and handles the GltfImportType::Light
+    logging::test_init();
+
+    let task = GltfImportTask {
+        file: "../Assets/Models/TestScene.gltf".to_string(),
+        import: GltfImport::Specific(vec![SpecificGltfImport {
+            import_type: GltfImportType::Light,
+            label: "SomeLight".to_string(), // This likely doesn't exist in the test file
+        }]),
+    };
+
+    let x = GltfImporter::import(task);
+    let result = block_on(x);
+    debug!("{result:?}");
+
+    // Should have errors since the light doesn't exist, or should be empty with no errors
+    // if there are no lights in the file at all
+}
+
+#[test]
+fn check_whole_file_light_import() {
+    // Test that importing a whole file with lights works (doesn't crash)
+    logging::test_init();
+
+    let task = GltfImportTask {
+        file: "../Assets/Models/TestScene.gltf".to_string(),
+        import: GltfImport::WholeFile,
+    };
+
+    let x = GltfImporter::import(task);
+    let result = block_on(x);
+    debug!("{result:?}");
+
+    // The import should succeed without errors, even if there are no lights
+    assert!(result.errors.is_empty());
+}

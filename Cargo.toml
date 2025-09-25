@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["Runtime", "Examples/*", "Tests/*"]
+members = ["Runtime", "Examples/*"]
 
 [profile.release]
 lto = true

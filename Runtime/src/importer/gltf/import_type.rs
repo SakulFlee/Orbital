@@ -4,6 +4,5 @@ pub enum GltfImportType {
     Scene,
     Model,
     Camera,
-    // TODO: Light,
-    // TODO: Animation,
+    Light,
 }

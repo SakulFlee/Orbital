@@ -1,3 +1,8 @@
+// Light types
+const LIGHT_TYPE_POINT: f32 = 0.0;
+const LIGHT_TYPE_DIRECTIONAL: f32 = 1.0;
+const LIGHT_TYPE_SPOT: f32 = 2.0;
+
 struct CameraUniform {
     position: vec3<f32>,
     view_projection_matrix: mat4x4<f32>,
@@ -7,6 +12,13 @@ struct CameraUniform {
     global_gamma: f32,
 }
 
+struct Light {
+    position: vec4<f32>,     // xyz: position, w: padding
+    color: vec4<f32>,        // xyz: color, w: intensity
+    direction: vec4<f32>,    // xyz: direction, w: type
+    params: vec4<f32>,       // x: inner cone angle, y: outer cone angle, zw: padding
+}
+
 struct VertexOutput {
     @builtin(position) frag_position: vec4<f32>,
     // idk why this split is needed but these are actually two 
@@ -14,23 +26,15 @@ struct VertexOutput {
     @location(0) clip_position: vec4<f32>,
 }
 
-//struct Info {
-//    lod: i32,
-//}
-
 @group(0) @binding(0) var<uniform> camera: CameraUniform;
 
-@group(0) @binding(1) var diffuse_env_map: texture_cube<f32>;
-@group(0) @binding(2) var diffuse_env_sampler: sampler;
+@group(0) @binding(1) var<storage> light_store: array<Light>;
 
-@group(0) @binding(3) var specular_env_map: texture_cube<f32>;
-@group(0) @binding(4) var specular_env_sampler: sampler;
+@group(0) @binding(2) var diffuse_env_map: texture_cube<f32>;
+@group(0) @binding(3) var diffuse_env_sampler: sampler;
 
-// @group(0) @binding(4) var ibl_brdf_env_map: texture_cube<f32>;
-// @group(0) @binding(5) var ibl_brdf_env_sampler: sampler;
-
-// @group(1) @binding(6) var<uniform> info: Info;
-
+@group(0) @binding(4) var specular_env_map: texture_cube<f32>;
+@group(0) @binding(5) var specular_env_sampler: sampler;
 
 @vertex
 fn entrypoint_vertex(
@@ -57,14 +61,6 @@ fn entrypoint_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // Sample HDRI WorldEnvironment as Sky Box, based on LoD (-1 = diffuse)
     var world_environment_sample = textureSampleLevel(specular_env_map, specular_env_sampler, ray_direction, 0.0).rgb;
 
-//    var sample: vec3<f32>;
-    // TODO
-//    if info.lod < 0 {
-//        sample = textureSample(diffuse_env_map, diffuse_env_sampler, ray_direction).rgb;
-//    } else {
-//        sample = textureSampleLevel(specular_env_map, specular_env_sampler, ray_direction, f32(info.lod)).rgb;
-//    }
-
     // Clamp sample to be within range (possible detail loss if there is data past >1.0)
     let clamped = clamp(world_environment_sample, vec3(0.0), vec3(1.0));
 
@@ -75,11 +71,6 @@ fn entrypoint_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let aces_tone_mapped = aces_tone_map(gamma_adjustment);
 
     return vec4<f32>(gamma_adjustment, 1.0);
-
-    // Generated SkyBox:
-    // let sky_color = vec3<f32>(0.0, 0.75, 1.0);
-    // let horizon_color = vec3<f32>(0.5, 0.5, 0.5);
-    // let color = mix(horizon_color, sky_color, ray_direction.y);
 }
 
 // ACES tone mapping
