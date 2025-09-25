@@ -212,7 +212,6 @@ impl WorldEnvironment {
         Ok(s)
     }
 
-    // TODO: Move into util
     fn calculate_specular_mip_level_count(
         cube_face_size: u32,
         requested_mip_level_count: Option<&u32>,

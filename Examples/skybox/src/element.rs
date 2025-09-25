@@ -74,7 +74,6 @@ impl Element for DebugWorldEnvironment {
         ElementRegistration::new("debug_world_environment").with_initial_event(Event::World(
             WorldEvent::Environment(EnvironmentEvent::Change {
                 descriptor: self.current_world_environment.to_descriptor(),
-                enable_ibl: true,
             }),
         ))
     }
@@ -101,10 +100,7 @@ impl Element for DebugWorldEnvironment {
             self.current_world_environment = self.current_world_environment.next();
             let descriptor = self.current_world_environment.to_descriptor();
             return Some(vec![Event::World(WorldEvent::Environment(
-                EnvironmentEvent::Change {
-                    descriptor,
-                    enable_ibl: true,
-                },
+                EnvironmentEvent::Change { descriptor },
             ))]);
         }
 

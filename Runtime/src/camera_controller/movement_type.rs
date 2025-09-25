@@ -24,7 +24,6 @@ pub enum CameraControllerMovementType {
         /// camera up and down.
         /// However, there are some exceptions like, for example, _"creative flight"_, _free flight_,
         /// diving/swimming or space.
-        /// TODO: Check if it's actually pitch and not yaw
         ignore_pitch_for_forward_movement: bool,
         /// For most controllers/gamepads, something around 0.1 should suffice.
         /// This value depends highly on your controller and how much e.g. "stick drift" you have.
@@ -47,7 +46,6 @@ pub enum CameraControllerMovementType {
         /// Y- = left
         /// Z+ = up
         /// Z- = down
-        /// TODO: Double check
         offset: Vector3<f32>,
         /// If true, the camera will rotate around the follower target entity, instead of the camera itself.
         /// In the 3rd-person view you most likely want this set to `true` to revolve around the 3rd-person character.
