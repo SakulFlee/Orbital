@@ -16,12 +16,10 @@ use super::MeshDescriptor;
 pub struct ModelDescriptor {
     pub label: String,
     pub mesh: Arc<MeshDescriptor>,
-    /// TODO
-    /// Multiple == Multiple materials being rendered ON-TOP
+    /// Multiple -> Multiple materials being rendered on-top
     /// Only define multiple if really required, e.g. "wireframes on-top of solid"
     pub materials: Vec<Arc<MaterialShaderDescriptor>>,
-    /// TODO
-    /// Multiple == Multiple instances of the same model
+    /// Multiple -> Multiple instances of the same model
     pub transforms: HashMap<Ulid, Transform>,
 }
 

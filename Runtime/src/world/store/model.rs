@@ -27,16 +27,14 @@ use super::StoreError;
 pub struct ModelStore {
     map_descriptors: HashMap<Ulid, ModelDescriptor>,
     cache_realizations: Cache<Ulid, Model>,
-    // Descriptors that are queued to be realized
     queue_realizations: Vec<Ulid>,
     queue_bounding_boxes: Vec<Ulid>,
-    map_bounding_boxes: HashMap<Ulid, BoundingBox>, // TODO: WIP
+    map_bounding_boxes: HashMap<Ulid, BoundingBox>,
     map_label: HashMap<String, Ulid>,
     cache_mesh: RwLock<Cache<Arc<MeshDescriptor>, Mesh>>,
     cache_material: RwLock<Cache<Arc<MaterialShaderDescriptor>, MaterialShader>>,
-    // Instancing support
-    instance_map: HashMap<Ulid, Ulid>, // hash -> base_model_id
-    instance_tracker: HashMap<String, (String, Ulid)>, // instance_label -> (base_label, transform_ulid)
+    instance_map: HashMap<Ulid, Ulid>,
+    instance_tracker: HashMap<String, (String, Ulid)>,
 }
 
 impl ModelStore {

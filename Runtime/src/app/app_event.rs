@@ -42,8 +42,13 @@ pub enum AppEvent {
     ///
     /// See also: [AppChange::RequestAppClosure]
     ForceAppClosure { exit_code: i32 },
-    /// TODO
+    /// Used to signal the App to perform a redraw cycle.
+    /// If the `auto_request_redraw` feature is enabled, you will never need to use this.
+    /// If the `auto_request_redraw` feature is disabled, you need to send this event every time you want to redraw the screen (surface).
+    ///
+    /// This does not immediately force a redraw, but instead queue it to be executed as soon as possible. Thus, there might be some slight delay between sending this event and the redraw happening.
     RequestRedraw,
-    /// TODO
+    /// Sends a message to the App instead of an Element.
+    /// Useful for communicating with the overall app to change fundamental settings like, for example, which renderer to use.
     SendMessage(Message),
 }

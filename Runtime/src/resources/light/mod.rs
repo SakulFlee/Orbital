@@ -5,9 +5,6 @@ use wgpu::{Device, Queue};
 mod descriptor;
 pub use descriptor::*;
 
-#[cfg(test)]
-mod tests;
-
 #[derive(Debug)]
 pub struct Light {
     descriptor: LightDescriptor,
