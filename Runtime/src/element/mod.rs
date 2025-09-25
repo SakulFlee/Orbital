@@ -1,3 +1,22 @@
+//! # Element Module
+//!
+//! The element module provides the entity-component-like system for the Orbital engine.
+//! Elements are the primary way to add interactive objects to your world and handle
+//! game logic through a message-passing system.
+//!
+//! ## Key Concepts
+//!
+//! - **Element**: The main trait for creating game objects that exist in the world
+//! - **Messaging**: Elements communicate through a message-passing system rather than shared memory
+//! - **Registration**: Elements register themselves with the world to define their resource requirements
+//! - **Events**: Elements can respond to various events during the application lifecycle
+//!
+//! ## Messaging System
+//!
+//! Elements follow a strict "communicate by sharing information" approach. Rather than
+//! sharing memory or directly accessing other elements, they send messages to communicate.
+//! This ensures loose coupling between elements and enables flexible, modular game design.
+
 use crate::app::input::InputState;
 use async_trait::async_trait;
 use log::info;

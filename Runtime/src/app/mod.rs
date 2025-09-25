@@ -1,4 +1,21 @@
-//! ⚠️ You are most likely looking for the [App] description!
+//! # Application Module
+//!
+//! The application module provides the core infrastructure for creating cross-platform
+//! applications using the Orbital engine. It handles platform-specific initialization,
+//! event loops, and the main application lifecycle.
+//!
+//! ## Key Components
+//!
+//! - **App**: The main trait for implementing your application logic
+//! - **AppRuntime**: Handles the platform-specific event loop and application lifecycle
+//! - **AppSettings**: Configuration for application properties like window size and title
+//! - **Input**: Cross-platform input handling system
+//!
+//! ## Application Lifecycle
+//!
+//! The application follows a specific lifecycle with events for startup, resume/suspend,
+//! resize, update, and render. This allows for proper resource management across different
+//! platforms, especially mobile where applications can be suspended and resumed.
 
 use std::future::Future;
 
@@ -24,10 +41,12 @@ use input::*;
 
 pub mod standard;
 
-/// Implement this trait to make an [App].  
-/// An [App] is a entrypoint wrapper exposing a few functions for you to use.
-/// The main goal of an [App] is to simplify and streamline the process to
-/// realization of ideas.
+/// The main application trait that defines the interface between your application
+/// and the underlying platform-specific event loop.
+/// 
+/// Implement this trait to create an [App]. An [App] is an entrypoint wrapper exposing
+/// a few functions for you to use. The main goal of an [App] is to simplify and
+/// streamline the process to realization of ideas.
 ///
 /// Please note, that an [App] is different from a [Game]!
 /// [Apps] are providing you with more control, but you will have to handle more
@@ -42,10 +61,20 @@ pub mod standard;
 ///
 /// # Usage
 ///
-/// To use an [App], all you need to do is call the
-/// [AppRuntime] with your implementation, like so:
+/// To use an [App], all you need to do is implement the trait and run it with the
+/// appropriate event loop:
 ///
-/// TODO: New example needed
+/// ```rust
+/// use orbital::app::App;
+/// 
+/// struct MyApp;
+/// 
+/// impl App for MyApp {
+///     fn new() -> Self {
+///         MyApp
+///     }
+/// }
+/// ```
 ///
 /// You will need three things:
 ///
@@ -56,15 +85,13 @@ pub mod standard;
 /// ## Making an [App] instance
 ///
 /// Getting an implementation of [App] should be straight forward.
-/// Make a structure and implement the trait like so:
-///
-/// TODO: New example needed
+/// Make a structure and implement the trait like in the example above.
 ///
 /// Each function should be straight forward and easy to understand.
 /// Not every function needs to be implemented, many have default
 /// implementations which, by default, do nothing.
 ///
-/// [App::init] gets called ONCE at the beginning during [AppRuntime::liftoff].  
+/// [App::on_startup] gets called ONCE at the beginning during [AppRuntime::liftoff].  
 /// Any other function is **event based**.
 /// E.g. [App::on_resize] gets called once there is a resize event.
 ///
@@ -82,8 +109,6 @@ pub mod standard;
 /// Things like window name or initial size can be configured.
 /// The default settings are enough to get started.
 ///
-/// TODO : Needs new example or similar description
-///
 /// [WASM]: https://webassembly.org/
 /// [Cargo-APK]: https://github.com/rust-mobile/cargo-apk
 /// [Cargo-NDK]: https://github.com/bbqsrc/cargo-ndk
@@ -97,10 +122,12 @@ pub mod standard;
 /// [GameRuntime]: crate::world::GameRuntime
 /// [winit]: crate::winit
 pub trait App: Send + Sync {
-    /// TODO
+    /// Creates a new instance of the application.
+    /// This is called once at the beginning of the application lifecycle.
     fn new() -> Self;
 
-    /// TODO
+    /// Called once when the application starts up.
+    /// Use this to initialize your application state.
     fn on_startup(&mut self) -> impl Future<Output = ()> + Send
     where
         Self: Sized,
@@ -146,6 +173,7 @@ pub trait App: Send + Sync {
         async {}
     }
 
+    /// Called when the application focus changes (gains or loses focus).
     fn on_focus_change(&mut self, _focused: bool) -> impl Future<Output = ()> + Send
     where
         Self: Sized,
@@ -178,11 +206,6 @@ pub trait App: Send + Sync {
     where
         Self: Sized,
     {
-        let mut v = Vec::new();
-        v.push(1);
-        v.push(2);
-        v.push(3);
-        println!("{}", v.len());
         async {}
     }
 }
