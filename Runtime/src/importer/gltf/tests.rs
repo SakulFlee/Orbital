@@ -275,7 +275,7 @@ fn check_green_cube_scale_matches() {
 #[test]
 fn check_light_import_specific() {
     // Test light import with a specific glTF import
-    // This will pass if there are no lights in the test file, but it tests that 
+    // This will pass if there are no lights in the test file, but it tests that
     // the light import pathway doesn't crash and handles the GltfImportType::Light
     logging::test_init();
 
@@ -290,7 +290,7 @@ fn check_light_import_specific() {
     let x = GltfImporter::import(task);
     let result = block_on(x);
     debug!("{result:?}");
-    
+
     // Should have errors since the light doesn't exist, or should be empty with no errors
     // if there are no lights in the file at all
 }
