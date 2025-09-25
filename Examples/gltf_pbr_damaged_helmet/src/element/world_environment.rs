@@ -18,7 +18,6 @@ impl Element for WorldEnvironment {
                     sampling_type: WorldEnvironmentDescriptor::DEFAULT_SAMPLING_TYPE,
                     custom_specular_mip_level_count: None,
                 },
-                enable_ibl: true,
             }),
         ))
     }
