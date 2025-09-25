@@ -1,10 +1,11 @@
 use crate::resources::{
-    CameraDescriptor, FilterMode, MaterialDescriptor, MeshDescriptor, ModelDescriptor,
-    PBRMaterialDescriptor, TextureDescriptor, TextureSize, Transform, Vertex,
+    CameraDescriptor, FilterMode, LightDescriptor, MaterialDescriptor, MeshDescriptor,
+    ModelDescriptor, PBRMaterialDescriptor, TextureDescriptor, TextureSize, Transform, Vertex,
 };
 use cgmath::{InnerSpace, Point3, Quaternion, Vector2, Vector3, Zero};
 use gltf::camera::Projection;
 use gltf::image::Format;
+use gltf::khr_lights_punctual;
 use gltf::{Camera, Document, Material, Mesh, Node, Scene, Semantic};
 use hashbrown::HashMap;
 use log::{debug, trace, warn};
@@ -130,6 +131,29 @@ impl GltfImporter {
                         .push(Box::new(GltfError::NotFound(specific_import)));
                 }
             }
+            GltfImportType::Light => {
+                if let Some(node) = document.scenes().find_map(|scene| {
+                    scene.nodes().find(|node| {
+                        node.name()
+                            .is_some_and(|name| name == specific_import.label)
+                    })
+                }) {
+                    if let Some(light) = node.light() {
+                        match Self::parse_light(&node, &light, buffers) {
+                            Ok(light_desc) => result.lights.push(light_desc),
+                            Err(e) => result.errors.push(e),
+                        }
+                    } else {
+                        result
+                            .errors
+                            .push(Box::new(GltfError::NotFound(specific_import)));
+                    }
+                } else {
+                    result
+                        .errors
+                        .push(Box::new(GltfError::NotFound(specific_import)));
+                }
+            }
         }
 
         result
@@ -171,6 +195,7 @@ impl GltfImporter {
     ) -> GltfImportResult {
         let mut model_descriptors = Vec::new();
         let mut camera_descriptors = Vec::new();
+        let mut light_descriptors = Vec::new();
         let mut errors = Vec::new();
 
         for node in nodes {
@@ -184,6 +209,11 @@ impl GltfImporter {
                     Ok(camera) => camera_descriptors.push(camera),
                     Err(e) => errors.push(e),
                 }
+            } else if let Some(light) = node.light() {
+                match Self::parse_light(&node, &light, buffers) {
+                    Ok(light_desc) => light_descriptors.push(light_desc),
+                    Err(e) => errors.push(e),
+                }
             } else {
                 warn!("Unknown node type: {node:?}");
             }
@@ -192,6 +222,7 @@ impl GltfImporter {
         GltfImportResult {
             models: model_descriptors,
             cameras: camera_descriptors,
+            lights: light_descriptors,
             errors,
         }
     }
@@ -875,5 +906,86 @@ impl GltfImporter {
 
         // Fallback to zero vectors
         (Vector3::zero(), Vector3::zero())
+    }
+
+    /// Handles parsing of glTF [`Light`] and turns it into an Orbital [`LightDescriptor`].
+    fn parse_light(
+        node: &Node,
+        light: &khr_lights_punctual::Light,
+        buffers: &Vec<gltf::buffer::Data>,
+    ) -> Result<LightDescriptor, Box<dyn Error>> {
+        let transform = node.transform();
+        let decomposed = transform.decomposed();
+
+        // Apply coordinate system conversion (Y-up to Z-up) to position
+        let position = Vector3::new(
+            decomposed.0[0],
+            decomposed.0[2],  // Y and Z are swapped
+            -decomposed.0[1], // Z becomes -Y
+        );
+
+        // For direction, we need to apply the rotation from the node
+        // The default direction for lights in glTF is typically along the -Z axis
+        let default_direction = Vector3::new(0.0, 0.0, -1.0);
+
+        // Extract rotation quaternion from the decomposed transform
+        let rotation_quaternion = Quaternion::new(
+            decomposed.1[3], // w (scalar part is first in glTF)
+            decomposed.1[0], // x
+            decomposed.1[1], // y
+            decomposed.1[2], // z
+        )
+        .normalize();
+
+        // Apply rotation to the default direction using cgmath quaternion rotation
+        let rotated_direction = rotation_quaternion * default_direction;
+        // Apply coordinate system conversion to the direction
+        let direction = Vector3::new(
+            rotated_direction.x,
+            rotated_direction.z,  // Y and Z are swapped
+            -rotated_direction.y, // Z becomes -Y
+        )
+        .normalize();
+
+        // Get the light properties from the glTF light
+        let light_type = light.kind();
+        let color = light.color();
+        let intensity = light.intensity();
+
+        // Convert RGB color to Vector3
+        let color_vector = Vector3::new(color[0], color[1], color[2]);
+
+        // Create the appropriate light descriptor based on the light type
+        let light_descriptor = match light_type {
+            khr_lights_punctual::Kind::Directional => LightDescriptor::new_directional(
+                node.name().unwrap_or("Directional Light").to_string(),
+                direction,
+                color_vector,
+                intensity,
+            ),
+            khr_lights_punctual::Kind::Point => LightDescriptor::new_point(
+                node.name().unwrap_or("Point Light").to_string(),
+                position,
+                color_vector,
+                intensity,
+            ),
+            khr_lights_punctual::Kind::Spot {
+                inner_cone_angle,
+                outer_cone_angle,
+            } => {
+                // Apply coordinate system conversion to direction for spot lights too
+                LightDescriptor::new_spot(
+                    node.name().unwrap_or("Spot Light").to_string(),
+                    position,
+                    direction,
+                    color_vector,
+                    intensity,
+                    inner_cone_angle,
+                    outer_cone_angle,
+                )
+            }
+        };
+
+        Ok(light_descriptor)
     }
 }

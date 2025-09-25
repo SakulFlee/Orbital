@@ -41,7 +41,7 @@ async-std = "1.13.0"
 async-trait = "0.1.83"
 cgmath = "0.18.0"
 dirs = "6.0.0"
-gltf = "1.4.1"
+gltf = { version = "1.4.1", features = ["KHR_lights_punctual"] }
 fern = "0.7.0"
 futures = "0.3.31"
 hashbrown = "0.16.0"
