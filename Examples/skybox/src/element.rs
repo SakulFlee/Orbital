@@ -100,9 +100,7 @@ impl Element for DebugWorldEnvironment {
             self.current_world_environment = self.current_world_environment.next();
             let descriptor = self.current_world_environment.to_descriptor();
             return Some(vec![Event::World(WorldEvent::Environment(
-                EnvironmentEvent::Change {
-                    descriptor,
-                },
+                EnvironmentEvent::Change { descriptor },
             ))]);
         }
 

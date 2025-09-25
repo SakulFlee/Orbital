@@ -58,9 +58,7 @@ impl EnvironmentStore {
 
     pub fn handle_event(&mut self, environment_event: EnvironmentEvent) {
         match environment_event {
-            EnvironmentEvent::Change {
-                descriptor,
-            } => {
+            EnvironmentEvent::Change { descriptor } => {
                 self.queue_change(descriptor);
             }
         }
