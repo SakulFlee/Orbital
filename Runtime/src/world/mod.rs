@@ -181,7 +181,9 @@ impl World {
         // Needs to be at most the same as the cache timeout time!
         // Otherwise, cache cleanup will never be efficient.
         if self.last_cleanup.elapsed() >= Duration::from_secs(5) {
-            self.model_store.cleanup(); // TODO
+            self.model_store
+                .cleanup()
+                .expect("ModelStore cleanup failure");
             self.camera_store.cleanup();
 
             self.last_cleanup = Instant::now();
@@ -333,7 +335,7 @@ impl World {
                 self.importer.as_mut().unwrap().register_task(import_task);
             }
             WorldEvent::Clear => {
-                self.model_store.clear(); // TODO
+                self.model_store.clear().expect("ModelStore clear failure");
                 self.camera_store.clear();
                 self.environment_store.clear();
                 self.light_store.clear();
@@ -365,7 +367,7 @@ impl World {
     pub fn retrieve_render_resources(
         &self,
     ) -> (Option<&BindGroup>, Option<&WorldEnvironment>, Vec<&Model>) {
-        // TODO: Use proper bounding box checking!
+        // TODO: This effectively realizes all BoundingBoxes/Models, without checking if they are actually visible or not. A proper frustum check should be used to determine if the given models actually are visible or near the camera and thus should be rendered and activated.
         let bounding_boxes = self.model_store.get_bounding_boxes();
         let ids = bounding_boxes.keys().copied().collect::<Vec<_>>();
         let models = self.model_store.get_realizations(ids);
