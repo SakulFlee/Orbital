@@ -18,6 +18,10 @@ This project is currently **on ice**. After serving its intended purpose, develo
 
 However, the engine remains available for use, and **community contributions are welcome**! If you're interested in extending or updating the engine, I'd be more than happy to review and merge pull requests.
 
+There is a list of issues / future features to be used _once I continue working on this project_.
+If wanted, pick one and start implementing it! :)
+Said list can be found [here](https://github.com/SakulFlee/Orbital/issues/4).
+
 </div>
 
 ## Core Features
