@@ -36,8 +36,8 @@ mod store;
 pub use store::*;
 
 /// The main world state manager that handles all resources and their lifecycle.
-/// 
-/// The World struct maintains stores for different types of resources (models, cameras, 
+///
+/// The World struct maintains stores for different types of resources (models, cameras,
 /// environments, lights), manages the asset import system, and creates the global
 /// bind group used by shaders.
 pub struct World {
