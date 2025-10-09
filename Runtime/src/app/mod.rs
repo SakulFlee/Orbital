@@ -43,7 +43,7 @@ pub mod standard;
 
 /// The main application trait that defines the interface between your application
 /// and the underlying platform-specific event loop.
-/// 
+///
 /// Implement this trait to create an [App]. An [App] is an entrypoint wrapper exposing
 /// a few functions for you to use. The main goal of an [App] is to simplify and
 /// streamline the process to realization of ideas.
@@ -66,9 +66,9 @@ pub mod standard;
 ///
 /// ```rust
 /// use orbital::app::App;
-/// 
+///
 /// struct MyApp;
-/// 
+///
 /// impl App for MyApp {
 ///     fn new() -> Self {
 ///         MyApp
