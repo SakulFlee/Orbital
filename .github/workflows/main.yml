@@ -208,9 +208,10 @@ jobs:
           echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ noble main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
           echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ noble-updates main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
           echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ noble-security main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
-          
-          # Update mirrors
-          sudo apt-get update
+
+      - name: 🔁 Update mirrors (Linux)
+        if: ${{ startsWith(matrix.os, 'ubuntu') }}
+        run: sudo apt-get update
 
       - name: 🛠️ Install GCC (Linux)
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
