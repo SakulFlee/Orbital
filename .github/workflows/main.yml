@@ -316,7 +316,7 @@ jobs:
         run: Compress-Archive -Destination ../${{ matrix.target }}.zip -Path ./*
 
       - name: ⬆️ Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ matrix.target }}
           path: ${{ matrix.target }}.zip
@@ -330,7 +330,7 @@ jobs:
     if: ${{ startsWith(github.ref, 'refs/tags/') }}
     steps:
       - name: ⬇️ Download artifacts from this run
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
 
       - name: ➕ Make upload folder
         run: mkdir upload
