@@ -3,18 +3,14 @@ podTemplate(label: "k8s",
         containerTemplate(name: 'rust', image: 'rust:latest', ttyEnabled: true, command: 'cat'),
     ]) {
     node("k8s") {
-        stage('Rust') {
-            parallel {
-                stage('Check') {
-                    steps {
-                        sh 'cargo check'
-                    }
-                }
-                stage('Test') {
-                    steps {
-                        sh 'cargo test'
-                    }
-                }
+        stage('Check') {
+            container('rust') {
+                sh 'cargo check'
+            }
+        }
+        stage('Test') {
+            container('rust') {
+                 sh 'cargo test'
             }
         }
     }
