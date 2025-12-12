@@ -18,12 +18,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: ⏬ Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.head_ref }}
 
       - name: 💾 Cache
-        uses: actions/cache@v4.3.0
+        uses: actions/cache@v5.0.0
         with:
           path: target/
           key: target
@@ -32,6 +32,9 @@ jobs:
         run: |
           rustup default stable
           rustup update
+
+      - name: 🔁 Update mirrors
+        run: sudo apt-get update
 
       - name: 🛠️ Install dependencies
         run: sudo apt-get install -y libudev-dev
@@ -45,12 +48,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: ⏬ Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.head_ref }}
 
       - name: 💾 Cache
-        uses: actions/cache@v4.3.0
+        uses: actions/cache@v5.0.0
         with:
           path: target/
           key: target
@@ -59,6 +62,9 @@ jobs:
         run: |
           rustup default stable
           rustup update
+
+      - name: 🔁 Update mirrors
+        run: sudo apt-get update
 
       - name: 🛠️ Install dependencies
         run: sudo apt-get install -y libudev-dev
@@ -75,12 +81,12 @@ jobs:
       - clippy
     steps:
       - name: ⏬ Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.head_ref }}
 
       - name: 💾 Cache
-        uses: actions/cache@v4.3.0
+        uses: actions/cache@v5.0.0
         with:
           path: target/
           key: target
@@ -89,6 +95,9 @@ jobs:
         run: |
           rustup default stable
           rustup update
+
+      - name: 🔁 Update mirrors
+        run: sudo apt-get update
 
       - name: 🛠️ Install dependencies
         run: sudo apt-get install -y libudev-dev
@@ -102,12 +111,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: ⏬ Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.head_ref }}
 
       - name: 💾 Cache
-        uses: actions/cache@v4.3.0
+        uses: actions/cache@v5.0.0
         with:
           path: target/
           key: target
@@ -116,6 +125,10 @@ jobs:
         run: |
           rustup default stable
           rustup update
+
+      - name: 🔁 Update mirrors (Linux)
+        if: ${{ startsWith(matrix.os, 'ubuntu') }}
+        run: sudo apt-get update
 
       - name: 🛠️ Install LibUDev (Linux)
         # Note: LibUDev is for GilRs (controller inputs)
@@ -176,10 +189,10 @@ jobs:
             os: "windows-latest"
     steps:
       - name: ⏬ Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: 💾 Cache
-        uses: actions/cache@v4.3.0
+        uses: actions/cache@v5.0.0
         with:
           path: target/
           key: target-${{ matrix.target }}
@@ -208,9 +221,10 @@ jobs:
           echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ noble main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
           echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ noble-updates main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
           echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ noble-security main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
-          
-          # Update mirrors
-          sudo apt-get update
+
+      - name: 🔁 Update mirrors (Linux)
+        if: ${{ startsWith(matrix.os, 'ubuntu') }}
+        run: sudo apt-get update
 
       - name: 🛠️ Install GCC (Linux)
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
@@ -302,7 +316,7 @@ jobs:
         run: Compress-Archive -Destination ../${{ matrix.target }}.zip -Path ./*
 
       - name: ⬆️ Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ matrix.target }}
           path: ${{ matrix.target }}.zip
@@ -316,7 +330,7 @@ jobs:
     if: ${{ startsWith(github.ref, 'refs/tags/') }}
     steps:
       - name: ⬇️ Download artifacts from this run
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
 
       - name: ➕ Make upload folder
         run: mkdir upload
