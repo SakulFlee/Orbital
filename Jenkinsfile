@@ -6,10 +6,14 @@ podTemplate(label: "k8s",
         stage('Rust') {
             parallel {
                 stage('Check') {
-                    sh 'cargo check'
+                    steps {
+                        sh 'cargo check'
+                    }
                 }
                 stage('Test') {
-                    sh 'cargo test'
+                    steps {
+                        sh 'cargo test'
+                    }
                 }
             }
         }
