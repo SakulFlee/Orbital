@@ -69,6 +69,13 @@ fn test_realization_some_mip_level_count_set() {
 fn test_caching() {
     logging::test_init();
 
+    if std::env("CI").is_ok() {
+        warn!("This test is DISABLED as it cannot be run in a CI!");
+        warn!("... at least not without a proper GPU like on GitHub Actions 'default' runners ...");
+
+        return;
+    }
+
     warn!("This test utilizes caching!");
     warn!("On unexpected results, make sure to delete the cache first!");
     warn!("The cache location should be printed in the log below somewhere.");
