@@ -69,7 +69,7 @@ fn test_realization_some_mip_level_count_set() {
 fn test_caching() {
     logging::test_init();
 
-    if std::env("CI").is_ok() {
+    if std::env::var("CI").is_ok() {
         warn!("This test is DISABLED as it cannot be run in a CI!");
         warn!("... at least not without a proper GPU like on GitHub Actions 'default' runners ...");
 
