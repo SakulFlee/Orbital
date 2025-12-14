@@ -1,18 +1,36 @@
-podTemplate(label: "k8s",
-    containers: [
-        containerTemplate(name: 'rust', image: 'rust:latest', ttyEnabled: true, command: 'cat'),
-    ]) {
-    node("k8s") {
+pipeline {
+    agent {
+        kubernetes {
+            label 'k8s'
+            defaultContainer 'rust'
+            yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: rust
+    image: rust:latest
+    command: ["cat"]
+    tty: true
+"""
+        }
+    }
+
+    stages {
         stage('Parallel Tasks') {
             parallel {
                 stage('Check') {
-                    container('rust') {
-                        sh 'cargo check'
+                    steps {
+                        container('rust') {
+                            sh 'cargo check'
+                        }
                     }
                 }
                 stage('Test') {
-                    container('rust') {
-                        sh 'cargo test'
+                    steps {
+                        container('rust') {
+                            sh 'cargo test'
+                        }
                     }
                 }
             }
