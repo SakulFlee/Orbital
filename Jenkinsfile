@@ -9,7 +9,7 @@ kind: Pod
 spec:
   containers:
   - name: rust
-    image: rust:latest
+    image: forgejo.sakul-flee.de/container/orbital-build-container:latest
     command: ["cat"]
     tty: true
 """
