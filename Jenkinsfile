@@ -10,6 +10,7 @@ spec:
   containers:
   - name: rust
     image: forgejo.sakul-flee.de/container/orbital-build-container:latest
+    imagePullPolicy: Always
     command: ["cat"]
     tty: true
 """
