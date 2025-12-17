@@ -23,9 +23,6 @@ spec:
                 stage('Check') {
                     steps {
                         container('rust') {
-                            sh 'echo "Current PATH: $PATH"'
-                            sh 'env'
-                            sh 'which cargo || echo "cargo not found"'
                             sh 'cargo check'
                         }
                     }
