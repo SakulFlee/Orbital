@@ -8,7 +8,7 @@
 ![](https://img.shields.io/badge/Forgejo-Origin-orange?style=for-the-badge&logo=forgejo&logoSize=auto&link=https%3A%2F%2Fforgejo.sakul-flee.de%2FSakulFlee%2FOrbital%2F)
 ![](https://img.shields.io/badge/GitHub-Mirror-blue?style=for-the-badge&logo=github&logoSize=auto&link=https%3A%2F%2Fgithub.com%2FSakulFlee%2FOrbital)
 
-_Orbital_ is a real-time graphical rendering engine & framework written in Rust.
+_Orbital_ is a cross-platform real-time graphical rendering engine & framework written in Rust.
 The goal of this project is to bridge well established industry-standard techniques with upcoming (next-gen) and experimental techniques to form a robust new foundation for next-gen visual computing.
 
 </div>
