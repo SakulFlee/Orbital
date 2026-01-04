@@ -2,29 +2,26 @@
 
 <img src=".github/logo/Orbital.svg" alt="Orbital Engine Logo" width="200"/>
 
-# 🛰️ Orbital Engine
+# 🛰️ Orbital Engine & Framework
 
-_Orbital_ is a multi-platform 3D rendering engine built in Rust using WGPU as the graphics backend. The engine provides a flexible framework for creating 3D applications and games with support for modern rendering techniques including PBR (Physically Based Rendering), IBL (Image-Based Lighting), and GLTF asset import.
 
-</div>
+![](https://img.shields.io/badge/Forgejo-Origin-orange?style=for-the-badge&logo=forgejo&logoSize=auto&link=https%3A%2F%2Fforgejo.sakul-flee.de%2FSakulFlee%2FOrbital%2F)
+![](https://img.shields.io/badge/GitHub-Mirror-blue?style=for-the-badge&logo=github&logoSize=auto&link=https%3A%2F%2Fgithub.com%2FSakulFlee%2FOrbital)
 
-## Project Status
-
-<div align="center">
-
-⚠️ **PROJECT SUNSET ANNOUNCEMENT** ⚠️
-
-This project is currently **on ice**. After serving its intended purpose, development has been paused. While I may return to it in the future, there are no immediate plans for updates or new features.
-
-However, the engine remains available for use, and **community contributions are welcome**! If you're interested in extending or updating the engine, I'd be more than happy to review and merge pull requests.
-
-There is a list of issues / future features to be used _once I continue working on this project_.
-If wanted, pick one and start implementing it! :)
-Said list can be found [here](https://github.com/SakulFlee/Orbital/issues/4).
+_Orbital_ is a real-time graphical rendering engine & framework written in Rust.
+The goal of this project is to bridge well established industry-standard techniques with upcoming (next-gen) and experimental techniques to form a robust new foundation for next-gen visual computing.
 
 </div>
 
-## Core Features
+## Showcase
+
+| glTF demo: Damaged Helmet| |
+| - | - |
+| ![A](Images/DamagedHelmet.png) | |
+| PBR Grid: Spheres | PBR Grid: Cubes |
+| ![A](Images/PBRGridSpheres.png) | ![A](Images/PBRGridCubes.png) |
+
+## Core Features 
 
 <div align="center">
 
@@ -36,6 +33,20 @@ Said list can be found [here](https://github.com/SakulFlee/Orbital/issues/4).
 | **Cross-Platform** | Unified rendering across desktop platforms via WGPU abstraction |
 | **Modular Architecture** | Flexible element system with message-based communication |
 | **Modern Shaders** | WGSL-based shaders for cross-platform compatibility |
+
+</div>
+
+## Experiments
+
+<div align="center">
+
+| Experimental Concept | Description |
+| - | - |
+| HJAA (Halton-Jitter Anti-Aliasing) | Advanced spatial smoothing utilizing the [Halton Sequence](https://en.wikipedia.org/wiki/Halton_sequence) |
+| IVXGI (Incremental Voxel-based Global Illumination) | A evolution of [Nvidia's VXGI](https://developer.download.nvidia.com/assets/events/GDC15/GEFORCE/VXGI_Dynamic_Global_Illumination_GDC15.pdf) for high performance dynamic lighting. |
+
+> [!IMPORTANT]
+> Documentation for experimental features will be released once they have been fully validated in practical, non-theoretical environments.
 
 </div>
 
@@ -94,17 +105,6 @@ The Orbital engine has a rich history spanning multiple iterations and rewrites.
 - **Orbital (Rust/WGPU/WGSL)**: The current iteration using Rust with WGPU and WGSL, moving away from GLSL to a more modern shader language
 
 Each version learned from the previous ones, with the current implementation built in Rust leveraging the WGPU graphics API abstraction layer for cross-platform support.
-
-## Future Features & Missing Functionality
-
-There are several features that would enhance the engine but are currently missing. These include:
-
-- **Proper Frustum Culling**: Currently, the engine effectively realizes all BoundingBoxes/Models without checking if they are actually visible or not. A proper frustum check should be used to determine if models are visible or near the camera.
-- **Performance Optimizations**: Various optimizations for rendering performance and memory usage
-- **Additional Rendering Techniques**: Support for more advanced rendering techniques like shadow mapping, volumetric effects, etc.
-- **Improved Asset Pipeline**: Better tools and workflows for importing and processing assets
-- **Animation System**: More robust animation support beyond basic GLTF animations
-- **Physics Integration**: Integration with physics engines for realistic interactions
 
 ## License
 
