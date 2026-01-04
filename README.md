@@ -45,10 +45,10 @@ The goal of this project is to bridge well established industry-standard techniq
 | HJAA (Halton-Jitter Anti-Aliasing) | Advanced spatial smoothing utilizing the [Halton Sequence](https://en.wikipedia.org/wiki/Halton_sequence) |
 | IVXGI (Incremental Voxel-based Global Illumination) | A evolution of [Nvidia's VXGI](https://developer.download.nvidia.com/assets/events/GDC15/GEFORCE/VXGI_Dynamic_Global_Illumination_GDC15.pdf) for high performance dynamic lighting. |
 
+</div>
+
 > [!IMPORTANT]
 > Documentation for experimental features will be released once they have been fully validated in practical, non-theoretical environments.
-
-</div>
 
 ## Platform Compatibility
 
