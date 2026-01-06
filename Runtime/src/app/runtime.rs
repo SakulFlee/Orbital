@@ -97,12 +97,13 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
         instance
     }
 
-    fn retrieve_and_rank_adapters(
+    async fn retrieve_and_rank_adapters(
         instance: &Instance,
-        compatible_surface: Option<&Surface>,
+        compatible_surface: Option<&Surface<'static>>,
     ) -> Vec<(Adapter, (u8, u8, u128, usize))> {
         let mut valid_adapters_ranked: Vec<_> = instance
             .enumerate_adapters(Backends::all())
+            .await
             .into_iter()
             // Remove any adapters that don't support the surface
             .filter(|adapter| {
