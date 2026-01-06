@@ -6,8 +6,8 @@ use cgmath::Vector2;
 use gilrs::Gilrs;
 use wgpu::{
     Adapter, Backend, BackendOptions, Backends, CompositeAlphaMode, Device, DeviceDescriptor,
-    DeviceType, Features, Instance, InstanceDescriptor, InstanceFlags, Limits,
-    MemoryBudgetThresholds, MemoryHints, PresentMode, Queue, Surface, SurfaceConfiguration,
+    DeviceType, ExperimentalFeatures, Features, Instance, InstanceDescriptor, InstanceFlags,
+    Limits, MemoryBudgetThresholds, MemoryHints, PresentMode, Queue, Surface, SurfaceConfiguration,
     SurfaceError, SurfaceTexture, TextureUsages, TextureViewDescriptor, Trace,
 };
 use winit::{
@@ -219,6 +219,7 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
             required_limits: Limits::default(),
             memory_hints: MemoryHints::Performance,
             trace: Trace::Off,
+            experimental_features: ExperimentalFeatures::disabled(),
         }))
         .expect("Failed creating device from chosen adapter!");
         debug!("Device: {device:?}");
