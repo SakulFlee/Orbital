@@ -181,9 +181,6 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
                 limits_sum += adapter.limits().max_compute_workgroup_size_y as u128;
                 limits_sum += adapter.limits().max_compute_workgroup_size_z as u128;
                 limits_sum += adapter.limits().max_compute_workgroups_per_dimension as u128;
-                limits_sum += adapter.limits().min_subgroup_size as u128;
-                limits_sum += adapter.limits().max_subgroup_size as u128;
-                limits_sum += adapter.limits().max_push_constant_size as u128;
                 limits_sum += adapter.limits().max_non_sampler_bindings as u128;
 
                 (adapter, (pri.0, pri.1, limits_sum, pri.3))
