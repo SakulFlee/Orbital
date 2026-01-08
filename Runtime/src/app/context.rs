@@ -28,9 +28,9 @@ pub struct AppContext {
 impl AppContext {
     pub fn new(
         event_loop: &ActiveEventLoop,
-        settings: AppSettings,
+        settings: &AppSettings,
     ) -> Result<Self, Box<dyn Error>> {
-        let window = Self::make_window(event_loop, settings.size, settings.name)?;
+        let window = Self::make_window(event_loop, settings.size, &settings.name)?;
         debug!("Window: {:?}", window);
 
         let instance = Self::make_instance();
@@ -46,20 +46,25 @@ impl AppContext {
         debug!("Device: {:?}", device);
         debug!("Queue: {:?}", queue);
 
-        Ok(Self {
+        let ctx = Self {
             window,
             instance,
             adapter,
             device,
             queue,
             surface,
-        })
+        };
+
+        let surface_configuration = ctx.make_surface_configuration(settings.vsync_enabled);
+        ctx.reconfigure_surface(&surface_configuration);
+
+        Ok(ctx)
     }
 
-    fn make_window(
+    fn make_window<S: Into<String>>(
         event_loop: &ActiveEventLoop,
         inner_size: Size,
-        title: String,
+        title: S,
     ) -> Result<Window, OsError> {
         event_loop.create_window(
             Window::default_attributes()
