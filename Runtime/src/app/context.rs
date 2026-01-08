@@ -7,7 +7,7 @@ use wgpu::{
     DeviceDescriptor, ExperimentalFeatures, Features, Instance, InstanceDescriptor, InstanceFlags,
     Limits, MemoryBudgetThresholds, MemoryHints, PowerPreference, PresentMode, Queue,
     RequestAdapterError, RequestAdapterOptions, RequestDeviceError, Surface, SurfaceConfiguration,
-    TextureFormat, TextureUsages, Trace,
+    SurfaceError, SurfaceTexture, TextureFormat, TextureUsages, Trace,
 };
 use winit::{dpi::Size, error::OsError, event_loop::ActiveEventLoop, window::Window};
 
@@ -157,6 +157,10 @@ impl AppContext {
         default_config.desired_maximum_frame_latency = 2;
 
         default_config
+    }
+
+    pub fn acquire_next_frame(&self) -> Result<SurfaceTexture, SurfaceError> {
+        self.surface().get_current_texture()
     }
 
     pub fn reconfigure_surface(&self, configuration: &SurfaceConfiguration) {
