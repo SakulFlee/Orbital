@@ -4,6 +4,7 @@ use std::thread;
 use async_std::task::block_on;
 use cgmath::Vector2;
 use gilrs::Gilrs;
+use log::trace;
 use wgpu::{
     Adapter, Backend, BackendOptions, Backends, CompositeAlphaMode, Device, DeviceDescriptor,
     DeviceType, ExperimentalFeatures, Features, Instance, InstanceDescriptor, InstanceFlags,
@@ -36,6 +37,7 @@ pub struct AppRuntime<AppImpl: App> {
     settings: AppSettings,
     state: AppState,
     input_state: InputState,
+    timer: Option<Timer>,
     #[cfg(feature = "gamepad_input")]
     gil: Gilrs,
 }
@@ -59,38 +61,12 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
             settings,
             state: AppState::Starting,
             input_state: InputState::new(),
+            timer: None,
             #[cfg(feature = "gamepad_input")]
             gil: Gilrs::new().expect("Gamepad input initialization failed!"),
         };
 
         event_loop.run_app(&mut app_runtime)
-    }
-
-    pub fn reconfigure_surface(&mut self)
-    where
-        Self: Sized + Send,
-    {
-        self.surface.as_ref().unwrap().configure(
-            self.device.as_ref().unwrap(),
-            self.surface_configuration.as_ref().unwrap(),
-        );
-
-        let config_ref = self.surface_configuration.as_ref().unwrap();
-
-        block_on(self.app.on_resize(
-            Vector2 {
-                x: config_ref.width,
-                y: config_ref.height,
-            },
-            self.device.as_ref().unwrap(),
-            self.queue.as_ref().unwrap(),
-        ));
-    }
-
-    pub fn acquire_next_frame(&mut self) -> Result<SurfaceTexture, SurfaceError> {
-        let surface = self.surface.as_ref().unwrap();
-
-        surface.get_current_texture()
     }
 
     pub fn redraw(&mut self) {
@@ -279,12 +255,19 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
 
         debug!("Resuming app ...");
 
-        let ctx = AppContext::new(event_loop, &self.settings);
+        let ctx = match AppContext::new(event_loop, &self.settings) {
+            Ok(ctx) => ctx,
+            Err(e) => {
+                error!("Critical error: Failed to acquire context while resuming app!");
+                trace!("Error: {:?}", e);
+                return;
+            }
+        };
 
-        //     self.timer = Some(Timer::new());
-        //
-        //     self.reconfigure_surface();
-        //
+        self.state = AppState::Ready(ctx);
+
+        self.timer = Some(Timer::new());
+
         info!("App resumed.");
     }
 
