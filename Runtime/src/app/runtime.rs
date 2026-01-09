@@ -318,7 +318,7 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
                 self.redraw();
 
                 #[cfg(feature = "auto_request_redraw")]
-                self.window.as_ref().unwrap().request_redraw();
+                ctx.window().request_redraw();
 
                 None
             }
