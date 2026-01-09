@@ -1,5 +1,6 @@
-use std::mem::transmute;
+use std::sync::Arc;
 use std::thread;
+use std::{mem::transmute, sync::Mutex};
 
 use async_std::task::block_on;
 use cgmath::Vector2;
@@ -171,62 +172,62 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
     }
 
     fn process_app_events(&mut self, app_events: Vec<AppEvent>) -> bool {
-        let mut exit_requested = false;
+        let ctx = match &self.state {
+            AppState::Ready(ctx) => ctx.clone(),
+            _ => {
+                debug!(
+                    "App in invalid state ({:?}), skipping window events!",
+                    self.state
+                );
+                return false;
+            }
+        };
 
+        macro_rules! ctx_lock {
+            () => {
+                ctx.lock().expect("Mutex failure")
+            };
+        }
+
+        let mut exit_requested = false;
         for event in app_events {
             match event {
                 AppEvent::ChangeCursorAppearance(cursor) => {
-                    if let Some(window) = &self.window {
-                        window.set_cursor(cursor);
-                    } else {
-                        warn!("Change cursor appearance requested, but window does not exist!");
-                    }
+                    ctx_lock!().window().set_cursor(cursor);
                 }
                 AppEvent::ChangeCursorPosition(position) => {
-                    if let Some(window) = &self.window {
-                        if let Err(e) = window.set_cursor_position(position) {
-                            error!("Failed to set cursor position: {e}");
-                        }
-                    } else {
-                        warn!("Change cursor position requested, but window does not exist!");
+                    if let Err(e) = ctx_lock!().window().set_cursor_position(position) {
+                        error!("Failed to set cursor position: {e}");
                     }
                 }
                 AppEvent::ChangeCursorVisible(visible) => {
-                    if let Some(window) = &self.window {
-                        window.set_cursor_visible(visible);
-                    } else {
-                        warn!("Change cursor visibility requested, but window does not exist!");
-                    }
+                    ctx_lock!().window().set_cursor_visible(visible);
                 }
                 AppEvent::ChangeCursorGrabbed(grab) => {
-                    if let Some(window) = &self.window {
-                        if grab {
-                            if let Err(e) = window.set_cursor_grab(CursorGrabMode::Confined) {
-                                error!(
+                    let lock = ctx_lock!();
+
+                    if grab {
+                        if let Err(e) = lock.window().set_cursor_grab(CursorGrabMode::Confined) {
+                            error!(
                                     "Failed to set cursor grab! This might not be supported on your platform. Error: {e}"
                                 );
-                            }
-                        } else if let Err(e) = window.set_cursor_grab(CursorGrabMode::None) {
-                            error!("Failed to unset cursor grab! Error: {e}");
                         }
-                    } else {
-                        warn!("Change cursor grabbing requested, but window does not exist!");
+                    } else if let Err(e) = lock.window().set_cursor_grab(CursorGrabMode::None) {
+                        error!("Failed to unset cursor grab! Error: {e}");
                     }
                 }
                 AppEvent::RequestAppClosure => {
                     warn!("App closure was requested!");
                     exit_requested = true;
+                    // TODO: Required? Marking the event_loop as exiting + AppState change might be
+                    // enough
                 }
                 AppEvent::ForceAppClosure { exit_code } => {
                     warn!("Force app closure was requested with exit code {exit_code}!");
                     std::process::exit(exit_code);
                 }
                 AppEvent::RequestRedraw => {
-                    if let Some(window) = &self.window {
-                        window.request_redraw();
-                    } else {
-                        warn!("Redraw requested, but window does not exist!");
-                    }
+                    ctx_lock!().window().request_redraw();
                 }
                 AppEvent::SendMessage(message) => {
                     self.messages.push(message);
@@ -264,7 +265,7 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
             }
         };
 
-        self.state = AppState::Ready(ctx);
+        self.state = AppState::Ready(Arc::new(Mutex::new(ctx)));
 
         self.timer = Some(Timer::new());
 
@@ -293,12 +294,15 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
         _window_id: WindowId,
         event: WindowEvent,
     ) {
-        let AppState::Ready(ctx) = &self.state else {
-            debug!(
-                "App in invalid state ({:?}), skipping window events!",
-                self.state
-            );
-            return;
+        let ctx = match &self.state {
+            AppState::Ready(ctx) => ctx.clone(),
+            _ => {
+                debug!(
+                    "App in invalid state ({:?}), skipping window events!",
+                    self.state
+                );
+                return;
+            }
         };
 
         let input_event = match event {
@@ -318,7 +322,7 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
                 self.redraw();
 
                 #[cfg(feature = "auto_request_redraw")]
-                ctx.window().request_redraw();
+                ctx.lock().expect("Mutex failure").window().request_redraw();
 
                 None
             }
@@ -357,8 +361,10 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
                 position,
             }),
             WindowEvent::Resized(new_size) => {
-                let configuration = ctx.make_surface_configuration(self.settings.vsync_enabled);
-                ctx.reconfigure_surface(&configuration);
+                let ctx_lock = ctx.lock().expect("Mutex failure");
+                let configuration =
+                    ctx_lock.make_surface_configuration(self.settings.vsync_enabled);
+                ctx_lock.reconfigure_surface(&configuration);
 
                 self.input_state.surface_resize(new_size);
 
