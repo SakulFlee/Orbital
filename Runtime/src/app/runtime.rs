@@ -293,9 +293,9 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
         _window_id: WindowId,
         event: WindowEvent,
     ) {
-        let AppState::Ready(ctx) = self.state else {
+        let AppState::Ready(ctx) = &self.state else {
             debug!(
-                "App in invalid state, skipping window events! (State: {:?})",
+                "App in invalid state ({:?}), skipping window events!",
                 self.state
             );
             return;
@@ -378,6 +378,14 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
         device_id: DeviceId,
         device_event: DeviceEvent,
     ) {
+        if !matches!(&self.state, AppState::Ready(_)) {
+            debug!(
+                "App in invalid state ({:?}), skipping device events!",
+                &self.state
+            );
+            return;
+        }
+
         if let Some(input_event) = InputEvent::convert_device_event(device_id, device_event) {
             self.input_state.handle_event(input_event);
         }
