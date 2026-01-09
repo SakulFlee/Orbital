@@ -293,11 +293,13 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
         _window_id: WindowId,
         event: WindowEvent,
     ) {
-        // Skip if exiting
-        if event_loop.exiting() {
-            debug!("EventLoop marked exiting! Further events will be skipped ...");
+        let AppState::Ready(ctx) = self.state else {
+            debug!(
+                "App in invalid state, skipping window events! (State: {:?})",
+                self.state
+            );
             return;
-        }
+        };
 
         let input_event = match event {
             WindowEvent::CloseRequested => {
