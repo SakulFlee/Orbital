@@ -357,15 +357,8 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
                 position,
             }),
             WindowEvent::Resized(new_size) => {
-                self.surface_configuration =
-                    Some(AppRuntime::<AppImpl>::make_surface_configuration(
-                        self.surface.as_ref().unwrap(),
-                        self.adapter.as_ref().unwrap(),
-                        new_size,
-                        self.settings.vsync_enabled,
-                    ));
-
-                self.reconfigure_surface();
+                let configuration = ctx.make_surface_configuration(self.settings.vsync_enabled);
+                ctx.reconfigure_surface(&configuration);
 
                 self.input_state.surface_resize(new_size);
 
