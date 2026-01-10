@@ -1,24 +1,16 @@
 use std::sync::Arc;
-use std::thread;
-use std::{mem::transmute, sync::Mutex};
+use std::sync::Mutex;
 
 use async_std::task::block_on;
-use cgmath::Vector2;
 use gilrs::Gilrs;
 use log::trace;
-use wgpu::{
-    Adapter, Backend, BackendOptions, Backends, CompositeAlphaMode, Device, DeviceDescriptor,
-    DeviceType, ExperimentalFeatures, Features, Instance, InstanceDescriptor, InstanceFlags,
-    Limits, MemoryBudgetThresholds, MemoryHints, PresentMode, Queue, Surface, SurfaceConfiguration,
-    SurfaceError, SurfaceTexture, TextureUsages, TextureViewDescriptor, Trace,
-};
+use wgpu::TextureViewDescriptor;
 use winit::{
     application::ApplicationHandler,
-    dpi::PhysicalSize,
     error::EventLoopError,
     event::{DeviceEvent, DeviceId, WindowEvent},
     event_loop::{ActiveEventLoop, EventLoop},
-    window::{CursorGrabMode, Window, WindowId},
+    window::{CursorGrabMode, WindowId},
 };
 
 use super::{
@@ -28,7 +20,7 @@ use super::{
 use super::{App, AppSettings};
 use crate::{
     app::{AppContext, AppEvent, AppState},
-    element::{Element, Message},
+    element::Message,
     logging::{self, debug, error, info, warn},
 };
 
