@@ -116,7 +116,6 @@ impl MaterialShader {
                 conservative: false,
             },
             cache: None,
-            multiview: None,
             multisample: Default::default(),
             multiview_mask: None,
         };
