@@ -118,6 +118,7 @@ impl MaterialShader {
             cache: None,
             multiview: None,
             multisample: Default::default(),
+            multiview_mask: None,
         };
 
         let (bind_group, variables) = match bind_group_option {
