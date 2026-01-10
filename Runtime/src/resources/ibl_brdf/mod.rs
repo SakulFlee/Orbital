@@ -150,7 +150,7 @@ impl IblBrdf {
         let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: None,
             bind_group_layouts: &[bind_group_layout],
-            push_constant_ranges: &[],
+            immediate_size: 0,
         });
 
         let shader = device.create_shader_module(include_wgsl!("./shaders/ibl_brdf.wgsl"));
