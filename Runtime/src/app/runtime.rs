@@ -38,6 +38,8 @@ macro_rules! ctx_lock {
     };
 }
 
+// TODO: State change
+
 pub struct AppRuntime<AppImpl: App> {
     app: AppImpl,
     messages: Vec<Message>,
@@ -77,7 +79,7 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
     }
 
     pub fn redraw(&mut self) {
-        let AppState::Ready(ctx) = self.state else {
+        let AppState::Ready(ctx) = &self.state else {
             error!(
                 "Trying to redraw when app state is in a non-ready state! ({:?})",
                 &self.state
