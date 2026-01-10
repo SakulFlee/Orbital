@@ -6,8 +6,8 @@ use wgpu::{
     Adapter, BackendOptions, Backends, CompositeAlphaMode, CreateSurfaceError, Device,
     DeviceDescriptor, ExperimentalFeatures, Features, Instance, InstanceDescriptor, InstanceFlags,
     Limits, MemoryBudgetThresholds, MemoryHints, PowerPreference, PresentMode, Queue,
-    RequestAdapterError, RequestAdapterOptions, RequestDeviceError, Surface, SurfaceConfiguration,
-    SurfaceError, SurfaceTexture, TextureFormat, TextureUsages, Trace,
+    RequestAdapterError, RequestAdapterOptions, RequestDeviceError, Surface, SurfaceCapabilities,
+    SurfaceConfiguration, SurfaceError, SurfaceTexture, TextureFormat, TextureUsages, Trace,
 };
 use winit::{dpi::Size, error::OsError, event_loop::ActiveEventLoop, window::Window};
 
@@ -115,6 +115,26 @@ impl AppContext {
         }))
     }
 
+    fn make_view_formats(
+        capabilities: &SurfaceCapabilities,
+    ) -> (TextureFormat, Vec<TextureFormat>) {
+        let mut view_formats = capabilities.formats.clone();
+        let first_format = view_formats
+            .first()
+            .expect("There must be at least one surface format!");
+        let srgb_format = first_format.add_srgb_suffix();
+        view_formats.insert(0, srgb_format);
+
+        (srgb_format, view_formats)
+    }
+
+    pub fn get_first_view_format(&self) -> TextureFormat {
+        self.surface
+            .get_configuration()
+            .expect("Surface must be configured first!")
+            .format
+    }
+
     pub fn make_surface_configuration(&self, vsync: bool) -> SurfaceConfiguration {
         let capabilities = self.surface.get_capabilities(&self.adapter);
 
@@ -125,12 +145,7 @@ impl AppContext {
 
         let window_size = self.window.inner_size();
 
-        let mut view_formats = capabilities.formats;
-        let first_format = view_formats
-            .first()
-            .expect("There must be at least one surface format!");
-        let srgb_format = first_format.add_srgb_suffix();
-        view_formats.insert(0, srgb_format);
+        let (srgb_format, view_formats) = Self::make_view_formats(&capabilities);
 
         let mut default_config = self
             .surface

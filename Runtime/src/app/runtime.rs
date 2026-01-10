@@ -32,6 +32,12 @@ use crate::{
     logging::{self, debug, error, info, warn},
 };
 
+macro_rules! ctx_lock {
+    ($ctx:ident) => {
+        $ctx.lock().expect("Mutex failure")
+    };
+}
+
 pub struct AppRuntime<AppImpl: App> {
     app: AppImpl,
     messages: Vec<Message>,
@@ -71,67 +77,33 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
     }
 
     pub fn redraw(&mut self) {
-        // Check if surface and device are present
-        if self.surface.is_none() || self.device.is_none() {
-            warn!("Redraw requested, but runtime is in an incomplete state!");
+        let AppState::Ready(ctx) = self.state else {
+            error!(
+                "Trying to redraw when app state is in a non-ready state! ({:?})",
+                &self.state
+            );
             return;
-        }
+        };
+
+        let lock = ctx_lock!(ctx);
 
         // Get next frame to render on
-        let frame = match self.acquire_next_frame() {
+        let frame = match lock.acquire_next_frame() {
             Ok(surface_texture) => surface_texture,
             Err(e) => {
                 warn!("Failed to acquire next frame from surface: {e}");
-
-                warn!("Attempting reconfiguration ...");
-                self.reconfigure_surface();
-
-                match self.acquire_next_frame() {
-                    Ok(surface_texture) => surface_texture,
-                    Err(e) => panic!(
-                        "Failed to acquire next frame from surface after reconfiguration! ({e:?})"
-                    ),
-                }
+                return;
             }
         };
 
-        let format = match self
-            .surface_configuration
-            .as_ref()
-            .unwrap()
-            .view_formats
-            .first()
-        {
-            Some(format) => format,
-            None => {
-                warn!("No view formats available for surface!");
-
-                warn!("Attempting reconfiguration ...");
-                self.reconfigure_surface();
-
-                match self
-                    .surface_configuration
-                    .as_ref()
-                    .unwrap()
-                    .view_formats
-                    .first()
-                {
-                    Some(format) => format,
-                    None => panic!("No view formats available for surface after reconfiguration!"),
-                }
-            }
-        };
+        let format = lock.get_first_view_format();
 
         let view: wgpu::TextureView = frame.texture.create_view(&TextureViewDescriptor {
-            format: Some(*format),
+            format: Some(format),
             ..TextureViewDescriptor::default()
         });
 
-        block_on(self.app.on_render(
-            &view,
-            self.device.as_ref().unwrap(),
-            self.queue.as_ref().unwrap(),
-        ));
+        block_on(self.app.on_render(&view, lock.device(), lock.queue()));
 
         frame.present();
     }
@@ -183,28 +155,22 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
             }
         };
 
-        macro_rules! ctx_lock {
-            () => {
-                ctx.lock().expect("Mutex failure")
-            };
-        }
-
         let mut exit_requested = false;
         for event in app_events {
             match event {
                 AppEvent::ChangeCursorAppearance(cursor) => {
-                    ctx_lock!().window().set_cursor(cursor);
+                    ctx_lock!(ctx).window().set_cursor(cursor);
                 }
                 AppEvent::ChangeCursorPosition(position) => {
-                    if let Err(e) = ctx_lock!().window().set_cursor_position(position) {
+                    if let Err(e) = ctx_lock!(ctx).window().set_cursor_position(position) {
                         error!("Failed to set cursor position: {e}");
                     }
                 }
                 AppEvent::ChangeCursorVisible(visible) => {
-                    ctx_lock!().window().set_cursor_visible(visible);
+                    ctx_lock!(ctx).window().set_cursor_visible(visible);
                 }
                 AppEvent::ChangeCursorGrabbed(grab) => {
-                    let lock = ctx_lock!();
+                    let lock = ctx_lock!(ctx);
 
                     if grab {
                         if let Err(e) = lock.window().set_cursor_grab(CursorGrabMode::Confined) {
@@ -227,7 +193,7 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
                     std::process::exit(exit_code);
                 }
                 AppEvent::RequestRedraw => {
-                    ctx_lock!().window().request_redraw();
+                    ctx_lock!(ctx).window().request_redraw();
                 }
                 AppEvent::SendMessage(message) => {
                     self.messages.push(message);
@@ -322,7 +288,7 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
                 self.redraw();
 
                 #[cfg(feature = "auto_request_redraw")]
-                ctx.lock().expect("Mutex failure").window().request_redraw();
+                ctx_lock!(ctx).window().request_redraw();
 
                 None
             }
@@ -361,7 +327,7 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
                 position,
             }),
             WindowEvent::Resized(new_size) => {
-                let ctx_lock = ctx.lock().expect("Mutex failure");
+                let ctx_lock = ctx_lock!(ctx);
                 let configuration =
                     ctx_lock.make_surface_configuration(self.settings.vsync_enabled);
                 ctx_lock.reconfigure_surface(&configuration);
