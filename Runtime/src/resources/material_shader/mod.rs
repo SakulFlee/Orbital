@@ -55,7 +55,7 @@ impl MaterialShader {
         let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: descriptor.name.as_deref(),
             bind_group_layouts: &bind_group_layouts,
-            push_constant_ranges: &[],
+            immediate_size: 0,
         });
 
         let vertex_buffer_layouts = descriptor
@@ -116,8 +116,8 @@ impl MaterialShader {
                 conservative: false,
             },
             cache: None,
-            multiview: None,
             multisample: Default::default(),
+            multiview_mask: None,
         };
 
         let (bind_group, variables) = match bind_group_option {

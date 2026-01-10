@@ -5,10 +5,10 @@ use image::ImageReader;
 use wgpu::wgt::PollType;
 use wgpu::{
     AddressMode, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Device, Extent3d,
-    FilterMode as WFilterMode, Origin3d, Queue, Sampler, SamplerDescriptor, TexelCopyBufferInfo,
-    TexelCopyBufferLayout, TexelCopyTextureInfo, Texture as WTexture, TextureAspect,
-    TextureDescriptor as WTextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-    TextureView, TextureViewDescriptor, TextureViewDimension,
+    FilterMode as WFilterMode, MipmapFilterMode, Origin3d, Queue, Sampler, SamplerDescriptor,
+    TexelCopyBufferInfo, TexelCopyBufferLayout, TexelCopyTextureInfo, Texture as WTexture,
+    TextureAspect, TextureDescriptor as WTextureDescriptor, TextureDimension, TextureFormat,
+    TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
 };
 
 mod size;
@@ -120,7 +120,7 @@ impl Texture {
             address_mode_w: AddressMode::ClampToEdge,
             mag_filter: WFilterMode::Linear,
             min_filter: WFilterMode::Linear,
-            mipmap_filter: WFilterMode::Linear,
+            mipmap_filter: MipmapFilterMode::Linear,
             ..Default::default()
         });
 
@@ -446,7 +446,7 @@ impl Texture {
                 address_mode_w: AddressMode::Repeat,
                 mag_filter: WFilterMode::Linear,
                 min_filter: WFilterMode::Linear,
-                mipmap_filter: WFilterMode::Nearest,
+                mipmap_filter: MipmapFilterMode::Nearest,
                 lod_min_clamp: 0.0,
                 lod_max_clamp: 100.0,
                 ..Default::default()
