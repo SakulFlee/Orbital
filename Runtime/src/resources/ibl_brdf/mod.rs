@@ -3,7 +3,7 @@ use wgpu::{
     include_wgsl, AddressMode, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
     ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor, Device, Extent3d,
-    FilterMode, PipelineLayoutDescriptor, Queue, SamplerDescriptor, ShaderStages,
+    FilterMode, MipmapFilterMode, PipelineLayoutDescriptor, Queue, SamplerDescriptor, ShaderStages,
     StorageTextureAccess, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
     TextureViewDescriptor, TextureViewDimension,
 };
@@ -77,7 +77,7 @@ impl IblBrdf {
             address_mode_w: AddressMode::ClampToEdge,
             mag_filter: FilterMode::Nearest,
             min_filter: FilterMode::Nearest,
-            mipmap_filter: FilterMode::Nearest,
+            mipmap_filter: MipmapFilterMode::Nearest,
             ..Default::default()
         });
 
