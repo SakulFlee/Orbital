@@ -1,7 +1,6 @@
 [package]
-name = "orbital_ecs"
+name = "orbital_variant"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-variant = { path = "../Variant/" }
