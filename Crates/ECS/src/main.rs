@@ -6,7 +6,6 @@ use std::{
     fmt::Debug,
 };
 
-use borsh::BorshDeserialize;
 use orbital_variant::Variant;
 use wasmer::{Instance, Module, Store, TypedFunction};
 
@@ -134,7 +133,7 @@ pub trait Component: Send + Sync + 'static {
     fn update_from_variant(&mut self, variant: Variant);
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct Position {
     x: f32,
     y: f32,
@@ -205,11 +204,22 @@ fn main() {
     // println!("Position: {:?}", position);
 
     // ---
-    let input_variant = Variant::F32(0.123);
-    let input_bytes = borsh::to_vec(&input_variant).expect("Failed serialization!");
-    println!("Converted {:?} into {:?}", input_variant, input_bytes);
+    // let input_variant = Variant::F32(0.123);
+    let input = Position {
+        x: 0.123,
+        y: 0.0,
+        z: 0.0,
+    };
+    let input_bytes = unsafe {
+        std::slice::from_raw_parts(
+            &input as *const Position as *const u8,
+            std::mem::size_of::<Position>(),
+        )
+    };
+    println!("Converted {:?} into {:?}", input, input_bytes);
 
-    let wasm_module = include_bytes!("../../../target/wasm32-unknown-unknown/debug/test_wasm.wasm");
+    // let wasm_module = include_bytes!("../../../target/wasm32-unknown-unknown/debug/test_wasm.wasm");
+    let wasm_module = include_bytes!("../../../CTestMod/test.wasm");
 
     let mut store = Store::default();
     let module = Module::new(&store, wasm_module).unwrap();
@@ -232,7 +242,7 @@ fn main() {
     }
 
     let view = memory.view(&store);
-    view.write(heap_base as u64, &input_bytes).unwrap();
+    view.write(heap_base as u64, input_bytes).unwrap();
 
     println!("Store: {:?}", store);
     println!("Memory: {:?}", memory);
@@ -256,19 +266,15 @@ fn main() {
     println!("Result binary extracted: {:?}", result_bytes);
 
     println!("--- Results ---");
-    let result_variant = Variant::try_from_slice(&result_bytes).unwrap();
-    println!("WASM Result: {:#?}", result_variant);
+    let result_position = unsafe { std::ptr::read(result_bytes.as_ptr() as *const Position) };
+    println!("WASM Result: {:?}", result_position);
 
-    println!("Input was: {:?}", input_variant);
+    println!("Input was: {:?}", input);
     println!("Expecting result to be 0.123 + 128 = {}", 0.123 + 123.0);
-    if let Variant::F32(val) = result_variant {
-        if val == 123.123 {
-            println!("Test PASSED!");
-        } else {
-            println!("Correct type, but invalid result ...");
-        }
+    if result_position.x == 123.123 {
+        println!("Test PASSED!");
     } else {
-        println!("Invalid type!");
+        println!("Correct type, but invalid result ...");
     }
 }
 
