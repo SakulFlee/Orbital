@@ -1,20 +1,19 @@
-use borsh::BorshDeserialize;
-use orbital_variant::Variant;
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub struct Position {
+    x: f32,
+    y: f32,
+    z: f32,
+}
 
 #[unsafe(no_mangle)]
-pub extern "C" fn test(ptr: *mut u8, len: usize) -> u64 {
-    let input_slice = unsafe { std::slice::from_raw_parts(ptr, len) };
-    let input_variant = Variant::try_from_slice(input_slice).unwrap();
+pub extern "C" fn test(ptr: *mut u8, _len: usize) -> u64 {
+    let pos_ptr = ptr as *mut Position;
+    let pos = unsafe { &mut *pos_ptr };
 
-    let output_variant = match input_variant {
-        Variant::F32(x) => Variant::F32(x + 123.0),
-        _ => Variant::String("Invalid type!".to_string()),
-    };
-    let output_bytes = borsh::to_vec(&output_variant).unwrap();
+    pos.x += 123.0;
 
-    let boxed_slice = output_bytes.into_boxed_slice();
-    let output_len = boxed_slice.len() as u64;
-    let output_ptr = Box::into_raw(boxed_slice) as *mut u8 as u64;
+    let out_ptr = ptr as u64;
+    let out_len = std::mem::size_of::<Position>() as u64;
 
-    (output_ptr << 32) | output_len
+    (out_ptr << 32) | out_len
 }
