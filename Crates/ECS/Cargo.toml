@@ -4,4 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-variant = { path = "../Variant/" }
+orbital_variant = { path = "../Variant/" }
+wasmer = "7.0"
+borsh = { version = "1.6", features = ["derive"] }

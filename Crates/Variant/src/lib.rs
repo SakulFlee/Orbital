@@ -1,4 +1,6 @@
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+use borsh::{BorshDeserialize, BorshSerialize};
+
+#[derive(Debug, Clone, PartialEq, PartialOrd, BorshSerialize, BorshDeserialize)]
 pub enum Variant {
     Empty,
     // Normal types

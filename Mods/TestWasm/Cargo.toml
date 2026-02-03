@@ -7,5 +7,5 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
-variant = { path = "../../Crates/Variant/" }
+orbital_variant = { path = "../../Crates/Variant/" }
 borsh = { version = "1.6.0", features = ["derive"] }
