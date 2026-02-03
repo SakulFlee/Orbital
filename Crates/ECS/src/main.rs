@@ -6,6 +6,10 @@ use std::{
     fmt::Debug,
 };
 
+use borsh::BorshDeserialize;
+use orbital_variant::Variant;
+use wasmer::{Instance, Module, Store, TypedFunction};
+
 type EntityId = usize;
 static PAGE_SIZE: usize = 1024;
 
@@ -125,31 +129,6 @@ impl World {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub enum Variant {
-    Empty,
-    // Normal types
-    String(String),
-    Boolean(bool),
-    // Unsigned Integers
-    U8(u8),
-    U16(u16),
-    U32(u32),
-    U64(u64),
-    U128(u128),
-    // Signed Integers
-    I8(i8),
-    I16(i16),
-    I32(i32),
-    I64(i64),
-    I128(i128),
-    // Floating point numbers
-    F32(f32),
-    F64(f64),
-    Array(Vec<Variant>),
-    Blob(Vec<u8>),
-}
-
 pub trait Component: Send + Sync + 'static {
     fn to_variant(&self) -> Variant;
     fn update_from_variant(&mut self, variant: Variant);
@@ -191,41 +170,106 @@ impl Component for Position {
 }
 
 fn main() {
-    let mut world = World::new();
+    // let mut world = World::new();
+    //
+    // let entity_id = world.spawn();
+    // world.attach_component(entity_id, TestComponent { x: 1 });
+    // world.attach_component(entity_id, TestMarker);
+    //
+    // let entity_id = world.spawn();
+    // world.attach_component(entity_id, TestComponent { x: 1 });
+    //
+    // println!("World: {:?}", world);
+    // println!();
+    //
+    // let mut position = Position {
+    //     x: 1.0,
+    //     y: 2.0,
+    //     z: 3.0,
+    // };
+    // println!("Position: {:?}", position);
+    // let variant = position.to_variant();
+    // println!("Variant: {:?}", variant);
+    //
+    // let update_variant = Variant::Array(vec![
+    //     Variant::F32(3.0),
+    //     Variant::F32(2.0),
+    //     Variant::F32(1.0),
+    // ]);
+    // println!(
+    //     "Updating position ({:?}) with variant: {:?}",
+    //     position, variant
+    // );
+    //
+    // position.update_from_variant(update_variant);
+    // println!("Position: {:?}", position);
 
-    let entity_id = world.spawn();
-    world.attach_component(entity_id, TestComponent { x: 1 });
-    world.attach_component(entity_id, TestMarker);
+    // ---
+    let input_variant = Variant::F32(0.123);
+    let input_bytes = borsh::to_vec(&input_variant).expect("Failed serialization!");
+    println!("Converted {:?} into {:?}", input_variant, input_bytes);
 
-    let entity_id = world.spawn();
-    world.attach_component(entity_id, TestComponent { x: 1 });
+    let wasm_module = include_bytes!("../../../target/wasm32-unknown-unknown/debug/test_wasm.wasm");
 
-    println!("World: {:?}", world);
-    println!();
+    let mut store = Store::default();
+    let module = Module::new(&store, wasm_module).unwrap();
+    let instance = Instance::new(&mut store, &module, &wasmer::imports! {}).unwrap();
+    println!("{:?}", instance);
 
-    let mut position = Position {
-        x: 1.0,
-        y: 2.0,
-        z: 3.0,
-    };
-    println!("Position: {:?}", position);
-    let variant = position.to_variant();
-    println!("Variant: {:?}", variant);
+    let memory = instance.exports.get_memory("memory").unwrap();
+    let heap_base_global = instance.exports.get_global("__heap_base").unwrap();
+    let heap_base = heap_base_global.get(&mut store).i32().unwrap() as u32;
 
-    let update_variant = Variant::Array(vec![
-        Variant::F32(3.0),
-        Variant::F32(2.0),
-        Variant::F32(1.0),
-    ]);
-    println!(
-        "Updating position ({:?}) with variant: {:?}",
-        position, variant
-    );
+    {
+        let view = memory.view(&store);
+        let current_pages = view.size();
+        let required_bytes = heap_base + input_bytes.len() as u32;
+        let required_pages = (required_bytes / 65536) + 1;
+        if required_pages > current_pages.0 {
+            let delta = required_pages - current_pages.0;
+            memory.grow(&mut store, delta as u32).unwrap();
+        }
+    }
 
-    position.update_from_variant(update_variant);
-    println!("Position: {:?}", position);
+    let view = memory.view(&store);
+    view.write(heap_base as u64, &input_bytes).unwrap();
 
-    println!();
+    println!("Store: {:?}", store);
+    println!("Memory: {:?}", memory);
+
+    println!(" --- CALLING NOW ---");
+
+    let func: TypedFunction<(u32, u32), u64> =
+        instance.exports.get_typed_function(&store, "test").unwrap();
+    let packed_result = func
+        .call(&mut store, heap_base, input_bytes.len() as u32)
+        .unwrap();
+    let output_ptr = (packed_result >> 32) as u32;
+    let output_len = (packed_result & 0xFFFFFFFF) as u32;
+    println!("Raw result: {}", packed_result);
+    println!("Output pointer: {}", output_ptr);
+    println!("Output length: {}", output_len);
+
+    let mut result_bytes = vec![0u8; output_len as usize];
+    let view = memory.view(&store);
+    view.read(output_ptr as u64, &mut result_bytes).unwrap();
+    println!("Result binary extracted: {:?}", result_bytes);
+
+    println!("--- Results ---");
+    let result_variant = Variant::try_from_slice(&result_bytes).unwrap();
+    println!("WASM Result: {:#?}", result_variant);
+
+    println!("Input was: {:?}", input_variant);
+    println!("Expecting result to be 0.123 + 128 = {}", 0.123 + 123.0);
+    if let Variant::F32(val) = result_variant {
+        if val == 123.123 {
+            println!("Test PASSED!");
+        } else {
+            println!("Correct type, but invalid result ...");
+        }
+    } else {
+        println!("Invalid type!");
+    }
 }
 
 #[cfg(test)]
