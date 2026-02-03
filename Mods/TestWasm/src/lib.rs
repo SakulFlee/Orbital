@@ -12,10 +12,9 @@ pub extern "C" fn test(ptr: *mut u8, len: usize) -> u64 {
     };
     let output_bytes = borsh::to_vec(&output_variant).unwrap();
 
-    let output_ptr = output_bytes.as_ptr() as u64;
-    let output_len = output_bytes.len() as u64;
-
-    std::mem::forget(output_bytes);
+    let boxed_slice = output_bytes.into_boxed_slice();
+    let output_len = boxed_slice.len() as u64;
+    let output_ptr = Box::into_raw(boxed_slice) as *mut u8 as u64;
 
     (output_ptr << 32) | output_len
 }
