@@ -7,7 +7,7 @@ use std::{
 };
 
 use orbital_variant::Variant;
-use wasmer::{Instance, Module, Store, TypedFunction};
+use wasmer::{AsEngineRef, AsStoreMut, FunctionEnvMut, Instance, Module, Store, TypedFunction};
 
 type EntityId = usize;
 static PAGE_SIZE: usize = 1024;
@@ -166,6 +166,55 @@ impl Component for Position {
             }
         }
     }
+}
+
+#[repr(u8)]
+pub enum FieldType {
+    Bool = 0,
+    U8 = 1,
+    I8 = 2,
+    U16 = 3,
+    I16 = 4,
+    U32 = 5,
+    I32 = 6,
+    F32 = 7,
+    U64 = 8,
+    I64 = 9,
+    F64 = 10,
+}
+
+impl FieldType {
+    pub fn size(&self) -> usize {
+        use std::mem::size_of;
+
+        match self {
+            FieldType::Bool => size_of::<bool>(),
+            FieldType::U8 => size_of::<u8>(),
+            FieldType::I8 => size_of::<i8>(),
+            FieldType::U16 => size_of::<u16>(),
+            FieldType::I16 => size_of::<i16>(),
+            FieldType::U32 => size_of::<u32>(),
+            FieldType::I32 => size_of::<i32>(),
+            FieldType::F32 => size_of::<f32>(),
+            FieldType::U64 => size_of::<u64>(),
+            FieldType::I64 => size_of::<i64>(),
+            FieldType::F64 => size_of::<f64>(),
+        }
+    }
+
+    pub fn alignment(&self) -> usize {
+        match self {
+            FieldType::Bool | FieldType::U8 | FieldType::I8 => 1,
+            FieldType::U16 | FieldType::I16 => 2,
+            FieldType::U32 | FieldType::I32 | FieldType::F32 => 4,
+            FieldType::U64 | FieldType::I64 | FieldType::F64 => 8,
+        }
+    }
+}
+
+pub struct ComponentSchema {
+    pub fields: Vec<FieldType>,
+    pub field_names: Vec<String>,
 }
 
 fn main() {
