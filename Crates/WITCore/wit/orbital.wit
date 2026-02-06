@@ -1,0 +1,23 @@
+package orbital:engine;
+
+interface types {
+    record position {
+        x: f32,
+        y: f32,
+        z: f32,
+    }
+}
+
+interface ecs {
+    resource entity;
+
+    spawn-entity: func() -> entity;
+}
+
+world orbital {
+    import ecs;
+    export ecs;
+
+    import types;
+    export types;
+}
