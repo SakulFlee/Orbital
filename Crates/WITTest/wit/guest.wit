@@ -1,0 +1,14 @@
+package guest:wit-test;
+
+interface test-interface {
+    test-function: func();
+}
+
+world test-world {
+    import orbital:engine/ecs;
+
+    import test-interface;
+
+    export init: func();
+    export update: func();
+}

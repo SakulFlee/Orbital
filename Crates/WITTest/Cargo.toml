@@ -1,0 +1,19 @@
+[package]
+name = "wit_test"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wit-bindgen = "0.52"
+bytemuck = { version = "1.14", features = ["derive"] }
+
+[package.metadata.component]
+# Tell the component tool where to find the 'orbital:engine' package
+# We point to the folder containing the .wit file
+target = { path = "wit" } # This points to local world.wit
+
+[package.metadata.component.dependencies]
+"orbital:engine" = { path = "../WITCore/" }
