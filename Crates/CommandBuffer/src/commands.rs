@@ -107,13 +107,3 @@ pub enum Commands {
     /// | `String` | Many | Excluded component names |
     RegisterSystem = 5,
 }
-
-pub struct Query {
-    components: Vec<String>,
-    with: Vec<String>,
-    without: Vec<String>,
-}
-
-fn main() {
-    println!("Hello, world!");
-}
