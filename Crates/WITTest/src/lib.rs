@@ -1,19 +1,10 @@
-wit_bindgen::generate!({
-    world: "test-world",
-});
+mod bindings;
+use bindings::exports::orbital::wit_test::test_interface::Guest;
 
-struct TestImpl;
+pub struct TestImpl;
 
 impl Guest for TestImpl {
-    #[allow(async_fn_in_trait)]
-    fn init() -> () {
-        println!("Init!");
-    }
-
-    #[allow(async_fn_in_trait)]
-    fn update() -> () {
-        println!("Update!");
+    fn test_function() {
+        println!("Test!");
     }
 }
-
-export!(TestImpl);

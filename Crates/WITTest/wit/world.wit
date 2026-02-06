@@ -1,0 +1,9 @@
+package orbital:wit-test@0.1.0;
+
+interface test-interface {
+    test-function: func();
+}
+
+world test-world {
+    export test-interface;
+}
