@@ -1,0 +1,10 @@
+package orbital:module@0.1.0;
+
+interface module-impl {
+  startup: func();
+}
+
+world module {
+  export module-impl;
+}
+
