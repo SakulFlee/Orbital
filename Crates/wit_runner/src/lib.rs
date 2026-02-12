@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use log::{debug, warn};
+use log::warn;
 use wasmtime::{
     Config, Engine, Store,
     component::{Component, Instance, Linker},
@@ -26,7 +26,6 @@ impl WasiView for ModuleCtx {
 pub struct Module {
     instance: Instance,
     store: Store<ModuleCtx>,
-    component: Component,
 }
 
 impl Module {
@@ -59,11 +58,7 @@ impl Module {
 
         let instance = linker.instantiate(&mut store, &component)?;
 
-        Ok(Self {
-            instance,
-            store,
-            component,
-        })
+        Ok(Self { instance, store })
     }
 
     fn make_config() -> Config {
@@ -143,101 +138,9 @@ impl Module {
     }
 }
 
-fn run() {
-    let mut config = Config::new();
-    config.wasm_component_model(true);
-    let engine = Engine::new(&config).expect("WasmTime engine startup failure");
-
-    let component_bytes = include_bytes!("../../../target/wasm32-wasip2/debug/wit_test.wasm");
-    let component = Component::new(&engine, component_bytes).expect("Component import failed");
-
-    let component_type = component.component_type();
-    println!("Checking for exports ...");
-    for (export, item) in component_type.exports(&engine) {
-        println!("Export: {export}");
-    }
-
-    let mut builder = WasiCtxBuilder::new();
-    // Allow guest to print to terminal:
-    builder.inherit_stdio();
-    let wasi = builder.build();
-
-    let mut store = Store::new(
-        &engine,
-        ModuleCtx {
-            wasi_ctx: wasi,
-            resource_table: ResourceTable::new(),
-        },
-    );
-
-    let mut linker = Linker::new(&engine);
-    // Add all standard WASI implementations to the linker:
-    wasmtime_wasi::p2::add_to_linker_sync(&mut linker).expect("WASI std linking failure!");
-
-    let instance = linker
-        .instantiate(&mut store, &component)
-        .expect("Failed to instanciate");
-
-    let (interface, interface_index) = instance
-        .get_export(&mut store, None, "orbital:wit-test/test-interface@0.1.0")
-        .unwrap();
-    println!("Interface: {:?}", interface);
-
-    let function_export_index = instance
-        .get_export_index(&mut store, Some(&interface_index), "test-function")
-        .expect("Function not found");
-    println!("FEI: {:?}", function_export_index);
-
-    let function = instance
-        .get_func(&mut store, function_export_index)
-        .expect("Failed to resolve index to a callable function");
-    println!("Function: {:?}", function);
-
-    println!("Calling NOW!");
-    // let mut results = vec![Val::Bool(false); 1];
-
-    println!(">>> START: WASI <<<");
-    function
-        .call(&mut store, &[], &mut [])
-        .expect("Runtime execution error");
-    // println!("Results: {:?}", results);
-    println!(">>> END: WASI <<<");
-
-    println!("Cleanup");
-    function.post_return(&mut store).expect("Cleanup failure");
-
-    // let ComponentItem::ComponentInstance(exported_instance) = export_item else {
-    //     panic!("Unexpected result: {:?} @ {:?}", export_item, export_index);
-    // };
-    // println!("C-Instance: {:?}", exported_instance);
-    //
-    // for (label, component) in exported_instance.exports(&engine) {
-    //     println!(">>> {label}");
-    // }
-    //
-    // let component = exported_instance
-    //     .get_export(&engine, "test-function")
-    //     .expect("Function missing!");
-    // let ComponentItem::ComponentFunc(cfe) = component else {
-    //     panic!("Unexpected type: {:?}", component);
-    // };
-    // println!("C-Fe: {:?}", cfe);
-    //
-    // // ---
-    // let f = exported_instance
-    //     .get_export(&mut store, "test-function")
-    //     .expect("failed finding function");
-    // f.func
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::{Module, run};
-
-    #[test]
-    fn test() {
-        run();
-    }
+    use crate::Module;
 
     #[test]
     fn test_module() {
