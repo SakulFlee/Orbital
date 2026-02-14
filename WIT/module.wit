@@ -1,10 +1,8 @@
-package orbital:module@0.1.0;
+package orbital:core@0.1.0;
 
-interface module-impl {
-  startup: func();
-}
+interface module {
+  use commands.{command-buffer};
 
-world module {
-  export module-impl;
+  startup: func() -> command-buffer;
 }
 
