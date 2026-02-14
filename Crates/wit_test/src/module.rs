@@ -6,7 +6,6 @@ use crate::module::exports::orbital::core::{
 wit_bindgen::generate!({
     path: "../../WIT/",
     world: "orbital",
-
 });
 
 struct ExampleModule;
