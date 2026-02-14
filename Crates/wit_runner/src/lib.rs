@@ -1,13 +1,17 @@
 use std::error::Error;
 
-use log::warn;
+use log::{info, warn};
 use wasmtime::{
     Config, Engine, Store,
-    component::{Component, Instance, Linker},
+    component::{Component, Linker},
 };
 use wasmtime_wasi::{
     ResourceTable, WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView, p2::add_to_linker_sync,
 };
+
+use crate::bindings::Orbital;
+
+mod bindings;
 
 struct ModuleCtx {
     wasi_ctx: WasiCtx,
@@ -24,7 +28,7 @@ impl WasiView for ModuleCtx {
 }
 
 pub struct Module {
-    instance: Instance,
+    orbital_guest_instance: Orbital,
     store: Store<ModuleCtx>,
 }
 
@@ -56,9 +60,12 @@ impl Module {
         let mut store = Self::make_store(&engine, wasi_ctx);
         let linker = Self::make_linker(&engine)?;
 
-        let instance = linker.instantiate(&mut store, &component)?;
+        let orbital_guest_instance = Orbital::instantiate(&mut store, &component, &linker)?;
 
-        Ok(Self { instance, store })
+        Ok(Self {
+            orbital_guest_instance,
+            store,
+        })
     }
 
     fn make_config() -> Config {
@@ -92,49 +99,12 @@ impl Module {
         Ok(linker)
     }
 
-    pub fn call_interface_function(
-        &mut self,
-        interface: &str,
-        function: &str,
-    ) -> Result<(), Box<dyn Error>> {
-        let (interface, interface_index) = self
-            .instance
-            .get_export(&mut self.store, None, interface)
-            .unwrap();
-        println!("Interface: {:?}", interface);
-
-        let function_export_index = self
-            .instance
-            .get_export_index(&mut self.store, Some(&interface_index), function)
-            .expect("Function not found");
-        println!("FEI: {:?}", function_export_index);
-
-        let function = self
-            .instance
-            .get_func(&mut self.store, function_export_index)
-            .expect("Failed to resolve index to a callable function");
-        println!("Function: {:?}", function);
-
-        println!("Calling NOW!");
-        // let mut results = vec![Val::Bool(false); 1];
-
-        println!(">>> START: WASI <<<");
-        function
-            .call(&mut self.store, &[], &mut [])
-            .expect("Runtime execution error");
-        // println!("Results: {:?}", results);
-        println!(">>> END: WASI <<<");
-
-        println!("Cleanup");
-        function
-            .post_return(&mut self.store)
-            .expect("Cleanup failure");
+    pub fn call_startup_function(&mut self) -> Result<(), Box<dyn Error>> {
+        let guest = self.orbital_guest_instance.orbital_core_module();
+        let result = guest.call_startup(&mut self.store)?;
+        info!("Resulting CommandBuffer: {:?}", result);
 
         Ok(())
-    }
-
-    pub fn call_startup_function(&mut self) -> Result<(), Box<dyn Error>> {
-        self.call_interface_function("orbital:module/module-impl@0.1.0", "startup")
     }
 }
 
