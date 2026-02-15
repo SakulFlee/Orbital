@@ -29,3 +29,11 @@ jniLibs/
 Assets/Models/*
 !Assets/Models/DamagedHelmet.glb
 !Assets/Models/InstancingTest.glb
+
+# Binding generations
+wit-bindings/**/bindings/
+
+# WASI module exports
+wasi-modules/*
+!wasi-modules/.gitkeep
+
