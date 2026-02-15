@@ -6,9 +6,11 @@ default:
 
 # WIT build tasks
 build-wit-modules: build-wit-test-module-rust build-wit-test-module-c
+  ls -l wasi-modules/
 
 build-wit-test-module-rust:
   cargo build --target wasm32-wasip2 --package wit-test-module-rust
+  cp target/wasm32-wasip2/debug/wit_test_module_rust.wasm wasi-modules/test-module-rust.wasm
 
 build-wit-test-module-c: generate-wit-bindings-for-c
   {{ WASI_PATH }} \

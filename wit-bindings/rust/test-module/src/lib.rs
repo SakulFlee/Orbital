@@ -14,3 +14,4 @@ impl Guest for TestModule {
         None
     }
 }
+export!(TestModule);
