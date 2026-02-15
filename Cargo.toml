@@ -1,6 +1,15 @@
 [workspace]
 resolver = "2"
-members = ["Runtime", "Examples/*", "Crates/*", "Mods/*"]
+members = [
+  "Runtime",
+  "Examples/*",
+  "Crates/*",
+  "Mods/*",
+  "wit-bindings/rust/test-module",
+]
+
+[workspace.dependencies]
+wit-bindgen = "0.53"
 
 [profile.release]
 lto = true

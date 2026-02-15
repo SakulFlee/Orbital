@@ -6826,6 +6826,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "wit-test-module-rust"
+version = "0.1.0"
+dependencies = [
+ "wit-bindgen 0.53.1",
+]
+
+[[package]]
 name = "wit_runner"
 version = "0.1.0"
 dependencies = [
