@@ -55,7 +55,6 @@ generate-wit-bindings-for-cpp:
 
 generate-wit-bindings-for-csharp:
    wit-bindgen csharp \
-    --generate-stub \
     --runtime native-aot \
     --world orbital \
     --out-dir wit-bindings/csharp/bindings/ \
