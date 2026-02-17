@@ -5,7 +5,7 @@ default:
   just --list
 
 # WIT build tasks
-build-wit-modules: build-wit-test-module-rust build-wit-test-module-c build-wit-test-module-cpp build-wit-test-module-csharp
+build-wit-modules: build-wit-test-module-rust build-wit-test-module-c build-wit-test-module-cpp build-wit-test-module-csharp build-wit-test-module-go
   ls -l wasi-modules/
 
 build-wit-test-module-rust:
@@ -39,6 +39,28 @@ build-wit-test-module-cpp: generate-wit-bindings-for-cpp
 build-wit-test-module-csharp: generate-wit-bindings-for-csharp  
   dotnet build --configuration Release
   cp bin/Release/net10.0/wasi-wasm/publish/test-module.wasm ../../../wasi-modules/test-module-csharp.wasm
+
+[working-directory: 'wit-bindings/go/test-module/']
+build-wit-test-module-go:
+  mkdir -p out
+
+  # Download Go WASI Reactor if not present
+  {{ if path_exists("wit-bindings/go/test-module/out/wasi_snapshot_preview1.reactor") == "true" { "" } else { \
+    "curl -L -o out/wasi_snapshot_preview1.reactor https://github.com/bytecodealliance/wasmtime/releases/download/v39.0.1/wasi_snapshot_preview1.reactor.wasm" \
+  }}}
+
+  # Build WASI-P1 module
+  GOARCH=wasm GOOS=wasip1 go build \
+    -o out/test-module-raw.wasm \
+    -buildmode=c-shared \
+    -ldflags="-checklinkname=0"
+
+  # Turn into WASI-P2 + WIT
+  wasm-tools component embed -w orbital ../../../WIT/ out/test-module-raw.wasm -o out/test-module-wit.wasm
+  wasm-tools component new --adapt out/wasi_snapshot_preview1.reactor out/test-module-wit.wasm -o out/test-module-component.wasm
+
+  # Copy
+  cp out/test-module-component.wasm ../../../wasi-modules/test-module-go.wasm
 
 # WIT generation tasks
 generate-wit-bindings-for-c:
