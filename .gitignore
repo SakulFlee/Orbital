@@ -39,6 +39,6 @@ wit-bindings/**/build/
 wit-bindings/**/target/
 
 # WASI module exports
-wit-modules/*
-!wit-modules/.gitkeep
+wasi-modules/*
+!wasi-modules/.gitkeep
 
