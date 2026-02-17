@@ -5,12 +5,12 @@ default:
   just --list
 
 # WIT build tasks
-build-wit-modules: build-wit-test-module-rust build-wit-test-module-c build-wit-test-module-cpp
+build-wit-modules: build-wit-test-module-rust build-wit-test-module-c build-wit-test-module-cpp build-wit-test-module-csharp
   ls -l wasi-modules/
 
 build-wit-test-module-rust:
-  cargo build --target wasm32-wasip2 --package wit-test-module-rust
-  cp target/wasm32-wasip2/debug/wit_test_module_rust.wasm wasi-modules/test-module-rust.wasm
+  cargo build --release --target wasm32-wasip2 --package wit-test-module-rust
+  cp target/wasm32-wasip2/release/wit_test_module_rust.wasm wasi-modules/test-module-rust.wasm
 
 build-wit-test-module-c: generate-wit-bindings-for-c
   {{ WASI_SDK_PATH }}/bin/clang \
@@ -35,10 +35,29 @@ build-wit-test-module-cpp: generate-wit-bindings-for-cpp
     wit-bindings/cpp/bindings/orbital.cpp \
     wit-bindings/cpp/bindings/orbital_component_type.o
 
+[working-directory: 'wit-bindings/csharp/test-module/']
+build-wit-test-module-csharp: generate-wit-bindings-for-csharp  
+  dotnet build --configuration Release
+  cp bin/Release/net10.0/wasi-wasm/publish/test-module.wasm ../../../wasi-modules/test-module-csharp.wasm
+
 # WIT generation tasks
 generate-wit-bindings-for-c:
-  wit-bindgen c --world orbital --out-dir wit-bindings/c/bindings/ WIT/
+  wit-bindgen c \
+    --world orbital \
+    --out-dir wit-bindings/c/bindings/ \
+    WIT/
 
 generate-wit-bindings-for-cpp:
-  wit-bindgen cpp --world orbital --out-dir wit-bindings/cpp/bindings/ WIT/
+  wit-bindgen cpp \
+    --world orbital \
+    --out-dir wit-bindings/cpp/bindings/ \
+    WIT/
+
+generate-wit-bindings-for-csharp:
+   wit-bindgen csharp \
+    --generate-stub \
+    --runtime native-aot \
+    --world orbital \
+    --out-dir wit-bindings/csharp/bindings/ \
+    WIT/ 
 
