@@ -7,6 +7,7 @@ default:
 # WIT build tasks
 build-wit-modules: build-wit-test-module-rust build-wit-test-module-c build-wit-test-module-cpp build-wit-test-module-csharp build-wit-test-module-go
   ls -l wasi-modules/
+  du -sh wasi-modules/* | sort -h
 
 build-wit-test-module-rust:
   cargo build --release --target wasm32-wasip2 --package wit-test-module-rust
@@ -53,7 +54,7 @@ build-wit-test-module-go:
   GOARCH=wasm GOOS=wasip1 go build \
     -o out/test-module-raw.wasm \
     -buildmode=c-shared \
-    -ldflags="-checklinkname=0"
+    -ldflags="-checklinkname=0 -s -w"
 
   # Turn into WASI-P2 + WIT
   wasm-tools component embed -w orbital ../../../WIT/ out/test-module-raw.wasm -o out/test-module-wit.wasm
