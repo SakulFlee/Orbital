@@ -32,8 +32,11 @@ Assets/Models/*
 
 # Binding generations
 wit-bindings/**/bindings/
-wit-bindings/csharp/**/bin/
-wit-bindings/csharp/**/obj/
+wit-bindings/**/bin/
+wit-bindings/**/obj/
+wit-bindings/**/out/
+wit-bindings/**/build/
+wit-bindings/**/target/
 
 # WASI module exports
 wasi-modules/*
