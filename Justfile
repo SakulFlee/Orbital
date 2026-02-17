@@ -6,12 +6,12 @@ default:
 
 # WIT build tasks
 build-wit-modules: build-wit-test-module-rust build-wit-test-module-c build-wit-test-module-cpp build-wit-test-module-csharp build-wit-test-module-go
-  ls -l wasi-modules/
-  du -sh wasi-modules/* | sort -h
+  ls -l wit-modules/
+  du -sh wit-modules/* | sort -h
 
 build-wit-test-module-rust:
   cargo build --release --target wasm32-wasip2 --package wit-test-module-rust
-  cp target/wasm32-wasip2/release/wit_test_module_rust.wasm wasi-modules/test-module-rust.wasm
+  cp target/wasm32-wasip2/release/wit_test_module_rust.wasm wit-modules/test-module-rust.wasm
 
 build-wit-test-module-c: generate-wit-bindings-for-c
   {{ WASI_SDK_PATH }}/bin/clang \
@@ -20,7 +20,7 @@ build-wit-test-module-c: generate-wit-bindings-for-c
     -Wl,--export=exports_orbital_core_module_startup \
     -mexec-model=reactor \
     -Oz \
-    -o wasi-modules/test-module-c.wasm \
+    -o wit-modules/test-module-c.wasm \
     wit-bindings/c/test-module/src/module.c
 
 build-wit-test-module-cpp: generate-wit-bindings-for-cpp
@@ -31,7 +31,7 @@ build-wit-test-module-cpp: generate-wit-bindings-for-cpp
     -Wl,--no-entry \
     -mexec-model=reactor \
     -Oz \
-    -o wasi-modules/test-module-cpp.wasm \
+    -o wit-modules/test-module-cpp.wasm \
     wit-bindings/cpp/test-module/src/module.cpp \
     wit-bindings/cpp/bindings/orbital.cpp \
     wit-bindings/cpp/bindings/orbital_component_type.o
@@ -39,7 +39,7 @@ build-wit-test-module-cpp: generate-wit-bindings-for-cpp
 [working-directory: 'wit-bindings/csharp/test-module/']
 build-wit-test-module-csharp: generate-wit-bindings-for-csharp  
   dotnet build --configuration Release
-  cp bin/Release/net10.0/wasi-wasm/publish/test-module.wasm ../../../wasi-modules/test-module-csharp.wasm
+  cp bin/Release/net10.0/wasi-wasm/publish/test-module.wasm ../../../wit-modules/test-module-csharp.wasm
 
 [working-directory: 'wit-bindings/go/test-module/']
 build-wit-test-module-go:
@@ -61,7 +61,7 @@ build-wit-test-module-go:
   wasm-tools component new --adapt out/wasi_snapshot_preview1.reactor out/test-module-wit.wasm -o out/test-module-component.wasm
 
   # Copy
-  cp out/test-module-component.wasm ../../../wasi-modules/test-module-go.wasm
+  cp out/test-module-component.wasm ../../../wit-modules/test-module-go.wasm
 
 # WIT generation tasks
 generate-wit-bindings-for-c:
