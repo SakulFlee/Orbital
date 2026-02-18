@@ -7,6 +7,9 @@ target/
 # Logs
 *.log
 
+# VIM: Session
+Session.vim
+
 # Example generated files
 mandelbrot.png
 
