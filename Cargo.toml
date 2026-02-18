@@ -2,13 +2,6 @@
 resolver = "2"
 members = ["Runtime", "Examples/*", "Crates/*"]
 
-[workspace.dependencies]
-log = "0.4"
-simple-log = "2.4"
-wasmtime = "41.0"
-wasmtime-wasi = "41.0"
-wit-bindgen = "0.53"
-
 [profile.release]
 lto = true
 opt-level = 3
