@@ -4,7 +4,7 @@ use crate::module::exports::orbital::core::{
 };
 
 wit_bindgen::generate!({
-    path: "../../WIT/",
+    path: "../../wit/",
     world: "orbital",
 });
 
