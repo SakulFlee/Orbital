@@ -4665,21 +4665,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "test_wasm"
-version = "0.1.0"
-dependencies = [
- "borsh",
- "orbital_variant",
-]
-
-[[package]]
-name = "test_wasm_bindgen"
-version = "0.1.0"
-dependencies = [
- "wasm-bindgen",
-]
-
-[[package]]
 name = "thiserror"
 version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5048,10 +5033,6 @@ checksum = "03fa2761397e5bd52002cd7e73110c71af2109aca4e521a9f40473fe685b0a24"
 dependencies = [
  "wit-bindgen 0.45.1",
 ]
-
-[[package]]
-name = "wasip2_test"
-version = "0.1.0"
 
 [[package]]
 name = "wasm-bindgen"
@@ -6823,13 +6804,6 @@ dependencies = [
  "serde_json",
  "unicode-xid",
  "wasmparser 0.245.1",
-]
-
-[[package]]
-name = "wit-test-module-rust"
-version = "0.1.0"
-dependencies = [
- "wit-bindgen 0.53.1",
 ]
 
 [[package]]
