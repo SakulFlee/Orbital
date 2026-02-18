@@ -114,10 +114,8 @@ mod tests {
 
     #[test]
     fn test_module() {
-        simple_log::quick!("info");
-
         let mut module = Module::new(include_bytes!(
-            "../../../target/wasm32-wasip2/debug/wit_test.wasm"
+            "../../../target/wasm32-wasip2/debug/wit_test_module.wasm"
         ))
         .expect("Failed to initialize module");
         module

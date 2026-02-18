@@ -6844,11 +6844,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "wit_test"
+name = "wit_test_module"
 version = "0.1.0"
 dependencies = [
- "bytemuck",
- "wit-bindgen 0.52.0",
+ "wit-bindgen 0.53.1",
 ]
 
 [[package]]

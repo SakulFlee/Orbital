@@ -116,3 +116,7 @@ generate-wit-bindings-for-csharp:
     --out-dir wit-bindings/csharp/bindings/ \
     WIT/ 
 
+test-wit-test-module:
+  cargo build --target wasm32-wasip2 --package wit_test_module
+  cargo test --package wit_runner tests::test_module
+
