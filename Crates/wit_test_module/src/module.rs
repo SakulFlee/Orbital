@@ -13,11 +13,11 @@ export!(ExampleModule);
 
 impl Guest for ExampleModule {
     #[allow(async_fn_in_trait)]
-    fn startup() -> CommandBuffer {
+    fn startup() -> Option<CommandBuffer> {
         println!("ExampleModule startup called!");
 
-        CommandBuffer {
+        Some(CommandBuffer {
             commands: vec![Command::RegisterSystem("Test".to_string())],
-        }
+        })
     }
 }
