@@ -13,17 +13,34 @@ build-wit-test-module-rust:
   cargo build --release --target wasm32-wasip2 --package wit-test-module-rust
   cp target/wasm32-wasip2/release/wit_test_module_rust.wasm wasi-modules/test-module-rust.wasm
 
-build-wit-test-module-c: generate-wit-bindings-for-c
+build-wit-test-module-c: download-wasi-p1-to-p2-reactor generate-wit-bindings-for-c  
+  mkdir -p wit-bindings/c/test-module/out/
+
   {{ WASI_SDK_PATH }}/bin/clang \
     --target=wasm32-wasi \
     -Wl,--no-entry \
     -Wl,--export=exports_orbital_core_module_startup \
     -mexec-model=reactor \
     -Oz \
-    -o wasi-modules/test-module-c.wasm \
+    -o wit-bindings/c/test-module/out/test-module-raw.wasm \
     wit-bindings/c/test-module/src/module.c
 
-build-wit-test-module-cpp: generate-wit-bindings-for-cpp
+  wasm-tools component embed \
+    -w orbital \
+    WIT/ \
+    wit-bindings/c/test-module/out/test-module-raw.wasm \
+    -o wit-bindings/c/test-module/out/test-module-wit.wasm
+  wasm-tools component new \
+    --adapt target/wasi_snapshot_preview1.reactor \
+    wit-bindings/c/test-module/out/test-module.wasm \
+    -o wit-bindings/c/test-module/out/test-module-component.wasm
+
+  cp wit-bindings/c/test-module/out/test-module-component.wasm \
+    wasi-modules/test-module-c.wasm
+
+build-wit-test-module-cpp: download-wasi-p1-to-p2-reactor generate-wit-bindings-for-cpp
+  mkdir -p wit-bindings/cpp/test-module/out/
+
   {{ WASI_SDK_PATH }}/bin/clang++ \
     -std=c++20 \
     --target=wasm32-wasi \
@@ -31,10 +48,23 @@ build-wit-test-module-cpp: generate-wit-bindings-for-cpp
     -Wl,--no-entry \
     -mexec-model=reactor \
     -Oz \
-    -o wasi-modules/test-module-cpp.wasm \
+    -o wit-bindings/cpp/test-module/out/test-module-raw.wasm \
     wit-bindings/cpp/test-module/src/module.cpp \
     wit-bindings/cpp/bindings/orbital.cpp \
     wit-bindings/cpp/bindings/orbital_component_type.o
+
+  wasm-tools component embed \
+    -w orbital \
+    WIT/ \
+    wit-bindings/cpp/test-module/out/test-module-raw.wasm \
+    -o wit-bindings/cpp/test-module/out/test-module-wit.wasm
+  wasm-tools component new \
+    --adapt target/wasi_snapshot_preview1.reactor \
+    wit-bindings/cpp/test-module/out/test-module-raw.wasm \
+    -o wit-bindings/cpp/test-module/out/test-module-component.wasm
+
+  cp wit-bindings/cpp/test-module/out/test-module-component.wasm \
+    wasi-modules/test-module-cpp.wasm
 
 [working-directory: 'wit-bindings/csharp/test-module/']
 build-wit-test-module-csharp: generate-wit-bindings-for-csharp  
@@ -42,13 +72,8 @@ build-wit-test-module-csharp: generate-wit-bindings-for-csharp
   cp bin/Release/net10.0/wasi-wasm/publish/test-module.wasm ../../../wasi-modules/test-module-csharp.wasm
 
 [working-directory: 'wit-bindings/go/test-module/']
-build-wit-test-module-go:
+build-wit-test-module-go: download-wasi-p1-to-p2-reactor download-wasi-p1-to-p2-reactor
   mkdir -p out
-
-  # Download Go WASI Reactor if not present
-  {{ if path_exists("wit-bindings/go/test-module/out/wasi_snapshot_preview1.reactor") == "true" { "" } else { \
-    "curl -L -o out/wasi_snapshot_preview1.reactor https://github.com/bytecodealliance/wasmtime/releases/download/v39.0.1/wasi_snapshot_preview1.reactor.wasm" \
-  }}}
 
   # Build WASI-P1 module
   GOARCH=wasm GOOS=wasip1 go build \
@@ -58,10 +83,18 @@ build-wit-test-module-go:
 
   # Turn into WASI-P2 + WIT
   wasm-tools component embed -w orbital ../../../WIT/ out/test-module-raw.wasm -o out/test-module-wit.wasm
-  wasm-tools component new --adapt out/wasi_snapshot_preview1.reactor out/test-module-wit.wasm -o out/test-module-component.wasm
+  wasm-tools component new --adapt ../../../target/wasi_snapshot_preview1.reactor out/test-module-wit.wasm -o out/test-module-component.wasm
 
   # Copy
   cp out/test-module-component.wasm ../../../wasi-modules/test-module-go.wasm
+
+download-wasi-p1-to-p2-reactor:
+  mkdir -p target/
+
+  # Download Go WASI Reactor if not present
+  {{ if path_exists("target/wasi_snapshot_preview1.reactor") == "true" { "" } else { \
+    "curl -L -o target/wasi_snapshot_preview1.reactor https://github.com/bytecodealliance/wasmtime/releases/download/v39.0.1/wasi_snapshot_preview1.reactor.wasm" \
+  }}}
 
 # WIT generation tasks
 generate-wit-bindings-for-c:
