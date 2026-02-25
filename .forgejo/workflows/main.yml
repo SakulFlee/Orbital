@@ -110,6 +110,8 @@ jobs:
           rustup update
       - name: ➕ Make upload folder
         run: mkdir upload
+      - name: 🔨 Build
+        run: cargo build --release
       - name: 🔎 Find files to upload
         run: |
           find target/${{ matrix.target }}/release -mindepth 1 -maxdepth 1 -type f -not -name '*.d' -not -name '*.rlib' -not -name '.cargo-lock' -not -name 'CACHEDIR.TAG' -exec mv {} upload/ \;
