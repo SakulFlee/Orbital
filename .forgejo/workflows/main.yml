@@ -139,8 +139,8 @@ jobs:
       - name: 👀 Show files to be uploaded
         run: ls -al upload/
       - name: 📝 Make release
-        uses: softprops/action-gh-release@v2
+        uses: actions/forgejo-release@v2
         with:
-          files: upload/*
-          draft: false
-          generate_release_notes: true
+          direction: upload
+          release-dir: upload/
+          release-notes-assistant: true
