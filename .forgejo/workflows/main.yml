@@ -12,8 +12,7 @@ env:
 jobs:
   clippy:
     runs-on: docker
-    container:
-      image: rust:latest
+    container: rust:latest
     steps:
       - name: ⏬ Checkout
         uses: actions/checkout@v6
