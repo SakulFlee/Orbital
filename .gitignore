@@ -22,6 +22,9 @@ jniLibs/
 # Jetbrains IDEs
 .idea/
 
+# VIM
+Session.vim
+
 # Blender Backup Fiiles
 *.blend[0-99]
 
