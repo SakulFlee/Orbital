@@ -11,8 +11,7 @@ env:
   CARGO_TERM_COLOR: always
 jobs:
   clippy:
-    runs-on: docker
-    container: rust:latest
+    runs-on: forgejo-runner-linux
     steps:
       - name: ⏬ Checkout
         uses: actions/checkout@v6
