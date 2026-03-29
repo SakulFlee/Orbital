@@ -11,7 +11,7 @@ env:
   CARGO_TERM_COLOR: always
 jobs:
   clippy:
-    runs-on: ubuntu-latest
+    runs-on: docker
     steps:
       - name: ⏬ Checkout
         uses: actions/checkout@v6
@@ -35,7 +35,7 @@ jobs:
           SKIP_GLTF_EXPORT: true
         run: cargo clippy
   rustfmt:
-    runs-on: ubuntu-latest
+    runs-on: docker
     steps:
       - name: ⏬ Checkout
         uses: actions/checkout@v6
@@ -59,7 +59,7 @@ jobs:
           SKIP_GLTF_EXPORT: true
         run: cargo fmt --all --check
   check:
-    runs-on: ubuntu-latest
+    runs-on: docker
     needs:
       - rustfmt
       - clippy
@@ -86,7 +86,7 @@ jobs:
           SKIP_GLTF_EXPORT: true
         run: cargo check
   test:
-    runs-on: ubuntu-latest
+    runs-on: docker
     steps:
       - name: ⏬ Checkout
         uses: actions/checkout@v6
@@ -116,47 +116,10 @@ jobs:
       - name: 🧪 Test
         run: cargo test
   build:
-    runs-on: ${{ matrix.os }}
+    runs-on: docker
     needs:
       - check
     if: ${{ startsWith(github.ref, 'refs/tags/') }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # Linux
-          - target: "x86_64-unknown-linux-gnu"
-            arch: "amd64"
-            pc: "/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig"
-            os: "ubuntu-latest"
-            gcc: "gcc-x86-64-linux-gnu"
-          - target: "aarch64-unknown-linux-gnu"
-            arch: "arm64"
-            pc: "/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig"
-            os: "ubuntu-latest"
-            gcc: "gcc-aarch64-linux-gnu"
-          - target: "armv7-unknown-linux-gnueabihf"
-            arch: "armhf"
-            pc: "/usr/lib/arm-linux-gnueabihf/pkgconfig:/usr/share/pkgconfig"
-            os: "ubuntu-latest"
-            gcc: "gcc-arm-linux-gnueabihf"
-          - target: "arm-unknown-linux-gnueabihf"
-            arch: "armhf"
-            pc: "/usr/lib/arm-linux-gnueabihf/pkgconfig:/usr/share/pkgconfig"
-            os: "ubuntu-latest"
-            gcc: "gcc-arm-linux-gnueabihf"
-          # macOS
-          - target: "aarch64-apple-darwin"
-            os: "macos-latest"
-          - target: "x86_64-apple-darwin"
-            os: "macos-latest"
-          # Windows
-          - target: "x86_64-pc-windows-gnu"
-            os: "windows-latest"
-          - target: "x86_64-pc-windows-msvc"
-            os: "windows-latest"
-          - target: "aarch64-pc-windows-msvc"
-            os: "windows-latest"
     steps:
       - name: ⏬ Checkout
         uses: actions/checkout@v6
@@ -170,8 +133,7 @@ jobs:
           rustup default stable
           rustup update
           rustup target add ${{ matrix.target }}
-      - name: 🛠️ Configure repositories (Linux)
-        if: ${{ startsWith(matrix.os, 'ubuntu') && matrix.arch != 'amd64' }}
+      - name: 🛠️ Configure repositories
         run: |
           # Add architecture
           sudo dpkg --add-architecture ${{ matrix.arch }}
@@ -188,59 +150,28 @@ jobs:
           echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ noble main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
           echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ noble-updates main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
           echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ noble-security main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
-      - name: 🔁 Update mirrors (Linux)
-        if: ${{ startsWith(matrix.os, 'ubuntu') }}
+      - name: 🔁 Update mirrors
         run: sudo apt-get update
-      - name: 🛠️ Install GCC (Linux)
-        if: ${{ startsWith(matrix.os, 'ubuntu') }}
-        run: sudo apt-get install -y ${{ matrix.gcc }}
-      - name: 🛠️ Install LibUDev (Linux)
-        if: ${{ startsWith(matrix.os, 'ubuntu') }}
+      - name: 🛠️ Install GCC
+        run: sudo apt-get install -y gcc
+      - name: 🛠️ Install LibUDev
         # Note: LibUDev is for GilRs (controller inputs)
-        run: sudo apt-get install -y libudev-dev:${{ matrix.arch }}
-      - name: 🛠️ Install Mesa (Linux)
-        if: ${{ startsWith(matrix.os, 'ubuntu') }}
+        run: sudo apt-get install -y libudev-dev
+      - name: 🛠️ Install Mesa
         # Note: Mesa is required for software rendering using llvmpipe
         run: sudo apt-get install -y mesa-utils
-      - name: 🛠️ Install Blender (Linux)
-        if: ${{ startsWith(matrix.os, 'ubuntu') }}
+      - name: 🛠️ Install Blender
         # Note: Draco is required for glTF compression and doesn't come with Blender
         run: sudo apt-get install -y blender python3-numpy libdraco-dev draco
-      - name: 🛠️ Install Blender (macOS)
-        if: ${{ startsWith(matrix.os, 'macos') }}
-        run: brew install blender
-      - name: 🛠️ Install Blender (Windows)
-        if: ${{ startsWith(matrix.os, 'windows') }}
-        shell: pwsh
-        run: choco install blender --no-progress
-      - name: ➕ Add Blender to PATH (Windows)
-        if: ${{ startsWith(matrix.os, 'windows') }}
-        run: "$blenderBaseDir = \"C:\\Program Files\\Blender Foundation\"\nWrite-Host \"Searching for Blender installation in: $blenderBaseDir\"\n\n# Get all child directories, sort by creation time (newest first), and take the first one\n# In a clean CI environment, this should be the only or newest Blender version\n$blenderInstallDir = Get-ChildItem -Path $blenderBaseDir -Directory | Sort-Object CreationTime -Descending | Select-Object -First 1\n\nif ($blenderInstallDir) {\n   $blenderPath = $blenderInstallDir.FullName\n   Write-Host \"Discovered Blender installation at: $blenderPath\"\n\n   # Verify blender.exe exists inside the discovered directory\n   $blenderExeFullPath = Join-Path $blenderPath \"blender.exe\"\n   if (Test-Path $blenderExeFullPath) {\n       Write-Host \"Confirmed blender.exe exists at: $blenderExeFullPath\"\n       # Add the discovered Blender installation directory to the PATH\n       echo \"$blenderPath\" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append\n       Write-Host \"Blender added to PATH: $blenderPath\"\n   } else {\n       Write-Host \"ERROR: blender.exe not found at expected path: $blenderExeFullPath\"\n       Exit 1 # Fail the step if blender.exe is missing\n   }\n} else {\n   Write-Host \"ERROR: No Blender installation directory found under $blenderBaseDir.\"\n   Exit 1 # Fail the step if no directory is found\n}        \n"
-      - name: 🔨 Build
-        env:
-          PKG_CONFIG_SYSROOT_DIR: /
-          PKG_CONFIG_PATH: ${{ matrix.pc }}
-        run: cargo build --release --target ${{ matrix.target }}
       - name: ➕ Make upload folder
         run: mkdir upload
-      - name: 🔎 Find files to upload (Linux / macOS)
-        if: ${{ ! startsWith(matrix.os, 'windows') }}
+      - name: 🔎 Find files to upload
         run: |
           find target/${{ matrix.target }}/release -mindepth 1 -maxdepth 1 -type f -not -name '*.d' -not -name '*.rlib' -not -name '.cargo-lock' -not -name 'CACHEDIR.TAG' -exec mv {} upload/ \;
           mv Assets/ upload/
-      - name: 🔎 Find files to upload (Windows)
-        if: ${{ startsWith(matrix.os, 'windows') }}
-        run: |
-          Get-ChildItem -Path "target/${{ matrix.target }}/release" -Recurse -Depth 0 -File -Exclude "*.d", "*.rlib", ".cargo-lock", "CACHEDIR.TAG" | Move-Item -Destination "upload/" -Force
-          Move-Item -Force -Path "Assets/" -Destination "upload/"
-      - name: 📦 Make archive (Linux / macOS)
-        if: ${{ ! startsWith(matrix.os, 'windows') }}
+      - name: 📦 Make archive
         working-directory: upload
         run: zip -r ../${{ matrix.target }}.zip .
-      - name: 📦 Make archive (Windows)
-        if: ${{ startsWith(matrix.os, 'windows') }}
-        working-directory: upload
-        run: Compress-Archive -Destination ../${{ matrix.target }}.zip -Path ./*
       - name: ⬆️ Upload artifacts
         uses: actions/upload-artifact@v6
         with:
@@ -248,7 +179,7 @@ jobs:
           path: ${{ matrix.target }}.zip
           if-no-files-found: 'error'
   release:
-    runs-on: ubuntu-latest
+    runs-on: docker
     needs:
       - build
       - test
