@@ -77,6 +77,8 @@ pub enum Commands {
     ///
     /// > Note: **All** values of a component have to be set to be a valid command!
     AttachComponent = 4,
+    DetachComponent = 5,
+    // TODO: Detach missing?
     // --- System ---
     /// Registers a system to be called by the engine with a query response.
     ///
@@ -105,5 +107,6 @@ pub enum Commands {
     /// | `String` | Many | Component names |
     /// | `String` | Many | Included component names |
     /// | `String` | Many | Excluded component names |
-    RegisterSystem = 5,
+    RegisterSystem = 6,
+    SystemRegister = 6,
 }
