@@ -1,6 +1,10 @@
-use std::{any::TypeId, collections::HashMap};
+use std::{
+    any::{Any, TypeId},
+    collections::HashMap,
+    fmt::Debug,
+};
 
-use crate::{Entity, EntityIdType};
+use crate::{ComponentStore, Entity, EntityIdType, WorldComponentStorage};
 
 #[derive(Debug)]
 pub struct World {
