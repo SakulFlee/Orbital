@@ -1,92 +1,14 @@
 mod entity_id;
 pub use entity_id::*;
 
+mod component;
+pub use component::*;
+
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
     fmt::Debug,
 };
-pub trait Component: Any + Debug {
-    fn type_id(&self) -> TypeId {
-        Any::type_id(self)
-    }
-}
-
-impl<T: Any + Debug> Component for T {}
-
-#[derive(Debug)]
-pub struct ComponentStore<T> {
-    pub entity_map: Vec<EntityIdType>,
-    pub components: Vec<T>,
-}
-
-impl<T> ComponentStore<T> {
-    fn new() -> Self {
-        Self {
-            entity_map: Vec::new(),
-            components: Vec::new(),
-        }
-    }
-
-    fn attach_component(&mut self, entity_id: EntityIdType, component: T) {
-        let next_index = self.components.len();
-        self.components.push(component);
-
-        if entity_id >= self.entity_map.len() {
-            let current_len = self.entity_map.len();
-            let new_len = entity_id + 1 - current_len;
-            self.entity_map.resize(new_len, 0);
-        }
-        self.entity_map[entity_id] = next_index;
-    }
-
-    fn detach_component(&mut self, entity_id: EntityIdType) -> Option<T> {
-        if entity_id >= self.entity_map.len() {
-            // Cannot logically be present
-            return None;
-        }
-
-        let component_index = self.entity_map[entity_id];
-        if component_index > 0 {
-            self.entity_map[entity_id] = 0;
-            let component = self.components.swap_remove(component_index);
-            return Some(component);
-        }
-        None
-    }
-
-    fn get_component(&self, entity_id: EntityIdType) -> Option<&T> {
-        if entity_id >= self.entity_map.len() {
-            // Cannot logically be present
-            return None;
-        }
-
-        let component_index = self.entity_map[entity_id];
-        self.components.get(component_index)
-    }
-}
-
-pub trait WorldComponentStorage: Debug {
-    fn as_any<'a>(&'a self) -> &'a dyn Any;
-
-    fn as_any_mut<'a>(&'a mut self) -> &'a mut dyn Any;
-
-    fn remove_entity(&mut self, entity_id: EntityIdType);
-}
-
-impl<T: Any + Debug> WorldComponentStorage for ComponentStore<T> {
-    fn as_any<'a>(&'a self) -> &'a dyn Any {
-        self
-    }
-
-    fn as_any_mut<'a>(&'a mut self) -> &'a mut dyn Any {
-        self
-    }
-
-    fn remove_entity(&mut self, entity_id: EntityIdType) {
-        self.detach_component(entity_id);
-    }
-}
 
 #[derive(Debug)]
 pub struct World {
