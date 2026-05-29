@@ -10,7 +10,7 @@ use crate::{ComponentStore, Entity, EntityIdType, WorldComponentStorage};
 pub struct World {
     pub entity_counter: EntityIdType,
     pub entity_ids: Vec<Entity>,
-    // TODO: Recycle entity IDs
+    pub entity_ids_freed: Vec<EntityIdType>,
     pub component_stores: HashMap<TypeId, Box<dyn WorldComponentStorage>>,
 }
 
@@ -19,13 +19,17 @@ impl World {
         Self {
             entity_counter: 0,
             entity_ids: Vec::new(),
+            entity_ids_freed: Vec::new(),
             component_stores: HashMap::new(),
         }
     }
 
     pub fn spawn_entity(&mut self) -> Entity {
-        let entity_id = self.entity_counter;
-        self.entity_counter = self.entity_counter.wrapping_add(1);
+        let entity_id = self.entity_ids_freed.pop().unwrap_or_else(|| {
+            let next_entity_id = self.entity_counter;
+            self.entity_counter = self.entity_counter.wrapping_add(1);
+            next_entity_id
+        });
 
         let entity = Entity::new(entity_id);
         self.entity_ids.push(entity);
