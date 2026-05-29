@@ -1,30 +1,11 @@
+mod entity_id;
+pub use entity_id::*;
+
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
     fmt::Debug,
 };
-
-pub type EntityIdType = usize;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct EntityId {
-    pub index: EntityIdType,
-    pub generation: u32,
-}
-pub type Entity = EntityId;
-
-impl EntityId {
-    pub fn new(index: EntityIdType) -> Self {
-        Self {
-            index,
-            generation: 0,
-        }
-    }
-
-    fn increment_generation(&mut self) {
-        self.generation = self.generation.wrapping_add(1);
-    }
-}
 pub trait Component: Any + Debug {
     fn type_id(&self) -> TypeId {
         Any::type_id(self)
