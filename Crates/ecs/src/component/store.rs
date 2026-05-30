@@ -51,3 +51,47 @@ impl<T> ComponentStore<T> {
         self.components.get(component_index)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::ComponentStore;
+
+    #[test]
+    fn component_values_correct() {
+        let mut store = ComponentStore::<usize>::new();
+
+        store.attach(0, 123);
+        store.attach(100, 321);
+        store.attach(500, 333);
+
+        assert_eq!(store.get_component(0), Some(&123));
+        assert_eq!(store.get_component(100), Some(&321));
+        assert_eq!(store.get_component(500), Some(&333));
+    }
+
+    #[test]
+    fn component_invalid_entity() {
+        let mut store = ComponentStore::<usize>::new();
+
+        store.attach(0, 123);
+        store.attach(100, 321);
+        store.attach(500, 333);
+
+        assert_eq!(store.get_component(1), None);
+        assert_eq!(store.get_component(99), None);
+        assert_eq!(store.get_component(501), None);
+    }
+
+    #[test]
+    fn component_gone_after_removing() {
+        let mut store = ComponentStore::<usize>::new();
+
+        store.attach(0, 123);
+        store.attach(100, 321);
+        store.attach(500, 333);
+
+        store.detach(100);
+
+        assert_eq!(store.get_component(100), None);
+    }
+}
