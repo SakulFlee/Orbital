@@ -7,7 +7,7 @@ pub trait WorldComponentStorage: Debug {
 
     fn as_any_mut<'a>(&'a mut self) -> &'a mut dyn Any;
 
-    fn remove_entity(&mut self, entity_id: EntityIdType);
+    fn remove_entity(&mut self, entity_id: EntityIdType) -> bool;
 }
 
 impl<T: Any + Debug> WorldComponentStorage for ComponentStore<T> {
@@ -19,7 +19,7 @@ impl<T: Any + Debug> WorldComponentStorage for ComponentStore<T> {
         self
     }
 
-    fn remove_entity(&mut self, entity_id: EntityIdType) {
-        self.detach_component(entity_id);
+    fn remove_entity(&mut self, entity_id: EntityIdType) -> bool {
+        self.detach(entity_id).is_some()
     }
 }
