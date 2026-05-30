@@ -18,7 +18,7 @@ impl EntityId {
         }
     }
 
-    fn increment_generation(&mut self) {
+    pub(crate) fn increment_generation(&mut self) {
         self.generation = self.generation.wrapping_add(1);
     }
 }
