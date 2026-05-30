@@ -16,3 +16,23 @@ pub trait Component: Any + Debug {
 }
 
 impl<T: Any + Debug> Component for T {}
+
+#[cfg(test)]
+mod tests {
+    use std::any::{Any, TypeId};
+
+    use crate::{Component, ComponentStore};
+
+    #[derive(Debug)]
+    struct TestComponent;
+
+    #[test]
+    fn store_creation() {
+        let test_component = TestComponent;
+        let store = test_component.make_store();
+        assert_eq!(
+            TypeId::of::<ComponentStore<TestComponent>>(),
+            store.type_id()
+        );
+    }
+}
