@@ -22,3 +22,29 @@ impl EntityId {
         self.generation = self.generation.wrapping_add(1);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Entity;
+
+    #[test]
+    fn increment_generation() {
+        let mut entity = Entity::new(0);
+        entity.increment_generation();
+
+        assert_eq!(entity.index, 0);
+
+        assert_ne!(entity.generation, 0);
+        assert_eq!(entity.generation, 1);
+    }
+
+    #[test]
+    fn increment_generation_loop() {
+        let mut entity = Entity::new(0);
+
+        for generation in 1..128 {
+            entity.increment_generation();
+            assert_eq!(entity.generation, generation);
+        }
+    }
+}
