@@ -23,3 +23,62 @@ impl<T: Any + Debug> WorldComponentStorage for ComponentStore<T> {
         self.detach(entity_id).is_some()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::any::{Any, TypeId};
+
+    use crate::{ComponentStore, WorldComponentStorage};
+
+    #[test]
+    fn ensure_upcast() {
+        let store = ComponentStore::<usize>::new();
+        let world_store: Box<dyn WorldComponentStorage> = Box::new(store);
+        assert_eq!(
+            TypeId::of::<Box<dyn WorldComponentStorage>>(),
+            world_store.type_id()
+        );
+    }
+
+    #[test]
+    fn ensure_downcast() {
+        let store = ComponentStore::<usize>::new();
+        let world_store: Box<dyn WorldComponentStorage> = Box::new(store);
+
+        if let Some(downcasted) = world_store.as_any().downcast_ref::<ComponentStore<usize>>() {
+            assert_eq!(TypeId::of::<ComponentStore<usize>>(), downcasted.type_id(),);
+        } else {
+            panic!("Downcasting failed!");
+        }
+    }
+
+    // TODO: Duplicate entitiy handling?
+
+    #[test]
+    fn ensure_remove_entity() {
+        let mut store = ComponentStore::<usize>::new();
+        store.attach(0, 111);
+        store.attach(1, 222);
+        store.attach(2, 333);
+
+        let mut world_store: Box<dyn WorldComponentStorage> = Box::new(store);
+
+        println!("Before: {:?}", world_store);
+
+        // Remove entity, verify result
+        let result = world_store.remove_entity(1);
+        assert!(result);
+
+        println!("After: {:?}", world_store);
+
+        if let Some(casted_store) = world_store.as_any().downcast_ref::<ComponentStore<usize>>() {
+            // Test deletion to have happened
+            assert_ne!(casted_store.get_component(1), Some(&222));
+            assert_eq!(casted_store.get_component(1), None);
+
+            // Validate other data is untouched
+            assert_eq!(casted_store.get_component(0), Some(&111));
+            assert_eq!(casted_store.get_component(2), Some(&333));
+        }
+    }
+}
