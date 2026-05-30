@@ -1,54 +1,115 @@
-use std::{
-    any::{Any, TypeId},
-    collections::HashMap,
-    fmt::Debug,
-};
+use std::{any::TypeId, collections::HashMap, fmt::Debug};
 
-use crate::{ComponentStore, Entity, EntityIdType, WorldComponentStorage};
+use crate::{Component, ComponentStore, Entity, EntityIdType, WorldComponentStorage};
 
 #[derive(Debug)]
 pub struct World {
-    pub entity_counter: EntityIdType,
-    pub entity_ids: Vec<Entity>,
-    pub entity_ids_freed: Vec<EntityIdType>,
-    pub component_stores: HashMap<TypeId, Box<dyn WorldComponentStorage>>,
+    /// Indexer over Entity IDs.
+    /// Indicates the next free Entity ID.
+    ///
+    /// > Must be incremented after use!
+    entity_counter: EntityIdType,
+    /// Holds any "freed" (despawned) Entity IDs.
+    /// When spawning a new Entity ID, these freed IDs are prevert.
+    ///
+    /// > The generation counter has to be incremented of each freed Entity ID before use!
+    entities_freed: Vec<Entity>,
+    /// When Entities are freshly spawned, they aren't attached to any Components yet.
+    /// To not loose track of these reserved IDs, and additional data like generations, we
+    /// temporarily park them here _until_ a Component gets attached to the Entity.
+    entities_without_components: Vec<Entity>,
+    /// Holds all the different ComponentStore's for each Component Type.
+    component_stores: HashMap<TypeId, Box<dyn WorldComponentStorage>>,
 }
 
 impl World {
     pub fn new() -> Self {
         Self {
             entity_counter: 0,
-            entity_ids: Vec::new(),
-            entity_ids_freed: Vec::new(),
+            entities_freed: Vec::new(),
+            entities_without_components: Vec::new(),
             component_stores: HashMap::new(),
         }
     }
 
     pub fn spawn_entity(&mut self) -> Entity {
-        let entity_id = self.entity_ids_freed.pop().unwrap_or_else(|| {
+        // If a freed Entity ID is available, we take it from the list and reuse it.
+        // Otherwise, we create a new one and increment the counter.
+        let mut entity = self.entities_freed.pop().unwrap_or_else(|| {
             let next_entity_id = self.entity_counter;
             self.entity_counter = self.entity_counter.wrapping_add(1);
-            next_entity_id
+
+            Entity::new(next_entity_id)
         });
 
-        let entity = Entity::new(entity_id);
-        self.entity_ids.push(entity);
+        // Always increment the generation.
+        // This means a generation will always start at 1.
+        entity.increment_generation();
+
+        // Temporarily park the Entity ID away _until_ a Component is attached.
+        self.entities_without_components.push(entity);
 
         entity
     }
 
     pub fn despawn_entity(&mut self, entity: &Entity) {
-        self.entity_ids.retain(|e| e.index != entity.index);
-        self.component_stores
+        // Remove any components that have an attachment for the Entity
+        if self
+            .component_stores
             .iter_mut()
-            .for_each(|(_, x)| x.remove_entity(entity.index));
+            .any(|(_, x)| x.remove_entity(entity.index))
+        {
+            self.entities_freed.push(*entity);
+        }
+
+        // Store current length of Vector -> retain -> check if something changed
+        let len = self.entities_without_components.len();
+        self.entities_without_components
+            .retain(|x| x.index != entity.index);
+        if self.entities_without_components.len() != len {
+            self.entities_freed.push(*entity);
+        }
     }
 
-    pub fn get_component_store<T: Any + Debug>(&self) -> Option<&ComponentStore<T>> {
-        let type_id = TypeId::of::<T>();
+    pub fn attach_component<C: Component>(
+        &mut self,
+        entity: &Entity,
+        component: C,
+    ) -> Result<(), ()> {
+        if entity.index >= self.entity_counter {
+            return Err(()); // TODO
+        }
+
+        let store = self.get_component_store_mut::<C>().ok_or(())?; // TODO
+        store.attach(entity.index, component);
+
+        Ok(())
+    }
+
+    pub fn detach_component<C: Component>(&mut self, entity: &Entity) -> Result<(), ()> {
+        if entity.index >= self.entity_counter {
+            return Err(()); // TODO
+        }
+
+        let store = self.get_component_store_mut::<C>().ok_or(())?; // TODO
+        store.detach(entity.index);
+
+        Ok(())
+    }
+
+    pub fn get_component_store<C: Component>(&self) -> Option<&ComponentStore<C>> {
+        let type_id = TypeId::of::<C>();
 
         self.component_stores
             .get(&type_id)
-            .and_then(|store| (**store).as_any().downcast_ref::<ComponentStore<T>>())
+            .and_then(|store| (**store).as_any().downcast_ref::<ComponentStore<C>>())
+    }
+
+    pub fn get_component_store_mut<C: Component>(&mut self) -> Option<&mut ComponentStore<C>> {
+        let type_id = TypeId::of::<C>();
+
+        self.component_stores
+            .get_mut(&type_id)
+            .and_then(|store| (**store).as_any_mut().downcast_mut::<ComponentStore<C>>())
     }
 }
