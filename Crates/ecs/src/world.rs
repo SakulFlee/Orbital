@@ -53,13 +53,8 @@ impl World {
     }
 
     pub fn despawn_entity(&mut self, entity: &Entity) {
-        // Remove any components that have an attachment for the Entity
-        if self
-            .component_stores
-            .iter_mut()
-            .any(|(_, x)| x.remove_entity(entity.index))
-        {
-            self.entities_freed.push(*entity);
+        if entity.index > self.entity_counter {
+            return; // Entity cannot exist (yet)
         }
 
         // Store current length of Vector -> retain -> check if something changed
@@ -67,6 +62,18 @@ impl World {
         self.entities_without_components
             .retain(|x| x.index != entity.index);
         if self.entities_without_components.len() != len {
+            self.entities_freed.push(*entity);
+            return;
+            // Early return as we found an entity without any components, thus it cannot be
+            // in any stores.
+        }
+
+        // Remove any components that have an attachment for the Entity
+        if self
+            .component_stores
+            .iter_mut()
+            .any(|(_, x)| x.remove_entity(entity.index))
+        {
             self.entities_freed.push(*entity);
         }
     }
@@ -133,8 +140,8 @@ mod tests {
     fn spawn_entity() {
         let mut world = World::new();
         let entity = world.spawn_entity();
-        assert_eq!(entity.index, 1);
-        assert_eq!(entity.generation, 0);
+        assert_eq!(0, entity.index);
+        assert_eq!(0, entity.generation);
     }
 
     #[test]
@@ -142,20 +149,20 @@ mod tests {
         let mut world = World::new();
 
         let entity_0 = world.spawn_entity();
-        assert_eq!(entity_0.index, 0);
-        assert_eq!(entity_0.generation, 1);
+        assert_eq!(0, entity_0.index);
+        assert_eq!(1, entity_0.generation);
         world
             .attach_component(&entity_0, String::from("First"))
             .expect("Attachment failure");
         let entity_1 = world.spawn_entity();
-        assert_eq!(entity_1.index, 1);
-        assert_eq!(entity_1.generation, 1);
+        assert_eq!(1, entity_1.index);
+        assert_eq!(1, entity_1.generation);
         world
             .attach_component(&entity_1, String::from("Second"))
             .expect("Attachment failure");
         let entity_2 = world.spawn_entity();
-        assert_eq!(entity_2.index, 2);
-        assert_eq!(entity_2.generation, 1);
+        assert_eq!(2, entity_2.index);
+        assert_eq!(1, entity_2.generation);
         world
             .attach_component(&entity_2, String::from("Third"))
             .expect("Attachment failure");
