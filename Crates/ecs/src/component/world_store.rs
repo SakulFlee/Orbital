@@ -52,8 +52,6 @@ mod tests {
         }
     }
 
-    // TODO: Duplicate entitiy handling?
-
     #[test]
     fn ensure_remove_entity() {
         let mut store = ComponentStore::<usize>::new();
@@ -63,13 +61,9 @@ mod tests {
 
         let mut world_store: Box<dyn WorldComponentStorage> = Box::new(store);
 
-        println!("Before: {:?}", world_store);
-
         // Remove entity, verify result
         let result = world_store.remove_entity(1);
         assert!(result);
-
-        println!("After: {:?}", world_store);
 
         if let Some(casted_store) = world_store.as_any().downcast_ref::<ComponentStore<usize>>() {
             // Test deletion to have happened
