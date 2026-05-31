@@ -80,7 +80,16 @@ impl World {
             return Err(()); // TODO
         }
 
-        let store = self.get_component_store_mut::<C>().ok_or(())?; // TODO
+        let type_id = TypeId::of::<C>();
+        let entry = self
+            .component_stores
+            .entry(type_id)
+            .or_insert_with(|| Box::new(ComponentStore::<C>::new()));
+        let store = entry
+            .as_any_mut()
+            .downcast_mut::<ComponentStore<C>>()
+            .expect("Unexpected downcasting failure at ComponentStore"); // TODO
+
         store.attach(entity.index, component);
 
         Ok(())
@@ -91,8 +100,10 @@ impl World {
             return Err(()); // TODO
         }
 
-        let store = self.get_component_store_mut::<C>().ok_or(())?; // TODO
-        store.detach(entity.index);
+        let type_id = TypeId::of::<C>();
+
+        let store = self.component_stores.get_mut(&type_id).ok_or(())?;
+        store.remove_entity(entity.index);
 
         Ok(())
     }
@@ -111,5 +122,60 @@ impl World {
         self.component_stores
             .get_mut(&type_id)
             .and_then(|store| (**store).as_any_mut().downcast_mut::<ComponentStore<C>>())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::World;
+
+    #[test]
+    fn spawn_entity() {
+        let mut world = World::new();
+        let entity = world.spawn_entity();
+        assert_eq!(entity.index, 1);
+        assert_eq!(entity.generation, 0);
+    }
+
+    #[test]
+    fn despawn_entity() {
+        let mut world = World::new();
+
+        let entity_0 = world.spawn_entity();
+        assert_eq!(entity_0.index, 0);
+        assert_eq!(entity_0.generation, 1);
+        world
+            .attach_component(&entity_0, String::from("First"))
+            .expect("Attachment failure");
+        let entity_1 = world.spawn_entity();
+        assert_eq!(entity_1.index, 1);
+        assert_eq!(entity_1.generation, 1);
+        world
+            .attach_component(&entity_1, String::from("Second"))
+            .expect("Attachment failure");
+        let entity_2 = world.spawn_entity();
+        assert_eq!(entity_2.index, 2);
+        assert_eq!(entity_2.generation, 1);
+        world
+            .attach_component(&entity_2, String::from("Third"))
+            .expect("Attachment failure");
+
+        world.despawn_entity(&entity_1);
+
+        let store = world
+            .get_component_store::<String>()
+            .expect("Store failure");
+        assert_eq!(
+            store.get_component(entity_0.index),
+            Some(&String::from("First"))
+        );
+        assert_ne!(
+            store.get_component(entity_1.index),
+            Some(&String::from("Second"))
+        );
+        assert_eq!(
+            store.get_component(entity_2.index),
+            Some(&String::from("Third"))
+        );
     }
 }
