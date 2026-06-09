@@ -69,11 +69,14 @@ impl World {
         }
 
         // Remove any components that have an attachment for the Entity
-        if self
-            .component_stores
-            .iter_mut()
-            .any(|(_, x)| x.remove_entity(entity.index))
-        {
+        let mut any_removed = false;
+        for store in self.component_stores.values_mut() {
+            let result = store.remove_entity(entity.index);
+            if result {
+                any_removed = true;
+            }
+        }
+        if any_removed {
             self.entities_freed.push(*entity);
         }
     }
