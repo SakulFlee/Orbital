@@ -141,7 +141,7 @@ mod tests {
         let mut world = World::new();
         let entity = world.spawn_entity();
         assert_eq!(0, entity.index);
-        assert_eq!(0, entity.generation);
+        assert_eq!(1, entity.generation);
     }
 
     #[test]
