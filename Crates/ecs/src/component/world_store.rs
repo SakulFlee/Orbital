@@ -1,13 +1,13 @@
 use std::{any::Any, fmt::Debug};
 
-use crate::{ComponentStore, EntityIdType};
+use crate::ComponentStore;
 
 pub trait WorldComponentStorage: Debug {
     fn as_any<'a>(&'a self) -> &'a dyn Any;
 
     fn as_any_mut<'a>(&'a mut self) -> &'a mut dyn Any;
 
-    fn remove_entity(&mut self, entity_id: EntityIdType) -> bool;
+    fn remove_entity(&mut self, entity_id: usize) -> bool;
 }
 
 impl<T: Any + Debug> WorldComponentStorage for ComponentStore<T> {
@@ -19,7 +19,7 @@ impl<T: Any + Debug> WorldComponentStorage for ComponentStore<T> {
         self
     }
 
-    fn remove_entity(&mut self, entity_id: EntityIdType) -> bool {
+    fn remove_entity(&mut self, entity_id: usize) -> bool {
         self.detach(entity_id).is_some()
     }
 }

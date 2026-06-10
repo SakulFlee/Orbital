@@ -1,13 +1,11 @@
-mod entity_id;
-pub use entity_id::*;
+mod entity;
+pub use entity::*;
 
 mod component;
 pub use component::*;
 
 mod world;
 pub use world::*;
-
-// TODO: Duplicate entitiy handling?
 
 #[cfg(test)]
 mod tests {
