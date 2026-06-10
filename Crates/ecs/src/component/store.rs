@@ -1,15 +1,13 @@
-use crate::EntityIdType;
-
 #[derive(Debug)]
 pub struct ComponentStore<T> {
     /// [Entity ID] -> [Component Index]
     /// Maps Entity ID to Component index in a sparse set.
     /// Used for accessing a Component of a given Entity identified by an ID.
-    pub sparse: Vec<Option<EntityIdType>>,
+    pub sparse: Vec<Option<usize>>,
     /// [Component Index] -> [Entity ID]
     /// Maps Component index back to Entity IDs in a dense set.
     /// Used for detaching/removing components to have a "reverse lookup" available.
-    pub dense: Vec<EntityIdType>,
+    pub dense: Vec<usize>,
     /// [Component Index] -> [Component]
     /// Stores the actual Components in a dense set.
     pub components: Vec<T>,
@@ -24,7 +22,7 @@ impl<T> ComponentStore<T> {
         }
     }
 
-    pub fn attach(&mut self, entity_id: EntityIdType, component: T) {
+    pub fn attach(&mut self, entity_id: usize, component: T) {
         // Aquire next index
         let next_index = self.components.len();
 
@@ -39,7 +37,7 @@ impl<T> ComponentStore<T> {
         self.sparse[entity_id] = Some(next_index);
     }
 
-    pub fn detach(&mut self, entity_id: EntityIdType) -> Option<T> {
+    pub fn detach(&mut self, entity_id: usize) -> Option<T> {
         if entity_id >= self.sparse.len() {
             // Cannot logically be present
             return None;
@@ -64,7 +62,7 @@ impl<T> ComponentStore<T> {
         Some(component)
     }
 
-    pub fn get_component(&self, entity_id: EntityIdType) -> Option<&T> {
+    pub fn get_component(&self, entity_id: usize) -> Option<&T> {
         if entity_id >= self.sparse.len() {
             // Cannot logically be present
             return None;

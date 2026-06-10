@@ -1,14 +1,14 @@
 use std::{any::TypeId, collections::HashMap, fmt::Debug};
 
-use crate::{Component, ComponentStore, Entity, EntityIdType, WorldComponentStorage};
+use crate::{Component, ComponentStore, Entity, WorldComponentStorage};
 
 #[derive(Debug)]
 pub struct World {
     /// Maps an index to its current generation
     /// This is the "Source of Truth" for existence
-    generations: Vec<EntityIdType>,
+    generations: Vec<usize>,
     /// The list of indices that are currently "free"
-    free_indices: Vec<EntityIdType>,
+    free_indices: Vec<usize>,
     /// Holds all the different ComponentStore's for each Component Type.
     component_stores: HashMap<TypeId, Box<dyn WorldComponentStorage>>,
 }
@@ -37,12 +37,12 @@ impl World {
             idx
         } else {
             // Otherwise, create a new slot starting at generation zero
-            let new_idx = self.generations.len() as EntityIdType;
+            let new_idx = self.generations.len();
             self.generations.push(0);
             new_idx
         };
 
-        Entity::new_with_generation(index, self.generations[index])
+        Entity::new(index, self.generations[index])
     }
 
     pub fn despawn_entity(&mut self, entity: &Entity) {
@@ -244,7 +244,7 @@ mod tests {
         let world = World::new();
 
         // Manually construct an entity with an out-of-bounds index
-        let fake_entity = Entity::new_with_generation(999, 0);
+        let fake_entity = Entity::new(999, 0);
 
         assert!(
             !world.is_valid(&fake_entity),
