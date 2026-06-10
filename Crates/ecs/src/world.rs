@@ -4,20 +4,11 @@ use crate::{Component, ComponentStore, Entity, EntityIdType, WorldComponentStora
 
 #[derive(Debug)]
 pub struct World {
-    /// Indexer over Entity IDs.
-    /// Indicates the next free Entity ID.
-    ///
-    /// > Must be incremented after use!
-    entity_counter: EntityIdType,
-    /// Holds any "freed" (despawned) Entity IDs.
-    /// When spawning a new Entity ID, these freed IDs are prevert.
-    ///
-    /// > The generation counter has to be incremented of each freed Entity ID before use!
-    entities_freed: Vec<Entity>,
-    /// When Entities are freshly spawned, they aren't attached to any Components yet.
-    /// To not loose track of these reserved IDs, and additional data like generations, we
-    /// temporarily park them here _until_ a Component gets attached to the Entity.
-    entities_without_components: Vec<Entity>,
+    /// Maps an index to its current generation
+    /// This is the "Source of Truth" for existence
+    generations: Vec<EntityIdType>,
+    /// The list of indices that are currently "free"
+    free_indices: Vec<EntityIdType>,
     /// Holds all the different ComponentStore's for each Component Type.
     component_stores: HashMap<TypeId, Box<dyn WorldComponentStorage>>,
 }
@@ -25,60 +16,49 @@ pub struct World {
 impl World {
     pub fn new() -> Self {
         Self {
-            entity_counter: 0,
-            entities_freed: Vec::new(),
-            entities_without_components: Vec::new(),
             component_stores: HashMap::new(),
+            generations: Vec::new(),
+            free_indices: Vec::new(),
         }
+    }
+
+    pub fn is_valid(&self, entity: &Entity) -> bool {
+        let idx = entity.index as usize;
+        // If the index is out of bounds, it's invalid.
+        // If the generation doesn't match, it's a stale handle (despawned).
+        idx < self.generations.len() && self.generations[idx] == entity.generation
     }
 
     pub fn spawn_entity(&mut self) -> Entity {
-        // If a freed Entity ID is available, we take it from the list and reuse it.
-        // Otherwise, we create a new one and increment the counter.
-        let mut entity = self.entities_freed.pop().unwrap_or_else(|| {
-            let next_entity_id = self.entity_counter;
-            self.entity_counter = self.entity_counter.wrapping_add(1);
+        let index = if let Some(idx) = self.free_indices.pop() {
+            // If a free ID exists we take that
+            idx
+        } else {
+            // Otherwise, create a new slot starting at generation zero
+            let new_idx = self.generations.len() as EntityIdType;
+            self.generations.push(0);
+            new_idx
+        };
 
-            Entity::new(next_entity_id)
-        });
-
-        // Always increment the generation.
-        // This means a generation will always start at 1.
-        entity.increment_generation();
-
-        // Temporarily park the Entity ID away _until_ a Component is attached.
-        self.entities_without_components.push(entity);
-
-        entity
+        Entity::new_with_generation(index, self.generations[index])
     }
 
     pub fn despawn_entity(&mut self, entity: &Entity) {
-        if entity.index > self.entity_counter {
-            return; // Entity cannot exist (yet)
+        if !self.is_valid(entity) {
+            return;
         }
 
-        // Store current length of Vector -> retain -> check if something changed
-        let len = self.entities_without_components.len();
-        self.entities_without_components
-            .retain(|x| x.index != entity.index);
-        if self.entities_without_components.len() != len {
-            self.entities_freed.push(*entity);
-            return;
-            // Early return as we found an entity without any components, thus it cannot be
-            // in any stores.
-        }
+        // First, increment the generation at entity index.
+        // This will make the old entity handle "stale" and forces validation to fail.
+        self.generations[entity.index] += 1;
 
         // Remove any components that have an attachment for the Entity
-        let mut any_removed = false;
         for store in self.component_stores.values_mut() {
-            let result = store.remove_entity(entity.index);
-            if result {
-                any_removed = true;
-            }
+            let _ = store.remove_entity(entity.index);
         }
-        if any_removed {
-            self.entities_freed.push(*entity);
-        }
+
+        // Mark the index as free
+        self.free_indices.push(entity.index);
     }
 
     pub fn attach_component<C: Component>(
@@ -144,7 +124,7 @@ mod tests {
         let mut world = World::new();
         let entity = world.spawn_entity();
         assert_eq!(0, entity.index);
-        assert_eq!(1, entity.generation);
+        assert_eq!(0, entity.generation);
     }
 
     #[test]
@@ -153,19 +133,19 @@ mod tests {
 
         let entity_0 = world.spawn_entity();
         assert_eq!(0, entity_0.index);
-        assert_eq!(1, entity_0.generation);
+        assert_eq!(0, entity_0.generation);
         world
             .attach_component(&entity_0, String::from("First"))
             .expect("Attachment failure");
         let entity_1 = world.spawn_entity();
         assert_eq!(1, entity_1.index);
-        assert_eq!(1, entity_1.generation);
+        assert_eq!(0, entity_1.generation);
         world
             .attach_component(&entity_1, String::from("Second"))
             .expect("Attachment failure");
         let entity_2 = world.spawn_entity();
         assert_eq!(2, entity_2.index);
-        assert_eq!(1, entity_2.generation);
+        assert_eq!(0, entity_2.generation);
         world
             .attach_component(&entity_2, String::from("Third"))
             .expect("Attachment failure");
