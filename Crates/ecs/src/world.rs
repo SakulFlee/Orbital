@@ -119,7 +119,7 @@ impl World {
 
 #[cfg(test)]
 mod tests {
-    use crate::World;
+    use super::*;
 
     #[test]
     fn spawn_entity() {
@@ -169,5 +169,121 @@ mod tests {
             store.get_component(entity_2.index),
             Some(&String::from("Third"))
         );
+    }
+
+    #[test]
+    fn test_index_reuse_and_generation_increment() {
+        let mut world = World::new();
+
+        // Spawn first entity
+        let e1 = world.spawn_entity();
+        let idx1 = e1.index;
+        let gen1 = e1.generation;
+        assert_eq!(idx1, 0);
+        assert_eq!(gen1, 0);
+
+        // Despawn it
+        world.despawn_entity(&e1);
+
+        // Spawn second entity - should reuse index 0 but have generation 1
+        let e2 = world.spawn_entity();
+        assert_eq!(e2.index, idx1, "Should reuse the freed index");
+        assert_ne!(e2.generation, gen1, "Generation should have incremented");
+        assert_eq!(e2.generation, 1);
+    }
+
+    #[test]
+    fn test_stale_handle_invalidation() {
+        let mut world = World::new();
+
+        let e1 = world.spawn_entity();
+        world.despawn_entity(&e1);
+
+        // e1 is now a stale handle
+        assert!(
+            !world.is_valid(&e1),
+            "Handle should be invalid after despawn"
+        );
+
+        // Attempting to attach a component to a stale handle should fail
+        let result = world.attach_component(&e1, String::from("Ghost"));
+        assert!(
+            result.is_err(),
+            "Should not allow attaching components to stale handles"
+        );
+    }
+
+    #[test]
+    fn test_complex_reuse_pattern() {
+        let mut world = World::new();
+
+        // Spawn 3 entities
+        let e0 = world.spawn_entity(); // idx 0, gen 0
+        let e1 = world.spawn_entity(); // idx 1, gen 0
+        let e2 = world.spawn_entity(); // idx 2, gen 0
+
+        // Despawn middle one
+        world.despawn_entity(&e1);
+
+        // Spawn a new one - should take index 1
+        let e1_new = world.spawn_entity();
+        assert_eq!(e1_new.index, e1.index);
+        assert_eq!(e1_new.generation, 1);
+
+        // Verify e0 and e2 are still valid
+        assert!(world.is_valid(&e0));
+        assert!(world.is_valid(&e2));
+        assert!(world.is_valid(&e1_new));
+
+        // Verify e1 is still invalid
+        assert!(!world.is_valid(&e1));
+    }
+
+    #[test]
+    fn test_out_of_bounds_validation() {
+        let world = World::new();
+
+        // Manually construct an entity with an out-of-bounds index
+        let fake_entity = Entity::new_with_generation(999, 0);
+
+        assert!(
+            !world.is_valid(&fake_entity),
+            "Out of bounds index should be invalid"
+        );
+    }
+
+    #[test]
+    fn test_multiple_despawns_and_recycles() {
+        let mut world = World::new();
+
+        let e1 = world.spawn_entity();
+        let _e2 = world.spawn_entity();
+        let e3 = world.spawn_entity();
+
+        world.despawn_entity(&e1);
+        world.despawn_entity(&e3);
+
+        // Next spawn should take index 2 (last freed) or 0 depending on pop order
+        // But either way, it must be a valid, non-stale handle
+        let e4 = world.spawn_entity();
+        assert!(world.is_valid(&e4));
+
+        // Verify that the despawned handles are still invalid
+        assert!(!world.is_valid(&e1));
+        assert!(!world.is_valid(&e3));
+    }
+
+    #[test]
+    fn test_attach_detach_on_valid_entities() {
+        let mut world = World::new();
+        let e = world.spawn_entity();
+
+        // Test attach
+        let res_attach = world.attach_component(&e, String::from("Data"));
+        assert!(res_attach.is_ok());
+
+        // Test detach
+        let res_detach = world.detach_component::<String>(&e);
+        assert!(res_detach.is_ok());
     }
 }
