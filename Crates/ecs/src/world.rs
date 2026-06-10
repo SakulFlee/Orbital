@@ -50,16 +50,16 @@ impl World {
             return;
         }
 
-        // First, increment the generation at entity index.
-        // This will make the old entity handle "stale" and forces validation to fail.
-        self.generations[entity.index] += 1;
+        // First, we increment the generation.
+        // This will automatically invalidate all existing Entity handles pointing to this index.
+        self.generations[entity.index] = self.generations[entity.index].wrapping_add(1);
 
-        // Remove any components that have an attachment for the Entity
+        // Then, remove the entity from all component stores.
         for store in self.component_stores.values_mut() {
-            let _ = store.remove_entity(entity.index);
+            store.remove_entity(entity.index);
         }
 
-        // Mark the index as free
+        // Lastly, Add the index to the free pool for reuse.
         self.free_indices.push(entity.index);
     }
 
@@ -68,8 +68,8 @@ impl World {
         entity: &Entity,
         component: C,
     ) -> Result<(), ()> {
-        if entity.index >= self.entity_counter {
-            return Err(()); // TODO
+        if !self.is_valid(entity) {
+            return Err(());
         }
 
         let type_id = TypeId::of::<C>();
@@ -77,10 +77,11 @@ impl World {
             .component_stores
             .entry(type_id)
             .or_insert_with(|| Box::new(ComponentStore::<C>::new()));
+
         let store = entry
             .as_any_mut()
             .downcast_mut::<ComponentStore<C>>()
-            .expect("Unexpected downcasting failure at ComponentStore"); // TODO
+            .expect("Unexpected downcasting failure at ComponentStore");
 
         store.attach(entity.index, component);
 
@@ -88,12 +89,11 @@ impl World {
     }
 
     pub fn detach_component<C: Component>(&mut self, entity: &Entity) -> Result<(), ()> {
-        if entity.index >= self.entity_counter {
-            return Err(()); // TODO
+        if !self.is_valid(entity) {
+            return Err(());
         }
 
         let type_id = TypeId::of::<C>();
-
         let store = self.component_stores.get_mut(&type_id).ok_or(())?;
         store.remove_entity(entity.index);
 
