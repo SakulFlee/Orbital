@@ -7,7 +7,7 @@ pub use entity::*;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct EntityId {
     pub index: EntityIdType,
-    pub generation: u32,
+    pub generation: EntityIdType,
 }
 
 impl EntityId {
@@ -16,6 +16,10 @@ impl EntityId {
             index,
             generation: 0,
         }
+    }
+
+    pub fn new_with_generation(index: EntityIdType, generation: EntityIdType) -> Self {
+        Self { index, generation }
     }
 
     pub(crate) fn increment_generation(&mut self) {
