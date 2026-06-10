@@ -7,6 +7,9 @@ pub use component::*;
 mod world;
 pub use world::*;
 
+mod archetype;
+pub use archetype::*;
+
 #[cfg(test)]
 mod tests {
     use std::time::Instant;
