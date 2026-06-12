@@ -1,6 +1,6 @@
+use crate::{ArchetypeManager, Component, ComponentStore, Entity, WorldComponentStorage};
 use std::any::TypeId;
 use std::collections::HashMap;
-use crate::{ArchetypeManager, Component, Entity, WorldComponentStorage, ComponentStore};
 
 /// The world is the central hub for all entities and components.
 #[derive(Debug)]
@@ -51,7 +51,9 @@ impl World {
         }
 
         // Get the entity's location (archetype index and index within archetype)
-        if let Some((archetype_idx, entity_idx_in_archetype)) = self.archetype_manager.get_entity_location(entity.index) {
+        if let Some((archetype_idx, entity_idx_in_archetype)) =
+            self.archetype_manager.get_entity_location(entity.index)
+        {
             // Remove entity from archetype
             {
                 let archetype = &mut self.archetype_manager.archetypes_mut()[archetype_idx];
@@ -68,7 +70,11 @@ impl World {
     }
 
     /// Attaches a component to an entity.
-    pub fn attach_component<T: Component>(&mut self, entity: &Entity, value: T) -> Result<(), &'static str> {
+    pub fn attach_component<T: Component>(
+        &mut self,
+        entity: &Entity,
+        value: T,
+    ) -> Result<(), &'static str> {
         if !self.is_valid(entity) {
             return Err("Invalid entity");
         }
@@ -77,7 +83,8 @@ impl World {
         let type_id = TypeId::of::<T>();
 
         // Get current component types for the entity
-        let current_types = self.archetype_manager
+        let current_types = self
+            .archetype_manager
             .get_component_types_for_entity(entity.index)
             .cloned()
             .unwrap_or_else(|| Vec::new());
@@ -92,7 +99,8 @@ impl World {
         }
 
         // Get or create the component store for this type
-        let store = self.component_stores
+        let store = self
+            .component_stores
             .entry(type_id)
             .or_insert_with(|| Box::new(ComponentStore::<T>::new()));
 
@@ -108,7 +116,10 @@ impl World {
     }
 
     /// Detaches a component from an entity.
-    pub fn detach_component<T: Component>(&mut self, entity: &Entity) -> Result<Option<T>, &'static str> {
+    pub fn detach_component<T: Component>(
+        &mut self,
+        entity: &Entity,
+    ) -> Result<Option<T>, &'static str> {
         if !self.is_valid(entity) {
             return Err("Invalid entity");
         }
@@ -122,7 +133,8 @@ impl World {
         let type_id = TypeId::of::<T>();
 
         // Get current component types for the entity
-        let current_types = self.archetype_manager
+        let current_types = self
+            .archetype_manager
             .get_component_types_for_entity(entity.index)
             .cloned()
             .unwrap_or_else(|| Vec::new());
@@ -180,13 +192,20 @@ impl World {
 
     /// Checks if an entity is valid (not despawned).
     pub fn is_valid(&self, entity: &Entity) -> bool {
-        entity.generation == self.generation as usize &&
-        self.archetype_manager.get_archetype_index(entity.index).is_some()
+        entity.generation == self.generation as usize
+            && self
+                .archetype_manager
+                .get_archetype_index(entity.index)
+                .is_some()
     }
 
     /// Gets the number of entities in the world.
     pub fn entity_count(&self) -> usize {
-        self.archetype_manager.archetypes().iter().map(|a| a.len()).sum()
+        self.archetype_manager
+            .archetypes()
+            .iter()
+            .map(|a| a.len())
+            .sum()
     }
 
     /// Clears all entities and components from the world.
@@ -199,17 +218,6 @@ impl World {
         }
 
         // Clear all component stores
-        for _store in self.component_stores.values_mut() {
-            // We cannot iterate over all entity IDs easily, so we rely on the archetype clearing above
-            // to have removed all entities from the component stores via despawn_entity? Actually,
-            // we are not calling despawn_entity here. We must clear the component stores manually.
-            // Since we don't have a list of all entity IDs, we will clear the stores by resetting them.
-            // However, the WorldComponentStorage trait does not provide a clear method.
-            // We will instead remove the stores and create new ones? But we want to keep the storage
-            // types for future use? The spec doesn't specify. We'll just clear the maps by
-            // removing all entries. This will lose the storage type information, but that's acceptable
-            // for a clear operation.
-        }
         self.component_stores.clear();
 
         // Reset entity counter and generation
@@ -308,5 +316,29 @@ mod tests {
         } else {
             panic!("Value component not found!");
         }
+    }
+
+    #[test]
+    fn test_clear() {
+        let mut world = World::new();
+        let e1 = world.spawn_entity();
+        let e2 = world.spawn_entity();
+        world.attach_component(&e1, String::from("test")).unwrap();
+        world.attach_component(&e2, 42).unwrap();
+
+        assert!(world.is_valid(&e1));
+        assert!(world.is_valid(&e2));
+        assert!(world.has_component::<String>(&e1));
+        assert!(world.has_component::<i32>(&e2));
+
+        world.clear();
+
+        assert!(!world.is_valid(&e1));
+        assert!(!world.is_valid(&e2));
+        assert!(!world.has_component::<String>(&e1));
+        assert!(!world.has_component::<i32>(&e2));
+        // After clearing, the world should be empty and we can spawn new entities
+        let e3 = world.spawn_entity();
+        assert!(world.is_valid(&e3));
     }
 }
