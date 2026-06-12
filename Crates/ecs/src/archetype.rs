@@ -179,15 +179,53 @@ impl ArchetypeManager {
         archetype_idx
     }
 
+    /// Adds an entity to the specified archetype and updates the entity mapping.
+    pub fn add_entity(&mut self, entity: Entity, archetype_index: usize) -> usize {
+        let archetype = &mut self.archetypes[archetype_index];
+        let idx = archetype.entities.len();
+        archetype.push_entity(entity);
+        self.entity_to_archetype.insert(entity.index, (archetype_index, idx));
+        idx
+    }
+
+    /// Gets the archetype index for an entity.
+    pub fn get_archetype_index(&self, entity_index: usize) -> Option<usize> {
+        self.entity_to_archetype.get(&entity_index).map(|(idx, _)| *idx)
+    }
+
+    /// Gets the entity's location (archetype index and index within archetype) for an entity.
+    pub fn get_entity_location(&self, entity_index: usize) -> Option<(usize, usize)> {
+        self.entity_to_archetype.get(&entity_index).copied()
+    }
+
+    /// Gets the component types for an entity.
+    pub fn get_component_types_for_entity(&self, entity_index: usize) -> Option<&Vec<TypeId>> {
+        self.entity_to_archetype.get(&entity_index)
+            .map(|(archetype_idx, _)| &self.archetypes[*archetype_idx].component_types)
+    }
+
+    /// Removes an entity from the entity mapping.
+    pub fn remove_entity(&mut self, entity_index: usize) {
+        self.entity_to_archetype.remove(&entity_index);
+    }
+
     /// Calculates a bitmask from component types.
     fn calculate_mask(component_types: &[TypeId]) -> u64 {
-        let mut mask = 0u64;
-        for (i, &type_id) in component_types.iter().enumerate() {
-            if i < 64 {
-                mask |= 1 << i;
-            }
+        use std::hash::{Hash, Hasher};
+        let mut hashes: Vec<u64> = component_types
+            .iter()
+            .map(|&type_id| {
+                let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                type_id.hash(&mut hasher);
+                hasher.finish()
+            })
+            .collect();
+        hashes.sort();
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        for hash in hashes {
+            hash.hash(&mut hasher);
         }
-        mask
+        hasher.finish()
     }
 
     /// Gets the size of a type in bytes.
@@ -228,50 +266,23 @@ impl ArchetypeManager {
             None => return, // Should not happen
         };
         
-        // Collect component data from old archetype BEFORE any modifications
-        let mut component_data: Vec<Vec<u8>> = Vec::new();
-        let old_archetype = &self.archetypes[old_arch_idx];
+        // Remove entity from old archetype
+        let _removed_entity = self.archetypes[old_arch_idx].remove_entity(entity_local_idx);
+        // We don't use the removed entity, but we assume it's the same as the input entity
 
-        for (col_idx, &type_id) in old_archetype.component_types.iter().enumerate() {
-            if new_mask & (1 << col_idx) != 0 {
-                // This component type exists in the new archetype - copy data
-                let size = old_archetype.column_sizes[col_idx];
-                let start = entity_local_idx * size;
-                let end = start + size;
-                if let Some(data) = old_archetype.columns[col_idx].get(start..end) {
-                    component_data.push(data.to_vec());
-                } else {
-                    component_data.push(vec![0u8; size]);
-                }
-            }
-        }
-
-        // Add entity to new archetype first (before removing from old)
+        // Add entity to new archetype
         let new_arch_entity_idx = self.archetypes[new_arch_idx].entities.len();
         self.archetypes[new_arch_idx].push_entity(entity);
         
-        // Store component data in new columns
-        for (i, data) in component_data.into_iter().enumerate() {
-            if i < self.archetypes[new_arch_idx].columns.len() {
-                let size = self.archetypes[new_arch_idx].column_sizes[i];
-                self.archetypes[new_arch_idx].columns[i].extend(&data);
-            }
-        }
-
         // Update entity mapping
         self.entity_to_archetype.insert(entity.index, (new_arch_idx, new_arch_entity_idx));
 
-        // Remove from old archetype
-        self.archetypes[old_arch_idx].remove_entity(entity_local_idx);
-        
         // Clean up empty archetypes
         if self.archetypes[old_arch_idx].is_empty() {
             self.archetype_map.remove(&old_mask);
         }
     }
-}
 
-impl ArchetypeManager {
     /// Accessor for internal archetypes vector (needed by World)
     pub(crate) fn archetypes(&self) -> &[Archetype] {
         &self.archetypes
