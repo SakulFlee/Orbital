@@ -19,8 +19,6 @@
 ///     y: f32,
 /// }
 ///
-/// impl Component for Position {}
-///
 /// fn main() {
 ///     let mut world = World::new();
 ///     let entity = world.spawn_entity();
