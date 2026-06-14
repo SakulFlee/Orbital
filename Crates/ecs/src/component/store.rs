@@ -73,6 +73,12 @@ impl<T> ComponentStore<T> {
     }
 }
 
+impl<T> Default for ComponentStore<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::ComponentStore;
