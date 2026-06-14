@@ -3,5 +3,10 @@ name = "orbital_ecs"
 version = "0.1.0"
 edition = "2024"
 
+[[bench]]
+name = "ecs_bench"
+harness = false
+
 [dev-dependencies]
 rand = "0.10"
+criterion = { version = "0.8", features = ["html_reports"] }
