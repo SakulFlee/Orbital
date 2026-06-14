@@ -1,54 +1,100 @@
-/// The Entity Component System (ECS) library.
-///
-/// This library provides an archetype-based ECS implementation designed for
-/// game development and simulation. It includes:
-///
-/// * Entities with generation counters to prevent use-after-free
-/// * Type-safe component storage
-/// * Archetype-based entity grouping for cache efficiency
-/// * World management for entity and component lifecycle
-///
-/// # Example
-///
-/// ```
-/// use ecs::{World, Component};
-///
-/// #[derive(Debug)]
-/// struct Position {
-///     x: f32,
-///     y: f32,
-/// }
-///
-/// impl Component for Position {}
-///
-/// fn main() {
-///     let mut world = World::new();
-///     let entity = world.spawn_entity();
-///     assert!(world.is_valid(&entity));
-///     world.despawn_entity(&entity);
-///     assert!(!world.is_valid(&entity));
-/// }
-/// ```
-pub mod entity;
+mod entity;
 pub use entity::*;
 
-pub mod component;
+mod component;
 pub use component::*;
 
-pub mod world;
-pub use world::World;
+mod world;
+pub use world::*;
 
-pub mod archetype;
-pub use archetype::{Archetype, ArchetypeManager};
+mod archetype;
+pub use archetype::*;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::time::Instant;
+
+    use rand::seq::SliceRandom;
+
+    use crate::World;
 
     #[test]
-    fn test_exports() {
-        // This test ensures that all the public items can be imported.
-        let _ = Entity::new(0, 0);
-        let _ = World::new();
+    fn performance_validation_spawning_empty_entities() {
+        const ENTITY_COUNT: usize = 1024 * 128;
+
+        let mut world = World::new();
+        let mut entities = Vec::with_capacity(ENTITY_COUNT);
+
+        let earlier = Instant::now();
+
+        for _ in 0..=ENTITY_COUNT {
+            let entity = world.spawn_entity();
+            entities.push(entity);
+        }
+
+        let duration = Instant::now().duration_since(earlier);
+        println!("Duration: {:?}", duration);
+
+        if duration.as_micros() >= 10_000 {
+            panic!("Test took too long!");
+        }
+    }
+
+    #[test]
+    fn performance_validation_despawning_empty_entities() {
+        const ENTITY_COUNT: usize = 1024 * 128;
+
+        let mut world = World::new();
+        let mut entities = Vec::with_capacity(ENTITY_COUNT);
+
+        for _ in 0..=ENTITY_COUNT {
+            let entity = world.spawn_entity();
+            entities.push(entity);
+        }
+
+        // Shuffle entities around to make removing entities harder
+        let mut rng = rand::rng();
+        entities.shuffle(&mut rng);
+
+        let earlier = Instant::now();
+
+        entities.iter().for_each(|x| world.despawn_entity(x));
+
+        let duration = Instant::now().duration_since(earlier);
+        println!("Duration: {:?}", duration);
+
+        if duration.as_secs() >= 7 {
+            panic!("Test took too long!");
+        }
+    }
+
+    #[test]
+    fn performance_validation_spawning_one_type() {
+        const ENTITY_COUNT: usize = 1024 * 128;
+
+        let mut world = World::new();
+        let mut entities = Vec::with_capacity(ENTITY_COUNT);
+
+        for _ in 0..=ENTITY_COUNT {
+            let entity = world.spawn_entity();
+            entities.push(entity);
+        }
+
+        let mut rng = rand::rng();
+        entities.shuffle(&mut rng);
+
+        let earlier = Instant::now();
+        entities.iter().enumerate().for_each(|(idx, entity_id)| {
+            world
+                .attach_component(entity_id, idx)
+                .expect("Attachment failure")
+        });
+
+        let duration = Instant::now().duration_since(earlier);
+        println!("Duration:\t{:?}", duration);
+
+        if duration.as_micros() >= 10_000 {
+            panic!("Test took too long!");
+        }
     }
 }
