@@ -1,6 +1,6 @@
 use std::{any::TypeId, collections::HashMap, fmt::Debug};
 
-use crate::{Component, ComponentStore, Entity, WorldComponentStorage};
+use crate::{Component, ComponentStore, ECSError, Entity, WorldComponentStorage};
 
 #[derive(Debug)]
 pub struct World {
@@ -66,9 +66,9 @@ impl World {
         &mut self,
         entity: &Entity,
         component: C,
-    ) -> Result<(), ()> {
+    ) -> Result<(), ECSError> {
         if !self.is_valid(entity) {
-            return Err(());
+            return Err(ECSError::InvalidEntity(*entity));
         }
 
         let type_id = TypeId::of::<C>();
@@ -87,13 +87,16 @@ impl World {
         Ok(())
     }
 
-    pub fn detach_component<C: Component>(&mut self, entity: &Entity) -> Result<(), ()> {
+    pub fn detach_component<C: Component>(&mut self, entity: &Entity) -> Result<(), ECSError> {
         if !self.is_valid(entity) {
-            return Err(());
+            return Err(ECSError::InvalidEntity(*entity));
         }
 
         let type_id = TypeId::of::<C>();
-        let store = self.component_stores.get_mut(&type_id).ok_or(())?;
+        let store = self
+            .component_stores
+            .get_mut(&type_id)
+            .ok_or(ECSError::ComponentStoreNotExisting)?;
         store.remove_entity(entity.index);
 
         Ok(())

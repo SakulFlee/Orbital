@@ -7,6 +7,9 @@ pub use component::*;
 mod world;
 pub use world::*;
 
+mod error;
+pub use error::*;
+
 #[cfg(test)]
 mod tests {
     use std::time::Instant;
