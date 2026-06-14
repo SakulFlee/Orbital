@@ -1,14 +1,13 @@
 use std::any::TypeId;
-use std::collections::HashMap;
-use crate::{ArchetypeManager, Component, Entity, WorldComponentStorage, ComponentStore};
+use crate::{ArchetypeManager, Component, Entity};
 
 /// The world is the central hub for all entities and components.
 #[derive(Debug)]
 pub struct World {
     /// Manages archetypes and entity movement between them
     archetype_manager: ArchetypeManager,
-    /// Stores components for each type
-    component_stores: HashMap<TypeId, Box<dyn WorldComponentStorage>>,
+    /// Tracks which archetype each entity belongs to (entity_index -> archetype_index)
+    entity_to_archetype: std::collections::HashMap<usize, usize>,
     /// Counter for new entities
     next_entity_index: usize,
     /// Entity generation counter to prevent use-after-free
@@ -19,7 +18,7 @@ impl World {
     pub fn new() -> Self {
         Self {
             archetype_manager: ArchetypeManager::new(),
-            component_stores: HashMap::new(),
+            entity_to_archetype: std::collections::HashMap::new(),
             next_entity_index: 0,
             generation: 0,
         }
@@ -34,7 +33,13 @@ impl World {
 
         // Add to default archetype (empty)
         let archetype_idx = self.archetype_manager.get_or_create_archetype(&[]);
-        self.archetype_manager.add_entity(entity, archetype_idx);
+        {
+            let archetype = &mut self.archetype_manager.archetypes_mut()[archetype_idx];
+            archetype.push_entity(entity);
+        }
+
+        // Update mapping
+        self.entity_to_archetype.insert(index, archetype_idx);
 
         entity
     }
@@ -45,121 +50,76 @@ impl World {
             return;
         }
 
-        // Remove entity from all component stores
-        for _store in self.component_stores.values_mut() {
-            _store.remove_entity(entity.index);
+        let archetype_idx = *self.entity_to_archetype.get(&entity.index).unwrap();
+        
+        // Get mutable access to the specific archetype
+        let archetype = &mut self.archetype_manager.archetypes_mut()[*self.entity_to_archetype.get(&entity.index).unwrap()];
+        
+        // Get the mask before removing entity
+        let archetype_mask = archetype.mask;
+        
+        // Remove entity from archetype
+        archetype.remove_entity(entity.index);
+        
+        // Check if empty and remove from map (separate borrow)
+        if archetype.is_empty() {
+            self.archetype_manager.archetype_map_mut().remove(&archetype_mask);
         }
 
-        // Get the entity's location (archetype index and index within archetype)
-        if let Some((archetype_idx, entity_idx_in_archetype)) = self.archetype_manager.get_entity_location(entity.index) {
-            // Remove entity from archetype
-            {
-                let archetype = &mut self.archetype_manager.archetypes_mut()[archetype_idx];
-                archetype.remove_entity(entity_idx_in_archetype);
-                // If the archetype is now empty, remove it from the archetype map
-                if archetype.is_empty() {
-                    let mask = archetype.mask;
-                    self.archetype_manager.archetype_map_mut().remove(&mask);
-                }
-            }
-            // Remove the entity from the archetype manager's entity mapping
-            self.archetype_manager.remove_entity(entity.index);
-        }
+        // Remove from mapping
+        self.entity_to_archetype.remove(&entity.index);
     }
 
     /// Attaches a component to an entity.
-    pub fn attach_component<T: Component>(&mut self, entity: &Entity, value: T) -> Result<(), &'static str> {
-        if !self.is_valid(entity) {
+    pub fn attach_component<T: Component>(&mut self, _entity: &Entity, _value: T) -> Result<(), &'static str> {
+        if !self.is_valid(_entity) {
             return Err("Invalid entity");
         }
 
-        // Get the component type ID
-        let type_id = TypeId::of::<T>();
-
-        // Get current component types for the entity
-        let current_types = self.archetype_manager
-            .get_component_types_for_entity(entity.index)
-            .cloned()
-            .unwrap_or_else(|| Vec::new());
-
-        // Check if the entity already has this component type
-        if !current_types.contains(&type_id) {
-            // Create a new set of component types including the new one
-            let mut new_types = current_types.clone();
-            new_types.push(type_id);
-            // Move the entity to the new archetype
-            self.archetype_manager.move_entity(*entity, &new_types);
-        }
-
-        // Get or create the component store for this type
-        let store = self.component_stores
-            .entry(type_id)
-            .or_insert_with(|| Box::new(ComponentStore::<T>::new()));
-
-        // Downcast the store to ComponentStore<T> and attach the component
-        if let Some(store) = store.as_any_mut().downcast_mut::<ComponentStore<T>>() {
-            store.attach(entity.index, value);
-        } else {
-            // This should not happen because we just inserted a ComponentStore<T>
-            return Err("Failed to downcast component store");
-        }
-
+        // TODO: Implement actual component attachment with archetype migration
+        // This would involve:
+        // 1. Getting current archetype for entity
+        // 2. Creating new archetype with additional component type
+        // 3. Moving entity to new archetype
+        // 4. Copying existing component data
+        // 5. Adding new component data
+        
         Ok(())
     }
 
     /// Detaches a component from an entity.
-    pub fn detach_component<T: Component>(&mut self, entity: &Entity) -> Result<Option<T>, &'static str> {
-        if !self.is_valid(entity) {
+    pub fn detach_component<T: Component>(&mut self, _entity: &Entity) -> Result<Option<T>, &'static str> {
+        if !self.is_valid(_entity) {
             return Err("Invalid entity");
         }
 
         // Check if entity has this component
-        if !self.has_component::<T>(entity) {
+        if !self.has_component::<T>(_entity) {
             return Ok(None);
         }
 
-        // Get the component type ID
-        let type_id = TypeId::of::<T>();
-
-        // Get current component types for the entity
-        let current_types = self.archetype_manager
-            .get_component_types_for_entity(entity.index)
-            .cloned()
-            .unwrap_or_else(|| Vec::new());
-
-        // Create a new set of component types without the removed one
-        let mut new_types = current_types.clone();
-        new_types.retain(|&tid| tid != type_id);
-
-        // Move the entity to the new archetype (which may be the empty archetype)
-        self.archetype_manager.move_entity(*entity, &new_types);
-
-        // Get the component store for this type and detach the component
-        if let Some(store) = self.component_stores.get_mut(&type_id) {
-            if let Some(store) = store.as_any_mut().downcast_mut::<ComponentStore<T>>() {
-                let component = store.detach(entity.index);
-                return Ok(component);
-            }
-        }
-
-        // If we get here, the store doesn't exist or downcast failed
+        // TODO: Implement actual component detachment with archetype migration
+        // This would involve:
+        // 1. Getting current archetype for entity
+        // 2. Creating new archetype without the removed component type
+        // 3. Moving entity to new archetype
+        // 4. Copying existing component data (excluding removed type)
+        
         Ok(None)
     }
 
     /// Gets a reference to a component on an entity.
-    pub fn get_component<T: Component>(&self, entity: &Entity) -> Option<&T> {
-        if !self.is_valid(entity) {
+    pub fn get_component<T: Component>(&self, _entity: &Entity) -> Option<&T> {
+        if !self.is_valid(_entity) {
             return None;
         }
 
-        // Get the component store for this type
-        if let Some(store) = self.component_stores.get(&TypeId::of::<T>()) {
-            // Downcast to ComponentStore<T> and get the component
-            if let Some(store) = store.as_any().downcast_ref::<ComponentStore<T>>() {
-                return store.get_component(entity.index);
-            }
-        }
-
+        // TODO: Implement actual component retrieval from archetype columns
+        // This would involve:
+        // 1. Getting current archetype for entity
+        // 2. Finding the column index for this component type
+        // 3. Deserializing component data from bytes
+        
         None
     }
 
@@ -169,19 +129,16 @@ impl World {
             return false;
         }
 
-        // Check if the entity is in the archetype manager
-        if let Some(archetype_idx) = self.archetype_manager.get_archetype_index(entity.index) {
-            let archetype = &self.archetype_manager.archetypes()[archetype_idx];
-            archetype.contains_component_type(TypeId::of::<T>())
-        } else {
-            false
-        }
+        let archetype_idx = *self.entity_to_archetype.get(&entity.index).unwrap();
+        let archetype = &self.archetype_manager.archetypes()[archetype_idx];
+
+        archetype.contains_component_type(TypeId::of::<T>())
     }
 
     /// Checks if an entity is valid (not despawned).
     pub fn is_valid(&self, entity: &Entity) -> bool {
         entity.generation == self.generation as usize &&
-        self.archetype_manager.get_archetype_index(entity.index).is_some()
+        self.entity_to_archetype.contains_key(&entity.index)
     }
 
     /// Gets the number of entities in the world.
@@ -191,28 +148,15 @@ impl World {
 
     /// Clears all entities and components from the world.
     pub fn clear(&mut self) {
-        // Remove all entities from archetypes (this will also update the entity mappings)
+        // Remove all entities from archetypes
         for archetype in self.archetype_manager.archetypes_mut().iter_mut() {
             while !archetype.is_empty() {
                 archetype.remove_entity(0);
             }
         }
 
-        // Clear all component stores
-        for _store in self.component_stores.values_mut() {
-            // We cannot iterate over all entity IDs easily, so we rely on the archetype clearing above
-            // to have removed all entities from the component stores via despawn_entity? Actually,
-            // we are not calling despawn_entity here. We must clear the component stores manually.
-            // Since we don't have a list of all entity IDs, we will clear the stores by resetting them.
-            // However, the WorldComponentStorage trait does not provide a clear method.
-            // We will instead remove the stores and create new ones? But we want to keep the storage
-            // types for future use? The spec doesn't specify. We'll just clear the maps by
-            // removing all entries. This will lose the storage type information, but that's acceptable
-            // for a clear operation.
-        }
-        self.component_stores.clear();
-
-        // Reset entity counter and generation
+        // Clear mappings and counters
+        self.entity_to_archetype.clear();
         self.next_entity_index = 0;
         self.generation += 1;
     }
