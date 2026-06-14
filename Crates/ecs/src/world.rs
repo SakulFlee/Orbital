@@ -26,7 +26,7 @@ impl World {
     /// - Index is out of bounds -> it cannot exist yet, thus is invalid.
     /// - Generation doesn't match -> existed at some point, already got replaced or is about to be replaced -> thus, stale handle.
     pub fn is_valid(&self, entity: &Entity) -> bool {
-        let idx = entity.index as usize;
+        let idx = entity.index;
         idx < self.generations.len() && self.generations[idx] == entity.generation
     }
 
