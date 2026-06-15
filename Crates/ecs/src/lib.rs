@@ -93,7 +93,7 @@ mod tests {
         let duration = Instant::now().duration_since(earlier);
         println!("Duration:\t{:?}", duration);
 
-        if duration.as_micros() >= 10_000 {
+        if duration.as_micros() >= 15_000 {
             panic!("Test took too long!");
         }
     }

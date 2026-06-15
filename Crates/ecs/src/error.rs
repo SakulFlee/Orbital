@@ -15,7 +15,7 @@ impl Display for ECSError {
                 writeln!(f, "Invalid Entity (Index: {}, Generation: {}). Index invalid or generation was superseeded!", entity.index, entity.generation).unwrap()
             },
             ECSError::ComponentStoreNotExisting => {
-                writeln!(f, "There is no ComponentStore for the requested Component!");
+                let _ = writeln!(f, "There is no ComponentStore for the requested Component!");
             }
         }
         writeln!(f, "{self:?}")
