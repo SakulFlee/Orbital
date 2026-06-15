@@ -1,30 +1,32 @@
-use std::{any::TypeId, collections::HashMap, fmt::Debug};
+use std::{
+    any::TypeId,
+    collections::HashMap,
+    fmt::Debug,
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+    sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
+};
 
 use crate::{Component, ComponentStore, ECSError, Entity, WorldComponentStorage};
 
 #[derive(Debug)]
 pub struct World {
-    /// Maps an index to its current generation
-    /// This is the "Source of Truth" for existence
     generations: Vec<usize>,
-    /// The list of indices that are currently "free"
     free_indices: Vec<usize>,
-    /// Holds all the different ComponentStore's for each Component Type.
-    component_stores: HashMap<TypeId, Box<dyn WorldComponentStorage>>,
+    component_ids: HashMap<TypeId, usize>,
+    component_stores: Vec<RwLock<Box<dyn WorldComponentStorage>>>,
 }
 
 impl World {
     pub fn new() -> Self {
         Self {
-            component_stores: HashMap::new(),
+            component_ids: HashMap::new(),
+            component_stores: Vec::new(),
             generations: Vec::new(),
             free_indices: Vec::new(),
         }
     }
 
-    /// An index is invalid if any of the following is true:
-    /// - Index is out of bounds -> it cannot exist yet, thus is invalid.
-    /// - Generation doesn't match -> existed at some point, already got replaced or is about to be replaced -> thus, stale handle.
     pub fn is_valid(&self, entity: &Entity) -> bool {
         let idx = entity.index;
         idx < self.generations.len() && self.generations[idx] == entity.generation
@@ -32,15 +34,12 @@ impl World {
 
     pub fn spawn_entity(&mut self) -> Entity {
         let index = if let Some(idx) = self.free_indices.pop() {
-            // If a free ID exists we take that
             idx
         } else {
-            // Otherwise, create a new slot starting at generation zero
             let new_idx = self.generations.len();
             self.generations.push(0);
             new_idx
         };
-
         Entity::new(index, self.generations[index])
     }
 
@@ -48,17 +47,12 @@ impl World {
         if !self.is_valid(entity) {
             return;
         }
-
-        // First, we increment the generation.
-        // This will automatically invalidate all existing Entity handles pointing to this index.
         self.generations[entity.index] = self.generations[entity.index].wrapping_add(1);
-
-        // Then, remove the entity from all component stores.
-        for store in self.component_stores.values_mut() {
-            store.remove_entity(entity.index);
+        for store in &mut self.component_stores {
+            if let Ok(store) = store.get_mut() {
+                store.remove_entity(entity.index);
+            }
         }
-
-        // Lastly, Add the index to the free pool for reuse.
         self.free_indices.push(entity.index);
     }
 
@@ -72,56 +66,138 @@ impl World {
         }
 
         let type_id = TypeId::of::<C>();
-        let entry = self
-            .component_stores
-            .entry(type_id)
-            .or_insert_with(|| Box::new(ComponentStore::<C>::new()));
+        let store_idx = if let Some(&idx) = self.component_ids.get(&type_id) {
+            idx
+        } else {
+            let idx = self.component_stores.len();
+            self.component_stores
+                .push(RwLock::new(Box::new(ComponentStore::<C>::new())));
+            self.component_ids.insert(type_id, idx);
+            idx
+        };
 
-        let store = entry
+        let store = self.component_stores[store_idx]
+            .get_mut()
+            .expect("RwLock poisoned");
+        let typed_store = store
             .as_any_mut()
             .downcast_mut::<ComponentStore<C>>()
             .expect("Unexpected downcasting failure at ComponentStore");
-
-        store.attach(entity.index, component);
+        typed_store.attach(entity.index, component);
 
         Ok(())
     }
 
-    pub fn detach_component<C: Component>(&mut self, entity: &Entity) -> Result<(), ECSError> {
+    pub fn detach_component<C: Component>(
+        &mut self,
+        entity: &Entity,
+    ) -> Result<(), ECSError> {
         if !self.is_valid(entity) {
             return Err(ECSError::InvalidEntity(*entity));
         }
 
         let type_id = TypeId::of::<C>();
-        let store = self
-            .component_stores
-            .get_mut(&type_id)
+        let store_idx = *self
+            .component_ids
+            .get(&type_id)
             .ok_or(ECSError::ComponentStoreNotExisting)?;
+
+        let store = self.component_stores[store_idx]
+            .get_mut()
+            .expect("RwLock poisoned");
         store.remove_entity(entity.index);
 
         Ok(())
     }
 
-    pub fn get_component_store<C: Component>(&self) -> Option<&ComponentStore<C>> {
-        let type_id = TypeId::of::<C>();
-
-        self.component_stores
-            .get(&type_id)
-            .and_then(|store| (**store).as_any().downcast_ref::<ComponentStore<C>>())
+    pub fn component_id<C: Component>(&self) -> Option<usize> {
+        self.component_ids.get(&TypeId::of::<C>()).copied()
     }
 
-    pub fn get_component_store_mut<C: Component>(&mut self) -> Option<&mut ComponentStore<C>> {
-        let type_id = TypeId::of::<C>();
+    pub fn get_component_store<C: Component>(&self) -> Option<ReadStoreHandle<'_, C>> {
+        let idx = *self.component_ids.get(&TypeId::of::<C>())?;
+        let guard = self.component_stores[idx]
+            .read()
+            .expect("RwLock poisoned");
+        let ptr: *const ComponentStore<C> = (*guard)
+            .as_any()
+            .downcast_ref::<ComponentStore<C>>()?;
+        Some(ReadStoreHandle {
+            _guard: guard,
+            ptr,
+            _marker: PhantomData,
+        })
+    }
 
-        self.component_stores
-            .get_mut(&type_id)
-            .and_then(|store| (**store).as_any_mut().downcast_mut::<ComponentStore<C>>())
+    pub fn get_component_store_mut<C: Component>(
+        &mut self,
+    ) -> Option<WriteStoreHandle<'_, C>> {
+        let idx = *self.component_ids.get(&TypeId::of::<C>())?;
+        let mut guard = self.component_stores[idx]
+            .write()
+            .expect("RwLock poisoned");
+        let ptr: *mut ComponentStore<C> = (*guard)
+            .as_any_mut()
+            .downcast_mut::<ComponentStore<C>>()?;
+        Some(WriteStoreHandle {
+            _guard: guard,
+            ptr,
+            _marker: PhantomData,
+        })
     }
 }
 
 impl Default for World {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+pub struct ReadStoreHandle<'a, C: Component> {
+    _guard: RwLockReadGuard<'a, Box<dyn WorldComponentStorage>>,
+    ptr: *const ComponentStore<C>,
+    _marker: PhantomData<&'a C>,
+}
+
+impl<C: Component> Deref for ReadStoreHandle<'_, C> {
+    type Target = ComponentStore<C>;
+    fn deref(&self) -> &ComponentStore<C> {
+        unsafe { &*self.ptr }
+    }
+}
+
+impl<C: Component> std::fmt::Debug for ReadStoreHandle<'_, C> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ReadStoreHandle")
+            .field("store", unsafe { &*self.ptr })
+            .finish()
+    }
+}
+
+pub struct WriteStoreHandle<'a, C: Component> {
+    _guard: RwLockWriteGuard<'a, Box<dyn WorldComponentStorage>>,
+    ptr: *mut ComponentStore<C>,
+    _marker: PhantomData<&'a C>,
+}
+
+impl<C: Component> Deref for WriteStoreHandle<'_, C> {
+    type Target = ComponentStore<C>;
+    fn deref(&self) -> &ComponentStore<C> {
+        unsafe { &*self.ptr }
+    }
+}
+
+impl<C: Component> DerefMut for WriteStoreHandle<'_, C> {
+    fn deref_mut(&mut self) -> &mut ComponentStore<C> {
+        unsafe { &mut *self.ptr }
+    }
+}
+
+impl<C: Component> std::fmt::Debug for WriteStoreHandle<'_, C> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WriteStoreHandle")
+            .field("store", unsafe { &*self.ptr })
+            .finish()
     }
 }
 
@@ -183,17 +259,14 @@ mod tests {
     fn test_index_reuse_and_generation_increment() {
         let mut world = World::new();
 
-        // Spawn first entity
         let e1 = world.spawn_entity();
         let idx1 = e1.index;
         let gen1 = e1.generation;
         assert_eq!(idx1, 0);
         assert_eq!(gen1, 0);
 
-        // Despawn it
         world.despawn_entity(&e1);
 
-        // Spawn second entity - should reuse index 0 but have generation 1
         let e2 = world.spawn_entity();
         assert_eq!(e2.index, idx1, "Should reuse the freed index");
         assert_ne!(e2.generation, gen1, "Generation should have incremented");
@@ -207,13 +280,11 @@ mod tests {
         let e1 = world.spawn_entity();
         world.despawn_entity(&e1);
 
-        // e1 is now a stale handle
         assert!(
             !world.is_valid(&e1),
             "Handle should be invalid after despawn"
         );
 
-        // Attempting to attach a component to a stale handle should fail
         let result = world.attach_component(&e1, String::from("Ghost"));
         assert!(
             result.is_err(),
@@ -225,35 +296,27 @@ mod tests {
     fn test_complex_reuse_pattern() {
         let mut world = World::new();
 
-        // Spawn 3 entities
-        let e0 = world.spawn_entity(); // idx 0, gen 0
-        let e1 = world.spawn_entity(); // idx 1, gen 0
-        let e2 = world.spawn_entity(); // idx 2, gen 0
+        let e0 = world.spawn_entity();
+        let e1 = world.spawn_entity();
+        let e2 = world.spawn_entity();
 
-        // Despawn middle one
         world.despawn_entity(&e1);
 
-        // Spawn a new one - should take index 1
         let e1_new = world.spawn_entity();
         assert_eq!(e1_new.index, e1.index);
         assert_eq!(e1_new.generation, 1);
 
-        // Verify e0 and e2 are still valid
         assert!(world.is_valid(&e0));
         assert!(world.is_valid(&e2));
         assert!(world.is_valid(&e1_new));
 
-        // Verify e1 is still invalid
         assert!(!world.is_valid(&e1));
     }
 
     #[test]
     fn test_out_of_bounds_validation() {
         let world = World::new();
-
-        // Manually construct an entity with an out-of-bounds index
         let fake_entity = Entity::new(999, 0);
-
         assert!(
             !world.is_valid(&fake_entity),
             "Out of bounds index should be invalid"
@@ -271,12 +334,9 @@ mod tests {
         world.despawn_entity(&e1);
         world.despawn_entity(&e3);
 
-        // Next spawn should take index 2 (last freed) or 0 depending on pop order
-        // But either way, it must be a valid, non-stale handle
         let e4 = world.spawn_entity();
         assert!(world.is_valid(&e4));
 
-        // Verify that the despawned handles are still invalid
         assert!(!world.is_valid(&e1));
         assert!(!world.is_valid(&e3));
     }
@@ -286,11 +346,9 @@ mod tests {
         let mut world = World::new();
         let e = world.spawn_entity();
 
-        // Test attach
         let res_attach = world.attach_component(&e, String::from("Data"));
         assert!(res_attach.is_ok());
 
-        // Test detach
         let res_detach = world.detach_component::<String>(&e);
         assert!(res_detach.is_ok());
     }
