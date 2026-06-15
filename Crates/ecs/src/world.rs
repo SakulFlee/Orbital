@@ -130,7 +130,7 @@ impl World {
     }
 
     pub fn get_component_store_mut<C: Component>(
-        &mut self,
+        &self,
     ) -> Option<WriteStoreHandle<'_, C>> {
         let idx = *self.component_ids.get(&TypeId::of::<C>())?;
         let mut guard = self.component_stores[idx]
@@ -184,6 +184,14 @@ impl<C: Component> Deref for WriteStoreHandle<'_, C> {
     type Target = ComponentStore<C>;
     fn deref(&self) -> &ComponentStore<C> {
         unsafe { &*self.ptr }
+    }
+}
+
+impl<C: Component> WriteStoreHandle<'_, C> {
+    /// Gets a mutable reference to the inner store.
+    /// Safe because the RwLockWriteGuard ensures exclusive access.
+    pub fn get_mut_store(&self) -> &mut ComponentStore<C> {
+        unsafe { &mut *self.ptr }
     }
 }
 

@@ -10,6 +10,9 @@ pub use world::*;
 mod error;
 pub use error::*;
 
+mod query;
+pub use query::*;
+
 #[cfg(test)]
 mod tests {
     use std::time::Instant;
