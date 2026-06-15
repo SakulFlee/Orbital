@@ -2,7 +2,7 @@ use std::{any::Any, fmt::Debug};
 
 use crate::ComponentStore;
 
-pub trait WorldComponentStorage: Debug {
+pub trait WorldComponentStorage: Debug + Send + Sync {
     fn as_any<'a>(&'a self) -> &'a dyn Any;
 
     fn as_any_mut<'a>(&'a mut self) -> &'a mut dyn Any;
@@ -10,7 +10,7 @@ pub trait WorldComponentStorage: Debug {
     fn remove_entity(&mut self, entity_id: usize) -> bool;
 }
 
-impl<T: Any + Debug> WorldComponentStorage for ComponentStore<T> {
+impl<T: Any + Debug + Send + Sync> WorldComponentStorage for ComponentStore<T> {
     fn as_any<'a>(&'a self) -> &'a dyn Any {
         self
     }

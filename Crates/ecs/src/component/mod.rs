@@ -6,7 +6,7 @@ pub use world_store::*;
 
 use std::{any::Any, fmt::Debug};
 
-pub trait Component: Any + Debug {
+pub trait Component: Any + Debug + Send + Sync {
     fn make_store(&self) -> ComponentStore<Self>
     where
         Self: Sized,
@@ -15,7 +15,7 @@ pub trait Component: Any + Debug {
     }
 }
 
-impl<T: Any + Debug> Component for T {}
+impl<T: Any + Debug + Send + Sync> Component for T {}
 
 #[cfg(test)]
 mod tests {
