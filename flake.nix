@@ -49,6 +49,7 @@
           # Runtime dependencies
           buildInputs = with pkgs; [
             pkgs.glibc.dev
+            pkgs.systemd # provides 'libudev'
           ];
 
 
