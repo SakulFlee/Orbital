@@ -1,53 +1,42 @@
 {
-  description = "Rust development environment using fenix";
+  description = "Simple Rust development environment";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    
-    fenix = {
-      url = "github:nix-community/fenix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
-  outputs = { self, nixpkgs, flake-utils, fenix }:
+  outputs = { self, nixpkgs, flake-utils }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        
-        # Change "stable" to "latest" or "complete" if needed
-        rustToolchain = fenix.packages.${system}.nightly.withComponents [
-          "cargo"
-          "clippy"
-          "rust-src"
-          "rustc"
-          "rustfmt"
-          "rust-analyzer"
-        ];
       in
       {
         devShells.default = pkgs.mkShell {
-          # Native build inputs (tools needed at compile time)
-          nativeBuildInputs = [
-            rustToolchain
-            pkgs.pkg-config
-            pkgs.blender
-            pkgs.cargo-flamegraph
-            pkgs.cargo-criterion
+          nativeBuildInputs = with pkgs; [
+            # Rust tools
+            cargo
+            rustc
+            rustfmt
+            clippy
+            rust-analyzer
+            
+            # Additional Rust tools
+            cargo-flamegraph
+            cargo-criterion
+
+            # Dependencies
+            pkg-config
+            blender
           ];
 
-          # Build inputs (libraries your app links against)
           buildInputs = with pkgs; [
-            openssl
           ];
 
-          # Environment variables
           shellHook = ''
-            # Ensures rust-analyzer can find the standard library source
-            export RUST_SRC_PATH="${rustToolchain}/lib/rustlib/src/rust/library"
+            # Nixpkgs provides standard library sources in rustPlatform
+            export RUST_SRC_PATH="${pkgs.rustPlatform.rustLibSrc}"
           '';
         };
-      }
-    );
+      });
 }
