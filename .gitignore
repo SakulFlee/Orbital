@@ -45,3 +45,7 @@ wit-bindings/**/target/
 wasi-modules/*
 !wasi-modules/.gitkeep
 
+# Direnv and Cargo hidden files
+.cargo/
+.direnv/
+

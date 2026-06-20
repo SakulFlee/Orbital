@@ -32,6 +32,11 @@
             # Fenix toolchain
             rustToolchain
             
+            # Build tools
+            pkgs.gcc
+            pkgs.binutils 
+            pkgs.gnumake 
+
             # Additional Rust tools
             pkgs.cargo-flamegraph
             pkgs.cargo-criterion
@@ -42,13 +47,20 @@
           ];
 
           # Runtime dependencies
-          buildInputs = [
-          
+          buildInputs = with pkgs; [
+            pkgs.glibc.dev
           ];
 
+
           shellHook = ''
-            # 4. Point rust-analyzer directly to the fenix toolchain standard library source
+            # Point rust-analyzer directly to the fenix toolchain standard library source
             export RUST_SRC_PATH="${rustToolchain}/lib/rustlib/src/rust/library"
+
+            # Fix for gLibC not finding gcc compiler
+            mkdir -p .cargo/bin
+            ln -sf "$(which gcc)" .cargo/bin/x86_64-linux-gnu-gcc
+            export PATH="$PWD/.cargo/bin:$PATH"
+            export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER="$(which gcc)"
           '';
         };
       });
