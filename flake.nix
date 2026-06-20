@@ -32,9 +32,9 @@
           nativeBuildInputs = [
             rustToolchain
             pkgs.pkg-config
-            blender
-            cargo-flamegraph
-            cargo-criterion
+            pkgs.blender
+            pkgs.cargo-flamegraph
+            pkgs.cargo-criterion
           ];
 
           # Build inputs (libraries your app links against)
