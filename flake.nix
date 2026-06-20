@@ -1,41 +1,54 @@
 {
-  description = "Simple Rust development environment";
+  description = "Simple Rust development environment with Fenix Nightly";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    fenix = {
+      url = "github:nix-community/fenix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
+  outputs = { self, nixpkgs, flake-utils, fenix }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
+
+        # latest = nightly
+        # stable = stable
+        rustToolchain = fenix.packages.${system}.latest.withComponents [
+          "cargo"
+          "clippy"
+          "rust-src"
+          "rustc"
+          "rustfmt"
+          "rust-analyzer"
+        ];
       in
       {
         devShells.default = pkgs.mkShell {
-          nativeBuildInputs = with pkgs; [
-            # Rust tools
-            cargo
-            rustc
-            rustfmt
-            clippy
-            rust-analyzer
+          nativeBuildInputs = [
+            # Fenix toolchain
+            rustToolchain
             
             # Additional Rust tools
-            cargo-flamegraph
-            cargo-criterion
+            pkgs.cargo-flamegraph
+            pkgs.cargo-criterion
 
-            # Dependencies
-            pkg-config
-            blender
+            # Build Dependencies
+            pkgs.pkg-config
+            pkgs.blender
           ];
 
-          buildInputs = with pkgs; [
+          # Runtime dependencies
+          buildInputs = [
+          
           ];
 
           shellHook = ''
-            # Nixpkgs provides standard library sources in rustPlatform
-            export RUST_SRC_PATH="${pkgs.rustPlatform.rustLibSrc}"
+            # 4. Point rust-analyzer directly to the fenix toolchain standard library source
+            export RUST_SRC_PATH="${rustToolchain}/lib/rustlib/src/rust/library"
           '';
         };
       });
