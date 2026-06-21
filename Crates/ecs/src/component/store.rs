@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ComponentStore<T> {
     /// [Entity ID] -> [Component Index]
     /// Maps Entity ID to Component index in a sparse set.
