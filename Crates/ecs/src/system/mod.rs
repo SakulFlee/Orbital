@@ -2,7 +2,6 @@ mod access;
 mod commands;
 mod executor;
 mod merge;
-mod param;
 mod param_function;
 mod runner;
 mod schedule;

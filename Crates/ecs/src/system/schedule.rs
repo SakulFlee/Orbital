@@ -51,7 +51,7 @@ impl Schedule {
         }
     }
 
-    fn build_batches(&self) -> Vec<Vec<usize>> {
+    pub fn build_batches(&self) -> Vec<Vec<usize>> {
         let n = self.systems.len();
         if n <= 1 {
             return (0..n).map(|i| vec![i]).collect();
