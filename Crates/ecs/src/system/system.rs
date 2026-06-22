@@ -42,12 +42,6 @@ pub trait IntoSystem<Marker>: Sized {
     fn into_system(self) -> Self::System;
 }
 
-pub(crate) struct SystemNode {
-    pub system: Box<dyn System>,
-    pub before: Vec<usize>,
-    pub after: Vec<usize>,
-}
-
 impl System for Box<dyn System> {
     fn name(&self) -> &str { (**self).name() }
     fn access(&self) -> &ComponentAccess { (**self).access() }
