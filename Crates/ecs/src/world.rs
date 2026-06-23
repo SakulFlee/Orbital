@@ -1,5 +1,5 @@
 use std::{
-    any::TypeId,
+    any::{Any, TypeId},
     collections::HashMap,
     fmt::Debug,
     marker::PhantomData,
@@ -9,12 +9,12 @@ use std::{
 
 use crate::{Component, ComponentStore, ECSError, Entity, WorldComponentStorage};
 
-#[derive(Debug)]
 pub struct World {
     generations: Vec<usize>,
     free_indices: Vec<usize>,
     component_ids: HashMap<TypeId, usize>,
     component_stores: Vec<RwLock<Box<dyn WorldComponentStorage>>>,
+    resources: HashMap<TypeId, RwLock<Box<dyn Any + Send + Sync>>>,
 }
 
 impl World {
@@ -24,7 +24,30 @@ impl World {
             component_stores: Vec::new(),
             generations: Vec::new(),
             free_indices: Vec::new(),
+            resources: HashMap::new(),
         }
+    }
+
+    pub fn insert_resource<T: 'static + Send + Sync>(&mut self, resource: T) {
+        let type_id = TypeId::of::<T>();
+        self.resources
+            .insert(type_id, RwLock::new(Box::new(resource)));
+    }
+
+    pub fn get_resource<T: 'static + Send + Sync>(&self) -> Option<ResourceHandle<'_, T>> {
+        let lock = self.resources.get(&TypeId::of::<T>())?;
+        let guard = lock.read().ok()?;
+        let ptr: *const T = (*guard).downcast_ref::<T>()?;
+        Some(ResourceHandle { _guard: guard, ptr })
+    }
+
+    pub fn get_resource_mut<T: 'static + Send + Sync>(
+        &self,
+    ) -> Option<ResourceMutHandle<'_, T>> {
+        let lock = self.resources.get(&TypeId::of::<T>())?;
+        let mut guard = lock.write().ok()?;
+        let ptr: *mut T = (*guard).downcast_mut::<T>()?;
+        Some(ResourceMutHandle { _guard: guard, ptr })
     }
 
     pub fn is_valid(&self, entity: &Entity) -> bool {
@@ -147,6 +170,18 @@ impl World {
     }
 }
 
+impl Debug for World {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("World")
+            .field("generations", &self.generations)
+            .field("free_indices", &self.free_indices)
+            .field("component_ids", &self.component_ids)
+            .field("component_stores", &self.component_stores)
+            .field("resource_count", &self.resources.len())
+            .finish()
+    }
+}
+
 impl Default for World {
     fn default() -> Self {
         Self::new()
@@ -205,6 +240,52 @@ impl<C: Component> std::fmt::Debug for WriteStoreHandle<'_, C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("WriteStoreHandle")
             .field("store", unsafe { &*self.ptr })
+            .finish()
+    }
+}
+
+pub struct ResourceHandle<'a, T: 'static> {
+    _guard: RwLockReadGuard<'a, Box<dyn Any + Send + Sync>>,
+    ptr: *const T,
+}
+
+impl<T: 'static> Deref for ResourceHandle<'_, T> {
+    type Target = T;
+    fn deref(&self) -> &T {
+        unsafe { &*self.ptr }
+    }
+}
+
+impl<T: 'static + std::fmt::Debug> std::fmt::Debug for ResourceHandle<'_, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ResourceHandle")
+            .field("value", unsafe { &*self.ptr })
+            .finish()
+    }
+}
+
+pub struct ResourceMutHandle<'a, T: 'static> {
+    _guard: RwLockWriteGuard<'a, Box<dyn Any + Send + Sync>>,
+    ptr: *mut T,
+}
+
+impl<T: 'static> Deref for ResourceMutHandle<'_, T> {
+    type Target = T;
+    fn deref(&self) -> &T {
+        unsafe { &*self.ptr }
+    }
+}
+
+impl<T: 'static> DerefMut for ResourceMutHandle<'_, T> {
+    fn deref_mut(&mut self) -> &mut T {
+        unsafe { &mut *self.ptr }
+    }
+}
+
+impl<T: 'static + std::fmt::Debug> std::fmt::Debug for ResourceMutHandle<'_, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ResourceMutHandle")
+            .field("value", unsafe { &*self.ptr })
             .finish()
     }
 }
