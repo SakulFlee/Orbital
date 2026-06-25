@@ -1,6 +1,5 @@
-/// Deferred entity spawning via Commands buffer.
-///
-/// Run: cargo run --example commands --release
+//! Deferred entity spawning via Commands buffer.
+
 use orbital_ecs::{Commands, Schedule, World};
 
 #[derive(Debug, Clone)]
