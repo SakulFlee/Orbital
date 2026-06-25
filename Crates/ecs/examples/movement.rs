@@ -1,6 +1,5 @@
-/// Game-like movement simulation with multiple system stages.
-///
-/// Run: cargo run --example movement --release
+//! Game-like movement simulation with multiple system stages.
+
 use orbital_ecs::{Schedule, World};
 
 #[derive(Debug, Clone)]
@@ -48,7 +47,9 @@ fn main() {
         let vel_store = world.get_component_store::<Vel>().unwrap();
         let pos = pos_store.get_component(e1.index).unwrap();
         let vel = vel_store.get_component(e1.index).unwrap();
-        println!("frame {frame:>2}: pos ({:>6.1},{:>6.1})  vel ({:>6.1},{:>6.1})",
-                 pos.0, pos.1, vel.0, vel.1);
+        println!(
+            "frame {frame:>2}: pos ({:>6.1},{:>6.1})  vel ({:>6.1},{:>6.1})",
+            pos.0, pos.1, vel.0, vel.1
+        );
     }
 }
