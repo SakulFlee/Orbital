@@ -6,6 +6,7 @@ use std::{
     hash::{DefaultHasher, Hash, Hasher},
     path::PathBuf,
 };
+use wgpu::MipmapFilterMode;
 use wgpu::{
     include_wgsl,
     util::{BufferInitDescriptor, DeviceExt},
@@ -362,7 +363,7 @@ impl WorldEnvironment {
                 address_mode_w: AddressMode::ClampToEdge,
                 mag_filter: WFilterMode::Linear,
                 min_filter: WFilterMode::Linear,
-                mipmap_filter: WFilterMode::Linear,
+                mipmap_filter: MipmapFilterMode::Linear,
                 compare: Some(CompareFunction::Always),
                 ..Default::default()
             },
