@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{Component, Entity, ECSError, World};
 
-type BoxedCommand = Box<dyn FnOnce(&mut World, &mut HashMap<usize, Entity>) -> Result<(), ECSError> + Send>;
+type BoxedCommand = Box<dyn FnOnce(&mut World, &mut HashMap<usize, Entity>) -> Result<(), ECSError> + Send + Sync>;
 
 pub struct Commands {
     commands: Vec<BoxedCommand>,
@@ -64,7 +64,7 @@ impl Commands {
         self.commands.is_empty()
     }
 
-    pub fn flush(&mut self, world: &mut World) -> Result<(), ECSError> {
+    pub fn flush(mut self, world: &mut World) -> Result<(), ECSError> {
         let cmds = std::mem::take(&mut self.commands);
         let mut mapping = HashMap::new();
         for cmd in cmds {
