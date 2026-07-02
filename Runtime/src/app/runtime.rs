@@ -225,9 +225,16 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
             }
         };
 
+        let config = ctx.make_surface_configuration(self.settings.vsync_enabled);
+
         self.state = AppState::Ready(Arc::new(Mutex::new(ctx)));
 
         self.timer = Some(Timer::new());
+
+        if let AppState::Ready(ctx_arc) = &self.state {
+            let ctx_guard = ctx_lock!(ctx_arc);
+            block_on(self.app.on_resume(&config, ctx_guard.device(), ctx_guard.queue()));
+        }
 
         info!("App resumed.");
     }
