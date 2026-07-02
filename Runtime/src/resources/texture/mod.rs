@@ -589,15 +589,18 @@ impl Texture {
                 );
 
                 // Submit the "copy texture to buffer" command and wait for it to finish
-                queue.submit([encoder.finish()]);
+                let submission_index = queue.submit([encoder.finish()]);
                 device
-                    .poll(PollType::Wait)
+                    .poll(PollType::Wait {
+                        submission_index: Some(submission_index),
+                        timeout: None,
+                    })
                     .expect("Waiting for queue submission failed!");
 
                 // Mark buffer as readable by mapping it and wait for it to finish
                 buffer.slice(..).map_async(wgpu::MapMode::Read, |_| {});
                 device
-                    .poll(PollType::Wait)
+                    .poll(PollType::Poll)
                     .expect("Waiting for texture mapping failed!");
 
                 // Append our now readable data
