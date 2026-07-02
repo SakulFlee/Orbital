@@ -1,0 +1,8 @@
+package orbital:core@0.1.0;
+
+interface module {
+  use commands.{command-buffer};
+
+  startup: func() -> option<command-buffer>;
+}
+

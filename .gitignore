@@ -7,6 +7,9 @@ target/
 # Logs
 *.log
 
+# VIM: Session
+Session.vim
+
 # Example generated files
 mandelbrot.png
 
@@ -22,6 +25,9 @@ jniLibs/
 # Jetbrains IDEs
 .idea/
 
+# VIM
+Session.vim
+
 # Blender Backup Fiiles
 *.blend[0-99]
 
@@ -29,3 +35,20 @@ jniLibs/
 Assets/Models/*
 !Assets/Models/DamagedHelmet.glb
 !Assets/Models/InstancingTest.glb
+
+# Binding generations
+wit-bindings/**/bindings/
+wit-bindings/**/bin/
+wit-bindings/**/obj/
+wit-bindings/**/out/
+wit-bindings/**/build/
+wit-bindings/**/target/
+
+# WASI module exports
+wasi-modules/*
+!wasi-modules/.gitkeep
+
+# Direnv and Cargo hidden files
+.cargo/
+.direnv/
+

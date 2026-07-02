@@ -1,0 +1,12 @@
+package orbital:core@0.1.0;
+
+interface commands {
+  variant command {
+    register-system(string),
+  }
+
+  record command-buffer {
+    commands: list<command>,
+  }
+}
+
