@@ -118,12 +118,16 @@ impl AppContext {
     fn make_view_formats(
         capabilities: &SurfaceCapabilities,
     ) -> (TextureFormat, Vec<TextureFormat>) {
-        let mut view_formats = capabilities.formats.clone();
-        let first_format = view_formats
+        let first_format = capabilities.formats
             .first()
             .expect("There must be at least one surface format!");
         let srgb_format = first_format.add_srgb_suffix();
-        view_formats.insert(0, srgb_format);
+
+        let base = srgb_format.remove_srgb_suffix();
+        let view_formats: Vec<TextureFormat> = capabilities.formats.iter()
+            .filter(|f| f.remove_srgb_suffix() == base)
+            .copied()
+            .collect();
 
         (srgb_format, view_formats)
     }
