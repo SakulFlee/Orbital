@@ -50,6 +50,10 @@
           buildInputs = with pkgs; [
             pkgs.glibc.dev
             pkgs.systemd # provides 'libudev'
+
+            wayland          # libwayland-client.so
+            libxkbcommon     # often needed with wayland
+            vulkan-loader    # needed for wgpu
           ];
 
 
@@ -62,6 +66,9 @@
             ln -sf "$(which gcc)" .cargo/bin/x86_64-linux-gnu-gcc
             export PATH="$PWD/.cargo/bin:$PATH"
             export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER="$(which gcc)"
+
+            # To find libraries at runtime
+            export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${pkgs.lib.makeLibraryPath [ pkgs.wayland pkgs.libxkbcommon pkgs.vulkan-loader ]}"
           '';
         };
       });

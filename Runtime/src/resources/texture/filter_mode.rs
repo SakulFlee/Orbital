@@ -1,10 +1,10 @@
-use wgpu::FilterMode as WFilterMode;
+use wgpu::{FilterMode as WFilterMode, MipmapFilterMode};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct FilterMode {
     pub mag: WFilterMode,
     pub min: WFilterMode,
-    pub mipmap: WFilterMode,
+    pub mipmap: MipmapFilterMode,
 }
 
 impl FilterMode {
@@ -12,7 +12,7 @@ impl FilterMode {
         Self {
             mag: WFilterMode::Linear,
             min: WFilterMode::Linear,
-            mipmap: WFilterMode::Linear,
+            mipmap: MipmapFilterMode::Linear,
         }
     }
 
@@ -20,7 +20,7 @@ impl FilterMode {
         Self {
             mag: WFilterMode::Nearest,
             min: WFilterMode::Nearest,
-            mipmap: WFilterMode::Nearest,
+            mipmap: MipmapFilterMode::Nearest,
         }
     }
 }
@@ -30,7 +30,7 @@ impl Default for FilterMode {
         Self {
             mag: WFilterMode::Linear,
             min: WFilterMode::Linear,
-            mipmap: WFilterMode::Nearest,
+            mipmap: MipmapFilterMode::Nearest,
         }
     }
 }
