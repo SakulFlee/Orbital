@@ -1,0 +1,22 @@
+[package]
+name = "orbital_ecs"
+version = "0.1.0"
+edition = "2024"
+
+[[bench]]
+name = "ecs_bench"
+harness = false
+
+[dependencies]
+rayon = "1.10"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-rayon = { version = "1.2", optional = true }
+
+[features]
+default = []
+wasm-threads = ["wasm-bindgen-rayon"]
+
+[dev-dependencies]
+rand = "0.10"
+criterion = { version = "0.8", features = ["html_reports"] }
