@@ -7,9 +7,14 @@ use wgpu::{
     DeviceDescriptor, ExperimentalFeatures, Features, Instance, InstanceDescriptor, InstanceFlags,
     Limits, MemoryBudgetThresholds, MemoryHints, PowerPreference, PresentMode, Queue,
     RequestAdapterError, RequestAdapterOptions, RequestDeviceError, Surface, SurfaceCapabilities,
-    SurfaceConfiguration, SurfaceError, SurfaceTexture, TextureFormat, TextureUsages, Trace,
+    SurfaceConfiguration, SurfaceTexture, TextureFormat, TextureUsages, Trace,
 };
-use winit::{dpi::Size, error::OsError, event_loop::ActiveEventLoop, window::Window};
+use winit::{
+    dpi::Size,
+    error::OsError,
+    event_loop::{ActiveEventLoop, OwnedDisplayHandle},
+    window::Window,
+};
 
 use crate::app::AppSettings;
 
@@ -33,7 +38,8 @@ impl AppContext {
         let window = Self::make_window(event_loop, settings.size, &settings.name)?;
         debug!("Window: {:?}", window);
 
-        let instance = Self::make_instance();
+        let owned_display_handle = event_loop.owned_display_handle();
+        let instance = Self::make_instance(owned_display_handle);
         debug!("Instance: {:?}", instance);
 
         let surface = Self::make_surface(&instance, &window)?;
@@ -74,8 +80,8 @@ impl AppContext {
         )
     }
 
-    fn make_instance() -> Instance {
-        Instance::new(&InstanceDescriptor {
+    fn make_instance(owned_display_handle: OwnedDisplayHandle) -> Instance {
+        Instance::new(InstanceDescriptor {
             // Check for environment variables, otherwise revert to using all backends.
             backends: Backends::from_env().unwrap_or(Backends::all()),
             // Enables debugging flags only for debug builds.
@@ -83,6 +89,7 @@ impl AppContext {
             // Choose backends options from environment variables, otherwise use defaults.
             backend_options: BackendOptions::from_env_or_default(),
             memory_budget_thresholds: MemoryBudgetThresholds::default(),
+            display: Some(owned_display_handle),
         })
     }
 
@@ -118,13 +125,16 @@ impl AppContext {
     fn make_view_formats(
         capabilities: &SurfaceCapabilities,
     ) -> (TextureFormat, Vec<TextureFormat>) {
-        let first_format = capabilities.formats
+        let first_format = capabilities
+            .formats
             .first()
             .expect("There must be at least one surface format!");
         let srgb_format = first_format.add_srgb_suffix();
 
         let base = srgb_format.remove_srgb_suffix();
-        let view_formats: Vec<TextureFormat> = capabilities.formats.iter()
+        let view_formats: Vec<TextureFormat> = capabilities
+            .formats
+            .iter()
             .filter(|f| f.remove_srgb_suffix() == base)
             .copied()
             .collect();
