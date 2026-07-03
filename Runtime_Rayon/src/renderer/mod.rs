@@ -68,7 +68,7 @@ impl Renderer {
         self.depth_texture = Texture::depth_texture(&resolution, device, queue);
     }
 
-    pub async fn render(
+    pub fn render(
         &mut self,
         target_view: &TextureView,
         world_bind_group: &BindGroup,

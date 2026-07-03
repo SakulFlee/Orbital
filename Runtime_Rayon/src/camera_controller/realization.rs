@@ -6,7 +6,7 @@ use crate::camera_controller::{
 };
 use crate::element::{CameraEvent, Element, ElementRegistration, Event, Message, WorldEvent};
 use crate::resources::{CameraTransform, Mode};
-use async_trait::async_trait;
+
 use cgmath::num_traits::abs;
 use cgmath::{Vector2, Vector3, Zero};
 use std::sync::Arc;
@@ -312,7 +312,6 @@ impl CameraController {
     }
 }
 
-#[async_trait]
 impl Element for CameraController {
     fn on_registration(&self) -> ElementRegistration {
         let mut registration =
@@ -342,12 +341,12 @@ impl Element for CameraController {
         registration
     }
 
-    async fn on_message(&mut self, message: &Arc<Message>) -> Option<Vec<Event>> {
+    fn on_message(&mut self, message: &Arc<Message>) -> Option<Vec<Event>> {
         // Prevents default message log spam
         None
     }
 
-    async fn on_update(&mut self, delta_time: f64, input_state: &InputState) -> Option<Vec<Event>> {
+    fn on_update(&mut self, delta_time: f64, input_state: &InputState) -> Option<Vec<Event>> {
         self.update_camera(delta_time, input_state).map(|x| vec![x])
     }
 }

@@ -2,7 +2,6 @@ use crate::importer::gltf::{
     GltfImport, GltfImportResult, GltfImportTask, GltfImportType, GltfImporter, SpecificGltfImport,
 };
 use crate::logging;
-use async_std::task::block_on;
 use cgmath::{Point3, Quaternion, Vector3};
 use log::debug;
 
@@ -15,8 +14,7 @@ fn load_gltf() {
         import: GltfImport::WholeFile,
     };
 
-    let x = GltfImporter::import(task);
-    let result = block_on(x);
+    let result = GltfImporter::import(task);
     debug!("{result:?}");
 
     assert!(result.errors.is_empty());
@@ -31,8 +29,7 @@ fn load_glb() {
         import: GltfImport::WholeFile,
     };
 
-    let x = GltfImporter::import(task);
-    let result = block_on(x);
+    let result = GltfImporter::import(task);
     debug!("{result:?}");
 
     assert!(result.errors.is_empty());
@@ -46,8 +43,7 @@ fn query(import: SpecificGltfImport) -> GltfImportResult {
         import: GltfImport::Specific(vec![import]),
     };
 
-    let x = GltfImporter::import(task);
-    let result = block_on(x);
+    let result = GltfImporter::import(task);
     debug!("{result:?}");
     assert!(result.errors.is_empty());
 
@@ -287,8 +283,7 @@ fn check_light_import_specific() {
         }]),
     };
 
-    let x = GltfImporter::import(task);
-    let result = block_on(x);
+    let result = GltfImporter::import(task);
     debug!("{result:?}");
 
     // Should have errors since the light doesn't exist, or should be empty with no errors
@@ -305,8 +300,7 @@ fn check_whole_file_light_import() {
         import: GltfImport::WholeFile,
     };
 
-    let x = GltfImporter::import(task);
-    let result = block_on(x);
+    let result = GltfImporter::import(task);
     debug!("{result:?}");
 
     // The import should succeed without errors, even if there are no lights

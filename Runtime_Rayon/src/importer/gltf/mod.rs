@@ -65,7 +65,7 @@ impl GltfImporter {
     /// If a given model/mesh (_glTF primitive mesh_) appears multiple times in the scene with the same
     /// materials, it will be automatically instanced by the World system.
     /// Each instance gets a unique transform that preserves the original positioning.
-    pub async fn import(import_task: GltfImportTask) -> GltfImportResult {
+    pub fn import(import_task: GltfImportTask) -> GltfImportResult {
         let (document, buffers, textures) = match gltf::import(&import_task.file) {
             Ok(x) => x,
             Err(e) => {

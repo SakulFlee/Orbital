@@ -58,11 +58,5 @@ opt-level = 3
 [profile.dev.package.hashbrown]
 opt-level = 3
 
-[profile.dev.package.pollster]
-opt-level = 3
-
-[profile.dev.package.async-std]
-opt-level = 3
-
 [profile.dev.package.cgmath]
 opt-level = 3

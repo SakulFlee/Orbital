@@ -8,7 +8,6 @@ use crate::{
     wgpu::{Device, Queue, SurfaceConfiguration, TextureView},
     world::World,
 };
-use async_std::task::block_on;
 use std::time::{Duration, Instant};
 
 #[derive(Default)]
@@ -29,7 +28,7 @@ impl StandardApp {
             .into_iter()
             .map(ElementEvent::Spawn)
             .collect::<Vec<_>>();
-        let new_events = block_on(s.element_store.process_events(events));
+        let new_events = s.element_store.process_events(events);
         s.queue_events.extend(new_events);
 
         s
@@ -41,13 +40,13 @@ impl App for StandardApp {
         panic!("Do not call StandardApp::new() directly, use App::new() instead!")
     }
 
-    async fn on_startup(&mut self) {
+    fn on_startup(&mut self) {
         if self.element_store.element_count() == 0 {
             panic!("StandardApp requires at least one element to be spawned @Startup! Make sure to use StandardApp::with_initial_elements() to initialize with elements.");
         }
     }
 
-    async fn on_resume(&mut self, config: &SurfaceConfiguration, device: &Device, queue: &Queue) {
+    fn on_resume(&mut self, config: &SurfaceConfiguration, device: &Device, queue: &Queue) {
         self.renderer = Some(Renderer::new(
             config.format,
             Vector2::new(config.width, config.height),
@@ -56,18 +55,15 @@ impl App for StandardApp {
         ));
 
         if self.world.model_store_mut().is_empty() {
-            self.on_startup().await;
+            self.on_startup();
         }
     }
 
-    async fn on_suspend(&mut self) {
+    fn on_suspend(&mut self) {
         self.renderer = None;
     }
 
-    async fn on_resize(&mut self, new_size: Vector2<u32>, device: &Device, queue: &Queue)
-    where
-        Self: Sized,
-    {
+    fn on_resize(&mut self, new_size: Vector2<u32>, device: &Device, queue: &Queue) {
         if let Some(renderer) = &mut self.renderer {
             renderer.change_resolution(new_size, device, queue);
         } else {
@@ -75,7 +71,7 @@ impl App for StandardApp {
         }
     }
 
-    async fn on_update(
+    fn on_update(
         &mut self,
         input_state: &InputState,
         delta_time: f64,
@@ -84,7 +80,7 @@ impl App for StandardApp {
     where
         Self: Sized,
     {
-        let mut events = self.element_store.update(delta_time, input_state).await;
+        let mut events = self.element_store.update(delta_time, input_state);
         let old_events = self.queue_events.drain(0..self.queue_events.len());
 
         events.extend(old_events);
@@ -107,10 +103,10 @@ impl App for StandardApp {
             }
         }
 
-        // Kick off world future to process world updates while we handle other things
-        let world_future = self.world.update(world_events);
+        // Process world updates
+        self.world.update(world_events);
 
-        let new_events = self.element_store.process_events(element_events).await;
+        let new_events = self.element_store.process_events(element_events);
         self.queue_events.extend(new_events);
 
         #[cfg(feature = "standard_app_detect_no_more_elements")]
@@ -129,9 +125,6 @@ impl App for StandardApp {
             }
         }
 
-        // Await world future before we need access to the world again.
-        world_future.await;
-
         // Note: Currently **all** models are flagged for realization.
         // Once a system for culling or another way of selecting which models should be realized and what shouldn't be realized is in place, this can be changed.
         let model_ids = self
@@ -148,10 +141,7 @@ impl App for StandardApp {
         (!app_events.is_empty()).then_some(app_events)
     }
 
-    async fn on_render(&mut self, target_view: &TextureView, device: &Device, queue: &Queue)
-    where
-        Self: Sized,
-    {
+    fn on_render(&mut self, target_view: &TextureView, device: &Device, queue: &Queue) {
         if let Some(renderer) = &mut self.renderer {
             self.world
                 .prepare_render(renderer.surface_texture_format(), device, queue);
@@ -166,16 +156,14 @@ impl App for StandardApp {
                 }
             };
 
-            renderer
-                .render(
-                    target_view,
-                    world_bind_group,
-                    world_environment_option,
-                    models,
-                    device,
-                    queue,
-                )
-                .await;
+            renderer.render(
+                target_view,
+                world_bind_group,
+                world_environment_option,
+                models,
+                device,
+                queue,
+            );
         }
     }
 }

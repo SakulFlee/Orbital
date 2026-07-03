@@ -180,17 +180,15 @@ impl World {
         &mut self.environment_store
     }
 
-    pub async fn update(&mut self, world_events: Vec<WorldEvent>) {
+    pub fn update(&mut self, world_events: Vec<WorldEvent>) {
         // Process through other world events
         for world_event in world_events {
             self.process_event(world_event);
         }
 
-        // Take temporary ownership of importer
+        // Drain any completed import results
         let mut importer = self.importer.take().unwrap();
-        // Call async future early so it might be done by the time we check it
-        let importer_results = importer.update().await;
-        // Put importer back
+        let importer_results = importer.update();
         self.importer = Some(importer);
 
         for importer_result in importer_results {

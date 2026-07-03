@@ -1,7 +1,6 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use async_std::task::block_on;
 use gilrs::Gilrs;
 use log::trace;
 use wgpu::CurrentSurfaceTexture;
@@ -55,7 +54,7 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
         info!("Orbital Runtime");
         info!(" --- @SakulFlee --- ");
 
-        block_on(app.on_startup());
+        app.on_startup();
 
         let mut app_runtime = Self {
             app,
@@ -118,7 +117,7 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
             ..TextureViewDescriptor::default()
         });
 
-        block_on(self.app.on_render(&view, lock.device(), lock.queue()));
+        self.app.on_render(&view, lock.device(), lock.queue());
         lock.queue().present(frame);
     }
 
@@ -145,7 +144,7 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
         self.receive_controller_inputs();
 
         let result = if let Some(app_events) =
-            block_on(self.app.on_update(&self.input_state, delta_time, cycle))
+            self.app.on_update(&self.input_state, delta_time, cycle)
         {
             self.process_app_events(app_events)
         } else {
@@ -253,10 +252,8 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
 
         if let AppState::Ready(ctx_arc) = &self.state {
             let ctx_guard = ctx_lock!(ctx_arc);
-            block_on(
-                self.app
-                    .on_resume(&config, ctx_guard.device(), ctx_guard.queue()),
-            );
+            self.app
+                .on_resume(&config, ctx_guard.device(), ctx_guard.queue());
         }
 
         info!("App resumed.");
@@ -271,7 +268,7 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
         }
 
         debug!("Calling app.on_suspend()...");
-        block_on(self.app.on_suspend());
+        self.app.on_suspend();
         debug!("App.on_suspend() completed.");
 
         self.state = AppState::Paused;
