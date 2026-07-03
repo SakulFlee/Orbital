@@ -604,7 +604,7 @@ impl Texture {
                     .expect("Waiting for texture mapping failed!");
 
                 // Append our now readable data
-                final_data.extend_from_slice(&buffer.slice(..).get_mapped_range());
+                final_data.extend_from_slice(&buffer.slice(..).get_mapped_range().unwrap());
             }
         }
 
