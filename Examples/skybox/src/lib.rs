@@ -26,7 +26,7 @@ pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
     let event_loop = event_loop_result.expect("Event Loop failure");
 
     let mut app_settings = AppSettings::default();
-    app_settings.vsync_enabled = false;
+    app_settings.vsync_enabled = true;
     app_settings.name = NAME.to_string();
 
     let app = StandardApp::with_initial_elements(vec![
