@@ -119,6 +119,7 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
         });
 
         block_on(self.app.on_render(&view, lock.device(), lock.queue()));
+        lock.queue().present(frame);
     }
 
     #[cfg(feature = "gamepad_input")]
