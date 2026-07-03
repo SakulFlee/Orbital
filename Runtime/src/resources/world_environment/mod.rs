@@ -430,7 +430,7 @@ impl WorldEnvironment {
         device: &Device,
     ) -> Texture {
         let pipeline = Self::make_compute_pipeline(
-            &[bind_group_layout],
+            &[Some(bind_group_layout)],
             include_wgsl!("make_ibl_diffuse.wgsl"),
             "main",
             device,
@@ -496,7 +496,7 @@ impl WorldEnvironment {
         device: &Device,
     ) -> Texture {
         let pipeline = Self::make_compute_pipeline(
-            &[bind_group_layout],
+            &[Some(bind_group_layout)],
             include_wgsl!("make_ibl_specular.wgsl"),
             "main",
             device,
@@ -576,7 +576,7 @@ impl WorldEnvironment {
             device.create_bind_group_layout(&Self::bind_group_layout_descriptor_buffer());
 
         let pipeline = Self::make_compute_pipeline(
-            &[&bind_group_layout, &mip_buffer_bind_group_layout],
+            &[Some(&bind_group_layout), Some(&mip_buffer_bind_group_layout)],
             include_wgsl!("make_mip_maps.wgsl"),
             "main",
             device,
@@ -675,7 +675,7 @@ impl WorldEnvironment {
             device.create_bind_group_layout(&Self::bind_group_layout_descriptor_buffer());
 
         let pipeline = Self::make_compute_pipeline(
-            &[&bind_group_layout, &mip_buffer_bind_group_layout],
+            &[Some(&bind_group_layout), Some(&mip_buffer_bind_group_layout)],
             include_wgsl!("make_mip_maps.wgsl"),
             "main",
             device,
@@ -802,7 +802,7 @@ impl WorldEnvironment {
     }
 
     fn make_compute_pipeline(
-        bind_group_layouts: &[&BindGroupLayout],
+        bind_group_layouts: &[Option<&BindGroupLayout>],
         shader_module_descriptor: ShaderModuleDescriptor,
         shader_entrypoint: &str,
         device: &Device,
