@@ -8,7 +8,7 @@ use wgpu::{
     InstanceDescriptor, InstanceFlags, Limits, MemoryBudgetThresholds, MemoryHints,
     PowerPreference, PresentMode, Queue, RequestAdapterError, RequestAdapterOptions,
     RequestDeviceError, Surface, SurfaceCapabilities, SurfaceColorSpace, SurfaceConfiguration,
-    SurfaceTexture, TextureFormat, TextureUsages, Trace,
+    TextureFormat, TextureUsages, Trace,
 };
 use winit::{
     dpi::Size,
