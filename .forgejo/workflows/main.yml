@@ -194,7 +194,7 @@ jobs:
       - name: 👀 Show files to be uploaded
         run: ls -al upload/
       - name: 📝 Make release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: upload/*
           draft: false
