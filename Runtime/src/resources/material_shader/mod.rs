@@ -2,9 +2,9 @@ use std::error::Error;
 use std::sync::OnceLock;
 
 use wgpu::{
-    BindGroup, BlendState, ColorTargetState, ColorWrites, CompareFunction, DepthStencilState,
-    Device, FragmentState, PipelineLayoutDescriptor, PrimitiveState, Queue, RenderPipeline,
-    RenderPipelineDescriptor, TextureFormat, VertexState,
+    BindGroup, BindGroupLayout, BlendState, ColorTargetState, ColorWrites, CompareFunction,
+    DepthStencilState, Device, FragmentState, PipelineLayoutDescriptor, PrimitiveState, Queue,
+    RenderPipeline, RenderPipelineDescriptor, TextureFormat, VertexState,
 };
 
 pub use crate::resources::shader::{ShaderDescriptor, ShaderError, Variables};
@@ -47,9 +47,9 @@ impl MaterialShader {
         // Create a pipeline layout and bind group
         let bind_group_option = descriptor.bind_group(device, queue)?;
 
-        let mut bind_group_layouts = vec![engine_bind_group_layout];
+        let mut bind_group_layouts: Vec<Option<&BindGroupLayout>> = vec![Some(engine_bind_group_layout)];
         if let Some((_, layout, _)) = bind_group_option.as_ref() {
-            bind_group_layouts.push(layout);
+            bind_group_layouts.push(Some(layout));
         }
 
         let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
@@ -65,7 +65,7 @@ impl MaterialShader {
                 vertex_stage_layouts
                     .clone()
                     .into_iter()
-                    .map(|x| x.vertex_buffer_layout())
+                    .map(|x| Some(x.vertex_buffer_layout()))
                     .collect::<Vec<_>>()
             })
             .unwrap_or_default();
@@ -73,8 +73,8 @@ impl MaterialShader {
         let depth_stencil = if descriptor.depth_stencil {
             Some(DepthStencilState {
                 format: TextureFormat::Depth32Float,
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::Less,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(CompareFunction::Less),
                 stencil: Default::default(),
                 bias: Default::default(),
             })
