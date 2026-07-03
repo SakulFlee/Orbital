@@ -89,7 +89,7 @@ impl AppContext {
             // Choose backends options from environment variables, otherwise use defaults.
             backend_options: BackendOptions::from_env_or_default(),
             memory_budget_thresholds: MemoryBudgetThresholds::default(),
-            display: Some(owned_display_handle),
+            display: Some(Box::new(owned_display_handle)),
         })
     }
 
