@@ -13,4 +13,4 @@ path = "src/lib.rs"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-orbital = { path = "../../Runtime" }
+orbital = { path = "../../Runtime_Rayon" }
