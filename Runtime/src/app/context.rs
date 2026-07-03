@@ -3,11 +3,12 @@ use std::{error::Error, mem::transmute};
 use async_std::task::block_on;
 use log::debug;
 use wgpu::{
-    Adapter, BackendOptions, Backends, CompositeAlphaMode, CreateSurfaceError, Device,
-    DeviceDescriptor, ExperimentalFeatures, Features, Instance, InstanceDescriptor, InstanceFlags,
-    Limits, MemoryBudgetThresholds, MemoryHints, PowerPreference, PresentMode, Queue,
-    RequestAdapterError, RequestAdapterOptions, RequestDeviceError, Surface, SurfaceCapabilities,
-    SurfaceColorSpace, SurfaceConfiguration, SurfaceTexture, TextureFormat, TextureUsages, Trace,
+    Adapter, BackendOptions, Backends, CompositeAlphaMode, CreateSurfaceError,
+    CurrentSurfaceTexture, Device, DeviceDescriptor, ExperimentalFeatures, Features, Instance,
+    InstanceDescriptor, InstanceFlags, Limits, MemoryBudgetThresholds, MemoryHints,
+    PowerPreference, PresentMode, Queue, RequestAdapterError, RequestAdapterOptions,
+    RequestDeviceError, Surface, SurfaceCapabilities, SurfaceColorSpace, SurfaceConfiguration,
+    SurfaceTexture, TextureFormat, TextureUsages, Trace,
 };
 use winit::{
     dpi::Size,
@@ -190,7 +191,7 @@ impl AppContext {
         default_config
     }
 
-    pub fn acquire_next_frame(&self) -> Result<SurfaceTexture, SurfaceError> {
+    pub fn current_surface_texture(&self) -> CurrentSurfaceTexture {
         self.surface().get_current_texture()
     }
 

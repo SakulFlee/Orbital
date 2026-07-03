@@ -4,6 +4,7 @@ use std::sync::Mutex;
 use async_std::task::block_on;
 use gilrs::Gilrs;
 use log::trace;
+use wgpu::CurrentSurfaceTexture;
 use wgpu::TextureViewDescriptor;
 use winit::{
     application::ApplicationHandler,
@@ -82,10 +83,30 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
         let lock = ctx_lock!(ctx);
 
         // Get next frame to render on
-        let frame = match lock.acquire_next_frame() {
-            Ok(surface_texture) => surface_texture,
-            Err(e) => {
-                warn!("Failed to acquire next frame from surface: {e}");
+        let frame = match lock.current_surface_texture() {
+            CurrentSurfaceTexture::Success(surface_texture) => surface_texture,
+            CurrentSurfaceTexture::Suboptimal(surface_texture) => {
+                warn!("Suboptimal surface texture acquired!");
+                surface_texture
+            }
+            CurrentSurfaceTexture::Timeout => {
+                warn!("Acquiring next surface texture encountered a timeout!");
+                return;
+            }
+            CurrentSurfaceTexture::Occluded => {
+                warn!("Cannot acquire next surface texture as the surface is current occluded!");
+                return;
+            }
+            CurrentSurfaceTexture::Outdated => {
+                warn!("Acquired next surface texture, but its already outdated!");
+                return;
+            }
+            CurrentSurfaceTexture::Lost => {
+                warn!("Surface was lost, cannot acquire next surface texture!");
+                return;
+            }
+            CurrentSurfaceTexture::Validation => {
+                warn!("Encountered a validation error while acquiring surface texture");
                 return;
             }
         };
@@ -233,7 +254,10 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
 
         if let AppState::Ready(ctx_arc) = &self.state {
             let ctx_guard = ctx_lock!(ctx_arc);
-            block_on(self.app.on_resume(&config, ctx_guard.device(), ctx_guard.queue()));
+            block_on(
+                self.app
+                    .on_resume(&config, ctx_guard.device(), ctx_guard.queue()),
+            );
         }
 
         info!("App resumed.");
