@@ -7,7 +7,7 @@ use wgpu::{
     DeviceDescriptor, ExperimentalFeatures, Features, Instance, InstanceDescriptor, InstanceFlags,
     Limits, MemoryBudgetThresholds, MemoryHints, PowerPreference, PresentMode, Queue,
     RequestAdapterError, RequestAdapterOptions, RequestDeviceError, Surface, SurfaceCapabilities,
-    SurfaceConfiguration, SurfaceTexture, TextureFormat, TextureUsages, Trace,
+    SurfaceColorSpace, SurfaceConfiguration, SurfaceTexture, TextureFormat, TextureUsages, Trace,
 };
 use winit::{
     dpi::Size,
@@ -174,6 +174,7 @@ impl AppContext {
                 desired_maximum_frame_latency: 2,
                 alpha_mode: CompositeAlphaMode::Auto,
                 view_formats: vec![],
+                color_space: SurfaceColorSpace::Auto,
             });
 
         default_config.desired_maximum_frame_latency = 2;
