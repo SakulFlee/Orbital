@@ -26,24 +26,20 @@ glob = { workspace = true }
 
 [dependencies]
 wgpu = { workspace = true }
-async-std = { workspace = true }
-async-trait = { workspace = true }
 cgmath = { workspace = true }
 dirs = { workspace = true }
 gltf = { workspace = true }
 fern = { workspace = true }
-futures = { workspace = true }
 hashbrown = { workspace = true }
 humantime = { workspace = true }
 image = { workspace = true }
 log = { workspace = true }
-pollster = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true }
-smol = { workspace = true }
 ulid = { workspace = true }
 winit = { workspace = true }
 glob = { workspace = true }
+rayon = { workspace = true }
 
 gilrs = { workspace = true, optional = true }
 

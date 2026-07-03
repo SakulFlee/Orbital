@@ -64,7 +64,6 @@
 /// (...)
 /// ```
 use log::debug;
-use smol::block_on;
 use wgpu::{
     Adapter, Backends, Device, DeviceDescriptor, Instance, InstanceDescriptor, PowerPreference,
     Queue, RequestAdapterOptions,
@@ -72,7 +71,19 @@ use wgpu::{
 
 use crate::logging;
 
-pub async fn make_wgpu_connection_async() -> (Adapter, Device, Queue) {
+fn block_on<F: std::future::Future>(future: F) -> F::Output {
+    let waker = std::task::Waker::noop();
+    let mut cx = std::task::Context::from_waker(&waker);
+    let mut pinned = Box::pin(future);
+    loop {
+        match pinned.as_mut().poll(&mut cx) {
+            std::task::Poll::Ready(val) => return val,
+            std::task::Poll::Pending => std::thread::yield_now(),
+        }
+    }
+}
+
+pub fn make_wgpu_connection() -> (Adapter, Device, Queue) {
     logging::test_init();
 
     debug!("{:#^88}", " WGPU Test Adapter ");
@@ -84,14 +95,12 @@ pub async fn make_wgpu_connection_async() -> (Adapter, Device, Queue) {
     });
     debug!("# {: <84} #", format!("Instance: {:?}", instance));
 
-    let adapter = instance
-        .request_adapter(&RequestAdapterOptions {
-            power_preference: PowerPreference::None,
-            compatible_surface: None,
-            force_fallback_adapter: false,
-        })
-        .await
-        .expect("Failed to find any adapter");
+    let adapter = block_on(instance.request_adapter(&RequestAdapterOptions {
+        power_preference: PowerPreference::None,
+        compatible_surface: None,
+        force_fallback_adapter: false,
+    }))
+    .expect("Failed to find any adapter");
     debug!("# {: <84} #", format!("Name: {}", adapter.get_info().name));
     debug!(
         "# {: <84} #",
@@ -110,22 +119,16 @@ pub async fn make_wgpu_connection_async() -> (Adapter, Device, Queue) {
         format!("Driver Info: {}", adapter.get_info().driver_info)
     );
 
-    let (device, queue) = adapter
-        .request_device(&DeviceDescriptor {
-            ..Default::default()
-        })
-        .await
-        .expect("Failed to create device");
+    let (device, queue) = block_on(adapter.request_device(&DeviceDescriptor {
+        ..Default::default()
+    }))
+    .expect("Failed to create device");
     debug!("# {: <84} #", format!("Device: {:?}", device.features()));
     debug!("# {: <84} #", format!("Queue: {:?}", queue));
 
     debug!("{:#^88}", "");
 
     (adapter, device, queue)
-}
-
-pub fn make_wgpu_connection() -> (Adapter, Device, Queue) {
-    block_on(async { make_wgpu_connection_async().await })
 }
 
 #[test]

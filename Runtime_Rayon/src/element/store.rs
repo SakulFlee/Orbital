@@ -5,8 +5,6 @@ use crate::{
     app::input::InputState,
     element::{Element, Message},
 };
-use futures::future::join_all;
-use futures::StreamExt;
 use hashbrown::HashMap;
 use log::warn;
 
@@ -94,7 +92,7 @@ impl ElementStore {
         }
     }
 
-    pub async fn process_events(&mut self, events: Vec<ElementEvent>) -> Vec<Event> {
+    pub fn process_events(&mut self, events: Vec<ElementEvent>) -> Vec<Event> {
         let mut result_events = Vec::new();
 
         for event in events {
@@ -123,7 +121,7 @@ impl ElementStore {
         result_events
     }
 
-    async fn send_messages(&mut self) -> Vec<Event> {
+    fn send_messages(&mut self) -> Vec<Event> {
         let messages = std::mem::take(&mut self.message_queue);
         let mut events = Vec::new();
 
@@ -135,7 +133,7 @@ impl ElementStore {
                 }
                 Some(element) => {
                     for message in messages {
-                        if let Some(new_events) = element.on_message(&message).await {
+                        if let Some(new_events) = element.on_message(&message) {
                             events.extend(new_events);
                         }
                     }
@@ -146,17 +144,15 @@ impl ElementStore {
         events
     }
 
-    pub async fn update(&mut self, delta_time: f64, input_state: &InputState) -> Vec<Event> {
-        let mut events = self.send_messages().await;
+    pub fn update(&mut self, delta_time: f64, input_state: &InputState) -> Vec<Event> {
+        let mut events = self.send_messages();
 
-        let futures: Vec<_> = self
+        let new_events: Vec<Event> = self
             .element_map
             .iter_mut()
-            .map(|(_, x)| x.on_update(delta_time, input_state))
+            .filter_map(|(_, x)| x.on_update(delta_time, input_state))
+            .flatten()
             .collect();
-
-        let future_results = join_all(futures).await;
-        let new_events: Vec<Event> = future_results.into_iter().flatten().flatten().collect();
         events.extend(new_events);
 
         events

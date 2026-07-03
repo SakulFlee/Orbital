@@ -1,5 +1,4 @@
 use orbital::{
-    async_trait::async_trait,
     cgmath::Vector3,
     element::{Element, ElementRegistration, Event, LightEvent, WorldEvent},
     resources::LightDescriptor,
@@ -8,7 +7,6 @@ use orbital::{
 #[derive(Debug)]
 pub struct TestLights;
 
-#[async_trait]
 impl Element for TestLights {
     fn on_registration(&self) -> ElementRegistration {
         ElementRegistration::new("test_lights").with_initial_events(vec![

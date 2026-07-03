@@ -17,8 +17,6 @@
 //! resize, update, and render. This allows for proper resource management across different
 //! platforms, especially mobile where applications can be suspended and resumed.
 
-use std::future::Future;
-
 use wgpu::{Device, Queue, SurfaceConfiguration, TextureView};
 
 mod settings;
@@ -128,90 +126,26 @@ pub mod standard;
 /// [GameRuntime]: crate::world::GameRuntime
 /// [winit]: crate::winit
 pub trait App: Send + Sync {
-    /// Creates a new instance of the application.
-    /// This is called once at the beginning of the application lifecycle.
     fn new() -> Self;
 
-    /// Called once when the application starts up.
-    /// Use this to initialize your application state.
-    fn on_startup(&mut self) -> impl Future<Output = ()> + Send
-    where
-        Self: Sized,
-    {
-        async {}
-    }
+    fn on_startup(&mut self) {}
 
-    /// Gets called upon the [App] getting resumed _OR_ when the [App] got initiated first time and we know have access to the GPU via [Device] & [Queue].
-    /// Depending on the state, we might want to reinitialize things for the GPU related to memory between suspension and resumption might have been dropped.
-    fn on_resume(
-        &mut self,
-        _config: &SurfaceConfiguration,
-        _device: &Device,
-        _queue: &Queue,
-    ) -> impl Future<Output = ()> + Send
-    where
-        Self: Sized,
-    {
-        async {}
-    }
+    fn on_resume(&mut self, _config: &SurfaceConfiguration, _device: &Device, _queue: &Queue) {}
 
-    /// Gets called upon the [App] getting suspended.
-    /// On some operating systems this will invalidate the [Device], [Queue], [Surface](wgpu::Surface) and [Window](winit::window::Window).
-    fn on_suspend(&mut self) -> impl Future<Output = ()> + Send
-    where
-        Self: Sized,
-    {
-        async {}
-    }
+    fn on_suspend(&mut self) {}
 
-    /// Gets called each time the window, app or canvas gets resized.  
-    /// Any resizing of resources (e.g. swap-chain, depth texture, etc.) should
-    /// be updated inside here.
-    fn on_resize(
-        &mut self,
-        _new_size: cgmath::Vector2<u32>,
-        _device: &Device,
-        _queue: &Queue,
-    ) -> impl Future<Output = ()> + Send
-    where
-        Self: Sized,
-    {
-        async {}
-    }
+    fn on_resize(&mut self, _new_size: cgmath::Vector2<u32>, _device: &Device, _queue: &Queue) {}
 
-    /// Called when the application focus changes (gains or loses focus).
-    fn on_focus_change(&mut self, _focused: bool) -> impl Future<Output = ()> + Send
-    where
-        Self: Sized,
-    {
-        async {}
-    }
+    fn on_focus_change(&mut self, _focused: bool) {}
 
-    /// Gets called each time an update cycle is happening.  
-    /// Any updating should happen inside here.
     fn on_update(
         &mut self,
         _input_state: &InputState,
         _delta_time: f64,
         _cycle: Option<(f64, u64)>,
-    ) -> impl Future<Output = Option<Vec<AppEvent>>> + Send
-    where
-        Self: Sized,
-    {
-        async { None }
+    ) -> Option<Vec<AppEvent>> {
+        None
     }
 
-    /// Gets called each time a render (== redraw) cycle is happening.
-    /// Any rendering should happen inside here.
-    fn on_render(
-        &mut self,
-        _target_view: &TextureView,
-        _device: &Device,
-        _queue: &Queue,
-    ) -> impl Future<Output = ()> + Send
-    where
-        Self: Sized,
-    {
-        async {}
-    }
+    fn on_render(&mut self, _target_view: &TextureView, _device: &Device, _queue: &Queue) {}
 }

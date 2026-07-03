@@ -18,7 +18,6 @@
 //! This ensures loose coupling between elements and enables flexible, modular game design.
 
 use crate::app::input::InputState;
-use async_trait::async_trait;
 use log::info;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -128,11 +127,10 @@ pub use event::*;
 /// [realized resource]: crate::resources::realizations
 /// [Models]: crate::resources::realizations::Model
 /// [WorldChanges]: super::WorldChange
-#[async_trait]
 pub trait Element: Debug + Send {
     fn on_registration(&self) -> ElementRegistration;
 
-    async fn on_message(&mut self, message: &Arc<Message>) -> Option<Vec<Event>> {
+    fn on_message(&mut self, message: &Arc<Message>) -> Option<Vec<Event>> {
         if let Target::Element { .. } = message.to() {
             info!("Received message that isn't handled: {message:?}");
         }
@@ -140,7 +138,7 @@ pub trait Element: Debug + Send {
         None
     }
 
-    async fn on_update(
+    fn on_update(
         &mut self,
         _delta_time: f64,
         _input_state: &InputState,
