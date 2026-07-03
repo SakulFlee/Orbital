@@ -13,4 +13,4 @@ path = "src/main.rs"
 
 [dependencies]
 orbital = { path = "../../Runtime_Rayon" }
-async-trait = "0.1"
+async-trait = { workspace = true }
