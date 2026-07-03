@@ -108,6 +108,7 @@ impl AppContext {
             power_preference: PowerPreference::HighPerformance,
             force_fallback_adapter: false,
             compatible_surface: Some(surface),
+            apply_limit_buckets: false,
         }))
     }
 
