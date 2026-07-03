@@ -2425,7 +2425,7 @@ dependencies = [
  "image",
  "log",
  "pollster",
- "rand 0.10.1",
+ "rand 0.10.2",
  "serde",
  "smol",
  "ulid",
