@@ -39,7 +39,7 @@ pub mod camera_controller;
 pub mod element;
 pub mod importer;
 pub mod renderer;
-pub mod resources;
+pub use orbital_resources as resources;
 pub use orbital_shader_preprocessor as shader_preprocessor;
 pub mod world;
 

@@ -1,0 +1,16 @@
+[package]
+name = "orbital_resources"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+orbital_core = { path = "../orbital_core" }
+orbital_shader_preprocessor = { path = "../orbital_shader_preprocessor" }
+wgpu = { workspace = true }
+cgmath = { workspace = true }
+image = { workspace = true }
+log = { workspace = true }
+serde = { workspace = true }
+ulid = { workspace = true }
+hashbrown = { workspace = true }
+dirs = { workspace = true }

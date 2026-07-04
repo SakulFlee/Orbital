@@ -28,6 +28,7 @@ glob = { workspace = true }
 orbital_core = { path = "../Crates/orbital_core" }
 orbital_input = { path = "../Crates/orbital_input" }
 orbital_shader_preprocessor = { path = "../Crates/orbital_shader_preprocessor" }
+orbital_resources = { path = "../Crates/orbital_resources" }
 wgpu = { workspace = true }
 cgmath = { workspace = true }
 dirs = { workspace = true }
