@@ -1,3 +1,5 @@
+# DEPRECATED: This Forgejo Actions workflow is replaced by Woodpecker CI (.woodpecker/).
+# Remove this file once Woodpecker pipelines are proven stable.
 name: Main
 on:
   workflow_dispatch:

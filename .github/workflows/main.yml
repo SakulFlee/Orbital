@@ -10,156 +10,86 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
 jobs:
-  clippy:
+  lint:
     runs-on: ubuntu-latest
     steps:
-      - name: ⏬ Checkout
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.head_ref }}
-      - name: 💾 Cache
-        uses: actions/cache@v6.1.0
+      - uses: cachix/install-nix-action@v30
         with:
-          path: target/
-          key: target
-      - name: 🦀 Rust setup
-        run: |
-          rustup default stable
-          rustup update
-      - name: 🔁 Update mirrors
-        run: sudo apt-get update
-      - name: 🛠️ Install dependencies
-        run: sudo apt-get install -y libudev-dev
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
       - name: 📎 Clippy
         env:
           SKIP_GLTF_EXPORT: true
-        run: cargo clippy
-  rustfmt:
-    runs-on: ubuntu-latest
-    steps:
-      - name: ⏬ Checkout
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.head_ref }}
-      - name: 💾 Cache
-        uses: actions/cache@v6.1.0
-        with:
-          path: target/
-          key: target
-      - name: 🦀 Rust setup
-        run: |
-          rustup default stable
-          rustup update
-      - name: 🔁 Update mirrors
-        run: sudo apt-get update
-      - name: 🛠️ Install dependencies
-        run: sudo apt-get install -y libudev-dev
+        run: nix develop --command cargo clippy
       - name: 🧹 RustFmt
         env:
           SKIP_GLTF_EXPORT: true
-        run: cargo fmt --all --check
-  check:
-    runs-on: ubuntu-latest
-    needs:
-      - rustfmt
-      - clippy
-    steps:
-      - name: ⏬ Checkout
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.head_ref }}
-      - name: 💾 Cache
-        uses: actions/cache@v6.1.0
-        with:
-          path: target/
-          key: target
-      - name: 🦀 Rust setup
-        run: |
-          rustup default stable
-          rustup update
-      - name: 🔁 Update mirrors
-        run: sudo apt-get update
-      - name: 🛠️ Install dependencies
-        run: sudo apt-get install -y libudev-dev
-      - name: 🔍 Check
-        env:
-          SKIP_GLTF_EXPORT: true
-        run: cargo check
+        run: nix develop --command cargo fmt --all --check
   test:
     runs-on: ubuntu-latest
+    needs: lint
     steps:
-      - name: ⏬ Checkout
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.head_ref }}
-      - name: 💾 Cache
-        uses: actions/cache@v6.1.0
+      - uses: cachix/install-nix-action@v30
         with:
-          path: target/
-          key: target
-      - name: 🦀 Rust setup
-        run: |
-          rustup default stable
-          rustup update
-      - name: 🔁 Update mirrors (Linux)
-        if: ${{ startsWith(matrix.os, 'ubuntu') }}
-        run: sudo apt-get update
-      - name: 🛠️ Install LibUDev (Linux)
-        # Note: LibUDev is for GilRs (controller inputs)
-        run: sudo apt-get install -y libudev-dev:${{ matrix.arch }}
-      - name: 🛠️ Install Mesa (Linux)
-        # Note: Mesa is required for software rendering using llvmpipe
-        run: sudo apt-get install -y mesa-utils
-      - name: 🛠️ Install Blender (Linux)
-        # Note: Draco is required for glTF compression and doesn't come with Blender
-        run: sudo apt-get install -y blender python3-numpy libdraco-dev draco
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
       - name: 🧪 Test
-        run: cargo test
-  build:
-    runs-on: ${{ matrix.os }}
-    needs:
-      - check
-    if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        env:
+          SKIP_GLTF_EXPORT: true
+        run: nix develop --command cargo test --no-fail-fast
+  build-linux:
+    runs-on: ${{ matrix.runs-on }}
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/')
     strategy:
       fail-fast: false
       matrix:
         include:
-          # Linux
-          - target: "x86_64-unknown-linux-gnu"
-            arch: "amd64"
-            pc: "/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig"
-            os: "ubuntu-latest"
-            gcc: "gcc-x86-64-linux-gnu"
-          - target: "aarch64-unknown-linux-gnu"
-            arch: "arm64"
-            pc: "/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig"
-            os: "ubuntu-latest"
-            gcc: "gcc-aarch64-linux-gnu"
-          - target: "armv7-unknown-linux-gnueabihf"
-            arch: "armhf"
-            pc: "/usr/lib/arm-linux-gnueabihf/pkgconfig:/usr/share/pkgconfig"
-            os: "ubuntu-latest"
-            gcc: "gcc-arm-linux-gnueabihf"
-          - target: "arm-unknown-linux-gnueabihf"
-            arch: "armhf"
-            pc: "/usr/lib/arm-linux-gnueabihf/pkgconfig:/usr/share/pkgconfig"
-            os: "ubuntu-latest"
-            gcc: "gcc-arm-linux-gnueabihf"
-          # macOS
-          - target: "aarch64-apple-darwin"
-            os: "macos-latest"
-          - target: "x86_64-apple-darwin"
-            os: "macos-latest"
-          # Windows
-          - target: "x86_64-pc-windows-gnu"
-            os: "windows-latest"
-          - target: "x86_64-pc-windows-msvc"
-            os: "windows-latest"
-          - target: "aarch64-pc-windows-msvc"
-            os: "windows-latest"
+          - target: x86_64-unknown-linux-gnu
+            runs-on: ubuntu-latest
+          - target: aarch64-unknown-linux-gnu
+            runs-on: ubuntu-24.04-arm
     steps:
-      - name: ⏬ Checkout
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+      - uses: cachix/install-nix-action@v30
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: 🔨 Build
+        env:
+          SKIP_GLTF_EXPORT: true
+        run: nix develop --command cargo build --release --target ${{ matrix.target }}
+      - name: ➕ Make upload folder
+        run: mkdir upload
+      - name: 🔎 Find files to upload
+        run: |
+          find target/${{ matrix.target }}/release -mindepth 1 -maxdepth 1 -type f -not -name '*.d' -not -name '*.rlib' -not -name '.cargo-lock' -not -name 'CACHEDIR.TAG' -exec mv {} upload/ \;
+          mv Assets/ upload/
+      - name: 📦 Make archive
+        working-directory: upload
+        run: zip -r ../${{ matrix.target }}.zip .
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.target }}
+          path: ${{ matrix.target }}.zip
+          if-no-files-found: 'error'
+  build-macos:
+    runs-on: ${{ matrix.os }}
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            os: macos-latest
+          - target: x86_64-apple-darwin
+            os: macos-latest
+    steps:
+      - uses: actions/checkout@v7
       - name: 💾 Cache
         uses: actions/cache@v6.1.0
         with:
@@ -170,79 +100,82 @@ jobs:
           rustup default stable
           rustup update
           rustup target add ${{ matrix.target }}
-      - name: 🛠️ Configure repositories (Linux)
-        if: ${{ startsWith(matrix.os, 'ubuntu') && matrix.arch != 'amd64' }}
-        run: |
-          # Add architecture
-          sudo dpkg --add-architecture ${{ matrix.arch }}
-
-          # Removing any current sources
-          sudo rm -rf /etc/apt/sources.list.d/
-          sudo rm -f /etc/apt/sources.list
-
-          # Set expected source mirrors
-          echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
-          echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble-updates main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
-          echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble-security main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
-          echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble-backports main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
-          echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ noble main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
-          echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ noble-updates main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
-          echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ noble-security main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
-      - name: 🔁 Update mirrors (Linux)
-        if: ${{ startsWith(matrix.os, 'ubuntu') }}
-        run: sudo apt-get update
-      - name: 🛠️ Install GCC (Linux)
-        if: ${{ startsWith(matrix.os, 'ubuntu') }}
-        run: sudo apt-get install -y ${{ matrix.gcc }}
-      - name: 🛠️ Install LibUDev (Linux)
-        if: ${{ startsWith(matrix.os, 'ubuntu') }}
-        # Note: LibUDev is for GilRs (controller inputs)
-        run: sudo apt-get install -y libudev-dev:${{ matrix.arch }}
-      - name: 🛠️ Install Mesa (Linux)
-        if: ${{ startsWith(matrix.os, 'ubuntu') }}
-        # Note: Mesa is required for software rendering using llvmpipe
-        run: sudo apt-get install -y mesa-utils
-      - name: 🛠️ Install Blender (Linux)
-        if: ${{ startsWith(matrix.os, 'ubuntu') }}
-        # Note: Draco is required for glTF compression and doesn't come with Blender
-        run: sudo apt-get install -y blender python3-numpy libdraco-dev draco
-      - name: 🛠️ Install Blender (macOS)
-        if: ${{ startsWith(matrix.os, 'macos') }}
+      - name: 🛠️ Install Blender
         run: brew install blender
-      - name: 🛠️ Install Blender (Windows)
-        if: ${{ startsWith(matrix.os, 'windows') }}
-        shell: pwsh
-        run: choco install blender --no-progress
-      - name: ➕ Add Blender to PATH (Windows)
-        if: ${{ startsWith(matrix.os, 'windows') }}
-        run: "$blenderBaseDir = \"C:\\Program Files\\Blender Foundation\"\nWrite-Host \"Searching for Blender installation in: $blenderBaseDir\"\n\n# Get all child directories, sort by creation time (newest first), and take the first one\n# In a clean CI environment, this should be the only or newest Blender version\n$blenderInstallDir = Get-ChildItem -Path $blenderBaseDir -Directory | Sort-Object CreationTime -Descending | Select-Object -First 1\n\nif ($blenderInstallDir) {\n   $blenderPath = $blenderInstallDir.FullName\n   Write-Host \"Discovered Blender installation at: $blenderPath\"\n\n   # Verify blender.exe exists inside the discovered directory\n   $blenderExeFullPath = Join-Path $blenderPath \"blender.exe\"\n   if (Test-Path $blenderExeFullPath) {\n       Write-Host \"Confirmed blender.exe exists at: $blenderExeFullPath\"\n       # Add the discovered Blender installation directory to the PATH\n       echo \"$blenderPath\" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append\n       Write-Host \"Blender added to PATH: $blenderPath\"\n   } else {\n       Write-Host \"ERROR: blender.exe not found at expected path: $blenderExeFullPath\"\n       Exit 1 # Fail the step if blender.exe is missing\n   }\n} else {\n   Write-Host \"ERROR: No Blender installation directory found under $blenderBaseDir.\"\n   Exit 1 # Fail the step if no directory is found\n}        \n"
       - name: 🔨 Build
-        env:
-          PKG_CONFIG_SYSROOT_DIR: /
-          PKG_CONFIG_PATH: ${{ matrix.pc }}
         run: cargo build --release --target ${{ matrix.target }}
-      - name: ➕ Make upload folder
-        run: mkdir upload
-      - name: 🔎 Find files to upload (Linux / macOS)
-        if: ${{ ! startsWith(matrix.os, 'windows') }}
+      - name: ➕ Package
         run: |
+          mkdir upload
           find target/${{ matrix.target }}/release -mindepth 1 -maxdepth 1 -type f -not -name '*.d' -not -name '*.rlib' -not -name '.cargo-lock' -not -name 'CACHEDIR.TAG' -exec mv {} upload/ \;
           mv Assets/ upload/
-      - name: 🔎 Find files to upload (Windows)
-        if: ${{ startsWith(matrix.os, 'windows') }}
+          cd upload && zip -r ../${{ matrix.target }}.zip .
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.target }}
+          path: ${{ matrix.target }}.zip
+          if-no-files-found: 'error'
+  build-windows:
+    runs-on: ${{ matrix.os }}
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-pc-windows-gnu
+            os: windows-latest
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+          - target: aarch64-pc-windows-msvc
+            os: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: 💾 Cache
+        uses: actions/cache@v6.1.0
+        with:
+          path: target/
+          key: target-${{ matrix.target }}
+      - name: 🦀 Rust setup
         run: |
-          Get-ChildItem -Path "target/${{ matrix.target }}/release" -Recurse -Depth 0 -File -Exclude "*.d", "*.rlib", ".cargo-lock", "CACHEDIR.TAG" | Move-Item -Destination "upload/" -Force
+          rustup default stable
+          rustup update
+          rustup target add ${{ matrix.target }}
+      - name: 🛠️ Install Blender
+        shell: pwsh
+        run: choco install blender --no-progress
+      - name: ➕ Add Blender to PATH
+        shell: pwsh
+        run: |
+          $blenderBaseDir = "C:\Program Files\Blender Foundation"
+          Write-Host "Searching for Blender installation in: $blenderBaseDir"
+          $blenderInstallDir = Get-ChildItem -Path $blenderBaseDir -Directory | Sort-Object CreationTime -Descending | Select-Object -First 1
+          if ($blenderInstallDir) {
+            $blenderPath = $blenderInstallDir.FullName
+            Write-Host "Discovered Blender installation at: $blenderPath"
+            $blenderExeFullPath = Join-Path $blenderPath "blender.exe"
+            if (Test-Path $blenderExeFullPath) {
+              Write-Host "Confirmed blender.exe exists at: $blenderExeFullPath"
+              echo "$blenderPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+              Write-Host "Blender added to PATH: $blenderPath"
+            } else {
+              Write-Host "ERROR: blender.exe not found at expected path: $blenderExeFullPath"
+              Exit 1
+            }
+          } else {
+            Write-Host "ERROR: No Blender installation directory found under $blenderBaseDir."
+            Exit 1
+          }
+      - name: 🔨 Build
+        run: cargo build --release --target ${{ matrix.target }}
+      - name: ➕ Package
+        shell: pwsh
+        run: |
+          mkdir upload
+          Get-ChildItem -Path "target/${{ matrix.target }}/release" -Depth 0 -File -Exclude "*.d", "*.rlib", ".cargo-lock", "CACHEDIR.TAG" | Move-Item -Destination "upload/" -Force
           Move-Item -Force -Path "Assets/" -Destination "upload/"
-      - name: 📦 Make archive (Linux / macOS)
-        if: ${{ ! startsWith(matrix.os, 'windows') }}
-        working-directory: upload
-        run: zip -r ../${{ matrix.target }}.zip .
-      - name: 📦 Make archive (Windows)
-        if: ${{ startsWith(matrix.os, 'windows') }}
-        working-directory: upload
-        run: Compress-Archive -Destination ../${{ matrix.target }}.zip -Path ./*
-      - name: ⬆️ Upload artifacts
-        uses: actions/upload-artifact@v7
+          Compress-Archive -Destination ../${{ matrix.target }}.zip -Path .\upload\*
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.target }}
           path: ${{ matrix.target }}.zip
@@ -250,20 +183,19 @@ jobs:
   release:
     runs-on: ubuntu-latest
     needs:
-      - build
-      - test
-    if: ${{ startsWith(github.ref, 'refs/tags/') }}
+      - build-linux
+      - build-macos
+      - build-windows
+    if: startsWith(github.ref, 'refs/tags/')
     steps:
-      - name: ⬇️ Download artifacts from this run
-        uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@v8
       - name: ➕ Make upload folder
         run: mkdir upload
       - name: 🔄 Move files to upload folder
         run: find . -type f -name '*.zip' -exec mv {} upload/ \;
       - name: 👀 Show files to be uploaded
         run: ls -al upload/
-      - name: 📝 Make release
-        uses: softprops/action-gh-release@v3
+      - uses: softprops/action-gh-release@v3
         with:
           files: upload/*
           draft: false
