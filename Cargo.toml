@@ -43,6 +43,8 @@ debug = false
 
 [profile.dev]
 opt-level = 1
+lto = "thin"
+codegen-units = 16
 
 [profile.dev.package.wgpu]
 opt-level = 3
