@@ -35,15 +35,9 @@
 //! management automatically.
 
 pub mod app;
-pub mod cache;
 pub mod camera_controller;
 pub mod element;
 pub mod importer;
-pub mod logging;
-pub mod macros;
-pub mod mip_level;
-pub mod or;
-pub mod quaternion;
 pub mod renderer;
 pub mod resources;
 pub mod shader_preprocessor;
@@ -51,6 +45,9 @@ pub mod world;
 
 #[cfg(test)]
 pub mod wgpu_test_adapter;
+
+pub use orbital_core::{cache, logging, macros, mip_level, or, quaternion};
+pub use orbital_core::{make_desktop_main, make_android_main};
 
 // Re-exports
 pub use cgmath;

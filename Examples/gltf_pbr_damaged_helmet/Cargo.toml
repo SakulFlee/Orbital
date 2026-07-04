@@ -14,3 +14,4 @@ crate-type = ["cdylib", "lib"]
 
 [dependencies]
 orbital = { path = "../../Runtime_Rayon" }
+winit = { workspace = true }
