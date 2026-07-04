@@ -40,7 +40,7 @@ pub mod element;
 pub mod importer;
 pub mod renderer;
 pub mod resources;
-pub mod shader_preprocessor;
+pub use orbital_shader_preprocessor as shader_preprocessor;
 pub mod world;
 
 #[cfg(test)]

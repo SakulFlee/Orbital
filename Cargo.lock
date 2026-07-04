@@ -2094,6 +2094,7 @@ dependencies = [
  "log",
  "orbital_core",
  "orbital_input",
+ "orbital_shader_preprocessor",
  "rand 0.10.2",
  "rayon",
  "serde",
@@ -2132,6 +2133,14 @@ dependencies = [
  "hashbrown 0.17.1",
  "log",
  "winit",
+]
+
+[[package]]
+name = "orbital_shader_preprocessor"
+version = "0.1.0"
+dependencies = [
+ "glob",
+ "log",
 ]
 
 [[package]]
