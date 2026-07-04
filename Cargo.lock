@@ -1102,6 +1102,7 @@ name = "gltf_pbr_damaged_helmet"
 version = "0.1.0"
 dependencies = [
  "orbital",
+ "winit",
 ]
 
 [[package]]
@@ -1267,6 +1268,7 @@ name = "instancing"
 version = "0.1.0"
 dependencies = [
  "orbital",
+ "winit",
 ]
 
 [[package]]
@@ -2084,20 +2086,30 @@ dependencies = [
  "android_logger",
  "cgmath",
  "dirs",
- "fern",
  "gilrs",
  "glob",
  "gltf",
  "hashbrown 0.17.1",
- "humantime",
  "image",
  "log",
+ "orbital_core",
  "rand 0.10.2",
  "rayon",
  "serde",
  "ulid",
  "wgpu",
  "winit",
+]
+
+[[package]]
+name = "orbital_core"
+version = "0.1.0"
+dependencies = [
+ "cgmath",
+ "fern",
+ "hashbrown 0.17.1",
+ "humantime",
+ "log",
 ]
 
 [[package]]
@@ -2178,6 +2190,7 @@ name = "pbr_grid"
 version = "0.1.0"
 dependencies = [
  "orbital",
+ "winit",
 ]
 
 [[package]]
@@ -2810,6 +2823,7 @@ name = "skybox"
 version = "0.1.0"
 dependencies = [
  "orbital",
+ "winit",
 ]
 
 [[package]]
@@ -2922,6 +2936,7 @@ name = "test-roll-camera"
 version = "0.1.0"
 dependencies = [
  "orbital",
+ "winit",
 ]
 
 [[package]]

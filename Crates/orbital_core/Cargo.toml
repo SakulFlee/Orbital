@@ -1,0 +1,11 @@
+[package]
+name = "orbital_core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+hashbrown = { workspace = true }
+log = { workspace = true }
+fern = { workspace = true }
+humantime = { workspace = true }
+cgmath = { workspace = true }

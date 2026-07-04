@@ -25,13 +25,12 @@ standard_app_detect_no_more_elements = []
 glob = { workspace = true }
 
 [dependencies]
+orbital_core = { path = "../Crates/orbital_core" }
 wgpu = { workspace = true }
 cgmath = { workspace = true }
 dirs = { workspace = true }
 gltf = { workspace = true }
-fern = { workspace = true }
 hashbrown = { workspace = true }
-humantime = { workspace = true }
 image = { workspace = true }
 log = { workspace = true }
 rand = { workspace = true }
