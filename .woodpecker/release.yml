@@ -1,0 +1,74 @@
+when:
+  - event: tag
+    ref: refs/tags/v*
+
+matrix:
+  TARGET:
+    - x86_64-unknown-linux-gnu
+    - aarch64-unknown-linux-gnu
+
+steps:
+  format:
+    image: nixos/nix:latest
+    environment:
+      SKIP_GLTF_EXPORT: "true"
+    commands:
+      - nix develop "$( [ "$TARGET" = aarch64-unknown-linux-gnu ] && echo '.#aarch64-cross' || echo '' )" --command cargo fmt --all --check
+
+  clippy:
+    image: nixos/nix:latest
+    environment:
+      SKIP_GLTF_EXPORT: "true"
+    commands:
+      - nix develop "$( [ "$TARGET" = aarch64-unknown-linux-gnu ] && echo '.#aarch64-cross' || echo '' )" --command cargo clippy
+
+  test:
+    image: nixos/nix:latest
+    environment:
+      SKIP_GLTF_EXPORT: "true"
+    commands:
+      - nix develop "$( [ "$TARGET" = aarch64-unknown-linux-gnu ] && echo '.#aarch64-cross' || echo '' )" --command cargo test --no-fail-fast
+
+  build:
+    image: nixos/nix:latest
+    environment:
+      SKIP_GLTF_EXPORT: "true"
+    commands:
+      - nix develop "$( [ "$TARGET" = aarch64-unknown-linux-gnu ] && echo '.#aarch64-cross' || echo '' )" --command cargo build --release --target "$TARGET"
+
+  package:
+    image: nixos/nix:latest
+    commands:
+      - mkdir upload
+      - find "target/$TARGET/release" -mindepth 1 -maxdepth 1 -type f -not -name '*.d' -not -name '*.rlib' -not -name '.cargo-lock' -not -name 'CACHEDIR.TAG' -exec mv {} upload/ \;
+      - mv Assets/ upload/
+      - cd upload && zip -r "../$TARGET.zip" .
+
+  publish:
+    image: nixos/nix:latest
+    secrets: [forgejo_token]
+    commands:
+      - |
+        BASE_URL=$(echo "$CI_REPO_LINK" | grep -oP 'https?://[^/]+')
+        API_URL="$BASE_URL/api/v1/repos/$CI_REPO_OWNER/$CI_REPO_NAME"
+        EXISTING=$(curl -s -H "Authorization: Bearer $FORGEJO_TOKEN" "$API_URL/releases/tags/$CI_TAG")
+        RELEASE_ID=$(echo "$EXISTING" | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)
+        if [ -z "$RELEASE_ID" ]; then
+          RELEASE_DATA=$(curl -s -X POST \
+            -H "Authorization: Bearer $FORGEJO_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"tag_name\": \"$CI_TAG\", \"name\": \"$CI_TAG\", \"body\": \"Release $CI_TAG\", \"draft\": false, \"prerelease\": false}" \
+            "$API_URL/releases")
+          RELEASE_ID=$(echo "$RELEASE_DATA" | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)
+        fi
+        if [ -n "$RELEASE_ID" ]; then
+          curl -s -X POST \
+            -H "Authorization: Bearer $FORGEJO_TOKEN" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary "@$TARGET.zip" \
+            "$API_URL/releases/$RELEASE_ID/assets?name=$TARGET.zip"
+          echo "Published $TARGET.zip to release $CI_TAG"
+        else
+          echo "Failed to get or create release"
+          exit 1
+        fi
