@@ -3,6 +3,10 @@ name = "orbital_app"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+gamepad_input = ["dep:gilrs"]
+standard_app_detect_no_more_elements = []
+
 [dependencies]
 orbital_core = { path = "../orbital_core" }
 orbital_element = { path = "../orbital_element" }
