@@ -5,7 +5,7 @@ use crate::{MaterialShaderDescriptor, ShaderSource, VertexStageLayout};
 pub struct DebugMaterialShader;
 
 impl From<DebugMaterialShader> for MaterialShaderDescriptor {
-    fn from(val: DebugMaterialShader) -> Self {
+    fn from(_val: DebugMaterialShader) -> Self {
         MaterialShaderDescriptor {
             name: Some("Debug Material Shader".to_string()),
             shader_source: ShaderSource::Path("Assets/Shaders/wireframe.wgsl"),

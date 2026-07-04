@@ -176,7 +176,7 @@ impl GltfImporter {
     /// Handles importing a whole scene from a glTF [`Document`].
     fn import_whole_scene(
         scene: Scene,
-        document: &Document,
+        _document: &Document,
         buffers: &Vec<gltf::buffer::Data>,
         textures: &Vec<gltf::image::Data>,
     ) -> GltfImportResult {
@@ -380,7 +380,7 @@ impl GltfImporter {
     /// textures according to the glTF specification for metallic-roughness textures.
     /// Metallic is in the B channel, Roughness is in the G channel.
     fn parse_dual_texture(data: &gltf::image::Data) -> (TextureDescriptor, TextureDescriptor) {
-        let (format, need_alpha_channel) = Self::gltf_texture_format_to_orbital(data.format);
+        let (_format, _need_alpha_channel) = Self::gltf_texture_format_to_orbital(data.format);
 
         // Calculate the number of channels in the source format
         let source_channels = match data.format {
@@ -835,7 +835,7 @@ impl GltfImporter {
     fn parse_camera(
         node: &Node,
         camera: &Camera,
-        buffers: &Vec<gltf::buffer::Data>,
+        _buffers: &Vec<gltf::buffer::Data>,
     ) -> Result<CameraDescriptor, Box<dyn Error>> {
         let perspective = match camera.projection() {
             Projection::Orthographic(_) => {
@@ -876,10 +876,11 @@ impl GltfImporter {
 
     /// Computes tangent and bitangent vectors based on UV gradients
     /// This is a simplified approach - a more robust implementation would use the mikktspace algorithm
+    #[allow(dead_code)]
     fn compute_tangent_frame(
-        positions: &[Vector3<f32>],
+        _positions: &[Vector3<f32>],
         normals: &Option<Vec<Vector3<f32>>>,
-        uvs: &Option<Vec<Vector2<f32>>>,
+        _uvs: &Option<Vec<Vector2<f32>>>,
         index: usize,
     ) -> (Vector3<f32>, Vector3<f32>) {
         // For a single vertex, we can't compute proper tangents without looking at the full triangle
@@ -910,7 +911,7 @@ impl GltfImporter {
     fn parse_light(
         node: &Node,
         light: &khr_lights_punctual::Light,
-        buffers: &Vec<gltf::buffer::Data>,
+        _buffers: &Vec<gltf::buffer::Data>,
     ) -> Result<LightDescriptor, Box<dyn Error>> {
         let transform = node.transform();
         let decomposed = transform.decomposed();

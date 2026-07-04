@@ -135,7 +135,7 @@ impl LightStore {
         self.cache_realizations.clear();
     }
 
-    pub fn create_light_buffer(&mut self, device: &Device, queue: &Queue) {
+    pub fn create_light_buffer(&mut self, device: &Device, _queue: &Queue) {
         let light_count = self.map_descriptors.len();
         if light_count == 0 {
             self.light_buffer = Some(device.create_buffer(&BufferDescriptor {
@@ -148,7 +148,7 @@ impl LightStore {
         }
 
         let light_size = 64;
-        let buffer_size = (light_count * light_size) as u64;
+        let _buffer_size = (light_count * light_size) as u64;
 
         let mut buffer_data = Vec::new();
         for descriptor in self.map_descriptors.values() {

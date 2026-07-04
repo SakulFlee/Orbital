@@ -126,7 +126,7 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
         let (delta_time, cycle) = self.timer.as_mut().expect("Timer went missing").tick();
 
         if let Some((total_delta, fps)) = cycle {
-            debug!("FPS: {fps} | TDT: {total_delta}s | CDT: {delta_time}s");
+            info!("FPS: {fps} | TDT: {total_delta}s | CDT: {delta_time}s");
         }
 
         #[cfg(feature = "gamepad_input_poll")]
