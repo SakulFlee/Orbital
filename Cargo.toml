@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["Runtime_Rayon", "Examples/*", "Crates/*"]
+members = ["Examples/*", "Crates/*"]
 
 [workspace.dependencies]
 wgpu = { version = "30.0.0", features = [
