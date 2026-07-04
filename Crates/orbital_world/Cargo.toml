@@ -1,0 +1,15 @@
+[package]
+name = "orbital_world"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+orbital_core = { path = "../orbital_core" }
+orbital_element = { path = "../orbital_element" }
+orbital_importer_gltf = { path = "../orbital_importer_gltf" }
+orbital_resources = { path = "../orbital_resources" }
+cgmath = { workspace = true }
+hashbrown = { workspace = true }
+log = { workspace = true }
+ulid = { workspace = true }
+wgpu = { workspace = true }

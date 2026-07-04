@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use orbital::app::input::{InputAxis, InputButton};
 use orbital::app::standard::StandardApp;
 use orbital::app::{AppRuntime, AppSettings};
@@ -35,17 +34,16 @@ impl RollTestElement {
     }
 }
 
-#[async_trait]
 impl Element for RollTestElement {
     fn on_registration(&self) -> ElementRegistration {
         ElementRegistration::new("RollTestElement")
     }
 
-    async fn on_message(&mut self, _message: &Arc<Message>) -> Option<Vec<Event>> {
+    fn on_message(&mut self, _message: &Arc<Message>) -> Option<Vec<Event>> {
         None
     }
 
-    async fn on_update(
+    fn on_update(
         &mut self,
         delta_time: f64,
         _input_state: &orbital::app::input::InputState,

@@ -1,0 +1,9 @@
+[package]
+name = "orbital_renderer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+orbital_resources = { path = "../orbital_resources" }
+wgpu = { workspace = true }
+cgmath = { workspace = true }

@@ -4,7 +4,6 @@ use orbital::element::EnvironmentEvent;
 use orbital::resources::WorldEnvironmentDescriptor;
 use orbital::{
     app::input::{InputButton, InputState},
-    async_trait::async_trait,
     element::{Element, ElementRegistration, Event, WorldEvent},
     winit::keyboard::{KeyCode, PhysicalKey},
 };
@@ -68,7 +67,6 @@ impl DebugWorldEnvironment {
     }
 }
 
-#[async_trait]
 impl Element for DebugWorldEnvironment {
     fn on_registration(&self) -> ElementRegistration {
         ElementRegistration::new("debug_world_environment").with_initial_event(Event::World(
@@ -78,7 +76,7 @@ impl Element for DebugWorldEnvironment {
         ))
     }
 
-    async fn on_update(
+    fn on_update(
         &mut self,
         _delta_time: f64,
         input_state: &InputState,

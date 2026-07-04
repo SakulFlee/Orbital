@@ -12,5 +12,5 @@ name = "test-roll-camera"
 path = "src/main.rs"
 
 [dependencies]
-orbital = { path = "../../Runtime" }
-async-trait = "0.1"
+orbital = { path = "../../Crates/orbital" }
+winit = { workspace = true }
