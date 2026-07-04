@@ -8,7 +8,7 @@ use wgpu::{
 };
 
 pub use crate::resources::shader::{ShaderDescriptor, ShaderError, Variables};
-use crate::world::World;
+use super::make_world_bind_group_layout;
 
 mod descriptor;
 pub use descriptor::*;
@@ -42,7 +42,7 @@ impl MaterialShader {
 
         let engine_bind_group_layout_once = OnceLock::new();
         let engine_bind_group_layout = engine_bind_group_layout_once
-            .get_or_init(|| World::make_world_bind_group_layout(device));
+            .get_or_init(|| make_world_bind_group_layout(device));
 
         // Create a pipeline layout and bind group
         let bind_group_option = descriptor.bind_group(device, queue)?;
