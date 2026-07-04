@@ -1,4 +1,4 @@
-use crate::resources::WorldEnvironmentDescriptor;
+use orbital_resources::WorldEnvironmentDescriptor;
 
 #[derive(Debug)]
 pub enum EnvironmentEvent {

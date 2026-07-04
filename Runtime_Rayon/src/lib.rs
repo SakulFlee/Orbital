@@ -36,7 +36,7 @@
 
 pub mod app;
 pub mod camera_controller;
-pub mod element;
+pub use orbital_element as element;
 pub use orbital_importer_gltf as importer;
 pub mod renderer;
 pub use orbital_resources as resources;

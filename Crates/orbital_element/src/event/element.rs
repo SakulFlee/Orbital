@@ -1,4 +1,4 @@
-use crate::element::{Element, Message};
+use crate::{Element, Message};
 
 #[derive(Debug)]
 pub enum ElementEvent {

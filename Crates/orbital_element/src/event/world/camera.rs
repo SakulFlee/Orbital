@@ -1,4 +1,4 @@
-use crate::resources::{CameraDescriptor, CameraTransform};
+use orbital_resources::{CameraDescriptor, CameraTransform};
 
 #[derive(Debug)]
 pub enum CameraEvent {

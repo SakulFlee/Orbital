@@ -28,8 +28,7 @@ pub use runtime_event::*;
 mod runtime;
 pub use runtime::*;
 
-mod app_event;
-pub use app_event::*;
+pub use crate::element::AppEvent;
 
 mod timer;
 pub use timer::*;
