@@ -11,7 +11,7 @@ default = ["gamepad_input", "gamepad_input_poll", "auto_request_redraw", "standa
 renderdoc = []
 # Enables gamepad inputs from being polled and processed.
 # Note: Winit _does_ have _some_ gamepad input support, but it's not very good at the moment, gilrs takes a much better approach (for now?).
-gamepad_input = ["dep:gilrs", "orbital_input/gamepad_input"]
+gamepad_input = ["dep:gilrs", "orbital_input/gamepad_input", "orbital_app/gamepad_input"]
 # Automatically polls gamepad inputs and processes them.
 gamepad_input_poll = ["gamepad_input"]
 # Will automatically request a redraw when the last frame was rendered.
@@ -19,7 +19,7 @@ gamepad_input_poll = ["gamepad_input"]
 # Disable this for applications that only need to draw once every now and then.
 auto_request_redraw = []
 # Enable to detect if there are no more elements in the StandardApp and force a closure of the app if found to be true.
-standard_app_detect_no_more_elements = []
+standard_app_detect_no_more_elements = ["orbital_app/standard_app_detect_no_more_elements"]
 
 [build-dependencies]
 glob = { workspace = true }
