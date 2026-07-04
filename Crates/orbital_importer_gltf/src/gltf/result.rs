@@ -1,7 +1,6 @@
-use crate::resources::{CameraDescriptor, LightDescriptor, ModelDescriptor};
+use orbital_resources::{CameraDescriptor, LightDescriptor, ModelDescriptor};
 use std::error::Error;
 
-/// Contains the results of a glTF Import.
 #[derive(Debug, Default)]
 pub struct GltfImportResult {
     pub models: Vec<ModelDescriptor>,

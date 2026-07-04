@@ -2093,6 +2093,7 @@ dependencies = [
  "image",
  "log",
  "orbital_core",
+ "orbital_importer_gltf",
  "orbital_input",
  "orbital_resources",
  "orbital_shader_preprocessor",
@@ -2123,6 +2124,21 @@ dependencies = [
  "rand 0.10.2",
  "rayon",
  "wasm-bindgen-rayon",
+]
+
+[[package]]
+name = "orbital_importer_gltf"
+version = "0.1.0"
+dependencies = [
+ "cgmath",
+ "gltf",
+ "hashbrown 0.17.1",
+ "log",
+ "orbital_core",
+ "orbital_resources",
+ "rayon",
+ "ulid",
+ "wgpu",
 ]
 
 [[package]]

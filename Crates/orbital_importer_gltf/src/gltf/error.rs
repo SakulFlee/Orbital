@@ -1,10 +1,9 @@
-use crate::importer::gltf::SpecificGltfImport;
+use crate::gltf::SpecificGltfImport;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug)]
 pub enum GltfError {
-    /// Thrown if a given operation is unsupported
     Unsupported,
     NotFound(SpecificGltfImport),
 }
