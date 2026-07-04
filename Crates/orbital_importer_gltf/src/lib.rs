@@ -1,48 +1,22 @@
-//! # Importer Module
-//!
-//! The importer module handles asset loading and processing for the Orbital engine.
-//! It provides a system for importing various asset formats (primarily GLTF) and converting
-//! them into engine resources like models and cameras.
-//!
-//! ## Key Components
-//!
-//! - **Importer**: Manages the import task queue and runs import operations in parallel
-//! - **ImportTask**: Represents different types of import operations that can be queued
-//! - **ImportResult**: Contains the results of an import operation (models, cameras, etc.)
-//! - **GLTF Import**: Specialized support for GLTF format assets with materials and scenes
-//!
-//! ## Parallel Processing
-//!
-//! The importer processes tasks on a rayon thread pool with configurable parallelism,
-//! allowing multiple assets to be loaded simultaneously without blocking the main thread.
-//! Completed results are collected via a channel.
+pub mod gltf;
 
 use std::sync::{mpsc, Mutex};
 
-use crate::{
-    importer::gltf::{GltfImport, GltfImportTask, GltfImporter},
-    resources::{CameraDescriptor, ModelDescriptor},
-};
+use orbital_resources::{CameraDescriptor, ModelDescriptor};
 
-pub mod gltf;
+pub use gltf::{GltfImport, GltfImportTask, GltfImporter};
 
-/// Represents different types of import operations that can be queued.
-/// Currently supports GLTF format assets, but designed to support additional formats.
 #[derive(Debug)]
 pub enum ImportTask {
     Gltf { file_path: String, task: GltfImport },
 }
 
-/// Contains the results of an import operation, including any models and cameras
-/// that were created during the import process.
 #[derive(Default)]
 pub struct ImportResult {
     pub models: Vec<ModelDescriptor>,
     pub cameras: Vec<CameraDescriptor>,
 }
 
-/// The main importer that manages the import task queue and runs import operations
-/// in parallel using a rayon thread pool with configurable parallelism.
 pub struct Importer {
     queued_tasks: Vec<ImportTask>,
     result_receiver: Mutex<mpsc::Receiver<ImportResult>>,
@@ -74,12 +48,10 @@ impl Importer {
     pub fn update(&mut self) -> Vec<ImportResult> {
         let mut results = Vec::new();
 
-        // Drain completed results (non-blocking)
         while let Ok(result) = self.result_receiver.lock().unwrap().try_recv() {
             results.push(result);
         }
 
-        // Spawn new tasks on the rayon thread pool
         while !self.queued_tasks.is_empty() {
             let task_desc = self.queued_tasks.remove(0);
             let sender = self.result_sender.clone();

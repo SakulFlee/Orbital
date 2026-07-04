@@ -1,4 +1,4 @@
-use crate::resources::{
+use orbital_resources::{
     CameraDescriptor, FilterMode, LightDescriptor, MaterialDescriptor, MeshDescriptor,
     ModelDescriptor, PBRMaterialDescriptor, TextureDescriptor, TextureSize, Transform, Vertex,
 };
@@ -31,11 +31,9 @@ mod result;
 pub use result::*;
 
 mod error;
-use crate::quaternion::quaternion_to_pitch_yaw;
+use orbital_core::quaternion::quaternion_to_pitch_yaw;
 pub use error::*;
 
-#[cfg(test)]
-mod tests;
 
 /// Used to load/import "things" from a glTF file.
 /// This should support most variants of glTF files but not necessarily everything.

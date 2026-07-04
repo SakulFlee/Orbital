@@ -1,6 +1,5 @@
-use crate::importer::gltf::GltfImport;
+use crate::gltf::GltfImport;
 
-/// Defines how a given glTF file is being imported.
 #[derive(Debug)]
 pub struct GltfImportTask {
     pub file: String,
