@@ -1,0 +1,16 @@
+[package]
+name = "orbital_input"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["gamepad_input", "gamepad_input_poll"]
+gamepad_input = ["dep:gilrs"]
+gamepad_input_poll = ["gamepad_input"]
+
+[dependencies]
+winit = { workspace = true }
+cgmath = { workspace = true }
+hashbrown = { workspace = true }
+log = { workspace = true }
+gilrs = { workspace = true, optional = true }

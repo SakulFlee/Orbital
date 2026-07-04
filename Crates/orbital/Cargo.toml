@@ -1,0 +1,57 @@
+[package]
+name = "orbital"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["lib", "cdylib"]
+
+[features]
+default = ["gamepad_input", "gamepad_input_poll", "auto_request_redraw", "standard_app_detect_no_more_elements"]
+renderdoc = []
+# Enables gamepad inputs from being polled and processed.
+# Note: Winit _does_ have _some_ gamepad input support, but it's not very good at the moment, gilrs takes a much better approach (for now?).
+gamepad_input = ["dep:gilrs", "orbital_input/gamepad_input", "orbital_app/gamepad_input"]
+# Automatically polls gamepad inputs and processes them.
+gamepad_input_poll = ["gamepad_input", "orbital_app/gamepad_input_poll"]
+# Will automatically request a redraw when the last frame was rendered.
+# Enable this for games and applications that need to constantly redraw.
+# Disable this for applications that only need to draw once every now and then.
+auto_request_redraw = ["orbital_app/auto_request_redraw"]
+# Enable to detect if there are no more elements in the StandardApp and force a closure of the app if found to be true.
+standard_app_detect_no_more_elements = ["orbital_app/standard_app_detect_no_more_elements"]
+
+[build-dependencies]
+glob = { workspace = true }
+
+[dependencies]
+orbital_core = { path = "../orbital_core" }
+orbital_input = { path = "../orbital_input" }
+orbital_shader_preprocessor = { path = "../orbital_shader_preprocessor" }
+orbital_resources = { path = "../orbital_resources" }
+orbital_importer_gltf = { path = "../orbital_importer_gltf" }
+wgpu = { workspace = true }
+cgmath = { workspace = true }
+dirs = { workspace = true }
+gltf = { workspace = true }
+hashbrown = { workspace = true }
+image = { workspace = true }
+log = { workspace = true }
+rand = { workspace = true }
+serde = { workspace = true }
+ulid = { workspace = true }
+winit = { workspace = true }
+glob = { workspace = true }
+rayon = { workspace = true }
+
+orbital_element = { path = "../orbital_element" }
+orbital_camera_controller = { path = "../orbital_camera_controller" }
+orbital_renderer = { path = "../orbital_renderer" }
+orbital_world = { path = "../orbital_world" }
+orbital_app = { path = "../orbital_app" }
+
+gilrs = { workspace = true, optional = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+android_logger = { workspace = true }
+winit = { workspace = true, features = ["android-native-activity"] }
