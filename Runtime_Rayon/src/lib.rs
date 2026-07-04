@@ -38,7 +38,7 @@ pub mod app;
 pub use orbital_camera_controller as camera_controller;
 pub use orbital_element as element;
 pub use orbital_importer_gltf as importer;
-pub mod renderer;
+pub use orbital_renderer as renderer;
 pub use orbital_resources as resources;
 pub use orbital_shader_preprocessor as shader_preprocessor;
 pub mod world;

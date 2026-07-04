@@ -2097,6 +2097,7 @@ dependencies = [
  "orbital_element",
  "orbital_importer_gltf",
  "orbital_input",
+ "orbital_renderer",
  "orbital_resources",
  "orbital_shader_preprocessor",
  "rand 0.10.2",
@@ -2176,6 +2177,15 @@ dependencies = [
  "hashbrown 0.17.1",
  "log",
  "winit",
+]
+
+[[package]]
+name = "orbital_renderer"
+version = "0.1.0"
+dependencies = [
+ "cgmath",
+ "orbital_resources",
+ "wgpu",
 ]
 
 [[package]]
