@@ -16,7 +16,7 @@ use winit::{
     window::Window,
 };
 
-use crate::app::AppSettings;
+use crate::AppSettings;
 
 fn block_on<F: std::future::Future>(future: F) -> F::Output {
     let waker = std::task::Waker::noop();
@@ -94,11 +94,8 @@ impl AppContext {
 
     fn make_instance(owned_display_handle: OwnedDisplayHandle) -> Instance {
         Instance::new(InstanceDescriptor {
-            // Check for environment variables, otherwise revert to using all backends.
             backends: Backends::from_env().unwrap_or(Backends::all()),
-            // Enables debugging flags only for debug builds.
             flags: InstanceFlags::from_build_config(),
-            // Choose backends options from environment variables, otherwise use defaults.
             backend_options: BackendOptions::from_env_or_default(),
             memory_budget_thresholds: MemoryBudgetThresholds::default(),
             display: Some(Box::new(owned_display_handle)),

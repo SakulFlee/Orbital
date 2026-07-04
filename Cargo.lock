@@ -2092,6 +2092,7 @@ dependencies = [
  "hashbrown 0.17.1",
  "image",
  "log",
+ "orbital_app",
  "orbital_camera_controller",
  "orbital_core",
  "orbital_element",
@@ -2105,6 +2106,23 @@ dependencies = [
  "rayon",
  "serde",
  "ulid",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
+name = "orbital_app"
+version = "0.1.0"
+dependencies = [
+ "android_logger",
+ "cgmath",
+ "gilrs",
+ "log",
+ "orbital_core",
+ "orbital_element",
+ "orbital_input",
+ "orbital_renderer",
+ "orbital_world",
  "wgpu",
  "winit",
 ]

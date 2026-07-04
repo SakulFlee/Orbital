@@ -34,7 +34,7 @@
 //! with the world to create your scene. The engine handles rendering, input, and resource
 //! management automatically.
 
-pub mod app;
+pub use orbital_app as app;
 pub use orbital_camera_controller as camera_controller;
 pub use orbital_element as element;
 pub use orbital_importer_gltf as importer;

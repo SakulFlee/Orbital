@@ -1,0 +1,21 @@
+[package]
+name = "orbital_app"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+orbital_core = { path = "../orbital_core" }
+orbital_element = { path = "../orbital_element" }
+orbital_input = { path = "../orbital_input" }
+orbital_renderer = { path = "../orbital_renderer" }
+orbital_world = { path = "../orbital_world" }
+cgmath = { workspace = true }
+log = { workspace = true }
+wgpu = { workspace = true }
+winit = { workspace = true }
+
+gilrs = { workspace = true, optional = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+android_logger = { workspace = true }
+winit = { workspace = true, features = ["android-native-activity"] }

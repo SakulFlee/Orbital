@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use crate::app::AppContext;
+use crate::AppContext;
 
 #[derive(Debug)]
 pub enum AppState {

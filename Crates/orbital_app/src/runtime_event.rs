@@ -1,10 +1,9 @@
 use std::sync::Arc;
 
-use crate::element::Message;
 use cgmath::Vector2;
+use orbital_element::Message;
+use orbital_input::InputState;
 use wgpu::{Device, Queue, SurfaceConfiguration, SurfaceTexture, TextureView};
-
-use super::input::InputState;
 
 #[derive(Debug)]
 pub enum RuntimeEvent {

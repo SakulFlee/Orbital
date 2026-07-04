@@ -1,8 +1,12 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
+#[cfg(feature = "gamepad_input")]
 use gilrs::Gilrs;
 use log::trace;
+use orbital_core::logging::{self, debug, error, info, warn};
+use orbital_element::{AppEvent, Message};
+use orbital_input::{InputEvent, InputState};
 use wgpu::CurrentSurfaceTexture;
 use wgpu::TextureViewDescriptor;
 use winit::{
@@ -13,24 +17,13 @@ use winit::{
     window::{CursorGrabMode, WindowId},
 };
 
-use super::{
-    input::{InputEvent, InputState},
-    Timer,
-};
-use super::{App, AppSettings};
-use crate::{
-    app::{AppContext, AppEvent, AppState},
-    element::Message,
-    logging::{self, debug, error, info, warn},
-};
+use crate::{App, AppContext, AppSettings, AppState, Timer};
 
 macro_rules! ctx_lock {
     ($ctx:ident) => {
         $ctx.lock().expect("Mutex failure")
     };
 }
-
-// TODO: State change
 
 pub struct AppRuntime<AppImpl: App> {
     app: AppImpl,
@@ -81,7 +74,6 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
 
         let lock = ctx_lock!(ctx);
 
-        // Get next frame to render on
         let frame = match lock.current_surface_texture() {
             CurrentSurfaceTexture::Success(surface_texture) => surface_texture,
             CurrentSurfaceTexture::Suboptimal(surface_texture) => {
@@ -123,8 +115,6 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
 
     #[cfg(feature = "gamepad_input")]
     fn receive_controller_inputs(&mut self) {
-        use super::input::InputEvent;
-
         while let Some(gil_event) = self.gil.next_event() {
             if let Some(input_event) = InputEvent::convert_gil_event(gil_event) {
                 self.input_state.handle_event(input_event);
@@ -139,7 +129,6 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
             debug!("FPS: {fps} | TDT: {total_delta}s | CDT: {delta_time}s");
         }
 
-        // Check for gamepad input events if the feature is enabled
         #[cfg(feature = "gamepad_input_poll")]
         self.receive_controller_inputs();
 
@@ -198,8 +187,6 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
                 AppEvent::RequestAppClosure => {
                     warn!("App closure was requested!");
                     exit_requested = true;
-                    // TODO: Required? Marking the event_loop as exiting + AppState change might be
-                    // enough
                 }
                 AppEvent::ForceAppClosure { exit_code } => {
                     warn!("Force app closure was requested with exit code {exit_code}!");
@@ -218,8 +205,6 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
     }
 
     fn exit(&mut self, event_loop: &ActiveEventLoop) {
-        // Signal the application to close without forcing immediate cleanup
-        // This allows the event loop to shut down gracefully
         event_loop.exit();
     }
 }

@@ -1,14 +1,12 @@
-use crate::element::Element;
-use crate::{
-    app::{input::InputState, App, AppEvent},
-    cgmath::Vector2,
-    element::{ElementEvent, ElementStore, Event, WorldEvent},
-    logging::warn,
-    renderer::Renderer,
-    wgpu::{Device, Queue, SurfaceConfiguration, TextureView},
-    world::World,
-};
 use std::time::{Duration, Instant};
+
+use cgmath::Vector2;
+use orbital_core::logging::warn;
+use orbital_element::{AppEvent, Element, ElementEvent, ElementStore, Event, WorldEvent};
+use orbital_input::InputState;
+use orbital_renderer::Renderer;
+use orbital_world::World;
+use wgpu::{Device, Queue, SurfaceConfiguration, TextureView};
 
 #[derive(Default)]
 pub struct StandardApp {
@@ -19,6 +17,8 @@ pub struct StandardApp {
     #[cfg(feature = "standard_app_detect_no_more_elements")]
     pub(crate) empty_since: Option<Instant>,
 }
+
+use crate::App;
 
 impl StandardApp {
     pub fn with_initial_elements(elements: Vec<Box<dyn Element + Send + Sync>>) -> Self {
@@ -76,10 +76,7 @@ impl App for StandardApp {
         input_state: &InputState,
         delta_time: f64,
         _cycle: Option<(f64, u64)>,
-    ) -> Option<Vec<AppEvent>>
-    where
-        Self: Sized,
-    {
+    ) -> Option<Vec<AppEvent>> {
         let mut events = self.element_store.update(delta_time, input_state);
         let old_events = self.queue_events.drain(0..self.queue_events.len());
 
@@ -103,7 +100,6 @@ impl App for StandardApp {
             }
         }
 
-        // Process world updates
         self.world.update(world_events);
 
         let new_events = self.element_store.process_events(element_events);
@@ -125,8 +121,6 @@ impl App for StandardApp {
             }
         }
 
-        // Note: Currently **all** models are flagged for realization.
-        // Once a system for culling or another way of selecting which models should be realized and what shouldn't be realized is in place, this can be changed.
         let model_ids = self
             .world
             .model_store_mut()
