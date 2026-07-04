@@ -52,16 +52,20 @@ object Lint : BuildType({
         root(DslContext.settingsRoot)
     }
 
+    params {
+        param("env.SKIP_GLTF_EXPORT", "true")
+    }
+
     steps {
         script {
             name = "Format check"
             scriptContent = "nix develop --command cargo fmt --all --check"
-            env["SKIP_GLTF_EXPORT"] = "true"
+
         }
         script {
             name = "Clippy"
             scriptContent = "nix develop --command cargo clippy"
-            env["SKIP_GLTF_EXPORT"] = "true"
+
         }
     }
 
@@ -85,11 +89,15 @@ object Test : BuildType({
         root(DslContext.settingsRoot)
     }
 
+    params {
+        param("env.SKIP_GLTF_EXPORT", "true")
+    }
+
     steps {
         script {
             name = "Cargo test"
             scriptContent = "nix develop --command cargo test --no-fail-fast"
-            env["SKIP_GLTF_EXPORT"] = "true"
+
         }
     }
 
@@ -119,13 +127,17 @@ object Build_x86_64 : BuildType({
 
     artifactRules = "x86_64-unknown-linux-gnu.zip"
 
+    params {
+        param("env.SKIP_GLTF_EXPORT", "true")
+    }
+
     steps {
         script {
             name = "Build"
             scriptContent = """
                 nix develop --command cargo build --release --target x86_64-unknown-linux-gnu
             """.trimIndent()
-            env["SKIP_GLTF_EXPORT"] = "true"
+
         }
         script {
             name = "Package"
@@ -168,13 +180,17 @@ object Build_aarch64 : BuildType({
 
     artifactRules = "aarch64-unknown-linux-gnu.zip"
 
+    params {
+        param("env.SKIP_GLTF_EXPORT", "true")
+    }
+
     steps {
         script {
             name = "Build"
             scriptContent = """
                 nix develop .#aarch64-cross --command cargo build --release --target aarch64-unknown-linux-gnu
             """.trimIndent()
-            env["SKIP_GLTF_EXPORT"] = "true"
+
         }
         script {
             name = "Package"
