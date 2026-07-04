@@ -1,4 +1,4 @@
-use crate::app::AppEvent;
+use crate::AppEvent;
 
 mod element;
 pub use element::*;

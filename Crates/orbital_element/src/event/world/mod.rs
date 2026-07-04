@@ -10,7 +10,7 @@ pub use environment::*;
 mod light;
 pub use light::*;
 
-use crate::importer::ImportTask;
+use orbital_importer_gltf::ImportTask;
 
 #[derive(Debug)]
 pub enum WorldEvent {

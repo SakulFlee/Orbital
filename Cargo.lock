@@ -2093,6 +2093,7 @@ dependencies = [
  "image",
  "log",
  "orbital_core",
+ "orbital_element",
  "orbital_importer_gltf",
  "orbital_input",
  "orbital_resources",
@@ -2124,6 +2125,20 @@ dependencies = [
  "rand 0.10.2",
  "rayon",
  "wasm-bindgen-rayon",
+]
+
+[[package]]
+name = "orbital_element"
+version = "0.1.0"
+dependencies = [
+ "hashbrown 0.17.1",
+ "log",
+ "orbital_core",
+ "orbital_importer_gltf",
+ "orbital_input",
+ "orbital_resources",
+ "serde",
+ "winit",
 ]
 
 [[package]]

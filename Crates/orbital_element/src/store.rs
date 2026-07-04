@@ -1,12 +1,11 @@
 use std::sync::Arc;
 
-use super::{ElementEvent, Event, Target};
-use crate::{
-    app::input::InputState,
-    element::{Element, Message},
-};
+use crate::{ElementEvent, Event, Target};
+use orbital_input::InputState;
 use hashbrown::HashMap;
 use log::warn;
+
+use crate::{Element, Message};
 
 type ElementIndexType = u64;
 
@@ -52,7 +51,6 @@ impl ElementStore {
         self.element_map.insert(next_cursor_index, element);
         self.message_queue.insert(next_cursor_index, Vec::new());
 
-        // Reserve capacity for better performance with large label vectors
         self.label_map.reserve(labels.len());
         for label in labels {
             self.label_map.insert(label, next_cursor_index);

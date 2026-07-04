@@ -44,6 +44,8 @@ winit = { workspace = true }
 glob = { workspace = true }
 rayon = { workspace = true }
 
+orbital_element = { path = "../Crates/orbital_element" }
+
 gilrs = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]

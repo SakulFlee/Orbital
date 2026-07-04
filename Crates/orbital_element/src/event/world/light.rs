@@ -1,4 +1,4 @@
-use crate::resources::LightDescriptor;
+use orbital_resources::LightDescriptor;
 
 #[derive(Debug)]
 pub enum LightEvent {
