@@ -35,7 +35,7 @@
 //! management automatically.
 
 pub mod app;
-pub mod camera_controller;
+pub use orbital_camera_controller as camera_controller;
 pub use orbital_element as element;
 pub use orbital_importer_gltf as importer;
 pub mod renderer;

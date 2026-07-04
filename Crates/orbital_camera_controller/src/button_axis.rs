@@ -1,4 +1,4 @@
-use crate::app::input::InputButton;
+use orbital_input::InputButton;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ButtonAxis {

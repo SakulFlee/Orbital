@@ -2092,6 +2092,7 @@ dependencies = [
  "hashbrown 0.17.1",
  "image",
  "log",
+ "orbital_camera_controller",
  "orbital_core",
  "orbital_element",
  "orbital_importer_gltf",
@@ -2104,6 +2105,16 @@ dependencies = [
  "ulid",
  "wgpu",
  "winit",
+]
+
+[[package]]
+name = "orbital_camera_controller"
+version = "0.1.0"
+dependencies = [
+ "cgmath",
+ "orbital_element",
+ "orbital_input",
+ "orbital_resources",
 ]
 
 [[package]]
