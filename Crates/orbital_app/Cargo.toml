@@ -6,6 +6,8 @@ edition = "2021"
 [features]
 gamepad_input = ["dep:gilrs"]
 standard_app_detect_no_more_elements = []
+auto_request_redraw = []
+gamepad_input_poll = ["gamepad_input"]
 
 [dependencies]
 orbital_core = { path = "../orbital_core" }
