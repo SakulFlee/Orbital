@@ -2093,6 +2093,7 @@ dependencies = [
  "image",
  "log",
  "orbital_core",
+ "orbital_input",
  "rand 0.10.2",
  "rayon",
  "serde",
@@ -2120,6 +2121,17 @@ dependencies = [
  "rand 0.10.2",
  "rayon",
  "wasm-bindgen-rayon",
+]
+
+[[package]]
+name = "orbital_input"
+version = "0.1.0"
+dependencies = [
+ "cgmath",
+ "gilrs",
+ "hashbrown 0.17.1",
+ "log",
+ "winit",
 ]
 
 [[package]]

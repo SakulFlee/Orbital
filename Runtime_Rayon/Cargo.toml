@@ -11,7 +11,7 @@ default = ["gamepad_input", "gamepad_input_poll", "auto_request_redraw", "standa
 renderdoc = []
 # Enables gamepad inputs from being polled and processed.
 # Note: Winit _does_ have _some_ gamepad input support, but it's not very good at the moment, gilrs takes a much better approach (for now?).
-gamepad_input = ["dep:gilrs"]
+gamepad_input = ["dep:gilrs", "orbital_input/gamepad_input"]
 # Automatically polls gamepad inputs and processes them.
 gamepad_input_poll = ["gamepad_input"]
 # Will automatically request a redraw when the last frame was rendered.
@@ -26,6 +26,7 @@ glob = { workspace = true }
 
 [dependencies]
 orbital_core = { path = "../Crates/orbital_core" }
+orbital_input = { path = "../Crates/orbital_input" }
 wgpu = { workspace = true }
 cgmath = { workspace = true }
 dirs = { workspace = true }
