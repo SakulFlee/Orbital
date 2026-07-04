@@ -7,7 +7,7 @@ steps:
     environment:
       SKIP_GLTF_EXPORT: "true"
     commands:
-      - nix develop --command cargo fmt --all
+      - nix develop --extra-experimental-features 'nix-command flakes' --command cargo fmt --all
       - |
         if [ -n "$(git status --porcelain)" ]; then
           git config user.name "Orbital CI"
@@ -24,7 +24,7 @@ steps:
     environment:
       SKIP_GLTF_EXPORT: "true"
     commands:
-      - nix develop --command cargo clippy --fix --allow-dirty
+      - nix develop --extra-experimental-features 'nix-command flakes' --command cargo clippy --fix --allow-dirty
       - |
         if [ -n "$(git status --porcelain)" ]; then
           git config user.name "Orbital CI"
@@ -41,4 +41,4 @@ steps:
     environment:
       SKIP_GLTF_EXPORT: "true"
     commands:
-      - nix develop --command cargo test --no-fail-fast
+      - nix develop --extra-experimental-features 'nix-command flakes' --command cargo test --no-fail-fast

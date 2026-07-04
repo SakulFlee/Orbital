@@ -13,28 +13,40 @@ steps:
     environment:
       SKIP_GLTF_EXPORT: "true"
     commands:
-      - nix develop "$( [ "$TARGET" = aarch64-unknown-linux-gnu ] && echo '.#aarch64-cross' || echo '' )" --command cargo fmt --all --check
+      - |
+        DEV_SHELL=""
+        [ "$TARGET" = "aarch64-unknown-linux-gnu" ] && DEV_SHELL=".#aarch64-cross"
+        nix develop --extra-experimental-features 'nix-command flakes' $DEV_SHELL --command cargo fmt --all --check
 
   clippy:
     image: nixos/nix:latest
     environment:
       SKIP_GLTF_EXPORT: "true"
     commands:
-      - nix develop "$( [ "$TARGET" = aarch64-unknown-linux-gnu ] && echo '.#aarch64-cross' || echo '' )" --command cargo clippy
+      - |
+        DEV_SHELL=""
+        [ "$TARGET" = "aarch64-unknown-linux-gnu" ] && DEV_SHELL=".#aarch64-cross"
+        nix develop --extra-experimental-features 'nix-command flakes' $DEV_SHELL --command cargo clippy
 
   test:
     image: nixos/nix:latest
     environment:
       SKIP_GLTF_EXPORT: "true"
     commands:
-      - nix develop "$( [ "$TARGET" = aarch64-unknown-linux-gnu ] && echo '.#aarch64-cross' || echo '' )" --command cargo test --no-fail-fast
+      - |
+        DEV_SHELL=""
+        [ "$TARGET" = "aarch64-unknown-linux-gnu" ] && DEV_SHELL=".#aarch64-cross"
+        nix develop --extra-experimental-features 'nix-command flakes' $DEV_SHELL --command cargo test --no-fail-fast
 
   build:
     image: nixos/nix:latest
     environment:
       SKIP_GLTF_EXPORT: "true"
     commands:
-      - nix develop "$( [ "$TARGET" = aarch64-unknown-linux-gnu ] && echo '.#aarch64-cross' || echo '' )" --command cargo build --release --target "$TARGET"
+      - |
+        DEV_SHELL=""
+        [ "$TARGET" = "aarch64-unknown-linux-gnu" ] && DEV_SHELL=".#aarch64-cross"
+        nix develop --extra-experimental-features 'nix-command flakes' $DEV_SHELL --command cargo build --release --target "$TARGET"
 
   package:
     image: nixos/nix:latest
