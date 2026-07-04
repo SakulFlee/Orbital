@@ -11,14 +11,12 @@ use wgpu::{Device, Queue, TextureFormat};
 #[cfg(test)]
 mod tests;
 
-use crate::{
-    cache::{Cache, CacheEntry},
-    element::ModelEvent,
-    or::Or,
-    resources::{
-        BoundingBox, MaterialShader, MaterialShaderDescriptor, Mesh, MeshDescriptor, Model,
-        ModelDescriptor,
-    },
+use orbital_core::cache::{Cache, CacheEntry};
+use orbital_core::or::Or;
+use orbital_element::ModelEvent;
+use orbital_resources::{
+    BoundingBox, MaterialShader, MaterialShaderDescriptor, Mesh, MeshDescriptor, Model,
+    ModelDescriptor,
 };
 
 use super::StoreError;
@@ -60,13 +58,10 @@ impl ModelStore {
         };
 
         if let Some(descriptor) = self.map_descriptors.remove(&idx) {
-            // Possibly, might not exist!
             self.cache_realizations.remove(&idx);
 
-            // Remove bounding box if it exists (may not be processed yet)
             self.map_bounding_boxes.remove(&idx);
 
-            // Must also exist!
             if self.map_label.remove(&descriptor.label).is_none() {
                 panic!("ModelStore Desync! No associated Label found!");
             }
@@ -94,11 +89,9 @@ impl ModelStore {
     pub fn flag_realization(&mut self, ids: Vec<Ulid>, update_existing: bool) {
         for id in ids {
             if self.cache_realizations.contains_key(&id) && !update_existing {
-                // Skip any existing realisations if we aren't updating existing entries.
                 continue;
             }
 
-            // Filter out any non-existing descriptors
             if !self.map_descriptors.contains_key(&id) {
                 warn!("Attempting to flag realization for non existing descriptor with id #{id}!");
                 continue;
@@ -227,15 +220,12 @@ impl ModelStore {
     pub fn handle_event(&mut self, model_event: ModelEvent) {
         match model_event {
             ModelEvent::Spawn(descriptor) => {
-                // Check for duplicate models
                 let hash = descriptor.instance_hash();
                 if let Some(&base_id) = self.instance_map.get(&hash) {
-                    // Found duplicate - create instance
                     let base_descriptor = self.map_descriptors.get_mut(&base_id).unwrap();
                     let transform_ulid = base_descriptor
                         .add_transform(*descriptor.transforms.values().next().unwrap());
 
-                    // Use the original label from descriptor, or generate new if it conflicts
                     let instance_label = if self.map_label.contains_key(&descriptor.label) {
                         format!("instance_{}", Ulid::new().to_string())
                     } else {
@@ -243,15 +233,12 @@ impl ModelStore {
                     };
                     let base_label = base_descriptor.label.clone();
 
-                    // Track the instance
                     self.instance_tracker
                         .insert(instance_label.clone(), (base_label, transform_ulid));
                     self.map_label.insert(instance_label, base_id);
 
-                    // Flag for re-realization
                     self.flag_realization(vec![base_id], true);
                 } else {
-                    // No duplicate - store as base model
                     let id = Ulid::new();
 
                     self.map_label.insert(descriptor.label.clone(), id);
@@ -264,20 +251,16 @@ impl ModelStore {
                 if let Some((base_label, transform_ulid)) =
                     self.instance_tracker.get(&label).cloned()
                 {
-                    // This is an instance - remove the specific transform
                     if let Some(base_id) = self.label_to_id(&base_label) {
                         let base_descriptor = self.map_descriptors.get_mut(&base_id).unwrap();
                         base_descriptor.remove_transform(&transform_ulid);
                         self.instance_tracker.remove(&label);
                         self.map_label.remove(&label);
 
-                        // Flag for re-realization
                         self.flag_realization(vec![base_id], true);
                     }
                 } else {
-                    // This is a base model - remove it and all its instances
                     if let Some(id) = self.label_to_id(&label) {
-                        // Remove all instances of this base model
                         let instances_to_remove: Vec<String> = self
                             .instance_tracker
                             .iter()
@@ -295,7 +278,6 @@ impl ModelStore {
                             self.map_label.remove(&inst_label);
                         }
 
-                        // Remove the base model
                         self.remove(Or::Right(id));
                     }
                 }

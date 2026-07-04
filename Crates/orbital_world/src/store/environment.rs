@@ -3,10 +3,8 @@ use std::error::Error;
 use log::warn;
 use wgpu::{Device, Queue, TextureFormat};
 
-use crate::{
-    element::EnvironmentEvent,
-    resources::{WorldEnvironment, WorldEnvironmentDescriptor},
-};
+use orbital_element::EnvironmentEvent;
+use orbital_resources::{WorldEnvironment, WorldEnvironmentDescriptor};
 
 #[derive(Debug, Default)]
 pub struct EnvironmentStore {

@@ -47,6 +47,7 @@ rayon = { workspace = true }
 orbital_element = { path = "../Crates/orbital_element" }
 orbital_camera_controller = { path = "../Crates/orbital_camera_controller" }
 orbital_renderer = { path = "../Crates/orbital_renderer" }
+orbital_world = { path = "../Crates/orbital_world" }
 
 gilrs = { workspace = true, optional = true }
 
