@@ -1,29 +1,9 @@
 import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.buildSteps.script
 import jetbrains.buildServer.configs.kotlin.projectFeatures.githubAppConnection
 import jetbrains.buildServer.configs.kotlin.projectFeatures.githubConnection
 import jetbrains.buildServer.configs.kotlin.projectFeatures.githubIssues
-
-/*
-The settings script is an entry point for defining a TeamCity
-project hierarchy. The script should contain a single call to the
-project() function with a Project instance or an init function as
-an argument.
-
-VcsRoots, BuildTypes, Templates, and subprojects can be
-registered inside the project using the vcsRoot(), buildType(),
-template(), and subProject() methods respectively.
-
-To debug settings scripts in command-line, run the
-
-    mvnDebug org.jetbrains.teamcity:teamcity-configs-maven-plugin:generate
-
-command and attach your debugger to the port 8000.
-
-To debug in IntelliJ Idea, open the 'Maven Projects' tool window (View
--> Tool Windows -> Maven Projects), find the generate task node
-(Plugins -> teamcity-configs -> teamcity-configs:generate), the
-'Debug' option is available in the context menu for the task.
-*/
+import jetbrains.buildServer.configs.kotlin.triggers.vcs
 
 version = "2026.1"
 
@@ -58,4 +38,174 @@ project {
             repositoryURL = "https://github.com/rust-multiplatform/Base-Project-Template"
         }
     }
+
+    buildType(Lint)
+    buildType(Test)
+    buildType(Build_x86_64)
+    buildType(Build_aarch64)
 }
+
+object Lint : BuildType({
+    name = "Lint (fmt + clippy)"
+
+    vcs {
+        root(DslContext.settingsRoot)
+    }
+
+    steps {
+        script {
+            name = "Format check"
+            scriptContent = "nix develop --command cargo fmt --all --check"
+            env["SKIP_GLTF_EXPORT"] = "true"
+        }
+        script {
+            name = "Clippy"
+            scriptContent = "nix develop --command cargo clippy"
+            env["SKIP_GLTF_EXPORT"] = "true"
+        }
+    }
+
+    triggers {
+        vcs {
+            branchFilter = """
+                +:refs/heads/*
+            """.trimIndent()
+        }
+    }
+
+    requirements {
+        equals("teamcity.agent.os.family", "Linux")
+    }
+})
+
+object Test : BuildType({
+    name = "Test"
+
+    vcs {
+        root(DslContext.settingsRoot)
+    }
+
+    steps {
+        script {
+            name = "Cargo test"
+            scriptContent = "nix develop --command cargo test --no-fail-fast"
+            env["SKIP_GLTF_EXPORT"] = "true"
+        }
+    }
+
+    triggers {
+        vcs {
+            branchFilter = """
+                +:refs/heads/*
+            """.trimIndent()
+        }
+    }
+
+    requirements {
+        equals("teamcity.agent.os.family", "Linux")
+    }
+
+    dependencies {
+        snapshot(Lint) { }
+    }
+})
+
+object Build_x86_64 : BuildType({
+    name = "Build x86_64-unknown-linux-gnu"
+
+    vcs {
+        root(DslContext.settingsRoot)
+    }
+
+    artifactRules = "x86_64-unknown-linux-gnu.zip"
+
+    steps {
+        script {
+            name = "Build"
+            scriptContent = """
+                nix develop --command cargo build --release --target x86_64-unknown-linux-gnu
+            """.trimIndent()
+            env["SKIP_GLTF_EXPORT"] = "true"
+        }
+        script {
+            name = "Package"
+            scriptContent = """
+                mkdir upload
+                find target/x86_64-unknown-linux-gnu/release -mindepth 1 -maxdepth 1 -type f \
+                  -not -name '*.d' -not -name '*.rlib' -not -name '.cargo-lock' -not -name 'CACHEDIR.TAG' \
+                  -exec mv {} upload/ \;
+                mv Assets/ upload/
+                cd upload && zip -r ../x86_64-unknown-linux-gnu.zip .
+            """.trimIndent()
+        }
+    }
+
+    triggers {
+        vcs {
+            branchFilter = """
+                +:refs/tags/v*
+            """.trimIndent()
+        }
+    }
+
+    requirements {
+        equals("teamcity.agent.os.family", "Linux")
+    }
+
+    dependencies {
+        snapshot(Test) {
+            reuseBuilds = ReuseBuilds.SUCCESSFUL
+        }
+    }
+})
+
+object Build_aarch64 : BuildType({
+    name = "Build aarch64-unknown-linux-gnu"
+
+    vcs {
+        root(DslContext.settingsRoot)
+    }
+
+    artifactRules = "aarch64-unknown-linux-gnu.zip"
+
+    steps {
+        script {
+            name = "Build"
+            scriptContent = """
+                nix develop .#aarch64-cross --command cargo build --release --target aarch64-unknown-linux-gnu
+            """.trimIndent()
+            env["SKIP_GLTF_EXPORT"] = "true"
+        }
+        script {
+            name = "Package"
+            scriptContent = """
+                mkdir upload
+                find target/aarch64-unknown-linux-gnu/release -mindepth 1 -maxdepth 1 -type f \
+                  -not -name '*.d' -not -name '*.rlib' -not -name '.cargo-lock' -not -name 'CACHEDIR.TAG' \
+                  -exec mv {} upload/ \;
+                mv Assets/ upload/
+                cd upload && zip -r ../aarch64-unknown-linux-gnu.zip .
+            """.trimIndent()
+        }
+    }
+
+    triggers {
+        vcs {
+            branchFilter = """
+                +:refs/tags/v*
+            """.trimIndent()
+        }
+    }
+
+    requirements {
+        equals("teamcity.agent.os.family", "Linux")
+    }
+
+    dependencies {
+        snapshot(Test) {
+            reuseBuilds = ReuseBuilds.SUCCESSFUL
+        }
+    }
+})
+
+
