@@ -5,12 +5,10 @@ use log::{error, warn};
 use ulid::Ulid;
 use wgpu::{Device, Queue};
 
-use crate::{
-    cache::{Cache, CacheEntry},
-    element::CameraEvent,
-    or::Or,
-    resources::{Camera, CameraDescriptor},
-};
+use orbital_core::cache::{Cache, CacheEntry};
+use orbital_core::or::Or;
+use orbital_element::CameraEvent;
+use orbital_resources::{Camera, CameraDescriptor};
 
 use super::StoreError;
 
@@ -45,10 +43,8 @@ impl CameraStore {
         };
 
         if let Some(descriptor) = self.map_descriptors.remove(&idx) {
-            // Possibly, might not exist!
             self.cache_realizations.remove(&idx);
 
-            // Must exist!
             if self.map_label.remove(&descriptor.label).is_none() {
                 panic!("CameraStore Desync! No associated Label found!");
             }
@@ -82,11 +78,9 @@ impl CameraStore {
     pub fn flag_realization(&mut self, ids: Vec<Ulid>, update_existing: bool) {
         for id in ids {
             if self.cache_realizations.contains_key(&id) && !update_existing {
-                // Skip any existing realizations if we aren't updating existing entries.
                 continue;
             }
 
-            // Filter out any non-existing descriptors
             if !self.map_descriptors.contains_key(&id) {
                 warn!("Attempting to flag realization for non existing descriptor with id #{id}!");
                 continue;
@@ -111,7 +105,6 @@ impl CameraStore {
                 }
             };
 
-            // Recreate the Camera and replace it inside our cache
             let camera = Camera::from_descriptor(descriptor.clone(), device, queue);
             let cache_entry = CacheEntry::new(camera);
             self.cache_realizations.insert(id, cache_entry);

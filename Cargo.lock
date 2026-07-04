@@ -2100,6 +2100,7 @@ dependencies = [
  "orbital_renderer",
  "orbital_resources",
  "orbital_shader_preprocessor",
+ "orbital_world",
  "rand 0.10.2",
  "rayon",
  "serde",
@@ -2210,6 +2211,21 @@ version = "0.1.0"
 dependencies = [
  "glob",
  "log",
+]
+
+[[package]]
+name = "orbital_world"
+version = "0.1.0"
+dependencies = [
+ "cgmath",
+ "hashbrown 0.17.1",
+ "log",
+ "orbital_core",
+ "orbital_element",
+ "orbital_importer_gltf",
+ "orbital_resources",
+ "ulid",
+ "wgpu",
 ]
 
 [[package]]

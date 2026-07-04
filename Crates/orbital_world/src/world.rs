@@ -1,45 +1,18 @@
-//! # World Module
-//!
-//! The world module manages the global state of the application, including resource stores,
-//! the import system, and the global bind group that contains engine-wide resources.
-//!
-//! ## Key Components
-//!
-//! - **World**: The main struct that manages all resources and handles world events
-//! - **Stores**: ModelStore, CameraStore, EnvironmentStore, and LightStore for managing resources
-//! - **Importer**: Handles asynchronous asset loading and processing
-//! - **World Bind Group**: A global bind group containing shared resources for shaders
-//!
-//! ## Resource Management
-//!
-//! The World manages resources through various stores that handle creation, caching,
-//! and cleanup of resources. It also manages the global bind group that contains
-//! resources shared across all draw calls, such as camera data, lighting information,
-//! and IBL (Image-Based Lighting) textures.
-
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
-use crate::element::{CameraEvent, ModelEvent, WorldEvent};
-use crate::importer::Importer;
-use crate::resources::{Camera, CameraDescriptor, IblBrdf, Model, Texture, WorldEnvironment};
+use orbital_element::{CameraEvent, ModelEvent, WorldEvent};
+use orbital_importer_gltf::Importer;
+use orbital_resources::{Camera, CameraDescriptor, IblBrdf, Model, Texture, WorldEnvironment};
 use cgmath::Vector2;
 use log::debug;
 use wgpu::{
-    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferBindingType, Device, Queue,
-    SamplerBindingType, ShaderStages, TextureFormat, TextureSampleType, TextureUsages,
-    TextureViewDimension,
+    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindingResource, Buffer,
+    BufferDescriptor, BufferUsages, Device, Queue, TextureFormat, TextureUsages,
 };
 
-mod store;
-pub use store::*;
+use crate::store::*;
 
-/// The main world state manager that handles all resources and their lifecycle.
-///
-/// The World struct maintains stores for different types of resources (models, cameras,
-/// environments, lights), manages the asset import system, and creates the global
-/// bind group used by shaders.
 pub struct World {
     model_store: ModelStore,
     camera_store: CameraStore,
@@ -48,10 +21,6 @@ pub struct World {
     last_cleanup: Instant,
     importer: Option<Importer>,
     ibl_brdf: Option<Texture>,
-    /// The _Engine_ [`BindGroup`].
-    /// > This may also be called _World_ [`BindGroup`]!
-    ///
-    /// Any relevant _Engine_ resources, such as the Camera and IBL, are contained here.
     world_bind_group: Option<BindGroup>,
 }
 
@@ -63,7 +32,7 @@ impl Default for World {
 
 impl World {
     pub fn make_world_bind_group_layout(device: &Device) -> BindGroupLayout {
-        crate::resources::make_world_bind_group_layout(device)
+        orbital_resources::make_world_bind_group_layout(device)
     }
 
     pub fn new() -> Self {
@@ -104,12 +73,10 @@ impl World {
     }
 
     pub fn update(&mut self, world_events: Vec<WorldEvent>) {
-        // Process through other world events
         for world_event in world_events {
             self.process_event(world_event);
         }
 
-        // Drain any completed import results
         let mut importer = self.importer.take().unwrap();
         let importer_results = importer.update();
         self.importer = Some(importer);
@@ -123,8 +90,6 @@ impl World {
             }
         }
 
-        // Needs to be at most the same as the cache timeout time!
-        // Otherwise, cache cleanup will never be efficient.
         if self.last_cleanup.elapsed() >= Duration::from_secs(5) {
             self.model_store
                 .cleanup()
@@ -136,22 +101,19 @@ impl World {
     }
 
     fn recreate_bind_group(&mut self, device: &Device, queue: &Queue) {
-        // Create light buffer first to avoid borrowing issues
         self.light_store.create_light_buffer(device, queue);
 
-        // Get the light buffer binding first to avoid borrowing conflicts
         let light_buffer_binding = {
             let light_buffer = self.light_store.light_buffer();
             light_buffer
                 .map(|buffer| buffer.as_entire_buffer_binding())
                 .unwrap_or_else(|| {
-                    // Create a dummy buffer binding if no lights
                     static FALLBACK_ONCE: OnceLock<Buffer> = OnceLock::new();
                     let fallback = FALLBACK_ONCE.get_or_init(|| {
-                        device.create_buffer(&wgpu::BufferDescriptor {
+                        device.create_buffer(&BufferDescriptor {
                             label: Some("Fallback Light Buffer"),
                             size: 4,
-                            usage: wgpu::BufferUsages::STORAGE,
+                            usage: BufferUsages::STORAGE,
                             mapped_at_creation: false,
                         })
                     });
@@ -312,7 +274,6 @@ impl World {
     pub fn retrieve_render_resources(
         &self,
     ) -> (Option<&BindGroup>, Option<&WorldEnvironment>, Vec<&Model>) {
-        // TODO: This effectively realizes all BoundingBoxes/Models, without checking if they are actually visible or not. A proper frustum check should be used to determine if the given models actually are visible or near the camera and thus should be rendered and activated.
         let bounding_boxes = self.model_store.get_bounding_boxes();
         let ids = bounding_boxes.keys().copied().collect::<Vec<_>>();
         let models = self.model_store.get_realizations(ids);

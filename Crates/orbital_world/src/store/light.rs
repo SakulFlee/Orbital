@@ -8,12 +8,10 @@ use wgpu::{
     Buffer, BufferDescriptor, BufferUsages, Device, Queue,
 };
 
-use crate::{
-    cache::{Cache, CacheEntry},
-    element::LightEvent,
-    or::Or,
-    resources::{Light, LightDescriptor},
-};
+use orbital_core::cache::{Cache, CacheEntry};
+use orbital_core::or::Or;
+use orbital_element::LightEvent;
+use orbital_resources::{Light, LightDescriptor};
 
 use super::StoreError;
 
@@ -48,10 +46,8 @@ impl LightStore {
         };
 
         if let Some(descriptor) = self.map_descriptors.remove(&idx) {
-            // Possibly, might not exist!
             self.cache_realizations.remove(&idx);
 
-            // Must exist!
             if self.map_label.remove(&descriptor.label).is_none() {
                 panic!("LightStore Desync! No associated Label found!");
             }
@@ -75,11 +71,9 @@ impl LightStore {
     pub fn flag_realization(&mut self, ids: Vec<Ulid>, update_existing: bool) {
         for id in ids {
             if self.cache_realizations.contains_key(&id) && !update_existing {
-                // Skip any existing realizations if we aren't updating existing entries.
                 continue;
             }
 
-            // Filter out any non-existing descriptors
             if !self.map_descriptors.contains_key(&id) {
                 warn!("Attempting to flag realization for non existing descriptor with id #{id}!");
                 continue;
@@ -104,7 +98,6 @@ impl LightStore {
                 }
             };
 
-            // Recreate the Light and replace it inside our cache
             match Light::from_descriptor(descriptor, device, queue) {
                 Ok(light) => {
                     let cache_entry = CacheEntry::new(light);
@@ -143,31 +136,25 @@ impl LightStore {
     }
 
     pub fn create_light_buffer(&mut self, device: &Device, queue: &Queue) {
-        // Create a buffer with all light data
         let light_count = self.map_descriptors.len();
         if light_count == 0 {
-            // Create an empty buffer with sufficient size to satisfy shader requirements
-            // Shader expects at least 64 bytes for the light buffer
             self.light_buffer = Some(device.create_buffer(&BufferDescriptor {
                 label: Some("Light Storage Buffer"),
-                size: 64, // Minimum size that satisfies shader requirements
+                size: 64,
                 usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             }));
             return;
         }
 
-        // Calculate buffer size: Each light needs 64 bytes (position: 16, color: 16, direction: 16, params: 16)
         let light_size = 64;
         let buffer_size = (light_count * light_size) as u64;
 
-        // Create buffer data
         let mut buffer_data = Vec::new();
         for descriptor in self.map_descriptors.values() {
             buffer_data.extend_from_slice(&descriptor.to_buffer_data());
         }
 
-        // Pad buffer data to multiple of 4 bytes if needed
         while buffer_data.len() % 4 != 0 {
             buffer_data.push(0);
         }
