@@ -25,11 +25,11 @@ standard_app_detect_no_more_elements = []
 glob = { workspace = true }
 
 [dependencies]
-orbital_core = { path = "../Crates/orbital_core" }
-orbital_input = { path = "../Crates/orbital_input" }
-orbital_shader_preprocessor = { path = "../Crates/orbital_shader_preprocessor" }
-orbital_resources = { path = "../Crates/orbital_resources" }
-orbital_importer_gltf = { path = "../Crates/orbital_importer_gltf" }
+orbital_core = { path = "../orbital_core" }
+orbital_input = { path = "../orbital_input" }
+orbital_shader_preprocessor = { path = "../orbital_shader_preprocessor" }
+orbital_resources = { path = "../orbital_resources" }
+orbital_importer_gltf = { path = "../orbital_importer_gltf" }
 wgpu = { workspace = true }
 cgmath = { workspace = true }
 dirs = { workspace = true }
@@ -44,11 +44,11 @@ winit = { workspace = true }
 glob = { workspace = true }
 rayon = { workspace = true }
 
-orbital_element = { path = "../Crates/orbital_element" }
-orbital_camera_controller = { path = "../Crates/orbital_camera_controller" }
-orbital_renderer = { path = "../Crates/orbital_renderer" }
-orbital_world = { path = "../Crates/orbital_world" }
-orbital_app = { path = "../Crates/orbital_app" }
+orbital_element = { path = "../orbital_element" }
+orbital_camera_controller = { path = "../orbital_camera_controller" }
+orbital_renderer = { path = "../orbital_renderer" }
+orbital_world = { path = "../orbital_world" }
+orbital_app = { path = "../orbital_app" }
 
 gilrs = { workspace = true, optional = true }
 

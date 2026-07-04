@@ -12,5 +12,5 @@ name = "test-roll-camera"
 path = "src/main.rs"
 
 [dependencies]
-orbital = { path = "../../Runtime_Rayon" }
+orbital = { path = "../../Crates/orbital" }
 winit = { workspace = true }
