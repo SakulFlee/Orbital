@@ -1,0 +1,82 @@
+jobs:
+  lint:
+    name: Lint (format + clippy)
+    steps:
+      - type: script
+        script-content: |
+          nix develop --command cargo fmt --all --check
+          nix develop --command cargo clippy
+    agent-requirements:
+      - os-type: Linux
+      - arch: x86_64
+
+  test:
+    name: Test
+    steps:
+      - type: script
+        script-content: |
+          SKIP_GLTF_EXPORT=true nix develop --command cargo test --no-fail-fast
+    agent-requirements:
+      - os-type: Linux
+      - arch: x86_64
+    dependencies:
+      - lint
+
+  build-x86_64:
+    name: Build x86_64-unknown-linux-gnu
+    steps:
+      - type: script
+        script-content: |
+          SKIP_GLTF_EXPORT=true nix develop --command cargo build --release --target x86_64-unknown-linux-gnu
+          mkdir upload
+          find target/x86_64-unknown-linux-gnu/release -mindepth 1 -maxdepth 1 -type f -not -name '*.d' -not -name '*.rlib' -not -name '.cargo-lock' -not -name 'CACHEDIR.TAG' -exec mv {} upload/ \;
+          mv Assets/ upload/
+          cd upload && zip -r ../x86_64-unknown-linux-gnu.zip .
+    agent-requirements:
+      - os-type: Linux
+      - arch: x86_64
+    dependencies:
+      - test
+
+  build-aarch64:
+    name: Build aarch64-unknown-linux-gnu
+    steps:
+      - type: script
+        script-content: |
+          SKIP_GLTF_EXPORT=true nix develop .#aarch64-cross --command cargo build --release --target aarch64-unknown-linux-gnu
+          mkdir upload
+          find target/aarch64-unknown-linux-gnu/release -mindepth 1 -maxdepth 1 -type f -not -name '*.d' -not -name '*.rlib' -not -name '.cargo-lock' -not -name 'CACHEDIR.TAG' -exec mv {} upload/ \;
+          mv Assets/ upload/
+          cd upload && zip -r ../aarch64-unknown-linux-gnu.zip .
+    agent-requirements:
+      - os-type: Linux
+      - arch: aarch64
+    dependencies:
+      - test
+
+  publish:
+    name: Publish to Forgejo release
+    steps:
+      - type: script
+        script-content: |
+          RELEASE_DATA=$(curl -s -X POST \
+            -H "Authorization: Bearer %env.FORGEJO_TOKEN%" \
+            -H "Content-Type: application/json" \
+            -d "{\"tag_name\": \"%build.vcs.number%\", \"name\": \"%build.vcs.number%\", \"body\": \"Release %build.vcs.number%\", \"draft\": false, \"prerelease\": false}" \
+            "%env.FORGEJO_API_URL%/api/v1/repos/%env.FORGEJO_REPO_OWNER%/%env.FORGEJO_REPO_NAME%/releases")
+          RELEASE_ID=$(echo "$RELEASE_DATA" | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)
+          for zip in x86_64-unknown-linux-gnu.zip aarch64-unknown-linux-gnu.zip; do
+            if [ -f "$zip" ]; then
+              curl -s -X POST \
+                -H "Authorization: Bearer %env.FORGEJO_TOKEN%" \
+                -H "Content-Type: application/octet-stream" \
+                --data-binary "@$zip" \
+                "%env.FORGEJO_API_URL%/api/v1/repos/%env.FORGEJO_REPO_OWNER%/%env.FORGEJO_REPO_NAME%/releases/$RELEASE_ID/assets?name=$zip"
+            fi
+          done
+    agent-requirements:
+      - os-type: Linux
+      - arch: x86_64
+    dependencies:
+      - build-x86_64
+      - build-aarch64
