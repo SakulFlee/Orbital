@@ -1,3 +1,4 @@
+#[cfg(feature = "standard_app_detect_no_more_elements")]
 use std::time::{Duration, Instant};
 
 use cgmath::Vector2;

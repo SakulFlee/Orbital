@@ -58,7 +58,7 @@ impl CameraController {
 
     fn handle_movement(
         &self,
-        delta_time: f64,
+        _delta_time: f64,
         transform: &mut CameraTransform,
         input_state: &InputState,
     ) {
@@ -271,7 +271,7 @@ impl CameraController {
     fn apply_mouse_view(
         &self,
         transform: &mut CameraTransform,
-        delta_time: f64,
+        _delta_time: f64,
         input_state: &InputState,
         sensitivity: f32,
         axis_dead_zone: f64,
@@ -328,7 +328,7 @@ impl Element for CameraController {
         registration
     }
 
-    fn on_message(&mut self, message: &Arc<Message>) -> Option<Vec<Event>> {
+    fn on_message(&mut self, _message: &Arc<Message>) -> Option<Vec<Event>> {
         None
     }
 

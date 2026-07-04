@@ -301,7 +301,7 @@ impl Camera {
         let up = right.cross(forward).normalize();
 
         // Apply roll rotation to the up and right vectors
-        let rotated_right = right * roll_cos + up * roll_sin;
+        let _rotated_right = right * roll_cos + up * roll_sin;
         let rotated_up = -right * roll_sin + up * roll_cos;
 
         // Calculates the view project matrix

@@ -561,6 +561,7 @@ impl WorldEnvironment {
         dst_texture
     }
 
+    #[allow(dead_code)]
     fn generate_specular_mip_maps(
         src_specular_ibl: &Texture,
         sampling_type: &SamplingType,

@@ -23,7 +23,6 @@ pub use orbital_input::*;
 
 pub mod standard;
 
-use orbital_input::InputState;
 use wgpu::{Device, Queue, SurfaceConfiguration, TextureView};
 
 pub trait App: Send + Sync {
