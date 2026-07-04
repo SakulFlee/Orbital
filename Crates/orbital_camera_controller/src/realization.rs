@@ -1,11 +1,12 @@
-use crate::app::input::{InputAxis, InputState};
-use crate::app::AppEvent;
-use crate::camera_controller::{
+use orbital_element::AppEvent;
+use orbital_element::{CameraEvent, Element, ElementRegistration, Event, Message, WorldEvent};
+use orbital_input::{InputAxis, InputState};
+use orbital_resources::{CameraTransform, Mode};
+
+use crate::{
     ButtonAxis, CameraControllerAxisInputMode, CameraControllerButtonInputMode,
     CameraControllerDescriptor, CameraControllerMovementType, CameraControllerRotationType,
 };
-use crate::element::{CameraEvent, Element, ElementRegistration, Event, Message, WorldEvent};
-use crate::resources::{CameraTransform, Mode};
 
 use cgmath::num_traits::abs;
 use cgmath::{Vector2, Vector3, Zero};
@@ -177,16 +178,12 @@ impl CameraController {
         if !delta.is_zero() {
             transform.pitch = Some(Mode::Offset(delta.x as f32 * sensitivity));
             transform.yaw = Some(Mode::Offset(delta.y as f32 * sensitivity));
-
-            // Early return on the first non-zero existing axis delta
             return true;
         }
 
         false
     }
 
-    /// Returns `true` if a delta axis with a non-zero value got found and applied to the [`CameraTransform`].
-    /// Returns `false` if no delta axis have been found, or, all values returned are zero.
     fn apply_delta_axis_rotation(
         &self,
         mode: &CameraControllerAxisInputMode,
@@ -220,7 +217,6 @@ impl CameraController {
                 mouse_input,
                 axis_dead_zone,
             } => {
-                // Delta inputs (gamepad) first
                 if axis_input
                     .as_ref()
                     .map(|x| {
@@ -231,7 +227,6 @@ impl CameraController {
                     return;
                 }
 
-                // Button inputs next
                 if button_input
                     .as_ref()
                     .map(|x| self.apply_button_axis_rotation(x, transform, input_state))
@@ -240,7 +235,6 @@ impl CameraController {
                     return;
                 }
 
-                // Lastly, mouse inputs
                 if let Some(x) = mouse_input {
                     x.input_type.is_triggering(input_state).then(|| {
                         self.apply_mouse_view(
@@ -259,11 +253,6 @@ impl CameraController {
         }
     }
 
-    /// Will read a delta state (axis) and return its value if any input got recorded by the [`InputState`].
-    /// Upon receiving a delta state (value), if the given state exceeds the standard range (-1.0 to +1.0),
-    /// it will be normalized. A value can only be normalized if a resolution has been set prior.
-    /// If no resolution has been set beforehand, the value will be dropped, but only if it exceeds
-    /// the standard range as defined above.
     fn read_delta(
         &self,
         axis: &InputAxis,
@@ -279,8 +268,6 @@ impl CameraController {
         })
     }
 
-    /// Returns `true` if mouse movement was detected and got applied.
-    /// Returns `false` otherwise.
     fn apply_mouse_view(
         &self,
         transform: &mut CameraTransform,
@@ -342,7 +329,6 @@ impl Element for CameraController {
     }
 
     fn on_message(&mut self, message: &Arc<Message>) -> Option<Vec<Event>> {
-        // Prevents default message log spam
         None
     }
 

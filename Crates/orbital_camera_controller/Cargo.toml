@@ -1,0 +1,10 @@
+[package]
+name = "orbital_camera_controller"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+orbital_input = { path = "../orbital_input" }
+orbital_element = { path = "../orbital_element" }
+orbital_resources = { path = "../orbital_resources" }
+cgmath = { workspace = true }
