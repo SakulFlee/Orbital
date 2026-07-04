@@ -5,7 +5,7 @@ use log::warn;
 use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, MouseScrollDelta};
 
-use super::{InputAxis, InputButton, InputEvent, InputId};
+use crate::{InputAxis, InputButton, InputEvent, InputId};
 
 #[derive(Debug, Clone)]
 pub struct InputState {
@@ -31,14 +31,10 @@ impl InputState {
         }
     }
 
-    /// Resets all delta values back to zero.
-    /// This should be called after updating, but before the next cycle.
-    /// I.e. after rendering is a good time.
     pub fn reset_deltas(&mut self) {
         self.delta_states.iter_mut().for_each(|(_, state)| {
             state
                 .iter_mut()
-                // Only reset mouse deltas
                 .filter(|(axis, _)| {
                     InputAxis::MouseMovement.eq(axis) || InputAxis::MouseScrollWheel.eq(axis)
                 })
@@ -46,7 +42,6 @@ impl InputState {
         });
     }
 
-    /// Handles input events to populate the input state.
     pub fn handle_event(&mut self, input_event: InputEvent) {
         let (input_id, input_button_state, input_axis_state): (
             InputId,
@@ -99,7 +94,7 @@ impl InputState {
                 let vector_delta = Vector2::new(position.x, position.y);
 
                 self.mouse_cursor_position_state = vector_delta;
-                return; // No further processing required!
+                return;
             }
             InputEvent::MouseMovedDelta { device_id, delta } => {
                 let vector_delta = Vector2::new(delta.0, delta.1);
@@ -148,7 +143,6 @@ impl InputState {
 
                 (InputId::Gamepad(gamepad_id), None, Some((axis, vector)))
             }
-            // Nothing to do, so just return out of here :)
             _ => return,
         };
 
@@ -160,11 +154,6 @@ impl InputState {
                 .and_modify(|x| *x = pressed)
                 .or_insert(pressed);
         } else if let Some((axis, delta)) = input_axis_state {
-            // Our delta has to be flipped here, meaning X = Y and Y = X, since the engine, and thus WGPU and such, use a different coordinate system than what we are reading here.
-            // Our "up and down" is Y and our "left and right" is X.
-            // In Winit + Gil "up and down" is X and "left and right" is Y.
-            // Additionally, the mouse wheel delta for "up" is inverted, so we need to invert that as well.
-            // Gamepad inputs will also be clamped to not allow cheating.
             let flipped_delta = if InputAxis::MouseMovement.eq(&axis) {
                 if let Some(surface_size) = self.surface_size {
                     let half_surface_x = surface_size.x as f64 / 2.0;
@@ -188,10 +177,7 @@ impl InputState {
                 .or_insert(HashMap::new())
                 .entry(axis)
                 .and_modify(|x| match axis {
-                    // Mouse inputs need to be summed as they aren't tracking the mouse position directly, but the change in movement.
-                    // After a frame is rendered, we need to reset these.
                     InputAxis::MouseMovement | InputAxis::MouseScrollWheel => *x += flipped_delta,
-                    // Gamepad values are stated. Meaning a new input event will always have the total value of the input. Thus, we won't need to summarize here.
                     InputAxis::GamepadLeftStick
                     | InputAxis::GamepadRightStick
                     | InputAxis::GamepadTrigger => {
@@ -323,16 +309,6 @@ impl InputState {
             .collect()
     }
 
-    /// Calculates the current movement vectors for this input state.
-    /// Will prioritize gamepad inputs over keyboard inputs.
-    /// Uses the button state of any keyboard otherwise.
-    ///
-    /// # Returns
-    /// A tuple of two parts:
-    /// 1. A boolean indicating whether the movement vector is from a gamepad.
-    /// 2. The movement vector to be used for changing the camera.
-    ///
-    /// > Note: We might want to multiply this by delta time and add a sensitivity factor!
     pub fn movement_vector(
         &self,
         input_axis: Option<&InputAxis>,
@@ -341,7 +317,6 @@ impl InputState {
         input_button_left: &InputButton,
         input_button_right: &InputButton,
     ) -> (bool, Vector2<f64>) {
-        // Prioritize gamepad inputs
         let gamepad_deltas = input_axis.and_then(|axis| self.delta_state_any(axis));
         if let Some((_, delta)) = gamepad_deltas {
             if !delta.is_zero() {
@@ -375,18 +350,7 @@ impl InputState {
         (false, movement)
     }
 
-    /// Calculates the current view vectors for this input state.
-    /// Will prioritize gamepad inputs over mouse inputs.
-    /// Uses the delta movement of any mouse otherwise.
-    ///
-    /// # Returns
-    /// A tuple of two parts:
-    /// 1. A boolean indicating whether the view vector is from a gamepad.
-    /// 2. The view vector to be used for changing the camera.
-    ///
-    /// > Note: We might want to multiply this by delta time and add a sensitivity factor!
     pub fn view_vector(&self, gamepad_input_axis: Option<&InputAxis>) -> (bool, Vector2<f64>) {
-        // Prioritize gamepad inputs
         let gamepad_deltas = gamepad_input_axis.and_then(|axis| self.delta_state_any(axis));
         if let Some((_, delta)) = gamepad_deltas {
             if !delta.is_zero() {

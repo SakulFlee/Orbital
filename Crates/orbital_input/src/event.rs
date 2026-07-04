@@ -8,9 +8,7 @@ use winit::{
     },
 };
 
-/// A mix of [winit::event::WindowEvent], [winit::event::DeviceEvent] and [gilrs::Event] (if enabled) to be used by [crate::app::App]s during [crate::app::App::on_input].
-///
-/// For more details, check [winit::event::WindowEvent] and [winit::event::DeviceEvent]
+/// A mix of [winit::event::WindowEvent], [winit::event::DeviceEvent] and [gilrs::Event] (if enabled) to be used by App implementations.
 #[derive(Debug, PartialEq)]
 pub enum InputEvent {
     KeyboardButton {

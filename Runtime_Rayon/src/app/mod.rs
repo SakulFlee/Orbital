@@ -40,8 +40,8 @@ pub use context::*;
 mod state;
 pub use state::*;
 
-pub mod input;
-use input::*;
+pub use orbital_input as input;
+pub use orbital_input::*;
 
 pub mod standard;
 
