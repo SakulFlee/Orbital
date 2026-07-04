@@ -48,6 +48,7 @@ orbital_element = { path = "../Crates/orbital_element" }
 orbital_camera_controller = { path = "../Crates/orbital_camera_controller" }
 orbital_renderer = { path = "../Crates/orbital_renderer" }
 orbital_world = { path = "../Crates/orbital_world" }
+orbital_app = { path = "../Crates/orbital_app" }
 
 gilrs = { workspace = true, optional = true }
 
