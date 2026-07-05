@@ -44,6 +44,7 @@ project {
     buildType(Build_x86_64)
     buildType(Build_aarch64)
     buildType(Build_windows)
+    buildType(Build_windows_arm64)
 }
 
 object Lint : BuildType({
@@ -242,6 +243,46 @@ object Build_windows : BuildType({
                 rustup update
                 rustup target add x86_64-pc-windows-msvc
                 cargo build --release --target x86_64-pc-windows-msvc
+            """.trimIndent()
+        }
+    }
+
+    triggers {
+        vcs {
+            branchFilter = """
+                +:refs/tags/v*
+            """.trimIndent()
+        }
+    }
+
+    requirements {
+        contains("teamcity.agent.jvm.os.name", "Windows")
+    }
+
+    dependencies {
+        snapshot(Test) {
+            reuseBuilds = ReuseBuilds.SUCCESSFUL
+        }
+    }
+})
+
+object Build_windows_arm64 : BuildType({
+    name = "Build aarch64-pc-windows-msvc"
+
+    vcs {
+        root(DslContext.settingsRoot)
+    }
+
+    artifactRules = "target/aarch64-pc-windows-msvc/release/*.exe"
+
+    steps {
+        script {
+            name = "Build release"
+            scriptContent = """
+                rustup default stable
+                rustup update
+                rustup target add aarch64-pc-windows-msvc
+                cargo build --release --target aarch64-pc-windows-msvc
             """.trimIndent()
         }
     }
