@@ -14,10 +14,10 @@ steps:
       - nix develop --extra-experimental-features 'nix-command flakes' --command cargo fmt --all
       - |
         if [ -n "$(git status --porcelain)" ]; then
-          BRANCH="${CI_COMMIT_SOURCE_BRANCH:-$CI_COMMIT_BRANCH}"
+          BRANCH="$CI_COMMIT_SOURCE_BRANCH"
+          [ -z "$BRANCH" ] && BRANCH="$CI_COMMIT_BRANCH"
           REPO_URL=$(git remote get-url origin)
-          HOST_PATH="${REPO_URL#*://}"
-          HOST_PATH="${HOST_PATH#*@}"
+          HOST_PATH=$(echo "$REPO_URL" | cut -d/ -f3-)
           git remote set-url origin "https://$FORGEJO_USERNAME:$FORGEJO_PASSWORD@$HOST_PATH"
           git config user.name "Orbital CI"
           git config user.email "ci@orbital.local"
@@ -40,10 +40,10 @@ steps:
       - nix develop --extra-experimental-features 'nix-command flakes' --command cargo clippy --fix --allow-dirty
       - |
         if [ -n "$(git status --porcelain)" ]; then
-          BRANCH="${CI_COMMIT_SOURCE_BRANCH:-$CI_COMMIT_BRANCH}"
+          BRANCH="$CI_COMMIT_SOURCE_BRANCH"
+          [ -z "$BRANCH" ] && BRANCH="$CI_COMMIT_BRANCH"
           REPO_URL=$(git remote get-url origin)
-          HOST_PATH="${REPO_URL#*://}"
-          HOST_PATH="${HOST_PATH#*@}"
+          HOST_PATH=$(echo "$REPO_URL" | cut -d/ -f3-)
           git remote set-url origin "https://$FORGEJO_USERNAME:$FORGEJO_PASSWORD@$HOST_PATH"
           git config user.name "Orbital CI"
           git config user.email "ci@orbital.local"
