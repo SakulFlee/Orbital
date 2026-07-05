@@ -67,7 +67,7 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
         let AppState::Ready(ctx) = &self.state else {
             error!(
                 "Trying to redraw when app state is in a non-ready state! ({:?})",
-                &self.state
+                self.state
             );
             return;
         };
@@ -358,7 +358,7 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
         if !matches!(&self.state, AppState::Ready(_)) {
             debug!(
                 "App in invalid state ({:?}), skipping device events!",
-                &self.state
+                self.state
             );
             return;
         }

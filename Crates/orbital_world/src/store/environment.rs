@@ -19,7 +19,7 @@ impl EnvironmentStore {
 
     pub fn queue_change(&mut self, descriptor: WorldEnvironmentDescriptor) {
         if self.queued_descriptor.is_some() {
-            warn!("A WorldEnvironment change has already been queued and will be replaced! Old: {:?}, New: {:?}", &self.queued_descriptor.as_ref().unwrap(), descriptor);
+            warn!("A WorldEnvironment change has already been queued and will be replaced! Old: {:?}, New: {:?}", self.queued_descriptor.as_ref().unwrap(), descriptor);
         }
 
         self.queued_descriptor = Some(descriptor);

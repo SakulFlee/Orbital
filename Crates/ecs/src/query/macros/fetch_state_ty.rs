@@ -4,6 +4,6 @@ macro_rules! fetch_state_ty {
         Option<$crate::ReadStoreHandle<$l, $T>>
     };
     (Write, $l:lifetime, $T:ty) => {
-        Option<crate::WriteStoreHandle<$l, $T>>
+        Option<$crate::WriteStoreHandle<$l, $T>>
     };
 }

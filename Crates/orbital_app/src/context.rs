@@ -20,7 +20,7 @@ use crate::AppSettings;
 
 fn block_on<F: std::future::Future>(future: F) -> F::Output {
     let waker = std::task::Waker::noop();
-    let mut cx = std::task::Context::from_waker(&waker);
+    let mut cx = std::task::Context::from_waker(waker);
     let mut pinned = Box::pin(future);
     loop {
         match pinned.as_mut().poll(&mut cx) {
