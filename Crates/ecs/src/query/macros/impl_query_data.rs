@@ -27,11 +27,11 @@ macro_rules! impl_query_data {
     };
 
     ($idx0:tt => $acc0:ident < $t0:ident>, $idx1:tt => $acc1:ident < $t1:ident>) => {
-        impl<
-            $t0: $crate::Component,
-            $t1: $crate::Component,
-        > $crate::query::data::QueryData
-            for ($crate::query::marker::$acc0<$t0>, $crate::query::marker::$acc1<$t1>)
+        impl<$t0: $crate::Component, $t1: $crate::Component> $crate::query::data::QueryData
+            for (
+                $crate::query::marker::$acc0<$t0>,
+                $crate::query::marker::$acc1<$t1>,
+            )
         {
             type Item<'a> = (
                 $crate::fetch_item_ty!($acc0, 'a, $t0),
@@ -83,11 +83,8 @@ macro_rules! impl_query_data {
         $idx1:tt => $acc1:ident < $t1:ident>,
         $idx2:tt => $acc2:ident < $t2:ident>
     ) => {
-        impl<
-            $t0: $crate::Component,
-            $t1: $crate::Component,
-            $t2: $crate::Component,
-        > $crate::query::data::QueryData
+        impl<$t0: $crate::Component, $t1: $crate::Component, $t2: $crate::Component>
+            $crate::query::data::QueryData
             for (
                 $crate::query::marker::$acc0<$t0>,
                 $crate::query::marker::$acc1<$t1>,

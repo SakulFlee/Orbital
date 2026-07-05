@@ -2,8 +2,8 @@ use std::ops::Range;
 
 use criterion::Criterion;
 use orbital_ecs::Entity;
-use rand::prelude::SliceRandom;
 use rand::RngExt;
+use rand::prelude::SliceRandom;
 
 use super::common::setup_dense_world;
 

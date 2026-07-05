@@ -1,7 +1,7 @@
 use criterion::Criterion;
 use orbital_ecs::Commands;
 
-use super::common::{setup_dense_world, Pos};
+use super::common::{Pos, setup_dense_world};
 
 const N: usize = 10_000;
 

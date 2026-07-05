@@ -1,7 +1,3 @@
-use orbital_resources::{
-    CameraDescriptor, FilterMode, LightDescriptor, MaterialDescriptor, MeshDescriptor,
-    ModelDescriptor, PBRMaterialDescriptor, TextureDescriptor, TextureSize, Transform, Vertex,
-};
 use cgmath::{InnerSpace, Point3, Quaternion, Vector2, Vector3, Zero};
 use gltf::camera::Projection;
 use gltf::image::Format;
@@ -9,6 +5,10 @@ use gltf::khr_lights_punctual;
 use gltf::{Camera, Document, Material, Mesh, Node, Scene, Semantic};
 use hashbrown::HashMap;
 use log::{debug, trace, warn};
+use orbital_resources::{
+    CameraDescriptor, FilterMode, LightDescriptor, MaterialDescriptor, MeshDescriptor,
+    ModelDescriptor, PBRMaterialDescriptor, TextureDescriptor, TextureSize, Transform, Vertex,
+};
 use std::error::Error;
 use std::sync::Arc;
 use ulid::Ulid;
@@ -31,9 +31,8 @@ mod result;
 pub use result::*;
 
 mod error;
-use orbital_core::quaternion::quaternion_to_pitch_yaw;
 pub use error::*;
-
+use orbital_core::quaternion::quaternion_to_pitch_yaw;
 
 /// Used to load/import "things" from a glTF file.
 /// This should support most variants of glTF files but not necessarily everything.

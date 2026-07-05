@@ -9,7 +9,6 @@ use crate::{
     TextureSize, VariableType, VertexStageLayout,
 };
 
-
 pub type PBRMaterial = PBRMaterialDescriptor;
 pub type PBRMaterialDescriptor = PBRMaterialShaderDescriptor;
 

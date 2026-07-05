@@ -1,9 +1,7 @@
-
-
+use crate::World;
 use crate::system::access::ComponentAccess;
 use crate::system::executor::{Executor, SnapshotExecutor};
 use crate::system::system::{IntoSystem, System};
-use crate::World;
 
 pub struct Schedule {
     systems: Vec<Box<dyn System>>,

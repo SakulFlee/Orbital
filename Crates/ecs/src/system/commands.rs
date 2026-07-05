@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
-use crate::{Component, Entity, ECSError, World};
+use crate::{Component, ECSError, Entity, World};
 
-type BoxedCommand = Box<dyn FnOnce(&mut World, &mut HashMap<usize, Entity>) -> Result<(), ECSError> + Send + Sync>;
+type BoxedCommand =
+    Box<dyn FnOnce(&mut World, &mut HashMap<usize, Entity>) -> Result<(), ECSError> + Send + Sync>;
 
 pub struct Commands {
     commands: Vec<BoxedCommand>,

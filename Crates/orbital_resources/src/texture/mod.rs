@@ -23,7 +23,6 @@ pub use descriptor::*;
 mod filter_mode;
 pub use filter_mode::*;
 
-
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Texture {
     texture: WTexture,

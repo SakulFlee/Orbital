@@ -6,7 +6,6 @@ use wgpu::{
 mod descriptor;
 pub use descriptor::*;
 
-
 #[derive(Debug)]
 pub struct BoundingBox {
     buffer: Buffer,

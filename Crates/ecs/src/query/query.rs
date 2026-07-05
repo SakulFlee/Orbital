@@ -1,7 +1,7 @@
-use crate::query::data::QueryData;
-use crate::query::filter::{QueryFilter, NoFilter};
-use crate::query::iter::QueryIter;
 use crate::World;
+use crate::query::data::QueryData;
+use crate::query::filter::{NoFilter, QueryFilter};
+use crate::query::iter::QueryIter;
 
 pub struct Query<'w, D: QueryData, F: QueryFilter = NoFilter> {
     state: D::State<'w>,

@@ -1,5 +1,5 @@
-use crate::system::system::System;
 use crate::World;
+use crate::system::system::System;
 
 pub trait Executor: Send {
     fn execute(&self, batch: &mut [&mut dyn System], world: &World);

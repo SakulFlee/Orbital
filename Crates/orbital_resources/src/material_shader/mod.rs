@@ -7,15 +7,14 @@ use wgpu::{
     RenderPipeline, RenderPipelineDescriptor, TextureFormat, VertexState,
 };
 
-pub use crate::shader::{ShaderDescriptor, ShaderError, Variables};
 use super::make_world_bind_group_layout;
+pub use crate::shader::{ShaderDescriptor, ShaderError, Variables};
 
 mod descriptor;
 pub use descriptor::*;
 
 mod vertex_stage_layout;
 pub use vertex_stage_layout::*;
-
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct MaterialShader {
@@ -39,13 +38,14 @@ impl MaterialShader {
         let shader_module = descriptor.shader_module(device)?;
 
         let engine_bind_group_layout_once = OnceLock::new();
-        let engine_bind_group_layout = engine_bind_group_layout_once
-            .get_or_init(|| make_world_bind_group_layout(device));
+        let engine_bind_group_layout =
+            engine_bind_group_layout_once.get_or_init(|| make_world_bind_group_layout(device));
 
         // Create a pipeline layout and bind group
         let bind_group_option = descriptor.bind_group(device, queue)?;
 
-        let mut bind_group_layouts: Vec<Option<&BindGroupLayout>> = vec![Some(engine_bind_group_layout)];
+        let mut bind_group_layouts: Vec<Option<&BindGroupLayout>> =
+            vec![Some(engine_bind_group_layout)];
         if let Some((_, layout, _)) = bind_group_option.as_ref() {
             bind_group_layouts.push(Some(layout));
         }

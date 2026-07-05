@@ -41,9 +41,7 @@ impl World {
         Some(ResourceHandle { _guard: guard, ptr })
     }
 
-    pub fn get_resource_mut<T: 'static + Send + Sync>(
-        &self,
-    ) -> Option<ResourceMutHandle<'_, T>> {
+    pub fn get_resource_mut<T: 'static + Send + Sync>(&self) -> Option<ResourceMutHandle<'_, T>> {
         let lock = self.resources.get(&TypeId::of::<T>())?;
         let mut guard = lock.write().ok()?;
         let ptr: *mut T = (*guard).downcast_mut::<T>()?;
@@ -111,10 +109,7 @@ impl World {
         Ok(())
     }
 
-    pub fn detach_component<C: Component>(
-        &mut self,
-        entity: &Entity,
-    ) -> Result<(), ECSError> {
+    pub fn detach_component<C: Component>(&mut self, entity: &Entity) -> Result<(), ECSError> {
         if !self.is_valid(entity) {
             return Err(ECSError::InvalidEntity(*entity));
         }
@@ -139,12 +134,9 @@ impl World {
 
     pub fn get_component_store<C: Component>(&self) -> Option<ReadStoreHandle<'_, C>> {
         let idx = *self.component_ids.get(&TypeId::of::<C>())?;
-        let guard = self.component_stores[idx]
-            .read()
-            .expect("RwLock poisoned");
-        let ptr: *const ComponentStore<C> = (*guard)
-            .as_any()
-            .downcast_ref::<ComponentStore<C>>()?;
+        let guard = self.component_stores[idx].read().expect("RwLock poisoned");
+        let ptr: *const ComponentStore<C> =
+            (*guard).as_any().downcast_ref::<ComponentStore<C>>()?;
         Some(ReadStoreHandle {
             _guard: guard,
             ptr,
@@ -152,16 +144,11 @@ impl World {
         })
     }
 
-    pub fn get_component_store_mut<C: Component>(
-        &self,
-    ) -> Option<WriteStoreHandle<'_, C>> {
+    pub fn get_component_store_mut<C: Component>(&self) -> Option<WriteStoreHandle<'_, C>> {
         let idx = *self.component_ids.get(&TypeId::of::<C>())?;
-        let mut guard = self.component_stores[idx]
-            .write()
-            .expect("RwLock poisoned");
-        let ptr: *mut ComponentStore<C> = (*guard)
-            .as_any_mut()
-            .downcast_mut::<ComponentStore<C>>()?;
+        let mut guard = self.component_stores[idx].write().expect("RwLock poisoned");
+        let ptr: *mut ComponentStore<C> =
+            (*guard).as_any_mut().downcast_mut::<ComponentStore<C>>()?;
         Some(WriteStoreHandle {
             _guard: guard,
             ptr,

@@ -43,7 +43,13 @@ pub trait IntoSystem<Marker>: Sized {
 }
 
 impl System for Box<dyn System> {
-    fn name(&self) -> &str { (**self).name() }
-    fn access(&self) -> &ComponentAccess { (**self).access() }
-    fn run(&mut self, world: &crate::World) { (**self).run(world) }
+    fn name(&self) -> &str {
+        (**self).name()
+    }
+    fn access(&self) -> &ComponentAccess {
+        (**self).access()
+    }
+    fn run(&mut self, world: &crate::World) {
+        (**self).run(world)
+    }
 }

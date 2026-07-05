@@ -1,9 +1,9 @@
 use std::ops::{Deref, DerefMut};
 
+use crate::Component;
 use crate::system::access::ComponentAccess;
 use crate::system::merge::Snapshot;
 use crate::system::system::{FunctionSystem, FunctionSystemMetadata, IntoSystem, System};
-use crate::Component;
 
 // ---------------------------------------------------------------------------
 // Res<T> — read-only resource handle
@@ -46,10 +46,8 @@ impl<T: 'static> DerefMut for ResMut<'_, T> {
 // ---------------------------------------------------------------------------
 
 // Res<A> — read resource
-impl<
-    A: 'static + Send + Sync,
-    F: for<'a> FnMut(Res<'a, A>) + Send + 'static,
-> IntoSystem<fn(Res<'_, A>)> for F
+impl<A: 'static + Send + Sync, F: for<'a> FnMut(Res<'a, A>) + Send + 'static>
+    IntoSystem<fn(Res<'_, A>)> for F
 {
     type System = Box<dyn System>;
     fn into_system(self) -> Self::System {
@@ -60,7 +58,9 @@ impl<
                 access: ComponentAccess::new().reads::<A>(),
             },
             Box::new(move |world| {
-                let Some(handle) = world.get_resource::<A>() else { return; };
+                let Some(handle) = world.get_resource::<A>() else {
+                    return;
+                };
                 f(Res(&*handle));
             }),
         ))
@@ -68,10 +68,8 @@ impl<
 }
 
 // ResMut<A> — write resource
-impl<
-    A: 'static + Send + Sync,
-    F: for<'a> FnMut(ResMut<'a, A>) + Send + 'static,
-> IntoSystem<fn(ResMut<'_, A>)> for F
+impl<A: 'static + Send + Sync, F: for<'a> FnMut(ResMut<'a, A>) + Send + 'static>
+    IntoSystem<fn(ResMut<'_, A>)> for F
 {
     type System = Box<dyn System>;
     fn into_system(self) -> Self::System {
@@ -82,7 +80,9 @@ impl<
                 access: ComponentAccess::new().writes::<A>(),
             },
             Box::new(move |world| {
-                let Some(mut handle) = world.get_resource_mut::<A>() else { return; };
+                let Some(mut handle) = world.get_resource_mut::<A>() else {
+                    return;
+                };
                 f(ResMut(&mut *handle));
             }),
         ))
@@ -110,8 +110,12 @@ macro_rules! impl_2_read_comp_res_read {
                         access: ComponentAccess::new().reads::<A>().reads::<B>(),
                     },
                     Box::new(move |world| {
-                        let Some(handle) = world.get_resource::<B>() else { return; };
-                        let Some(sa) = world.get_component_store::<A>() else { return; };
+                        let Some(handle) = world.get_resource::<B>() else {
+                            return;
+                        };
+                        let Some(sa) = world.get_component_store::<A>() else {
+                            return;
+                        };
                         let rb = Res(&*handle);
                         for &eid in sa.dense.as_slice() {
                             if let Some(ia) = sa.sparse[eid] {
@@ -142,8 +146,12 @@ macro_rules! impl_2_read_comp_res_write {
                         access: ComponentAccess::new().reads::<A>().writes::<B>(),
                     },
                     Box::new(move |world| {
-                        let Some(mut handle) = world.get_resource_mut::<B>() else { return; };
-                        let Some(sa) = world.get_component_store::<A>() else { return; };
+                        let Some(mut handle) = world.get_resource_mut::<B>() else {
+                            return;
+                        };
+                        let Some(sa) = world.get_component_store::<A>() else {
+                            return;
+                        };
                         for &eid in sa.dense.as_slice() {
                             if let Some(ia) = sa.sparse[eid] {
                                 f(&sa.components[ia], ResMut(&mut *handle));
@@ -173,9 +181,13 @@ macro_rules! impl_2_write_comp_res_read {
                         access: ComponentAccess::new().writes::<A>().reads::<B>(),
                     },
                     Box::new(move |world| {
-                        let Some(handle) = world.get_resource::<B>() else { return; };
+                        let Some(handle) = world.get_resource::<B>() else {
+                            return;
+                        };
                         let mut snap_a = {
-                            let Some(sa) = world.get_component_store::<A>() else { return; };
+                            let Some(sa) = world.get_component_store::<A>() else {
+                                return;
+                            };
                             Snapshot::clone_from_store(&sa)
                         };
                         let rb = Res(&*handle);
@@ -209,9 +221,13 @@ macro_rules! impl_2_write_comp_res_write {
                         access: ComponentAccess::new().writes::<A>().writes::<B>(),
                     },
                     Box::new(move |world| {
-                        let Some(mut handle) = world.get_resource_mut::<B>() else { return; };
+                        let Some(mut handle) = world.get_resource_mut::<B>() else {
+                            return;
+                        };
                         let mut snap_a = {
-                            let Some(sa) = world.get_component_store::<A>() else { return; };
+                            let Some(sa) = world.get_component_store::<A>() else {
+                                return;
+                            };
                             Snapshot::clone_from_store(&sa)
                         };
                         for &eid in snap_a.dense.as_slice() {
@@ -244,8 +260,12 @@ macro_rules! impl_2_res_read_res_read {
                         access: ComponentAccess::new().reads::<A>().reads::<B>(),
                     },
                     Box::new(move |world| {
-                        let Some(ha) = world.get_resource::<A>() else { return; };
-                        let Some(hb) = world.get_resource::<B>() else { return; };
+                        let Some(ha) = world.get_resource::<A>() else {
+                            return;
+                        };
+                        let Some(hb) = world.get_resource::<B>() else {
+                            return;
+                        };
                         f(Res(&*ha), Res(&*hb));
                     }),
                 ))
@@ -271,8 +291,12 @@ macro_rules! impl_2_res_read_res_write {
                         access: ComponentAccess::new().reads::<A>().writes::<B>(),
                     },
                     Box::new(move |world| {
-                        let Some(ha) = world.get_resource::<A>() else { return; };
-                        let Some(mut hb) = world.get_resource_mut::<B>() else { return; };
+                        let Some(ha) = world.get_resource::<A>() else {
+                            return;
+                        };
+                        let Some(mut hb) = world.get_resource_mut::<B>() else {
+                            return;
+                        };
                         f(Res(&*ha), ResMut(&mut *hb));
                     }),
                 ))
@@ -298,8 +322,12 @@ macro_rules! impl_2_res_write_res_read {
                         access: ComponentAccess::new().writes::<A>().reads::<B>(),
                     },
                     Box::new(move |world| {
-                        let Some(mut ha) = world.get_resource_mut::<A>() else { return; };
-                        let Some(hb) = world.get_resource::<B>() else { return; };
+                        let Some(mut ha) = world.get_resource_mut::<A>() else {
+                            return;
+                        };
+                        let Some(hb) = world.get_resource::<B>() else {
+                            return;
+                        };
                         f(ResMut(&mut *ha), Res(&*hb));
                     }),
                 ))
@@ -325,8 +353,12 @@ macro_rules! impl_2_res_write_res_write {
                         access: ComponentAccess::new().writes::<A>().writes::<B>(),
                     },
                     Box::new(move |world| {
-                        let Some(mut ha) = world.get_resource_mut::<A>() else { return; };
-                        let Some(mut hb) = world.get_resource_mut::<B>() else { return; };
+                        let Some(mut ha) = world.get_resource_mut::<A>() else {
+                            return;
+                        };
+                        let Some(mut hb) = world.get_resource_mut::<B>() else {
+                            return;
+                        };
                         f(ResMut(&mut *ha), ResMut(&mut *hb));
                     }),
                 ))
@@ -352,8 +384,12 @@ macro_rules! impl_2_res_write_comp_read {
                         access: ComponentAccess::new().writes::<A>().reads::<B>(),
                     },
                     Box::new(move |world| {
-                        let Some(mut handle) = world.get_resource_mut::<A>() else { return; };
-                        let Some(sb) = world.get_component_store::<B>() else { return; };
+                        let Some(mut handle) = world.get_resource_mut::<A>() else {
+                            return;
+                        };
+                        let Some(sb) = world.get_component_store::<B>() else {
+                            return;
+                        };
                         for &eid in sb.dense.as_slice() {
                             if let Some(ib) = sb.sparse[eid] {
                                 f(ResMut(&mut *handle), &sb.components[ib]);
@@ -383,9 +419,13 @@ macro_rules! impl_2_res_write_comp_write {
                         access: ComponentAccess::new().writes::<A>().writes::<B>(),
                     },
                     Box::new(move |world| {
-                        let Some(mut handle) = world.get_resource_mut::<A>() else { return; };
+                        let Some(mut handle) = world.get_resource_mut::<A>() else {
+                            return;
+                        };
                         let mut snap_b = {
-                            let Some(sb) = world.get_component_store::<B>() else { return; };
+                            let Some(sb) = world.get_component_store::<B>() else {
+                                return;
+                            };
                             Snapshot::clone_from_store(&sb)
                         };
                         for &eid in snap_b.dense.as_slice() {
@@ -439,9 +479,15 @@ impl<
                     .reads::<C>(),
             },
             Box::new(move |world| {
-                let Some(handle) = world.get_resource::<A>() else { return; };
-                let Some(sb) = world.get_component_store::<B>() else { return; };
-                let Some(sc) = world.get_component_store::<C>() else { return; };
+                let Some(handle) = world.get_resource::<A>() else {
+                    return;
+                };
+                let Some(sb) = world.get_component_store::<B>() else {
+                    return;
+                };
+                let Some(sc) = world.get_component_store::<C>() else {
+                    return;
+                };
                 let pivot = if sb.dense.len() <= sc.dense.len() {
                     sb.dense.as_slice()
                 } else {
@@ -481,9 +527,15 @@ impl<
                     .reads::<C>(),
             },
             Box::new(move |world| {
-                let Some(ha) = world.get_resource::<A>() else { return; };
-                let Some(hb) = world.get_resource::<B>() else { return; };
-                let Some(sc) = world.get_component_store::<C>() else { return; };
+                let Some(ha) = world.get_resource::<A>() else {
+                    return;
+                };
+                let Some(hb) = world.get_resource::<B>() else {
+                    return;
+                };
+                let Some(sc) = world.get_component_store::<C>() else {
+                    return;
+                };
                 let ra = Res(&*ha);
                 let rb = Res(&*hb);
                 for &eid in sc.dense.as_slice() {
@@ -519,9 +571,15 @@ impl<
                     .reads::<C>(),
             },
             Box::new(move |world| {
-                let Some(ha) = world.get_resource::<A>() else { return; };
-                let Some(hc) = world.get_resource::<C>() else { return; };
-                let Some(sb) = world.get_component_store::<B>() else { return; };
+                let Some(ha) = world.get_resource::<A>() else {
+                    return;
+                };
+                let Some(hc) = world.get_resource::<C>() else {
+                    return;
+                };
+                let Some(sb) = world.get_component_store::<B>() else {
+                    return;
+                };
                 let ra = Res(&*ha);
                 let rc = Res(&*hc);
                 for &eid in sb.dense.as_slice() {
@@ -557,9 +615,15 @@ impl<
                     .reads::<C>(),
             },
             Box::new(move |world| {
-                let Some(hb) = world.get_resource::<B>() else { return; };
-                let Some(hc) = world.get_resource::<C>() else { return; };
-                let Some(sa) = world.get_component_store::<A>() else { return; };
+                let Some(hb) = world.get_resource::<B>() else {
+                    return;
+                };
+                let Some(hc) = world.get_resource::<C>() else {
+                    return;
+                };
+                let Some(sa) = world.get_component_store::<A>() else {
+                    return;
+                };
                 let rb = Res(&*hb);
                 let rc = Res(&*hc);
                 for &eid in sa.dense.as_slice() {
@@ -595,9 +659,15 @@ impl<
                     .reads::<C>(),
             },
             Box::new(move |world| {
-                let Some(mut handle) = world.get_resource_mut::<A>() else { return; };
-                let Some(sb) = world.get_component_store::<B>() else { return; };
-                let Some(sc) = world.get_component_store::<C>() else { return; };
+                let Some(mut handle) = world.get_resource_mut::<A>() else {
+                    return;
+                };
+                let Some(sb) = world.get_component_store::<B>() else {
+                    return;
+                };
+                let Some(sc) = world.get_component_store::<C>() else {
+                    return;
+                };
                 let pivot = if sb.dense.len() <= sc.dense.len() {
                     sb.dense.as_slice()
                 } else {
@@ -636,9 +706,15 @@ impl<
                     .reads::<C>(),
             },
             Box::new(move |world| {
-                let Some(mut hb) = world.get_resource_mut::<B>() else { return; };
-                let Some(sa) = world.get_component_store::<A>() else { return; };
-                let Some(sc) = world.get_component_store::<C>() else { return; };
+                let Some(mut hb) = world.get_resource_mut::<B>() else {
+                    return;
+                };
+                let Some(sa) = world.get_component_store::<A>() else {
+                    return;
+                };
+                let Some(sc) = world.get_component_store::<C>() else {
+                    return;
+                };
                 let pivot = if sa.dense.len() <= sc.dense.len() {
                     sa.dense.as_slice()
                 } else {
@@ -677,9 +753,15 @@ impl<
                     .writes::<C>(),
             },
             Box::new(move |world| {
-                let Some(mut hc) = world.get_resource_mut::<C>() else { return; };
-                let Some(sa) = world.get_component_store::<A>() else { return; };
-                let Some(sb) = world.get_component_store::<B>() else { return; };
+                let Some(mut hc) = world.get_resource_mut::<C>() else {
+                    return;
+                };
+                let Some(sa) = world.get_component_store::<A>() else {
+                    return;
+                };
+                let Some(sb) = world.get_component_store::<B>() else {
+                    return;
+                };
                 let pivot = if sa.dense.len() <= sb.dense.len() {
                     sa.dense.as_slice()
                 } else {
@@ -720,10 +802,18 @@ impl<
                     .reads::<D>(),
             },
             Box::new(move |world| {
-                let Some(handle) = world.get_resource::<A>() else { return; };
-                let Some(sb) = world.get_component_store::<B>() else { return; };
-                let Some(sc) = world.get_component_store::<C>() else { return; };
-                let Some(sd) = world.get_component_store::<D>() else { return; };
+                let Some(handle) = world.get_resource::<A>() else {
+                    return;
+                };
+                let Some(sb) = world.get_component_store::<B>() else {
+                    return;
+                };
+                let Some(sc) = world.get_component_store::<C>() else {
+                    return;
+                };
+                let Some(sd) = world.get_component_store::<D>() else {
+                    return;
+                };
                 let pivot = *[
                     sb.dense.as_slice(),
                     sc.dense.as_slice(),
@@ -737,7 +827,12 @@ impl<
                     if let (Some(ib), Some(ic), Some(id)) =
                         (sb.sparse[eid], sc.sparse[eid], sd.sparse[eid])
                     {
-                        f(ra, &sb.components[ib], &sc.components[ic], &sd.components[id]);
+                        f(
+                            ra,
+                            &sb.components[ib],
+                            &sc.components[ic],
+                            &sd.components[id],
+                        );
                     }
                 }
             }),
@@ -770,10 +865,18 @@ impl<
                     .reads::<D>(),
             },
             Box::new(move |world| {
-                let Some(mut handle) = world.get_resource_mut::<A>() else { return; };
-                let Some(sb) = world.get_component_store::<B>() else { return; };
-                let Some(sc) = world.get_component_store::<C>() else { return; };
-                let Some(sd) = world.get_component_store::<D>() else { return; };
+                let Some(mut handle) = world.get_resource_mut::<A>() else {
+                    return;
+                };
+                let Some(sb) = world.get_component_store::<B>() else {
+                    return;
+                };
+                let Some(sc) = world.get_component_store::<C>() else {
+                    return;
+                };
+                let Some(sd) = world.get_component_store::<D>() else {
+                    return;
+                };
                 let pivot = *[
                     sb.dense.as_slice(),
                     sc.dense.as_slice(),

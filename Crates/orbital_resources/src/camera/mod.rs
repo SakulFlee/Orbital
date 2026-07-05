@@ -12,7 +12,6 @@ pub use mode::*;
 mod descriptor;
 pub use descriptor::*;
 
-
 #[derive(Debug)]
 pub struct Camera {
     camera_buffer: Buffer,

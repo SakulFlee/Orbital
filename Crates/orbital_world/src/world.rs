@@ -1,11 +1,11 @@
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
+use cgmath::Vector2;
+use log::debug;
 use orbital_element::{CameraEvent, ModelEvent, WorldEvent};
 use orbital_importer_gltf::Importer;
 use orbital_resources::{Camera, CameraDescriptor, IblBrdf, Model, Texture, WorldEnvironment};
-use cgmath::Vector2;
-use log::debug;
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindingResource, Buffer,
     BufferDescriptor, BufferUsages, Device, Queue, TextureFormat, TextureUsages,

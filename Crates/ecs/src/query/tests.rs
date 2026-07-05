@@ -1,5 +1,5 @@
-use crate::query::*;
 use crate::World;
+use crate::query::*;
 
 #[derive(Debug)]
 struct Pos(f32, f32);
@@ -91,7 +91,10 @@ fn query_no_match() {
     let world = setup_world();
     let mut query: Query<(Read<Vel>,), Without<Vel>> = Query::new(&world);
     let count = query.iter().count();
-    assert_eq!(count, 0, "No entity can simultaneously have and not have Vel");
+    assert_eq!(
+        count, 0,
+        "No entity can simultaneously have and not have Vel"
+    );
 }
 
 #[test]
@@ -138,8 +141,7 @@ fn query_four_components() {
     world.attach_component(&e2, Pos(5.0, 6.0)).unwrap();
     world.attach_component(&e2, Vel(7.0, 8.0)).unwrap();
 
-    let mut query: Query<(Read<Pos>, Read<Vel>, Read<Name>, Read<Score>)> =
-        Query::new(&world);
+    let mut query: Query<(Read<Pos>, Read<Vel>, Read<Name>, Read<Score>)> = Query::new(&world);
     let count = query.iter().count();
     assert_eq!(count, 1, "Only e1 has all four components");
 }
@@ -170,7 +172,11 @@ fn query_component_missing_from_some() {
 
     let mut query: Query<(Read<Pos>, Read<Vel>)> = Query::new(&world);
     let results: Vec<_> = query.iter().collect();
-    assert_eq!(results.len(), vel_entities.len(), "Should match entities with Vel");
+    assert_eq!(
+        results.len(),
+        vel_entities.len(),
+        "Should match entities with Vel"
+    );
 }
 
 #[test]
@@ -241,7 +247,11 @@ fn query_filter_four_tuple() {
         (Read<Pos>, Read<Vel>),
         (With<Vel>, Without<Name>, Without<Frozen>, Without<Score>),
     > = Query::new(&world);
-    assert_eq!(query.iter().count(), 1, "Only e2 matches all filter conditions");
+    assert_eq!(
+        query.iter().count(),
+        1,
+        "Only e2 matches all filter conditions"
+    );
 }
 
 #[test]

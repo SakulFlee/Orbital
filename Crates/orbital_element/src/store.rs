@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use crate::{ElementEvent, Event, Target};
-use orbital_input::InputState;
 use hashbrown::HashMap;
 use log::warn;
+use orbital_input::InputState;
 
 use crate::{Element, Message};
 

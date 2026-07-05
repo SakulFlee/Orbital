@@ -23,7 +23,6 @@ pub use variable_type::*;
 mod source;
 pub use source::*;
 
-
 pub trait ShaderDescriptor {
     fn name(&self) -> Option<String> {
         None

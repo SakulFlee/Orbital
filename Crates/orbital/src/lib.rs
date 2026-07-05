@@ -47,7 +47,7 @@ pub use orbital_world as world;
 pub mod wgpu_test_adapter;
 
 pub use orbital_core::{cache, logging, macros, mip_level, or, quaternion};
-pub use orbital_core::{make_desktop_main, make_android_main};
+pub use orbital_core::{make_android_main, make_desktop_main};
 
 // Re-exports
 pub use cgmath;
