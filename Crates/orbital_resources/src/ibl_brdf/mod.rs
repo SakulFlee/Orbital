@@ -10,7 +10,6 @@ use wgpu::{
 
 use crate::Texture;
 
-
 #[derive(Debug)]
 pub struct IblBrdf {
     texture: Option<Texture>,

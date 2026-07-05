@@ -1,7 +1,7 @@
 use criterion::Criterion;
 use orbital_ecs::{Query, Read, With, Without, Write};
 
-use super::common::{setup_dense_world, setup_partial_world, Frozen, Name, Pos, Score, Vel};
+use super::common::{Frozen, Name, Pos, Score, Vel, setup_dense_world, setup_partial_world};
 
 const N: usize = 10_000;
 
@@ -43,8 +43,7 @@ pub fn bench_query_read_4(c: &mut Criterion) {
     let world = setup_dense_world(N);
     c.bench_function("query_read_4", |b| {
         b.iter(|| {
-            let mut q: Query<(Read<Pos>, Read<Vel>, Read<Name>, Read<Score>)> =
-                Query::new(&world);
+            let mut q: Query<(Read<Pos>, Read<Vel>, Read<Name>, Read<Score>)> = Query::new(&world);
             std::hint::black_box(q.iter().count());
         });
     });
@@ -94,8 +93,7 @@ pub fn bench_query_write_4(c: &mut Criterion) {
     let world = setup_dense_world(N);
     c.bench_function("query_write_4", |b| {
         b.iter(|| {
-            let mut q: Query<(Write<Pos>, Read<Vel>, Read<Name>, Read<Score>)> =
-                Query::new(&world);
+            let mut q: Query<(Write<Pos>, Read<Vel>, Read<Name>, Read<Score>)> = Query::new(&world);
             for (pos, vel, _name, _score) in q.iter() {
                 pos.0 += vel.0;
             }
@@ -141,8 +139,7 @@ pub fn bench_query_create_4(c: &mut Criterion) {
     let world = setup_dense_world(N);
     c.bench_function("query_create_4", |b| {
         b.iter(|| {
-            let mut q: Query<(Read<Pos>, Read<Vel>, Read<Name>, Read<Score>)> =
-                Query::new(&world);
+            let mut q: Query<(Read<Pos>, Read<Vel>, Read<Name>, Read<Score>)> = Query::new(&world);
             std::hint::black_box(q.iter().count());
         });
     });

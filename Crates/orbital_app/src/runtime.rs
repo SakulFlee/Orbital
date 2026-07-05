@@ -132,13 +132,12 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
         #[cfg(feature = "gamepad_input_poll")]
         self.receive_controller_inputs();
 
-        let result = if let Some(app_events) =
-            self.app.on_update(&self.input_state, delta_time, cycle)
-        {
-            self.process_app_events(app_events)
-        } else {
-            false
-        };
+        let result =
+            if let Some(app_events) = self.app.on_update(&self.input_state, delta_time, cycle) {
+                self.process_app_events(app_events)
+            } else {
+                false
+            };
 
         self.input_state.reset_deltas();
 

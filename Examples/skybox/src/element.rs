@@ -76,11 +76,7 @@ impl Element for DebugWorldEnvironment {
         ))
     }
 
-    fn on_update(
-        &mut self,
-        _delta_time: f64,
-        input_state: &InputState,
-    ) -> Option<Vec<Event>> {
+    fn on_update(&mut self, _delta_time: f64, input_state: &InputState) -> Option<Vec<Event>> {
         if self.last_trigger.elapsed().as_secs() < 1 {
             return None;
         }

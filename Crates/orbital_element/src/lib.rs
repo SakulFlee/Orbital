@@ -13,8 +13,8 @@ pub use message::*;
 mod event;
 pub use event::*;
 
-use orbital_input::InputState;
 use log::info;
+use orbital_input::InputState;
 use std::fmt::Debug;
 use std::sync::Arc;
 
@@ -29,11 +29,7 @@ pub trait Element: Debug + Send {
         None
     }
 
-    fn on_update(
-        &mut self,
-        _delta_time: f64,
-        _input_state: &InputState,
-    ) -> Option<Vec<Event>> {
+    fn on_update(&mut self, _delta_time: f64, _input_state: &InputState) -> Option<Vec<Event>> {
         None
     }
 }

@@ -162,5 +162,3 @@ impl Hash for Vertex {
 ///
 /// This certainly is a unique case!
 pub type VertexDescriptor = Vertex;
-
-

@@ -1,7 +1,7 @@
-#[path = "ecs_bench/common.rs"]
-mod common;
 #[path = "ecs_bench/commands.rs"]
 mod commands;
+#[path = "ecs_bench/common.rs"]
+mod common;
 #[path = "ecs_bench/component.rs"]
 mod component;
 #[path = "ecs_bench/entity.rs"]

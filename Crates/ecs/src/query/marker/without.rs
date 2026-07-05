@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
-use crate::query::filter::QueryFilter;
 use crate::Component;
+use crate::query::filter::QueryFilter;
 
 pub struct Without<T>(PhantomData<T>);
 

@@ -9,12 +9,11 @@ use wgpu::{
 };
 
 pub use super::{Mesh, MeshDescriptor};
-use orbital_core::cache::{Cache, CacheEntry};
 use crate::{Instance, MaterialShader, MaterialShaderDescriptor};
+use orbital_core::cache::{Cache, CacheEntry};
 
 mod descriptor;
 pub use descriptor::*;
-
 
 #[derive(Debug)]
 pub struct Model {

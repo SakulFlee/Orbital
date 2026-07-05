@@ -1,8 +1,8 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
-use crate::system::*;
 use crate::World;
+use crate::system::*;
 
 #[derive(Debug, Clone)]
 struct Pos(f32, f32);
@@ -80,7 +80,9 @@ fn system_read_single() {
     {
         let c = Arc::clone(&count);
         let mut schedule = Schedule::new();
-        schedule.add_system::<fn(&Pos), _>(move |_pos: &Pos| { c.fetch_add(1, Ordering::Relaxed); });
+        schedule.add_system::<fn(&Pos), _>(move |_pos: &Pos| {
+            c.fetch_add(1, Ordering::Relaxed);
+        });
         schedule.run(&world);
     }
     assert_eq!(count.load(Ordering::Relaxed), 3);

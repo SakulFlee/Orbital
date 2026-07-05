@@ -19,8 +19,8 @@ use wgpu::{
     TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
 };
 
-use orbital_core::mip_level::max_mip_level;
 use crate::{FilterMode, MaterialShader, Texture, TextureSize};
+use orbital_core::mip_level::max_mip_level;
 
 mod error;
 pub use error::*;
@@ -38,7 +38,6 @@ mod descriptor;
 pub use descriptor::*;
 
 use super::{MaterialShaderDescriptor, ShaderSource, TextureDescriptor};
-
 
 #[derive(Debug)]
 pub struct WorldEnvironment {
@@ -575,7 +574,10 @@ impl WorldEnvironment {
             device.create_bind_group_layout(&Self::bind_group_layout_descriptor_buffer());
 
         let pipeline = Self::make_compute_pipeline(
-            &[Some(&bind_group_layout), Some(&mip_buffer_bind_group_layout)],
+            &[
+                Some(&bind_group_layout),
+                Some(&mip_buffer_bind_group_layout),
+            ],
             include_wgsl!("make_mip_maps.wgsl"),
             "main",
             device,
@@ -674,7 +676,10 @@ impl WorldEnvironment {
             device.create_bind_group_layout(&Self::bind_group_layout_descriptor_buffer());
 
         let pipeline = Self::make_compute_pipeline(
-            &[Some(&bind_group_layout), Some(&mip_buffer_bind_group_layout)],
+            &[
+                Some(&bind_group_layout),
+                Some(&mip_buffer_bind_group_layout),
+            ],
             include_wgsl!("make_mip_maps.wgsl"),
             "main",
             device,
