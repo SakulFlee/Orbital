@@ -4,8 +4,9 @@ when:
 steps:
   format:
     image: nixos/nix:latest
-    secrets: [forgejo_token]
     environment:
+      FORGEJO_TOKEN:
+        from_secret: forgejo_token
       SKIP_GLTF_EXPORT: "true"
     commands:
       - nix develop --extra-experimental-features 'nix-command flakes' --command cargo fmt --all
@@ -13,7 +14,8 @@ steps:
         if [ -n "$(git status --porcelain)" ]; then
           BRANCH="${CI_COMMIT_SOURCE_BRANCH:-$CI_COMMIT_BRANCH}"
           REPO_URL=$(git remote get-url origin)
-          git remote set-url origin "https://$FORGEJO_TOKEN@${REPO_URL#https://}"
+          HOST_PATH=$(echo "$REPO_URL" | sed 's|^[^/]*//||' | sed 's|^[^@]*@||')
+          git remote set-url origin "https://$FORGEJO_TOKEN@$HOST_PATH"
           git config user.name "Orbital CI"
           git config user.email "ci@orbital.local"
           git add -A
@@ -25,8 +27,9 @@ steps:
 
   clippy:
     image: nixos/nix:latest
-    secrets: [forgejo_token]
     environment:
+      FORGEJO_TOKEN:
+        from_secret: forgejo_token
       SKIP_GLTF_EXPORT: "true"
     commands:
       - nix develop --extra-experimental-features 'nix-command flakes' --command cargo clippy --fix --allow-dirty
@@ -34,7 +37,8 @@ steps:
         if [ -n "$(git status --porcelain)" ]; then
           BRANCH="${CI_COMMIT_SOURCE_BRANCH:-$CI_COMMIT_BRANCH}"
           REPO_URL=$(git remote get-url origin)
-          git remote set-url origin "https://$FORGEJO_TOKEN@${REPO_URL#https://}"
+          HOST_PATH=$(echo "$REPO_URL" | sed 's|^[^/]*//||' | sed 's|^[^@]*@||')
+          git remote set-url origin "https://$FORGEJO_TOKEN@$HOST_PATH"
           git config user.name "Orbital CI"
           git config user.email "ci@orbital.local"
           git add -A
