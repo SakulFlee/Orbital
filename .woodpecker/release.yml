@@ -58,7 +58,9 @@ steps:
 
   publish:
     image: nixos/nix:latest
-    secrets: [forgejo_token]
+    environment:
+      FORGEJO_TOKEN:
+        from_secret: forgejo_token
     commands:
       - |
         REPO_URL=$(git remote get-url origin)
