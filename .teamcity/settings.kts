@@ -43,6 +43,7 @@ project {
     buildType(Test)
     buildType(Build_x86_64)
     buildType(Build_aarch64)
+    buildType(Build_windows)
 }
 
 object Lint : BuildType({
@@ -78,7 +79,7 @@ object Lint : BuildType({
     }
 
     requirements {
-        equals("teamcity.agent.os.family", "Linux")
+        contains("teamcity.agent.jvm.os.name", "Linux")
     }
 })
 
@@ -110,7 +111,7 @@ object Test : BuildType({
     }
 
     requirements {
-        equals("teamcity.agent.os.family", "Linux")
+        contains("teamcity.agent.jvm.os.name", "Linux")
     }
 
     dependencies {
@@ -161,7 +162,7 @@ object Build_x86_64 : BuildType({
     }
 
     requirements {
-        equals("teamcity.agent.os.family", "Linux")
+        contains("teamcity.agent.jvm.os.name", "Linux")
     }
 
     dependencies {
@@ -214,7 +215,47 @@ object Build_aarch64 : BuildType({
     }
 
     requirements {
-        equals("teamcity.agent.os.family", "Linux")
+        contains("teamcity.agent.jvm.os.name", "Linux")
+    }
+
+    dependencies {
+        snapshot(Test) {
+            reuseBuilds = ReuseBuilds.SUCCESSFUL
+        }
+    }
+})
+
+object Build_windows : BuildType({
+    name = "Build x86_64-pc-windows-msvc"
+
+    vcs {
+        root(DslContext.settingsRoot)
+    }
+
+    artifactRules = "target/x86_64-pc-windows-msvc/release/*.exe"
+
+    steps {
+        script {
+            name = "Build release"
+            scriptContent = """
+                rustup default stable
+                rustup update
+                rustup target add x86_64-pc-windows-msvc
+                cargo build --release --target x86_64-pc-windows-msvc
+            """.trimIndent()
+        }
+    }
+
+    triggers {
+        vcs {
+            branchFilter = """
+                +:refs/tags/v*
+            """.trimIndent()
+        }
+    }
+
+    requirements {
+        contains("teamcity.agent.jvm.os.name", "Windows")
     }
 
     dependencies {
