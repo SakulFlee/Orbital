@@ -12,7 +12,8 @@ steps:
       - |
         if [ -n "$(git status --porcelain)" ]; then
           BRANCH="${CI_COMMIT_SOURCE_BRANCH:-$CI_COMMIT_BRANCH}"
-          git remote set-url origin "https://$FORGEJO_TOKEN@${CI_REPO_LINK#https://}.git"
+          REPO_URL=$(git remote get-url origin)
+          git remote set-url origin "https://$FORGEJO_TOKEN@${REPO_URL#https://}"
           git config user.name "Orbital CI"
           git config user.email "ci@orbital.local"
           git add -A
@@ -32,7 +33,8 @@ steps:
       - |
         if [ -n "$(git status --porcelain)" ]; then
           BRANCH="${CI_COMMIT_SOURCE_BRANCH:-$CI_COMMIT_BRANCH}"
-          git remote set-url origin "https://$FORGEJO_TOKEN@${CI_REPO_LINK#https://}.git"
+          REPO_URL=$(git remote get-url origin)
+          git remote set-url origin "https://$FORGEJO_TOKEN@${REPO_URL#https://}"
           git config user.name "Orbital CI"
           git config user.email "ci@orbital.local"
           git add -A

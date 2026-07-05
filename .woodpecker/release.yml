@@ -61,7 +61,8 @@ steps:
     secrets: [forgejo_token]
     commands:
       - |
-        BASE_URL=$(echo "$CI_REPO_LINK" | grep -oP 'https?://[^/]+')
+        REPO_URL=$(git remote get-url origin)
+        BASE_URL=$(echo "$REPO_URL" | grep -oP 'https?://[^/]+')
         API_URL="$BASE_URL/api/v1/repos/$CI_REPO_OWNER/$CI_REPO_NAME"
         EXISTING=$(curl -s -H "Authorization: Bearer $FORGEJO_TOKEN" "$API_URL/releases/tags/$CI_TAG")
         RELEASE_ID=$(echo "$EXISTING" | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)
