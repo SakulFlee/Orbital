@@ -66,17 +66,21 @@ steps:
     commands:
       - |
         REPO_URL=$(git remote get-url origin)
-        BASE_URL=$(echo "$REPO_URL" | grep -oP 'https?://[^/]+')
+        TMP="${REPO_URL#*://}"
+        HOST="${TMP%%/*}"
+        PROTO="${REPO_URL%%://*}"
+        BASE_URL="$PROTO://$HOST"
         API_URL="$BASE_URL/api/v1/repos/$CI_REPO_OWNER/$CI_REPO_NAME"
-        EXISTING=$(curl -s -u "$FORGEJO_USERNAME:$FORGEJO_PASSWORD" "$API_URL/releases/tags/$CI_TAG")
-        RELEASE_ID=$(echo "$EXISTING" | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)
+        RESP=$(curl -s -u "$FORGEJO_USERNAME:$FORGEJO_PASSWORD" "$API_URL/releases/tags/$CI_TAG")
+        RELEASE_ID=""
+        [[ "$RESP" =~ \"id\":([0-9]+) ]] && RELEASE_ID="${BASH_REMATCH[1]}"
         if [ -z "$RELEASE_ID" ]; then
-          RELEASE_DATA=$(curl -s -X POST \
+          RESP=$(curl -s -X POST \
             -u "$FORGEJO_USERNAME:$FORGEJO_PASSWORD" \
             -H "Content-Type: application/json" \
             -d "{\"tag_name\": \"$CI_TAG\", \"name\": \"$CI_TAG\", \"body\": \"Release $CI_TAG\", \"draft\": false, \"prerelease\": false}" \
             "$API_URL/releases")
-          RELEASE_ID=$(echo "$RELEASE_DATA" | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)
+          [[ "$RESP" =~ \"id\":([0-9]+) ]] && RELEASE_ID="${BASH_REMATCH[1]}"
         fi
         if [ -n "$RELEASE_ID" ]; then
           curl -s -X POST \
