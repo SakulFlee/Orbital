@@ -61,12 +61,18 @@ object Lint : BuildType({
     steps {
         script {
             name = "Format check"
-            scriptContent = "nix develop --command cargo fmt --all --check"
+            scriptContent = """
+                docker run --rm -v "${'$'}PWD:/work" -w /work nixos/nix:latest \
+                  nix develop --extra-experimental-features 'nix-command flakes' --command cargo fmt --all --check
+            """.trimIndent()
 
         }
         script {
             name = "Clippy"
-            scriptContent = "nix develop --command cargo clippy"
+            scriptContent = """
+                docker run --rm -v "${'$'}PWD:/work" -w /work nixos/nix:latest \
+                  nix develop --extra-experimental-features 'nix-command flakes' --command cargo clippy
+            """.trimIndent()
 
         }
     }
@@ -98,7 +104,10 @@ object Test : BuildType({
     steps {
         script {
             name = "Cargo test"
-            scriptContent = "nix develop --command cargo test --no-fail-fast"
+            scriptContent = """
+                docker run --rm -v "${'$'}PWD:/work" -w /work nixos/nix:latest \
+                  nix develop --extra-experimental-features 'nix-command flakes' --command cargo test --no-fail-fast
+            """.trimIndent()
 
         }
     }
@@ -135,21 +144,19 @@ object Build_x86_64 : BuildType({
 
     steps {
         script {
-            name = "Build"
+            name = "Build and package"
             scriptContent = """
-                nix develop --command cargo build --release --target x86_64-unknown-linux-gnu
-            """.trimIndent()
-
-        }
-        script {
-            name = "Package"
-            scriptContent = """
-                mkdir upload
-                find target/x86_64-unknown-linux-gnu/release -mindepth 1 -maxdepth 1 -type f \
-                  -not -name '*.d' -not -name '*.rlib' -not -name '.cargo-lock' -not -name 'CACHEDIR.TAG' \
-                  -exec mv {} upload/ \;
-                mv Assets/ upload/
-                cd upload && zip -r ../x86_64-unknown-linux-gnu.zip .
+                docker run --rm -v "${'$'}PWD:/work" -w /work nixos/nix:latest sh -c '
+                  set -e
+                  nix develop --extra-experimental-features "nix-command flakes" --command cargo build --release --target x86_64-unknown-linux-gnu
+                  nix --extra-experimental-features "nix-command flakes" profile install nixpkgs#zip
+                  mkdir upload
+                  find target/x86_64-unknown-linux-gnu/release -mindepth 1 -maxdepth 1 -type f \
+                    -not -name "*.d" -not -name "*.rlib" -not -name ".cargo-lock" -not -name "CACHEDIR.TAG" \
+                    -exec mv {} upload/ \;
+                  mv Assets/ upload/
+                  cd upload && zip -r ../x86_64-unknown-linux-gnu.zip .
+                '
             """.trimIndent()
         }
     }
@@ -188,21 +195,19 @@ object Build_aarch64 : BuildType({
 
     steps {
         script {
-            name = "Build"
+            name = "Build and package"
             scriptContent = """
-                nix develop .#aarch64-cross --command cargo build --release --target aarch64-unknown-linux-gnu
-            """.trimIndent()
-
-        }
-        script {
-            name = "Package"
-            scriptContent = """
-                mkdir upload
-                find target/aarch64-unknown-linux-gnu/release -mindepth 1 -maxdepth 1 -type f \
-                  -not -name '*.d' -not -name '*.rlib' -not -name '.cargo-lock' -not -name 'CACHEDIR.TAG' \
-                  -exec mv {} upload/ \;
-                mv Assets/ upload/
-                cd upload && zip -r ../aarch64-unknown-linux-gnu.zip .
+                docker run --rm -v "${'$'}PWD:/work" -w /work nixos/nix:latest sh -c '
+                  set -e
+                  nix develop --extra-experimental-features "nix-command flakes" .#aarch64-cross --command cargo build --release --target aarch64-unknown-linux-gnu
+                  nix --extra-experimental-features "nix-command flakes" profile install nixpkgs#zip
+                  mkdir upload
+                  find target/aarch64-unknown-linux-gnu/release -mindepth 1 -maxdepth 1 -type f \
+                    -not -name "*.d" -not -name "*.rlib" -not -name ".cargo-lock" -not -name "CACHEDIR.TAG" \
+                    -exec mv {} upload/ \;
+                  mv Assets/ upload/
+                  cd upload && zip -r ../aarch64-unknown-linux-gnu.zip .
+                '
             """.trimIndent()
         }
     }
@@ -239,6 +244,9 @@ object Build_windows : BuildType({
         script {
             name = "Build release"
             scriptContent = """
+                where rustup >nul 2>nul || powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -UseBasicParsing -Uri 'https://win.rustup.rs/x86_64' -OutFile '%TEMP%\rustup-init.exe'"
+                where rustup >nul 2>nul || "%TEMP%\rustup-init.exe" -y --default-toolchain stable
+                set PATH=%PATH%;%USERPROFILE%\.cargo\bin
                 rustup default stable
                 rustup update
                 rustup target add x86_64-pc-windows-msvc
@@ -279,6 +287,9 @@ object Build_windows_arm64 : BuildType({
         script {
             name = "Build release"
             scriptContent = """
+                where rustup >nul 2>nul || powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -UseBasicParsing -Uri 'https://win.rustup.rs/x86_64' -OutFile '%TEMP%\rustup-init.exe'"
+                where rustup >nul 2>nul || "%TEMP%\rustup-init.exe" -y --default-toolchain stable
+                set PATH=%PATH%;%USERPROFILE%\.cargo\bin
                 rustup default stable
                 rustup update
                 rustup target add aarch64-pc-windows-msvc
