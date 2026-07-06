@@ -7,8 +7,8 @@ steps:
     environment:
       FORGEJO_USERNAME:
         from_secret: forgejo_username
-      FORGEJO_PASSWORD:
-        from_secret: forgejo_password
+      FORGEJO_TOKEN:
+        from_secret: forgejo_token
       SKIP_GLTF_EXPORT: "true"
     commands:
       - nix develop --extra-experimental-features 'nix-command flakes' --command cargo fmt --all
@@ -18,7 +18,7 @@ steps:
           [ -z "$BRANCH" ] && BRANCH="$CI_COMMIT_BRANCH"
           REPO_URL=$(git remote get-url origin)
           HOST_PATH=$(echo "$REPO_URL" | cut -d/ -f3-)
-          git remote set-url origin "https://$FORGEJO_USERNAME:$FORGEJO_PASSWORD@$HOST_PATH"
+          git remote set-url origin "https://$FORGEJO_USERNAME:$FORGEJO_TOKEN@$HOST_PATH"
           git config user.name "Orbital CI"
           git config user.email "ci@orbital.local"
           git add -A
@@ -33,8 +33,8 @@ steps:
     environment:
       FORGEJO_USERNAME:
         from_secret: forgejo_username
-      FORGEJO_PASSWORD:
-        from_secret: forgejo_password
+      FORGEJO_TOKEN:
+        from_secret: forgejo_token
       SKIP_GLTF_EXPORT: "true"
     commands:
       - nix develop --extra-experimental-features 'nix-command flakes' --command cargo clippy --fix --allow-dirty
@@ -44,7 +44,7 @@ steps:
           [ -z "$BRANCH" ] && BRANCH="$CI_COMMIT_BRANCH"
           REPO_URL=$(git remote get-url origin)
           HOST_PATH=$(echo "$REPO_URL" | cut -d/ -f3-)
-          git remote set-url origin "https://$FORGEJO_USERNAME:$FORGEJO_PASSWORD@$HOST_PATH"
+          git remote set-url origin "https://$FORGEJO_USERNAME:$FORGEJO_TOKEN@$HOST_PATH"
           git config user.name "Orbital CI"
           git config user.email "ci@orbital.local"
           git add -A
