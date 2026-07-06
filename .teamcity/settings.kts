@@ -60,19 +60,21 @@ object Lint : BuildType({
 
     steps {
         script {
-            name = "Format check"
+            name = "Install dependencies"
             scriptContent = """
-                docker run --rm -v "${'$'}PWD:/work" -w /work nixos/nix:latest \
-                  nix develop --extra-experimental-features 'nix-command flakes' --command cargo fmt --all --check
+                sudo apt-get update
+                sudo apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev
             """.trimIndent()
 
         }
         script {
+            name = "Format check"
+            scriptContent = "cargo fmt --all --check"
+
+        }
+        script {
             name = "Clippy"
-            scriptContent = """
-                docker run --rm -v "${'$'}PWD:/work" -w /work nixos/nix:latest \
-                  nix develop --extra-experimental-features 'nix-command flakes' --command cargo clippy
-            """.trimIndent()
+            scriptContent = "cargo clippy"
 
         }
     }
@@ -103,11 +105,16 @@ object Test : BuildType({
 
     steps {
         script {
-            name = "Cargo test"
+            name = "Install dependencies"
             scriptContent = """
-                docker run --rm -v "${'$'}PWD:/work" -w /work nixos/nix:latest \
-                  nix develop --extra-experimental-features 'nix-command flakes' --command cargo test --no-fail-fast
+                sudo apt-get update
+                sudo apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev
             """.trimIndent()
+
+        }
+        script {
+            name = "Cargo test"
+            scriptContent = "cargo test --no-fail-fast"
 
         }
     }
@@ -144,20 +151,29 @@ object Build_x86_64 : BuildType({
 
     steps {
         script {
-            name = "Build and package"
+            name = "Install dependencies"
             scriptContent = """
-                docker run --rm -v "${'$'}PWD:/work" -w /work nixos/nix:latest sh -c '
-                  set -e
-                  nix develop --extra-experimental-features "nix-command flakes" --command cargo build --release --target x86_64-unknown-linux-gnu
-                  nix --extra-experimental-features "nix-command flakes" profile install nixpkgs#zip
-                  mkdir upload
-                  find target/x86_64-unknown-linux-gnu/release -mindepth 1 -maxdepth 1 -type f \
-                    -not -name "*.d" -not -name "*.rlib" -not -name ".cargo-lock" -not -name "CACHEDIR.TAG" \
-                    -exec mv {} upload/ \;
-                  mv Assets/ upload/
-                  cd upload && zip -r ../x86_64-unknown-linux-gnu.zip .
-                '
+                sudo apt-get update
+                sudo apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev zip
             """.trimIndent()
+
+        }
+        script {
+            name = "Build release"
+            scriptContent = "cargo build --release --target x86_64-unknown-linux-gnu"
+
+        }
+        script {
+            name = "Package"
+            scriptContent = """
+                mkdir upload
+                find target/x86_64-unknown-linux-gnu/release -mindepth 1 -maxdepth 1 -type f \
+                  -not -name '*.d' -not -name '*.rlib' -not -name '.cargo-lock' -not -name 'CACHEDIR.TAG' \
+                  -exec mv {} upload/ \;
+                mv Assets/ upload/
+                cd upload && zip -r ../x86_64-unknown-linux-gnu.zip .
+            """.trimIndent()
+
         }
     }
 
@@ -195,20 +211,37 @@ object Build_aarch64 : BuildType({
 
     steps {
         script {
-            name = "Build and package"
+            name = "Install dependencies"
             scriptContent = """
-                docker run --rm -v "${'$'}PWD:/work" -w /work nixos/nix:latest sh -c '
-                  set -e
-                  nix develop --extra-experimental-features "nix-command flakes" .#aarch64-cross --command cargo build --release --target aarch64-unknown-linux-gnu
-                  nix --extra-experimental-features "nix-command flakes" profile install nixpkgs#zip
-                  mkdir upload
-                  find target/aarch64-unknown-linux-gnu/release -mindepth 1 -maxdepth 1 -type f \
-                    -not -name "*.d" -not -name "*.rlib" -not -name ".cargo-lock" -not -name "CACHEDIR.TAG" \
-                    -exec mv {} upload/ \;
-                  mv Assets/ upload/
-                  cd upload && zip -r ../aarch64-unknown-linux-gnu.zip .
-                '
+                sudo dpkg --add-architecture arm64
+                sudo apt-get update
+                sudo apt-get install -y gcc-aarch64-linux-gnu pkg-config-aarch64-linux-gnu
+                sudo apt-get install -y libudev-dev:arm64 libwayland-dev:arm64 libxkbcommon-dev:arm64 libvulkan-dev:arm64 zip
             """.trimIndent()
+
+        }
+        script {
+            name = "Build release"
+            scriptContent = """
+                rustup target add aarch64-unknown-linux-gnu && \
+                CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
+                CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc \
+                PKG_CONFIG_ALLOW_CROSS=1 \
+                cargo build --release --target aarch64-unknown-linux-gnu
+            """.trimIndent()
+
+        }
+        script {
+            name = "Package"
+            scriptContent = """
+                mkdir upload
+                find target/aarch64-unknown-linux-gnu/release -mindepth 1 -maxdepth 1 -type f \
+                  -not -name '*.d' -not -name '*.rlib' -not -name '.cargo-lock' -not -name 'CACHEDIR.TAG' \
+                  -exec mv {} upload/ \;
+                mv Assets/ upload/
+                cd upload && zip -r ../aarch64-unknown-linux-gnu.zip .
+            """.trimIndent()
+
         }
     }
 
@@ -248,7 +281,6 @@ object Build_windows : BuildType({
                 where rustup >nul 2>nul || "%TEMP%\rustup-init.exe" -y --default-toolchain stable
                 set PATH=%PATH%;%USERPROFILE%\.cargo\bin
                 rustup default stable
-                rustup update
                 rustup target add x86_64-pc-windows-msvc
                 cargo build --release --target x86_64-pc-windows-msvc
             """.trimIndent()
@@ -291,7 +323,6 @@ object Build_windows_arm64 : BuildType({
                 where rustup >nul 2>nul || "%TEMP%\rustup-init.exe" -y --default-toolchain stable
                 set PATH=%PATH%;%USERPROFILE%\.cargo\bin
                 rustup default stable
-                rustup update
                 rustup target add aarch64-pc-windows-msvc
                 cargo build --release --target aarch64-pc-windows-msvc
             """.trimIndent()
