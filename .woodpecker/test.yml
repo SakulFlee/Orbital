@@ -5,8 +5,8 @@ steps:
   format:
     image: nixos/nix:latest
     environment:
-      FORGEJO_USERNAME:
-        from_secret: forgejo_username
+      FORGEJO_USER:
+        from_secret: forgejo_user
       FORGEJO_TOKEN:
         from_secret: forgejo_token
       SKIP_GLTF_EXPORT: "true"
@@ -18,7 +18,7 @@ steps:
           [ -z "$BRANCH" ] && BRANCH="$CI_COMMIT_BRANCH"
           REPO_URL=$(git remote get-url origin)
           HOST_PATH=$(echo "$REPO_URL" | cut -d/ -f3-)
-          git remote set-url origin "https://$FORGEJO_USERNAME:$FORGEJO_TOKEN@$HOST_PATH"
+          git remote set-url origin "https://$FORGEJO_USER:$FORGEJO_TOKEN@$HOST_PATH"
           git config user.name "Orbital CI"
           git config user.email "ci@orbital.local"
           git add -A
@@ -31,8 +31,8 @@ steps:
   clippy:
     image: nixos/nix:latest
     environment:
-      FORGEJO_USERNAME:
-        from_secret: forgejo_username
+      FORGEJO_USER:
+        from_secret: forgejo_user
       FORGEJO_TOKEN:
         from_secret: forgejo_token
       SKIP_GLTF_EXPORT: "true"
@@ -44,7 +44,7 @@ steps:
           [ -z "$BRANCH" ] && BRANCH="$CI_COMMIT_BRANCH"
           REPO_URL=$(git remote get-url origin)
           HOST_PATH=$(echo "$REPO_URL" | cut -d/ -f3-)
-          git remote set-url origin "https://$FORGEJO_USERNAME:$FORGEJO_TOKEN@$HOST_PATH"
+          git remote set-url origin "https://$FORGEJO_USER:$FORGEJO_TOKEN@$HOST_PATH"
           git config user.name "Orbital CI"
           git config user.email "ci@orbital.local"
           git add -A

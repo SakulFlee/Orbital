@@ -59,20 +59,20 @@ steps:
   publish:
     image: nixos/nix:latest
     environment:
-      FORGEJO_USERNAME:
-        from_secret: forgejo_username
-      FORGEJO_PASSWORD:
-        from_secret: forgejo_password
+      FORGEJO_USER:
+        from_secret: forgejo_user
+      FORGEJO_TOKEN:
+        from_secret: forgejo_token
     commands:
       - |
         REPO_URL=$(git remote get-url origin)
         BASE_URL=$(echo "$REPO_URL" | cut -d/ -f1-3)
         API_URL="$BASE_URL/api/v1/repos/$CI_REPO_OWNER/$CI_REPO_NAME"
-        RESP=$(curl -s -u "$FORGEJO_USERNAME:$FORGEJO_PASSWORD" "$API_URL/releases/tags/$CI_TAG")
+        RESP=$(curl -s -u "$FORGEJO_USER:$FORGEJO_TOKEN" "$API_URL/releases/tags/$CI_TAG")
         RELEASE_ID=$(echo "$RESP" | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)
         if [ -z "$RELEASE_ID" ]; then
           RESP=$(curl -s -X POST \
-            -u "$FORGEJO_USERNAME:$FORGEJO_PASSWORD" \
+            -u "$FORGEJO_USER:$FORGEJO_TOKEN" \
             -H "Content-Type: application/json" \
             -d "{\"tag_name\": \"$CI_TAG\", \"name\": \"$CI_TAG\", \"body\": \"Release $CI_TAG\", \"draft\": false, \"prerelease\": false}" \
             "$API_URL/releases")
@@ -80,7 +80,7 @@ steps:
         fi
         if [ -n "$RELEASE_ID" ]; then
           curl -s -X POST \
-            -u "$FORGEJO_USERNAME:$FORGEJO_PASSWORD" \
+            -u "$FORGEJO_USER:$FORGEJO_TOKEN" \
             -H "Content-Type: application/octet-stream" \
             --data-binary "@$TARGET.zip" \
             "$API_URL/releases/$RELEASE_ID/assets?name=$TARGET.zip"
