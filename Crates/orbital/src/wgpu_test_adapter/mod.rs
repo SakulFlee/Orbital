@@ -65,8 +65,8 @@
 /// ```
 use log::debug;
 use wgpu::{
-    Adapter, Backends, Device, DeviceDescriptor, Instance, InstanceDescriptor, PowerPreference,
-    Queue, RequestAdapterOptions,
+    Adapter, Device, DeviceDescriptor, Instance, InstanceDescriptor, PowerPreference, Queue,
+    RequestAdapterOptions,
 };
 
 use crate::logging;
@@ -89,16 +89,14 @@ pub fn make_wgpu_connection() -> (Adapter, Device, Queue) {
     debug!("{:#^88}", " WGPU Test Adapter ");
     debug!("# {: ^84} #", "!!! for testing only !!!");
 
-    let instance = Instance::new(&InstanceDescriptor {
-        backends: Backends::all(),
-        ..Default::default()
-    });
+    let instance = Instance::new(InstanceDescriptor::new_without_display_handle());
     debug!("# {: <84} #", format!("Instance: {:?}", instance));
 
     let adapter = block_on(instance.request_adapter(&RequestAdapterOptions {
         power_preference: PowerPreference::None,
         compatible_surface: None,
         force_fallback_adapter: false,
+        apply_limit_buckets: false,
     }))
     .expect("Failed to find any adapter");
     debug!("# {: <84} #", format!("Name: {}", adapter.get_info().name));
