@@ -212,6 +212,7 @@ impl<C: Component> Deref for WriteStoreHandle<'_, C> {
 impl<C: Component> WriteStoreHandle<'_, C> {
     /// Gets a mutable reference to the inner store.
     /// Safe because the RwLockWriteGuard ensures exclusive access.
+    #[allow(clippy::mut_from_ref)]
     pub fn get_mut_store(&self) -> &mut ComponentStore<C> {
         unsafe { &mut *self.ptr }
     }
