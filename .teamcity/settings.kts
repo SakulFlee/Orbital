@@ -60,21 +60,23 @@ object Lint : BuildType({
 
     steps {
         script {
-            name = "Install dependencies"
+            name = "Format check"
             scriptContent = """
-                sudo apt-get update
-                sudo apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev
+                docker run --rm -v "${'$'}PWD:/work" -w /work rust:latest bash -c '
+                  apt-get update && apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev &&
+                  cargo fmt --all --check
+                '
             """.trimIndent()
 
         }
         script {
-            name = "Format check"
-            scriptContent = "cargo fmt --all --check"
-
-        }
-        script {
             name = "Clippy"
-            scriptContent = "cargo clippy"
+            scriptContent = """
+                docker run --rm -v "${'$'}PWD:/work" -w /work rust:latest bash -c '
+                  apt-get update && apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev &&
+                  cargo clippy
+                '
+            """.trimIndent()
 
         }
     }
@@ -105,16 +107,13 @@ object Test : BuildType({
 
     steps {
         script {
-            name = "Install dependencies"
-            scriptContent = """
-                sudo apt-get update
-                sudo apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev
-            """.trimIndent()
-
-        }
-        script {
             name = "Cargo test"
-            scriptContent = "cargo test --no-fail-fast"
+            scriptContent = """
+                docker run --rm -v "${'$'}PWD:/work" -w /work rust:latest bash -c '
+                  apt-get update && apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev &&
+                  cargo test --no-fail-fast
+                '
+            """.trimIndent()
 
         }
     }
@@ -151,27 +150,20 @@ object Build_x86_64 : BuildType({
 
     steps {
         script {
-            name = "Install dependencies"
+            name = "Build and package"
             scriptContent = """
-                sudo apt-get update
-                sudo apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev zip
-            """.trimIndent()
-
-        }
-        script {
-            name = "Build release"
-            scriptContent = "cargo build --release --target x86_64-unknown-linux-gnu"
-
-        }
-        script {
-            name = "Package"
-            scriptContent = """
-                mkdir upload
-                find target/x86_64-unknown-linux-gnu/release -mindepth 1 -maxdepth 1 -type f \
-                  -not -name '*.d' -not -name '*.rlib' -not -name '.cargo-lock' -not -name 'CACHEDIR.TAG' \
-                  -exec mv {} upload/ \;
-                mv Assets/ upload/
-                cd upload && zip -r ../x86_64-unknown-linux-gnu.zip .
+                docker run --rm -v "${'$'}PWD:/work" -w /work rust:latest bash -c '
+                  set -e
+                  apt-get update
+                  apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev zip
+                  cargo build --release --target x86_64-unknown-linux-gnu
+                  mkdir upload
+                  find target/x86_64-unknown-linux-gnu/release -mindepth 1 -maxdepth 1 -type f \
+                    -not -name "*.d" -not -name "*.rlib" -not -name ".cargo-lock" -not -name "CACHEDIR.TAG" \
+                    -exec mv {} upload/ \;
+                  mv Assets/ upload/
+                  cd upload && zip -r ../x86_64-unknown-linux-gnu.zip .
+                '
             """.trimIndent()
 
         }
@@ -211,35 +203,26 @@ object Build_aarch64 : BuildType({
 
     steps {
         script {
-            name = "Install dependencies"
+            name = "Build and package"
             scriptContent = """
-                sudo dpkg --add-architecture arm64
-                sudo apt-get update
-                sudo apt-get install -y gcc-aarch64-linux-gnu pkg-config-aarch64-linux-gnu
-                sudo apt-get install -y libudev-dev:arm64 libwayland-dev:arm64 libxkbcommon-dev:arm64 libvulkan-dev:arm64 zip
-            """.trimIndent()
-
-        }
-        script {
-            name = "Build release"
-            scriptContent = """
-                rustup target add aarch64-unknown-linux-gnu && \
-                CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
-                CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc \
-                PKG_CONFIG_ALLOW_CROSS=1 \
-                cargo build --release --target aarch64-unknown-linux-gnu
-            """.trimIndent()
-
-        }
-        script {
-            name = "Package"
-            scriptContent = """
-                mkdir upload
-                find target/aarch64-unknown-linux-gnu/release -mindepth 1 -maxdepth 1 -type f \
-                  -not -name '*.d' -not -name '*.rlib' -not -name '.cargo-lock' -not -name 'CACHEDIR.TAG' \
-                  -exec mv {} upload/ \;
-                mv Assets/ upload/
-                cd upload && zip -r ../aarch64-unknown-linux-gnu.zip .
+                docker run --rm -v "${'$'}PWD:/work" -w /work rust:latest bash -c '
+                  set -e
+                  dpkg --add-architecture arm64
+                  apt-get update
+                  apt-get install -y gcc-aarch64-linux-gnu pkg-config-aarch64-linux-gnu
+                  apt-get install -y libudev-dev:arm64 libwayland-dev:arm64 libxkbcommon-dev:arm64 libvulkan-dev:arm64 zip
+                  rustup target add aarch64-unknown-linux-gnu
+                  CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
+                  CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc \
+                  PKG_CONFIG_ALLOW_CROSS=1 \
+                  cargo build --release --target aarch64-unknown-linux-gnu
+                  mkdir upload
+                  find target/aarch64-unknown-linux-gnu/release -mindepth 1 -maxdepth 1 -type f \
+                    -not -name "*.d" -not -name "*.rlib" -not -name ".cargo-lock" -not -name "CACHEDIR.TAG" \
+                    -exec mv {} upload/ \;
+                  mv Assets/ upload/
+                  cd upload && zip -r ../aarch64-unknown-linux-gnu.zip .
+                '
             """.trimIndent()
 
         }
