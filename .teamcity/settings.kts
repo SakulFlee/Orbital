@@ -63,7 +63,7 @@ object Lint : BuildType({
             name = "Format check"
             scriptContent = """
                 docker run --rm -v "${'$'}PWD:/work" -w /work rust:latest bash -c '
-                  apt-get update && apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev &&
+                  apt-get update && apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev mesa-vulkan-drivers &&
                   cargo fmt --all --check
                 '
             """.trimIndent()
@@ -73,7 +73,7 @@ object Lint : BuildType({
             name = "Clippy"
             scriptContent = """
                 docker run --rm -v "${'$'}PWD:/work" -w /work rust:latest bash -c '
-                  apt-get update && apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev &&
+                  apt-get update && apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev mesa-vulkan-drivers &&
                   cargo clippy
                 '
             """.trimIndent()
@@ -110,7 +110,7 @@ object Test : BuildType({
             name = "Cargo test"
             scriptContent = """
                 docker run --rm -v "${'$'}PWD:/work" -w /work rust:latest bash -c '
-                  apt-get update && apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev &&
+                  apt-get update && apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev mesa-vulkan-drivers &&
                   cargo test --no-fail-fast
                 '
             """.trimIndent()
