@@ -19,7 +19,7 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
       - name: 🛠️ Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev mesa-vulkan-drivers
       - name: 📎 Clippy
         env:
           SKIP_GLTF_EXPORT: true
@@ -36,7 +36,7 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
       - name: 🛠️ Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev mesa-vulkan-drivers
       - name: 🧪 Test
         env:
           SKIP_GLTF_EXPORT: true
@@ -56,7 +56,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: 🛠️ Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev mesa-vulkan-drivers
       - name: 🔨 Build
         env:
           SKIP_GLTF_EXPORT: true

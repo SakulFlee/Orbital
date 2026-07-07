@@ -131,5 +131,51 @@ pub fn make_wgpu_connection() -> (Adapter, Device, Queue) {
 
 #[test]
 fn test_make_connection() {
-    let (_adapter, _device, _queue) = make_wgpu_connection();
+    logging::test_init();
+
+    debug!("{:#^88}", " WGPU Test Adapter ");
+    debug!("# {: ^84} #", "!!! for testing only !!!");
+
+    let instance = Instance::new(InstanceDescriptor::new_without_display_handle());
+    debug!("# {: <84} #", format!("Instance: {:?}", instance));
+
+    let adapter = match block_on(instance.request_adapter(&RequestAdapterOptions {
+        power_preference: PowerPreference::None,
+        compatible_surface: None,
+        force_fallback_adapter: false,
+        apply_limit_buckets: false,
+    })) {
+        Ok(adapter) => adapter,
+        Err(err) => {
+            debug!("# {: <84} #", format!("No adapter found: {err}"));
+            debug!("{:#^88}", "");
+            return;
+        }
+    };
+    debug!("# {: <84} #", format!("Name: {}", adapter.get_info().name));
+    debug!(
+        "# {: <84} #",
+        format!("Backend: {:?}", adapter.get_info().backend)
+    );
+    debug!(
+        "# {: <84} #",
+        format!("Device Type: {:?}", adapter.get_info().device_type)
+    );
+    debug!(
+        "# {: <84} #",
+        format!("Driver: {}", adapter.get_info().driver)
+    );
+    debug!(
+        "# {: <84} #",
+        format!("Driver Info: {}", adapter.get_info().driver_info)
+    );
+
+    let (device, queue) = block_on(adapter.request_device(&DeviceDescriptor {
+        ..Default::default()
+    }))
+    .expect("Failed to create device");
+    debug!("# {: <84} #", format!("Device: {:?}", device.features()));
+    debug!("# {: <84} #", format!("Queue: {:?}", queue));
+
+    debug!("{:#^88}", "");
 }
