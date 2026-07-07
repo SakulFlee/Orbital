@@ -41,11 +41,12 @@
           wayland
           libxkbcommon
           vulkan-loader
+          pkgs.mesa
         ];
 
         commonShellHook = ''
           export RUST_SRC_PATH="${rustToolchain}/lib/rustlib/src/rust/library"
-          export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${pkgs.lib.makeLibraryPath [ pkgs.wayland pkgs.libxkbcommon pkgs.vulkan-loader ]}"
+          export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${pkgs.lib.makeLibraryPath [ pkgs.wayland pkgs.libxkbcommon pkgs.vulkan-loader pkgs.mesa ]}"
         '';
       in
       {
