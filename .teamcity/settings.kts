@@ -64,6 +64,7 @@ object Lint : BuildType({
             scriptContent = """
                 docker run --rm -v "${'$'}PWD:/work" -w /work rust:latest bash -c '
                   apt-get update && apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev mesa-vulkan-drivers &&
+                  rustup component add rustfmt &&
                   cargo fmt --all --check
                 '
             """.trimIndent()
@@ -74,6 +75,7 @@ object Lint : BuildType({
             scriptContent = """
                 docker run --rm -v "${'$'}PWD:/work" -w /work rust:latest bash -c '
                   apt-get update && apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev mesa-vulkan-drivers &&
+                  rustup component add clippy &&
                   cargo clippy
                 '
             """.trimIndent()
