@@ -2159,6 +2159,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "orbital_ecs_bridge"
+version = "0.1.0"
+dependencies = [
+ "cgmath",
+ "orbital_ecs",
+ "orbital_input",
+ "wgpu",
+]
+
+[[package]]
 name = "orbital_element"
 version = "0.1.0"
 dependencies = [
