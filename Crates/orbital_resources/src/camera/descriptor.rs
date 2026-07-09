@@ -1,3 +1,12 @@
+//! Camera descriptor — the data that defines a camera in the scene.
+//!
+//! `CameraDescriptor` implements `orbital_ecs::Component` via the blanket
+//! impl (`Debug + Clone + Send + Sync`), so it can be attached to an
+//! entity in the ECS world and queried by ECS systems.
+//!
+//! The renderer reads the active camera via the [`ActiveCamera`] resource
+//! (see `orbital_ecs_bridge::resources`).
+
 use std::f32::consts::FRAC_PI_2;
 
 use super::{CameraTransform, Mode};
