@@ -7,6 +7,9 @@ pub use runtime_event::*;
 mod runtime;
 pub use runtime::*;
 
+mod core_schedule;
+pub use core_schedule::*;
+
 pub use orbital_element::AppEvent;
 
 mod timer;
