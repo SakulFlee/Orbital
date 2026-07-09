@@ -1,0 +1,10 @@
+[package]
+name = "orbital_ecs_bridge"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+orbital_ecs = { path = "../ecs" }
+cgmath = { workspace = true }
+orbital_input = { path = "../orbital_input" }
+wgpu = { workspace = true }
