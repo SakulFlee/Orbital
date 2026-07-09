@@ -211,12 +211,13 @@ object Build_aarch64 : BuildType({
                   set -e
                   dpkg --add-architecture arm64
                   apt-get update
-                  apt-get install -y gcc-aarch64-linux-gnu pkg-config-aarch64-linux-gnu
+                  apt-get install -y gcc-aarch64-linux-gnu pkg-config
                   apt-get install -y libudev-dev:arm64 libwayland-dev:arm64 libxkbcommon-dev:arm64 libvulkan-dev:arm64 zip
                   rustup target add aarch64-unknown-linux-gnu
                   CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
                   CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc \
                   PKG_CONFIG_ALLOW_CROSS=1 \
+                  PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig \
                   cargo build --release --target aarch64-unknown-linux-gnu
                   mkdir upload
                   find target/aarch64-unknown-linux-gnu/release -mindepth 1 -maxdepth 1 -type f \
