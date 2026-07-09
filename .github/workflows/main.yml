@@ -173,7 +173,7 @@ jobs:
           mkdir upload
           Get-ChildItem -Path "target/${{ matrix.target }}/release" -Depth 0 -File -Exclude "*.d", "*.rlib", ".cargo-lock", "CACHEDIR.TAG" | Move-Item -Destination "upload/" -Force
           Move-Item -Force -Path "Assets/" -Destination "upload/"
-          Compress-Archive -Destination ../${{ matrix.target }}.zip -Path .\upload\*
+          Compress-Archive -Destination ${{ matrix.target }}.zip -Path .\upload\*
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.target }}
