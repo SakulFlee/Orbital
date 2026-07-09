@@ -11,6 +11,8 @@ gamepad_input_poll = ["gamepad_input"]
 
 [dependencies]
 orbital_core = { path = "../orbital_core" }
+orbital_ecs = { path = "../ecs" }
+orbital_ecs_bridge = { path = "../orbital_ecs_bridge" }
 orbital_element = { path = "../orbital_element" }
 orbital_input = { path = "../orbital_input" }
 orbital_renderer = { path = "../orbital_renderer" }
