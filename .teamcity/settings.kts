@@ -62,7 +62,7 @@ object Lint : BuildType({
         script {
             name = "Format check"
             scriptContent = """
-                docker run --rm -v "${'$'}PWD:/work" -w /work rust:latest bash -c '
+                docker run --rm -e SKIP_GLTF_EXPORT -v "${'$'}PWD:/work" -w /work rust:latest bash -c '
                   apt-get update && apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev mesa-vulkan-drivers &&
                   rustup component add rustfmt &&
                   cargo fmt --all --check
@@ -73,7 +73,7 @@ object Lint : BuildType({
         script {
             name = "Clippy"
             scriptContent = """
-                docker run --rm -v "${'$'}PWD:/work" -w /work rust:latest bash -c '
+                docker run --rm -e SKIP_GLTF_EXPORT -v "${'$'}PWD:/work" -w /work rust:latest bash -c '
                   apt-get update && apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev mesa-vulkan-drivers &&
                   rustup component add clippy &&
                   cargo clippy
@@ -111,7 +111,7 @@ object Test : BuildType({
         script {
             name = "Cargo test"
             scriptContent = """
-                docker run --rm -v "${'$'}PWD:/work" -w /work rust:latest bash -c '
+                docker run --rm -e SKIP_GLTF_EXPORT -v "${'$'}PWD:/work" -w /work rust:latest bash -c '
                   apt-get update && apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev mesa-vulkan-drivers &&
                   cargo test --no-fail-fast
                 '
@@ -154,7 +154,7 @@ object Build_x86_64 : BuildType({
         script {
             name = "Build and package"
             scriptContent = """
-                docker run --rm -v "${'$'}PWD:/work" -w /work rust:latest bash -c '
+                docker run --rm -e SKIP_GLTF_EXPORT -v "${'$'}PWD:/work" -w /work rust:latest bash -c '
                   set -e
                   apt-get update
                   apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev zip
@@ -207,7 +207,7 @@ object Build_aarch64 : BuildType({
         script {
             name = "Build and package"
             scriptContent = """
-                docker run --rm -v "${'$'}PWD:/work" -w /work rust:latest bash -c '
+                docker run --rm -e SKIP_GLTF_EXPORT -v "${'$'}PWD:/work" -w /work rust:latest bash -c '
                   set -e
                   dpkg --add-architecture arm64
                   apt-get update
