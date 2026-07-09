@@ -2132,6 +2132,8 @@ dependencies = [
  "gilrs",
  "log",
  "orbital_core",
+ "orbital_ecs",
+ "orbital_ecs_bridge",
  "orbital_element",
  "orbital_input",
  "orbital_renderer",

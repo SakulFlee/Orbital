@@ -17,7 +17,8 @@ use winit::{
     window::{CursorGrabMode, WindowId},
 };
 
-use crate::{App, AppContext, AppSettings, AppState, Timer};
+use crate::{App, AppContext, AppSettings, AppState, Timer, make_core_schedule};
+use orbital_ecs_bridge::{DeltaTime, FrameCounter, InputSnapshot, TotalTime};
 
 macro_rules! ctx_lock {
     ($ctx:ident) => {
@@ -32,6 +33,8 @@ pub struct AppRuntime<AppImpl: App> {
     state: AppState,
     input_state: InputState,
     timer: Option<Timer>,
+    ecs_world: orbital_ecs::World,
+    core_schedule: orbital_ecs::Schedule,
     #[cfg(feature = "gamepad_input")]
     gil: Gilrs,
 }
@@ -56,9 +59,19 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
             state: AppState::Starting,
             input_state: InputState::new(),
             timer: None,
+            ecs_world: orbital_ecs::World::new(),
+            core_schedule: make_core_schedule(),
             #[cfg(feature = "gamepad_input")]
             gil: Gilrs::new().expect("Gamepad input initialization failed!"),
         };
+
+        // Initialise built-in ECS resources
+        app_runtime.ecs_world.insert_resource(FrameCounter(0));
+        app_runtime.ecs_world.insert_resource(DeltaTime(0.0));
+        app_runtime.ecs_world.insert_resource(TotalTime(0.0));
+        app_runtime
+            .ecs_world
+            .insert_resource(InputSnapshot(InputState::new()));
 
         event_loop.run_app(&mut app_runtime)
     }
@@ -128,6 +141,17 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
         if let Some((total_delta, fps)) = cycle {
             info!("FPS: {fps} | TDT: {total_delta}s | CDT: {delta_time}s");
         }
+
+        // Write frame-computed engine state into the ECS world
+        self.ecs_world.insert_resource(DeltaTime(delta_time));
+        if let Some(mut counter) = self.ecs_world.get_resource_mut::<FrameCounter>() {
+            counter.0 += 1;
+        }
+        self.ecs_world
+            .insert_resource(InputSnapshot(self.input_state.clone()));
+
+        // Run the core engine schedule (frame timing, etc.)
+        self.core_schedule.run(&self.ecs_world);
 
         #[cfg(feature = "gamepad_input_poll")]
         self.receive_controller_inputs();
