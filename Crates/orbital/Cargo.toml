@@ -49,6 +49,7 @@ orbital_camera_controller = { path = "../orbital_camera_controller" }
 orbital_renderer = { path = "../orbital_renderer" }
 orbital_world = { path = "../orbital_world" }
 orbital_app = { path = "../orbital_app" }
+orbital_ecs_bridge = { path = "../orbital_ecs_bridge" }
 
 gilrs = { workspace = true, optional = true }
 
