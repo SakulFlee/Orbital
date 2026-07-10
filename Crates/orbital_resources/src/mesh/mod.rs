@@ -8,6 +8,9 @@ pub use crate::Vertex;
 mod descriptor;
 pub use descriptor::*;
 
+mod cache;
+pub use cache::*;
+
 #[derive(Debug)]
 pub struct Mesh {
     vertex_buffer: Buffer,

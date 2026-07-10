@@ -1,7 +1,4 @@
-use std::{
-    error::Error,
-    sync::{Arc, RwLock},
-};
+use std::error::Error;
 
 use hashbrown::HashMap;
 use log::warn;
@@ -14,10 +11,7 @@ mod tests;
 use orbital_core::cache::{Cache, CacheEntry};
 use orbital_core::or::Or;
 use orbital_element::ModelEvent;
-use orbital_resources::{
-    BoundingBox, MaterialShader, MaterialShaderDescriptor, Mesh, MeshDescriptor, Model,
-    ModelDescriptor,
-};
+use orbital_resources::{BoundingBox, MaterialShaderCache, MeshCache, Model, ModelDescriptor};
 
 use super::StoreError;
 
@@ -29,8 +23,6 @@ pub struct ModelStore {
     queue_bounding_boxes: Vec<Ulid>,
     map_bounding_boxes: HashMap<Ulid, BoundingBox>,
     map_label: HashMap<String, Ulid>,
-    cache_mesh: RwLock<Cache<Arc<MeshDescriptor>, Mesh>>,
-    cache_material: RwLock<Cache<Arc<MaterialShaderDescriptor>, MaterialShader>>,
     instance_map: HashMap<Ulid, Ulid>,
     instance_tracker: HashMap<String, (String, Ulid)>,
 }
@@ -120,12 +112,14 @@ impl ModelStore {
         }
     }
 
-    pub fn realize_and_cache(
-        &mut self,
+    pub fn realize_and_cache<'a>(
+        &'a mut self,
         surface_format: &TextureFormat,
         device: &Device,
         queue: &Queue,
-    ) -> Vec<(Ulid, Box<dyn Error + '_>)> {
+        mesh_cache: &'a MeshCache,
+        material_cache: &'a MaterialShaderCache,
+    ) -> Vec<(Ulid, Box<dyn Error + 'a>)> {
         let mut errors: Vec<(Ulid, Box<dyn Error>)> = Vec::new();
 
         for id in self
@@ -145,8 +139,8 @@ impl ModelStore {
                 surface_format,
                 device,
                 queue,
-                &self.cache_mesh,
-                &self.cache_material,
+                mesh_cache,
+                material_cache,
             ) {
                 Ok(model) => model,
                 Err(e) => {
@@ -176,33 +170,10 @@ impl ModelStore {
 
     pub fn cleanup(&mut self) -> Result<(), Box<dyn Error + '_>> {
         self.cache_realizations.cleanup();
-        match self.cache_mesh.write() {
-            Ok(mut lock) => lock.cleanup(),
-            Err(e) => {
-                return Err(Box::new(e));
-            }
-        }
-        match self.cache_material.write() {
-            Ok(mut lock) => lock.cleanup(),
-            Err(e) => {
-                return Err(Box::new(e));
-            }
-        }
-
         Ok(())
     }
 
     pub fn clear(&mut self) -> Result<(), Box<dyn Error + '_>> {
-        match self.cache_mesh.write() {
-            Ok(mut lock) => lock.clear(),
-            Err(e) => return Err(Box::new(e)),
-        };
-
-        match self.cache_material.write() {
-            Ok(mut lock) => lock.clear(),
-            Err(e) => return Err(Box::new(e)),
-        };
-
         self.map_label.clear();
         self.map_descriptors.clear();
         self.map_bounding_boxes.clear();
