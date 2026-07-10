@@ -17,7 +17,7 @@ use winit::{
     window::{CursorGrabMode, WindowId},
 };
 
-use crate::{App, AppContext, AppSettings, AppState, Timer, make_core_schedule};
+use crate::{make_core_schedule, App, AppContext, AppSettings, AppState, Timer};
 use orbital_ecs_bridge::{DeltaTime, FrameCounter, InputSnapshot, TotalTime};
 
 macro_rules! ctx_lock {
