@@ -1,3 +1,9 @@
+//! Light realized GPU type.
+//!
+//! `Light` implements `orbital_ecs::Component` via the blanket impl
+//! (`Debug + Clone + Send + Sync` of its inner `LightDescriptor`),
+//! so it can be attached to an entity in the ECS world.
+
 use std::error::Error;
 
 use wgpu::{Device, Queue};
