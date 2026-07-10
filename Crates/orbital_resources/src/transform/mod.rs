@@ -1,4 +1,4 @@
-use cgmath::{Quaternion, Vector3, Zero};
+use cgmath::{Matrix4, Quaternion, Vector3, Zero};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Transform {
@@ -88,6 +88,18 @@ impl Transform {
 
     pub fn apply_scale(&mut self, other_scale: Vector3<f32>) {
         self.scale += other_scale;
+    }
+
+    /// Convert this transform into a 4x4 transformation matrix
+    /// suitable for use in shader uniforms.
+    ///
+    /// The matrix is computed as `translation * rotation * scale`
+    /// (applied in SRT order — scale first, then rotate, then translate).
+    pub fn to_matrix(&self) -> Matrix4<f32> {
+        let t = Matrix4::from_translation(self.position);
+        let r = Matrix4::from(self.rotation);
+        let s = Matrix4::from_nonuniform_scale(self.scale.x, self.scale.y, self.scale.z);
+        t * r * s
     }
 }
 
