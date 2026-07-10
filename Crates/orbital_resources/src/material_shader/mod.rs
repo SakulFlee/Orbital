@@ -13,6 +13,9 @@ pub use crate::shader::{ShaderDescriptor, ShaderError, Variables};
 mod descriptor;
 pub use descriptor::*;
 
+mod cache;
+pub use cache::*;
+
 mod vertex_stage_layout;
 pub use vertex_stage_layout::*;
 
