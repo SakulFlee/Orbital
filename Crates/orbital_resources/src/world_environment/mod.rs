@@ -1,3 +1,9 @@
+//! World environment handling IBL (Image-Based Lighting) textures.
+//!
+//! `WorldEnvironment` is a GPU-heavy singleton that can be stored as an ECS
+//! resource (`world.insert_resource(...)`) rather than as a per-entity
+//! component, since there is typically only one active environment.
+
 use cgmath::Vector2;
 use image::{GenericImageView, ImageReader};
 use log::{debug, info, warn};
