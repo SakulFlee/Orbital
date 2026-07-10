@@ -5,7 +5,10 @@ use cgmath::Vector2;
 use log::debug;
 use orbital_element::{CameraEvent, ModelEvent, WorldEvent};
 use orbital_importer_gltf::Importer;
-use orbital_resources::{Camera, CameraDescriptor, IblBrdf, Model, Texture, WorldEnvironment};
+use orbital_resources::{
+    Camera, CameraDescriptor, IblBrdf, MaterialShaderCache, MeshCache, Model, Texture,
+    WorldEnvironment,
+};
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindingResource, Buffer,
     BufferDescriptor, BufferUsages, Device, Queue, TextureFormat, TextureUsages,
@@ -18,6 +21,8 @@ pub struct World {
     camera_store: CameraStore,
     environment_store: EnvironmentStore,
     light_store: LightStore,
+    mesh_cache: MeshCache,
+    material_cache: MaterialShaderCache,
     last_cleanup: Instant,
     importer: Option<Importer>,
     ibl_brdf: Option<Texture>,
@@ -41,6 +46,8 @@ impl World {
             camera_store: CameraStore::new(),
             environment_store: EnvironmentStore::new(),
             light_store: LightStore::new(),
+            mesh_cache: <MeshCache as Default>::default(),
+            material_cache: <MaterialShaderCache as Default>::default(),
             last_cleanup: Instant::now(),
             importer: Some(Importer::new(4)),
             world_bind_group: None,
@@ -257,8 +264,13 @@ impl World {
         queue: &Queue,
     ) {
         self.model_store.process_bounding_boxes(device);
-        self.model_store
-            .realize_and_cache(surface_texture_format, device, queue);
+        self.model_store.realize_and_cache(
+            surface_texture_format,
+            device,
+            queue,
+            &self.mesh_cache,
+            &self.material_cache,
+        );
         self.camera_store.realize_and_cache(device, queue);
         if let Err(e) =
             self.environment_store
