@@ -1,5 +1,7 @@
 when:
   - event: [push, manual]
+  - event: pull_request
+    action: [opened, synchronize, reopened]
 
 steps:
   format:
