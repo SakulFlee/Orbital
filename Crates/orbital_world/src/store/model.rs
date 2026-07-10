@@ -11,9 +11,7 @@ mod tests;
 use orbital_core::cache::{Cache, CacheEntry};
 use orbital_core::or::Or;
 use orbital_element::ModelEvent;
-use orbital_resources::{
-    BoundingBox, MeshCache, MaterialShaderCache, Model, ModelDescriptor,
-};
+use orbital_resources::{BoundingBox, MaterialShaderCache, MeshCache, Model, ModelDescriptor};
 
 use super::StoreError;
 
