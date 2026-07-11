@@ -9,9 +9,10 @@ use log::warn;
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CameraDirty, CameraRealization, DeviceResource,
-    EnvironmentDescriptorResource, EnvironmentGpuResource, LightBufferResource, LightDescriptorEcs,
-    LightDirty, MaterialCacheResource, MeshCacheResource, ModelDescriptorEcs, ModelDirty,
-    ModelInstances, ModelRealization, Position, QueueResource, Rotation, SurfaceFormatResource,
+    EcsCameraStore, EnvironmentDescriptorResource, EnvironmentGpuResource, LightBufferResource,
+    LightDescriptorEcs, LightDirty, MaterialCacheResource, MeshCacheResource, ModelDescriptorEcs,
+    ModelDirty, ModelInstances, ModelRealization, Position, QueueResource, Rotation,
+    SurfaceFormatResource,
 };
 use orbital_resources::{Camera, Model};
 
@@ -89,7 +90,7 @@ pub fn realize_cameras(ecs: &mut World) {
         result
     };
 
-    // Realize each camera
+    // Realize each camera — write to EcsCameraStore and mark entity
     for (eid, desc, pos, rot, needs_new) in entities_to_realize {
         if needs_new {
             // Create new GPU camera
@@ -104,35 +105,35 @@ pub fn realize_cameras(ecs: &mut World) {
                 &device,
                 &queue,
             );
+            let arc_camera = Arc::new(RwLock::new(gpu_camera));
+
+            // Store in EcsCameraStore
+            if let Some(mut store) = ecs.get_resource_mut::<EcsCameraStore>() {
+                store.insert(eid, arc_camera);
+            }
+
+            // Mark entity as realized
             let entity = orbital_ecs::Entity::new(eid, 0);
-            if let Err(e) = ecs.attach_component(
-                &entity,
-                CameraRealization(Arc::new(RwLock::new(gpu_camera))),
-            ) {
-                warn!("Failed to attach CameraRealization to entity {}: {:?}", eid, e);
+            if let Err(e) = ecs.attach_component(&entity, CameraRealization) {
+                warn!("Failed to attach CameraRealization marker to entity {}: {:?}", eid, e);
             }
         } else {
-            // Update existing GPU camera
-            let real_store = match ecs.get_component_store::<CameraRealization>() {
-                Some(s) => s,
-                None => continue,
-            };
-            let idx = match real_store.sparse[eid] {
-                Some(i) => i,
-                None => continue,
-            };
-            let realization = &real_store.components[idx];
-            let mut gpu_camera = realization.0.write().unwrap();
-            gpu_camera.update_from_parts(
-                pos.0,
-                rot.0,
-                desc.fovy.0,
-                desc.aspect,
-                desc.near,
-                desc.far,
-                desc.global_gamma,
-                &queue,
-            );
+            // Update existing GPU camera via EcsCameraStore
+            if let Some(store) = ecs.get_resource::<EcsCameraStore>() {
+                if let Some(arc_camera) = store.get(eid) {
+                    let mut gpu_camera = arc_camera.write().unwrap();
+                    gpu_camera.update_from_parts(
+                        pos.0,
+                        rot.0,
+                        desc.fovy.0,
+                        desc.aspect,
+                        desc.near,
+                        desc.far,
+                        desc.global_gamma,
+                        &queue,
+                    );
+                }
+            }
         }
 
         // Clear dirty flag

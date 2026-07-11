@@ -5,8 +5,8 @@ use orbital::app::input::{InputAxis, InputButton};
 use orbital::app::{AppSettings, Module, ModuleRuntime};
 use orbital::ecs::{IntoSystem, Res, System, World};
 use orbital::ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CameraDirty, CameraRealization, DeltaTime, EngineEvent,
-    EngineEvents, EnvironmentDescriptorResource, InputSnapshot, Position, Rotation,
+    ActiveCamera, CameraDescriptorEcs, CameraDirty, CameraRealization, DeltaTime, EcsCameraStore,
+    EngineEvent, EngineEvents, EnvironmentDescriptorResource, InputSnapshot, Position, Rotation,
 };
 use orbital::logging::{self, error, info};
 use orbital::resources::{Camera, WorldEnvironmentDescriptor};
@@ -76,9 +76,12 @@ impl Module for RollCameraModule {
             device,
             queue,
         );
+        if let Some(mut store) = ecs.get_resource_mut::<orbital::ecs_bridge::EcsCameraStore>() {
+            store.insert(camera.index, std::sync::Arc::new(std::sync::RwLock::new(gpu_camera)));
+        }
         ecs.attach_component(
             &camera,
-            CameraRealization(Arc::new(std::sync::RwLock::new(gpu_camera))),
+            CameraRealization,
         )
         .unwrap();
         ecs.attach_component(&camera, CameraDirty(false)).unwrap();

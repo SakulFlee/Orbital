@@ -126,11 +126,11 @@ impl Default for CameraDescriptorEcs {
     }
 }
 
-/// GPU camera state. Shared via `Arc`, mutable via `RwLock`.
-/// This is the "realization" link — attaching this to an entity means
-/// its GPU representation has been created.
-#[derive(Debug, Clone)]
-pub struct CameraRealization(pub Arc<RwLock<Camera>>);
+/// GPU camera marker — indicates this entity has a realized camera.
+/// Actual GPU state is stored in `EcsCameraStore` (indexed by entity.index).
+/// This avoids temporary-borrow issues with `get_component_store`.
+#[derive(Debug, Clone, Copy)]
+pub struct CameraRealization;
 
 /// Marks an entity as the active camera for rendering.
 #[derive(Debug, Clone, Copy)]
