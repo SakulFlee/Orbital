@@ -409,6 +409,38 @@ impl World {
         self.recreate_bind_group(device, queue);
     }
 
+    /// Prepare render using ECS camera buffer instead of internal CameraStore.
+    ///
+    /// Same as `prepare_render` but accepts an external camera buffer binding.
+    /// The caller must ensure the buffer lives long enough (typically via
+    /// a `RwLockReadGuard` on the CameraRealization).
+    pub fn prepare_render_with_ecs_camera(
+        &mut self,
+        camera_buffer_binding: BufferBinding<'_>,
+        surface_texture_format: &TextureFormat,
+        device: &Device,
+        queue: &Queue,
+    ) {
+        self.model_store.process_bounding_boxes(device);
+        self.model_store.realize_and_cache(
+            surface_texture_format,
+            device,
+            queue,
+            &self.mesh_cache,
+            &self.material_cache,
+        );
+        // Skip camera_store.realize_and_cache — using ECS camera
+        if let Err(e) =
+            self.environment_store
+                .realize_and_cache(surface_texture_format, device, queue)
+        {
+            panic!("Failed to realize environment: {e}");
+        }
+        self.light_store.realize_and_cache(device, queue);
+
+        self.recreate_bind_group_with_camera_buffer(camera_buffer_binding, device, queue);
+    }
+
     pub fn retrieve_render_resources(
         &self,
     ) -> (Option<&BindGroup>, Option<&WorldEnvironment>, Vec<&Model>) {

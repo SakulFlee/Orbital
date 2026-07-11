@@ -154,8 +154,9 @@ impl App for StandardApp {
                     if let Some(Some(idx)) = store.sparse.get(active.0.index) {
                         let guard = store.components[*idx].0.read().unwrap();
                         let camera_buffer = guard.camera_buffer().as_entire_buffer_binding();
-                        self.world.recreate_bind_group_with_camera_buffer(
+                        self.world.prepare_render_with_ecs_camera(
                             camera_buffer,
+                            renderer.surface_texture_format(),
                             device,
                             queue,
                         );
@@ -165,7 +166,7 @@ impl App for StandardApp {
             }
 
             if !used_ecs_camera {
-                // Legacy CameraStore path (fallback during migration)
+                // Legacy path
                 self.world
                     .prepare_render(renderer.surface_texture_format(), device, queue);
             }
