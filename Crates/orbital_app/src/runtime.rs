@@ -18,7 +18,7 @@ use winit::{
 };
 
 use crate::{make_core_schedule, App, AppContext, AppSettings, AppState, Timer};
-use orbital_ecs_bridge::{CursorPosition, DeltaTime, FrameCounter, InputSnapshot, TotalTime, WindowSize};
+use orbital_ecs_bridge::{CursorPosition, DeltaTime, DeviceResource, FrameCounter, InputSnapshot, QueueResource, TotalTime, WindowSize};
 
 macro_rules! ctx_lock {
     ($ctx:ident) => {
@@ -265,6 +265,11 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
             let ctx_guard = ctx_lock!(ctx_arc);
             self.app
                 .on_resume(&config, ctx_guard.device(), ctx_guard.queue());
+
+            self.ecs_world
+                .insert_resource(DeviceResource(std::sync::Arc::new(ctx_guard.device().clone())));
+            self.ecs_world
+                .insert_resource(QueueResource(std::sync::Arc::new(ctx_guard.queue().clone())));
         }
 
         info!("App resumed.");
