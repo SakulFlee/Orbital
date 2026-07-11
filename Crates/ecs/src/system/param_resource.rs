@@ -457,6 +457,113 @@ impl_2_res_write_comp_read!(A, B);
 impl_2_res_write_comp_write!(A, B);
 
 // ---------------------------------------------------------------------------
+// Arity 3 — Res<A> + Res<B> + &mut C   (read resource + read resource + write component)
+// ---------------------------------------------------------------------------
+
+impl<
+    A: 'static + Send + Sync,
+    B: 'static + Send + Sync,
+    C: Clone + Component,
+    F: for<'a, 'b> FnMut(Res<'a, A>, Res<'b, B>, &mut C) + Send + 'static,
+> IntoSystem<fn(Res<'_, A>, Res<'_, B>, &mut C)> for F
+{
+    type System = Box<dyn System>;
+    fn into_system(self) -> Self::System {
+        let mut f = self;
+        Box::new(FunctionSystem::new(
+            FunctionSystemMetadata {
+                name: std::any::type_name::<F>(),
+                access: ComponentAccess::new().reads::<A>().reads::<B>().writes::<C>(),
+            },
+            Box::new(move |world, _commands| {
+                let ha = match world.get_resource::<A>() {
+                    Some(h) => h,
+                    None => return,
+                };
+                let hb = match world.get_resource::<B>() {
+                    Some(h) => h,
+                    None => return,
+                };
+                let mut snap_c = {
+                    let Some(sc) = world.get_component_store::<C>() else {
+                        return;
+                    };
+                    Snapshot::clone_from_store(&sc)
+                };
+                let ra = Res(&*ha);
+                let rb = Res(&*hb);
+                for &eid in snap_c.dense.as_slice() {
+                    if let Some(ic) = snap_c.sparse[eid] {
+                        f(ra, rb, &mut snap_c.components[ic]);
+                    }
+                }
+                snap_c.merge_into(world);
+            }),
+        ))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Arity 4 — Res<A> + Res<B> + &mut C + &mut D   (2 read resources + 2 write components)
+// ---------------------------------------------------------------------------
+
+impl<
+    A: 'static + Send + Sync,
+    B: 'static + Send + Sync,
+    C: Clone + Component,
+    D: Clone + Component,
+    F: for<'a, 'b> FnMut(Res<'a, A>, Res<'b, B>, &mut C, &mut D) + Send + 'static,
+> IntoSystem<fn(Res<'_, A>, Res<'_, B>, &mut C, &mut D)> for F
+{
+    type System = Box<dyn System>;
+    fn into_system(self) -> Self::System {
+        let mut f = self;
+        Box::new(FunctionSystem::new(
+            FunctionSystemMetadata {
+                name: std::any::type_name::<F>(),
+                access: ComponentAccess::new().reads::<A>().reads::<B>().writes::<C>().writes::<D>(),
+            },
+            Box::new(move |world, _commands| {
+                let ha = match world.get_resource::<A>() {
+                    Some(h) => h,
+                    None => return,
+                };
+                let hb = match world.get_resource::<B>() {
+                    Some(h) => h,
+                    None => return,
+                };
+                let (mut snap_c, mut snap_d) = {
+                    let Some(sc) = world.get_component_store::<C>() else {
+                        return;
+                    };
+                    let Some(sd) = world.get_component_store::<D>() else {
+                        return;
+                    };
+                    (
+                        Snapshot::clone_from_store(&sc),
+                        Snapshot::clone_from_store(&sd),
+                    )
+                };
+                let pivot = if snap_c.dense.len() <= snap_d.dense.len() {
+                    snap_c.dense.as_slice()
+                } else {
+                    snap_d.dense.as_slice()
+                };
+                let ra = Res(&*ha);
+                let rb = Res(&*hb);
+                for &eid in pivot {
+                    if let (Some(ic), Some(id)) = (snap_c.sparse[eid], snap_d.sparse[eid]) {
+                        f(ra, rb, &mut snap_c.components[ic], &mut snap_d.components[id]);
+                    }
+                }
+                snap_c.merge_into(world);
+                snap_d.merge_into(world);
+            }),
+        ))
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Arity 3 — Res<A> + &B + &C   (read resource + read component + read component)
 // ---------------------------------------------------------------------------
 

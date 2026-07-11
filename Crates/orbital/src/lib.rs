@@ -36,6 +36,7 @@
 
 pub use orbital_app as app;
 pub use orbital_camera_controller as camera_controller;
+pub use orbital_ecs as ecs;
 pub use orbital_ecs_bridge as ecs_bridge;
 pub use orbital_element as element;
 pub use orbital_importer_gltf as importer;
