@@ -8,10 +8,10 @@ use std::sync::{Arc, RwLock};
 use log::warn;
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
-    CameraDescriptorEcs, CameraDirty, CameraRealization, DeviceResource, LightBufferResource,
-    LightDescriptorEcs, LightDirty, MaterialCacheResource, MeshCacheResource, ModelDescriptorEcs,
-    ModelDirty, ModelInstances, ModelRealization, Position, QueueResource, Rotation,
-    SurfaceFormatResource,
+    CameraDescriptorEcs, CameraDirty, CameraRealization, DeviceResource, EnvironmentDescriptorResource,
+    EnvironmentGpuResource, LightBufferResource, LightDescriptorEcs, LightDirty,
+    MaterialCacheResource, MeshCacheResource, ModelDescriptorEcs, ModelDirty, ModelInstances,
+    ModelRealization, Position, QueueResource, Rotation, SurfaceFormatResource,
 };
 use orbital_resources::{Camera, Model};
 
@@ -379,6 +379,56 @@ pub fn realize_lights(ecs: &mut World) {
             if let Some(idx) = dirty_store.sparse[eid] {
                 dirty_store.get_mut_store().components[idx].0 = false;
             }
+        }
+    }
+}
+
+/// Realize the world environment (IBL textures, skybox) from the descriptor.
+///
+/// Only runs when the environment descriptor has changed (new Some value).
+pub fn realize_environment(ecs: &mut World) {
+    let (device, queue, surface_format) = {
+        let d = match ecs.get_resource::<DeviceResource>() {
+            Some(d) => d.0.clone(),
+            None => return,
+        };
+        let q = match ecs.get_resource::<QueueResource>() {
+            Some(q) => q.0.clone(),
+            None => return,
+        };
+        let sf = match ecs.get_resource::<SurfaceFormatResource>() {
+            Some(f) => f.0,
+            None => return,
+        };
+        (d, q, sf)
+    };
+
+    // Check if there's a new descriptor to realize
+    let descriptor = match ecs.get_resource::<EnvironmentDescriptorResource>() {
+        Some(r) => match &r.0 {
+            Some(d) => d.clone(),
+            None => return, // No environment set
+        },
+        None => return,
+    };
+
+    // Check if already realized (compare would need hash, so just re-realize if descriptor exists)
+    // For simplicity, always re-realize when the resource is present.
+    // A dirty flag pattern could be added later for optimization.
+
+    match orbital_resources::WorldEnvironment::from_descriptor(
+        &descriptor,
+        Some(surface_format),
+        &device,
+        &queue,
+    ) {
+        Ok(env) => {
+            ecs.insert_resource(EnvironmentGpuResource(Some(Arc::new(env))));
+            // Clear the descriptor (consumed)
+            ecs.insert_resource(EnvironmentDescriptorResource(None));
+        }
+        Err(e) => {
+            warn!("Failed to realize environment: {:?}", e);
         }
     }
 }
