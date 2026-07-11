@@ -158,12 +158,14 @@ pub fn sys_poll_importer(ecs: &mut World) {
                 &device,
                 &queue,
             );
-            if let Err(e) = ecs.attach_component(
-                &entity,
-                CameraRealization(Arc::new(std::sync::RwLock::new(gpu_camera))),
-            ) {
-                warn!("Failed to attach CameraRealization: {:?}", e);
+            if let Err(e) = ecs.attach_component(&entity, CameraRealization) {
+                warn!("Failed to attach CameraRealization marker: {:?}", e);
                 continue;
+            }
+
+            // Store GPU camera in EcsCameraStore
+            if let Some(mut store) = ecs.get_resource_mut::<orbital_ecs_bridge::EcsCameraStore>() {
+                store.insert(entity.index, Arc::new(std::sync::RwLock::new(gpu_camera)));
             }
 
             if let Err(e) = ecs.attach_component(&entity, CameraDirty(false)) {

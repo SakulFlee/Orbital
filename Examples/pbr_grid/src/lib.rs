@@ -4,8 +4,8 @@ use orbital::cgmath::{Point3, Quaternion, Rad};
 use orbital::app::{AppSettings, Module, ModuleRuntime};
 use orbital::ecs::{IntoSystem, Res, System, World};
 use orbital::ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CameraDirty, CameraRealization, DeltaTime, EngineEvent,
-    EngineEvents, EnvironmentDescriptorResource, ImportQueueResource, Position, Rotation,
+    ActiveCamera, CameraDescriptorEcs, CameraDirty, CameraRealization, DeltaTime, EcsCameraStore,
+    EngineEvent, EngineEvents, EnvironmentDescriptorResource, ImportQueueResource, Position, Rotation,
 };
 use orbital::importer::{ImportTask, gltf::GltfImport};
 use orbital::logging::{self, error, info};
@@ -60,7 +60,10 @@ impl Module for PbrGridModule {
             45.0, 16.0 / 9.0, 0.1, 10000.0, 2.2,
             device, queue,
         );
-        ecs.attach_component(&camera, CameraRealization(Arc::new(std::sync::RwLock::new(gpu_camera)))).unwrap();
+        if let Some(mut store) = ecs.get_resource_mut::<orbital::ecs_bridge::EcsCameraStore>() {
+            store.insert(camera.index, std::sync::Arc::new(std::sync::RwLock::new(gpu_camera)));
+        }
+        ecs.attach_component(&camera, CameraRealization).unwrap();
         ecs.attach_component(&camera, CameraDirty(false)).unwrap();
         ecs.insert_resource(ActiveCamera(camera));
 

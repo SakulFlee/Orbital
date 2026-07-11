@@ -204,6 +204,69 @@ pub struct EnvironmentDescriptorResource(pub Option<orbital_resources::WorldEnvi
 #[derive(Debug, Clone)]
 pub struct EnvironmentGpuResource(pub Option<Arc<orbital_resources::WorldEnvironment>>);
 
+/// GPU camera store — flat Vec indexed by entity.index.
+/// CameraRealization on entities holds the index into this store.
+/// This avoids the temporary-borrow problem with get_component_store.
+pub struct EcsCameraStore {
+    cameras: Vec<Option<Arc<std::sync::RwLock<orbital_resources::Camera>>>>,
+}
+
+impl EcsCameraStore {
+    pub fn new() -> Self {
+        Self { cameras: Vec::new() }
+    }
+
+    pub fn insert(&mut self, entity_idx: usize, camera: Arc<std::sync::RwLock<orbital_resources::Camera>>) -> usize {
+        if entity_idx >= self.cameras.len() {
+            self.cameras.resize_with(entity_idx + 1, || None);
+        }
+        self.cameras[entity_idx] = Some(camera);
+        entity_idx
+    }
+
+    pub fn get(&self, entity_idx: usize) -> Option<&Arc<std::sync::RwLock<orbital_resources::Camera>>> {
+        self.cameras.get(entity_idx)?.as_ref()
+    }
+
+    pub fn remove(&mut self, entity_idx: usize) {
+        if let Some(slot) = self.cameras.get_mut(entity_idx) {
+            *slot = None;
+        }
+    }
+}
+
+impl Default for EcsCameraStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl std::fmt::Debug for EcsCameraStore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EcsCameraStore")
+            .field("len", &self.cameras.len())
+            .finish()
+    }
+}
+
+/// IBL BRDF lookup texture — generated once, reused every frame.
+/// Stored as the IblBrdf generator itself so we can borrow the texture ref.
+pub struct IblBrdfResource(pub Option<orbital_resources::IblBrdf>);
+
+impl Clone for IblBrdfResource {
+    fn clone(&self) -> Self {
+        Self(None)
+    }
+}
+
+impl std::fmt::Debug for IblBrdfResource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("IblBrdfResource")
+            .field("has_brdf", &self.0.is_some())
+            .finish()
+    }
+}
+
 /// Queue of pending import tasks (glTF files to load).
 #[derive(Debug, Default)]
 pub struct ImportQueueResource(pub Vec<orbital_importer_gltf::ImportTask>);
