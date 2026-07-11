@@ -361,4 +361,59 @@ mod tests {
         // Forward is +X for identity, so moving forward 1.0 should go to x=1.0
         assert!((pos.0.x - 1.0).abs() < 0.001, "Expected x=1.0, got {}", pos.0.x);
     }
+
+    #[test]
+    fn rotate_roll() {
+        let mut rot = Rotation::identity();
+        rot.rotate_roll(Rad(FRAC_PI_2));
+        let (f, r, u) = rot.forward_right_up();
+        // After 90° roll (rotation around forward/+X), forward is unchanged
+        assert!(f.x.abs() > 0.9, "forward.x should be near ±1, got {}", f.x);
+        // Up rotates toward -Z
+        assert!(u.z.abs() > 0.9, "up.z should be near ±1, got {}", u.z);
+    }
+
+    #[test]
+    fn instance_hash_deterministic() {
+        use orbital_resources::MeshDescriptor;
+        use std::sync::Arc;
+
+        let mesh = Arc::new(MeshDescriptor::new(vec![], vec![]));
+        let mat = Arc::new(orbital_resources::MaterialShaderDescriptor::default());
+
+        let desc1 = ModelDescriptorEcs {
+            label: "test".into(),
+            mesh: mesh.clone(),
+            materials: vec![mat.clone()],
+        };
+        let desc2 = ModelDescriptorEcs {
+            label: "test".into(),
+            mesh: mesh.clone(),
+            materials: vec![mat.clone()],
+        };
+
+        assert_eq!(desc1.instance_hash(), desc2.instance_hash());
+    }
+
+    #[test]
+    fn instance_hash_different_inputs() {
+        use orbital_resources::MeshDescriptor;
+        use std::sync::Arc;
+
+        let mesh1 = Arc::new(MeshDescriptor::new(vec![], vec![0]));
+        let mesh2 = Arc::new(MeshDescriptor::new(vec![], vec![1]));
+
+        let desc1 = ModelDescriptorEcs {
+            label: "test".into(),
+            mesh: mesh1,
+            materials: vec![],
+        };
+        let desc2 = ModelDescriptorEcs {
+            label: "test".into(),
+            mesh: mesh2,
+            materials: vec![],
+        };
+
+        assert_ne!(desc1.instance_hash(), desc2.instance_hash());
+    }
 }
