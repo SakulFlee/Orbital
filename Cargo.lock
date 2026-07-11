@@ -2107,6 +2107,7 @@ dependencies = [
  "orbital_app",
  "orbital_camera_controller",
  "orbital_core",
+ "orbital_ecs",
  "orbital_ecs_bridge",
  "orbital_element",
  "orbital_importer_gltf",
@@ -2137,6 +2138,7 @@ dependencies = [
  "orbital_element",
  "orbital_input",
  "orbital_renderer",
+ "orbital_resources",
  "orbital_world",
  "wgpu",
  "winit",
@@ -2178,8 +2180,13 @@ name = "orbital_ecs_bridge"
 version = "0.1.0"
 dependencies = [
  "cgmath",
+ "hashbrown 0.17.1",
+ "orbital_core",
  "orbital_ecs",
+ "orbital_importer_gltf",
  "orbital_input",
+ "orbital_resources",
+ "ulid",
  "wgpu",
 ]
 
