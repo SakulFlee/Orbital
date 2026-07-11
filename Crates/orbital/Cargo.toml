@@ -7,19 +7,14 @@ edition = "2021"
 crate-type = ["lib", "cdylib"]
 
 [features]
-default = ["gamepad_input", "gamepad_input_poll", "auto_request_redraw", "standard_app_detect_no_more_elements"]
+default = ["gamepad_input", "gamepad_input_poll", "auto_request_redraw"]
 renderdoc = []
 # Enables gamepad inputs from being polled and processed.
-# Note: Winit _does_ have _some_ gamepad input support, but it's not very good at the moment, gilrs takes a much better approach (for now?).
 gamepad_input = ["dep:gilrs", "orbital_input/gamepad_input", "orbital_app/gamepad_input"]
 # Automatically polls gamepad inputs and processes them.
 gamepad_input_poll = ["gamepad_input", "orbital_app/gamepad_input_poll"]
 # Will automatically request a redraw when the last frame was rendered.
-# Enable this for games and applications that need to constantly redraw.
-# Disable this for applications that only need to draw once every now and then.
 auto_request_redraw = ["orbital_app/auto_request_redraw"]
-# Enable to detect if there are no more elements in the StandardApp and force a closure of the app if found to be true.
-standard_app_detect_no_more_elements = ["orbital_app/standard_app_detect_no_more_elements"]
 
 [build-dependencies]
 glob = { workspace = true }
@@ -47,7 +42,6 @@ rayon = { workspace = true }
 orbital_element = { path = "../orbital_element" }
 orbital_camera_controller = { path = "../orbital_camera_controller" }
 orbital_renderer = { path = "../orbital_renderer" }
-orbital_world = { path = "../orbital_world" }
 orbital_app = { path = "../orbital_app" }
 orbital_ecs = { path = "../ecs" }
 orbital_ecs_bridge = { path = "../orbital_ecs_bridge" }
