@@ -11,7 +11,7 @@ pub enum ImportTask {
     Gltf { file_path: String, task: GltfImport },
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct ImportResult {
     pub models: Vec<ModelDescriptor>,
     pub cameras: Vec<CameraDescriptor>,
