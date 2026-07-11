@@ -155,6 +155,94 @@ impl CameraDirty {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Model ECS types
+// ---------------------------------------------------------------------------
+
+use std::collections::HashMap;
+use ulid::Ulid;
+
+/// Model-only properties (mesh, materials). Instances are in a separate component.
+#[derive(Debug, Clone)]
+pub struct ModelDescriptorEcs {
+    pub label: String,
+    pub mesh: std::sync::Arc<orbital_resources::MeshDescriptor>,
+    pub materials: Vec<std::sync::Arc<orbital_resources::MaterialShaderDescriptor>>,
+}
+
+impl ModelDescriptorEcs {
+    /// Compute a deterministic hash for GPU instancing deduplication.
+    pub fn instance_hash(&self) -> Ulid {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let mut hasher = DefaultHasher::new();
+        self.mesh.vertices.hash(&mut hasher);
+        self.mesh.indices.hash(&mut hasher);
+        for material in &self.materials {
+            material.hash(&mut hasher);
+        }
+        let hash_u64 = hasher.finish();
+        let bytes = [
+            0, 0, 0, 0, 0, 0,
+            (hash_u64 >> 56) as u8,
+            (hash_u64 >> 48) as u8,
+            (hash_u64 >> 40) as u8,
+            (hash_u64 >> 32) as u8,
+            (hash_u64 >> 24) as u8,
+            (hash_u64 >> 16) as u8,
+            (hash_u64 >> 8) as u8,
+            hash_u64 as u8,
+            0, 0,
+        ];
+        Ulid::from_bytes(bytes)
+    }
+}
+
+/// Instance transforms for a model (ULID → Transform mapping).
+/// Each entry represents one instance of the model at a different position/rotation/scale.
+#[derive(Debug, Clone, Default)]
+pub struct ModelInstances(pub HashMap<Ulid, orbital_resources::Transform>);
+
+impl ModelInstances {
+    pub fn new() -> Self {
+        Self(HashMap::new())
+    }
+
+    pub fn add_instance(&mut self, transform: orbital_resources::Transform) -> Ulid {
+        let ulid = Ulid::new();
+        self.0.insert(ulid, transform);
+        ulid
+    }
+
+    pub fn remove_instance(&mut self, ulid: &Ulid) -> Option<orbital_resources::Transform> {
+        self.0.remove(ulid)
+    }
+}
+
+/// GPU model state. Shared via `Arc`.
+/// This is the "realization" link component.
+#[derive(Debug, Clone)]
+pub struct ModelRealization(pub std::sync::Arc<orbital_resources::Model>);
+
+/// Dirty flag — set when model descriptor or instances change.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ModelDirty(pub bool);
+
+impl ModelDirty {
+    pub fn is_dirty(&self) -> bool {
+        self.0
+    }
+
+    pub fn mark_dirty(&mut self) {
+        self.0 = true;
+    }
+
+    pub fn clear(&mut self) {
+        self.0 = false;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
