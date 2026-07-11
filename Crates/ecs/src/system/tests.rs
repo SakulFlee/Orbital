@@ -258,3 +258,136 @@ fn system_multiple_schedules_same_world() {
     let store = world.get_component_store::<Pos>().unwrap();
     assert_eq!(store.get_component(0).unwrap().0, 11.0);
 }
+
+// ---------------------------------------------------------------------------
+// Resource parameter tests
+// ---------------------------------------------------------------------------
+
+use crate::system::{Res, ResMut};
+
+#[derive(Debug, Clone, Copy, Default)]
+struct Score(i32);
+
+#[derive(Debug, Clone, Copy, Default)]
+struct Counter(u64);
+
+#[test]
+fn system_res_read() {
+    let mut world = World::new();
+    world.insert_resource(Score(42));
+
+    let mut schedule = Schedule::new();
+    schedule.add_system::<fn(Res<Score>), _>(|score: Res<Score>| {
+        assert_eq!(score.0, 42);
+    });
+    schedule.run(&mut world);
+}
+
+#[test]
+fn system_res_write() {
+    let mut world = World::new();
+    world.insert_resource(Score(0));
+
+    let mut schedule = Schedule::new();
+    schedule.add_system::<fn(ResMut<Score>), _>(|mut score: ResMut<Score>| {
+        score.0 += 10;
+    });
+    schedule.run(&mut world);
+
+    let score = world.get_resource::<Score>().unwrap();
+    assert_eq!(score.0, 10);
+}
+
+#[test]
+fn system_comp_res_read() {
+    let mut world = World::new();
+    world.insert_resource(Score(100));
+    let e = world.spawn_entity();
+    world.attach_component(&e, Pos(0.0, 0.0)).unwrap();
+
+    let mut schedule = Schedule::new();
+    schedule.add_system::<fn(&Pos, Res<Score>), _>(|pos: &Pos, score: Res<Score>| {
+        assert_eq!(pos.0, 0.0);
+        assert_eq!(score.0, 100);
+    });
+    schedule.run(&mut world);
+}
+
+#[test]
+fn system_comp_res_write() {
+    let mut world = World::new();
+    world.insert_resource(Score(10));
+    let e = world.spawn_entity();
+    world.attach_component(&e, Pos(0.0, 0.0)).unwrap();
+
+    let mut schedule = Schedule::new();
+    schedule.add_system::<fn(&mut Pos, Res<Score>), _>(|pos: &mut Pos, score: Res<Score>| {
+        pos.0 = score.0 as f32;
+    });
+    schedule.run(&mut world);
+
+    let store = world.get_component_store::<Pos>().unwrap();
+    assert_eq!(store.get_component(0).unwrap().0, 10.0);
+}
+
+#[test]
+fn system_res_res_read() {
+    let mut world = World::new();
+    world.insert_resource(Score(10));
+    world.insert_resource(Counter(20));
+
+    let mut schedule = Schedule::new();
+    schedule.add_system::<fn(Res<Score>, Res<Counter>), _>(|score: Res<Score>, counter: Res<Counter>| {
+        assert_eq!(score.0, 10);
+        assert_eq!(counter.0, 20);
+    });
+    schedule.run(&mut world);
+}
+
+#[test]
+fn system_res_res_write() {
+    let mut world = World::new();
+    world.insert_resource(Score(0));
+    world.insert_resource(Counter(0));
+
+    let mut schedule = Schedule::new();
+    schedule.add_system::<fn(ResMut<Score>, Res<Counter>), _>(|mut score: ResMut<Score>, counter: Res<Counter>| {
+        score.0 = counter.0 as i32 + 5;
+    });
+    schedule.run(&mut world);
+
+    let score = world.get_resource::<Score>().unwrap();
+    assert_eq!(score.0, 5);
+}
+
+#[test]
+fn system_commands_only() {
+    let mut world = World::new();
+
+    let mut schedule = Schedule::new();
+    schedule.add_system::<fn(&mut crate::Commands), _>(|cmds: &mut crate::Commands| {
+        let e = cmds.spawn_entity();
+        cmds.attach_component(&e, String::from("from_commands"));
+    });
+    schedule.run(&mut world);
+
+    let store = world.get_component_store::<String>().unwrap();
+    assert_eq!(store.dense.len(), 1);
+    assert_eq!(store.get_component(store.dense[0]).unwrap().as_str(), "from_commands");
+}
+
+#[test]
+fn system_commands_res() {
+    let mut world = World::new();
+    world.insert_resource(Score(99));
+
+    let mut schedule = Schedule::new();
+    schedule.add_system::<fn(&mut crate::Commands, Res<Score>), _>(|cmds: &mut crate::Commands, score: Res<Score>| {
+        let e = cmds.spawn_entity();
+        cmds.attach_component(&e, score.0);
+    });
+    schedule.run(&mut world);
+
+    let store = world.get_component_store::<i32>().unwrap();
+    assert_eq!(store.get_component(store.dense[0]).unwrap(), &99);
+}
