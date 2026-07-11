@@ -131,3 +131,15 @@ impl EngineEvents {
         self.0.is_empty()
     }
 }
+
+// ---------------------------------------------------------------------------
+// Shared caches (moved from orbital_world::World)
+// ---------------------------------------------------------------------------
+
+/// Shared mesh cache — maps `Arc<MeshDescriptor>` → `Mesh`.
+/// Used by the model realization system to avoid re-uploading identical meshes.
+pub type MeshCacheResource = std::sync::RwLock<orbital_core::cache::Cache<std::sync::Arc<orbital_resources::MeshDescriptor>, orbital_resources::Mesh>>;
+
+/// Shared material cache — maps `Arc<MaterialShaderDescriptor>` → `MaterialShader`.
+/// Used by the model realization system to avoid re-creating identical materials.
+pub type MaterialCacheResource = std::sync::RwLock<orbital_core::cache::Cache<std::sync::Arc<orbital_resources::MaterialShaderDescriptor>, orbital_resources::MaterialShader>>;
