@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use orbital::cgmath::{Point3, Quaternion, Rotation3, Rad};
+use orbital::cgmath::{Point3, Quaternion, Rad, Rotation3, Vector3};
 use orbital::app::input::{InputAxis, InputButton};
 use orbital::app::{AppSettings, Module, ModuleRuntime};
 use orbital::ecs::{IntoSystem, Res, System, World};
@@ -102,11 +102,8 @@ impl Module for RollCameraModule {
 
         // Return systems
         vec![
-            (|rot: &mut Rotation, dt: Res<DeltaTime>| {
-                let roll_speed = 2.5_f32;
-                let delta_roll = roll_speed * dt.0 as f32;
-                rot.rotate_roll(Rad(delta_roll));
-            }).into_system(),
+            sys_camera_controller.into_system(),
+            sys_roll_camera.into_system(),
         ]
     }
 }
@@ -114,6 +111,71 @@ impl Module for RollCameraModule {
 // ---------------------------------------------------------------------------
 // Systems
 // ---------------------------------------------------------------------------
+
+fn sys_camera_controller(
+    dt: Res<DeltaTime>,
+    input: Res<InputSnapshot>,
+    pos: &mut Position,
+    rot: &mut Rotation,
+) {
+    let speed = 5.0_f32;
+    let sensitivity = 0.003_f32;
+    let dt = dt.0 as f32;
+
+    let (forward, right, _up) = rot.forward_right_up();
+
+    // WASD movement
+    let mut movement = Vector3::new(0.0, 0.0, 0.0);
+    if input.0
+        .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyW)))
+        .map(|(_, s)| s)
+        .unwrap_or(false)
+    {
+        movement += forward * speed * dt;
+    }
+    if input.0
+        .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyS)))
+        .map(|(_, s)| s)
+        .unwrap_or(false)
+    {
+        movement -= forward * speed * dt;
+    }
+    if input.0
+        .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyD)))
+        .map(|(_, s)| s)
+        .unwrap_or(false)
+    {
+        movement += right * speed * dt;
+    }
+    if input.0
+        .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyA)))
+        .map(|(_, s)| s)
+        .unwrap_or(false)
+    {
+        movement -= right * speed * dt;
+    }
+    if input.0
+        .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyE)))
+        .map(|(_, s)| s)
+        .unwrap_or(false)
+    {
+        movement.y += speed * dt;
+    }
+    if input.0
+        .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyQ)))
+        .map(|(_, s)| s)
+        .unwrap_or(false)
+    {
+        movement.y -= speed * dt;
+    }
+    pos.0 += movement;
+
+    // Mouse rotation
+    if let Some((_, delta)) = input.0.delta_state_any(&InputAxis::MouseMovement) {
+        rot.rotate_yaw(Rad(-delta.x as f32 * sensitivity));
+        rot.rotate_pitch(Rad(-delta.y as f32 * sensitivity));
+    }
+}
 
 fn sys_roll_camera(rot: &mut Rotation, dt: Res<DeltaTime>) {
     let roll_speed = 2.5_f32;
