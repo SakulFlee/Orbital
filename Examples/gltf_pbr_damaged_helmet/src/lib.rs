@@ -1,25 +1,22 @@
-use orbital::app::input::{InputAxis, InputButton};
-use orbital::app::standard::StandardApp;
-use orbital::app::{AppRuntime, AppSettings};
-use orbital::camera_controller::{
-    ButtonAxis, CameraController, CameraControllerAxisInputMode, CameraControllerButtonInputMode,
-    CameraControllerDescriptor, CameraControllerMouseInputMode, CameraControllerMouseInputType,
-    CameraControllerMovementType, CameraControllerRotationType,
-};
-use orbital::gilrs::Button;
-use orbital::winit::keyboard::{KeyCode, PhysicalKey};
-use orbital::{
-    logging::{self, error, info},
-    make_android_main,
-    winit::{error::EventLoopError, event_loop::EventLoop},
-};
+use std::sync::Arc;
 
-mod element;
-use element::*;
+use orbital::cgmath::{Point3, Quaternion, Rad, Vector3};
+use orbital::app::{AppSettings, Module, ModuleRuntime};
+use orbital::ecs::{IntoSystem, Res, System, World};
+use orbital::ecs_bridge::{
+    ActiveCamera, CameraDescriptorEcs, CameraDirty, CameraRealization, DeltaTime, EngineEvent,
+    EngineEvents, EnvironmentDescriptorResource, ImportQueueResource, LightDescriptorEcs,
+    LightDirty, Position, Rotation,
+};
+use orbital::importer::{ImportTask, gltf::GltfImport};
+use orbital::logging::{self, error, info};
+use orbital::resources::{Camera, WorldEnvironmentDescriptor};
 
 pub const NAME: &str = "Orbital-Demo-Project: DamagedHelmet";
 
-pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
+pub fn entrypoint(
+    event_loop_result: Result<orbital::winit::event_loop::EventLoop<()>, orbital::winit::error::EventLoopError>,
+) {
     logging::init();
 
     let event_loop = event_loop_result.expect("Event Loop failure");
@@ -28,63 +25,91 @@ pub fn entrypoint(event_loop_result: Result<EventLoop<()>, EventLoopError>) {
     app_settings.vsync_enabled = true;
     app_settings.name = NAME.to_string();
 
-    let app = StandardApp::with_initial_elements(vec![
-        Box::new(CameraController::new(CameraControllerDescriptor {
-            movement_type: CameraControllerMovementType::Input {
-                axis: Some(InputAxis::GamepadLeftStick),
-                button_axis: Some(vec![ButtonAxis {
-                    forward: InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyW)),
-                    backward: InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyS)),
-                    left: InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyA)),
-                    right: InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyD)),
-                }]),
-                button_up: Some(InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyE))),
-                button_down: Some(InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyQ))),
-                speed: 1.0,
-                ignore_pitch_for_forward_movement: true,
-                axis_dead_zone: 0.1,
-            },
-            rotation_type: CameraControllerRotationType::Free {
-                mouse_input: Some(CameraControllerMouseInputMode {
-                    input_type: CameraControllerMouseInputType::Always,
-                    sensitivity: 1.0,
-                    grab_cursor: true,
-                    hide_cursor: true,
-                }),
-                axis_input: Some(CameraControllerAxisInputMode {
-                    axis: vec![InputAxis::GamepadRightStick],
-                    sensitivity: 1.0,
-                }),
-                button_input: Some(CameraControllerButtonInputMode {
-                    button_axis: vec![
-                        ButtonAxis {
-                            forward: InputButton::Keyboard(PhysicalKey::Code(KeyCode::ArrowUp)),
-                            backward: InputButton::Keyboard(PhysicalKey::Code(KeyCode::ArrowDown)),
-                            left: InputButton::Keyboard(PhysicalKey::Code(KeyCode::ArrowLeft)),
-                            right: InputButton::Keyboard(PhysicalKey::Code(KeyCode::ArrowRight)),
-                        },
-                        ButtonAxis {
-                            forward: InputButton::Gamepad(Button::DPadUp),
-                            backward: InputButton::Gamepad(Button::DPadDown),
-                            left: InputButton::Gamepad(Button::DPadLeft),
-                            right: InputButton::Gamepad(Button::DPadRight),
-                        },
-                    ],
-                    sensitivity: 1.0,
-                }),
-                axis_dead_zone: 0.1,
-            },
-            camera_descriptor: Default::default(),
-        })),
-        Box::new(WorldEnvironment),
-        Box::new(DamagedHelmet),
-        Box::new(TestLights),
-    ]);
-
-    match AppRuntime::liftoff(event_loop, app_settings, app) {
+    match ModuleRuntime::liftoff(event_loop, app_settings, DamagedHelmetModule) {
         Ok(()) => info!("Cleanly exited!"),
         Err(e) => error!("Runtime failure: {e:?}"),
     }
 }
 
-make_android_main!(entrypoint);
+orbital::make_desktop_main!(entrypoint);
+
+struct DamagedHelmetModule;
+
+impl Module for DamagedHelmetModule {
+    fn setup(
+        &self,
+        ecs: &mut World,
+        device: &orbital::wgpu::Device,
+        queue: &orbital::wgpu::Queue,
+    ) -> Vec<Box<dyn System>> {
+        // Spawn camera
+        let camera = ecs.spawn_entity();
+        ecs.attach_component(&camera, CameraDescriptorEcs {
+            label: "Default".into(),
+            aspect: 16.0 / 9.0,
+            fovy: Rad(std::f32::consts::FRAC_PI_4),
+            near: 0.1,
+            far: 10000.0,
+            global_gamma: 2.2,
+        }).unwrap();
+        ecs.attach_component(&camera, Position(Point3::new(0.0, 0.0, 3.0))).unwrap();
+        ecs.attach_component(&camera, Rotation::identity()).unwrap();
+
+        let gpu_camera = Camera::new(
+            Point3::new(0.0, 0.0, 3.0),
+            Quaternion::new(1.0, 0.0, 0.0, 0.0),
+            45.0, 16.0 / 9.0, 0.1, 10000.0, 2.2,
+            device, queue,
+        );
+        ecs.attach_component(&camera, CameraRealization(Arc::new(std::sync::RwLock::new(gpu_camera)))).unwrap();
+        ecs.attach_component(&camera, CameraDirty(false)).unwrap();
+        ecs.insert_resource(ActiveCamera(camera));
+
+        // Environment
+        ecs.insert_resource(EnvironmentDescriptorResource(Some(
+            WorldEnvironmentDescriptor::FromFile {
+                cube_face_size: 2048,
+                path: "Assets/WorldEnvironments/PhotoStudio.hdr".to_string(),
+                sampling_type: WorldEnvironmentDescriptor::DEFAULT_SAMPLING_TYPE,
+                custom_specular_mip_level_count: None,
+            },
+        )));
+
+        // Import model
+        if let Some(mut queue) = ecs.get_resource_mut::<ImportQueueResource>() {
+            queue.push(ImportTask::Gltf {
+                file_path: "Assets/Models/DamagedHelmet.glb".into(),
+                task: GltfImport::WholeFile,
+            });
+        }
+
+        // Spawn lights
+        let light1 = ecs.spawn_entity();
+        ecs.attach_component(&light1, LightDescriptorEcs::new_point(
+            Vector3::new(1.0, 1.0, 1.0), 10.0,
+        )).unwrap();
+        ecs.attach_component(&light1, Position(Point3::new(5.0, 5.0, 5.0))).unwrap();
+        ecs.attach_component(&light1, LightDirty(true)).unwrap();
+
+        let light2 = ecs.spawn_entity();
+        ecs.attach_component(&light2, LightDescriptorEcs::new_directional(
+            Vector3::new(-1.0, -1.0, -1.0),
+            Vector3::new(1.0, 1.0, 1.0),
+            1.0,
+        )).unwrap();
+        ecs.attach_component(&light2, Position(Point3::new(0.0, 0.0, 0.0))).unwrap();
+        ecs.attach_component(&light2, LightDirty(true)).unwrap();
+
+        // Grab cursor
+        if let Some(mut events) = ecs.get_resource_mut::<EngineEvents>() {
+            events.push(EngineEvent::CursorGrabbed(true));
+            events.push(EngineEvent::CursorVisible(false));
+        }
+
+        vec![
+            (|rot: &mut Rotation, dt: Res<DeltaTime>| {
+                rot.rotate_roll(Rad(0.3 * dt.0 as f32));
+            }).into_system(),
+        ]
+    }
+}
