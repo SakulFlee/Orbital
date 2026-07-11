@@ -901,3 +901,70 @@ impl<
         ))
     }
 }
+
+// ---------------------------------------------------------------------------
+// Commands parameter support
+// ---------------------------------------------------------------------------
+
+// fn(Commands) — commands-only system
+impl<F: FnMut(crate::Commands) + Send + 'static> IntoSystem<fn(crate::Commands)> for F {
+    type System = Box<dyn crate::system::system::System>;
+    fn into_system(self) -> Self::System {
+        let mut f = self;
+        Box::new(crate::system::system::FunctionSystem::new(
+            crate::system::system::FunctionSystemMetadata {
+                name: std::any::type_name::<F>(),
+                access: crate::system::access::ComponentAccess::new(),
+            },
+            Box::new(move |_world, commands| {
+                f(std::mem::take(commands));
+            }),
+        ))
+    }
+}
+
+// fn(Commands, Res<A>) — commands + read resource
+impl<A: 'static + Send + Sync, F: for<'a> FnMut(crate::Commands, Res<'a, A>) + Send + 'static>
+    IntoSystem<fn(crate::Commands, Res<'_, A>)> for F
+{
+    type System = Box<dyn crate::system::system::System>;
+    fn into_system(self) -> Self::System {
+        let mut f = self;
+        Box::new(crate::system::system::FunctionSystem::new(
+            crate::system::system::FunctionSystemMetadata {
+                name: std::any::type_name::<F>(),
+                access: crate::system::access::ComponentAccess::new().reads::<A>(),
+            },
+            Box::new(move |world, commands| {
+                let handle = match world.get_resource::<A>() {
+                    Some(h) => h,
+                    None => return,
+                };
+                f(std::mem::take(commands), Res(&*handle));
+            }),
+        ))
+    }
+}
+
+// fn(Commands, ResMut<A>) — commands + write resource
+impl<A: 'static + Send + Sync, F: for<'a> FnMut(crate::Commands, ResMut<'a, A>) + Send + 'static>
+    IntoSystem<fn(crate::Commands, ResMut<'_, A>)> for F
+{
+    type System = Box<dyn crate::system::system::System>;
+    fn into_system(self) -> Self::System {
+        let mut f = self;
+        Box::new(crate::system::system::FunctionSystem::new(
+            crate::system::system::FunctionSystemMetadata {
+                name: std::any::type_name::<F>(),
+                access: crate::system::access::ComponentAccess::new().writes::<A>(),
+            },
+            Box::new(move |world, commands| {
+                let mut handle = match world.get_resource_mut::<A>() {
+                    Some(h) => h,
+                    None => return,
+                };
+                f(std::mem::take(commands), ResMut(&mut *handle));
+            }),
+        ))
+    }
+}
