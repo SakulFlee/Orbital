@@ -11,3 +11,6 @@
 
 pub mod resources;
 pub use resources::*;
+
+pub mod components;
+pub use components::*;
