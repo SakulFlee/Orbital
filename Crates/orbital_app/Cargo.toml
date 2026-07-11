@@ -16,6 +16,7 @@ orbital_ecs_bridge = { path = "../orbital_ecs_bridge" }
 orbital_element = { path = "../orbital_element" }
 orbital_input = { path = "../orbital_input" }
 orbital_renderer = { path = "../orbital_renderer" }
+orbital_resources = { path = "../orbital_resources" }
 orbital_world = { path = "../orbital_world" }
 cgmath = { workspace = true }
 log = { workspace = true }
