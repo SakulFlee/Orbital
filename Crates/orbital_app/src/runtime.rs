@@ -18,7 +18,7 @@ use winit::{
 };
 
 use crate::{make_core_schedule, App, AppContext, AppSettings, AppState, Timer};
-use orbital_ecs_bridge::{DeltaTime, FrameCounter, InputSnapshot, TotalTime};
+use orbital_ecs_bridge::{CursorPosition, DeltaTime, FrameCounter, InputSnapshot, TotalTime, WindowSize};
 
 macro_rules! ctx_lock {
     ($ctx:ident) => {
@@ -72,6 +72,12 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
         app_runtime
             .ecs_world
             .insert_resource(InputSnapshot(InputState::new()));
+        app_runtime
+            .ecs_world
+            .insert_resource(CursorPosition(cgmath::Vector2::new(0.0, 0.0)));
+        app_runtime
+            .ecs_world
+            .insert_resource(WindowSize(cgmath::Vector2::new(0, 0)));
 
         event_loop.run_app(&mut app_runtime)
     }
