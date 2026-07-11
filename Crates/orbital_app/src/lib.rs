@@ -10,6 +10,8 @@ pub use runtime::*;
 mod core_schedule;
 pub use core_schedule::*;
 
+pub use orbital_ecs::Schedule;
+
 pub use orbital_element::AppEvent;
 
 mod timer;
@@ -20,6 +22,9 @@ pub use context::*;
 
 mod state;
 pub use state::*;
+
+pub mod module;
+pub use module::Module;
 
 pub use orbital_input as input;
 pub use orbital_input::*;
