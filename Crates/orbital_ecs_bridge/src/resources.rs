@@ -88,3 +88,46 @@ pub struct DeviceResource(pub Arc<wgpu::Device>);
 /// so shared access suffices for most use cases.
 #[derive(Debug, Clone)]
 pub struct QueueResource(pub Arc<wgpu::Queue>);
+
+// ---------------------------------------------------------------------------
+// Engine events (replace AppEvent)
+// ---------------------------------------------------------------------------
+
+/// Engine-level events that systems can emit and the runtime processes.
+///
+/// Systems push events into the `EngineEvents` resource during their execution.
+/// After all schedules run, the runtime drains and processes them.
+#[derive(Debug, Clone)]
+pub enum EngineEvent {
+    /// Grab or release the mouse cursor.
+    CursorGrabbed(bool),
+    /// Show or hide the mouse cursor.
+    CursorVisible(bool),
+    /// Request application closure (graceful exit).
+    RequestClose,
+    /// Force application closure with an exit code.
+    ForceClose { exit_code: i32 },
+    /// Request a window redraw.
+    RequestRedraw,
+}
+
+/// Collection of engine events emitted by systems during the current frame.
+///
+/// Inserted as an ECS resource. Systems push events via `ResMut<EngineEvents>`.
+/// The runtime drains this after schedules finish and processes each event.
+#[derive(Debug, Clone, Default)]
+pub struct EngineEvents(pub Vec<EngineEvent>);
+
+impl EngineEvents {
+    pub fn push(&mut self, event: EngineEvent) {
+        self.0.push(event);
+    }
+
+    pub fn drain(&mut self) -> Vec<EngineEvent> {
+        std::mem::take(&mut self.0)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
