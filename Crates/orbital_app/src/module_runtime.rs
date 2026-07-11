@@ -134,7 +134,7 @@ impl ModuleRuntime {
 
         let format = lock.get_first_view_format();
 
-        let view: wgpu::TextureView = frame.texture.create_view(&TextureViewDescriptor {
+        let _view: wgpu::TextureView = frame.texture.create_view(&TextureViewDescriptor {
             format: Some(format),
             ..TextureViewDescriptor::default()
         });

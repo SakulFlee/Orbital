@@ -1,2 +1,2 @@
 pub mod realize;
-pub use realize::realize_cameras;
+pub use realize::{realize_cameras, realize_models};
