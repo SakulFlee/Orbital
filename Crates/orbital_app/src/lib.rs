@@ -30,7 +30,7 @@ pub mod module_runtime;
 pub use module_runtime::ModuleRuntime;
 
 pub mod systems;
-pub use systems::realize_cameras;
+pub use systems::{realize_cameras, realize_models};
 
 pub use orbital_input as input;
 pub use orbital_input::*;

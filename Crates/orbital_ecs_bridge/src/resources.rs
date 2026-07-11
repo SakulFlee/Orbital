@@ -138,8 +138,14 @@ impl EngineEvents {
 
 /// Shared mesh cache — maps `Arc<MeshDescriptor>` → `Mesh`.
 /// Used by the model realization system to avoid re-uploading identical meshes.
-pub type MeshCacheResource = std::sync::RwLock<orbital_core::cache::Cache<std::sync::Arc<orbital_resources::MeshDescriptor>, orbital_resources::Mesh>>;
+/// Wrapped in `Arc` so it can be cloned for use in `Model::from_descriptor`.
+pub type MeshCacheResource = Arc<std::sync::RwLock<orbital_core::cache::Cache<std::sync::Arc<orbital_resources::MeshDescriptor>, orbital_resources::Mesh>>>;
 
 /// Shared material cache — maps `Arc<MaterialShaderDescriptor>` → `MaterialShader`.
 /// Used by the model realization system to avoid re-creating identical materials.
-pub type MaterialCacheResource = std::sync::RwLock<orbital_core::cache::Cache<std::sync::Arc<orbital_resources::MaterialShaderDescriptor>, orbital_resources::MaterialShader>>;
+/// Wrapped in `Arc` so it can be cloned for use in `Model::from_descriptor`.
+pub type MaterialCacheResource = Arc<std::sync::RwLock<orbital_core::cache::Cache<std::sync::Arc<orbital_resources::MaterialShaderDescriptor>, orbital_resources::MaterialShader>>>;
+
+/// Current surface texture format (set on resume/resize).
+#[derive(Debug, Clone, Copy)]
+pub struct SurfaceFormatResource(pub wgpu::TextureFormat);

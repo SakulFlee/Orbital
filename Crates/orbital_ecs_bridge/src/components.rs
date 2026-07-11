@@ -159,7 +159,6 @@ impl CameraDirty {
 // Model ECS types
 // ---------------------------------------------------------------------------
 
-use std::collections::HashMap;
 use ulid::Ulid;
 
 /// Model-only properties (mesh, materials). Instances are in a separate component.
@@ -202,11 +201,11 @@ impl ModelDescriptorEcs {
 /// Instance transforms for a model (ULID → Transform mapping).
 /// Each entry represents one instance of the model at a different position/rotation/scale.
 #[derive(Debug, Clone, Default)]
-pub struct ModelInstances(pub HashMap<Ulid, orbital_resources::Transform>);
+pub struct ModelInstances(pub hashbrown::HashMap<Ulid, orbital_resources::Transform>);
 
 impl ModelInstances {
     pub fn new() -> Self {
-        Self(HashMap::new())
+        Self(hashbrown::HashMap::new())
     }
 
     pub fn add_instance(&mut self, transform: orbital_resources::Transform) -> Ulid {
