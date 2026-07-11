@@ -354,10 +354,15 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
             WindowEvent::CursorMoved {
                 device_id,
                 position,
-            } => Some(InputEvent::MouseMovedPosition {
-                device_id,
-                position,
-            }),
+            } => {
+                if let Some(mut pos) = self.ecs_world.get_resource_mut::<CursorPosition>() {
+                    pos.0 = cgmath::Vector2::new(position.x, position.y);
+                }
+                Some(InputEvent::MouseMovedPosition {
+                    device_id,
+                    position,
+                })
+            }
             WindowEvent::Resized(new_size) => {
                 let ctx_lock = ctx_lock!(ctx);
                 let configuration =
@@ -365,6 +370,8 @@ impl<AppImpl: App> ApplicationHandler for AppRuntime<AppImpl> {
                 ctx_lock.reconfigure_surface(&configuration);
 
                 self.input_state.surface_resize(new_size);
+                self.ecs_world
+                    .insert_resource(WindowSize(cgmath::Vector2::new(new_size.width, new_size.height)));
 
                 None
             }
