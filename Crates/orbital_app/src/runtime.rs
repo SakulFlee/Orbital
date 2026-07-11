@@ -144,9 +144,6 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
 
         // Write frame-computed engine state into the ECS world
         self.ecs_world.insert_resource(DeltaTime(delta_time));
-        if let Some(mut counter) = self.ecs_world.get_resource_mut::<FrameCounter>() {
-            counter.0 += 1;
-        }
         self.ecs_world
             .insert_resource(InputSnapshot(self.input_state.clone()));
 

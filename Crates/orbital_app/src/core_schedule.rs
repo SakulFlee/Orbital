@@ -5,22 +5,22 @@
 //! before user systems execute.
 
 use orbital_ecs::ResMut;
-use orbital_ecs_bridge::{DeltaTime, TotalTime};
+use orbital_ecs_bridge::{DeltaTime, FrameCounter, TotalTime};
 
-/// Increments the frame counter each tick.
-///
-/// Runs in the core schedule, after the runtime has written the current
-/// `DeltaTime` into the ECS world.
+/// Increments the total elapsed time each tick.
 pub fn sys_accumulate_time(mut total: ResMut<TotalTime>, dt: ResMut<DeltaTime>) {
     total.0 += dt.0;
 }
 
+/// Increments the frame counter each tick.
+pub fn sys_update_frame_counter(mut counter: ResMut<FrameCounter>) {
+    counter.0 += 1;
+}
+
 /// Returns the core engine systems as a pre-built schedule.
-///
-/// The runtime calls this once during initialisation and then runs it
-/// at the start of every redraw cycle, before any user-defined systems.
 pub fn make_core_schedule() -> orbital_ecs::Schedule {
     let mut schedule = orbital_ecs::Schedule::new();
     schedule.add_system(sys_accumulate_time);
+    schedule.add_system(sys_update_frame_counter);
     schedule
 }
