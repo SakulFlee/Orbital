@@ -20,5 +20,5 @@ pub trait Module: Send + Sync {
     /// Spawn entities, insert resources, and return the systems this
     /// module contributes to the game schedule. The runtime merges
     /// systems from all modules into a single schedule.
-    fn setup(ecs: &mut World, device: &Device, queue: &Queue) -> Vec<Box<dyn System>>;
+    fn setup(&self, ecs: &mut World, device: &Device, queue: &Queue) -> Vec<Box<dyn System>>;
 }

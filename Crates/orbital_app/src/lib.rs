@@ -26,6 +26,9 @@ pub use state::*;
 pub mod module;
 pub use module::Module;
 
+pub mod module_runtime;
+pub use module_runtime::ModuleRuntime;
+
 pub mod systems;
 pub use systems::realize_cameras;
 

@@ -31,6 +31,16 @@ impl Schedule {
         self.systems.push(system.into_system());
     }
 
+    /// Add a pre-boxed system directly (useful for systems returned from Module::setup).
+    pub fn add_system_boxed(&mut self, system: Box<dyn System>) {
+        self.systems.push(system);
+    }
+
+    /// Returns the number of systems in this schedule.
+    pub fn system_count(&self) -> usize {
+        self.systems.len()
+    }
+
     pub fn run(&mut self, world: &mut World) {
         if self.systems.is_empty() {
             return;
