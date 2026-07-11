@@ -154,3 +154,13 @@ pub struct SurfaceFormatResource(pub wgpu::TextureFormat);
 /// Rebuilt by `realize_lights` when any light is dirty.
 #[derive(Debug, Clone)]
 pub struct LightBufferResource(pub Option<Arc<wgpu::Buffer>>);
+
+/// Current world environment descriptor (singleton).
+/// Set by the environment system when the user changes the HDRI/skybox.
+#[derive(Debug, Clone)]
+pub struct EnvironmentDescriptorResource(pub Option<orbital_resources::WorldEnvironmentDescriptor>);
+
+/// Realized world environment GPU state (IBL textures, skybox).
+/// Created by `realize_environment` from the descriptor.
+#[derive(Debug, Clone)]
+pub struct EnvironmentGpuResource(pub Option<Arc<orbital_resources::WorldEnvironment>>);
