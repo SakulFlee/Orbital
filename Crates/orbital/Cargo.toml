@@ -39,7 +39,6 @@ winit = { workspace = true }
 glob = { workspace = true }
 rayon = { workspace = true }
 
-orbital_element = { path = "../orbital_element" }
 orbital_renderer = { path = "../orbital_renderer" }
 orbital_app = { path = "../orbital_app" }
 orbital_ecs = { path = "../ecs" }

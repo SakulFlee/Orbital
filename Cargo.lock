@@ -2108,7 +2108,6 @@ dependencies = [
  "orbital_core",
  "orbital_ecs",
  "orbital_ecs_bridge",
- "orbital_element",
  "orbital_importer_gltf",
  "orbital_input",
  "orbital_renderer",
@@ -2138,16 +2137,6 @@ dependencies = [
  "orbital_resources",
  "wgpu",
  "winit",
-]
-
-[[package]]
-name = "orbital_camera_controller"
-version = "0.1.0"
-dependencies = [
- "cgmath",
- "orbital_element",
- "orbital_input",
- "orbital_resources",
 ]
 
 [[package]]
@@ -2184,20 +2173,6 @@ dependencies = [
  "orbital_resources",
  "ulid",
  "wgpu",
-]
-
-[[package]]
-name = "orbital_element"
-version = "0.1.0"
-dependencies = [
- "hashbrown 0.17.1",
- "log",
- "orbital_core",
- "orbital_importer_gltf",
- "orbital_input",
- "orbital_resources",
- "serde",
- "winit",
 ]
 
 [[package]]
@@ -2257,21 +2232,6 @@ version = "0.1.0"
 dependencies = [
  "glob",
  "log",
-]
-
-[[package]]
-name = "orbital_world"
-version = "0.1.0"
-dependencies = [
- "cgmath",
- "hashbrown 0.17.1",
- "log",
- "orbital_core",
- "orbital_element",
- "orbital_importer_gltf",
- "orbital_resources",
- "ulid",
- "wgpu",
 ]
 
 [[package]]
