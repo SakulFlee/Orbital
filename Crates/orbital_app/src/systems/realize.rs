@@ -8,9 +8,10 @@ use std::sync::{Arc, RwLock};
 use log::warn;
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
-    CameraDescriptorEcs, CameraDirty, CameraRealization, DeviceResource, MaterialCacheResource,
-    MeshCacheResource, ModelDescriptorEcs, ModelDirty, ModelInstances, ModelRealization,
-    Position, QueueResource, Rotation, SurfaceFormatResource,
+    CameraDescriptorEcs, CameraDirty, CameraRealization, DeviceResource, LightBufferResource,
+    LightDescriptorEcs, LightDirty, MaterialCacheResource, MeshCacheResource, ModelDescriptorEcs,
+    ModelDirty, ModelInstances, ModelRealization, Position, QueueResource, Rotation,
+    SurfaceFormatResource,
 };
 use orbital_resources::{Camera, Model};
 
@@ -273,6 +274,108 @@ pub fn realize_models(ecs: &mut World) {
 
         // Clear dirty flag
         if let Some(dirty_store) = ecs.get_component_store_mut::<ModelDirty>() {
+            if let Some(idx) = dirty_store.sparse[eid] {
+                dirty_store.get_mut_store().components[idx].0 = false;
+            }
+        }
+    }
+}
+
+/// Realize (rebuild) the unified light GPU buffer from all dirty light entities.
+///
+/// All lights are packed into a single storage buffer. When any light changes,
+/// the entire buffer is rebuilt from all LightDescriptorEcs + Position components.
+pub fn realize_lights(ecs: &mut World) {
+    let (device, queue) = {
+        let d = match ecs.get_resource::<DeviceResource>() {
+            Some(d) => d.0.clone(),
+            None => return,
+        };
+        let q = match ecs.get_resource::<QueueResource>() {
+            Some(q) => q.0.clone(),
+            None => return,
+        };
+        (d, q)
+    };
+
+    // Check if any light is dirty
+    let any_dirty = match ecs.get_component_store::<LightDirty>() {
+        Some(store) => store.dense.iter().any(|&eid| {
+            store.sparse[eid]
+                .map(|idx| store.components[idx].0)
+                .unwrap_or(false)
+        }),
+        None => return, // No dirty flags means no lights or no changes
+    };
+
+    if !any_dirty {
+        return;
+    }
+
+    // Collect all light descriptors with their positions
+    let mut light_data: Vec<(LightDescriptorEcs, Position)> = Vec::new();
+    {
+        let descs = match ecs.get_component_store::<LightDescriptorEcs>() {
+            Some(s) => s,
+            None => return,
+        };
+        let positions = match ecs.get_component_store::<Position>() {
+            Some(s) => s,
+            None => return,
+        };
+
+        for &eid in descs.dense.as_slice() {
+            let desc_idx = match descs.sparse[eid] {
+                Some(i) => i,
+                None => continue,
+            };
+            let pos_idx = positions.sparse[eid].unwrap_or(0); // default position if none
+            light_data.push((
+                descs.components[desc_idx].clone(),
+                positions.components[pos_idx],
+            ));
+        }
+    }
+
+    // Build light descriptors for the GPU buffer
+    let light_descriptors: Vec<orbital_resources::LightDescriptor> = light_data
+        .iter()
+        .map(|(desc, pos)| {
+            orbital_resources::LightDescriptor {
+                label: String::new(),
+                light_type: desc.light_type.clone(),
+                color: desc.color,
+                position: cgmath::Vector3::new(pos.0.x, pos.0.y, pos.0.z),
+                direction: desc.direction,
+            }
+        })
+        .collect();
+
+    // Pack into buffer data (64 bytes per light)
+    let buffer_data: Vec<u8> = light_descriptors
+        .iter()
+        .flat_map(|ld| ld.to_buffer_data())
+        .collect();
+
+    // Create or update the GPU buffer
+    let buffer_size = buffer_data.len().max(4) as u64; // min 4 bytes for empty
+    let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("ECS Light Buffer"),
+        size: buffer_size,
+        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+
+    if !buffer_data.is_empty() {
+        queue.write_buffer(&buffer, 0, &buffer_data);
+    }
+
+    // Update the ECS resource
+    ecs.insert_resource(LightBufferResource(Some(Arc::new(buffer))));
+
+    // Clear all dirty flags
+    if let Some(dirty_store) = ecs.get_component_store_mut::<LightDirty>() {
+        for &eid in dirty_store.dense.as_slice() {
             if let Some(idx) = dirty_store.sparse[eid] {
                 dirty_store.get_mut_store().components[idx].0 = false;
             }
