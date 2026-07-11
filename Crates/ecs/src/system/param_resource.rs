@@ -1013,8 +1013,9 @@ impl<
 // Commands parameter support
 // ---------------------------------------------------------------------------
 
-// fn(Commands) — commands-only system
-impl<F: FnMut(crate::Commands) + Send + 'static> IntoSystem<fn(crate::Commands)> for F {
+// fn(&mut Commands) — commands-only system
+// The system receives a mutable reference to the schedule's commands buffer.
+impl<F: FnMut(&mut crate::Commands) + Send + 'static> IntoSystem<fn(&mut crate::Commands)> for F {
     type System = Box<dyn crate::system::system::System>;
     fn into_system(self) -> Self::System {
         let mut f = self;
@@ -1024,15 +1025,15 @@ impl<F: FnMut(crate::Commands) + Send + 'static> IntoSystem<fn(crate::Commands)>
                 access: crate::system::access::ComponentAccess::new(),
             },
             Box::new(move |_world, commands| {
-                f(std::mem::take(commands));
+                f(commands);
             }),
         ))
     }
 }
 
-// fn(Commands, Res<A>) — commands + read resource
-impl<A: 'static + Send + Sync, F: for<'a> FnMut(crate::Commands, Res<'a, A>) + Send + 'static>
-    IntoSystem<fn(crate::Commands, Res<'_, A>)> for F
+// fn(&mut Commands, Res<A>) — commands + read resource
+impl<A: 'static + Send + Sync, F: for<'a> FnMut(&mut crate::Commands, Res<'a, A>) + Send + 'static>
+    IntoSystem<fn(&mut crate::Commands, Res<'_, A>)> for F
 {
     type System = Box<dyn crate::system::system::System>;
     fn into_system(self) -> Self::System {
@@ -1047,15 +1048,15 @@ impl<A: 'static + Send + Sync, F: for<'a> FnMut(crate::Commands, Res<'a, A>) + S
                     Some(h) => h,
                     None => return,
                 };
-                f(std::mem::take(commands), Res(&*handle));
+                f(commands, Res(&*handle));
             }),
         ))
     }
 }
 
-// fn(Commands, ResMut<A>) — commands + write resource
-impl<A: 'static + Send + Sync, F: for<'a> FnMut(crate::Commands, ResMut<'a, A>) + Send + 'static>
-    IntoSystem<fn(crate::Commands, ResMut<'_, A>)> for F
+// fn(&mut Commands, ResMut<A>) — commands + write resource
+impl<A: 'static + Send + Sync, F: for<'a> FnMut(&mut crate::Commands, ResMut<'a, A>) + Send + 'static>
+    IntoSystem<fn(&mut crate::Commands, ResMut<'_, A>)> for F
 {
     type System = Box<dyn crate::system::system::System>;
     fn into_system(self) -> Self::System {
@@ -1070,7 +1071,7 @@ impl<A: 'static + Send + Sync, F: for<'a> FnMut(crate::Commands, ResMut<'a, A>) 
                     Some(h) => h,
                     None => return,
                 };
-                f(std::mem::take(commands), ResMut(&mut *handle));
+                f(commands, ResMut(&mut *handle));
             }),
         ))
     }
