@@ -128,7 +128,7 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
             ..TextureViewDescriptor::default()
         });
 
-        self.app.on_render(&view, lock.device(), lock.queue());
+        self.app.on_render(&self.ecs_world, &view, lock.device(), lock.queue());
         lock.queue().present(frame);
     }
 
@@ -154,13 +154,13 @@ impl<AppImpl: App> AppRuntime<AppImpl> {
             .insert_resource(InputSnapshot(self.input_state.clone()));
 
         // Run the core engine schedule (frame timing, etc.)
-        self.core_schedule.run(&self.ecs_world);
+        self.core_schedule.run(&mut self.ecs_world);
 
         #[cfg(feature = "gamepad_input_poll")]
         self.receive_controller_inputs();
 
         let result =
-            if let Some(app_events) = self.app.on_update(&self.input_state, delta_time, cycle) {
+            if let Some(app_events) = self.app.on_update(&mut self.ecs_world, &self.input_state, delta_time, cycle) {
                 self.process_app_events(app_events)
             } else {
                 false

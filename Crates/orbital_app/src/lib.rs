@@ -51,6 +51,7 @@ pub trait App: Send + Sync {
 
     fn on_update(
         &mut self,
+        _ecs: &mut orbital_ecs::World,
         _input_state: &InputState,
         _delta_time: f64,
         _cycle: Option<(f64, u64)>,
@@ -58,5 +59,12 @@ pub trait App: Send + Sync {
         None
     }
 
-    fn on_render(&mut self, _target_view: &TextureView, _device: &Device, _queue: &Queue) {}
+    fn on_render(
+        &mut self,
+        _ecs: &orbital_ecs::World,
+        _target_view: &TextureView,
+        _device: &Device,
+        _queue: &Queue,
+    ) {
+    }
 }
