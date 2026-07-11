@@ -11,7 +11,7 @@ use orbital_resources::{
 };
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindingResource, Buffer,
-    BufferDescriptor, BufferUsages, Device, Queue, TextureFormat, TextureUsages,
+    BufferBinding, BufferDescriptor, BufferUsages, Device, Queue, TextureFormat, TextureUsages,
 };
 
 use crate::store::*;
@@ -200,6 +200,132 @@ impl World {
                 BindGroupEntry {
                     binding: 0,
                     resource: BindingResource::Buffer(active_camera_buffer),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::Buffer(light_buffer_binding),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: BindingResource::TextureView(world_environment_ibl_diffuse_view),
+                },
+                BindGroupEntry {
+                    binding: 3,
+                    resource: BindingResource::Sampler(world_environment_ibl_diffuse_sampler),
+                },
+                BindGroupEntry {
+                    binding: 4,
+                    resource: BindingResource::TextureView(world_environment_ibl_specular_view),
+                },
+                BindGroupEntry {
+                    binding: 5,
+                    resource: BindingResource::Sampler(world_environment_ibl_specular_sampler),
+                },
+                BindGroupEntry {
+                    binding: 6,
+                    resource: BindingResource::TextureView(ibl_brdf_view),
+                },
+                BindGroupEntry {
+                    binding: 7,
+                    resource: BindingResource::Sampler(ibl_brdf_sampler),
+                },
+            ],
+        });
+
+        self.world_bind_group = Some(bind_group);
+    }
+
+    /// Recreate the world bind group using an externally-provided camera buffer.
+    ///
+    /// Same as `recreate_bind_group` but accepts the camera buffer binding
+    /// from outside (e.g. from an ECS CameraRealization) instead of reading
+    /// from the internal CameraStore. This is the ECS migration path.
+    pub fn recreate_bind_group_with_camera_buffer(
+        &mut self,
+        camera_buffer_binding: BufferBinding,
+        device: &Device,
+        queue: &Queue,
+    ) {
+        self.light_store.create_light_buffer(device, queue);
+
+        let light_buffer_binding = {
+            let light_buffer = self.light_store.light_buffer();
+            light_buffer
+                .map(|buffer| buffer.as_entire_buffer_binding())
+                .unwrap_or_else(|| {
+                    static FALLBACK_ONCE: OnceLock<Buffer> = OnceLock::new();
+                    let fallback = FALLBACK_ONCE.get_or_init(|| {
+                        device.create_buffer(&BufferDescriptor {
+                            label: Some("Fallback Light Buffer"),
+                            size: 4,
+                            usage: BufferUsages::STORAGE,
+                            mapped_at_creation: false,
+                        })
+                    });
+                    fallback.as_entire_buffer_binding()
+                })
+        };
+
+        if self.ibl_brdf.is_none() {
+            self.ibl_brdf = Some(IblBrdf::generate(device, queue).texture());
+        }
+        let local_ibl_brdf = self.ibl_brdf.as_ref().unwrap();
+        let (ibl_brdf_view, ibl_brdf_sampler) = (local_ibl_brdf.view(), local_ibl_brdf.sampler());
+
+        let (
+            world_environment_ibl_diffuse_view,
+            world_environment_ibl_diffuse_sampler,
+            world_environment_ibl_specular_view,
+            world_environment_ibl_specular_sampler,
+        ) = match self.environment_store().world_environment() {
+            Some(x) => (
+                x.ibl_diffuse().view(),
+                x.ibl_diffuse().sampler(),
+                x.ibl_specular().view(),
+                x.ibl_specular().sampler(),
+            ),
+            None => {
+                debug!("Attempting to recreate World BindGroup without an active WorldEnvironment! Using a default fallback.");
+                static FALLBACK_ONCE: OnceLock<(Texture, Texture)> = OnceLock::new();
+                let (fallback_ibl_diffuse, fallback_ibl_specular) =
+                    FALLBACK_ONCE.get_or_init(|| {
+                        (
+                            Texture::create_empty_cube_texture(
+                                Some("default IBL diffuse"),
+                                Vector2::new(1, 1),
+                                TextureFormat::R8Unorm,
+                                TextureUsages::TEXTURE_BINDING,
+                                1,
+                                device,
+                            ),
+                            Texture::create_empty_cube_texture(
+                                Some("default IBL specular"),
+                                Vector2::new(1, 1),
+                                TextureFormat::R8Unorm,
+                                TextureUsages::TEXTURE_BINDING,
+                                1,
+                                device,
+                            ),
+                        )
+                    });
+
+                (
+                    fallback_ibl_diffuse.view(),
+                    fallback_ibl_diffuse.sampler(),
+                    fallback_ibl_specular.view(),
+                    fallback_ibl_specular.sampler(),
+                )
+            }
+        };
+
+        let bind_group_layout = Self::make_world_bind_group_layout(device);
+        let bind_group = device.create_bind_group(&BindGroupDescriptor {
+            label: Some("World Bind Group"),
+            layout: &bind_group_layout,
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::Buffer(camera_buffer_binding),
                 },
                 BindGroupEntry {
                     binding: 1,
