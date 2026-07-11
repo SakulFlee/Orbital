@@ -242,6 +242,77 @@ impl ModelDirty {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Light ECS types
+// ---------------------------------------------------------------------------
+
+/// Light-only properties (type, color, direction).
+/// Position comes from the Position component on the entity.
+#[derive(Debug, Clone)]
+pub struct LightDescriptorEcs {
+    pub light_type: orbital_resources::LightType,
+    pub color: cgmath::Vector3<f32>,
+    pub direction: cgmath::Vector3<f32>,
+}
+
+impl LightDescriptorEcs {
+    pub fn new_point(color: cgmath::Vector3<f32>, intensity: f32) -> Self {
+        Self {
+            light_type: orbital_resources::LightType::Point { intensity },
+            color,
+            direction: cgmath::Vector3::new(0.0, -1.0, 0.0),
+        }
+    }
+
+    pub fn new_directional(
+        direction: cgmath::Vector3<f32>,
+        color: cgmath::Vector3<f32>,
+        intensity: f32,
+    ) -> Self {
+        Self {
+            light_type: orbital_resources::LightType::Directional { intensity },
+            color,
+            direction,
+        }
+    }
+
+    pub fn new_spot(
+        color: cgmath::Vector3<f32>,
+        intensity: f32,
+        direction: cgmath::Vector3<f32>,
+        inner_cone_angle: f32,
+        outer_cone_angle: f32,
+    ) -> Self {
+        Self {
+            light_type: orbital_resources::LightType::Spot {
+                intensity,
+                inner_cone_angle,
+                outer_cone_angle,
+            },
+            color,
+            direction,
+        }
+    }
+}
+
+/// Dirty flag — set when light properties change.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct LightDirty(pub bool);
+
+impl LightDirty {
+    pub fn is_dirty(&self) -> bool {
+        self.0
+    }
+
+    pub fn mark_dirty(&mut self) {
+        self.0 = true;
+    }
+
+    pub fn clear(&mut self) {
+        self.0 = false;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

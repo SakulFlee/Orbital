@@ -149,3 +149,8 @@ pub type MaterialCacheResource = Arc<std::sync::RwLock<orbital_core::cache::Cach
 /// Current surface texture format (set on resume/resize).
 #[derive(Debug, Clone, Copy)]
 pub struct SurfaceFormatResource(pub wgpu::TextureFormat);
+
+/// Unified light GPU buffer — all lights packed into a single storage buffer.
+/// Rebuilt by `realize_lights` when any light is dirty.
+#[derive(Debug, Clone)]
+pub struct LightBufferResource(pub Option<Arc<wgpu::Buffer>>);
