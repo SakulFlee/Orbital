@@ -8,10 +8,10 @@ use std::sync::{Arc, RwLock};
 use log::warn;
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
-    CameraDescriptorEcs, CameraDirty, CameraRealization, DeviceResource, EnvironmentDescriptorResource,
-    EnvironmentGpuResource, LightBufferResource, LightDescriptorEcs, LightDirty,
-    MaterialCacheResource, MeshCacheResource, ModelDescriptorEcs, ModelDirty, ModelInstances,
-    ModelRealization, Position, QueueResource, Rotation, SurfaceFormatResource,
+    ActiveCamera, CameraDescriptorEcs, CameraDirty, CameraRealization, DeviceResource,
+    EnvironmentDescriptorResource, EnvironmentGpuResource, LightBufferResource, LightDescriptorEcs,
+    LightDirty, MaterialCacheResource, MeshCacheResource, ModelDescriptorEcs, ModelDirty,
+    ModelInstances, ModelRealization, Position, QueueResource, Rotation, SurfaceFormatResource,
 };
 use orbital_resources::{Camera, Model};
 
