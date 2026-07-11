@@ -8,4 +8,5 @@ orbital_ecs = { path = "../ecs" }
 orbital_resources = { path = "../orbital_resources" }
 cgmath = { workspace = true }
 orbital_input = { path = "../orbital_input" }
+ulid = { workspace = true }
 wgpu = { workspace = true }
