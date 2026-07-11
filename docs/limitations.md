@@ -37,16 +37,26 @@ fn sys_camera_controller(
 
 ### Root Cause
 
-The 4-arg impl (`Res<A> + Res<B> + &mut C + &mut D`) was added but the compiler fails to resolve `IntoSystem` for function pointer types (`fn(Res<A>, Res<B>, &mut C, &mut D)`). The impl exists in `param_resource.rs` but doesn't match during type inference.
-
-This may be related to:
-1. Function pointer vs closure type inference differences
-2. Higher-ranked lifetime bounds (`for<'a, 'b>`) not being inferred correctly for function pointers
-3. The impl being placed after other impls causing resolution issues
+The 4-arg impl (`Res<A> + Res<B> + &mut C + &mut D`) was added but inline closures fail to resolve `IntoSystem` for function pointer types. **Named functions work correctly.** The issue is specific to inline closures passed through `Box::new()` — the compiler can't infer the correct `IntoSystem` impl for the closure's function pointer type.
 
 ### Workaround
 
 For systems needing multiple resources + multiple component writes, use one of:
+
+**Option A: Use named functions (not inline closures)**
+```rust
+// THIS WORKS:
+fn sys_camera_controller(
+    dt: Res<DeltaTime>,
+    input: Res<InputSnapshot>,
+    pos: &mut Position,
+    rot: &mut Rotation,
+) { ... }
+// Then: schedule.add_system(sys_camera_controller.into_system());
+
+// THIS DOES NOT WORK (inline closure type inference fails):
+// schedule.add_system((|dt: Res<DeltaTime>, input: Res<InputSnapshot>, pos: &mut Position, rot: &mut Rotation| { ... }).into_system());
+```
 
 **Option A: Split into multiple systems**
 ```rust
@@ -79,4 +89,6 @@ fn setup(&self, ecs: &mut World, ...) -> Vec<Box<dyn System>> {
 
 ### Impact
 
-The roll_camera example's camera controller (WASD + mouse) cannot be a scheduled system with the current macros. The roll system works fine since it only needs `Res<A> + &mut B`.
+The roll_camera example's camera controller (WASD + mouse) works correctly when using a named function (`fn sys_camera_controller(...)`) with `.into_system()`. Inline closures with the same signature do not compile.
+
+**Status: Partially resolved.** Named functions work; inline closures don't. The workaround is sufficient for all current use cases.
