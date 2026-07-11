@@ -178,3 +178,17 @@ impl ImportQueueResource {
 /// Results from completed imports, ready to be spawned as ECS entities.
 #[derive(Debug, Default)]
 pub struct ImportResultsResource(pub Vec<orbital_importer_gltf::ImportResult>);
+
+/// The glTF importer — owns the rayon thread pool and mpsc channels.
+/// Inserted as an ECS resource by the module during setup.
+pub struct ImporterResource(pub orbital_importer_gltf::Importer);
+
+// SAFETY: Importer wraps Mutex<Receiver> + Sender + ThreadPool, all Send+Sync.
+unsafe impl Send for ImporterResource {}
+unsafe impl Sync for ImporterResource {}
+
+impl std::fmt::Debug for ImporterResource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ImporterResource").finish()
+    }
+}
