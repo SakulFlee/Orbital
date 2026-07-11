@@ -12,8 +12,6 @@ use std::sync::Arc;
 
 use cgmath::Vector2;
 
-use orbital_ecs::Entity;
-
 // ---------------------------------------------------------------------------
 // Frame timing
 // ---------------------------------------------------------------------------
@@ -90,14 +88,3 @@ pub struct DeviceResource(pub Arc<wgpu::Device>);
 /// so shared access suffices for most use cases.
 #[derive(Debug, Clone)]
 pub struct QueueResource(pub Arc<wgpu::Queue>);
-
-// ---------------------------------------------------------------------------
-// Camera
-// ---------------------------------------------------------------------------
-
-/// Marks which entity is the active camera for rendering.
-///
-/// The renderer reads this resource each frame to determine which
-/// camera's view and projection matrices to use.
-#[derive(Debug, Clone, Copy)]
-pub struct ActiveCamera(pub Entity);

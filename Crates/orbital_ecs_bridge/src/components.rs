@@ -1,4 +1,8 @@
+use std::sync::{Arc, RwLock};
+
 use cgmath::{InnerSpace, Point3, Quaternion, Rad, Rotation as _, Rotation3, Vector3};
+use orbital_ecs::Entity;
+use orbital_resources::Camera;
 
 /// World-space position of an entity.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -89,6 +93,64 @@ impl Rotation {
 impl Default for Rotation {
     fn default() -> Self {
         Self::identity()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Camera ECS types
+// ---------------------------------------------------------------------------
+
+/// Camera-only properties (FOV, aspect ratio, clip planes, gamma).
+/// Position and rotation come from separate `Position`/`Rotation` components.
+#[derive(Debug, Clone)]
+pub struct CameraDescriptorEcs {
+    pub label: String,
+    pub aspect: f32,
+    pub fovy: Rad<f32>,
+    pub near: f32,
+    pub far: f32,
+    pub global_gamma: f32,
+}
+
+impl Default for CameraDescriptorEcs {
+    fn default() -> Self {
+        Self {
+            label: "Default".into(),
+            aspect: 16.0 / 9.0,
+            fovy: Rad(std::f32::consts::FRAC_PI_4),
+            near: 0.1,
+            far: 10000.0,
+            global_gamma: 2.2,
+        }
+    }
+}
+
+/// GPU camera state. Shared via `Arc`, mutable via `RwLock`.
+/// This is the "realization" link — attaching this to an entity means
+/// its GPU representation has been created.
+#[derive(Debug, Clone)]
+pub struct CameraRealization(pub Arc<RwLock<Camera>>);
+
+/// Marks an entity as the active camera for rendering.
+#[derive(Debug, Clone, Copy)]
+pub struct ActiveCamera(pub Entity);
+
+/// Dirty flag — set when position/rotation/camera-descriptor change.
+/// Cleared by the realization system after GPU buffer update.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct CameraDirty(pub bool);
+
+impl CameraDirty {
+    pub fn is_dirty(&self) -> bool {
+        self.0
+    }
+
+    pub fn mark_dirty(&mut self) {
+        self.0 = true;
+    }
+
+    pub fn clear(&mut self) {
+        self.0 = false;
     }
 }
 
