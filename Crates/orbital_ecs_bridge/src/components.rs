@@ -61,10 +61,11 @@ impl Rotation {
 
     /// Returns (forward, right, up) unit vectors from the rotation.
     ///
-    /// Convention: forward = -Z, right = +X, up = +Y (right-handed, Y-up).
+    /// Convention: forward = +X, right = +Z, up = +Y (matching the Camera's
+    /// local-space basis for view matrix computation).
     pub fn forward_right_up(&self) -> (Vector3<f32>, Vector3<f32>, Vector3<f32>) {
-        let forward = self.0 * Vector3::new(0.0, 0.0, -1.0);
-        let right = self.0 * Vector3::new(1.0, 0.0, 0.0);
+        let forward = self.0 * Vector3::new(1.0, 0.0, 0.0);
+        let right = self.0 * Vector3::new(0.0, 0.0, 1.0);
         let up = self.0 * Vector3::new(0.0, 1.0, 0.0);
         (forward.normalize(), right.normalize(), up.normalize())
     }
@@ -163,8 +164,8 @@ mod tests {
     fn identity_rotation() {
         let rot = Rotation::identity();
         let (f, r, u) = rot.forward_right_up();
-        assert!((f - Vector3::new(0.0, 0.0, -1.0)).magnitude() < 0.001);
-        assert!((r - Vector3::new(1.0, 0.0, 0.0)).magnitude() < 0.001);
+        assert!((f - Vector3::new(1.0, 0.0, 0.0)).magnitude() < 0.001);
+        assert!((r - Vector3::new(0.0, 0.0, 1.0)).magnitude() < 0.001);
         assert!((u - Vector3::new(0.0, 1.0, 0.0)).magnitude() < 0.001);
     }
 
@@ -173,10 +174,11 @@ mod tests {
         let mut rot = Rotation::identity();
         rot.rotate_yaw(Rad(FRAC_PI_2));
         let (f, r, u) = rot.forward_right_up();
-        // After 90° yaw, forward should point toward -X (or +X depending on convention)
-        assert!(f.x.abs() > 0.9, "forward.x should be near ±1, got {}", f.x);
+        // After 90° yaw, forward (originally +X) rotates to -Z
+        assert!(f.z.abs() > 0.9, "forward.z should be near ±1, got {}", f.z);
         assert!(f.y.abs() < 0.01, "forward.y should be near 0, got {}", f.y);
-        assert!(f.z.abs() < 0.01, "forward.z should be near 0, got {}", f.z);
+        // Right (originally +Z) rotates to +X
+        assert!(r.x.abs() > 0.9, "right.x should be near ±1, got {}", r.x);
         // Up should remain roughly Y-up
         assert!(u.y.abs() > 0.9, "up.y should be near ±1, got {}", u.y);
     }
@@ -186,11 +188,11 @@ mod tests {
         let mut rot = Rotation::identity();
         rot.rotate_pitch(Rad(FRAC_PI_2));
         let (f, r, u) = rot.forward_right_up();
-        // After 90° pitch up, forward should point toward +Y
+        // After 90° pitch (rotation around +Z), forward (+X) rotates to +Y
         assert!(f.y.abs() > 0.9, "forward.y should be near ±1, got {}", f.y);
         assert!(f.x.abs() < 0.01, "forward.x should be near 0, got {}", f.x);
-        // Right should remain roughly X-right
-        assert!(r.x.abs() > 0.9, "right.x should be near ±1, got {}", r.x);
+        // Right (+Z) is unchanged by rotation around Z
+        assert!(r.z.abs() > 0.9, "right.z should be near ±1, got {}", r.z);
     }
 
     #[test]
@@ -198,7 +200,7 @@ mod tests {
         let mut pos = Position::new(0.0, 0.0, 0.0);
         let rot = Rotation::identity();
         pos.offset_view_aligned(&rot, 1.0, 0.0, 0.0);
-        // Forward is -Z for identity, so moving forward 1.0 should go to z=-1.0
-        assert!((pos.0.z - (-1.0)).abs() < 0.001, "Expected z=-1.0, got {}", pos.0.z);
+        // Forward is +X for identity, so moving forward 1.0 should go to x=1.0
+        assert!((pos.0.x - 1.0).abs() < 0.001, "Expected x=1.0, got {}", pos.0.x);
     }
 }
