@@ -57,7 +57,7 @@ impl<A: 'static + Send + Sync, F: for<'a> FnMut(Res<'a, A>) + Send + 'static>
                 name: std::any::type_name::<F>(),
                 access: ComponentAccess::new().reads::<A>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(handle) = world.get_resource::<A>() else {
                     return;
                 };
@@ -79,7 +79,7 @@ impl<A: 'static + Send + Sync, F: for<'a> FnMut(ResMut<'a, A>) + Send + 'static>
                 name: std::any::type_name::<F>(),
                 access: ComponentAccess::new().writes::<A>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(mut handle) = world.get_resource_mut::<A>() else {
                     return;
                 };
@@ -109,7 +109,7 @@ macro_rules! impl_2_read_comp_res_read {
                         name: std::any::type_name::<F>(),
                         access: ComponentAccess::new().reads::<A>().reads::<B>(),
                     },
-                    Box::new(move |world| {
+                    Box::new(move |world, _commands| {
                         let Some(handle) = world.get_resource::<B>() else {
                             return;
                         };
@@ -145,7 +145,7 @@ macro_rules! impl_2_read_comp_res_write {
                         name: std::any::type_name::<F>(),
                         access: ComponentAccess::new().reads::<A>().writes::<B>(),
                     },
-                    Box::new(move |world| {
+                    Box::new(move |world, _commands| {
                         let Some(mut handle) = world.get_resource_mut::<B>() else {
                             return;
                         };
@@ -180,7 +180,7 @@ macro_rules! impl_2_write_comp_res_read {
                         name: std::any::type_name::<F>(),
                         access: ComponentAccess::new().writes::<A>().reads::<B>(),
                     },
-                    Box::new(move |world| {
+                    Box::new(move |world, _commands| {
                         let Some(handle) = world.get_resource::<B>() else {
                             return;
                         };
@@ -220,7 +220,7 @@ macro_rules! impl_2_write_comp_res_write {
                         name: std::any::type_name::<F>(),
                         access: ComponentAccess::new().writes::<A>().writes::<B>(),
                     },
-                    Box::new(move |world| {
+                    Box::new(move |world, _commands| {
                         let Some(mut handle) = world.get_resource_mut::<B>() else {
                             return;
                         };
@@ -259,7 +259,7 @@ macro_rules! impl_2_res_read_res_read {
                         name: std::any::type_name::<F>(),
                         access: ComponentAccess::new().reads::<A>().reads::<B>(),
                     },
-                    Box::new(move |world| {
+                    Box::new(move |world, _commands| {
                         let Some(ha) = world.get_resource::<A>() else {
                             return;
                         };
@@ -290,7 +290,7 @@ macro_rules! impl_2_res_read_res_write {
                         name: std::any::type_name::<F>(),
                         access: ComponentAccess::new().reads::<A>().writes::<B>(),
                     },
-                    Box::new(move |world| {
+                    Box::new(move |world, _commands| {
                         let Some(ha) = world.get_resource::<A>() else {
                             return;
                         };
@@ -321,7 +321,7 @@ macro_rules! impl_2_res_write_res_read {
                         name: std::any::type_name::<F>(),
                         access: ComponentAccess::new().writes::<A>().reads::<B>(),
                     },
-                    Box::new(move |world| {
+                    Box::new(move |world, _commands| {
                         let Some(mut ha) = world.get_resource_mut::<A>() else {
                             return;
                         };
@@ -352,7 +352,7 @@ macro_rules! impl_2_res_write_res_write {
                         name: std::any::type_name::<F>(),
                         access: ComponentAccess::new().writes::<A>().writes::<B>(),
                     },
-                    Box::new(move |world| {
+                    Box::new(move |world, _commands| {
                         let Some(mut ha) = world.get_resource_mut::<A>() else {
                             return;
                         };
@@ -383,7 +383,7 @@ macro_rules! impl_2_res_write_comp_read {
                         name: std::any::type_name::<F>(),
                         access: ComponentAccess::new().writes::<A>().reads::<B>(),
                     },
-                    Box::new(move |world| {
+                    Box::new(move |world, _commands| {
                         let Some(mut handle) = world.get_resource_mut::<A>() else {
                             return;
                         };
@@ -418,7 +418,7 @@ macro_rules! impl_2_res_write_comp_write {
                         name: std::any::type_name::<F>(),
                         access: ComponentAccess::new().writes::<A>().writes::<B>(),
                     },
-                    Box::new(move |world| {
+                    Box::new(move |world, _commands| {
                         let Some(mut handle) = world.get_resource_mut::<A>() else {
                             return;
                         };
@@ -478,7 +478,7 @@ impl<
                     .reads::<B>()
                     .reads::<C>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(handle) = world.get_resource::<A>() else {
                     return;
                 };
@@ -526,7 +526,7 @@ impl<
                     .reads::<B>()
                     .reads::<C>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(ha) = world.get_resource::<A>() else {
                     return;
                 };
@@ -570,7 +570,7 @@ impl<
                     .reads::<B>()
                     .reads::<C>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(ha) = world.get_resource::<A>() else {
                     return;
                 };
@@ -614,7 +614,7 @@ impl<
                     .reads::<B>()
                     .reads::<C>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(hb) = world.get_resource::<B>() else {
                     return;
                 };
@@ -658,7 +658,7 @@ impl<
                     .reads::<B>()
                     .reads::<C>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(mut handle) = world.get_resource_mut::<A>() else {
                     return;
                 };
@@ -705,7 +705,7 @@ impl<
                     .writes::<B>()
                     .reads::<C>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(mut hb) = world.get_resource_mut::<B>() else {
                     return;
                 };
@@ -752,7 +752,7 @@ impl<
                     .reads::<B>()
                     .writes::<C>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(mut hc) = world.get_resource_mut::<C>() else {
                     return;
                 };
@@ -801,7 +801,7 @@ impl<
                     .reads::<C>()
                     .reads::<D>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(handle) = world.get_resource::<A>() else {
                     return;
                 };
@@ -864,7 +864,7 @@ impl<
                     .reads::<C>()
                     .reads::<D>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(mut handle) = world.get_resource_mut::<A>() else {
                     return;
                 };

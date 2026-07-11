@@ -1,5 +1,6 @@
 use crate::World;
 use crate::system::access::ComponentAccess;
+use crate::system::commands::Commands;
 use crate::system::executor::{Executor, SnapshotExecutor};
 use crate::system::system::{IntoSystem, System};
 
@@ -30,12 +31,13 @@ impl Schedule {
         self.systems.push(system.into_system());
     }
 
-    pub fn run(&mut self, world: &World) {
+    pub fn run(&mut self, world: &mut World) {
         if self.systems.is_empty() {
             return;
         }
 
         let batches = self.build_batches();
+        let mut commands = Commands::new();
 
         for indices in batches {
             // Collect unique mutable references to systems in this batch
@@ -45,8 +47,10 @@ impl Schedule {
                 .collect();
             let mut refs: Vec<&mut dyn System> =
                 batch_ptrs.iter().map(|&p| unsafe { &mut *p }).collect();
-            self.executor.execute(&mut refs, world);
+            self.executor.execute(&mut refs, world, &mut commands);
         }
+
+        commands.flush(world).expect("Commands flush failed");
     }
 
     pub fn build_batches(&self) -> Vec<Vec<usize>> {
