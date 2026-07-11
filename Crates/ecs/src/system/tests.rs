@@ -391,3 +391,28 @@ fn system_commands_res() {
     let store = world.get_component_store::<i32>().unwrap();
     assert_eq!(store.get_component(store.dense[0]).unwrap(), &99);
 }
+
+// Test for 4-arg Res+Res+&mut+&mut pattern
+#[test]
+fn system_res_res_comp_comp() {
+    let mut world = World::new();
+    world.insert_resource(Score(10));
+    world.insert_resource(Counter(20));
+    let e = world.spawn_entity();
+    world.attach_component(&e, Pos(0.0, 0.0)).unwrap();
+    world.attach_component(&e, Vel(0.0, 0.0)).unwrap();
+
+    let mut schedule = Schedule::new();
+    schedule.add_system::<fn(Res<Score>, Res<Counter>, &mut Pos, &mut Vel), _>(
+        |score: Res<Score>, counter: Res<Counter>, pos: &mut Pos, vel: &mut Vel| {
+            pos.0 = score.0 as f32;
+            vel.0 = counter.0 as f32;
+        },
+    );
+    schedule.run(&mut world);
+
+    let pstore = world.get_component_store::<Pos>().unwrap();
+    let vstore = world.get_component_store::<Vel>().unwrap();
+    assert_eq!(pstore.get_component(0).unwrap().0, 10.0);
+    assert_eq!(vstore.get_component(0).unwrap().0, 20.0);
+}
