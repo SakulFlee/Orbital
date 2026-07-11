@@ -74,6 +74,7 @@ impl App for StandardApp {
 
     fn on_update(
         &mut self,
+        _ecs: &mut orbital_ecs::World,
         input_state: &InputState,
         delta_time: f64,
         _cycle: Option<(f64, u64)>,
@@ -136,10 +137,38 @@ impl App for StandardApp {
         (!app_events.is_empty()).then_some(app_events)
     }
 
-    fn on_render(&mut self, target_view: &TextureView, device: &Device, queue: &Queue) {
+    fn on_render(
+        &mut self,
+        ecs: &orbital_ecs::World,
+        target_view: &TextureView,
+        device: &Device,
+        queue: &Queue,
+    ) {
         if let Some(renderer) = &mut self.renderer {
-            self.world
-                .prepare_render(renderer.surface_texture_format(), device, queue);
+            // Try ECS camera first, fall back to old CameraStore
+            let mut used_ecs_camera = false;
+            if let Some(active) = ecs.get_resource::<orbital_ecs_bridge::ActiveCamera>() {
+                if let Some(store) =
+                    ecs.get_component_store::<orbital_ecs_bridge::CameraRealization>()
+                {
+                    if let Some(Some(idx)) = store.sparse.get(active.0.index) {
+                        let guard = store.components[*idx].0.read().unwrap();
+                        let camera_buffer = guard.camera_buffer().as_entire_buffer_binding();
+                        self.world.recreate_bind_group_with_camera_buffer(
+                            camera_buffer,
+                            device,
+                            queue,
+                        );
+                        used_ecs_camera = true;
+                    }
+                }
+            }
+
+            if !used_ecs_camera {
+                // Legacy CameraStore path (fallback during migration)
+                self.world
+                    .prepare_render(renderer.surface_texture_format(), device, queue);
+            }
 
             let (world_bind_group_option, world_environment_option, models) =
                 self.world.retrieve_render_resources();
