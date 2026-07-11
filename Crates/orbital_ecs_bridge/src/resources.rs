@@ -164,3 +164,17 @@ pub struct EnvironmentDescriptorResource(pub Option<orbital_resources::WorldEnvi
 /// Created by `realize_environment` from the descriptor.
 #[derive(Debug, Clone)]
 pub struct EnvironmentGpuResource(pub Option<Arc<orbital_resources::WorldEnvironment>>);
+
+/// Queue of pending import tasks (glTF files to load).
+#[derive(Debug, Default)]
+pub struct ImportQueueResource(pub Vec<orbital_importer_gltf::ImportTask>);
+
+impl ImportQueueResource {
+    pub fn push(&mut self, task: orbital_importer_gltf::ImportTask) {
+        self.0.push(task);
+    }
+}
+
+/// Results from completed imports, ready to be spawned as ECS entities.
+#[derive(Debug, Default)]
+pub struct ImportResultsResource(pub Vec<orbital_importer_gltf::ImportResult>);
