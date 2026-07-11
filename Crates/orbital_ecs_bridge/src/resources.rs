@@ -132,6 +132,45 @@ impl EngineEvents {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn engine_events_push_drain() {
+        let mut events = EngineEvents::default();
+        events.push(EngineEvent::RequestClose);
+        events.push(EngineEvent::CursorGrabbed(true));
+
+        let drained = events.drain();
+        assert_eq!(drained.len(), 2);
+        assert!(events.is_empty());
+    }
+
+    #[test]
+    fn engine_events_is_empty() {
+        let mut events = EngineEvents::default();
+        assert!(events.is_empty());
+
+        events.push(EngineEvent::RequestRedraw);
+        assert!(!events.is_empty());
+
+        events.drain();
+        assert!(events.is_empty());
+    }
+
+    #[test]
+    fn engine_events_drain_takes_all() {
+        let mut events = EngineEvents::default();
+        for i in 0..10 {
+            events.push(EngineEvent::ForceClose { exit_code: i });
+        }
+        let drained = events.drain();
+        assert_eq!(drained.len(), 10);
+        assert!(events.is_empty());
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Shared caches (moved from orbital_world::World)
 // ---------------------------------------------------------------------------
