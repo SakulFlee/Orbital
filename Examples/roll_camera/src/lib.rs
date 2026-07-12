@@ -1,6 +1,6 @@
 use orbital::cgmath::{Point3, Quaternion, Rad};
 use orbital::app::sys_camera_controller;
-use orbital::app::{AppSettings, Module, ModuleRuntime};
+use orbital::app::{AppSettings, Module, App};
 use orbital::ecs::{IntoSystem, Res, System, World};
 use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CameraRealization, DeltaTime,
@@ -22,7 +22,7 @@ pub fn entrypoint(
     app_settings.vsync_enabled = true;
     app_settings.name = NAME.to_string();
 
-    match ModuleRuntime::liftoff(event_loop, app_settings, RollCameraModule) {
+    match App::new().add_module(RollCameraModule).liftoff(event_loop, app_settings) {
         Ok(()) => info!("Cleanly exited!"),
         Err(e) => error!("Runtime failure: {e:?}"),
     }
