@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use orbital::cgmath::{Point3, Quaternion, Rad};
 use orbital::app::{AppSettings, Module, ModuleRuntime, sys_camera_controller};
-use orbital::ecs::{IntoSystem, Res, System, World};
+use orbital::ecs::{IntoSystem, System, World};
 use orbital::ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CameraRealization, DeltaTime, EcsCameraStore,
+    ActiveCamera, CameraDescriptorEcs, CameraRealization, EcsCameraStore,
     EngineEvent, EngineEvents, EnvironmentDescriptorResource, ImportQueueResource, Position, Rotation,
 };
 use orbital::importer::{ImportTask, gltf::GltfImport};
@@ -92,9 +92,6 @@ impl Module for InstancingModule {
 
         vec![
             sys_camera_controller.into_system(),
-            (|rot: &mut Rotation, dt: Res<DeltaTime>| {
-                rot.rotate_roll(Rad(0.5 * dt.0 as f32));
-            }).into_system(),
         ]
     }
 }

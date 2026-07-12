@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use orbital::cgmath::{Point3, Quaternion, Rad, Vector3};
 use orbital::app::{AppSettings, Module, ModuleRuntime, sys_camera_controller};
-use orbital::ecs::{IntoSystem, Res, System, World};
+use orbital::ecs::{IntoSystem, System, World};
 use orbital::ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CameraRealization, DeltaTime, EcsCameraStore,
+    ActiveCamera, CameraDescriptorEcs, CameraRealization, EcsCameraStore,
     EngineEvent, EngineEvents, EnvironmentDescriptorResource, LightDescriptorEcs, LightDirty,
     Position, Rotation,
 };
@@ -117,7 +117,6 @@ impl Module for CameraModule {
 
         vec![
             sys_camera_controller.into_system(),
-            sys_roll.into_system(),
         ]
     }
 }
@@ -157,10 +156,3 @@ impl Module for LightModule {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Shared system
-// ---------------------------------------------------------------------------
-
-fn sys_roll(rot: &mut Rotation, dt: Res<DeltaTime>) {
-    rot.rotate_roll(Rad(0.3 * dt.0 as f32));
-}

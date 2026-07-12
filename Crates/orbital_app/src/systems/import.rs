@@ -22,25 +22,21 @@ use orbital_resources::Camera;
 /// 2. Polls the Importer for completed results (EVERY frame, even when queue is empty)
 /// 3. Spawns ECS entities for each imported model and camera
 pub fn sys_poll_importer(ecs: &mut World) {
-    // Step 1: Drain queue and submit tasks to importer (independent of result polling)
-    {
-        let has_tasks = ecs
-            .get_resource_mut::<ImportQueueResource>()
-            .map(|mut q| {
-                let tasks: Vec<_> = q.0.drain(..).collect();
-                if !tasks.is_empty() {
-                    if let Some(mut importer) = ecs.get_resource_mut::<ImporterResource>() {
-                        for task in tasks {
-                            importer.0.register_task(task);
-                        }
-                    }
-                    true
-                } else {
-                    false
-                }
-            })
-            .unwrap_or(false);
-        let _ = has_tasks;
+    // Step 1: Drain queue and submit tasks to importer
+    // Extract tasks first, then submit (avoids nested mutable borrows)
+    let tasks: Vec<_> = {
+        match ecs.get_resource_mut::<ImportQueueResource>() {
+            Some(mut q) => q.0.drain(..).collect(),
+            None => Vec::new(),
+        }
+    };
+
+    if !tasks.is_empty() {
+        if let Some(mut importer) = ecs.get_resource_mut::<ImporterResource>() {
+            for task in tasks {
+                importer.0.register_task(task);
+            }
+        }
     }
 
     // Step 2: ALWAYS poll for completed results (even when queue was empty)

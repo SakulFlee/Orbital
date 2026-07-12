@@ -4,7 +4,7 @@ use orbital::cgmath::{Point3, Quaternion, Rad, Vector3};
 use orbital::app::{AppSettings, Module, ModuleRuntime, sys_camera_controller};
 use orbital::ecs::{IntoSystem, Res, System, World};
 use orbital::ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CameraRealization, DeltaTime, EcsCameraStore,
+    ActiveCamera, CameraDescriptorEcs, CameraRealization, EcsCameraStore,
     EngineEvent, EngineEvents, EnvironmentDescriptorResource, ImportQueueResource, LightDescriptorEcs,
     LightDirty, Position, Rotation,
 };
@@ -110,9 +110,6 @@ impl Module for DamagedHelmetModule {
 
         vec![
             sys_camera_controller.into_system(),
-            (|rot: &mut Rotation, dt: Res<DeltaTime>| {
-                rot.rotate_roll(Rad(0.3 * dt.0 as f32));
-            }).into_system(),
         ]
     }
 }
