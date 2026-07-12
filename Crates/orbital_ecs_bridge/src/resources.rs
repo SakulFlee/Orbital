@@ -61,6 +61,13 @@ pub struct CursorPosition(pub Vector2<f64>);
 #[derive(Debug, Clone, Copy)]
 pub struct WindowSize(pub Vector2<u32>);
 
+/// Controls whether the mouse cursor is grabbed and hidden on startup.
+///
+/// Set this resource during `Module::setup()` to have the engine
+/// automatically grab the cursor — no need to push `CursorGrabbed` events.
+#[derive(Debug, Clone, Copy)]
+pub struct CursorGrabConfig(pub bool);
+
 /// A snapshot of the engine's aggregated input state at the start of the
 /// current frame.
 ///
