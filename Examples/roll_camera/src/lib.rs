@@ -1,17 +1,13 @@
-use std::sync::Arc;
-
-use orbital::cgmath::{Point3, Quaternion, Rad, Rotation3};
+use orbital::cgmath::{Point3, Quaternion, Rad};
 use orbital::app::sys_camera_controller;
-use orbital::app::input::InputButton;
 use orbital::app::{AppSettings, Module, ModuleRuntime};
 use orbital::ecs::{IntoSystem, Res, System, World};
 use orbital::ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CameraRealization, DeltaTime, EcsCameraStore,
-    EngineEvent, EngineEvents, EnvironmentDescriptorResource, InputSnapshot, Position, Rotation,
+    ActiveCamera, CameraDescriptorEcs, CameraRealization, DeltaTime,
+    EngineEvent, EngineEvents, EnvironmentDescriptorResource, Position, Rotation,
 };
 use orbital::logging::{self, error, info};
 use orbital::resources::{Camera, WorldEnvironmentDescriptor};
-use orbital::winit::keyboard::{KeyCode, PhysicalKey};
 
 pub const NAME: &str = "Orbital-Demo-Project: RollCamera";
 

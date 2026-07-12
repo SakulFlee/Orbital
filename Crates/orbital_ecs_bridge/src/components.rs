@@ -1,8 +1,5 @@
-use std::sync::{Arc, RwLock};
-
 use cgmath::{InnerSpace, Point3, Quaternion, Rad, Rotation as _, Rotation3, Vector3};
 use orbital_ecs::Entity;
-use orbital_resources::Camera;
 
 /// World-space position of an entity.
 #[derive(Debug, Clone, Copy, PartialEq)]

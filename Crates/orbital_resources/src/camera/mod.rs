@@ -1,6 +1,6 @@
 use std::mem;
 
-use cgmath::{perspective, Deg, InnerSpace, Matrix, Matrix4, Point3, Quaternion, Rotation3, SquareMatrix, Vector3};
+use cgmath::{perspective, Deg, InnerSpace, Matrix, Matrix4, Point3, Quaternion, SquareMatrix, Vector3};
 use wgpu::{Buffer, BufferDescriptor, BufferUsages, Device, Queue};
 
 mod change;
@@ -489,7 +489,7 @@ impl Camera {
         rotation: Quaternion<f32>,
     ) -> Matrix4<f32> {
         let forward = (rotation * Vector3::new(1.0, 0.0, 0.0)).normalize();
-        let right = (rotation * Vector3::new(0.0, 0.0, 1.0)).normalize();
+        let _right = (rotation * Vector3::new(0.0, 0.0, 1.0)).normalize();
         let up = (rotation * Vector3::new(0.0, 1.0, 0.0)).normalize();
 
         Matrix4::look_to_rh(position, forward, up)
