@@ -52,11 +52,11 @@ impl Module for DamagedHelmetModule {
             far: 10000.0,
             global_gamma: 2.2,
         }).unwrap();
-        ecs.attach_component(&camera, Position(Point3::new(0.0, 0.0, 3.0))).unwrap();
+        ecs.attach_component(&camera, Position(Point3::new(-10.0, 0.0, 0.0))).unwrap();
         ecs.attach_component(&camera, Rotation::identity()).unwrap();
 
         let gpu_camera = Camera::new(
-            Point3::new(0.0, 0.0, 3.0),
+            Point3::new(-10.0, 0.0, 0.0),
             Quaternion::new(1.0, 0.0, 0.0, 0.0),
             45.0, 16.0 / 9.0, 0.1, 10000.0, 2.2,
             device, queue,
