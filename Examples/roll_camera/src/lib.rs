@@ -6,7 +6,7 @@ use orbital::app::input::InputButton;
 use orbital::app::{AppSettings, Module, ModuleRuntime};
 use orbital::ecs::{IntoSystem, Res, System, World};
 use orbital::ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CameraDirty, CameraRealization, DeltaTime, EcsCameraStore,
+    ActiveCamera, CameraDescriptorEcs, CameraRealization, DeltaTime, EcsCameraStore,
     EngineEvent, EngineEvents, EnvironmentDescriptorResource, InputSnapshot, Position, Rotation,
 };
 use orbital::logging::{self, error, info};
@@ -85,7 +85,6 @@ impl Module for RollCameraModule {
             CameraRealization,
         )
         .unwrap();
-        ecs.attach_component(&camera, CameraDirty(false)).unwrap();
         ecs.insert_resource(ActiveCamera(camera));
 
         // Set environment

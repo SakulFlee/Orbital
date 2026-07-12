@@ -4,7 +4,7 @@ use orbital::cgmath::{Point3, Quaternion, Rad, Vector3};
 use orbital::app::{AppSettings, Module, ModuleRuntime, sys_camera_controller};
 use orbital::ecs::{IntoSystem, Res, System, World};
 use orbital::ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CameraDirty, CameraRealization, DeltaTime, EcsCameraStore,
+    ActiveCamera, CameraDescriptorEcs, CameraRealization, DeltaTime, EcsCameraStore,
     EngineEvent, EngineEvents, EnvironmentDescriptorResource, ImportQueueResource, LightDescriptorEcs,
     LightDirty, Position, Rotation,
 };
@@ -65,7 +65,6 @@ impl Module for DamagedHelmetModule {
             store.insert(camera.index, std::sync::Arc::new(std::sync::RwLock::new(gpu_camera)));
         }
         ecs.attach_component(&camera, CameraRealization).unwrap();
-        ecs.attach_component(&camera, CameraDirty(false)).unwrap();
         ecs.insert_resource(ActiveCamera(camera));
 
         // Environment
