@@ -15,6 +15,9 @@ pub use context::*;
 mod state;
 pub use state::*;
 
+pub mod app;
+pub use app::App;
+
 pub mod module;
 pub use module::Module;
 
