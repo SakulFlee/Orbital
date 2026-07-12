@@ -5,13 +5,13 @@
 
 use std::sync::Arc;
 
-use cgmath::{InnerSpace, Point3, Quaternion, Vector3};
+use cgmath::{InnerSpace, Point3, Quaternion, Rotation3, Vector3};
 use log::warn;
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CameraDirty, CameraRealization, DeviceResource,
-    ImportQueueResource, ImporterResource, ImportResultsResource, ModelDescriptorEcs, ModelDirty,
-    ModelInstances, ModelRealization, Position, QueueResource, Rotation,
+    EcsCameraStore, ImportQueueResource, ImporterResource, ModelDescriptorEcs, ModelDirty,
+    ModelInstances, Position, QueueResource, Rotation,
 };
 use orbital_resources::Camera;
 
@@ -19,30 +19,31 @@ use orbital_resources::Camera;
 ///
 /// This system:
 /// 1. Drains the ImportQueueResource and submits tasks to the Importer
-/// 2. Polls the Importer for completed results
+/// 2. Polls the Importer for completed results (EVERY frame, even when queue is empty)
 /// 3. Spawns ECS entities for each imported model and camera
 pub fn sys_poll_importer(ecs: &mut World) {
-    // Submit queued tasks to the importer
+    // Step 1: Drain queue and submit tasks to importer (independent of result polling)
     {
-        let mut queue = match ecs.get_resource_mut::<ImportQueueResource>() {
-            Some(mut q) => q,
-            None => return,
-        };
-        if queue.0.is_empty() {
-            return;
-        }
-        let tasks: Vec<_> = queue.0.drain(..).collect();
-
-        let mut importer = match ecs.get_resource_mut::<ImporterResource>() {
-            Some(i) => i,
-            None => return,
-        };
-        for task in tasks {
-            importer.0.register_task(task);
-        }
+        let has_tasks = ecs
+            .get_resource_mut::<ImportQueueResource>()
+            .map(|mut q| {
+                let tasks: Vec<_> = q.0.drain(..).collect();
+                if !tasks.is_empty() {
+                    if let Some(mut importer) = ecs.get_resource_mut::<ImporterResource>() {
+                        for task in tasks {
+                            importer.0.register_task(task);
+                        }
+                    }
+                    true
+                } else {
+                    false
+                }
+            })
+            .unwrap_or(false);
+        let _ = has_tasks;
     }
 
-    // Poll for completed results
+    // Step 2: ALWAYS poll for completed results (even when queue was empty)
     let results = {
         let mut importer = match ecs.get_resource_mut::<ImporterResource>() {
             Some(i) => i,
@@ -68,7 +69,7 @@ pub fn sys_poll_importer(ecs: &mut World) {
         (d, q)
     };
 
-    // Spawn entities for each import result
+    // Step 3: Spawn entities for each import result
     for result in results {
         // Spawn model entities
         for model_desc in result.models {
@@ -120,8 +121,8 @@ pub fn sys_poll_importer(ecs: &mut World) {
             }
 
             // Convert yaw/pitch/roll to quaternion
-            use cgmath::{Quaternion, Rotation3, Vector3};
-            let q_yaw = Quaternion::from_axis_angle(Vector3::unit_y(), cgmath::Rad(cam_desc.yaw));
+            let q_yaw =
+                Quaternion::from_axis_angle(Vector3::unit_y(), cgmath::Rad(cam_desc.yaw));
             let q_pitch =
                 Quaternion::from_axis_angle(Vector3::unit_z(), cgmath::Rad(cam_desc.pitch));
             let q_roll =
@@ -164,11 +165,11 @@ pub fn sys_poll_importer(ecs: &mut World) {
             }
 
             // Store GPU camera in EcsCameraStore
-            if let Some(mut store) = ecs.get_resource_mut::<orbital_ecs_bridge::EcsCameraStore>() {
+            if let Some(mut store) = ecs.get_resource_mut::<EcsCameraStore>() {
                 store.insert(entity.index, Arc::new(std::sync::RwLock::new(gpu_camera)));
             }
 
-            if let Err(e) = ecs.attach_component(&entity, CameraDirty(false)) {
+            if let Err(e) = ecs.attach_component(&entity, CameraDirty(true)) {
                 warn!("Failed to attach CameraDirty: {:?}", e);
             }
 
