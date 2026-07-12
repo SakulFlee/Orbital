@@ -53,6 +53,12 @@ impl World {
         idx < self.generations.len() && self.generations[idx] == entity.generation
     }
 
+    /// Get the current generation for an entity index.
+    /// Returns 0 if the index has never been used.
+    pub fn generation(&self, index: usize) -> usize {
+        self.generations.get(index).copied().unwrap_or(0)
+    }
+
     pub fn spawn_entity(&mut self) -> Entity {
         let index = if let Some(idx) = self.free_indices.pop() {
             idx
