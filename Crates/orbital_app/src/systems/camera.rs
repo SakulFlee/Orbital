@@ -20,7 +20,7 @@ pub fn sys_camera_controller(
     rot: &mut Rotation,
 ) {
     let speed = 5.0_f32;
-    let sensitivity = 0.003_f32;
+    let sensitivity = 1.5_f32;
     let dt = dt.0 as f32;
 
     let (forward, right, _up) = rot.forward_right_up();
@@ -72,8 +72,9 @@ pub fn sys_camera_controller(
     pos.0 += movement;
 
     // Mouse rotation
+    // delta.x = mouse Y movement (normalized), delta.y = mouse X movement (normalized)
     if let Some((_, delta)) = input.0.delta_state_any(&InputAxis::MouseMovement) {
-        rot.rotate_yaw(Rad(-delta.x as f32 * sensitivity));
-        rot.rotate_pitch(Rad(-delta.y as f32 * sensitivity));
+        rot.rotate_pitch(Rad(delta.x as f32 * sensitivity));    // mouse Y → pitch (up/down)
+        rot.rotate_yaw(Rad(-delta.y as f32 * sensitivity));     // mouse X → yaw (negated: right = positive)
     }
 }
