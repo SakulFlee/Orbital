@@ -113,7 +113,8 @@ pub fn realize_cameras(ecs: &mut World) {
             }
 
             // Mark entity as realized
-            let entity = orbital_ecs::Entity::new(eid, 0);
+            let gen = ecs.generation(eid);
+            let entity = orbital_ecs::Entity::new(eid, gen);
             if let Err(e) = ecs.attach_component(&entity, CameraRealization) {
                 warn!("Failed to attach CameraRealization marker to entity {}: {:?}", eid, e);
             }
@@ -251,7 +252,8 @@ pub fn realize_models(ecs: &mut World) {
         ) {
             Ok(gpu_model) => {
                 if needs_new {
-                    let entity = orbital_ecs::Entity::new(eid, 0);
+                    let gen = ecs.generation(eid);
+                    let entity = orbital_ecs::Entity::new(eid, gen);
                     if let Err(e) = ecs.attach_component(
                         &entity,
                         ModelRealization(Arc::new(gpu_model)),

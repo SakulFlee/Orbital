@@ -355,6 +355,9 @@ impl ModuleRuntime {
         // Run core schedule (timing, frame counter)
         self.core_schedule.run(&mut self.ecs_world);
 
+        // Poll importer for completed glTF imports
+        crate::systems::sys_poll_importer(&mut self.ecs_world);
+
         // Run game schedule (user systems)
         self.game_schedule.run(&mut self.ecs_world);
 
@@ -428,7 +431,7 @@ impl ModuleRuntime {
 
 impl ApplicationHandler for ModuleRuntime {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        if !matches!(self.state, AppState::Starting) || !matches!(self.state, AppState::Paused) {
+        if !matches!(self.state, AppState::Starting | AppState::Paused) {
             debug!(
                 "Attempting to resume while not in required state! (State: {:?})",
                 self.state
@@ -462,6 +465,16 @@ impl ApplicationHandler for ModuleRuntime {
             self.ecs_world
                 .insert_resource(SurfaceFormatResource(config.format));
 
+            // Initialize import pipeline resources
+            self.ecs_world
+                .insert_resource(orbital_ecs_bridge::ImportQueueResource::default());
+            self.ecs_world
+                .insert_resource(orbital_ecs_bridge::ImporterResource::new(4));
+            self.ecs_world
+                .insert_resource(orbital_ecs_bridge::MeshCacheResource::default());
+            self.ecs_world
+                .insert_resource(orbital_ecs_bridge::MaterialCacheResource::default());
+
             // Create renderer
             self.renderer = Some(orbital_renderer::Renderer::new(
                 config.format,
@@ -480,6 +493,10 @@ impl ApplicationHandler for ModuleRuntime {
                 for system in systems {
                     self.game_schedule.add_system_boxed(system);
                 }
+
+                // Register engine-level systems
+                // (sys_poll_importer is called directly in update() since it takes &mut World)
+
                 self.module_setup_done = true;
                 info!("Module setup complete, game schedule has {} systems", self.game_schedule.system_count());
             }

@@ -285,6 +285,12 @@ pub struct ImportResultsResource(pub Vec<orbital_importer_gltf::ImportResult>);
 /// Inserted as an ECS resource by the module during setup.
 pub struct ImporterResource(pub orbital_importer_gltf::Importer);
 
+impl ImporterResource {
+    pub fn new(allowed_parallel_tasks: u8) -> Self {
+        Self(orbital_importer_gltf::Importer::new(allowed_parallel_tasks))
+    }
+}
+
 // SAFETY: Importer wraps Mutex<Receiver> + Sender + ThreadPool, all Send+Sync.
 unsafe impl Send for ImporterResource {}
 unsafe impl Sync for ImporterResource {}
