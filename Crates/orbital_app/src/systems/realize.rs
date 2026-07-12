@@ -8,7 +8,7 @@ use std::sync::{Arc, RwLock};
 use log::warn;
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CameraDirty, CameraRealization, DeviceResource,
+    CameraDescriptorEcs, CameraDirty, CameraRealization, DeviceResource,
     EcsCameraStore, EnvironmentDescriptorResource, EnvironmentGpuResource, LightBufferResource,
     LightDescriptorEcs, LightDirty, MaterialCacheResource, MeshCacheResource, ModelDescriptorEcs,
     ModelDirty, ModelInstances, ModelRealization, Position, QueueResource, Rotation,

@@ -43,7 +43,6 @@ pub struct ModuleRuntime {
     ecs_world: orbital_ecs::World,
     core_schedule: Schedule,
     game_schedule: Schedule,
-    realize_schedule: Schedule,
     module_setup_done: bool,
     renderer: Option<orbital_renderer::Renderer>,
     #[cfg(feature = "gamepad_input")]
@@ -70,7 +69,6 @@ impl ModuleRuntime {
             ecs_world: orbital_ecs::World::new(),
             core_schedule: make_core_schedule(),
             game_schedule: Schedule::new(),
-            realize_schedule: Schedule::new(),
             module_setup_done: false,
             renderer: None,
             #[cfg(feature = "gamepad_input")]
@@ -222,21 +220,6 @@ impl ModuleRuntime {
         lock.queue().present(frame);
     }
 
-    /// Fallback camera buffer when no ECS camera exists.
-    fn fallback_camera_buffer(
-        &self,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-    ) -> wgpu::BufferBinding {
-        static FALLBACK_ONCE: std::sync::OnceLock<wgpu::Buffer> = std::sync::OnceLock::new();
-        let buffer = FALLBACK_ONCE.get_or_init(|| {
-            let desc = orbital_resources::CameraDescriptor::default();
-            let cam = orbital_resources::Camera::from_descriptor(desc, device, queue);
-            cam.camera_buffer().clone()
-        });
-        buffer.as_entire_buffer_binding()
-    }
-
     /// Extract camera buffer as an owned Buffer (cheap Arc clone).
     fn extract_camera_buffer(
         &self,
@@ -295,7 +278,7 @@ impl ModuleRuntime {
         FALLBACK_ONCE.get_or_init(|| {
             device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some("Fallback Light Buffer"),
-                size: 4,
+                size: 64,
                 usage: wgpu::BufferUsages::STORAGE,
                 mapped_at_creation: false,
             })

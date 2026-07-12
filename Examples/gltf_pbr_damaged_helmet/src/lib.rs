@@ -1,10 +1,8 @@
-use std::sync::Arc;
-
 use orbital::cgmath::{Point3, Quaternion, Rad, Vector3};
 use orbital::app::{AppSettings, Module, ModuleRuntime, sys_camera_controller};
-use orbital::ecs::{IntoSystem, Res, System, World};
+use orbital::ecs::{IntoSystem, System, World};
 use orbital::ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CameraRealization, EcsCameraStore,
+    ActiveCamera, CameraDescriptorEcs, CameraRealization,
     EngineEvent, EngineEvents, EnvironmentDescriptorResource, ImportQueueResource, LightDescriptorEcs,
     LightDirty, Position, Rotation,
 };
