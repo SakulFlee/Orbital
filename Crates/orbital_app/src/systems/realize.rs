@@ -97,7 +97,7 @@ pub fn realize_cameras(ecs: &mut World) {
             let gpu_camera = Camera::new(
                 pos.0,
                 rot.0,
-                desc.fovy.0,
+                desc.fovy.0.to_degrees(),
                 desc.aspect,
                 desc.near,
                 desc.far,
@@ -126,7 +126,7 @@ pub fn realize_cameras(ecs: &mut World) {
                     gpu_camera.update_from_parts(
                         pos.0,
                         rot.0,
-                        desc.fovy.0,
+                        desc.fovy.0.to_degrees(),
                         desc.aspect,
                         desc.near,
                         desc.far,
