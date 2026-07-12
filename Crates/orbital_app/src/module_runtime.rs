@@ -24,8 +24,9 @@ use winit::{
 
 use crate::{make_core_schedule, AppContext, AppSettings, AppState, Module, Timer};
 use orbital_ecs_bridge::{
-    CursorPosition, DeltaTime, DeviceResource, EcsCameraStore, EngineEvent, EngineEvents,
-    FrameCounter, InputSnapshot, QueueResource, SurfaceFormatResource, TotalTime, WindowSize,
+    CursorGrabConfig, CursorPosition, DeltaTime, DeviceResource, EcsCameraStore, EngineEvent,
+    EngineEvents, FrameCounter, InputSnapshot, QueueResource, SurfaceFormatResource, TotalTime,
+    WindowSize,
 };
 
 macro_rules! ctx_lock {
@@ -482,6 +483,16 @@ impl ApplicationHandler for ModuleRuntime {
 
                 self.module_setup_done = true;
                 info!("Module setup complete, game schedule has {} systems", self.game_schedule.system_count());
+            }
+
+            // Auto-grab cursor if configured
+            if let Some(config) = self.ecs_world.get_resource::<orbital_ecs_bridge::CursorGrabConfig>() {
+                if config.0 {
+                    if let Err(e) = ctx_guard.window().set_cursor_grab(winit::window::CursorGrabMode::Confined) {
+                        log::error!("Failed to grab cursor: {e}");
+                    }
+                    ctx_guard.window().set_cursor_visible(false);
+                }
             }
         }
 
