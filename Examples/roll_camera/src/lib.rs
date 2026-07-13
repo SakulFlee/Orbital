@@ -1,13 +1,13 @@
-use orbital::cgmath::{Point3, Quaternion, Rad};
+use orbital::cgmath::{Point3, Rad};
 use orbital::app::sys_camera_controller;
 use orbital::app::{AppSettings, Module, App};
 use orbital::ecs::{IntoSystem, Res, System, World};
 use orbital::ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CameraRealization, DeltaTime,
-    EngineEvent, EngineEvents, EnvironmentDescriptorResource, Position, Rotation,
+    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, DeltaTime,
+    EnvironmentDescriptorResource, Position, Rotation,
 };
 use orbital::logging::{self, error, info};
-use orbital::resources::{Camera, WorldEnvironmentDescriptor};
+use orbital::resources::WorldEnvironmentDescriptor;
 
 pub const NAME: &str = "Orbital-Demo-Project: RollCamera";
 
@@ -40,8 +40,8 @@ impl Module for RollCameraModule {
     fn setup(
         &self,
         ecs: &mut World,
-        device: &orbital::wgpu::Device,
-        queue: &orbital::wgpu::Queue,
+        _device: &orbital::wgpu::Device,
+        _queue: &orbital::wgpu::Queue,
     ) -> Vec<Box<dyn System>> {
         // Spawn camera entity
         let camera = ecs.spawn_entity();
@@ -60,28 +60,8 @@ impl Module for RollCameraModule {
         ecs.attach_component(&camera, Position(Point3::new(0.0, 0.0, 3.0)))
             .unwrap();
         ecs.attach_component(&camera, Rotation::identity()).unwrap();
-
-        // Realize GPU camera
-        let gpu_camera = Camera::new(
-            Point3::new(0.0, 0.0, 3.0),
-            Quaternion::new(1.0, 0.0, 0.0, 0.0),
-            45.0,
-            16.0 / 9.0,
-            0.1,
-            10000.0,
-            2.2,
-            device,
-            queue,
-        );
-        if let Some(mut store) = ecs.get_resource_mut::<orbital::ecs_bridge::EcsCameraStore>() {
-            store.insert(camera.index, std::sync::Arc::new(std::sync::RwLock::new(gpu_camera)));
-        }
-        ecs.attach_component(
-            &camera,
-            CameraRealization,
-        )
-        .unwrap();
         ecs.insert_resource(ActiveCamera(camera));
+        ecs.insert_resource(CursorGrabConfig(true));
 
         // Set environment
         ecs.insert_resource(EnvironmentDescriptorResource(Some(
@@ -92,12 +72,6 @@ impl Module for RollCameraModule {
                 custom_specular_mip_level_count: None,
             },
         )));
-
-        // Grab cursor
-        if let Some(mut events) = ecs.get_resource_mut::<EngineEvents>() {
-            events.push(EngineEvent::CursorGrabbed(true));
-            events.push(EngineEvent::CursorVisible(false));
-        }
 
         // Return systems
         vec![

@@ -1,13 +1,13 @@
-use orbital::cgmath::{Point3, Quaternion, Rad};
+use orbital::cgmath::{Point3, Rad};
 use orbital::app::{AppSettings, Module, App, sys_camera_controller};
 use orbital::ecs::{IntoSystem, System, World};
 use orbital::ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CameraRealization,
-    EngineEvent, EngineEvents, EnvironmentDescriptorResource, ImportQueueResource, Position, Rotation,
+    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig,
+    EnvironmentDescriptorResource, ImportQueueResource, Position, Rotation,
 };
 use orbital::importer::{ImportTask, gltf::GltfImport};
 use orbital::logging::{self, error, info};
-use orbital::resources::{Camera, WorldEnvironmentDescriptor};
+use orbital::resources::WorldEnvironmentDescriptor;
 
 pub const NAME: &str = "Orbital-Demo-Project: PBRSpheres";
 
@@ -36,8 +36,8 @@ impl Module for PbrGridModule {
     fn setup(
         &self,
         ecs: &mut World,
-        device: &orbital::wgpu::Device,
-        queue: &orbital::wgpu::Queue,
+        _device: &orbital::wgpu::Device,
+        _queue: &orbital::wgpu::Queue,
     ) -> Vec<Box<dyn System>> {
         // Spawn camera entity
         let camera = ecs.spawn_entity();
@@ -51,18 +51,8 @@ impl Module for PbrGridModule {
         }).unwrap();
         ecs.attach_component(&camera, Position(Point3::new(0.0, 2.0, 5.0))).unwrap();
         ecs.attach_component(&camera, Rotation::identity()).unwrap();
-
-        let gpu_camera = Camera::new(
-            Point3::new(0.0, 2.0, 5.0),
-            Quaternion::new(1.0, 0.0, 0.0, 0.0),
-            45.0, 16.0 / 9.0, 0.1, 10000.0, 2.2,
-            device, queue,
-        );
-        if let Some(mut store) = ecs.get_resource_mut::<orbital::ecs_bridge::EcsCameraStore>() {
-            store.insert(camera.index, std::sync::Arc::new(std::sync::RwLock::new(gpu_camera)));
-        }
-        ecs.attach_component(&camera, CameraRealization).unwrap();
         ecs.insert_resource(ActiveCamera(camera));
+        ecs.insert_resource(CursorGrabConfig(true));
 
         // Set environment
         ecs.insert_resource(EnvironmentDescriptorResource(Some(
@@ -80,12 +70,6 @@ impl Module for PbrGridModule {
                 file_path: "Assets/Models/PBR_Grid.glb".into(),
                 task: GltfImport::WholeFile,
             });
-        }
-
-        // Grab cursor
-        if let Some(mut events) = ecs.get_resource_mut::<EngineEvents>() {
-            events.push(EngineEvent::CursorGrabbed(true));
-            events.push(EngineEvent::CursorVisible(false));
         }
 
         vec![
