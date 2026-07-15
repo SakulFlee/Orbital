@@ -1,13 +1,10 @@
-use orbital::cgmath::{Point3, Rad, Vector3};
-use orbital::app::{AppSettings, Module, App, sys_camera_controller};
-use orbital::ecs::{IntoSystem, System, World};
-use orbital::ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig,
-    EnvironmentDescriptorResource, LightDescriptorEcs, LightDirty,
-    Position, Rotation,
-};
+use orbital::app::{App, AppSettings};
 use orbital::logging::{self, error, info};
-use orbital::resources::WorldEnvironmentDescriptor;
+
+mod modules;
+use modules::camera_module::CameraModule;
+use modules::light_module::LightModule;
+use modules::model_module::ModelModule;
 
 pub const NAME: &str = "Orbital-Demo-Project: MultiModule";
 
@@ -22,119 +19,15 @@ pub fn entrypoint(
     app_settings.vsync_enabled = true;
     app_settings.name = NAME.to_string();
 
-    match App::new().add_module(CombinedModule).liftoff(event_loop, app_settings) {
+    match App::new()
+        .add_module(CameraModule)
+        .add_module(ModelModule)
+        .add_module(LightModule)
+        .liftoff(event_loop, app_settings)
+    {
         Ok(()) => info!("Cleanly exited!"),
         Err(e) => error!("Runtime failure: {e:?}"),
     }
 }
 
 orbital::make_desktop_main!(entrypoint);
-
-// ---------------------------------------------------------------------------
-// Combined Module — merges camera + light sub-modules
-// ---------------------------------------------------------------------------
-
-struct CombinedModule;
-
-impl Module for CombinedModule {
-    fn setup(
-        &self,
-        ecs: &mut World,
-        device: &orbital::wgpu::Device,
-        queue: &orbital::wgpu::Queue,
-    ) -> Vec<Box<dyn System>> {
-        let mut systems: Vec<Box<dyn System>> = Vec::new();
-
-        // Sub-module A: Camera + Environment
-        systems.extend(CameraModule.setup(ecs, device, queue));
-        info!("CameraModule contributed {} systems", systems.len());
-
-        // Sub-module B: Light
-        let light_systems = LightModule.setup(ecs, device, queue);
-        info!("LightModule contributed {} systems", light_systems.len());
-        systems.extend(light_systems);
-
-        info!("Total systems: {}", systems.len());
-        systems
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Sub-module A — Camera + Environment
-// ---------------------------------------------------------------------------
-
-struct CameraModule;
-
-impl Module for CameraModule {
-    fn setup(
-        &self,
-        ecs: &mut World,
-        _device: &orbital::wgpu::Device,
-        _queue: &orbital::wgpu::Queue,
-    ) -> Vec<Box<dyn System>> {
-        // Spawn camera
-        let camera = ecs.spawn_entity();
-        ecs.attach_component(&camera, CameraDescriptorEcs {
-            label: "Default".into(),
-            aspect: 16.0 / 9.0,
-            fovy: Rad(std::f32::consts::FRAC_PI_4),
-            near: 0.1,
-            far: 10000.0,
-            global_gamma: 2.2,
-        }).unwrap();
-        ecs.attach_component(&camera, Position(Point3::new(0.0, 2.0, 5.0))).unwrap();
-        ecs.attach_component(&camera, Rotation::identity()).unwrap();
-        ecs.insert_resource(ActiveCamera(camera));
-        ecs.insert_resource(CursorGrabConfig(true));
-
-        // Set environment
-        ecs.insert_resource(EnvironmentDescriptorResource(Some(
-            WorldEnvironmentDescriptor::FromFile {
-                cube_face_size: 2048,
-                path: "Assets/WorldEnvironments/PhotoStudio.hdr".to_string(),
-                sampling_type: WorldEnvironmentDescriptor::DEFAULT_SAMPLING_TYPE,
-                custom_specular_mip_level_count: None,
-            },
-        )));
-
-        vec![
-            sys_camera_controller.into_system(),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Sub-module B — Light
-// ---------------------------------------------------------------------------
-
-struct LightModule;
-
-impl Module for LightModule {
-    fn setup(
-        &self,
-        ecs: &mut World,
-        _device: &orbital::wgpu::Device,
-        _queue: &orbital::wgpu::Queue,
-    ) -> Vec<Box<dyn System>> {
-        // Spawn a directional light
-        let light = ecs.spawn_entity();
-        ecs.attach_component(&light, LightDescriptorEcs::new_directional(
-            Vector3::new(-1.0, -1.0, -1.0),
-            Vector3::new(1.0, 1.0, 1.0),
-            1.0,
-        )).unwrap();
-        ecs.attach_component(&light, Position(Point3::new(0.0, 0.0, 0.0))).unwrap();
-        ecs.attach_component(&light, LightDirty(true)).unwrap();
-
-        // Spawn a point light
-        let light2 = ecs.spawn_entity();
-        ecs.attach_component(&light2, LightDescriptorEcs::new_point(
-            Vector3::new(1.0, 1.0, 1.0), 5.0,
-        )).unwrap();
-        ecs.attach_component(&light2, Position(Point3::new(3.0, 3.0, 3.0))).unwrap();
-        ecs.attach_component(&light2, LightDirty(true)).unwrap();
-
-        vec![] // Light has no per-frame systems
-    }
-}
-
