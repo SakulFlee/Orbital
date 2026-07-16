@@ -612,11 +612,10 @@ impl GltfImporter {
             let tangents = reader.read_tangents();
             let uvs = reader.read_tex_coords(0).map(|x| x.into_f32());
             primitive.attributes().for_each(|x| {
-                if let Semantic::TexCoords(indices) = x.0 {
-                    if indices > 1 {
+                if let Semantic::TexCoords(indices) = x.0
+                    && indices > 1 {
                         warn!("More than one UV index found, only the first will be imported!");
                     }
-                }
             });
 
             // Collect all data into vectors first to avoid iterator issues
@@ -887,8 +886,8 @@ impl GltfImporter {
     ) -> (Vector3<f32>, Vector3<f32>) {
         // For a single vertex, we can't compute proper tangents without looking at the full triangle
         // As a fallback, we'll create an arbitrary tangent that's orthogonal to the normal
-        if let Some(normals_vec) = normals {
-            if let Some(normal) = normals_vec.get(index) {
+        if let Some(normals_vec) = normals
+            && let Some(normal) = normals_vec.get(index) {
                 // Create an arbitrary vector not parallel to the normal
                 let arbitrary = if normal.x.abs() > 0.9 {
                     Vector3::new(0.0, 1.0, 0.0)
@@ -903,7 +902,6 @@ impl GltfImporter {
 
                 return (tangent, bitangent);
             }
-        }
 
         // Fallback to zero vectors
         (Vector3::zero(), Vector3::zero())
