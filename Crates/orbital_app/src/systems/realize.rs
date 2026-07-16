@@ -123,26 +123,28 @@ pub fn realize_cameras(ecs: &mut World) {
         } else {
             // Update existing GPU camera via EcsCameraStore
             if let Some(store) = ecs.get_resource::<EcsCameraStore>()
-                && let Some(arc_camera) = store.get(eid) {
-                    let mut gpu_camera = arc_camera.write().unwrap();
-                    gpu_camera.update_from_parts(
-                        pos.0,
-                        rot.0,
-                        desc.fovy.0.to_degrees(),
-                        desc.aspect,
-                        desc.near,
-                        desc.far,
-                        desc.global_gamma,
-                        &queue,
-                    );
-                }
+                && let Some(arc_camera) = store.get(eid)
+            {
+                let mut gpu_camera = arc_camera.write().unwrap();
+                gpu_camera.update_from_parts(
+                    pos.0,
+                    rot.0,
+                    desc.fovy.0.to_degrees(),
+                    desc.aspect,
+                    desc.near,
+                    desc.far,
+                    desc.global_gamma,
+                    &queue,
+                );
+            }
         }
 
         // Clear dirty flag
         if let Some(dirty_store) = ecs.get_component_store_mut::<CameraDirty>()
-            && let Some(idx) = dirty_store.sparse[eid] {
-                dirty_store.get_mut_store().components[idx].0 = false;
-            }
+            && let Some(idx) = dirty_store.sparse[eid]
+        {
+            dirty_store.get_mut_store().components[idx].0 = false;
+        }
     }
 }
 
@@ -265,10 +267,11 @@ pub fn realize_models(ecs: &mut World) {
                 } else {
                     // Update existing realization by replacing the Arc
                     if let Some(store) = ecs.get_component_store_mut::<ModelRealization>()
-                        && let Some(Some(idx)) = store.sparse.get(eid) {
-                            store.get_mut_store().components[*idx] =
-                                ModelRealization(Arc::new(gpu_model));
-                        }
+                        && let Some(Some(idx)) = store.sparse.get(eid)
+                    {
+                        store.get_mut_store().components[*idx] =
+                            ModelRealization(Arc::new(gpu_model));
+                    }
                 }
             }
             Err(e) => {
@@ -281,9 +284,10 @@ pub fn realize_models(ecs: &mut World) {
 
         // Clear dirty flag
         if let Some(dirty_store) = ecs.get_component_store_mut::<ModelDirty>()
-            && let Some(idx) = dirty_store.sparse[eid] {
-                dirty_store.get_mut_store().components[idx].0 = false;
-            }
+            && let Some(idx) = dirty_store.sparse[eid]
+        {
+            dirty_store.get_mut_store().components[idx].0 = false;
+        }
     }
 }
 

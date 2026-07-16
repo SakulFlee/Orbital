@@ -235,11 +235,12 @@ impl WorldEnvironment {
         let clamped_mip_levels = requested_mip_levels.min(max_possible_mip_levels);
 
         if let Some(requested) = requested_mip_level_count
-            && *requested > max_possible_mip_levels {
-                warn!(
-                    "Requested specular mip level count {requested} exceeds maximum possible {max_possible_mip_levels} for cube face size {cube_face_size}. Clamping to {clamped_mip_levels}."
-                );
-            }
+            && *requested > max_possible_mip_levels
+        {
+            warn!(
+                "Requested specular mip level count {requested} exceeds maximum possible {max_possible_mip_levels} for cube face size {cube_face_size}. Clamping to {clamped_mip_levels}."
+            );
+        }
 
         clamped_mip_levels
     }

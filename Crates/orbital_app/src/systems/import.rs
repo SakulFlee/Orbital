@@ -32,11 +32,12 @@ pub fn sys_poll_importer(ecs: &mut World) {
     };
 
     if !tasks.is_empty()
-        && let Some(mut importer) = ecs.get_resource_mut::<ImporterResource>() {
-            for task in tasks {
-                importer.0.register_task(task);
-            }
+        && let Some(mut importer) = ecs.get_resource_mut::<ImporterResource>()
+    {
+        for task in tasks {
+            importer.0.register_task(task);
         }
+    }
 
     // Step 2: ALWAYS poll for completed results (even when queue was empty)
     let results = {
@@ -97,9 +98,10 @@ pub fn sys_poll_importer(ecs: &mut World) {
 
             // Set initial position from first transform if available
             if let Some(pos) = first_position
-                && let Err(e) = ecs.attach_component(&entity, pos) {
-                    warn!("Failed to attach Position: {:?}", e);
-                }
+                && let Err(e) = ecs.attach_component(&entity, pos)
+            {
+                warn!("Failed to attach Position: {:?}", e);
+            }
         }
 
         // Spawn camera entities

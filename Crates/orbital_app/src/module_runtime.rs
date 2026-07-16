@@ -538,15 +538,16 @@ impl ApplicationHandler for ModuleRuntime {
 
             // Auto-grab cursor if configured
             if let Some(config) = self.ecs_world.get_resource::<CursorGrabConfig>()
-                && config.0 {
-                    if let Err(e) = ctx_guard
-                        .window()
-                        .set_cursor_grab(winit::window::CursorGrabMode::Confined)
-                    {
-                        log::error!("Failed to grab cursor: {e}");
-                    }
-                    ctx_guard.window().set_cursor_visible(false);
+                && config.0
+            {
+                if let Err(e) = ctx_guard
+                    .window()
+                    .set_cursor_grab(winit::window::CursorGrabMode::Confined)
+                {
+                    log::error!("Failed to grab cursor: {e}");
                 }
+                ctx_guard.window().set_cursor_visible(false);
+            }
         }
 
         info!("App resumed.");
