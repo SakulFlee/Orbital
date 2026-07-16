@@ -511,6 +511,7 @@ impl Camera {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cgmath::Rotation3;
 
     /// Verify the quaternion-based view matrix produces a valid result:
     /// - Orthonormal basis (forward, right, up are perpendicular unit vectors)

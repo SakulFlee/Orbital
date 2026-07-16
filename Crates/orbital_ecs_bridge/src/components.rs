@@ -319,7 +319,7 @@ impl LightDirty {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::f32::consts::{FRAC_PI_2, PI};
+    use std::f32::consts::FRAC_PI_2;
 
     #[test]
     fn identity_rotation() {
@@ -348,7 +348,7 @@ mod tests {
     fn pitch_90_degrees() {
         let mut rot = Rotation::identity();
         rot.rotate_pitch(Rad(FRAC_PI_2));
-        let (f, r, u) = rot.forward_right_up();
+        let (f, r, _u) = rot.forward_right_up();
         // After 90° pitch (rotation around +Z), forward (+X) rotates to +Y
         assert!(f.y.abs() > 0.9, "forward.y should be near ±1, got {}", f.y);
         assert!(f.x.abs() < 0.01, "forward.x should be near 0, got {}", f.x);
@@ -373,7 +373,7 @@ mod tests {
     fn rotate_roll() {
         let mut rot = Rotation::identity();
         rot.rotate_roll(Rad(FRAC_PI_2));
-        let (f, r, u) = rot.forward_right_up();
+        let (f, _r, u) = rot.forward_right_up();
         // After 90° roll (rotation around forward/+X), forward is unchanged
         assert!(f.x.abs() > 0.9, "forward.x should be near ±1, got {}", f.x);
         // Up rotates toward -Z

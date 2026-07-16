@@ -108,9 +108,9 @@ impl Default for Schedule {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::World;
 
     #[derive(Debug, Clone, Copy, Default)]
+    #[allow(dead_code)]
     struct Pos(f32, f32);
 
     #[test]
