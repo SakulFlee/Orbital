@@ -319,9 +319,10 @@ impl InputState {
     ) -> (bool, Vector2<f64>) {
         let gamepad_deltas = input_axis.and_then(|axis| self.delta_state_any(axis));
         if let Some((_, delta)) = gamepad_deltas
-            && !delta.is_zero() {
-                return (true, delta);
-            }
+            && !delta.is_zero()
+        {
+            return (true, delta);
+        }
 
         let mut movement = Vector2::zero();
         let button_state = self.button_state_many(&[
@@ -352,9 +353,10 @@ impl InputState {
     pub fn view_vector(&self, gamepad_input_axis: Option<&InputAxis>) -> (bool, Vector2<f64>) {
         let gamepad_deltas = gamepad_input_axis.and_then(|axis| self.delta_state_any(axis));
         if let Some((_, delta)) = gamepad_deltas
-            && !delta.is_zero() {
-                return (true, delta);
-            }
+            && !delta.is_zero()
+        {
+            return (true, delta);
+        }
 
         if let Some((_, delta)) = self.delta_state_any(&InputAxis::MouseMovement) {
             return (false, delta);
