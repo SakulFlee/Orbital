@@ -128,7 +128,7 @@ mod tests {
         // Now detach
         // We need the actual entity. Let's use a different approach:
         // spawn, attach, flush, then detach via a new command batch
-        let actual_entity = world.spawn_entity(); // gets the next index
+        let _actual_entity = world.spawn_entity(); // gets the next index
         // Actually, let's test the full cycle properly
         let mut cmds2 = Commands::new();
         let e = cmds2.spawn_entity();
