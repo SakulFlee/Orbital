@@ -1,11 +1,10 @@
 [package]
 name = "orbital_app"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [features]
 gamepad_input = ["dep:gilrs"]
-standard_app_detect_no_more_elements = []
 auto_request_redraw = []
 gamepad_input_poll = ["gamepad_input"]
 
@@ -13,10 +12,9 @@ gamepad_input_poll = ["gamepad_input"]
 orbital_core = { path = "../orbital_core" }
 orbital_ecs = { path = "../ecs" }
 orbital_ecs_bridge = { path = "../orbital_ecs_bridge" }
-orbital_element = { path = "../orbital_element" }
 orbital_input = { path = "../orbital_input" }
 orbital_renderer = { path = "../orbital_renderer" }
-orbital_world = { path = "../orbital_world" }
+orbital_resources = { path = "../orbital_resources" }
 cgmath = { workspace = true }
 log = { workspace = true }
 wgpu = { workspace = true }

@@ -1,0 +1,17 @@
+[package]
+name = "multi_module"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "multi_module"
+path = "src/lib.rs"
+crate-type = ["cdylib", "lib"]
+
+[[bin]]
+name = "multi_module"
+path = "src/main.rs"
+
+[dependencies]
+orbital = { path = "../../Crates/orbital" }
+winit = { workspace = true }

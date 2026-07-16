@@ -1574,6 +1574,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "multi_module"
+version = "0.1.0"
+dependencies = [
+ "orbital",
+ "winit",
+]
+
+[[package]]
 name = "naga"
 version = "30.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2105,16 +2113,14 @@ dependencies = [
  "image",
  "log",
  "orbital_app",
- "orbital_camera_controller",
  "orbital_core",
+ "orbital_ecs",
  "orbital_ecs_bridge",
- "orbital_element",
  "orbital_importer_gltf",
  "orbital_input",
  "orbital_renderer",
  "orbital_resources",
  "orbital_shader_preprocessor",
- "orbital_world",
  "rand 0.10.2",
  "rayon",
  "serde",
@@ -2134,22 +2140,11 @@ dependencies = [
  "orbital_core",
  "orbital_ecs",
  "orbital_ecs_bridge",
- "orbital_element",
  "orbital_input",
  "orbital_renderer",
- "orbital_world",
+ "orbital_resources",
  "wgpu",
  "winit",
-]
-
-[[package]]
-name = "orbital_camera_controller"
-version = "0.1.0"
-dependencies = [
- "cgmath",
- "orbital_element",
- "orbital_input",
- "orbital_resources",
 ]
 
 [[package]]
@@ -2178,23 +2173,14 @@ name = "orbital_ecs_bridge"
 version = "0.1.0"
 dependencies = [
  "cgmath",
- "orbital_ecs",
- "orbital_input",
- "wgpu",
-]
-
-[[package]]
-name = "orbital_element"
-version = "0.1.0"
-dependencies = [
  "hashbrown 0.17.1",
- "log",
  "orbital_core",
+ "orbital_ecs",
  "orbital_importer_gltf",
  "orbital_input",
  "orbital_resources",
- "serde",
- "winit",
+ "ulid",
+ "wgpu",
 ]
 
 [[package]]
@@ -2254,21 +2240,6 @@ version = "0.1.0"
 dependencies = [
  "glob",
  "log",
-]
-
-[[package]]
-name = "orbital_world"
-version = "0.1.0"
-dependencies = [
- "cgmath",
- "hashbrown 0.17.1",
- "log",
- "orbital_core",
- "orbital_element",
- "orbital_importer_gltf",
- "orbital_resources",
- "ulid",
- "wgpu",
 ]
 
 [[package]]

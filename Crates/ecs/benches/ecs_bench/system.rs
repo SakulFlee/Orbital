@@ -32,69 +32,69 @@ fn double_vel(_vel: &mut Vel) {}
 // ---------------------------------------------------------------------------
 
 pub fn bench_system_run_1w(c: &mut Criterion) {
-    let world = setup_dense_world(N);
+    let mut world = setup_dense_world(N);
     let mut schedule = Schedule::new();
     schedule.add_system(add_one);
 
     c.bench_function("system_run_1w", |b| {
         b.iter(|| {
-            schedule.run(&world);
+            schedule.run(&mut world);
         });
     });
 }
 
 pub fn bench_system_run_1r(c: &mut Criterion) {
-    let world = setup_dense_world(N);
+    let mut world = setup_dense_world(N);
     let mut schedule = Schedule::new();
     schedule.add_system(read_pos);
 
     c.bench_function("system_run_1r", |b| {
         b.iter(|| {
-            schedule.run(&world);
+            schedule.run(&mut world);
         });
     });
 }
 
 pub fn bench_system_run_2wr(c: &mut Criterion) {
-    let world = setup_dense_world(N);
+    let mut world = setup_dense_world(N);
     let mut schedule = Schedule::new();
     schedule.add_system(apply_vel);
 
     c.bench_function("system_run_2wr", |b| {
         b.iter(|| {
-            schedule.run(&world);
+            schedule.run(&mut world);
         });
     });
 }
 
 pub fn bench_system_batch_no_conflict(c: &mut Criterion) {
-    let world = setup_dense_world(N);
+    let mut world = setup_dense_world(N);
     let mut schedule = Schedule::new();
     schedule.add_system(read_pos);
     schedule.add_system(read_pos_implies);
 
     c.bench_function("system_batch_no_conflict", |b| {
         b.iter(|| {
-            schedule.run(&world);
+            schedule.run(&mut world);
         });
     });
 }
 
 pub fn bench_system_batch_conflict(c: &mut Criterion) {
-    let world = setup_dense_world(N);
+    let mut world = setup_dense_world(N);
     let mut schedule = Schedule::new();
     schedule.add_system(double_pos);
     schedule.add_system(add_one);
 
     c.bench_function("system_batch_conflict", |b| {
         b.iter(|| {
-            schedule.run(&world);
+            schedule.run(&mut world);
         });
     });
 }
 
 pub fn bench_system_run_many_sequential(c: &mut Criterion) {
-    let world = setup_dense_world(N);
+    let mut world = setup_dense_world(N);
     let mut schedule = Schedule::new();
     for _ in 0..16 {
         schedule.add_system(double_pos);
@@ -102,14 +102,14 @@ pub fn bench_system_run_many_sequential(c: &mut Criterion) {
 
     c.bench_function("system_run_many_sequential", |b| {
         b.iter(|| {
-            schedule.run(&world);
+            schedule.run(&mut world);
         });
     });
 }
 
 pub fn bench_system_run_many_parallel(c: &mut Criterion) {
     const K: usize = 16;
-    let world = setup_dense_world(N);
+    let mut world = setup_dense_world(N);
     let mut schedule = Schedule::new();
     // Each system writes a different dummy store — no conflicts.
     for _ in 0..K {
@@ -119,7 +119,7 @@ pub fn bench_system_run_many_parallel(c: &mut Criterion) {
 
     c.bench_function("system_run_many_parallel", |b| {
         b.iter(|| {
-            schedule.run(&world);
+            schedule.run(&mut world);
         });
     });
 }
@@ -162,13 +162,13 @@ pub fn bench_system_clone_snapshot(c: &mut Criterion) {
 }
 
 pub fn bench_system_run_empty_world(c: &mut Criterion) {
-    let world = super::common::setup_dense_world(0);
+    let mut world = super::common::setup_dense_world(0);
     let mut schedule = Schedule::new();
     schedule.add_system(add_one);
 
     c.bench_function("system_run_empty_world", |b| {
         b.iter(|| {
-            schedule.run(&world);
+            schedule.run(&mut world);
         });
     });
 }

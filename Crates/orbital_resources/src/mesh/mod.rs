@@ -1,6 +1,6 @@
 use wgpu::{
-    util::{BufferInitDescriptor, DeviceExt},
     Buffer, BufferUsages, Device, Queue,
+    util::{BufferInitDescriptor, DeviceExt},
 };
 
 pub use crate::Vertex;

@@ -46,6 +46,6 @@ fn main() {
     schedule.add_system(tick_frame);
 
     for _ in 0..9 {
-        schedule.run(&world);
+        schedule.run(&mut world);
     }
 }

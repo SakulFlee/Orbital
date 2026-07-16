@@ -50,7 +50,7 @@ fn main() {
     schedule.add_system(print_all);
 
     // Run 1: heal Alice (30→40), queue Charlie + Diana, print Alice
-    schedule.run(&world);
+    schedule.run(&mut world);
 
     // Flush — take Commands out of the resource, drop the lock, then flush
     let queued = std::mem::replace(
@@ -60,5 +60,5 @@ fn main() {
     queued.flush(&mut world).unwrap();
 
     // Run 2: heal all three, print all three
-    schedule.run(&world);
+    schedule.run(&mut world);
 }

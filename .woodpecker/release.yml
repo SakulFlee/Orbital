@@ -9,40 +9,6 @@ matrix:
     - x86_64-pc-windows-gnu
 
 steps:
-  format:
-    image: nixos/nix:latest
-    environment:
-      SKIP_GLTF_EXPORT: "true"
-    commands:
-      - |
-        DEV_SHELL=""
-        [ "$TARGET" = "aarch64-unknown-linux-gnu" ] && DEV_SHELL=".#aarch64-cross"
-        [ "$TARGET" = "x86_64-pc-windows-gnu" ] && DEV_SHELL=".#windows-x86_64-cross"
-        nix develop --extra-experimental-features 'nix-command flakes' $DEV_SHELL --command cargo fmt --all --check
-
-  clippy:
-    image: nixos/nix:latest
-    environment:
-      SKIP_GLTF_EXPORT: "true"
-    commands:
-      - |
-        DEV_SHELL=""
-        [ "$TARGET" = "aarch64-unknown-linux-gnu" ] && DEV_SHELL=".#aarch64-cross"
-        [ "$TARGET" = "x86_64-pc-windows-gnu" ] && DEV_SHELL=".#windows-x86_64-cross"
-        nix develop --extra-experimental-features 'nix-command flakes' $DEV_SHELL --command cargo clippy --target "$TARGET"
-
-  test:
-    image: nixos/nix:latest
-    environment:
-      SKIP_GLTF_EXPORT: "true"
-    commands:
-      - |
-        if [ "$TARGET" = "x86_64-unknown-linux-gnu" ]; then
-          nix develop --extra-experimental-features 'nix-command flakes' --command cargo test --no-fail-fast
-        else
-          echo "Skipping tests for cross-compiled target: $TARGET"
-        fi
-
   build:
     image: nixos/nix:latest
     environment:

@@ -15,7 +15,7 @@ macro_rules! impl_1_write {
                         name: std::any::type_name::<T>(),
                         access: crate::system::access::ComponentAccess::new().writes::<A>(),
                     },
-                    Box::new(move |world| {
+                    Box::new(move |world, _commands| {
                         let mut snap = {
                             let Some(store) = world.get_component_store::<A>() else {
                                 return;
@@ -48,7 +48,7 @@ macro_rules! impl_1_read {
                         name: std::any::type_name::<T>(),
                         access: crate::system::access::ComponentAccess::new().reads::<A>(),
                     },
-                    Box::new(move |world| {
+                    Box::new(move |world, _commands| {
                         let Some(store) = world.get_component_store::<A>() else {
                             return;
                         };
@@ -89,7 +89,7 @@ macro_rules! impl_2_ww {
                             .writes::<A>()
                             .writes::<B>(),
                     },
-                    Box::new(move |world| {
+                    Box::new(move |world, _commands| {
                         let (mut snap_a, mut snap_b) = {
                             let Some(sa) = world.get_component_store::<A>() else {
                                 return;
@@ -139,7 +139,7 @@ macro_rules! impl_2_wr {
                             .writes::<A>()
                             .reads::<B>(),
                     },
-                    Box::new(move |world| {
+                    Box::new(move |world, _commands| {
                         let Some(sb) = world.get_component_store::<B>() else {
                             return;
                         };
@@ -185,7 +185,7 @@ macro_rules! impl_2_rw {
                             .reads::<A>()
                             .writes::<B>(),
                     },
-                    Box::new(move |world| {
+                    Box::new(move |world, _commands| {
                         let Some(sa) = world.get_component_store::<A>() else {
                             return;
                         };
@@ -228,7 +228,7 @@ macro_rules! impl_2_rr {
                             .reads::<A>()
                             .reads::<B>(),
                     },
-                    Box::new(move |world| {
+                    Box::new(move |world, _commands| {
                         let Some(sa) = world.get_component_store::<A>() else {
                             return;
                         };
@@ -279,7 +279,7 @@ impl<
                     .writes::<B>()
                     .writes::<C>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let (mut snap_a, mut snap_b, mut snap_c) = {
                     let Some(sa) = world.get_component_store::<A>() else {
                         return;
@@ -341,7 +341,7 @@ impl<
                     .writes::<B>()
                     .reads::<C>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(sc) = world.get_component_store::<C>() else {
                     return;
                 };
@@ -401,7 +401,7 @@ impl<
                     .reads::<B>()
                     .writes::<C>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(sb) = world.get_component_store::<B>() else {
                     return;
                 };
@@ -461,7 +461,7 @@ impl<
                     .reads::<B>()
                     .reads::<C>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(sb) = world.get_component_store::<B>() else {
                     return;
                 };
@@ -517,7 +517,7 @@ impl<
                     .writes::<B>()
                     .writes::<C>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(sa) = world.get_component_store::<A>() else {
                     return;
                 };
@@ -577,7 +577,7 @@ impl<
                     .writes::<B>()
                     .reads::<C>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(sa) = world.get_component_store::<A>() else {
                     return;
                 };
@@ -633,7 +633,7 @@ impl<
                     .reads::<B>()
                     .writes::<C>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(sa) = world.get_component_store::<A>() else {
                     return;
                 };
@@ -689,7 +689,7 @@ impl<
                     .reads::<B>()
                     .reads::<C>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(sa) = world.get_component_store::<A>() else {
                     return;
                 };
@@ -748,7 +748,7 @@ impl<
                     .writes::<C>()
                     .writes::<D>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let (mut snap_a, mut snap_b, mut snap_c, mut snap_d) = {
                     let Some(sa) = world.get_component_store::<A>() else {
                         return;
@@ -823,7 +823,7 @@ impl<
                     .writes::<C>()
                     .reads::<D>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(sd) = world.get_component_store::<D>() else {
                     return;
                 };
@@ -896,7 +896,7 @@ impl<
                     .reads::<C>()
                     .writes::<D>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(sc) = world.get_component_store::<C>() else {
                     return;
                 };
@@ -969,7 +969,7 @@ impl<
                     .reads::<C>()
                     .reads::<D>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(sc) = world.get_component_store::<C>() else {
                     return;
                 };
@@ -1040,7 +1040,7 @@ impl<
                     .writes::<C>()
                     .writes::<D>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(sb) = world.get_component_store::<B>() else {
                     return;
                 };
@@ -1113,7 +1113,7 @@ impl<
                     .writes::<C>()
                     .reads::<D>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(sb) = world.get_component_store::<B>() else {
                     return;
                 };
@@ -1184,7 +1184,7 @@ impl<
                     .reads::<C>()
                     .writes::<D>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(sb) = world.get_component_store::<B>() else {
                     return;
                 };
@@ -1255,7 +1255,7 @@ impl<
                     .reads::<C>()
                     .reads::<D>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(sb) = world.get_component_store::<B>() else {
                     return;
                 };
@@ -1322,7 +1322,7 @@ impl<
                     .writes::<C>()
                     .writes::<D>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(sa) = world.get_component_store::<A>() else {
                     return;
                 };
@@ -1395,7 +1395,7 @@ impl<
                     .writes::<C>()
                     .reads::<D>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(sa) = world.get_component_store::<A>() else {
                     return;
                 };
@@ -1466,7 +1466,7 @@ impl<
                     .reads::<C>()
                     .writes::<D>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(sa) = world.get_component_store::<A>() else {
                     return;
                 };
@@ -1537,7 +1537,7 @@ impl<
                     .reads::<C>()
                     .reads::<D>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(sa) = world.get_component_store::<A>() else {
                     return;
                 };
@@ -1604,7 +1604,7 @@ impl<
                     .writes::<C>()
                     .writes::<D>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(sa) = world.get_component_store::<A>() else {
                     return;
                 };
@@ -1675,7 +1675,7 @@ impl<
                     .writes::<C>()
                     .reads::<D>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(sa) = world.get_component_store::<A>() else {
                     return;
                 };
@@ -1742,7 +1742,7 @@ impl<
                     .reads::<C>()
                     .writes::<D>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(sa) = world.get_component_store::<A>() else {
                     return;
                 };
@@ -1809,7 +1809,7 @@ impl<
                     .reads::<C>()
                     .reads::<D>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(sa) = world.get_component_store::<A>() else {
                     return;
                 };
