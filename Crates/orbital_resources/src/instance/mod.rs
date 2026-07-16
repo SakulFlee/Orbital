@@ -8,9 +8,6 @@ use super::Transform;
 mod descriptor;
 pub use descriptor::*;
 
-mod instancing;
-pub use instancing::*;
-
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub struct Instance {
     descriptor: InstanceDescriptor,
