@@ -139,8 +139,8 @@ impl ShaderPreprocessor {
         let mut import_found = false;
 
         for line in source.lines() {
-            if let Some(start) = line.find(Self::IMPORT_EXPRESSION_START) {
-                if let Some(end) = line.find(Self::IMPORT_EXPRESSION_END) {
+            if let Some(start) = line.find(Self::IMPORT_EXPRESSION_START)
+                && let Some(end) = line.find(Self::IMPORT_EXPRESSION_END) {
                     let directive = &line[start + Self::IMPORT_EXPRESSION_START.len()..end];
                     if imported_directives.contains(&directive) {
                         continue;
@@ -163,7 +163,6 @@ impl ShaderPreprocessor {
 
                     continue;
                 }
-            }
 
             if output.is_empty() {
                 output = line.to_string();
