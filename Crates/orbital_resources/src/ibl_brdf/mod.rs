@@ -1,11 +1,11 @@
 use cgmath::Vector2;
 use wgpu::{
-    include_wgsl, AddressMode, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
-    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
-    ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor, Device, Extent3d,
-    FilterMode, MipmapFilterMode, PipelineLayoutDescriptor, Queue, SamplerDescriptor, ShaderStages,
-    StorageTextureAccess, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-    TextureViewDescriptor, TextureViewDimension,
+    AddressMode, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+    BindGroupLayoutEntry, BindingResource, BindingType, ComputePassDescriptor, ComputePipeline,
+    ComputePipelineDescriptor, Device, Extent3d, FilterMode, MipmapFilterMode,
+    PipelineLayoutDescriptor, Queue, SamplerDescriptor, ShaderStages, StorageTextureAccess,
+    TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureViewDescriptor,
+    TextureViewDimension, include_wgsl,
 };
 
 use crate::Texture;

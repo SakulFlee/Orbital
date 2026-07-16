@@ -19,10 +19,8 @@
 //! and cleanup. The engine manages resource lifecycles automatically through
 //! the various stores in the world module.
 
-pub mod bounding_box;
 pub mod buffer;
 pub mod camera;
-pub mod debug_material_shader;
 pub mod ibl_brdf;
 pub mod instance;
 pub mod light;
@@ -36,10 +34,8 @@ pub mod transform;
 pub mod vertex;
 pub mod world_environment;
 
-pub use bounding_box::*;
 pub use buffer::*;
 pub use camera::*;
-pub use debug_material_shader::*;
 pub use ibl_brdf::*;
 pub use instance::*;
 pub use light::*;

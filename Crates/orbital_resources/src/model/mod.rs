@@ -4,8 +4,8 @@ use std::{
 };
 
 use wgpu::{
-    util::{BufferInitDescriptor, DeviceExt},
     Buffer, BufferUsages, Device, Queue, TextureFormat,
+    util::{BufferInitDescriptor, DeviceExt},
 };
 
 pub use super::{Mesh, MeshDescriptor};

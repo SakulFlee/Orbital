@@ -1,8 +1,8 @@
 use wgpu::{
-    util::{BufferInitDescriptor, DeviceExt},
     BindGroup, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
     BindingResource, BindingType, Device, Queue, ShaderModule, ShaderModuleDescriptor,
     ShaderStages,
+    util::{BufferInitDescriptor, DeviceExt},
 };
 
 use crate::Texture;

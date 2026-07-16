@@ -57,7 +57,7 @@ impl<A: 'static + Send + Sync, F: for<'a> FnMut(Res<'a, A>) + Send + 'static>
                 name: std::any::type_name::<F>(),
                 access: ComponentAccess::new().reads::<A>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(handle) = world.get_resource::<A>() else {
                     return;
                 };
@@ -79,7 +79,7 @@ impl<A: 'static + Send + Sync, F: for<'a> FnMut(ResMut<'a, A>) + Send + 'static>
                 name: std::any::type_name::<F>(),
                 access: ComponentAccess::new().writes::<A>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(mut handle) = world.get_resource_mut::<A>() else {
                     return;
                 };
@@ -109,7 +109,7 @@ macro_rules! impl_2_read_comp_res_read {
                         name: std::any::type_name::<F>(),
                         access: ComponentAccess::new().reads::<A>().reads::<B>(),
                     },
-                    Box::new(move |world| {
+                    Box::new(move |world, _commands| {
                         let Some(handle) = world.get_resource::<B>() else {
                             return;
                         };
@@ -145,7 +145,7 @@ macro_rules! impl_2_read_comp_res_write {
                         name: std::any::type_name::<F>(),
                         access: ComponentAccess::new().reads::<A>().writes::<B>(),
                     },
-                    Box::new(move |world| {
+                    Box::new(move |world, _commands| {
                         let Some(mut handle) = world.get_resource_mut::<B>() else {
                             return;
                         };
@@ -180,7 +180,7 @@ macro_rules! impl_2_write_comp_res_read {
                         name: std::any::type_name::<F>(),
                         access: ComponentAccess::new().writes::<A>().reads::<B>(),
                     },
-                    Box::new(move |world| {
+                    Box::new(move |world, _commands| {
                         let Some(handle) = world.get_resource::<B>() else {
                             return;
                         };
@@ -220,7 +220,7 @@ macro_rules! impl_2_write_comp_res_write {
                         name: std::any::type_name::<F>(),
                         access: ComponentAccess::new().writes::<A>().writes::<B>(),
                     },
-                    Box::new(move |world| {
+                    Box::new(move |world, _commands| {
                         let Some(mut handle) = world.get_resource_mut::<B>() else {
                             return;
                         };
@@ -259,7 +259,7 @@ macro_rules! impl_2_res_read_res_read {
                         name: std::any::type_name::<F>(),
                         access: ComponentAccess::new().reads::<A>().reads::<B>(),
                     },
-                    Box::new(move |world| {
+                    Box::new(move |world, _commands| {
                         let Some(ha) = world.get_resource::<A>() else {
                             return;
                         };
@@ -290,7 +290,7 @@ macro_rules! impl_2_res_read_res_write {
                         name: std::any::type_name::<F>(),
                         access: ComponentAccess::new().reads::<A>().writes::<B>(),
                     },
-                    Box::new(move |world| {
+                    Box::new(move |world, _commands| {
                         let Some(ha) = world.get_resource::<A>() else {
                             return;
                         };
@@ -321,7 +321,7 @@ macro_rules! impl_2_res_write_res_read {
                         name: std::any::type_name::<F>(),
                         access: ComponentAccess::new().writes::<A>().reads::<B>(),
                     },
-                    Box::new(move |world| {
+                    Box::new(move |world, _commands| {
                         let Some(mut ha) = world.get_resource_mut::<A>() else {
                             return;
                         };
@@ -352,7 +352,7 @@ macro_rules! impl_2_res_write_res_write {
                         name: std::any::type_name::<F>(),
                         access: ComponentAccess::new().writes::<A>().writes::<B>(),
                     },
-                    Box::new(move |world| {
+                    Box::new(move |world, _commands| {
                         let Some(mut ha) = world.get_resource_mut::<A>() else {
                             return;
                         };
@@ -383,7 +383,7 @@ macro_rules! impl_2_res_write_comp_read {
                         name: std::any::type_name::<F>(),
                         access: ComponentAccess::new().writes::<A>().reads::<B>(),
                     },
-                    Box::new(move |world| {
+                    Box::new(move |world, _commands| {
                         let Some(mut handle) = world.get_resource_mut::<A>() else {
                             return;
                         };
@@ -418,7 +418,7 @@ macro_rules! impl_2_res_write_comp_write {
                         name: std::any::type_name::<F>(),
                         access: ComponentAccess::new().writes::<A>().writes::<B>(),
                     },
-                    Box::new(move |world| {
+                    Box::new(move |world, _commands| {
                         let Some(mut handle) = world.get_resource_mut::<A>() else {
                             return;
                         };
@@ -457,6 +457,125 @@ impl_2_res_write_comp_read!(A, B);
 impl_2_res_write_comp_write!(A, B);
 
 // ---------------------------------------------------------------------------
+// Arity 3 — Res<A> + Res<B> + &mut C   (read resource + read resource + write component)
+// ---------------------------------------------------------------------------
+
+impl<
+    A: 'static + Send + Sync,
+    B: 'static + Send + Sync,
+    C: Clone + Component,
+    F: for<'a, 'b> FnMut(Res<'a, A>, Res<'b, B>, &mut C) + Send + 'static,
+> IntoSystem<fn(Res<'_, A>, Res<'_, B>, &mut C)> for F
+{
+    type System = Box<dyn System>;
+    fn into_system(self) -> Self::System {
+        let mut f = self;
+        Box::new(FunctionSystem::new(
+            FunctionSystemMetadata {
+                name: std::any::type_name::<F>(),
+                access: ComponentAccess::new()
+                    .reads::<A>()
+                    .reads::<B>()
+                    .writes::<C>(),
+            },
+            Box::new(move |world, _commands| {
+                let ha = match world.get_resource::<A>() {
+                    Some(h) => h,
+                    None => return,
+                };
+                let hb = match world.get_resource::<B>() {
+                    Some(h) => h,
+                    None => return,
+                };
+                let mut snap_c = {
+                    let Some(sc) = world.get_component_store::<C>() else {
+                        return;
+                    };
+                    Snapshot::clone_from_store(&sc)
+                };
+                let ra = Res(&*ha);
+                let rb = Res(&*hb);
+                for &eid in snap_c.dense.as_slice() {
+                    if let Some(ic) = snap_c.sparse[eid] {
+                        f(ra, rb, &mut snap_c.components[ic]);
+                    }
+                }
+                snap_c.merge_into(world);
+            }),
+        ))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Arity 4 — Res<A> + Res<B> + &mut C + &mut D   (2 read resources + 2 write components)
+// ---------------------------------------------------------------------------
+
+impl<
+    A: 'static + Send + Sync,
+    B: 'static + Send + Sync,
+    C: Clone + Component,
+    D: Clone + Component,
+    F: for<'a, 'b> FnMut(Res<'a, A>, Res<'b, B>, &mut C, &mut D) + Send + 'static,
+> IntoSystem<fn(Res<'_, A>, Res<'_, B>, &mut C, &mut D)> for F
+{
+    type System = Box<dyn System>;
+    fn into_system(self) -> Self::System {
+        let mut f = self;
+        Box::new(FunctionSystem::new(
+            FunctionSystemMetadata {
+                name: std::any::type_name::<F>(),
+                access: ComponentAccess::new()
+                    .reads::<A>()
+                    .reads::<B>()
+                    .writes::<C>()
+                    .writes::<D>(),
+            },
+            Box::new(move |world, _commands| {
+                let ha = match world.get_resource::<A>() {
+                    Some(h) => h,
+                    None => return,
+                };
+                let hb = match world.get_resource::<B>() {
+                    Some(h) => h,
+                    None => return,
+                };
+                let (mut snap_c, mut snap_d) = {
+                    let Some(sc) = world.get_component_store::<C>() else {
+                        return;
+                    };
+                    let Some(sd) = world.get_component_store::<D>() else {
+                        return;
+                    };
+                    (
+                        Snapshot::clone_from_store(&sc),
+                        Snapshot::clone_from_store(&sd),
+                    )
+                };
+                let pivot = if snap_c.dense.len() <= snap_d.dense.len() {
+                    snap_c.dense.as_slice()
+                } else {
+                    snap_d.dense.as_slice()
+                };
+                let ra = Res(&*ha);
+                let rb = Res(&*hb);
+                for &eid in pivot {
+                    if let (Some(ic), Some(id)) = (snap_c.sparse[eid], snap_d.sparse[eid]) {
+                        f(
+                            ra,
+                            rb,
+                            &mut snap_c.components[ic],
+                            &mut snap_d.components[id],
+                        );
+                    }
+                }
+                snap_c.merge_into(world);
+                snap_d.merge_into(world);
+            }),
+        ))
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Arity 3 — Res<A> + &B + &C   (read resource + read component + read component)
 // ---------------------------------------------------------------------------
 
@@ -478,7 +597,7 @@ impl<
                     .reads::<B>()
                     .reads::<C>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(handle) = world.get_resource::<A>() else {
                     return;
                 };
@@ -526,7 +645,7 @@ impl<
                     .reads::<B>()
                     .reads::<C>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(ha) = world.get_resource::<A>() else {
                     return;
                 };
@@ -570,7 +689,7 @@ impl<
                     .reads::<B>()
                     .reads::<C>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(ha) = world.get_resource::<A>() else {
                     return;
                 };
@@ -614,7 +733,7 @@ impl<
                     .reads::<B>()
                     .reads::<C>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(hb) = world.get_resource::<B>() else {
                     return;
                 };
@@ -658,7 +777,7 @@ impl<
                     .reads::<B>()
                     .reads::<C>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(mut handle) = world.get_resource_mut::<A>() else {
                     return;
                 };
@@ -705,7 +824,7 @@ impl<
                     .writes::<B>()
                     .reads::<C>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(mut hb) = world.get_resource_mut::<B>() else {
                     return;
                 };
@@ -752,7 +871,7 @@ impl<
                     .reads::<B>()
                     .writes::<C>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(mut hc) = world.get_resource_mut::<C>() else {
                     return;
                 };
@@ -801,7 +920,7 @@ impl<
                     .reads::<C>()
                     .reads::<D>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(handle) = world.get_resource::<A>() else {
                     return;
                 };
@@ -864,7 +983,7 @@ impl<
                     .reads::<C>()
                     .reads::<D>(),
             },
-            Box::new(move |world| {
+            Box::new(move |world, _commands| {
                 let Some(mut handle) = world.get_resource_mut::<A>() else {
                     return;
                 };
@@ -897,6 +1016,76 @@ impl<
                         );
                     }
                 }
+            }),
+        ))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Commands parameter support
+// ---------------------------------------------------------------------------
+
+// fn(&mut Commands) — commands-only system
+// The system receives a mutable reference to the schedule's commands buffer.
+impl<F: FnMut(&mut crate::Commands) + Send + 'static> IntoSystem<fn(&mut crate::Commands)> for F {
+    type System = Box<dyn crate::system::system::System>;
+    fn into_system(self) -> Self::System {
+        let mut f = self;
+        Box::new(crate::system::system::FunctionSystem::new(
+            crate::system::system::FunctionSystemMetadata {
+                name: std::any::type_name::<F>(),
+                access: crate::system::access::ComponentAccess::new(),
+            },
+            Box::new(move |_world, commands| {
+                f(commands);
+            }),
+        ))
+    }
+}
+
+// fn(&mut Commands, Res<A>) — commands + read resource
+impl<A: 'static + Send + Sync, F: for<'a> FnMut(&mut crate::Commands, Res<'a, A>) + Send + 'static>
+    IntoSystem<fn(&mut crate::Commands, Res<'_, A>)> for F
+{
+    type System = Box<dyn crate::system::system::System>;
+    fn into_system(self) -> Self::System {
+        let mut f = self;
+        Box::new(crate::system::system::FunctionSystem::new(
+            crate::system::system::FunctionSystemMetadata {
+                name: std::any::type_name::<F>(),
+                access: crate::system::access::ComponentAccess::new().reads::<A>(),
+            },
+            Box::new(move |world, commands| {
+                let handle = match world.get_resource::<A>() {
+                    Some(h) => h,
+                    None => return,
+                };
+                f(commands, Res(&*handle));
+            }),
+        ))
+    }
+}
+
+// fn(&mut Commands, ResMut<A>) — commands + write resource
+impl<
+    A: 'static + Send + Sync,
+    F: for<'a> FnMut(&mut crate::Commands, ResMut<'a, A>) + Send + 'static,
+> IntoSystem<fn(&mut crate::Commands, ResMut<'_, A>)> for F
+{
+    type System = Box<dyn crate::system::system::System>;
+    fn into_system(self) -> Self::System {
+        let mut f = self;
+        Box::new(crate::system::system::FunctionSystem::new(
+            crate::system::system::FunctionSystemMetadata {
+                name: std::any::type_name::<F>(),
+                access: crate::system::access::ComponentAccess::new().writes::<A>(),
+            },
+            Box::new(move |world, commands| {
+                let mut handle = match world.get_resource_mut::<A>() {
+                    Some(h) => h,
+                    None => return,
+                };
+                f(commands, ResMut(&mut *handle));
             }),
         ))
     }

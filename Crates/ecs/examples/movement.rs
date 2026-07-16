@@ -40,8 +40,8 @@ fn main() {
     physics_b.add_system(integrate);
 
     for frame in 0..10 {
-        physics_a.run(&world);
-        physics_b.run(&world);
+        physics_a.run(&mut world);
+        physics_b.run(&mut world);
 
         let pos_store = world.get_component_store::<Pos>().unwrap();
         let vel_store = world.get_component_store::<Vel>().unwrap();

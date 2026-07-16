@@ -1,6 +1,6 @@
 use std::{hash::Hash, mem::size_of};
 
-use cgmath::{num_traits::Float, Vector2, Vector3};
+use cgmath::{Vector2, Vector3, num_traits::Float};
 use wgpu::{VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode};
 
 #[derive(Debug, Clone, PartialEq)]

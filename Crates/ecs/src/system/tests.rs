@@ -62,10 +62,10 @@ fn add_five(pos: &mut Pos) {
 
 #[test]
 fn system_write_single() {
-    let world = setup_world();
+    let mut world = setup_world();
     let mut schedule = Schedule::new();
     schedule.add_system(move_pos);
-    schedule.run(&world);
+    schedule.run(&mut world);
 
     let store = world.get_component_store::<Pos>().unwrap();
     assert_eq!(store.get_component(0).unwrap().0, 1.0);
@@ -75,7 +75,7 @@ fn system_write_single() {
 
 #[test]
 fn system_read_single() {
-    let world = setup_world();
+    let mut world = setup_world();
     let count = Arc::new(AtomicUsize::new(0));
     {
         let c = Arc::clone(&count);
@@ -83,17 +83,17 @@ fn system_read_single() {
         schedule.add_system::<fn(&Pos), _>(move |_pos: &Pos| {
             c.fetch_add(1, Ordering::Relaxed);
         });
-        schedule.run(&world);
+        schedule.run(&mut world);
     }
     assert_eq!(count.load(Ordering::Relaxed), 3);
 }
 
 #[test]
 fn system_write_read_two() {
-    let world = setup_world();
+    let mut world = setup_world();
     let mut schedule = Schedule::new();
     schedule.add_system(apply_vel);
-    schedule.run(&world);
+    schedule.run(&mut world);
 
     let store = world.get_component_store::<Pos>().unwrap();
     assert_eq!(store.get_component(0).unwrap().0, 1.0);
@@ -104,10 +104,10 @@ fn system_write_read_two() {
 
 #[test]
 fn system_write_two() {
-    let world = setup_world();
+    let mut world = setup_world();
     let mut schedule = Schedule::new();
     schedule.add_system(double_both);
-    schedule.run(&world);
+    schedule.run(&mut world);
 
     let pstore = world.get_component_store::<Pos>().unwrap();
     let vstore = world.get_component_store::<Vel>().unwrap();
@@ -119,7 +119,7 @@ fn system_write_two() {
 
 #[test]
 fn system_three_params() {
-    let world = {
+    let mut world = {
         let mut w = World::new();
         let e = w.spawn_entity();
         w.attach_component(&e, Pos(1.0, 2.0)).unwrap();
@@ -130,7 +130,7 @@ fn system_three_params() {
 
     let mut schedule = Schedule::new();
     schedule.add_system(update_score);
-    schedule.run(&world);
+    schedule.run(&mut world);
 
     let pstore = world.get_component_store::<Pos>().unwrap();
     let sstore = world.get_component_store::<i32>().unwrap();
@@ -141,7 +141,7 @@ fn system_three_params() {
 
 #[test]
 fn system_four_params() {
-    let world = {
+    let mut world = {
         let mut w = World::new();
         let e = w.spawn_entity();
         w.attach_component(&e, Pos(1.0, 2.0)).unwrap();
@@ -153,7 +153,7 @@ fn system_four_params() {
 
     let mut schedule = Schedule::new();
     schedule.add_system(update_all);
-    schedule.run(&world);
+    schedule.run(&mut world);
 
     let pstore = world.get_component_store::<Pos>().unwrap();
     assert_eq!(pstore.get_component(0).unwrap().0, 4.0);
@@ -161,7 +161,7 @@ fn system_four_params() {
 
 #[test]
 fn system_no_conflict_batching() {
-    let world = setup_world();
+    let mut world = setup_world();
     let call_order = Arc::new(Mutex::new(Vec::new()));
 
     let mut schedule = Schedule::new();
@@ -173,7 +173,7 @@ fn system_no_conflict_batching() {
         let co = Arc::clone(&call_order);
         schedule.add_system::<fn(&Vel), _>(move |_vel: &Vel| co.lock().unwrap().push("read_vel"));
     }
-    schedule.run(&world);
+    schedule.run(&mut world);
 
     let order = call_order.lock().unwrap();
     assert!(order.contains(&"read_pos"));
@@ -183,7 +183,7 @@ fn system_no_conflict_batching() {
 
 #[test]
 fn system_snapshot_isolation() {
-    let world = {
+    let mut world = {
         let mut w = World::new();
         let e1 = w.spawn_entity();
         w.attach_component(&e1, Pos(0.0, 0.0)).unwrap();
@@ -195,7 +195,7 @@ fn system_snapshot_isolation() {
     let mut schedule = Schedule::new();
     schedule.add_system(add_five);
     schedule.add_system::<fn(&Pos), _>(|_pos: &Pos| {});
-    schedule.run(&world);
+    schedule.run(&mut world);
 
     let store = world.get_component_store::<Pos>().unwrap();
     assert_eq!(store.get_component(0).unwrap().0, 5.0);
@@ -204,13 +204,13 @@ fn system_snapshot_isolation() {
 
 #[test]
 fn system_multiple_sequential_runs() {
-    let world = setup_world();
+    let mut world = setup_world();
     let mut schedule = Schedule::new();
     schedule.add_system(move_pos);
 
-    schedule.run(&world);
-    schedule.run(&world);
-    schedule.run(&world);
+    schedule.run(&mut world);
+    schedule.run(&mut world);
+    schedule.run(&mut world);
 
     let store = world.get_component_store::<Pos>().unwrap();
     assert_eq!(store.get_component(0).unwrap().0, 3.0);
@@ -218,25 +218,25 @@ fn system_multiple_sequential_runs() {
 
 #[test]
 fn system_empty_world() {
-    let world = World::new();
+    let mut world = World::new();
     let mut schedule = Schedule::new();
     let called = Arc::new(Mutex::new(false));
     {
         let c = Arc::clone(&called);
         schedule.add_system::<fn(&mut Pos), _>(move |_: &mut Pos| *c.lock().unwrap() = true);
     }
-    schedule.run(&world);
+    schedule.run(&mut world);
     assert!(!*called.lock().unwrap());
 }
 
 #[test]
 fn system_closure_capture() {
-    let world = setup_world();
+    let mut world = setup_world();
     let multiplier = 10.0;
 
     let mut schedule = Schedule::new();
     schedule.add_system::<fn(&mut Pos), _>(move |pos: &mut Pos| pos.0 *= multiplier);
-    schedule.run(&world);
+    schedule.run(&mut world);
 
     let store = world.get_component_store::<Pos>().unwrap();
     assert_eq!(store.get_component(0).unwrap().0, 0.0);
@@ -245,16 +245,183 @@ fn system_closure_capture() {
 
 #[test]
 fn system_multiple_schedules_same_world() {
-    let world = setup_world();
+    let mut world = setup_world();
 
     let mut sched_a = Schedule::new();
     sched_a.add_system::<fn(&mut Pos), _>(|pos: &mut Pos| pos.0 += 1.0);
-    sched_a.run(&world);
+    sched_a.run(&mut world);
 
     let mut sched_b = Schedule::new();
     sched_b.add_system::<fn(&mut Pos), _>(|pos: &mut Pos| pos.0 += 10.0);
-    sched_b.run(&world);
+    sched_b.run(&mut world);
 
     let store = world.get_component_store::<Pos>().unwrap();
     assert_eq!(store.get_component(0).unwrap().0, 11.0);
+}
+
+// ---------------------------------------------------------------------------
+// Resource parameter tests
+// ---------------------------------------------------------------------------
+
+use crate::system::{Res, ResMut};
+
+#[derive(Debug, Clone, Copy, Default)]
+struct Score(i32);
+
+#[derive(Debug, Clone, Copy, Default)]
+struct Counter(u64);
+
+#[test]
+fn system_res_read() {
+    let mut world = World::new();
+    world.insert_resource(Score(42));
+
+    let mut schedule = Schedule::new();
+    schedule.add_system::<fn(Res<Score>), _>(|score: Res<Score>| {
+        assert_eq!(score.0, 42);
+    });
+    schedule.run(&mut world);
+}
+
+#[test]
+fn system_res_write() {
+    let mut world = World::new();
+    world.insert_resource(Score(0));
+
+    let mut schedule = Schedule::new();
+    schedule.add_system::<fn(ResMut<Score>), _>(|mut score: ResMut<Score>| {
+        score.0 += 10;
+    });
+    schedule.run(&mut world);
+
+    let score = world.get_resource::<Score>().unwrap();
+    assert_eq!(score.0, 10);
+}
+
+#[test]
+fn system_comp_res_read() {
+    let mut world = World::new();
+    world.insert_resource(Score(100));
+    let e = world.spawn_entity();
+    world.attach_component(&e, Pos(0.0, 0.0)).unwrap();
+
+    let mut schedule = Schedule::new();
+    schedule.add_system::<fn(&Pos, Res<Score>), _>(|pos: &Pos, score: Res<Score>| {
+        assert_eq!(pos.0, 0.0);
+        assert_eq!(score.0, 100);
+    });
+    schedule.run(&mut world);
+}
+
+#[test]
+fn system_comp_res_write() {
+    let mut world = World::new();
+    world.insert_resource(Score(10));
+    let e = world.spawn_entity();
+    world.attach_component(&e, Pos(0.0, 0.0)).unwrap();
+
+    let mut schedule = Schedule::new();
+    schedule.add_system::<fn(&mut Pos, Res<Score>), _>(|pos: &mut Pos, score: Res<Score>| {
+        pos.0 = score.0 as f32;
+    });
+    schedule.run(&mut world);
+
+    let store = world.get_component_store::<Pos>().unwrap();
+    assert_eq!(store.get_component(0).unwrap().0, 10.0);
+}
+
+#[test]
+fn system_res_res_read() {
+    let mut world = World::new();
+    world.insert_resource(Score(10));
+    world.insert_resource(Counter(20));
+
+    let mut schedule = Schedule::new();
+    schedule.add_system::<fn(Res<Score>, Res<Counter>), _>(
+        |score: Res<Score>, counter: Res<Counter>| {
+            assert_eq!(score.0, 10);
+            assert_eq!(counter.0, 20);
+        },
+    );
+    schedule.run(&mut world);
+}
+
+#[test]
+fn system_res_res_write() {
+    let mut world = World::new();
+    world.insert_resource(Score(0));
+    world.insert_resource(Counter(0));
+
+    let mut schedule = Schedule::new();
+    schedule.add_system::<fn(ResMut<Score>, Res<Counter>), _>(
+        |mut score: ResMut<Score>, counter: Res<Counter>| {
+            score.0 = counter.0 as i32 + 5;
+        },
+    );
+    schedule.run(&mut world);
+
+    let score = world.get_resource::<Score>().unwrap();
+    assert_eq!(score.0, 5);
+}
+
+#[test]
+fn system_commands_only() {
+    let mut world = World::new();
+
+    let mut schedule = Schedule::new();
+    schedule.add_system::<fn(&mut crate::Commands), _>(|cmds: &mut crate::Commands| {
+        let e = cmds.spawn_entity();
+        cmds.attach_component(&e, String::from("from_commands"));
+    });
+    schedule.run(&mut world);
+
+    let store = world.get_component_store::<String>().unwrap();
+    assert_eq!(store.dense.len(), 1);
+    assert_eq!(
+        store.get_component(store.dense[0]).unwrap().as_str(),
+        "from_commands"
+    );
+}
+
+#[test]
+fn system_commands_res() {
+    let mut world = World::new();
+    world.insert_resource(Score(99));
+
+    let mut schedule = Schedule::new();
+    schedule.add_system::<fn(&mut crate::Commands, Res<Score>), _>(
+        |cmds: &mut crate::Commands, score: Res<Score>| {
+            let e = cmds.spawn_entity();
+            cmds.attach_component(&e, score.0);
+        },
+    );
+    schedule.run(&mut world);
+
+    let store = world.get_component_store::<i32>().unwrap();
+    assert_eq!(store.get_component(store.dense[0]).unwrap(), &99);
+}
+
+// Test for 4-arg Res+Res+&mut+&mut pattern
+#[test]
+fn system_res_res_comp_comp() {
+    let mut world = World::new();
+    world.insert_resource(Score(10));
+    world.insert_resource(Counter(20));
+    let e = world.spawn_entity();
+    world.attach_component(&e, Pos(0.0, 0.0)).unwrap();
+    world.attach_component(&e, Vel(0.0, 0.0)).unwrap();
+
+    let mut schedule = Schedule::new();
+    schedule.add_system::<fn(Res<Score>, Res<Counter>, &mut Pos, &mut Vel), _>(
+        |score: Res<Score>, counter: Res<Counter>, pos: &mut Pos, vel: &mut Vel| {
+            pos.0 = score.0 as f32;
+            vel.0 = counter.0 as f32;
+        },
+    );
+    schedule.run(&mut world);
+
+    let pstore = world.get_component_store::<Pos>().unwrap();
+    let vstore = world.get_component_store::<Vel>().unwrap();
+    assert_eq!(pstore.get_component(0).unwrap().0, 10.0);
+    assert_eq!(vstore.get_component(0).unwrap().0, 20.0);
 }

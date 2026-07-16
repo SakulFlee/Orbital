@@ -69,7 +69,7 @@ impl GltfImporter {
                 return GltfImportResult {
                     errors: vec![Box::new(e)],
                     ..Default::default()
-                }
+                };
             }
         };
 
@@ -612,10 +612,10 @@ impl GltfImporter {
             let tangents = reader.read_tangents();
             let uvs = reader.read_tex_coords(0).map(|x| x.into_f32());
             primitive.attributes().for_each(|x| {
-                if let Semantic::TexCoords(indices) = x.0 {
-                    if indices > 1 {
-                        warn!("More than one UV index found, only the first will be imported!");
-                    }
+                if let Semantic::TexCoords(indices) = x.0
+                    && indices > 1
+                {
+                    warn!("More than one UV index found, only the first will be imported!");
                 }
             });
 
@@ -677,7 +677,10 @@ impl GltfImporter {
                                 calculated_normals[idx_b] += face_normal;
                                 calculated_normals[idx_c] += face_normal;
                             } else {
-                                warn!("Index out of bounds during normal calculation at triangle starting index {}", i);
+                                warn!(
+                                    "Index out of bounds during normal calculation at triangle starting index {}",
+                                    i
+                                );
                             }
                         }
                     }
@@ -884,22 +887,22 @@ impl GltfImporter {
     ) -> (Vector3<f32>, Vector3<f32>) {
         // For a single vertex, we can't compute proper tangents without looking at the full triangle
         // As a fallback, we'll create an arbitrary tangent that's orthogonal to the normal
-        if let Some(normals_vec) = normals {
-            if let Some(normal) = normals_vec.get(index) {
-                // Create an arbitrary vector not parallel to the normal
-                let arbitrary = if normal.x.abs() > 0.9 {
-                    Vector3::new(0.0, 1.0, 0.0)
-                } else {
-                    Vector3::new(1.0, 0.0, 0.0)
-                };
+        if let Some(normals_vec) = normals
+            && let Some(normal) = normals_vec.get(index)
+        {
+            // Create an arbitrary vector not parallel to the normal
+            let arbitrary = if normal.x.abs() > 0.9 {
+                Vector3::new(0.0, 1.0, 0.0)
+            } else {
+                Vector3::new(1.0, 0.0, 0.0)
+            };
 
-                // Compute tangent as orthogonal to normal
-                let tangent = arbitrary.cross(*normal).normalize();
-                // Compute bitangent as orthogonal to both
-                let bitangent = normal.cross(tangent);
+            // Compute tangent as orthogonal to normal
+            let tangent = arbitrary.cross(*normal).normalize();
+            // Compute bitangent as orthogonal to both
+            let bitangent = normal.cross(tangent);
 
-                return (tangent, bitangent);
-            }
+            return (tangent, bitangent);
         }
 
         // Fallback to zero vectors

@@ -1,9 +1,10 @@
 use crate::system::access::ComponentAccess;
+use crate::system::commands::Commands;
 
 pub trait System: Send {
     fn name(&self) -> &str;
     fn access(&self) -> &ComponentAccess;
-    fn run(&mut self, world: &crate::World);
+    fn run(&mut self, world: &crate::World, commands: &mut Commands);
 }
 
 pub struct FunctionSystemMetadata {
@@ -13,13 +14,13 @@ pub struct FunctionSystemMetadata {
 
 pub struct FunctionSystem {
     pub metadata: FunctionSystemMetadata,
-    run_fn: Box<dyn FnMut(&crate::World) + Send>,
+    run_fn: Box<dyn FnMut(&crate::World, &mut Commands) + Send>,
 }
 
 impl FunctionSystem {
     pub fn new(
         metadata: FunctionSystemMetadata,
-        run_fn: Box<dyn FnMut(&crate::World) + Send>,
+        run_fn: Box<dyn FnMut(&crate::World, &mut Commands) + Send>,
     ) -> Self {
         Self { metadata, run_fn }
     }
@@ -32,8 +33,8 @@ impl System for FunctionSystem {
     fn access(&self) -> &ComponentAccess {
         &self.metadata.access
     }
-    fn run(&mut self, world: &crate::World) {
-        (self.run_fn)(world);
+    fn run(&mut self, world: &crate::World, commands: &mut Commands) {
+        (self.run_fn)(world, commands);
     }
 }
 
@@ -49,7 +50,7 @@ impl System for Box<dyn System> {
     fn access(&self) -> &ComponentAccess {
         (**self).access()
     }
-    fn run(&mut self, world: &crate::World) {
-        (**self).run(world)
+    fn run(&mut self, world: &crate::World, commands: &mut Commands) {
+        (**self).run(world, commands)
     }
 }
