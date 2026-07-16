@@ -14,15 +14,14 @@ use std::{
 };
 use wgpu::MipmapFilterMode;
 use wgpu::{
-    include_wgsl,
-    util::{BufferInitDescriptor, DeviceExt},
     AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
     BufferBindingType, BufferUsages, CommandEncoder, CompareFunction, ComputePassDescriptor,
     ComputePipeline, ComputePipelineDescriptor, Device, Extent3d, FilterMode as WFilterMode,
     PipelineLayoutDescriptor, Queue, SamplerBindingType, SamplerDescriptor, ShaderModuleDescriptor,
     ShaderStages, StorageTextureAccess, TextureDimension, TextureFormat, TextureSampleType,
-    TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
+    TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension, include_wgsl,
+    util::{BufferInitDescriptor, DeviceExt},
 };
 
 use crate::{FilterMode, MaterialShader, Texture, TextureSize};
@@ -193,7 +192,9 @@ impl WorldEnvironment {
                 (pbr_ibl_diffuse, pbr_ibl_specular, false)
             }
             Err(e) => {
-                warn!("WorldEnvironment::IBL cache failed to load, is corrupt or doesn't exist! Will continue generating IBL from HDRI. This may take a few seconds. Error: {e:?}");
+                warn!(
+                    "WorldEnvironment::IBL cache failed to load, is corrupt or doesn't exist! Will continue generating IBL from HDRI. This may take a few seconds. Error: {e:?}"
+                );
 
                 let (x, y) = Self::make_from_descriptor(descriptor, device, queue)?;
                 (x, y, true)
@@ -507,7 +508,9 @@ impl WorldEnvironment {
 
         let max_mip_level = max_mip_level(dst_size);
         let specular_mip_level = if specular_mip_level_count > max_mip_level {
-            warn!("Attempting to create specular texture with size {dst_size}, which gives a max allowed mip level of {max_mip_level}, but {specular_mip_level_count} was set! Defaulting to the maximum allowed value.");
+            warn!(
+                "Attempting to create specular texture with size {dst_size}, which gives a max allowed mip level of {max_mip_level}, but {specular_mip_level_count} was set! Defaulting to the maximum allowed value."
+            );
             max_mip_level
         } else {
             specular_mip_level_count

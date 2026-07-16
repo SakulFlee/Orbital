@@ -140,9 +140,9 @@ mod tests {
     #[test]
     fn build_batches_mixed() {
         let mut schedule = Schedule::new();
-        schedule.add_system::<fn(&Pos), _>(|_: &Pos| {});       // read
+        schedule.add_system::<fn(&Pos), _>(|_: &Pos| {}); // read
         schedule.add_system::<fn(&mut Pos), _>(|_: &mut Pos| {}); // write
-        schedule.add_system::<fn(&Pos), _>(|_: &Pos| {});       // read
+        schedule.add_system::<fn(&Pos), _>(|_: &Pos| {}); // read
 
         let batches = schedule.build_batches();
         // read + write conflict, but read + read don't

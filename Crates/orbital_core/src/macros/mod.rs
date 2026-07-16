@@ -22,7 +22,7 @@ macro_rules! make_android_main {
         fn android_main(app: AndroidApp) {
             use ::winit::{
                 event_loop::EventLoop,
-                platform::android::{activity::AndroidApp, EventLoopBuilderExtAndroid},
+                platform::android::{EventLoopBuilderExtAndroid, activity::AndroidApp},
             };
             let event_loop = EventLoop::builder().with_android_app(app).build();
 

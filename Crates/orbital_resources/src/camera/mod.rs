@@ -1,6 +1,8 @@
 use std::mem;
 
-use cgmath::{perspective, Deg, InnerSpace, Matrix, Matrix4, Point3, Quaternion, SquareMatrix, Vector3};
+use cgmath::{
+    Deg, InnerSpace, Matrix, Matrix4, Point3, Quaternion, SquareMatrix, Vector3, perspective,
+};
 use wgpu::{Buffer, BufferDescriptor, BufferUsages, Device, Queue};
 
 mod change;
@@ -361,14 +363,24 @@ impl Camera {
                 mem::size_of::<f32>() * 4 * 4 +  // perspective_projection_invert
                 mem::size_of::<f32>() +           // global_gamma
                 mem::size_of::<f32>() +           // sky_box_gamma
-                12                                 // padding to 288
+                12
+                // padding to 288
             ) as u64,
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
 
         let mut camera = Self { camera_buffer };
-        camera.update_from_parts(position, rotation, fovy, aspect, near, far, global_gamma, queue);
+        camera.update_from_parts(
+            position,
+            rotation,
+            fovy,
+            aspect,
+            near,
+            far,
+            global_gamma,
+            queue,
+        );
         camera
     }
 
@@ -521,8 +533,7 @@ mod tests {
 
         for (position, yaw, pitch, roll) in test_cases {
             let rotation = yaw_pitch_roll_to_quaternion(yaw, pitch, roll);
-            let matrix =
-                Camera::compute_view_projection_matrix_from_rotation(position, rotation);
+            let matrix = Camera::compute_view_projection_matrix_from_rotation(position, rotation);
 
             // Verify the rotation part (upper-left 3x3) is orthonormal
             let col0 = Vector3::new(matrix[0][0], matrix[1][0], matrix[2][0]);
@@ -595,17 +606,18 @@ mod tests {
         let trace = matrix[0][0] + matrix[1][1] + matrix[2][2];
         // For an identity rotation view matrix, the rotation part should have trace ≈ 0
         // (since it's essentially a look_at with forward=(1,0,0))
-        assert!(trace.abs() < 3.0, "View matrix trace seems wrong: {}", trace);
+        assert!(
+            trace.abs() < 3.0,
+            "View matrix trace seems wrong: {}",
+            trace
+        );
     }
 
     /// Helper: convert Euler angles to a quaternion using the standard rotation convention.
     fn yaw_pitch_roll_to_quaternion(yaw: f32, pitch: f32, roll: f32) -> Quaternion<f32> {
-        let q_yaw =
-            Quaternion::from_axis_angle(Vector3::new(0.0, 1.0, 0.0), cgmath::Rad(yaw));
-        let q_pitch =
-            Quaternion::from_axis_angle(Vector3::new(0.0, 0.0, 1.0), cgmath::Rad(pitch));
-        let q_roll =
-            Quaternion::from_axis_angle(Vector3::new(1.0, 0.0, 0.0), cgmath::Rad(roll));
+        let q_yaw = Quaternion::from_axis_angle(Vector3::new(0.0, 1.0, 0.0), cgmath::Rad(yaw));
+        let q_pitch = Quaternion::from_axis_angle(Vector3::new(0.0, 0.0, 1.0), cgmath::Rad(pitch));
+        let q_roll = Quaternion::from_axis_angle(Vector3::new(1.0, 0.0, 0.0), cgmath::Rad(roll));
 
         (q_yaw * q_pitch * q_roll).normalize()
     }

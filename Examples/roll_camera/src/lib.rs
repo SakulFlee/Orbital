@@ -1,10 +1,10 @@
-use orbital::cgmath::{Point3, Rad};
 use orbital::app::sys_camera_controller;
-use orbital::app::{AppSettings, Module, App};
+use orbital::app::{App, AppSettings, Module};
+use orbital::cgmath::{Point3, Rad};
 use orbital::ecs::{IntoSystem, Res, System, World};
 use orbital::ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, DeltaTime,
-    EnvironmentDescriptorResource, Position, Rotation,
+    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, DeltaTime, EnvironmentDescriptorResource,
+    Position, Rotation,
 };
 use orbital::logging::{self, error, info};
 use orbital::resources::WorldEnvironmentDescriptor;
@@ -12,7 +12,10 @@ use orbital::resources::WorldEnvironmentDescriptor;
 pub const NAME: &str = "Orbital-Demo-Project: RollCamera";
 
 pub fn entrypoint(
-    event_loop_result: Result<orbital::winit::event_loop::EventLoop<()>, orbital::winit::error::EventLoopError>,
+    event_loop_result: Result<
+        orbital::winit::event_loop::EventLoop<()>,
+        orbital::winit::error::EventLoopError,
+    >,
 ) {
     logging::init();
 
@@ -22,7 +25,10 @@ pub fn entrypoint(
     app_settings.vsync_enabled = true;
     app_settings.name = NAME.to_string();
 
-    match App::new().add_module(RollCameraModule).liftoff(event_loop, app_settings) {
+    match App::new()
+        .add_module(RollCameraModule)
+        .liftoff(event_loop, app_settings)
+    {
         Ok(()) => info!("Cleanly exited!"),
         Err(e) => error!("Runtime failure: {e:?}"),
     }

@@ -69,7 +69,7 @@ impl GltfImporter {
                 return GltfImportResult {
                     errors: vec![Box::new(e)],
                     ..Default::default()
-                }
+                };
             }
         };
 
@@ -677,7 +677,10 @@ impl GltfImporter {
                                 calculated_normals[idx_b] += face_normal;
                                 calculated_normals[idx_c] += face_normal;
                             } else {
-                                warn!("Index out of bounds during normal calculation at triangle starting index {}", i);
+                                warn!(
+                                    "Index out of bounds during normal calculation at triangle starting index {}",
+                                    i
+                                );
                             }
                         }
                     }
