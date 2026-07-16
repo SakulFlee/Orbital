@@ -9,7 +9,10 @@ use modules::model_module::ModelModule;
 pub const NAME: &str = "Orbital-Demo-Project: MultiModule";
 
 pub fn entrypoint(
-    event_loop_result: Result<orbital::winit::event_loop::EventLoop<()>, orbital::winit::error::EventLoopError>,
+    event_loop_result: Result<
+        orbital::winit::event_loop::EventLoop<()>,
+        orbital::winit::error::EventLoopError,
+    >,
 ) {
     logging::init();
 

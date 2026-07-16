@@ -22,7 +22,7 @@ use winit::{
     window::{CursorGrabMode, WindowId},
 };
 
-use crate::{make_core_schedule, AppContext, AppSettings, AppState, Module, Timer};
+use crate::{AppContext, AppSettings, AppState, Module, Timer, make_core_schedule};
 use orbital_ecs_bridge::{
     CursorGrabConfig, CursorPosition, DeltaTime, DeviceResource, EcsCameraStore, EngineEvent,
     EngineEvents, FrameCounter, InputSnapshot, QueueResource, SurfaceFormatResource, TotalTime,
@@ -173,17 +173,27 @@ impl ModuleRuntime {
                 env.ibl_specular().sampler(),
             ),
             None => {
-                static FALLBACK_ONCE: std::sync::OnceLock<(orbital_resources::Texture, orbital_resources::Texture)> =
-                    std::sync::OnceLock::new();
+                static FALLBACK_ONCE: std::sync::OnceLock<(
+                    orbital_resources::Texture,
+                    orbital_resources::Texture,
+                )> = std::sync::OnceLock::new();
                 let (diff, spec) = FALLBACK_ONCE.get_or_init(|| {
                     (
                         orbital_resources::Texture::create_empty_cube_texture(
-                            Some("default IBL diffuse"), cgmath::Vector2::new(1, 1),
-                            wgpu::TextureFormat::R8Unorm, wgpu::TextureUsages::TEXTURE_BINDING, 1, device,
+                            Some("default IBL diffuse"),
+                            cgmath::Vector2::new(1, 1),
+                            wgpu::TextureFormat::R8Unorm,
+                            wgpu::TextureUsages::TEXTURE_BINDING,
+                            1,
+                            device,
                         ),
                         orbital_resources::Texture::create_empty_cube_texture(
-                            Some("default IBL specular"), cgmath::Vector2::new(1, 1),
-                            wgpu::TextureFormat::R8Unorm, wgpu::TextureUsages::TEXTURE_BINDING, 1, device,
+                            Some("default IBL specular"),
+                            cgmath::Vector2::new(1, 1),
+                            wgpu::TextureFormat::R8Unorm,
+                            wgpu::TextureUsages::TEXTURE_BINDING,
+                            1,
+                            device,
                         ),
                     )
                 });
@@ -197,43 +207,77 @@ impl ModuleRuntime {
             label: Some("World Bind Group"),
             layout: &bind_group_layout,
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::Buffer(camera_buffer.as_entire_buffer_binding()) },
-                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Buffer(light_buffer.as_entire_buffer_binding()) },
-                wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(env_diff_view) },
-                wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::Sampler(env_diff_sampler) },
-                wgpu::BindGroupEntry { binding: 4, resource: wgpu::BindingResource::TextureView(env_spec_view) },
-                wgpu::BindGroupEntry { binding: 5, resource: wgpu::BindingResource::Sampler(env_spec_sampler) },
-                wgpu::BindGroupEntry { binding: 6, resource: wgpu::BindingResource::TextureView(brdf_tex.view()) },
-                wgpu::BindGroupEntry { binding: 7, resource: wgpu::BindingResource::Sampler(brdf_tex.sampler()) },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(
+                        camera_buffer.as_entire_buffer_binding(),
+                    ),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Buffer(
+                        light_buffer.as_entire_buffer_binding(),
+                    ),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(env_diff_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::Sampler(env_diff_sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: wgpu::BindingResource::TextureView(env_spec_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 5,
+                    resource: wgpu::BindingResource::Sampler(env_spec_sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 6,
+                    resource: wgpu::BindingResource::TextureView(brdf_tex.view()),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 7,
+                    resource: wgpu::BindingResource::Sampler(brdf_tex.sampler()),
+                },
             ],
         });
 
         // Collect models (owned Vec of raw pointers)
-        let models: Vec<&orbital_resources::Model> = model_ptrs.iter()
+        let models: Vec<&orbital_resources::Model> = model_ptrs
+            .iter()
             .filter_map(|ptr| unsafe { ptr.as_ref() })
             .collect();
 
         // Render
         if let Some(renderer) = &mut self.renderer {
-            renderer.render(&view, &world_bind_group, env_ibl.as_ref().map(|a| a.as_ref()), models, device, queue);
+            renderer.render(
+                &view,
+                &world_bind_group,
+                env_ibl.as_ref().map(|a| a.as_ref()),
+                models,
+                device,
+                queue,
+            );
         }
 
         lock.queue().present(frame);
     }
 
     /// Extract camera buffer as an owned Buffer (cheap Arc clone).
-    fn extract_camera_buffer(
-        &self,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-    ) -> wgpu::Buffer {
-        let active_entity = self.ecs_world
+    fn extract_camera_buffer(&self, device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::Buffer {
+        let active_entity = self
+            .ecs_world
             .get_resource::<orbital_ecs_bridge::ActiveCamera>()
             .map(|a| a.0);
 
         match active_entity {
             Some(entity) => {
-                let store = self.ecs_world
+                let store = self
+                    .ecs_world
                     .get_resource::<orbital_ecs_bridge::EcsCameraStore>();
                 match store {
                     Some(s) => match s.get(entity.index) {
@@ -253,16 +297,19 @@ impl ModuleRuntime {
     /// Fallback camera when no ECS camera exists.
     fn fallback_camera(&self, device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::Buffer {
         static FALLBACK_ONCE: std::sync::OnceLock<wgpu::Buffer> = std::sync::OnceLock::new();
-        FALLBACK_ONCE.get_or_init(|| {
-            let desc = orbital_resources::CameraDescriptor::default();
-            let cam = orbital_resources::Camera::from_descriptor(desc, device, queue);
-            cam.camera_buffer().clone()
-        }).clone()
+        FALLBACK_ONCE
+            .get_or_init(|| {
+                let desc = orbital_resources::CameraDescriptor::default();
+                let cam = orbital_resources::Camera::from_descriptor(desc, device, queue);
+                cam.camera_buffer().clone()
+            })
+            .clone()
     }
 
     /// Extract light buffer — returns owned Buffer.
     fn extract_light_buffer(&self, device: &wgpu::Device) -> wgpu::Buffer {
-        let light_buf = self.ecs_world
+        let light_buf = self
+            .ecs_world
             .get_resource::<orbital_ecs_bridge::LightBufferResource>();
         match light_buf {
             Some(r) => match &r.0 {
@@ -276,21 +323,21 @@ impl ModuleRuntime {
     /// Fallback light buffer.
     fn fallback_light(&self, device: &wgpu::Device) -> wgpu::Buffer {
         static FALLBACK_ONCE: std::sync::OnceLock<wgpu::Buffer> = std::sync::OnceLock::new();
-        FALLBACK_ONCE.get_or_init(|| {
-            device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("Fallback Light Buffer"),
-                size: 64,
-                usage: wgpu::BufferUsages::STORAGE,
-                mapped_at_creation: false,
+        FALLBACK_ONCE
+            .get_or_init(|| {
+                device.create_buffer(&wgpu::BufferDescriptor {
+                    label: Some("Fallback Light Buffer"),
+                    size: 64,
+                    usage: wgpu::BufferUsages::STORAGE,
+                    mapped_at_creation: false,
+                })
             })
-        }).clone()
+            .clone()
     }
 
     /// Extract environment IBL textures.
     /// Returns owned Arc<WorldEnvironment> to keep references valid.
-    fn extract_env_ibl(
-        &self,
-    ) -> Option<Arc<orbital_resources::WorldEnvironment>> {
+    fn extract_env_ibl(&self) -> Option<Arc<orbital_resources::WorldEnvironment>> {
         self.ecs_world
             .get_resource::<orbital_ecs_bridge::EnvironmentGpuResource>()
             .and_then(|r| r.0.clone())
@@ -299,13 +346,16 @@ impl ModuleRuntime {
     /// Collect realized model pointers from ECS.
     /// Returns raw pointers — caller must ensure validity.
     fn collect_model_ptrs(&self) -> Vec<*const orbital_resources::Model> {
-        let store = match self.ecs_world
+        let store = match self
+            .ecs_world
             .get_component_store::<orbital_ecs_bridge::ModelRealization>()
         {
             Some(s) => s,
             None => return Vec::new(),
         };
-        store.dense.iter()
+        store
+            .dense
+            .iter()
             .filter_map(|&eid| {
                 store.sparse[eid].map(|idx| {
                     let realization = &store.components[idx];
@@ -469,11 +519,9 @@ impl ApplicationHandler for ModuleRuntime {
 
             // Call Module::setup() and build game schedule
             if !self.module_setup_done {
-                let systems = self.module.setup(
-                    &mut self.ecs_world,
-                    ctx_guard.device(),
-                    ctx_guard.queue(),
-                );
+                let systems =
+                    self.module
+                        .setup(&mut self.ecs_world, ctx_guard.device(), ctx_guard.queue());
                 for system in systems {
                     self.game_schedule.add_system_boxed(system);
                 }
@@ -482,13 +530,19 @@ impl ApplicationHandler for ModuleRuntime {
                 // (sys_poll_importer is called directly in update() since it takes &mut World)
 
                 self.module_setup_done = true;
-                info!("Module setup complete, game schedule has {} systems", self.game_schedule.system_count());
+                info!(
+                    "Module setup complete, game schedule has {} systems",
+                    self.game_schedule.system_count()
+                );
             }
 
             // Auto-grab cursor if configured
             if let Some(config) = self.ecs_world.get_resource::<CursorGrabConfig>() {
                 if config.0 {
-                    if let Err(e) = ctx_guard.window().set_cursor_grab(winit::window::CursorGrabMode::Confined) {
+                    if let Err(e) = ctx_guard
+                        .window()
+                        .set_cursor_grab(winit::window::CursorGrabMode::Confined)
+                    {
                         log::error!("Failed to grab cursor: {e}");
                     }
                     ctx_guard.window().set_cursor_visible(false);
@@ -594,7 +648,10 @@ impl ApplicationHandler for ModuleRuntime {
 
                 self.input_state.surface_resize(new_size);
                 self.ecs_world
-                    .insert_resource(WindowSize(cgmath::Vector2::new(new_size.width, new_size.height)));
+                    .insert_resource(WindowSize(cgmath::Vector2::new(
+                        new_size.width,
+                        new_size.height,
+                    )));
 
                 None
             }

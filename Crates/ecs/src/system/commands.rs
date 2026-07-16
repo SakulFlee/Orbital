@@ -179,7 +179,9 @@ mod tests {
         let mut world = World::new();
         // Spawn an entity directly in the world
         let entity = world.spawn_entity();
-        world.attach_component(&entity, String::from("doomed")).unwrap();
+        world
+            .attach_component(&entity, String::from("doomed"))
+            .unwrap();
 
         // Despawn it via commands
         let mut cmds = Commands::new();

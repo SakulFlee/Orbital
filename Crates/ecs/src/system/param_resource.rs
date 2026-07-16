@@ -473,7 +473,10 @@ impl<
         Box::new(FunctionSystem::new(
             FunctionSystemMetadata {
                 name: std::any::type_name::<F>(),
-                access: ComponentAccess::new().reads::<A>().reads::<B>().writes::<C>(),
+                access: ComponentAccess::new()
+                    .reads::<A>()
+                    .reads::<B>()
+                    .writes::<C>(),
             },
             Box::new(move |world, _commands| {
                 let ha = match world.get_resource::<A>() {
@@ -521,7 +524,11 @@ impl<
         Box::new(FunctionSystem::new(
             FunctionSystemMetadata {
                 name: std::any::type_name::<F>(),
-                access: ComponentAccess::new().reads::<A>().reads::<B>().writes::<C>().writes::<D>(),
+                access: ComponentAccess::new()
+                    .reads::<A>()
+                    .reads::<B>()
+                    .writes::<C>()
+                    .writes::<D>(),
             },
             Box::new(move |world, _commands| {
                 let ha = match world.get_resource::<A>() {
@@ -553,7 +560,12 @@ impl<
                 let rb = Res(&*hb);
                 for &eid in pivot {
                     if let (Some(ic), Some(id)) = (snap_c.sparse[eid], snap_d.sparse[eid]) {
-                        f(ra, rb, &mut snap_c.components[ic], &mut snap_d.components[id]);
+                        f(
+                            ra,
+                            rb,
+                            &mut snap_c.components[ic],
+                            &mut snap_d.components[id],
+                        );
                     }
                 }
                 snap_c.merge_into(world);
@@ -1055,8 +1067,10 @@ impl<A: 'static + Send + Sync, F: for<'a> FnMut(&mut crate::Commands, Res<'a, A>
 }
 
 // fn(&mut Commands, ResMut<A>) — commands + write resource
-impl<A: 'static + Send + Sync, F: for<'a> FnMut(&mut crate::Commands, ResMut<'a, A>) + Send + 'static>
-    IntoSystem<fn(&mut crate::Commands, ResMut<'_, A>)> for F
+impl<
+    A: 'static + Send + Sync,
+    F: for<'a> FnMut(&mut crate::Commands, ResMut<'a, A>) + Send + 'static,
+> IntoSystem<fn(&mut crate::Commands, ResMut<'_, A>)> for F
 {
     type System = Box<dyn crate::system::system::System>;
     fn into_system(self) -> Self::System {

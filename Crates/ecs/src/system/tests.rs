@@ -337,10 +337,12 @@ fn system_res_res_read() {
     world.insert_resource(Counter(20));
 
     let mut schedule = Schedule::new();
-    schedule.add_system::<fn(Res<Score>, Res<Counter>), _>(|score: Res<Score>, counter: Res<Counter>| {
-        assert_eq!(score.0, 10);
-        assert_eq!(counter.0, 20);
-    });
+    schedule.add_system::<fn(Res<Score>, Res<Counter>), _>(
+        |score: Res<Score>, counter: Res<Counter>| {
+            assert_eq!(score.0, 10);
+            assert_eq!(counter.0, 20);
+        },
+    );
     schedule.run(&mut world);
 }
 
@@ -351,9 +353,11 @@ fn system_res_res_write() {
     world.insert_resource(Counter(0));
 
     let mut schedule = Schedule::new();
-    schedule.add_system::<fn(ResMut<Score>, Res<Counter>), _>(|mut score: ResMut<Score>, counter: Res<Counter>| {
-        score.0 = counter.0 as i32 + 5;
-    });
+    schedule.add_system::<fn(ResMut<Score>, Res<Counter>), _>(
+        |mut score: ResMut<Score>, counter: Res<Counter>| {
+            score.0 = counter.0 as i32 + 5;
+        },
+    );
     schedule.run(&mut world);
 
     let score = world.get_resource::<Score>().unwrap();
@@ -373,7 +377,10 @@ fn system_commands_only() {
 
     let store = world.get_component_store::<String>().unwrap();
     assert_eq!(store.dense.len(), 1);
-    assert_eq!(store.get_component(store.dense[0]).unwrap().as_str(), "from_commands");
+    assert_eq!(
+        store.get_component(store.dense[0]).unwrap().as_str(),
+        "from_commands"
+    );
 }
 
 #[test]
@@ -382,10 +389,12 @@ fn system_commands_res() {
     world.insert_resource(Score(99));
 
     let mut schedule = Schedule::new();
-    schedule.add_system::<fn(&mut crate::Commands, Res<Score>), _>(|cmds: &mut crate::Commands, score: Res<Score>| {
-        let e = cmds.spawn_entity();
-        cmds.attach_component(&e, score.0);
-    });
+    schedule.add_system::<fn(&mut crate::Commands, Res<Score>), _>(
+        |cmds: &mut crate::Commands, score: Res<Score>| {
+            let e = cmds.spawn_entity();
+            cmds.attach_component(&e, score.0);
+        },
+    );
     schedule.run(&mut world);
 
     let store = world.get_component_store::<i32>().unwrap();

@@ -51,9 +51,13 @@ impl App {
         event_loop: winit::event_loop::EventLoop<()>,
         settings: crate::AppSettings,
     ) -> Result<(), winit::error::EventLoopError> {
-        ModuleRuntime::liftoff(event_loop, settings, CombinedModule {
-            modules: self.modules,
-        })
+        ModuleRuntime::liftoff(
+            event_loop,
+            settings,
+            CombinedModule {
+                modules: self.modules,
+            },
+        )
     }
 }
 
@@ -68,19 +72,17 @@ struct CombinedModule {
 }
 
 impl Module for CombinedModule {
-    fn setup(
-        &self,
-        ecs: &mut World,
-        device: &Device,
-        queue: &Queue,
-    ) -> Vec<Box<dyn System>> {
+    fn setup(&self, ecs: &mut World, device: &Device, queue: &Queue) -> Vec<Box<dyn System>> {
         let mut all_systems: Vec<Box<dyn System>> = Vec::new();
         for module in &self.modules {
             let systems = module.setup(ecs, device, queue);
             all_systems.extend(systems);
         }
-        log::info!("CombinedModule: {} systems from {} modules",
-            all_systems.len(), self.modules.len());
+        log::info!(
+            "CombinedModule: {} systems from {} modules",
+            all_systems.len(),
+            self.modules.len()
+        );
         all_systems
     }
 }

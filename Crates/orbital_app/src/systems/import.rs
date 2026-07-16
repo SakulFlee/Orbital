@@ -81,9 +81,11 @@ pub fn sys_poll_importer(ecs: &mut World) {
                 continue;
             }
 
-            let first_position = model_desc.transforms.values().next().map(|t| {
-                Position(Point3::new(t.position.x, t.position.y, t.position.z))
-            });
+            let first_position = model_desc
+                .transforms
+                .values()
+                .next()
+                .map(|t| Position(Point3::new(t.position.x, t.position.y, t.position.z)));
 
             let instances = ModelInstances(model_desc.transforms);
             if let Err(e) = ecs.attach_component(&entity, instances) {
@@ -117,12 +119,10 @@ pub fn sys_poll_importer(ecs: &mut World) {
             }
 
             // Convert yaw/pitch/roll to quaternion
-            let q_yaw =
-                Quaternion::from_axis_angle(Vector3::unit_y(), cgmath::Rad(cam_desc.yaw));
+            let q_yaw = Quaternion::from_axis_angle(Vector3::unit_y(), cgmath::Rad(cam_desc.yaw));
             let q_pitch =
                 Quaternion::from_axis_angle(Vector3::unit_z(), cgmath::Rad(cam_desc.pitch));
-            let q_roll =
-                Quaternion::from_axis_angle(Vector3::unit_x(), cgmath::Rad(cam_desc.roll));
+            let q_roll = Quaternion::from_axis_angle(Vector3::unit_x(), cgmath::Rad(cam_desc.roll));
             let rotation = Rotation((q_yaw * q_pitch * q_roll).normalize());
 
             if let Err(e) = ecs.attach_component(&entity, rotation) {

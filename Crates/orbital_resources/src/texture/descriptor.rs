@@ -1,7 +1,7 @@
 use std::{ffi::OsString, hash::Hash};
 
-use crate::texture::filter_mode::FilterMode;
 use crate::TextureSize;
+use crate::texture::filter_mode::FilterMode;
 use wgpu::{Color, Extent3d, TextureDimension, TextureFormat, TextureUsages, TextureViewDimension};
 
 #[derive(Debug, Clone, PartialEq)]

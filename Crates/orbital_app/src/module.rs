@@ -4,8 +4,8 @@
 //! Multiple modules can coexist — each contributes systems to the game schedule.
 //! The runtime merges all module systems into a single game schedule.
 
-use orbital_ecs::World;
 use orbital_ecs::System;
+use orbital_ecs::World;
 use wgpu::{Device, Queue};
 
 /// Plugin-like module for the ECS-based engine.

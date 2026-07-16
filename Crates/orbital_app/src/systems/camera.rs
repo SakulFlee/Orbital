@@ -3,10 +3,10 @@
 //! Reads `DeltaTime` and `InputSnapshot` resources, writes `Position` and
 //! `Rotation` components on entities with a camera.
 
+use cgmath::{Rad, Vector3};
 use orbital_ecs::Res;
 use orbital_ecs_bridge::{DeltaTime, InputSnapshot, Position, Rotation};
 use orbital_input::{InputAxis, InputButton};
-use cgmath::{Rad, Vector3};
 use winit::keyboard::{KeyCode, PhysicalKey};
 
 /// Camera controller system: WASD movement + mouse look.
@@ -27,42 +27,48 @@ pub fn sys_camera_controller(
 
     // WASD movement
     let mut movement = Vector3::new(0.0, 0.0, 0.0);
-    if input.0
+    if input
+        .0
         .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyW)))
         .map(|(_, s)| s)
         .unwrap_or(false)
     {
         movement += forward * speed * dt;
     }
-    if input.0
+    if input
+        .0
         .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyS)))
         .map(|(_, s)| s)
         .unwrap_or(false)
     {
         movement -= forward * speed * dt;
     }
-    if input.0
+    if input
+        .0
         .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyD)))
         .map(|(_, s)| s)
         .unwrap_or(false)
     {
         movement += right * speed * dt;
     }
-    if input.0
+    if input
+        .0
         .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyA)))
         .map(|(_, s)| s)
         .unwrap_or(false)
     {
         movement -= right * speed * dt;
     }
-    if input.0
+    if input
+        .0
         .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyE)))
         .map(|(_, s)| s)
         .unwrap_or(false)
     {
         movement.y += speed * dt;
     }
-    if input.0
+    if input
+        .0
         .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyQ)))
         .map(|(_, s)| s)
         .unwrap_or(false)
@@ -74,7 +80,7 @@ pub fn sys_camera_controller(
     // Mouse rotation
     // delta.x = mouse Y movement (normalized), delta.y = mouse X movement (normalized)
     if let Some((_, delta)) = input.0.delta_state_any(&InputAxis::MouseMovement) {
-        rot.rotate_pitch(Rad(delta.x as f32 * sensitivity));    // mouse Y → pitch (up/down)
-        rot.rotate_yaw(Rad(-delta.y as f32 * sensitivity));     // mouse X → yaw (negated: right = positive)
+        rot.rotate_pitch(Rad(delta.x as f32 * sensitivity)); // mouse Y → pitch (up/down)
+        rot.rotate_yaw(Rad(-delta.y as f32 * sensitivity)); // mouse X → yaw (negated: right = positive)
     }
 }

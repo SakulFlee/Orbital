@@ -1,6 +1,6 @@
 pub mod gltf;
 
-use std::sync::{mpsc, Mutex};
+use std::sync::{Mutex, mpsc};
 
 use orbital_resources::{CameraDescriptor, ModelDescriptor};
 

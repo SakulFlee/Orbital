@@ -180,7 +180,12 @@ impl ModelDescriptorEcs {
         }
         let hash_u64 = hasher.finish();
         let bytes = [
-            0, 0, 0, 0, 0, 0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
             (hash_u64 >> 56) as u8,
             (hash_u64 >> 48) as u8,
             (hash_u64 >> 40) as u8,
@@ -189,7 +194,8 @@ impl ModelDescriptorEcs {
             (hash_u64 >> 16) as u8,
             (hash_u64 >> 8) as u8,
             hash_u64 as u8,
-            0, 0,
+            0,
+            0,
         ];
         Ulid::from_bytes(bytes)
     }
@@ -356,7 +362,11 @@ mod tests {
         let rot = Rotation::identity();
         pos.offset_view_aligned(&rot, 1.0, 0.0, 0.0);
         // Forward is +X for identity, so moving forward 1.0 should go to x=1.0
-        assert!((pos.0.x - 1.0).abs() < 0.001, "Expected x=1.0, got {}", pos.0.x);
+        assert!(
+            (pos.0.x - 1.0).abs() < 0.001,
+            "Expected x=1.0, got {}",
+            pos.0.x
+        );
     }
 
     #[test]

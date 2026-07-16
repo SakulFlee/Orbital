@@ -8,11 +8,10 @@ use std::sync::{Arc, RwLock};
 use log::warn;
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
-    CameraDescriptorEcs, CameraDirty, CameraRealization, DeviceResource,
-    EcsCameraStore, EnvironmentDescriptorResource, EnvironmentGpuResource, LightBufferResource,
-    LightDescriptorEcs, LightDirty, MaterialCacheResource, MeshCacheResource, ModelDescriptorEcs,
-    ModelDirty, ModelInstances, ModelRealization, Position, QueueResource, Rotation,
-    SurfaceFormatResource,
+    CameraDescriptorEcs, CameraDirty, CameraRealization, DeviceResource, EcsCameraStore,
+    EnvironmentDescriptorResource, EnvironmentGpuResource, LightBufferResource, LightDescriptorEcs,
+    LightDirty, MaterialCacheResource, MeshCacheResource, ModelDescriptorEcs, ModelDirty,
+    ModelInstances, ModelRealization, Position, QueueResource, Rotation, SurfaceFormatResource,
 };
 use orbital_resources::{Camera, Model};
 
@@ -116,7 +115,10 @@ pub fn realize_cameras(ecs: &mut World) {
             let generation = ecs.generation(eid);
             let entity = orbital_ecs::Entity::new(eid, generation);
             if let Err(e) = ecs.attach_component(&entity, CameraRealization) {
-                warn!("Failed to attach CameraRealization marker to entity {}: {:?}", eid, e);
+                warn!(
+                    "Failed to attach CameraRealization marker to entity {}: {:?}",
+                    eid, e
+                );
             }
         } else {
             // Update existing GPU camera via EcsCameraStore
@@ -254,11 +256,13 @@ pub fn realize_models(ecs: &mut World) {
                 if needs_new {
                     let generation = ecs.generation(eid);
                     let entity = orbital_ecs::Entity::new(eid, generation);
-                    if let Err(e) = ecs.attach_component(
-                        &entity,
-                        ModelRealization(Arc::new(gpu_model)),
-                    ) {
-                        warn!("Failed to attach ModelRealization to entity {}: {:?}", eid, e);
+                    if let Err(e) =
+                        ecs.attach_component(&entity, ModelRealization(Arc::new(gpu_model)))
+                    {
+                        warn!(
+                            "Failed to attach ModelRealization to entity {}: {:?}",
+                            eid, e
+                        );
                     }
                 } else {
                     // Update existing realization by replacing the Arc
@@ -271,7 +275,10 @@ pub fn realize_models(ecs: &mut World) {
                 }
             }
             Err(e) => {
-                warn!("Failed to realize model '{}' (entity {}): {:?}", desc.label, eid, e);
+                warn!(
+                    "Failed to realize model '{}' (entity {}): {:?}",
+                    desc.label, eid, e
+                );
             }
         }
 
@@ -343,14 +350,12 @@ pub fn realize_lights(ecs: &mut World) {
     // Build light descriptors for the GPU buffer
     let light_descriptors: Vec<orbital_resources::LightDescriptor> = light_data
         .iter()
-        .map(|(desc, pos)| {
-            orbital_resources::LightDescriptor {
-                label: String::new(),
-                light_type: desc.light_type.clone(),
-                color: desc.color,
-                position: cgmath::Vector3::new(pos.0.x, pos.0.y, pos.0.z),
-                direction: desc.direction,
-            }
+        .map(|(desc, pos)| orbital_resources::LightDescriptor {
+            label: String::new(),
+            light_type: desc.light_type.clone(),
+            color: desc.color,
+            position: cgmath::Vector3::new(pos.0.x, pos.0.y, pos.0.z),
+            direction: desc.direction,
         })
         .collect();
 
