@@ -25,7 +25,7 @@ pub mod module_runtime;
 pub use module_runtime::ModuleRuntime;
 
 pub mod systems;
-pub use systems::{realize_cameras, realize_lights, realize_models, sys_camera_controller};
+pub use systems::{realize_cameras, realize_environment, realize_lights, realize_models, sys_camera_controller};
 
 pub use orbital_input as input;
 pub use orbital_input::*;

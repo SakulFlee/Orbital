@@ -179,7 +179,7 @@ mod tests {
 }
 
 // ---------------------------------------------------------------------------
-// Shared caches (moved from orbital_world::World)
+// Shared caches for model realization (mesh + material deduplication)
 // ---------------------------------------------------------------------------
 
 /// Shared mesh cache — maps `Arc<MeshDescriptor>` → `Mesh`.

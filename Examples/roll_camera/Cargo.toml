@@ -1,11 +1,12 @@
 [package]
 name = "test-roll-camera"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [lib]
 name = "test_roll_camera"
 path = "src/lib.rs"
+crate-type = ["cdylib", "lib"]
 
 [[bin]]
 name = "test-roll-camera"
