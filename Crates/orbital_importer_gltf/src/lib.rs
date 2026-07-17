@@ -70,7 +70,9 @@ impl Importer {
                         }
                     }
                 };
-                let _ = sender.send(result);
+                let _ = sender.send(result).map_err(|_| {
+                    log::warn!("Failed to send import result: receiver dropped");
+                });
             });
         }
 
