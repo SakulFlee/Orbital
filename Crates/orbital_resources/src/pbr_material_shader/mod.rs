@@ -9,6 +9,9 @@ use crate::{
     TextureSize, VariableType, VertexStageLayout,
 };
 
+/// Default path to the PBR shader file.
+pub const DEFAULT_PBR_SHADER_PATH: &str = "Assets/Shaders/pbr.wgsl";
+
 pub type PBRMaterial = PBRMaterialDescriptor;
 pub type PBRMaterialDescriptor = PBRMaterialShaderDescriptor;
 
@@ -139,7 +142,7 @@ impl From<PBRMaterialShaderDescriptor> for MaterialShaderDescriptor {
             Some(base) => base,
             None => {
                 let mut base = MaterialShaderDescriptor::default();
-                base.shader_source = ShaderSource::Path("Assets/Shaders/pbr.wgsl");
+                base.shader_source = ShaderSource::Path(DEFAULT_PBR_SHADER_PATH);
                 base.vertex_stage_layouts = Some(vec![
                     VertexStageLayout::ComplexVertexData,
                     VertexStageLayout::InstanceData,

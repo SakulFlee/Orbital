@@ -23,22 +23,20 @@ impl ShaderPreprocessor {
     pub const IMPORT_EXPRESSION_END: &'static str = ">";
 
     #[cfg(debug_assertions)]
-    pub const SHADER_LIB_IMPORT_FOLDER_PATH_DEBUG_BUILD: &'static str = "../../Assets/Shaders";
+    pub const DEFAULT_SHADER_LIB_PATH: &'static str = "../../Assets/Shaders";
 
     #[cfg(not(debug_assertions))]
-    pub const SHADER_LIB_IMPORT_FOLDER_PATH: &'static str = "Assets/shaders";
+    pub const DEFAULT_SHADER_LIB_PATH: &'static str = "Assets/Shaders";
 
     pub fn new_with_defaults() -> Result<Self, ShaderPreprocessorError> {
+        Self::new_with_path(Self::DEFAULT_SHADER_LIB_PATH)
+    }
+
+    pub fn new_with_path<P: Into<String>>(path: P) -> Result<Self, ShaderPreprocessorError> {
         let mut s = Self {
             known_imports: HashMap::new(),
         };
-
-        #[cfg(debug_assertions)]
-        s.import_folder(Self::SHADER_LIB_IMPORT_FOLDER_PATH_DEBUG_BUILD)?;
-
-        #[cfg(not(debug_assertions))]
-        s.import_folder(Self::SHADER_LIB_IMPORT_FOLDER_PATH)?;
-
+        s.import_folder(path)?;
         Ok(s)
     }
 
