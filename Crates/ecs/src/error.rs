@@ -15,8 +15,7 @@ impl Display for ECSError {
                 writeln!(
                     f,
                     "Invalid Entity (Index: {}, Generation: {}). Index invalid or generation was superseeded!",
-                    entity.index,
-                    entity.generation
+                    entity.index, entity.generation
                 )?;
             }
             ECSError::ComponentStoreNotExisting => {
