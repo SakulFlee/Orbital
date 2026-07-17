@@ -1,0 +1,367 @@
+use cgmath::{Matrix4, Point3, SquareMatrix, Vector4};
+use wgpu::{
+    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+    BindGroupLayoutEntry, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState,
+    Buffer, BufferBindingType, BufferDescriptor, BufferUsages, ColorTargetState, ColorWrites,
+    CompareFunction, DepthStencilState, Device, FragmentState,
+    MultisampleState, PipelineLayoutDescriptor, PrimitiveState, PrimitiveTopology,
+    Queue, RenderPass, RenderPipeline, RenderPipelineDescriptor, ShaderModuleDescriptor,
+    ShaderSource, ShaderStages, TextureFormat, VertexAttribute, VertexBufferLayout,
+    VertexFormat, VertexState, VertexStepMode,
+};
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+/// Segments per wireframe ring (3 rings × 2 verts per segment).
+const SPHERE_SEGMENTS: u32 = 32;
+const SPHERE_RINGS: u32 = 3;
+const VERTS_PER_SPHERE: u32 = SPHERE_RINGS * SPHERE_SEGMENTS * 2;
+
+/// Maximum sphere instances we can draw (limit of the internal buffer).
+const MAX_SPHERE_INSTANCES: u32 = 512;
+
+/// Frustum: 12 edges × 2 verts.
+const FRUSTUM_VERTS: u32 = 24;
+
+/// Total vertex capacity.
+const MAX_VERTS: u32 = MAX_SPHERE_INSTANCES * VERTS_PER_SPHERE + FRUSTUM_VERTS;
+
+fn sphere_wireframe_unit() -> Vec<[f32; 3]> {
+    let mut verts = Vec::with_capacity(VERTS_PER_SPHERE as usize);
+    let step = std::f32::consts::TAU / SPHERE_SEGMENTS as f32;
+    for ring in 0..SPHERE_RINGS {
+        for i in 0..SPHERE_SEGMENTS {
+            let a1 = i as f32 * step;
+            let a2 = (i + 1) as f32 * step;
+            let (c1, s1) = a1.sin_cos();
+            let (c2, s2) = a2.sin_cos();
+            match ring {
+                0 => {
+                    verts.push([c1, s1, 0.0]);
+                    verts.push([c2, s2, 0.0]);
+                }
+                1 => {
+                    verts.push([c1, 0.0, s1]);
+                    verts.push([c2, 0.0, s2]);
+                }
+                _ => {
+                    verts.push([0.0, c1, s1]);
+                    verts.push([0.0, c2, s2]);
+                }
+            }
+        }
+    }
+    verts
+}
+
+/// 12 edges of a frustum box (index pairs into an 8-corner array).
+const FRUSTUM_EDGES: [(usize, usize); 12] = [
+    (0, 1), (1, 3), (3, 2), (2, 0), // near
+    (4, 5), (5, 7), (7, 6), (6, 4), // far
+    (0, 4), (1, 5), (2, 6), (3, 7), // sides
+];
+
+// ---------------------------------------------------------------------------
+// Shader
+// ---------------------------------------------------------------------------
+
+const SHADER_SRC: &str = r#"
+struct CameraUniform {
+    position: vec3<f32>,
+    view_projection_matrix: mat4x4<f32>,
+    perspective_view_projection_matrix: mat4x4<f32>,
+    view_projection_transposed: mat4x4<f32>,
+    perspective_projection_invert: mat4x4<f32>,
+    global_gamma: f32,
+};
+
+@group(0) @binding(0) var<uniform> camera: CameraUniform;
+
+struct VertexInput {
+    @location(0) position: vec3<f32>,
+    @location(1) color: vec3<f32>,
+};
+
+struct VertexOutput {
+    @builtin(position) clip_position: vec4<f32>,
+    @location(0) color: vec3<f32>,
+};
+
+@vertex
+fn vs_main(input: VertexInput) -> VertexOutput {
+    var output: VertexOutput;
+    output.clip_position = camera.perspective_view_projection_matrix
+        * vec4<f32>(input.position, 1.0);
+    output.color = input.color;
+    return output;
+}
+
+@fragment
+fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+    return vec4<f32>(input.color, 1.0);
+}
+"#;
+
+// ---------------------------------------------------------------------------
+// Public types
+// ---------------------------------------------------------------------------
+
+/// A bounding sphere to render as a wireframe overlay.
+pub struct SphereInstance {
+    pub center: Point3<f32>,
+    pub radius: f32,
+    pub color: [f32; 3],
+}
+
+/// GPU debug renderer for bounding spheres and camera frustum wireframes.
+///
+/// Created once and used each frame. The caller provides world-space
+/// [`SphereInstance`] data and optional frustum corners.
+pub struct DebugRenderer {
+    pipeline: RenderPipeline,
+    bind_group_layout: BindGroupLayout,
+    vertex_buffer: Buffer,
+    device: Device,
+    unit_sphere: Vec<[f32; 3]>,
+    enabled: bool,
+    /// Cached bind group — recreated when the camera buffer pointer changes.
+    bind_group: Option<BindGroup>,
+    last_camera_buffer_ptr: *const (),
+}
+
+impl DebugRenderer {
+    /// Create a new debug overlay renderer.
+    ///
+    /// `format` must match the surface (or render-target) format.
+    pub fn new(device: &Device, format: TextureFormat) -> Self {
+        let shader = device.create_shader_module(ShaderModuleDescriptor {
+            label: Some("Debug Shader"),
+            source: ShaderSource::Wgsl(SHADER_SRC.into()),
+        });
+
+        let bind_group_layout =
+            device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                label: Some("Debug Camera BindGroup Layout"),
+                entries: &[BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::VERTEX,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+            });
+
+        let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
+            label: Some("Debug Pipeline Layout"),
+            bind_group_layouts: &[Some(&bind_group_layout)],
+            immediate_size: 0,
+        });
+
+        let vertex_buffer_layout = VertexBufferLayout {
+            array_stride: 24,
+            step_mode: VertexStepMode::Vertex,
+            attributes: &[
+                VertexAttribute {
+                    format: VertexFormat::Float32x3,
+                    offset: 0,
+                    shader_location: 0,
+                },
+                VertexAttribute {
+                    format: VertexFormat::Float32x3,
+                    offset: 12,
+                    shader_location: 1,
+                },
+            ],
+        };
+
+        let pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
+            label: Some("Debug Pipeline"),
+            layout: Some(&pipeline_layout),
+            vertex: VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                compilation_options: Default::default(),
+                buffers: &[Some(vertex_buffer_layout)],
+            },
+            primitive: PrimitiveState {
+                topology: PrimitiveTopology::LineList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                unclipped_depth: false,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                conservative: false,
+            },
+            depth_stencil: Some(DepthStencilState {
+                format: TextureFormat::Depth32Float,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(CompareFunction::Always),
+                stencil: Default::default(),
+                bias: Default::default(),
+            }),
+            multisample: MultisampleState::default(),
+            fragment: Some(FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                compilation_options: Default::default(),
+                targets: &[Some(ColorTargetState {
+                    format,
+                    blend: Some(BlendState {
+                        color: BlendComponent {
+                            src_factor: BlendFactor::SrcAlpha,
+                            dst_factor: BlendFactor::OneMinusSrcAlpha,
+                            operation: BlendOperation::Add,
+                        },
+                        alpha: BlendComponent {
+                            src_factor: BlendFactor::One,
+                            dst_factor: BlendFactor::Zero,
+                            operation: BlendOperation::Add,
+                        },
+                    }),
+                    write_mask: ColorWrites::ALL,
+                })],
+            }),
+            multiview_mask: None,
+            cache: None,
+        });
+
+        let vertex_buffer = device.create_buffer(&BufferDescriptor {
+            label: Some("Debug Vertex Buffer"),
+            size: MAX_VERTS as u64 * 24,
+            usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        Self {
+            pipeline,
+            bind_group_layout,
+            vertex_buffer,
+            device: device.clone(),
+            unit_sphere: sphere_wireframe_unit(),
+            enabled: true,
+            bind_group: None,
+            last_camera_buffer_ptr: std::ptr::null(),
+        }
+    }
+
+    pub fn set_enabled(&mut self, enabled: bool) {
+        self.enabled = enabled;
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    pub fn toggle(&mut self) {
+        self.enabled = !self.enabled;
+    }
+
+    /// Draw bounding-sphere wireframes and (optionally) the camera frustum.
+    ///
+    /// `spheres` are world-space bounding spheres to draw.
+    /// `frustum_corners` — if `Some` — draws the frustum box in yellow.
+    ///
+    /// Call this inside an active render pass. The pass should NOT have a depth
+    /// attachment (or depth comparison must be `Always`) since this draws an
+    /// overlay without depth testing.
+    pub fn render(
+        &mut self,
+        render_pass: &mut RenderPass,
+        camera_buffer: &Buffer,
+        spheres: &[SphereInstance],
+        frustum_corners: Option<&[Point3<f32>; 8]>,
+        queue: &Queue,
+    ) {
+        if !self.enabled {
+            return;
+        }
+
+        // ---- build geometry -------------------------------------------------
+        let mut verts: Vec<f32> = Vec::with_capacity(MAX_VERTS as usize * 6);
+
+        let count = spheres.len().min(MAX_SPHERE_INSTANCES as usize);
+        for inst in &spheres[..count] {
+            for unit_pos in &self.unit_sphere {
+                verts.push(inst.center.x + unit_pos[0] * inst.radius);
+                verts.push(inst.center.y + unit_pos[1] * inst.radius);
+                verts.push(inst.center.z + unit_pos[2] * inst.radius);
+                verts.extend_from_slice(&inst.color);
+            }
+        }
+
+        if let Some(corners) = frustum_corners {
+            for &(i, j) in &FRUSTUM_EDGES {
+                for idx in [i, j] {
+                    let c = corners[idx];
+                    verts.push(c.x);
+                    verts.push(c.y);
+                    verts.push(c.z);
+                    verts.extend_from_slice(&[1.0, 1.0, 0.0]); // yellow
+                }
+            }
+        }
+
+        if verts.is_empty() {
+            return;
+        }
+
+        // ---- upload ---------------------------------------------------------
+        let bytes = unsafe {
+            std::slice::from_raw_parts(verts.as_ptr() as *const u8, verts.len() * 4)
+        };
+        queue.write_buffer(&self.vertex_buffer, 0, bytes);
+
+        // ---- bind group (update if camera buffer changed) -------------------
+        let cb_ptr = camera_buffer as *const Buffer as *const ();
+        if cb_ptr != self.last_camera_buffer_ptr {
+            let bg = self.device.create_bind_group(&BindGroupDescriptor {
+                label: Some("Debug Camera BindGroup"),
+                layout: &self.bind_group_layout,
+                entries: &[BindGroupEntry {
+                    binding: 0,
+                    resource: camera_buffer.as_entire_binding(),
+                }],
+            });
+            self.bind_group = Some(bg);
+            self.last_camera_buffer_ptr = cb_ptr;
+        }
+
+        // ---- draw -----------------------------------------------------------
+        let num_verts = verts.len() as u32 / 6;
+        render_pass.set_pipeline(&self.pipeline);
+        render_pass.set_bind_group(0, self.bind_group.as_ref().unwrap(), &[]);
+        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        render_pass.draw(0..num_verts, 0..1);
+    }
+}
+
+/// Compute the 8 world-space corners of the view frustum from the combined
+/// perspective-view-projection matrix.
+///
+/// Corner order (near then far):
+///   0: ntl  1: ntr  2: nbl  3: nbr
+///   4: ftl  5: ftr  6: fbl  7: fbr
+pub fn frustum_corners_from_matrix(matrix: &Matrix4<f32>) -> [Point3<f32>; 8] {
+    let inv = matrix.invert().unwrap_or(Matrix4::identity());
+    let ndc = [
+        Vector4::new(-1.0, -1.0, -1.0, 1.0),
+        Vector4::new(1.0, -1.0, -1.0, 1.0),
+        Vector4::new(-1.0, 1.0, -1.0, 1.0),
+        Vector4::new(1.0, 1.0, -1.0, 1.0),
+        Vector4::new(-1.0, -1.0, 1.0, 1.0),
+        Vector4::new(1.0, -1.0, 1.0, 1.0),
+        Vector4::new(-1.0, 1.0, 1.0, 1.0),
+        Vector4::new(1.0, 1.0, 1.0, 1.0),
+    ];
+    let mut corners = [Point3::new(0.0, 0.0, 0.0); 8];
+    for (i, n) in ndc.iter().enumerate() {
+        let w = inv * n;
+        corners[i] = Point3::new(w.x / w.w, w.y / w.w, w.z / w.w);
+    }
+    corners
+}
