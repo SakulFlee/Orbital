@@ -6,7 +6,7 @@ when:
 volumes:
   cache:
     host:
-      path: /var/lib/woodpecker/cache/orbital-target
+      path: /var/lib/woodpecker/cache
 
 steps:
   restore_cache:
@@ -14,7 +14,8 @@ steps:
     volumes: [cache:/cache]
     commands:
       - apk add --no-cache rsync
-      - rsync -a /cache/ target/ || true
+      - mkdir -p /cache/orbital-target
+      - rsync -a /cache/orbital-target/ target/ || true
 
   format:
     image: nixos/nix:latest
@@ -73,4 +74,4 @@ steps:
     volumes: [cache:/cache]
     commands:
       - apk add --no-cache rsync
-      - rsync -a --delete target/ /cache/
+      - rsync -a --delete target/ /cache/orbital-target/
