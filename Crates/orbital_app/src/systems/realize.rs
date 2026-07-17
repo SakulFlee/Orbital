@@ -40,6 +40,8 @@ pub fn realize_cameras(ecs: &mut World) {
         let descs = ecs.get_component_store::<CameraDescriptorEcs>();
         let positions = ecs.get_component_store::<Position>();
         let rotations = ecs.get_component_store::<Rotation>();
+        let dirty_store = ecs.get_component_store::<CameraDirty>();
+        let realization_store = ecs.get_component_store::<CameraRealization>();
 
         let (descs, positions, rotations) = match (descs, positions, rotations) {
             (Some(d), Some(p), Some(r)) => (d, p, r),
@@ -61,7 +63,7 @@ pub fn realize_cameras(ecs: &mut World) {
                 None => continue,
             };
 
-            let is_dirty = match ecs.get_component_store::<CameraDirty>() {
+            let is_dirty = match dirty_store {
                 Some(store) => match store.sparse[eid] {
                     Some(idx) => store.components[idx].0,
                     None => true,
@@ -69,8 +71,7 @@ pub fn realize_cameras(ecs: &mut World) {
                 None => true, // No dirty flag = needs initial realization
             };
 
-            let has_realization = ecs
-                .get_component_store::<CameraRealization>()
+            let has_realization = realization_store
                 .map(|store| store.sparse[eid].is_some())
                 .unwrap_or(false);
 
@@ -195,6 +196,8 @@ pub fn realize_models(ecs: &mut World) {
             Some(s) => s,
             None => return,
         };
+        let dirty_store = ecs.get_component_store::<ModelDirty>();
+        let realization_store = ecs.get_component_store::<ModelRealization>();
 
         let mut result = Vec::new();
         for &eid in descs.dense.as_slice() {
@@ -207,7 +210,7 @@ pub fn realize_models(ecs: &mut World) {
                 None => continue,
             };
 
-            let is_dirty = match ecs.get_component_store::<ModelDirty>() {
+            let is_dirty = match dirty_store {
                 Some(store) => match store.sparse[eid] {
                     Some(idx) => store.components[idx].0,
                     None => true,
@@ -215,8 +218,7 @@ pub fn realize_models(ecs: &mut World) {
                 None => true,
             };
 
-            let has_realization = ecs
-                .get_component_store::<ModelRealization>()
+            let has_realization = realization_store
                 .map(|store| store.sparse[eid].is_some())
                 .unwrap_or(false);
 
