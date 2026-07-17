@@ -165,13 +165,18 @@ pub trait ShaderDescriptor {
             for var in variable_types {
                 match var {
                     VariableType::Buffer(_) => {
-                        let buffer = if let Variable::Buffer(buffer) = variables
-                            .get(&binding_index)
-                            .expect("Expected Variable to exist!")
-                        {
+                        let variable = variables.get(&binding_index).ok_or(
+                            ShaderError::MissingVariable {
+                                binding: binding_index,
+                            },
+                        )?;
+                        let buffer = if let Variable::Buffer(buffer) = variable {
                             buffer
                         } else {
-                            panic!("Expected Buffer but got unexpected type!");
+                            return Err(ShaderError::VariableTypeMismatch {
+                                binding: binding_index,
+                                expected: "Buffer",
+                            });
                         };
 
                         binds.push(BindGroupEntry {
@@ -188,13 +193,18 @@ pub trait ShaderDescriptor {
                         // Note:
                         // Check `bind_group_layout` above for information on why the binding index is skipped here.
 
-                        let texture = if let Variable::Texture(texture) = variables
-                            .get(&binding_index)
-                            .expect("Expected Variable to exist!")
-                        {
+                        let variable = variables.get(&binding_index).ok_or(
+                            ShaderError::MissingVariable {
+                                binding: binding_index,
+                            },
+                        )?;
+                        let texture = if let Variable::Texture(texture) = variable {
                             texture
                         } else {
-                            panic!("Expected Texture but got unexpected type!");
+                            return Err(ShaderError::VariableTypeMismatch {
+                                binding: binding_index,
+                                expected: "Texture",
+                            });
                         };
 
                         binds.push(BindGroupEntry {
