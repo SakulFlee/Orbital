@@ -21,7 +21,7 @@ steps:
     volumes: [cache:/cache]
     commands:
       - apk add --no-cache rsync
-      - rsync -a --link-dest=/cache/target.1 /cache/target.0/ target/ || true
+      - rsync -a /cache/target.0/ target/ || true
 
   build:
     image: nixos/nix:latest
