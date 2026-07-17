@@ -13,6 +13,7 @@ steps:
     image: alpine:latest
     volumes: [cache:/cache]
     commands:
+      - apk add --no-cache rsync
       - rsync -a --link-dest=/cache/target.1 /cache/target.0/ target/ || true
 
   format:
@@ -71,6 +72,7 @@ steps:
     image: alpine:latest
     volumes: [cache:/cache]
     commands:
+      - apk add --no-cache rsync
       - rm -rf /cache/target.1
       - mv /cache/target.0 /cache/target.1 || true
       - rsync -a --delete --link-dest=../target.1 target/ /cache/target.0/
