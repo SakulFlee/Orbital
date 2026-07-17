@@ -8,10 +8,10 @@ steps:
   restore_cache:
     image: alpine:latest
     volumes:
-      - /var/lib/woodpecker/cache:/cache:rw
+      - /var/lib/woodpecker/cache/orbital-target:/cache:rw
     commands:
       - apk add --no-cache rsync
-      - rsync -a /cache/target.0/ target/ || true
+      - rsync -a /cache/ target/ || true
 
   test:
     image: nixos/nix:latest
@@ -23,9 +23,7 @@ steps:
   save_cache:
     image: alpine:latest
     volumes:
-      - /var/lib/woodpecker/cache:/cache:rw
+      - /var/lib/woodpecker/cache/orbital-target:/cache:rw
     commands:
       - apk add --no-cache rsync
-      - rm -rf /cache/target.1
-      - mv /cache/target.0 /cache/target.1 || true
-      - if [ -d /cache/target.1 ]; then rsync -a --delete --link-dest=../target.1 target/ /cache/target.0/; else rsync -a --delete target/ /cache/target.0/; fi
+      - rsync -a --delete target/ /cache/

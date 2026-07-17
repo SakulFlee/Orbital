@@ -13,7 +13,7 @@ matrix:
 volumes:
   cache:
     host:
-      path: /var/lib/woodpecker/cache
+      path: /var/lib/woodpecker/cache/orbital-target
 
 steps:
   restore_cache:
@@ -21,7 +21,7 @@ steps:
     volumes: [cache:/cache]
     commands:
       - apk add --no-cache rsync
-      - rsync -a /cache/target.0/ target/ || true
+      - rsync -a /cache/ target/ || true
 
   build:
     image: nixos/nix:latest
