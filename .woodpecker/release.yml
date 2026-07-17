@@ -22,6 +22,8 @@ steps:
 
   build:
     image: nixos/nix:latest
+    volumes:
+      - /nix:/nix:rw
     environment:
       SKIP_GLTF_EXPORT: "true"
     commands:
