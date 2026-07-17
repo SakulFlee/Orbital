@@ -43,8 +43,9 @@ pub trait ShaderDescriptor {
     }
 
     fn shader_module(&self, device: &Device) -> Result<ShaderModule, ShaderError> {
-        static DEFAULT_PREPROCESSOR: std::sync::OnceLock<Result<ShaderPreprocessor, ShaderPreprocessorError>> =
-            std::sync::OnceLock::new();
+        static DEFAULT_PREPROCESSOR: std::sync::OnceLock<
+            Result<ShaderPreprocessor, ShaderPreprocessorError>,
+        > = std::sync::OnceLock::new();
 
         let preprocessor = self.shader_preprocessor().unwrap_or_else(|| {
             DEFAULT_PREPROCESSOR
