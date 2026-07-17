@@ -1,5 +1,6 @@
 pub mod gltf;
 
+use std::collections::VecDeque;
 use std::sync::{Mutex, mpsc};
 
 use orbital_resources::{CameraDescriptor, ModelDescriptor};
@@ -18,7 +19,7 @@ pub struct ImportResult {
 }
 
 pub struct Importer {
-    queued_tasks: Vec<ImportTask>,
+    queued_tasks: VecDeque<ImportTask>,
     result_receiver: Mutex<mpsc::Receiver<ImportResult>>,
     result_sender: mpsc::Sender<ImportResult>,
     pool: rayon::ThreadPool,
@@ -34,7 +35,7 @@ impl Importer {
         let (sender, receiver) = mpsc::channel();
 
         Self {
-            queued_tasks: Vec::new(),
+            queued_tasks: VecDeque::new(),
             result_receiver: Mutex::new(receiver),
             result_sender: sender,
             pool,
@@ -42,7 +43,7 @@ impl Importer {
     }
 
     pub fn register_task(&mut self, task: ImportTask) {
-        self.queued_tasks.push(task);
+        self.queued_tasks.push_back(task);
     }
 
     pub fn update(&mut self) -> Vec<ImportResult> {
@@ -52,8 +53,7 @@ impl Importer {
             results.push(result);
         }
 
-        while !self.queued_tasks.is_empty() {
-            let task_desc = self.queued_tasks.remove(0);
+        while let Some(task_desc) = self.queued_tasks.pop_front() {
             let sender = self.result_sender.clone();
 
             self.pool.spawn(move || {
