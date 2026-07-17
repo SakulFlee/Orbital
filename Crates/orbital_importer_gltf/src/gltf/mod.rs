@@ -869,7 +869,7 @@ impl GltfImporter {
             aspect: perspective.aspect_ratio().unwrap_or(16.0 / 9.0),
             fovy: perspective.yfov(),
             near: perspective.znear(),
-            far: perspective.znear(),
+            far: perspective.zfar(),
             global_gamma: CameraDescriptor::DEFAULT_GAMMA,
         };
 
