@@ -156,20 +156,18 @@ impl ShaderPreprocessor {
                     },
                 )?;
 
-                if output.is_empty() {
-                    output = import.clone();
-                } else {
-                    output = format!("{output}\n{import}");
+                if !output.is_empty() {
+                    output.push('\n');
                 }
+                output.push_str(import);
 
                 continue;
             }
 
-            if output.is_empty() {
-                output = line.to_string();
-            } else {
-                output = format!("{output}\n{line}");
+            if !output.is_empty() {
+                output.push('\n');
             }
+            output.push_str(line);
         }
 
         if import_found {
