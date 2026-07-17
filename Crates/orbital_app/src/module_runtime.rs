@@ -22,7 +22,7 @@ use winit::{
     window::{CursorGrabMode, WindowId},
 };
 
-use crate::{AppContext, AppSettings, AppState, Module, Timer, make_core_schedule};
+use crate::{AppContext, AppSettings, AppState, Module, Timer, make_core_schedule, RenderOverlayResource};
 use orbital_ecs_bridge::{
     CursorGrabConfig, CursorPosition, DeltaTime, DeviceResource, EcsCameraStore, EngineEvent,
     EngineEvents, FrameCounter, InputSnapshot, QueueResource, SurfaceFormatResource, TotalTime,
@@ -262,6 +262,19 @@ impl ModuleRuntime {
                 device,
                 queue,
             );
+        }
+
+        // Optional post‑main‑pass overlay (debug viz, HUD, gizmos, …)
+        if let Some(overlay_res) = self.ecs_world.get_resource::<RenderOverlayResource>() {
+            let camera_buffer = self.extract_camera_buffer(device, queue);
+            let ctx = crate::RenderOverlayContext {
+                target_view: &view,
+                camera_buffer: &camera_buffer,
+                device,
+                queue,
+                ecs: &self.ecs_world,
+            };
+            overlay_res.0.lock().unwrap().render(ctx);
         }
 
         lock.queue().present(frame);

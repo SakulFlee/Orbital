@@ -1,4 +1,9 @@
 use cgmath::{Matrix4, Point3, SquareMatrix, Vector4};
+use orbital_app::{Module, RenderOverlay, RenderOverlayContext, RenderOverlayResource};
+use orbital_ecs::{IntoSystem, Res, ResMut, System, World};
+use orbital_ecs_bridge::{
+    ActiveCamera, EcsCameraStore, InputSnapshot, ModelInstances, ModelRealization,
+};
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState,
@@ -9,23 +14,17 @@ use wgpu::{
     ShaderSource, ShaderStages, TextureFormat, VertexAttribute, VertexBufferLayout,
     VertexFormat, VertexState, VertexStepMode,
 };
+use winit::keyboard::{KeyCode, PhysicalKey};
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-/// Segments per wireframe ring (3 rings × 2 verts per segment).
 const SPHERE_SEGMENTS: u32 = 32;
 const SPHERE_RINGS: u32 = 3;
 const VERTS_PER_SPHERE: u32 = SPHERE_RINGS * SPHERE_SEGMENTS * 2;
-
-/// Maximum sphere instances we can draw (limit of the internal buffer).
 const MAX_SPHERE_INSTANCES: u32 = 512;
-
-/// Frustum: 12 edges × 2 verts.
 const FRUSTUM_VERTS: u32 = 24;
-
-/// Total vertex capacity.
 const MAX_VERTS: u32 = MAX_SPHERE_INSTANCES * VERTS_PER_SPHERE + FRUSTUM_VERTS;
 
 fn sphere_wireframe_unit() -> Vec<[f32; 3]> {
@@ -56,11 +55,10 @@ fn sphere_wireframe_unit() -> Vec<[f32; 3]> {
     verts
 }
 
-/// 12 edges of a frustum box (index pairs into an 8-corner array).
 const FRUSTUM_EDGES: [(usize, usize); 12] = [
-    (0, 1), (1, 3), (3, 2), (2, 0), // near
-    (4, 5), (5, 7), (7, 6), (6, 4), // far
-    (0, 4), (1, 5), (2, 6), (3, 7), // sides
+    (0, 1), (1, 3), (3, 2), (2, 0),
+    (4, 5), (5, 7), (7, 6), (6, 4),
+    (0, 4), (1, 5), (2, 6), (3, 7),
 ];
 
 // ---------------------------------------------------------------------------
@@ -115,10 +113,11 @@ pub struct SphereInstance {
     pub color: [f32; 3],
 }
 
+// ---------------------------------------------------------------------------
+// DebugRenderer — standalone GPU debug overlay
+// ---------------------------------------------------------------------------
+
 /// GPU debug renderer for bounding spheres and camera frustum wireframes.
-///
-/// Created once and used each frame. The caller provides world-space
-/// [`SphereInstance`] data and optional frustum corners.
 pub struct DebugRenderer {
     pipeline: RenderPipeline,
     bind_group_layout: BindGroupLayout,
@@ -126,15 +125,11 @@ pub struct DebugRenderer {
     device: Device,
     unit_sphere: Vec<[f32; 3]>,
     enabled: bool,
-    /// Cached bind group — recreated when the camera buffer pointer changes.
     bind_group: Option<BindGroup>,
-    last_camera_buffer_ptr: *const (),
+    last_camera_buffer_ptr: usize,
 }
 
 impl DebugRenderer {
-    /// Create a new debug overlay renderer.
-    ///
-    /// `format` must match the surface (or render-target) format.
     pub fn new(device: &Device, format: TextureFormat) -> Self {
         let shader = device.create_shader_module(ShaderModuleDescriptor {
             label: Some("Debug Shader"),
@@ -245,7 +240,7 @@ impl DebugRenderer {
             unit_sphere: sphere_wireframe_unit(),
             enabled: true,
             bind_group: None,
-            last_camera_buffer_ptr: std::ptr::null(),
+            last_camera_buffer_ptr: 0,
         }
     }
 
@@ -262,13 +257,6 @@ impl DebugRenderer {
     }
 
     /// Draw bounding-sphere wireframes and (optionally) the camera frustum.
-    ///
-    /// `spheres` are world-space bounding spheres to draw.
-    /// `frustum_corners` — if `Some` — draws the frustum box in yellow.
-    ///
-    /// Call this inside an active render pass. The pass should NOT have a depth
-    /// attachment (or depth comparison must be `Always`) since this draws an
-    /// overlay without depth testing.
     pub fn render(
         &mut self,
         render_pass: &mut RenderPass,
@@ -281,7 +269,6 @@ impl DebugRenderer {
             return;
         }
 
-        // ---- build geometry -------------------------------------------------
         let mut verts: Vec<f32> = Vec::with_capacity(MAX_VERTS as usize * 6);
 
         let count = spheres.len().min(MAX_SPHERE_INSTANCES as usize);
@@ -301,7 +288,7 @@ impl DebugRenderer {
                     verts.push(c.x);
                     verts.push(c.y);
                     verts.push(c.z);
-                    verts.extend_from_slice(&[1.0, 1.0, 0.0]); // yellow
+                    verts.extend_from_slice(&[1.0, 1.0, 0.0]);
                 }
             }
         }
@@ -310,14 +297,12 @@ impl DebugRenderer {
             return;
         }
 
-        // ---- upload ---------------------------------------------------------
         let bytes = unsafe {
             std::slice::from_raw_parts(verts.as_ptr() as *const u8, verts.len() * 4)
         };
         queue.write_buffer(&self.vertex_buffer, 0, bytes);
 
-        // ---- bind group (update if camera buffer changed) -------------------
-        let cb_ptr = camera_buffer as *const Buffer as *const ();
+        let cb_ptr = camera_buffer as *const Buffer as usize;
         if cb_ptr != self.last_camera_buffer_ptr {
             let bg = self.device.create_bind_group(&BindGroupDescriptor {
                 label: Some("Debug Camera BindGroup"),
@@ -331,7 +316,6 @@ impl DebugRenderer {
             self.last_camera_buffer_ptr = cb_ptr;
         }
 
-        // ---- draw -----------------------------------------------------------
         let num_verts = verts.len() as u32 / 6;
         render_pass.set_pipeline(&self.pipeline);
         render_pass.set_bind_group(0, self.bind_group.as_ref().unwrap(), &[]);
@@ -341,11 +325,7 @@ impl DebugRenderer {
 }
 
 /// Compute the 8 world-space corners of the view frustum from the combined
-/// perspective-view-projection matrix.
-///
-/// Corner order (near then far):
-///   0: ntl  1: ntr  2: nbl  3: nbr
-///   4: ftl  5: ftr  6: fbl  7: fbr
+/// perspective‑view‑projection matrix.
 pub fn frustum_corners_from_matrix(matrix: &Matrix4<f32>) -> [Point3<f32>; 8] {
     let inv = matrix.invert().unwrap_or(Matrix4::identity());
     let ndc = [
@@ -364,4 +344,203 @@ pub fn frustum_corners_from_matrix(matrix: &Matrix4<f32>) -> [Point3<f32>; 8] {
         corners[i] = Point3::new(w.x / w.w, w.y / w.w, w.z / w.w);
     }
     corners
+}
+
+// ---------------------------------------------------------------------------
+// Integration into the module system
+// ---------------------------------------------------------------------------
+
+/// Toggle state — stores configured key, edge-detection state, and enabled flag.
+pub struct DebugToggleState {
+    pub key: winit::keyboard::KeyCode,
+    pub was_pressed: bool,
+    pub enabled: bool,
+}
+
+/// ECS system that toggles the debug overlay on keypress.
+pub fn sys_debug_toggle(
+    input: Res<InputSnapshot>,
+    mut state: ResMut<DebugToggleState>,
+) {
+    let pressed = input
+        .0
+        .button_state_any(&orbital_app::input::InputButton::Keyboard(
+            PhysicalKey::Code(state.key),
+        ))
+        .map(|(_, s)| s)
+        .unwrap_or(false);
+    if pressed && !state.was_pressed {
+        state.enabled = !state.enabled;
+    }
+    state.was_pressed = pressed;
+}
+
+/// [`RenderOverlay`] implementation that draws bounding spheres and frustum.
+struct DebugRenderOverlay {
+    inner: DebugRenderer,
+}
+
+impl RenderOverlay for DebugRenderOverlay {
+    fn render(&mut self, ctx: RenderOverlayContext) {
+        let enabled = ctx
+            .ecs
+            .get_resource::<DebugToggleState>()
+            .map(|s| s.enabled)
+            .unwrap_or(false);
+        if !enabled {
+            return;
+        }
+
+        let spheres = collect_spheres(ctx.ecs);
+        let corners = camera_frustum_corners(ctx.ecs);
+
+        let mut enc =
+            ctx.device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("Debug Overlay Encoder"),
+                });
+        {
+            let mut pass = enc.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Debug Overlay RenderPass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: ctx.target_view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    },
+                    depth_slice: None,
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+            self.inner.render(
+                &mut pass,
+                ctx.camera_buffer,
+                &spheres,
+                corners.as_ref(),
+                ctx.queue,
+            );
+        }
+        ctx.queue.submit(vec![enc.finish()]);
+    }
+}
+
+/// Module that adds debug overlay rendering to an application.
+///
+/// ```ignore
+/// App::new()
+///     .add_module(DebugModule::new().with_keybind(KeyCode::F3))
+///     .liftoff(...);
+/// ```
+pub struct DebugModule {
+    toggle_key: Option<KeyCode>,
+}
+
+impl DebugModule {
+    pub fn new() -> Self {
+        Self { toggle_key: None }
+    }
+
+    /// Set the key that toggles the debug overlay.
+    ///
+    /// Defaults to `F3` when not called.
+    pub fn with_keybind(mut self, key: KeyCode) -> Self {
+        self.toggle_key = Some(key);
+        self
+    }
+}
+
+impl Default for DebugModule {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Module for DebugModule {
+    fn setup(
+        &self,
+        ecs: &mut World,
+        device: &Device,
+        _queue: &Queue,
+    ) -> Vec<Box<dyn System>> {
+        // Surface format — needed for pipeline creation.
+        let format = ecs
+            .get_resource::<orbital_ecs_bridge::SurfaceFormatResource>()
+            .map(|f| f.0)
+            .unwrap_or(TextureFormat::Bgra8UnormSrgb);
+
+        let inner = DebugRenderer::new(device, format);
+        let overlay = DebugRenderOverlay { inner };
+
+        ecs.insert_resource(DebugToggleState {
+            key: self.toggle_key.unwrap_or(KeyCode::F3),
+            was_pressed: false,
+            enabled: false,
+        });
+        ecs.insert_resource(RenderOverlayResource(std::sync::Mutex::new(Box::new(
+            overlay,
+        ))));
+
+        vec![sys_debug_toggle.into_system()]
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ECS data collection helpers
+// ---------------------------------------------------------------------------
+
+fn collect_spheres(ecs: &World) -> Vec<SphereInstance> {
+    let mut spheres = Vec::new();
+
+    let realizations = match ecs.get_component_store::<ModelRealization>() {
+        Some(s) => s,
+        None => return spheres,
+    };
+    let instances = match ecs.get_component_store::<ModelInstances>() {
+        Some(s) => s,
+        None => return spheres,
+    };
+
+    for &eid in realizations.dense.as_slice() {
+        let Some(real_idx) = realizations.sparse[eid] else { continue };
+        let Some(inst_idx) = instances.sparse[eid] else { continue };
+
+        let model = &realizations.components[real_idx].0;
+        let mesh = model.mesh();
+        let Some(bsphere) = mesh.bounding_sphere() else { continue };
+
+        let model_instances = &instances.components[inst_idx];
+        for transform in model_instances.0.values() {
+            let m = transform.to_matrix();
+            let center_h = m * Vector4::new(bsphere.center.x, bsphere.center.y, bsphere.center.z, 1.0);
+            let world_center = Point3::new(center_h.x, center_h.y, center_h.z);
+
+            let max_scale = transform
+                .scale
+                .x
+                .max(transform.scale.y)
+                .max(transform.scale.z);
+            let world_radius = bsphere.radius * max_scale;
+
+            spheres.push(SphereInstance {
+                center: world_center,
+                radius: world_radius,
+                color: [0.0, 1.0, 0.0],
+            });
+        }
+    }
+
+    spheres
+}
+
+fn camera_frustum_corners(ecs: &World) -> Option<[Point3<f32>; 8]> {
+    let active = ecs.get_resource::<ActiveCamera>()?;
+    let store = ecs.get_resource::<EcsCameraStore>()?;
+    let arc_camera = store.get(active.0.index)?;
+    let camera = arc_camera.read().ok()?;
+    let matrix = camera.perspective_view_projection_matrix();
+    Some(frustum_corners_from_matrix(matrix))
 }

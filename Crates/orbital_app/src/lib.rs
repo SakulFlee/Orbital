@@ -24,6 +24,9 @@ pub use module::Module;
 pub mod module_runtime;
 pub use module_runtime::ModuleRuntime;
 
+pub mod render_overlay;
+pub use render_overlay::{RenderOverlay, RenderOverlayContext, RenderOverlayResource};
+
 pub mod systems;
 pub use systems::{
     realize_cameras, realize_environment, realize_lights, realize_models, sys_camera_controller,
