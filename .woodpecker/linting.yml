@@ -1,8 +1,20 @@
 when:
   - event: push
   - event: manual
+  - event: tag
+
+volumes:
+  - name: cache
+    host:
+      path: /var/lib/woodpecker/cache/{{ .Repo.Name }}
 
 steps:
+  restore_cache:
+    image: alpine:latest
+    volumes: [cache: /cache]
+    commands:
+      - rsync -a --link-dest=/cache/target.1 /cache/target.0/ target/ || true
+
   format:
     image: nixos/nix:latest
     environment:
@@ -54,3 +66,11 @@ steps:
           echo "Clippy issues were fixed. Pipeline aborted - next run will use corrected code."
           exit 1
         fi
+
+  save_cache:
+    image: alpine:latest
+    volumes: [cache: /cache]
+    commands:
+      - rm -rf /cache/target.1
+      - mv /cache/target.0 /cache/target.1 || true
+      - rsync -a --delete --link-dest=../target.1 target/ /cache/target.0/

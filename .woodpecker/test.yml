@@ -1,4 +1,7 @@
+depends_on: [linting]
+
 when:
+  - event: push
   - event: manual
   - event: pull_request
 
