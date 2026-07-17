@@ -1,6 +1,7 @@
 use std::{error::Error, mem::transmute};
 
 use log::debug;
+use orbital_core::wgpu_util::block_on;
 use wgpu::{
     Adapter, BackendOptions, Backends, CompositeAlphaMode, CreateSurfaceError,
     CurrentSurfaceTexture, Device, DeviceDescriptor, ExperimentalFeatures, Features, Instance,
@@ -17,18 +18,6 @@ use winit::{
 };
 
 use crate::AppSettings;
-
-fn block_on<F: std::future::Future>(future: F) -> F::Output {
-    let waker = std::task::Waker::noop();
-    let mut cx = std::task::Context::from_waker(waker);
-    let mut pinned = Box::pin(future);
-    loop {
-        match pinned.as_mut().poll(&mut cx) {
-            std::task::Poll::Ready(val) => return val,
-            std::task::Poll::Pending => std::thread::yield_now(),
-        }
-    }
-}
 
 pub type AppCtx = AppContext;
 
