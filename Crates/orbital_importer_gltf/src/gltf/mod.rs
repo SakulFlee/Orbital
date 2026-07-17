@@ -243,7 +243,7 @@ impl GltfImporter {
     }
 
     /// Handles parsing of glTF textures ([`gltf::image::Data`]) and turns it into a [`TextureDescriptor`].
-    fn parse_texture(data: &gltf::image::Data, srgb: bool) -> TextureDescriptor {
+    fn parse_texture(data: gltf::image::Data, srgb: bool) -> TextureDescriptor {
         let (format, need_alpha_channel) = Self::gltf_texture_format_to_orbital(data.format);
         // If srgb is requested, convert to sRGB format if it's an RGBA format
         let format = if srgb {
@@ -338,7 +338,7 @@ impl GltfImporter {
             (processed_pixels, original_width, original_height)
         } else {
             // No processing needed, use the original data.
-            (data.pixels.clone(), data.width, data.height)
+            (data.pixels, data.width, data.height)
         };
 
         TextureDescriptor::Data {
@@ -364,13 +364,13 @@ impl GltfImporter {
 
     /// Handles parsing of glTF textures ([`gltf::image::Data`]) and turns it into a [`TextureDescriptor`].
     /// This version assumes sRGB color space for color textures.
-    fn parse_texture_srgb(data: &gltf::image::Data) -> TextureDescriptor {
+    fn parse_texture_srgb(data: gltf::image::Data) -> TextureDescriptor {
         Self::parse_texture(data, true)
     }
 
     /// Handles parsing of glTF textures ([`gltf::image::Data`]) and turns it into a [`TextureDescriptor`].
     /// This version assumes linear color space for data textures like normals, metallic, roughness, etc.
-    fn parse_texture_linear(data: &gltf::image::Data) -> TextureDescriptor {
+    fn parse_texture_linear(data: gltf::image::Data) -> TextureDescriptor {
         Self::parse_texture(data, false)
     }
 
@@ -378,7 +378,7 @@ impl GltfImporter {
     /// Same as [`Self::parse_texture`], but splits the B(lue) and G(reen) channel into two separate
     /// textures according to the glTF specification for metallic-roughness textures.
     /// Metallic is in the B channel, Roughness is in the G channel.
-    fn parse_dual_texture(data: &gltf::image::Data) -> (TextureDescriptor, TextureDescriptor) {
+    fn parse_dual_texture(data: gltf::image::Data) -> (TextureDescriptor, TextureDescriptor) {
         let (_format, _need_alpha_channel) = Self::gltf_texture_format_to_orbital(data.format);
 
         // Calculate the number of channels in the source format
@@ -470,7 +470,7 @@ impl GltfImporter {
         textures: &Vec<gltf::image::Data>,
     ) -> MaterialDescriptor {
         let normal = if let Some(normal_info) = material.normal_texture() {
-            Self::parse_texture_linear(&textures[normal_info.texture().source().index()])
+            Self::parse_texture_linear(textures[normal_info.texture().source().index()].clone())
         } else {
             // Default normal map value: (0.5, 0.5, 1.0, 1.0) maps to (0, 0, 1) in tangent space after 2*x-1
             // Use linear format for normal maps (no sRGB conversion)
@@ -481,7 +481,7 @@ impl GltfImporter {
         let (albedo, albedo_factor) =
             if let Some(albedo_info) = material.pbr_metallic_roughness().base_color_texture() {
                 let texture =
-                    Self::parse_texture_srgb(&textures[albedo_info.texture().source().index()]);
+                    Self::parse_texture_srgb(textures[albedo_info.texture().source().index()].clone());
                 let factor = material.pbr_metallic_roughness().base_color_factor();
                 (texture, Vector3::new(factor[0], factor[1], factor[2]))
             } else {
@@ -506,7 +506,7 @@ impl GltfImporter {
 
                 let (texture_descriptor_metallic, texture_descriptor_roughness) =
                     Self::parse_dual_texture(
-                        &textures[metallic_and_roughness_info.texture().source().index()],
+                        textures[metallic_and_roughness_info.texture().source().index()].clone(),
                     );
 
                 let factor_metallic = material.pbr_metallic_roughness().metallic_factor();
@@ -548,12 +548,12 @@ impl GltfImporter {
             };
 
         let occlusion = if let Some(occlusion_info) = material.occlusion_texture() {
-            Self::parse_texture_linear(&textures[occlusion_info.texture().source().index()])
+            Self::parse_texture_linear(textures[occlusion_info.texture().source().index()].clone())
         } else {
             TextureDescriptor::uniform_rgba_white(false)
         };
         let emissive = if let Some(emissive_info) = material.emissive_texture() {
-            Self::parse_texture_srgb(&textures[emissive_info.texture().source().index()])
+            Self::parse_texture_srgb(textures[emissive_info.texture().source().index()].clone())
         } else {
             let emissive_color = material.emissive_factor();
             TextureDescriptor::uniform_rgba_color(
