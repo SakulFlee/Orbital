@@ -17,8 +17,6 @@ pub use descriptor::*;
 #[derive(Debug)]
 pub struct Camera {
     camera_buffer: Buffer,
-    // frustum_bind_group: BindGroup,
-    // frustum_buffer: Buffer,
 }
 
 impl Camera {
@@ -48,131 +46,10 @@ impl Camera {
             mapped_at_creation: false,
         });
 
-        // let frustum_buffer = device.create_buffer(&BufferDescriptor {
-        //     label: Some("Camera Buffer"),
-        //     size: (
-        //         // Left
-        //         mem::size_of::<f32>() * 4 +
-        //         // Right
-        //         mem::size_of::<f32>() * 4 +
-        //         // Top
-        //         mem::size_of::<f32>() * 4 +
-        //         // Bottom
-        //         mem::size_of::<f32>() * 4 +
-        //         // Near
-        //         mem::size_of::<f32>() * 4 +
-        //         // Far
-        //         mem::size_of::<f32>() * 4
-        //     ) as u64,
-        //     usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-        //     mapped_at_creation: false,
-        // });
-        // let frustum_bind_group_layout =
-        //     device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-        //         label: Some("Frustum"),
-        //         entries: &[BindGroupLayoutEntry {
-        //             binding: 0,
-        //             visibility: ShaderStages::VERTEX_FRAGMENT,
-        //             ty: BindingType::Buffer {
-        //                 ty: BufferBindingType::Uniform,
-        //                 has_dynamic_offset: false,
-        //                 min_binding_size: None,
-        //             },
-        //             count: None,
-        //         }],
-        //     });
-        // let frustum_bind_group = device.create_bind_group(&BindGroupDescriptor {
-        //     label: Some("Camera Frustum Bind Group"),
-        //     layout: &frustum_bind_group_layout,
-        //     entries: &[BindGroupEntry {
-        //         binding: 0,
-        //         resource: frustum_buffer.as_entire_binding(),
-        //     }],
-        // });
-
-        let mut camera = Self {
-            camera_buffer,
-            // frustum_bind_group,
-            // frustum_buffer,
-        };
+        let mut camera = Self { camera_buffer };
         camera.update_buffer(&descriptor, queue);
         camera
     }
-
-    // pub fn calculate_frustum_planes(
-    //     &self,
-    //     view_projection_matrix: Option<Matrix4<f32>>,
-    //     perspective_projection_matrix: Option<Matrix4<f32>>,
-    // ) -> [Vector4<f32>; 6] {
-    //     let view_projection_matrix =
-    //         view_projection_matrix.unwrap_or(self.calculate_view_projection_matrix());
-    //     let perspective_projection_matrix =
-    //         perspective_projection_matrix.unwrap_or(self.calculate_perspective_projection_matrix());
-    //
-    //     let perspective_view_projection_matrix =
-    //         perspective_projection_matrix * view_projection_matrix;
-    //
-    //     [
-    //         // Left
-    //         (perspective_view_projection_matrix.w + perspective_view_projection_matrix.x)
-    //             .normalize(),
-    //         // Right
-    //         (perspective_view_projection_matrix.w - perspective_view_projection_matrix.x)
-    //             .normalize(),
-    //         // Bottom
-    //         (perspective_view_projection_matrix.w + perspective_view_projection_matrix.y)
-    //             .normalize(),
-    //         // Top
-    //         (perspective_view_projection_matrix.w - perspective_view_projection_matrix.y)
-    //             .normalize(),
-    //         // Near
-    //         (perspective_view_projection_matrix.w + perspective_view_projection_matrix.z)
-    //             .normalize(),
-    //         // Far
-    //         (perspective_view_projection_matrix.w - perspective_view_projection_matrix.z)
-    //             .normalize(),
-    //     ]
-    // }
-
-    // pub fn frustum_to_bytes(frustum_planes: &[Vector4<f32>; 6]) -> [[u8; 4]; 6 * 4] {
-    //     [
-    //         frustum_planes[0].x.to_le_bytes(),
-    //         frustum_planes[0].y.to_le_bytes(),
-    //         frustum_planes[0].z.to_le_bytes(),
-    //         frustum_planes[0].w.to_le_bytes(),
-    //         frustum_planes[1].x.to_le_bytes(),
-    //         frustum_planes[1].y.to_le_bytes(),
-    //         frustum_planes[1].z.to_le_bytes(),
-    //         frustum_planes[1].w.to_le_bytes(),
-    //         frustum_planes[2].x.to_le_bytes(),
-    //         frustum_planes[2].y.to_le_bytes(),
-    //         frustum_planes[2].z.to_le_bytes(),
-    //         frustum_planes[2].w.to_le_bytes(),
-    //         frustum_planes[3].x.to_le_bytes(),
-    //         frustum_planes[3].y.to_le_bytes(),
-    //         frustum_planes[3].z.to_le_bytes(),
-    //         frustum_planes[3].w.to_le_bytes(),
-    //         frustum_planes[4].x.to_le_bytes(),
-    //         frustum_planes[4].y.to_le_bytes(),
-    //         frustum_planes[4].z.to_le_bytes(),
-    //         frustum_planes[4].w.to_le_bytes(),
-    //         frustum_planes[5].x.to_le_bytes(),
-    //         frustum_planes[5].y.to_le_bytes(),
-    //         frustum_planes[5].z.to_le_bytes(),
-    //         frustum_planes[5].w.to_le_bytes(),
-    //     ]
-    // }
-
-    // pub fn calculate_frustum_planes_to_bytes(
-    //     &self,
-    //     view_projection_matrix: Option<Matrix4<f32>>,
-    //     perspective_projection_matrix: Option<Matrix4<f32>>,
-    // ) -> [[u8; 4]; 6 * 4] {
-    //     let frustum_planes =
-    //         self.calculate_frustum_planes(view_projection_matrix, perspective_projection_matrix);
-    //
-    //     Self::frustum_to_bytes(&frustum_planes)
-    // }
 
     pub fn update_buffer(&mut self, descriptor: &CameraDescriptor, queue: &Queue) {
         let view_projection_matrix = self.calculate_view_projection_matrix(descriptor);
@@ -269,26 +146,7 @@ impl Camera {
             ]
             .concat(),
         );
-
-        // // --- Frustum ---
-        // self.set_frustum(
-        //     &self.calculate_frustum_planes(
-        //         Some(view_projection_matrix),
-        //         Some(perspective_projection_matrix),
-        //     ),
-        //     queue,
-        // );
     }
-
-    // pub fn set_frustum(&self, frustum_planes: &[Vector4<f32>; 6], queue: &Queue) {
-    //     let data = Self::frustum_to_bytes(frustum_planes);
-    //
-    //     self.set_frustum_data(&data, queue);
-    // }
-    //
-    // pub fn set_frustum_data(&self, frustum_data: &[[u8; 4]; 6 * 4], queue: &Queue) {
-    //     queue.write_buffer(&self.frustum_buffer, 0, &frustum_data.concat());
-    // }
 
     pub fn calculate_view_projection_matrix(&self, descriptor: &CameraDescriptor) -> Matrix4<f32> {
         // Takes yaw and pitch values and converts them into a target vector for our camera.
@@ -325,13 +183,6 @@ impl Camera {
         &self.camera_buffer
     }
 
-    // pub fn frustum_bind_group(&self) -> &BindGroup {
-    //     &self.frustum_bind_group
-    // }
-
-    // pub fn frustum_buffer(&self) -> &Buffer {
-    //     &self.frustum_buffer
-    // }
 }
 
 // ---------------------------------------------------------------------------

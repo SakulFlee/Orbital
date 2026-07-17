@@ -11,11 +11,15 @@ pub use descriptor::*;
 mod cache;
 pub use cache::*;
 
+mod bounds;
+pub use bounds::*;
+
 #[derive(Debug)]
 pub struct Mesh {
     vertex_buffer: Buffer,
     index_buffer: Buffer,
     index_count: u32,
+    bounding_sphere: Option<BoundingSphere>,
 }
 
 impl Mesh {
@@ -42,11 +46,21 @@ impl Mesh {
             usage: BufferUsages::INDEX,
         });
 
+        let bounding_sphere = {
+            let positions: Vec<_> = vertices.iter().map(|v| v.position).collect();
+            BoundingSphere::compute_from_positions(&positions)
+        };
+
         Self {
             vertex_buffer,
             index_buffer,
             index_count: indices.len() as u32,
+            bounding_sphere,
         }
+    }
+
+    pub fn bounding_sphere(&self) -> Option<&BoundingSphere> {
+        self.bounding_sphere.as_ref()
     }
 
     pub fn vertex_buffer(&self) -> &Buffer {
