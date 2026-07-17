@@ -4,9 +4,9 @@ when:
   - event: tag
 
 volumes:
-  - name: cache
+  cache:
     host:
-      path: /var/lib/woodpecker/cache/{{ .Repo.Name }}
+      path: /var/lib/woodpecker/cache
 
 steps:
   restore_cache:
