@@ -415,14 +415,12 @@ pub fn realize_environment(ecs: &mut World) {
     let descriptor = match ecs.get_resource::<EnvironmentDescriptorResource>() {
         Some(r) => match &r.0 {
             Some(d) => d.clone(),
-            None => return, // No environment set
+            None => return, // Already realized or no environment set
         },
         None => return,
     };
 
-    // Check if already realized (compare would need hash, so just re-realize if descriptor exists)
-    // For simplicity, always re-realize when the resource is present.
-    // A dirty flag pattern could be added later for optimization.
+    // Realize the environment from the new descriptor
 
     match orbital_resources::WorldEnvironment::from_descriptor(
         &descriptor,
