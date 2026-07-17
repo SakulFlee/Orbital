@@ -206,12 +206,8 @@ impl Texture {
             .decode()
             .map_err(TextureError::ImageError)?;
 
-        let data = img
-            .to_rgba8()
-            .iter()
-            .map(|x| x.to_le_bytes())
-            .collect::<Vec<_>>()
-            .concat();
+        let rgba = img.to_rgba8();
+        let data: Vec<u8> = rgba.iter().flat_map(|x| x.to_le_bytes()).collect();
 
         Self::from_descriptor(
             &TextureDescriptor::Data {
