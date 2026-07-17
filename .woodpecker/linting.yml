@@ -16,7 +16,7 @@ steps:
   format:
     image: nixos/nix:latest
     volumes:
-      - /nix/store:/nix/store:rw
+      - /nix:/nix:rw
     environment:
       FORGEJO_USER:
         from_secret: forgejo_user
@@ -24,7 +24,7 @@ steps:
         from_secret: forgejo_token
       SKIP_GLTF_EXPORT: "true"
     commands:
-      - nix develop --extra-experimental-features 'nix-command flakes' --command cargo fmt --all
+      - nix shell nixpkgs#coreutils -c "nix develop --extra-experimental-features 'nix-command flakes' --command cargo fmt --all"
       - |
         if [ -n "$(git status --porcelain)" ]; then
           BRANCH="$CI_COMMIT_SOURCE_BRANCH"
@@ -44,7 +44,7 @@ steps:
   clippy:
     image: nixos/nix:latest
     volumes:
-      - /nix/store:/nix/store:rw
+      - /nix:/nix:rw
     environment:
       FORGEJO_USER:
         from_secret: forgejo_user
@@ -52,7 +52,7 @@ steps:
         from_secret: forgejo_token
       SKIP_GLTF_EXPORT: "true"
     commands:
-      - nix develop --extra-experimental-features 'nix-command flakes' --command cargo clippy --fix --allow-dirty
+      - nix shell nixpkgs#coreutils -c "nix develop --extra-experimental-features 'nix-command flakes' --command cargo clippy --fix --allow-dirty"
       - |
         if [ -n "$(git status --porcelain)" ]; then
           BRANCH="$CI_COMMIT_SOURCE_BRANCH"
