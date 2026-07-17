@@ -622,11 +622,7 @@ impl GltfImporter {
             // Collect all data into vectors first to avoid iterator issues
             let positions_vec: Vec<_> = positions.map(|p| Vector3::new(p[0], p[1], p[2])).collect();
             // Collect indices early as they are needed for normal calculation if normals are missing
-            let indices_vec: Vec<u32> = reader
-                .read_indices()
-                .map(|x| x.into_u32())
-                .map(|indices| indices.collect())
-                .unwrap_or_default(); // Get indices_vec here
+            let indices_vec: Vec<u32> = indices.collect();
 
             // --- Normal Calculation Logic Start ---
             let normals_vec = if let Some(normals_iter) = normals {
@@ -770,9 +766,6 @@ impl GltfImporter {
                 let vertex = Vertex::new_with_bitangent(position, normal, tangent, bitangent, uv);
                 vertices.push(vertex);
             }
-
-            // Collect indices into a vector first
-            let indices_vec: Vec<u32> = indices.collect();
 
             // Flip the winding order of indices to account for coordinate system handedness
             let mut indices_flipped = Vec::new();
