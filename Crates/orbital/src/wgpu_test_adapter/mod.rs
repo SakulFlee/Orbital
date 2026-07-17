@@ -64,24 +64,13 @@
 /// (...)
 /// ```
 use log::debug;
+use orbital_core::wgpu_util::block_on;
 use wgpu::{
     Adapter, Device, DeviceDescriptor, Instance, InstanceDescriptor, PowerPreference, Queue,
     RequestAdapterOptions,
 };
 
 use crate::logging;
-
-fn block_on<F: std::future::Future>(future: F) -> F::Output {
-    let waker = std::task::Waker::noop();
-    let mut cx = std::task::Context::from_waker(waker);
-    let mut pinned = Box::pin(future);
-    loop {
-        match pinned.as_mut().poll(&mut cx) {
-            std::task::Poll::Ready(val) => return val,
-            std::task::Poll::Pending => std::thread::yield_now(),
-        }
-    }
-}
 
 pub fn make_wgpu_connection() -> (Adapter, Device, Queue) {
     logging::test_init();
