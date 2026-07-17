@@ -24,7 +24,7 @@ steps:
         from_secret: forgejo_token
       SKIP_GLTF_EXPORT: "true"
     commands:
-      - nix shell nixpkgs#rsync -c rsync -a /cache/orbital/nix/ /nix/store/ || true
+      - nix shell --extra-experimental-features 'nix-command' nixpkgs#rsync -c rsync -a /cache/orbital/nix/ /nix/store/ || true
       - nix develop --extra-experimental-features 'nix-command flakes' --command cargo fmt --all
       - |
         if [ -n "$(git status --porcelain)" ]; then
@@ -41,7 +41,7 @@ steps:
           echo "Format issues were fixed. Pipeline aborted - next run will use corrected code."
           exit 1
         fi
-      - nix shell nixpkgs#rsync -c rsync -a /nix/store/ /cache/orbital/nix/
+      - nix shell --extra-experimental-features 'nix-command' nixpkgs#rsync -c rsync -a /nix/store/ /cache/orbital/nix/
 
   clippy:
     image: nixos/nix:latest
@@ -54,7 +54,7 @@ steps:
         from_secret: forgejo_token
       SKIP_GLTF_EXPORT: "true"
     commands:
-      - nix shell nixpkgs#rsync -c rsync -a /cache/orbital/nix/ /nix/store/ || true
+      - nix shell --extra-experimental-features 'nix-command' nixpkgs#rsync -c rsync -a /cache/orbital/nix/ /nix/store/ || true
       - nix develop --extra-experimental-features 'nix-command flakes' --command cargo clippy --fix --allow-dirty
       - |
         if [ -n "$(git status --porcelain)" ]; then
@@ -71,7 +71,7 @@ steps:
           echo "Clippy issues were fixed. Pipeline aborted - next run will use corrected code."
           exit 1
         fi
-      - nix shell nixpkgs#rsync -c rsync -a /nix/store/ /cache/orbital/nix/
+      - nix shell --extra-experimental-features 'nix-command' nixpkgs#rsync -c rsync -a /nix/store/ /cache/orbital/nix/
 
   save_cache:
     image: alpine:latest
