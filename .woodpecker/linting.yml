@@ -3,15 +3,11 @@ when:
   - event: manual
   - event: tag
 
-volumes:
-  cache:
-    host:
-      path: /var/lib/woodpecker/cache
-
 steps:
   restore_cache:
     image: alpine:latest
-    volumes: [cache:/cache]
+    volumes:
+      - /var/lib/woodpecker/cache:/cache:rw
     commands:
       - apk add --no-cache rsync
       - mkdir -p /cache/orbital-target
@@ -71,7 +67,8 @@ steps:
 
   save_cache:
     image: alpine:latest
-    volumes: [cache:/cache]
+    volumes:
+      - /var/lib/woodpecker/cache:/cache:rw
     commands:
       - apk add --no-cache rsync
       - rsync -a --delete target/ /cache/orbital-target/

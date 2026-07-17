@@ -10,15 +10,11 @@ matrix:
     - aarch64-unknown-linux-gnu
     - x86_64-pc-windows-gnu
 
-volumes:
-  cache:
-    host:
-      path: /var/lib/woodpecker/cache
-
 steps:
   restore_cache:
     image: alpine:latest
-    volumes: [cache:/cache]
+    volumes:
+      - /var/lib/woodpecker/cache:/cache:rw
     commands:
       - apk add --no-cache rsync
       - mkdir -p /cache/orbital-target
