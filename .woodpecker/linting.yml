@@ -11,7 +11,7 @@ volumes:
 steps:
   restore_cache:
     image: alpine:latest
-    volumes: [cache: /cache]
+    volumes: [cache:/cache]
     commands:
       - rsync -a --link-dest=/cache/target.1 /cache/target.0/ target/ || true
 
@@ -69,7 +69,7 @@ steps:
 
   save_cache:
     image: alpine:latest
-    volumes: [cache: /cache]
+    volumes: [cache:/cache]
     commands:
       - rm -rf /cache/target.1
       - mv /cache/target.0 /cache/target.1 || true
