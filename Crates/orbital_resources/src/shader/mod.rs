@@ -165,11 +165,12 @@ pub trait ShaderDescriptor {
             for var in variable_types {
                 match var {
                     VariableType::Buffer(_) => {
-                        let variable = variables.get(&binding_index).ok_or(
-                            ShaderError::MissingVariable {
-                                binding: binding_index,
-                            },
-                        )?;
+                        let variable =
+                            variables
+                                .get(&binding_index)
+                                .ok_or(ShaderError::MissingVariable {
+                                    binding: binding_index,
+                                })?;
                         let buffer = if let Variable::Buffer(buffer) = variable {
                             buffer
                         } else {
@@ -193,11 +194,12 @@ pub trait ShaderDescriptor {
                         // Note:
                         // Check `bind_group_layout` above for information on why the binding index is skipped here.
 
-                        let variable = variables.get(&binding_index).ok_or(
-                            ShaderError::MissingVariable {
-                                binding: binding_index,
-                            },
-                        )?;
+                        let variable =
+                            variables
+                                .get(&binding_index)
+                                .ok_or(ShaderError::MissingVariable {
+                                    binding: binding_index,
+                                })?;
                         let texture = if let Variable::Texture(texture) = variable {
                             texture
                         } else {
