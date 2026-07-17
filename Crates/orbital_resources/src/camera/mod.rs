@@ -14,9 +14,13 @@ pub use mode::*;
 mod descriptor;
 pub use descriptor::*;
 
+mod frustum;
+pub use frustum::*;
+
 #[derive(Debug)]
 pub struct Camera {
     camera_buffer: Buffer,
+    perspective_view_projection_matrix: Matrix4<f32>,
 }
 
 impl Camera {
@@ -46,7 +50,10 @@ impl Camera {
             mapped_at_creation: false,
         });
 
-        let mut camera = Self { camera_buffer };
+        let mut camera = Self {
+            camera_buffer,
+            perspective_view_projection_matrix: Matrix4::identity(),
+        };
         camera.update_buffer(&descriptor, queue);
         camera
     }
@@ -58,6 +65,7 @@ impl Camera {
 
         let perspective_view_projection_matrix =
             perspective_projection_matrix * view_projection_matrix;
+        self.perspective_view_projection_matrix = perspective_view_projection_matrix;
 
         let view_projection_transposed = view_projection_matrix.transpose();
         let perspective_projection_invert = perspective_projection_matrix
@@ -183,6 +191,10 @@ impl Camera {
         &self.camera_buffer
     }
 
+    pub fn frustum(&self) -> Frustum {
+        Frustum::from_view_projection_matrix(&self.perspective_view_projection_matrix)
+    }
+
 }
 
 // ---------------------------------------------------------------------------
@@ -221,7 +233,10 @@ impl Camera {
             mapped_at_creation: false,
         });
 
-        let mut camera = Self { camera_buffer };
+        let mut camera = Self {
+            camera_buffer,
+            perspective_view_projection_matrix: Matrix4::identity(),
+        };
         camera.update_from_parts(
             position,
             rotation,
@@ -258,6 +273,7 @@ impl Camera {
 
         let perspective_view_projection_matrix =
             perspective_projection_matrix * view_projection_matrix;
+        self.perspective_view_projection_matrix = perspective_view_projection_matrix;
         let view_projection_transposed = view_projection_matrix.transpose();
         let perspective_projection_invert = perspective_projection_matrix
             .invert()
