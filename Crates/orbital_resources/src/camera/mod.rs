@@ -195,6 +195,10 @@ impl Camera {
         Frustum::from_view_projection_matrix(&self.perspective_view_projection_matrix)
     }
 
+    pub fn perspective_view_projection_matrix(&self) -> &Matrix4<f32> {
+        &self.perspective_view_projection_matrix
+    }
+
 }
 
 // ---------------------------------------------------------------------------
