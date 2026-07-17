@@ -9,6 +9,7 @@ pub use orbital_importer_gltf as importer;
 pub use orbital_renderer as renderer;
 pub use orbital_resources as resources;
 pub use orbital_shader_preprocessor as shader_preprocessor;
+pub use orbital_debug_render as debug_render;
 
 #[cfg(test)]
 pub mod wgpu_test_adapter;
