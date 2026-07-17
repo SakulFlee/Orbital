@@ -186,7 +186,6 @@ impl AppContext {
                 color_space: SurfaceColorSpace::Auto,
             });
 
-        default_config.desired_maximum_frame_latency = 2;
         default_config.present_mode = present_mode;
         default_config.alpha_mode = CompositeAlphaMode::Auto;
         default_config.format = srgb_format;
