@@ -28,8 +28,4 @@ steps:
       - apk add --no-cache rsync
       - rm -rf /cache/target.1
       - mv /cache/target.0 /cache/target.1 || true
-      - if [ -d /cache/target.1 ]; then
-          rsync -a --delete --link-dest=../target.1 target/ /cache/target.0/
-        else
-          rsync -a --delete target/ /cache/target.0/
-        fi
+      - if [ -d /cache/target.1 ]; then rsync -a --delete --link-dest=../target.1 target/ /cache/target.0/; else rsync -a --delete target/ /cache/target.0/; fi
