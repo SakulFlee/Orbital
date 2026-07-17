@@ -383,8 +383,17 @@ impl ModuleRuntime {
 
         // Write frame-computed engine state into the ECS world
         self.ecs_world.insert_resource(DeltaTime(delta_time));
-        self.ecs_world
-            .insert_resource(InputSnapshot(self.input_state.clone()));
+        // Swap out delta states to avoid cloning the full InputState every frame.
+        // Button states are preserved in self.input_state for the next frame.
+        let delta_states = self.input_state.take_deltas();
+        self.ecs_world.insert_resource(InputSnapshot(
+            orbital_input::InputState::from_parts(
+                self.input_state.button_states().clone(),
+                delta_states,
+                self.input_state.mouse_cursor_position_state(),
+                self.input_state.surface_size(),
+            ),
+        ));
 
         // Run core schedule (timing, frame counter)
         self.core_schedule.run(&mut self.ecs_world);

@@ -31,6 +31,29 @@ impl InputState {
         }
     }
 
+    /// Construct an InputState from its individual parts.
+    pub fn from_parts(
+        button_states: HashMap<InputId, HashMap<InputButton, bool>>,
+        delta_states: HashMap<InputId, HashMap<InputAxis, Vector2<f64>>>,
+        mouse_cursor_position_state: Vector2<f64>,
+        surface_size: Option<Vector2<u64>>,
+    ) -> Self {
+        Self {
+            button_states,
+            delta_states,
+            mouse_cursor_position_state,
+            surface_size,
+        }
+    }
+
+    pub fn button_states(&self) -> &HashMap<InputId, HashMap<InputButton, bool>> {
+        &self.button_states
+    }
+
+    pub fn surface_size(&self) -> Option<Vector2<u64>> {
+        self.surface_size
+    }
+
     pub fn reset_deltas(&mut self) {
         self.delta_states.iter_mut().for_each(|(_, state)| {
             state
@@ -40,6 +63,12 @@ impl InputState {
                 })
                 .for_each(|(_, delta)| *delta = Vector2::zero())
         });
+    }
+
+    /// Take the delta states out of this InputState, leaving an empty map.
+    /// Button states and other fields are preserved.
+    pub fn take_deltas(&mut self) -> HashMap<InputId, HashMap<InputAxis, Vector2<f64>>> {
+        std::mem::take(&mut self.delta_states)
     }
 
     pub fn handle_event(&mut self, input_event: InputEvent) {
