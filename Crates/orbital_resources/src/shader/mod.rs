@@ -43,9 +43,16 @@ pub trait ShaderDescriptor {
     }
 
     fn shader_module(&self, device: &Device) -> Result<ShaderModule, ShaderError> {
-        let preprocessor = self.shader_preprocessor().unwrap_or(
-            ShaderPreprocessor::new_with_defaults().map_err(ShaderError::ShaderPreprocessor)?,
-        );
+        static DEFAULT_PREPROCESSOR: std::sync::OnceLock<Result<ShaderPreprocessor, ShaderPreprocessorError>> =
+            std::sync::OnceLock::new();
+
+        let preprocessor = self.shader_preprocessor().unwrap_or_else(|| {
+            DEFAULT_PREPROCESSOR
+                .get_or_init(|| ShaderPreprocessor::new_with_defaults())
+                .as_ref()
+                .map_err(ShaderError::ShaderPreprocessor)?
+                .clone()
+        });
 
         let shader_source = self.source().read_as_string()?;
 

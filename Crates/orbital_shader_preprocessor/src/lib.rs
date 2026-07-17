@@ -13,6 +13,7 @@ use std::{
 use glob::glob;
 use log::debug;
 
+#[derive(Clone)]
 pub struct ShaderPreprocessor {
     known_imports: HashMap<String, String>,
 }
