@@ -8,10 +8,11 @@ steps:
   restore_cache:
     image: alpine:latest
     volumes:
-      - /var/lib/woodpecker/cache/orbital-target:/cache:rw
+      - /var/lib/woodpecker/cache:/cache:rw
     commands:
       - apk add --no-cache rsync
-      - rsync -a /cache/ target/ || true
+      - mkdir -p /cache/orbital-target
+      - rsync -a /cache/orbital-target/ target/ || true
 
   test:
     image: nixos/nix:latest
@@ -23,7 +24,7 @@ steps:
   save_cache:
     image: alpine:latest
     volumes:
-      - /var/lib/woodpecker/cache/orbital-target:/cache:rw
+      - /var/lib/woodpecker/cache:/cache:rw
     commands:
       - apk add --no-cache rsync
-      - rsync -a --delete target/ /cache/
+      - rsync -a --delete target/ /cache/orbital-target/
