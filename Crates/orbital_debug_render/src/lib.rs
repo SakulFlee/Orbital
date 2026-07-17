@@ -8,7 +8,7 @@ use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState,
     Buffer, BufferBindingType, BufferDescriptor, BufferUsages, ColorTargetState, ColorWrites,
-    CompareFunction, DepthStencilState, Device, FragmentState,
+    Device, FragmentState,
     MultisampleState, PipelineLayoutDescriptor, PrimitiveState, PrimitiveTopology,
     Queue, RenderPass, RenderPipeline, RenderPipelineDescriptor, ShaderModuleDescriptor,
     ShaderSource, ShaderStages, TextureFormat, VertexAttribute, VertexBufferLayout,
@@ -192,13 +192,7 @@ impl DebugRenderer {
                 polygon_mode: wgpu::PolygonMode::Fill,
                 conservative: false,
             },
-            depth_stencil: Some(DepthStencilState {
-                format: TextureFormat::Depth32Float,
-                depth_write_enabled: Some(false),
-                depth_compare: Some(CompareFunction::Always),
-                stencil: Default::default(),
-                bias: Default::default(),
-            }),
+            depth_stencil: None,
             multisample: MultisampleState::default(),
             fragment: Some(FragmentState {
                 module: &shader,
