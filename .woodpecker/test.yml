@@ -11,17 +11,19 @@ steps:
       - /var/lib/woodpecker/cache:/cache:rw
     commands:
       - apk add --no-cache rsync
-      - mkdir -p /cache/orbital-target
-      - rsync -a /cache/orbital-target/ target/ || true
+      - mkdir -p /cache/orbital/target
+      - rsync -a /cache/orbital/target/ target/ || true
 
   test:
     image: nixos/nix:latest
     volumes:
-      - /nix:/nix:rw
+      - /var/lib/woodpecker/cache:/cache:rw
     environment:
       SKIP_GLTF_EXPORT: "true"
     commands:
-      - nix shell nixpkgs#coreutils -c "nix develop --extra-experimental-features 'nix-command flakes' --command cargo test --no-fail-fast"
+      - nix shell nixpkgs#rsync -c rsync -a /cache/orbital/nix/ /nix/store/ || true
+      - nix develop --extra-experimental-features 'nix-command flakes' --command cargo test --no-fail-fast
+      - nix shell nixpkgs#rsync -c rsync -a /nix/store/ /cache/orbital/nix/
 
   save_cache:
     image: alpine:latest
@@ -29,4 +31,4 @@ steps:
       - /var/lib/woodpecker/cache:/cache:rw
     commands:
       - apk add --no-cache rsync
-      - rsync -a --delete target/ /cache/orbital-target/
+      - rsync -a --delete target/ /cache/orbital/target/
