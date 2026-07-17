@@ -11,9 +11,9 @@ matrix:
     - x86_64-pc-windows-gnu
 
 volumes:
-  - name: cache
+  cache:
     host:
-      path: /var/lib/woodpecker/cache/{{ .Repo.Name }}
+      path: /var/lib/woodpecker/cache
 
 steps:
   restore_cache:
