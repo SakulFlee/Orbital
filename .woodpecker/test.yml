@@ -17,11 +17,11 @@ steps:
   test:
     image: nixos/nix:latest
     volumes:
-      - /nix/store:/nix/store:rw
+      - /nix:/nix:rw
     environment:
       SKIP_GLTF_EXPORT: "true"
     commands:
-      - nix develop --extra-experimental-features 'nix-command flakes' --command cargo test --no-fail-fast
+      - nix shell nixpkgs#coreutils -c "nix develop --extra-experimental-features 'nix-command flakes' --command cargo test --no-fail-fast"
 
   save_cache:
     image: alpine:latest
