@@ -34,7 +34,10 @@ impl Display for ShaderError {
                 )
             }
             Self::MissingVariable { binding } => {
-                write!(f, "Expected variable at binding {binding} but it was not found")
+                write!(
+                    f,
+                    "Expected variable at binding {binding} but it was not found"
+                )
             }
         }
     }
