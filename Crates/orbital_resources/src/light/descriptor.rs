@@ -81,66 +81,70 @@ impl LightDescriptor {
         &self.label
     }
 
-    pub fn to_buffer_data(&self) -> Vec<u8> {
-        let mut data = Vec::new();
+    pub fn to_buffer_data(&self) -> [u8; 64] {
+        let mut data = [0u8; 64];
+        let mut offset = 0;
 
         // Position (vec4) - 16 bytes
         // xyz: position, w: padding
-        data.extend_from_slice(&self.position.x.to_le_bytes());
-        data.extend_from_slice(&self.position.y.to_le_bytes());
-        data.extend_from_slice(&self.position.z.to_le_bytes());
-        data.extend_from_slice(&0f32.to_le_bytes()); // Padding
+        data[offset..offset + 4].copy_from_slice(&self.position.x.to_le_bytes());
+        offset += 4;
+        data[offset..offset + 4].copy_from_slice(&self.position.y.to_le_bytes());
+        offset += 4;
+        data[offset..offset + 4].copy_from_slice(&self.position.z.to_le_bytes());
+        offset += 4;
+        data[offset..offset + 4].copy_from_slice(&0f32.to_le_bytes()); // Padding
+        offset += 4;
 
         // Color (vec4) - 16 bytes
         // xyz: color, w: intensity
-        data.extend_from_slice(&self.color.x.to_le_bytes());
-        data.extend_from_slice(&self.color.y.to_le_bytes());
-        data.extend_from_slice(&self.color.z.to_le_bytes());
+        data[offset..offset + 4].copy_from_slice(&self.color.x.to_le_bytes());
+        offset += 4;
+        data[offset..offset + 4].copy_from_slice(&self.color.y.to_le_bytes());
+        offset += 4;
+        data[offset..offset + 4].copy_from_slice(&self.color.z.to_le_bytes());
+        offset += 4;
         let intensity = match &self.light_type {
             LightType::Point { intensity } => *intensity,
             LightType::Directional { intensity } => *intensity,
             LightType::Spot { intensity, .. } => *intensity,
         };
-        data.extend_from_slice(&intensity.to_le_bytes()); // Intensity
+        data[offset..offset + 4].copy_from_slice(&intensity.to_le_bytes());
+        offset += 4;
 
         // Direction (vec4) - 16 bytes
         // xyz: direction, w: type
-        data.extend_from_slice(&self.direction.x.to_le_bytes());
-        data.extend_from_slice(&self.direction.y.to_le_bytes());
-        data.extend_from_slice(&self.direction.z.to_le_bytes());
+        data[offset..offset + 4].copy_from_slice(&self.direction.x.to_le_bytes());
+        offset += 4;
+        data[offset..offset + 4].copy_from_slice(&self.direction.y.to_le_bytes());
+        offset += 4;
+        data[offset..offset + 4].copy_from_slice(&self.direction.z.to_le_bytes());
+        offset += 4;
         let light_type_value = match &self.light_type {
             LightType::Point { .. } => 0.0f32,       // LIGHT_TYPE_POINT
             LightType::Directional { .. } => 1.0f32, // LIGHT_TYPE_DIRECTIONAL
             LightType::Spot { .. } => 2.0f32,        // LIGHT_TYPE_SPOT
         };
-        data.extend_from_slice(&light_type_value.to_le_bytes()); // Light type
+        data[offset..offset + 4].copy_from_slice(&light_type_value.to_le_bytes());
+        offset += 4;
 
         // Params (vec4) - 16 bytes
         // x: inner cone angle, y: outer cone angle, zw: padding
-        match &self.light_type {
-            LightType::Point { .. } => {
-                data.extend_from_slice(&0f32.to_le_bytes()); // Inner cone angle
-                data.extend_from_slice(&0f32.to_le_bytes()); // Outer cone angle
-                data.extend_from_slice(&0f32.to_le_bytes()); // Padding
-                data.extend_from_slice(&0f32.to_le_bytes()); // Padding
-            }
-            LightType::Directional { .. } => {
-                data.extend_from_slice(&0f32.to_le_bytes()); // Inner cone angle
-                data.extend_from_slice(&0f32.to_le_bytes()); // Outer cone angle
-                data.extend_from_slice(&0f32.to_le_bytes()); // Padding
-                data.extend_from_slice(&0f32.to_le_bytes()); // Padding
-            }
+        let (inner_cone, outer_cone) = match &self.light_type {
+            LightType::Point { .. } | LightType::Directional { .. } => (0.0f32, 0.0f32),
             LightType::Spot {
                 inner_cone_angle,
                 outer_cone_angle,
                 ..
-            } => {
-                data.extend_from_slice(&inner_cone_angle.to_le_bytes()); // Inner cone angle
-                data.extend_from_slice(&outer_cone_angle.to_le_bytes()); // Outer cone angle
-                data.extend_from_slice(&0f32.to_le_bytes()); // Padding
-                data.extend_from_slice(&0f32.to_le_bytes()); // Padding
-            }
-        }
+            } => (*inner_cone_angle, *outer_cone_angle),
+        };
+        data[offset..offset + 4].copy_from_slice(&inner_cone.to_le_bytes());
+        offset += 4;
+        data[offset..offset + 4].copy_from_slice(&outer_cone.to_le_bytes());
+        offset += 4;
+        data[offset..offset + 4].copy_from_slice(&0f32.to_le_bytes()); // Padding
+        offset += 4;
+        data[offset..offset + 4].copy_from_slice(&0f32.to_le_bytes()); // Padding
 
         data
     }
