@@ -385,15 +385,13 @@ impl Texture {
         // Debug logging to help diagnose buffer size issues
         let expected_data_size = calculated_bytes_per_row * size.height;
         if pixels.len() != expected_data_size as usize {
-            log::warn!(
-                "Texture data size mismatch: expected {} bytes ({}x{}x{}), got {} bytes. Format: {:?}",
-                expected_data_size,
-                size.width,
-                size.height,
+            return Err(TextureError::DataSizeMismatch {
+                expected: expected_data_size as usize,
+                actual: pixels.len(),
+                width: size.width,
+                height: size.height,
                 bytes_per_pixel,
-                pixels.len(),
-                format
-            );
+            });
         }
 
         // Write the data into the texture buffer
