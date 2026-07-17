@@ -258,7 +258,7 @@ impl ModuleRuntime {
                 &view,
                 &world_bind_group,
                 env_ibl.as_ref().map(|a| a.as_ref()),
-                models,
+                &models,
                 device,
                 queue,
             );
