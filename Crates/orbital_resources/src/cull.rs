@@ -5,8 +5,7 @@ use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferDescriptor, BufferUsages,
     ComputePipeline, ComputePipelineDescriptor, Device, PipelineLayoutDescriptor,
-    ShaderModuleDescriptor, ShaderSource, ShaderStages,
-    util::DeviceExt,
+    ShaderModuleDescriptor, ShaderSource, ShaderStages, util::DeviceExt,
 };
 
 const SHADER: &str = r#"
@@ -114,89 +113,88 @@ impl CullResources {
         });
 
         // ── Bind group layout ─────────────────────────────────────────
-        let bind_group_layout =
-            device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("Cull BindGroup Layout"),
-                entries: &[
-                    // 0 — frustum planes (uniform)
-                    BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: ShaderStages::COMPUTE,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
+        let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            label: Some("Cull BindGroup Layout"),
+            entries: &[
+                // 0 — frustum planes (uniform)
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
                     },
-                    // 1 — per-model params
-                    BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: ShaderStages::COMPUTE,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Storage { read_only: true },
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
+                    count: None,
+                },
+                // 1 — per-model params
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
                     },
-                    // 2 — input instance matrices
-                    BindGroupLayoutEntry {
-                        binding: 2,
-                        visibility: ShaderStages::COMPUTE,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Storage { read_only: true },
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
+                    count: None,
+                },
+                // 2 — input instance matrices
+                BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
                     },
-                    // 3 — input instance bounds
-                    BindGroupLayoutEntry {
-                        binding: 3,
-                        visibility: ShaderStages::COMPUTE,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Storage { read_only: true },
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
+                    count: None,
+                },
+                // 3 — input instance bounds
+                BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
                     },
-                    // 4 — output compacted instances
-                    BindGroupLayoutEntry {
-                        binding: 4,
-                        visibility: ShaderStages::COMPUTE,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Storage { read_only: false },
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
+                    count: None,
+                },
+                // 4 — output compacted instances
+                BindGroupLayoutEntry {
+                    binding: 4,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Storage { read_only: false },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
                     },
-                    // 5 — per-model counters (atomic)
-                    BindGroupLayoutEntry {
-                        binding: 5,
-                        visibility: ShaderStages::COMPUTE,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Storage { read_only: false },
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
+                    count: None,
+                },
+                // 5 — per-model counters (atomic)
+                BindGroupLayoutEntry {
+                    binding: 5,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Storage { read_only: false },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
                     },
-                    // 6 — indirect draw args
-                    BindGroupLayoutEntry {
-                        binding: 6,
-                        visibility: ShaderStages::COMPUTE,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Storage { read_only: false },
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
+                    count: None,
+                },
+                // 6 — indirect draw args
+                BindGroupLayoutEntry {
+                    binding: 6,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Storage { read_only: false },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
                     },
-                ],
-            });
+                    count: None,
+                },
+            ],
+        });
 
         let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: Some("Cull Pipeline Layout"),
@@ -224,9 +222,9 @@ impl CullResources {
 
         // ── Buffers ────────────────────────────────────────────────────
         let frustum_size = 6 * 4 * 4; // 6 × vec4<f32> = 96 bytes
-        let params_size = max_models as u64 * 24;  // 6 × u32 per model
+        let params_size = max_models as u64 * 24; // 6 × u32 per model
         let instances_size = max_instances as u64 * 64; // mat4x4<f32> each
-        let bounds_size = max_instances as u64 * 16;   // vec4<f32> each
+        let bounds_size = max_instances as u64 * 16; // vec4<f32> each
         let counters_size = max_models as u64 * 4;
         let indirect_entry_size = 20u64; // DrawIndexedIndirect
 
@@ -276,13 +274,34 @@ impl CullResources {
             label: Some("Cull BindGroup"),
             layout: &bind_group_layout,
             entries: &[
-                BindGroupEntry { binding: 0, resource: frustum_buffer.as_entire_binding() },
-                BindGroupEntry { binding: 1, resource: params_buffer.as_entire_binding() },
-                BindGroupEntry { binding: 2, resource: instances_buffer.as_entire_binding() },
-                BindGroupEntry { binding: 3, resource: bounds_buffer.as_entire_binding() },
-                BindGroupEntry { binding: 4, resource: compacted_buffer.as_entire_binding() },
-                BindGroupEntry { binding: 5, resource: counters_buffer.as_entire_binding() },
-                BindGroupEntry { binding: 6, resource: indirect_buffer.as_entire_binding() },
+                BindGroupEntry {
+                    binding: 0,
+                    resource: frustum_buffer.as_entire_binding(),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: params_buffer.as_entire_binding(),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: instances_buffer.as_entire_binding(),
+                },
+                BindGroupEntry {
+                    binding: 3,
+                    resource: bounds_buffer.as_entire_binding(),
+                },
+                BindGroupEntry {
+                    binding: 4,
+                    resource: compacted_buffer.as_entire_binding(),
+                },
+                BindGroupEntry {
+                    binding: 5,
+                    resource: counters_buffer.as_entire_binding(),
+                },
+                BindGroupEntry {
+                    binding: 6,
+                    resource: indirect_buffer.as_entire_binding(),
+                },
             ],
         });
 
@@ -330,11 +349,21 @@ impl CullResources {
 
     /// First-instance offset for model `i` — in units of instances, **not**
     /// bytes. Multiply by 64 to get the byte offset into the compacted buffer.
-    pub fn max_instances(&self) -> u32 { self.max_instances }
-    pub fn max_models(&self) -> u32 { self.max_models }
-    pub fn counters_buffer(&self) -> &Buffer { &self.counters_buffer }
-    pub fn compacted_buffer(&self) -> &Buffer { &self.compacted_buffer }
-    pub fn indirect_buffer(&self) -> &Buffer { &self.indirect_buffer }
+    pub fn max_instances(&self) -> u32 {
+        self.max_instances
+    }
+    pub fn max_models(&self) -> u32 {
+        self.max_models
+    }
+    pub fn counters_buffer(&self) -> &Buffer {
+        &self.counters_buffer
+    }
+    pub fn compacted_buffer(&self) -> &Buffer {
+        &self.compacted_buffer
+    }
+    pub fn indirect_buffer(&self) -> &Buffer {
+        &self.indirect_buffer
+    }
 
     pub fn model_first_instance(&self, i: usize) -> u32 {
         self.first_instance.get(i).copied().unwrap_or(0)
@@ -352,7 +381,12 @@ impl CullResources {
     }
 
     /// Dispatch the cull and finalize compute passes.
-    pub fn dispatch(&self, encoder: &mut wgpu::CommandEncoder, num_models: u32, max_inst_per_model: u32) {
+    pub fn dispatch(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        num_models: u32,
+        max_inst_per_model: u32,
+    ) {
         // Pass 1 — cull
         {
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
