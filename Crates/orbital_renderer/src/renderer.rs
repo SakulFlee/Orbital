@@ -70,7 +70,13 @@ impl Renderer {
             );
         }
 
-        self.render_models(models, target_view, world_bind_group, &mut command_encoder, cull);
+        self.render_models(
+            models,
+            target_view,
+            world_bind_group,
+            &mut command_encoder,
+            cull,
+        );
 
         queue.submit(vec![command_encoder.finish()]);
     }

@@ -75,14 +75,20 @@ pub fn sys_frustum_cull(ecs: &mut World) {
         let mut total: u32 = 0;
 
         for &eid in realizations.dense.as_slice() {
-            let Some(real_idx) = realizations.sparse[eid] else { continue };
-            let Some(inst_idx) = instances_store.sparse[eid] else { continue };
+            let Some(real_idx) = realizations.sparse[eid] else {
+                continue;
+            };
+            let Some(inst_idx) = instances_store.sparse[eid] else {
+                continue;
+            };
 
             let model = &realizations.components[real_idx].0;
             let model_instances = &instances_store.components[inst_idx];
             let mesh = model.mesh();
             let count = model.instance_count();
-            let Some(bsphere) = mesh.bounding_sphere() else { continue };
+            let Some(bsphere) = mesh.bounding_sphere() else {
+                continue;
+            };
 
             let mut inst_bytes = Vec::with_capacity(count as usize * 64);
             let mut bounds_bytes = Vec::with_capacity(count as usize * 16);
@@ -92,14 +98,16 @@ pub fn sys_frustum_cull(ecs: &mut World) {
                 inst_bytes.extend(instance.to_buffer_data_flattened());
 
                 let m = transform.to_matrix();
-                let h = m
-                    * Vector4::new(bsphere.center.x, bsphere.center.y, bsphere.center.z, 1.0);
-                let max_scale = transform.scale.x.max(transform.scale.y).max(transform.scale.z);
+                let h = m * Vector4::new(bsphere.center.x, bsphere.center.y, bsphere.center.z, 1.0);
+                let max_scale = transform
+                    .scale
+                    .x
+                    .max(transform.scale.y)
+                    .max(transform.scale.z);
                 bounds_bytes.extend_from_slice(&h.x.to_le_bytes());
                 bounds_bytes.extend_from_slice(&h.y.to_le_bytes());
                 bounds_bytes.extend_from_slice(&h.z.to_le_bytes());
-                bounds_bytes
-                    .extend_from_slice(&(bsphere.radius * max_scale).to_le_bytes());
+                bounds_bytes.extend_from_slice(&(bsphere.radius * max_scale).to_le_bytes());
             }
 
             entries.push(Entry {
@@ -129,9 +137,9 @@ pub fn sys_frustum_cull(ecs: &mut World) {
     let max_inst_per_model = entries.iter().map(|e| e.instance_count).max().unwrap_or(1);
 
     // ── Ensure CullResources exists with sufficient capacity ──────────
-    let existing_info = ecs.get_resource::<CullResource>().map(|r| {
-        r.0.as_ref().map(|cr| (cr.max_instances(), cr.max_models()))
-    });
+    let existing_info = ecs
+        .get_resource::<CullResource>()
+        .map(|r| r.0.as_ref().map(|cr| (cr.max_instances(), cr.max_models())));
     let needs_alloc = match existing_info {
         Some(Some((max_inst, max_mdl))) => max_inst < total_instances || max_mdl < num_models,
         _ => true,
@@ -145,7 +153,9 @@ pub fn sys_frustum_cull(ecs: &mut World) {
     }
 
     // ── Get mutable access & upload ───────────────────────────────────
-    let Some(mut guard) = ecs.get_resource_mut::<CullResource>() else { return };
+    let Some(mut guard) = ecs.get_resource_mut::<CullResource>() else {
+        return;
+    };
     let Some(ref mut cr) = guard.0 else { return };
 
     cr.upload_frustum(&queue, &frustum);
@@ -166,8 +176,14 @@ pub fn sys_frustum_cull(ecs: &mut World) {
     cr.upload_params(&queue, &params_bytes);
 
     // Instances + bounds
-    let all_inst: Vec<u8> = entries.iter().flat_map(|e| e.instance_bytes.clone()).collect();
-    let all_bounds: Vec<u8> = entries.iter().flat_map(|e| e.bounds_bytes.clone()).collect();
+    let all_inst: Vec<u8> = entries
+        .iter()
+        .flat_map(|e| e.instance_bytes.clone())
+        .collect();
+    let all_bounds: Vec<u8> = entries
+        .iter()
+        .flat_map(|e| e.bounds_bytes.clone())
+        .collect();
     cr.upload_instances_and_bounds(&queue, &all_inst, &all_bounds);
 
     // Drop guard so we can borrow ecs again for encoder creation.
@@ -185,7 +201,10 @@ pub fn sys_frustum_cull(ecs: &mut World) {
         });
         let guard2 = ecs.get_resource::<CullResource>();
         let cr2 = match guard2 {
-            Some(ref r) => match r.0 { Some(ref c) => c, None => return },
+            Some(ref r) => match r.0 {
+                Some(ref c) => c,
+                None => return,
+            },
             None => return,
         };
         cmd_enc.copy_buffer_to_buffer(
@@ -205,7 +224,10 @@ pub fn sys_frustum_cull(ecs: &mut World) {
         });
         let guard3 = ecs.get_resource::<CullResource>();
         let cr3 = match guard3 {
-            Some(ref r) => match r.0 { Some(ref c) => c, None => return },
+            Some(ref r) => match r.0 {
+                Some(ref c) => c,
+                None => return,
+            },
             None => return,
         };
         cr3.dispatch(&mut cmd_enc, num_models, max_inst_per_model);
