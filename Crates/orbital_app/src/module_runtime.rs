@@ -149,13 +149,21 @@ impl ModuleRuntime {
         crate::systems::realize::realize_environment(&mut self.ecs_world);
         crate::systems::realize::realize_models(&mut self.ecs_world);
 
+        // Frustum culling — marks non‑visible instances so the renderer
+        // can skip them.
+        crate::systems::cull::sys_frustum_cull(&mut self.ecs_world);
+
         // Extract all rendering data while ecs_world is not mutably borrowed
-        let (camera_buffer, light_buffer, env_ibl, model_ptrs) = {
+        let (camera_buffer, light_buffer, env_ibl, model_ptrs, cull_info) = {
             let cb = self.extract_camera_buffer(device, queue);
             let lb = self.extract_light_buffer(device);
             let ei = self.extract_env_ibl();
             let mp = self.collect_model_ptrs();
-            (cb, lb, ei, mp)
+            let ci = self
+                .ecs_world
+                .get_resource::<orbital_ecs_bridge::CullResource>()
+                .map(|r| r.0.clone());
+            (cb, lb, ei, mp, ci)
         };
 
         // IBL BRDF (static cache)
@@ -261,6 +269,7 @@ impl ModuleRuntime {
                 models,
                 device,
                 queue,
+                cull_info.as_deref(),
             );
         }
 

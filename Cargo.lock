@@ -2114,6 +2114,7 @@ dependencies = [
  "log",
  "orbital_app",
  "orbital_core",
+ "orbital_debug_render",
  "orbital_ecs",
  "orbital_ecs_bridge",
  "orbital_importer_gltf",
@@ -2156,6 +2157,19 @@ dependencies = [
  "hashbrown 0.17.1",
  "humantime",
  "log",
+]
+
+[[package]]
+name = "orbital_debug_render"
+version = "0.1.0"
+dependencies = [
+ "cgmath",
+ "orbital_app",
+ "orbital_ecs",
+ "orbital_ecs_bridge",
+ "orbital_resources",
+ "wgpu",
+ "winit",
 ]
 
 [[package]]

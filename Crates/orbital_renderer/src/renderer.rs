@@ -5,7 +5,7 @@ use wgpu::{
     RenderPassDescriptor, StoreOp, TextureFormat, TextureView,
 };
 
-use orbital_resources::{MaterialShader, Model, Texture, WorldEnvironment};
+use orbital_resources::{CullModelInfo, MaterialShader, Model, Texture, WorldEnvironment};
 
 pub struct Renderer {
     surface_texture_format: TextureFormat,
@@ -54,6 +54,7 @@ impl Renderer {
         models: Vec<&Model>,
         device: &Device,
         queue: &Queue,
+        cull_info: Option<&[CullModelInfo]>,
     ) {
         let mut command_encoder = device.create_command_encoder(&CommandEncoderDescriptor {
             label: Some("Orbital::Render::Encoder"),
@@ -69,7 +70,7 @@ impl Renderer {
             );
         }
 
-        self.render_models(models, target_view, world_bind_group, &mut command_encoder);
+        self.render_models(models, target_view, world_bind_group, &mut command_encoder, cull_info);
 
         queue.submit(vec![command_encoder.finish()]);
     }
@@ -111,6 +112,7 @@ impl Renderer {
         target_view: &TextureView,
         world_bind_group: &BindGroup,
         command_encoder: &mut CommandEncoder,
+        cull_info: Option<&[CullModelInfo]>,
     ) {
         let mut render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
             label: Some("Model RenderPass"),
@@ -136,7 +138,15 @@ impl Renderer {
             multiview_mask: None,
         });
 
-        for model in models {
+        for (i, model) in models.iter().enumerate() {
+            let (instance_buffer, instance_count) = match cull_info {
+                Some(info) if i < info.len() => {
+                    let culled = &info[i];
+                    (&culled.visible_buffer, culled.visible_count)
+                }
+                _ => (model.instance_buffer(), model.instance_count()),
+            };
+
             for material in model.materials() {
                 render_pass.set_pipeline(material.pipeline());
 
@@ -144,15 +154,13 @@ impl Renderer {
                 render_pass.set_bind_group(1, material.bind_group(), &[]);
 
                 render_pass.set_vertex_buffer(0, model.mesh().vertex_buffer().slice(..));
-                render_pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
-                render_pass
-                    .set_index_buffer(model.mesh().index_buffer().slice(..), IndexFormat::Uint32);
-
-                render_pass.draw_indexed(
-                    0..model.mesh().index_count(),
-                    0,
-                    0..model.instance_count(),
+                render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
+                render_pass.set_index_buffer(
+                    model.mesh().index_buffer().slice(..),
+                    IndexFormat::Uint32,
                 );
+
+                render_pass.draw_indexed(0..model.mesh().index_count(), 0, 0..instance_count);
             }
         }
     }

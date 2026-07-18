@@ -30,6 +30,7 @@ pub use render_overlay::{RenderOverlay, RenderOverlayContext, RenderOverlayResou
 pub mod systems;
 pub use systems::{
     realize_cameras, realize_environment, realize_lights, realize_models, sys_camera_controller,
+    sys_frustum_cull,
 };
 
 pub use orbital_input as input;

@@ -21,6 +21,7 @@
 
 pub mod buffer;
 pub mod camera;
+pub mod cull;
 pub mod ibl_brdf;
 pub mod instance;
 pub mod light;
@@ -36,6 +37,7 @@ pub mod world_environment;
 
 pub use buffer::*;
 pub use camera::*;
+pub use cull::*;
 pub use ibl_brdf::*;
 pub use instance::*;
 pub use light::*;
