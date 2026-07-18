@@ -297,13 +297,14 @@ impl std::fmt::Debug for IblBrdfResource {
     }
 }
 
-/// Per-frame result of the frustum-culling system.
+/// GPU culling state managed by the culling system.
 ///
-/// The i‑th entry corresponds to the i‑th model in the iteration order of
-/// `ModelRealization` (same order as `collect_model_ptrs`). When empty all
-/// instances are assumed visible.
-#[derive(Debug, Clone)]
-pub struct CullResource(pub Vec<orbital_resources::CullModelInfo>);
+/// `Some` holds the [`CullResources`] instance (GPU buffers + pipelines)
+/// after the first frame of culling. `None` means culling is not active.
+///
+/// The renderer reads from this resource to issue indirect draws.
+#[derive(Debug)]
+pub struct CullResource(pub Option<orbital_resources::CullResources>);
 
 /// Queue of pending import tasks (glTF files to load).
 #[derive(Debug, Default)]
