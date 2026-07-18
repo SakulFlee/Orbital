@@ -221,21 +221,24 @@ impl ModuleRuntime {
             PREV_FREEZE.store(pressed, Ordering::Relaxed);
         }
 
-        // Frustum culling — marks non‑visible instances so the renderer
-        // can skip them.
+        // Frustum culling — dispatches GPU compute to compact visible instances
+        // and write indirect draw args.
         crate::systems::cull::sys_frustum_cull(&mut self.ecs_world);
 
+        // Keep a borrow of the cull resource for the render call below.
+        // This borrows self.ecs_world immutably — OK because all subsequent
+        // accesses of ecs_world are also immutable.
+        let cull_res = self
+            .ecs_world
+            .get_resource::<orbital_ecs_bridge::CullResource>();
+
         // Extract all rendering data while ecs_world is not mutably borrowed
-        let (camera_buffer, light_buffer, env_ibl, model_ptrs, cull_info) = {
+        let (camera_buffer, light_buffer, env_ibl, model_ptrs) = {
             let cb = self.extract_camera_buffer(device, queue);
             let lb = self.extract_light_buffer(device);
             let ei = self.extract_env_ibl();
             let mp = self.collect_model_ptrs();
-            let ci = self
-                .ecs_world
-                .get_resource::<orbital_ecs_bridge::CullResource>()
-                .map(|r| r.0.clone());
-            (cb, lb, ei, mp, ci)
+            (cb, lb, ei, mp)
         };
 
         // IBL BRDF (static cache)
@@ -334,6 +337,7 @@ impl ModuleRuntime {
 
         // Render
         if let Some(renderer) = &mut self.renderer {
+            let cull = cull_res.as_ref().and_then(|r| r.0.as_ref());
             renderer.render(
                 &view,
                 &world_bind_group,
@@ -341,7 +345,7 @@ impl ModuleRuntime {
                 models,
                 device,
                 queue,
-                cull_info.as_deref(),
+                cull,
             );
         }
 
