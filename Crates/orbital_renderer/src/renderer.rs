@@ -5,7 +5,7 @@ use wgpu::{
     RenderPassDescriptor, StoreOp, TextureFormat, TextureView,
 };
 
-use orbital_resources::{MaterialShader, Model, Texture, WorldEnvironment};
+use orbital_resources::{CullResources, MaterialShader, Model, Texture, WorldEnvironment};
 
 pub struct Renderer {
     surface_texture_format: TextureFormat,
@@ -54,6 +54,7 @@ impl Renderer {
         models: Vec<&Model>,
         device: &Device,
         queue: &Queue,
+        cull: Option<&CullResources>,
     ) {
         let mut command_encoder = device.create_command_encoder(&CommandEncoderDescriptor {
             label: Some("Orbital::Render::Encoder"),
@@ -69,7 +70,13 @@ impl Renderer {
             );
         }
 
-        self.render_models(models, target_view, world_bind_group, &mut command_encoder);
+        self.render_models(
+            models,
+            target_view,
+            world_bind_group,
+            &mut command_encoder,
+            cull,
+        );
 
         queue.submit(vec![command_encoder.finish()]);
     }
@@ -99,9 +106,7 @@ impl Renderer {
         });
 
         render_pass.set_pipeline(sky_box_shader.pipeline());
-
         render_pass.set_bind_group(0, world_bind_group, &[]);
-
         render_pass.draw(0..3, 0..1);
     }
 
@@ -111,6 +116,7 @@ impl Renderer {
         target_view: &TextureView,
         world_bind_group: &BindGroup,
         command_encoder: &mut CommandEncoder,
+        cull: Option<&CullResources>,
     ) {
         let mut render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
             label: Some("Model RenderPass"),
@@ -136,23 +142,35 @@ impl Renderer {
             multiview_mask: None,
         });
 
-        for model in models {
+        for (i, model) in models.iter().enumerate() {
             for material in model.materials() {
                 render_pass.set_pipeline(material.pipeline());
-
                 render_pass.set_bind_group(0, world_bind_group, &[]);
                 render_pass.set_bind_group(1, material.bind_group(), &[]);
-
                 render_pass.set_vertex_buffer(0, model.mesh().vertex_buffer().slice(..));
-                render_pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
-                render_pass
-                    .set_index_buffer(model.mesh().index_buffer().slice(..), IndexFormat::Uint32);
 
-                render_pass.draw_indexed(
-                    0..model.mesh().index_count(),
-                    0,
-                    0..model.instance_count(),
-                );
+                if let Some(cr) = cull {
+                    // GPU-culled: read from compacted output at model offset
+                    let byte_off = cr.model_first_instance(i) as u64 * 64;
+                    render_pass.set_vertex_buffer(1, cr.compacted_buffer().slice(byte_off..));
+                    render_pass.set_index_buffer(
+                        model.mesh().index_buffer().slice(..),
+                        IndexFormat::Uint32,
+                    );
+                    render_pass.draw_indexed_indirect(cr.indirect_buffer(), i as u64 * 20);
+                } else {
+                    // Un-culled: draw all instances from the original buffer
+                    render_pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
+                    render_pass.set_index_buffer(
+                        model.mesh().index_buffer().slice(..),
+                        IndexFormat::Uint32,
+                    );
+                    render_pass.draw_indexed(
+                        0..model.mesh().index_count(),
+                        0,
+                        0..model.instance_count(),
+                    );
+                }
             }
         }
     }

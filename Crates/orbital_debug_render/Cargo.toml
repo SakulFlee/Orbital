@@ -1,0 +1,14 @@
+[package]
+name = "orbital_debug_render"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+cgmath = { workspace = true }
+wgpu = { workspace = true }
+winit = { workspace = true }
+
+orbital_app = { path = "../orbital_app" }
+orbital_ecs = { path = "../ecs" }
+orbital_ecs_bridge = { path = "../orbital_ecs_bridge" }
+orbital_resources = { path = "../orbital_resources" }
