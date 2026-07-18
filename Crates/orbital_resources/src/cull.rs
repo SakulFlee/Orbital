@@ -397,7 +397,7 @@ impl CullResources {
             pass.set_bind_group(0, &self.bind_group, &[]);
             // Dispatch: X = instances per model (rounded up to workgroup size),
             //          Y = number of models
-            let wg_x = (max_inst_per_model + 63) / 64;
+            let wg_x = max_inst_per_model.div_ceil(64);
             pass.dispatch_workgroups(wg_x.max(1), num_models.max(1), 1);
         }
 
