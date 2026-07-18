@@ -471,11 +471,15 @@ impl RenderOverlay for DebugRenderOverlay {
 /// ```
 pub struct DebugModule {
     toggle_key: Option<KeyCode>,
+    freeze_key: Option<KeyCode>,
 }
 
 impl DebugModule {
     pub fn new() -> Self {
-        Self { toggle_key: None }
+        Self {
+            toggle_key: None,
+            freeze_key: None,
+        }
     }
 
     /// Set the key that toggles the debug overlay.
@@ -483,6 +487,14 @@ impl DebugModule {
     /// Defaults to `F3` when not called.
     pub fn with_keybind(mut self, key: KeyCode) -> Self {
         self.toggle_key = Some(key);
+        self
+    }
+
+    /// Set the key that freezes / unfreezes the culling frustum.
+    ///
+    /// Defaults to `F4` when not called.
+    pub fn with_freeze_key(mut self, key: KeyCode) -> Self {
+        self.freeze_key = Some(key);
         self
     }
 }
@@ -509,6 +521,9 @@ impl Module for DebugModule {
         let inner = DebugRenderer::new(device, format);
         let overlay = DebugRenderOverlay { inner };
 
+        ecs.insert_resource(orbital_app::FreezeKeyConfig(
+            self.freeze_key.unwrap_or(KeyCode::F4),
+        ));
         ecs.insert_resource(DebugToggleState {
             key: self.toggle_key.unwrap_or(KeyCode::F3),
             was_pressed: false,

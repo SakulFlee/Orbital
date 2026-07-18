@@ -149,21 +149,27 @@ impl ModuleRuntime {
         crate::systems::realize::realize_environment(&mut self.ecs_world);
         crate::systems::realize::realize_models(&mut self.ecs_world);
 
-        // Freeze/unfreeze the culling frustum (F4)
+        // Freeze/unfreeze the culling frustum (default F4)
         {
             use std::sync::atomic::Ordering;
             use orbital_input::InputButton;
-            use winit::keyboard::{KeyCode, PhysicalKey};
+            use winit::keyboard::PhysicalKey;
 
             static PREV_FREEZE: std::sync::atomic::AtomicBool =
                 std::sync::atomic::AtomicBool::new(false);
+
+            let freeze_key = self
+                .ecs_world
+                .get_resource::<crate::FreezeKeyConfig>()
+                .map(|c| c.0)
+                .unwrap_or(winit::keyboard::KeyCode::F4);
 
             let input_res = self.ecs_world.get_resource::<InputSnapshot>();
             let pressed = input_res
                 .map(|input| {
                     input
                         .0
-                        .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(KeyCode::F4)))
+                        .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(freeze_key)))
                         .map(|(_, s)| s)
                         .unwrap_or(false)
                 })
