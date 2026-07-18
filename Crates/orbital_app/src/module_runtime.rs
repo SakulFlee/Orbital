@@ -200,9 +200,8 @@ impl ModuleRuntime {
                                 let cam = arc_cam.read().unwrap();
                                 orbital_ecs_bridge::FrozenFrustumData {
                                     frustum: cam.frustum(),
-                                    perspective_view_projection_matrix: cam
-                                        .perspective_view_projection_matrix()
-                                        .clone(),
+                                    perspective_view_projection_matrix: *cam
+                                        .perspective_view_projection_matrix(),
                                 }
                             })
                         })
