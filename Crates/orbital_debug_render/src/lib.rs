@@ -485,7 +485,7 @@ impl DebugModule {
     /// Set the key that toggles the debug overlay.
     ///
     /// Defaults to `F3` when not called.
-    pub fn with_keybind(mut self, key: KeyCode) -> Self {
+    pub fn with_toggle_key(mut self, key: KeyCode) -> Self {
         self.toggle_key = Some(key);
         self
     }

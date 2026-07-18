@@ -29,7 +29,7 @@ pub fn entrypoint(
 
     match App::new()
         .add_module(InstancingModule)
-        .add_module(DebugModule::new().with_keybind(KeyCode::F3))
+        .add_module(DebugModule::new().with_toggle_key(KeyCode::F3).with_freeze_key(KeyCode::F4))
         .liftoff(event_loop, app_settings)
     {
         Ok(()) => info!("Cleanly exited!"),
