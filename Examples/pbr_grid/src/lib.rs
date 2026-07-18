@@ -1,5 +1,6 @@
 use orbital::app::{App, AppSettings, Module, sys_camera_controller};
 use orbital::cgmath::{Point3, Rad};
+use orbital::debug_render::DebugModule;
 use orbital::ecs::{IntoSystem, System, World};
 use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, EnvironmentDescriptorResource,
@@ -8,6 +9,7 @@ use orbital::ecs_bridge::{
 use orbital::importer::{ImportTask, gltf::GltfImport};
 use orbital::logging::{self, error, info};
 use orbital::resources::WorldEnvironmentDescriptor;
+use winit::keyboard::KeyCode;
 
 pub const NAME: &str = "Orbital-Demo-Project: PBRSpheres";
 
@@ -27,6 +29,11 @@ pub fn entrypoint(
 
     match App::new()
         .add_module(PbrGridModule)
+        .add_module(
+            DebugModule::new()
+                .with_toggle_key(KeyCode::F3)
+                .with_freeze_key(KeyCode::F4),
+        )
         .liftoff(event_loop, app_settings)
     {
         Ok(()) => info!("Cleanly exited!"),
