@@ -251,12 +251,18 @@ impl DebugRenderer {
     }
 
     /// Draw bounding-sphere wireframes and (optionally) the camera frustum.
+    ///
+    /// `frustum_color` is used when `frustum_corners` is `Some`.
+    /// Default to `[1.0, 1.0, 0.0]` (yellow) for the live frustum,
+    /// `[0.0, 1.0, 1.0]` (cyan) for the live frustum when a frozen
+    /// frustum is also visible.
     pub fn render(
         &mut self,
         render_pass: &mut RenderPass,
         camera_buffer: &Buffer,
         spheres: &[SphereInstance],
         frustum_corners: Option<&[Point3<f32>; 8]>,
+        frustum_color: [f32; 3],
         queue: &Queue,
     ) {
         if !self.enabled {
@@ -282,7 +288,7 @@ impl DebugRenderer {
                     verts.push(c.x);
                     verts.push(c.y);
                     verts.push(c.z);
-                    verts.extend_from_slice(&[1.0, 1.0, 0.0]);
+                    verts.extend_from_slice(&frustum_color);
                 }
             }
         }
@@ -385,8 +391,14 @@ impl RenderOverlay for DebugRenderOverlay {
             return;
         }
 
-        let spheres = collect_spheres(ctx.ecs);
-        let corners = camera_frustum_corners(ctx.ecs);
+        let frozen_data = ctx
+            .ecs
+            .get_resource::<orbital_ecs_bridge::FrozenFrustum>()
+            .and_then(|f| f.0.clone());
+
+        let spheres = collect_spheres(ctx.ecs, frozen_data.as_ref().map(|f| &f.frustum));
+
+        let live_corners = camera_frustum_corners(ctx.ecs);
 
         let mut enc =
             ctx.device
@@ -410,13 +422,41 @@ impl RenderOverlay for DebugRenderOverlay {
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
-            self.inner.render(
-                &mut pass,
-                ctx.camera_buffer,
-                &spheres,
-                corners.as_ref(),
-                ctx.queue,
-            );
+
+            if let Some(ref frozen) = frozen_data {
+                // Draw frozen frustum in yellow
+                let frozen_corners =
+                    frustum_corners_from_matrix(&frozen.perspective_view_projection_matrix);
+                self.inner.render(
+                    &mut pass,
+                    ctx.camera_buffer,
+                    &spheres,
+                    Some(&frozen_corners),
+                    [1.0, 1.0, 0.0],
+                    ctx.queue,
+                );
+                // Draw live frustum in cyan for reference
+                if let Some(corners) = live_corners {
+                    self.inner.render(
+                        &mut pass,
+                        ctx.camera_buffer,
+                        &[],
+                        Some(&corners),
+                        [0.0, 1.0, 1.0],
+                        ctx.queue,
+                    );
+                }
+            } else {
+                // Normal mode — draw spheres + single live frustum
+                self.inner.render(
+                    &mut pass,
+                    ctx.camera_buffer,
+                    &spheres,
+                    live_corners.as_ref(),
+                    [1.0, 1.0, 0.0],
+                    ctx.queue,
+                );
+            }
         }
         ctx.queue.submit(vec![enc.finish()]);
     }
@@ -486,7 +526,7 @@ impl Module for DebugModule {
 // ECS data collection helpers
 // ---------------------------------------------------------------------------
 
-fn collect_spheres(ecs: &World) -> Vec<SphereInstance> {
+fn collect_spheres(ecs: &World, frozen_frustum: Option<&orbital_resources::Frustum>) -> Vec<SphereInstance> {
     let mut spheres = Vec::new();
 
     let realizations = match ecs.get_component_store::<ModelRealization>() {
@@ -519,10 +559,21 @@ fn collect_spheres(ecs: &World) -> Vec<SphereInstance> {
                 .max(transform.scale.z);
             let world_radius = bsphere.radius * max_scale;
 
+            let color = match frozen_frustum {
+                Some(frustum) => {
+                    if frustum.intersects_sphere(&world_center, world_radius) {
+                        [0.0, 1.0, 0.0] // green — visible
+                    } else {
+                        [1.0, 0.0, 0.0] // red — culled
+                    }
+                }
+                None => [0.0, 1.0, 0.0],
+            };
+
             spheres.push(SphereInstance {
                 center: world_center,
                 radius: world_radius,
-                color: [0.0, 1.0, 0.0],
+                color,
             });
         }
     }
