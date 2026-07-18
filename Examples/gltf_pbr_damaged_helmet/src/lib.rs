@@ -1,5 +1,6 @@
 use orbital::app::{App, AppSettings, Module, sys_camera_controller};
 use orbital::cgmath::{Point3, Rad, Vector3};
+use orbital::debug_render::DebugModule;
 use orbital::ecs::{IntoSystem, System, World};
 use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, EnvironmentDescriptorResource,
@@ -8,6 +9,7 @@ use orbital::ecs_bridge::{
 use orbital::importer::{ImportTask, gltf::GltfImport};
 use orbital::logging::{self, error, info};
 use orbital::resources::WorldEnvironmentDescriptor;
+use winit::keyboard::KeyCode;
 
 pub const NAME: &str = "Orbital-Demo-Project: DamagedHelmet";
 
@@ -27,6 +29,7 @@ pub fn entrypoint(
 
     match App::new()
         .add_module(DamagedHelmetModule)
+        .add_module(DebugModule::new().with_keybind(KeyCode::F3))
         .liftoff(event_loop, app_settings)
     {
         Ok(()) => info!("Cleanly exited!"),

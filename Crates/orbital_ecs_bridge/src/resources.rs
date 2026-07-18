@@ -297,6 +297,14 @@ impl std::fmt::Debug for IblBrdfResource {
     }
 }
 
+/// Per-frame result of the frustum-culling system.
+///
+/// The i‑th entry corresponds to the i‑th model in the iteration order of
+/// `ModelRealization` (same order as `collect_model_ptrs`). When empty all
+/// instances are assumed visible.
+#[derive(Debug, Clone)]
+pub struct CullResource(pub Vec<orbital_resources::CullModelInfo>);
+
 /// Queue of pending import tasks (glTF files to load).
 #[derive(Debug, Default)]
 pub struct ImportQueueResource(pub Vec<orbital_importer_gltf::ImportTask>);
