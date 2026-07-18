@@ -1,8 +1,8 @@
 use cgmath::{Point3, Vector4};
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
-    ActiveCamera, CullResource, DeviceResource, EcsCameraStore, ModelInstances, ModelRealization,
-    QueueResource,
+    ActiveCamera, CullResource, DeviceResource, EcsCameraStore, FrozenFrustum, ModelInstances,
+    ModelRealization, QueueResource,
 };
 use orbital_resources::{CullModelInfo, Instance, Transform};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
@@ -27,21 +27,29 @@ pub fn sys_frustum_cull(ecs: &mut World) {
     };
 
     // --- Camera frustum ----------------------------------------------------
+    // Use frozen frustum when set, otherwise derive from the live camera.
     let frustum = {
-        let active = match ecs.get_resource::<ActiveCamera>() {
-            Some(a) => a.0,
-            None => return,
-        };
-        let store = match ecs.get_resource::<EcsCameraStore>() {
-            Some(s) => s,
-            None => return,
-        };
-        let arc_cam = match store.get(active.index) {
-            Some(c) => c,
-            None => return,
-        };
-        let cam = arc_cam.read().unwrap();
-        cam.frustum()
+        let frozen = ecs
+            .get_resource::<FrozenFrustum>()
+            .and_then(|f| f.0.clone());
+        if let Some(ref data) = frozen {
+            data.frustum.clone()
+        } else {
+            let active = match ecs.get_resource::<ActiveCamera>() {
+                Some(a) => a.0,
+                None => return,
+            };
+            let store = match ecs.get_resource::<EcsCameraStore>() {
+                Some(s) => s,
+                None => return,
+            };
+            let arc_cam = match store.get(active.index) {
+                Some(c) => c,
+                None => return,
+            };
+            let cam = arc_cam.read().unwrap();
+            cam.frustum()
+        }
     };
 
     // --- Model stores ------------------------------------------------------

@@ -338,3 +338,24 @@ impl std::fmt::Debug for ImporterResource {
         f.debug_struct("ImporterResource").finish()
     }
 }
+
+/// The frustum data captured when freezing.
+///
+/// See [`FrozenFrustum`].
+#[derive(Debug, Clone)]
+pub struct FrozenFrustumData {
+    pub frustum: orbital_resources::Frustum,
+    /// Stored so the debug overlay can draw the frozen frustum wireframe
+    /// without recomputing it from the planes.
+    pub perspective_view_projection_matrix: cgmath::Matrix4<f32>,
+}
+
+/// A frozen frustum captured at a specific camera position.
+///
+/// When `Some`, [`sys_frustum_cull`] uses it instead of the live camera
+/// frustum. This lets you move the camera around and see exactly which
+/// instances are culled.
+///
+/// Press F4 (in the main loop) to toggle capture.
+#[derive(Debug, Clone)]
+pub struct FrozenFrustum(pub Option<FrozenFrustumData>);

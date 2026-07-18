@@ -149,6 +149,70 @@ impl ModuleRuntime {
         crate::systems::realize::realize_environment(&mut self.ecs_world);
         crate::systems::realize::realize_models(&mut self.ecs_world);
 
+        // Freeze/unfreeze the culling frustum (F4)
+        {
+            use std::sync::atomic::Ordering;
+            use orbital_input::InputButton;
+            use winit::keyboard::{KeyCode, PhysicalKey};
+
+            static PREV_FREEZE: std::sync::atomic::AtomicBool =
+                std::sync::atomic::AtomicBool::new(false);
+
+            let input_res = self.ecs_world.get_resource::<InputSnapshot>();
+            let pressed = input_res
+                .map(|input| {
+                    input
+                        .0
+                        .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(KeyCode::F4)))
+                        .map(|(_, s)| s)
+                        .unwrap_or(false)
+                })
+                .unwrap_or(false);
+
+            if pressed && !PREV_FREEZE.load(Ordering::Relaxed) {
+                // Rising edge — toggle frozen state.
+                // Read the current state (immutable borrow of ecs_world).
+                let was_frozen = self
+                    .ecs_world
+                    .get_resource::<orbital_ecs_bridge::FrozenFrustum>()
+                    .and_then(|f| f.0.clone())
+                    .is_some();
+
+                // Read camera data while ecs_world is still immutably borrowed.
+                let capture = if !was_frozen {
+                    let active_cam =
+                        self.ecs_world
+                            .get_resource::<orbital_ecs_bridge::ActiveCamera>();
+                    let store =
+                        self.ecs_world
+                            .get_resource::<orbital_ecs_bridge::EcsCameraStore>();
+                    active_cam.and_then(|active| {
+                        store.and_then(|s| {
+                            s.get(active.0.index).map(|arc_cam| {
+                                let cam = arc_cam.read().unwrap();
+                                orbital_ecs_bridge::FrozenFrustumData {
+                                    frustum: cam.frustum(),
+                                    perspective_view_projection_matrix: cam
+                                        .perspective_view_projection_matrix()
+                                        .clone(),
+                                }
+                            })
+                        })
+                    })
+                } else {
+                    None
+                };
+
+                // Now mutate ecs_world.
+                self.ecs_world.insert_resource(
+                    orbital_ecs_bridge::FrozenFrustum(
+                        if was_frozen { None } else { capture },
+                    ),
+                );
+            }
+            PREV_FREEZE.store(pressed, Ordering::Relaxed);
+        }
+
         // Frustum culling — marks non‑visible instances so the renderer
         // can skip them.
         crate::systems::cull::sys_frustum_cull(&mut self.ecs_world);
