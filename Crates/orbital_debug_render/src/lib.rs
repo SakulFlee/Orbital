@@ -8,11 +8,10 @@ use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState,
     Buffer, BufferBindingType, BufferDescriptor, BufferUsages, ColorTargetState, ColorWrites,
-    Device, FragmentState,
-    MultisampleState, PipelineLayoutDescriptor, PrimitiveState, PrimitiveTopology,
-    Queue, RenderPass, RenderPipeline, RenderPipelineDescriptor, ShaderModuleDescriptor,
-    ShaderSource, ShaderStages, TextureFormat, VertexAttribute, VertexBufferLayout,
-    VertexFormat, VertexState, VertexStepMode,
+    Device, FragmentState, MultisampleState, PipelineLayoutDescriptor, PrimitiveState,
+    PrimitiveTopology, Queue, RenderPass, RenderPipeline, RenderPipelineDescriptor,
+    ShaderModuleDescriptor, ShaderSource, ShaderStages, TextureFormat, VertexAttribute,
+    VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
 };
 use winit::keyboard::{KeyCode, PhysicalKey};
 
@@ -56,9 +55,18 @@ fn sphere_wireframe_unit() -> Vec<[f32; 3]> {
 }
 
 const FRUSTUM_EDGES: [(usize, usize); 12] = [
-    (0, 1), (1, 3), (3, 2), (2, 0),
-    (4, 5), (5, 7), (7, 6), (6, 4),
-    (0, 4), (1, 5), (2, 6), (3, 7),
+    (0, 1),
+    (1, 3),
+    (3, 2),
+    (2, 0),
+    (4, 5),
+    (5, 7),
+    (7, 6),
+    (6, 4),
+    (0, 4),
+    (1, 5),
+    (2, 6),
+    (3, 7),
 ];
 
 // ---------------------------------------------------------------------------
@@ -136,20 +144,19 @@ impl DebugRenderer {
             source: ShaderSource::Wgsl(SHADER_SRC.into()),
         });
 
-        let bind_group_layout =
-            device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("Debug Camera BindGroup Layout"),
-                entries: &[BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::VERTEX,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-            });
+        let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            label: Some("Debug Camera BindGroup Layout"),
+            entries: &[BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStages::VERTEX,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+        });
 
         let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: Some("Debug Pipeline Layout"),
@@ -297,9 +304,8 @@ impl DebugRenderer {
             return;
         }
 
-        let bytes = unsafe {
-            std::slice::from_raw_parts(verts.as_ptr() as *const u8, verts.len() * 4)
-        };
+        let bytes =
+            unsafe { std::slice::from_raw_parts(verts.as_ptr() as *const u8, verts.len() * 4) };
         queue.write_buffer(&self.vertex_buffer, 0, bytes);
 
         let cb_ptr = camera_buffer as *const Buffer as usize;
@@ -358,10 +364,7 @@ pub struct DebugToggleState {
 }
 
 /// ECS system that toggles the debug overlay on keypress.
-pub fn sys_debug_toggle(
-    input: Res<InputSnapshot>,
-    mut state: ResMut<DebugToggleState>,
-) {
+pub fn sys_debug_toggle(input: Res<InputSnapshot>, mut state: ResMut<DebugToggleState>) {
     let pressed = input
         .0
         .button_state_any(&orbital_app::input::InputButton::Keyboard(
@@ -400,11 +403,11 @@ impl RenderOverlay for DebugRenderOverlay {
 
         let live_corners = camera_frustum_corners(ctx.ecs);
 
-        let mut enc =
-            ctx.device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("Debug Overlay Encoder"),
-                });
+        let mut enc = ctx
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Debug Overlay Encoder"),
+            });
         {
             let mut pass = enc.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Debug Overlay RenderPass"),
@@ -506,12 +509,7 @@ impl Default for DebugModule {
 }
 
 impl Module for DebugModule {
-    fn setup(
-        &self,
-        ecs: &mut World,
-        device: &Device,
-        _queue: &Queue,
-    ) -> Vec<Box<dyn System>> {
+    fn setup(&self, ecs: &mut World, device: &Device, _queue: &Queue) -> Vec<Box<dyn System>> {
         // Surface format — needed for pipeline creation.
         let format = ecs
             .get_resource::<orbital_ecs_bridge::SurfaceFormatResource>()
@@ -541,7 +539,10 @@ impl Module for DebugModule {
 // ECS data collection helpers
 // ---------------------------------------------------------------------------
 
-fn collect_spheres(ecs: &World, frozen_frustum: Option<&orbital_resources::Frustum>) -> Vec<SphereInstance> {
+fn collect_spheres(
+    ecs: &World,
+    frozen_frustum: Option<&orbital_resources::Frustum>,
+) -> Vec<SphereInstance> {
     let mut spheres = Vec::new();
 
     let realizations = match ecs.get_component_store::<ModelRealization>() {
@@ -554,17 +555,24 @@ fn collect_spheres(ecs: &World, frozen_frustum: Option<&orbital_resources::Frust
     };
 
     for &eid in realizations.dense.as_slice() {
-        let Some(real_idx) = realizations.sparse[eid] else { continue };
-        let Some(inst_idx) = instances.sparse[eid] else { continue };
+        let Some(real_idx) = realizations.sparse[eid] else {
+            continue;
+        };
+        let Some(inst_idx) = instances.sparse[eid] else {
+            continue;
+        };
 
         let model = &realizations.components[real_idx].0;
         let mesh = model.mesh();
-        let Some(bsphere) = mesh.bounding_sphere() else { continue };
+        let Some(bsphere) = mesh.bounding_sphere() else {
+            continue;
+        };
 
         let model_instances = &instances.components[inst_idx];
         for transform in model_instances.0.values() {
             let m = transform.to_matrix();
-            let center_h = m * Vector4::new(bsphere.center.x, bsphere.center.y, bsphere.center.z, 1.0);
+            let center_h =
+                m * Vector4::new(bsphere.center.x, bsphere.center.y, bsphere.center.z, 1.0);
             let world_center = Point3::new(center_h.x, center_h.y, center_h.z);
 
             let max_scale = transform

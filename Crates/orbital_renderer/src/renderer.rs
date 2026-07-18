@@ -70,7 +70,13 @@ impl Renderer {
             );
         }
 
-        self.render_models(models, target_view, world_bind_group, &mut command_encoder, cull_info);
+        self.render_models(
+            models,
+            target_view,
+            world_bind_group,
+            &mut command_encoder,
+            cull_info,
+        );
 
         queue.submit(vec![command_encoder.finish()]);
     }
@@ -155,10 +161,8 @@ impl Renderer {
 
                 render_pass.set_vertex_buffer(0, model.mesh().vertex_buffer().slice(..));
                 render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
-                render_pass.set_index_buffer(
-                    model.mesh().index_buffer().slice(..),
-                    IndexFormat::Uint32,
-                );
+                render_pass
+                    .set_index_buffer(model.mesh().index_buffer().slice(..), IndexFormat::Uint32);
 
                 render_pass.draw_indexed(0..model.mesh().index_count(), 0, 0..instance_count);
             }

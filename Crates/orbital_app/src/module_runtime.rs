@@ -22,7 +22,9 @@ use winit::{
     window::{CursorGrabMode, WindowId},
 };
 
-use crate::{AppContext, AppSettings, AppState, Module, Timer, make_core_schedule, RenderOverlayResource};
+use crate::{
+    AppContext, AppSettings, AppState, Module, RenderOverlayResource, Timer, make_core_schedule,
+};
 use orbital_ecs_bridge::{
     CursorGrabConfig, CursorPosition, DeltaTime, DeviceResource, EcsCameraStore, EngineEvent,
     EngineEvents, FrameCounter, InputSnapshot, QueueResource, SurfaceFormatResource, TotalTime,
@@ -151,8 +153,8 @@ impl ModuleRuntime {
 
         // Freeze/unfreeze the culling frustum (default F4)
         {
-            use std::sync::atomic::Ordering;
             use orbital_input::InputButton;
+            use std::sync::atomic::Ordering;
             use winit::keyboard::PhysicalKey;
 
             static PREV_FREEZE: std::sync::atomic::AtomicBool =
@@ -186,12 +188,12 @@ impl ModuleRuntime {
 
                 // Read camera data while ecs_world is still immutably borrowed.
                 let capture = if !was_frozen {
-                    let active_cam =
-                        self.ecs_world
-                            .get_resource::<orbital_ecs_bridge::ActiveCamera>();
-                    let store =
-                        self.ecs_world
-                            .get_resource::<orbital_ecs_bridge::EcsCameraStore>();
+                    let active_cam = self
+                        .ecs_world
+                        .get_resource::<orbital_ecs_bridge::ActiveCamera>();
+                    let store = self
+                        .ecs_world
+                        .get_resource::<orbital_ecs_bridge::EcsCameraStore>();
                     active_cam.and_then(|active| {
                         store.and_then(|s| {
                             s.get(active.0.index).map(|arc_cam| {
@@ -210,11 +212,12 @@ impl ModuleRuntime {
                 };
 
                 // Now mutate ecs_world.
-                self.ecs_world.insert_resource(
-                    orbital_ecs_bridge::FrozenFrustum(
-                        if was_frozen { None } else { capture },
-                    ),
-                );
+                self.ecs_world
+                    .insert_resource(orbital_ecs_bridge::FrozenFrustum(if was_frozen {
+                        None
+                    } else {
+                        capture
+                    }));
             }
             PREV_FREEZE.store(pressed, Ordering::Relaxed);
         }

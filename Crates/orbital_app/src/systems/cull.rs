@@ -67,76 +67,79 @@ pub fn sys_frustum_cull(ecs: &mut World) {
         let mut info: Vec<CullModelInfo> = Vec::new();
 
         for &eid in realizations.dense.as_slice() {
-        let Some(real_idx) = realizations.sparse[eid] else {
-            continue;
-        };
-        let Some(inst_idx) = instances_store.sparse[eid] else {
-            continue;
-        };
+            let Some(real_idx) = realizations.sparse[eid] else {
+                continue;
+            };
+            let Some(inst_idx) = instances_store.sparse[eid] else {
+                continue;
+            };
 
-        let model = &realizations.components[real_idx].0;
-        let model_instances = &instances_store.components[inst_idx];
-        let mesh = model.mesh();
-        let total_count = model.instance_count();
+            let model = &realizations.components[real_idx].0;
+            let model_instances = &instances_store.components[inst_idx];
+            let mesh = model.mesh();
+            let total_count = model.instance_count();
 
-        let Some(bsphere) = mesh.bounding_sphere() else {
-            // No bounds — assume all visible.
-            info.push(CullModelInfo {
-                visible_count: total_count,
-                visible_buffer: model.instance_buffer().clone(),
-            });
-            continue;
-        };
+            let Some(bsphere) = mesh.bounding_sphere() else {
+                // No bounds — assume all visible.
+                info.push(CullModelInfo {
+                    visible_count: total_count,
+                    visible_buffer: model.instance_buffer().clone(),
+                });
+                continue;
+            };
 
-        // Test each instance against the frustum.
-        let visible_transforms: Vec<&Transform> = model_instances
-            .0
-            .values()
-            .filter(|transform| {
-                let m = transform.to_matrix();
-                let h = m * Vector4::new(bsphere.center.x, bsphere.center.y, bsphere.center.z, 1.0);
-                let world_center = Point3::new(h.x, h.y, h.z);
+            // Test each instance against the frustum.
+            let visible_transforms: Vec<&Transform> = model_instances
+                .0
+                .values()
+                .filter(|transform| {
+                    let m = transform.to_matrix();
+                    let h =
+                        m * Vector4::new(bsphere.center.x, bsphere.center.y, bsphere.center.z, 1.0);
+                    let world_center = Point3::new(h.x, h.y, h.z);
 
-                let max_scale = transform
-                    .scale
-                    .x
-                    .max(transform.scale.y)
-                    .max(transform.scale.z);
-                let world_radius = bsphere.radius * max_scale;
+                    let max_scale = transform
+                        .scale
+                        .x
+                        .max(transform.scale.y)
+                        .max(transform.scale.z);
+                    let world_radius = bsphere.radius * max_scale;
 
-                frustum.intersects_sphere(&world_center, world_radius)
-            })
-            .collect();
-
-        let visible_count = visible_transforms.len() as u32;
-
-        if visible_count == total_count {
-            // All visible — reuse the original instance buffer.
-            info.push(CullModelInfo {
-                visible_count,
-                visible_buffer: model.instance_buffer().clone(),
-            });
-        } else if visible_count == 0 {
-            // Nothing visible.
-            info.push(CullModelInfo::empty(&device));
-        } else {
-            // Build a filtered buffer with only the visible instances.
-            let instances: Vec<Instance> =
-                visible_transforms.iter().map(|t| Instance::from(*t)).collect();
-            let buffer_data: Vec<u8> = instances
-                .iter()
-                .flat_map(|i| i.to_buffer_data_flattened())
+                    frustum.intersects_sphere(&world_center, world_radius)
+                })
                 .collect();
-            let buffer = device.create_buffer_init(&BufferInitDescriptor {
-                label: Some("Culled Instance Buffer"),
-                contents: &buffer_data,
-                usage: wgpu::BufferUsages::VERTEX,
-            });
-            info.push(CullModelInfo {
-                visible_count,
-                visible_buffer: buffer,
-            });
-        }
+
+            let visible_count = visible_transforms.len() as u32;
+
+            if visible_count == total_count {
+                // All visible — reuse the original instance buffer.
+                info.push(CullModelInfo {
+                    visible_count,
+                    visible_buffer: model.instance_buffer().clone(),
+                });
+            } else if visible_count == 0 {
+                // Nothing visible.
+                info.push(CullModelInfo::empty(&device));
+            } else {
+                // Build a filtered buffer with only the visible instances.
+                let instances: Vec<Instance> = visible_transforms
+                    .iter()
+                    .map(|t| Instance::from(*t))
+                    .collect();
+                let buffer_data: Vec<u8> = instances
+                    .iter()
+                    .flat_map(|i| i.to_buffer_data_flattened())
+                    .collect();
+                let buffer = device.create_buffer_init(&BufferInitDescriptor {
+                    label: Some("Culled Instance Buffer"),
+                    contents: &buffer_data,
+                    usage: wgpu::BufferUsages::VERTEX,
+                });
+                info.push(CullModelInfo {
+                    visible_count,
+                    visible_buffer: buffer,
+                });
+            }
         }
         info
     };
