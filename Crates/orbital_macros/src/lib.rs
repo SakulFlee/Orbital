@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, ItemFn};
+use syn::{ItemFn, parse_macro_input};
 
 fn entrypoint_impl(item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as ItemFn);

@@ -32,7 +32,8 @@ pub fn init() {
                 } else {
                     let next_log_file = format!("game-{}.log", i + 1);
 
-                    fs::rename(path, next_log_file).expect("failed renaming log file to next index");
+                    fs::rename(path, next_log_file)
+                        .expect("failed renaming log file to next index");
                 }
             }
         }
