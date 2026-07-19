@@ -110,7 +110,7 @@ struct ShadowData {
 }
 
 @group(0) @binding(8) var<uniform> shadow_data: ShadowData;
-@group(0) @binding(9) var shadow_map_array: texture_depth_2d_array<f32>;
+@group(0) @binding(9) var shadow_map_array: texture_depth_2d_array;
 @group(0) @binding(10) var shadow_sampler: sampler_comparison;
 
 @group(1) @binding(0) var normal_texture: texture_2d<f32>;
