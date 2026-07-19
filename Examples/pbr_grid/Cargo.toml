@@ -5,7 +5,7 @@ edition = "2024"
 
 [[bin]]
 name = "test_pbr_grid_desktop"
-path = "src/main.rs"
+path = "src/lib.rs"
 
 [lib]
 name = "test_pbr_grid"

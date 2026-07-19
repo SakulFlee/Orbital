@@ -10,7 +10,7 @@ crate-type = ["cdylib", "lib"]
 
 [[bin]]
 name = "multi_module"
-path = "src/main.rs"
+path = "src/lib.rs"
 
 [dependencies]
 orbital = { path = "../../Crates/orbital" }

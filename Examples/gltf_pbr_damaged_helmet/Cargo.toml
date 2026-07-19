@@ -5,7 +5,7 @@ edition = "2024"
 
 [[bin]]
 name = "test_gltf_pbr_damaged_helmet_desktop"
-path = "src/main.rs"
+path = "src/lib.rs"
 
 [lib]
 name = "test_gltf_pbr_damaged_helmet"

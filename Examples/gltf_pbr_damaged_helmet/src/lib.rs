@@ -7,27 +7,19 @@ use orbital::ecs_bridge::{
     ImportQueueResource, LightDescriptorEcs, LightDirty, Position, Rotation,
 };
 use orbital::importer::{ImportTask, gltf::GltfImport};
-use orbital::logging::{self, error, info};
 use orbital::resources::WorldEnvironmentDescriptor;
+use winit::event_loop::EventLoop;
 use winit::keyboard::KeyCode;
 
 pub const NAME: &str = "Orbital-Demo-Project: DamagedHelmet";
 
-pub fn entrypoint(
-    event_loop_result: Result<
-        orbital::winit::event_loop::EventLoop<()>,
-        orbital::winit::error::EventLoopError,
-    >,
-) {
-    logging::init();
-
-    let event_loop = event_loop_result.expect("Event Loop failure");
-
+#[orbital::entrypoint]
+pub fn entrypoint(event_loop: EventLoop<()>) {
     let mut app_settings = AppSettings::default();
     app_settings.vsync_enabled = true;
     app_settings.name = NAME.to_string();
 
-    match App::new()
+    App::new()
         .add_module(DamagedHelmetModule)
         .add_module(
             DebugModule::new()
@@ -35,13 +27,8 @@ pub fn entrypoint(
                 .with_freeze_key(KeyCode::F4),
         )
         .liftoff(event_loop, app_settings)
-    {
-        Ok(()) => info!("Cleanly exited!"),
-        Err(e) => error!("Runtime failure: {e:?}"),
-    }
+        .expect("Runtime failure");
 }
-
-orbital::make_desktop_main!(entrypoint);
 
 struct DamagedHelmetModule;
 

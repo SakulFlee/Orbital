@@ -5,21 +5,13 @@ use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, EnvironmentDescriptorResource, Position,
     Rotation,
 };
-use orbital::logging::{self, error, info};
+use orbital::logging::{error, info};
 use orbital::resources::WorldEnvironmentDescriptor;
 
 pub const NAME: &str = "Orbital-Demo-Project: SkyBox";
 
-pub fn entrypoint(
-    event_loop_result: Result<
-        orbital::winit::event_loop::EventLoop<()>,
-        orbital::winit::error::EventLoopError,
-    >,
-) {
-    logging::init();
-
-    let event_loop = event_loop_result.expect("Event Loop failure");
-
+#[orbital::entrypoint]
+pub fn entrypoint(event_loop: orbital::winit::event_loop::EventLoop<()>) {
     let mut app_settings = AppSettings::default();
     app_settings.vsync_enabled = true;
     app_settings.name = NAME.to_string();
@@ -32,8 +24,6 @@ pub fn entrypoint(
         Err(e) => error!("Runtime failure: {e:?}"),
     }
 }
-
-orbital::make_desktop_main!(entrypoint);
 
 struct SkyboxModule;
 

@@ -10,7 +10,7 @@ crate-type = ["cdylib", "lib"]
 
 [[bin]]
 name = "test-roll-camera"
-path = "src/main.rs"
+path = "src/lib.rs"
 
 [dependencies]
 orbital = { path = "../../Crates/orbital" }

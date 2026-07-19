@@ -7,22 +7,14 @@ use orbital::ecs_bridge::{
     ImportQueueResource, Position, Rotation,
 };
 use orbital::importer::{ImportTask, gltf::GltfImport};
-use orbital::logging::{self, error, info};
+use orbital::logging::{error, info};
 use orbital::resources::WorldEnvironmentDescriptor;
 use winit::keyboard::KeyCode;
 
 pub const NAME: &str = "Orbital-Demo-Project: PBRSpheres";
 
-pub fn entrypoint(
-    event_loop_result: Result<
-        orbital::winit::event_loop::EventLoop<()>,
-        orbital::winit::error::EventLoopError,
-    >,
-) {
-    logging::init();
-
-    let event_loop = event_loop_result.expect("Event Loop failure");
-
+#[orbital::entrypoint]
+pub fn entrypoint(event_loop: orbital::winit::event_loop::EventLoop<()>) {
     let mut app_settings = AppSettings::default();
     app_settings.vsync_enabled = true;
     app_settings.name = NAME.to_string();
@@ -40,8 +32,6 @@ pub fn entrypoint(
         Err(e) => error!("Runtime failure: {e:?}"),
     }
 }
-
-orbital::make_desktop_main!(entrypoint);
 
 struct PbrGridModule;
 
