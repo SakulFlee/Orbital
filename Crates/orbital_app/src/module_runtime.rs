@@ -808,6 +808,16 @@ impl ApplicationHandler for ModuleRuntime {
                 ctx_guard.queue(),
             ));
 
+            // Enable shadows with default settings
+            if let Some(renderer) = &mut self.renderer {
+                renderer.enable_shadows(
+                    ctx_guard.device(),
+                    ctx_guard.queue(),
+                    16,    // max shadow slots
+                    1024,  // shadow map resolution
+                );
+            }
+
             // Call Module::setup() and build game schedule
             if !self.module_setup_done {
                 let systems =
