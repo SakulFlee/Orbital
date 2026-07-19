@@ -1,29 +1,26 @@
 use wgpu::{
-    CompareFunction, Device, Queue, RenderPipeline, SamplerDescriptor, TextureFormat,
-    TextureViewDimension,
+    BindGroupLayout, CompareFunction, DepthStencilState, Device, MultisampleState,
+    PipelineLayoutDescriptor, PolygonMode, PrimitiveState, Queue, RenderPipeline,
+    RenderPipelineDescriptor, SamplerDescriptor, ShaderStages, TextureFormat, TextureViewDimension,
+    VertexState,
 };
 
-use crate::Texture;
+use crate::{Texture, Vertex};
 
 use super::ShadowGpuData;
 
+const SHADOW_DEPTH_SHADER: &str = include_str!("../../../../Assets/Shaders/shadow_depth.wgsl");
+
 /// Manages shadow map rendering: depth texture array, uniform buffer, sampler, and depth pipeline.
 pub struct ShadowRenderer {
-    /// Depth texture array: 2D array of depth textures (one layer per shadow slot).
     depth_texture: Texture,
-    /// Number of layers currently allocated in depth_texture.
     layer_count: u32,
-    /// Maximum number of shadow slots (constant, e.g. 16).
     max_slots: u32,
-    /// Uniform buffer containing all ShadowSlotData entries.
     slot_data_buffer: wgpu::Buffer,
-    /// Comparison sampler for PCF shadow filtering.
     sampler: wgpu::Sampler,
-    /// Depth-only render pipeline for rendering models into shadow maps.
-    depth_pipeline: Option<RenderPipeline>,
-    /// Current GPU data (CPU-side copy, uploaded each frame when dirty).
+    depth_pipeline: RenderPipeline,
+    depth_bind_group_layout: BindGroupLayout,
     gpu_data: ShadowGpuData,
-    /// Dirty flag: set when slot data changes, triggers buffer upload.
     dirty: bool,
 }
 
@@ -55,13 +52,17 @@ impl ShadowRenderer {
             border_color: None,
         });
 
+        let (depth_pipeline, depth_bind_group_layout) =
+            Self::create_depth_pipeline(device, resolution);
+
         Self {
             depth_texture,
             layer_count: initial_layers,
             max_slots,
             slot_data_buffer,
             sampler,
-            depth_pipeline: None, // Created in Phase 2
+            depth_pipeline,
+            depth_bind_group_layout,
             gpu_data: ShadowGpuData::new(),
             dirty: false,
         }
@@ -100,6 +101,73 @@ impl ShadowRenderer {
         Texture::from_existing(texture, view, sampler, TextureViewDimension::D2Array)
     }
 
+    fn create_depth_pipeline(
+        device: &Device,
+        resolution: u32,
+    ) -> (RenderPipeline, BindGroupLayout) {
+        let shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Shadow Depth Shader"),
+            source: wgpu::ShaderSource::Wgsl(SHADOW_DEPTH_SHADER.into()),
+        });
+
+        // Bind group layout: just the light VP uniform
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Shadow Depth Bind Group Layout"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStages::VERTEX,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+        });
+
+        let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
+            label: Some("Shadow Depth Pipeline Layout"),
+            bind_group_layouts: &[Some(&bind_group_layout)],
+            immediate_size: 0,
+        });
+
+        let pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
+            label: Some("Shadow Depth Pipeline"),
+            layout: Some(&pipeline_layout),
+            vertex: VertexState {
+                module: &shader_module,
+                entry_point: Some("entrypoint_vertex"),
+                buffers: &[
+                    Some(Vertex::complex_vertex_buffer_layout_descriptor()),
+                    Some(crate::Instance::vertex_buffer_layout_descriptor()),
+                ],
+                compilation_options: Default::default(),
+            },
+            fragment: None,
+            depth_stencil: Some(DepthStencilState {
+                format: TextureFormat::Depth32Float,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(CompareFunction::LessEqual),
+                stencil: Default::default(),
+                bias: Default::default(),
+            }),
+            primitive: PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                unclipped_depth: false,
+                polygon_mode: PolygonMode::Fill,
+                conservative: false,
+            },
+            multisample: MultisampleState::default(),
+            cache: None,
+            multiview_mask: None,
+        });
+
+        (pipeline, bind_group_layout)
+    }
+
     pub fn depth_texture(&self) -> &Texture {
         &self.depth_texture
     }
@@ -124,12 +192,12 @@ impl ShadowRenderer {
         self.dirty
     }
 
-    pub fn depth_pipeline(&self) -> Option<&RenderPipeline> {
-        self.depth_pipeline.as_ref()
+    pub fn depth_pipeline(&self) -> &RenderPipeline {
+        &self.depth_pipeline
     }
 
-    pub fn set_depth_pipeline(&mut self, pipeline: RenderPipeline) {
-        self.depth_pipeline = Some(pipeline);
+    pub fn depth_bind_group_layout(&self) -> &BindGroupLayout {
+        &self.depth_bind_group_layout
     }
 
     /// Ensure the depth array has at least `needed` layers.
