@@ -21,6 +21,7 @@ glob = { workspace = true }
 
 [dependencies]
 orbital_core = { path = "../orbital_core" }
+orbital_macros = { path = "../orbital_macros" }
 orbital_input = { path = "../orbital_input" }
 orbital_shader_preprocessor = { path = "../orbital_shader_preprocessor" }
 orbital_resources = { path = "../orbital_resources" }

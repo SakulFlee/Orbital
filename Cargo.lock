@@ -2119,6 +2119,7 @@ dependencies = [
  "orbital_ecs_bridge",
  "orbital_importer_gltf",
  "orbital_input",
+ "orbital_macros",
  "orbital_renderer",
  "orbital_resources",
  "orbital_shader_preprocessor",
@@ -2221,6 +2222,15 @@ dependencies = [
  "hashbrown 0.17.1",
  "log",
  "winit",
+]
+
+[[package]]
+name = "orbital_macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

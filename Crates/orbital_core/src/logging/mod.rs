@@ -37,7 +37,7 @@ pub fn init() {
             }
         }
 
-        if let Err(e) = fern::Dispatch::new()
+        let _ = fern::Dispatch::new()
             .format(|out, message, record| {
                 out.finish(format_args!(
                     "[{} {} {}] {}",
@@ -59,14 +59,11 @@ pub fn init() {
                             .expect("failed building file log"),
                     ),
             )
-            .apply()
-        {
-            error!(
-            "Failure creating logger. This is commonly due to a logger already being initialized beforehand. Error: {e}"
-        );
-        }
+            .apply();
 
-        info!("Logger initialized at max level set to {}", max_level());
+        if log::max_level() == LevelFilter::Off {
+            eprintln!("Warning: no logger was initialized");
+        }
     });
 }
 
