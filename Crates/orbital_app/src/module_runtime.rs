@@ -22,13 +22,17 @@ use winit::{
     window::{CursorGrabMode, WindowId},
 };
 
+use orbital_resources::{
+    LightType, ShadowCaster, ShadowLightInfo,
+};
+
 use crate::{
     AppContext, AppSettings, AppState, Module, RenderOverlayResource, Timer, make_core_schedule,
 };
 use orbital_ecs_bridge::{
     CursorGrabConfig, CursorPosition, DeltaTime, DeviceResource, EcsCameraStore, EngineEvent,
-    EngineEvents, FrameCounter, InputSnapshot, QueueResource, SurfaceFormatResource, TotalTime,
-    WindowSize,
+    EngineEvents, FrameCounter, InputSnapshot,     LightDescriptorEcs, Position,
+    QueueResource, SurfaceFormatResource, TotalTime, WindowSize,
 };
 
 macro_rules! ctx_lock {
@@ -233,12 +237,14 @@ impl ModuleRuntime {
             .get_resource::<orbital_ecs_bridge::CullResource>();
 
         // Extract all rendering data while ecs_world is not mutably borrowed
-        let (camera_buffer, light_buffer, env_ibl, model_ptrs) = {
+        let (camera_buffer, light_buffer, env_ibl, model_ptrs, shadow_lights, camera_pvp, camera_near, camera_far) = {
             let cb = self.extract_camera_buffer(device, queue);
+            let (pvp, near, far) = self.extract_camera_projection_data();
             let lb = self.extract_light_buffer(device);
             let ei = self.extract_env_ibl();
             let mp = self.collect_model_ptrs();
-            (cb, lb, ei, mp)
+            let sl = self.collect_shadow_lights();
+            (cb, lb, ei, mp, sl, pvp, near, far)
         };
 
         // IBL BRDF (static cache)
@@ -284,6 +290,87 @@ impl ModuleRuntime {
             }
         };
 
+        // Extract shadow resources from renderer's shadow renderer (with static fallbacks)
+        static FALLBACK_SHADOW_BUF: std::sync::OnceLock<wgpu::Buffer> = std::sync::OnceLock::new();
+        static FALLBACK_SHADOW_TEX: std::sync::OnceLock<(wgpu::Texture, wgpu::TextureView)> = std::sync::OnceLock::new();
+        static FALLBACK_SHADOW_SAMPLER: std::sync::OnceLock<wgpu::Sampler> = std::sync::OnceLock::new();
+
+        let shadow_slot_buffer: &wgpu::Buffer;
+        let shadow_depth_view: &wgpu::TextureView;
+        let shadow_sampler: &wgpu::Sampler;
+
+        if let Some(renderer) = &self.renderer {
+            if let Some(sr) = renderer.shadow_renderer() {
+                shadow_slot_buffer = sr.slot_data_buffer();
+                shadow_depth_view = sr.depth_texture().view();
+                shadow_sampler = sr.sampler();
+            } else {
+                let fb = FALLBACK_SHADOW_BUF.get_or_init(|| {
+                    device.create_buffer(&wgpu::BufferDescriptor {
+                        label: Some("Fallback Shadow Buffer"),
+                        size: std::mem::size_of::<orbital_resources::ShadowGpuData>() as u64,
+                        usage: wgpu::BufferUsages::UNIFORM,
+                        mapped_at_creation: false,
+                    })
+                });
+                let (_, fbv) = FALLBACK_SHADOW_TEX.get_or_init(|| {
+                    let t = device.create_texture(&wgpu::TextureDescriptor {
+                        label: Some("Fallback Shadow Tex"),
+                        size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+                        mip_level_count: 1,
+                        sample_count: 1,
+                        dimension: wgpu::TextureDimension::D2,
+                        format: wgpu::TextureFormat::Depth32Float,
+                        usage: wgpu::TextureUsages::TEXTURE_BINDING,
+                        view_formats: &[],
+                    });
+                    let v = t.create_view(&Default::default());
+                    (t, v)
+                });
+                let fs = FALLBACK_SHADOW_SAMPLER.get_or_init(|| {
+                    device.create_sampler(&wgpu::SamplerDescriptor {
+                        label: Some("Fallback Shadow Sampler"),
+                        ..Default::default()
+                    })
+                });
+                shadow_slot_buffer = fb;
+                shadow_depth_view = fbv;
+                shadow_sampler = fs;
+            }
+        } else {
+            let fb = FALLBACK_SHADOW_BUF.get_or_init(|| {
+                device.create_buffer(&wgpu::BufferDescriptor {
+                    label: Some("Fallback Shadow Buffer 2"),
+                    size: std::mem::size_of::<orbital_resources::ShadowGpuData>() as u64,
+                    usage: wgpu::BufferUsages::UNIFORM,
+                    mapped_at_creation: false,
+                })
+            });
+            let (_, fbv) = FALLBACK_SHADOW_TEX.get_or_init(|| {
+                let t = device.create_texture(&wgpu::TextureDescriptor {
+                    label: Some("Fallback Shadow Tex 2"),
+                    size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format: wgpu::TextureFormat::Depth32Float,
+                    usage: wgpu::TextureUsages::TEXTURE_BINDING,
+                    view_formats: &[],
+                });
+                let v = t.create_view(&Default::default());
+                (t, v)
+            });
+            let fs = FALLBACK_SHADOW_SAMPLER.get_or_init(|| {
+                device.create_sampler(&wgpu::SamplerDescriptor {
+                    label: Some("Fallback Shadow Sampler 2"),
+                    ..Default::default()
+                })
+            });
+            shadow_slot_buffer = fb;
+            shadow_depth_view = fbv;
+            shadow_sampler = fs;
+        };
+
         // Build bind group
         let bind_group_layout = orbital_resources::make_world_bind_group_layout(device);
         let world_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -326,6 +413,21 @@ impl ModuleRuntime {
                     binding: 7,
                     resource: wgpu::BindingResource::Sampler(brdf_tex.sampler()),
                 },
+                // Shadow bindings (optional — use fallback empty resources if no shadow renderer)
+                wgpu::BindGroupEntry {
+                    binding: 8,
+                    resource: wgpu::BindingResource::Buffer(
+                        shadow_slot_buffer.as_entire_buffer_binding(),
+                    ),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 9,
+                    resource: wgpu::BindingResource::TextureView(shadow_depth_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 10,
+                    resource: wgpu::BindingResource::Sampler(shadow_sampler),
+                },
             ],
         });
 
@@ -346,6 +448,10 @@ impl ModuleRuntime {
                 device,
                 queue,
                 cull,
+                &shadow_lights,
+                camera_pvp.as_ref(),
+                camera_near,
+                camera_far,
             );
         }
 
@@ -461,6 +567,93 @@ impl ModuleRuntime {
                 })
             })
             .collect()
+    }
+
+    /// Extract camera perspective view-projection matrix, near, and far from the active camera.
+    fn extract_camera_projection_data(&self) -> (Option<cgmath::Matrix4<f32>>, f32, f32) {
+        let active_entity = self
+            .ecs_world
+            .get_resource::<orbital_ecs_bridge::ActiveCamera>()
+            .map(|a| a.0);
+
+        match active_entity {
+            Some(entity) => {
+                let store = self
+                    .ecs_world
+                    .get_resource::<orbital_ecs_bridge::EcsCameraStore>();
+                match store {
+                    Some(s) => match s.get(entity.index) {
+                        Some(arc_camera) => {
+                            let guard = arc_camera.read().unwrap();
+                            (
+                                Some(*guard.perspective_view_projection_matrix()),
+                                guard.near(),
+                                guard.far(),
+                            )
+                        }
+                        None => (None, 0.1, 1000.0),
+                    },
+                    None => (None, 0.1, 1000.0),
+                }
+            }
+            None => (None, 0.1, 1000.0),
+        }
+    }
+
+    /// Collect shadow-casting light info from ECS.
+    fn collect_shadow_lights(&self) -> Vec<ShadowLightInfo> {
+        let descs = match self
+            .ecs_world
+            .get_component_store::<LightDescriptorEcs>()
+        {
+            Some(s) => s,
+            None => return Vec::new(),
+        };
+        let positions = match self
+            .ecs_world
+            .get_component_store::<Position>()
+        {
+            Some(s) => s,
+            None => return Vec::new(),
+        };
+        let casters = match self
+            .ecs_world
+            .get_component_store::<ShadowCaster>()
+        {
+            Some(s) => s,
+            None => return Vec::new(),
+        };
+
+        let mut lights = Vec::new();
+        for &eid in descs.dense.as_slice() {
+            let desc_idx = match descs.sparse[eid] {
+                Some(i) => i,
+                None => continue,
+            };
+            let caster_idx = match casters.sparse[eid] {
+                Some(i) => i,
+                None => continue,
+            };
+            let pos_idx = positions.sparse[eid].unwrap_or(0);
+            let desc = &descs.components[desc_idx];
+            let caster = &casters.components[caster_idx];
+            if !caster.enabled {
+                continue;
+            }
+            let pos = &positions.components[pos_idx];
+            let light_type = match desc.light_type {
+                LightType::Point { .. } => 0,
+                LightType::Directional { .. } => 1,
+                LightType::Spot { .. } => 2,
+            };
+            lights.push(ShadowLightInfo {
+                light_type,
+                direction: desc.direction,
+                position: cgmath::Vector3::new(pos.0.x, pos.0.y, pos.0.z),
+                caster: caster.clone(),
+            });
+        }
+        lights
     }
 
     #[cfg(feature = "gamepad_input")]

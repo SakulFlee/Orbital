@@ -1,15 +1,18 @@
-use cgmath::Vector2;
+use cgmath::{Matrix4, Vector2};
 use wgpu::{
     BindGroup, Color, CommandEncoder, CommandEncoderDescriptor, Device, IndexFormat, LoadOp,
     Operations, Queue, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
     RenderPassDescriptor, StoreOp, TextureFormat, TextureView,
 };
 
-use orbital_resources::{CullResources, MaterialShader, Model, Texture, WorldEnvironment};
+use orbital_resources::{
+    CullResources, MaterialShader, Model, ShadowLightInfo, ShadowRenderer, Texture, WorldEnvironment,
+};
 
 pub struct Renderer {
     surface_texture_format: TextureFormat,
     depth_texture: Texture,
+    shadow_renderer: Option<ShadowRenderer>,
 }
 
 impl Renderer {
@@ -30,7 +33,31 @@ impl Renderer {
         Self {
             surface_texture_format,
             depth_texture,
+            shadow_renderer: None,
         }
+    }
+
+    pub fn enable_shadows(
+        &mut self,
+        device: &Device,
+        queue: &Queue,
+        max_slots: u32,
+        resolution: u32,
+    ) {
+        self.shadow_renderer = Some(ShadowRenderer::new(
+            device,
+            queue,
+            max_slots,
+            resolution,
+        ));
+    }
+
+    pub fn shadow_renderer(&self) -> Option<&ShadowRenderer> {
+        self.shadow_renderer.as_ref()
+    }
+
+    pub fn shadow_renderer_mut(&mut self) -> Option<&mut ShadowRenderer> {
+        self.shadow_renderer.as_mut()
     }
 
     pub fn set_surface_texture_format(
@@ -55,10 +82,30 @@ impl Renderer {
         device: &Device,
         queue: &Queue,
         cull: Option<&CullResources>,
+        shadow_lights: &[ShadowLightInfo],
+        camera_perspective_view_proj: Option<&Matrix4<f32>>,
+        camera_near: f32,
+        camera_far: f32,
     ) {
         let mut command_encoder = device.create_command_encoder(&CommandEncoderDescriptor {
             label: Some("Orbital::Render::Encoder"),
         });
+
+        // Shadow pass (before main passes)
+        if let Some(sr) = self.shadow_renderer.as_mut() {
+            if let Some(pvp) = camera_perspective_view_proj {
+                sr.render(
+                    &mut command_encoder,
+                    &models,
+                    shadow_lights,
+                    pvp,
+                    camera_near,
+                    camera_far,
+                    device,
+                    queue,
+                );
+            }
+        }
 
         if let Some(world_environment) = world_environment_option {
             let sky_box_shader = world_environment.material_shader();
