@@ -8,6 +8,7 @@ use orbital::ecs_bridge::{
 };
 use orbital::importer::{ImportTask, gltf::GltfImport};
 use orbital::logging::{self, error, info};
+use orbital::resources::ShadowCaster;
 use orbital::resources::WorldEnvironmentDescriptor;
 use winit::keyboard::KeyCode;
 
@@ -114,6 +115,7 @@ impl Module for DamagedHelmetModule {
         ecs.attach_component(&light2, Position(Point3::new(0.0, 0.0, 0.0)))
             .unwrap();
         ecs.attach_component(&light2, LightDirty(true)).unwrap();
+        ecs.attach_component(&light2, ShadowCaster::default()).unwrap();
 
         vec![sys_camera_controller.into_system()]
     }

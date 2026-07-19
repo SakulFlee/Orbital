@@ -1,9 +1,11 @@
-use cgmath::{Matrix4, Point3, SquareMatrix, Vector4};
+use cgmath::{InnerSpace, Matrix4, Point3, SquareMatrix, Vector3, Vector4};
 use orbital_app::{Module, RenderOverlay, RenderOverlayContext, RenderOverlayResource};
 use orbital_ecs::{IntoSystem, Res, ResMut, System, World};
 use orbital_ecs_bridge::{
-    ActiveCamera, EcsCameraStore, InputSnapshot, ModelInstances, ModelRealization,
+    ActiveCamera, EcsCameraStore, InputSnapshot, LightDescriptorEcs, ModelInstances,
+    ModelRealization, Position,
 };
+use orbital_resources::LightType;
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState,
@@ -24,7 +26,8 @@ const SPHERE_RINGS: u32 = 3;
 const VERTS_PER_SPHERE: u32 = SPHERE_RINGS * SPHERE_SEGMENTS * 2;
 const MAX_SPHERE_INSTANCES: u32 = 512;
 const FRUSTUM_VERTS: u32 = 24;
-const MAX_VERTS: u32 = MAX_SPHERE_INSTANCES * VERTS_PER_SPHERE + FRUSTUM_VERTS;
+const MAX_LIGHT_VERTS: u32 = 1024;
+const MAX_VERTS: u32 = MAX_SPHERE_INSTANCES * VERTS_PER_SPHERE + FRUSTUM_VERTS + MAX_LIGHT_VERTS;
 
 fn sphere_wireframe_unit() -> Vec<[f32; 3]> {
     let mut verts = Vec::with_capacity(VERTS_PER_SPHERE as usize);
@@ -257,7 +260,8 @@ impl DebugRenderer {
         self.enabled = !self.enabled;
     }
 
-    /// Draw bounding-sphere wireframes and (optionally) the camera frustum.
+    /// Draw bounding-sphere wireframes, (optionally) the camera frustum,
+    /// and optional extra lines (e.g. light visualisations).
     ///
     /// `frustum_color` is used when `frustum_corners` is `Some`.
     /// Default to `[1.0, 1.0, 0.0]` (yellow) for the live frustum,
@@ -270,6 +274,7 @@ impl DebugRenderer {
         spheres: &[SphereInstance],
         frustum_corners: Option<&[Point3<f32>; 8]>,
         frustum_color: [f32; 3],
+        extra_lines: &[[f32; 6]],
         queue: &Queue,
     ) {
         if !self.enabled {
@@ -298,6 +303,16 @@ impl DebugRenderer {
                     verts.extend_from_slice(&frustum_color);
                 }
             }
+        }
+
+        // Extra lines (lights, etc.)
+        for line_vert in extra_lines {
+            verts.push(line_vert[0]);
+            verts.push(line_vert[1]);
+            verts.push(line_vert[2]);
+            verts.push(line_vert[3]);
+            verts.push(line_vert[4]);
+            verts.push(line_vert[5]);
         }
 
         if verts.is_empty() {
@@ -400,6 +415,7 @@ impl RenderOverlay for DebugRenderOverlay {
             .and_then(|f| f.0.clone());
 
         let spheres = collect_spheres(ctx.ecs, frozen_data.as_ref().map(|f| &f.frustum));
+        let light_lines = collect_light_lines(ctx.ecs);
 
         let live_corners = camera_frustum_corners(ctx.ecs);
 
@@ -436,6 +452,7 @@ impl RenderOverlay for DebugRenderOverlay {
                     &spheres,
                     Some(&frozen_corners),
                     [1.0, 1.0, 0.0],
+                    &light_lines,
                     ctx.queue,
                 );
                 // Draw live frustum in cyan for reference
@@ -446,17 +463,19 @@ impl RenderOverlay for DebugRenderOverlay {
                         &[],
                         Some(&corners),
                         [0.0, 1.0, 1.0],
+                        &[],
                         ctx.queue,
                     );
                 }
             } else {
-                // Normal mode — draw spheres + single live frustum
+                // Normal mode — draw spheres + single live frustum + lights
                 self.inner.render(
                     &mut pass,
                     ctx.camera_buffer,
                     &spheres,
                     live_corners.as_ref(),
                     [1.0, 1.0, 0.0],
+                    &light_lines,
                     ctx.queue,
                 );
             }
@@ -611,4 +630,150 @@ fn camera_frustum_corners(ecs: &World) -> Option<[Point3<f32>; 8]> {
     let camera = arc_camera.read().ok()?;
     let matrix = camera.perspective_view_projection_matrix();
     Some(frustum_corners_from_matrix(matrix))
+}
+
+// ---------------------------------------------------------------------------
+// Light debug visualisation
+// ---------------------------------------------------------------------------
+
+/// Generate a small crosshair at `position` (3 axis-aligned lines, 6 verts).
+fn light_crosshair(position: Point3<f32>, color: [f32; 3]) -> Vec<[f32; 6]> {
+    let s = 0.25;
+    vec![
+        [position.x - s, position.y, position.z, color[0], color[1], color[2]],
+        [position.x + s, position.y, position.z, color[0], color[1], color[2]],
+        [position.x, position.y - s, position.z, color[0], color[1], color[2]],
+        [position.x, position.y + s, position.z, color[0], color[1], color[2]],
+        [position.x, position.y, position.z - s, color[0], color[1], color[2]],
+        [position.x, position.y, position.z + s, color[0], color[1], color[2]],
+    ]
+}
+
+/// Generate a directional arrow: stem + crosshair at the tip.
+fn light_arrow(position: Point3<f32>, direction: Vector3<f32>, color: [f32; 3]) -> Vec<[f32; 6]> {
+    let dir = direction.normalize();
+    let length = 2.0;
+    let tip = Point3::new(
+        position.x + dir.x * length,
+        position.y + dir.y * length,
+        position.z + dir.z * length,
+    );
+    let mut lines = Vec::with_capacity(8);
+    // Stem
+    lines.push([position.x, position.y, position.z, color[0], color[1], color[2]]);
+    lines.push([tip.x, tip.y, tip.z, color[0], color[1], color[2]]);
+    // Arrowhead crosshair at tip
+    lines.extend(light_crosshair(tip, color));
+    lines
+}
+
+/// Generate a spot-light cone: center line + 8 apex-to-rim lines + rim ring.
+fn light_cone(
+    position: Point3<f32>,
+    direction: Vector3<f32>,
+    outer_angle: f32,
+    color: [f32; 3],
+) -> Vec<[f32; 6]> {
+    let dir = direction.normalize();
+    let range = 2.0;
+    let half_angle = outer_angle.min(1.5).max(0.01);
+
+    let tip = Point3::new(
+        position.x + dir.x * range,
+        position.y + dir.y * range,
+        position.z + dir.z * range,
+    );
+
+    let mut lines = Vec::with_capacity(34);
+    // Center line
+    lines.push([position.x, position.y, position.z, color[0], color[1], color[2]]);
+    lines.push([tip.x, tip.y, tip.z, color[0], color[1], color[2]]);
+
+    // Perpendicular basis
+    let up = if dir.y.abs() < 0.9 {
+        Vector3::unit_y()
+    } else {
+        Vector3::unit_z()
+    };
+    let right = dir.cross(up).normalize();
+    let up_actual = right.cross(dir).normalize();
+
+    let radius = range * half_angle.tan();
+    let segments = 8u32;
+    let step = std::f32::consts::TAU / segments as f32;
+
+    let mut rim = Vec::with_capacity(segments as usize);
+    for i in 0..segments {
+        let theta = i as f32 * step;
+        let (s, c) = theta.sin_cos();
+        let perp = right * c + up_actual * s;
+        let p = Point3::new(
+            position.x + dir.x * range + perp.x * radius,
+            position.y + dir.y * range + perp.y * radius,
+            position.z + dir.z * range + perp.z * radius,
+        );
+        lines.push([position.x, position.y, position.z, color[0], color[1], color[2]]);
+        lines.push([p.x, p.y, p.z, color[0], color[1], color[2]]);
+        rim.push(p);
+    }
+    // Rim ring
+    for i in 0..segments as usize {
+        let j = (i + 1) % segments as usize;
+        lines.push([rim[i].x, rim[i].y, rim[i].z, color[0], color[1], color[2]]);
+        lines.push([rim[j].x, rim[j].y, rim[j].z, color[0], color[1], color[2]]);
+    }
+
+    lines
+}
+
+/// Read lights from ECS and return corresponding line vertex data.
+fn collect_light_lines(ecs: &World) -> Vec<[f32; 6]> {
+    let descs = match ecs.get_component_store::<LightDescriptorEcs>() {
+        Some(s) => s,
+        None => return Vec::new(),
+    };
+    let positions = match ecs.get_component_store::<Position>() {
+        Some(s) => s,
+        None => return Vec::new(),
+    };
+
+    let mut lines = Vec::new();
+    for &eid in descs.dense.as_slice() {
+        let desc_idx = match descs.sparse.get(eid).copied().flatten() {
+            Some(i) => i,
+            None => continue,
+        };
+        let pos_idx = match positions.sparse.get(eid).copied().flatten() {
+            Some(i) => i,
+            None => continue,
+        };
+
+        let desc = &descs.components[desc_idx];
+        let pos = &positions.components[pos_idx];
+        let color = [desc.color.x, desc.color.y, desc.color.z];
+
+        match desc.light_type {
+            LightType::Point { .. } => {
+                lines.extend(light_crosshair(Point3::new(pos.0.x, pos.0.y, pos.0.z), color));
+            }
+            LightType::Directional { .. } => {
+                lines.extend(light_arrow(
+                    Point3::new(pos.0.x, pos.0.y, pos.0.z),
+                    desc.direction,
+                    color,
+                ));
+            }
+            LightType::Spot {
+                outer_cone_angle, ..
+            } => {
+                lines.extend(light_cone(
+                    Point3::new(pos.0.x, pos.0.y, pos.0.z),
+                    desc.direction,
+                    outer_cone_angle,
+                    color,
+                ));
+            }
+        }
+    }
+    lines
 }
