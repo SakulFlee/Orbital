@@ -626,15 +626,18 @@ impl ModuleRuntime {
 
         let mut lights = Vec::new();
         for &eid in descs.dense.as_slice() {
-            let desc_idx = match descs.sparse[eid] {
+            let desc_idx = match descs.sparse.get(eid).copied().flatten() {
                 Some(i) => i,
                 None => continue,
             };
-            let caster_idx = match casters.sparse[eid] {
+            let caster_idx = match casters.sparse.get(eid).copied().flatten() {
                 Some(i) => i,
                 None => continue,
             };
-            let pos_idx = positions.sparse[eid].unwrap_or(0);
+            let pos_idx = match positions.sparse.get(eid).copied().flatten() {
+                Some(i) => i,
+                None => continue,
+            };
             let desc = &descs.components[desc_idx];
             let caster = &casters.components[caster_idx];
             if !caster.enabled {
