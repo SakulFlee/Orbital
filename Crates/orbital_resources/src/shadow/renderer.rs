@@ -1,9 +1,9 @@
 use std::num::NonZero;
 
-use cgmath::{InnerSpace, Matrix, Matrix4, Point3, SquareMatrix, Vector3, Vector4, perspective};
+use cgmath::{InnerSpace, Matrix4, Point3, SquareMatrix, Vector3, Vector4, perspective};
 use wgpu::{
     BindGroup, BindGroupLayout, CompareFunction, DepthStencilState, Device, Face,
-    MultisampleState, Operations, PipelineLayoutDescriptor, PolygonMode, PrimitiveState, Queue,
+    MultisampleState, PipelineLayoutDescriptor, PolygonMode, PrimitiveState, Queue,
     RenderPipeline, RenderPipelineDescriptor, SamplerDescriptor, ShaderStages, TextureFormat,
     TextureViewDimension, VertexState,
 };
@@ -11,7 +11,7 @@ use wgpu::{
 use crate::{Texture, Vertex};
 
 use super::{
-    ShadowGpuData, ShadowLightInfo, ShadowSlotData, MAX_SHADOW_SLOTS,
+    ShadowGpuData, ShadowLightInfo, ShadowSlotData,
     SHADOW_TYPE_DIRECTIONAL_CASCADE, SHADOW_TYPE_SPOT,
 };
 
@@ -28,6 +28,7 @@ pub struct ShadowRenderer {
     depth_texture: Texture,
     layer_count: u32,
     max_slots: u32,
+    resolution: u32,
     slot_data_buffer: wgpu::Buffer,
     sampler: wgpu::Sampler,
     depth_pipeline: RenderPipeline,
@@ -99,6 +100,7 @@ impl ShadowRenderer {
             depth_texture,
             layer_count: initial_layers,
             max_slots,
+            resolution,
             slot_data_buffer,
             sampler,
             depth_pipeline,
@@ -237,7 +239,7 @@ impl ShadowRenderer {
                 break;
             }
 
-            let resolution = light.caster.resolution.max(1);
+            let _resolution = light.caster.resolution.max(1);
 
             match light.light_type {
                 0 => {
@@ -396,7 +398,7 @@ impl ShadowRenderer {
             return;
         }
         let new_layers = needed.max(self.layer_count * 2).min(self.max_slots);
-        self.depth_texture = Self::create_depth_array_texture(device, 0, new_layers);
+        self.depth_texture = Self::create_depth_array_texture(device, self.resolution, new_layers);
         self.layer_count = new_layers;
     }
 
