@@ -101,12 +101,19 @@ pub fn icosphere(radius: f32, subdivisions: u32) -> MeshDescriptor {
     for &v in &verts {
         let pos = v * radius;
         let normal = pos.normalize();
+        let tangent = {
+            let t = normal.cross(Vector3::unit_y());
+            if t.magnitude2() < 0.0001 {
+                normal.cross(Vector3::unit_x()).normalize()
+            } else {
+                t.normalize()
+            }
+        };
+
         let theta = f32::atan2(pos.z, pos.x);
         let phi = (pos.y / radius).acos();
         let u = 0.5 + theta / std::f32::consts::TAU;
         let v_uv = 1.0 - phi / std::f32::consts::PI;
-
-        let tangent = Vector3::new(-theta.sin(), 0.0, theta.cos()).normalize();
         vertices.push(Vertex::new(pos, normal, tangent, Vector2::new(u, v_uv)));
     }
 
