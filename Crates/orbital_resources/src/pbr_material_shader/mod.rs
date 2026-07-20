@@ -73,7 +73,7 @@ impl Default for PBRMaterialShaderDescriptor {
                 texture_view_dimension: TextureViewDimension::D2,
                 filter_mode: FilterMode::default(),
             },
-            albedo_factor: Vector3::zero(),
+            albedo_factor: Vector3::new(1.0, 1.0, 1.0),
             metallic: TextureDescriptor::Data {
                 pixels: vec![0],
                 size: TextureSize {
