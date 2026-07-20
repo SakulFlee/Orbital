@@ -1,0 +1,17 @@
+[package]
+name = "procgeo_scene"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "test_procgeo_scene_desktop"
+path = "src/main.rs"
+
+[lib]
+name = "test_procgeo_scene"
+path = "src/lib.rs"
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+orbital = { path = "../../Crates/orbital" }
+winit = { workspace = true }
