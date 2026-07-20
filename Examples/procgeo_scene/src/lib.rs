@@ -1,13 +1,16 @@
 use std::sync::Arc;
 
 use orbital::app::{sys_camera_controller, App, AppSettings, Module};
-use orbital::cgmath::{Point3, Rad};
+use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector3};
 use orbital::debug_render::DebugModule;
 use orbital::ecs::{IntoSystem, System, World};
 use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, EnvironmentDescriptorResource,
-    ModelDescriptorEcs, ModelDirty, ModelInstances, Position, Rotation,
+    ImportQueueResource, LightDescriptorEcs, ModelDescriptorEcs, ModelDirty, ModelInstances,
+    Position, Rotation,
 };
+use orbital::importer::{gltf::GltfImport, ImportTask};
+use orbital::resources::ShadowCaster;
 use orbital::logging::{self, error, info};
 use orbital::procgeo::scene::SceneBuilder;
 use orbital::resources::WorldEnvironmentDescriptor;
@@ -45,6 +48,17 @@ pub fn entrypoint(
 
 orbital::make_desktop_main!(entrypoint);
 
+fn spawn_light(
+    ecs: &mut World,
+    desc: LightDescriptorEcs,
+    pos: Point3<f32>,
+) {
+    let entity = ecs.spawn_entity();
+    ecs.attach_component(&entity, desc).unwrap();
+    ecs.attach_component(&entity, Position(pos)).unwrap();
+    ecs.attach_component(&entity, ShadowCaster::default()).unwrap();
+}
+
 struct ProcgeoSceneModule;
 
 impl Module for ProcgeoSceneModule {
@@ -54,7 +68,7 @@ impl Module for ProcgeoSceneModule {
         _device: &orbital::wgpu::Device,
         _queue: &orbital::wgpu::Queue,
     ) -> Vec<Box<dyn System>> {
-        // Spawn camera
+        // Spawn camera at the front, looking toward the rooms
         let camera = ecs.spawn_entity();
         ecs.attach_component(
             &camera,
@@ -68,9 +82,11 @@ impl Module for ProcgeoSceneModule {
             },
         )
         .unwrap();
-        ecs.attach_component(&camera, Position(Point3::new(0.0, 3.0, 6.0)))
+        // Rotate +90° around Y so forward (+X) faces -Z (toward rooms)
+        let rot = Quaternion::new(0.7071, 0.0, 0.7071, 0.0);
+        ecs.attach_component(&camera, Position(Point3::new(0.0, 6.0, 16.0)))
             .unwrap();
-        ecs.attach_component(&camera, Rotation::identity()).unwrap();
+        ecs.attach_component(&camera, Rotation(rot)).unwrap();
         ecs.insert_resource(ActiveCamera(camera));
         ecs.insert_resource(CursorGrabConfig(true));
 
@@ -93,7 +109,7 @@ impl Module for ProcgeoSceneModule {
             }
         };
 
-        // Build and spawn each entity
+        // Build and spawn RON entities
         for (mesh, material, transform) in scene.build() {
             let entity = ecs.spawn_entity();
             ecs.attach_component(
@@ -113,6 +129,60 @@ impl Module for ProcgeoSceneModule {
         }
 
         info!("Scene loaded with {} entities", scene.entities.len());
+
+        // Import the DamagedHelmet into Room 2
+        if let Some(mut queue) = ecs.get_resource_mut::<ImportQueueResource>() {
+            queue.push(ImportTask::Gltf {
+                file_path: "Assets/Models/DamagedHelmet.glb".into(),
+                task: GltfImport::WholeFile,
+            });
+            info!("Queued DamagedHelmet import");
+        }
+
+        // ── Room 1: Metallic Showcase Lights ──
+        spawn_light(ecs,
+            LightDescriptorEcs::new_point(Vector3::new(1.0, 0.85, 0.6), 50.0),
+            Point3::new(-13.0, 3.0, -3.0));
+        spawn_light(ecs,
+            LightDescriptorEcs::new_point(Vector3::new(0.6, 0.8, 1.0), 50.0),
+            Point3::new(-7.0, 3.0, 3.0));
+        spawn_light(ecs,
+            LightDescriptorEcs::new_directional(
+                Vector3::new(0.0, -1.0, 0.0),
+                Vector3::new(1.0, 0.95, 0.85), 30.0),
+            Point3::new(-10.0, 5.0, 0.0));
+
+        // ── Room 2: Helmet Gallery Lights ──
+        let spot_dir = (Point3::new(0.0, 6.0, 8.0) - Point3::new(0.0, 0.0, 0.0)).normalize();
+        spawn_light(ecs,
+            LightDescriptorEcs::new_spot(
+                Vector3::new(1.0, 1.0, 1.0), 80.0,
+                Vector3::new(spot_dir.x, spot_dir.y, spot_dir.z),
+                0.25, 0.45),
+            Point3::new(0.0, 6.0, 8.0));
+        spawn_light(ecs,
+            LightDescriptorEcs::new_directional(
+                Vector3::new(0.2, -1.0, 0.1),
+                Vector3::new(0.9, 0.9, 1.0), 25.0),
+            Point3::new(3.0, 6.0, 0.0));
+
+        // ── Room 3: Matte Display Lights ──
+        spawn_light(ecs,
+            LightDescriptorEcs::new_point(Vector3::new(1.0, 0.2, 0.2), 40.0),
+            Point3::new(7.0, 3.0, -2.0));
+        spawn_light(ecs,
+            LightDescriptorEcs::new_point(Vector3::new(0.2, 1.0, 0.2), 40.0),
+            Point3::new(13.0, 3.0, -2.0));
+        spawn_light(ecs,
+            LightDescriptorEcs::new_point(Vector3::new(0.2, 0.3, 1.0), 40.0),
+            Point3::new(10.0, 3.0, 3.0));
+        spawn_light(ecs,
+            LightDescriptorEcs::new_spot(
+                Vector3::new(1.0, 0.85, 0.7), 25.0,
+                Vector3::new(0.0, 1.0, 0.0), 0.35, 0.55),
+            Point3::new(10.0, 4.0, 0.0));
+
+        info!("Spawned 10 shadow-casting lights");
 
         vec![sys_camera_controller.into_system()]
     }
