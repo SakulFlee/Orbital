@@ -39,9 +39,9 @@ SceneBuilder(
         Entity(label: Some("Matte White Cube"),    shape: Cube(size: (0.8, 0.8, 0.8)), material: "matte_white", transform: Transform(position: (8.0, 0.4, 3.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
     ],
     materials: {
-        // Room 1 — metallic (lighter gray, more rough)
-        "metal_floor": Color(albedo: (0.25, 0.25, 0.3, 1.0), metallic: 0.8, roughness: 0.5),
-        "metal_wall":  Color(albedo: (0.55, 0.55, 0.6, 1.0), metallic: 0.8, roughness: 0.55),
+        // Room 1 — metallic (light gray, less reflective)
+        "metal_floor": Color(albedo: (0.7, 0.7, 0.72, 1.0), metallic: 0.6, roughness: 0.7),
+        "metal_wall":  Color(albedo: (0.7, 0.7, 0.72, 1.0), metallic: 0.6, roughness: 0.7),
         "gold":        Color(albedo: (1.0, 0.8, 0.0, 1.0), metallic: 1.0, roughness: 0.2),
         "silver":      Color(albedo: (0.9, 0.9, 0.95, 1.0), metallic: 1.0, roughness: 0.1),
         "copper":      Color(albedo: (0.9, 0.6, 0.4, 1.0), metallic: 0.85, roughness: 0.3),
