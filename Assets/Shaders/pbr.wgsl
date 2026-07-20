@@ -95,6 +95,7 @@ struct PBRData {
 const MAX_SHADOW_SLOTS: u32 = 16u;
 const SHADOW_TYPE_DIRECTIONAL_CASCADE: u32 = 0u;
 const SHADOW_TYPE_SPOT: u32 = 1u;
+const SHADOW_TYPE_POINT: u32 = 2u;
 
 struct ShadowSlot {
     light_view_proj: mat4x4<f32>,  // offset 0,  size 64
