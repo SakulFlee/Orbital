@@ -191,16 +191,16 @@ impl From<PBRMaterialShaderDescriptor> for MaterialShaderDescriptor {
             // Note: Combines all factors in one buffer
             VariableType::Buffer(BufferDescriptor {
                 data: [
-                    // Albedo Factor
-                    val.albedo_factor.x.to_le_bytes(), // R
-                    val.albedo_factor.y.to_le_bytes(), // G
-                    val.albedo_factor.z.to_le_bytes(), // B
+                    // Albedo Factor — vec3<f32> has 16-byte alignment in WGSL uniform
+                    val.albedo_factor.x.to_le_bytes(),
+                    val.albedo_factor.y.to_le_bytes(),
+                    val.albedo_factor.z.to_le_bytes(),
+                    [0; 4], // padding to align vec3 to 16 bytes
                     // Metallic Factor
-                    val.metallic_factor.to_le_bytes(), // LUMA
+                    val.metallic_factor.to_le_bytes(),
                     // Roughness Factor
-                    val.roughness_factor.to_le_bytes(), // LUMA
+                    val.roughness_factor.to_le_bytes(),
                     // Padding to reach 32
-                    [0; 4],
                     [0; 4],
                     [0; 4],
                 ]
