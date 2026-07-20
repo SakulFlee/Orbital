@@ -99,7 +99,7 @@ impl Vertex {
     }
 
     pub fn calculate_binormal(tangent: Vector3<f32>, normal: Vector3<f32>) -> Vector3<f32> {
-        tangent.cross(normal)
+        normal.cross(tangent)
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
