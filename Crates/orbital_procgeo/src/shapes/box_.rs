@@ -25,8 +25,12 @@ fn face_vertices(face: &Face) -> [Vertex; 4] {
     ]
 }
 
-fn face_indices(base: u32) -> [u32; 6] {
+fn face_indices_left(base: u32) -> [u32; 6] {
     [base, base + 1, base + 2, base, base + 2, base + 3]
+}
+
+fn face_indices_right(base: u32) -> [u32; 6] {
+    [base, base + 2, base + 1, base, base + 3, base + 2]
 }
 
 pub fn box_(size: Vector3<f32>) -> MeshDescriptor {
@@ -103,7 +107,11 @@ pub fn box_(size: Vector3<f32>) -> MeshDescriptor {
     for (fi, face) in faces.iter().enumerate() {
         let base = (fi * 4) as u32;
         vertices.extend_from_slice(&face_vertices(face));
-        indices.extend_from_slice(&face_indices(base));
+        if fi == 4 || fi == 5 {
+            indices.extend_from_slice(&face_indices_right(base));
+        } else {
+            indices.extend_from_slice(&face_indices_left(base));
+        }
     }
 
     MeshDescriptor::new(vertices, indices)

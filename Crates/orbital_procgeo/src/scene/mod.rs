@@ -66,6 +66,7 @@ pub enum SceneShape {
     #[serde(rename = "Cube")]
     Box { size: [f32; 3] },
     UvSphere { radius: f32, segments: u32, rings: u32 },
+    Icosphere { radius: f32, subdivisions: u32 },
     Cylinder { radius: f32, height: f32, segments: u32 },
     Cone { radius: f32, height: f32, segments: u32 },
     Torus { major_radius: f32, minor_radius: f32, major_segments: u32, minor_segments: u32 },
@@ -85,6 +86,9 @@ impl SceneShape {
             }
             SceneShape::UvSphere { radius, segments, rings } => {
                 shapes::uv_sphere(radius, segments, rings)
+            }
+            SceneShape::Icosphere { radius, subdivisions } => {
+                shapes::icosphere(radius, subdivisions)
             }
             SceneShape::Cylinder { radius, height, segments } => {
                 shapes::cylinder(radius, height, segments)
@@ -223,6 +227,7 @@ SceneBuilder(
             SceneShape::Box { size: [1.0; 3] },
             SceneShape::Plane { size: [2.0, 2.0], subdivisions: 2 },
             SceneShape::UvSphere { radius: 1.0, segments: 8, rings: 6 },
+            SceneShape::Icosphere { radius: 1.0, subdivisions: 2 },
             SceneShape::Cylinder { radius: 0.5, height: 1.0, segments: 8 },
             SceneShape::Cone { radius: 0.5, height: 1.0, segments: 8 },
             SceneShape::Torus { major_radius: 1.0, minor_radius: 0.3, major_segments: 8, minor_segments: 6 },

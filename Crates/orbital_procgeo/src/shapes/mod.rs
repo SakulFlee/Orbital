@@ -24,3 +24,6 @@ pub use disk::*;
 
 mod grid;
 pub use grid::*;
+
+mod icosphere;
+pub use icosphere::*;
