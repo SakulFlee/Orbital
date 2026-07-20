@@ -110,9 +110,10 @@ impl ShadowRenderer {
         // Per-slot matrix buffer (dynamic offset)
         let alignment = device.limits().min_uniform_buffer_offset_alignment;
         let slot_stride = alignment.max(64) as u64;
+        let matrix_buffer_size = slot_stride * max_slots as u64 * 6;
         let matrix_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Shadow Per-Slot Matrix Buffer"),
-            size: slot_stride * max_slots as u64,
+            size: matrix_buffer_size,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
