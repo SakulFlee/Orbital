@@ -8,7 +8,7 @@ use wgpu::{
     TextureViewDimension, VertexState,
 };
 
-use crate::{Texture, Vertex};
+use crate::{Frustum, Texture, Vertex};
 
 use super::{
     ShadowGpuData, ShadowLightInfo, ShadowSlotData,
@@ -393,7 +393,25 @@ impl ShadowRenderer {
                             &[((matrix_index as usize + face as usize) as u64 * self.slot_stride) as u32],
                         );
 
+                        let face_frustum =
+                            Frustum::from_view_projection_matrix(&face_mats[face as usize]);
+
                         for model in models {
+                            let sphere_inside = match model.mesh().bounding_sphere() {
+                                Some(bsphere) => {
+                                    let center = cgmath::Point3::new(
+                                        bsphere.center.x,
+                                        bsphere.center.y,
+                                        bsphere.center.z,
+                                    );
+                                    face_frustum.intersects_sphere(&center, bsphere.radius)
+                                }
+                                None => true,
+                            };
+                            if !sphere_inside {
+                                continue;
+                            }
+
                             pass.set_vertex_buffer(0, model.mesh().vertex_buffer().slice(..));
                             pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
                             pass.set_index_buffer(
@@ -490,6 +508,10 @@ impl ShadowRenderer {
                 continue;
             }
 
+            // Build frustum from light VP for coarse culling
+            let light_vp = slot_matrix(&slot.light_view_proj);
+            let slot_frustum = Frustum::from_view_projection_matrix(&light_vp);
+
             let layer_view = self.depth_texture.texture().create_view(
                 &wgpu::TextureViewDescriptor {
                     label: Some("Shadow Layer View"),
@@ -524,6 +546,20 @@ impl ShadowRenderer {
             );
 
             for model in models {
+                // Coarse culling: skip model if its bounding sphere doesn't intersect this slot's frustum
+                let sphere_inside = match model.mesh().bounding_sphere() {
+                    Some(bsphere) => {
+                        let center = cgmath::Point3::new(
+                            bsphere.center.x, bsphere.center.y, bsphere.center.z,
+                        );
+                        slot_frustum.intersects_sphere(&center, bsphere.radius)
+                    }
+                    None => true,
+                };
+                if !sphere_inside {
+                    continue;
+                }
+
                 pass.set_vertex_buffer(0, model.mesh().vertex_buffer().slice(..));
                 pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
                 pass.set_index_buffer(
@@ -781,6 +817,16 @@ fn compute_spot_light_vp(light: &ShadowLightInfo) -> Matrix4<f32> {
     let proj = perspective(cgmath::Deg(90.0), 1.0, 0.1, 100.0);
 
     proj * view
+}
+
+/// Reconstruct a Matrix4<f32> from [[f32; 4]; 4] (column-major).
+fn slot_matrix(cols: &[[f32; 4]; 4]) -> Matrix4<f32> {
+    Matrix4::new(
+        cols[0][0], cols[0][1], cols[0][2], cols[0][3],
+        cols[1][0], cols[1][1], cols[1][2], cols[1][3],
+        cols[2][0], cols[2][1], cols[2][2], cols[2][3],
+        cols[3][0], cols[3][1], cols[3][2], cols[3][3],
+    )
 }
 
 /// Convert a Matrix4<f32> to 64 bytes for GPU upload.
