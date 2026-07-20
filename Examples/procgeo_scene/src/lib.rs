@@ -1,19 +1,21 @@
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use orbital::app::{sys_camera_controller, App, AppSettings, Module};
 use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector3};
 use orbital::debug_render::DebugModule;
-use orbital::ecs::{IntoSystem, System, World};
+use orbital::ecs::{
+    Commands, ComponentAccess, IntoSystem, System, World,
+};
 use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, EnvironmentDescriptorResource,
     ImportQueueResource, LightDescriptorEcs, LightDirty, ModelDescriptorEcs, ModelDirty,
     ModelInstances, Position, Rotation,
 };
 use orbital::importer::{gltf::GltfImport, ImportTask};
-use orbital::resources::ShadowCaster;
 use orbital::logging::{self, error, info};
 use orbital::procgeo::scene::SceneBuilder;
-use orbital::resources::WorldEnvironmentDescriptor;
+use orbital::resources::{ShadowCaster, WorldEnvironmentDescriptor};
 use winit::keyboard::KeyCode;
 
 pub const NAME: &str = "Orbital-Demo-Project: ProcGeo Scene";
@@ -47,6 +49,73 @@ pub fn entrypoint(
 }
 
 orbital::make_desktop_main!(entrypoint);
+
+struct HelmetAdjuster {
+    adjusted: AtomicBool,
+    access: ComponentAccess,
+}
+
+impl HelmetAdjuster {
+    fn new() -> Self {
+        Self {
+            adjusted: AtomicBool::new(false),
+            access: ComponentAccess::new()
+                .reads::<ModelDescriptorEcs>()
+                .writes::<Position>()
+                .writes::<Rotation>(),
+        }
+    }
+}
+
+impl System for HelmetAdjuster {
+    fn name(&self) -> &str {
+        "helmet_adjuster"
+    }
+
+    fn access(&self) -> &ComponentAccess {
+        &self.access
+    }
+
+    fn run(&mut self, world: &World, commands: &mut Commands) {
+        if self.adjusted.load(Ordering::Relaxed) {
+            return;
+        }
+
+        let descs = match world.get_component_store::<ModelDescriptorEcs>() {
+            Some(s) => s,
+            None => return,
+        };
+
+        for &eid in descs.dense.as_slice() {
+            let idx = match descs.sparse.get(eid).and_then(|x| *x) {
+                Some(i) => i,
+                None => continue,
+            };
+            if !descs.components[idx].label.to_lowercase().contains("helmet") {
+                continue;
+            }
+
+            let generation = world.generation(eid);
+            let entity = orbital::ecs::Entity::new(eid, generation);
+
+            commands.detach_component::<Position>(&entity);
+            commands.attach_component(
+                &entity,
+                Position(Point3::new(0.0, 0.35, 0.0)),
+            );
+
+            commands.detach_component::<Rotation>(&entity);
+            commands.attach_component(
+                &entity,
+                Rotation(Quaternion::new(0.7071, 0.0, -0.7071, 0.0)),
+            );
+
+            self.adjusted.store(true, Ordering::Relaxed);
+            info!("Adjusted helmet: raised 0.35, rotated to face +X");
+            break;
+        }
+    }
+}
 
 fn spawn_light(
     ecs: &mut World,
@@ -185,6 +254,9 @@ impl Module for ProcgeoSceneModule {
 
         info!("Spawned 10 shadow-casting lights");
 
-        vec![sys_camera_controller.into_system()]
+        vec![
+            sys_camera_controller.into_system(),
+            Box::new(HelmetAdjuster::new()),
+        ]
     }
 }
