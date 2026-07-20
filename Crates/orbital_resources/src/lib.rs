@@ -30,6 +30,7 @@ pub mod mesh;
 pub mod model;
 pub mod pbr_material_shader;
 pub mod shader;
+pub mod shadow;
 pub mod texture;
 pub mod transform;
 pub mod vertex;
@@ -46,6 +47,7 @@ pub use mesh::*;
 pub use model::*;
 pub use pbr_material_shader::*;
 pub use shader::*;
+pub use shadow::*;
 pub use texture::*;
 pub use transform::*;
 pub use vertex::*;
@@ -127,6 +129,53 @@ pub fn make_world_bind_group_layout(device: &Device) -> BindGroupLayout {
                 binding: 7,
                 visibility: ShaderStages::all(),
                 ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
+                count: None,
+            },
+            // Shadow slot data uniform buffer (binding 8)
+            BindGroupLayoutEntry {
+                binding: 8,
+                visibility: ShaderStages::VERTEX_FRAGMENT,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+            // Shadow depth texture 2D array (binding 9)
+            BindGroupLayoutEntry {
+                binding: 9,
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Texture {
+                    sample_type: TextureSampleType::Depth,
+                    view_dimension: TextureViewDimension::D2Array,
+                    multisampled: false,
+                },
+                count: None,
+            },
+            // Shadow comparison sampler (binding 10)
+            BindGroupLayoutEntry {
+                binding: 10,
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Sampler(SamplerBindingType::Comparison),
+                count: None,
+            },
+            // Point light cube shadow array (binding 11)
+            BindGroupLayoutEntry {
+                binding: 11,
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Texture {
+                    sample_type: TextureSampleType::Depth,
+                    view_dimension: TextureViewDimension::CubeArray,
+                    multisampled: false,
+                },
+                count: None,
+            },
+            // Point light cube comparison sampler (binding 12)
+            BindGroupLayoutEntry {
+                binding: 12,
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Sampler(SamplerBindingType::Comparison),
                 count: None,
             },
         ],

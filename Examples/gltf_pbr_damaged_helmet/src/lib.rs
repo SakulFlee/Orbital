@@ -8,6 +8,7 @@ use orbital::ecs_bridge::{
 };
 use orbital::importer::{ImportTask, gltf::GltfImport};
 use orbital::logging::{self, error, info};
+use orbital::resources::ShadowCaster;
 use orbital::resources::WorldEnvironmentDescriptor;
 use winit::keyboard::KeyCode;
 
@@ -82,6 +83,31 @@ impl Module for DamagedHelmetModule {
             },
         )));
 
+        // Spot light from behind the camera, casting shadows
+        let spot = ecs.spawn_entity();
+        ecs.attach_component(
+            &spot,
+            LightDescriptorEcs::new_spot(
+                Vector3::new(1.0, 0.9, 0.7), // warm white
+                8.0,
+                Vector3::new(0.0, -1.0, 1.0), // down + forward toward helmet
+                0.3,                           // inner cone (~17°)
+                0.5,                           // outer cone (~29°)
+            ),
+        )
+        .unwrap();
+        ecs.attach_component(&spot, Position(Point3::new(0.0, 4.0, -4.0)))
+            .unwrap();
+        ecs.attach_component(&spot, LightDirty(true)).unwrap();
+        ecs.attach_component(
+            &spot,
+            ShadowCaster {
+                cascade_count: 0, // 0 = spot (single perspective depth)
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
         // Import model
         if let Some(mut queue) = ecs.get_resource_mut::<ImportQueueResource>() {
             queue.push(ImportTask::Gltf {
@@ -90,30 +116,66 @@ impl Module for DamagedHelmetModule {
             });
         }
 
-        // Spawn lights
-        let light1 = ecs.spawn_entity();
+        // Spawn directional light with shadows
+        let sun = ecs.spawn_entity();
         ecs.attach_component(
-            &light1,
-            LightDescriptorEcs::new_point(Vector3::new(1.0, 1.0, 1.0), 10.0),
-        )
-        .unwrap();
-        ecs.attach_component(&light1, Position(Point3::new(5.0, 5.0, 5.0)))
-            .unwrap();
-        ecs.attach_component(&light1, LightDirty(true)).unwrap();
-
-        let light2 = ecs.spawn_entity();
-        ecs.attach_component(
-            &light2,
+            &sun,
             LightDescriptorEcs::new_directional(
                 Vector3::new(-1.0, -1.0, -1.0),
                 Vector3::new(1.0, 1.0, 1.0),
-                1.0,
+                1.5,
             ),
         )
         .unwrap();
-        ecs.attach_component(&light2, Position(Point3::new(0.0, 0.0, 0.0)))
+        ecs.attach_component(&sun, Position(Point3::new(0.0, 0.0, 0.0)))
             .unwrap();
-        ecs.attach_component(&light2, LightDirty(true)).unwrap();
+        ecs.attach_component(&sun, LightDirty(true)).unwrap();
+        ecs.attach_component(&sun, ShadowCaster::default()).unwrap();
+
+        // Rainbow ring of 10 point lights around the helmet
+        let colors = [
+            [1.0, 0.0, 0.0],   // red
+            [1.0, 0.5, 0.0],   // orange
+            [1.0, 1.0, 0.0],   // yellow
+            [0.5, 1.0, 0.0],   // lime
+            [0.0, 1.0, 0.0],   // green
+            [0.0, 1.0, 1.0],   // cyan
+            [0.0, 0.5, 1.0],   // blue
+            [0.5, 0.0, 1.0],   // purple
+            [1.0, 0.0, 1.0],   // magenta
+            [1.0, 0.2, 0.5],   // pink
+        ];
+        let count = colors.len();
+        for (i, &rgb) in colors.iter().enumerate() {
+            let angle = i as f32 * std::f32::consts::TAU / count as f32;
+            let (s, c) = angle.sin_cos();
+            let entity = ecs.spawn_entity();
+            ecs.attach_component(
+                &entity,
+                LightDescriptorEcs::new_point(
+                    Vector3::new(rgb[0], rgb[1], rgb[2]),
+                    3.0,
+                ),
+            )
+            .unwrap();
+            ecs.attach_component(
+                &entity,
+                Position(Point3::new(c * 3.0, 2.0, s * 3.0)),
+            )
+            .unwrap();
+            ecs.attach_component(&entity, LightDirty(true)).unwrap();
+            // First red light casts cube shadows
+            if i == 0 {
+                ecs.attach_component(
+                    &entity,
+                    ShadowCaster {
+                        cascade_count: 0,
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+            }
+        }
 
         vec![sys_camera_controller.into_system()]
     }
