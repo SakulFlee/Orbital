@@ -2513,6 +2513,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "procgeo_scene"
+version = "0.1.0"
+dependencies = [
+ "orbital",
+ "winit",
+]
+
+[[package]]
 name = "profiling"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"

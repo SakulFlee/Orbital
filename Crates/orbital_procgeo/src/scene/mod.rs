@@ -14,6 +14,7 @@ use orbital_resources::{MaterialShaderDescriptor, MeshDescriptor, Transform};
 use crate::shapes;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename = "Entity")]
 pub struct EntityDescriptor {
     pub label: Option<String>,
     pub shape: SceneShape,
@@ -22,6 +23,7 @@ pub struct EntityDescriptor {
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename = "Transform")]
 pub struct TransformDef {
     pub position: [f32; 3],
     pub rotation: [f32; 4],
@@ -61,6 +63,7 @@ impl From<Transform> for TransformDef {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum SceneShape {
     Plane { size: [f32; 2], subdivisions: u32 },
+    #[serde(rename = "Cube")]
     Box { size: [f32; 3] },
     UvSphere { radius: f32, segments: u32, rings: u32 },
     Cylinder { radius: f32, height: f32, segments: u32 },
@@ -180,5 +183,59 @@ impl SceneBuilder {
 impl Default for SceneBuilder {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ron_round_trip() {
+        let input = r#"
+SceneBuilder(
+    entities: [
+        Entity(
+            label: Some("Cube"),
+            shape: Cube(size: (1.0, 1.0, 1.0)),
+            material: "red",
+            transform: Transform(position: (0.0, 0.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0)),
+        ),
+    ],
+    materials: {
+        "red": Color(albedo: (1.0, 0.0, 0.0, 1.0), metallic: 0.0, roughness: 0.5),
+    },
+)
+"#;
+        let scene = SceneBuilder::from_ron(input).expect("Failed to parse RON");
+        assert_eq!(scene.entities.len(), 1);
+        assert_eq!(scene.materials.len(), 1);
+        assert_eq!(scene.entities[0].label.as_deref(), Some("Cube"));
+
+        let mesh = scene.entities[0].shape.generate();
+        assert!(!mesh.vertices.is_empty());
+        assert!(!mesh.indices.is_empty());
+    }
+
+    #[test]
+    fn all_shapes_generate_mesh() {
+        let shapes = vec![
+            SceneShape::Box { size: [1.0; 3] },
+            SceneShape::Plane { size: [2.0, 2.0], subdivisions: 2 },
+            SceneShape::UvSphere { radius: 1.0, segments: 8, rings: 6 },
+            SceneShape::Cylinder { radius: 0.5, height: 1.0, segments: 8 },
+            SceneShape::Cone { radius: 0.5, height: 1.0, segments: 8 },
+            SceneShape::Torus { major_radius: 1.0, minor_radius: 0.3, major_segments: 8, minor_segments: 6 },
+            SceneShape::Capsule { radius: 0.5, height: 1.0, segments: 8, rings: 6 },
+            SceneShape::Disk { radius: 1.0, segments: 8 },
+            SceneShape::Grid { width: 10.0, depth: 10.0, cols: 4, rows: 4 },
+        ];
+
+        for shape in &shapes {
+            let mesh = shape.generate();
+            assert!(!mesh.vertices.is_empty(), "{:?} generated empty vertices", shape);
+            assert!(!mesh.indices.is_empty(), "{:?} generated empty indices", shape);
+            assert!(mesh.indices.len() % 3 == 0, "{:?} indices not multiple of 3", shape);
+        }
     }
 }
