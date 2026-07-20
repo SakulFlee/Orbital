@@ -51,7 +51,7 @@ pub fn torus(
             let tr = (j * row + i + 1) as u32;
             let bl = ((j + 1) * row + i) as u32;
             let br = ((j + 1) * row + i + 1) as u32;
-            indices.extend_from_slice(&[tl, bl, br, tl, br, tr]);
+            indices.extend_from_slice(&[tl, br, bl, tl, tr, br]);
         }
     }
 

@@ -29,7 +29,7 @@ pub fn cylinder(radius: f32, height: f32, segments: u32) -> MeshDescriptor {
         let t0 = (i * 2 + 1) as u32;
         let b1 = ((i + 1) * 2) as u32;
         let t1 = ((i + 1) * 2 + 1) as u32;
-        indices.extend_from_slice(&[b0, b1, t1, b0, t1, t0]);
+        indices.extend_from_slice(&[b0, t1, b1, b0, t0, t1]);
     }
 
     // Top cap
@@ -55,7 +55,7 @@ pub fn cylinder(radius: f32, height: f32, segments: u32) -> MeshDescriptor {
         ));
     }
     for i in 0..segs {
-        indices.extend_from_slice(&[top_center_idx, top_start + i, top_start + i + 1]);
+        indices.extend_from_slice(&[top_center_idx, top_start + i + 1, top_start + i]);
     }
 
     // Bottom cap
@@ -81,7 +81,7 @@ pub fn cylinder(radius: f32, height: f32, segments: u32) -> MeshDescriptor {
         ));
     }
     for i in 0..segs {
-        indices.extend_from_slice(&[bot_center_idx, bot_start + i + 1, bot_start + i]);
+        indices.extend_from_slice(&[bot_center_idx, bot_start + i, bot_start + i + 1]);
     }
 
     MeshDescriptor::new(vertices, indices)

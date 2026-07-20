@@ -32,7 +32,7 @@ pub fn disk(radius: f32, segments: u32) -> MeshDescriptor {
     }
 
     for i in 0..segs {
-        indices.extend_from_slice(&[0, i + 2, i + 1]);
+        indices.extend_from_slice(&[0, i + 1, i + 2]);
     }
 
     MeshDescriptor::new(vertices, indices)
