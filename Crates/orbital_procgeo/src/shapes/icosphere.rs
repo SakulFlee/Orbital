@@ -118,9 +118,18 @@ pub fn icosphere(radius: f32, subdivisions: u32) -> MeshDescriptor {
     }
 
     for &[v0, v1, v2] in &faces {
-        indices.push(v0 as u32);
-        indices.push(v2 as u32);
-        indices.push(v1 as u32);
+        let p0 = verts[v0];
+        let p1 = verts[v1];
+        let p2 = verts[v2];
+        let e1 = p1 - p0;
+        let e2 = p2 - p1;
+        let cross = e1.cross(e2);
+        // cross pointing outward (same direction as vertex) → CCW → flip
+        if cross.dot(p0) > 0.0 {
+            indices.extend_from_slice(&[v0 as u32, v2 as u32, v1 as u32]);
+        } else {
+            indices.extend_from_slice(&[v0 as u32, v1 as u32, v2 as u32]);
+        }
     }
 
     MeshDescriptor::new(vertices, indices)
