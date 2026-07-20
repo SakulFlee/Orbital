@@ -26,7 +26,7 @@ fn face_vertices(face: &Face) -> [Vertex; 4] {
 }
 
 fn face_indices(base: u32) -> [u32; 6] {
-    [base, base + 1, base + 2, base, base + 2, base + 3]
+    [base, base + 2, base + 1, base, base + 3, base + 2]
 }
 
 pub fn box_(size: Vector3<f32>) -> MeshDescriptor {

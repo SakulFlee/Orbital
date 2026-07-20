@@ -24,7 +24,7 @@ pub fn cone(radius: f32, height: f32, segments: u32) -> MeshDescriptor {
         let u = j as f32 / segs as f32;
 
         let pos = Vector3::new(radius * cos_t, -height / 2.0, radius * sin_t);
-        let to_apex = Vector3::new(0.0, height, 0.0) - pos;
+        let to_apex = Vector3::new(0.0, height / 2.0, 0.0) - pos;
         let edge_dir = Vector3::new(-sin_t, 0.0, cos_t);
         let normal = to_apex.cross(edge_dir).normalize();
         let tangent = edge_dir.normalize();
@@ -33,7 +33,7 @@ pub fn cone(radius: f32, height: f32, segments: u32) -> MeshDescriptor {
     }
 
     for i in 0..segs {
-        indices.extend_from_slice(&[apex_idx, base_start + i + 1, base_start + i]);
+        indices.extend_from_slice(&[apex_idx, base_start + i, base_start + i + 1]);
     }
 
     // Base cap (triangle fan)
@@ -61,7 +61,7 @@ pub fn cone(radius: f32, height: f32, segments: u32) -> MeshDescriptor {
     }
 
     for i in 0..segs {
-        indices.extend_from_slice(&[bot_center_idx, bot_ring_start + i + 1, bot_ring_start + i]);
+        indices.extend_from_slice(&[bot_center_idx, bot_ring_start + i, bot_ring_start + i + 1]);
     }
 
     MeshDescriptor::new(vertices, indices)

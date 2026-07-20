@@ -5,8 +5,13 @@ use orbital_resources::{
     FilterMode, MaterialShaderDescriptor, PBRMaterialShaderDescriptor, TextureDescriptor,
     TextureSize,
 };
+use wgpu::TextureUsages;
 
 const DEFAULT_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8UnormSrgb;
+
+fn mat_texture_usages() -> TextureUsages {
+    TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST
+}
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum SceneMaterial {
@@ -47,7 +52,7 @@ impl SceneMaterial {
                         ..Default::default()
                     },
                     format: DEFAULT_FORMAT,
-                    usages: wgpu::TextureUsages::all(),
+                    usages: mat_texture_usages(),
                     texture_dimension: wgpu::TextureDimension::D2,
                     texture_view_dimension: wgpu::TextureViewDimension::D2,
                     filter_mode: FilterMode::default(),
@@ -61,7 +66,7 @@ impl SceneMaterial {
                         ..Default::default()
                     },
                     format: wgpu::TextureFormat::R8Unorm,
-                    usages: wgpu::TextureUsages::all(),
+                    usages: mat_texture_usages(),
                     texture_dimension: wgpu::TextureDimension::D2,
                     texture_view_dimension: wgpu::TextureViewDimension::D2,
                     filter_mode: FilterMode::default(),
@@ -75,7 +80,7 @@ impl SceneMaterial {
                         ..Default::default()
                     },
                     format: wgpu::TextureFormat::R8Unorm,
-                    usages: wgpu::TextureUsages::all(),
+                    usages: mat_texture_usages(),
                     texture_dimension: wgpu::TextureDimension::D2,
                     texture_view_dimension: wgpu::TextureViewDimension::D2,
                     filter_mode: FilterMode::default(),
@@ -89,7 +94,7 @@ impl SceneMaterial {
                         ..Default::default()
                     },
                     format: DEFAULT_FORMAT,
-                    usages: wgpu::TextureUsages::all(),
+                    usages: mat_texture_usages(),
                     texture_dimension: wgpu::TextureDimension::D2,
                     texture_view_dimension: wgpu::TextureViewDimension::D2,
                     filter_mode: FilterMode::default(),

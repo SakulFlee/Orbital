@@ -28,7 +28,7 @@ pub fn plane(size: Vector2<f32>, subdivisions: u32) -> MeshDescriptor {
             let tr = (j * res + i + 1) as u32;
             let bl = ((j + 1) * res + i) as u32;
             let br = ((j + 1) * res + i + 1) as u32;
-            indices.extend_from_slice(&[tl, bl, br, tl, br, tr]);
+            indices.extend_from_slice(&[tl, br, bl, tl, tr, br]);
         }
     }
 
