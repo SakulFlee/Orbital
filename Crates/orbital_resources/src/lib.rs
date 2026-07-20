@@ -160,6 +160,24 @@ pub fn make_world_bind_group_layout(device: &Device) -> BindGroupLayout {
                 ty: BindingType::Sampler(SamplerBindingType::Comparison),
                 count: None,
             },
+            // Point light cube shadow array (binding 11)
+            BindGroupLayoutEntry {
+                binding: 11,
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Texture {
+                    sample_type: TextureSampleType::Depth,
+                    view_dimension: TextureViewDimension::CubeArray,
+                    multisampled: false,
+                },
+                count: None,
+            },
+            // Point light cube comparison sampler (binding 12)
+            BindGroupLayoutEntry {
+                binding: 12,
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Sampler(SamplerBindingType::Comparison),
+                count: None,
+            },
         ],
     })
 }

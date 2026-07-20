@@ -164,6 +164,17 @@ impl Module for DamagedHelmetModule {
             )
             .unwrap();
             ecs.attach_component(&entity, LightDirty(true)).unwrap();
+            // First red light casts cube shadows
+            if i == 0 {
+                ecs.attach_component(
+                    &entity,
+                    ShadowCaster {
+                        cascade_count: 0,
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+            }
         }
 
         vec![sys_camera_controller.into_system()]

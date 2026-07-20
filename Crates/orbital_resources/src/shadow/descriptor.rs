@@ -3,6 +3,7 @@ use cgmath::Vector3;
 pub const MAX_SHADOW_SLOTS: u32 = 16;
 pub const SHADOW_TYPE_DIRECTIONAL_CASCADE: u32 = 0;
 pub const SHADOW_TYPE_SPOT: u32 = 1;
+pub const SHADOW_TYPE_POINT: u32 = 2;
 pub const DEFAULT_SHADOW_RESOLUTION: u32 = 1024;
 pub const DEFAULT_CASCADE_COUNT: u32 = 4;
 pub const DEFAULT_CASCADE_SPLIT_LAMBDA: f32 = 0.75;

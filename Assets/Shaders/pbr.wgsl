@@ -113,6 +113,9 @@ struct ShadowData {
 @group(0) @binding(9) var shadow_map_array: texture_depth_2d_array;
 @group(0) @binding(10) var shadow_sampler: sampler_comparison;
 
+@group(0) @binding(11) var point_shadow_maps: texture_depth_cube_array;
+@group(0) @binding(12) var point_shadow_sampler: sampler_comparison;
+
 @group(1) @binding(0) var normal_texture: texture_2d<f32>;
 @group(1) @binding(1) var normal_sampler: sampler;
 
@@ -339,20 +342,45 @@ fn compute_shadow_factor(world_pos: vec3<f32>, view_distance: f32) -> f32 {
     for (var i = 0u; i < shadow_data.cascade_count; i++) {
         let slot = shadow_data.slots[i];
 
-        // For directional cascades: check if this fragment falls in this cascade
         if (slot.shadow_type == SHADOW_TYPE_DIRECTIONAL_CASCADE) {
+            // Cascade check: skip if fragment is beyond this cascade
             if (view_distance > slot.cascade_split_depth) {
                 continue;
             }
-        }
+            // Standard projective shadow
+            let clip_pos = slot.light_view_proj * vec4<f32>(world_pos, 1.0);
+            let shadow_coord = clip_pos.xyz / clip_pos.w;
+            if (all(shadow_coord >= vec3(0.0)) && all(shadow_coord <= vec3(1.0))) {
+                factor = sample_shadow_pcf(slot.layer_index, shadow_coord, slot.bias);
+                return factor;
+            }
+        } else if (slot.shadow_type == SHADOW_TYPE_SPOT) {
+            // Spot light: same projective shadow as directional
+            let clip_pos = slot.light_view_proj * vec4<f32>(world_pos, 1.0);
+            let shadow_coord = clip_pos.xyz / clip_pos.w;
+            if (all(shadow_coord >= vec3(0.0)) && all(shadow_coord <= vec3(1.0))) {
+                factor = sample_shadow_pcf(slot.layer_index, shadow_coord, slot.bias);
+                return factor;
+            }
+        } else if (slot.shadow_type == SHADOW_TYPE_POINT) {
+            // Point light: sample cube map using direction from light to fragment
+            let light_pos = slot.light_view_proj[3].xyz;
+            let frag_to_light = world_pos - light_pos;
+            let distance = length(frag_to_light);
+            let direction = normalize(frag_to_light);
+            let far_plane = slot.cascade_split_depth;
 
-        // Transform world position to light clip space
-        let clip_pos = slot.light_view_proj * vec4<f32>(world_pos, 1.0);
-        let shadow_coord = clip_pos.xyz / clip_pos.w;
+            // Convert linear distance to non-linear depth matching the perspective projection
+            let z = distance;
+            let n = 0.1;
+            let f = far_plane;
+            let depth = (f * (z - n)) / (z * (f - n));
 
-        // Check if in shadow map bounds
-        if (all(shadow_coord >= vec3(0.0)) && all(shadow_coord <= vec3(1.0))) {
-            factor = sample_shadow_pcf(slot.layer_index, shadow_coord, slot.bias);
+            factor = textureSampleCompare(
+                point_shadow_maps, point_shadow_sampler,
+                direction, slot.layer_index,
+                depth - slot.bias
+            );
             return factor;
         }
     }
