@@ -5,7 +5,10 @@ use orbital_resources::{
     FilterMode, MaterialShaderDescriptor, PBRMaterialShaderDescriptor, ShaderSource,
     TextureDescriptor, TextureSize, VertexStageLayout,
 };
-use wgpu::{PolygonMode, TextureUsages};
+use wgpu::{
+    PolygonMode, PrimitiveTopology, TextureUsages, VertexAttribute, VertexBufferLayout,
+    VertexFormat, VertexStepMode,
+};
 
 const DEFAULT_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8UnormSrgb;
 
@@ -156,10 +159,19 @@ impl SceneMaterial {
                 base.entrypoint_vertex = "entrypoint_vertex";
                 base.entrypoint_fragment = "entrypoint_fragment";
                 base.vertex_stage_layouts = Some(vec![
-                    VertexStageLayout::SimpleVertexData,
+                    VertexStageLayout::Custom(VertexBufferLayout {
+                        array_stride: 56,
+                        step_mode: VertexStepMode::Vertex,
+                        attributes: &[VertexAttribute {
+                            offset: 0,
+                            shader_location: 0,
+                            format: VertexFormat::Float32x3,
+                        }],
+                    }),
                     VertexStageLayout::InstanceData,
                 ]);
-                base.polygon_mode = PolygonMode::Line;
+                base.primitive_topology = PrimitiveTopology::LineList;
+                base.polygon_mode = PolygonMode::Fill;
                 base.cull_mode = None;
                 base.depth_stencil = true;
                 Arc::new(base)
