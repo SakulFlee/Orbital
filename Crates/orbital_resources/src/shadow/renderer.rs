@@ -297,6 +297,7 @@ impl ShadowRenderer {
 
         let mut slot_index = 0u32;
         let mut layer_index = 0u32;
+        let mut cube_index = 0u32;
         let mut matrix_index = 0u32;
         let matrix_buf_size = self.slot_stride * self.max_slots as u64 * 6;
         let mut matrix_bytes = vec![0u8; matrix_buf_size as usize];
@@ -318,8 +319,8 @@ impl ShadowRenderer {
                     if slot_index >= self.max_slots {
                         break;
                     }
-                    let cube_idx = layer_index;
-                    self.ensure_cubes(device, cube_idx + 1);
+                    let my_cube = cube_index;
+                    self.ensure_cubes(device, my_cube + 1);
 
                     // Compute 6 face VP matrices
                     let pos = Point3::new(
@@ -342,7 +343,7 @@ impl ShadowRenderer {
                     let mut slot_data = ShadowSlotData {
                         light_view_proj: [[0.0; 4]; 4],
                         shadow_type: SHADOW_TYPE_POINT,
-                        layer_index: cube_idx,
+                        layer_index: my_cube,
                         cascade_split_depth: far_plane,
                         bias: light.caster.bias,
                     };
@@ -357,7 +358,7 @@ impl ShadowRenderer {
 
                     // Render each cube face
                     for face in 0..6 {
-                        let face_layer = cube_idx * 6 + face;
+                        let face_layer = my_cube * 6 + face;
                         let face_view = self.cube_depth_texture.texture().create_view(
                             &wgpu::TextureViewDescriptor {
                                 label: Some("Shadow Cube Face View"),
@@ -427,7 +428,7 @@ impl ShadowRenderer {
                     }
 
                     slot_index += 1;
-                    layer_index += 1;
+                    cube_index += 1;
                     matrix_index += 6;
                 }
                 1 => {
@@ -624,7 +625,7 @@ impl ShadowRenderer {
         if needed <= self.cube_count {
             return;
         }
-        let new_cubes = needed.max(self.cube_count * 2).min(self.max_slots / 6);
+        let new_cubes = needed.max(self.cube_count * 2).min(self.max_slots);
         self.cube_depth_texture =
             Self::create_cube_depth_texture(device, self.resolution, new_cubes);
         self.cube_count = new_cubes;
