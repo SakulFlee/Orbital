@@ -6,8 +6,8 @@ use orbital::debug_render::DebugModule;
 use orbital::ecs::{IntoSystem, System, World};
 use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, EnvironmentDescriptorResource,
-    ImportQueueResource, LightDescriptorEcs, ModelDescriptorEcs, ModelDirty, ModelInstances,
-    Position, Rotation,
+    ImportQueueResource, LightDescriptorEcs, LightDirty, ModelDescriptorEcs, ModelDirty,
+    ModelInstances, Position, Rotation,
 };
 use orbital::importer::{gltf::GltfImport, ImportTask};
 use orbital::resources::ShadowCaster;
@@ -56,6 +56,7 @@ fn spawn_light(
     let entity = ecs.spawn_entity();
     ecs.attach_component(&entity, desc).unwrap();
     ecs.attach_component(&entity, Position(pos)).unwrap();
+    ecs.attach_component(&entity, LightDirty(true)).unwrap();
     ecs.attach_component(&entity, ShadowCaster::default()).unwrap();
 }
 
