@@ -27,7 +27,7 @@ pub fn entrypoint(
     match App::new()
         .add_module(CameraModule)
         .add_module(ModelModule)
-        .add_module(LightModule)
+        // .add_module(LightModule)
         .add_module(
             DebugModule::new()
                 .with_toggle_key(KeyCode::F3)

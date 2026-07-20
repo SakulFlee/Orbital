@@ -83,6 +83,31 @@ impl Module for DamagedHelmetModule {
             },
         )));
 
+        // Spot light from behind the camera, casting shadows
+        let spot = ecs.spawn_entity();
+        ecs.attach_component(
+            &spot,
+            LightDescriptorEcs::new_spot(
+                Vector3::new(1.0, 0.9, 0.7), // warm white
+                8.0,
+                Vector3::new(0.0, -1.0, 1.0), // down + forward toward helmet
+                0.3,                           // inner cone (~17°)
+                0.5,                           // outer cone (~29°)
+            ),
+        )
+        .unwrap();
+        ecs.attach_component(&spot, Position(Point3::new(0.0, 4.0, -4.0)))
+            .unwrap();
+        ecs.attach_component(&spot, LightDirty(true)).unwrap();
+        ecs.attach_component(
+            &spot,
+            ShadowCaster {
+                cascade_count: 0, // 0 = spot (single perspective depth)
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
         // Import model
         if let Some(mut queue) = ecs.get_resource_mut::<ImportQueueResource>() {
             queue.push(ImportTask::Gltf {
