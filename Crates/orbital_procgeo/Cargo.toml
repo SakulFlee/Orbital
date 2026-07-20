@@ -1,0 +1,11 @@
+[package]
+name = "orbital_procgeo"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+orbital_resources = { path = "../orbital_resources" }
+cgmath = { workspace = true }
+wgpu = { workspace = true }
+serde = { workspace = true }
+ron = "0.8"

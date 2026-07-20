@@ -1,0 +1,120 @@
+use std::sync::Arc;
+
+use cgmath::Vector3;
+use orbital_resources::{
+    FilterMode, MaterialShaderDescriptor, PBRMaterialShaderDescriptor, TextureDescriptor,
+    TextureSize,
+};
+
+const DEFAULT_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8UnormSrgb;
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub enum SceneMaterial {
+    Color {
+        albedo: [f32; 4],
+        metallic: f32,
+        roughness: f32,
+    },
+    PbrFile {
+        path: String,
+    },
+}
+
+impl SceneMaterial {
+    pub fn into_material_shader(self) -> Arc<MaterialShaderDescriptor> {
+        match self {
+            SceneMaterial::Color {
+                albedo,
+                metallic,
+                roughness,
+            } => {
+                let a = albedo;
+                let rgba = [
+                    (a[0].clamp(0.0, 1.0) * 255.0) as u8,
+                    (a[1].clamp(0.0, 1.0) * 255.0) as u8,
+                    (a[2].clamp(0.0, 1.0) * 255.0) as u8,
+                    (a[3].clamp(0.0, 1.0) * 255.0) as u8,
+                ];
+
+                let m = (metallic.clamp(0.0, 1.0) * 255.0) as u8;
+                let r = (roughness.clamp(0.0, 1.0) * 255.0) as u8;
+
+                let tex_1x1_rgba = TextureDescriptor::Data {
+                    pixels: rgba.to_vec(),
+                    size: TextureSize {
+                        width: 1,
+                        height: 1,
+                        ..Default::default()
+                    },
+                    format: DEFAULT_FORMAT,
+                    usages: wgpu::TextureUsages::all(),
+                    texture_dimension: wgpu::TextureDimension::D2,
+                    texture_view_dimension: wgpu::TextureViewDimension::D2,
+                    filter_mode: FilterMode::default(),
+                };
+
+                let tex_1x1_r = TextureDescriptor::Data {
+                    pixels: vec![m],
+                    size: TextureSize {
+                        width: 1,
+                        height: 1,
+                        ..Default::default()
+                    },
+                    format: wgpu::TextureFormat::R8Unorm,
+                    usages: wgpu::TextureUsages::all(),
+                    texture_dimension: wgpu::TextureDimension::D2,
+                    texture_view_dimension: wgpu::TextureViewDimension::D2,
+                    filter_mode: FilterMode::default(),
+                };
+
+                let tex_1x1_r2 = TextureDescriptor::Data {
+                    pixels: vec![r],
+                    size: TextureSize {
+                        width: 1,
+                        height: 1,
+                        ..Default::default()
+                    },
+                    format: wgpu::TextureFormat::R8Unorm,
+                    usages: wgpu::TextureUsages::all(),
+                    texture_dimension: wgpu::TextureDimension::D2,
+                    texture_view_dimension: wgpu::TextureViewDimension::D2,
+                    filter_mode: FilterMode::default(),
+                };
+
+                let default_tex = TextureDescriptor::Data {
+                    pixels: vec![0, 0, 0, 0],
+                    size: TextureSize {
+                        width: 1,
+                        height: 1,
+                        ..Default::default()
+                    },
+                    format: DEFAULT_FORMAT,
+                    usages: wgpu::TextureUsages::all(),
+                    texture_dimension: wgpu::TextureDimension::D2,
+                    texture_view_dimension: wgpu::TextureViewDimension::D2,
+                    filter_mode: FilterMode::default(),
+                };
+
+                let pbr = PBRMaterialShaderDescriptor {
+                    name: Some("SceneMaterial::Color".into()),
+                    normal: default_tex.clone(),
+                    albedo: tex_1x1_rgba,
+                    albedo_factor: Vector3::new(a[0], a[1], a[2]),
+                    metallic: tex_1x1_r,
+                    metallic_factor: metallic,
+                    roughness: tex_1x1_r2,
+                    roughness_factor: roughness,
+                    occlusion: default_tex.clone(),
+                    emissive: default_tex,
+                    custom_material_shader: None,
+                };
+
+                Arc::new(pbr.into())
+            }
+            SceneMaterial::PbrFile { .. } => {
+                // Fallback to default material for now
+                Arc::new(MaterialShaderDescriptor::default())
+            }
+        }
+    }
+}

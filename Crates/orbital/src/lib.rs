@@ -8,6 +8,7 @@ pub use orbital_ecs as ecs;
 pub use orbital_ecs_bridge as ecs_bridge;
 pub use orbital_importer_gltf as importer;
 pub use orbital_renderer as renderer;
+pub use orbital_procgeo as procgeo;
 pub use orbital_resources as resources;
 pub use orbital_shader_preprocessor as shader_preprocessor;
 

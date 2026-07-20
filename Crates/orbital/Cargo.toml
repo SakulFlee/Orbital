@@ -43,6 +43,7 @@ orbital_renderer = { path = "../orbital_renderer" }
 orbital_app = { path = "../orbital_app" }
 orbital_ecs = { path = "../ecs" }
 orbital_ecs_bridge = { path = "../orbital_ecs_bridge" }
+orbital_procgeo = { path = "../orbital_procgeo" }
 orbital_debug_render = { path = "../orbital_debug_render" }
 
 gilrs = { workspace = true, optional = true }
