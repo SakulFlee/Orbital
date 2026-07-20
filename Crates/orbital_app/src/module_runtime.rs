@@ -294,16 +294,22 @@ impl ModuleRuntime {
         static FALLBACK_SHADOW_BUF: std::sync::OnceLock<wgpu::Buffer> = std::sync::OnceLock::new();
         static FALLBACK_SHADOW_TEX: std::sync::OnceLock<(wgpu::Texture, wgpu::TextureView)> = std::sync::OnceLock::new();
         static FALLBACK_SHADOW_SAMPLER: std::sync::OnceLock<wgpu::Sampler> = std::sync::OnceLock::new();
+        static FALLBACK_CUBE_TEX: std::sync::OnceLock<(wgpu::Texture, wgpu::TextureView)> = std::sync::OnceLock::new();
+        static FALLBACK_CUBE_SAMPLER: std::sync::OnceLock<wgpu::Sampler> = std::sync::OnceLock::new();
 
         let shadow_slot_buffer: &wgpu::Buffer;
         let shadow_depth_view: &wgpu::TextureView;
         let shadow_sampler: &wgpu::Sampler;
+        let cube_shadow_depth_view: &wgpu::TextureView;
+        let cube_shadow_sampler: &wgpu::Sampler;
 
         if let Some(renderer) = &self.renderer {
             if let Some(sr) = renderer.shadow_renderer() {
                 shadow_slot_buffer = sr.slot_data_buffer();
                 shadow_depth_view = sr.depth_texture().view();
                 shadow_sampler = sr.sampler();
+                cube_shadow_depth_view = sr.cube_depth_texture().view();
+                cube_shadow_sampler = sr.cube_sampler();
             } else {
                 let fb = FALLBACK_SHADOW_BUF.get_or_init(|| {
                     device.create_buffer(&wgpu::BufferDescriptor {
@@ -333,9 +339,34 @@ impl ModuleRuntime {
                         ..Default::default()
                     })
                 });
+                let (_, cbv) = FALLBACK_CUBE_TEX.get_or_init(|| {
+                    let t = device.create_texture(&wgpu::TextureDescriptor {
+                        label: Some("Fallback Cube Shadow Tex"),
+                        size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 6 },
+                        mip_level_count: 1,
+                        sample_count: 1,
+                        dimension: wgpu::TextureDimension::D2,
+                        format: wgpu::TextureFormat::Depth32Float,
+                        usage: wgpu::TextureUsages::TEXTURE_BINDING,
+                        view_formats: &[],
+                    });
+                    let v = t.create_view(&wgpu::TextureViewDescriptor {
+                        dimension: Some(wgpu::TextureViewDimension::CubeArray),
+                        ..Default::default()
+                    });
+                    (t, v)
+                });
+                let cs = FALLBACK_CUBE_SAMPLER.get_or_init(|| {
+                    device.create_sampler(&wgpu::SamplerDescriptor {
+                        label: Some("Fallback Cube Shadow Sampler"),
+                        ..Default::default()
+                    })
+                });
                 shadow_slot_buffer = fb;
                 shadow_depth_view = fbv;
                 shadow_sampler = fs;
+                cube_shadow_depth_view = cbv;
+                cube_shadow_sampler = cs;
             }
         } else {
             let fb = FALLBACK_SHADOW_BUF.get_or_init(|| {
@@ -366,9 +397,34 @@ impl ModuleRuntime {
                     ..Default::default()
                 })
             });
+            let (_, cbv) = FALLBACK_CUBE_TEX.get_or_init(|| {
+                let t2 = device.create_texture(&wgpu::TextureDescriptor {
+                    label: Some("Fallback Cube Shadow Tex 2"),
+                    size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 6 },
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format: wgpu::TextureFormat::Depth32Float,
+                    usage: wgpu::TextureUsages::TEXTURE_BINDING,
+                    view_formats: &[],
+                });
+                let v2 = t2.create_view(&wgpu::TextureViewDescriptor {
+                    dimension: Some(wgpu::TextureViewDimension::CubeArray),
+                    ..Default::default()
+                });
+                (t2, v2)
+            });
+            let cs = FALLBACK_CUBE_SAMPLER.get_or_init(|| {
+                device.create_sampler(&wgpu::SamplerDescriptor {
+                    label: Some("Fallback Cube Shadow Sampler 2"),
+                    ..Default::default()
+                })
+            });
             shadow_slot_buffer = fb;
             shadow_depth_view = fbv;
             shadow_sampler = fs;
+            cube_shadow_depth_view = cbv;
+            cube_shadow_sampler = cs;
         };
 
         // Build bind group
@@ -427,6 +483,14 @@ impl ModuleRuntime {
                 wgpu::BindGroupEntry {
                     binding: 10,
                     resource: wgpu::BindingResource::Sampler(shadow_sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 11,
+                    resource: wgpu::BindingResource::TextureView(cube_shadow_depth_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 12,
+                    resource: wgpu::BindingResource::Sampler(cube_shadow_sampler),
                 },
             ],
         });
