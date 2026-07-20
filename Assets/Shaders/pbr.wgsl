@@ -91,6 +91,32 @@ struct PBRData {
 @group(0) @binding(6) var ibl_brdf_lut_texture: texture_2d<f32>;
 @group(0) @binding(7) var ibl_brdf_lut_sampler: sampler;
 
+// Shadow bindings
+const MAX_SHADOW_SLOTS: u32 = 16u;
+const SHADOW_TYPE_DIRECTIONAL_CASCADE: u32 = 0u;
+const SHADOW_TYPE_SPOT: u32 = 1u;
+const SHADOW_TYPE_POINT: u32 = 2u;
+
+struct ShadowSlot {
+    light_view_proj: mat4x4<f32>,  // offset 0,  size 64
+    shadow_type: u32,                // offset 64, size 4
+    layer_index: u32,               // offset 68, size 4
+    cascade_split_depth: f32,       // offset 72, size 4
+    bias: f32,                      // offset 76, size 4
+}                                    // total: 80 bytes (WGSL padded to 80)
+
+struct ShadowData {
+    slots: array<ShadowSlot, 16>,
+    cascade_count: u32,
+}
+
+@group(0) @binding(8) var<uniform> shadow_data: ShadowData;
+@group(0) @binding(9) var shadow_map_array: texture_depth_2d_array;
+@group(0) @binding(10) var shadow_sampler: sampler_comparison;
+
+@group(0) @binding(11) var point_shadow_maps: texture_depth_cube_array;
+@group(0) @binding(12) var point_shadow_sampler: sampler_comparison;
+
 @group(1) @binding(0) var normal_texture: texture_2d<f32>;
 @group(1) @binding(1) var normal_sampler: sampler;
 
@@ -155,12 +181,15 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     let pbr = pbr_data(in);
     var output = vec3(0.0);
 
+    // View-space depth for shadow cascade selection
+    let view_distance = distance(camera.position.xyz, in.world_position);
+
     // IBL Ambient light
     var ambient = calculate_ambient_ibl(pbr);
     output += ambient;
 
     // Light reflectance
-    let light_reflectance = calculate_light_contribution(pbr, in.world_position);
+    let light_reflectance = calculate_light_contribution(pbr, in.world_position, view_distance);
     output += light_reflectance;
 
     // Add emissive "ontop"
@@ -193,15 +222,16 @@ fn aces_tone_map(color: vec3<f32>) -> vec3<f32> {
     );
 }
 
-fn calculate_light_contribution(pbr: PBRData, world_position: vec3<f32>) -> vec3<f32> {
+fn calculate_light_contribution(pbr: PBRData, world_position: vec3<f32>, view_distance: f32) -> vec3<f32> {
     var Lo = vec3(0.0);
+    let shadow_factor = compute_shadow_factor(world_position, view_distance);
 
     for (var i = u32(0); i < arrayLength(&light_store); i++) {
         let light = light_store[i];
         Lo += calculate_light_brdf(light, pbr, world_position); 
     }
 
-    return Lo;
+    return Lo * shadow_factor;
 }
 
 fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -> vec3<f32> {
@@ -286,6 +316,76 @@ fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
 
     // Ambient light calculation (IBL), multiplied by ambient occlusion
     return (diffuse_ibl + specular_ibl) * pbr.occlusion;
+}
+
+/// Sample shadow map with 3x3 PCF.
+fn sample_shadow_pcf(layer: u32, shadow_coord: vec3<f32>, bias: f32) -> f32 {
+    let texel_size = 1.0 / vec2<f32>(textureDimensions(shadow_map_array));
+    let uv = shadow_coord.xy;
+    let compare_depth = shadow_coord.z - bias;
+
+    var shadow = 0.0;
+    for (var x = -1; x <= 1; x++) {
+        for (var y = -1; y <= 1; y++) {
+            let offset = vec2<f32>(f32(x), f32(y)) * texel_size;
+            shadow += textureSampleCompare(
+                shadow_map_array, shadow_sampler, uv + offset, layer, compare_depth
+            );
+        }
+    }
+    return shadow / 9.0;
+}
+
+/// Compute shadow factor for a world position using the shadow slot array.
+/// view_distance is the distance from the camera to the fragment (for cascade selection).
+fn compute_shadow_factor(world_pos: vec3<f32>, view_distance: f32) -> f32 {
+    var factor = 1.0;
+    for (var i = 0u; i < shadow_data.cascade_count; i++) {
+        let slot = shadow_data.slots[i];
+
+        if (slot.shadow_type == SHADOW_TYPE_DIRECTIONAL_CASCADE) {
+            // Cascade check: skip if fragment is beyond this cascade
+            if (view_distance > slot.cascade_split_depth) {
+                continue;
+            }
+            // Standard projective shadow
+            let clip_pos = slot.light_view_proj * vec4<f32>(world_pos, 1.0);
+            let shadow_coord = clip_pos.xyz / clip_pos.w;
+            if (all(shadow_coord >= vec3(0.0)) && all(shadow_coord <= vec3(1.0))) {
+                factor = sample_shadow_pcf(slot.layer_index, shadow_coord, slot.bias);
+                return factor;
+            }
+        } else if (slot.shadow_type == SHADOW_TYPE_SPOT) {
+            // Spot light: same projective shadow as directional
+            let clip_pos = slot.light_view_proj * vec4<f32>(world_pos, 1.0);
+            let shadow_coord = clip_pos.xyz / clip_pos.w;
+            if (all(shadow_coord >= vec3(0.0)) && all(shadow_coord <= vec3(1.0))) {
+                factor = sample_shadow_pcf(slot.layer_index, shadow_coord, slot.bias);
+                return factor;
+            }
+        } else if (slot.shadow_type == SHADOW_TYPE_POINT) {
+            // Point light: sample cube map using direction from light to fragment
+            let light_pos = slot.light_view_proj[3].xyz;
+            let frag_to_light = world_pos - light_pos;
+            let distance = length(frag_to_light);
+            let direction = normalize(frag_to_light);
+            let far_plane = slot.cascade_split_depth;
+
+            // Convert linear distance to non-linear depth matching the perspective projection
+            let z = distance;
+            let n = 0.1;
+            let f = far_plane;
+            let depth = (f * (z - n)) / (z * (f - n));
+
+            factor = textureSampleCompare(
+                point_shadow_maps, point_shadow_sampler,
+                direction, slot.layer_index,
+                depth - slot.bias
+            );
+            return factor;
+        }
+    }
+    return 1.0;
 }
 
 /// Samples the fragment's normal and transforms it into world space

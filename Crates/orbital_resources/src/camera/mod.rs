@@ -21,6 +21,8 @@ pub use frustum::*;
 pub struct Camera {
     camera_buffer: Buffer,
     perspective_view_projection_matrix: Matrix4<f32>,
+    near: f32,
+    far: f32,
 }
 
 impl Camera {
@@ -53,6 +55,8 @@ impl Camera {
         let mut camera = Self {
             camera_buffer,
             perspective_view_projection_matrix: Matrix4::identity(),
+            near: descriptor.near,
+            far: descriptor.far,
         };
         camera.update_buffer(&descriptor, queue);
         camera
@@ -198,6 +202,14 @@ impl Camera {
     pub fn perspective_view_projection_matrix(&self) -> &Matrix4<f32> {
         &self.perspective_view_projection_matrix
     }
+
+    pub fn near(&self) -> f32 {
+        self.near
+    }
+
+    pub fn far(&self) -> f32 {
+        self.far
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -239,6 +251,8 @@ impl Camera {
         let mut camera = Self {
             camera_buffer,
             perspective_view_projection_matrix: Matrix4::identity(),
+            near,
+            far,
         };
         camera.update_from_parts(
             position,
