@@ -1,16 +1,16 @@
 SceneBuilder(
     entities: [
         Entity(
-            label: Some("Ground"),
+            label: Some("Ground Grid"),
             shape: Grid(width: 10.0, depth: 10.0, cols: 8, rows: 8),
-            material: "floor_mat",
+            material: "grid_wire",
             transform: Transform(position: (0.0, -0.5, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0)),
         ),
         Entity(
             label: Some("Teal Plane"),
             shape: Plane(size: (3.0, 3.0), subdivisions: 4),
             material: "teal",
-            transform: Transform(position: (0.0, -0.4, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0)),
+            transform: Transform(position: (0.0, 1.5, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0)),
         ),
         Entity(
             label: Some("Red Cube"),
@@ -65,5 +65,6 @@ SceneBuilder(
         "yellow": Color(albedo: (1.0, 0.9, 0.1, 1.0), metallic: 0.8, roughness: 0.2),
         "cyan": Color(albedo: (0.0, 0.9, 0.9, 1.0), metallic: 0.0, roughness: 0.4),
         "teal": Color(albedo: (0.0, 0.6, 0.6, 1.0), metallic: 0.2, roughness: 0.5),
+        "grid_wire": Grid,
     },
 )
