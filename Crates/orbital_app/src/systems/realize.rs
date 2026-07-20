@@ -208,7 +208,7 @@ pub fn realize_models(ecs: &mut World) {
             };
 
             let is_dirty = match ecs.get_component_store::<ModelDirty>() {
-                Some(store) => match store.sparse[eid] {
+                Some(store) => match store.sparse.get(eid).and_then(|x| *x) {
                     Some(idx) => store.components[idx].0,
                     None => true,
                 },
@@ -217,7 +217,7 @@ pub fn realize_models(ecs: &mut World) {
 
             let has_realization = ecs
                 .get_component_store::<ModelRealization>()
-                .map(|store| store.sparse[eid].is_some())
+                .map(|store| store.sparse.get(eid).is_some())
                 .unwrap_or(false);
 
             if !is_dirty && has_realization {
