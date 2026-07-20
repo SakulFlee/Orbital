@@ -240,9 +240,7 @@ SceneBuilder(
             let mesh = shape.generate();
             assert!(!mesh.vertices.is_empty(), "{:?} generated empty vertices", shape);
             assert!(!mesh.indices.is_empty(), "{:?} generated empty indices", shape);
-            if !matches!(shape, SceneShape::Grid { .. }) {
-                assert!(mesh.indices.len() % 3 == 0, "{:?} indices not multiple of 3", shape);
-            }
+            assert!(mesh.indices.len() % 3 == 0, "{:?} indices not multiple of 3", shape);
         }
     }
 }
