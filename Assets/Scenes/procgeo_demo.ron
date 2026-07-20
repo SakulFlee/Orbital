@@ -3,7 +3,7 @@ SceneBuilder(
         Entity(
             label: Some("Ground Grid"),
             shape: Grid(width: 10.0, depth: 10.0, cols: 8, rows: 8),
-            material: "grid_wire",
+            material: "floor_mat",
             transform: Transform(position: (0.0, -0.5, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0)),
         ),
         Entity(
