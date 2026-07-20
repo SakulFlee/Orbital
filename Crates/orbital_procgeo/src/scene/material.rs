@@ -2,10 +2,10 @@ use std::sync::Arc;
 
 use cgmath::Vector3;
 use orbital_resources::{
-    FilterMode, MaterialShaderDescriptor, PBRMaterialShaderDescriptor, TextureDescriptor,
-    TextureSize,
+    FilterMode, MaterialShaderDescriptor, PBRMaterialShaderDescriptor, ShaderSource,
+    TextureDescriptor, TextureSize, VertexStageLayout,
 };
-use wgpu::TextureUsages;
+use wgpu::{PolygonMode, TextureUsages};
 
 const DEFAULT_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8UnormSrgb;
 
@@ -23,6 +23,8 @@ pub enum SceneMaterial {
     PbrFile {
         path: String,
     },
+    #[serde(rename = "Grid")]
+    GridWireframe,
 }
 
 impl SceneMaterial {
@@ -147,6 +149,20 @@ impl SceneMaterial {
             SceneMaterial::PbrFile { .. } => {
                 // Fallback to default material for now
                 Arc::new(MaterialShaderDescriptor::default())
+            }
+            SceneMaterial::GridWireframe => {
+                let mut base = MaterialShaderDescriptor::default();
+                base.shader_source = ShaderSource::Path("Assets/Shaders/wireframe.wgsl");
+                base.entrypoint_vertex = "entrypoint_vertex";
+                base.entrypoint_fragment = "entrypoint_fragment";
+                base.vertex_stage_layouts = Some(vec![
+                    VertexStageLayout::SimpleVertexData,
+                    VertexStageLayout::InstanceData,
+                ]);
+                base.polygon_mode = PolygonMode::Line;
+                base.cull_mode = None;
+                base.depth_stencil = true;
+                Arc::new(base)
             }
         }
     }
