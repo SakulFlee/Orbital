@@ -86,7 +86,35 @@ impl SceneMaterial {
                     filter_mode: FilterMode::default(),
                 };
 
-                let default_tex = TextureDescriptor::Data {
+                let normal_tex = TextureDescriptor::Data {
+                    pixels: vec![128, 128, 255, 255],
+                    size: TextureSize {
+                        width: 1,
+                        height: 1,
+                        ..Default::default()
+                    },
+                    format: wgpu::TextureFormat::Rgba8Unorm,
+                    usages: mat_texture_usages(),
+                    texture_dimension: wgpu::TextureDimension::D2,
+                    texture_view_dimension: wgpu::TextureViewDimension::D2,
+                    filter_mode: FilterMode::default(),
+                };
+
+                let occlusion_tex = TextureDescriptor::Data {
+                    pixels: vec![255],
+                    size: TextureSize {
+                        width: 1,
+                        height: 1,
+                        ..Default::default()
+                    },
+                    format: wgpu::TextureFormat::R8Unorm,
+                    usages: mat_texture_usages(),
+                    texture_dimension: wgpu::TextureDimension::D2,
+                    texture_view_dimension: wgpu::TextureViewDimension::D2,
+                    filter_mode: FilterMode::default(),
+                };
+
+                let emissive_tex = TextureDescriptor::Data {
                     pixels: vec![0, 0, 0, 0],
                     size: TextureSize {
                         width: 1,
@@ -102,15 +130,15 @@ impl SceneMaterial {
 
                 let pbr = PBRMaterialShaderDescriptor {
                     name: Some("SceneMaterial::Color".into()),
-                    normal: default_tex.clone(),
+                    normal: normal_tex,
                     albedo: tex_1x1_rgba,
                     albedo_factor: Vector3::new(a[0], a[1], a[2]),
                     metallic: tex_1x1_r,
                     metallic_factor: metallic,
                     roughness: tex_1x1_r2,
                     roughness_factor: roughness,
-                    occlusion: default_tex.clone(),
-                    emissive: default_tex,
+                    occlusion: occlusion_tex,
+                    emissive: emissive_tex,
                     custom_material_shader: None,
                 };
 
