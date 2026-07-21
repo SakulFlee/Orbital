@@ -64,11 +64,6 @@ fn entrypoint_vertex(
 
 @fragment
 fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
-    let roughness_sample = textureSample(
-        roughness_texture,
-        roughness_sampler,
-        in.uv
-    ).r;
-    let roughness = roughness_sample * pbr_factors.roughness_factor;
-    return vec4<f32>(roughness, 0.0, 0.0, 1.0);
+    // Test 1: constant red — if visible, shader is loaded and culling works
+    return vec4<f32>(1.0, 0.0, 1.0, 1.0);
 }
