@@ -1,4 +1,4 @@
-use cgmath::{Vector3, Zero};
+use cgmath::Vector3;
 use wgpu::{
     Face, SamplerBindingType, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
     TextureViewDimension,
