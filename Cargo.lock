@@ -2235,6 +2235,7 @@ name = "orbital_procgeo"
 version = "0.1.0"
 dependencies = [
  "cgmath",
+ "log",
  "orbital_resources",
  "ron",
  "serde",
