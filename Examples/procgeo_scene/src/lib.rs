@@ -237,57 +237,43 @@ impl Module for ProcgeoSceneModule {
 
         // ── Room Lights ──
 
-        // Room 1 (Shadow Test, x=-5 to 5): directional shadows + fill
-        // Diagonal direction for clear, directional shadows on the three test objects
+        // Room 1 (Shadow Test, x=-5 to 5): directional from back wall toward camera
+        // Light travels downward and forward (+Z), shadows cast onto back wall and floor
         spawn_light(ecs,
             LightDescriptorEcs::new_directional(
-                Vector3::new(-1.0, -2.0, -1.5),  // diagonal from upper-left
-                Vector3::new(1.0, 0.95, 0.85), 1.2),
-            Point3::new(0.0, 6.0, 0.0),
+                Vector3::new(0.0, -0.5, 1.0).normalize(),  // from behind, slightly above
+                Vector3::new(1.0, 0.95, 0.85), 1.5),
+            Point3::new(0.0, 0.0, 0.0),
             true);
-        // Subtle fill from right so shadow sides aren't pure black
-        spawn_light(ecs,
-            LightDescriptorEcs::new_point(Vector3::new(1.0, 0.9, 0.8), 0.8),
-            Point3::new(3.0, 2.0, 0.0),
-            false);
 
-        // Room 2 (Helmet Gallery, x=5 to 15): spot on pedestal + rim
-        let helmet_pos = Point3::new(10.0, 2.2, 0.0);
-        let spot_dir = (helmet_pos - Point3::new(10.0, 6.0, -5.0)).normalize();
+        // Room 2 (Helmet Gallery, x=5 to 15): spot from back-right corner
+        // Shines toward helmet, shadows project onto right wall and floor
+        let helmet = Point3::new(10.0, 2.2, 0.0);
+        let spot_pos = Point3::new(13.0, 5.0, -4.0);
+        let spot_dir = (helmet - spot_pos).normalize();
         spawn_light(ecs,
             LightDescriptorEcs::new_spot(
-                Vector3::new(1.0, 0.95, 0.85), 4.0,
+                Vector3::new(1.0, 0.95, 0.85), 5.0,
                 Vector3::new(spot_dir.x, spot_dir.y, spot_dir.z),
-                0.4, 0.6),
-            Point3::new(10.0, 6.0, -5.0),
+                0.35, 0.55),
+            spot_pos,
             true);
-        // Cool rim light from behind
-        spawn_light(ecs,
-            LightDescriptorEcs::new_point(Vector3::new(0.6, 0.8, 1.0), 1.5),
-            Point3::new(10.0, 3.0, 4.0),
-            false);
 
-        // Room 3 (Matte Gallery, x=-15 to -5): two soft fill lights
+        // Room 3 (Matte Gallery, x=-15 to -5): one point with shadow
         spawn_light(ecs,
-            LightDescriptorEcs::new_point(Vector3::new(1.0, 0.85, 0.7), 1.5),
-            Point3::new(-10.0, 3.5, 0.0),
-            false);
-        spawn_light(ecs,
-            LightDescriptorEcs::new_point(Vector3::new(0.6, 0.9, 1.0), 1.0),
-            Point3::new(-13.0, 2.5, -3.0),
-            false);
+            LightDescriptorEcs::new_point(Vector3::new(1.0, 0.85, 0.7), 2.0),
+            Point3::new(-10.0, 4.5, 0.0),
+            true);
+        // No additional fill — single dramatic light
 
-        // Room 4 (Metallic Gallery, x=-25 to -15): two soft fill lights
+        // Room 4 (Metallic Gallery, x=-25 to -15): one point with shadow
         spawn_light(ecs,
-            LightDescriptorEcs::new_point(Vector3::new(0.8, 0.9, 1.0), 1.5),
-            Point3::new(-20.0, 3.5, 0.0),
-            false);
-        spawn_light(ecs,
-            LightDescriptorEcs::new_point(Vector3::new(0.7, 1.0, 0.6), 1.0),
-            Point3::new(-17.0, 2.5, 3.0),
-            false);
+            LightDescriptorEcs::new_point(Vector3::new(0.8, 0.9, 1.0), 2.0),
+            Point3::new(-20.0, 4.5, 0.0),
+            true);
+        // No additional fill — single dramatic light
 
-        info!("Spawned 8 lights (2 cast shadows)");
+        info!("Spawned 4 lights (all cast shadows)");
 
         vec![
             sys_camera_controller.into_system(),
