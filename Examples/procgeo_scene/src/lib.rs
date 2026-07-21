@@ -265,7 +265,18 @@ impl Module for ProcgeoSceneModule {
             LightDescriptorEcs::new_point(Vector3::new(1.0, 0.5, 0.8), 2.5),
             Point3::new(-7.0, 2.5, 3.0));
 
-        info!("Spawned 6 shadow-casting lights");
+        // ── Room 4: Metallic Gallery Lights ──
+        spawn_light(ecs,
+            LightDescriptorEcs::new_point(Vector3::new(0.8, 0.9, 1.0), 3.0),
+            Point3::new(-20.0, 3.5, 0.0));
+        spawn_light(ecs,
+            LightDescriptorEcs::new_point(Vector3::new(1.0, 0.7, 0.5), 2.5),
+            Point3::new(-23.0, 2.5, -3.0));
+        spawn_light(ecs,
+            LightDescriptorEcs::new_point(Vector3::new(0.7, 1.0, 0.6), 2.5),
+            Point3::new(-17.0, 2.5, 3.0));
+
+        info!("Spawned 9 shadow-casting lights");
 
         vec![
             sys_camera_controller.into_system(),
