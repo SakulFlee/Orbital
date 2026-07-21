@@ -237,19 +237,19 @@ impl Module for ProcgeoSceneModule {
 
         // ── Room Lights ──
 
-        // Room 1 (Shadow Test, x=-5 to 5): directional from back wall toward camera
-        // Light travels downward and forward (+Z), shadows cast onto back wall and floor
+        // Room 1 (Shadow Test, x=-5 to 5): directional from above-right-behind
+        // Light comes from upper-right behind camera, shadows cast left and down onto objects
         spawn_light(ecs,
             LightDescriptorEcs::new_directional(
-                Vector3::new(0.0, -0.5, 1.0).normalize(),  // from behind, slightly above
+                Vector3::new(0.3, -1.0, 0.5).normalize(),
                 Vector3::new(1.0, 0.95, 0.85), 1.5),
             Point3::new(0.0, 0.0, 0.0),
             true);
 
-        // Room 2 (Helmet Gallery, x=5 to 15): spot from back-right corner
-        // Shines toward helmet, shadows project onto right wall and floor
+        // Room 2 (Helmet Gallery, x=5 to 15): spot in front of helmet, shining backward
+        // Shadows cast from helmet onto the right wall behind it
         let helmet = Point3::new(10.0, 2.2, 0.0);
-        let spot_pos = Point3::new(13.0, 5.0, -4.0);
+        let spot_pos = Point3::new(7.0, 5.0, 2.0);
         let spot_dir = (helmet - spot_pos).normalize();
         spawn_light(ecs,
             LightDescriptorEcs::new_spot(

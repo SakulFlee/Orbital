@@ -106,6 +106,8 @@ pub struct ShadowLightInfo {
     pub direction: Vector3<f32>,
     pub position: Vector3<f32>,
     pub caster: ShadowCaster,
+    /// Spot light outer cone angle (radians). 0 for non-spot lights.
+    pub outer_cone_angle: f32,
 }
 
 #[cfg(test)]
