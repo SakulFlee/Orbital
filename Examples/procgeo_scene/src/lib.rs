@@ -124,7 +124,7 @@ impl System for HelmetAdjuster {
 
             let mut new_instances = ModelInstances::new();
             new_instances.add_instance(Transform::new(
-                Vector3::new(10.0, 2.0, 1.5),
+                Vector3::new(10.0, 2.0, 0.5),
                 final_rot,
                 original_transform.scale,
             ));
