@@ -40,8 +40,8 @@ SceneBuilder(
     ],
     materials: {
         // Room 1 — metallic (light gray, less reflective)
-        "metal_floor": Color(albedo: (0.7, 0.7, 0.72, 1.0), metallic: 0.6, roughness: 0.7),
-        "metal_wall":  Color(albedo: (0.7, 0.7, 0.72, 1.0), metallic: 0.6, roughness: 0.7),
+        "metal_floor": Color(albedo: (0.7, 0.7, 0.72, 1.0), metallic: 0.0, roughness: 0.95),
+        "metal_wall":  Color(albedo: (0.7, 0.7, 0.72, 1.0), metallic: 0.0, roughness: 0.95),
         "gold":        Color(albedo: (1.0, 0.8, 0.0, 1.0), metallic: 1.0, roughness: 0.2),
         "silver":      Color(albedo: (0.9, 0.9, 0.95, 1.0), metallic: 1.0, roughness: 0.1),
         "copper":      Color(albedo: (0.9, 0.6, 0.4, 1.0), metallic: 0.85, roughness: 0.3),
