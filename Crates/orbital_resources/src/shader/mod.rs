@@ -197,6 +197,17 @@ pub trait ShaderDescriptor {
                             panic!("Expected Texture but got unexpected type!");
                         };
 
+                        let tex = texture.texture();
+                        log::info!(
+                            "bind_group: binding={} format={:?} size={}x{} mips={} layers={}",
+                            binding_index,
+                            tex.format(),
+                            tex.width(),
+                            tex.height(),
+                            tex.mip_level_count(),
+                            tex.depth_or_array_layers(),
+                        );
+
                         binds.push(BindGroupEntry {
                             binding: binding_index,
                             resource: BindingResource::TextureView(texture.view()),

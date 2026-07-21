@@ -49,13 +49,15 @@ impl SceneMaterial {
                 let m = (metallic.clamp(0.0, 1.0) * 255.0) as u8;
                 let r = (roughness.clamp(0.0, 1.0) * 255.0) as u8;
 
+                let tex_size = || TextureSize {
+                    width: 16,
+                    height: 16,
+                    ..Default::default()
+                };
+
                 let tex_1x1_rgba = TextureDescriptor::Data {
-                    pixels: rgba.to_vec(),
-                    size: TextureSize {
-                        width: 1,
-                        height: 1,
-                        ..Default::default()
-                    },
+                    pixels: rgba.iter().copied().cycle().take(256 * 4).collect(),
+                    size: tex_size(),
                     format: DEFAULT_FORMAT,
                     usages: mat_texture_usages(),
                     texture_dimension: wgpu::TextureDimension::D2,
@@ -64,12 +66,8 @@ impl SceneMaterial {
                 };
 
                 let tex_1x1_r = TextureDescriptor::Data {
-                    pixels: vec![m],
-                    size: TextureSize {
-                        width: 1,
-                        height: 1,
-                        ..Default::default()
-                    },
+                    pixels: vec![m; 256],
+                    size: tex_size(),
                     format: wgpu::TextureFormat::R8Unorm,
                     usages: mat_texture_usages(),
                     texture_dimension: wgpu::TextureDimension::D2,
@@ -78,12 +76,8 @@ impl SceneMaterial {
                 };
 
                 let tex_1x1_r2 = TextureDescriptor::Data {
-                    pixels: vec![r],
-                    size: TextureSize {
-                        width: 1,
-                        height: 1,
-                        ..Default::default()
-                    },
+                    pixels: vec![r; 256],
+                    size: tex_size(),
                     format: wgpu::TextureFormat::R8Unorm,
                     usages: mat_texture_usages(),
                     texture_dimension: wgpu::TextureDimension::D2,
@@ -92,12 +86,11 @@ impl SceneMaterial {
                 };
 
                 let normal_tex = TextureDescriptor::Data {
-                    pixels: vec![128, 128, 255, 255],
-                    size: TextureSize {
-                        width: 1,
-                        height: 1,
-                        ..Default::default()
+                    pixels: {
+                        let px = [128u8, 128, 255, 255];
+                        px.iter().copied().cycle().take(256 * 4).collect()
                     },
+                    size: tex_size(),
                     format: wgpu::TextureFormat::Rgba8Unorm,
                     usages: mat_texture_usages(),
                     texture_dimension: wgpu::TextureDimension::D2,
@@ -106,12 +99,8 @@ impl SceneMaterial {
                 };
 
                 let occlusion_tex = TextureDescriptor::Data {
-                    pixels: vec![255],
-                    size: TextureSize {
-                        width: 1,
-                        height: 1,
-                        ..Default::default()
-                    },
+                    pixels: vec![255u8; 256],
+                    size: tex_size(),
                     format: wgpu::TextureFormat::R8Unorm,
                     usages: mat_texture_usages(),
                     texture_dimension: wgpu::TextureDimension::D2,
@@ -120,12 +109,8 @@ impl SceneMaterial {
                 };
 
                 let emissive_tex = TextureDescriptor::Data {
-                    pixels: vec![0, 0, 0, 0],
-                    size: TextureSize {
-                        width: 1,
-                        height: 1,
-                        ..Default::default()
-                    },
+                    pixels: vec![0u8; 256 * 4],
+                    size: tex_size(),
                     format: DEFAULT_FORMAT,
                     usages: mat_texture_usages(),
                     texture_dimension: wgpu::TextureDimension::D2,
