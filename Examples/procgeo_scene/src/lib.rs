@@ -15,7 +15,7 @@ use orbital::ecs_bridge::{
 use orbital::importer::{gltf::GltfImport, ImportTask};
 use orbital::logging::{self, error, info};
 use orbital::procgeo::scene::SceneBuilder;
-use orbital::resources::{ShadowCaster, WorldEnvironmentDescriptor};
+use orbital::resources::{ShadowCaster, Transform, WorldEnvironmentDescriptor};
 use winit::keyboard::KeyCode;
 
 pub const NAME: &str = "Orbital-Demo-Project: ProcGeo Scene";
@@ -61,8 +61,9 @@ impl HelmetAdjuster {
             adjusted: AtomicBool::new(false),
             access: ComponentAccess::new()
                 .reads::<ModelDescriptorEcs>()
-                .writes::<Position>()
-                .writes::<Rotation>(),
+                .reads::<ModelInstances>()
+                .writes::<ModelInstances>()
+                .writes::<ModelDirty>(),
         }
     }
 }
@@ -98,20 +99,19 @@ impl System for HelmetAdjuster {
             let generation = world.generation(eid);
             let entity = orbital::ecs::Entity::new(eid, generation);
 
-            commands.detach_component::<Position>(&entity);
-            commands.attach_component(
-                &entity,
-                Position(Point3::new(10.0, 0.35, 0.0)),
-            );
-
-            commands.detach_component::<Rotation>(&entity);
-            commands.attach_component(
-                &entity,
-                Rotation(Quaternion::new(0.7071, 0.0, -0.7071, 0.0)),
-            );
+            let mut instances = ModelInstances::new();
+            instances.add_instance(Transform::new(
+                Vector3::new(10.0, 0.35, 0.0),
+                Quaternion::new(0.7071, 0.0, -0.7071, 0.0),
+                Vector3::new(1.0, 1.0, 1.0),
+            ));
+            commands.detach_component::<ModelInstances>(&entity);
+            commands.attach_component(&entity, instances);
+            commands.detach_component::<ModelDirty>(&entity);
+            commands.attach_component(&entity, ModelDirty(true));
 
             self.adjusted.store(true, Ordering::Relaxed);
-            info!("Adjusted helmet: pos (10, 0.35, 0), rotated +90° Y");
+            info!("Adjusted helmet: moved to x=10 y=0.35");
             break;
         }
     }
