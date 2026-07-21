@@ -154,7 +154,7 @@ impl Module for ProcgeoSceneModule {
         .unwrap();
         // Rotate +90° around Y so forward (+X) faces -Z (toward rooms)
         let rot = Quaternion::new(0.7071, 0.0, 0.7071, 0.0);
-        ecs.attach_component(&camera, Position(Point3::new(0.0, 4.0, 10.0)))
+        ecs.attach_component(&camera, Position(Point3::new(0.0, 7.0, 14.0)))
             .unwrap();
         ecs.attach_component(&camera, Rotation(rot)).unwrap();
         ecs.insert_resource(ActiveCamera(camera));
