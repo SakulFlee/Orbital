@@ -101,7 +101,7 @@ impl System for HelmetAdjuster {
             commands.detach_component::<Position>(&entity);
             commands.attach_component(
                 &entity,
-                Position(Point3::new(0.0, 0.35, 0.0)),
+                Position(Point3::new(10.0, 0.35, 0.0)),
             );
 
             commands.detach_component::<Rotation>(&entity);
@@ -111,7 +111,7 @@ impl System for HelmetAdjuster {
             );
 
             self.adjusted.store(true, Ordering::Relaxed);
-            info!("Adjusted helmet: raised 0.35, rotated +90° Y to face +X");
+            info!("Adjusted helmet: pos (10, 0.35, 0), rotated +90° Y");
             break;
         }
     }
