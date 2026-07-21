@@ -226,23 +226,12 @@ impl Module for ProcgeoSceneModule {
                 Vector3::new(1.0, 1.0, 1.0), 1.5),
             Point3::new(0.0, 6.0, 0.0));
 
-        // Warm point lights at front corners
+        // Single warm point light in center for subtle fill
         spawn_light(ecs,
-            LightDescriptorEcs::new_point(Vector3::new(1.0, 0.85, 0.65), 3.0),
-            Point3::new(-3.5, 3.0, 4.0));
-        spawn_light(ecs,
-            LightDescriptorEcs::new_point(Vector3::new(1.0, 0.85, 0.65), 3.0),
-            Point3::new(3.5, 3.0, 4.0));
+            LightDescriptorEcs::new_point(Vector3::new(1.0, 0.9, 0.8), 2.0),
+            Point3::new(0.0, 3.0, 3.5));
 
-        // Cool point lights at back corners
-        spawn_light(ecs,
-            LightDescriptorEcs::new_point(Vector3::new(0.65, 0.8, 1.0), 3.0),
-            Point3::new(-3.5, 3.0, -3.5));
-        spawn_light(ecs,
-            LightDescriptorEcs::new_point(Vector3::new(0.65, 0.8, 1.0), 3.0),
-            Point3::new(3.5, 3.0, -3.5));
-
-        info!("Spawned 6 shadow-casting lights");
+        info!("Spawned 3 shadow-casting lights");
 
         vec![
             sys_camera_controller.into_system(),
