@@ -118,10 +118,14 @@ impl System for HelmetAdjuster {
                     Vector3::new(1.0, 1.0, 1.0),
                 ));
 
+            // Rotate 90° Y so the helmet faces +Z (toward camera)
+            let correction = Quaternion::new(0.7071, 0.0, 0.7071, 0.0);
+            let final_rot = correction * original_transform.rotation;
+
             let mut new_instances = ModelInstances::new();
             new_instances.add_instance(Transform::new(
-                Vector3::new(10.0, 1.85, 0.0),
-                original_transform.rotation,
+                Vector3::new(10.0, 2.0, 0.0),
+                final_rot,
                 original_transform.scale,
             ));
             commands.detach_component::<ModelInstances>(&entity);
@@ -130,7 +134,7 @@ impl System for HelmetAdjuster {
             commands.attach_component(&entity, ModelDirty(true));
 
             self.adjusted.store(true, Ordering::Relaxed);
-            info!("Adjusted helmet: moved to x=10 y=0.35");
+            info!("Adjusted helmet: pos (10, 2.0, 0), rotated +90° Y toward camera");
             break;
         }
     }
