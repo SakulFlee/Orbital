@@ -154,7 +154,7 @@ impl Module for ProcgeoSceneModule {
         .unwrap();
         // Rotate +90° around Y so forward (+X) faces -Z (toward rooms)
         let rot = Quaternion::new(0.7071, 0.0, 0.7071, 0.0);
-        ecs.attach_component(&camera, Position(Point3::new(0.0, 6.0, 16.0)))
+        ecs.attach_component(&camera, Position(Point3::new(0.0, 4.0, 10.0)))
             .unwrap();
         ecs.attach_component(&camera, Rotation(rot)).unwrap();
         ecs.insert_resource(ActiveCamera(camera));
@@ -209,50 +209,21 @@ impl Module for ProcgeoSceneModule {
             info!("Queued DamagedHelmet import");
         }
 
-        // ── Room 1: Metallic Showcase Lights ──
-        spawn_light(ecs,
-            LightDescriptorEcs::new_point(Vector3::new(1.0, 0.85, 0.6), 50.0),
-            Point3::new(-13.0, 3.0, -3.0));
-        spawn_light(ecs,
-            LightDescriptorEcs::new_point(Vector3::new(0.6, 0.8, 1.0), 50.0),
-            Point3::new(-7.0, 3.0, 3.0));
-        spawn_light(ecs,
-            LightDescriptorEcs::new_directional(
-                Vector3::new(0.0, -1.0, 0.0),
-                Vector3::new(1.0, 0.95, 0.85), 30.0),
-            Point3::new(-10.0, 5.0, 0.0));
-
-        // ── Room 2: Helmet Gallery Lights ──
-        let spot_dir = (Point3::new(0.0, 6.0, 8.0) - Point3::new(0.0, 0.0, 0.0)).normalize();
+        // ── Room Lights ──
+        let spot_dir = (Point3::new(0.0, 5.0, 6.0) - Point3::new(0.0, 0.0, 0.0)).normalize();
         spawn_light(ecs,
             LightDescriptorEcs::new_spot(
                 Vector3::new(1.0, 1.0, 1.0), 80.0,
                 Vector3::new(spot_dir.x, spot_dir.y, spot_dir.z),
-                0.25, 0.45),
-            Point3::new(0.0, 6.0, 8.0));
+                0.3, 0.5),
+            Point3::new(0.0, 5.0, 6.0));
         spawn_light(ecs,
             LightDescriptorEcs::new_directional(
-                Vector3::new(0.2, -1.0, 0.1),
-                Vector3::new(0.9, 0.9, 1.0), 25.0),
-            Point3::new(3.0, 6.0, 0.0));
+                Vector3::new(0.0, -1.0, 0.0),
+                Vector3::new(0.95, 0.95, 1.0), 30.0),
+            Point3::new(0.0, 6.0, 0.0));
 
-        // ── Room 3: Matte Display Lights ──
-        spawn_light(ecs,
-            LightDescriptorEcs::new_point(Vector3::new(1.0, 0.2, 0.2), 40.0),
-            Point3::new(7.0, 3.0, -2.0));
-        spawn_light(ecs,
-            LightDescriptorEcs::new_point(Vector3::new(0.2, 1.0, 0.2), 40.0),
-            Point3::new(13.0, 3.0, -2.0));
-        spawn_light(ecs,
-            LightDescriptorEcs::new_point(Vector3::new(0.2, 0.3, 1.0), 40.0),
-            Point3::new(10.0, 3.0, 3.0));
-        spawn_light(ecs,
-            LightDescriptorEcs::new_spot(
-                Vector3::new(1.0, 0.85, 0.7), 25.0,
-                Vector3::new(0.0, 1.0, 0.0), 0.35, 0.55),
-            Point3::new(10.0, 4.0, 0.0));
-
-        info!("Spawned 10 shadow-casting lights");
+        info!("Spawned 2 shadow-casting lights");
 
         vec![
             sys_camera_controller.into_system(),
