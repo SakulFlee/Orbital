@@ -64,13 +64,13 @@ impl SceneMaterial {
                 };
 
                 let tex_1x1_r = TextureDescriptor::Data {
-                    pixels: vec![m],
+                    pixels: vec![m, 0, 0, 0],
                     size: TextureSize {
                         width: 1,
                         height: 1,
                         ..Default::default()
                     },
-                    format: wgpu::TextureFormat::R8Unorm,
+                    format: wgpu::TextureFormat::Rgba8Unorm,
                     usages: mat_texture_usages(),
                     texture_dimension: wgpu::TextureDimension::D2,
                     texture_view_dimension: wgpu::TextureViewDimension::D2,
@@ -78,13 +78,13 @@ impl SceneMaterial {
                 };
 
                 let tex_1x1_r2 = TextureDescriptor::Data {
-                    pixels: vec![r],
+                    pixels: vec![r, 0, 0, 0],
                     size: TextureSize {
                         width: 1,
                         height: 1,
                         ..Default::default()
                     },
-                    format: wgpu::TextureFormat::R8Unorm,
+                    format: wgpu::TextureFormat::Rgba8Unorm,
                     usages: mat_texture_usages(),
                     texture_dimension: wgpu::TextureDimension::D2,
                     texture_view_dimension: wgpu::TextureViewDimension::D2,
@@ -106,13 +106,13 @@ impl SceneMaterial {
                 };
 
                 let occlusion_tex = TextureDescriptor::Data {
-                    pixels: vec![255],
+                    pixels: vec![255, 255, 255, 255],
                     size: TextureSize {
                         width: 1,
                         height: 1,
                         ..Default::default()
                     },
-                    format: wgpu::TextureFormat::R8Unorm,
+                    format: wgpu::TextureFormat::Rgba8Unorm,
                     usages: mat_texture_usages(),
                     texture_dimension: wgpu::TextureDimension::D2,
                     texture_view_dimension: wgpu::TextureViewDimension::D2,
