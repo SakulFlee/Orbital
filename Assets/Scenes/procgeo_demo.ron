@@ -1,18 +1,23 @@
 SceneBuilder(
     entities: [
-        // ── Single Room (open front, open top) ──
-        Entity(label: Some("Floor"), shape: Plane(size: (10.0, 10.0), subdivisions: 2), material: "wall", transform: Transform(position: (0.0, 0.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("Back Wall"), shape: Cube(size: (10.0, 5.0, 0.1)), material: "wall", transform: Transform(position: (0.0, 2.5, -5.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("Left Wall"), shape: Cube(size: (0.1, 5.0, 10.0)), material: "wall", transform: Transform(position: (-5.0, 2.5, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("Right Wall"), shape: Cube(size: (0.1, 5.0, 10.0)), material: "wall", transform: Transform(position: (5.0, 2.5, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
+        // ── Room 1: Object Showcase (x: -5 to 5) ──
+        Entity(label: Some("R1 Floor"), shape: Plane(size: (10.0, 10.0), subdivisions: 2), material: "wall", transform: Transform(position: (0.0, 0.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
+        Entity(label: Some("R1 Back"),  shape: Cube(size: (10.0, 5.0, 0.1)), material: "wall", transform: Transform(position: (0.0, 2.5, -5.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
+        Entity(label: Some("R1 Left"),  shape: Cube(size: (0.1, 5.0, 10.0)), material: "wall", transform: Transform(position: (-5.0, 2.5, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
+        Entity(label: Some("R1 Right / R2 Left"), shape: Cube(size: (0.1, 5.0, 10.0)), material: "wall", transform: Transform(position: (5.0, 2.5, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
+
+        // Room 1 objects
+        Entity(label: Some("Red Sphere"), shape: UvSphere(radius: 0.5, segments: 20, rings: 10), material: "red", transform: Transform(position: (-2.0, 0.5, -1.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
+        Entity(label: Some("Blue Cube"),  shape: Cube(size: (0.8, 0.8, 0.8)), material: "blue", transform: Transform(position: (2.0, 0.4, -1.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
+        Entity(label: Some("Green Cyl"),  shape: Cylinder(radius: 0.4, height: 0.8, segments: 16), material: "green", transform: Transform(position: (0.0, 0.4, -2.5), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
+
+        // ── Room 2: Helmet Gallery (x: 5 to 15) ──
+        Entity(label: Some("R2 Floor"), shape: Plane(size: (10.0, 10.0), subdivisions: 2), material: "wall", transform: Transform(position: (10.0, 0.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
+        Entity(label: Some("R2 Back"),  shape: Cube(size: (10.0, 5.0, 0.1)), material: "wall", transform: Transform(position: (10.0, 2.5, -5.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
+        Entity(label: Some("R2 Right"), shape: Cube(size: (0.1, 5.0, 10.0)), material: "wall", transform: Transform(position: (15.0, 2.5, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
 
         // Pedestal for the helmet
-        Entity(label: Some("Pedestal"), shape: Cylinder(radius: 0.6, height: 0.8, segments: 16), material: "pedestal", transform: Transform(position: (0.0, 0.1, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-
-        // Objects
-        Entity(label: Some("Red Sphere"),  shape: UvSphere(radius: 0.5, segments: 20, rings: 10), material: "red", transform: Transform(position: (-3.0, 0.5, -1.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("Blue Cube"),   shape: Cube(size: (0.8, 0.8, 0.8)), material: "blue", transform: Transform(position: (3.0, 0.4, -1.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("Green Cyl"),   shape: Cylinder(radius: 0.4, height: 0.8, segments: 16), material: "green", transform: Transform(position: (0.0, 0.4, -2.5), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
+        Entity(label: Some("Pedestal"), shape: Cylinder(radius: 0.6, height: 0.8, segments: 16), material: "pedestal", transform: Transform(position: (10.0, 0.1, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
     ],
     materials: {
         "wall":     Color(albedo: (0.7, 0.7, 0.72, 1.0), metallic: 0.0, roughness: 0.95),
