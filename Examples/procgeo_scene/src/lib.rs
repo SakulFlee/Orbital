@@ -107,7 +107,7 @@ impl System for HelmetAdjuster {
             commands.detach_component::<Rotation>(&entity);
             commands.attach_component(
                 &entity,
-                Rotation(Quaternion::new(0.7071, 0.0, 0.7071, 0.0)),
+                Rotation(Quaternion::new(0.7071, 0.0, -0.7071, 0.0)),
             );
 
             self.adjusted.store(true, Ordering::Relaxed);
