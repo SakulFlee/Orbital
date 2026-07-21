@@ -124,11 +124,13 @@ impl SceneMaterial {
                     name: Some("SceneMaterial::Color".into()),
                     normal: normal_tex,
                     albedo: tex_1x1_rgba,
-                    albedo_factor: Vector3::new(a[0], a[1], a[2]),
+                    // Values are baked into 1x1 textures; factors act as
+                    // neutral multipliers (matching glTF importer pattern).
+                    albedo_factor: Vector3::new(1.0, 1.0, 1.0),
                     metallic: tex_1x1_r,
-                    metallic_factor: metallic,
+                    metallic_factor: 1.0,
                     roughness: tex_1x1_r2,
-                    roughness_factor: roughness,
+                    roughness_factor: 1.0,
                     occlusion: occlusion_tex,
                     emissive: emissive_tex,
                     custom_material_shader: None,
