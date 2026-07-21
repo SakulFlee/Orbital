@@ -164,7 +164,7 @@ impl Module for ProcgeoSceneModule {
         ecs.insert_resource(EnvironmentDescriptorResource(Some(
             WorldEnvironmentDescriptor::FromFile {
                 cube_face_size: 2048,
-                path: "Assets/WorldEnvironments/Kloppenheim.hdr".to_string(),
+                path: "Assets/WorldEnvironments/PhotoStudio.hdr".to_string(),
                 sampling_type: WorldEnvironmentDescriptor::DEFAULT_SAMPLING_TYPE,
                 custom_specular_mip_level_count: None,
             },
