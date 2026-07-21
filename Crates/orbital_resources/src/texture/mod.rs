@@ -395,6 +395,13 @@ impl Texture {
                 format
             );
         }
+        if size.width <= 2 && size.height <= 2 {
+            let preview: Vec<u8> = pixels.iter().take(8).copied().collect();
+            log::info!(
+                "from_data: {}x{} format {:?} first bytes: {:?}",
+                size.width, size.height, format, preview
+            );
+        }
 
         // Align bytes_per_row to 256 (wgpu COPY_BYTES_PER_ROW_ALIGNMENT)
         let aligned_bytes_per_row = (calculated_bytes_per_row + 255) & !255;
