@@ -99,7 +99,7 @@ impl SceneMaterial {
                 };
 
                 let occlusion_tex = TextureDescriptor::Data {
-                    pixels: vec![255u8; 256],
+                    pixels: vec![128u8; 256],
                     size: tex_size(),
                     format: wgpu::TextureFormat::R8Unorm,
                     usages: mat_texture_usages(),
