@@ -102,7 +102,7 @@ impl System for HelmetAdjuster {
             let mut instances = ModelInstances::new();
             instances.add_instance(Transform::new(
                 Vector3::new(10.0, 0.35, 0.0),
-                Quaternion::new(0.7071, 0.0, -0.7071, 0.0),
+                Quaternion::new(1.0, 0.0, 0.0, 0.0),
                 Vector3::new(1.0, 1.0, 1.0),
             ));
             commands.detach_component::<ModelInstances>(&entity);
