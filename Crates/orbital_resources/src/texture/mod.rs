@@ -396,6 +396,25 @@ impl Texture {
             );
         }
 
+        // Align bytes_per_row to 256 (wgpu COPY_BYTES_PER_ROW_ALIGNMENT)
+        let aligned_bytes_per_row = (calculated_bytes_per_row + 255) & !255;
+        let padded;
+        let write_data: &[u8] = if aligned_bytes_per_row != calculated_bytes_per_row {
+            let row_count = size.height.max(1);
+            let mut buf = vec![0u8; (aligned_bytes_per_row * row_count) as usize];
+            for row in 0..row_count {
+                let src = (row * calculated_bytes_per_row) as usize;
+                let dst = (row * aligned_bytes_per_row) as usize;
+                let count = calculated_bytes_per_row
+                    .min(pixels.len() as u32 - src as u32) as usize;
+                buf[dst..dst + count].copy_from_slice(&pixels[src..src + count]);
+            }
+            padded = buf;
+            &padded
+        } else {
+            pixels
+        };
+
         // Write the data into the texture buffer
         queue.write_texture(
             TexelCopyTextureInfo {
@@ -404,10 +423,10 @@ impl Texture {
                 origin: Origin3d::ZERO,
                 mip_level: 0,
             },
-            pixels,
+            write_data,
             TexelCopyBufferLayout {
                 offset: 0,
-                bytes_per_row: Some(calculated_bytes_per_row),
+                bytes_per_row: Some(aligned_bytes_per_row),
                 rows_per_image: Some(size.height),
             },
             Extent3d {
