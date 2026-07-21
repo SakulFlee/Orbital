@@ -107,11 +107,11 @@ impl System for HelmetAdjuster {
             commands.detach_component::<Rotation>(&entity);
             commands.attach_component(
                 &entity,
-                Rotation(Quaternion::new(0.7071, 0.0, -0.7071, 0.0)),
+                Rotation(Quaternion::new(0.7071, 0.0, 0.7071, 0.0)),
             );
 
             self.adjusted.store(true, Ordering::Relaxed);
-            info!("Adjusted helmet: raised 0.35, rotated to face +X");
+            info!("Adjusted helmet: raised 0.35, rotated +90° Y to face +X");
             break;
         }
     }
@@ -210,36 +210,36 @@ impl Module for ProcgeoSceneModule {
         }
 
         // ── Room Lights ──
-        // Bright spot from front-center
-        let spot_dir = (Point3::new(0.0, 5.0, 6.0) - Point3::new(0.0, 0.0, 0.0)).normalize();
+        // Spot from above, pointing down toward the room center
+        let spot_dir = (Point3::new(0.0, 0.0, 0.0) - Point3::new(0.0, 5.0, 0.0)).normalize();
         spawn_light(ecs,
             LightDescriptorEcs::new_spot(
-                Vector3::new(1.0, 1.0, 1.0), 80.0,
+                Vector3::new(1.0, 0.95, 0.85), 8.0,
                 Vector3::new(spot_dir.x, spot_dir.y, spot_dir.z),
                 0.3, 0.5),
-            Point3::new(0.0, 5.0, 6.0));
+            Point3::new(0.0, 5.0, 0.0));
 
-        // Directional from above
+        // Directional fill from above
         spawn_light(ecs,
             LightDescriptorEcs::new_directional(
                 Vector3::new(0.0, -1.0, 0.0),
-                Vector3::new(0.95, 0.95, 1.0), 30.0),
+                Vector3::new(1.0, 1.0, 1.0), 1.5),
             Point3::new(0.0, 6.0, 0.0));
 
         // Warm point lights at front corners
         spawn_light(ecs,
-            LightDescriptorEcs::new_point(Vector3::new(1.0, 0.85, 0.65), 40.0),
+            LightDescriptorEcs::new_point(Vector3::new(1.0, 0.85, 0.65), 3.0),
             Point3::new(-3.5, 3.0, 4.0));
         spawn_light(ecs,
-            LightDescriptorEcs::new_point(Vector3::new(1.0, 0.85, 0.65), 40.0),
+            LightDescriptorEcs::new_point(Vector3::new(1.0, 0.85, 0.65), 3.0),
             Point3::new(3.5, 3.0, 4.0));
 
         // Cool point lights at back corners
         spawn_light(ecs,
-            LightDescriptorEcs::new_point(Vector3::new(0.65, 0.8, 1.0), 40.0),
+            LightDescriptorEcs::new_point(Vector3::new(0.65, 0.8, 1.0), 3.0),
             Point3::new(-3.5, 3.0, -3.5));
         spawn_light(ecs,
-            LightDescriptorEcs::new_point(Vector3::new(0.65, 0.8, 1.0), 40.0),
+            LightDescriptorEcs::new_point(Vector3::new(0.65, 0.8, 1.0), 3.0),
             Point3::new(3.5, 3.0, -3.5));
 
         info!("Spawned 6 shadow-casting lights");
