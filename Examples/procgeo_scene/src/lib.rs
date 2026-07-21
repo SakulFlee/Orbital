@@ -99,14 +99,33 @@ impl System for HelmetAdjuster {
             let generation = world.generation(eid);
             let entity = orbital::ecs::Entity::new(eid, generation);
 
-            let mut instances = ModelInstances::new();
-            instances.add_instance(Transform::new(
-                Vector3::new(10.0, 0.35, 0.0),
-                Quaternion::new(1.0, 0.0, 0.0, 0.0),
-                Vector3::new(1.0, 1.0, 1.0),
+            // Read original transform from imported glTF, only modify position
+            let original_transform = world
+                .get_component_store::<ModelInstances>()
+                .and_then(|store| {
+                    store.sparse.get(eid).and_then(|x| *x).map(|idx| {
+                        let map = &store.components[idx].0;
+                        map.values().next().copied().unwrap_or(Transform::new(
+                            Vector3::new(0.0, 0.0, 0.0),
+                            Quaternion::new(1.0, 0.0, 0.0, 0.0),
+                            Vector3::new(1.0, 1.0, 1.0),
+                        ))
+                    })
+                })
+                .unwrap_or(Transform::new(
+                    Vector3::new(10.0, 1.85, 0.0),
+                    Quaternion::new(0.7071, 0.0, -0.7071, 0.0),
+                    Vector3::new(1.0, 1.0, 1.0),
+                ));
+
+            let mut new_instances = ModelInstances::new();
+            new_instances.add_instance(Transform::new(
+                Vector3::new(10.0, 1.85, 0.0),
+                original_transform.rotation,
+                original_transform.scale,
             ));
             commands.detach_component::<ModelInstances>(&entity);
-            commands.attach_component(&entity, instances);
+            commands.attach_component(&entity, new_instances);
             commands.detach_component::<ModelDirty>(&entity);
             commands.attach_component(&entity, ModelDirty(true));
 
