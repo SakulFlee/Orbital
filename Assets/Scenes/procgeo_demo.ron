@@ -4,7 +4,7 @@ SceneBuilder(
         Entity(label: Some("Floor"), shape: Plane(size: (10.0, 10.0), subdivisions: 2), material: "wall", transform: Transform(position: (0.0, 0.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
         Entity(label: Some("Back Wall"), shape: Cube(size: (10.0, 5.0, 0.1)), material: "wall", transform: Transform(position: (0.0, 2.5, -5.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
         Entity(label: Some("Left Wall"), shape: Cube(size: (0.1, 5.0, 10.0)), material: "wall", transform: Transform(position: (-5.0, 2.5, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("Right Wall (debug)"), shape: Cube(size: (0.1, 5.0, 10.0)), material: "debug_rough", transform: Transform(position: (5.0, 2.5, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
+        Entity(label: Some("Right Wall"), shape: Cube(size: (0.1, 5.0, 10.0)), material: "wall", transform: Transform(position: (5.0, 2.5, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
 
         // Pedestal for the helmet
         Entity(label: Some("Pedestal"), shape: Cylinder(radius: 0.6, height: 0.8, segments: 16), material: "pedestal", transform: Transform(position: (0.0, 0.1, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
@@ -15,8 +15,7 @@ SceneBuilder(
         Entity(label: Some("Green Cyl"),   shape: Cylinder(radius: 0.4, height: 0.8, segments: 16), material: "green", transform: Transform(position: (0.0, 0.4, -2.5), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
     ],
     materials: {
-        "wall":        Color(albedo: (0.7, 0.7, 0.72, 1.0), metallic: 0.0, roughness: 0.95),
-        "debug_rough": DebugRoughness(albedo: (0.7, 0.7, 0.72, 1.0), metallic: 0.0, roughness: 0.95),
+        "wall":     Color(albedo: (0.7, 0.7, 0.72, 1.0), metallic: 0.0, roughness: 0.95),
         "pedestal": Color(albedo: (0.6, 0.6, 0.65, 1.0), metallic: 0.0, roughness: 0.85),
         "red":      Color(albedo: (0.9, 0.1, 0.1, 1.0), metallic: 0.0, roughness: 0.9),
         "blue":     Color(albedo: (0.1, 0.2, 0.9, 1.0), metallic: 0.0, roughness: 0.9),

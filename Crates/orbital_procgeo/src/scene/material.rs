@@ -6,7 +6,7 @@ use orbital_resources::{
     TextureDescriptor, TextureSize, VertexStageLayout,
 };
 use wgpu::{
-    Face, PolygonMode, PrimitiveTopology, TextureUsages, VertexAttribute, VertexBufferLayout,
+    PolygonMode, PrimitiveTopology, TextureUsages, VertexAttribute, VertexBufferLayout,
     VertexFormat, VertexStepMode,
 };
 
@@ -28,12 +28,6 @@ pub enum SceneMaterial {
     },
     #[serde(rename = "Grid")]
     GridWireframe,
-    #[serde(rename = "DebugRoughness")]
-    DebugRoughness {
-        albedo: [f32; 4],
-        metallic: f32,
-        roughness: f32,
-    },
 }
 
 impl SceneMaterial {
@@ -141,118 +135,6 @@ impl SceneMaterial {
                     occlusion: occlusion_tex,
                     emissive: emissive_tex,
                     custom_material_shader: None,
-                };
-
-                Arc::new(pbr.into())
-            }
-            SceneMaterial::DebugRoughness {
-                albedo,
-                metallic,
-                roughness,
-            } => {
-                let a = albedo;
-                let rgba = [
-                    (a[0].clamp(0.0, 1.0) * 255.0) as u8,
-                    (a[1].clamp(0.0, 1.0) * 255.0) as u8,
-                    (a[2].clamp(0.0, 1.0) * 255.0) as u8,
-                    (a[3].clamp(0.0, 1.0) * 255.0) as u8,
-                ];
-
-                let m = (metallic.clamp(0.0, 1.0) * 255.0) as u8;
-                let r = (roughness.clamp(0.0, 1.0) * 255.0) as u8;
-
-                let tex_size = || TextureSize {
-                    width: 16,
-                    height: 16,
-                    ..Default::default()
-                };
-
-                let tex_rgba = TextureDescriptor::Data {
-                    pixels: rgba.iter().copied().cycle().take(256 * 4).collect(),
-                    size: tex_size(),
-                    format: DEFAULT_FORMAT,
-                    usages: mat_texture_usages(),
-                    texture_dimension: wgpu::TextureDimension::D2,
-                    texture_view_dimension: wgpu::TextureViewDimension::D2,
-                    filter_mode: FilterMode::default(),
-                };
-
-                let tex_r = TextureDescriptor::Data {
-                    pixels: vec![m; 256],
-                    size: tex_size(),
-                    format: wgpu::TextureFormat::R8Unorm,
-                    usages: mat_texture_usages(),
-                    texture_dimension: wgpu::TextureDimension::D2,
-                    texture_view_dimension: wgpu::TextureViewDimension::D2,
-                    filter_mode: FilterMode::default(),
-                };
-
-                let tex_r2 = TextureDescriptor::Data {
-                    pixels: vec![r; 256],
-                    size: tex_size(),
-                    format: wgpu::TextureFormat::R8Unorm,
-                    usages: mat_texture_usages(),
-                    texture_dimension: wgpu::TextureDimension::D2,
-                    texture_view_dimension: wgpu::TextureViewDimension::D2,
-                    filter_mode: FilterMode::default(),
-                };
-
-                let normal_tex = TextureDescriptor::Data {
-                    pixels: {
-                        let px = [128u8, 128, 255, 255];
-                        px.iter().copied().cycle().take(256 * 4).collect()
-                    },
-                    size: tex_size(),
-                    format: wgpu::TextureFormat::Rgba8Unorm,
-                    usages: mat_texture_usages(),
-                    texture_dimension: wgpu::TextureDimension::D2,
-                    texture_view_dimension: wgpu::TextureViewDimension::D2,
-                    filter_mode: FilterMode::default(),
-                };
-
-                let occlusion_tex = TextureDescriptor::Data {
-                    pixels: vec![255u8; 256],
-                    size: tex_size(),
-                    format: wgpu::TextureFormat::R8Unorm,
-                    usages: mat_texture_usages(),
-                    texture_dimension: wgpu::TextureDimension::D2,
-                    texture_view_dimension: wgpu::TextureViewDimension::D2,
-                    filter_mode: FilterMode::default(),
-                };
-
-                let emissive_tex = TextureDescriptor::Data {
-                    pixels: vec![0u8; 256 * 4],
-                    size: tex_size(),
-                    format: DEFAULT_FORMAT,
-                    usages: mat_texture_usages(),
-                    texture_dimension: wgpu::TextureDimension::D2,
-                    texture_view_dimension: wgpu::TextureViewDimension::D2,
-                    filter_mode: FilterMode::default(),
-                };
-
-                let mut custom = MaterialShaderDescriptor::default();
-                custom.shader_source =
-                    ShaderSource::Path("Assets/Shaders/pbr_debug_roughness.wgsl");
-                custom.entrypoint_vertex = "entrypoint_vertex";
-                custom.entrypoint_fragment = "entrypoint_fragment";
-                custom.vertex_stage_layouts = Some(vec![
-                    VertexStageLayout::ComplexVertexData,
-                    VertexStageLayout::InstanceData,
-                ]);
-                custom.cull_mode = Some(Face::Front);
-
-                let pbr = PBRMaterialShaderDescriptor {
-                    name: Some("DebugRoughness".into()),
-                    normal: normal_tex,
-                    albedo: tex_rgba,
-                    albedo_factor: Vector3::new(a[0], a[1], a[2]),
-                    metallic: tex_r,
-                    metallic_factor: metallic,
-                    roughness: tex_r2,
-                    roughness_factor: roughness,
-                    occlusion: occlusion_tex,
-                    emissive: emissive_tex,
-                    custom_material_shader: Some(custom),
                 };
 
                 Arc::new(pbr.into())
