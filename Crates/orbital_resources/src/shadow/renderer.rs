@@ -449,7 +449,7 @@ impl ShadowRenderer {
                 }
                 2 => {
                     // Spot light
-                    let vp = compute_spot_light_vp(light);
+                    let vp = compute_spot_light_vp(light, light.outer_cone_angle);
                     self.gpu_data.slots[slot_index as usize] = ShadowSlotData {
                         light_view_proj: vp.into(),
                         shadow_type: SHADOW_TYPE_SPOT,
@@ -765,7 +765,7 @@ impl ShadowRenderer {
 }
 
 /// Compute view-projection matrix for a spot light.
-fn compute_spot_light_vp(light: &ShadowLightInfo) -> Matrix4<f32> {
+fn compute_spot_light_vp(light: &ShadowLightInfo, outer_cone_angle: f32) -> Matrix4<f32> {
     let dir = light.direction.normalize();
     let up = if dir.y.abs() < 0.9 {
         Vector3::unit_y()
@@ -779,8 +779,8 @@ fn compute_spot_light_vp(light: &ShadowLightInfo) -> Matrix4<f32> {
     let target = pos + dir;
     let view = Matrix4::look_at_rh(pos, target, up);
 
-    // Use a fixed FOV for spot shadows (90° — covers most spot cones)
-    let proj = perspective(cgmath::Deg(90.0), 1.0, 0.1, 100.0);
+    let fov = (outer_cone_angle * 2.0).max(0.1).min(1.5); // clamp to reasonable range
+    let proj = perspective(Deg(fov.to_degrees()), 1.0, 0.1, 100.0);
 
     proj * view
 }

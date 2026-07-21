@@ -708,16 +708,17 @@ impl ModuleRuntime {
                 continue;
             }
             let pos = &positions.components[pos_idx];
-            let light_type = match desc.light_type {
-                LightType::Point { .. } => 0,
-                LightType::Directional { .. } => 1,
-                LightType::Spot { .. } => 2,
+            let (light_type, outer_cone_angle) = match desc.light_type {
+                LightType::Point { .. } => (0, 0.0),
+                LightType::Directional { .. } => (1, 0.0),
+                LightType::Spot { outer_cone_angle, .. } => (2, outer_cone_angle),
             };
             lights.push(ShadowLightInfo {
                 light_type,
                 direction: desc.direction,
                 position: cgmath::Vector3::new(pos.0.x, pos.0.y, pos.0.z),
                 caster: caster.clone(),
+                outer_cone_angle,
             });
         }
         lights
