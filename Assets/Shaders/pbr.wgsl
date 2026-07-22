@@ -1,5 +1,6 @@
 const PI: f32 = 3.14159265359; 
 const F0_DEFAULT: f32 = 0.04;
+const AMBIENT_INTENSITY: f32 = 0.2;
 
 struct VertexData {
     @builtin(vertex_index) vertex_index: u32,
@@ -320,25 +321,15 @@ fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
     var specular_ibl = pbr.ibl_specular * (F * pbr.brdf_lut.x + pbr.brdf_lut.y);
 
     // Ambient light calculation (IBL), multiplied by ambient occlusion
-    return (diffuse_ibl + specular_ibl) * pbr.occlusion;
+    return (diffuse_ibl + specular_ibl) * pbr.occlusion * AMBIENT_INTENSITY;
 }
 
-/// Sample shadow map with 3x3 PCF.
+/// Sample shadow map with a single hard sample (for debugging — switch to PCF later).
 fn sample_shadow_pcf(layer: u32, shadow_coord: vec3<f32>, bias: f32) -> f32 {
-    let texel_size = 1.0 / vec2<f32>(textureDimensions(shadow_map_array));
-    let uv = shadow_coord.xy;
     let compare_depth = shadow_coord.z - bias;
-
-    var shadow = 0.0;
-    for (var x = -1; x <= 1; x++) {
-        for (var y = -1; y <= 1; y++) {
-            let offset = vec2<f32>(f32(x), f32(y)) * texel_size;
-            shadow += textureSampleCompare(
-                shadow_map_array, shadow_sampler, uv + offset, layer, compare_depth
-            );
-        }
-    }
-    return shadow / 9.0;
+    return textureSampleCompare(
+        shadow_map_array, shadow_sampler, shadow_coord.xy, layer, compare_depth
+    );
 }
 
 /// Compute shadow factor for a world position using the shadow slot array.

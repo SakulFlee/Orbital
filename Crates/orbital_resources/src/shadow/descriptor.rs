@@ -7,7 +7,7 @@ pub const SHADOW_TYPE_POINT: u32 = 2;
 pub const DEFAULT_SHADOW_RESOLUTION: u32 = 1024;
 pub const DEFAULT_CASCADE_COUNT: u32 = 4;
 pub const DEFAULT_CASCADE_SPLIT_LAMBDA: f32 = 0.75;
-pub const DEFAULT_SHADOW_BIAS: f32 = 0.005;
+pub const DEFAULT_SHADOW_BIAS: f32 = 0.002;
 
 /// Per-slot GPU data (96 bytes, matches WGSL ShadowSlot).
 /// 16 slots × 96 bytes + 16 bytes header = 1552 bytes uniform buffer.

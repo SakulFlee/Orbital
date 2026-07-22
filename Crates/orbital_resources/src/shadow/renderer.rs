@@ -785,7 +785,7 @@ fn compute_spot_light_vp(light: &ShadowLightInfo, outer_cone_angle: f32) -> Matr
     let target = pos + dir;
     let view = Matrix4::look_at_rh(pos, target, up);
 
-    let fov = (outer_cone_angle * 2.0).max(0.1).min(1.5); // clamp to reasonable range
+    let fov = (outer_cone_angle * 2.0 * 1.3).max(0.1).min(1.5); // 1.3× grace zone beyond cone
     let proj = perspective(Deg(fov.to_degrees()), 1.0, 0.1, 100.0);
 
     proj * view
