@@ -689,37 +689,48 @@ impl ModuleRuntime {
         };
 
         let mut lights = Vec::new();
+        let mut light_store_index = 0u32;
         for &eid in descs.dense.as_slice() {
             let desc_idx = match descs.sparse.get(eid).copied().flatten() {
                 Some(i) => i,
-                None => continue,
-            };
-            let caster_idx = match casters.sparse.get(eid).copied().flatten() {
-                Some(i) => i,
-                None => continue,
-            };
-            let pos_idx = match positions.sparse.get(eid).copied().flatten() {
-                Some(i) => i,
-                None => continue,
+                None => {
+                    light_store_index += 1;
+                    continue;
+                }
             };
             let desc = &descs.components[desc_idx];
-            let caster = &casters.components[caster_idx];
-            if !caster.enabled {
-                continue;
-            }
-            let pos = &positions.components[pos_idx];
-            let (light_type, outer_cone_angle) = match desc.light_type {
-                LightType::Point { .. } => (0, 0.0),
-                LightType::Directional { .. } => (1, 0.0),
-                LightType::Spot { outer_cone_angle, .. } => (2, outer_cone_angle),
+
+            // Check if this light has a shadow caster
+            let has_shadow = match casters.sparse.get(eid).copied().flatten() {
+                Some(idx) => casters.components[idx].enabled,
+                None => false,
             };
-            lights.push(ShadowLightInfo {
-                light_type,
-                direction: desc.direction,
-                position: cgmath::Vector3::new(pos.0.x, pos.0.y, pos.0.z),
-                caster: caster.clone(),
-                outer_cone_angle,
-            });
+
+            if has_shadow {
+                let pos_idx = match positions.sparse.get(eid).copied().flatten() {
+                    Some(i) => i,
+                    None => {
+                        light_store_index += 1;
+                        continue;
+                    }
+                };
+                let caster = &casters.components[casters.sparse[eid].unwrap()];
+                let pos = &positions.components[pos_idx];
+                let (light_type, outer_cone_angle) = match desc.light_type {
+                    LightType::Point { .. } => (0, 0.0),
+                    LightType::Directional { .. } => (1, 0.0),
+                    LightType::Spot { outer_cone_angle, .. } => (2, outer_cone_angle),
+                };
+                lights.push(ShadowLightInfo {
+                    light_type,
+                    direction: desc.direction,
+                    position: cgmath::Vector3::new(pos.0.x, pos.0.y, pos.0.z),
+                    caster: caster.clone(),
+                    outer_cone_angle,
+                    light_store_index,
+                });
+            }
+            light_store_index += 1;
         }
         lights
     }

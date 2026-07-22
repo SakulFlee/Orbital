@@ -347,6 +347,8 @@ impl ShadowRenderer {
                         layer_index: my_cube,
                         cascade_split_depth: far_plane,
                         bias: light.caster.bias,
+                        light_index: light.light_store_index,
+                        _padding: [0; 3],
                     };
                     // Store light position in column 3 (translation)
                     slot_data.light_view_proj[3] = [
@@ -435,6 +437,8 @@ impl ShadowRenderer {
                             layer_index,
                             cascade_split_depth: cascade.split_depth,
                             bias: light.caster.bias,
+                            light_index: light.light_store_index,
+                            _padding: [0; 3],
                         };
 
                         let offset = matrix_index as u64 * self.slot_stride;
@@ -456,6 +460,8 @@ impl ShadowRenderer {
                         layer_index,
                         cascade_split_depth: 0.0,
                         bias: light.caster.bias,
+                        light_index: light.light_store_index,
+                        _padding: [0; 3],
                     };
 
                     let offset = matrix_index as u64 * self.slot_stride;
