@@ -243,11 +243,9 @@ fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -
     var light_distance: f32 = 1.0;
     var attenuation: f32 = 1.0;
 
-    // ═══ DEBUG: light data visualization ═══
+    // ═══ DEBUG: pure white for spot light ═══
     if (light.direction.w == LIGHT_TYPE_SPOT) {
-        // Show light position as RGB: R=X/10+0.5, G=Y/10+0.5, B=Z/10+0.5
-        // Expected (0,3,6): R=0.5, G=0.8, B=1.1→clamped to 1.0 → = pinkish
-        return light.position.xyz / 20.0 + 0.5;
+        return vec3<f32>(1.0);
     }
     // ═══ END DEBUG ═══
 
