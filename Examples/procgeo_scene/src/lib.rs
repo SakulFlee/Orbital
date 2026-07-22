@@ -218,15 +218,15 @@ impl Module for ProcgeoSceneModule {
         // ════════════════════════════════════════════════════════════
         {
             let light = ecs.spawn_entity();
-            let spot_pos = Point3::new(0.0, 4.0, 4.0);
-            let target = Point3::new(0.0, 0.0, 0.0);
+            let spot_pos = Point3::new(0.0, 3.0, 6.0);
+            let target = Point3::new(0.0, 0.0, -2.0);
             let dir = (target - spot_pos).normalize();
             ecs.attach_component(
                 &light,
                 LightDescriptorEcs::new_spot(
-                    Vector3::new(1.0, 1.0, 1.0), 20.0,
+                    Vector3::new(1.0, 1.0, 1.0), 50.0,
                     Vector3::new(dir.x, dir.y, dir.z),
-                    0.35, 0.55,
+                    0.4, 0.6,
                 ),
             ).unwrap();
             ecs.attach_component(&light, Position(spot_pos)).unwrap();
