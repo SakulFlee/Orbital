@@ -103,7 +103,8 @@ struct ShadowSlot {
     layer_index: u32,               // offset 68, size 4
     cascade_split_depth: f32,       // offset 72, size 4
     bias: f32,                      // offset 76, size 4
-}                                    // total: 80 bytes (WGSL padded to 80)
+    light_index: u32,               // offset 80, size 4
+}                                    // total: 96 bytes (WGSL padded to 96)
 
 struct ShadowData {
     slots: array<ShadowSlot, 16>,
