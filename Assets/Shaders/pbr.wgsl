@@ -375,12 +375,13 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_distance: f32, light_idx:
             let direction = normalize(frag_to_light);
             let far_plane = slot.cascade_split_depth;
 
-            // Convert linear distance to non-linear depth matching the perspective projection
+            // Convert linear distance to non-linear OpenGL depth, then remap to [0,1]
+            // OpenGL: z_ndc = (f+n)/(f-n) - 2*f*n / (z * (f-n))  (near→-1, far→+1)
             let z = distance;
             let n = 0.1;
             let f = far_plane;
-            let depth_ndc = (f * (z - n)) / (z * (f - n)); // [-1, 1]
-            let depth = depth_ndc * 0.5 + 0.5;              // [0, 1]
+            let depth_ndc = (f + n) / (f - n) - 2.0 * f * n / (z * (f - n));
+            let depth = depth_ndc * 0.5 + 0.5;
 
             factor = textureSampleCompare(
                 point_shadow_maps, point_shadow_sampler,
