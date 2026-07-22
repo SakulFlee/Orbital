@@ -242,8 +242,27 @@ fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -
     var L: vec3<f32>;
     var light_distance: f32 = 1.0;
     var attenuation: f32 = 1.0;
-    
-    // Determine light type and calculate light direction and attenuation
+
+    // ═══ DEBUG: spot light cone visualization ═══
+    if (light.direction.w == LIGHT_TYPE_SPOT) {
+        let to_light = light.position.xyz - world_position;
+        let dist = length(to_light);
+        L = normalize(to_light);
+        let light_dir = normalize(-light.direction.xyz);
+        let cos_theta = clamp(dot(L, light_dir), -1.0, 1.0);
+        let theta = acos(cos_theta);
+        // light.params.x = inner_cone, light.params.y = outer_cone
+        let epsilon = light.params.x - light.params.y;
+        let intensity = clamp((theta - light.params.y) / epsilon, 0.0, 1.0);
+
+        // If inside the cone, return flat red, full brightness, ignoring everything else
+        if (intensity > 0.0) {
+            return vec3<f32>(1.0, 0.0, 0.0);
+        }
+        return vec3<f32>(0.0);
+    }
+    // ═══ END DEBUG ═══
+
     if (light.direction.w == LIGHT_TYPE_POINT) {
         // Point light
         L = light.position.xyz - world_position;
