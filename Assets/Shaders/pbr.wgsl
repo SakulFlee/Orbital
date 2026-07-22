@@ -262,8 +262,10 @@ fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -
         attenuation = 1.0 / (light_distance * light_distance);
         
         // Spot light angle calculation
+        // light.params.x = inner_cone_angle (radians), light.params.y = outer_cone_angle (radians)
         let light_direction = normalize(-light.direction.xyz);
-        let theta = dot(L, light_direction);
+        let cos_theta = clamp(dot(L, light_direction), -1.0, 1.0);
+        let theta = acos(cos_theta);
         let epsilon = light.params.x - light.params.y; // inner - outer
         let intensity = clamp((theta - light.params.y) / epsilon, 0.0, 1.0);
         

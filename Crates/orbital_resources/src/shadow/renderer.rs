@@ -709,11 +709,11 @@ fn compute_csm_cascades(
         let view = Matrix4::look_at_rh(light_pos, cascade_center_pt, light_up_actual);
 
         // Orthographic projection from the bounding box
-        let proj = cgmath::ortho(
+        let proj = vulkan_depth_proj(cgmath::ortho(
             min_bb.x, max_bb.x,
             min_bb.y, max_bb.y,
             0.0, max_bb.z * 3.0,
-        );
+        ));
 
         cascades.push(CascadeInfo {
             vp: proj * view,
@@ -753,7 +753,7 @@ fn interpolate_frustum_edges(corners: &[Point3<f32>; 8], t: f32) -> [Point3<f32>
 /// Compute the 6 face view-projection matrices for a cube shadow map.
 impl ShadowRenderer {
     fn point_light_face_matrices(position: Point3<f32>, far_plane: f32) -> [Matrix4<f32>; 6] {
-        let proj = perspective(Deg(90.0), 1.0, POINT_LIGHT_NEAR, far_plane);
+        let proj = vulkan_depth_proj(perspective(Deg(90.0), 1.0, POINT_LIGHT_NEAR, far_plane));
         let mut mats = [Matrix4::identity(); 6];
         for (i, &(dir, up)) in CUBE_FACE_DIRECTIONS.iter().enumerate() {
             let target = position + dir;
@@ -762,6 +762,17 @@ impl ShadowRenderer {
         }
         mats
     }
+}
+
+/// Adjust a projection matrix from OpenGL [-1,1] depth to Vulkan [0,1] clip space.
+fn vulkan_depth_proj(mut proj: Matrix4<f32>) -> Matrix4<f32> {
+    // Vulkan clip space Z maps to [0, 1]; OpenGL maps to [-1, 1].
+    // Remap: Z_vk = Z_gl * 0.5 + 0.5  →  row2 = row2 * 0.5 + row3 * 0.5
+    proj.z.x = proj.z.x * 0.5 + proj.w.x * 0.5;
+    proj.z.y = proj.z.y * 0.5 + proj.w.y * 0.5;
+    proj.z.z = proj.z.z * 0.5 + proj.w.z * 0.5;
+    proj.z.w = proj.z.w * 0.5 + proj.w.w * 0.5;
+    proj
 }
 
 /// Compute view-projection matrix for a spot light.
@@ -780,7 +791,7 @@ fn compute_spot_light_vp(light: &ShadowLightInfo, outer_cone_angle: f32) -> Matr
     let view = Matrix4::look_at_rh(pos, target, up);
 
     let fov = (outer_cone_angle * 2.0).max(0.1).min(1.5); // clamp to reasonable range
-    let proj = perspective(Deg(fov.to_degrees()), 1.0, 0.1, 100.0);
+    let proj = vulkan_depth_proj(perspective(Deg(fov.to_degrees()), 1.0, 0.1, 100.0));
 
     proj * view
 }
