@@ -227,10 +227,8 @@ impl Module for ProcgeoSceneModule {
             ).unwrap();
             ecs.attach_component(&light, Position(Point3::new(0.0, 5.0, 0.0))).unwrap();
             ecs.attach_component(&light, LightDirty(true)).unwrap();
-            ecs.attach_component(&light, ShadowCaster {
-                cascade_count: 0,
-                ..Default::default()
-            }).unwrap();
+            // No shadow — test if the light emits at all
+            //ecs.attach_component(&light, ShadowCaster { cascade_count: 0, ..Default::default() }).unwrap();
         }
 
         vec![
