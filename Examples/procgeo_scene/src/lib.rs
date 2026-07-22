@@ -213,22 +213,32 @@ impl Module for ProcgeoSceneModule {
 
         // ════════════════════════════════════════════════════════════
         // Spot light in Room 1 (Shadow Test)
-        // Center of room, pointing straight down onto the three objects
+        // Front of room (camera side), pointing backward toward center.
+        // Objects cast shadows onto the floor and back wall.
         // ════════════════════════════════════════════════════════════
         {
             let light = ecs.spawn_entity();
+            let spot_pos = Point3::new(0.0, 4.0, 4.0);
+            let target = Point3::new(0.0, 0.0, 0.0);
+            let dir = (target - spot_pos).normalize();
             ecs.attach_component(
                 &light,
                 LightDescriptorEcs::new_spot(
                     Vector3::new(1.0, 1.0, 1.0), 20.0,
-                    Vector3::new(0.0, -1.0, 0.0),
+                    Vector3::new(dir.x, dir.y, dir.z),
                     0.35, 0.55,
                 ),
             ).unwrap();
-            ecs.attach_component(&light, Position(Point3::new(0.0, 5.0, 0.0))).unwrap();
+            ecs.attach_component(&light, Position(spot_pos)).unwrap();
             ecs.attach_component(&light, LightDirty(true)).unwrap();
-            // No shadow — test if the light emits at all
-            //ecs.attach_component(&light, ShadowCaster { cascade_count: 0, ..Default::default() }).unwrap();
+            ecs.attach_component(
+                &light,
+                ShadowCaster {
+                    cascade_count: 0,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
         }
 
         vec![
