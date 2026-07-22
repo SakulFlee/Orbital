@@ -180,8 +180,26 @@ fn entrypoint_vertex(
 
 @fragment
 fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
-    // ═══ DEBUG: bypass everything, return white ═══
-    return vec4<f32>(1.0, 1.0, 1.0, 1.0);
+    let pbr = pbr_data(in);
+    var output = vec3(0.0);
+
+    // View-space depth for shadow cascade selection
+    let view_distance = distance(camera.position.xyz, in.world_position);
+
+    // IBL Ambient light
+    var ambient = calculate_ambient_ibl(pbr);
+    output += ambient;
+
+    // Light reflectance
+    let light_reflectance = calculate_light_contribution(pbr, in.world_position, view_distance);
+    output += light_reflectance;
+
+    // Add emissive "ontop"
+    output += pbr.emissive;
+
+    // Tonemap / HDR 
+    let tone_mapped_color = aces_tone_map(output);
+    return vec4<f32>(tone_mapped_color, 1.0);
 }
 
 // Note: Unused in favor of ACES
@@ -225,9 +243,7 @@ fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -
     var light_distance: f32 = 1.0;
     var attenuation: f32 = 1.0;
 
-    // ═══ DEBUG: return white for ALL lights ═══
-    return vec3<f32>(1.0);
-
+    // Determine light type and calculate light direction and attenuation
     if (light.direction.w == LIGHT_TYPE_POINT) {
         // Point light
         L = light.position.xyz - world_position;
