@@ -180,26 +180,8 @@ fn entrypoint_vertex(
 
 @fragment
 fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
-    let pbr = pbr_data(in);
-    var output = vec3(0.0);
-
-    // View-space depth for shadow cascade selection
-    let view_distance = distance(camera.position.xyz, in.world_position);
-
-    // IBL Ambient light
-    var ambient = calculate_ambient_ibl(pbr);
-    output += ambient;
-
-    // Light reflectance
-    let light_reflectance = calculate_light_contribution(pbr, in.world_position, view_distance);
-    output += light_reflectance;
-
-    // Add emissive "ontop"
-    output += pbr.emissive;
-
-    // Tonemap / HDR 
-    let tone_mapped_color = aces_tone_map(output);
-    return vec4<f32>(tone_mapped_color, 1.0);
+    // ═══ DEBUG: bypass everything, return white ═══
+    return vec4<f32>(1.0, 1.0, 1.0, 1.0);
 }
 
 // Note: Unused in favor of ACES
