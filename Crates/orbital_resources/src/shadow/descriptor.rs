@@ -9,8 +9,8 @@ pub const DEFAULT_CASCADE_COUNT: u32 = 4;
 pub const DEFAULT_CASCADE_SPLIT_LAMBDA: f32 = 0.75;
 pub const DEFAULT_SHADOW_BIAS: f32 = 0.005;
 
-/// Per-slot GPU data (80 bytes, matches WGSL ShadowSlot).
-/// 16 slots × 80 bytes + 16 bytes header = 1296 bytes uniform buffer.
+/// Per-slot GPU data (96 bytes, matches WGSL ShadowSlot).
+/// 16 slots × 96 bytes + 16 bytes header = 1552 bytes uniform buffer.
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct ShadowSlotData {
@@ -19,7 +19,9 @@ pub struct ShadowSlotData {
     pub layer_index: u32,                // offset 68,  size 4
     pub cascade_split_depth: f32,        // offset 72,  size 4
     pub bias: f32,                       // offset 76,  size 4
-}                                        // total: 80 bytes
+    pub light_index: u32,                // offset 80,  size 4
+    pub _padding: [u32; 3],             // offset 84,  size 12
+}                                        // total: 96 bytes
 
 impl ShadowSlotData {
     pub fn as_bytes(&self) -> &[u8] {
@@ -30,14 +32,14 @@ impl ShadowSlotData {
 
 /// Uniform buffer payload: slots array + header.
 /// WGSL struct ShadowData { slots: array<ShadowSlot, 16>, cascade_count: u32 }
-/// Total: 80*16 + 4 → padded to 16 → 1296 bytes.
+/// Total: 96*16 + 4 → padded to 16 → 1552 bytes.
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct ShadowGpuData {
-    pub slots: [ShadowSlotData; MAX_SHADOW_SLOTS as usize], // offset 0, size 1280
-    pub cascade_count: u32,                                  // offset 1280, size 4
-    pub _padding: [u32; 3],                                  // offset 1284, size 12
-}                                                             // total: 1296 bytes
+    pub slots: [ShadowSlotData; MAX_SHADOW_SLOTS as usize], // offset 0, size 1536
+    pub cascade_count: u32,                                  // offset 1536, size 4
+    pub _padding: [u32; 3],                                  // offset 1540, size 12
+}                                                             // total: 1552 bytes
 
 impl ShadowGpuData {
     pub fn new() -> Self {
@@ -48,6 +50,8 @@ impl ShadowGpuData {
                 layer_index: 0,
                 cascade_split_depth: 0.0,
                 bias: 0.0,
+                light_index: 0,
+                _padding: [0; 3],
             }; MAX_SHADOW_SLOTS as usize],
             cascade_count: 0,
             _padding: [0; 3],
@@ -108,6 +112,8 @@ pub struct ShadowLightInfo {
     pub caster: ShadowCaster,
     /// Spot light outer cone angle (radians). 0 for non-spot lights.
     pub outer_cone_angle: f32,
+    /// Index of this light in the GPU `light_store` array.
+    pub light_store_index: u32,
 }
 
 #[cfg(test)]
@@ -116,12 +122,12 @@ mod tests {
 
     #[test]
     fn shadow_slot_size() {
-        assert_eq!(std::mem::size_of::<ShadowSlotData>(), 80);
+        assert_eq!(std::mem::size_of::<ShadowSlotData>(), 96);
     }
 
     #[test]
     fn shadow_gpu_data_size() {
-        assert_eq!(std::mem::size_of::<ShadowGpuData>(), 1296);
+        assert_eq!(std::mem::size_of::<ShadowGpuData>(), 1552);
     }
 
     #[test]

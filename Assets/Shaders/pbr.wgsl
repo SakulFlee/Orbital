@@ -224,15 +224,17 @@ fn aces_tone_map(color: vec3<f32>) -> vec3<f32> {
 
 fn calculate_light_contribution(pbr: PBRData, world_position: vec3<f32>, view_distance: f32) -> vec3<f32> {
     var Lo = vec3(0.0);
-    let shadow_factor = compute_shadow_factor(world_position, view_distance);
 
     for (var i = u32(0); i < arrayLength(&light_store); i++) {
         let light = light_store[i];
-        Lo += calculate_light_brdf(light, pbr, world_position); 
+        var brdf = calculate_light_brdf(light, pbr, world_position);
+        let shadow = compute_shadow_for_light(world_position, view_distance, i);
+        Lo += brdf * shadow;
     }
 
-    return Lo * shadow_factor;
+    return Lo;
 }
+
 
 fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -> vec3<f32> {
     var L: vec3<f32>;
@@ -340,10 +342,15 @@ fn sample_shadow_pcf(layer: u32, shadow_coord: vec3<f32>, bias: f32) -> f32 {
 
 /// Compute shadow factor for a world position using the shadow slot array.
 /// view_distance is the distance from the camera to the fragment (for cascade selection).
-fn compute_shadow_factor(world_pos: vec3<f32>, view_distance: f32) -> f32 {
+fn compute_shadow_for_light(world_pos: vec3<f32>, view_distance: f32, light_idx: u32) -> f32 {
     var factor = 1.0;
     for (var i = 0u; i < shadow_data.cascade_count; i++) {
         let slot = shadow_data.slots[i];
+
+        // Skip slots that don't belong to this light
+        if (slot.light_index != light_idx) {
+            continue;
+        }
 
         if (slot.shadow_type == SHADOW_TYPE_DIRECTIONAL_CASCADE) {
             // Cascade check: skip if fragment is beyond this cascade
