@@ -2,17 +2,18 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use orbital::app::{sys_camera_controller, App, AppSettings, Module};
-use orbital::cgmath::{Point3, Quaternion, Rad, Vector3};
+use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector3};
 use orbital::debug_render::DebugModule;
 use orbital::ecs::{Commands, ComponentAccess, IntoSystem, System, World};
 use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, EnvironmentDescriptorResource,
-    ImportQueueResource, ModelDescriptorEcs, ModelDirty, ModelInstances, Position, Rotation,
+    ImportQueueResource, LightDescriptorEcs, LightDirty, ModelDescriptorEcs, ModelDirty,
+    ModelInstances, Position, Rotation,
 };
 use orbital::importer::{gltf::GltfImport, ImportTask};
 use orbital::logging::{self, error, info};
 use orbital::procgeo::scene::SceneBuilder;
-use orbital::resources::Transform;
+use orbital::resources::{ShadowCaster, Transform};
 use winit::keyboard::KeyCode;
 
 pub const NAME: &str = "Orbital-Demo-Project: ProcGeo Scene";
@@ -211,9 +212,26 @@ impl Module for ProcgeoSceneModule {
         }
 
         // ════════════════════════════════════════════════════════════
-        // NO LIGHTS — pure black scene for isolated shadow testing.
-        // Add one light at a time below and run to verify each type.
+        // Spot light in Room 1 (Shadow Test)
+        // Center of room, pointing straight down onto the three objects
         // ════════════════════════════════════════════════════════════
+        {
+            let light = ecs.spawn_entity();
+            ecs.attach_component(
+                &light,
+                LightDescriptorEcs::new_spot(
+                    Vector3::new(1.0, 1.0, 1.0), 3.0,
+                    Vector3::new(0.0, -1.0, 0.0),
+                    0.35, 0.55,
+                ),
+            ).unwrap();
+            ecs.attach_component(&light, Position(Point3::new(0.0, 5.0, 0.0))).unwrap();
+            ecs.attach_component(&light, LightDirty(true)).unwrap();
+            ecs.attach_component(&light, ShadowCaster {
+                cascade_count: 0,
+                ..Default::default()
+            }).unwrap();
+        }
 
         vec![
             sys_camera_controller.into_system(),
