@@ -220,7 +220,7 @@ impl Module for ProcgeoSceneModule {
             ecs.attach_component(
                 &light,
                 LightDescriptorEcs::new_spot(
-                    Vector3::new(1.0, 1.0, 1.0), 3.0,
+                    Vector3::new(1.0, 1.0, 1.0), 20.0,
                     Vector3::new(0.0, -1.0, 0.0),
                     0.35, 0.55,
                 ),
