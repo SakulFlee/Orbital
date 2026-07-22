@@ -239,14 +239,8 @@ fn calculate_light_contribution(pbr: PBRData, world_position: vec3<f32>, view_di
 
 
 fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -> vec3<f32> {
-    var L: vec3<f32>;
-    var light_distance: f32 = 1.0;
-    var attenuation: f32 = 1.0;
-
-    // ═══ DEBUG: pure white for spot light ═══
-    if (light.direction.w == LIGHT_TYPE_SPOT) {
-        return vec3<f32>(1.0);
-    }
+    // ═══ DEBUG: return white for ALL lights, skip type check ═══
+    return vec3<f32>(1.0);
     // ═══ END DEBUG ═══
 
     if (light.direction.w == LIGHT_TYPE_POINT) {
