@@ -225,16 +225,7 @@ fn aces_tone_map(color: vec3<f32>) -> vec3<f32> {
 }
 
 fn calculate_light_contribution(pbr: PBRData, world_position: vec3<f32>, view_distance: f32) -> vec3<f32> {
-    var Lo = vec3(0.0);
-
-    for (var i = u32(0); i < arrayLength(&light_store); i++) {
-        let light = light_store[i];
-        var brdf = calculate_light_brdf(light, pbr, world_position);
-        let shadow = compute_shadow_for_light(world_position, view_distance, i);
-        Lo += brdf * shadow;
-    }
-
-    return Lo;
+    return vec3<f32>(1.0);
 }
 
 
