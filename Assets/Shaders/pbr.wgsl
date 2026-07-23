@@ -350,19 +350,21 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_distance: f32, light_idx:
             // Standard projective shadow
             let clip_pos = slot.light_view_proj * vec4<f32>(world_pos, 1.0);
             var shadow_coord = clip_pos.xyz / clip_pos.w;
-            // Remap from OpenGL NDC [-1,1] to Vulkan UV/depth [0,1]
-            shadow_coord = shadow_coord * 0.5 + 0.5;
-            if (all(shadow_coord >= vec3(0.0)) && all(shadow_coord <= vec3(1.0))) {
-                factor = sample_shadow_pcf(slot.layer_index, shadow_coord, slot.bias);
+            // Remap xy to [0,1] for texture UV; keep z in native depth range [-1,1]
+            let uv = shadow_coord.xy * 0.5 + 0.5;
+            let adjusted = vec3<f32>(uv.x, uv.y, shadow_coord.z);
+            if (all(uv >= vec2(0.0)) && all(uv <= vec2(1.0))) {
+                factor = sample_shadow_pcf(slot.layer_index, adjusted, slot.bias);
                 return factor;
             }
         } else if (slot.shadow_type == SHADOW_TYPE_SPOT) {
             // Spot light: same projective shadow as directional
             let clip_pos = slot.light_view_proj * vec4<f32>(world_pos, 1.0);
-            var shadow_coord = clip_pos.xyz / clip_pos.w;
-            shadow_coord = shadow_coord * 0.5 + 0.5;
-            if (all(shadow_coord >= vec3(0.0)) && all(shadow_coord <= vec3(1.0))) {
-                factor = sample_shadow_pcf(slot.layer_index, shadow_coord, slot.bias);
+            let sp = clip_pos.xyz / clip_pos.w;
+            let sp_uv = sp.xy * 0.5 + 0.5;
+            let adjusted_sp = vec3<f32>(sp_uv.x, sp_uv.y, sp.z);
+            if (all(sp_uv >= vec2(0.0)) && all(sp_uv <= vec2(1.0))) {
+                factor = sample_shadow_pcf(slot.layer_index, adjusted_sp, slot.bias);
                 return factor;
             }
         } else if (slot.shadow_type == SHADOW_TYPE_POINT) {
