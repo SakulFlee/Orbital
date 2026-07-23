@@ -5,7 +5,7 @@
 
 use std::sync::{Arc, RwLock};
 
-use log::warn;
+use log::{info, warn};
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
     CameraDescriptorEcs, CameraDirty, CameraRealization, DeviceResource, EcsCameraStore,
@@ -358,6 +358,17 @@ pub fn realize_lights(ecs: &mut World) {
             direction: desc.direction,
         })
         .collect();
+
+    // Debug: log all light descriptors
+    for (i, ld) in light_descriptors.iter().enumerate() {
+        log::info!(
+            "Light[{}]: pos=({:.2},{:.2},{:.2}) dir=({:.2},{:.2},{:.2}) color=({:.2},{:.2},{:.2}) type={:?}",
+            i, ld.position.x, ld.position.y, ld.position.z,
+            ld.direction.x, ld.direction.y, ld.direction.z,
+            ld.color.x, ld.color.y, ld.color.z,
+            ld.light_type
+        );
+    }
 
     // Pack into buffer data (64 bytes per light)
     let buffer_data: Vec<u8> = light_descriptors

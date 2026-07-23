@@ -199,8 +199,7 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
 
     // Tonemap / HDR 
     let tone_mapped_color = aces_tone_map(output);
-    // ═══ DEBUG: override everything with solid red ═══
-    return vec4<f32>(1.0, 0.0, 0.0, 1.0);
+    return vec4<f32>(tone_mapped_color, 1.0);
 }
 
 // Note: Unused in favor of ACES
