@@ -350,9 +350,10 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_distance: f32, light_idx:
             // Standard projective shadow
             let clip_pos = slot.light_view_proj * vec4<f32>(world_pos, 1.0);
             var shadow_coord = clip_pos.xyz / clip_pos.w;
-            // Remap from OpenGL NDC [-1,1] to Vulkan UV/depth [0,1]
-            shadow_coord = shadow_coord * 0.5 + 0.5;
-            if (all(shadow_coord >= vec3(0.0)) && all(shadow_coord <= vec3(1.0))) {
+            // Remap xy to [0,1] for texture sampling; keep z in native depth range
+            shadow_coord.xy = shadow_coord.xy * 0.5 + 0.5;
+            if (all(shadow_coord.xy >= vec2(0.0)) && all(shadow_coord.xy <= vec2(1.0)) &&
+                shadow_coord.z >= -1.0 && shadow_coord.z <= 1.0) {
                 factor = sample_shadow_pcf(slot.layer_index, shadow_coord, slot.bias);
                 return factor;
             }
