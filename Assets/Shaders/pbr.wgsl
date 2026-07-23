@@ -323,9 +323,11 @@ fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
 /// Sample shadow map with a single hard sample (for debugging — switch to PCF later).
 fn sample_shadow_pcf(layer: u32, shadow_coord: vec3<f32>, bias: f32) -> f32 {
     let compare_depth = shadow_coord.z - bias;
-    return textureSampleCompare(
-        shadow_map_array, shadow_sampler, shadow_coord.xy, layer, compare_depth
-    );
+    // Manual comparison using textureLoad to bypass hardware sampler quirks
+    let tex_size = vec2<f32>(textureDimensions(shadow_map_array));
+    let texel = vec2<i32>(shadow_coord.xy * tex_size);
+    let stored = textureLoad(shadow_map_array, texel, i32(layer), 0);
+    return select(0.0, 1.0, compare_depth <= stored);
 }
 
 /// Compute shadow factor for a world position using the shadow slot array.
