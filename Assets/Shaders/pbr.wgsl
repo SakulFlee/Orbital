@@ -180,25 +180,26 @@ fn entrypoint_vertex(
 
 @fragment
 fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
-    // ═══ RAW DEPTH DUMP ═══
-    // Find the first spot shadow slot
-    for (var s = 0u; s < shadow_data.cascade_count; s++) {
-        let slot = shadow_data.slots[s];
-        if (slot.shadow_type != SHADOW_TYPE_SPOT) { continue; }
-        let clip_pos = slot.light_view_proj * vec4<f32>(in.world_position, 1.0);
-        let sp = clip_pos.xyz / clip_pos.w;
-        let uv = sp.xy * 0.5 + 0.5;
-        if (all(uv >= vec2(0.0)) && all(uv <= vec2(1.0))) {
-            let tex_size = vec2<f32>(textureDimensions(shadow_map_array));
-            let texel = vec2<i32>(uv * tex_size);
-            let stored = textureLoad(shadow_map_array, texel, i32(slot.layer_index), 0);
-            let ref_z = sp.z * 0.5 + 0.5;
-            let cmp = select(0.0, 1.0, ref_z <= stored);
-            // R=stored, G=ref_z, B=comparison result (0 or 1)
-            return vec4<f32>(stored, ref_z, cmp, 1.0);
-        }
-    }
-    return vec4<f32>(0.0, 0.0, 0.0, 1.0);
+    let pbr = pbr_data(in);
+    var output = vec3(0.0);
+
+    // View-space depth for shadow cascade selection
+    let view_distance = distance(camera.position.xyz, in.world_position);
+
+    // IBL Ambient light
+    var ambient = calculate_ambient_ibl(pbr);
+    output += ambient;
+
+    // Light reflectance
+    let light_reflectance = calculate_light_contribution(pbr, in.world_position, view_distance);
+    output += light_reflectance;
+
+    // Add emissive "ontop"
+    output += pbr.emissive;
+
+    // Tonemap / HDR 
+    let tone_mapped_color = aces_tone_map(output);
+    return vec4<f32>(tone_mapped_color, 1.0);
 }
 
 // Note: Unused in favor of ACES
@@ -322,11 +323,9 @@ fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
 /// Sample shadow map with a single hard sample (for debugging — switch to PCF later).
 fn sample_shadow_pcf(layer: u32, shadow_coord: vec3<f32>, bias: f32) -> f32 {
     let compare_depth = shadow_coord.z - bias;
-    // Manual comparison using textureLoad to bypass hardware sampler quirks
-    let tex_size = vec2<f32>(textureDimensions(shadow_map_array));
-    let texel = vec2<i32>(shadow_coord.xy * tex_size);
-    let stored = textureLoad(shadow_map_array, texel, i32(layer), 0);
-    return select(0.0, 1.0, compare_depth <= stored + 0.01);
+    return textureSampleCompare(
+        shadow_map_array, shadow_sampler, shadow_coord.xy, layer, compare_depth
+    );
 }
 
 /// Compute shadow factor for a world position using the shadow slot array.

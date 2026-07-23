@@ -263,7 +263,11 @@ impl ShadowRenderer {
                 depth_write_enabled: Some(true),
                 depth_compare: Some(CompareFunction::LessEqual),
                 stencil: Default::default(),
-                bias: Default::default(),
+                bias: wgpu::DepthBiasState {
+                    constant: 2,
+                    slope_scale: 2.0,
+                    clamp: 0.0,
+                },
             }),
             primitive: PrimitiveState {
                 topology: wgpu::PrimitiveTopology::TriangleList,
