@@ -224,8 +224,8 @@ fn aces_tone_map(color: vec3<f32>) -> vec3<f32> {
     );
 }
 fn calculate_light_contribution(pbr: PBRData, world_position: vec3<f32>, view_distance: f32) -> vec3<f32> {
+    // ═══ DEBUG: compare stored depth vs reference depth ═══
     var Lo = vec3(0.0);
-
     for (var i = u32(0); i < arrayLength(&light_store); i++) {
         let light = light_store[i];
         var brdf = calculate_light_brdf(light, pbr, world_position);
@@ -233,6 +233,21 @@ fn calculate_light_contribution(pbr: PBRData, world_position: vec3<f32>, view_di
         Lo += brdf * shadow;
     }
 
+    // Overlay: R = stored depth [0,1], G = ref depth mapped to [0,1]
+    for (var s = 0u; s < shadow_data.cascade_count; s++) {
+        let slot = shadow_data.slots[s];
+        if (slot.shadow_type != SHADOW_TYPE_SPOT) { continue; }
+        let clip_pos = slot.light_view_proj * vec4<f32>(world_position, 1.0);
+        let sp = clip_pos.xyz / clip_pos.w;
+        let uv = sp.xy * 0.5 + 0.5;
+        if (all(uv >= vec2(0.0)) && all(uv <= vec2(1.0))) {
+            let tex_size = vec2<f32>(textureDimensions(shadow_map_array));
+            let tex_c = vec2<i32>(uv * tex_size);
+            let stored = textureLoad(shadow_map_array, tex_c, i32(slot.layer_index), 0);
+            let ref_v = sp.z * 0.5 + 0.5; // map [-1,1] to [0,1]
+            Lo = vec3<f32>(stored, ref_v, 0.0);
+        }
+    }
     return Lo;
 }
 
