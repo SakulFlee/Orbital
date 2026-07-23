@@ -180,26 +180,24 @@ fn entrypoint_vertex(
 
 @fragment
 fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
-    let pbr = pbr_data(in);
-    var output = vec3(0.0);
-
-    // View-space depth for shadow cascade selection
-    let view_distance = distance(camera.position.xyz, in.world_position);
-
-    // IBL Ambient light
-    var ambient = calculate_ambient_ibl(pbr);
-    output += ambient;
-
-    // Light reflectance
-    let light_reflectance = calculate_light_contribution(pbr, in.world_position, view_distance);
-    output += light_reflectance;
-
-    // Add emissive "ontop"
-    output += pbr.emissive;
-
-    // Tonemap / HDR 
-    let tone_mapped_color = aces_tone_map(output);
-    return vec4<f32>(tone_mapped_color, 1.0);
+    // ═══ RAW DEPTH DUMP ═══
+    // Find the first spot shadow slot
+    for (var s = 0u; s < shadow_data.cascade_count; s++) {
+        let slot = shadow_data.slots[s];
+        if (slot.shadow_type != SHADOW_TYPE_SPOT) { continue; }
+        let clip_pos = slot.light_view_proj * vec4<f32>(in.world_position, 1.0);
+        let sp = clip_pos.xyz / clip_pos.w;
+        let uv = sp.xy * 0.5 + 0.5;
+        if (all(uv >= vec2(0.0)) && all(uv <= vec2(1.0))) {
+            let tex_size = vec2<f32>(textureDimensions(shadow_map_array));
+            let texel = vec2<i32>(uv * tex_size);
+            let stored = textureLoad(shadow_map_array, texel, i32(slot.layer_index), 0);
+            let ref_z = sp.z * 0.5 + 0.5;
+            // Raw output: R=stored, G=reference, no tone mapping
+            return vec4<f32>(stored, ref_z, 0.0, 1.0);
+        }
+    }
+    return vec4<f32>(0.0, 0.0, 0.0, 1.0);
 }
 
 // Note: Unused in favor of ACES
