@@ -60,17 +60,20 @@ pub struct ShadowRenderer {
 }
 
 impl ShadowRenderer {
-    pub fn new(device: &Device, _queue: &Queue, max_slots: u32, resolution: u32) -> Self {
+    pub fn new(device: &Device, queue: &Queue, max_slots: u32, resolution: u32) -> Self {
         let initial_layers = 1u32.max(max_slots);
 
         let depth_texture = Self::create_depth_array_texture(device, resolution, initial_layers);
 
+        let initial_gpu = ShadowGpuData::new();
         let slot_data_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Shadow Slot Data Buffer"),
             size: std::mem::size_of::<ShadowGpuData>() as u64,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
+        // Initialize with cascade_count = 0 so first frame doesn't read garbage
+        queue.write_buffer(&slot_data_buffer, 0, initial_gpu.as_bytes());
 
         let sampler = device.create_sampler(&SamplerDescriptor {
             label: Some("Shadow Map Sampler"),
