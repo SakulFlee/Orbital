@@ -85,7 +85,7 @@ impl ShadowRenderer {
             mipmap_filter: wgpu::MipmapFilterMode::Linear,
             lod_min_clamp: 0.0,
             lod_max_clamp: 0.0,
-            compare: Some(CompareFunction::GreaterEqual),
+            compare: Some(CompareFunction::LessEqual),
             anisotropy_clamp: 1,
             border_color: None,
         });
@@ -102,7 +102,7 @@ impl ShadowRenderer {
             mipmap_filter: wgpu::MipmapFilterMode::Linear,
             lod_min_clamp: 0.0,
             lod_max_clamp: 0.0,
-            compare: Some(CompareFunction::GreaterEqual),
+            compare: Some(CompareFunction::LessEqual),
             anisotropy_clamp: 1,
             border_color: None,
         });
