@@ -199,7 +199,8 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
 
     // Tonemap / HDR 
     let tone_mapped_color = aces_tone_map(output);
-    return vec4<f32>(tone_mapped_color, 1.0);
+    // ═══ DEBUG: override everything with solid red ═══
+    return vec4<f32>(1.0, 0.0, 0.0, 1.0);
 }
 
 // Note: Unused in favor of ACES
@@ -240,9 +241,6 @@ fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -
     var L: vec3<f32>;
     var light_distance: f32 = 1.0;
     var attenuation: f32 = 1.0;
-    // ═══ DEBUG: show light position raw value ═══
-    // Map (-50, +50) to (0,1): position / 100 + 0.5
-    return light.position.xyz / 100.0 + 0.5;
 
     // Determine light type and calculate light direction and attenuation
     if (light.direction.w == LIGHT_TYPE_POINT) {
