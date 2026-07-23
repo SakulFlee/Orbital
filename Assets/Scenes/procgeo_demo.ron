@@ -35,7 +35,7 @@ SceneBuilder(
 
         // ── Room 1: Object Showcase (x: -5 to 5) ──
         Entity(label: Some("R1 Floor"), shape: Plane(size: (10.0, 10.0), subdivisions: 2), material: "wall", transform: Transform(position: (0.0, 0.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("R1 Back"),  shape: Cube(size: (10.0, 10.0, 0.1)), material: "wall", transform: Transform(position: (0.0, 5.0, -5.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
+        //Entity(label: Some("R1 Back"),  shape: Cube(size: (10.0, 10.0, 0.1)), material: "wall", transform: Transform(position: (0.0, 5.0, -5.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
         Entity(label: Some("R1 Right / R2 Left"), shape: Cube(size: (0.1, 10.0, 10.0)), material: "wall", transform: Transform(position: (5.0, 5.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
 
         // Room 1 objects — single blue cube for clean shadow verification
