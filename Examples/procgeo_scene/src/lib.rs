@@ -231,14 +231,14 @@ impl Module for ProcgeoSceneModule {
             ).unwrap();
             ecs.attach_component(&light, Position(spot_pos)).unwrap();
             ecs.attach_component(&light, LightDirty(true)).unwrap();
-            //ecs.attach_component(
-            //    &light,
-            //    ShadowCaster {
-            //        cascade_count: 0,
-            //        ..Default::default()
-            //    },
-            //)
-            //.unwrap();
+            ecs.attach_component(
+                &light,
+                ShadowCaster {
+                    cascade_count: 0,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
         }
 
         vec![
