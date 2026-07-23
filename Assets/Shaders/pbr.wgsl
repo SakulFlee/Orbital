@@ -193,8 +193,9 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
             let texel = vec2<i32>(uv * tex_size);
             let stored = textureLoad(shadow_map_array, texel, i32(slot.layer_index), 0);
             let ref_z = sp.z * 0.5 + 0.5;
-            // Raw output: R=stored, G=reference, no tone mapping
-            return vec4<f32>(stored, ref_z, 0.0, 1.0);
+            let cmp = select(0.0, 1.0, ref_z <= stored);
+            // R=stored, G=ref_z, B=comparison result (0 or 1)
+            return vec4<f32>(stored, ref_z, cmp, 1.0);
         }
     }
     return vec4<f32>(0.0, 0.0, 0.0, 1.0);
