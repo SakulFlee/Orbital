@@ -85,7 +85,7 @@ impl ShadowRenderer {
             mipmap_filter: wgpu::MipmapFilterMode::Linear,
             lod_min_clamp: 0.0,
             lod_max_clamp: 0.0,
-            compare: Some(CompareFunction::Always),
+            compare: Some(CompareFunction::LessEqual),
             anisotropy_clamp: 1,
             border_color: None,
         });
@@ -269,7 +269,7 @@ impl ShadowRenderer {
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(Face::Front),
+                cull_mode: None,
                 unclipped_depth: false,
                 polygon_mode: PolygonMode::Fill,
                 conservative: false,

@@ -224,9 +224,16 @@ fn aces_tone_map(color: vec3<f32>) -> vec3<f32> {
     );
 }
 fn calculate_light_contribution(pbr: PBRData, world_position: vec3<f32>, view_distance: f32) -> vec3<f32> {
-    // ═══ DEBUG: output shadow factor as grayscale ═══
-    let shadow = compute_shadow_for_light(world_position, view_distance, 0u);
-    return vec3<f32>(shadow);
+    var Lo = vec3(0.0);
+
+    for (var i = u32(0); i < arrayLength(&light_store); i++) {
+        let light = light_store[i];
+        var brdf = calculate_light_brdf(light, pbr, world_position);
+        let shadow = compute_shadow_for_light(world_position, view_distance, i);
+        Lo += brdf * shadow;
+    }
+
+    return Lo;
 }
 
 fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -> vec3<f32> {
@@ -317,12 +324,10 @@ fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
 
 /// Sample shadow map with a single hard sample (for debugging — switch to PCF later).
 fn sample_shadow_pcf(layer: u32, shadow_coord: vec3<f32>, bias: f32) -> f32 {
-    // ═══ DEBUG: read raw depth value from shadow map ═══
-    let tex_size = vec2<f32>(textureDimensions(shadow_map_array));
-    let tex_coord = vec2<i32>(shadow_coord.xy * tex_size);
-    let raw_depth = textureLoad(shadow_map_array, tex_coord, i32(layer), 0);
-    // Output raw depth as grayscale: show directly what's in the map
-    return raw_depth;
+    let compare_depth = shadow_coord.z - bias;
+    return textureSampleCompare(
+        shadow_map_array, shadow_sampler, shadow_coord.xy, layer, compare_depth
+    );
 }
 
 /// Compute shadow factor for a world position using the shadow slot array.
