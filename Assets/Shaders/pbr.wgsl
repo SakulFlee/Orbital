@@ -114,10 +114,10 @@ struct ShadowData {
 
 @group(0) @binding(8) var<uniform> shadow_data: ShadowData;
 @group(0) @binding(9) var shadow_map_array: texture_depth_2d_array;
-@group(0) @binding(10) var shadow_sampler: sampler_comparison;
+@group(0) @binding(10) var shadow_sampler: sampler;
 
 @group(0) @binding(11) var point_shadow_maps: texture_depth_cube_array;
-@group(0) @binding(12) var point_shadow_sampler: sampler_comparison;
+@group(0) @binding(12) var point_shadow_sampler: sampler;
 
 @group(1) @binding(0) var normal_texture: texture_2d<f32>;
 @group(1) @binding(1) var normal_sampler: sampler;
@@ -320,12 +320,11 @@ fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
     return (diffuse_ibl + specular_ibl) * pbr.occlusion * AMBIENT_INTENSITY;
 }
 
-/// Sample shadow map with a single hard sample (for debugging — switch to PCF later).
+/// Sample shadow map with a single hard sample.
 fn sample_shadow_pcf(layer: u32, shadow_coord: vec3<f32>, bias: f32) -> f32 {
     let compare_depth = shadow_coord.z - bias;
-    return textureSampleCompare(
-        shadow_map_array, shadow_sampler, shadow_coord.xy, layer, compare_depth
-    );
+    let stored = textureSample(shadow_map_array, shadow_sampler, shadow_coord.xy, layer);
+    return select(0.0, 1.0, compare_depth <= stored);
 }
 
 /// Compute shadow factor for a world position using the shadow slot array.
@@ -379,11 +378,11 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_distance: f32, light_idx:
             let depth_ndc = (f + n) / (f - n) - 2.0 * f * n / (z * (f - n));
             let depth = depth_ndc * 0.5 + 0.5;
 
-            factor = textureSampleCompare(
+            let stored_cube = textureSample(
                 point_shadow_maps, point_shadow_sampler,
-                direction, slot.layer_index,
-                depth - slot.bias
+                direction, slot.layer_index
             );
+            factor = select(0.0, 1.0, depth - slot.bias <= stored_cube);
             return factor;
         }
     }
