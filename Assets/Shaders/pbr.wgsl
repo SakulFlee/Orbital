@@ -327,7 +327,7 @@ fn sample_shadow_pcf(layer: u32, shadow_coord: vec3<f32>, bias: f32) -> f32 {
     let tex_size = vec2<f32>(textureDimensions(shadow_map_array));
     let texel = vec2<i32>(shadow_coord.xy * tex_size);
     let stored = textureLoad(shadow_map_array, texel, i32(layer), 0);
-    return select(0.0, 1.0, compare_depth <= stored);
+    return select(0.0, 1.0, compare_depth <= stored + 0.0001);
 }
 
 /// Compute shadow factor for a world position using the shadow slot array.
