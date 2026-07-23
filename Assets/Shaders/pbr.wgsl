@@ -351,19 +351,24 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_distance: f32, light_idx:
             let clip_pos = slot.light_view_proj * vec4<f32>(world_pos, 1.0);
             var shadow_coord = clip_pos.xyz / clip_pos.w;
             // Remap xy to [0,1] for texture sampling; keep z in native depth range
-            shadow_coord.xy = shadow_coord.xy * 0.5 + 0.5;
-            if (all(shadow_coord.xy >= vec2(0.0)) && all(shadow_coord.xy <= vec2(1.0)) &&
-                shadow_coord.z >= -1.0 && shadow_coord.z <= 1.0) {
-                factor = sample_shadow_pcf(slot.layer_index, shadow_coord, slot.bias);
+            let shadow_uv = shadow_coord.xy * 0.5 + 0.5;
+            let shadow_z = shadow_coord.z;
+            var adjusted_coord = vec3<f32>(shadow_uv.x, shadow_uv.y, shadow_z);
+            if (all(shadow_uv >= vec2(0.0)) && all(shadow_uv <= vec2(1.0)) &&
+                shadow_z >= -1.0 && shadow_z <= 1.0) {
+                factor = sample_shadow_pcf(slot.layer_index, adjusted_coord, slot.bias);
                 return factor;
             }
         } else if (slot.shadow_type == SHADOW_TYPE_SPOT) {
             // Spot light: same projective shadow as directional
             let clip_pos = slot.light_view_proj * vec4<f32>(world_pos, 1.0);
-            var shadow_coord = clip_pos.xyz / clip_pos.w;
-            shadow_coord = shadow_coord * 0.5 + 0.5;
-            if (all(shadow_coord >= vec3(0.0)) && all(shadow_coord <= vec3(1.0))) {
-                factor = sample_shadow_pcf(slot.layer_index, shadow_coord, slot.bias);
+            let sp = clip_pos.xyz / clip_pos.w;
+            let sp_uv = sp.xy * 0.5 + 0.5;
+            let sp_z = sp.z;
+            let adjusted_spot = vec3<f32>(sp_uv.x, sp_uv.y, sp_z);
+            if (all(sp_uv >= vec2(0.0)) && all(sp_uv <= vec2(1.0)) &&
+                sp_z >= -1.0 && sp_z <= 1.0) {
+                factor = sample_shadow_pcf(slot.layer_index, adjusted_spot, slot.bias);
                 return factor;
             }
         } else if (slot.shadow_type == SHADOW_TYPE_POINT) {
