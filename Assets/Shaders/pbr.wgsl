@@ -239,8 +239,9 @@ fn calculate_light_contribution(pbr: PBRData, world_position: vec3<f32>, view_di
 fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -> vec3<f32> {
     var L: vec3<f32>;
     var light_distance: f32 = 1.0;
-    // ═══ DEBUG: green for all lights, keep loop running ═══
-    return vec3<f32>(0.0, 1.0, 0.0);
+    // ═══ DEBUG: show light position raw value ═══
+    // Map (-50, +50) to (0,1): position / 100 + 0.5
+    return light.position.xyz / 100.0 + 0.5;
 
     var attenuation: f32 = 1.0;
     var attenuation: f32 = 1.0;
