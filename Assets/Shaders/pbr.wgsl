@@ -320,11 +320,12 @@ fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
     return (diffuse_ibl + specular_ibl) * pbr.occlusion * AMBIENT_INTENSITY;
 }
 
-/// Sample shadow map with a single hard sample.
+/// Sample shadow map with a single hard sample (textureLoad — no filtering, no interpolation).
 fn sample_shadow_pcf(layer: u32, shadow_coord: vec3<f32>, bias: f32) -> f32 {
-    let compare_depth = shadow_coord.z - bias;
-    let stored = textureSample(shadow_map_array, shadow_sampler, shadow_coord.xy, layer);
-    return select(0.0, 1.0, compare_depth <= stored);
+    let tex_size = vec2<f32>(textureDimensions(shadow_map_array));
+    let texel = vec2<i32>(shadow_coord.xy * tex_size);
+    let stored = textureLoad(shadow_map_array, texel, i32(layer), 0);
+    return select(0.0, 1.0, shadow_coord.z - bias <= stored);
 }
 
 /// Compute shadow factor for a world position using the shadow slot array.
