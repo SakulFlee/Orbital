@@ -228,7 +228,9 @@ fn calculate_light_contribution(pbr: PBRData, world_position: vec3<f32>, view_di
     var Lo = vec3(0.0);
     for (var i = u32(0); i < arrayLength(&light_store); i++) {
         let light = light_store[i];
-        Lo += vec3<f32>(0.0, 1.0, 0.0);
+        var brdf = calculate_light_brdf(light, pbr, world_position);
+        let shadow = compute_shadow_for_light(world_position, view_distance, i);
+        Lo += brdf * shadow;
     }
     return Lo;
 }
@@ -331,10 +333,7 @@ fn sample_shadow_pcf(layer: u32, shadow_coord: vec3<f32>, bias: f32) -> f32 {
 /// Compute shadow factor for a world position using the shadow slot array.
 /// view_distance is the distance from the camera to the fragment (for cascade selection).
 fn compute_shadow_for_light(world_pos: vec3<f32>, view_distance: f32, light_idx: u32) -> f32 {
-    // Safety: uninitialized cascade_count (e.g. > 200) would indicate garbage data
-    if (shadow_data.cascade_count > 64u) {
-        return 1.0;
-    }
+    return 1.0;
     var factor = 1.0;
     for (var i = 0u; i < shadow_data.cascade_count; i++) {
         let slot = shadow_data.slots[i];
