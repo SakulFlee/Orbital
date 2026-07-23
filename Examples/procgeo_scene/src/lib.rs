@@ -235,6 +235,7 @@ impl Module for ProcgeoSceneModule {
                 &light,
                 ShadowCaster {
                     cascade_count: 0,
+                    bias: 0.0,
                     ..Default::default()
                 },
             )
