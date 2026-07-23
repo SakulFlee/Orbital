@@ -223,18 +223,11 @@ fn aces_tone_map(color: vec3<f32>) -> vec3<f32> {
         vec3(1.0)
     );
 }
-
 fn calculate_light_contribution(pbr: PBRData, world_position: vec3<f32>, view_distance: f32) -> vec3<f32> {
-    var Lo = vec3(0.0);
-    for (var i = u32(0); i < arrayLength(&light_store); i++) {
-        let light = light_store[i];
-        var brdf = calculate_light_brdf(light, pbr, world_position);
-        let shadow = compute_shadow_for_light(world_position, view_distance, i);
-        Lo += brdf * shadow;
-    }
-    return Lo;
+    // ═══ DEBUG: output shadow factor as grayscale ═══
+    let shadow = compute_shadow_for_light(world_position, view_distance, 0u);
+    return vec3<f32>(shadow);
 }
-
 
 fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -> vec3<f32> {
     var L: vec3<f32>;
@@ -325,9 +318,10 @@ fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
 /// Sample shadow map with a single hard sample (for debugging — switch to PCF later).
 fn sample_shadow_pcf(layer: u32, shadow_coord: vec3<f32>, bias: f32) -> f32 {
     let compare_depth = shadow_coord.z - bias;
-    return textureSampleCompare(
+    let result = textureSampleCompare(
         shadow_map_array, shadow_sampler, shadow_coord.xy, layer, compare_depth
     );
+    return result;
 }
 
 /// Compute shadow factor for a world position using the shadow slot array.
@@ -350,25 +344,19 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_distance: f32, light_idx:
             // Standard projective shadow
             let clip_pos = slot.light_view_proj * vec4<f32>(world_pos, 1.0);
             var shadow_coord = clip_pos.xyz / clip_pos.w;
-            // Remap xy to [0,1] for texture sampling; keep z in native depth range
-            let shadow_uv = shadow_coord.xy * 0.5 + 0.5;
-            let shadow_z = shadow_coord.z;
-            var adjusted_coord = vec3<f32>(shadow_uv.x, shadow_uv.y, shadow_z);
-            if (all(shadow_uv >= vec2(0.0)) && all(shadow_uv <= vec2(1.0)) &&
-                shadow_z >= -1.0 && shadow_z <= 1.0) {
-                factor = sample_shadow_pcf(slot.layer_index, adjusted_coord, slot.bias);
+            // Remap from OpenGL NDC [-1,1] to Vulkan UV/depth [0,1]
+            shadow_coord = shadow_coord * 0.5 + 0.5;
+            if (all(shadow_coord >= vec3(0.0)) && all(shadow_coord <= vec3(1.0))) {
+                factor = sample_shadow_pcf(slot.layer_index, shadow_coord, slot.bias);
                 return factor;
             }
         } else if (slot.shadow_type == SHADOW_TYPE_SPOT) {
             // Spot light: same projective shadow as directional
             let clip_pos = slot.light_view_proj * vec4<f32>(world_pos, 1.0);
-            let sp = clip_pos.xyz / clip_pos.w;
-            let sp_uv = sp.xy * 0.5 + 0.5;
-            let sp_z = sp.z;
-            let adjusted_spot = vec3<f32>(sp_uv.x, sp_uv.y, sp_z);
-            if (all(sp_uv >= vec2(0.0)) && all(sp_uv <= vec2(1.0)) &&
-                sp_z >= -1.0 && sp_z <= 1.0) {
-                factor = sample_shadow_pcf(slot.layer_index, adjusted_spot, slot.bias);
+            var shadow_coord = clip_pos.xyz / clip_pos.w;
+            shadow_coord = shadow_coord * 0.5 + 0.5;
+            if (all(shadow_coord >= vec3(0.0)) && all(shadow_coord <= vec3(1.0))) {
+                factor = sample_shadow_pcf(slot.layer_index, shadow_coord, slot.bias);
                 return factor;
             }
         } else if (slot.shadow_type == SHADOW_TYPE_POINT) {
