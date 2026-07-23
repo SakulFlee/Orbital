@@ -5,7 +5,7 @@
 
 use std::sync::{Arc, RwLock};
 
-use log::{info, warn};
+use log::warn;
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
     CameraDescriptorEcs, CameraDirty, CameraRealization, DeviceResource, EcsCameraStore,
