@@ -239,6 +239,17 @@ fn calculate_light_contribution(pbr: PBRData, world_position: vec3<f32>, view_di
 
 
 fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -> vec3<f32> {
+    // ═══ DEBUG: show light.direction.w as RGB ═══
+    // LIGHT_TYPE_POINT = 0.0, DIRECTIONAL = 1.0, SPOT = 2.0
+    // Show 2.0 as green, 0.0 as red, 1.0 as blue
+    if (light.direction.w > 1.5) {
+        return vec3<f32>(0.0, 1.0, 0.0); // green = spot
+    } else if (light.direction.w > 0.5) {
+        return vec3<f32>(0.0, 0.0, 1.0); // blue = directional
+    } else {
+        return vec3<f32>(1.0, 0.0, 0.0); // red = point
+    }
+
     var L: vec3<f32>;
     var light_distance: f32 = 1.0;
     var attenuation: f32 = 1.0;
