@@ -218,7 +218,7 @@ impl Module for ProcgeoSceneModule {
         // ════════════════════════════════════════════════════════════
         {
             let light = ecs.spawn_entity();
-            let spot_pos = Point3::new(0.0, 3.0, 6.0);
+            let spot_pos = Point3::new(0.0, 8.0, 6.0);
             let target = Point3::new(0.0, 0.0, -2.0);
             let dir = (target - spot_pos).normalize();
             ecs.attach_component(
@@ -234,8 +234,8 @@ impl Module for ProcgeoSceneModule {
             ecs.attach_component(
                 &light,
                 ShadowCaster {
-                    cascade_count: 0,
-                    bias: 0.0,
+                    cascade_count: 0, // ignored for spot lights (single perspective map)
+                    bias: 0.0002,
                     ..Default::default()
                 },
             )

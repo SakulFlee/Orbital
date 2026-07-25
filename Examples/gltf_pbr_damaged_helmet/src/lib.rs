@@ -102,7 +102,7 @@ impl Module for DamagedHelmetModule {
         ecs.attach_component(
             &spot,
             ShadowCaster {
-                cascade_count: 0, // 0 = spot (single perspective depth)
+                cascade_count: 0, // ignored for spot lights (single perspective map)
                 ..Default::default()
             },
         )
