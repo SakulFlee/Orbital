@@ -10,10 +10,10 @@ use log::warn;
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CameraDirty, CameraRealization, DeviceResource,
-    EcsCameraStore, ImportQueueResource, ImporterResource, ModelDescriptorEcs, ModelDirty,
-    ModelInstances, Position, QueueResource, Rotation,
+    EcsCameraStore, ImportQueueResource, ImporterResource, LightDescriptorEcs, LightDirty,
+    ModelDescriptorEcs, ModelDirty, ModelInstances, Position, QueueResource, Rotation,
 };
-use orbital_resources::Camera;
+use orbital_resources::{Camera, ShadowCaster};
 
 /// Poll the importer for completed results and spawn ECS entities.
 ///
@@ -171,6 +171,45 @@ pub fn sys_poll_importer(ecs: &mut World) {
 
             // Set as active camera
             ecs.insert_resource(ActiveCamera(entity));
+        }
+
+        // Spawn light entities (KHR_lights_punctual).
+        //
+        // Position comes from the light's node transform; type/color/direction
+        // (already converted from glTF's -Z convention by the importer) go into
+        // the descriptor component. A default ShadowCaster makes imported
+        // lights cast shadows right away (one slot each for point/spot,
+        // `cascade_count` slots for directional).
+        for light_desc in result.lights {
+            let entity = ecs.spawn_entity();
+
+            let desc = LightDescriptorEcs {
+                light_type: light_desc.light_type.clone(),
+                color: light_desc.color,
+                direction: light_desc.direction,
+            };
+            if let Err(e) = ecs.attach_component(&entity, desc) {
+                warn!("Failed to attach LightDescriptorEcs: {:?}", e);
+                continue;
+            }
+
+            let pos = Position(Point3::new(
+                light_desc.position.x,
+                light_desc.position.y,
+                light_desc.position.z,
+            ));
+            if let Err(e) = ecs.attach_component(&entity, pos) {
+                warn!("Failed to attach Position for light: {:?}", e);
+                continue;
+            }
+
+            if let Err(e) = ecs.attach_component(&entity, ShadowCaster::default()) {
+                warn!("Failed to attach ShadowCaster for light: {:?}", e);
+            }
+
+            if let Err(e) = ecs.attach_component(&entity, LightDirty(true)) {
+                warn!("Failed to attach LightDirty: {:?}", e);
+            }
         }
     }
 }
