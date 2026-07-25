@@ -893,7 +893,7 @@ impl ApplicationHandler for ModuleRuntime {
                     ctx_guard.device(),
                     ctx_guard.queue(),
                     16,    // max shadow slots
-                    1024,  // shadow map resolution
+                    2048,  // shadow map resolution
                 );
             }
 
