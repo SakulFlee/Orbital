@@ -45,7 +45,7 @@ struct Light {
     position: vec4<f32>,     // xyz: position, w: padding
     color: vec4<f32>,        // xyz: color, w: intensity
     direction: vec4<f32>,    // xyz: direction, w: type
-    params: vec4<f32>,       // x: inner cone angle, y: outer cone angle, zw: padding
+    params: vec4<f32>,       // spot: x = angular attenuation scale, y = offset (cosine domain, glTF KHR_lights_punctual); unused otherwise
 }
 
 struct PBRFactors {
@@ -105,6 +105,7 @@ struct ShadowSlot {
     cascade_split_depth: f32,       // offset 72, size 4
     bias: f32,                      // offset 76, size 4
     light_index: u32,               // offset 80, size 4
+    near_plane: f32,                // offset 84, size 4
 }                                    // total: 96 bytes (WGSL padded to 96)
 
 struct ShadowData {
@@ -114,10 +115,10 @@ struct ShadowData {
 
 @group(0) @binding(8) var<uniform> shadow_data: ShadowData;
 @group(0) @binding(9) var shadow_map_array: texture_depth_2d_array;
-@group(0) @binding(10) var shadow_sampler: sampler;
+@group(0) @binding(10) var shadow_sampler: sampler_comparison;
 
 @group(0) @binding(11) var point_shadow_maps: texture_depth_cube_array;
-@group(0) @binding(12) var point_shadow_sampler: sampler;
+@group(0) @binding(12) var point_shadow_sampler: sampler_comparison;
 
 @group(1) @binding(0) var normal_texture: texture_2d<f32>;
 @group(1) @binding(1) var normal_sampler: sampler;
@@ -228,7 +229,7 @@ fn calculate_light_contribution(pbr: PBRData, world_position: vec3<f32>, view_di
     for (var i = u32(0); i < arrayLength(&light_store); i++) {
         let light = light_store[i];
         var brdf = calculate_light_brdf(light, pbr, world_position);
-        let shadow = compute_shadow_for_light(world_position, view_distance, i);
+        let shadow = compute_shadow_for_light(world_position, view_distance, i, pbr.N);
         Lo += brdf * shadow;
     }
     return Lo;
@@ -254,23 +255,20 @@ fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -
         // No attenuation for directional lights
         attenuation = 1.0;
     } else if (light.direction.w == LIGHT_TYPE_SPOT) {
-        // Spot light
+        // Spot light (glTF KHR_lights_punctual semantics)
         L = light.position.xyz - world_position;
         light_distance = length(L);
         L = normalize(L);
-        // Attenuation for spot lights
-        attenuation = 1.0 / (light_distance * light_distance);
-        
-        // Spot light angle calculation
-        // light.params.x = inner_cone_angle (radians), light.params.y = outer_cone_angle (radians)
-        let light_direction = normalize(-light.direction.xyz);
-        let cos_theta = clamp(dot(L, light_direction), -1.0, 1.0);
-        let theta = acos(cos_theta);
-        let epsilon = light.params.x - light.params.y; // inner - outer
-        let intensity = clamp((theta - light.params.y) / epsilon, 0.0, 1.0);
-        
-        // Apply spot light intensity
-        attenuation *= intensity;
+        // Distance attenuation: clamped inverse-square (avoids the singularity at d = 0)
+        attenuation = 1.0 / max(light_distance * light_distance, 0.01);
+
+        // Angular attenuation in the cosine domain with CPU-precomputed
+        // coefficients: params.x = scale, params.y = offset.
+        // cos_theta is the angle between the light direction and the
+        // direction from the light toward the fragment (-L).
+        let cos_theta = dot(-L, normalize(light.direction.xyz));
+        let angular = clamp(cos_theta * light.params.x + light.params.y, 0.0, 1.0);
+        attenuation *= angular;
     } else {
         // Unknown light type, return zero contribution
         return vec3(0.0);
@@ -320,18 +318,44 @@ fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
     return (diffuse_ibl + specular_ibl) * pbr.occlusion * AMBIENT_INTENSITY;
 }
 
-/// Sample shadow map with a single hard sample (textureLoad — no filtering, no interpolation).
-fn sample_shadow_pcf(layer: u32, shadow_coord: vec3<f32>, bias: f32) -> f32 {
-    let tex_size = vec2<f32>(textureDimensions(shadow_map_array));
-    let texel = vec2<i32>(shadow_coord.xy * tex_size);
-    let stored = textureLoad(shadow_map_array, texel, i32(layer), 0);
-    return select(0.0, 1.0, shadow_coord.z - bias <= stored);
+/// Sample a 2D-array shadow map with 3x3 PCF: 9 hardware-compare taps,
+/// each bilinear-filtered by the comparison sampler.
+/// `depth` is the bias-corrected reference depth in [0, 1].
+fn sample_shadow_2d_pcf(layer: u32, shadow_coord: vec3<f32>, depth: f32) -> f32 {
+    let dims = vec2<f32>(textureDimensions(shadow_map_array));
+    let texel = 1.0 / dims;
+    var sum = 0.0;
+    for (var y = -1; y <= 1; y++) {
+        for (var x = -1; x <= 1; x++) {
+            let offset = vec2<f32>(f32(x), f32(y)) * texel;
+            sum += textureSampleCompare(
+                shadow_map_array, shadow_sampler,
+                shadow_coord.xy + offset, i32(layer), depth
+            );
+        }
+    }
+    return sum / 9.0;
 }
 
-/// Compute shadow factor for a world position using the shadow slot array.
-/// view_distance is the distance from the camera to the fragment (for cascade selection).
-fn compute_shadow_for_light(world_pos: vec3<f32>, view_distance: f32, light_idx: u32) -> f32 {
+/// Slope-scaled depth bias: surfaces at a grazing angle to the light need a
+/// larger bias to avoid shadow acne. Scales `base_bias` into [1x, 3x].
+fn slope_scaled_bias(base_bias: f32, n_dot_l: f32) -> f32 {
+    return base_bias * (1.0 + 2.0 * (1.0 - clamp(n_dot_l, 0.0, 1.0)));
+}
+
+fn compute_shadow_for_light(world_pos: vec3<f32>, view_distance: f32, light_idx: u32, normal: vec3<f32>) -> f32 {
     var factor = 1.0;
+    let light = light_store[light_idx];
+
+    // Direction from the fragment toward the light (for the slope-scaled bias)
+    var to_light: vec3<f32>;
+    if (light.direction.w == LIGHT_TYPE_DIRECTIONAL) {
+        to_light = normalize(-light.direction.xyz);
+    } else {
+        to_light = normalize(light.position.xyz - world_pos);
+    }
+    let n_dot_l = dot(normal, to_light);
+
     for (var i = 0u; i < shadow_data.cascade_count; i++) {
         let slot = shadow_data.slots[i];
 
@@ -340,50 +364,50 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_distance: f32, light_idx:
             continue;
         }
 
+        let bias = slope_scaled_bias(slot.bias, n_dot_l);
+
         if (slot.shadow_type == SHADOW_TYPE_DIRECTIONAL_CASCADE) {
             // Cascade check: skip if fragment is beyond this cascade
             if (view_distance > slot.cascade_split_depth) {
                 continue;
             }
-            // Standard projective shadow
             let clip_pos = slot.light_view_proj * vec4<f32>(world_pos, 1.0);
-            var shadow_coord = clip_pos.xyz / clip_pos.w;
-            // Remap from OpenGL NDC [-1,1] to Vulkan UV/depth [0,1]
-            shadow_coord = shadow_coord * 0.5 + 0.5;
-            if (all(shadow_coord >= vec3(0.0)) && all(shadow_coord <= vec3(1.0))) {
-                factor = sample_shadow_pcf(slot.layer_index, shadow_coord, slot.bias);
+            let ndc = clip_pos.xyz / clip_pos.w;
+            // Remap xy for texture sampling; z is already in [0, 1]
+            // (wgpu-convention projection, matches the stored depth).
+            let shadow_coord = vec3<f32>(ndc.xy * 0.5 + 0.5, ndc.z);
+            if (all(shadow_coord.xy >= vec2<f32>(0.0)) && all(shadow_coord.xy < vec2<f32>(1.0)) && shadow_coord.z >= 0.0 && shadow_coord.z <= 1.0) {
+                factor = sample_shadow_2d_pcf(slot.layer_index, shadow_coord, shadow_coord.z - bias);
                 return factor;
             }
         } else if (slot.shadow_type == SHADOW_TYPE_SPOT) {
-            // Spot light: same projective shadow as directional
+            // Single perspective depth map covering the light's outer cone
             let clip_pos = slot.light_view_proj * vec4<f32>(world_pos, 1.0);
-            var shadow_coord = clip_pos.xyz / clip_pos.w;
-            shadow_coord = shadow_coord * 0.5 + 0.5;
-            if (all(shadow_coord >= vec3(0.0)) && all(shadow_coord <= vec3(1.0))) {
-                factor = sample_shadow_pcf(slot.layer_index, shadow_coord, slot.bias);
+            let ndc = clip_pos.xyz / clip_pos.w;
+            let shadow_coord = vec3<f32>(ndc.xy * 0.5 + 0.5, ndc.z);
+            if (all(shadow_coord.xy >= vec2<f32>(0.0)) && all(shadow_coord.xy < vec2<f32>(1.0)) && shadow_coord.z >= 0.0 && shadow_coord.z <= 1.0) {
+                factor = sample_shadow_2d_pcf(slot.layer_index, shadow_coord, shadow_coord.z - bias);
                 return factor;
             }
+            // Outside the shadow frustum: lit (the cone falloff darkens it anyway)
+            return 1.0;
         } else if (slot.shadow_type == SHADOW_TYPE_POINT) {
-            // Point light: sample cube map using direction from light to fragment
+            // Cube map shadow: sample using direction from light to fragment
             let light_pos = slot.light_view_proj[3].xyz;
             let frag_to_light = world_pos - light_pos;
-            let distance = length(frag_to_light);
             let direction = normalize(frag_to_light);
+            let abs_vec = abs(frag_to_light);
+            let view_z = max(max(abs_vec.x, abs_vec.y), abs_vec.z);
             let far_plane = slot.cascade_split_depth;
+            let near_plane = slot.near_plane;
 
-            // Convert linear distance to non-linear OpenGL depth, then remap to [0,1]
-            // OpenGL: z_ndc = (f+n)/(f-n) - 2*f*n / (z * (f-n))  (near→-1, far→+1)
-            let z = distance;
-            let n = 0.1;
-            let f = far_plane;
-            let depth_ndc = (f + n) / (f - n) - 2.0 * f * n / (z * (f - n));
-            let depth = depth_ndc * 0.5 + 0.5;
+            // Reference depth in [0, 1] matching the wgpu-convention face projection
+            let depth = far_plane / (far_plane - near_plane) - far_plane * near_plane / (view_z * (far_plane - near_plane));
 
-            let stored_cube = textureSample(
+            factor = textureSampleCompare(
                 point_shadow_maps, point_shadow_sampler,
-                direction, slot.layer_index
+                direction, i32(slot.layer_index), depth - bias
             );
-            factor = select(0.0, 1.0, depth - slot.bias <= stored_cube);
             return factor;
         }
     }
