@@ -347,13 +347,15 @@ impl DebugRenderer {
 
 /// Compute the 8 world-space corners of the view frustum from the combined
 /// perspective‑view‑projection matrix.
+///
+/// Uses the wgpu clip convention: the near plane is at z_ndc = 0.
 pub fn frustum_corners_from_matrix(matrix: &Matrix4<f32>) -> [Point3<f32>; 8] {
     let inv = matrix.invert().unwrap_or(Matrix4::identity());
     let ndc = [
-        Vector4::new(-1.0, -1.0, -1.0, 1.0),
-        Vector4::new(1.0, -1.0, -1.0, 1.0),
-        Vector4::new(-1.0, 1.0, -1.0, 1.0),
-        Vector4::new(1.0, 1.0, -1.0, 1.0),
+        Vector4::new(-1.0, -1.0, 0.0, 1.0),
+        Vector4::new(1.0, -1.0, 0.0, 1.0),
+        Vector4::new(-1.0, 1.0, 0.0, 1.0),
+        Vector4::new(1.0, 1.0, 0.0, 1.0),
         Vector4::new(-1.0, -1.0, 1.0, 1.0),
         Vector4::new(1.0, -1.0, 1.0, 1.0),
         Vector4::new(-1.0, 1.0, 1.0, 1.0),
