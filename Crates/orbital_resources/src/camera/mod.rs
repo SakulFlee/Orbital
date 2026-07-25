@@ -1,9 +1,9 @@
 use std::mem;
 
-use cgmath::{
-    Deg, InnerSpace, Matrix, Matrix4, Point3, Quaternion, SquareMatrix, Vector3, perspective,
-};
+use cgmath::{Deg, InnerSpace, Matrix, Matrix4, Point3, Quaternion, Rad, SquareMatrix, Vector3};
 use wgpu::{Buffer, BufferDescriptor, BufferUsages, Device, Queue};
+
+use crate::projection::perspective_wgpu;
 
 mod change;
 pub use change::*;
@@ -183,11 +183,13 @@ impl Camera {
         &self,
         descriptor: &CameraDescriptor,
     ) -> Matrix4<f32> {
-        perspective(
-            Deg(descriptor.fovy),
+        // wgpu clip convention (NDC z ∈ [0, 1]); no Y flip needed for on-screen rendering.
+        perspective_wgpu(
+            Rad::from(Deg(descriptor.fovy)),
             descriptor.aspect,
             descriptor.near,
             descriptor.far,
+            false,
         )
     }
 
@@ -286,7 +288,9 @@ impl Camera {
     ) {
         let view_projection_matrix =
             Self::compute_view_projection_matrix_from_rotation(position, rotation);
-        let perspective_projection_matrix = perspective(Deg(fovy), aspect, near, far);
+        // wgpu clip convention (NDC z ∈ [0, 1]); no Y flip needed for on-screen rendering.
+        let perspective_projection_matrix =
+            perspective_wgpu(Rad::from(Deg(fovy)), aspect, near, far, false);
 
         let perspective_view_projection_matrix =
             perspective_projection_matrix * view_projection_matrix;
