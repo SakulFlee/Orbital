@@ -14,3 +14,7 @@ serde = { workspace = true }
 ulid = { workspace = true }
 hashbrown = { workspace = true }
 dirs = { workspace = true }
+
+[dev-dependencies]
+# Matches the naga version used by wgpu 30 — validates WGSL shaders in tests.
+naga = { version = "30.0.0", default-features = false, features = ["wgsl-in"] }
