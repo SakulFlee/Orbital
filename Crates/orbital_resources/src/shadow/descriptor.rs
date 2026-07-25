@@ -7,7 +7,7 @@ pub const SHADOW_TYPE_POINT: u32 = 2;
 pub const DEFAULT_SHADOW_RESOLUTION: u32 = 1024;
 pub const DEFAULT_CASCADE_COUNT: u32 = 4;
 pub const DEFAULT_CASCADE_SPLIT_LAMBDA: f32 = 0.75;
-pub const DEFAULT_SHADOW_BIAS: f32 = 0.002;
+pub const DEFAULT_SHADOW_BIAS: f32 = 0.0002;
 
 /// Per-slot GPU data (96 bytes, matches WGSL ShadowSlot).
 /// 16 slots × 96 bytes + 16 bytes header = 1552 bytes uniform buffer.
@@ -20,7 +20,8 @@ pub struct ShadowSlotData {
     pub cascade_split_depth: f32,        // offset 72,  size 4
     pub bias: f32,                       // offset 76,  size 4
     pub light_index: u32,                // offset 80,  size 4
-    pub _padding: [u32; 3],             // offset 84,  size 12
+    pub near_plane: f32,                 // offset 84,  size 4
+    pub _padding: [u32; 2],             // offset 88,  size 8
 }                                        // total: 96 bytes
 
 impl ShadowSlotData {
@@ -51,7 +52,8 @@ impl ShadowGpuData {
                 cascade_split_depth: 0.0,
                 bias: 0.0,
                 light_index: 0,
-                _padding: [0; 3],
+                near_plane: 0.1,
+                _padding: [0; 2],
             }; MAX_SHADOW_SLOTS as usize],
             cascade_count: 0,
             _padding: [0; 3],
@@ -86,7 +88,8 @@ pub struct ShadowCaster {
     pub enabled: bool,
     pub resolution: u32,
     pub bias: f32,
-    /// Number of CSM cascades (4 for directional, 0 for spot).
+    /// Number of CSM cascades (directional lights only; ignored for
+    /// point and spot lights, which always use one shadow slot each).
     pub cascade_count: u32,
     /// Blend between uniform and logarithmic cascade splits (0.0–1.0).
     pub cascade_split_lambda: f32,
