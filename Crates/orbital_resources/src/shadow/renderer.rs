@@ -1,13 +1,14 @@
 use std::num::NonZero;
 
-use cgmath::{Deg, InnerSpace, Matrix4, Point3, SquareMatrix, Vector3, Vector4, perspective};
+use cgmath::{Deg, InnerSpace, Matrix4, Point3, Rad, SquareMatrix, Vector3, Vector4};
 use wgpu::{
-    BindGroup, BindGroupLayout, CompareFunction, DepthStencilState, Device, Face,
+    BindGroup, BindGroupLayout, CompareFunction, DepthStencilState, Device,
     MultisampleState, PipelineLayoutDescriptor, PolygonMode, PrimitiveState, Queue,
     RenderPipeline, RenderPipelineDescriptor, SamplerDescriptor, ShaderStages, TextureFormat,
     TextureViewDimension, VertexState,
 };
 
+use crate::projection::{ortho_wgpu, perspective_wgpu};
 use crate::{Texture, Vertex};
 
 use super::{
@@ -25,6 +26,10 @@ struct CascadeInfo {
 
 const POINT_LIGHT_FAR: f32 = 20.0;
 const POINT_LIGHT_NEAR: f32 = 0.1;
+/// Spot shadow map clip planes. The map only covers the light cone, so a
+/// long range is cheap; keep `NEAR` small so close occluders are captured.
+const SPOT_SHADOW_FAR: f32 = 100.0;
+const SPOT_SHADOW_NEAR: f32 = 0.1;
 
 const CUBE_FACE_DIRECTIONS: [(Vector3<f32>, Vector3<f32>); 6] = [
     (Vector3::new(1.0, 0.0, 0.0), Vector3::new(0.0, -1.0, 0.0)),  // +X
@@ -75,17 +80,18 @@ impl ShadowRenderer {
         // Initialize with cascade_count = 0 so first frame doesn't read garbage
         queue.write_buffer(&slot_data_buffer, 0, initial_gpu.as_bytes());
 
+        // Linear filtering on a comparison sampler gives bilinear PCF per tap.
         let sampler = device.create_sampler(&SamplerDescriptor {
             label: Some("Shadow Map Sampler"),
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Nearest,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
             mipmap_filter: wgpu::MipmapFilterMode::Nearest,
             lod_min_clamp: 0.0,
             lod_max_clamp: 0.0,
-            compare: None,
+            compare: Some(CompareFunction::LessEqual),
             anisotropy_clamp: 1,
             border_color: None,
         });
@@ -97,12 +103,12 @@ impl ShadowRenderer {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Nearest,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
             mipmap_filter: wgpu::MipmapFilterMode::Nearest,
             lod_min_clamp: 0.0,
             lod_max_clamp: 0.0,
-            compare: None,
+            compare: Some(CompareFunction::LessEqual),
             anisotropy_clamp: 1,
             border_color: None,
         });
@@ -165,7 +171,8 @@ impl ShadowRenderer {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: TextureFormat::Depth32Float,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                | wgpu::TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
         });
 
@@ -198,7 +205,8 @@ impl ShadowRenderer {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: TextureFormat::Depth32Float,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                | wgpu::TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
         });
 
@@ -264,8 +272,8 @@ impl ShadowRenderer {
                 depth_compare: Some(CompareFunction::LessEqual),
                 stencil: Default::default(),
                 bias: wgpu::DepthBiasState {
-                    constant: 2,
-                    slope_scale: 2.0,
+                    constant: 0,
+                    slope_scale: 0.0,
                     clamp: 0.0,
                 },
             }),
@@ -309,6 +317,9 @@ impl ShadowRenderer {
         let mut matrix_index = 0u32;
         let matrix_buf_size = self.slot_stride * self.max_slots as u64 * 6;
         let mut matrix_bytes = vec![0u8; matrix_buf_size as usize];
+        // Maps shadow slot -> index into the matrix buffer (point lights
+        // consume 6 matrix entries, everything else 1).
+        let mut slot_matrix_offsets: Vec<u32> = Vec::with_capacity(self.max_slots as usize);
 
         for light in shadow_lights {
             if !light.caster.enabled {
@@ -330,16 +341,18 @@ impl ShadowRenderer {
                     let my_cube = cube_index;
                     self.ensure_cubes(device, my_cube + 1);
 
-                    // Compute 6 face VP matrices
                     let pos = Point3::new(
                         light.position.x,
                         light.position.y,
                         light.position.z,
                     );
                     let far_plane = POINT_LIGHT_FAR;
-                    let face_mats = Self::point_light_face_matrices(pos, far_plane);
+                    let near_plane = POINT_LIGHT_NEAR;
+                    let shadow_type = SHADOW_TYPE_POINT;
+                    let face_mats = Self::point_light_face_matrices(pos, near_plane, far_plane);
 
-                    // Write face matrices into the depth-rendering matrix buffer (6 consecutive slots)
+                    slot_matrix_offsets.push(matrix_index);
+
                     for (face, mat) in face_mats.iter().enumerate() {
                         let off = (matrix_index as usize + face as usize) * self.slot_stride as usize;
                         let vp_bytes = matrix_to_bytes(mat);
@@ -347,17 +360,16 @@ impl ShadowRenderer {
                         matrix_bytes[off..end].copy_from_slice(&vp_bytes[..end - off]);
                     }
 
-                    // Store slot data with light position in column 3
                     let mut slot_data = ShadowSlotData {
                         light_view_proj: [[0.0; 4]; 4],
-                        shadow_type: SHADOW_TYPE_POINT,
+                        shadow_type,
                         layer_index: my_cube,
                         cascade_split_depth: far_plane,
                         bias: light.caster.bias,
                         light_index: light.light_store_index,
-                        _padding: [0; 3],
+                        near_plane,
+                        _padding: [0; 2],
                     };
-                    // Store light position in column 3 (translation)
                     slot_data.light_view_proj[3] = [
                         light.position.x,
                         light.position.y,
@@ -366,7 +378,6 @@ impl ShadowRenderer {
                     ];
                     self.gpu_data.slots[slot_index as usize] = slot_data;
 
-                    // Render each cube face
                     for face in 0..6 {
                         let face_layer = my_cube * 6 + face;
                         let face_view = self.cube_depth_texture.texture().create_view(
@@ -445,9 +456,11 @@ impl ShadowRenderer {
                             cascade_split_depth: cascade.split_depth,
                             bias: light.caster.bias,
                             light_index: light.light_store_index,
-                            _padding: [0; 3],
+                            near_plane: 0.1,
+                            _padding: [0; 2],
                         };
 
+                        slot_matrix_offsets.push(matrix_index);
                         let offset = matrix_index as u64 * self.slot_stride;
                         let vp_bytes = matrix_to_bytes(&cascade.vp);
                         matrix_bytes[offset as usize..offset as usize + 64]
@@ -459,22 +472,29 @@ impl ShadowRenderer {
                     }
                 }
                 2 => {
-                    // Spot light
-                    let vp = compute_spot_light_vp(light, light.outer_cone_angle);
+                    // Spot light — single perspective depth map in the 2D array,
+                    // covering exactly the outer cone of the light.
+                    let vp = Self::spot_light_vp(
+                        light.position,
+                        light.direction,
+                        light.outer_cone_angle,
+                    );
+
                     self.gpu_data.slots[slot_index as usize] = ShadowSlotData {
                         light_view_proj: vp.into(),
                         shadow_type: SHADOW_TYPE_SPOT,
                         layer_index,
-                        cascade_split_depth: 0.0,
+                        cascade_split_depth: SPOT_SHADOW_FAR,
                         bias: light.caster.bias,
                         light_index: light.light_store_index,
-                        _padding: [0; 3],
+                        near_plane: SPOT_SHADOW_NEAR,
+                        _padding: [0; 2],
                     };
 
+                    slot_matrix_offsets.push(matrix_index);
                     let offset = matrix_index as u64 * self.slot_stride;
-                    let vp_bytes = matrix_to_bytes(&vp);
                     matrix_bytes[offset as usize..offset as usize + 64]
-                        .copy_from_slice(&vp_bytes);
+                        .copy_from_slice(&matrix_to_bytes(&vp));
 
                     slot_index += 1;
                     layer_index += 1;
@@ -497,13 +517,25 @@ impl ShadowRenderer {
         // Upload per-slot matrices
         queue.write_buffer(&self.matrix_buffer, 0, &matrix_bytes);
 
-        // Render each slot (directional cascades and spot lights;
-        // point lights are rendered in the loop above)
+        // Render each slot that targets the 2D depth array
+        // (directional cascades + spot lights; point lights rendered inline above)
         for i in 0..slot_index {
             let slot = &self.gpu_data.slots[i as usize];
             if slot.shadow_type == SHADOW_TYPE_POINT {
                 continue;
             }
+
+            log::debug!(
+                "Depth pass slot {}: type={} layer={} models={}",
+                i,
+                if slot.shadow_type == SHADOW_TYPE_DIRECTIONAL_CASCADE {
+                    "CSM"
+                } else {
+                    "SPOT"
+                },
+                slot.layer_index,
+                models.len(),
+            );
 
             let layer_view = self.depth_texture.texture().create_view(
                 &wgpu::TextureViewDescriptor {
@@ -535,7 +567,7 @@ impl ShadowRenderer {
             pass.set_bind_group(
                 0,
                 &self.matrix_bind_group,
-                &[(i as u64 * self.slot_stride) as u32],
+                &[(slot_matrix_offsets[i as usize] as u64 * self.slot_stride) as u32],
             );
 
             for model in models {
@@ -621,12 +653,14 @@ impl ShadowRenderer {
 
 /// Compute the 8 corners of the view frustum in world space from the
 /// inverse of the combined perspective × view matrix.
+///
+/// Uses the wgpu clip convention: the near plane is at z_ndc = 0.
 fn compute_frustum_corners_world(inv_view_proj: &Matrix4<f32>) -> [Point3<f32>; 8] {
     let corners_ndc = [
-        Vector4::new(-1.0, -1.0, -1.0, 1.0),
-        Vector4::new(1.0, -1.0, -1.0, 1.0),
-        Vector4::new(-1.0, 1.0, -1.0, 1.0),
-        Vector4::new(1.0, 1.0, -1.0, 1.0),
+        Vector4::new(-1.0, -1.0, 0.0, 1.0),
+        Vector4::new(1.0, -1.0, 0.0, 1.0),
+        Vector4::new(-1.0, 1.0, 0.0, 1.0),
+        Vector4::new(1.0, 1.0, 0.0, 1.0),
         Vector4::new(-1.0, -1.0, 1.0, 1.0),
         Vector4::new(1.0, -1.0, 1.0, 1.0),
         Vector4::new(-1.0, 1.0, 1.0, 1.0),
@@ -721,11 +755,16 @@ fn compute_csm_cascades(
         let cascade_center_pt = Point3::new(cascade_center.x, cascade_center.y, cascade_center.z);
         let view = Matrix4::look_at_rh(light_pos, cascade_center_pt, light_up_actual);
 
-        // Orthographic projection from the bounding box
-        let proj = cgmath::ortho(
-            min_bb.x, max_bb.x,
-            min_bb.y, max_bb.y,
-            0.0, max_bb.z * 3.0,
+        // Orthographic projection from the bounding box (wgpu clip convention,
+        // Y-flipped so the shader can sample with `ndc.xy * 0.5 + 0.5`).
+        let proj = ortho_wgpu(
+            min_bb.x,
+            max_bb.x,
+            min_bb.y,
+            max_bb.y,
+            0.0,
+            (max_bb.z * 3.0).max(1.0),
+            true,
         );
 
         cascades.push(CascadeInfo {
@@ -763,10 +802,40 @@ fn interpolate_frustum_edges(corners: &[Point3<f32>; 8], t: f32) -> [Point3<f32>
     ]
 }
 
-/// Compute the 6 face view-projection matrices for a cube shadow map.
 impl ShadowRenderer {
-    fn point_light_face_matrices(position: Point3<f32>, far_plane: f32) -> [Matrix4<f32>; 6] {
-        let proj = perspective(Deg(90.0), 1.0, POINT_LIGHT_NEAR, far_plane);
+    /// Compute the view-projection matrix for a spot light shadow map.
+    ///
+    /// A single perspective projection covering exactly the outer cone of the
+    /// light, rendered into one layer of the 2D shadow depth array. Uses the
+    /// wgpu clip convention with a Y flip so the shader can sample the map
+    /// with `ndc.xy * 0.5 + 0.5`.
+    fn spot_light_vp(
+        position: Vector3<f32>,
+        direction: Vector3<f32>,
+        outer_cone_angle: f32,
+    ) -> Matrix4<f32> {
+        let dir = if direction.magnitude2() > 1e-12 {
+            direction.normalize()
+        } else {
+            Vector3::new(0.0, -1.0, 0.0) // Degenerate direction: shine straight down
+        };
+        let up = if dir.y.abs() < 0.99 {
+            Vector3::unit_y()
+        } else {
+            Vector3::unit_x()
+        };
+        let pos = Point3::new(position.x, position.y, position.z);
+        let view = Matrix4::look_at_rh(pos, pos + dir, up);
+        // FOV covers the full outer cone, clamped away from 0° and ~170°.
+        let fov = Rad((outer_cone_angle * 2.0).clamp(0.05, 2.96));
+        let proj = perspective_wgpu(fov, 1.0, SPOT_SHADOW_NEAR, SPOT_SHADOW_FAR, true);
+        proj * view
+    }
+
+    /// Compute the 6 face view-projection matrices for a cube shadow map.
+    fn point_light_face_matrices(position: Point3<f32>, near_plane: f32, far_plane: f32) -> [Matrix4<f32>; 6] {
+        // wgpu clip convention; Y flip matches the cube-face framebuffer layout.
+        let proj = perspective_wgpu(Rad::from(Deg(90.0)), 1.0, near_plane, far_plane, true);
         let mut mats = [Matrix4::identity(); 6];
         for (i, &(dir, up)) in CUBE_FACE_DIRECTIONS.iter().enumerate() {
             let target = position + dir;
@@ -775,27 +844,6 @@ impl ShadowRenderer {
         }
         mats
     }
-}
-
-/// Compute view-projection matrix for a spot light.
-fn compute_spot_light_vp(light: &ShadowLightInfo, outer_cone_angle: f32) -> Matrix4<f32> {
-    let dir = light.direction.normalize();
-    let up = if dir.y.abs() < 0.9 {
-        Vector3::unit_y()
-    } else {
-        Vector3::unit_z()
-    };
-    let right = dir.cross(up).normalize();
-    let up = right.cross(dir).normalize();
-
-    let pos = Point3::new(light.position.x, light.position.y, light.position.z);
-    let target = pos + dir;
-    let view = Matrix4::look_at_rh(pos, target, up);
-
-    let fov = (outer_cone_angle * 2.0 * 1.3).max(0.1).min(1.5); // 1.3× grace zone beyond cone
-    let proj = perspective(Deg(fov.to_degrees()), 1.0, 0.1, 100.0);
-
-    proj * view
 }
 
 /// Convert a Matrix4<f32> to 64 bytes for GPU upload.
