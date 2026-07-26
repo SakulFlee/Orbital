@@ -7,7 +7,11 @@ pub const SHADOW_TYPE_POINT: u32 = 2;
 pub const DEFAULT_SHADOW_RESOLUTION: u32 = 1024;
 pub const DEFAULT_CASCADE_COUNT: u32 = 4;
 pub const DEFAULT_CASCADE_SPLIT_LAMBDA: f32 = 0.75;
-pub const DEFAULT_SHADOW_BIAS: f32 = 0.0002;
+/// Default shadow bias — matches Blender's scale (~0.001). Scenes can
+/// override via ShadowCaster.bias. The bias is used both for the
+/// depth-comparison offset (`slope_scaled_bias` in the fragment shader)
+/// and for the world-space normal‑bias offset that prevents self‑shadowing.
+pub const DEFAULT_SHADOW_BIAS: f32 = 0.001;
 
 /// Per-slot GPU data (96 bytes, matches WGSL ShadowSlot).
 /// 16 slots × 96 bytes + 16 bytes header = 1552 bytes uniform buffer.

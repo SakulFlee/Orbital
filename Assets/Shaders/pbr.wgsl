@@ -189,6 +189,9 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
 
     // IBL Ambient light
     var ambient = calculate_ambient_ibl(pbr);
+    // Minimum ambient floor prevents pure-black shadows when environment
+    // maps are unavailable or very dark (same approach as Unreal/Blender).
+    ambient = max(ambient, vec3(0.015));
     output += ambient;
 
     // Light reflectance
@@ -338,9 +341,9 @@ fn sample_shadow_2d_pcf(layer: u32, shadow_coord: vec3<f32>, depth: f32) -> f32 
 }
 
 /// Slope-scaled depth bias: surfaces at a grazing angle to the light need a
-/// larger bias to avoid shadow acne. Scales `base_bias` into [1x, 3x].
+/// larger bias to avoid shadow acne. Scales `base_bias` into [1x, 6x].
 fn slope_scaled_bias(base_bias: f32, n_dot_l: f32) -> f32 {
-    return base_bias * (1.0 + 2.0 * (1.0 - clamp(n_dot_l, 0.0, 1.0)));
+    return base_bias * (1.0 + 5.0 * (1.0 - clamp(n_dot_l, 0.0, 1.0)));
 }
 
 fn compute_shadow_for_light(world_pos: vec3<f32>, view_distance: f32, light_idx: u32, normal: vec3<f32>) -> f32 {
@@ -366,12 +369,22 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_distance: f32, light_idx:
 
         let bias = slope_scaled_bias(slot.bias, n_dot_l);
 
+        // World-space bias: offset the reference point slightly toward the
+        // light before projection. This prevents self-shadowing caused by
+        // the interpolation discrepancy between the fragment shader's
+        // world_pos and the GPU-rasterized shadow depth.
+        // The ×10 scale maps depth-domain bias (~0.001) to world-space
+        // units (~0.01 at grazing angles — about half a texel on a
+        // 2048² shadow map covering ~50 units).
+        let world_bias = slot.bias * max(1.0 - abs(n_dot_l), 0.01) * 10.0;
+        let biased_world_pos = world_pos + to_light * world_bias;
+
         if (slot.shadow_type == SHADOW_TYPE_DIRECTIONAL_CASCADE) {
             // Cascade check: skip if fragment is beyond this cascade
             if (view_distance > slot.cascade_split_depth) {
                 continue;
             }
-            let clip_pos = slot.light_view_proj * vec4<f32>(world_pos, 1.0);
+            let clip_pos = slot.light_view_proj * vec4<f32>(biased_world_pos, 1.0);
             let ndc = clip_pos.xyz / clip_pos.w;
             // Remap xy for texture sampling; z is already in [0, 1]
             // (wgpu-convention projection, matches the stored depth).
@@ -382,7 +395,7 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_distance: f32, light_idx:
             }
         } else if (slot.shadow_type == SHADOW_TYPE_SPOT) {
             // Single perspective depth map covering the light's outer cone
-            let clip_pos = slot.light_view_proj * vec4<f32>(world_pos, 1.0);
+            let clip_pos = slot.light_view_proj * vec4<f32>(biased_world_pos, 1.0);
             let ndc = clip_pos.xyz / clip_pos.w;
             let shadow_coord = vec3<f32>(ndc.xy * 0.5 + 0.5, ndc.z);
             if (all(shadow_coord.xy >= vec2<f32>(0.0)) && all(shadow_coord.xy < vec2<f32>(1.0)) && shadow_coord.z >= 0.0 && shadow_coord.z <= 1.0) {
@@ -394,7 +407,7 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_distance: f32, light_idx:
         } else if (slot.shadow_type == SHADOW_TYPE_POINT) {
             // Cube map shadow: sample using direction from light to fragment
             let light_pos = slot.light_view_proj[3].xyz;
-            let frag_to_light = world_pos - light_pos;
+            let frag_to_light = biased_world_pos - light_pos;
             let direction = normalize(frag_to_light);
             let abs_vec = abs(frag_to_light);
             let view_z = max(max(abs_vec.x, abs_vec.y), abs_vec.z);
