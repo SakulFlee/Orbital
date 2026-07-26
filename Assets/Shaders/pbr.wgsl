@@ -182,28 +182,18 @@ fn entrypoint_vertex(
 @fragment
 fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     let pbr = pbr_data(in);
-    var output = vec3(0.0);
 
-    // View-space depth for shadow cascade selection
-    let view_distance = distance(camera.position.xyz, in.world_position);
-
-    // IBL Ambient light
-    var ambient = calculate_ambient_ibl(pbr);
-    // Minimum ambient floor prevents pure-black shadows when environment
-    // maps are unavailable or very dark (same approach as Unreal/Blender).
-    ambient = max(ambient, vec3(0.003));
-    output += ambient;
-
-    // Light reflectance
-    let light_reflectance = calculate_light_contribution(pbr, in.world_position, view_distance);
-    output += light_reflectance;
-
-    // Add emissive "ontop"
-    output += pbr.emissive;
-
-    // Tonemap / HDR 
-    let tone_mapped_color = aces_tone_map(output);
-    return vec4<f32>(tone_mapped_color, 1.0);
+    // Find the spot shadow slot for light 0 and output its UV + depth.
+    for (var i = 0u; i < shadow_data.cascade_count; i++) {
+        let slot = shadow_data.slots[i];
+        if (slot.light_index != 0u || slot.shadow_type != SHADOW_TYPE_SPOT) {
+            continue;
+        }
+        let clip_pos = slot.light_view_proj * vec4<f32>(in.world_position, 1.0);
+        let ndc = clip_pos.xyz / clip_pos.w;
+        return vec4<f32>(ndc.x * 0.5 + 0.5, ndc.y * 0.5 + 0.5, ndc.z, 1.0);
+    }
+    return vec4<f32>(1.0, 0.0, 0.0, 1.0); // no spot slot found = red
 }
 
 // Note: Unused in favor of ACES
