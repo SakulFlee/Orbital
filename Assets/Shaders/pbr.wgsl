@@ -395,8 +395,9 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_distance: f32, light_idx:
                 return factor;
             }
         } else if (slot.shadow_type == SHADOW_TYPE_SPOT) {
-            // Single perspective depth map covering the light's outer cone
-            let clip_pos = slot.light_view_proj * vec4<f32>(biased_world_pos, 1.0);
+            // DIAGNOSTIC: use raw world_pos (no world-space bias) to
+            // isolate whether the bias is causing false shadowing.
+            let clip_pos = slot.light_view_proj * vec4<f32>(world_pos, 1.0);
             let ndc = clip_pos.xyz / clip_pos.w;
             let shadow_coord = vec3<f32>(ndc.xy * 0.5 + 0.5, ndc.z);
             if (all(shadow_coord.xy >= vec2<f32>(0.0)) && all(shadow_coord.xy < vec2<f32>(1.0)) && shadow_coord.z >= 0.0 && shadow_coord.z <= 1.0) {
