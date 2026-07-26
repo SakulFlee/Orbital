@@ -340,10 +340,11 @@ fn sample_shadow_2d_pcf(layer: u32, shadow_coord: vec3<f32>, depth: f32) -> f32 
     return sum / 9.0;
 }
 
-/// Slope-scaled depth bias: surfaces at a grazing angle to the light need a
-/// larger bias to avoid shadow acne. Scales `base_bias` into [1x, 6x].
+/// Slope-scaled depth bias: subtle adjustment for sub-texel precision.
+/// Scaled by [1x, 1.5x]. World-space bias handles the heavy lifting
+/// against interpolation discrepancy; this covers the residual.
 fn slope_scaled_bias(base_bias: f32, n_dot_l: f32) -> f32 {
-    return base_bias * (1.0 + 5.0 * (1.0 - clamp(n_dot_l, 0.0, 1.0)));
+    return base_bias * (1.0 + 0.5 * (1.0 - clamp(n_dot_l, 0.0, 1.0)));
 }
 
 fn compute_shadow_for_light(world_pos: vec3<f32>, view_distance: f32, light_idx: u32, normal: vec3<f32>) -> f32 {

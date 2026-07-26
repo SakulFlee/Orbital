@@ -11,7 +11,7 @@ pub const DEFAULT_CASCADE_SPLIT_LAMBDA: f32 = 0.75;
 /// override via ShadowCaster.bias. The bias is used both for the
 /// depth-comparison offset (`slope_scaled_bias` in the fragment shader)
 /// and for the world-space normal‑bias offset that prevents self‑shadowing.
-pub const DEFAULT_SHADOW_BIAS: f32 = 0.001;
+pub const DEFAULT_SHADOW_BIAS: f32 = 0.0005;
 
 /// Per-slot GPU data (96 bytes, matches WGSL ShadowSlot).
 /// 16 slots × 96 bytes + 16 bytes header = 1552 bytes uniform buffer.
