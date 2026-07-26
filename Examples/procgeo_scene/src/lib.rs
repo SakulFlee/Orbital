@@ -226,7 +226,7 @@ impl Module for ProcgeoSceneModule {
                 LightDescriptorEcs::new_spot(
                     Vector3::new(1.0, 1.0, 1.0), 50.0,
                     Vector3::new(dir.x, dir.y, dir.z),
-                    0.8, 1.2,
+                    0.3, 0.5,  // inner/outer cone half-angle (rad, ~17°/~29°)
                 ),
             ).unwrap();
             ecs.attach_component(&light, Position(spot_pos)).unwrap();
