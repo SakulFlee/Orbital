@@ -18,6 +18,10 @@ struct InstanceData {
     @location(8) model_space_matrix_3: vec4<f32>,
 }
 
+// Spot light-space clip positions, indexed by shadow slot index.
+// Populated in the vertex shader; w=0 means "no spot at this slot".
+const MAX_SPOT_CLIPS: u32 = 8u;
+
 struct FragmentData {
     @builtin(position) position: vec4<f32>,
     @location(0) world_position: vec3<f32>,
@@ -25,6 +29,14 @@ struct FragmentData {
     @location(2) tangent: vec3<f32>,
     @location(3) bitangent: vec3<f32>,
     @location(4) normal: vec3<f32>,
+    @location(5)  sc0: vec4<f32>,
+    @location(6)  sc1: vec4<f32>,
+    @location(7)  sc2: vec4<f32>,
+    @location(8)  sc3: vec4<f32>,
+    @location(9)  sc4: vec4<f32>,
+    @location(10) sc5: vec4<f32>,
+    @location(11) sc6: vec4<f32>,
+    @location(12) sc7: vec4<f32>,
 }
 
 struct CameraUniform {
@@ -176,6 +188,30 @@ fn entrypoint_vertex(
     // Transform Normal
     out.normal = normalize((model_space_matrix * vec4<f32>(vertex.normal, 0.0)).xyz);
 
+    // Pre-project spot light clip positions in the vertex shader so the
+    // fragment receives a perspective-correct interpolated value that
+    // matches the rasterized shadow depth (avoids the interpolation
+    // discrepancy at shallow floor-wall angles).
+    out.sc0 = vec4(0.0); out.sc1 = vec4(0.0);
+    out.sc2 = vec4(0.0); out.sc3 = vec4(0.0);
+    out.sc4 = vec4(0.0); out.sc5 = vec4(0.0);
+    out.sc6 = vec4(0.0); out.sc7 = vec4(0.0);
+    var sc = 0u;
+    for (var j = 0u; j < shadow_data.cascade_count && sc < MAX_SPOT_CLIPS; j++) {
+        let slot = shadow_data.slots[j];
+        if (slot.shadow_type != SHADOW_TYPE_SPOT) { continue; }
+        let clip = slot.light_view_proj * world_position;
+        if (sc == 0u) { out.sc0 = clip; }
+        else if (sc == 1u) { out.sc1 = clip; }
+        else if (sc == 2u) { out.sc2 = clip; }
+        else if (sc == 3u) { out.sc3 = clip; }
+        else if (sc == 4u) { out.sc4 = clip; }
+        else if (sc == 5u) { out.sc5 = clip; }
+        else if (sc == 6u) { out.sc6 = clip; }
+        else { out.sc7 = clip; }
+        sc++;
+    }
+
     return out;
 }
 
@@ -198,7 +234,7 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     output += ambient;
 
     // Light reflectance
-    let light_reflectance = calculate_light_contribution(pbr, in.world_position, view_depth);
+    let light_reflectance = calculate_light_contribution(pbr, in.world_position, view_depth, in);
     output += light_reflectance;
 
     // Add emissive "ontop"
@@ -231,12 +267,12 @@ fn aces_tone_map(color: vec3<f32>) -> vec3<f32> {
         vec3(1.0)
     );
 }
-fn calculate_light_contribution(pbr: PBRData, world_position: vec3<f32>, view_depth: f32) -> vec3<f32> {
+fn calculate_light_contribution(pbr: PBRData, world_position: vec3<f32>, view_depth: f32, fin: FragmentData) -> vec3<f32> {
     var Lo = vec3(0.0);
     for (var i = u32(0); i < arrayLength(&light_store); i++) {
         let light = light_store[i];
         var brdf = calculate_light_brdf(light, pbr, world_position);
-        let shadow = compute_shadow_for_light(world_position, view_depth, i, pbr.N);
+        let shadow = compute_shadow_for_light(world_position, view_depth, i, pbr.N, fin);
         Lo += brdf * shadow;
     }
     return Lo;
@@ -360,7 +396,7 @@ fn slope_scaled_bias(base_bias: f32, n_dot_l: f32) -> f32 {
 // scales with distance.
 const SPOT_BIAS_SCALE: f32 = 50.0;  // far × near
 
-fn compute_shadow_for_light(world_pos: vec3<f32>, view_depth: f32, light_idx: u32, normal: vec3<f32>) -> f32 {
+fn compute_shadow_for_light(world_pos: vec3<f32>, view_depth: f32, light_idx: u32, normal: vec3<f32>, fin: FragmentData) -> f32 {
     var factor = 1.0;
     let light = light_store[light_idx];
 
@@ -372,6 +408,8 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_depth: f32, light_idx: u3
         to_light = normalize(light.position.xyz - world_pos);
     }
     let n_dot_l = dot(normal, to_light);
+
+    var spot_idx = 0u;
 
     for (var i = 0u; i < shadow_data.cascade_count; i++) {
         let slot = shadow_data.slots[i];
@@ -405,17 +443,27 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_depth: f32, light_idx: u3
             }
         } else if (slot.shadow_type == SHADOW_TYPE_SPOT) {
             // Spot light — single perspective depth map.
-            // Use raw world_pos (no world-space bias). The per-fragment
-            // n_dot_l variation under a position-based to_light direction
-            // creates bias discontinuities along quad diagonals (the
-            // "diamond" artifact).  Instead scale the NDC depth bias by
-            // the perspective depth derivative so the effective world-
-            // space offset stays roughly constant across the cone.
             let dist = length(light.position.xyz - world_pos);
             let bias_scale = SPOT_BIAS_SCALE / max(dist * dist, 0.1);
             let spot_bias = bias * bias_scale;
 
-            let clip_pos = slot.light_view_proj * vec4<f32>(world_pos, 1.0);
+            // Prefer the vertex-shader-interpolated clip position.
+            var vs_clip = vec4(0.0);
+            if (spot_idx == 0u) { vs_clip = fin.sc0; }
+            else if (spot_idx == 1u) { vs_clip = fin.sc1; }
+            else if (spot_idx == 2u) { vs_clip = fin.sc2; }
+            else if (spot_idx == 3u) { vs_clip = fin.sc3; }
+            else if (spot_idx == 4u) { vs_clip = fin.sc4; }
+            else if (spot_idx == 5u) { vs_clip = fin.sc5; }
+            else if (spot_idx == 6u) { vs_clip = fin.sc6; }
+            else if (spot_idx == 7u) { vs_clip = fin.sc7; }
+            var clip_pos = vec4(0.0);
+            if (vs_clip.w > 0.0) {
+                clip_pos = vs_clip;
+            } else {
+                clip_pos = slot.light_view_proj * vec4<f32>(world_pos, 1.0);
+            }
+            spot_idx++;
             let ndc = clip_pos.xyz / clip_pos.w;
             let shadow_coord = vec3<f32>(ndc.xy * 0.5 + 0.5, ndc.z);
             if (all(shadow_coord.xy >= vec2<f32>(0.0)) && all(shadow_coord.xy < vec2<f32>(1.0)) && shadow_coord.z >= 0.0 && shadow_coord.z <= 1.0) {
