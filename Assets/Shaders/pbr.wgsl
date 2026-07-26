@@ -191,7 +191,7 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     var ambient = calculate_ambient_ibl(pbr);
     // Minimum ambient floor prevents pure-black shadows when environment
     // maps are unavailable or very dark (same approach as Unreal/Blender).
-    ambient = max(ambient, vec3(0.015));
+    ambient = max(ambient, vec3(0.003));
     output += ambient;
 
     // Light reflectance
@@ -373,10 +373,10 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_distance: f32, light_idx:
         // light before projection. This prevents self-shadowing caused by
         // the interpolation discrepancy between the fragment shader's
         // world_pos and the GPU-rasterized shadow depth.
-        // The ×10 scale maps depth-domain bias (~0.001) to world-space
-        // units (~0.01 at grazing angles — about half a texel on a
+        // The ×2 scale maps depth-domain bias (~0.001) to world-space
+        // units (~0.002 at grazing angles — just over one texel on a
         // 2048² shadow map covering ~50 units).
-        let world_bias = slot.bias * max(1.0 - abs(n_dot_l), 0.01) * 10.0;
+        let world_bias = slot.bias * max(1.0 - clamp(n_dot_l, 0.0, 1.0), 0.01) * 2.0;
         let biased_world_pos = world_pos + to_light * world_bias;
 
         if (slot.shadow_type == SHADOW_TYPE_DIRECTIONAL_CASCADE) {
