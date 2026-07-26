@@ -829,8 +829,10 @@ impl ShadowRenderer {
         };
         let pos = Point3::new(position.x, position.y, position.z);
         let view = Matrix4::look_at_rh(pos, pos + dir, up);
-        // FOV covers the full outer cone, clamped away from 0° and ~170°.
-        let fov = Rad((outer_cone_angle * 2.0).clamp(0.05, 2.96));
+        // FOV covers the full outer cone plus a 2% margin, so the angular
+        // falloff never extends past the shadow frustum boundary
+        // (prevents a bright-ring artifact at the cone silhouette).
+        let fov = Rad((outer_cone_angle * 2.0 * 1.02).clamp(0.05, 2.96));
         let proj = perspective_wgpu(fov, 1.0, SPOT_SHADOW_NEAR, SPOT_SHADOW_FAR, true);
         proj * view
     }
