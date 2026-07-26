@@ -218,27 +218,15 @@ fn entrypoint_vertex(
 @fragment
 fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     let pbr = pbr_data(in);
-    var output = vec3(0.0);
-
-    // View-space depth for cascade selection (along camera forward axis).
-    let view_pos = camera.view_projection_matrix * vec4<f32>(in.world_position, 1.0);
-    let view_depth = -view_pos.z;
-
-    // IBL Ambient light
-    var ambient = calculate_ambient_ibl(pbr);
-    ambient = max(ambient, vec3(0.003));
-    output += ambient;
-
-    // Light reflectance
-    let light_reflectance = calculate_light_contribution(pbr, in.world_position, view_depth, in);
-    output += light_reflectance;
-
-    // Add emissive
-    output += pbr.emissive;
-
-    // Tonemap / HDR — sRGB surface auto-encodes display gamma
-    let tone_mapped_color = aces_tone_map(output);
-    return vec4<f32>(tone_mapped_color, 1.0);
+    // Left half: near slot (sc0). Right half: far slot (sc1).
+    var clip: vec4<f32>;
+    if (in.position.x < 800.0) {
+        clip = in.sc0;
+    } else {
+        clip = in.sc1;
+    }
+    let ndc = clip.xyz / max(clip.w, 0.0001);
+    return vec4<f32>(ndc.x * 0.5 + 0.5, ndc.y * 0.5 + 0.5, ndc.z, 1.0);
 }
 
 // Note: Unused in favor of ACES
