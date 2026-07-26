@@ -183,7 +183,6 @@ fn entrypoint_vertex(
 fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     let pbr = pbr_data(in);
 
-    // Find the spot shadow slot for light 0 and output its UV + depth.
     for (var i = 0u; i < shadow_data.cascade_count; i++) {
         let slot = shadow_data.slots[i];
         if (slot.light_index != 0u || slot.shadow_type != SHADOW_TYPE_SPOT) {
@@ -191,9 +190,9 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
         }
         let clip_pos = slot.light_view_proj * vec4<f32>(in.world_position, 1.0);
         let ndc = clip_pos.xyz / clip_pos.w;
-        return vec4<f32>(ndc.x * 0.5 + 0.5, ndc.y * 0.5 + 0.5, ndc.z, 1.0);
+        return vec4<f32>(ndc.z, ndc.z, ndc.z, 1.0);
     }
-    return vec4<f32>(1.0, 0.0, 0.0, 1.0); // no spot slot found = red
+    return vec4<f32>(1.0, 0.0, 0.0, 1.0);
 }
 
 // Note: Unused in favor of ACES
@@ -385,9 +384,8 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_distance: f32, light_idx:
                 return factor;
             }
         } else if (slot.shadow_type == SHADOW_TYPE_SPOT) {
-            // DIAGNOSTIC: use raw world_pos (no world-space bias) to
-            // isolate whether the bias is causing false shadowing.
-            let clip_pos = slot.light_view_proj * vec4<f32>(world_pos, 1.0);
+            // Single perspective depth map covering the light's outer cone
+            let clip_pos = slot.light_view_proj * vec4<f32>(biased_world_pos, 1.0);
             let ndc = clip_pos.xyz / clip_pos.w;
             let shadow_coord = vec3<f32>(ndc.xy * 0.5 + 0.5, ndc.z);
             if (all(shadow_coord.xy >= vec2<f32>(0.0)) && all(shadow_coord.xy < vec2<f32>(1.0)) && shadow_coord.z >= 0.0 && shadow_coord.z <= 1.0) {

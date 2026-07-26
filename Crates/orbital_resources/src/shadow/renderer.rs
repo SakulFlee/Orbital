@@ -499,33 +499,6 @@ impl ShadowRenderer {
                     matrix_bytes[offset as usize..offset as usize + 64]
                         .copy_from_slice(&matrix_to_bytes(&vp));
 
-                    // Compare matrix_bytes (depth-render path) vs slot_data
-                    // (fragment-shader uniform path) byte-for-byte.
-                    {
-                        let slot = &self.gpu_data.slots[slot_index as usize];
-                        let slot_f32: &[f32; 16] = unsafe {
-                            &*(&slot.light_view_proj as *const [[f32; 4]; 4]
-                                as *const [f32; 16])
-                        };
-                        let mb = matrix_to_bytes(&vp);
-                        let mut mismatch = false;
-                        for (i, val) in slot_f32.iter().enumerate() {
-                            let off = i * 4;
-                            let v =
-                                f32::from_le_bytes(mb[off..off + 4].try_into().unwrap());
-                            if (val - v).abs() > 1e-5 {
-                                log::warn!(
-                                    "SPOT VP mismatch el {i}: slot={val}, bytes={v}"
-                                );
-                                mismatch = true;
-                            }
-                        }
-                        log::info!(
-                            "SPOT VP matrix check: {}",
-                            if mismatch { "MISMATCH" } else { "OK" }
-                        );
-                    }
-
                     slot_index += 1;
                     layer_index += 1;
                     matrix_index += 1;
