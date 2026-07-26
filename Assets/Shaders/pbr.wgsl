@@ -448,8 +448,15 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_depth: f32, light_idx: u3
                 return factor;
             }
         } else if (slot.shadow_type == SHADOW_TYPE_SPOT) {
-            // Spot light — single perspective depth map.
+            // Depth-range gate: skip this slot if the fragment is beyond
+            // its far plane. The next SPOT slot (if any) covers the next
+            // depth range. This prevents near and far geometry from
+            // overlapping in shadow space.
             let dist = length(light.position.xyz - world_pos);
+            if (dist > slot.cascade_split_depth) {
+                spot_idx++;
+                continue;
+            }
             let bias_scale = SPOT_BIAS_SCALE / max(dist * dist, 0.1);
             let spot_bias = bias * bias_scale;
 
@@ -476,8 +483,8 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_depth: f32, light_idx: u3
                 factor = sample_shadow_2d_pcf(slot.layer_index, shadow_coord, shadow_coord.z - spot_bias);
                 return factor;
             }
-            // Outside the shadow frustum: lit (the cone falloff darkens it anyway)
-            return 1.0;
+            // Outside the shadow frustum: try the next depth slot (if any).
+            continue;
         } else if (slot.shadow_type == SHADOW_TYPE_POINT) {
             // Cube map shadow: sample using direction from light to fragment
             let light_pos = slot.light_view_proj[3].xyz;
