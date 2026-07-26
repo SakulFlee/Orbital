@@ -218,38 +218,27 @@ fn entrypoint_vertex(
 @fragment
 fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     let pbr = pbr_data(in);
+    var output = vec3(0.0);
 
-    // Find the first SPOT shadow slot and compare reference vs stored depth.
-    for (var i = 0u; i < shadow_data.cascade_count; i++) {
-        let slot = shadow_data.slots[i];
-        if (slot.shadow_type != SHADOW_TYPE_SPOT) { continue; }
+    // View-space depth for cascade selection (along camera forward axis).
+    let view_pos = camera.view_projection_matrix * vec4<f32>(in.world_position, 1.0);
+    let view_depth = -view_pos.z;
 
-        // Compute reference NDC from the vertex-interpolated clip.
-        var clip_pos = vec4(0.0);
-        var spot_idx = 0u;
-        if (spot_idx == 0u) { clip_pos = in.sc0; spot_idx++; }
-        if (clip_pos.w <= 0.0) {
-            clip_pos = slot.light_view_proj * vec4<f32>(in.world_position, 1.0);
-        }
-        let ndc = clip_pos.xyz / clip_pos.w;
-        let shadow_coord = vec3<f32>(ndc.xy * 0.5 + 0.5, ndc.z);
+    // IBL Ambient light
+    var ambient = calculate_ambient_ibl(pbr);
+    ambient = max(ambient, vec3(0.003));
+    output += ambient;
 
-        // Read stored depth from the shadow map using textureLoad (bypasses
-        // the comparison sampler — gives us the raw depth value).
-        if (all(shadow_coord.xy >= vec2<f32>(0.0)) && all(shadow_coord.xy < vec2<f32>(1.0))) {
-            let dims = vec2<u32>(textureDimensions(shadow_map_array));
-            let texel_coord = vec2<i32>(shadow_coord.xy * vec2<f32>(dims));
-            let stored = textureLoad(shadow_map_array, texel_coord, i32(slot.layer_index), 0);
-            let diff = abs(shadow_coord.z - stored);
+    // Light reflectance
+    let light_reflectance = calculate_light_contribution(pbr, in.world_position, view_depth, in);
+    output += light_reflectance;
 
-            // Red brightness = mismatch magnitude (×10 to make it visible).
-            return vec4<f32>(clamp(diff * 10.0, 0.0, 1.0), 0.0, 0.0, 1.0);
-        }
-        // Outside frustum: green
-        return vec4<f32>(0.0, 1.0, 0.0, 1.0);
-    }
-    // No spot slot found: blue
-    return vec4<f32>(0.0, 0.0, 1.0, 1.0);
+    // Add emissive
+    output += pbr.emissive;
+
+    // Tonemap / HDR — sRGB surface auto-encodes display gamma
+    let tone_mapped_color = aces_tone_map(output);
+    return vec4<f32>(tone_mapped_color, 1.0);
 }
 
 // Note: Unused in favor of ACES
