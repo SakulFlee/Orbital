@@ -26,10 +26,13 @@ struct CascadeInfo {
 
 const POINT_LIGHT_FAR: f32 = 20.0;
 const POINT_LIGHT_NEAR: f32 = 0.1;
-/// Spot shadow map clip planes. The map only covers the light cone, so a
-/// long range is cheap; keep `NEAR` small so close occluders are captured.
-const SPOT_SHADOW_FAR: f32 = 100.0;
-const SPOT_SHADOW_NEAR: f32 = 0.1;
+/// Spot shadow map clip planes. The far plane is intentionally tight:
+/// beyond ~50 units the spot attenuation is already negligible
+/// (1/distance² at 50 units = 1/2500), so capturing geometry that far
+/// eats depth precision for no visual gain.  A generous near plane
+/// avoids the worst non-linearity right at the light source.
+const SPOT_SHADOW_FAR: f32 = 50.0;
+const SPOT_SHADOW_NEAR: f32 = 1.0;
 
 const CUBE_FACE_DIRECTIONS: [(Vector3<f32>, Vector3<f32>); 6] = [
     (Vector3::new(1.0, 0.0, 0.0), Vector3::new(0.0, -1.0, 0.0)),  // +X
