@@ -168,13 +168,13 @@ fn entrypoint_vertex(
     out.uv = vertex.uv;
 
     // Transform Tangent
-    out.tangent = (model_space_matrix * vec4<f32>(vertex.tangent, 0.0)).xyz;
+    out.tangent = normalize((model_space_matrix * vec4<f32>(vertex.tangent, 0.0)).xyz);
 
     // Transform Bitangent
-    out.bitangent = (model_space_matrix * vec4<f32>(vertex.bitangent, 0.0)).xyz;
+    out.bitangent = normalize((model_space_matrix * vec4<f32>(vertex.bitangent, 0.0)).xyz);
 
     // Transform Normal
-    out.normal = (model_space_matrix * vec4<f32>(vertex.normal, 0.0)).xyz;
+    out.normal = normalize((model_space_matrix * vec4<f32>(vertex.normal, 0.0)).xyz);
 
     return out;
 }
@@ -184,8 +184,13 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     let pbr = pbr_data(in);
     var output = vec3(0.0);
 
-    // View-space depth for shadow cascade selection
-    let view_distance = distance(camera.position.xyz, in.world_position);
+    // View-space depth for cascade selection (along camera forward axis).
+    // The CPU splits are computed as view-space distances, so we must
+    // use the same metric to avoid premature cascade transitions at
+    // wide FOV frustum edges.  camera.view_projection_matrix is the view
+    // matrix; in view space the camera looks along -Z.
+    let view_pos = camera.view_projection_matrix * vec4<f32>(in.world_position, 1.0);
+    let view_depth = -view_pos.z;
 
     // IBL Ambient light
     var ambient = calculate_ambient_ibl(pbr);
@@ -193,13 +198,14 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     output += ambient;
 
     // Light reflectance
-    let light_reflectance = calculate_light_contribution(pbr, in.world_position, view_distance);
+    let light_reflectance = calculate_light_contribution(pbr, in.world_position, view_depth);
     output += light_reflectance;
 
     // Add emissive "ontop"
     output += pbr.emissive;
 
-    // Tonemap / HDR 
+    // Tonemap / HDR — the sRGB swapchain format auto-applies the
+    // display gamma on write; no explicit pow(x, 1/gamma) is needed.
     let tone_mapped_color = aces_tone_map(output);
     return vec4<f32>(tone_mapped_color, 1.0);
 }
@@ -225,12 +231,12 @@ fn aces_tone_map(color: vec3<f32>) -> vec3<f32> {
         vec3(1.0)
     );
 }
-fn calculate_light_contribution(pbr: PBRData, world_position: vec3<f32>, view_distance: f32) -> vec3<f32> {
+fn calculate_light_contribution(pbr: PBRData, world_position: vec3<f32>, view_depth: f32) -> vec3<f32> {
     var Lo = vec3(0.0);
     for (var i = u32(0); i < arrayLength(&light_store); i++) {
         let light = light_store[i];
         var brdf = calculate_light_brdf(light, pbr, world_position);
-        let shadow = compute_shadow_for_light(world_position, view_distance, i, pbr.N);
+        let shadow = compute_shadow_for_light(world_position, view_depth, i, pbr.N);
         Lo += brdf * shadow;
     }
     return Lo;
@@ -354,7 +360,7 @@ fn slope_scaled_bias(base_bias: f32, n_dot_l: f32) -> f32 {
 // scales with distance.
 const SPOT_BIAS_SCALE: f32 = 50.0;  // far × near
 
-fn compute_shadow_for_light(world_pos: vec3<f32>, view_distance: f32, light_idx: u32, normal: vec3<f32>) -> f32 {
+fn compute_shadow_for_light(world_pos: vec3<f32>, view_depth: f32, light_idx: u32, normal: vec3<f32>) -> f32 {
     var factor = 1.0;
     let light = light_store[light_idx];
 
@@ -385,7 +391,7 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_distance: f32, light_idx:
 
         if (slot.shadow_type == SHADOW_TYPE_DIRECTIONAL_CASCADE) {
             // Cascade check: skip if fragment is beyond this cascade
-            if (view_distance > slot.cascade_split_depth) {
+            if (view_depth > slot.cascade_split_depth) {
                 continue;
             }
             let clip_pos = slot.light_view_proj * vec4<f32>(biased_world_pos, 1.0);
@@ -548,9 +554,9 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
         diffuse_sampler,
         out.N
     ).rgb;
-    let diffuse_clamped = clamp(diffuse_sample, vec3(0.0), vec3(1.0));
-    let diffuse_gamma_applied = pow(diffuse_clamped, vec3(camera.global_gamma));
-    out.ibl_diffuse = diffuse_gamma_applied;
+    // IBL environment maps are HDR linear (Rgba16Float) — no gamma
+    // decode needed, unlike sRGB albedo/emissive textures.
+    out.ibl_diffuse = diffuse_sample;
 
     let specular_mip_count = textureNumLevels(specular_env_map);
     let specular_mip_level = out.roughness * out.roughness * f32(specular_mip_count - 1u);
@@ -560,16 +566,16 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
         R,
         specular_mip_level
     ).rgb;
-    let specular_clamped = clamp(specular_sample, vec3(0.0), vec3(1.0));
-    let specular_gamma_applied = pow(specular_clamped, vec3(camera.global_gamma));
-    out.ibl_specular = specular_gamma_applied;
+    out.ibl_specular = specular_sample;
 
+    // The BRDF LUT was baked with roughness directly on the V axis
+    // (see ibl_brdf.wgsl). No 1.0-roughness inversion is needed.
     let brdf_lut_sample = textureSample(
         ibl_brdf_lut_texture,
         ibl_brdf_lut_sampler,
         vec2<f32>(
             max(out.NdotV, 0.0001), 
-            clamp(1.0 - out.roughness, 0.0001, 1.0)
+            clamp(out.roughness, 0.0001, 1.0)
     )).rg;
     out.brdf_lut = brdf_lut_sample;
 
