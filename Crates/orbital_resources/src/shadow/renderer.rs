@@ -856,7 +856,7 @@ impl ShadowRenderer {
         };
         let pos = Point3::new(position.x, position.y, position.z);
         let view = Matrix4::look_at_rh(pos, pos + dir, up);
-        let fov = Rad((outer_cone_angle * 2.0).clamp(0.05, 2.96));
+        let fov = Rad((outer_cone_angle * 2.0 * 1.02).clamp(0.05, 2.96));
         let proj = perspective_wgpu(fov, 1.0, near, far, false);
         proj * view
     }

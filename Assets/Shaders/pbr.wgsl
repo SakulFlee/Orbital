@@ -441,7 +441,7 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_depth: f32, light_idx: u3
                 spot_idx++;
                 continue;
             }
-            let bias_scale = SPOT_BIAS_SCALE / max(dist * dist, 0.1);
+            let bias_scale = min(SPOT_BIAS_SCALE / max(dist * dist, 0.1), 10.0);
             let spot_bias = bias * bias_scale;
 
             // Prefer the vertex-shader-interpolated clip position.
