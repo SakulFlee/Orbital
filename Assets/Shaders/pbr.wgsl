@@ -218,21 +218,28 @@ fn entrypoint_vertex(
 @fragment
 fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     let pbr = pbr_data(in);
-    var output = vec3(0.0);
 
-    let view_pos = camera.view_projection_matrix * vec4<f32>(in.world_position, 1.0);
-    let view_depth = -view_pos.z;
+    // DIAGNOSTIC: output distance from the spot light as color to
+    // identify where fragments are too close to the near plane.
+    let light = light_store[0];
+    let dist = length(light.position.xyz - in.world_position);
 
-    var ambient = calculate_ambient_ibl(pbr);
-    ambient = max(ambient, vec3(0.003));
-    output += ambient;
-
-    let light_reflectance = calculate_light_contribution(pbr, in.world_position, view_depth, in);
-    output += light_reflectance;
-    output += pbr.emissive;
-
-    let tone_mapped_color = aces_tone_map(output);
-    return vec4<f32>(tone_mapped_color, 1.0);
+    // Color-code by depth range:
+    //   Red  = near plane (< 1.5 units — clipped or at risk)
+    //   Green = safe near-field (1.5 – 8 units — near map)
+    //   Blue  = far map (8 – 50 units)
+    //   White = beyond far plane
+    if (dist < 1.5) {
+        return vec4<f32>(1.0, 0.0, 0.0, 1.0);
+    } else if (dist <= 8.0) {
+        let t = (dist - 1.5) / 6.5;
+        return vec4<f32>(t, 1.0 - t, 0.0, 1.0); // green-to-red gradient
+    } else if (dist <= 50.0) {
+        let t = (dist - 8.0) / 42.0;
+        return vec4<f32>(0.0, 1.0 - t, t, 1.0); // green-to-blue gradient
+    } else {
+        return vec4<f32>(1.0, 1.0, 1.0, 1.0); // white = beyond far
+    }
 }
 
 // Note: Unused in favor of ACES
