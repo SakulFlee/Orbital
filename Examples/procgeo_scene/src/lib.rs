@@ -140,6 +140,60 @@ impl System for HelmetAdjuster {
 
 struct ProcgeoSceneModule;
 
+// ── TEMPORARY: light animation for shadow diagnosis ──────────────────
+
+struct LightAnimator {
+    t: f32,
+    access: ComponentAccess,
+    entity: orbital::ecs::Entity,
+    started: bool,
+}
+
+impl LightAnimator {
+    fn new(entity: orbital::ecs::Entity) -> Self {
+        Self {
+            t: 0.0,
+            entity,
+            started: false,
+            access: ComponentAccess::new()
+                .reads::<Position>()
+                .writes::<Position>()
+                .writes::<LightDirty>(),
+        }
+    }
+}
+
+impl System for LightAnimator {
+    fn name(&self) -> &str { "light_animator" }
+    fn access(&self) -> &ComponentAccess { &self.access }
+
+    fn run(&mut self, world: &World, commands: &mut Commands) {
+        let dt = world
+            .get_resource::<orbital::ecs_bridge::DeltaTime>()
+            .map(|d| d.0)
+            .unwrap_or(0.016);
+        self.t += dt as f32;
+        let x = (self.t * 1.5).sin() * 3.0;
+
+        let store = match world.get_component_store::<Position>() {
+            Some(s) => s,
+            None => return,
+        };
+        let idx = match store.sparse.get(self.entity.index).copied().flatten() {
+            Some(i) => i,
+            None => return,
+        };
+        let new_pos = Position(Point3::new(x, 8.0, 6.0));
+        commands.detach_component::<Position>(&self.entity);
+        commands.attach_component(&self.entity, new_pos);
+
+        commands.detach_component::<LightDirty>(&self.entity);
+        commands.attach_component(&self.entity, LightDirty(true));
+    }
+}
+
+// ────────────────────────────────────────────────────────────────────
+
 impl Module for ProcgeoSceneModule {
     fn setup(
         &self,
@@ -203,49 +257,50 @@ impl Module for ProcgeoSceneModule {
         info!("Scene loaded with {} entities", scene.entities.len());
 
         // Import the DamagedHelmet into Room 2
-        // DISABLED for single-room spot-shadow test
-        // if let Some(mut queue) = ecs.get_resource_mut::<ImportQueueResource>() {
-        //     queue.push(ImportTask::Gltf {
-        //         file_path: "Assets/Models/DamagedHelmet.glb".into(),
-        //         task: GltfImport::WholeFile,
-        //     });
-        //     info!("Queued DamagedHelmet import");
-        // }
+        if let Some(mut queue) = ecs.get_resource_mut::<ImportQueueResource>() {
+            queue.push(ImportTask::Gltf {
+                file_path: "Assets/Models/DamagedHelmet.glb".into(),
+                task: GltfImport::WholeFile,
+            });
+            info!("Queued DamagedHelmet import");
+        }
 
         // ════════════════════════════════════════════════════════════
         // Spot light in Room 1 (Shadow Test)
         // Front of room (camera side), pointing backward toward center.
         // Objects cast shadows onto the floor and back wall.
         // ════════════════════════════════════════════════════════════
-        {
-            let light = ecs.spawn_entity();
-            let spot_pos = Point3::new(0.0, 8.0, 6.0);
-            let target = Point3::new(0.0, 0.0, -2.0);
-            let dir = (target - spot_pos).normalize();
-            ecs.attach_component(
-                &light,
-                LightDescriptorEcs::new_spot(
-                    Vector3::new(1.0, 1.0, 1.0), 50.0,
-                    Vector3::new(dir.x, dir.y, dir.z),
-                    0.3, 0.5,  // inner/outer cone half-angle (rad, ~17°/~29°)
-                ),
-            ).unwrap();
-            ecs.attach_component(&light, Position(spot_pos)).unwrap();
-            ecs.attach_component(&light, LightDirty(true)).unwrap();
-            ecs.attach_component(
-                &light,
-                ShadowCaster {
-                    cascade_count: 0, // ignored for spot lights (single perspective map)
-                    bias: 0.0002,
-                    ..Default::default()
-                },
-            )
-            .unwrap();
-        }
+        let spot_light = ecs.spawn_entity();
+        let spot_pos = Point3::new(0.0, 8.0, 6.0);
+        let target = Point3::new(0.0, 0.0, -2.0);
+        let dir = (target - spot_pos).normalize();
+        ecs.attach_component(
+            &spot_light,
+            LightDescriptorEcs::new_spot(
+                Vector3::new(1.0, 1.0, 1.0), 50.0,
+                Vector3::new(dir.x, dir.y, dir.z),
+                0.3, 0.5,
+            ),
+        ).unwrap();
+        ecs.attach_component(&spot_light, Position(spot_pos)).unwrap();
+        ecs.attach_component(&spot_light, LightDirty(true)).unwrap();
+        ecs.attach_component(
+            &spot_light,
+            ShadowCaster {
+                cascade_count: 0,
+                bias: 0.0002,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+        // TEMPORARY: light animator system
+        let animator = LightAnimator::new(spot_light);
 
         vec![
             sys_camera_controller.into_system(),
             Box::new(HelmetAdjuster::new()),
+            Box::new(animator),
         ]
     }
 }
