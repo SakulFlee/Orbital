@@ -278,9 +278,10 @@ fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -
         L = light.position.xyz - world_position;
         light_distance = length(L);
         L = normalize(L);
-        // Attenuation for point lights: clamped inverse-square to avoid
-        // a singularity at d=0 (same as the spot branch).
-        attenuation = 1.0 / max(light_distance * light_distance, 0.01);
+        // Attenuation for point lights: inverse-square with a distance
+        // floor to prevent radiance blowout near the light source.
+        let atten_dist = max(light_distance, 0.5);
+        attenuation = 1.0 / (atten_dist * atten_dist);
     } else if (light.direction.w == LIGHT_TYPE_DIRECTIONAL) {
         // Directional light
         L = normalize(-light.direction.xyz);
@@ -291,8 +292,11 @@ fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -
         L = light.position.xyz - world_position;
         light_distance = length(L);
         L = normalize(L);
-        // Distance attenuation: clamped inverse-square (avoids the singularity at d = 0)
-        attenuation = 1.0 / max(light_distance * light_distance, 0.01);
+        // Distance attenuation: inverse-square with a distance floor to
+        // prevent radiance blowout near the light (ACES compresses
+        // unbounded values to a flat, hard-edged disc).
+        let atten_dist = max(light_distance, 0.5);
+        attenuation = 1.0 / (atten_dist * atten_dist);
 
         // Angular attenuation in the cosine domain with CPU-precomputed
         // coefficients: params.x = scale, params.y = offset.
@@ -386,9 +390,6 @@ fn slope_scaled_bias(base_bias: f32, n_dot_l: f32) -> f32 {
 const SPOT_BIAS_SCALE: f32 = 50.0;  // far × near
 
 fn compute_shadow_for_light(world_pos: vec3<f32>, view_depth: f32, light_idx: u32, normal: vec3<f32>, fin: FragmentData) -> f32 {
-    // DIAGNOSTIC: bypass all shadows.
-    return 1.0;
-
     var factor = 1.0;
     let light = light_store[light_idx];
 
@@ -444,8 +445,12 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_depth: f32, light_idx: u3
                 spot_idx++;
                 continue;
             }
-            let bias_scale = clamp(SPOT_BIAS_SCALE / max(dist * dist, 0.1), 1.0, 8.0);
-            let spot_bias = bias * bias_scale;
+
+            // Normal-offset bias: push the sample point out along the
+            // surface normal before projection (~1-2 shadow texels).
+            // This handles grazing-angle acne without the 1/dist² depth-
+            // bias blowup.  A small constant depth bias is layered on top.
+            let offset_pos = world_pos + normal * slot.bias * 20.0;
 
             // Prefer the vertex-shader-interpolated clip position.
             var vs_clip = vec4(0.0);
@@ -461,7 +466,7 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_depth: f32, light_idx: u3
             if (vs_clip.w > 0.0) {
                 clip_pos = vs_clip;
             } else {
-                clip_pos = slot.light_view_proj * vec4<f32>(world_pos, 1.0);
+                clip_pos = slot.light_view_proj * vec4<f32>(offset_pos, 1.0);
             }
             spot_idx++;
 
@@ -474,7 +479,7 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_depth: f32, light_idx: u3
             let ndc = clip_pos.xyz / clip_pos.w;
             let shadow_coord = vec3<f32>(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5, ndc.z);
             if (all(shadow_coord.xy >= vec2<f32>(0.0)) && all(shadow_coord.xy < vec2<f32>(1.0)) && shadow_coord.z >= 0.0 && shadow_coord.z <= 1.0) {
-                factor = sample_shadow_2d_pcf(slot.layer_index, shadow_coord, shadow_coord.z - spot_bias);
+                factor = sample_shadow_2d_pcf(slot.layer_index, shadow_coord, shadow_coord.z - bias * 2.0);
                 return factor;
             }
             // Outside the shadow frustum: try the next depth slot (if any).
