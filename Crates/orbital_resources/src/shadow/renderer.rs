@@ -32,7 +32,7 @@ const POINT_LIGHT_NEAR: f32 = 0.1;
 /// eats depth precision for no visual gain.  A generous near plane
 /// avoids the worst non-linearity right at the light source.
 const SPOT_SHADOW_FAR: f32 = 50.0;
-const SPOT_SHADOW_NEAR: f32 = 0.1;
+const SPOT_SHADOW_NEAR: f32 = 1.0;
 /// Depth at which the spot shadow switches from the near map to the
 /// far map. The near map captures the floor and close geometry; the
 /// far map captures walls and distant geometry. This split prevents
