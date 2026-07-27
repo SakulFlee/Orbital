@@ -33,11 +33,6 @@ const POINT_LIGHT_NEAR: f32 = 0.1;
 /// avoids the worst non-linearity right at the light source.
 const SPOT_SHADOW_FAR: f32 = 50.0;
 const SPOT_SHADOW_NEAR: f32 = 1.0;
-/// Depth at which the spot shadow switches from the near map to the
-/// far map. The near map captures the floor and close geometry; the
-/// far map captures walls and distant geometry. This split prevents
-/// the floor and wall from overlapping in shadow space.
-const SPOT_SPLIT_DEPTH: f32 = 8.0;
 
 const CUBE_FACE_DIRECTIONS: [(Vector3<f32>, Vector3<f32>); 6] = [
     (Vector3::new(1.0, 0.0, 0.0), Vector3::new(0.0, -1.0, 0.0)),  // +X
@@ -480,28 +475,18 @@ impl ShadowRenderer {
                     }
                 }
                 2 => {
-                    // Spot light — dual-range perspective maps.
-                    // Near map (1.0–SPLIT): captures floor and close geometry.
-                    // Far  map (SPLIT–FAR): captures walls and distant geometry.
-                    // The split prevents floor and wall from overlapping in
-                    // shadow space, which would cause false self-occlusion.
-                    let vp_near = Self::spot_light_vp(
+                    // Spot light — single perspective depth map.
+                    let vp = Self::spot_light_vp(
                         light.position, light.direction,
                         light.outer_cone_angle,
-                        SPOT_SHADOW_NEAR, SPOT_SPLIT_DEPTH,
-                    );
-                    let vp_far = Self::spot_light_vp(
-                        light.position, light.direction,
-                        light.outer_cone_angle,
-                        SPOT_SPLIT_DEPTH, SPOT_SHADOW_FAR,
+                        SPOT_SHADOW_NEAR, SPOT_SHADOW_FAR,
                     );
 
-                    // --- Near slot ---
                     self.gpu_data.slots[slot_index as usize] = ShadowSlotData {
-                        light_view_proj: vp_near.into(),
+                        light_view_proj: vp.into(),
                         shadow_type: SHADOW_TYPE_SPOT,
                         layer_index,
-                        cascade_split_depth: SPOT_SPLIT_DEPTH, // gate
+                        cascade_split_depth: SPOT_SHADOW_FAR,
                         bias: light.caster.bias,
                         light_index: light.light_store_index,
                         near_plane: SPOT_SHADOW_NEAR,
@@ -509,23 +494,7 @@ impl ShadowRenderer {
                     };
                     slot_matrix_offsets.push(matrix_index);
                     let off = matrix_index as usize * self.slot_stride as usize;
-                    matrix_bytes[off..off + 64].copy_from_slice(&matrix_to_bytes(&vp_near));
-                    slot_index += 1; layer_index += 1; matrix_index += 1;
-
-                    // --- Far slot ---
-                    self.gpu_data.slots[slot_index as usize] = ShadowSlotData {
-                        light_view_proj: vp_far.into(),
-                        shadow_type: SHADOW_TYPE_SPOT,
-                        layer_index,
-                        cascade_split_depth: SPOT_SHADOW_FAR, // gate
-                        bias: light.caster.bias,
-                        light_index: light.light_store_index,
-                        near_plane: SPOT_SPLIT_DEPTH,
-                        _padding: [0; 2],
-                    };
-                    slot_matrix_offsets.push(matrix_index);
-                    let off = matrix_index as usize * self.slot_stride as usize;
-                    matrix_bytes[off..off + 64].copy_from_slice(&matrix_to_bytes(&vp_far));
+                    matrix_bytes[off..off + 64].copy_from_slice(&matrix_to_bytes(&vp));
                     slot_index += 1; layer_index += 1; matrix_index += 1;
                 }
                 _ => {}
