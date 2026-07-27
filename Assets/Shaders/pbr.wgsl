@@ -386,6 +386,9 @@ fn slope_scaled_bias(base_bias: f32, n_dot_l: f32) -> f32 {
 const SPOT_BIAS_SCALE: f32 = 50.0;  // far × near
 
 fn compute_shadow_for_light(world_pos: vec3<f32>, view_depth: f32, light_idx: u32, normal: vec3<f32>, fin: FragmentData) -> f32 {
+    // DIAGNOSTIC: bypass all shadows.
+    return 1.0;
+
     var factor = 1.0;
     let light = light_store[light_idx];
 
