@@ -326,7 +326,7 @@ fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -
 
         let nominator = D * F * G;
         let denominator = 4.0 * NdotL * pbr.NdotV + 0.0001;
-        let specular = min(nominator / denominator, vec3(50.0));
+        let specular = vec3(0.0); // DIAGNOSTIC: isolate diffuse vs specular
         
         // Combine diffuse and specular — metals get zero diffuse
         let kS = F;
