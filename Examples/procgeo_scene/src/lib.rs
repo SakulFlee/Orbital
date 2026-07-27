@@ -294,7 +294,7 @@ impl Module for ProcgeoSceneModule {
             &fill,
             LightDescriptorEcs::new_directional(
                 Vector3::new(0.0, -0.6, -0.8), // emission direction (shader negates -> light from above)
-                Vector3::new(1.0, 0.85, 0.6),   // soft warm white
+                Vector3::new(1.0, 0.88, 0.65),  // subtle warm white
                 0.25,
             ),
         ).unwrap();
