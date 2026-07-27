@@ -293,12 +293,12 @@ impl Module for ProcgeoSceneModule {
         ecs.attach_component(
             &fill,
             LightDescriptorEcs::new_directional(
-                Vector3::new(0.0, -1.0, 0.0), // straight down
-                Vector3::new(1.0, 0.95, 0.9), // warm white
+                Vector3::new(-0.5, -0.8, -0.3), // soft diagonal sun
+                Vector3::new(1.0, 0.95, 0.9),   // warm white
                 2.0,
             ),
         ).unwrap();
-        ecs.attach_component(&fill, Position(Point3::new(0.0, 0.0, 0.0))).unwrap();
+        ecs.attach_component(&fill, Position(Point3::new(0.0, 10.0, 0.0))).unwrap();
         ecs.attach_component(&fill, LightDirty(true)).unwrap();
 
         vec![
