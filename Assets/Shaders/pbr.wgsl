@@ -224,7 +224,7 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     let view_depth = -view_pos.z;
 
     var ambient = calculate_ambient_ibl(pbr);
-    ambient = max(ambient, vec3(0.003));
+    ambient = max(ambient, vec3(0.015));
     output += ambient;
 
     let light_reflectance = calculate_light_contribution(pbr, in.world_position, view_depth, in);
