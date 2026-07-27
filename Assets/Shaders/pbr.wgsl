@@ -218,28 +218,21 @@ fn entrypoint_vertex(
 @fragment
 fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     let pbr = pbr_data(in);
+    var output = vec3(0.0);
 
-    // DIAGNOSTIC: output distance from the spot light as color to
-    // identify where fragments are too close to the near plane.
-    let light = light_store[0];
-    let dist = length(light.position.xyz - in.world_position);
+    let view_pos = camera.view_projection_matrix * vec4<f32>(in.world_position, 1.0);
+    let view_depth = -view_pos.z;
 
-    // Color-code by depth range:
-    //   Red  = near plane (< 1.5 units — clipped or at risk)
-    //   Green = safe near-field (1.5 – 8 units — near map)
-    //   Blue  = far map (8 – 50 units)
-    //   White = beyond far plane
-    if (dist < 1.5) {
-        return vec4<f32>(1.0, 0.0, 0.0, 1.0);
-    } else if (dist <= 8.0) {
-        let t = (dist - 1.5) / 6.5;
-        return vec4<f32>(t, 1.0 - t, 0.0, 1.0); // green-to-red gradient
-    } else if (dist <= 50.0) {
-        let t = (dist - 8.0) / 42.0;
-        return vec4<f32>(0.0, 1.0 - t, t, 1.0); // green-to-blue gradient
-    } else {
-        return vec4<f32>(1.0, 1.0, 1.0, 1.0); // white = beyond far
-    }
+    var ambient = calculate_ambient_ibl(pbr);
+    ambient = max(ambient, vec3(0.003));
+    output += ambient;
+
+    let light_reflectance = calculate_light_contribution(pbr, in.world_position, view_depth, in);
+    output += light_reflectance;
+    output += pbr.emissive;
+
+    let tone_mapped_color = aces_tone_map(output);
+    return vec4<f32>(tone_mapped_color, 1.0);
 }
 
 // Note: Unused in favor of ACES
@@ -470,6 +463,14 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_depth: f32, light_idx: u3
             spot_idx++;
             let ndc = clip_pos.xyz / clip_pos.w;
             let shadow_coord = vec3<f32>(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5, ndc.z);
+
+            // Grace zone: fragments very close to the near plane may have
+            // unstable depth; skip the comparison to avoid a sharp
+            // brightness boundary at the clipped edge.
+            if (shadow_coord.z < 0.005) {
+                return 1.0;
+            }
+
             if (all(shadow_coord.xy >= vec2<f32>(0.0)) && all(shadow_coord.xy < vec2<f32>(1.0)) && shadow_coord.z >= 0.0 && shadow_coord.z <= 1.0) {
                 factor = sample_shadow_2d_pcf(slot.layer_index, shadow_coord, shadow_coord.z - spot_bias);
                 return factor;
