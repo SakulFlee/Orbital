@@ -461,16 +461,15 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_depth: f32, light_idx: u3
                 clip_pos = slot.light_view_proj * vec4<f32>(world_pos, 1.0);
             }
             spot_idx++;
-            let ndc = clip_pos.xyz / clip_pos.w;
-            let shadow_coord = vec3<f32>(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5, ndc.z);
 
-            // Grace zone: fragments very close to the near plane may have
-            // unstable depth; skip the comparison to avoid a sharp
-            // brightness boundary at the clipped edge.
-            if (shadow_coord.z < 0.005) {
+            // Guard: fragments at/behind the near plane have clip_pos.w
+            // near-zero or negative.  Dividing by it scrambles ndc and
+            // causes false lit/shadow results.  Treat these as unshadowed.
+            if (clip_pos.w <= 0.001) {
                 return 1.0;
             }
-
+            let ndc = clip_pos.xyz / clip_pos.w;
+            let shadow_coord = vec3<f32>(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5, ndc.z);
             if (all(shadow_coord.xy >= vec2<f32>(0.0)) && all(shadow_coord.xy < vec2<f32>(1.0)) && shadow_coord.z >= 0.0 && shadow_coord.z <= 1.0) {
                 factor = sample_shadow_2d_pcf(slot.layer_index, shadow_coord, shadow_coord.z - spot_bias);
                 return factor;
