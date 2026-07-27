@@ -294,8 +294,8 @@ impl Module for ProcgeoSceneModule {
             &fill,
             LightDescriptorEcs::new_directional(
                 Vector3::new(0.0, -0.6, -0.8), // emission direction (shader negates -> light from above)
-                Vector3::new(1.0, 0.9, 0.7),   // warm amber
-                0.2,
+                Vector3::new(1.0, 0.7, 0.4),   // warm amber/orange
+                0.25,
             ),
         ).unwrap();
         ecs.attach_component(&fill, Position(Point3::new(0.0, 0.0, 0.0))).unwrap();
