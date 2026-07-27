@@ -288,6 +288,19 @@ impl Module for ProcgeoSceneModule {
         // TEMPORARY: light animator system
         let animator = LightAnimator::new(spot_light);
 
+        // Low-intensity directional fill light for scene-wide diffuse lighting
+        let fill = ecs.spawn_entity();
+        ecs.attach_component(
+            &fill,
+            LightDescriptorEcs::new_directional(
+                Vector3::new(0.0, -1.0, 0.0), // straight down
+                Vector3::new(1.0, 0.95, 0.9), // warm white
+                2.0,
+            ),
+        ).unwrap();
+        ecs.attach_component(&fill, Position(Point3::new(0.0, 0.0, 0.0))).unwrap();
+        ecs.attach_component(&fill, LightDirty(true)).unwrap();
+
         vec![
             sys_camera_controller.into_system(),
             Box::new(HelmetAdjuster::new()),
