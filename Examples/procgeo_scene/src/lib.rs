@@ -203,13 +203,14 @@ impl Module for ProcgeoSceneModule {
         info!("Scene loaded with {} entities", scene.entities.len());
 
         // Import the DamagedHelmet into Room 2
-        if let Some(mut queue) = ecs.get_resource_mut::<ImportQueueResource>() {
-            queue.push(ImportTask::Gltf {
-                file_path: "Assets/Models/DamagedHelmet.glb".into(),
-                task: GltfImport::WholeFile,
-            });
-            info!("Queued DamagedHelmet import");
-        }
+        // DISABLED for single-room spot-shadow test
+        // if let Some(mut queue) = ecs.get_resource_mut::<ImportQueueResource>() {
+        //     queue.push(ImportTask::Gltf {
+        //         file_path: "Assets/Models/DamagedHelmet.glb".into(),
+        //         task: GltfImport::WholeFile,
+        //     });
+        //     info!("Queued DamagedHelmet import");
+        // }
 
         // ════════════════════════════════════════════════════════════
         // Spot light in Room 1 (Shadow Test)
