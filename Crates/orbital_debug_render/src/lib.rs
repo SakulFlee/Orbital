@@ -761,7 +761,7 @@ fn collect_light_lines(ecs: &World) -> Vec<[f32; 6]> {
             LightType::Directional { .. } => {
                 lines.extend(light_arrow(
                     Point3::new(pos.0.x, pos.0.y, pos.0.z),
-                    desc.direction,
+                    -desc.direction, // incidence direction: arrow points where light comes FROM
                     color,
                 ));
             }
