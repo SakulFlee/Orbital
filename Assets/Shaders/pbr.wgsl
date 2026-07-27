@@ -218,21 +218,12 @@ fn entrypoint_vertex(
 @fragment
 fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     let pbr = pbr_data(in);
-    var output = vec3(0.0);
-
-    let view_pos = camera.view_projection_matrix * vec4<f32>(in.world_position, 1.0);
-    let view_depth = -view_pos.z;
-
-    var ambient = calculate_ambient_ibl(pbr);
-    ambient = max(ambient, vec3(0.003));
-    output += ambient;
-
-    let light_reflectance = calculate_light_contribution(pbr, in.world_position, view_depth, in);
-    output += light_reflectance;
-    output += pbr.emissive;
-
-    let tone_mapped_color = aces_tone_map(output);
-    return vec4<f32>(tone_mapped_color, 1.0);
+    // DIAGNOSTIC: output spot angular attenuation as grayscale
+    let light = light_store[0];
+    let L = normalize(light.position.xyz - in.world_position);
+    let cos_theta = dot(-L, normalize(light.direction.xyz));
+    let angular = clamp(cos_theta * light.params.x + light.params.y, 0.0, 1.0);
+    return vec4<f32>(angular, angular, angular, 1.0);
 }
 
 // Note: Unused in favor of ACES
