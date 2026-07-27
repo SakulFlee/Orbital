@@ -326,7 +326,7 @@ fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -
 
         let nominator = D * F * G;
         let denominator = 4.0 * NdotL * pbr.NdotV + 0.0001;
-        let specular = nominator / denominator;
+        let specular = min(nominator / denominator, vec3(50.0));
         
         // Combine diffuse and specular — metals get zero diffuse
         let kS = F;
@@ -589,7 +589,7 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
         fragment_data.uv
     ).r;
     let roughness_factored = roughness_sample * pbr_factors.roughness_factor;
-    let roughness_clamped = clamp(roughness_factored, 0.0001, 0.9999);
+    let roughness_clamped = clamp(roughness_factored, 0.045, 0.9999);
     out.roughness = roughness_clamped;
 
     let occlusion_sample = textureSample(
