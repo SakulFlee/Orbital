@@ -293,7 +293,7 @@ impl Module for ProcgeoSceneModule {
         ecs.attach_component(
             &fill,
             LightDescriptorEcs::new_directional(
-                Vector3::new(0.0, -0.6, -0.8), // 35° downward
+                Vector3::new(0.0, 0.6, 0.8), // 35° upward (shader negates -> light from above)
                 Vector3::new(1.0, 0.95, 0.9),   // warm white
                 2.0,
             ),
