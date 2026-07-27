@@ -1,81 +1,16 @@
 SceneBuilder(
     entities: [
-        // ── Room 4: Metallic Shape Gallery (x: -25 to -15) ──
-        Entity(label: Some("R4 Floor"), shape: Plane(size: (10.0, 10.0), subdivisions: 2), material: "wall", transform: Transform(position: (-20.0, 0.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("R4 Back"),  shape: Cube(size: (10.0, 10.0, 0.1)), material: "wall", transform: Transform(position: (-20.0, 5.0, -5.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("R4 Left"),  shape: Cube(size: (0.1, 10.0, 10.0)), material: "wall", transform: Transform(position: (-25.0, 5.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("R4 Right / R3 Left"), shape: Cube(size: (0.1, 10.0, 10.0)), material: "wall", transform: Transform(position: (-15.0, 5.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-
-        // Room 4 — all shapes in a circle, metallic
-        Entity(label: Some("R4 Torus"),    shape: Torus(major_radius: 0.6, minor_radius: 0.2, major_segments: 20, minor_segments: 10), material: "gold", transform: Transform(position: (-17.6, 1.5, 1.8), rotation: (0.7071, 0.7071, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("R4 Sphere"),   shape: UvSphere(radius: 0.6, segments: 20, rings: 10), material: "silver", transform: Transform(position: (-19.1, 1.5, 2.9), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("R4 Cube"),     shape: Cube(size: (0.8, 0.8, 0.8)), material: "copper", transform: Transform(position: (-20.9, 1.5, 2.9), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("R4 Ico"),      shape: Icosphere(radius: 0.6, subdivisions: 2), material: "chrome", transform: Transform(position: (-22.4, 1.5, 1.8), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("R4 Capsule"),  shape: Capsule(radius: 0.4, height: 0.8, segments: 12, rings: 6), material: "rose_gold", transform: Transform(position: (-23.0, 1.5, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("R4 Cylinder"), shape: Cylinder(radius: 0.4, height: 0.9, segments: 16), material: "gunmetal", transform: Transform(position: (-22.4, 1.5, -1.8), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("R4 Cone"),     shape: Cone(radius: 0.5, height: 0.9, segments: 16), material: "bronze", transform: Transform(position: (-20.9, 1.5, -2.9), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("R4 Disk"),     shape: Disk(radius: 0.5, segments: 16), material: "teal_metal", transform: Transform(position: (-19.1, 1.5, -2.9), rotation: (0.7071, 0.0, 0.7071, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("R4 Plane"),    shape: Plane(size: (1.0, 1.0), subdivisions: 2), material: "platinum", transform: Transform(position: (-17.6, 1.5, -1.8), rotation: (0.7071, 0.7071, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-
-        // ── Room 3: Matte Shape Gallery (x: -15 to -5) ──
-        Entity(label: Some("R3 Floor"), shape: Plane(size: (10.0, 10.0), subdivisions: 2), material: "wall", transform: Transform(position: (-10.0, 0.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("R3 Back"),  shape: Cube(size: (10.0, 10.0, 0.1)), material: "wall", transform: Transform(position: (-10.0, 5.0, -5.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("R3 Right / R1 Left"), shape: Cube(size: (0.1, 10.0, 10.0)), material: "wall", transform: Transform(position: (-5.0, 5.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-
-        // Room 3 — same shapes, non-metallic rough colors
-        Entity(label: Some("R3 Torus"),    shape: Torus(major_radius: 0.6, minor_radius: 0.2, major_segments: 20, minor_segments: 10), material: "r3_red", transform: Transform(position: (-7.6, 1.5, 1.8), rotation: (0.7071, 0.7071, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("R3 Sphere"),   shape: UvSphere(radius: 0.6, segments: 20, rings: 10), material: "r3_green", transform: Transform(position: (-9.1, 1.5, 2.9), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("R3 Cube"),     shape: Cube(size: (0.8, 0.8, 0.8)), material: "r3_blue", transform: Transform(position: (-10.9, 1.5, 2.9), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("R3 Ico"),      shape: Icosphere(radius: 0.6, subdivisions: 2), material: "r3_yellow", transform: Transform(position: (-12.4, 1.5, 1.8), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("R3 Capsule"),  shape: Capsule(radius: 0.4, height: 0.8, segments: 12, rings: 6), material: "r3_purple", transform: Transform(position: (-13.0, 1.5, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("R3 Cylinder"), shape: Cylinder(radius: 0.4, height: 0.9, segments: 16), material: "r3_orange", transform: Transform(position: (-12.4, 1.5, -1.8), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("R3 Cone"),     shape: Cone(radius: 0.5, height: 0.9, segments: 16), material: "r3_cyan", transform: Transform(position: (-10.9, 1.5, -2.9), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("R3 Disk"),     shape: Disk(radius: 0.5, segments: 16), material: "r3_pink", transform: Transform(position: (-9.1, 1.5, -2.9), rotation: (0.7071, 0.0, 0.7071, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("R3 Plane"),    shape: Plane(size: (1.0, 1.0), subdivisions: 2), material: "r3_lime", transform: Transform(position: (-7.6, 1.5, -1.8), rotation: (0.7071, 0.7071, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-
         // ── Room 1: Object Showcase (x: -5 to 5) ──
         Entity(label: Some("R1 Floor"), shape: Plane(size: (10.0, 10.0), subdivisions: 2), material: "wall", transform: Transform(position: (0.0, 0.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
         Entity(label: Some("R1 Back"),  shape: Cube(size: (10.0, 10.0, 0.1)), material: "wall", transform: Transform(position: (0.0, 5.0, -5.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
         Entity(label: Some("R1 Right / R2 Left"), shape: Cube(size: (0.1, 10.0, 10.0)), material: "wall", transform: Transform(position: (5.0, 5.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
+        Entity(label: Some("R1 Left"),  shape: Cube(size: (0.1, 10.0, 10.0)), material: "wall", transform: Transform(position: (-5.0, 5.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
 
         // Room 1 objects — single blue cube for clean shadow verification
-        //Entity(label: Some("Red Sphere"), shape: UvSphere(radius: 0.5, segments: 20, rings: 10), material: "red", transform: Transform(position: (-2.0, 0.5, -1.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
         Entity(label: Some("Blue Cube"),  shape: Cube(size: (0.8, 0.8, 0.8)), material: "blue", transform: Transform(position: (0.0, 0.4, -1.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        //Entity(label: Some("Green Cyl"),  shape: Cylinder(radius: 0.4, height: 0.8, segments: 16), material: "green", transform: Transform(position: (0.0, 0.4, -2.5), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-
-        // ── Room 2: Helmet Gallery (x: 5 to 15) ──
-        Entity(label: Some("R2 Floor"), shape: Plane(size: (10.0, 10.0), subdivisions: 2), material: "wall", transform: Transform(position: (10.0, 0.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("R2 Back"),  shape: Cube(size: (10.0, 10.0, 0.1)), material: "wall", transform: Transform(position: (10.0, 5.0, -5.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("R2 Right"), shape: Cube(size: (0.1, 10.0, 10.0)), material: "wall", transform: Transform(position: (15.0, 5.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-
-        // Pedestal for the helmet
-        Entity(label: Some("Pedestal"), shape: Cylinder(radius: 0.5, height: 1.5, segments: 16), material: "pedestal", transform: Transform(position: (10.0, 0.75, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
     ],
     materials: {
         "wall":      Color(albedo: (0.7, 0.7, 0.72, 1.0), metallic: 0.0, roughness: 0.95),
-        "pedestal":  Color(albedo: (0.6, 0.6, 0.65, 1.0), metallic: 0.0, roughness: 0.85),
-        "red":       Color(albedo: (0.9, 0.1, 0.1, 1.0), metallic: 0.0, roughness: 0.9),
         "blue":      Color(albedo: (0.1, 0.2, 0.9, 1.0), metallic: 0.0, roughness: 0.9),
-        "green":     Color(albedo: (0.1, 0.8, 0.1, 1.0), metallic: 0.0, roughness: 0.9),
-        // Room 4 — metallic shapes
-        "gold":      Color(albedo: (1.0, 0.8, 0.0, 1.0), metallic: 1.0, roughness: 0.2),
-        "silver":    Color(albedo: (0.9, 0.9, 0.95, 1.0), metallic: 1.0, roughness: 0.1),
-        "copper":    Color(albedo: (0.9, 0.6, 0.4, 1.0), metallic: 0.85, roughness: 0.3),
-        "chrome":    Color(albedo: (0.8, 0.8, 0.85, 1.0), metallic: 1.0, roughness: 0.05),
-        "rose_gold": Color(albedo: (0.9, 0.6, 0.6, 1.0), metallic: 0.9, roughness: 0.15),
-        "gunmetal":  Color(albedo: (0.3, 0.3, 0.35, 1.0), metallic: 0.9, roughness: 0.4),
-        "bronze":    Color(albedo: (0.7, 0.5, 0.2, 1.0), metallic: 0.85, roughness: 0.35),
-        "teal_metal": Color(albedo: (0.0, 0.7, 0.7, 1.0), metallic: 0.9, roughness: 0.2),
-        "platinum":  Color(albedo: (0.85, 0.85, 0.9, 1.0), metallic: 1.0, roughness: 0.05),
-        // Room 3 — non-metallic rough colors
-        "r3_red":    Color(albedo: (0.9, 0.15, 0.15, 1.0), metallic: 0.0, roughness: 0.95),
-        "r3_green":  Color(albedo: (0.15, 0.85, 0.15, 1.0), metallic: 0.0, roughness: 0.95),
-        "r3_blue":   Color(albedo: (0.15, 0.2, 0.9, 1.0), metallic: 0.0, roughness: 0.95),
-        "r3_yellow": Color(albedo: (0.9, 0.9, 0.1, 1.0), metallic: 0.0, roughness: 0.95),
-        "r3_purple": Color(albedo: (0.7, 0.2, 0.85, 1.0), metallic: 0.0, roughness: 0.95),
-        "r3_orange": Color(albedo: (1.0, 0.6, 0.0, 1.0), metallic: 0.0, roughness: 0.95),
-        "r3_cyan":   Color(albedo: (0.0, 0.85, 0.85, 1.0), metallic: 0.0, roughness: 0.95),
-        "r3_pink":   Color(albedo: (0.95, 0.4, 0.65, 1.0), metallic: 0.0, roughness: 0.95),
-        "r3_lime":   Color(albedo: (0.6, 0.9, 0.1, 1.0), metallic: 0.0, roughness: 0.95),
     },
 )
