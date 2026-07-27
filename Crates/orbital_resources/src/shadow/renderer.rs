@@ -784,7 +784,7 @@ fn compute_csm_cascades(
         let view = Matrix4::look_at_rh(light_pos, cascade_center_pt, light_up_actual);
 
         // Orthographic projection from the bounding box (wgpu clip convention,
-        // Y-flipped so the shader can sample with `ndc.xy * 0.5 + 0.5`).
+        // Y is flipped in the shader sampling, not the projection).
         let proj = ortho_wgpu(
             min_bb.x,
             max_bb.x,
@@ -792,7 +792,7 @@ fn compute_csm_cascades(
             max_bb.y,
             0.0,
             (max_bb.z * 3.0).max(1.0),
-            true,
+            false,
         );
 
         cascades.push(CascadeInfo {
@@ -857,14 +857,14 @@ impl ShadowRenderer {
         let pos = Point3::new(position.x, position.y, position.z);
         let view = Matrix4::look_at_rh(pos, pos + dir, up);
         let fov = Rad((outer_cone_angle * 2.0 * 1.02).clamp(0.05, 2.96));
-        let proj = perspective_wgpu(fov, 1.0, near, far, true);
+        let proj = perspective_wgpu(fov, 1.0, near, far, false);
         proj * view
     }
 
     /// Compute the 6 face view-projection matrices for a cube shadow map.
     fn point_light_face_matrices(position: Point3<f32>, near_plane: f32, far_plane: f32) -> [Matrix4<f32>; 6] {
         // wgpu clip convention; Y flip matches the cube-face framebuffer layout.
-        let proj = perspective_wgpu(Rad::from(Deg(90.0)), 1.0, near_plane, far_plane, true);
+        let proj = perspective_wgpu(Rad::from(Deg(90.0)), 1.0, near_plane, far_plane, false);
         let mut mats = [Matrix4::identity(); 6];
         for (i, &(dir, up)) in CUBE_FACE_DIRECTIONS.iter().enumerate() {
             let target = position + dir;
