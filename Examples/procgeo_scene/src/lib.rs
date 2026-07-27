@@ -173,17 +173,8 @@ impl System for LightAnimator {
             .map(|d| d.0)
             .unwrap_or(0.016);
         self.t += dt as f32;
-        let x = (self.t * 1.5).sin() * 3.0;
-
-        let store = match world.get_component_store::<Position>() {
-            Some(s) => s,
-            None => return,
-        };
-        let idx = match store.sparse.get(self.entity.index).copied().flatten() {
-            Some(i) => i,
-            None => return,
-        };
-        let new_pos = Position(Point3::new(x, 8.0, 6.0));
+        let y = (self.t * 1.5).sin() * 3.0 + 8.0; // oscillate ±3 around y=8
+        let new_pos = Position(Point3::new(0.0, y, 6.0));
         commands.detach_component::<Position>(&self.entity);
         commands.attach_component(&self.entity, new_pos);
 
