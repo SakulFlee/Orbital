@@ -218,43 +218,21 @@ fn entrypoint_vertex(
 @fragment
 fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     let pbr = pbr_data(in);
+    var output = vec3(0.0);
 
-    // DIAGNOSTIC: per-slot shadow output for light 0 (Room 3's spot)
-    // Green=lit, Red=black (near slot). Cyan=lit, Yellow=black (far slot).
-    // Orange=on frustum edge. Blue=no slot. Magenta=clip_pos.w guard.
+    let view_pos = camera.view_projection_matrix * vec4<f32>(in.world_position, 1.0);
+    let view_depth = -view_pos.z;
 
-    for (var i = 0u; i < shadow_data.cascade_count; i++) {
-        let slot = shadow_data.slots[i];
-        if (slot.shadow_type != SHADOW_TYPE_SPOT)  { continue; }
-        if (slot.light_index != 0u)                 { continue; }
+    var ambient = calculate_ambient_ibl(pbr);
+    ambient = max(ambient, vec3(0.005));
+    output += ambient;
 
-        let light = light_store[0];
-        let to_light = normalize(light.position.xyz - in.world_position);
-        let n_dot_l = dot(pbr.N, to_light);
-        let dist = length(light.position.xyz - in.world_position);
+    let light_reflectance = calculate_light_contribution(pbr, in.world_position, view_depth, in);
+    output += light_reflectance;
+    output += pbr.emissive;
 
-        if (dist > slot.cascade_split_depth) { continue; }
-
-        let bias = slope_scaled_bias(slot.bias, n_dot_l);
-        let clip_pos = slot.light_view_proj * vec4<f32>(in.world_position, 1.0);
-        if (clip_pos.w <= 0.001) { return vec4<f32>(1.0, 0.0, 1.0, 1.0); }
-
-        let ndc = clip_pos.xyz / clip_pos.w;
-        let sc = vec3<f32>(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5, ndc.z);
-
-        if (all(sc.xy >= vec2<f32>(0.0)) && all(sc.xy < vec2<f32>(1.0)) && sc.z >= 0.0 && sc.z <= 1.0) {
-            let is_near = slot.cascade_split_depth < 20.0;
-            let pcf = sample_shadow_2d_pcf(slot.layer_index, sc, sc.z - bias * 2.0);
-            if (pcf > 0.1) {
-                if (is_near) { return vec4<f32>(0.0, 1.0, 0.0, 1.0); } else { return vec4<f32>(0.0, 1.0, 1.0, 1.0); }
-            } else {
-                if (is_near) { return vec4<f32>(1.0, 0.0, 0.0, 1.0); } else { return vec4<f32>(1.0, 1.0, 0.0, 1.0); }
-            }
-        }
-        // Fragment near the frustum edge
-        return vec4<f32>(1.0, 0.5, 0.0, 1.0);
-    }
-    return vec4<f32>(0.0, 0.0, 1.0, 1.0);
+    let tone_mapped_color = aces_tone_map(output);
+    return vec4<f32>(tone_mapped_color, 1.0);
 }
 
 // Note: Unused in favor of ACES
