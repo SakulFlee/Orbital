@@ -285,6 +285,32 @@ impl Module for ProcgeoSceneModule {
         )
         .unwrap();
 
+        // ── Spot lights for Rooms 2, 3, 4 ──────────────────────────
+        for room_x in [-10.0, 10.0, -20.0f32] {
+            let sl = ecs.spawn_entity();
+            let pos = Point3::new(room_x, 8.0, 6.0);
+            let tgt = Point3::new(room_x, 0.0, -2.0);
+            let d = (tgt - pos).normalize();
+            ecs.attach_component(
+                &sl,
+                LightDescriptorEcs::new_spot(
+                    Vector3::new(1.0, 1.0, 1.0), 50.0,
+                    Vector3::new(d.x, d.y, d.z),
+                    0.1, 0.5,
+                ),
+            ).unwrap();
+            ecs.attach_component(&sl, Position(pos)).unwrap();
+            ecs.attach_component(&sl, LightDirty(true)).unwrap();
+            ecs.attach_component(
+                &sl,
+                ShadowCaster {
+                    cascade_count: 0,
+                    bias: 0.0002,
+                    ..Default::default()
+                },
+            ).unwrap();
+        }
+
         // TEMPORARY: light animator system
         let animator = LightAnimator::new(spot_light);
 
