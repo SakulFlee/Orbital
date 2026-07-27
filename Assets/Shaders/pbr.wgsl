@@ -423,9 +423,10 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_depth: f32, light_idx: u3
             }
             let clip_pos = slot.light_view_proj * vec4<f32>(biased_world_pos, 1.0);
             let ndc = clip_pos.xyz / clip_pos.w;
-            // Remap xy for texture sampling; z is already in [0, 1]
-            // (wgpu-convention projection, matches the stored depth).
-            let shadow_coord = vec3<f32>(ndc.xy * 0.5 + 0.5, ndc.z);
+            // Remap xy for texture sampling. Y is inverted because wgpu NDC
+            // +Y maps to the top of the framebuffer while texture V=0 is the
+            // top row (the projection does NOT flip Y).
+            let shadow_coord = vec3<f32>(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5, ndc.z);
             if (all(shadow_coord.xy >= vec2<f32>(0.0)) && all(shadow_coord.xy < vec2<f32>(1.0)) && shadow_coord.z >= 0.0 && shadow_coord.z <= 1.0) {
                 factor = sample_shadow_2d_pcf(slot.layer_index, shadow_coord, shadow_coord.z - bias);
                 return factor;
@@ -461,7 +462,7 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_depth: f32, light_idx: u3
             }
             spot_idx++;
             let ndc = clip_pos.xyz / clip_pos.w;
-            let shadow_coord = vec3<f32>(ndc.xy * 0.5 + 0.5, ndc.z);
+            let shadow_coord = vec3<f32>(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5, ndc.z);
             if (all(shadow_coord.xy >= vec2<f32>(0.0)) && all(shadow_coord.xy < vec2<f32>(1.0)) && shadow_coord.z >= 0.0 && shadow_coord.z <= 1.0) {
                 factor = sample_shadow_2d_pcf(slot.layer_index, shadow_coord, shadow_coord.z - spot_bias);
                 return factor;
