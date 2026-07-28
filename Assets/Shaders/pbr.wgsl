@@ -407,8 +407,11 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_depth: f32, light_idx: u3
     for (var i = 0u; i < shadow_data.cascade_count; i++) {
         let slot = shadow_data.slots[i];
 
-        // Skip slots that don't belong to this light
+        // Skip slots that don't belong to this light, but still advance
+        // the global spot counter to stay in sync with the vertex shader
+        // (which counts SPOT slots across all lights, not per-light).
         if (slot.light_index != light_idx) {
+            if (slot.shadow_type == SHADOW_TYPE_SPOT) { spot_idx++; }
             continue;
         }
 
