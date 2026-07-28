@@ -316,6 +316,43 @@ impl LightDirty {
     }
 }
 
+/// Stable index into the GPU light storage buffer.
+/// Assigned once when the light is first realized; persists across frames.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct LightSlotIndex(pub u32);
+
+/// Dirty flag for shadow map invalidation.
+/// Set when a light's position, direction, or properties change,
+/// indicating that its shadow maps need to be re-rendered.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ShadowDirtyFlag(pub bool);
+
+impl ShadowDirtyFlag {
+    pub fn is_dirty(&self) -> bool {
+        self.0
+    }
+
+    pub fn mark_dirty(&mut self) {
+        self.0 = true;
+    }
+
+    pub fn clear(&mut self) {
+        self.0 = false;
+    }
+}
+
+/// Cached previous position of a light entity.
+/// Compared each frame against the current `Position` to detect movement
+/// and trigger shadow map invalidation.
+#[derive(Debug, Clone, Copy)]
+pub struct PrevPosition(pub cgmath::Point3<f32>);
+
+impl Default for PrevPosition {
+    fn default() -> Self {
+        Self(cgmath::Point3::new(0.0, 0.0, 0.0))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
