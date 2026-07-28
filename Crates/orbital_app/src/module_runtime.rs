@@ -718,7 +718,6 @@ impl ModuleRuntime {
             None => (None, 0.1, 1000.0),
         }
     }
-
     /// Collect shadow-casting light info from ECS.
     fn collect_shadow_lights(&self) -> Vec<ShadowLightInfo> {
         let descs = match self.ecs_world.get_component_store::<LightDescriptorEcs>() {
@@ -733,16 +732,15 @@ impl ModuleRuntime {
             Some(s) => s,
             None => return Vec::new(),
         };
+        let slot_idx_store = self
+            .ecs_world
+            .get_component_store::<orbital_ecs_bridge::LightSlotIndex>();
 
         let mut lights = Vec::new();
-        let mut light_store_index = 0u32;
         for &eid in descs.dense.as_slice() {
             let desc_idx = match descs.sparse.get(eid).copied().flatten() {
                 Some(i) => i,
-                None => {
-                    light_store_index += 1;
-                    continue;
-                }
+                None => continue,
             };
             let desc = &descs.components[desc_idx];
 
@@ -755,10 +753,7 @@ impl ModuleRuntime {
             if has_shadow {
                 let pos_idx = match positions.sparse.get(eid).copied().flatten() {
                     Some(i) => i,
-                    None => {
-                        light_store_index += 1;
-                        continue;
-                    }
+                    None => continue,
                 };
                 let caster = &casters.components[casters.sparse[eid].unwrap()];
                 let pos = &positions.components[pos_idx];
@@ -769,6 +764,11 @@ impl ModuleRuntime {
                         outer_cone_angle, ..
                     } => (2, outer_cone_angle),
                 };
+                let light_store_index = slot_idx_store
+                    .as_ref()
+                    .and_then(|s| s.get_component(eid))
+                    .map(|si| si.0)
+                    .unwrap_or(0);
                 lights.push(ShadowLightInfo {
                     light_type,
                     direction: desc.direction,
@@ -778,8 +778,8 @@ impl ModuleRuntime {
                     light_store_index,
                 });
             }
-            light_store_index += 1;
         }
+
         lights
     }
 

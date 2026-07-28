@@ -439,6 +439,28 @@ pub fn realize_lights(ecs: &mut World) {
     drop(positions_store);
     drop(descs_store);
 
+    // Early return: no changes pending
+    let has_work = slot_infos
+        .iter()
+        .any(|i| i.is_dirty || i.is_new || i.position_moved);
+    if !has_work {
+        // Check for removed entities (slot tracker may have stale entries)
+        let current_set: std::collections::HashSet<usize> =
+            light_entities.iter().copied().collect();
+        let tracker = ecs.get_resource::<LightSlotTracker>();
+        let has_removals = tracker.map_or(false, |t| {
+            t.entity_to_slot
+                .iter()
+                .enumerate()
+                .any(|(eid, slot_opt)| {
+                    slot_opt.is_some() && !current_set.contains(&eid)
+                })
+        });
+        if !has_removals {
+            return;
+        }
+    }
+
     // --- Phase 2: Mutate state and upload GPU data ---
 
     let light_buffer = match ecs.get_resource::<LightBufferResource>() {

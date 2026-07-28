@@ -465,6 +465,11 @@ impl ShadowRenderer {
                             if slot_index < self.max_slots as u32 {
                                 self.gpu_data.slots[slot_index as usize] =
                                     prev_gpu_data.slots[slot_index as usize];
+                                // Preserve previous frame's VP matrix
+                                let vp_bytes = matrix_to_bytes(
+                                    &Matrix4::from(prev_gpu_data.slots[slot_index as usize].light_view_proj));
+                                let off = matrix_index as usize * self.slot_stride as usize;
+                                matrix_bytes[off..off + 64].copy_from_slice(&vp_bytes);
                             }
                             slot_matrix_offsets.push(matrix_index);
                             slot_index += 1;
@@ -514,6 +519,11 @@ impl ShadowRenderer {
                         if slot_index < self.max_slots as u32 {
                             self.gpu_data.slots[slot_index as usize] =
                                 prev_gpu_data.slots[slot_index as usize];
+                            // Preserve previous frame's VP matrix
+                            let vp_bytes = matrix_to_bytes(
+                                &Matrix4::from(prev_gpu_data.slots[slot_index as usize].light_view_proj));
+                            let off = matrix_index as usize * self.slot_stride as usize;
+                            matrix_bytes[off..off + 64].copy_from_slice(&vp_bytes);
                         }
                         slot_matrix_offsets.push(matrix_index);
                         slot_index += 1;
@@ -564,10 +574,15 @@ impl ShadowRenderer {
         queue.write_buffer(&self.matrix_buffer, 0, &matrix_bytes);
 
         // Render each slot that targets the 2D depth array
-        // (directional cascades + spot lights; point lights rendered inline above)
+        // (directional cascades + spot lights; point lights rendered inline above).
+        // Clean slots (not in dirty_set) are skipped — their depth data from the
+        // previous frame is preserved without re-rendering.
         for i in 0..slot_index {
             let slot = &self.gpu_data.slots[i as usize];
             if slot.shadow_type == SHADOW_TYPE_POINT {
+                continue;
+            }
+            if !dirty_set.contains(&slot.light_index) {
                 continue;
             }
 
