@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use cgmath::{InnerSpace, Vector2, Vector3};
 use orbital_resources::{MeshDescriptor, Vertex};
 
-const PHI: f32 = 1.618033988749895;
+const PHI: f32 = 1.618_034;
 
 fn icosahedron_vertices() -> [Vector3<f32>; 12] {
     [
