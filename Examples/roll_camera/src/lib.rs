@@ -3,11 +3,9 @@ use orbital::app::{App, AppSettings, Module};
 use orbital::cgmath::{Point3, Rad};
 use orbital::ecs::{IntoSystem, Res, System, World};
 use orbital::ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, DeltaTime, EnvironmentDescriptorResource,
-    Position, Rotation,
+    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, DeltaTime, Position, Rotation,
 };
 use orbital::logging::{self, error, info};
-use orbital::resources::WorldEnvironmentDescriptor;
 
 pub const NAME: &str = "Orbital-Demo-Project: RollCamera";
 
@@ -68,16 +66,6 @@ impl Module for RollCameraModule {
         ecs.attach_component(&camera, Rotation::identity()).unwrap();
         ecs.insert_resource(ActiveCamera(camera));
         ecs.insert_resource(CursorGrabConfig(true));
-
-        // Set environment
-        ecs.insert_resource(EnvironmentDescriptorResource(Some(
-            WorldEnvironmentDescriptor::FromFile {
-                cube_face_size: 2048,
-                path: "Assets/WorldEnvironments/PhotoStudio.hdr".to_string(),
-                sampling_type: WorldEnvironmentDescriptor::DEFAULT_SAMPLING_TYPE,
-                custom_specular_mip_level_count: None,
-            },
-        )));
 
         // Return systems
         vec![

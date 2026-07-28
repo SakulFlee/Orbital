@@ -2,10 +2,8 @@ use orbital::app::{Module, sys_camera_controller};
 use orbital::cgmath::{Point3, Rad};
 use orbital::ecs::{IntoSystem, Res, System, World};
 use orbital::ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, DeltaTime, EnvironmentDescriptorResource,
-    Position, Rotation,
+    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, DeltaTime, Position, Rotation,
 };
-use orbital::resources::WorldEnvironmentDescriptor;
 
 pub struct CameraModule;
 
@@ -35,16 +33,6 @@ impl Module for CameraModule {
         ecs.attach_component(&camera, Rotation::identity()).unwrap();
         ecs.insert_resource(ActiveCamera(camera));
         ecs.insert_resource(CursorGrabConfig(true));
-
-        // Set environment
-        ecs.insert_resource(EnvironmentDescriptorResource(Some(
-            WorldEnvironmentDescriptor::FromFile {
-                cube_face_size: 2048,
-                path: "Assets/WorldEnvironments/PhotoStudio.hdr".to_string(),
-                sampling_type: WorldEnvironmentDescriptor::DEFAULT_SAMPLING_TYPE,
-                custom_specular_mip_level_count: None,
-            },
-        )));
 
         vec![sys_camera_controller.into_system(), sys_roll.into_system()]
     }

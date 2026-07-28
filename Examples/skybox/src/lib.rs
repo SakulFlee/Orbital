@@ -2,11 +2,9 @@ use orbital::app::{App, AppSettings, Module, sys_camera_controller};
 use orbital::cgmath::{Point3, Rad};
 use orbital::ecs::{IntoSystem, System, World};
 use orbital::ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, EnvironmentDescriptorResource, Position,
-    Rotation,
+    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, Position, Rotation,
 };
 use orbital::logging::{self, error, info};
-use orbital::resources::WorldEnvironmentDescriptor;
 
 pub const NAME: &str = "Orbital-Demo-Project: SkyBox";
 
@@ -63,16 +61,6 @@ impl Module for SkyboxModule {
         ecs.attach_component(&camera, Rotation::identity()).unwrap();
         ecs.insert_resource(ActiveCamera(camera));
         ecs.insert_resource(CursorGrabConfig(true));
-
-        // Set initial environment
-        ecs.insert_resource(EnvironmentDescriptorResource(Some(
-            WorldEnvironmentDescriptor::FromFile {
-                cube_face_size: 2048,
-                path: "Assets/WorldEnvironments/Kloppenheim.hdr".to_string(),
-                sampling_type: WorldEnvironmentDescriptor::DEFAULT_SAMPLING_TYPE,
-                custom_specular_mip_level_count: None,
-            },
-        )));
 
         vec![sys_camera_controller.into_system()]
     }
