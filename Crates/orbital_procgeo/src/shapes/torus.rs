@@ -47,10 +47,10 @@ pub fn torus(
     let row = min + 1;
     for j in 0..maj {
         for i in 0..min {
-            let tl = (j * row + i);
-            let tr = (j * row + i + 1);
-            let bl = ((j + 1) * row + i);
-            let br = ((j + 1) * row + i + 1);
+            let tl = j * row + i ;
+            let tr = j * row + i + 1 ;
+            let bl = (j + 1) * row + i ;
+            let br = (j + 1) * row + i + 1 ;
             indices.extend_from_slice(&[tl, bl, br, tl, br, tr]);
         }
     }

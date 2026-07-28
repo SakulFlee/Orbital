@@ -36,10 +36,10 @@ pub fn uv_sphere(radius: f32, segments: u32, rings: u32) -> MeshDescriptor {
     let row = segs + 1;
     for j in 0..rngs {
         for i in 0..segs {
-            let tl = (j * row + i);
-            let tr = (j * row + i + 1);
-            let bl = ((j + 1) * row + i);
-            let br = ((j + 1) * row + i + 1);
+            let tl = j * row + i ;
+            let tr = j * row + i + 1 ;
+            let bl = (j + 1) * row + i ;
+            let br = (j + 1) * row + i + 1 ;
             indices.extend_from_slice(&[tl, bl, br, tl, br, tr]);
         }
     }
