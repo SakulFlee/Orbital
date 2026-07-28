@@ -145,6 +145,34 @@ impl WorldEnvironment {
         }
     }
 
+    pub fn bind_group_layout_descriptor_sky_gen() -> BindGroupLayoutDescriptor<'static> {
+        BindGroupLayoutDescriptor {
+            label: Some("Sky Generation"),
+            entries: &[
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::StorageTexture {
+                        access: StorageTextureAccess::WriteOnly,
+                        format: TextureFormat::Rgba32Float,
+                        view_dimension: TextureViewDimension::D2,
+                    },
+                    count: None,
+                },
+            ],
+        }
+    }
+
     pub fn find_cache_dir() -> PathBuf {
         dirs::cache_dir().expect("Could not find a valid cache location for the current platform! This platform might be unsupported ...")
     .join("Orbital").join("IBLs")
@@ -293,8 +321,25 @@ impl WorldEnvironment {
                     queue,
                 )
             }
-            WorldEnvironmentDescriptor::Generated { .. } => {
-                todo!("Generated IBL: pipeline wiring (commit 3)")
+            WorldEnvironmentDescriptor::Generated {
+                cube_face_size,
+                sampling_type,
+                custom_specular_mip_level_count: specular_mip_level_count,
+                parameters,
+            } => {
+                let clamped_mip_levels = Self::calculate_specular_mip_level_count(
+                    *cube_face_size,
+                    specular_mip_level_count.as_ref(),
+                );
+
+                Self::make_ibl_from_sky_parameters(
+                    parameters.as_ref().unwrap_or(&GeneratedSkyParameters::default()),
+                    *cube_face_size,
+                    sampling_type,
+                    clamped_mip_levels,
+                    device,
+                    queue,
+                )
             }
             WorldEnvironmentDescriptor::None => Err(Box::new(WorldEnvironmentError::msg(
                 "WorldEnvironmentDescriptor::None should not reach make_from_descriptor",
@@ -421,6 +466,155 @@ impl WorldEnvironment {
         };
 
         // Generate specular mip maps incrementally
+        let specular = Self::generate_specular_mip_maps_incremental(
+            &raw_specular,
+            sampling_type,
+            specular_mip_level_count,
+            device,
+            queue,
+        );
+
+        Ok((diffuse, specular))
+    }
+
+    fn make_ibl_from_sky_parameters(
+        params: &GeneratedSkyParameters,
+        dst_size: u32,
+        sampling_type: &SamplingType,
+        specular_mip_level_count: u32,
+        device: &Device,
+        queue: &Queue,
+    ) -> Result<(Texture, Texture), Box<dyn Error>> {
+        let src_width = dst_size * 2;
+        let src_height = dst_size;
+
+        // Create empty equirectangular source texture
+        let raw_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Generated Sky Equirectangular SRC"),
+            size: Extent3d {
+                width: src_width,
+                height: src_height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: TextureFormat::Rgba32Float,
+            usage: TextureUsages::STORAGE_BINDING
+                | TextureUsages::TEXTURE_BINDING
+                | TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+
+        let src_view = raw_texture.create_view(&TextureViewDescriptor::default());
+        let dst_view = raw_texture.create_view(&TextureViewDescriptor {
+            label: Some("Generated Sky processing view"),
+            dimension: Some(TextureViewDimension::D2),
+            ..Default::default()
+        });
+
+        let src_sampler = device.create_sampler(&SamplerDescriptor {
+            label: Some("Generated Sky SRC Sampler"),
+            address_mode_u: AddressMode::ClampToEdge,
+            address_mode_v: AddressMode::ClampToEdge,
+            address_mode_w: AddressMode::ClampToEdge,
+            mag_filter: WFilterMode::Linear,
+            min_filter: WFilterMode::Linear,
+            mipmap_filter: MipmapFilterMode::Linear,
+            ..Default::default()
+        });
+
+        let src_tex = Texture::from_existing(
+            raw_texture,
+            src_view,
+            src_sampler,
+            TextureViewDimension::D2,
+        );
+
+        // Generate the atmospheric scattering sky
+        {
+            let bind_group_layout = device.create_bind_group_layout(
+                &Self::bind_group_layout_descriptor_sky_gen(),
+            );
+            let params_buffer = Self::make_sky_parameters_buffer(params, device);
+
+            let bind_group = device.create_bind_group(&BindGroupDescriptor {
+                label: Some("Sky Generation Bind Group"),
+                layout: &bind_group_layout,
+                entries: &[
+                    BindGroupEntry {
+                        binding: 0,
+                        resource: BindingResource::Buffer(
+                            params_buffer.as_entire_buffer_binding(),
+                        ),
+                    },
+                    BindGroupEntry {
+                        binding: 1,
+                        resource: BindingResource::TextureView(&dst_view),
+                    },
+                ],
+            });
+
+            let pipeline = Self::make_compute_pipeline(
+                &[Some(&bind_group_layout)],
+                include_wgsl!("generate_sky.wgsl"),
+                "main",
+                device,
+            );
+
+            let mut encoder = device.create_command_encoder(&Default::default());
+            {
+                let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor {
+                    label: Some("Procedural Sky Generation"),
+                    ..Default::default()
+                });
+
+                let workgroup_size = 8u32;
+                let wg_x = src_width.div_ceil(workgroup_size);
+                let wg_y = src_height.div_ceil(workgroup_size);
+
+                debug!(
+                    "Generating procedural atmospheric sky ({}x{}) ...",
+                    src_width, src_height
+                );
+
+                pass.set_pipeline(&pipeline);
+                pass.set_bind_group(0, &bind_group, &[]);
+                pass.dispatch_workgroups(wg_x, wg_y, 1);
+            }
+            queue.submit([encoder.finish()]);
+        }
+
+        // Generate diffuse IBL from the generated source
+        let diffuse = {
+            let mut encoder = device.create_command_encoder(&Default::default());
+            let result = Self::make_ibl_diffuse(
+                dst_size,
+                &device.create_bind_group_layout(&Self::bind_group_layout_descriptor()),
+                src_tex.view(),
+                &mut encoder,
+                device,
+            );
+            queue.submit([encoder.finish()]);
+            result
+        };
+
+        // Generate specular IBL base level
+        let raw_specular = {
+            let mut encoder = device.create_command_encoder(&Default::default());
+            let result = Self::make_ibl_specular(
+                dst_size,
+                &device.create_bind_group_layout(&Self::bind_group_layout_descriptor()),
+                src_tex.view(),
+                specular_mip_level_count,
+                &mut encoder,
+                device,
+            );
+            queue.submit([encoder.finish()]);
+            result
+        };
+
+        // Generate specular mip maps
         let specular = Self::generate_specular_mip_maps_incremental(
             &raw_specular,
             sampling_type,
@@ -817,6 +1011,49 @@ impl WorldEnvironment {
                 binding: 0,
                 resource: BindingResource::Buffer(buffer.as_entire_buffer_binding()),
             }],
+        })
+    }
+
+    pub(crate) fn make_sky_parameters_buffer(params: &GeneratedSkyParameters, device: &Device) -> wgpu::Buffer {
+        let mut data = Vec::with_capacity(96);
+
+        let wf = |v: &mut Vec<u8>, f: f32| v.extend_from_slice(&f.to_le_bytes());
+
+        // Row 0: sun_direction (vec3) + _pad0
+        wf(&mut data, params.sun_direction[0]);
+        wf(&mut data, params.sun_direction[1]);
+        wf(&mut data, params.sun_direction[2]);
+        wf(&mut data, 0.0);
+        // Row 1: 4 × f32
+        wf(&mut data, params.sun_angular_radius);
+        wf(&mut data, params.sun_intensity);
+        wf(&mut data, params.rayleigh_scale_height);
+        wf(&mut data, params.mie_scale_height);
+        // Row 2: rayleigh_scattering (vec3) + _pad1
+        wf(&mut data, params.rayleigh_scattering_coeff[0]);
+        wf(&mut data, params.rayleigh_scattering_coeff[1]);
+        wf(&mut data, params.rayleigh_scattering_coeff[2]);
+        wf(&mut data, 0.0);
+        // Row 3: 4 × f32
+        wf(&mut data, params.mie_scattering_coeff);
+        wf(&mut data, params.mie_absorption_coeff);
+        wf(&mut data, params.mie_anisotropy);
+        wf(&mut data, 0.0);
+        // Row 4: ground_albedo (vec3) + _pad3
+        wf(&mut data, params.ground_albedo[0]);
+        wf(&mut data, params.ground_albedo[1]);
+        wf(&mut data, params.ground_albedo[2]);
+        wf(&mut data, 0.0);
+        // Row 5: 4 × f32
+        wf(&mut data, params.planet_radius);
+        wf(&mut data, params.atmosphere_radius);
+        wf(&mut data, params.exposure);
+        wf(&mut data, 0.0);
+
+        device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("Sky Parameters"),
+            contents: &data,
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
         })
     }
 

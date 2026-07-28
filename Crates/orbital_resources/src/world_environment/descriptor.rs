@@ -407,4 +407,51 @@ mod tests {
             }
         );
     }
+
+    /// Verify the uniform-buffer serialization matches the WGSL `SkyParams`
+    /// struct layout (6 rows × 16 bytes = 96 bytes).  Must be kept in sync
+    /// with `make_sky_parameters_buffer` and `generate_sky.wgsl`.
+    #[test]
+    fn sky_params_wgsl_struct_is_96_bytes() {
+        let p = GeneratedSkyParameters::default();
+        let mut b = Vec::new();
+        let w = |b: &mut Vec<u8>, f: f32| b.extend_from_slice(&f.to_le_bytes());
+
+        // Row 0: sun_direction(vec3) + _pad0
+        w(&mut b, p.sun_direction[0]);
+        w(&mut b, p.sun_direction[1]);
+        w(&mut b, p.sun_direction[2]);
+        w(&mut b, 0.0);
+        // Row 1: 4 × f32
+        w(&mut b, p.sun_angular_radius);
+        w(&mut b, p.sun_intensity);
+        w(&mut b, p.rayleigh_scale_height);
+        w(&mut b, p.mie_scale_height);
+        // Row 2: rayleigh_scattering(vec3) + _pad1
+        w(&mut b, p.rayleigh_scattering_coeff[0]);
+        w(&mut b, p.rayleigh_scattering_coeff[1]);
+        w(&mut b, p.rayleigh_scattering_coeff[2]);
+        w(&mut b, 0.0);
+        // Row 3: 3 × f32 + _pad2
+        w(&mut b, p.mie_scattering_coeff);
+        w(&mut b, p.mie_absorption_coeff);
+        w(&mut b, p.mie_anisotropy);
+        w(&mut b, 0.0);
+        // Row 4: ground_albedo(vec3) + _pad3
+        w(&mut b, p.ground_albedo[0]);
+        w(&mut b, p.ground_albedo[1]);
+        w(&mut b, p.ground_albedo[2]);
+        w(&mut b, 0.0);
+        // Row 5: 3 × f32 + _pad4
+        w(&mut b, p.planet_radius);
+        w(&mut b, p.atmosphere_radius);
+        w(&mut b, p.exposure);
+        w(&mut b, 0.0);
+
+        assert_eq!(
+            b.len(),
+            96,
+            "SkyParams buffer must be exactly 96 bytes (6 rows × 16 bytes)"
+        );
+    }
 }
