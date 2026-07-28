@@ -69,7 +69,7 @@ pub struct ShadowRenderer {
 
 impl ShadowRenderer {
     pub fn new(device: &Device, queue: &Queue, max_slots: u32, resolution: u32) -> Self {
-        let initial_layers = 1u32.max(max_slots);
+        let initial_layers = 1u32; // min 1 layer (wgpu req.), grows on demand
 
         let depth_texture = Self::create_depth_array_texture(device, resolution, initial_layers);
 
