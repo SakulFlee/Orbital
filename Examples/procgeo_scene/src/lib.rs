@@ -344,9 +344,8 @@ impl Module for ProcgeoSceneModule {
                 LightDescriptorEcs::new_point(colors[i as usize], 30.0)).unwrap();
             ecs.attach_component(&pl, Position(lpos)).unwrap();
             ecs.attach_component(&pl, LightDirty(true)).unwrap();
+            ecs.attach_component(&pl, ShadowCaster::default()).unwrap();
         }
-
-        // TEMPORARY: light animator system
         let animator = LightAnimator::new(spot_light);
 
         // Low-intensity directional fill light for scene-wide diffuse lighting
