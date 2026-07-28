@@ -47,3 +47,8 @@ fn shadow_depth_shader_is_valid_wgsl() {
 fn instance_cull_shader_is_valid_wgsl() {
     validate("Assets/Shaders/instance_cull.wgsl");
 }
+
+#[test]
+fn generate_sky_shader_is_valid_wgsl() {
+    validate("Crates/orbital_resources/src/world_environment/generate_sky.wgsl");
+}
