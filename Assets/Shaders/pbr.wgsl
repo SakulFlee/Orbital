@@ -436,21 +436,16 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_depth: f32, light_idx: u3
                 return factor;
             }
         } else if (slot.shadow_type == SHADOW_TYPE_SPOT) {
-            // Depth-range gate: skip this slot if the fragment is beyond
-            // its far plane. The next SPOT slot (if any) covers the next
-            // depth range. This prevents near and far geometry from
-            // overlapping in shadow space.
             let dist = length(light.position.xyz - world_pos);
             if (dist > slot.cascade_split_depth) {
                 spot_idx++;
                 continue;
             }
 
-            // Normal-offset bias: push the sample point out along the
-            // surface normal before projection (~1-2 shadow texels).
-            // This handles grazing-angle acne without the 1/dist² depth-
-            // bias blowup.  A small constant depth bias is layered on top.
-            let offset_pos = world_pos + normal * slot.bias * 20.0;
+            // Clamped perspective depth bias: scales up near the light
+            // (prevents acne) but is capped to avoid blowing through the
+            // comparison entirely (prevents the bright-disc artifact).
+            let bias_scale = clamp(SPOT_BIAS_SCALE / max(dist * dist, 0.1), 0.5, 5.0);
 
             // Prefer the vertex-shader-interpolated clip position.
             var vs_clip = vec4(0.0);
@@ -466,7 +461,7 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_depth: f32, light_idx: u3
             if (vs_clip.w > 0.0) {
                 clip_pos = vs_clip;
             } else {
-                clip_pos = slot.light_view_proj * vec4<f32>(offset_pos, 1.0);
+                clip_pos = slot.light_view_proj * vec4<f32>(world_pos, 1.0);
             }
             spot_idx++;
 
@@ -479,7 +474,7 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_depth: f32, light_idx: u3
             let ndc = clip_pos.xyz / clip_pos.w;
             let shadow_coord = vec3<f32>(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5, ndc.z);
             if (all(shadow_coord.xy >= vec2<f32>(0.0)) && all(shadow_coord.xy < vec2<f32>(1.0)) && shadow_coord.z >= 0.0 && shadow_coord.z <= 1.0) {
-                factor = sample_shadow_2d_pcf(slot.layer_index, shadow_coord, shadow_coord.z - bias * 2.0);
+                factor = sample_shadow_2d_pcf(slot.layer_index, shadow_coord, shadow_coord.z - bias * bias_scale);
                 return factor;
             }
             // Outside the shadow frustum: try the next depth slot (if any).
