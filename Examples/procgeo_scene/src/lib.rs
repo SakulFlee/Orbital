@@ -6,14 +6,13 @@ use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector3};
 use orbital::debug_render::DebugModule;
 use orbital::ecs::{Commands, ComponentAccess, IntoSystem, System, World};
 use orbital::ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, EnvironmentDescriptorResource,
-    ImportQueueResource, LightDescriptorEcs, LightDirty, ModelDescriptorEcs, ModelDirty,
-    ModelInstances, Position, Rotation,
+    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, ImportQueueResource, LightDescriptorEcs,
+    LightDirty, ModelDescriptorEcs, ModelDirty, ModelInstances, Position, Rotation,
 };
 use orbital::importer::{ImportTask, gltf::GltfImport};
 use orbital::logging::{self, error, info};
 use orbital::procgeo::scene::SceneBuilder;
-use orbital::resources::{ShadowCaster, Transform, WorldEnvironmentDescriptor};
+use orbital::resources::{ShadowCaster, Transform};
 use winit::keyboard::KeyCode;
 
 pub const NAME: &str = "Orbital-Demo-Project: ProcGeo Scene";
@@ -226,16 +225,6 @@ impl Module for ProcgeoSceneModule {
         ecs.attach_component(&camera, Rotation(rot)).unwrap();
         ecs.insert_resource(ActiveCamera(camera));
         ecs.insert_resource(CursorGrabConfig(true));
-
-        // Load an IBL environment map for realistic ambient lighting
-        ecs.insert_resource(EnvironmentDescriptorResource(Some(
-            WorldEnvironmentDescriptor::FromFile {
-                cube_face_size: 2048,
-                path: "Assets/WorldEnvironments/PhotoStudio.hdr".to_string(),
-                sampling_type: WorldEnvironmentDescriptor::DEFAULT_SAMPLING_TYPE,
-                custom_specular_mip_level_count: None,
-            },
-        )));
 
         // Load scene from RON file
         let scene = match SceneBuilder::load("Assets/Scenes/procgeo_demo.ron") {
