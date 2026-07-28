@@ -1,7 +1,7 @@
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
-use orbital::app::{sys_camera_controller, App, AppSettings, Module};
+use orbital::app::{App, AppSettings, Module, sys_camera_controller};
 use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector3};
 use orbital::debug_render::DebugModule;
 use orbital::ecs::{Commands, ComponentAccess, IntoSystem, System, World};
@@ -10,10 +10,10 @@ use orbital::ecs_bridge::{
     ImportQueueResource, LightDescriptorEcs, LightDirty, ModelDescriptorEcs, ModelDirty,
     ModelInstances, Position, Rotation,
 };
-use orbital::importer::{gltf::GltfImport, ImportTask};
+use orbital::importer::{ImportTask, gltf::GltfImport};
 use orbital::logging::{self, error, info};
 use orbital::procgeo::scene::SceneBuilder;
-use orbital::resources::{ShadowCaster, Transform};
+use orbital::resources::{ShadowCaster, Transform, WorldEnvironmentDescriptor};
 use winit::keyboard::KeyCode;
 
 pub const NAME: &str = "Orbital-Demo-Project: ProcGeo Scene";
@@ -90,7 +90,11 @@ impl System for HelmetAdjuster {
                 Some(i) => i,
                 None => continue,
             };
-            if !descs.components[idx].label.to_lowercase().contains("helmet") {
+            if !descs.components[idx]
+                .label
+                .to_lowercase()
+                .contains("helmet")
+            {
                 continue;
             }
 
@@ -169,8 +173,12 @@ impl LightAnimator {
 }
 
 impl System for LightAnimator {
-    fn name(&self) -> &str { "light_animator" }
-    fn access(&self) -> &ComponentAccess { &self.access }
+    fn name(&self) -> &str {
+        "light_animator"
+    }
+    fn access(&self) -> &ComponentAccess {
+        &self.access
+    }
 
     fn run(&mut self, world: &World, commands: &mut Commands) {
         let dt = world
@@ -219,8 +227,15 @@ impl Module for ProcgeoSceneModule {
         ecs.insert_resource(ActiveCamera(camera));
         ecs.insert_resource(CursorGrabConfig(true));
 
-        // No environment — scene is completely dark
-        ecs.insert_resource(EnvironmentDescriptorResource(None));
+        // Load an IBL environment map for realistic ambient lighting
+        ecs.insert_resource(EnvironmentDescriptorResource(Some(
+            WorldEnvironmentDescriptor::FromFile {
+                cube_face_size: 2048,
+                path: "Assets/WorldEnvironments/PhotoStudio.hdr".to_string(),
+                sampling_type: WorldEnvironmentDescriptor::DEFAULT_SAMPLING_TYPE,
+                custom_specular_mip_level_count: None,
+            },
+        )));
 
         // Load scene from RON file
         let scene = match SceneBuilder::load("Assets/Scenes/procgeo_demo.ron") {
@@ -273,12 +288,16 @@ impl Module for ProcgeoSceneModule {
         ecs.attach_component(
             &spot_light,
             LightDescriptorEcs::new_spot(
-                Vector3::new(1.0, 1.0, 1.0), 50.0,
+                Vector3::new(1.0, 1.0, 1.0),
+                50.0,
                 Vector3::new(dir.x, dir.y, dir.z),
-                0.1, 0.44, // inner/outer ~6°/~25°
+                0.1,
+                0.44, // inner/outer ~6°/~25°
             ),
-        ).unwrap();
-        ecs.attach_component(&spot_light, Position(spot_pos)).unwrap();
+        )
+        .unwrap();
+        ecs.attach_component(&spot_light, Position(spot_pos))
+            .unwrap();
         ecs.attach_component(&spot_light, LightDirty(true)).unwrap();
         ecs.attach_component(
             &spot_light,
@@ -293,9 +312,13 @@ impl Module for ProcgeoSceneModule {
         // ── Point lights for Rooms 1 & 2 (x=-20, x=-10) ───────────
         for room_x in [-20.0, -10.0f32] {
             let pl = ecs.spawn_entity();
-            ecs.attach_component(&pl,
-                LightDescriptorEcs::new_point(Vector3::new(1.0, 1.0, 1.0), 50.0)).unwrap();
-            ecs.attach_component(&pl, Position(Point3::new(room_x, 5.0, 0.0))).unwrap();
+            ecs.attach_component(
+                &pl,
+                LightDescriptorEcs::new_point(Vector3::new(1.0, 1.0, 1.0), 50.0),
+            )
+            .unwrap();
+            ecs.attach_component(&pl, Position(Point3::new(room_x, 5.0, 0.0)))
+                .unwrap();
             ecs.attach_component(&pl, LightDirty(true)).unwrap();
             ecs.attach_component(&pl, ShadowCaster::default()).unwrap();
         }
@@ -310,11 +333,14 @@ impl Module for ProcgeoSceneModule {
             ecs.attach_component(
                 &hl,
                 LightDescriptorEcs::new_spot(
-                    Vector3::new(1.0, 0.9, 0.8), 30.0,
+                    Vector3::new(1.0, 0.9, 0.8),
+                    30.0,
                     Vector3::new(d.x, d.y, d.z),
-                    0.1, 0.44,
+                    0.1,
+                    0.44,
                 ),
-            ).unwrap();
+            )
+            .unwrap();
             ecs.attach_component(&hl, Position(lpos)).unwrap();
             ecs.attach_component(&hl, LightDirty(true)).unwrap();
             ecs.attach_component(
@@ -324,24 +350,29 @@ impl Module for ProcgeoSceneModule {
                     bias: 0.0002,
                     ..Default::default()
                 },
-            ).unwrap();
+            )
+            .unwrap();
         }
 
         // ── Colorful point-light ring for Room 5 helmet (x=20) ───────
         let helmet_20 = Point3::new(20.0, 2.2, 0.0);
         let colors: [Vector3<_>; 8] = [
-            Vector3::new(1.0, 0.2, 0.2), Vector3::new(1.0, 0.6, 0.1),
-            Vector3::new(1.0, 1.0, 0.2), Vector3::new(0.2, 1.0, 0.2),
-            Vector3::new(0.2, 0.6, 1.0), Vector3::new(0.4, 0.2, 1.0),
-            Vector3::new(1.0, 0.2, 1.0), Vector3::new(1.0, 0.9, 0.8),
+            Vector3::new(1.0, 0.2, 0.2),
+            Vector3::new(1.0, 0.6, 0.1),
+            Vector3::new(1.0, 1.0, 0.2),
+            Vector3::new(0.2, 1.0, 0.2),
+            Vector3::new(0.2, 0.6, 1.0),
+            Vector3::new(0.4, 0.2, 1.0),
+            Vector3::new(1.0, 0.2, 1.0),
+            Vector3::new(1.0, 0.9, 0.8),
         ];
         for i in 0u32..8u32 {
             let angle = std::f32::consts::TAU * i as f32 / 8.0;
             let (s, c) = angle.sin_cos();
             let lpos = Point3::new(helmet_20.x + c * 3.0, 4.0, helmet_20.z + s * 3.0);
             let pl = ecs.spawn_entity();
-            ecs.attach_component(&pl,
-                LightDescriptorEcs::new_point(colors[i as usize], 30.0)).unwrap();
+            ecs.attach_component(&pl, LightDescriptorEcs::new_point(colors[i as usize], 30.0))
+                .unwrap();
             ecs.attach_component(&pl, Position(lpos)).unwrap();
             ecs.attach_component(&pl, LightDirty(true)).unwrap();
         }
@@ -353,11 +384,13 @@ impl Module for ProcgeoSceneModule {
             &fill,
             LightDescriptorEcs::new_directional(
                 Vector3::new(0.0, -0.6, -0.8), // emission direction (shader negates -> light from above)
-                Vector3::new(1.0, 0.88, 0.65),  // subtle warm white
+                Vector3::new(1.0, 0.88, 0.65), // subtle warm white
                 0.25,
             ),
-        ).unwrap();
-        ecs.attach_component(&fill, Position(Point3::new(0.0, 0.0, 0.0))).unwrap();
+        )
+        .unwrap();
+        ecs.attach_component(&fill, Position(Point3::new(0.0, 0.0, 0.0)))
+            .unwrap();
         ecs.attach_component(&fill, LightDirty(true)).unwrap();
 
         vec![
