@@ -522,7 +522,7 @@ impl ShadowRenderer {
                 continue;
             }
 
-            log::debug!(
+            log::trace!(
                 "Depth pass slot {}: type={} layer={} models={}",
                 i,
                 if slot.shadow_type == SHADOW_TYPE_DIRECTIONAL_CASCADE {
