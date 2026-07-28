@@ -122,7 +122,7 @@ impl System for HelmetAdjuster {
 
             let mut new_instances = ModelInstances::new();
             new_instances.add_instance(Transform::new(
-                Vector3::new(10.0, 2.2, 0.0),
+                Vector3::new(20.0, 2.2, 0.0),
                 final_rot,
                 original_transform.scale,
             ));
@@ -285,24 +285,63 @@ impl Module for ProcgeoSceneModule {
         )
         .unwrap();
 
-        // ── Spot lights for Rooms 2, 3, 4 ──────────────────────────
-        for room_x in [-10.0, 10.0, -20.0f32] {
-            let sl = ecs.spawn_entity();
-            let pos = Point3::new(room_x, 8.0, 6.0);
-            let tgt = Point3::new(room_x, 0.0, -2.0);
-            let d = (tgt - pos).normalize();
+        // ── Point lights for Rooms 1 & 2 (x=-20, x=-10) ───────────
+        for room_x in [-20.0, -10.0f32] {
+            let pl = ecs.spawn_entity();
             ecs.attach_component(
-                &sl,
-                LightDescriptorEcs::new_spot(
+                &pl,
+                LightDescriptorEcs::new_point(
                     Vector3::new(1.0, 1.0, 1.0), 50.0,
-                    Vector3::new(d.x, d.y, d.z),
-                0.1, 0.44, // inner/outer cone half-angle (rad, ~6°/~25°)
                 ),
             ).unwrap();
-            ecs.attach_component(&sl, Position(pos)).unwrap();
-            ecs.attach_component(&sl, LightDirty(true)).unwrap();
+            ecs.attach_component(&pl, Position(Point3::new(room_x, 5.0, 6.0))).unwrap();
+            ecs.attach_component(&pl, LightDirty(true)).unwrap();
+        }
+
+        // ── Spot light for Room 4 (x=10) ───────────────────────────
+        // (Kept as spot for consistent lighting across rooms)
+        let sl = ecs.spawn_entity();
+        let pos10 = Point3::new(10.0, 8.0, 6.0);
+        let tgt10 = Point3::new(10.0, 0.0, -2.0);
+        let d10 = (tgt10 - pos10).normalize();
+        ecs.attach_component(
+            &sl,
+            LightDescriptorEcs::new_spot(
+                Vector3::new(1.0, 1.0, 1.0), 50.0,
+                Vector3::new(d10.x, d10.y, d10.z),
+                0.1, 0.44,
+            ),
+        ).unwrap();
+        ecs.attach_component(&sl, Position(pos10)).unwrap();
+        ecs.attach_component(&sl, LightDirty(true)).unwrap();
+        ecs.attach_component(
+            &sl,
+            ShadowCaster {
+                cascade_count: 0,
+                bias: 0.0002,
+                ..Default::default()
+            },
+        ).unwrap();
+
+        // ── Spotlight ring for Room 5 helmet (x=20) ─────────────────
+        let helmet_center = Point3::new(20.0, 2.2, 0.0);
+        for angle in [0.0, 2.1, 4.2f32] {
+            let (s, c) = angle.sin_cos();
+            let lpos = Point3::new(helmet_center.x + c * 4.0, 4.0, helmet_center.z + s * 4.0);
+            let d = (helmet_center - lpos).normalize();
+            let hl = ecs.spawn_entity();
             ecs.attach_component(
-                &sl,
+                &hl,
+                LightDescriptorEcs::new_spot(
+                    Vector3::new(1.0, 0.9, 0.8), 30.0,
+                    Vector3::new(d.x, d.y, d.z),
+                    0.1, 0.44,
+                ),
+            ).unwrap();
+            ecs.attach_component(&hl, Position(lpos)).unwrap();
+            ecs.attach_component(&hl, LightDirty(true)).unwrap();
+            ecs.attach_component(
+                &hl,
                 ShadowCaster {
                     cascade_count: 0,
                     bias: 0.0002,
