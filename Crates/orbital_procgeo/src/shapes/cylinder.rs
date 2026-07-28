@@ -1,4 +1,4 @@
-use cgmath::{Vector2, Vector3, InnerSpace};
+use cgmath::{InnerSpace, Vector2, Vector3};
 use orbital_resources::{MeshDescriptor, Vertex};
 
 pub fn cylinder(radius: f32, height: f32, segments: u32) -> MeshDescriptor {
@@ -19,7 +19,12 @@ pub fn cylinder(radius: f32, height: f32, segments: u32) -> MeshDescriptor {
         let normal = Vector3::new(cos_t, 0.0, sin_t);
         let tangent = Vector3::new(-sin_t, 0.0, cos_t).normalize();
 
-        vertices.push(Vertex::new(pos_bottom, normal, tangent, Vector2::new(u, 0.0)));
+        vertices.push(Vertex::new(
+            pos_bottom,
+            normal,
+            tangent,
+            Vector2::new(u, 0.0),
+        ));
         vertices.push(Vertex::new(pos_top, normal, tangent, Vector2::new(u, 1.0)));
     }
 

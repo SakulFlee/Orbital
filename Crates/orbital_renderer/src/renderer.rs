@@ -6,7 +6,8 @@ use wgpu::{
 };
 
 use orbital_resources::{
-    CullResources, MaterialShader, Model, ShadowLightInfo, ShadowRenderer, Texture, WorldEnvironment,
+    CullResources, MaterialShader, Model, ShadowLightInfo, ShadowRenderer, Texture,
+    WorldEnvironment,
 };
 
 pub struct Renderer {
@@ -44,12 +45,7 @@ impl Renderer {
         max_slots: u32,
         resolution: u32,
     ) {
-        self.shadow_renderer = Some(ShadowRenderer::new(
-            device,
-            queue,
-            max_slots,
-            resolution,
-        ));
+        self.shadow_renderer = Some(ShadowRenderer::new(device, queue, max_slots, resolution));
     }
 
     pub fn shadow_renderer(&self) -> Option<&ShadowRenderer> {

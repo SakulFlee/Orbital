@@ -1,4 +1,4 @@
-use cgmath::{Vector2, Vector3, InnerSpace};
+use cgmath::{InnerSpace, Vector2, Vector3};
 use orbital_resources::{MeshDescriptor, Vertex};
 
 pub fn torus(
