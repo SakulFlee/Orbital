@@ -1,4 +1,4 @@
-use cgmath::{Vector2, Vector3, InnerSpace};
+use cgmath::{InnerSpace, Vector2, Vector3};
 use orbital_resources::{MeshDescriptor, Vertex};
 
 pub fn uv_sphere(radius: f32, segments: u32, rings: u32) -> MeshDescriptor {
@@ -36,10 +36,10 @@ pub fn uv_sphere(radius: f32, segments: u32, rings: u32) -> MeshDescriptor {
     let row = segs + 1;
     for j in 0..rngs {
         for i in 0..segs {
-            let tl = (j * row + i) as u32;
-            let tr = (j * row + i + 1) as u32;
-            let bl = ((j + 1) * row + i) as u32;
-            let br = ((j + 1) * row + i + 1) as u32;
+            let tl = j * row + i;
+            let tr = j * row + i + 1;
+            let bl = (j + 1) * row + i;
+            let br = (j + 1) * row + i + 1;
             indices.extend_from_slice(&[tl, bl, br, tl, br, tr]);
         }
     }

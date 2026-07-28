@@ -91,8 +91,8 @@ impl Module for DamagedHelmetModule {
                 Vector3::new(1.0, 0.9, 0.7), // warm white
                 8.0,
                 Vector3::new(0.0, -1.0, 1.0), // down + forward toward helmet
-                0.3,                           // inner cone (~17°)
-                0.5,                           // outer cone (~29°)
+                0.3,                          // inner cone (~17°)
+                0.5,                          // outer cone (~29°)
             ),
         )
         .unwrap();
@@ -102,7 +102,7 @@ impl Module for DamagedHelmetModule {
         ecs.attach_component(
             &spot,
             ShadowCaster {
-                cascade_count: 0, // 0 = spot (single perspective depth)
+                cascade_count: 0, // ignored for spot lights (single perspective map)
                 ..Default::default()
             },
         )
@@ -134,16 +134,16 @@ impl Module for DamagedHelmetModule {
 
         // Rainbow ring of 10 point lights around the helmet
         let colors = [
-            [1.0, 0.0, 0.0],   // red
-            [1.0, 0.5, 0.0],   // orange
-            [1.0, 1.0, 0.0],   // yellow
-            [0.5, 1.0, 0.0],   // lime
-            [0.0, 1.0, 0.0],   // green
-            [0.0, 1.0, 1.0],   // cyan
-            [0.0, 0.5, 1.0],   // blue
-            [0.5, 0.0, 1.0],   // purple
-            [1.0, 0.0, 1.0],   // magenta
-            [1.0, 0.2, 0.5],   // pink
+            [1.0, 0.0, 0.0], // red
+            [1.0, 0.5, 0.0], // orange
+            [1.0, 1.0, 0.0], // yellow
+            [0.5, 1.0, 0.0], // lime
+            [0.0, 1.0, 0.0], // green
+            [0.0, 1.0, 1.0], // cyan
+            [0.0, 0.5, 1.0], // blue
+            [0.5, 0.0, 1.0], // purple
+            [1.0, 0.0, 1.0], // magenta
+            [1.0, 0.2, 0.5], // pink
         ];
         let count = colors.len();
         for (i, &rgb) in colors.iter().enumerate() {
@@ -152,17 +152,11 @@ impl Module for DamagedHelmetModule {
             let entity = ecs.spawn_entity();
             ecs.attach_component(
                 &entity,
-                LightDescriptorEcs::new_point(
-                    Vector3::new(rgb[0], rgb[1], rgb[2]),
-                    3.0,
-                ),
+                LightDescriptorEcs::new_point(Vector3::new(rgb[0], rgb[1], rgb[2]), 3.0),
             )
             .unwrap();
-            ecs.attach_component(
-                &entity,
-                Position(Point3::new(c * 3.0, 2.0, s * 3.0)),
-            )
-            .unwrap();
+            ecs.attach_component(&entity, Position(Point3::new(c * 3.0, 2.0, s * 3.0)))
+                .unwrap();
             ecs.attach_component(&entity, LightDirty(true)).unwrap();
             // First red light casts cube shadows
             if i == 0 {

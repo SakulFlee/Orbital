@@ -29,6 +29,7 @@ pub mod material_shader;
 pub mod mesh;
 pub mod model;
 pub mod pbr_material_shader;
+pub mod projection;
 pub mod shader;
 pub mod shadow;
 pub mod texture;
@@ -46,6 +47,7 @@ pub use material_shader::*;
 pub use mesh::*;
 pub use model::*;
 pub use pbr_material_shader::*;
+pub use projection::*;
 pub use shader::*;
 pub use shadow::*;
 pub use texture::*;
@@ -153,7 +155,7 @@ pub fn make_world_bind_group_layout(device: &Device) -> BindGroupLayout {
                 },
                 count: None,
             },
-            // Shadow comparison sampler (binding 10)
+            // Shadow map sampler (binding 10) — comparison for hardware PCF
             BindGroupLayoutEntry {
                 binding: 10,
                 visibility: ShaderStages::FRAGMENT,
@@ -171,7 +173,7 @@ pub fn make_world_bind_group_layout(device: &Device) -> BindGroupLayout {
                 },
                 count: None,
             },
-            // Point light cube comparison sampler (binding 12)
+            // Point light cube sampler (binding 12) — comparison for hardware PCF
             BindGroupLayoutEntry {
                 binding: 12,
                 visibility: ShaderStages::FRAGMENT,

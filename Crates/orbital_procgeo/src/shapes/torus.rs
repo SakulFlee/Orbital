@@ -1,4 +1,4 @@
-use cgmath::{Vector2, Vector3, InnerSpace};
+use cgmath::{InnerSpace, Vector2, Vector3};
 use orbital_resources::{MeshDescriptor, Vertex};
 
 pub fn torus(
@@ -47,10 +47,10 @@ pub fn torus(
     let row = min + 1;
     for j in 0..maj {
         for i in 0..min {
-            let tl = (j * row + i) as u32;
-            let tr = (j * row + i + 1) as u32;
-            let bl = ((j + 1) * row + i) as u32;
-            let br = ((j + 1) * row + i + 1) as u32;
+            let tl = j * row + i;
+            let tr = j * row + i + 1;
+            let bl = (j + 1) * row + i;
+            let br = (j + 1) * row + i + 1;
             indices.extend_from_slice(&[tl, bl, br, tl, br, tr]);
         }
     }

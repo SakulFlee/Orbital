@@ -1,5 +1,6 @@
 const PI: f32 = 3.14159265359; 
 const F0_DEFAULT: f32 = 0.04;
+const AMBIENT_INTENSITY: f32 = 0.2;
 
 struct VertexData {
     @builtin(vertex_index) vertex_index: u32,
@@ -44,7 +45,7 @@ struct Light {
     position: vec4<f32>,     // xyz: position, w: padding
     color: vec4<f32>,        // xyz: color, w: intensity
     direction: vec4<f32>,    // xyz: direction, w: type
-    params: vec4<f32>,       // x: inner cone angle, y: outer cone angle, zw: padding
+    params: vec4<f32>,       // spot: x = angular attenuation scale, y = offset (cosine domain, glTF KHR_lights_punctual); unused otherwise
 }
 
 struct PBRFactors {
@@ -103,7 +104,9 @@ struct ShadowSlot {
     layer_index: u32,               // offset 68, size 4
     cascade_split_depth: f32,       // offset 72, size 4
     bias: f32,                      // offset 76, size 4
-}                                    // total: 80 bytes (WGSL padded to 80)
+    light_index: u32,               // offset 80, size 4
+    near_plane: f32,                // offset 84, size 4
+}                                    // total: 96 bytes (WGSL padded to 96)
 
 struct ShadowData {
     slots: array<ShadowSlot, 16>,
@@ -165,13 +168,13 @@ fn entrypoint_vertex(
     out.uv = vertex.uv;
 
     // Transform Tangent
-    out.tangent = (model_space_matrix * vec4<f32>(vertex.tangent, 0.0)).xyz;
+    out.tangent = normalize((model_space_matrix * vec4<f32>(vertex.tangent, 0.0)).xyz);
 
     // Transform Bitangent
-    out.bitangent = (model_space_matrix * vec4<f32>(vertex.bitangent, 0.0)).xyz;
+    out.bitangent = normalize((model_space_matrix * vec4<f32>(vertex.bitangent, 0.0)).xyz);
 
     // Transform Normal
-    out.normal = (model_space_matrix * vec4<f32>(vertex.normal, 0.0)).xyz;
+    out.normal = normalize((model_space_matrix * vec4<f32>(vertex.normal, 0.0)).xyz);
 
     return out;
 }
@@ -181,21 +184,17 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     let pbr = pbr_data(in);
     var output = vec3(0.0);
 
-    // View-space depth for shadow cascade selection
-    let view_distance = distance(camera.position.xyz, in.world_position);
+    let view_pos = camera.view_projection_matrix * vec4<f32>(in.world_position, 1.0);
+    let view_depth = -view_pos.z;
 
-    // IBL Ambient light
     var ambient = calculate_ambient_ibl(pbr);
+    ambient = max(ambient, vec3(0.005));
     output += ambient;
 
-    // Light reflectance
-    let light_reflectance = calculate_light_contribution(pbr, in.world_position, view_distance);
+    let light_reflectance = calculate_light_contribution(pbr, in.world_position, view_depth);
     output += light_reflectance;
-
-    // Add emissive "ontop"
     output += pbr.emissive;
 
-    // Tonemap / HDR 
     let tone_mapped_color = aces_tone_map(output);
     return vec4<f32>(tone_mapped_color, 1.0);
 }
@@ -221,54 +220,55 @@ fn aces_tone_map(color: vec3<f32>) -> vec3<f32> {
         vec3(1.0)
     );
 }
-
-fn calculate_light_contribution(pbr: PBRData, world_position: vec3<f32>, view_distance: f32) -> vec3<f32> {
+fn calculate_light_contribution(pbr: PBRData, world_position: vec3<f32>, view_depth: f32) -> vec3<f32> {
     var Lo = vec3(0.0);
-    let shadow_factor = compute_shadow_factor(world_position, view_distance);
-
     for (var i = u32(0); i < arrayLength(&light_store); i++) {
         let light = light_store[i];
-        Lo += calculate_light_brdf(light, pbr, world_position); 
+        var brdf = calculate_light_brdf(light, pbr, world_position);
+        let shadow = compute_shadow_for_light(world_position, view_depth, i, pbr.N);
+        Lo += brdf * shadow;
     }
-
-    return Lo * shadow_factor;
+    return Lo;
 }
 
 fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -> vec3<f32> {
     var L: vec3<f32>;
     var light_distance: f32 = 1.0;
     var attenuation: f32 = 1.0;
-    
+
     // Determine light type and calculate light direction and attenuation
     if (light.direction.w == LIGHT_TYPE_POINT) {
         // Point light
         L = light.position.xyz - world_position;
         light_distance = length(L);
         L = normalize(L);
-        // Attenuation for point lights: 1.0 / (constant + linear * distance + quadratic * distance^2)
-        // Using a simple quadratic attenuation for now
-        attenuation = 1.0 / (light_distance * light_distance);
+        // Attenuation for point lights: inverse-square with a distance
+        // floor to prevent radiance blowout near the light source.
+        let atten_dist = max(light_distance, 0.5);
+        attenuation = 1.0 / (atten_dist * atten_dist);
     } else if (light.direction.w == LIGHT_TYPE_DIRECTIONAL) {
         // Directional light
         L = normalize(-light.direction.xyz);
         // No attenuation for directional lights
         attenuation = 1.0;
     } else if (light.direction.w == LIGHT_TYPE_SPOT) {
-        // Spot light
+        // Spot light (glTF KHR_lights_punctual semantics)
         L = light.position.xyz - world_position;
         light_distance = length(L);
         L = normalize(L);
-        // Attenuation for spot lights
-        attenuation = 1.0 / (light_distance * light_distance);
-        
-        // Spot light angle calculation
-        let light_direction = normalize(-light.direction.xyz);
-        let theta = dot(L, light_direction);
-        let epsilon = light.params.x - light.params.y; // inner - outer
-        let intensity = clamp((theta - light.params.y) / epsilon, 0.0, 1.0);
-        
-        // Apply spot light intensity
-        attenuation *= intensity;
+        // Distance attenuation: inverse-square with a distance floor to
+        // prevent radiance blowout near the light (ACES compresses
+        // unbounded values to a flat, hard-edged disc).
+        let atten_dist = max(light_distance, 0.5);
+        attenuation = 1.0 / (atten_dist * atten_dist);
+
+        // Angular attenuation in the cosine domain with CPU-precomputed
+        // coefficients: params.x = scale, params.y = offset.
+        // cos_theta is the angle between the light direction and the
+        // direction from the light toward the fragment (-L).
+        let cos_theta = dot(-L, normalize(light.direction.xyz));
+        let angular = clamp(cos_theta * light.params.x + light.params.y, 0.0, 1.0);
+        attenuation *= angular;
     } else {
         // Unknown light type, return zero contribution
         return vec3(0.0);
@@ -277,6 +277,7 @@ fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -
     let H = normalize(pbr.V + L);
     let NdotL = clamp(dot(pbr.N, L), 0.0, 1.0);
     let NdotH = clamp(dot(pbr.N, H), 0.0, 1.0);
+    let VdotH = clamp(dot(pbr.V, H), 0.0, 1.0);
 
     var Lo: vec3<f32>;
     if NdotL > 0.0 {
@@ -284,16 +285,16 @@ fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -
         let D = distribution_ggx(NdotH, pbr.roughness);
         // Geometric/Microfacet shadowing term
         let G = schlick_smith_ggx(NdotL, pbr.NdotV, pbr.roughness);
-        // Fresnel factor (i.e. reflectance depending on angle of camera)
-        let F = fresnel_schlick(pbr.NdotV, pbr);
+        // Fresnel — evaluated at V·H for direct lighting (IBL uses N·V separately)
+        let F = fresnel_schlick(VdotH, pbr);
 
         let nominator = D * F * G;
-        let denominator = 4.0 * NdotL * pbr.NdotV + 0.0001; // +0.0001 prevents division by zero
-        let specular = nominator / denominator;
+        let denominator = 4.0 * NdotL * pbr.NdotV + 0.0001;
+        let specular = min(nominator / denominator, vec3(50.0));
         
-        // Combine diffuse and specular components
+        // Combine diffuse and specular — metals get zero diffuse
         let kS = F;
-        let kD = vec3(1.0) - kS;
+        let kD = (vec3(1.0) - kS) * (1.0 - pbr.metallic);
         let diffuse = kD * pbr.albedo / PI;
         
         Lo += (diffuse + specular) * light.color.rgb * light.color.w * attenuation * NdotL;
@@ -315,72 +316,123 @@ fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
     var specular_ibl = pbr.ibl_specular * (F * pbr.brdf_lut.x + pbr.brdf_lut.y);
 
     // Ambient light calculation (IBL), multiplied by ambient occlusion
-    return (diffuse_ibl + specular_ibl) * pbr.occlusion;
+    return (diffuse_ibl + specular_ibl) * pbr.occlusion * AMBIENT_INTENSITY;
 }
 
-/// Sample shadow map with 3x3 PCF.
-fn sample_shadow_pcf(layer: u32, shadow_coord: vec3<f32>, bias: f32) -> f32 {
-    let texel_size = 1.0 / vec2<f32>(textureDimensions(shadow_map_array));
-    let uv = shadow_coord.xy;
-    let compare_depth = shadow_coord.z - bias;
-
-    var shadow = 0.0;
-    for (var x = -1; x <= 1; x++) {
-        for (var y = -1; y <= 1; y++) {
-            let offset = vec2<f32>(f32(x), f32(y)) * texel_size;
-            shadow += textureSampleCompare(
-                shadow_map_array, shadow_sampler, uv + offset, layer, compare_depth
+/// Sample a 2D-array shadow map with 3x3 PCF: 9 hardware-compare taps,
+/// each bilinear-filtered by the comparison sampler.
+/// `depth` is the bias-corrected reference depth in [0, 1].
+fn sample_shadow_2d_pcf(layer: u32, shadow_coord: vec3<f32>, depth: f32) -> f32 {
+    let dims = vec2<f32>(textureDimensions(shadow_map_array));
+    let texel = 1.0 / dims;
+    // Clamp the center UV so that all 9 taps stay within [texel, 1-texel],
+    // preventing wraparound artifacts at the cone boundary.
+    let clamped_uv = clamp(shadow_coord.xy, texel, vec2<f32>(1.0) - texel);
+    var sum = 0.0;
+    for (var y = -1; y <= 1; y++) {
+        for (var x = -1; x <= 1; x++) {
+            let offset = vec2<f32>(f32(x), f32(y)) * texel;
+            sum += textureSampleCompare(
+                shadow_map_array, shadow_sampler,
+                clamped_uv + offset, i32(layer), depth
             );
         }
     }
-    return shadow / 9.0;
+    return sum / 9.0;
 }
 
-/// Compute shadow factor for a world position using the shadow slot array.
-/// view_distance is the distance from the camera to the fragment (for cascade selection).
-fn compute_shadow_factor(world_pos: vec3<f32>, view_distance: f32) -> f32 {
+/// Slope-scaled depth bias: subtle adjustment for sub-texel precision.
+/// Scaled by [1x, 1.5x].  The spot branch applies an additional
+/// perspective correction on top of this.
+fn slope_scaled_bias(base_bias: f32, n_dot_l: f32) -> f32 {
+    return base_bias * (1.0 + 0.5 * (1.0 - clamp(n_dot_l, 0.0, 1.0)));
+}
+
+// Perspective depth-derivative constant for the spot shadow path.
+// far * near / 49 (far − near) ≈ 1.02, controls how strongly the bias
+// scales with distance.
+const SPOT_BIAS_SCALE: f32 = 50.0;  // far × near
+
+fn compute_shadow_for_light(world_pos: vec3<f32>, view_depth: f32, light_idx: u32, normal: vec3<f32>) -> f32 {
     var factor = 1.0;
+    let light = light_store[light_idx];
+
+    // Direction from the fragment toward the light (for the slope-scaled bias)
+    var to_light: vec3<f32>;
+    if (light.direction.w == LIGHT_TYPE_DIRECTIONAL) {
+        to_light = normalize(-light.direction.xyz);
+    } else {
+        to_light = normalize(light.position.xyz - world_pos);
+    }
+    let n_dot_l = dot(normal, to_light);
+
     for (var i = 0u; i < shadow_data.cascade_count; i++) {
         let slot = shadow_data.slots[i];
 
+        // Skip slots that don't belong to this light
+        if (slot.light_index != light_idx) {
+            continue;
+        }
+
+        let bias = slope_scaled_bias(slot.bias, n_dot_l);
+
+        // World-space bias (for directional and point paths — constant
+        // to_light under directional lights avoids the quad-diagonal
+        // seam artifact that affects spot lights).
+        let world_bias = slot.bias * max(1.0 - clamp(n_dot_l, 0.0, 1.0), 0.01) * 2.0;
+        let biased_world_pos = world_pos + to_light * world_bias;
+
         if (slot.shadow_type == SHADOW_TYPE_DIRECTIONAL_CASCADE) {
             // Cascade check: skip if fragment is beyond this cascade
-            if (view_distance > slot.cascade_split_depth) {
+            if (view_depth > slot.cascade_split_depth) {
                 continue;
             }
-            // Standard projective shadow
-            let clip_pos = slot.light_view_proj * vec4<f32>(world_pos, 1.0);
-            let shadow_coord = clip_pos.xyz / clip_pos.w;
-            if (all(shadow_coord >= vec3(0.0)) && all(shadow_coord <= vec3(1.0))) {
-                factor = sample_shadow_pcf(slot.layer_index, shadow_coord, slot.bias);
+            let clip_pos = slot.light_view_proj * vec4<f32>(biased_world_pos, 1.0);
+            let ndc = clip_pos.xyz / clip_pos.w;
+            // Remap xy for texture sampling. Y is inverted because wgpu NDC
+            // +Y maps to the top of the framebuffer while texture V=0 is the
+            // top row (the projection does NOT flip Y).
+            let shadow_coord = vec3<f32>(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5, ndc.z);
+            if (all(shadow_coord.xy >= vec2<f32>(0.0)) && all(shadow_coord.xy < vec2<f32>(1.0)) && shadow_coord.z >= 0.0 && shadow_coord.z <= 1.0) {
+                factor = sample_shadow_2d_pcf(slot.layer_index, shadow_coord, shadow_coord.z - bias);
                 return factor;
             }
         } else if (slot.shadow_type == SHADOW_TYPE_SPOT) {
-            // Spot light: same projective shadow as directional
+            let dist = length(light.position.xyz - world_pos);
+            if (dist > slot.cascade_split_depth) {
+                continue;
+            }
+
+            let bias_scale = clamp(SPOT_BIAS_SCALE / max(dist * dist, 0.1), 0.5, 5.0);
+
             let clip_pos = slot.light_view_proj * vec4<f32>(world_pos, 1.0);
-            let shadow_coord = clip_pos.xyz / clip_pos.w;
-            if (all(shadow_coord >= vec3(0.0)) && all(shadow_coord <= vec3(1.0))) {
-                factor = sample_shadow_pcf(slot.layer_index, shadow_coord, slot.bias);
+
+            if (clip_pos.w <= 0.001) {
+                return 1.0;
+            }
+            let ndc = clip_pos.xyz / clip_pos.w;
+            let shadow_coord = vec3<f32>(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5, ndc.z);
+            if (all(shadow_coord.xy >= vec2<f32>(0.0)) && all(shadow_coord.xy < vec2<f32>(1.0)) && shadow_coord.z >= 0.0 && shadow_coord.z <= 1.0) {
+                factor = sample_shadow_2d_pcf(slot.layer_index, shadow_coord, shadow_coord.z - bias * bias_scale);
                 return factor;
             }
+            continue;
         } else if (slot.shadow_type == SHADOW_TYPE_POINT) {
-            // Point light: sample cube map using direction from light to fragment
+            // Cube map shadow: sample using direction from light to fragment
             let light_pos = slot.light_view_proj[3].xyz;
-            let frag_to_light = world_pos - light_pos;
-            let distance = length(frag_to_light);
+            let frag_to_light = biased_world_pos - light_pos;
             let direction = normalize(frag_to_light);
+            let abs_vec = abs(frag_to_light);
+            let view_z = max(max(abs_vec.x, abs_vec.y), abs_vec.z);
             let far_plane = slot.cascade_split_depth;
+            let near_plane = slot.near_plane;
 
-            // Convert linear distance to non-linear depth matching the perspective projection
-            let z = distance;
-            let n = 0.1;
-            let f = far_plane;
-            let depth = (f * (z - n)) / (z * (f - n));
+            // Reference depth in [0, 1] matching the wgpu-convention face projection
+            let depth = far_plane / (far_plane - near_plane) - far_plane * near_plane / (view_z * (far_plane - near_plane));
 
             factor = textureSampleCompare(
                 point_shadow_maps, point_shadow_sampler,
-                direction, slot.layer_index,
-                depth - slot.bias
+                direction, i32(slot.layer_index), depth - bias
             );
             return factor;
         }
@@ -470,7 +522,7 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
         fragment_data.uv
     ).r;
     let roughness_factored = roughness_sample * pbr_factors.roughness_factor;
-    let roughness_clamped = clamp(roughness_factored, 0.0001, 0.9999);
+    let roughness_clamped = clamp(roughness_factored, 0.045, 0.9999);
     out.roughness = roughness_clamped;
 
     let occlusion_sample = textureSample(
@@ -495,9 +547,9 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
         diffuse_sampler,
         out.N
     ).rgb;
-    let diffuse_clamped = clamp(diffuse_sample, vec3(0.0), vec3(1.0));
-    let diffuse_gamma_applied = pow(diffuse_clamped, vec3(camera.global_gamma));
-    out.ibl_diffuse = diffuse_gamma_applied;
+    // IBL environment maps are HDR linear (Rgba16Float) — no gamma
+    // decode needed, unlike sRGB albedo/emissive textures.
+    out.ibl_diffuse = diffuse_sample;
 
     let specular_mip_count = textureNumLevels(specular_env_map);
     let specular_mip_level = out.roughness * out.roughness * f32(specular_mip_count - 1u);
@@ -507,16 +559,16 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
         R,
         specular_mip_level
     ).rgb;
-    let specular_clamped = clamp(specular_sample, vec3(0.0), vec3(1.0));
-    let specular_gamma_applied = pow(specular_clamped, vec3(camera.global_gamma));
-    out.ibl_specular = specular_gamma_applied;
+    out.ibl_specular = specular_sample;
 
+    // The BRDF LUT was baked with roughness directly on the V axis
+    // (see ibl_brdf.wgsl). No 1.0-roughness inversion is needed.
     let brdf_lut_sample = textureSample(
         ibl_brdf_lut_texture,
         ibl_brdf_lut_sampler,
         vec2<f32>(
             max(out.NdotV, 0.0001), 
-            clamp(1.0 - out.roughness, 0.0001, 1.0)
+            clamp(out.roughness, 0.0001, 1.0)
     )).rg;
     out.brdf_lut = brdf_lut_sample;
 

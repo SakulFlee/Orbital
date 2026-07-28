@@ -1,18 +1,16 @@
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
-use orbital::app::{sys_camera_controller, App, AppSettings, Module};
+use orbital::app::{App, AppSettings, Module, sys_camera_controller};
 use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector3};
 use orbital::debug_render::DebugModule;
-use orbital::ecs::{
-    Commands, ComponentAccess, IntoSystem, System, World,
-};
+use orbital::ecs::{Commands, ComponentAccess, IntoSystem, System, World};
 use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, EnvironmentDescriptorResource,
     ImportQueueResource, LightDescriptorEcs, LightDirty, ModelDescriptorEcs, ModelDirty,
     ModelInstances, Position, Rotation,
 };
-use orbital::importer::{gltf::GltfImport, ImportTask};
+use orbital::importer::{ImportTask, gltf::GltfImport};
 use orbital::logging::{self, error, info};
 use orbital::procgeo::scene::SceneBuilder;
 use orbital::resources::{ShadowCaster, Transform, WorldEnvironmentDescriptor};
@@ -92,7 +90,11 @@ impl System for HelmetAdjuster {
                 Some(i) => i,
                 None => continue,
             };
-            if !descs.components[idx].label.to_lowercase().contains("helmet") {
+            if !descs.components[idx]
+                .label
+                .to_lowercase()
+                .contains("helmet")
+            {
                 continue;
             }
 
@@ -128,6 +130,11 @@ impl System for HelmetAdjuster {
                 final_rot,
                 original_transform.scale,
             ));
+            new_instances.add_instance(Transform::new(
+                Vector3::new(20.0, 2.2, 0.0),
+                final_rot,
+                original_transform.scale,
+            ));
             commands.detach_component::<ModelInstances>(&entity);
             commands.attach_component(&entity, new_instances);
             commands.detach_component::<ModelDirty>(&entity);
@@ -140,19 +147,56 @@ impl System for HelmetAdjuster {
     }
 }
 
-fn spawn_light(
-    ecs: &mut World,
-    desc: LightDescriptorEcs,
-    pos: Point3<f32>,
-) {
-    let entity = ecs.spawn_entity();
-    ecs.attach_component(&entity, desc).unwrap();
-    ecs.attach_component(&entity, Position(pos)).unwrap();
-    ecs.attach_component(&entity, LightDirty(true)).unwrap();
-    ecs.attach_component(&entity, ShadowCaster::default()).unwrap();
+struct ProcgeoSceneModule;
+
+// ── TEMPORARY: light animation for shadow diagnosis ──────────────────
+
+struct LightAnimator {
+    t: f32,
+    access: ComponentAccess,
+    entity: orbital::ecs::Entity,
+    started: bool,
 }
 
-struct ProcgeoSceneModule;
+impl LightAnimator {
+    fn new(entity: orbital::ecs::Entity) -> Self {
+        Self {
+            t: 0.0,
+            entity,
+            started: false,
+            access: ComponentAccess::new()
+                .reads::<Position>()
+                .writes::<Position>()
+                .writes::<LightDirty>(),
+        }
+    }
+}
+
+impl System for LightAnimator {
+    fn name(&self) -> &str {
+        "light_animator"
+    }
+    fn access(&self) -> &ComponentAccess {
+        &self.access
+    }
+
+    fn run(&mut self, world: &World, commands: &mut Commands) {
+        let dt = world
+            .get_resource::<orbital::ecs_bridge::DeltaTime>()
+            .map(|d| d.0)
+            .unwrap_or(0.016);
+        self.t += dt as f32;
+        let y = (self.t * 1.5).sin() * 3.0 + 8.0; // oscillate ±3 around y=8
+        let new_pos = Position(Point3::new(0.0, y, 6.0));
+        commands.detach_component::<Position>(&self.entity);
+        commands.attach_component(&self.entity, new_pos);
+
+        commands.detach_component::<LightDirty>(&self.entity);
+        commands.attach_component(&self.entity, LightDirty(true));
+    }
+}
+
+// ────────────────────────────────────────────────────────────────────
 
 impl Module for ProcgeoSceneModule {
     fn setup(
@@ -183,7 +227,7 @@ impl Module for ProcgeoSceneModule {
         ecs.insert_resource(ActiveCamera(camera));
         ecs.insert_resource(CursorGrabConfig(true));
 
-        // Set environment
+        // Load an IBL environment map for realistic ambient lighting
         ecs.insert_resource(EnvironmentDescriptorResource(Some(
             WorldEnvironmentDescriptor::FromFile {
                 cube_face_size: 2048,
@@ -232,55 +276,127 @@ impl Module for ProcgeoSceneModule {
             info!("Queued DamagedHelmet import");
         }
 
-        // ── Room Lights ──
-        // Spot from above, pointing down toward the room center
-        let spot_dir = (Point3::new(0.0, 0.0, 0.0) - Point3::new(0.0, 5.0, 0.0)).normalize();
-        spawn_light(ecs,
+        // ════════════════════════════════════════════════════════════
+        // Spot light in Room 1 (Shadow Test)
+        // Front of room (camera side), pointing backward toward center.
+        // Objects cast shadows onto the floor and back wall.
+        // ════════════════════════════════════════════════════════════
+        let spot_light = ecs.spawn_entity();
+        let spot_pos = Point3::new(0.0, 8.0, 6.0);
+        let target = Point3::new(0.0, 0.0, -2.0);
+        let dir = (target - spot_pos).normalize();
+        ecs.attach_component(
+            &spot_light,
             LightDescriptorEcs::new_spot(
-                Vector3::new(1.0, 0.95, 0.85), 8.0,
-                Vector3::new(spot_dir.x, spot_dir.y, spot_dir.z),
-                0.3, 0.5),
-            Point3::new(0.0, 5.0, 0.0));
+                Vector3::new(1.0, 1.0, 1.0),
+                50.0,
+                Vector3::new(dir.x, dir.y, dir.z),
+                0.1,
+                0.44, // inner/outer ~6°/~25°
+            ),
+        )
+        .unwrap();
+        ecs.attach_component(&spot_light, Position(spot_pos))
+            .unwrap();
+        ecs.attach_component(&spot_light, LightDirty(true)).unwrap();
+        ecs.attach_component(
+            &spot_light,
+            ShadowCaster {
+                cascade_count: 0,
+                bias: 0.0002,
+                ..Default::default()
+            },
+        )
+        .unwrap();
 
-        // Directional fill from above
-        spawn_light(ecs,
+        // ── Point lights for Rooms 1 & 2 (x=-20, x=-10) ───────────
+        for room_x in [-20.0, -10.0f32] {
+            let pl = ecs.spawn_entity();
+            ecs.attach_component(
+                &pl,
+                LightDescriptorEcs::new_point(Vector3::new(1.0, 1.0, 1.0), 50.0),
+            )
+            .unwrap();
+            ecs.attach_component(&pl, Position(Point3::new(room_x, 5.0, 0.0)))
+                .unwrap();
+            ecs.attach_component(&pl, LightDirty(true)).unwrap();
+            ecs.attach_component(&pl, ShadowCaster::default()).unwrap();
+        }
+
+        // ── Spot ring for Room 4 helmet (x=10) ──────────────────────
+        let helmet_10 = Point3::new(10.0, 2.2, 0.0);
+        for angle in [0.0, 2.1, 4.2f32] {
+            let (s, c) = angle.sin_cos();
+            let lpos = Point3::new(helmet_10.x + c * 3.0, 4.0, helmet_10.z + s * 3.0);
+            let d = (helmet_10 - lpos).normalize();
+            let hl = ecs.spawn_entity();
+            ecs.attach_component(
+                &hl,
+                LightDescriptorEcs::new_spot(
+                    Vector3::new(1.0, 0.9, 0.8),
+                    30.0,
+                    Vector3::new(d.x, d.y, d.z),
+                    0.1,
+                    0.44,
+                ),
+            )
+            .unwrap();
+            ecs.attach_component(&hl, Position(lpos)).unwrap();
+            ecs.attach_component(&hl, LightDirty(true)).unwrap();
+            ecs.attach_component(
+                &hl,
+                ShadowCaster {
+                    cascade_count: 0,
+                    bias: 0.0002,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        }
+
+        // ── Colorful point-light ring for Room 5 helmet (x=20) ───────
+        let helmet_20 = Point3::new(20.0, 2.2, 0.0);
+        let colors: [Vector3<_>; 8] = [
+            Vector3::new(1.0, 0.2, 0.2),
+            Vector3::new(1.0, 0.6, 0.1),
+            Vector3::new(1.0, 1.0, 0.2),
+            Vector3::new(0.2, 1.0, 0.2),
+            Vector3::new(0.2, 0.6, 1.0),
+            Vector3::new(0.4, 0.2, 1.0),
+            Vector3::new(1.0, 0.2, 1.0),
+            Vector3::new(1.0, 0.9, 0.8),
+        ];
+        for i in 0u32..8u32 {
+            let angle = std::f32::consts::TAU * i as f32 / 8.0;
+            let (s, c) = angle.sin_cos();
+            let lpos = Point3::new(helmet_20.x + c * 3.0, 4.0, helmet_20.z + s * 3.0);
+            let pl = ecs.spawn_entity();
+            ecs.attach_component(&pl, LightDescriptorEcs::new_point(colors[i as usize], 30.0))
+                .unwrap();
+            ecs.attach_component(&pl, Position(lpos)).unwrap();
+            ecs.attach_component(&pl, LightDirty(true)).unwrap();
+        }
+        let animator = LightAnimator::new(spot_light);
+
+        // Low-intensity directional fill light for scene-wide diffuse lighting
+        let fill = ecs.spawn_entity();
+        ecs.attach_component(
+            &fill,
             LightDescriptorEcs::new_directional(
-                Vector3::new(0.0, -1.0, 0.0),
-                Vector3::new(1.0, 1.0, 1.0), 1.5),
-            Point3::new(0.0, 6.0, 0.0));
-
-        // Single warm point light in center for subtle fill
-        spawn_light(ecs,
-            LightDescriptorEcs::new_point(Vector3::new(1.0, 0.9, 0.8), 2.0),
-            Point3::new(0.0, 3.0, 3.5));
-
-        // ── Room 3: Shape Gallery Lights ──
-        spawn_light(ecs,
-            LightDescriptorEcs::new_point(Vector3::new(1.0, 0.8, 0.6), 3.0),
-            Point3::new(-10.0, 3.5, 0.0));
-        spawn_light(ecs,
-            LightDescriptorEcs::new_point(Vector3::new(0.6, 0.9, 1.0), 2.5),
-            Point3::new(-13.0, 2.5, -3.0));
-        spawn_light(ecs,
-            LightDescriptorEcs::new_point(Vector3::new(1.0, 0.5, 0.8), 2.5),
-            Point3::new(-7.0, 2.5, 3.0));
-
-        // ── Room 4: Metallic Gallery Lights ──
-        spawn_light(ecs,
-            LightDescriptorEcs::new_point(Vector3::new(0.8, 0.9, 1.0), 3.0),
-            Point3::new(-20.0, 3.5, 0.0));
-        spawn_light(ecs,
-            LightDescriptorEcs::new_point(Vector3::new(1.0, 0.7, 0.5), 2.5),
-            Point3::new(-23.0, 2.5, -3.0));
-        spawn_light(ecs,
-            LightDescriptorEcs::new_point(Vector3::new(0.7, 1.0, 0.6), 2.5),
-            Point3::new(-17.0, 2.5, 3.0));
-
-        info!("Spawned 9 shadow-casting lights");
+                Vector3::new(0.0, -0.6, -0.8), // emission direction (shader negates -> light from above)
+                Vector3::new(1.0, 0.88, 0.65), // subtle warm white
+                0.25,
+            ),
+        )
+        .unwrap();
+        ecs.attach_component(&fill, Position(Point3::new(0.0, 0.0, 0.0)))
+            .unwrap();
+        ecs.attach_component(&fill, LightDirty(true)).unwrap();
 
         vec![
             sys_camera_controller.into_system(),
             Box::new(HelmetAdjuster::new()),
+            Box::new(animator),
         ]
     }
 }
