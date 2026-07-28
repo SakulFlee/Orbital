@@ -2260,6 +2260,7 @@ dependencies = [
  "hashbrown 0.17.1",
  "image",
  "log",
+ "naga",
  "orbital_core",
  "orbital_shader_preprocessor",
  "serde",
