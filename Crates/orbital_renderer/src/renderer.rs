@@ -88,8 +88,8 @@ impl Renderer {
         });
 
         // Shadow pass (before main passes)
-        if let Some(sr) = self.shadow_renderer.as_mut() {
-            if let Some(pvp) = camera_perspective_view_proj {
+        if let Some(sr) = self.shadow_renderer.as_mut()
+            && let Some(pvp) = camera_perspective_view_proj {
                 sr.render(
                     &mut command_encoder,
                     &models,
@@ -101,7 +101,6 @@ impl Renderer {
                     queue,
                 );
             }
-        }
 
         if let Some(world_environment) = world_environment_option {
             let sky_box_shader = world_environment.material_shader();

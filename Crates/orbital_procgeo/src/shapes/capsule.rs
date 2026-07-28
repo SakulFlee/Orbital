@@ -65,10 +65,10 @@ pub fn capsule(radius: f32, height: f32, segments: u32, rings: u32) -> MeshDescr
 
     for row in 0..rngs {
         for col in 0..segs {
-            let tl = (row * row_size + col) as u32;
-            let tr = (row * row_size + col + 1) as u32;
-            let bl = ((row + 1) * row_size + col) as u32;
-            let br = ((row + 1) * row_size + col + 1) as u32;
+            let tl = (row * row_size + col);
+            let tr = (row * row_size + col + 1);
+            let bl = ((row + 1) * row_size + col);
+            let br = ((row + 1) * row_size + col + 1);
             indices.extend_from_slice(&[tl, br, bl, tl, tr, br]);
         }
     }

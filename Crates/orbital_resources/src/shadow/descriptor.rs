@@ -46,6 +46,12 @@ pub struct ShadowGpuData {
     pub _padding: [u32; 3],                                 // offset 1540, size 12
 } // total: 1552 bytes
 
+impl Default for ShadowGpuData {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ShadowGpuData {
     pub fn new() -> Self {
         Self {

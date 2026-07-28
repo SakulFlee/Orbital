@@ -4,7 +4,6 @@ use orbital::logging::{self, error, info};
 
 mod modules;
 use modules::camera_module::CameraModule;
-use modules::light_module::LightModule;
 use modules::model_module::ModelModule;
 use winit::keyboard::KeyCode;
 
