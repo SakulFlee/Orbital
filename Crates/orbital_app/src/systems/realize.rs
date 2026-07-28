@@ -10,8 +10,9 @@ use orbital_ecs::World;
 use orbital_ecs_bridge::{
     CameraDescriptorEcs, CameraDirty, CameraRealization, DeviceResource, EcsCameraStore,
     EnvironmentDescriptorResource, EnvironmentGpuResource, LightBufferResource, LightDescriptorEcs,
-    LightDirty, MaterialCacheResource, MeshCacheResource, ModelDescriptorEcs, ModelDirty,
-    ModelInstances, ModelRealization, Position, QueueResource, Rotation, SurfaceFormatResource,
+    LightDirty, LightSlotIndex, LightSlotTracker, MAX_LIGHTS, Position, PrevPosition,
+    QueueResource, Rotation, ShadowDirtyFlag, SurfaceFormatResource, MaterialCacheResource,
+    MeshCacheResource, ModelDescriptorEcs, ModelDirty, ModelInstances, ModelRealization,
 };
 use orbital_resources::{Camera, Model};
 
@@ -291,10 +292,13 @@ pub fn realize_models(ecs: &mut World) {
     }
 }
 
-/// Realize (rebuild) the unified light GPU buffer from all dirty light entities.
+/// Realize the unified light GPU buffer.
 ///
-/// All lights are packed into a single storage buffer. When any light changes,
-/// the entire buffer is rebuilt from all LightDescriptorEcs + Position components.
+/// On first call, pre-allocates a fixed-capacity storage buffer
+/// (MAX_LIGHTS × 64 bytes). Each light gets a stable slot index.
+/// Dirty lights are written incrementally — only their 64-byte slot
+/// is uploaded, not the entire buffer. Lights whose positions have
+/// changed are flagged with `ShadowDirtyFlag` for shadow invalidation.
 pub fn realize_lights(ecs: &mut World) {
     let (device, queue) = {
         let d = match ecs.get_resource::<DeviceResource>() {
@@ -308,84 +312,224 @@ pub fn realize_lights(ecs: &mut World) {
         (d, q)
     };
 
-    // Check if any light is dirty
-    let any_dirty = match ecs.get_component_store::<LightDirty>() {
-        Some(store) => store.dense.iter().any(|&eid| {
-            store.sparse[eid]
-                .map(|idx| store.components[idx].0)
-                .unwrap_or(false)
-        }),
-        None => return, // No dirty flags means no lights or no changes
-    };
+    let max_slots = MAX_LIGHTS as u64;
 
-    if !any_dirty {
-        return;
-    }
-
-    // Collect all light descriptors with their positions
-    let mut light_data: Vec<(LightDescriptorEcs, Position)> = Vec::new();
+    // Ensure the pre-allocated buffer exists (created once on first frame)
     {
-        let descs = match ecs.get_component_store::<LightDescriptorEcs>() {
-            Some(s) => s,
-            None => return,
-        };
-        let positions = match ecs.get_component_store::<Position>() {
-            Some(s) => s,
-            None => return,
-        };
-
-        for &eid in descs.dense.as_slice() {
-            let desc_idx = match descs.sparse[eid] {
-                Some(i) => i,
-                None => continue,
-            };
-            let pos_idx = positions.sparse[eid].unwrap_or(0); // default position if none
-            light_data.push((
-                descs.components[desc_idx].clone(),
-                positions.components[pos_idx],
-            ));
+        let existing = ecs.get_resource::<LightBufferResource>();
+        let needs_create = existing.map_or(true, |r| r.0.is_none());
+        if needs_create {
+            let buf = device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("ECS Light Buffer (pre-allocated)"),
+                size: max_slots * 64,
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+            ecs.insert_resource(LightBufferResource(Some(Arc::new(buf))));
         }
     }
 
-    // Build light descriptors for the GPU buffer
-    let light_descriptors: Vec<orbital_resources::LightDescriptor> = light_data
-        .iter()
-        .map(|(desc, pos)| orbital_resources::LightDescriptor {
-            label: String::new(),
-            light_type: desc.light_type.clone(),
-            color: desc.color,
-            position: cgmath::Vector3::new(pos.0.x, pos.0.y, pos.0.z),
-            direction: desc.direction,
-        })
-        .collect();
-
-    // Pack into buffer data (64 bytes per light)
-    let buffer_data: Vec<u8> = light_descriptors
-        .iter()
-        .flat_map(|ld| ld.to_buffer_data())
-        .collect();
-
-    // Create or update the GPU buffer
-    let buffer_size = buffer_data.len().max(4) as u64; // min 4 bytes for empty
-    let buffer = device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("ECS Light Buffer"),
-        size: buffer_size,
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
-
-    if !buffer_data.is_empty() {
-        queue.write_buffer(&buffer, 0, &buffer_data);
+    // Ensure the slot tracker exists
+    if ecs.get_resource::<LightSlotTracker>().is_none() {
+        ecs.insert_resource(LightSlotTracker::new());
     }
 
-    // Update the ECS resource
-    ecs.insert_resource(LightBufferResource(Some(Arc::new(buffer))));
+    // --- Phase 1: Collect all data (read handles only, no &mut World) ---
 
-    // Clear all dirty flags
-    if let Some(dirty_store) = ecs.get_component_store_mut::<LightDirty>() {
-        for &eid in dirty_store.dense.as_slice() {
-            if let Some(idx) = dirty_store.sparse[eid] {
-                dirty_store.get_mut_store().components[idx].0 = false;
+    let descs_store = match ecs.get_component_store::<LightDescriptorEcs>() {
+        Some(s) => s,
+        None => return,
+    };
+    let positions_store = match ecs.get_component_store::<Position>() {
+        Some(s) => s,
+        None => return,
+    };
+
+    let light_entities: Vec<usize> = descs_store.dense.clone();
+
+    struct LightSlotInfo {
+        eid: usize,
+        slot_idx: u32,
+        is_new: bool,
+        is_dirty: bool,
+        position_moved: bool,
+        pos: cgmath::Point3<f32>,
+        desc: orbital_resources::LightDescriptor,
+    }
+
+    let mut slot_infos: Vec<LightSlotInfo> = Vec::new();
+    let slot_idx_store = ecs.get_component_store::<LightSlotIndex>();
+    let dirty_store = ecs.get_component_store::<LightDirty>();
+    let prev_pos_store = ecs.get_component_store::<PrevPosition>();
+
+    for &eid in &light_entities {
+        let desc_idx = match descs_store.sparse.get(eid).copied().flatten() {
+            Some(i) => i,
+            None => continue,
+        };
+        let desc_component = &descs_store.components[desc_idx];
+
+        let pos = positions_store
+            .sparse
+            .get(eid)
+            .copied()
+            .flatten()
+            .map(|pi| positions_store.components[pi].0)
+            .unwrap_or(cgmath::Point3::new(0.0, 0.0, 0.0));
+
+        let is_dirty = dirty_store
+            .as_ref()
+            .and_then(|s| s.get_component(eid))
+            .map(|d| d.is_dirty())
+            .unwrap_or(false);
+
+        let existing_slot = slot_idx_store
+            .as_ref()
+            .and_then(|s| s.get_component(eid))
+            .map(|si| si.0);
+
+        let prev_pos = prev_pos_store
+            .as_ref()
+            .and_then(|s| s.get_component(eid))
+            .map(|pp| pp.0);
+
+        let position_moved = match prev_pos {
+            Some(pp) => {
+                (pos.x - pp.x).abs() > 1e-6
+                    || (pos.y - pp.y).abs() > 1e-6
+                    || (pos.z - pp.z).abs() > 1e-6
+            }
+            None => false,
+        };
+
+        let slot_idx = if let Some(si) = existing_slot {
+            si
+        } else {
+            // Need to allocate — pick up next free slot
+            let tracker = ecs.get_resource_mut::<LightSlotTracker>();
+            match tracker {
+                Some(mut t) => t.allocate(eid),
+                None => 0,
+            }
+        };
+
+        let light_desc = orbital_resources::LightDescriptor {
+            label: String::new(),
+            light_type: desc_component.light_type.clone(),
+            color: desc_component.color,
+            position: cgmath::Vector3::new(pos.x, pos.y, pos.z),
+            direction: desc_component.direction,
+        };
+
+        slot_infos.push(LightSlotInfo {
+            eid,
+            slot_idx,
+            is_new: existing_slot.is_none(),
+            is_dirty,
+            position_moved,
+            pos,
+            desc: light_desc,
+        });
+    }
+
+    // Drop all read handles before mutation phase
+    drop(slot_idx_store);
+    drop(dirty_store);
+    drop(prev_pos_store);
+    drop(positions_store);
+    drop(descs_store);
+
+    // --- Phase 2: Mutate state and upload GPU data ---
+
+    let light_buffer = match ecs.get_resource::<LightBufferResource>() {
+        Some(r) => match &r.0 {
+            Some(buf) => buf.as_ref().clone(),
+            None => return,
+        },
+        None => return,
+    };
+
+    // Handle removal: find slots assigned to entities no longer present
+    let mut freed_slots: Vec<u32> = Vec::new();
+    {
+        let current_set: std::collections::HashSet<usize> =
+            light_entities.iter().copied().collect();
+        let tracker = ecs.get_resource::<LightSlotTracker>();
+        if let Some(t) = tracker {
+            let zero_buf = vec![0u8; 64];
+            for (stale_eid, slot_opt) in t.entity_to_slot.iter().enumerate() {
+                if let Some(&slot) = slot_opt {
+                    if !current_set.contains(&stale_eid)
+                        && (slot as u64) < max_slots
+                    {
+                        queue.write_buffer(&light_buffer, slot as u64 * 64, &zero_buf);
+                        freed_slots.push(slot);
+                    }
+                }
+            }
+        }
+    }
+
+    // Free removed slots in the tracker
+    if !freed_slots.is_empty() {
+        if let Some(mut tracker) = ecs.get_resource_mut::<LightSlotTracker>() {
+            for slot in &freed_slots {
+                for entry in tracker.entity_to_slot.iter_mut() {
+                    if *entry == Some(*slot) {
+                        *entry = None;
+                    }
+                }
+                tracker.free_slots.push(*slot);
+            }
+        }
+    }
+
+    for info in &slot_infos {
+        // Attach LightSlotIndex for new lights
+        if info.is_new {
+            let light_entity = orbital_ecs::Entity::new(info.eid, ecs.generation(info.eid));
+            let _ = ecs.attach_component(&light_entity, LightSlotIndex(info.slot_idx));
+            let _ = ecs.attach_component(&light_entity, ShadowDirtyFlag(true));
+            let _ = ecs.attach_component(&light_entity, PrevPosition(info.pos));
+        }
+
+        // Upload GPU data for dirty lights
+        if info.is_dirty {
+            let data = info.desc.to_buffer_data();
+            if (info.slot_idx as u64) < max_slots {
+                queue.write_buffer(&light_buffer, info.slot_idx as u64 * 64, &data);
+            }
+        }
+
+        // Mark shadow dirty if position moved
+        if info.position_moved {
+            if let Some(store) = ecs.get_component_store_mut::<ShadowDirtyFlag>() {
+                if let Some(idx) = store.sparse.get(info.eid).copied().flatten() {
+                    store.components[idx].mark_dirty();
+                }
+            }
+            if let Some(store) = ecs.get_component_store_mut::<PrevPosition>() {
+                if let Some(idx) = store.sparse.get(info.eid).copied().flatten() {
+                    store.components[idx] = PrevPosition(info.pos);
+                }
+            }
+        }
+
+        // Light property dirty → shadow also dirty
+        if info.is_dirty {
+            if let Some(store) = ecs.get_component_store_mut::<ShadowDirtyFlag>() {
+                if let Some(idx) = store.sparse.get(info.eid).copied().flatten() {
+                    store.components[idx].mark_dirty();
+                }
+            }
+        }
+    }
+
+    // Clear LightDirty flags
+    if let Some(store) = ecs.get_component_store_mut::<LightDirty>() {
+        for &eid in &light_entities {
+            if let Some(idx) = store.sparse.get(eid).copied().flatten() {
+                store.components[idx].clear();
             }
         }
     }
