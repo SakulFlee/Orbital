@@ -122,6 +122,11 @@ impl System for HelmetAdjuster {
 
             let mut new_instances = ModelInstances::new();
             new_instances.add_instance(Transform::new(
+                Vector3::new(10.0, 2.2, 0.0),
+                final_rot,
+                original_transform.scale,
+            ));
+            new_instances.add_instance(Transform::new(
                 Vector3::new(20.0, 2.2, 0.0),
                 final_rot,
                 original_transform.scale,
@@ -294,41 +299,16 @@ impl Module for ProcgeoSceneModule {
                     Vector3::new(1.0, 1.0, 1.0), 50.0,
                 ),
             ).unwrap();
-            ecs.attach_component(&pl, Position(Point3::new(room_x, 5.0, 6.0))).unwrap();
+            ecs.attach_component(&pl, Position(Point3::new(room_x, 5.0, 0.0))).unwrap();
             ecs.attach_component(&pl, LightDirty(true)).unwrap();
         }
 
-        // ── Spot light for Room 4 (x=10) ───────────────────────────
-        // (Kept as spot for consistent lighting across rooms)
-        let sl = ecs.spawn_entity();
-        let pos10 = Point3::new(10.0, 8.0, 6.0);
-        let tgt10 = Point3::new(10.0, 0.0, -2.0);
-        let d10 = (tgt10 - pos10).normalize();
-        ecs.attach_component(
-            &sl,
-            LightDescriptorEcs::new_spot(
-                Vector3::new(1.0, 1.0, 1.0), 50.0,
-                Vector3::new(d10.x, d10.y, d10.z),
-                0.1, 0.44,
-            ),
-        ).unwrap();
-        ecs.attach_component(&sl, Position(pos10)).unwrap();
-        ecs.attach_component(&sl, LightDirty(true)).unwrap();
-        ecs.attach_component(
-            &sl,
-            ShadowCaster {
-                cascade_count: 0,
-                bias: 0.0002,
-                ..Default::default()
-            },
-        ).unwrap();
-
-        // ── Spotlight ring for Room 5 helmet (x=20) ─────────────────
-        let helmet_center = Point3::new(20.0, 2.2, 0.0);
+        // ── Spot ring for Room 4 helmet (x=10) ──────────────────────
+        let helmet_10 = Point3::new(10.0, 2.2, 0.0);
         for angle in [0.0, 2.1, 4.2f32] {
             let (s, c) = angle.sin_cos();
-            let lpos = Point3::new(helmet_center.x + c * 4.0, 4.0, helmet_center.z + s * 4.0);
-            let d = (helmet_center - lpos).normalize();
+            let lpos = Point3::new(helmet_10.x + c * 3.0, 4.0, helmet_10.z + s * 3.0);
+            let d = (helmet_10 - lpos).normalize();
             let hl = ecs.spawn_entity();
             ecs.attach_component(
                 &hl,
@@ -348,6 +328,25 @@ impl Module for ProcgeoSceneModule {
                     ..Default::default()
                 },
             ).unwrap();
+        }
+
+        // ── Colorful point-light ring for Room 5 helmet (x=20) ───────
+        let helmet_20 = Point3::new(20.0, 2.2, 0.0);
+        let colors: [Vector3<_>; 8] = [
+            Vector3::new(1.0, 0.2, 0.2), Vector3::new(1.0, 0.6, 0.1),
+            Vector3::new(1.0, 1.0, 0.2), Vector3::new(0.2, 1.0, 0.2),
+            Vector3::new(0.2, 0.6, 1.0), Vector3::new(0.4, 0.2, 1.0),
+            Vector3::new(1.0, 0.2, 1.0), Vector3::new(1.0, 0.9, 0.8),
+        ];
+        for i in 0u32..8u32 {
+            let angle = std::f32::consts::TAU * i as f32 / 8.0;
+            let (s, c) = angle.sin_cos();
+            let lpos = Point3::new(helmet_20.x + c * 3.0, 4.0, helmet_20.z + s * 3.0);
+            let pl = ecs.spawn_entity();
+            ecs.attach_component(&pl,
+                LightDescriptorEcs::new_point(colors[i as usize], 30.0)).unwrap();
+            ecs.attach_component(&pl, Position(lpos)).unwrap();
+            ecs.attach_component(&pl, LightDirty(true)).unwrap();
         }
 
         // TEMPORARY: light animator system
