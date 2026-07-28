@@ -82,6 +82,7 @@ impl Renderer {
         camera_perspective_view_proj: Option<&Matrix4<f32>>,
         camera_near: f32,
         camera_far: f32,
+        dirty_set: &std::collections::HashSet<u32>,
     ) {
         let mut command_encoder = device.create_command_encoder(&CommandEncoderDescriptor {
             label: Some("Orbital::Render::Encoder"),
@@ -100,6 +101,7 @@ impl Renderer {
                 camera_far,
                 device,
                 queue,
+                dirty_set,
             );
         }
 
