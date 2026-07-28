@@ -358,8 +358,7 @@ impl ShadowRenderer {
                     slot_matrix_offsets.push(matrix_index);
 
                     for (face, mat) in face_mats.iter().enumerate() {
-                        let off =
-                            (matrix_index as usize + face) * self.slot_stride as usize;
+                        let off = (matrix_index as usize + face) * self.slot_stride as usize;
                         let vp_bytes = matrix_to_bytes(mat);
                         let end = (off + 64).min(matrix_bytes.len());
                         matrix_bytes[off..end].copy_from_slice(&vp_bytes[..end - off]);
