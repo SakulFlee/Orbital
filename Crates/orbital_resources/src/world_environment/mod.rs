@@ -293,6 +293,12 @@ impl WorldEnvironment {
                     queue,
                 )
             }
+            WorldEnvironmentDescriptor::Generated { .. } => {
+                todo!("Generated IBL: pipeline wiring (commit 3)")
+            }
+            WorldEnvironmentDescriptor::None => Err(Box::new(WorldEnvironmentError::msg(
+                "WorldEnvironmentDescriptor::None should not reach make_from_descriptor",
+            ))),
         }
     }
 

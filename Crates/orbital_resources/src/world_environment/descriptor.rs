@@ -1,8 +1,91 @@
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 
 use cgmath::Vector2;
 
 use super::SamplingType;
+
+#[derive(Debug, Clone)]
+pub struct GeneratedSkyParameters {
+    /// Normalized direction of the sun (default: slightly above horizon toward -Z).
+    pub sun_direction: [f32; 3],
+    /// Angular radius of the sun disk in radians (default: ~0.267° for Earth's sun).
+    pub sun_angular_radius: f32,
+    /// Sun intensity multiplier (default: 20.0).
+    pub sun_intensity: f32,
+    /// Rayleigh (air molecule) scale height in meters (default: 7994.0 for Earth).
+    pub rayleigh_scale_height: f32,
+    /// Mie (aerosol) scale height in meters (default: 1200.0 for Earth).
+    pub mie_scale_height: f32,
+    /// Rayleigh scattering coefficients at sea level, RGB. Blue scatters most.
+    /// Default: [5.8e-6, 13.5e-6, 33.1e-6].
+    pub rayleigh_scattering_coeff: [f32; 3],
+    /// Mie scattering coefficient at sea level (default: 2.0e-5).
+    pub mie_scattering_coeff: f32,
+    /// Mie absorption coefficient at sea level (default: 0.0).
+    pub mie_absorption_coeff: f32,
+    /// Mie scattering anisotropy factor g ∈ [-1, 1]. Positive = forward scattering.
+    /// Default: 0.76 (typical for aerosols).
+    pub mie_anisotropy: f32,
+    /// Ground albedo color, RGB. Used when the ray hits the planet surface below
+    /// the atmosphere (default: [0.3, 0.3, 0.3]).
+    pub ground_albedo: [f32; 3],
+    /// Planet radius in meters (default: 6_371_000.0 for Earth).
+    pub planet_radius: f32,
+    /// Atmosphere outer radius in meters (default: 6_471_000.0 = planet + 100km).
+    pub atmosphere_radius: f32,
+    /// Exposure multiplier applied to the final HDR output (default: 1.0).
+    pub exposure: f32,
+}
+
+impl PartialEq for GeneratedSkyParameters {
+    fn eq(&self, other: &Self) -> bool {
+        fn f3_eq(a: &[f32; 3], b: &[f32; 3]) -> bool {
+            a.iter()
+                .zip(b.iter())
+                .all(|(x, y)| x.to_bits() == y.to_bits())
+        }
+
+        f3_eq(&self.sun_direction, &other.sun_direction)
+            && self.sun_angular_radius.to_bits() == other.sun_angular_radius.to_bits()
+            && self.sun_intensity.to_bits() == other.sun_intensity.to_bits()
+            && self.rayleigh_scale_height.to_bits() == other.rayleigh_scale_height.to_bits()
+            && self.mie_scale_height.to_bits() == other.mie_scale_height.to_bits()
+            && f3_eq(&self.rayleigh_scattering_coeff, &other.rayleigh_scattering_coeff)
+            && self.mie_scattering_coeff.to_bits() == other.mie_scattering_coeff.to_bits()
+            && self.mie_absorption_coeff.to_bits() == other.mie_absorption_coeff.to_bits()
+            && self.mie_anisotropy.to_bits() == other.mie_anisotropy.to_bits()
+            && f3_eq(&self.ground_albedo, &other.ground_albedo)
+            && self.planet_radius.to_bits() == other.planet_radius.to_bits()
+            && self.atmosphere_radius.to_bits() == other.atmosphere_radius.to_bits()
+            && self.exposure.to_bits() == other.exposure.to_bits()
+    }
+}
+
+impl Eq for GeneratedSkyParameters {}
+
+impl Hash for GeneratedSkyParameters {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        fn hash_f3<H: Hasher>(s: &mut H, v: &[f32; 3]) {
+            for x in v {
+                x.to_bits().hash(s);
+            }
+        }
+
+        hash_f3(state, &self.sun_direction);
+        self.sun_angular_radius.to_bits().hash(state);
+        self.sun_intensity.to_bits().hash(state);
+        self.rayleigh_scale_height.to_bits().hash(state);
+        self.mie_scale_height.to_bits().hash(state);
+        hash_f3(state, &self.rayleigh_scattering_coeff);
+        self.mie_scattering_coeff.to_bits().hash(state);
+        self.mie_absorption_coeff.to_bits().hash(state);
+        self.mie_anisotropy.to_bits().hash(state);
+        hash_f3(state, &self.ground_albedo);
+        self.planet_radius.to_bits().hash(state);
+        self.atmosphere_radius.to_bits().hash(state);
+        self.exposure.to_bits().hash(state);
+    }
+}
 
 #[derive(Debug, Clone, Eq)]
 pub enum WorldEnvironmentDescriptor {
@@ -73,6 +156,42 @@ pub enum WorldEnvironmentDescriptor {
         /// Note: The maximum mip level count is determined by the texture size (log2(size) + 1).
         specular_mip_level_count: Option<u32>,
     },
+    /// Procedurally generate the environment map using physically-based
+    /// atmospheric scattering. Produces an equirectangular HDR sky texture
+    /// and converts it into diffuse (irradiance) and specular (radiance)
+    /// cube textures — just like loading an HDRI file, but entirely
+    /// generated on the GPU.
+    ///
+    /// This is the **default** when no descriptor is set.
+    Generated {
+        cube_face_size: u32,
+        sampling_type: SamplingType,
+        custom_specular_mip_level_count: Option<u32>,
+        /// Sky parameters. If `None`, uses [`GeneratedSkyParameters::default()`].
+        parameters: Option<GeneratedSkyParameters>,
+    },
+    /// Explicitly disable the environment — no skybox, no IBL lighting.
+    None,
+}
+
+impl Default for GeneratedSkyParameters {
+    fn default() -> Self {
+        Self {
+            sun_direction: [0.0, 0.3, -1.0],
+            sun_angular_radius: 0.004_65,
+            sun_intensity: 20.0,
+            rayleigh_scale_height: 7994.0,
+            mie_scale_height: 1200.0,
+            rayleigh_scattering_coeff: [5.8e-6, 13.5e-6, 33.1e-6],
+            mie_scattering_coeff: 2.0e-5,
+            mie_absorption_coeff: 0.0,
+            mie_anisotropy: 0.76,
+            ground_albedo: [0.3, 0.3, 0.3],
+            planet_radius: 6_371_000.0,
+            atmosphere_radius: 6_471_000.0,
+            exposure: 1.0,
+        }
+    }
 }
 
 impl WorldEnvironmentDescriptor {
@@ -118,7 +237,6 @@ impl PartialEq for WorldEnvironmentDescriptor {
                     specular_mip_level_count: r_specular_mip_level_count,
                 },
             ) => {
-                // Check for obvious facts first.
                 if !(l_cube_face_size == r_cube_face_size
                     && l_size == r_size
                     && l_sampling_type == r_sampling_type
@@ -127,9 +245,28 @@ impl PartialEq for WorldEnvironmentDescriptor {
                     return false;
                 }
 
-                // Then, compare byte-by-byte with fail-fast.
                 l_data.iter().zip(r_data.iter()).any(|(l, r)| l.eq(r))
             }
+            (
+                Self::Generated {
+                    cube_face_size: l_cube_face_size,
+                    sampling_type: l_sampling_type,
+                    custom_specular_mip_level_count: l_specular_mip_level_count,
+                    parameters: l_parameters,
+                },
+                Self::Generated {
+                    cube_face_size: r_cube_face_size,
+                    sampling_type: r_sampling_type,
+                    custom_specular_mip_level_count: r_specular_mip_level_count,
+                    parameters: r_parameters,
+                },
+            ) => {
+                l_cube_face_size == r_cube_face_size
+                    && l_sampling_type == r_sampling_type
+                    && l_specular_mip_level_count == r_specular_mip_level_count
+                    && l_parameters == r_parameters
+            }
+            (Self::None, Self::None) => true,
             _ => false,
         }
     }
@@ -162,6 +299,112 @@ impl Hash for WorldEnvironmentDescriptor {
                 sampling_type.hash(state);
                 specular_mip_level_count.hash(state);
             }
+            WorldEnvironmentDescriptor::Generated {
+                cube_face_size,
+                sampling_type,
+                custom_specular_mip_level_count,
+                parameters,
+            } => {
+                cube_face_size.hash(state);
+                sampling_type.hash(state);
+                custom_specular_mip_level_count.hash(state);
+                parameters.hash(state);
+            }
+            WorldEnvironmentDescriptor::None => {
+                0u8.hash(state);
+            }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn generated_sky_params_default_equals_default() {
+        let a = GeneratedSkyParameters::default();
+        let b = GeneratedSkyParameters::default();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn generated_sky_params_default_hashes_consistently() {
+        let a = GeneratedSkyParameters::default();
+        let b = GeneratedSkyParameters::default();
+        let mut h1 = std::hash::DefaultHasher::new();
+        let mut h2 = std::hash::DefaultHasher::new();
+        a.hash(&mut h1);
+        b.hash(&mut h2);
+        assert_eq!(h1.finish(), h2.finish());
+    }
+
+    #[test]
+    fn generated_descriptor_hash_consistent_for_cache() {
+        let a = WorldEnvironmentDescriptor::Generated {
+            cube_face_size: 2048,
+            sampling_type: SamplingType::ImportanceSampling,
+            custom_specular_mip_level_count: None,
+            parameters: None,
+        };
+        let b = WorldEnvironmentDescriptor::Generated {
+            cube_face_size: 2048,
+            sampling_type: SamplingType::ImportanceSampling,
+            custom_specular_mip_level_count: None,
+            parameters: None,
+        };
+        assert_eq!(a, b);
+
+        let mut h1 = std::hash::DefaultHasher::new();
+        let mut h2 = std::hash::DefaultHasher::new();
+        a.hash(&mut h1);
+        b.hash(&mut h2);
+        assert_eq!(h1.finish(), h2.finish());
+    }
+
+    #[test]
+    fn generated_descriptor_hash_differs_with_params() {
+        let a = WorldEnvironmentDescriptor::Generated {
+            cube_face_size: 2048,
+            sampling_type: SamplingType::ImportanceSampling,
+            custom_specular_mip_level_count: None,
+            parameters: Some(GeneratedSkyParameters::default()),
+        };
+        let mut params = GeneratedSkyParameters::default();
+        params.exposure = 2.0;
+        let b = WorldEnvironmentDescriptor::Generated {
+            cube_face_size: 2048,
+            sampling_type: SamplingType::ImportanceSampling,
+            custom_specular_mip_level_count: None,
+            parameters: Some(params),
+        };
+        assert_ne!(a, b);
+
+        let mut h1 = std::hash::DefaultHasher::new();
+        let mut h2 = std::hash::DefaultHasher::new();
+        a.hash(&mut h1);
+        b.hash(&mut h2);
+        assert_ne!(h1.finish(), h2.finish());
+    }
+
+    #[test]
+    fn none_descriptor_equals_none() {
+        assert_eq!(
+            WorldEnvironmentDescriptor::None,
+            WorldEnvironmentDescriptor::None
+        );
+    }
+
+    #[test]
+    fn none_neq_generated() {
+        assert_ne!(
+            WorldEnvironmentDescriptor::None,
+            WorldEnvironmentDescriptor::Generated {
+                cube_face_size: 2048,
+                sampling_type: SamplingType::ImportanceSampling,
+                custom_specular_mip_level_count: None,
+                parameters: None,
+            }
+        );
     }
 }
