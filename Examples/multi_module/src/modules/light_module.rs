@@ -27,7 +27,8 @@ impl Module for LightModule {
         ecs.attach_component(&light, Position(Point3::new(0.0, 0.0, 0.0)))
             .unwrap();
         ecs.attach_component(&light, LightDirty(true)).unwrap();
-        ecs.attach_component(&light, ShadowCaster::default()).unwrap();
+        ecs.attach_component(&light, ShadowCaster::default())
+            .unwrap();
 
         // Spawn a point light
         let light2 = ecs.spawn_entity();

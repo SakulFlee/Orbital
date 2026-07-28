@@ -1,6 +1,6 @@
-use cgmath::{Vector3, Zero};
+use cgmath::Vector3;
 use wgpu::{
-    Face, SamplerBindingType, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+    SamplerBindingType, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
     TextureViewDimension,
 };
 
@@ -144,7 +144,7 @@ impl From<PBRMaterialShaderDescriptor> for MaterialShaderDescriptor {
                     VertexStageLayout::ComplexVertexData,
                     VertexStageLayout::InstanceData,
                 ]);
-                base.cull_mode = Some(Face::Front);
+                base.cull_mode = None;
                 base
             }
         };

@@ -6,7 +6,8 @@ use wgpu::{
 };
 
 use orbital_resources::{
-    CullResources, MaterialShader, Model, ShadowLightInfo, ShadowRenderer, Texture, WorldEnvironment,
+    CullResources, MaterialShader, Model, ShadowLightInfo, ShadowRenderer, Texture,
+    WorldEnvironment,
 };
 
 pub struct Renderer {
@@ -44,12 +45,7 @@ impl Renderer {
         max_slots: u32,
         resolution: u32,
     ) {
-        self.shadow_renderer = Some(ShadowRenderer::new(
-            device,
-            queue,
-            max_slots,
-            resolution,
-        ));
+        self.shadow_renderer = Some(ShadowRenderer::new(device, queue, max_slots, resolution));
     }
 
     pub fn shadow_renderer(&self) -> Option<&ShadowRenderer> {
@@ -92,19 +88,19 @@ impl Renderer {
         });
 
         // Shadow pass (before main passes)
-        if let Some(sr) = self.shadow_renderer.as_mut() {
-            if let Some(pvp) = camera_perspective_view_proj {
-                sr.render(
-                    &mut command_encoder,
-                    &models,
-                    shadow_lights,
-                    pvp,
-                    camera_near,
-                    camera_far,
-                    device,
-                    queue,
-                );
-            }
+        if let Some(sr) = self.shadow_renderer.as_mut()
+            && let Some(pvp) = camera_perspective_view_proj
+        {
+            sr.render(
+                &mut command_encoder,
+                &models,
+                shadow_lights,
+                pvp,
+                camera_near,
+                camera_far,
+                device,
+                queue,
+            );
         }
 
         if let Some(world_environment) = world_environment_option {

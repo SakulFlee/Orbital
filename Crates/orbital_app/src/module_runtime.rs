@@ -22,17 +22,15 @@ use winit::{
     window::{CursorGrabMode, WindowId},
 };
 
-use orbital_resources::{
-    LightType, ShadowCaster, ShadowLightInfo,
-};
+use orbital_resources::{LightType, ShadowCaster, ShadowLightInfo};
 
 use crate::{
     AppContext, AppSettings, AppState, Module, RenderOverlayResource, Timer, make_core_schedule,
 };
 use orbital_ecs_bridge::{
     CursorGrabConfig, CursorPosition, DeltaTime, DeviceResource, EcsCameraStore, EngineEvent,
-    EngineEvents, FrameCounter, InputSnapshot,     LightDescriptorEcs, Position,
-    QueueResource, SurfaceFormatResource, TotalTime, WindowSize,
+    EngineEvents, FrameCounter, InputSnapshot, LightDescriptorEcs, Position, QueueResource,
+    SurfaceFormatResource, TotalTime, WindowSize,
 };
 
 macro_rules! ctx_lock {
@@ -237,7 +235,16 @@ impl ModuleRuntime {
             .get_resource::<orbital_ecs_bridge::CullResource>();
 
         // Extract all rendering data while ecs_world is not mutably borrowed
-        let (camera_buffer, light_buffer, env_ibl, model_ptrs, shadow_lights, camera_pvp, camera_near, camera_far) = {
+        let (
+            camera_buffer,
+            light_buffer,
+            env_ibl,
+            model_ptrs,
+            shadow_lights,
+            camera_pvp,
+            camera_near,
+            camera_far,
+        ) = {
             let cb = self.extract_camera_buffer(device, queue);
             let (pvp, near, far) = self.extract_camera_projection_data();
             let lb = self.extract_light_buffer(device);
@@ -292,10 +299,14 @@ impl ModuleRuntime {
 
         // Extract shadow resources from renderer's shadow renderer (with static fallbacks)
         static FALLBACK_SHADOW_BUF: std::sync::OnceLock<wgpu::Buffer> = std::sync::OnceLock::new();
-        static FALLBACK_SHADOW_TEX: std::sync::OnceLock<(wgpu::Texture, wgpu::TextureView)> = std::sync::OnceLock::new();
-        static FALLBACK_SHADOW_SAMPLER: std::sync::OnceLock<wgpu::Sampler> = std::sync::OnceLock::new();
-        static FALLBACK_CUBE_TEX: std::sync::OnceLock<(wgpu::Texture, wgpu::TextureView)> = std::sync::OnceLock::new();
-        static FALLBACK_CUBE_SAMPLER: std::sync::OnceLock<wgpu::Sampler> = std::sync::OnceLock::new();
+        static FALLBACK_SHADOW_TEX: std::sync::OnceLock<(wgpu::Texture, wgpu::TextureView)> =
+            std::sync::OnceLock::new();
+        static FALLBACK_SHADOW_SAMPLER: std::sync::OnceLock<wgpu::Sampler> =
+            std::sync::OnceLock::new();
+        static FALLBACK_CUBE_TEX: std::sync::OnceLock<(wgpu::Texture, wgpu::TextureView)> =
+            std::sync::OnceLock::new();
+        static FALLBACK_CUBE_SAMPLER: std::sync::OnceLock<wgpu::Sampler> =
+            std::sync::OnceLock::new();
 
         let shadow_slot_buffer: &wgpu::Buffer;
         let shadow_depth_view: &wgpu::TextureView;
@@ -322,7 +333,11 @@ impl ModuleRuntime {
                 let (_, fbv) = FALLBACK_SHADOW_TEX.get_or_init(|| {
                     let t = device.create_texture(&wgpu::TextureDescriptor {
                         label: Some("Fallback Shadow Tex"),
-                        size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+                        size: wgpu::Extent3d {
+                            width: 1,
+                            height: 1,
+                            depth_or_array_layers: 1,
+                        },
                         mip_level_count: 1,
                         sample_count: 1,
                         dimension: wgpu::TextureDimension::D2,
@@ -342,7 +357,11 @@ impl ModuleRuntime {
                 let (_, cbv) = FALLBACK_CUBE_TEX.get_or_init(|| {
                     let t = device.create_texture(&wgpu::TextureDescriptor {
                         label: Some("Fallback Cube Shadow Tex"),
-                        size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 6 },
+                        size: wgpu::Extent3d {
+                            width: 1,
+                            height: 1,
+                            depth_or_array_layers: 6,
+                        },
                         mip_level_count: 1,
                         sample_count: 1,
                         dimension: wgpu::TextureDimension::D2,
@@ -380,7 +399,11 @@ impl ModuleRuntime {
             let (_, fbv) = FALLBACK_SHADOW_TEX.get_or_init(|| {
                 let t = device.create_texture(&wgpu::TextureDescriptor {
                     label: Some("Fallback Shadow Tex 2"),
-                    size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+                    size: wgpu::Extent3d {
+                        width: 1,
+                        height: 1,
+                        depth_or_array_layers: 1,
+                    },
                     mip_level_count: 1,
                     sample_count: 1,
                     dimension: wgpu::TextureDimension::D2,
@@ -400,7 +423,11 @@ impl ModuleRuntime {
             let (_, cbv) = FALLBACK_CUBE_TEX.get_or_init(|| {
                 let t2 = device.create_texture(&wgpu::TextureDescriptor {
                     label: Some("Fallback Cube Shadow Tex 2"),
-                    size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 6 },
+                    size: wgpu::Extent3d {
+                        width: 1,
+                        height: 1,
+                        depth_or_array_layers: 6,
+                    },
                     mip_level_count: 1,
                     sample_count: 1,
                     dimension: wgpu::TextureDimension::D2,
@@ -666,59 +693,64 @@ impl ModuleRuntime {
 
     /// Collect shadow-casting light info from ECS.
     fn collect_shadow_lights(&self) -> Vec<ShadowLightInfo> {
-        let descs = match self
-            .ecs_world
-            .get_component_store::<LightDescriptorEcs>()
-        {
+        let descs = match self.ecs_world.get_component_store::<LightDescriptorEcs>() {
             Some(s) => s,
             None => return Vec::new(),
         };
-        let positions = match self
-            .ecs_world
-            .get_component_store::<Position>()
-        {
+        let positions = match self.ecs_world.get_component_store::<Position>() {
             Some(s) => s,
             None => return Vec::new(),
         };
-        let casters = match self
-            .ecs_world
-            .get_component_store::<ShadowCaster>()
-        {
+        let casters = match self.ecs_world.get_component_store::<ShadowCaster>() {
             Some(s) => s,
             None => return Vec::new(),
         };
 
         let mut lights = Vec::new();
+        let mut light_store_index = 0u32;
         for &eid in descs.dense.as_slice() {
             let desc_idx = match descs.sparse.get(eid).copied().flatten() {
                 Some(i) => i,
-                None => continue,
-            };
-            let caster_idx = match casters.sparse.get(eid).copied().flatten() {
-                Some(i) => i,
-                None => continue,
-            };
-            let pos_idx = match positions.sparse.get(eid).copied().flatten() {
-                Some(i) => i,
-                None => continue,
+                None => {
+                    light_store_index += 1;
+                    continue;
+                }
             };
             let desc = &descs.components[desc_idx];
-            let caster = &casters.components[caster_idx];
-            if !caster.enabled {
-                continue;
-            }
-            let pos = &positions.components[pos_idx];
-            let light_type = match desc.light_type {
-                LightType::Point { .. } => 0,
-                LightType::Directional { .. } => 1,
-                LightType::Spot { .. } => 2,
+
+            // Check if this light has a shadow caster
+            let has_shadow = match casters.sparse.get(eid).copied().flatten() {
+                Some(idx) => casters.components[idx].enabled,
+                None => false,
             };
-            lights.push(ShadowLightInfo {
-                light_type,
-                direction: desc.direction,
-                position: cgmath::Vector3::new(pos.0.x, pos.0.y, pos.0.z),
-                caster: caster.clone(),
-            });
+
+            if has_shadow {
+                let pos_idx = match positions.sparse.get(eid).copied().flatten() {
+                    Some(i) => i,
+                    None => {
+                        light_store_index += 1;
+                        continue;
+                    }
+                };
+                let caster = &casters.components[casters.sparse[eid].unwrap()];
+                let pos = &positions.components[pos_idx];
+                let (light_type, outer_cone_angle) = match desc.light_type {
+                    LightType::Point { .. } => (0, 0.0),
+                    LightType::Directional { .. } => (1, 0.0),
+                    LightType::Spot {
+                        outer_cone_angle, ..
+                    } => (2, outer_cone_angle),
+                };
+                lights.push(ShadowLightInfo {
+                    light_type,
+                    direction: desc.direction,
+                    position: cgmath::Vector3::new(pos.0.x, pos.0.y, pos.0.z),
+                    caster: caster.clone(),
+                    outer_cone_angle,
+                    light_store_index,
+                });
+            }
+            light_store_index += 1;
         }
         lights
     }
@@ -880,8 +912,8 @@ impl ApplicationHandler for ModuleRuntime {
                 renderer.enable_shadows(
                     ctx_guard.device(),
                     ctx_guard.queue(),
-                    16,    // max shadow slots
-                    1024,  // shadow map resolution
+                    16,   // max shadow slots
+                    2048, // shadow map resolution
                 );
             }
 

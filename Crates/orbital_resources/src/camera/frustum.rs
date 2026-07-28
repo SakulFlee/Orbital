@@ -35,8 +35,8 @@ impl Frustum {
     /// `cgmath::Matrix4` is column‑major, so the four **rows** must be assembled
     /// from individual component accesses before the standard (`row₃ ± rowₙ`) derivation.
     ///
-    /// The projection matrix is assumed to follow the OpenGL convention
-    /// (Z clip ∈ [-1, 1]), which is what `cgmath::perspective()` produces.
+    /// The projection matrix is assumed to follow the wgpu/WebGPU clip convention
+    /// (Z clip ∈ [0, 1]), as produced by [`crate::perspective_wgpu`].
     pub fn from_view_projection_matrix(matrix: &Matrix4<f32>) -> Self {
         // cgmath stores matrices column‑major:
         //   .x = column 0, .y = column 1, .z = column 2, .w = column 3
@@ -53,14 +53,14 @@ impl Frustum {
         //   Right:  x <=  w   →  row3 - row0 ≥ 0
         //   Bottom: y >= -w   →  row1 + row3 ≥ 0
         //   Top:    y <=  w   →  row3 - row1 ≥ 0
-        //   Near:   z >= -w   →  row2 + row3 ≥ 0   (OpenGL convention)
+        //   Near:   z >=  0   →  row2 ≥ 0        (wgpu/WebGPU convention, z ∈ [0, 1])
         //   Far:    z <=  w   →  row3 - row2 ≥ 0
         let planes = [
             Self::plane_from_row(row3 + row0), // Left
             Self::plane_from_row(row3 - row0), // Right
             Self::plane_from_row(row3 + row1), // Bottom
             Self::plane_from_row(row3 - row1), // Top
-            Self::plane_from_row(row3 + row2), // Near
+            Self::plane_from_row(row2),        // Near
             Self::plane_from_row(row3 - row2), // Far
         ];
 
@@ -94,7 +94,12 @@ impl Frustum {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cgmath::{Deg, perspective};
+    use crate::projection::perspective_wgpu;
+    use cgmath::{Deg, Rad};
+
+    fn wgpu_proj(fovy: Deg<f32>, aspect: f32, near: f32, far: f32) -> Matrix4<f32> {
+        perspective_wgpu(Rad::from(fovy), aspect, near, far, false)
+    }
 
     /// Verify that points known to be inside/outside a frustum
     /// are correctly classified by `intersects_sphere`.
@@ -113,7 +118,7 @@ mod tests {
             Vector3::new(1.0, 0.0, 0.0),
             Vector3::new(0.0, 1.0, 0.0),
         );
-        let proj = perspective(Deg(90.0), 1.0, 0.1, 100.0);
+        let proj = wgpu_proj(Deg(90.0), 1.0, 0.1, 100.0);
         let frustum = Frustum::from_view_projection_matrix(&(proj * view));
 
         // Inside — center of frustum
@@ -151,7 +156,7 @@ mod tests {
             Vector3::new(1.0, 0.0, 0.0),
             Vector3::new(0.0, 1.0, 0.0),
         );
-        let proj = perspective(Deg(90.0), 1.0, 0.1, 100.0);
+        let proj = wgpu_proj(Deg(90.0), 1.0, 0.1, 100.0);
         let frustum = Frustum::from_view_projection_matrix(&(proj * view));
 
         // A sphere way out in the visible cone
