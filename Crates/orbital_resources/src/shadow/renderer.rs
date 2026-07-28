@@ -303,6 +303,10 @@ impl ShadowRenderer {
     ///
     /// `camera_perspective_view_proj` is the camera's combined perspective × view matrix.
     /// `camera_near` / `camera_far` are the camera's clip planes (for cascade splits).
+    ///
+    /// `dirty_set` contains `light_store_index` values for lights whose shadows
+    /// need re-rendering this frame. Lights NOT in the set reuse their existing
+    /// depth data from the previous frame (no rendering, slot data preserved).
     pub fn render(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
@@ -313,7 +317,9 @@ impl ShadowRenderer {
         camera_far: f32,
         device: &Device,
         queue: &Queue,
+        dirty_set: &std::collections::HashSet<u32>,
     ) {
+        let prev_gpu_data = self.gpu_data;
         self.gpu_data = ShadowGpuData::new();
 
         let mut slot_index = 0u32;
@@ -340,9 +346,23 @@ impl ShadowRenderer {
 
             let _resolution = light.caster.resolution.max(1);
 
+            let is_dirty = dirty_set.contains(&light.light_store_index);
+
             match light.light_type {
                 0 => {
                     // Point light — cube shadow map (6 faces)
+                    if !is_dirty {
+                        // Clean: preserve previous slot data, skip rendering
+                        if slot_index < self.max_slots as u32 {
+                            self.gpu_data.slots[slot_index as usize] =
+                                prev_gpu_data.slots[slot_index as usize];
+                        }
+                        slot_matrix_offsets.push(matrix_index);
+                        slot_index += 1;
+                        cube_index += 1;
+                        matrix_index += 6;
+                        continue;
+                    }
                     if slot_index >= self.max_slots {
                         break;
                     }
@@ -439,6 +459,20 @@ impl ShadowRenderer {
                 }
                 1 => {
                     // Directional light → CSM
+                    if !is_dirty {
+                        let cascade_count = light.caster.cascade_count.max(1);
+                        for _ in 0..cascade_count {
+                            if slot_index < self.max_slots as u32 {
+                                self.gpu_data.slots[slot_index as usize] =
+                                    prev_gpu_data.slots[slot_index as usize];
+                            }
+                            slot_matrix_offsets.push(matrix_index);
+                            slot_index += 1;
+                            layer_index += 1;
+                            matrix_index += 1;
+                        }
+                        continue;
+                    }
                     let cascades = compute_csm_cascades(
                         camera_perspective_view_proj,
                         light.direction,
@@ -476,6 +510,17 @@ impl ShadowRenderer {
                 }
                 2 => {
                     // Spot light — single perspective depth map.
+                    if !is_dirty {
+                        if slot_index < self.max_slots as u32 {
+                            self.gpu_data.slots[slot_index as usize] =
+                                prev_gpu_data.slots[slot_index as usize];
+                        }
+                        slot_matrix_offsets.push(matrix_index);
+                        slot_index += 1;
+                        layer_index += 1;
+                        matrix_index += 1;
+                        continue;
+                    }
                     let vp = Self::spot_light_vp(
                         light.position,
                         light.direction,
