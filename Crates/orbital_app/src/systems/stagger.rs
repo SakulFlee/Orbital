@@ -35,121 +35,115 @@ pub fn sys_stagger_shadow_updates(
 
     let mut result = HashSet::new();
 
+    // --- Phase 1: Collect all read-only data ---
+
+    let dirty_eids: Vec<usize>;
+    let all_shadow_with_slots: Vec<(usize, u32)>;
+
+    {
+        // Determine which entity IDs have ShadowDirtyFlag set
+        let dirty_store = ecs.get_component_store::<ShadowDirtyFlag>();
+        dirty_eids = match dirty_store {
+            Some(ref ds) => ds
+                .dense
+                .iter()
+                .copied()
+                .filter(|&eid| {
+                    ds.sparse
+                        .get(eid)
+                        .copied()
+                        .flatten()
+                        .map(|idx| ds.components[idx].is_dirty())
+                        .unwrap_or(false)
+                })
+                .collect(),
+            None => Vec::new(),
+        };
+    }
+
+    {
+        // Collect all shadow-casting entities with their slot indices
+        let casters = ecs.get_component_store::<ShadowCaster>();
+        let slot_store = ecs.get_component_store::<LightSlotIndex>();
+        let mut shadow_list = Vec::new();
+        if let Some(ref cs) = casters {
+            if let Some(ref ss) = slot_store {
+                for &eid in cs.dense.as_slice() {
+                    if let Some(c_idx) = cs.sparse.get(eid).copied().flatten() {
+                        if !cs.components[c_idx].enabled {
+                            continue;
+                        }
+                        if let Some(s_idx) = ss.sparse.get(eid).copied().flatten() {
+                            shadow_list.push((eid, ss.components[s_idx].0));
+                        }
+                    }
+                }
+            }
+        }
+        all_shadow_with_slots = shadow_list;
+    }
+
+    // --- Phase 2: Handle global dirty case ---
+
     if global_dirty {
-        let casters = match ecs.get_component_store::<ShadowCaster>() {
-            Some(s) => s,
-            None => return result,
-        };
-        let slot_store = match ecs.get_component_store::<LightSlotIndex>() {
-            Some(s) => s,
-            None => return result,
-        };
-
-        for &eid in casters.dense.as_slice() {
-            if let Some(c_idx) = casters.sparse.get(eid).copied().flatten() {
-                if !casters.components[c_idx].enabled {
-                    continue;
-                }
-                if let Some(s_idx) = slot_store.sparse.get(eid).copied().flatten() {
-                    result.insert(slot_store.components[s_idx].0);
+        for (_, slot) in &all_shadow_with_slots {
+            result.insert(*slot);
+        }
+        // Clear all shadow dirty flags
+        if let Some(mut store) = ecs.get_component_store_mut::<ShadowDirtyFlag>() {
+            for &eid in &dirty_eids {
+                if let Some(idx) = store.sparse.get(eid).copied().flatten() {
+                    store.components[idx].clear();
                 }
             }
         }
-
-        if let Some(dirty_store) = ecs.get_component_store_mut::<ShadowDirtyFlag>() {
-            for &eid in dirty_store.dense.as_slice() {
-                if let Some(idx) = dirty_store.sparse.get(eid).copied().flatten() {
-                    dirty_store.components[idx].clear();
-                }
-            }
-        }
-
         return result;
     }
 
-    // Collect dirty shadow-casting entities
-    let casters = match ecs.get_component_store::<ShadowCaster>() {
-        Some(s) => s,
-        None => return result,
-    };
-    let dirty_store = match ecs.get_component_store::<ShadowDirtyFlag>() {
-        Some(s) => s,
-        None => return result,
-    };
-    let slot_store = match ecs.get_component_store::<LightSlotIndex>() {
-        Some(s) => s,
-        None => return result,
-    };
-
-    let mut dirty_entities: Vec<usize> = Vec::new();
-    let mut all_shadow_entities: Vec<usize> = Vec::new();
-
-    for &eid in casters.dense.as_slice() {
-        if let Some(c_idx) = casters.sparse.get(eid).copied().flatten() {
-            if !casters.components[c_idx].enabled {
-                continue;
-            }
-            all_shadow_entities.push(eid);
-            if let Some(d_idx) = dirty_store.sparse.get(eid).copied().flatten() {
-                if dirty_store.components[d_idx].is_dirty() {
-                    dirty_entities.push(eid);
-                }
-            }
-        }
-    }
-
-    drop(casters);
-    drop(dirty_store);
-    drop(slot_store);
+    // --- Phase 3: Apply stagger budget ---
 
     let mut processed: HashSet<usize> = HashSet::new();
     let mut budget = config;
 
     // Process dirty entities first (priority)
-    for &eid in &dirty_entities {
+    for &eid in &dirty_eids {
         if budget == 0 {
             break;
         }
-        if let Some(si) = ecs
-            .get_component_store::<LightSlotIndex>()
-            .and_then(|s| s.get_component(eid))
-        {
-            result.insert(si.0);
+        for (e, slot) in &all_shadow_with_slots {
+            if *e == eid {
+                result.insert(*slot);
+                processed.insert(eid);
+                break;
+            }
         }
-        processed.insert(eid);
         budget -= 1;
     }
 
     // If budget remains, round-robin through remaining shadow casters
     // (proactive refresh to catch stale shadow maps)
     if budget > 0 {
-        let remaining: Vec<usize> = all_shadow_entities
+        let remaining: Vec<&(usize, u32)> = all_shadow_with_slots
             .iter()
-            .copied()
-            .filter(|e| !processed.contains(e))
+            .filter(|(e, _)| !processed.contains(e))
             .collect();
         if !remaining.is_empty() {
             let mut state = ecs.get_resource_mut::<StaggerState>().unwrap();
-            while budget > 0 && !remaining.is_empty() {
-                let eid = remaining[state.round_robin_pos % remaining.len()];
+            let mut attempts = 0;
+            while budget > 0 && attempts < remaining.len() {
+                let (eid, slot) = remaining[state.round_robin_pos % remaining.len()];
                 state.round_robin_pos = (state.round_robin_pos + 1) % remaining.len();
-                if processed.insert(eid) {
-                    if let Some(si) = ecs
-                        .get_component_store::<LightSlotIndex>()
-                        .and_then(|s| s.get_component(eid))
-                    {
-                        result.insert(si.0);
-                    }
+                if processed.insert(*eid) {
+                    result.insert(*slot);
                     budget -= 1;
-                } else {
-                    break;
                 }
+                attempts += 1;
             }
         }
     }
 
     // Clear ShadowDirtyFlag for processed entities
-    if let Some(store) = ecs.get_component_store_mut::<ShadowDirtyFlag>() {
+    if let Some(mut store) = ecs.get_component_store_mut::<ShadowDirtyFlag>() {
         for &eid in &processed {
             if let Some(idx) = store.sparse.get(eid).copied().flatten() {
                 store.components[idx].clear();
