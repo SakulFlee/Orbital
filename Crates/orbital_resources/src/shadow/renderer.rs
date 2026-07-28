@@ -833,7 +833,7 @@ impl ShadowRenderer {
     /// Compute the 6 face view-projection matrices for a cube shadow map.
     fn point_light_face_matrices(position: Point3<f32>, near_plane: f32, far_plane: f32) -> [Matrix4<f32>; 6] {
         // wgpu clip convention; Y flip matches the cube-face framebuffer layout.
-        let proj = perspective_wgpu(Rad::from(Deg(90.0)), 1.0, near_plane, far_plane, false);
+        let proj = perspective_wgpu(Rad::from(Deg(90.0)), 1.0, near_plane, far_plane, true);
         let mut mats = [Matrix4::identity(); 6];
         for (i, &(dir, up)) in CUBE_FACE_DIRECTIONS.iter().enumerate() {
             let target = position + dir;
