@@ -4,12 +4,23 @@ use std::fmt::Display;
 pub enum WorldEnvironmentError {
     IO(std::io::Error),
     Image(image::ImageError),
+    Msg(String),
+}
+
+impl WorldEnvironmentError {
+    pub fn msg(msg: impl Into<String>) -> Self {
+        Self::Msg(msg.into())
+    }
 }
 
 impl std::error::Error for WorldEnvironmentError {}
 
 impl Display for WorldEnvironmentError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{self:?}")
+        match self {
+            Self::IO(e) => write!(f, "IO error: {e}"),
+            Self::Image(e) => write!(f, "Image error: {e}"),
+            Self::Msg(m) => write!(f, "{m}"),
+        }
     }
 }

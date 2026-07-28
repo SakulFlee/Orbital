@@ -111,6 +111,10 @@ impl CacheFile {
         let cube_face_size = match world_environment_descriptor {
             WorldEnvironmentDescriptor::FromFile { cube_face_size, .. } => *cube_face_size,
             WorldEnvironmentDescriptor::FromData { cube_face_size, .. } => *cube_face_size,
+            WorldEnvironmentDescriptor::Generated { cube_face_size, .. } => *cube_face_size,
+            WorldEnvironmentDescriptor::None => {
+                panic!("CacheFile::make_textures called with WorldEnvironmentDescriptor::None")
+            }
         };
 
         // Use the cached mip level count for the specular texture to ensure
