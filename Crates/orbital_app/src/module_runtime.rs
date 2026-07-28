@@ -153,6 +153,33 @@ impl ModuleRuntime {
         crate::systems::realize::realize_environment(&mut self.ecs_world);
         crate::systems::realize::realize_models(&mut self.ecs_world);
 
+        // Check for any model modifications (triggers full shadow refresh)
+        let global_model_dirty = {
+            if let Some(store) =
+                self.ecs_world
+                    .get_component_store::<orbital_ecs_bridge::ModelDirty>()
+            {
+                store.dense.iter().any(|&eid| {
+                    store
+                        .sparse
+                        .get(eid)
+                        .copied()
+                        .flatten()
+                        .map(|idx| store.components[idx].0)
+                        .unwrap_or(false)
+                })
+            } else {
+                false
+            }
+        };
+
+        // Schedule shadow updates respecting the per-frame budget
+        let dirty_set =
+            crate::systems::stagger::sys_stagger_shadow_updates(
+                &mut self.ecs_world,
+                global_model_dirty,
+            );
+
         // Freeze/unfreeze the culling frustum (default F4)
         {
             use orbital_input::InputButton;
@@ -543,6 +570,7 @@ impl ModuleRuntime {
                 camera_pvp.as_ref(),
                 camera_near,
                 camera_far,
+                &dirty_set,
             );
         }
 
