@@ -11,6 +11,7 @@
 use std::sync::Arc;
 
 use cgmath::Vector2;
+use hashbrown::HashMap;
 
 // ---------------------------------------------------------------------------
 // Frame timing
@@ -360,3 +361,155 @@ pub struct FrozenFrustumData {
 /// Press F4 (in the main loop) to toggle capture.
 #[derive(Debug, Clone)]
 pub struct FrozenFrustum(pub Option<FrozenFrustumData>);
+
+// ---------------------------------------------------------------------------
+// Light scheduling & shadow caching
+// ---------------------------------------------------------------------------
+
+/// Maximum number of lights in the GPU storage buffer.
+/// Buffer is pre-allocated at MAX_LIGHTS * 64 bytes.
+pub const MAX_LIGHTS: u32 = 256;
+
+/// Default maximum number of shadow-casting lights to update per frame.
+/// Configurable via [`StaggeredLightConfig`].
+pub const DEFAULT_MAX_UPDATES_PER_FRAME: u32 = 1;
+
+/// Tracks stable slot assignments for light entities in the GPU buffer.
+///
+/// When a light is first realized, it gets assigned the next free slot.
+/// When removed, its slot is returned to the free list and the slot is
+/// zeroed out (intensity=0) to disable it in the shader.
+#[derive(Debug, Clone)]
+pub struct LightSlotTracker {
+    pub entity_to_slot: Vec<Option<u32>>,
+    pub free_slots: Vec<u32>,
+    pub slot_count: u32,
+}
+
+impl LightSlotTracker {
+    pub fn new() -> Self {
+        Self {
+            entity_to_slot: Vec::new(),
+            free_slots: Vec::new(),
+            slot_count: 0,
+        }
+    }
+
+    pub fn allocate(&mut self, entity_id: usize) -> u32 {
+        if let Some(slot) = self.free_slots.pop() {
+            self.ensure_entity_idx(entity_id);
+            self.entity_to_slot[entity_id] = Some(slot);
+            slot
+        } else {
+            let slot = self.slot_count;
+            self.slot_count += 1;
+            self.ensure_entity_idx(entity_id);
+            self.entity_to_slot[entity_id] = Some(slot);
+            slot
+        }
+    }
+
+    pub fn free(&mut self, entity_id: usize) {
+        if entity_id < self.entity_to_slot.len() {
+            if let Some(slot) = self.entity_to_slot[entity_id].take() {
+                self.free_slots.push(slot);
+            }
+        }
+    }
+
+    pub fn get(&self, entity_id: usize) -> Option<u32> {
+        self.entity_to_slot.get(entity_id).copied().flatten()
+    }
+
+    fn ensure_entity_idx(&mut self, entity_id: usize) {
+        if entity_id >= self.entity_to_slot.len() {
+            self.entity_to_slot.resize(entity_id + 1, None);
+        }
+    }
+}
+
+impl Default for LightSlotTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Cached shadow-casting light state used for change detection.
+///
+/// Before rendering shadow maps, the current light state is compared
+/// against this cache. If nothing changed, the shadow map is reused.
+#[derive(Debug, Clone)]
+pub struct ShadowCachedLightState {
+    pub position: cgmath::Vector3<f32>,
+    pub direction: cgmath::Vector3<f32>,
+    pub light_type: u32,
+    pub outer_cone_angle: f32,
+    pub bias: f32,
+    pub cascade_count: u32,
+    pub cascade_split_lambda: f32,
+}
+
+/// Range of shadow slots occupied by a single light.
+///
+/// Point lights consume 1 slot (with 6 cube faces handled internally),
+/// directional lights consume `cascade_count` slots (CSM),
+/// spot lights consume 1 slot.
+#[derive(Debug, Clone, Copy)]
+pub struct ShadowSlotRange {
+    pub first_slot: u32,
+    pub slot_count: u32,
+    pub first_cube: u32,
+}
+
+/// Cross-frame cache of shadow slot assignments.
+///
+/// Maps `light_slot_index` → which shadow slots (and cube layers) the
+/// light occupies. Also stores the last-known light state for change
+/// detection — if nothing changed, the shadow map is reused without
+/// re-rendering.
+#[derive(Debug, Clone)]
+pub struct ShadowMapCache {
+    pub light_to_slots: HashMap<u32, ShadowSlotRange>,
+    pub last_state: HashMap<u32, ShadowCachedLightState>,
+}
+
+impl ShadowMapCache {
+    pub fn new() -> Self {
+        Self {
+            light_to_slots: HashMap::new(),
+            last_state: HashMap::new(),
+        }
+    }
+}
+
+impl Default for ShadowMapCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Configures the per-frame budget for staggered light and shadow updates.
+///
+/// Insert as an ECS resource. Set `max_updates_per_frame` to control how
+/// many shadow-casting lights are processed each frame. Remaining dirty
+/// lights are deferred to subsequent frames.
+#[derive(Debug, Clone)]
+pub struct StaggeredLightConfig {
+    pub max_updates_per_frame: u32,
+}
+
+impl Default for StaggeredLightConfig {
+    fn default() -> Self {
+        Self {
+            max_updates_per_frame: DEFAULT_MAX_UPDATES_PER_FRAME,
+        }
+    }
+}
+
+/// Round-robin cursor for staggered light/shadow update processing.
+/// Managed internally by the stagger system.
+#[derive(Debug, Clone, Default)]
+pub struct StaggerState {
+    pub round_robin_pos: usize,
+    pub dirty_queue: Vec<usize>,
+}
