@@ -293,14 +293,11 @@ impl Module for ProcgeoSceneModule {
         // ── Point lights for Rooms 1 & 2 (x=-20, x=-10) ───────────
         for room_x in [-20.0, -10.0f32] {
             let pl = ecs.spawn_entity();
-            ecs.attach_component(
-                &pl,
-                LightDescriptorEcs::new_point(
-                    Vector3::new(1.0, 1.0, 1.0), 50.0,
-                ),
-            ).unwrap();
+            ecs.attach_component(&pl,
+                LightDescriptorEcs::new_point(Vector3::new(1.0, 1.0, 1.0), 50.0)).unwrap();
             ecs.attach_component(&pl, Position(Point3::new(room_x, 5.0, 0.0))).unwrap();
             ecs.attach_component(&pl, LightDirty(true)).unwrap();
+            ecs.attach_component(&pl, ShadowCaster::default()).unwrap();
         }
 
         // ── Spot ring for Room 4 helmet (x=10) ──────────────────────
