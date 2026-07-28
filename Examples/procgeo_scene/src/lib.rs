@@ -344,7 +344,6 @@ impl Module for ProcgeoSceneModule {
                 LightDescriptorEcs::new_point(colors[i as usize], 30.0)).unwrap();
             ecs.attach_component(&pl, Position(lpos)).unwrap();
             ecs.attach_component(&pl, LightDirty(true)).unwrap();
-            ecs.attach_component(&pl, ShadowCaster::default()).unwrap();
         }
         let animator = LightAnimator::new(spot_light);
 
