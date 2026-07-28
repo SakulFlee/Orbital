@@ -458,7 +458,8 @@ pub fn realize_lights(ecs: &mut World) {
         if let Some(t) = tracker {
             let zero_buf = vec![0u8; 64];
             for (stale_eid, slot_opt) in t.entity_to_slot.iter().enumerate() {
-                if let Some(&slot) = slot_opt {
+                if let Some(slot) = slot_opt {
+                    let slot = *slot;
                     if !current_set.contains(&stale_eid)
                         && (slot as u64) < max_slots
                     {
@@ -503,12 +504,12 @@ pub fn realize_lights(ecs: &mut World) {
 
         // Mark shadow dirty if position moved
         if info.position_moved {
-            if let Some(store) = ecs.get_component_store_mut::<ShadowDirtyFlag>() {
+            if let Some(mut store) = ecs.get_component_store_mut::<ShadowDirtyFlag>() {
                 if let Some(idx) = store.sparse.get(info.eid).copied().flatten() {
                     store.components[idx].mark_dirty();
                 }
             }
-            if let Some(store) = ecs.get_component_store_mut::<PrevPosition>() {
+            if let Some(mut store) = ecs.get_component_store_mut::<PrevPosition>() {
                 if let Some(idx) = store.sparse.get(info.eid).copied().flatten() {
                     store.components[idx] = PrevPosition(info.pos);
                 }
@@ -517,7 +518,7 @@ pub fn realize_lights(ecs: &mut World) {
 
         // Light property dirty → shadow also dirty
         if info.is_dirty {
-            if let Some(store) = ecs.get_component_store_mut::<ShadowDirtyFlag>() {
+            if let Some(mut store) = ecs.get_component_store_mut::<ShadowDirtyFlag>() {
                 if let Some(idx) = store.sparse.get(info.eid).copied().flatten() {
                     store.components[idx].mark_dirty();
                 }
@@ -526,7 +527,7 @@ pub fn realize_lights(ecs: &mut World) {
     }
 
     // Clear LightDirty flags
-    if let Some(store) = ecs.get_component_store_mut::<LightDirty>() {
+    if let Some(mut store) = ecs.get_component_store_mut::<LightDirty>() {
         for &eid in &light_entities {
             if let Some(idx) = store.sparse.get(eid).copied().flatten() {
                 store.components[idx].clear();
