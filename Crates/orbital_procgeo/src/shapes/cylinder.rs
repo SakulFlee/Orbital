@@ -30,10 +30,10 @@ pub fn cylinder(radius: f32, height: f32, segments: u32) -> MeshDescriptor {
 
     // Body indices (quad strip)
     for i in 0..segs {
-        let b0 = i * 2 ;
-        let t0 = i * 2 + 1 ;
-        let b1 = (i + 1) * 2 ;
-        let t1 = (i + 1) * 2 + 1 ;
+        let b0 = i * 2;
+        let t0 = i * 2 + 1;
+        let b1 = (i + 1) * 2;
+        let t1 = (i + 1) * 2 + 1;
         indices.extend_from_slice(&[b0, b1, t1, b0, t1, t0]);
     }
 
