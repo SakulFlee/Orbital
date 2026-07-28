@@ -62,17 +62,55 @@ impl From<Transform> for TransformDef {
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum SceneShape {
-    Plane { size: [f32; 2], subdivisions: u32 },
+    Plane {
+        size: [f32; 2],
+        subdivisions: u32,
+    },
     #[serde(rename = "Cube")]
-    Box { size: [f32; 3] },
-    UvSphere { radius: f32, segments: u32, rings: u32 },
-    Icosphere { radius: f32, subdivisions: u32 },
-    Cylinder { radius: f32, height: f32, segments: u32 },
-    Cone { radius: f32, height: f32, segments: u32 },
-    Torus { major_radius: f32, minor_radius: f32, major_segments: u32, minor_segments: u32 },
-    Capsule { radius: f32, height: f32, segments: u32, rings: u32 },
-    Disk { radius: f32, segments: u32 },
-    Grid { width: f32, depth: f32, cols: u32, rows: u32 },
+    Box {
+        size: [f32; 3],
+    },
+    UvSphere {
+        radius: f32,
+        segments: u32,
+        rings: u32,
+    },
+    Icosphere {
+        radius: f32,
+        subdivisions: u32,
+    },
+    Cylinder {
+        radius: f32,
+        height: f32,
+        segments: u32,
+    },
+    Cone {
+        radius: f32,
+        height: f32,
+        segments: u32,
+    },
+    Torus {
+        major_radius: f32,
+        minor_radius: f32,
+        major_segments: u32,
+        minor_segments: u32,
+    },
+    Capsule {
+        radius: f32,
+        height: f32,
+        segments: u32,
+        rings: u32,
+    },
+    Disk {
+        radius: f32,
+        segments: u32,
+    },
+    Grid {
+        width: f32,
+        depth: f32,
+        cols: u32,
+        rows: u32,
+    },
 }
 
 impl SceneShape {
@@ -84,30 +122,44 @@ impl SceneShape {
             SceneShape::Box { size } => {
                 shapes::box_(cgmath::Vector3::new(size[0], size[1], size[2]))
             }
-            SceneShape::UvSphere { radius, segments, rings } => {
-                shapes::uv_sphere(radius, segments, rings)
-            }
-            SceneShape::Icosphere { radius, subdivisions } => {
-                shapes::icosphere(radius, subdivisions)
-            }
-            SceneShape::Cylinder { radius, height, segments } => {
-                shapes::cylinder(radius, height, segments)
-            }
-            SceneShape::Cone { radius, height, segments } => {
-                shapes::cone(radius, height, segments)
-            }
-            SceneShape::Torus { major_radius, minor_radius, major_segments, minor_segments } => {
-                shapes::torus(major_radius, minor_radius, major_segments, minor_segments)
-            }
-            SceneShape::Capsule { radius, height, segments, rings } => {
-                shapes::capsule(radius, height, segments, rings)
-            }
-            SceneShape::Disk { radius, segments } => {
-                shapes::disk(radius, segments)
-            }
-            SceneShape::Grid { width, depth, cols, rows } => {
-                shapes::grid(width, depth, cols, rows)
-            }
+            SceneShape::UvSphere {
+                radius,
+                segments,
+                rings,
+            } => shapes::uv_sphere(radius, segments, rings),
+            SceneShape::Icosphere {
+                radius,
+                subdivisions,
+            } => shapes::icosphere(radius, subdivisions),
+            SceneShape::Cylinder {
+                radius,
+                height,
+                segments,
+            } => shapes::cylinder(radius, height, segments),
+            SceneShape::Cone {
+                radius,
+                height,
+                segments,
+            } => shapes::cone(radius, height, segments),
+            SceneShape::Torus {
+                major_radius,
+                minor_radius,
+                major_segments,
+                minor_segments,
+            } => shapes::torus(major_radius, minor_radius, major_segments, minor_segments),
+            SceneShape::Capsule {
+                radius,
+                height,
+                segments,
+                rings,
+            } => shapes::capsule(radius, height, segments, rings),
+            SceneShape::Disk { radius, segments } => shapes::disk(radius, segments),
+            SceneShape::Grid {
+                width,
+                depth,
+                cols,
+                rows,
+            } => shapes::grid(width, depth, cols, rows),
         }
     }
 }
@@ -136,23 +188,21 @@ impl SceneBuilder {
         self
     }
 
-    pub fn build(
-        &self,
-    ) -> Vec<(MeshDescriptor, Arc<MaterialShaderDescriptor>, Transform)> {
+    pub fn build(&self) -> Vec<(MeshDescriptor, Arc<MaterialShaderDescriptor>, Transform)> {
         let mut result = Vec::new();
 
         for entity in &self.entities {
             let mesh = entity.shape.generate();
 
-            let material = self
-                .materials
-                .get(&entity.material)
-                .cloned()
-                .unwrap_or(SceneMaterial::Color {
-                    albedo: [0.5, 0.5, 0.5, 1.0],
-                    metallic: 0.0,
-                    roughness: 0.5,
-                });
+            let material =
+                self.materials
+                    .get(&entity.material)
+                    .cloned()
+                    .unwrap_or(SceneMaterial::Color {
+                        albedo: [0.5, 0.5, 0.5, 1.0],
+                        metallic: 0.0,
+                        roughness: 0.5,
+                    });
 
             let mat_desc = material.into_material_shader();
             let transform = Transform::from(entity.transform.clone());
@@ -225,22 +275,70 @@ SceneBuilder(
     fn all_shapes_generate_mesh() {
         let shapes = vec![
             SceneShape::Box { size: [1.0; 3] },
-            SceneShape::Plane { size: [2.0, 2.0], subdivisions: 2 },
-            SceneShape::UvSphere { radius: 1.0, segments: 8, rings: 6 },
-            SceneShape::Icosphere { radius: 1.0, subdivisions: 2 },
-            SceneShape::Cylinder { radius: 0.5, height: 1.0, segments: 8 },
-            SceneShape::Cone { radius: 0.5, height: 1.0, segments: 8 },
-            SceneShape::Torus { major_radius: 1.0, minor_radius: 0.3, major_segments: 8, minor_segments: 6 },
-            SceneShape::Capsule { radius: 0.5, height: 1.0, segments: 8, rings: 6 },
-            SceneShape::Disk { radius: 1.0, segments: 8 },
-            SceneShape::Grid { width: 10.0, depth: 10.0, cols: 4, rows: 4 },
+            SceneShape::Plane {
+                size: [2.0, 2.0],
+                subdivisions: 2,
+            },
+            SceneShape::UvSphere {
+                radius: 1.0,
+                segments: 8,
+                rings: 6,
+            },
+            SceneShape::Icosphere {
+                radius: 1.0,
+                subdivisions: 2,
+            },
+            SceneShape::Cylinder {
+                radius: 0.5,
+                height: 1.0,
+                segments: 8,
+            },
+            SceneShape::Cone {
+                radius: 0.5,
+                height: 1.0,
+                segments: 8,
+            },
+            SceneShape::Torus {
+                major_radius: 1.0,
+                minor_radius: 0.3,
+                major_segments: 8,
+                minor_segments: 6,
+            },
+            SceneShape::Capsule {
+                radius: 0.5,
+                height: 1.0,
+                segments: 8,
+                rings: 6,
+            },
+            SceneShape::Disk {
+                radius: 1.0,
+                segments: 8,
+            },
+            SceneShape::Grid {
+                width: 10.0,
+                depth: 10.0,
+                cols: 4,
+                rows: 4,
+            },
         ];
 
         for shape in &shapes {
             let mesh = shape.generate();
-            assert!(!mesh.vertices.is_empty(), "{:?} generated empty vertices", shape);
-            assert!(!mesh.indices.is_empty(), "{:?} generated empty indices", shape);
-            assert!(mesh.indices.len() % 3 == 0, "{:?} indices not multiple of 3", shape);
+            assert!(
+                !mesh.vertices.is_empty(),
+                "{:?} generated empty vertices",
+                shape
+            );
+            assert!(
+                !mesh.indices.is_empty(),
+                "{:?} generated empty indices",
+                shape
+            );
+            assert!(
+                mesh.indices.len() % 3 == 0,
+                "{:?} indices not multiple of 3",
+                shape
+            );
         }
     }
 }

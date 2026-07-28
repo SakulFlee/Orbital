@@ -642,12 +642,54 @@ fn camera_frustum_corners(ecs: &World) -> Option<[Point3<f32>; 8]> {
 fn light_crosshair(position: Point3<f32>, color: [f32; 3]) -> Vec<[f32; 6]> {
     let s = 0.25;
     vec![
-        [position.x - s, position.y, position.z, color[0], color[1], color[2]],
-        [position.x + s, position.y, position.z, color[0], color[1], color[2]],
-        [position.x, position.y - s, position.z, color[0], color[1], color[2]],
-        [position.x, position.y + s, position.z, color[0], color[1], color[2]],
-        [position.x, position.y, position.z - s, color[0], color[1], color[2]],
-        [position.x, position.y, position.z + s, color[0], color[1], color[2]],
+        [
+            position.x - s,
+            position.y,
+            position.z,
+            color[0],
+            color[1],
+            color[2],
+        ],
+        [
+            position.x + s,
+            position.y,
+            position.z,
+            color[0],
+            color[1],
+            color[2],
+        ],
+        [
+            position.x,
+            position.y - s,
+            position.z,
+            color[0],
+            color[1],
+            color[2],
+        ],
+        [
+            position.x,
+            position.y + s,
+            position.z,
+            color[0],
+            color[1],
+            color[2],
+        ],
+        [
+            position.x,
+            position.y,
+            position.z - s,
+            color[0],
+            color[1],
+            color[2],
+        ],
+        [
+            position.x,
+            position.y,
+            position.z + s,
+            color[0],
+            color[1],
+            color[2],
+        ],
     ]
 }
 
@@ -662,7 +704,9 @@ fn light_arrow(position: Point3<f32>, direction: Vector3<f32>, color: [f32; 3]) 
     );
     let mut lines = Vec::with_capacity(8);
     // Stem
-    lines.push([position.x, position.y, position.z, color[0], color[1], color[2]]);
+    lines.push([
+        position.x, position.y, position.z, color[0], color[1], color[2],
+    ]);
     lines.push([tip.x, tip.y, tip.z, color[0], color[1], color[2]]);
     // Arrowhead crosshair at tip
     lines.extend(light_crosshair(tip, color));
@@ -688,7 +732,9 @@ fn light_cone(
 
     let mut lines = Vec::with_capacity(34);
     // Center line
-    lines.push([position.x, position.y, position.z, color[0], color[1], color[2]]);
+    lines.push([
+        position.x, position.y, position.z, color[0], color[1], color[2],
+    ]);
     lines.push([tip.x, tip.y, tip.z, color[0], color[1], color[2]]);
 
     // Perpendicular basis
@@ -714,7 +760,9 @@ fn light_cone(
             position.y + dir.y * range + perp.y * radius,
             position.z + dir.z * range + perp.z * radius,
         );
-        lines.push([position.x, position.y, position.z, color[0], color[1], color[2]]);
+        lines.push([
+            position.x, position.y, position.z, color[0], color[1], color[2],
+        ]);
         lines.push([p.x, p.y, p.z, color[0], color[1], color[2]]);
         rim.push(p);
     }
@@ -756,7 +804,10 @@ fn collect_light_lines(ecs: &World) -> Vec<[f32; 6]> {
 
         match desc.light_type {
             LightType::Point { .. } => {
-                lines.extend(light_crosshair(Point3::new(pos.0.x, pos.0.y, pos.0.z), color));
+                lines.extend(light_crosshair(
+                    Point3::new(pos.0.x, pos.0.y, pos.0.z),
+                    color,
+                ));
             }
             LightType::Directional { .. } => {
                 lines.extend(light_arrow(

@@ -117,7 +117,11 @@ impl SceneMaterial {
 
                 log::info!(
                     "Creating material: albedo=({:.2},{:.2},{:.2}) metallic={:.2} roughness={:.2}",
-                    a[0], a[1], a[2], metallic, roughness,
+                    a[0],
+                    a[1],
+                    a[2],
+                    metallic,
+                    roughness,
                 );
 
                 let pbr = PBRMaterialShaderDescriptor {

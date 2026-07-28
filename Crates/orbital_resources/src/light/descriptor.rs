@@ -124,7 +124,8 @@ impl LightDescriptor {
                 outer_cone_angle,
                 ..
             } => {
-                let (scale, offset) = spot_angular_attenuation(*inner_cone_angle, *outer_cone_angle);
+                let (scale, offset) =
+                    spot_angular_attenuation(*inner_cone_angle, *outer_cone_angle);
                 data.extend_from_slice(&scale.to_le_bytes()); // Attenuation scale
                 data.extend_from_slice(&offset.to_le_bytes()); // Attenuation offset
                 data.extend_from_slice(&0f32.to_le_bytes()); // Padding

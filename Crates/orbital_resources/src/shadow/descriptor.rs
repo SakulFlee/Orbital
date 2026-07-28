@@ -19,14 +19,14 @@ pub const DEFAULT_SHADOW_BIAS: f32 = 0.0005;
 #[repr(C)]
 pub struct ShadowSlotData {
     pub light_view_proj: [[f32; 4]; 4], // offset 0,   size 64
-    pub shadow_type: u32,                // offset 64,  size 4
-    pub layer_index: u32,                // offset 68,  size 4
-    pub cascade_split_depth: f32,        // offset 72,  size 4
-    pub bias: f32,                       // offset 76,  size 4
-    pub light_index: u32,                // offset 80,  size 4
-    pub near_plane: f32,                 // offset 84,  size 4
+    pub shadow_type: u32,               // offset 64,  size 4
+    pub layer_index: u32,               // offset 68,  size 4
+    pub cascade_split_depth: f32,       // offset 72,  size 4
+    pub bias: f32,                      // offset 76,  size 4
+    pub light_index: u32,               // offset 80,  size 4
+    pub near_plane: f32,                // offset 84,  size 4
     pub _padding: [u32; 2],             // offset 88,  size 8
-}                                        // total: 96 bytes
+} // total: 96 bytes
 
 impl ShadowSlotData {
     pub fn as_bytes(&self) -> &[u8] {
@@ -42,9 +42,9 @@ impl ShadowSlotData {
 #[repr(C)]
 pub struct ShadowGpuData {
     pub slots: [ShadowSlotData; MAX_SHADOW_SLOTS as usize], // offset 0, size 1536
-    pub cascade_count: u32,                                  // offset 1536, size 4
-    pub _padding: [u32; 3],                                  // offset 1540, size 12
-}                                                             // total: 1552 bytes
+    pub cascade_count: u32,                                 // offset 1536, size 4
+    pub _padding: [u32; 3],                                 // offset 1540, size 12
+} // total: 1552 bytes
 
 impl ShadowGpuData {
     pub fn new() -> Self {

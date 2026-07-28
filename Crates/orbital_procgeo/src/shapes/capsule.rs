@@ -1,4 +1,4 @@
-use cgmath::{Vector2, Vector3, InnerSpace};
+use cgmath::{InnerSpace, Vector2, Vector3};
 use orbital_resources::{MeshDescriptor, Vertex};
 
 pub fn capsule(radius: f32, height: f32, segments: u32, rings: u32) -> MeshDescriptor {
@@ -52,7 +52,11 @@ pub fn capsule(radius: f32, height: f32, segments: u32, rings: u32) -> MeshDescr
 
             let pos = Vector3::new(horiz_radius * cos_t, y, horiz_radius * sin_t);
             let normal = Vector3::new(sin_horiz * cos_t, normal_y, sin_horiz * sin_t);
-            let normal = if normal.magnitude2() > 0.0 { normal.normalize() } else { Vector3::new(0.0, 1.0, 0.0) };
+            let normal = if normal.magnitude2() > 0.0 {
+                normal.normalize()
+            } else {
+                Vector3::new(0.0, 1.0, 0.0)
+            };
             let tangent = Vector3::new(-sin_t, 0.0, cos_t).normalize();
 
             vertices.push(Vertex::new(pos, normal, tangent, Vector2::new(u, v)));

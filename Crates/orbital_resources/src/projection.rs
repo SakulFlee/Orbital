@@ -107,7 +107,10 @@ mod tests {
         let z_far = ndc(&proj, Vector4::new(0.0, 0.0, -far, 1.0)).z;
         let z_mid = ndc(&proj, Vector4::new(0.0, 0.0, -(near + far) * 0.5, 1.0)).z;
 
-        assert!((z_near - 0.0).abs() < 1e-5, "near must map to 0, got {z_near}");
+        assert!(
+            (z_near - 0.0).abs() < 1e-5,
+            "near must map to 0, got {z_near}"
+        );
         assert!((z_far - 1.0).abs() < 1e-5, "far must map to 1, got {z_far}");
         assert!(
             z_mid > 0.0 && z_mid < 1.0,
@@ -143,7 +146,10 @@ mod tests {
         // Near / far plane distances -> z 0 / 1
         let z_near = ndc(&ortho, Vector4::new(0.0, 0.0, -n, 1.0)).z;
         let z_far = ndc(&ortho, Vector4::new(0.0, 0.0, -f, 1.0)).z;
-        assert!((z_near - 0.0).abs() < 1e-6, "near must map to 0, got {z_near}");
+        assert!(
+            (z_near - 0.0).abs() < 1e-6,
+            "near must map to 0, got {z_near}"
+        );
         assert!((z_far - 1.0).abs() < 1e-6, "far must map to 1, got {z_far}");
 
         // Box edges -> ndc ±1
@@ -158,6 +164,9 @@ mod tests {
     fn ortho_y_flip() {
         let ortho = ortho_wgpu(-1.0, 1.0, -1.0, 1.0, 0.1, 10.0, true);
         let y = ndc(&ortho, Vector4::new(0.0, 1.0, -1.0, 1.0)).y;
-        assert!((y + 1.0).abs() < 1e-6, "flipped top must map to -1, got {y}");
+        assert!(
+            (y + 1.0).abs() < 1e-6,
+            "flipped top must map to -1, got {y}"
+        );
     }
 }
