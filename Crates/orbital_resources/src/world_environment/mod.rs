@@ -168,6 +168,7 @@ impl WorldEnvironment {
         queue: &Queue,
     ) -> Result<Self, Box<dyn Error>> {
         let cache_file = Self::find_cache_file(descriptor);
+        debug!("Cache file: {:?}", cache_file);
 
         // Try loading cache file
         let (pbr_ibl_diffuse, pbr_ibl_specular, write_to_cache) = match CacheFile::from_path(

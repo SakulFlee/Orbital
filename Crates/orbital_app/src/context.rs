@@ -49,6 +49,25 @@ impl AppContext {
         let adapter = Self::make_adapter(&instance, &surface)?;
         debug!("Adapter: {:?}", adapter);
 
+        let adapter_info = adapter.get_info();
+        log::info!("[orbital] Selected adapter: {}", adapter_info.name);
+        log::info!("[orbital]   backend:    {:?}", adapter_info.backend);
+        log::info!("[orbital]   device type: {:?}", adapter_info.device_type);
+        log::info!("[orbital]   vendor ID:  0x{:04X}", adapter_info.vendor);
+        log::info!("[orbital]   device ID:  0x{:04X}", adapter_info.device);
+
+        log::info!("[orbital] All available adapters:");
+        let all_adapters = block_on(instance.enumerate_adapters(Backends::all()));
+        for adapter in all_adapters {
+            let info = adapter.get_info();
+            log::info!(
+                "[orbital]   - {} (backend: {:?}, type: {:?})",
+                info.name,
+                info.backend,
+                info.device_type,
+            );
+        }
+
         let (device, queue) = Self::make_device_and_queue(&adapter)?;
         debug!("Device: {:?}", device);
         debug!("Queue: {:?}", queue);
@@ -82,6 +101,13 @@ impl AppContext {
     }
 
     fn make_instance(owned_display_handle: OwnedDisplayHandle) -> Instance {
+        #[cfg(target_os = "windows")]
+        unsafe {
+            // VK_LAYER_AMD_switchable_graphics hangs vkEnumeratePhysicalDevices
+            // on some AMD driver versions. Disable the implicit layer.
+            std::env::set_var("DISABLE_LAYER_AMD_SWITCHABLE_GRAPHICS_1", "1");
+        }
+
         Instance::new(InstanceDescriptor {
             backends: Backends::from_env().unwrap_or(Backends::all()),
             flags: InstanceFlags::from_build_config(),
