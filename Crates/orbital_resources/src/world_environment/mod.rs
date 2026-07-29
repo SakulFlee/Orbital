@@ -384,7 +384,8 @@ impl WorldEnvironment {
             queue,
         );
 
-        let bind_group_layout = device.create_bind_group_layout(&Self::bind_group_layout_descriptor());
+        let bind_group_layout =
+            device.create_bind_group_layout(&Self::bind_group_layout_descriptor());
         let mut encoder = device.create_command_encoder(&Default::default());
 
         let diffuse = Self::make_ibl_diffuse(
