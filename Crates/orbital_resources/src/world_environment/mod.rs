@@ -17,8 +17,8 @@ use wgpu::MipmapFilterMode;
 use wgpu::{
     AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
-    BufferBindingType, BufferUsages, CompareFunction, ComputePassDescriptor, ComputePipeline,
-    ComputePipelineDescriptor, Device, Extent3d, FilterMode as WFilterMode,
+    BufferBindingType, BufferUsages, CompareFunction, ComputePassDescriptor,
+    ComputePipeline, ComputePipelineDescriptor, Device, Extent3d, FilterMode as WFilterMode,
     PipelineLayoutDescriptor, Queue, SamplerBindingType, SamplerDescriptor, ShaderModuleDescriptor,
     ShaderStages, StorageTextureAccess, TextureDimension, TextureFormat, TextureSampleType,
     TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension, include_wgsl,
@@ -80,7 +80,10 @@ fn poll_wait(device: &Device, label: &str) -> Result<(), ()> {
         })) {
             Ok(Ok(_)) => return Ok(()),
             Ok(Err(e)) => {
-                warn!("[IBL] Wait error for '{}': {:?}. Retrying ...", label, e);
+                warn!(
+                    "[IBL] Wait error for '{}': {:?}. Retrying ...",
+                    label, e
+                );
                 std::thread::sleep(Duration::from_millis(100));
                 continue;
             }
@@ -273,8 +276,10 @@ impl WorldEnvironment {
             material_shader: shader,
         };
 
-        if write_to_cache && let Err(e) = s.write_to_cache(&cache_file, device, queue) {
-            warn!("[IBL] Failed to write IBL cache (non-fatal): {e:?}");
+        if write_to_cache {
+            if let Err(e) = s.write_to_cache(&cache_file, device, queue) {
+                warn!("[IBL] Failed to write IBL cache (non-fatal): {e:?}");
+            }
         }
 
         Ok(s)
@@ -446,8 +451,7 @@ impl WorldEnvironment {
             queue,
         );
 
-        let bind_group_layout =
-            device.create_bind_group_layout(&Self::bind_group_layout_descriptor());
+        let bind_group_layout = device.create_bind_group_layout(&Self::bind_group_layout_descriptor());
 
         // Phase 1a: Generate diffuse irradiance map.
         // Each face is split into tiles to stay under the DX12 TDR timeout.
@@ -510,15 +514,16 @@ impl WorldEnvironment {
         device: &Device,
         queue: &Queue,
     ) -> Result<Texture, Box<dyn Error>> {
-        let pipeline =
-            Self::make_compute_pipeline(&[Some(bind_group_layout)], shader, "main", device);
+        let pipeline = Self::make_compute_pipeline(
+            &[Some(bind_group_layout)],
+            shader,
+            "main",
+            device,
+        );
 
         let dst_texture = Texture::create_empty_cube_texture(
             Some(label),
-            Vector2 {
-                x: dst_size,
-                y: dst_size,
-            },
+            Vector2 { x: dst_size, y: dst_size },
             format,
             TextureUsages::STORAGE_BINDING
                 | TextureUsages::TEXTURE_BINDING
@@ -556,8 +561,12 @@ impl WorldEnvironment {
                 for tx in 0..tiles {
                     let tile_x = tx * tile_size;
                     let tile_y = ty * tile_size;
-                    let wg_x = tile_size.min(dst_size - tile_x).div_ceil(workgroup_size);
-                    let wg_y = tile_size.min(dst_size - tile_y).div_ceil(workgroup_size);
+                    let wg_x = tile_size
+                        .min(dst_size - tile_x)
+                        .div_ceil(workgroup_size);
+                    let wg_y = tile_size
+                        .min(dst_size - tile_y)
+                        .div_ceil(workgroup_size);
 
                     let mut buf = [0u8; 16];
                     buf[..4].copy_from_slice(&tile_x.to_ne_bytes());
@@ -698,11 +707,7 @@ impl WorldEnvironment {
                 debug!(
                     "Generating PBR IBL Specular (LoD = {} / Roughness = {:.1}%) ...",
                     mip_level,
-                    if max_mip_levels > 1 {
-                        (mip_level as f32 / (max_mip_levels - 1) as f32) * 100.0
-                    } else {
-                        0.0
-                    }
+                    if max_mip_levels > 1 { (mip_level as f32 / (max_mip_levels - 1) as f32) * 100.0 } else { 0.0 }
                 );
                 let current_mip_width = (dst_size.width >> mip_level).max(1);
                 let current_mip_height = (dst_size.height >> mip_level).max(1);
