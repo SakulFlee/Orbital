@@ -384,45 +384,36 @@ impl WorldEnvironment {
             queue,
         );
 
-        // Generate diffuse IBL and wait for completion
-        let diffuse = {
-            let mut encoder = device.create_command_encoder(&Default::default());
-            let result = Self::make_ibl_diffuse(
-                dst_size,
-                &device.create_bind_group_layout(&Self::bind_group_layout_descriptor()),
-                src_texture.view(),
-                &mut encoder,
-                device,
-            );
-            let _ = queue.submit([encoder.finish()]);
-            // Note: In wgpu, submissions are automatically synchronized
-            result
-        };
+        let bind_group_layout =
+            device.create_bind_group_layout(&Self::bind_group_layout_descriptor());
+        let mut encoder = device.create_command_encoder(&Default::default());
 
-        // Generate specular IBL base level and wait for completion
-        let raw_specular = {
-            let mut encoder = device.create_command_encoder(&Default::default());
-            let result = Self::make_ibl_specular(
-                dst_size,
-                &device.create_bind_group_layout(&Self::bind_group_layout_descriptor()),
-                src_texture.view(),
-                specular_mip_level_count,
-                &mut encoder,
-                device,
-            );
-            let _ = queue.submit([encoder.finish()]);
-            // Note: In wgpu, submissions are automatically synchronized
-            result
-        };
+        let diffuse = Self::make_ibl_diffuse(
+            dst_size,
+            &bind_group_layout,
+            src_texture.view(),
+            &mut encoder,
+            device,
+        );
 
-        // Generate specular mip maps incrementally
+        let raw_specular = Self::make_ibl_specular(
+            dst_size,
+            &bind_group_layout,
+            src_texture.view(),
+            specular_mip_level_count,
+            &mut encoder,
+            device,
+        );
+
         let specular = Self::generate_specular_mip_maps_incremental(
             &raw_specular,
             sampling_type,
             specular_mip_level_count,
+            &mut encoder,
             device,
-            queue,
         );
+
+        queue.submit([encoder.finish()]);
 
         Ok((diffuse, specular))
     }
@@ -677,8 +668,8 @@ impl WorldEnvironment {
         src_specular_ibl: &Texture,
         sampling_type: &SamplingType,
         specular_mip_level_count: u32,
+        encoder: &mut CommandEncoder,
         device: &Device,
-        queue: &Queue,
     ) -> Texture {
         let bind_group_layout =
             device.create_bind_group_layout(&Self::bind_group_layout_descriptor_mip_mapping());
@@ -710,8 +701,6 @@ impl WorldEnvironment {
             max_mip_levels,
             device,
         );
-
-        let mut encoder = device.create_command_encoder(&Default::default());
 
         for mip_level in 0..max_mip_levels {
             let dst_view = dst_texture.texture().create_view(&TextureViewDescriptor {
@@ -774,7 +763,6 @@ impl WorldEnvironment {
             pass.dispatch_workgroups(workgroups_x, workgroups_y, 6);
         }
 
-        let _ = queue.submit([encoder.finish()]);
         dst_texture
     }
 
