@@ -124,7 +124,7 @@ fn calculate_pbr_ibl_diffuse(N: vec3<f32>, abs_xy: vec2<u32>, face_index: u32) {
     }
 
     let prefiltered_color = irradiance / f32(SAMPLE_COUNT);
-    textureStore(dst, abs_xy, face_index, vec4(prefiltered_color, 1.0));
+    textureStore(dst, abs_xy, 0u, vec4(prefiltered_color, 1.0));
 }
 
 // Main compute shader entry point
