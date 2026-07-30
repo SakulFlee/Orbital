@@ -2,9 +2,19 @@ const PI: f32 = 3.14159265359;
 const INV_ATAN: vec2<f32> = vec2(0.1591, 0.3183); // 1/(2*PI), 1/PI
 const TWO_PI: f32 = 6.28318530718;
 
-// Bindings for textures
-@group(0) @binding(0) var src: texture_2d<f32>; // Equirectangular source
-@group(0) @binding(1) var dst: texture_storage_2d_array<rgba16float, write>; // Cubemap destination
+@group(0) @binding(0) var src: texture_2d<f32>;
+@group(0) @binding(1) var dst: texture_storage_2d_array<rgba16float, write>;
+
+// Tile offset and face index passed from the CPU to subdivide a cubemap
+// face into smaller dispatches (avoids DX12 TDR on Windows).
+// `gid.z` is always 0 with per-face tiled dispatches, so we receive the
+// actual face index in this uniform instead.
+struct TileParams {
+    tile_offset: vec2<u32>,
+    face_index: u32,
+    _pad: u32,
+}
+@group(0) @binding(2) var<uniform> params: TileParams;
 
 // Structure to define a cubemap face
 struct Face {
@@ -77,13 +87,13 @@ fn importance_sample_lambert(uv: vec2<f32>) -> vec3<f32> {
 }
 
 // Main function to calculate diffuse IBL for a given normal
-fn calculate_pbr_ibl_diffuse(N: vec3<f32>, gid: vec3<u32>) {
+fn calculate_pbr_ibl_diffuse(N: vec3<f32>, abs_xy: vec2<u32>, face_index: u32) {
     var irradiance = vec3(0.0);
 
     const SAMPLE_COUNT: u32 = 8192u; 
 
-    // Get the scrambling seed from the pixel's coordinates
-    let scramble_seed = pcg_hash(gid.x * 19u + gid.y * 13u + gid.z * 11u);
+    // Get the scrambling seed from the pixel's absolute coordinates
+    let scramble_seed = pcg_hash(abs_xy.x * 19u + abs_xy.y * 13u + face_index * 11u);
 
     // Create a TBN matrix for transforming samples
     let up = select(vec3(0.0, 0.0, 1.0), vec3(0.0, 1.0, 0.0), abs(N.y) > 0.999);
@@ -114,7 +124,7 @@ fn calculate_pbr_ibl_diffuse(N: vec3<f32>, gid: vec3<u32>) {
     }
 
     let prefiltered_color = irradiance / f32(SAMPLE_COUNT);
-    textureStore(dst, gid.xy, gid.z, vec4(prefiltered_color, 1.0));
+    textureStore(dst, abs_xy, face_index, vec4(prefiltered_color, 1.0));
 }
 
 // Main compute shader entry point
@@ -122,25 +132,22 @@ fn calculate_pbr_ibl_diffuse(N: vec3<f32>, gid: vec3<u32>) {
 @workgroup_size(8, 8, 1)
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let dst_dims_u = textureDimensions(dst);
-    // Bounds check
-    if (gid.x >= dst_dims_u.x || gid.y >= dst_dims_u.y) {
+    let abs_xy = gid.xy + params.tile_offset;
+    // Bounds check against absolute position within the full face
+    if (abs_xy.x >= dst_dims_u.x || abs_xy.y >= dst_dims_u.y) {
         return;
     }
 
-    // Get face definition
-    let face = gid_z_to_face(gid.z);
+    let face = gid_z_to_face(params.face_index);
 
-    // Calculate UV coordinates on the cubemap face (-1 to 1)
     let dst_dims_f = vec2<f32>(dst_dims_u.xy);
-    let cube_uv = (vec2<f32>(gid.xy) + 0.5) / dst_dims_f * 2.0 - 1.0;
+    let cube_uv = (vec2<f32>(abs_xy) + 0.5) / dst_dims_f * 2.0 - 1.0;
 
-    // Calculate world space normal for this texel
     let N = normalize(
         face.forward +
         face.right * cube_uv.x - 
         face.up * cube_uv.y
     );
 
-    // Calculate diffuse IBL
-    calculate_pbr_ibl_diffuse(N, gid);
+    calculate_pbr_ibl_diffuse(N, abs_xy, params.face_index);
 }
