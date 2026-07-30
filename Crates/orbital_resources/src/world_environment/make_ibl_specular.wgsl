@@ -6,6 +6,16 @@ var src: texture_2d<f32>;
 @group(0) @binding(1)
 var dst: texture_storage_2d_array<rgba16float, write>;
 
+// Tile offset and face index passed from the CPU (gid.z is always 0 for
+// per-face tiled dispatches, so we receive the actual face index here).
+struct TileParams {
+    tile_offset: vec2<u32>,
+    face_index: u32,
+    _pad: u32,
+}
+@group(0) @binding(2)
+var<uniform> params: TileParams;
+
 struct Face {
     forward: vec3<f32>,
     up: vec3<f32>,
@@ -81,22 +91,17 @@ fn main(
 ) {
     let src_dimensions = vec2<f32>(textureDimensions(src));
     let dst_dimensions = vec2<f32>(textureDimensions(dst));
+    let abs_xy = gid.xy + params.tile_offset;
 
-    // If texture size is not divisible by 32, we
-    // need to make sure we don't try to write to
-    // pixels that don't exist.
-    if gid.x >= u32(dst_dimensions.x) {
+    if abs_xy.x >= u32(dst_dimensions.x) {
         return;
     }
 
-    // Get texture coords relative to cubemap face
-    let cube_uv = vec2<f32>(gid.xy) / dst_dimensions * 2.0 - 1.0;
+    let cube_uv = vec2<f32>(abs_xy) / dst_dimensions * 2.0 - 1.0;
 
-    // Get normal based on face and cube_uv
-    let face = gid_z_to_face(gid.z);
+    let face = gid_z_to_face(params.face_index);
     let N = normalize(face.forward + face.right * cube_uv.x + face.up * cube_uv.y);
 
-    // Convert N to equirectangular UV
     let eq_uv = vec2(
         atan2(N.z, N.x), 
         asin(N.y)
@@ -104,5 +109,5 @@ fn main(
     let eq_pixel = vec2<u32>(eq_uv * src_dimensions);
 
     let sample = textureLoad(src, eq_pixel, 0);
-    textureStore(dst, gid.xy, gid.z, sample);
+    textureStore(dst, abs_xy, gid.z, sample);
 }
