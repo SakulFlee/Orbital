@@ -298,7 +298,7 @@ impl ModuleRuntime {
                 new_light_bootstrap,
             );
 
-        log::info!(
+        log::debug!(
             "stagger: gmd={} nlb={} dirty_set_len={}",
             global_model_dirty,
             new_light_bootstrap,
