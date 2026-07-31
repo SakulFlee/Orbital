@@ -111,9 +111,14 @@ impl AppContext {
     }
 
     fn make_device_and_queue(adapter: &Adapter) -> Result<(Device, Queue), RequestDeviceError> {
+        let timestamp_features = Features::TIMESTAMP_QUERY | Features::TIMESTAMP_QUERY_INSIDE_ENCODERS;
+        let mut features = Features::default() | Features::POLYGON_MODE_LINE;
+        if adapter.features().contains(timestamp_features) {
+            features |= timestamp_features;
+        }
         block_on(adapter.request_device(&DeviceDescriptor {
             label: Some("Orbital GPU"),
-            required_features: Features::default() | Features::POLYGON_MODE_LINE,
+            required_features: features,
             required_limits: Limits::default(),
             memory_hints: MemoryHints::Performance,
             trace: Trace::Off,
@@ -139,6 +144,10 @@ impl AppContext {
             .collect();
 
         (srgb_format, view_formats)
+    }
+
+    pub fn adapter_features(&self) -> wgpu::Features {
+        self.adapter.features()
     }
 
     pub fn get_first_view_format(&self) -> TextureFormat {

@@ -39,6 +39,92 @@ macro_rules! ctx_lock {
     };
 }
 
+struct TimingAccumulator {
+    count: u64,
+    surface_acq: f64,
+    realize: f64,
+    stagger: f64,
+    cull_extract: f64,
+    bind_group_models: f64,
+    render_ms: f64,
+    present_ms: f64,
+    total_ms: f64,
+    gpu_shadow_ns: f64,
+    gpu_main_ns: f64,
+    gpu_total_ns: f64,
+    last_print: std::time::Instant,
+}
+
+impl TimingAccumulator {
+    fn new() -> Self {
+        Self {
+            count: 0,
+            surface_acq: 0.0,
+            realize: 0.0,
+            stagger: 0.0,
+            cull_extract: 0.0,
+            bind_group_models: 0.0,
+            render_ms: 0.0,
+            present_ms: 0.0,
+            total_ms: 0.0,
+            gpu_shadow_ns: 0.0,
+            gpu_main_ns: 0.0,
+            gpu_total_ns: 0.0,
+            last_print: std::time::Instant::now(),
+        }
+    }
+
+    fn push(
+        &mut self,
+        surface_acq: std::time::Duration,
+        realize: std::time::Duration,
+        stagger: std::time::Duration,
+        cull_extract: std::time::Duration,
+        bind_group_models: std::time::Duration,
+        render_ms: std::time::Duration,
+        present_ms: std::time::Duration,
+        total: std::time::Duration,
+        gpu_ns: [f64; 3],
+    ) {
+        self.count += 1;
+        self.surface_acq += surface_acq.as_secs_f64() * 1000.0;
+        self.realize += realize.as_secs_f64() * 1000.0;
+        self.stagger += stagger.as_secs_f64() * 1000.0;
+        self.cull_extract += cull_extract.as_secs_f64() * 1000.0;
+        self.bind_group_models += bind_group_models.as_secs_f64() * 1000.0;
+        self.render_ms += render_ms.as_secs_f64() * 1000.0;
+        self.present_ms += present_ms.as_secs_f64() * 1000.0;
+        self.total_ms += total.as_secs_f64() * 1000.0;
+        self.gpu_shadow_ns += gpu_ns[0];
+        self.gpu_main_ns += gpu_ns[1];
+        self.gpu_total_ns += gpu_ns[2];
+    }
+
+    fn try_print(&mut self) {
+        let elapsed = self.last_print.elapsed();
+        if elapsed.as_secs_f64() < 1.0 || self.count == 0 {
+            return;
+        }
+        let n = self.count as f64;
+        info!(
+            "TIMING avg({} frames): surface_acq={:.2}ms realize={:.2}ms stagger={:.2}ms cull+extract={:.2}ms bind+models={:.2}ms render={:.2}ms present={:.2}ms TOTAL={:.2}ms | GPU shadow={:.2}ms skybox+models={:.2}ms TOTAL={:.2}ms",
+            self.count,
+            self.surface_acq / n,
+            self.realize / n,
+            self.stagger / n,
+            self.cull_extract / n,
+            self.bind_group_models / n,
+            self.render_ms / n,
+            self.present_ms / n,
+            self.total_ms / n,
+            self.gpu_shadow_ns / n,
+            (self.gpu_main_ns - self.gpu_shadow_ns) / n,
+            self.gpu_total_ns / n,
+        );
+        *self = Self::new();
+    }
+}
+
 pub struct ModuleRuntime {
     module: Box<dyn Module>,
     settings: AppSettings,
@@ -50,6 +136,7 @@ pub struct ModuleRuntime {
     game_schedule: Schedule,
     module_setup_done: bool,
     renderer: Option<orbital_renderer::Renderer>,
+    timing_accum: TimingAccumulator,
     #[cfg(feature = "gamepad_input")]
     gil: Gilrs,
 }
@@ -76,6 +163,7 @@ impl ModuleRuntime {
             game_schedule: Schedule::new(),
             module_setup_done: false,
             renderer: None,
+            timing_accum: TimingAccumulator::new(),
             #[cfg(feature = "gamepad_input")]
             gil: Gilrs::new().expect("Gamepad input initialization failed!"),
         };
@@ -150,7 +238,6 @@ impl ModuleRuntime {
         });
 
         let t_ecs_start = std::time::Instant::now();
-        log::debug!("timing: surface_acq={:?}", t_ecs_start - t_start);
 
         // ─── section timing ──────────────────────────────────────────
         use std::time::Instant;
@@ -186,7 +273,7 @@ impl ModuleRuntime {
         crate::systems::realize::realize_environment(&mut self.ecs_world);
         crate::systems::realize::realize_models(&mut self.ecs_world);
         let t_stagger_start = Instant::now();
-        log::debug!("timing: realize_lights+models={:?}", t_stagger_start - t_realize_start);
+        let d_realize = t_stagger_start - t_realize_start;
 
         // Check if new lights were added this frame (forces full bootstrap)
         let new_light_bootstrap = self
@@ -224,7 +311,7 @@ impl ModuleRuntime {
             .map(|s| s.dense.len() as u32)
             .unwrap_or(0u32);
         let t_cull_start = Instant::now();
-        log::debug!("timing: stagger_setup={:?}", t_cull_start - t_stagger_start);
+        let d_stagger = t_cull_start - t_stagger_start;
 
         // Freeze/unfreeze the culling frustum (default F4)
         {
@@ -327,7 +414,7 @@ impl ModuleRuntime {
             (cb, lb, ei, mp, sl, pvp, near, far)
         };
         let t_bind_start = Instant::now();
-        log::debug!("timing: cull+extract={:?}", t_bind_start - t_cull_start);
+        let d_cull_extract = t_bind_start - t_cull_start;
 
         // IBL BRDF (static cache)
         static BRDF_ONCE: std::sync::OnceLock<orbital_resources::IblBrdf> =
@@ -631,7 +718,7 @@ impl ModuleRuntime {
             .collect();
 
         let t_render_start = Instant::now();
-        log::debug!("timing: bind_group+models={:?}", t_render_start - t_bind_start);
+        let d_bind_group_models = t_render_start - t_bind_start;
 
         // Render
         if let Some(renderer) = &mut self.renderer {
@@ -652,7 +739,7 @@ impl ModuleRuntime {
             );
         }
         let t_present_start = Instant::now();
-        log::debug!("timing: renderer.render={:?}", t_present_start - t_render_start);
+        let d_render = t_present_start - t_render_start;
 
         // Optional post‑main‑pass overlay (debug viz, HUD, gizmos, …)
         if let Some(overlay_res) = self.ecs_world.get_resource::<RenderOverlayResource>() {
@@ -669,11 +756,22 @@ impl ModuleRuntime {
 
         lock.queue().present(frame);
 
-        log::debug!("timing: present={:?}", Instant::now() - t_present_start);
-        log::debug!(
-            "timing: TOTAL={:?}",
-            Instant::now() - t_realize_start
+        let d_present = Instant::now() - t_present_start;
+        let d_total = Instant::now() - t_realize_start;
+        let d_surface_acq = t_realize_start - t_start;
+
+        self.timing_accum.push(
+            d_surface_acq,
+            d_realize,
+            d_stagger,
+            d_cull_extract,
+            d_bind_group_models,
+            d_render,
+            d_present,
+            d_total,
+            self.renderer.as_ref().map_or([0.0; 3], |r| r.prev_gpu_ns()),
         );
+        self.timing_accum.try_print();
     }
 
     /// Extract camera buffer as an owned Buffer (cheap Arc clone).
