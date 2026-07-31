@@ -317,7 +317,7 @@ pub fn realize_lights(ecs: &mut World) {
     // Ensure the pre-allocated buffer exists (created once on first frame)
     {
         let existing = ecs.get_resource::<LightBufferResource>();
-        let needs_create = existing.map_or(true, |r| r.0.is_none());
+        let needs_create = existing.is_none_or(|r| r.0.is_none());
         if needs_create {
             let buf = device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some("ECS Light Buffer (pre-allocated)"),
@@ -358,15 +358,12 @@ pub fn realize_lights(ecs: &mut World) {
             }
 
             // Check dirty flag
-            if !found_dirty {
-                if let Some(ref ds) = dirty_store {
-                    if let Some(d) = ds.get_component(eid) {
-                        if d.is_dirty() {
+            if !found_dirty
+                && let Some(ref ds) = dirty_store
+                    && let Some(d) = ds.get_component(eid)
+                        && d.is_dirty() {
                             found_dirty = true;
                         }
-                    }
-                }
-            }
 
             // Check if new (no LightSlotIndex yet)
             if !found_new {
@@ -381,11 +378,11 @@ pub fn realize_lights(ecs: &mut World) {
             }
 
             // Check position changes
-            if !found_moved {
-                if let Some(ref ps) = prev_pos_store {
-                    if let Some(pp) = ps.get_component(eid) {
-                        if let Some(ref pos) = positions_store {
-                            if let Some(ppi) = pos.get_component(eid) {
+            if !found_moved
+                && let Some(ref ps) = prev_pos_store
+                    && let Some(pp) = ps.get_component(eid)
+                        && let Some(ref pos) = positions_store
+                            && let Some(ppi) = pos.get_component(eid) {
                                 let diff = (ppi.0.x - pp.0.x).abs()
                                     + (ppi.0.y - pp.0.y).abs()
                                     + (ppi.0.z - pp.0.z).abs();
@@ -393,10 +390,6 @@ pub fn realize_lights(ecs: &mut World) {
                                     found_moved = true;
                                 }
                             }
-                        }
-                    }
-                }
-            }
 
             if found_dirty && found_new && found_moved {
                 break;
@@ -565,8 +558,8 @@ pub fn realize_lights(ecs: &mut World) {
     }
 
     // Free removed slots in the tracker
-    if !freed_slots.is_empty() {
-        if let Some(mut tracker) = ecs.get_resource_mut::<LightSlotTracker>() {
+    if !freed_slots.is_empty()
+        && let Some(mut tracker) = ecs.get_resource_mut::<LightSlotTracker>() {
             for slot in &freed_slots {
                 for entry in tracker.entity_to_slot.iter_mut() {
                     if *entry == Some(*slot) {
@@ -576,7 +569,6 @@ pub fn realize_lights(ecs: &mut World) {
                 tracker.free_slots.push(*slot);
             }
         }
-    }
 
     for info in &slot_infos {
         // Attach LightSlotIndex for new lights
@@ -621,26 +613,22 @@ pub fn realize_lights(ecs: &mut World) {
 
         // Mark shadow dirty if position moved
         if info.position_moved {
-            if let Some(mut store) = ecs.get_component_store_mut::<ShadowDirtyFlag>() {
-                if let Some(idx) = store.sparse.get(info.eid).copied().flatten() {
+            if let Some(mut store) = ecs.get_component_store_mut::<ShadowDirtyFlag>()
+                && let Some(idx) = store.sparse.get(info.eid).copied().flatten() {
                     store.components[idx].mark_dirty();
                 }
-            }
-            if let Some(mut store) = ecs.get_component_store_mut::<PrevPosition>() {
-                if let Some(idx) = store.sparse.get(info.eid).copied().flatten() {
+            if let Some(mut store) = ecs.get_component_store_mut::<PrevPosition>()
+                && let Some(idx) = store.sparse.get(info.eid).copied().flatten() {
                     store.components[idx] = PrevPosition(info.pos);
                 }
-            }
         }
 
         // Light property dirty → shadow also dirty
-        if info.is_dirty {
-            if let Some(mut store) = ecs.get_component_store_mut::<ShadowDirtyFlag>() {
-                if let Some(idx) = store.sparse.get(info.eid).copied().flatten() {
+        if info.is_dirty
+            && let Some(mut store) = ecs.get_component_store_mut::<ShadowDirtyFlag>()
+                && let Some(idx) = store.sparse.get(info.eid).copied().flatten() {
                     store.components[idx].mark_dirty();
                 }
-            }
-        }
     }
 
     // Clear LightDirty flags
