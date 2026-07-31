@@ -322,6 +322,33 @@ impl ShadowRenderer {
         let prev_gpu_data = self.gpu_data;
         self.gpu_data = ShadowGpuData::new();
 
+        // Pre-compute needed texture capacities BEFORE the render loop to
+        // avoid mid-loop reallocations that silently discard previously-rendered
+        // depth data (e.g. a cube texture reallocation dropping cube 0).
+        let mut needed_cubes = 0u32;
+        let mut needed_layers = 0u32;
+        for light in shadow_lights {
+            if !light.caster.enabled {
+                continue;
+            }
+            match light.light_type {
+                0 => needed_cubes += 1,
+                1 => needed_layers += light.caster.cascade_count.max(1),
+                2 => needed_layers += 1,
+                _ => {}
+            }
+        }
+        let grew_cubes = needed_cubes > self.cube_count;
+        let grew_layers = needed_layers > self.layer_count;
+        let force_all_dirty = grew_cubes || grew_layers;
+
+        if needed_cubes > 0 {
+            self.ensure_cubes(device, needed_cubes);
+        }
+        if needed_layers > 0 {
+            self.ensure_layers(device, needed_layers);
+        }
+
         let mut slot_index = 0u32;
         let mut layer_index = 0u32;
         let mut cube_index = 0u32;
@@ -346,7 +373,7 @@ impl ShadowRenderer {
 
             let _resolution = light.caster.resolution.max(1);
 
-            let is_dirty = dirty_set.contains(&light.light_store_index);
+            let is_dirty = dirty_set.contains(&light.light_store_index) || force_all_dirty;
 
             match light.light_type {
                 0 => {
@@ -367,7 +394,6 @@ impl ShadowRenderer {
                         break;
                     }
                     let my_cube = cube_index;
-                    self.ensure_cubes(device, my_cube + 1);
 
                     let pos = Point3::new(light.position.x, light.position.y, light.position.z);
                     let far_plane = POINT_LIGHT_FAR;
@@ -561,11 +587,6 @@ impl ShadowRenderer {
         }
 
         self.gpu_data.cascade_count = slot_index;
-
-        // Ensure enough layers in the depth texture
-        if layer_index > 0 {
-            self.ensure_layers(device, layer_index);
-        }
 
         // Upload slot data
         queue.write_buffer(&self.slot_data_buffer, 0, self.gpu_data.as_bytes());
