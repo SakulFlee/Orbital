@@ -7,6 +7,7 @@ edition = "2024"
 gamepad_input = ["dep:gilrs"]
 auto_request_redraw = []
 gamepad_input_poll = ["gamepad_input"]
+default = []
 
 [dependencies]
 orbital_core = { path = "../orbital_core" }

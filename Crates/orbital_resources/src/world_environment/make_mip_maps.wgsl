@@ -251,9 +251,6 @@ fn main(
     @builtin(global_invocation_id)
     gid: vec3<u32>,
 ) {
-    let src_dimensions = vec2<f32>(textureDimensions(src));
-    let dst_dimensions = vec2<f32>(textureDimensions(dst));
-
     // Return early if outside of mip bounds
     if gid.x >= mip_info.current_mip_width || gid.y >= mip_info.current_mip_height {
         return;
