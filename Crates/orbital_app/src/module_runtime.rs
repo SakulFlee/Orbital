@@ -95,9 +95,12 @@ impl TimingAccumulator {
         self.render_ms += render_ms.as_secs_f64() * 1000.0;
         self.present_ms += present_ms.as_secs_f64() * 1000.0;
         self.total_ms += total.as_secs_f64() * 1000.0;
-        self.gpu_shadow_ns += gpu_ns[0];
-        self.gpu_main_ns += gpu_ns[1];
-        self.gpu_total_ns += gpu_ns[2];
+        // gpu_ns: raw GPU timestamps at [shadow_start, skybox_start, main_end]
+        // Compute durations in ms (timestamps are in ns on Vulkan)
+        let ns_to_ms = 1.0 / 1_000_000.0;
+        self.gpu_shadow_ns += (gpu_ns[1] - gpu_ns[0]) * ns_to_ms;
+        self.gpu_main_ns += (gpu_ns[2] - gpu_ns[1]) * ns_to_ms;
+        self.gpu_total_ns += (gpu_ns[2] - gpu_ns[0]) * ns_to_ms;
     }
 
     fn try_print(&mut self) {
@@ -107,7 +110,7 @@ impl TimingAccumulator {
         }
         let n = self.count as f64;
         info!(
-            "TIMING avg({} frames): surface_acq={:.2}ms realize={:.2}ms stagger={:.2}ms cull+extract={:.2}ms bind+models={:.2}ms render={:.2}ms present={:.2}ms TOTAL={:.2}ms | GPU shadow={:.2}ms skybox+models={:.2}ms TOTAL={:.2}ms",
+            "TIMING avg({} frames): surface_acq={:.2}ms realize={:.2}ms stagger={:.2}ms cull+extract={:.2}ms bind+models={:.2}ms render={:.2}ms present={:.2}ms TOTAL={:.2}ms | GPU shadow={:.2}ms skybox+models={:.2}ms GPU_TOTAL={:.2}ms",
             self.count,
             self.surface_acq / n,
             self.realize / n,
@@ -118,7 +121,7 @@ impl TimingAccumulator {
             self.present_ms / n,
             self.total_ms / n,
             self.gpu_shadow_ns / n,
-            (self.gpu_main_ns - self.gpu_shadow_ns) / n,
+            self.gpu_main_ns / n,
             self.gpu_total_ns / n,
         );
         *self = Self::new();
