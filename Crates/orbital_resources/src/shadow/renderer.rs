@@ -380,7 +380,7 @@ impl ShadowRenderer {
                     // Point light — cube shadow map (6 faces)
                     if !is_dirty {
                         // Clean: preserve previous slot data, skip rendering
-                        if slot_index < self.max_slots as u32 {
+                        if slot_index < self.max_slots {
                             self.gpu_data.slots[slot_index as usize] =
                                 prev_gpu_data.slots[slot_index as usize];
                         }
@@ -488,7 +488,7 @@ impl ShadowRenderer {
                     if !is_dirty {
                         let cascade_count = light.caster.cascade_count.max(1);
                         for _ in 0..cascade_count {
-                            if slot_index < self.max_slots as u32 {
+                            if slot_index < self.max_slots {
                                 self.gpu_data.slots[slot_index as usize] =
                                     prev_gpu_data.slots[slot_index as usize];
                                 // Preserve previous frame's VP matrix
@@ -543,7 +543,7 @@ impl ShadowRenderer {
                 2 => {
                     // Spot light — single perspective depth map.
                     if !is_dirty {
-                        if slot_index < self.max_slots as u32 {
+                        if slot_index < self.max_slots {
                             self.gpu_data.slots[slot_index as usize] =
                                 prev_gpu_data.slots[slot_index as usize];
                             // Preserve previous frame's VP matrix
