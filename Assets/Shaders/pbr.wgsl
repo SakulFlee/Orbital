@@ -120,6 +120,8 @@ struct ShadowData {
 @group(0) @binding(11) var point_shadow_maps: texture_depth_cube_array;
 @group(0) @binding(12) var point_shadow_sampler: sampler_comparison;
 
+@group(0) @binding(13) var<uniform> light_count: u32;
+
 @group(1) @binding(0) var normal_texture: texture_2d<f32>;
 @group(1) @binding(1) var normal_sampler: sampler;
 
@@ -222,8 +224,9 @@ fn aces_tone_map(color: vec3<f32>) -> vec3<f32> {
 }
 fn calculate_light_contribution(pbr: PBRData, world_position: vec3<f32>, view_depth: f32) -> vec3<f32> {
     var Lo = vec3(0.0);
-    for (var i = u32(0); i < arrayLength(&light_store); i++) {
+    for (var i = u32(0); i < light_count; i++) {
         let light = light_store[i];
+        if (light.color.w == 0.0) { continue; }
         var brdf = calculate_light_brdf(light, pbr, world_position);
         let shadow = compute_shadow_for_light(world_position, view_depth, i, pbr.N);
         Lo += brdf * shadow;

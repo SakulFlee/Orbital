@@ -100,6 +100,8 @@ impl ModuleRuntime {
     }
 
     fn redraw(&mut self) {
+        let t_start = std::time::Instant::now();
+
         let AppState::Ready(ctx) = &self.state else {
             error!(
                 "Trying to redraw when app state is in a non-ready state! ({:?})",
@@ -147,13 +149,18 @@ impl ModuleRuntime {
             ..TextureViewDescriptor::default()
         });
 
-        // Realize all ECS state (needs &mut self.ecs_world)
-        crate::systems::realize::realize_cameras(&mut self.ecs_world);
-        crate::systems::realize::realize_lights(&mut self.ecs_world);
-        crate::systems::realize::realize_environment(&mut self.ecs_world);
-        crate::systems::realize::realize_models(&mut self.ecs_world);
+        let t_ecs_start = std::time::Instant::now();
+        log::debug!("timing: surface_acq={:?}", t_ecs_start - t_start);
 
-        // Check for any model modifications (triggers full shadow refresh)
+        // ─── section timing ──────────────────────────────────────────
+        use std::time::Instant;
+        let t_realize_start = Instant::now();
+
+        // Check for any model modifications BEFORE realize clears ModelDirty.
+        // This catches newly-imported models (e.g. DamagedHelmet) whose
+        // ModelDirty(true) is cleared by realize_models on the same frame;
+        // if we checked AFTER realize, global_model_dirty would always be
+        // false and shadow maps would never include the new model.
         let global_model_dirty = {
             if let Some(store) =
                 self.ecs_world
@@ -173,12 +180,51 @@ impl ModuleRuntime {
             }
         };
 
+        // Realize all ECS state (needs &mut self.ecs_world)
+        crate::systems::realize::realize_cameras(&mut self.ecs_world);
+        crate::systems::realize::realize_lights(&mut self.ecs_world);
+        crate::systems::realize::realize_environment(&mut self.ecs_world);
+        crate::systems::realize::realize_models(&mut self.ecs_world);
+        let t_stagger_start = Instant::now();
+        log::debug!("timing: realize_lights+models={:?}", t_stagger_start - t_realize_start);
+
+        // Check if new lights were added this frame (forces full bootstrap)
+        let new_light_bootstrap = self
+            .ecs_world
+            .get_resource::<orbital_ecs_bridge::NewLightBootstrap>()
+            .map(|n| n.0)
+            .unwrap_or(false);
+        if new_light_bootstrap {
+            self.ecs_world.insert_resource(orbital_ecs_bridge::NewLightBootstrap(false));
+        }
+
         // Schedule shadow updates respecting the per-frame budget
+        // Set ORBITAL_STAGGER_ALL=1 env-var to render all shadows each frame (for perf comparison).
+        if std::env::var("ORBITAL_STAGGER_ALL").is_ok() {
+            self.ecs_world
+                .insert_resource(orbital_ecs_bridge::StaggeredLightConfig { max_updates_per_frame: 6 });
+        }
         let dirty_set =
             crate::systems::stagger::sys_stagger_shadow_updates(
                 &mut self.ecs_world,
                 global_model_dirty,
+                new_light_bootstrap,
             );
+
+        log::info!(
+            "stagger: gmd={} nlb={} dirty_set_len={}",
+            global_model_dirty,
+            new_light_bootstrap,
+            dirty_set.len(),
+        );
+        // Count active lights for the shader's light-store loop bound
+        let active_light_count = self
+            .ecs_world
+            .get_component_store::<orbital_ecs_bridge::LightDescriptorEcs>()
+            .map(|s| s.dense.len() as u32)
+            .unwrap_or(0u32);
+        let t_cull_start = Instant::now();
+        log::debug!("timing: stagger_setup={:?}", t_cull_start - t_stagger_start);
 
         // Freeze/unfreeze the culling frustum (default F4)
         {
@@ -280,6 +326,8 @@ impl ModuleRuntime {
             let sl = self.collect_shadow_lights();
             (cb, lb, ei, mp, sl, pvp, near, far)
         };
+        let t_bind_start = Instant::now();
+        log::debug!("timing: cull+extract={:?}", t_bind_start - t_cull_start);
 
         // IBL BRDF (static cache)
         static BRDF_ONCE: std::sync::OnceLock<orbital_resources::IblBrdf> =
@@ -481,6 +529,23 @@ impl ModuleRuntime {
             cube_shadow_sampler = cs;
         };
 
+        // Active light count uniform — limits the light-store loop in the shader
+        static LIGHT_COUNT_BUF: std::sync::OnceLock<wgpu::Buffer> = std::sync::OnceLock::new();
+        let light_count_buf = LIGHT_COUNT_BUF.get_or_init(|| {
+            device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("Light Count Uniform"),
+                size: 16,
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            })
+        });
+        let light_count_bytes: [u8; 16] = {
+            let mut d = [0u8; 16];
+            d[..4].copy_from_slice(&active_light_count.to_le_bytes());
+            d
+        };
+        queue.write_buffer(light_count_buf, 0, &light_count_bytes);
+
         // Build bind group
         let bind_group_layout = orbital_resources::make_world_bind_group_layout(device);
         let world_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -546,6 +611,16 @@ impl ModuleRuntime {
                     binding: 12,
                     resource: wgpu::BindingResource::Sampler(cube_shadow_sampler),
                 },
+                wgpu::BindGroupEntry {
+                    binding: 13,
+                    resource: wgpu::BindingResource::Buffer(
+                        wgpu::BufferBinding {
+                            buffer: light_count_buf,
+                            offset: 0,
+                            size: None,
+                        },
+                    ),
+                },
             ],
         });
 
@@ -554,6 +629,9 @@ impl ModuleRuntime {
             .iter()
             .filter_map(|ptr| unsafe { ptr.as_ref() })
             .collect();
+
+        let t_render_start = Instant::now();
+        log::debug!("timing: bind_group+models={:?}", t_render_start - t_bind_start);
 
         // Render
         if let Some(renderer) = &mut self.renderer {
@@ -573,6 +651,8 @@ impl ModuleRuntime {
                 &dirty_set,
             );
         }
+        let t_present_start = Instant::now();
+        log::debug!("timing: renderer.render={:?}", t_present_start - t_render_start);
 
         // Optional post‑main‑pass overlay (debug viz, HUD, gizmos, …)
         if let Some(overlay_res) = self.ecs_world.get_resource::<RenderOverlayResource>() {
@@ -588,6 +668,12 @@ impl ModuleRuntime {
         }
 
         lock.queue().present(frame);
+
+        log::debug!("timing: present={:?}", Instant::now() - t_present_start);
+        log::debug!(
+            "timing: TOTAL={:?}",
+            Instant::now() - t_realize_start
+        );
     }
 
     /// Extract camera buffer as an owned Buffer (cheap Arc clone).
@@ -735,8 +821,10 @@ impl ModuleRuntime {
         let slot_idx_store = self
             .ecs_world
             .get_component_store::<orbital_ecs_bridge::LightSlotIndex>();
+        let has_slot_store = slot_idx_store.is_some();
 
         let mut lights = Vec::new();
+        let mut fallback_counter = 0u32;
         for &eid in descs.dense.as_slice() {
             let desc_idx = match descs.sparse.get(eid).copied().flatten() {
                 Some(i) => i,
@@ -764,11 +852,18 @@ impl ModuleRuntime {
                         outer_cone_angle, ..
                     } => (2, outer_cone_angle),
                 };
-                let light_store_index = slot_idx_store
-                    .as_ref()
-                    .and_then(|s| s.get_component(eid))
-                    .map(|si| si.0)
-                    .unwrap_or(0);
+                let light_store_index = if has_slot_store {
+                    slot_idx_store
+                        .as_ref()
+                        .and_then(|s| s.get_component(eid))
+                        .map(|si| si.0)
+                        .unwrap_or(fallback_counter)
+                } else {
+                    fallback_counter
+                };
+                if !has_slot_store {
+                    fallback_counter += 1;
+                }
                 lights.push(ShadowLightInfo {
                     light_type,
                     direction: desc.direction,
