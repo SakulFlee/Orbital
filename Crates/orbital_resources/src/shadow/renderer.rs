@@ -492,8 +492,9 @@ impl ShadowRenderer {
                                 self.gpu_data.slots[slot_index as usize] =
                                     prev_gpu_data.slots[slot_index as usize];
                                 // Preserve previous frame's VP matrix
-                                let vp_bytes = matrix_to_bytes(
-                                    &Matrix4::from(prev_gpu_data.slots[slot_index as usize].light_view_proj));
+                                let vp_bytes = matrix_to_bytes(&Matrix4::from(
+                                    prev_gpu_data.slots[slot_index as usize].light_view_proj,
+                                ));
                                 let off = matrix_index as usize * self.slot_stride as usize;
                                 matrix_bytes[off..off + 64].copy_from_slice(&vp_bytes);
                             }
@@ -546,8 +547,9 @@ impl ShadowRenderer {
                             self.gpu_data.slots[slot_index as usize] =
                                 prev_gpu_data.slots[slot_index as usize];
                             // Preserve previous frame's VP matrix
-                            let vp_bytes = matrix_to_bytes(
-                                &Matrix4::from(prev_gpu_data.slots[slot_index as usize].light_view_proj));
+                            let vp_bytes = matrix_to_bytes(&Matrix4::from(
+                                prev_gpu_data.slots[slot_index as usize].light_view_proj,
+                            ));
                             let off = matrix_index as usize * self.slot_stride as usize;
                             matrix_bytes[off..off + 64].copy_from_slice(&vp_bytes);
                         }

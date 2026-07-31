@@ -162,9 +162,9 @@ impl ModuleRuntime {
         // if we checked AFTER realize, global_model_dirty would always be
         // false and shadow maps would never include the new model.
         let global_model_dirty = {
-            if let Some(store) =
-                self.ecs_world
-                    .get_component_store::<orbital_ecs_bridge::ModelDirty>()
+            if let Some(store) = self
+                .ecs_world
+                .get_component_store::<orbital_ecs_bridge::ModelDirty>()
             {
                 store.dense.iter().any(|&eid| {
                     store
@@ -186,7 +186,10 @@ impl ModuleRuntime {
         crate::systems::realize::realize_environment(&mut self.ecs_world);
         crate::systems::realize::realize_models(&mut self.ecs_world);
         let t_stagger_start = Instant::now();
-        log::debug!("timing: realize_lights+models={:?}", t_stagger_start - t_realize_start);
+        log::debug!(
+            "timing: realize_lights+models={:?}",
+            t_stagger_start - t_realize_start
+        );
 
         // Check if new lights were added this frame (forces full bootstrap)
         let new_light_bootstrap = self
@@ -195,21 +198,23 @@ impl ModuleRuntime {
             .map(|n| n.0)
             .unwrap_or(false);
         if new_light_bootstrap {
-            self.ecs_world.insert_resource(orbital_ecs_bridge::NewLightBootstrap(false));
+            self.ecs_world
+                .insert_resource(orbital_ecs_bridge::NewLightBootstrap(false));
         }
 
         // Schedule shadow updates respecting the per-frame budget
         // Set ORBITAL_STAGGER_ALL=1 env-var to render all shadows each frame (for perf comparison).
         if std::env::var("ORBITAL_STAGGER_ALL").is_ok() {
             self.ecs_world
-                .insert_resource(orbital_ecs_bridge::StaggeredLightConfig { max_updates_per_frame: 6 });
+                .insert_resource(orbital_ecs_bridge::StaggeredLightConfig {
+                    max_updates_per_frame: 6,
+                });
         }
-        let dirty_set =
-            crate::systems::stagger::sys_stagger_shadow_updates(
-                &mut self.ecs_world,
-                global_model_dirty,
-                new_light_bootstrap,
-            );
+        let dirty_set = crate::systems::stagger::sys_stagger_shadow_updates(
+            &mut self.ecs_world,
+            global_model_dirty,
+            new_light_bootstrap,
+        );
 
         log::info!(
             "stagger: gmd={} nlb={} dirty_set_len={}",
@@ -613,13 +618,11 @@ impl ModuleRuntime {
                 },
                 wgpu::BindGroupEntry {
                     binding: 13,
-                    resource: wgpu::BindingResource::Buffer(
-                        wgpu::BufferBinding {
-                            buffer: light_count_buf,
-                            offset: 0,
-                            size: None,
-                        },
-                    ),
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: light_count_buf,
+                        offset: 0,
+                        size: None,
+                    }),
                 },
             ],
         });
@@ -631,7 +634,10 @@ impl ModuleRuntime {
             .collect();
 
         let t_render_start = Instant::now();
-        log::debug!("timing: bind_group+models={:?}", t_render_start - t_bind_start);
+        log::debug!(
+            "timing: bind_group+models={:?}",
+            t_render_start - t_bind_start
+        );
 
         // Render
         if let Some(renderer) = &mut self.renderer {
@@ -652,7 +658,10 @@ impl ModuleRuntime {
             );
         }
         let t_present_start = Instant::now();
-        log::debug!("timing: renderer.render={:?}", t_present_start - t_render_start);
+        log::debug!(
+            "timing: renderer.render={:?}",
+            t_present_start - t_render_start
+        );
 
         // Optional post‑main‑pass overlay (debug viz, HUD, gizmos, …)
         if let Some(overlay_res) = self.ecs_world.get_resource::<RenderOverlayResource>() {
@@ -670,10 +679,7 @@ impl ModuleRuntime {
         lock.queue().present(frame);
 
         log::debug!("timing: present={:?}", Instant::now() - t_present_start);
-        log::debug!(
-            "timing: TOTAL={:?}",
-            Instant::now() - t_realize_start
-        );
+        log::debug!("timing: TOTAL={:?}", Instant::now() - t_realize_start);
     }
 
     /// Extract camera buffer as an owned Buffer (cheap Arc clone).

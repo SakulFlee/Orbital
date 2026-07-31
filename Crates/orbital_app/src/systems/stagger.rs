@@ -1,9 +1,7 @@
 use std::collections::HashSet;
 
 use orbital_ecs::World;
-use orbital_ecs_bridge::{
-    LightSlotIndex, ShadowDirtyFlag, StaggeredLightConfig, StaggerState,
-};
+use orbital_ecs_bridge::{LightSlotIndex, ShadowDirtyFlag, StaggerState, StaggeredLightConfig};
 use orbital_resources::ShadowCaster;
 
 /// Build the set of light store indices whose shadow maps should be
@@ -72,7 +70,11 @@ pub fn sys_stagger_shadow_updates(
             if let Some(ref ds) = descs {
                 for &eid in ds.dense.as_slice() {
                     let has_desc = ds.sparse.get(eid).copied().flatten().is_some();
-                    let has_shadow = casters.sparse.get(eid).copied().flatten()
+                    let has_shadow = casters
+                        .sparse
+                        .get(eid)
+                        .copied()
+                        .flatten()
                         .map(|ci| casters.components[ci].enabled)
                         .unwrap_or(false);
                     if has_desc && has_shadow {
@@ -146,7 +148,10 @@ pub fn sys_stagger_shadow_updates(
                 .and_then(|ss| ss.get_component(eid).copied())
                 .map(|si| si.0)
         } else {
-            shadow_entities.iter().find(|(e, _)| *e == eid).map(|(_, s)| *s)
+            shadow_entities
+                .iter()
+                .find(|(e, _)| *e == eid)
+                .map(|(_, s)| *s)
         };
         if let Some(slot) = slot {
             result.insert(slot);
