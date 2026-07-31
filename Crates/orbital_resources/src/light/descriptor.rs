@@ -116,8 +116,15 @@ impl LightDescriptor {
         data.extend_from_slice(&light_type_value.to_le_bytes()); // Light type
 
         // Params (vec4) - 16 bytes
-        // Spot lights: x/y = angular attenuation scale/offset (see below), zw: padding.
-        // Other lights: all zeros.
+        // x/y = spot angular attenuation scale/offset (or 0)
+        // z = range² for distance culling (0 for directional = infinite range)
+        // w = padding
+        let range_sq = match &self.light_type {
+            LightType::Directional { .. } => 0.0f32,
+            LightType::Point { intensity } | LightType::Spot { intensity, .. } => {
+                intensity / 0.01
+            }
+        };
         match &self.light_type {
             LightType::Spot {
                 inner_cone_angle,
@@ -128,13 +135,13 @@ impl LightDescriptor {
                     spot_angular_attenuation(*inner_cone_angle, *outer_cone_angle);
                 data.extend_from_slice(&scale.to_le_bytes()); // Attenuation scale
                 data.extend_from_slice(&offset.to_le_bytes()); // Attenuation offset
-                data.extend_from_slice(&0f32.to_le_bytes()); // Padding
+                data.extend_from_slice(&range_sq.to_le_bytes()); // Range²
                 data.extend_from_slice(&0f32.to_le_bytes()); // Padding
             }
             _ => {
                 data.extend_from_slice(&0f32.to_le_bytes()); // Padding
                 data.extend_from_slice(&0f32.to_le_bytes()); // Padding
-                data.extend_from_slice(&0f32.to_le_bytes()); // Padding
+                data.extend_from_slice(&range_sq.to_le_bytes()); // Range²
                 data.extend_from_slice(&0f32.to_le_bytes()); // Padding
             }
         }
@@ -236,5 +243,9 @@ mod tests {
         let offset = f32::from_le_bytes(data[52..56].try_into().unwrap());
         let (s, o) = spot_angular_attenuation(0.3, 0.5);
         assert_eq!((scale, offset), (s, o));
+
+        // range² stored in params.z for distance culling
+        let range_sq = f32::from_le_bytes(data[56..60].try_into().unwrap());
+        assert_eq!(range_sq, 10.0 / 0.01);
     }
 }
