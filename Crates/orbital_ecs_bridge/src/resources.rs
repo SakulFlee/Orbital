@@ -513,3 +513,15 @@ pub struct StaggerState {
     pub round_robin_pos: usize,
     pub dirty_queue: Vec<usize>,
 }
+
+/// Set by `realize_lights` when new shadow-casting lights are created.
+/// The module runtime reads this to inform the stagger system it should
+/// perform a full bootstrap pass (all shadows dirty) that frame.
+#[derive(Debug, Clone, Copy)]
+pub struct NewLightBootstrap(pub bool);
+
+impl Default for NewLightBootstrap {
+    fn default() -> Self {
+        Self(false)
+    }
+}

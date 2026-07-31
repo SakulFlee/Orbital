@@ -334,7 +334,98 @@ pub fn realize_lights(ecs: &mut World) {
         ecs.insert_resource(LightSlotTracker::new());
     }
 
-    // --- Phase 1: Collect all data (read handles only, no &mut World) ---
+    // Fast preliminary check — is there any work at all?
+    // Scans for dirty lights, new lights (lacking LightSlotIndex), moved lights,
+    // and removed entities without building full LightDescriptor objects.
+    let (has_work, needs_full_pass) = {
+        let descs_store = match ecs.get_component_store::<LightDescriptorEcs>() {
+            Some(s) => s,
+            None => return,
+        };
+        let slot_store = ecs.get_component_store::<LightSlotIndex>();
+        let dirty_store = ecs.get_component_store::<LightDirty>();
+        let prev_pos_store = ecs.get_component_store::<PrevPosition>();
+        let positions_store = ecs.get_component_store::<Position>();
+
+        let mut found_dirty = false;
+        let mut found_new = false;
+        let mut found_moved = false;
+
+        for &eid in descs_store.dense.as_slice() {
+            // Check if this entity actually has a descriptor
+            if descs_store.sparse.get(eid).copied().flatten().is_none() {
+                continue;
+            }
+
+            // Check dirty flag
+            if !found_dirty {
+                if let Some(ref ds) = dirty_store {
+                    if let Some(d) = ds.get_component(eid) {
+                        if d.is_dirty() {
+                            found_dirty = true;
+                        }
+                    }
+                }
+            }
+
+            // Check if new (no LightSlotIndex yet)
+            if !found_new {
+                if let Some(ref ss) = slot_store {
+                    if ss.get_component(eid).is_none() {
+                        found_new = true;
+                    }
+                } else {
+                    // No slot store at all → every light is new
+                    found_new = true;
+                }
+            }
+
+            // Check position changes
+            if !found_moved {
+                if let Some(ref ps) = prev_pos_store {
+                    if let Some(pp) = ps.get_component(eid) {
+                        if let Some(ref pos) = positions_store {
+                            if let Some(ppi) = pos.get_component(eid) {
+                                let diff = (ppi.0.x - pp.0.x).abs()
+                                    + (ppi.0.y - pp.0.y).abs()
+                                    + (ppi.0.z - pp.0.z).abs();
+                                if diff > 1e-6 {
+                                    found_moved = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if found_dirty && found_new && found_moved {
+                break;
+            }
+        }
+
+        // Check for removed entities (in tracker but not in descriptor store)
+        let has_removals = if let Some(tracker) = ecs.get_resource::<LightSlotTracker>() {
+            let current: std::collections::HashSet<usize> =
+                descs_store.dense.iter().copied().collect();
+            tracker.entity_to_slot.iter().enumerate().any(|(eid, slot)| {
+                slot.is_some() && !current.contains(&eid)
+            })
+        } else {
+            false
+        };
+
+        (found_dirty || found_new || found_moved || has_removals, found_new)
+    };
+
+    if needs_full_pass {
+        ecs.insert_resource(orbital_ecs_bridge::NewLightBootstrap(true));
+    }
+
+    if !has_work {
+        return;
+    }
+
+    // --- Phase 1: Collect full data ---
 
     let descs_store = match ecs.get_component_store::<LightDescriptorEcs>() {
         Some(s) => s,
@@ -405,7 +496,6 @@ pub fn realize_lights(ecs: &mut World) {
         let slot_idx = if let Some(si) = existing_slot {
             si
         } else {
-            // Need to allocate — pick up next free slot
             let tracker = ecs.get_resource_mut::<LightSlotTracker>();
             match tracker {
                 Some(mut t) => t.allocate(eid),
@@ -438,28 +528,6 @@ pub fn realize_lights(ecs: &mut World) {
     drop(prev_pos_store);
     drop(positions_store);
     drop(descs_store);
-
-    // Early return: no changes pending
-    let has_work = slot_infos
-        .iter()
-        .any(|i| i.is_dirty || i.is_new || i.position_moved);
-    if !has_work {
-        // Check for removed entities (slot tracker may have stale entries)
-        let current_set: std::collections::HashSet<usize> =
-            light_entities.iter().copied().collect();
-        let tracker = ecs.get_resource::<LightSlotTracker>();
-        let has_removals = tracker.map_or(false, |t| {
-            t.entity_to_slot
-                .iter()
-                .enumerate()
-                .any(|(eid, slot_opt)| {
-                    slot_opt.is_some() && !current_set.contains(&eid)
-                })
-        });
-        if !has_removals {
-            return;
-        }
-    }
 
     // --- Phase 2: Mutate state and upload GPU data ---
 
@@ -511,9 +579,15 @@ pub fn realize_lights(ecs: &mut World) {
         // Attach LightSlotIndex for new lights
         if info.is_new {
             let light_entity = orbital_ecs::Entity::new(info.eid, ecs.generation(info.eid));
-            let _ = ecs.attach_component(&light_entity, LightSlotIndex(info.slot_idx));
-            let _ = ecs.attach_component(&light_entity, ShadowDirtyFlag(true));
-            let _ = ecs.attach_component(&light_entity, PrevPosition(info.pos));
+            if ecs.attach_component(&light_entity, LightSlotIndex(info.slot_idx)).is_err() {
+                warn!("realize_lights: failed to attach LightSlotIndex to entity {}", info.eid);
+            }
+            if ecs.attach_component(&light_entity, ShadowDirtyFlag(true)).is_err() {
+                warn!("realize_lights: failed to attach ShadowDirtyFlag to entity {}", info.eid);
+            }
+            if ecs.attach_component(&light_entity, PrevPosition(info.pos)).is_err() {
+                warn!("realize_lights: failed to attach PrevPosition to entity {}", info.eid);
+            }
         }
 
         // Upload GPU data for dirty lights
