@@ -19,6 +19,7 @@ pub struct Renderer {
     timestamp_staging_bufs: [wgpu::Buffer; 2],
     timestamp_read_frame: usize,
     prev_gpu_ns: [f64; 3],
+    prev_resolve_sub: Option<wgpu::SubmissionIndex>,
 }
 
 impl Renderer {
@@ -32,6 +33,7 @@ impl Renderer {
 }
 
 const TS_COUNT: u32 = 3; // 0=shadow_start, 1=skybox, 2=main_end
+const TS_BUF_SIZE: u64 = TS_COUNT as u64 * 8; // 24 bytes
 
 impl Renderer {
     pub fn new(
@@ -56,29 +58,34 @@ impl Renderer {
             None
         };
 
-        // Double-buffered resolve buffers (each stores 3 timestamps × 8 bytes = 24 bytes)
-        let buf_size = TS_COUNT as usize * 8;
-        let make_buf = |label| {
+        // Timestamp readback: resolve buffer (QUERY_RESOLVE | COPY_SRC) + double-buffered staging (COPY_DST | MAP_READ).
+        // wgpu requires MAP_READ buffers to have ONLY MAP_READ | COPY_DST — no other flags.
+        let timestamp_resolve_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Orbital::TS_Resolve"),
+            size: TS_BUF_SIZE,
+            usage: wgpu::BufferUsages::QUERY_RESOLVE | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        });
+        let make_staging = |label| {
             device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some(label),
-                size: buf_size as u64,
-                usage: wgpu::BufferUsages::QUERY_RESOLVE
-                    | wgpu::BufferUsages::COPY_SRC
-                    | wgpu::BufferUsages::MAP_READ,
+                size: TS_BUF_SIZE,
+                usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
                 mapped_at_creation: false,
             })
         };
-        let timestamp_staging_bufs = [make_buf("Orbital::TS_Staging0"), make_buf("Orbital::TS_Staging1")];
+        let timestamp_staging_bufs = [make_staging("Orbital::TS_Staging0"), make_staging("Orbital::TS_Staging1")];
 
         Self {
             surface_texture_format,
             depth_texture,
             shadow_renderer: None,
             timestamp_query_set,
-            timestamp_resolve_buffer: make_buf("Orbital::TS_Resolve"),
+            timestamp_resolve_buffer,
             timestamp_staging_bufs,
             timestamp_read_frame: 0,
             prev_gpu_ns: [0.0; 3],
+            prev_resolve_sub: None,
         }
     }
 
@@ -184,48 +191,66 @@ impl Renderer {
 
         queue.submit(vec![command_encoder.finish()]);
 
-        // Resolve timestamps into the current staging buffer, then read the OTHER staging buffer
-        // from the previous frame (double-buffered to avoid stalls).
+        // Resolve timestamps into the resolve buffer, then copy into the current staging buffer.
+        // Read the OTHER staging buffer from the previous frame (double-buffered to avoid stalls).
+        // We wait only on the PREVIOUS frame's resolve submission (not the current frame's render),
+        // so CPU/GPU overlap is preserved and the harness doesn't distort FPS measurements.
         if self.timestamp_query_set.is_some() {
             let cur = self.timestamp_read_frame & 1;
             let prev = 1 - cur;
 
-            // Resolve this frame's queries into cur staging buffer
+            // Resolve this frame's queries into resolve buffer, then copy to staging[cur]
             let mut resolve_encoder = device.create_command_encoder(&CommandEncoderDescriptor {
                 label: Some("Orbital::TS_Resolve"),
             });
             resolve_encoder.resolve_query_set(
                 self.timestamp_query_set.as_ref().unwrap(),
                 0..TS_COUNT,
-                &self.timestamp_staging_bufs[cur],
+                &self.timestamp_resolve_buffer,
                 0,
             );
-            queue.submit(vec![resolve_encoder.finish()]);
+            resolve_encoder.copy_buffer_to_buffer(
+                &self.timestamp_resolve_buffer,
+                0,
+                &self.timestamp_staging_bufs[cur],
+                0,
+                TS_BUF_SIZE,
+            );
+            let resolve_sub = queue.submit(vec![resolve_encoder.finish()]);
 
-            // Map the PREVIOUS frame's staging buffer to read back its results
-            let prev_buf = &self.timestamp_staging_bufs[prev];
-            let prev_slice = prev_buf.slice(..);
-            let done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-            let done2 = done.clone();
-            prev_slice.map_async(wgpu::MapMode::Read, move |_| {
-                done2.store(true, std::sync::atomic::Ordering::Relaxed);
-            });
-            let _ = device.poll(wgpu::PollType::wait_indefinitely());
+            // Wait for PREVIOUS frame's resolve to complete (already done in practice)
+            if let Some(prev_sub) = self.prev_resolve_sub.take() {
+                let _ = device.poll(wgpu::PollType::Wait {
+                    submission_index: Some(prev_sub),
+                    timeout: None,
+                });
 
-            if done.load(std::sync::atomic::Ordering::Relaxed) {
-                if let Ok(data) = prev_slice.get_mapped_range() {
-                    let mut ns = [0.0f64; 3];
-                    for i in 0..3 {
-                        let bytes: [u8; 8] = data[i * 8..(i + 1) * 8]
-                            .try_into()
-                            .unwrap();
-                        ns[i] = u64::from_ne_bytes(bytes) as f64;
+                // Map the PREVIOUS frame's staging buffer to read back its results
+                let prev_buf = &self.timestamp_staging_bufs[prev];
+                let prev_slice = prev_buf.slice(..);
+                let done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+                let done2 = done.clone();
+                prev_slice.map_async(wgpu::MapMode::Read, move |_| {
+                    done2.store(true, std::sync::atomic::Ordering::Relaxed);
+                });
+                let _ = device.poll(wgpu::PollType::Poll);
+
+                if done.load(std::sync::atomic::Ordering::Relaxed) {
+                    if let Ok(data) = prev_slice.get_mapped_range() {
+                        let mut ns = [0.0f64; 3];
+                        for i in 0..3 {
+                            let bytes: [u8; 8] = data[i * 8..(i + 1) * 8]
+                                .try_into()
+                                .unwrap();
+                            ns[i] = u64::from_ne_bytes(bytes) as f64;
+                        }
+                        self.prev_gpu_ns = ns;
                     }
-                    self.prev_gpu_ns = ns;
                 }
+                prev_buf.unmap();
             }
-            prev_buf.unmap();
 
+            self.prev_resolve_sub = Some(resolve_sub);
             self.timestamp_read_frame += 1;
         }
     }
