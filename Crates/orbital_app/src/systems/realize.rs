@@ -10,9 +10,9 @@ use orbital_ecs::World;
 use orbital_ecs_bridge::{
     CameraDescriptorEcs, CameraDirty, CameraRealization, DeviceResource, EcsCameraStore,
     EnvironmentDescriptorResource, EnvironmentGpuResource, LightBufferResource, LightDescriptorEcs,
-    LightDirty, LightSlotIndex, LightSlotTracker, MAX_LIGHTS, Position, PrevPosition,
-    QueueResource, Rotation, ShadowDirtyFlag, SurfaceFormatResource, MaterialCacheResource,
-    MeshCacheResource, ModelDescriptorEcs, ModelDirty, ModelInstances, ModelRealization,
+    LightDirty, LightSlotIndex, LightSlotTracker, MAX_LIGHTS, MaterialCacheResource,
+    MeshCacheResource, ModelDescriptorEcs, ModelDirty, ModelInstances, ModelRealization, Position,
+    PrevPosition, QueueResource, Rotation, ShadowDirtyFlag, SurfaceFormatResource,
 };
 use orbital_resources::{Camera, Model};
 
@@ -407,14 +407,19 @@ pub fn realize_lights(ecs: &mut World) {
         let has_removals = if let Some(tracker) = ecs.get_resource::<LightSlotTracker>() {
             let current: std::collections::HashSet<usize> =
                 descs_store.dense.iter().copied().collect();
-            tracker.entity_to_slot.iter().enumerate().any(|(eid, slot)| {
-                slot.is_some() && !current.contains(&eid)
-            })
+            tracker
+                .entity_to_slot
+                .iter()
+                .enumerate()
+                .any(|(eid, slot)| slot.is_some() && !current.contains(&eid))
         } else {
             false
         };
 
-        (found_dirty || found_new || found_moved || has_removals, found_new)
+        (
+            found_dirty || found_new || found_moved || has_removals,
+            found_new,
+        )
     };
 
     if needs_full_pass {
@@ -550,9 +555,7 @@ pub fn realize_lights(ecs: &mut World) {
             for (stale_eid, slot_opt) in t.entity_to_slot.iter().enumerate() {
                 if let Some(slot) = slot_opt {
                     let slot = *slot;
-                    if !current_set.contains(&stale_eid)
-                        && (slot as u64) < max_slots
-                    {
+                    if !current_set.contains(&stale_eid) && (slot as u64) < max_slots {
                         queue.write_buffer(&light_buffer, slot as u64 * 64, &zero_buf);
                         freed_slots.push(slot);
                     }
@@ -579,14 +582,32 @@ pub fn realize_lights(ecs: &mut World) {
         // Attach LightSlotIndex for new lights
         if info.is_new {
             let light_entity = orbital_ecs::Entity::new(info.eid, ecs.generation(info.eid));
-            if ecs.attach_component(&light_entity, LightSlotIndex(info.slot_idx)).is_err() {
-                warn!("realize_lights: failed to attach LightSlotIndex to entity {}", info.eid);
+            if ecs
+                .attach_component(&light_entity, LightSlotIndex(info.slot_idx))
+                .is_err()
+            {
+                warn!(
+                    "realize_lights: failed to attach LightSlotIndex to entity {}",
+                    info.eid
+                );
             }
-            if ecs.attach_component(&light_entity, ShadowDirtyFlag(true)).is_err() {
-                warn!("realize_lights: failed to attach ShadowDirtyFlag to entity {}", info.eid);
+            if ecs
+                .attach_component(&light_entity, ShadowDirtyFlag(true))
+                .is_err()
+            {
+                warn!(
+                    "realize_lights: failed to attach ShadowDirtyFlag to entity {}",
+                    info.eid
+                );
             }
-            if ecs.attach_component(&light_entity, PrevPosition(info.pos)).is_err() {
-                warn!("realize_lights: failed to attach PrevPosition to entity {}", info.eid);
+            if ecs
+                .attach_component(&light_entity, PrevPosition(info.pos))
+                .is_err()
+            {
+                warn!(
+                    "realize_lights: failed to attach PrevPosition to entity {}",
+                    info.eid
+                );
             }
         }
 
