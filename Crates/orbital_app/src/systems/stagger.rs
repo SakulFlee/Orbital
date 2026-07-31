@@ -11,18 +11,22 @@ use orbital_resources::ShadowCaster;
 ///
 /// On each frame this:
 /// 1. Finds all shadow-casting lights marked `ShadowDirtyFlag`
-/// 2. Processes up to `max_updates_per_frame` dirty lights (dirty-first,
-///    then round-robin through remaining clean shadows for proactive refresh)
+/// 2. Processes up to `budget - reserve` dirty lights (dirty priority),
+///    then round-robin through remaining clean shadows for proactive refresh,
+///    where `reserve = max(1, budget/2)` when clean casters exist (0 otherwise)
 /// 3. Clears `ShadowDirtyFlag` for processed lights
 /// 4. Returns the set of `light_store_index` values whose shadows need updating
 ///
 /// If `global_dirty` is true (indicating model/changes), all shadow-casting
 /// lights are included regardless of the budget.
+///
+/// `new_light_bootstrap`: when true (new lights were added this frame),
+/// marks all shadow-casting lights dirty for immediate initialization.
 pub fn sys_stagger_shadow_updates(
     ecs: &mut World,
     global_dirty: bool,
+    new_light_bootstrap: bool,
 ) -> HashSet<u32> {
-    // Ensure StaggerState exists
     if ecs.get_resource::<StaggerState>().is_none() {
         ecs.insert_resource(StaggerState::default());
     }
@@ -35,61 +39,76 @@ pub fn sys_stagger_shadow_updates(
 
     let mut result = HashSet::new();
 
-    // --- Phase 1: Collect all read-only data ---
+    // Collect all shadow-casting entities and their slot indices.
+    // Falls back to sequential indexing if LightSlotIndex store is absent.
+    let casters = match ecs.get_component_store::<ShadowCaster>() {
+        Some(s) => s,
+        None => return result,
+    };
+    let slot_store = ecs.get_component_store::<LightSlotIndex>();
+    let has_slot_store = slot_store.is_some();
 
-    let dirty_eids: Vec<usize>;
-    let all_shadow_with_slots: Vec<(usize, u32)>;
-
+    // Build (entity_id, slot_index_or_seq) for each shadow-casting light
+    let mut shadow_entities: Vec<(usize, u32)> = Vec::new();
     {
-        // Determine which entity IDs have ShadowDirtyFlag set
-        let dirty_store = ecs.get_component_store::<ShadowDirtyFlag>();
-        dirty_eids = match dirty_store {
-            Some(ref ds) => ds
-                .dense
-                .iter()
-                .copied()
-                .filter(|&eid| {
-                    ds.sparse
-                        .get(eid)
-                        .copied()
-                        .flatten()
-                        .map(|idx| ds.components[idx].is_dirty())
-                        .unwrap_or(false)
-                })
-                .collect(),
-            None => Vec::new(),
-        };
-    }
-
-    {
-        // Collect all shadow-casting entities with their slot indices
-        let casters = ecs.get_component_store::<ShadowCaster>();
-        let slot_store = ecs.get_component_store::<LightSlotIndex>();
-        let mut shadow_list = Vec::new();
-        if let Some(ref cs) = casters {
+        let mut seq_counter = 0u32;
+        let descs = ecs.get_component_store::<orbital_ecs_bridge::LightDescriptorEcs>();
+        if has_slot_store {
+            // Use LightSlotIndex components
             if let Some(ref ss) = slot_store {
-                for &eid in cs.dense.as_slice() {
-                    if let Some(c_idx) = cs.sparse.get(eid).copied().flatten() {
-                        if !cs.components[c_idx].enabled {
+                for &eid in casters.dense.as_slice() {
+                    if let Some(c_idx) = casters.sparse.get(eid).copied().flatten() {
+                        if !casters.components[c_idx].enabled {
                             continue;
                         }
                         if let Some(s_idx) = ss.sparse.get(eid).copied().flatten() {
-                            shadow_list.push((eid, ss.components[s_idx].0));
+                            shadow_entities.push((eid, ss.components[s_idx].0));
                         }
                     }
                 }
             }
+        } else {
+            // Fallback: sequential counter from LightDescriptorEcs iteration order
+            if let Some(ref ds) = descs {
+                for &eid in ds.dense.as_slice() {
+                    let has_desc = ds.sparse.get(eid).copied().flatten().is_some();
+                    let has_shadow = casters.sparse.get(eid).copied().flatten()
+                        .map(|ci| casters.components[ci].enabled)
+                        .unwrap_or(false);
+                    if has_desc && has_shadow {
+                        shadow_entities.push((eid, seq_counter));
+                    }
+                    if has_desc {
+                        seq_counter += 1;
+                    }
+                }
+            }
         }
-        all_shadow_with_slots = shadow_list;
     }
 
-    // --- Phase 2: Handle global dirty case ---
+    // Collect dirty entity IDs
+    let dirty_eids: Vec<usize> = match ecs.get_component_store::<ShadowDirtyFlag>() {
+        Some(ref ds) => ds
+            .dense
+            .iter()
+            .copied()
+            .filter(|&eid| {
+                ds.sparse
+                    .get(eid)
+                    .copied()
+                    .flatten()
+                    .map(|idx| ds.components[idx].is_dirty())
+                    .unwrap_or(false)
+            })
+            .collect(),
+        None => Vec::new(),
+    };
 
-    if global_dirty {
-        for (_, slot) in &all_shadow_with_slots {
+    // --- Global dirty (model change) or new-light bootstrap → all shadows ---
+    if global_dirty || new_light_bootstrap {
+        for (_, slot) in &shadow_entities {
             result.insert(*slot);
         }
-        // Clear all shadow dirty flags
         if let Some(mut store) = ecs.get_component_store_mut::<ShadowDirtyFlag>() {
             for &eid in &dirty_eids {
                 if let Some(idx) = store.sparse.get(eid).copied().flatten() {
@@ -100,44 +119,55 @@ pub fn sys_stagger_shadow_updates(
         return result;
     }
 
-    // --- Phase 3: Apply stagger budget ---
-
+    // --- Apply stagger budget ---
+    // Reserve a floor for round-robin so an always-dirty light can't
+    // permanently starve proactive shadow refresh. Dirty lights still get
+    // priority (up to budget - reserve), then round-robin uses the rest.
     let mut processed: HashSet<usize> = HashSet::new();
-    let mut budget = config;
+    let non_dirty_count = shadow_entities
+        .iter()
+        .filter(|(e, _)| !dirty_eids.contains(e))
+        .count();
+    let reserve = if non_dirty_count > 0 {
+        (config / 2).max(1)
+    } else {
+        0
+    };
+    let mut dirty_budget = config.saturating_sub(reserve);
+    let round_robin_budget = config - dirty_budget;
 
     // Process dirty entities first (priority)
     for &eid in &dirty_eids {
-        if budget == 0 {
+        if dirty_budget == 0 {
             break;
         }
-        for (e, slot) in &all_shadow_with_slots {
-            if *e == eid {
-                result.insert(*slot);
-                processed.insert(eid);
-                break;
-            }
+        let slot = if has_slot_store {
+            ecs.get_component_store::<LightSlotIndex>()
+                .and_then(|ss| ss.get_component(eid).copied())
+                .map(|si| si.0)
+        } else {
+            shadow_entities.iter().find(|(e, _)| *e == eid).map(|(_, s)| *s)
+        };
+        if let Some(slot) = slot {
+            result.insert(slot);
+            processed.insert(eid);
+            dirty_budget -= 1;
         }
-        budget -= 1;
     }
 
-    // If budget remains, round-robin through remaining shadow casters
-    // (proactive refresh to catch stale shadow maps)
-    if budget > 0 {
-        let remaining: Vec<&(usize, u32)> = all_shadow_with_slots
+    // Round-robin through remaining shadow casters
+    if round_robin_budget > 0 {
+        let remaining_slots: Vec<u32> = shadow_entities
             .iter()
             .filter(|(e, _)| !processed.contains(e))
+            .map(|(_, s)| *s)
             .collect();
-        if !remaining.is_empty() {
+        if !remaining_slots.is_empty() {
             let mut state = ecs.get_resource_mut::<StaggerState>().unwrap();
-            let mut attempts = 0;
-            while budget > 0 && attempts < remaining.len() {
-                let (eid, slot) = remaining[state.round_robin_pos % remaining.len()];
-                state.round_robin_pos = (state.round_robin_pos + 1) % remaining.len();
-                if processed.insert(*eid) {
-                    result.insert(*slot);
-                    budget -= 1;
-                }
-                attempts += 1;
+            for _ in 0..round_robin_budget.min(remaining_slots.len()) {
+                let slot = remaining_slots[state.round_robin_pos % remaining_slots.len()];
+                state.round_robin_pos = (state.round_robin_pos + 1) % remaining_slots.len();
+                result.insert(slot);
             }
         }
     }
