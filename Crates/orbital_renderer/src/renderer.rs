@@ -14,13 +14,24 @@ pub struct Renderer {
     surface_texture_format: TextureFormat,
     depth_texture: Texture,
     shadow_renderer: Option<ShadowRenderer>,
+    timestamp_query_set: Option<wgpu::QuerySet>,
+    timestamp_resolve_buffer: wgpu::Buffer,
+    timestamp_staging_bufs: [wgpu::Buffer; 2],
+    timestamp_read_frame: usize,
+    prev_gpu_ns: [f64; 3],
 }
 
 impl Renderer {
     pub fn surface_texture_format(&self) -> &TextureFormat {
         &self.surface_texture_format
     }
+
+    pub fn prev_gpu_ns(&self) -> [f64; 3] {
+        self.prev_gpu_ns
+    }
 }
+
+const TS_COUNT: u32 = 3; // 0=shadow_start, 1=skybox, 2=main_end
 
 impl Renderer {
     pub fn new(
@@ -31,10 +42,43 @@ impl Renderer {
     ) -> Self {
         let depth_texture = Texture::depth_texture(&resolution, device, queue);
 
+        let has_timestamps = device
+            .features()
+            .contains(wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS);
+
+        let timestamp_query_set = if has_timestamps {
+            Some(device.create_query_set(&wgpu::QuerySetDescriptor {
+                label: Some("Orbital::TimestampQueries"),
+                ty: wgpu::QueryType::Timestamp,
+                count: TS_COUNT,
+            }))
+        } else {
+            None
+        };
+
+        // Double-buffered resolve buffers (each stores 3 timestamps × 8 bytes = 24 bytes)
+        let buf_size = TS_COUNT as usize * 8;
+        let make_buf = |label| {
+            device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some(label),
+                size: buf_size as u64,
+                usage: wgpu::BufferUsages::QUERY_RESOLVE
+                    | wgpu::BufferUsages::COPY_SRC
+                    | wgpu::BufferUsages::MAP_READ,
+                mapped_at_creation: false,
+            })
+        };
+        let timestamp_staging_bufs = [make_buf("Orbital::TS_Staging0"), make_buf("Orbital::TS_Staging1")];
+
         Self {
             surface_texture_format,
             depth_texture,
             shadow_renderer: None,
+            timestamp_query_set,
+            timestamp_resolve_buffer: make_buf("Orbital::TS_Resolve"),
+            timestamp_staging_bufs,
+            timestamp_read_frame: 0,
+            prev_gpu_ns: [0.0; 3],
         }
     }
 
@@ -88,6 +132,11 @@ impl Renderer {
             label: Some("Orbital::Render::Encoder"),
         });
 
+        // Write timestamp 0: start of shadow pass
+        if let Some(qs) = &self.timestamp_query_set {
+            command_encoder.write_timestamp(qs, 0);
+        }
+
         // Shadow pass (before main passes)
         if let Some(sr) = self.shadow_renderer.as_mut()
             && let Some(pvp) = camera_perspective_view_proj
@@ -103,6 +152,11 @@ impl Renderer {
                 queue,
                 dirty_set,
             );
+        }
+
+        // Write timestamp 1: shadow done, skybox start
+        if let Some(qs) = &self.timestamp_query_set {
+            command_encoder.write_timestamp(qs, 1);
         }
 
         if let Some(world_environment) = world_environment_option {
@@ -123,7 +177,57 @@ impl Renderer {
             cull,
         );
 
+        // Write timestamp 2: main pass done
+        if let Some(qs) = &self.timestamp_query_set {
+            command_encoder.write_timestamp(qs, 2);
+        }
+
         queue.submit(vec![command_encoder.finish()]);
+
+        // Resolve timestamps into the current staging buffer, then read the OTHER staging buffer
+        // from the previous frame (double-buffered to avoid stalls).
+        if self.timestamp_query_set.is_some() {
+            let cur = self.timestamp_read_frame & 1;
+            let prev = 1 - cur;
+
+            // Resolve this frame's queries into cur staging buffer
+            let mut resolve_encoder = device.create_command_encoder(&CommandEncoderDescriptor {
+                label: Some("Orbital::TS_Resolve"),
+            });
+            resolve_encoder.resolve_query_set(
+                self.timestamp_query_set.as_ref().unwrap(),
+                0..TS_COUNT,
+                &self.timestamp_staging_bufs[cur],
+                0,
+            );
+            queue.submit(vec![resolve_encoder.finish()]);
+
+            // Map the PREVIOUS frame's staging buffer to read back its results
+            let prev_buf = &self.timestamp_staging_bufs[prev];
+            let prev_slice = prev_buf.slice(..);
+            let done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let done2 = done.clone();
+            prev_slice.map_async(wgpu::MapMode::Read, move |_| {
+                done2.store(true, std::sync::atomic::Ordering::Relaxed);
+            });
+            let _ = device.poll(wgpu::PollType::wait_indefinitely());
+
+            if done.load(std::sync::atomic::Ordering::Relaxed) {
+                if let Ok(data) = prev_slice.get_mapped_range() {
+                    let mut ns = [0.0f64; 3];
+                    for i in 0..3 {
+                        let bytes: [u8; 8] = data[i * 8..(i + 1) * 8]
+                            .try_into()
+                            .unwrap();
+                        ns[i] = u64::from_ne_bytes(bytes) as f64;
+                    }
+                    self.prev_gpu_ns = ns;
+                }
+            }
+            prev_buf.unmap();
+
+            self.timestamp_read_frame += 1;
+        }
     }
 
     fn render_sky_box(
