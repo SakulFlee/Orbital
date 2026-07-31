@@ -411,9 +411,10 @@ impl LightSlotTracker {
 
     pub fn free(&mut self, entity_id: usize) {
         if entity_id < self.entity_to_slot.len()
-            && let Some(slot) = self.entity_to_slot[entity_id].take() {
-                self.free_slots.push(slot);
-            }
+            && let Some(slot) = self.entity_to_slot[entity_id].take()
+        {
+            self.free_slots.push(slot);
+        }
     }
 
     pub fn get(&self, entity_id: usize) -> Option<u32> {
@@ -516,7 +517,5 @@ pub struct StaggerState {
 /// Set by `realize_lights` when new shadow-casting lights are created.
 /// The module runtime reads this to inform the stagger system it should
 /// perform a full bootstrap pass (all shadows dirty) that frame.
-#[derive(Debug, Clone, Copy)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NewLightBootstrap(pub bool);
-

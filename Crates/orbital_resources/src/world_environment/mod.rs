@@ -273,10 +273,9 @@ impl WorldEnvironment {
             material_shader: shader,
         };
 
-        if write_to_cache
-            && let Err(e) = s.write_to_cache(&cache_file, device, queue) {
-                warn!("[IBL] Failed to write IBL cache (non-fatal): {e:?}");
-            }
+        if write_to_cache && let Err(e) = s.write_to_cache(&cache_file, device, queue) {
+            warn!("[IBL] Failed to write IBL cache (non-fatal): {e:?}");
+        }
 
         Ok(s)
     }
