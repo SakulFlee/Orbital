@@ -227,6 +227,12 @@ fn calculate_light_contribution(pbr: PBRData, world_position: vec3<f32>, view_de
     for (var i = u32(0); i < light_count; i++) {
         let light = light_store[i];
         if (light.color.w == 0.0) { continue; }
+        // Skip lights beyond their effective range (params.z = range²)
+        // Directional lights have range_sq = 0 and are never culled.
+        if (light.params.z > 0.0) {
+            let dist_sq = dot(light.position.xyz - world_position, light.position.xyz - world_position);
+            if (dist_sq > light.params.z) { continue; }
+        }
         var brdf = calculate_light_brdf(light, pbr, world_position);
         let shadow = compute_shadow_for_light(world_position, view_depth, i, pbr.N);
         Lo += brdf * shadow;
