@@ -396,7 +396,9 @@ impl WorldEnvironment {
                 );
 
                 Self::make_ibl_from_sky_parameters(
-                    parameters.as_ref().unwrap_or(&GeneratedSkyParameters::default()),
+                    parameters
+                        .as_ref()
+                        .unwrap_or(&GeneratedSkyParameters::default()),
                     *cube_face_size,
                     sampling_type,
                     clamped_mip_levels,
@@ -590,18 +592,13 @@ impl WorldEnvironment {
             ..Default::default()
         });
 
-        let src_tex = Texture::from_existing(
-            raw_texture,
-            src_view,
-            src_sampler,
-            TextureViewDimension::D2,
-        );
+        let src_tex =
+            Texture::from_existing(raw_texture, src_view, src_sampler, TextureViewDimension::D2);
 
         // Generate the atmospheric scattering sky
         {
-            let bind_group_layout = device.create_bind_group_layout(
-                &Self::bind_group_layout_descriptor_sky_gen(),
-            );
+            let bind_group_layout =
+                device.create_bind_group_layout(&Self::bind_group_layout_descriptor_sky_gen());
             let params_buffer = Self::make_sky_parameters_buffer(params, device);
 
             let bind_group = device.create_bind_group(&BindGroupDescriptor {
@@ -610,9 +607,7 @@ impl WorldEnvironment {
                 entries: &[
                     BindGroupEntry {
                         binding: 0,
-                        resource: BindingResource::Buffer(
-                            params_buffer.as_entire_buffer_binding(),
-                        ),
+                        resource: BindingResource::Buffer(params_buffer.as_entire_buffer_binding()),
                     },
                     BindGroupEntry {
                         binding: 1,
@@ -961,7 +956,10 @@ impl WorldEnvironment {
         })
     }
 
-    pub(crate) fn make_sky_parameters_buffer(params: &GeneratedSkyParameters, device: &Device) -> wgpu::Buffer {
+    pub(crate) fn make_sky_parameters_buffer(
+        params: &GeneratedSkyParameters,
+        device: &Device,
+    ) -> wgpu::Buffer {
         let mut data = Vec::with_capacity(96);
 
         let wf = |v: &mut Vec<u8>, f: f32| v.extend_from_slice(&f.to_le_bytes());
