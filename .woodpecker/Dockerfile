@@ -8,7 +8,7 @@ RUN dpkg --add-architecture arm64 \
       mesa-vulkan-drivers libgl1-mesa-dri \
       libudev-dev:arm64 libwayland-dev:arm64 libxkbcommon-dev:arm64 libvulkan-dev:arm64 \
       gcc-aarch64-linux-gnu gcc-mingw-w64-x86-64 \
-      zip git curl ca-certificates \
+      zip git curl ca-certificates rsync \
  && rm -rf /var/lib/apt/lists/*
 
 RUN rustup component add rustfmt clippy \
