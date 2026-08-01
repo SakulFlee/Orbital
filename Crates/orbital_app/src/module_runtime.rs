@@ -240,7 +240,7 @@ impl ModuleRuntime {
             ..TextureViewDescriptor::default()
         });
 
-        let t_ecs_start = std::time::Instant::now();
+        let _t_ecs_start = std::time::Instant::now();
 
         // ─── section timing ──────────────────────────────────────────
         use std::time::Instant;
