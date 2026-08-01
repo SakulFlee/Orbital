@@ -1,0 +1,21 @@
+when:
+  - event: push
+    branch: main
+    path:
+      include:
+        - .woodpecker/Dockerfile
+  - event: manual
+
+steps:
+  build-and-push:
+    image: woodpeckerci/plugin-kaniko
+    settings:
+      registry: forgejo.sakul-flee.de
+      repo: sakulflee/orbital-ci-build-image
+      tags: latest
+      dockerfile: .woodpecker/Dockerfile
+      context: .
+      username:
+        from_secret: forgejo_user
+      password:
+        from_secret: forgejo_token
