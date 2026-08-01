@@ -81,6 +81,9 @@ steps:
     volumes:
       - /var/lib/woodpecker/cache:/cache:rw
     commands:
-      - rsync -a --delete target/ "/cache/orbital/release-$TARGET/"
-      - rsync -a /usr/local/cargo/registry/ /cache/orbital/cargo/registry/
-      - rsync -a /usr/local/cargo/git/ /cache/orbital/cargo/git/
+      - mkdir -p "/cache/orbital/release-$TARGET"
+      - '[ -d target ] && rsync -a --delete target/ "/cache/orbital/release-$TARGET/" || true'
+      - mkdir -p /cache/orbital/cargo/registry
+      - '[ -d /usr/local/cargo/registry ] && rsync -a /usr/local/cargo/registry/ /cache/orbital/cargo/registry/ || true'
+      - mkdir -p /cache/orbital/cargo/git
+      - '[ -d /usr/local/cargo/git ] && rsync -a /usr/local/cargo/git/ /cache/orbital/cargo/git/ || true'
