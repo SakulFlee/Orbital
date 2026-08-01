@@ -1,57 +1,43 @@
-// Atmospheric scattering sky generation — produces an equirectangular
-// HDR texture via single-scattering ray marching (Rayleigh + Mie).
+// Analytic time-of-day sky generation — produces an equirectangular HDR
+// texture without any ray marching.  The look is driven by a single
+// `time_of_day_hours` parameter:
 //
-// Each pixel is computed independently: convert equirectangular UV to a
-// world-space direction, ray-march through the atmosphere shell
-// accumulating scattered light, and apply the sun disk on top.
+//   * Day  — blue zenith / pale horizon gradient, bright sun disk + halo.
+//   * Dusk/dawn — warm orange band near the horizon.
+//   * Night — dark blue-black sky, a procedural deterministic starfield,
+//             and a moon opposite the sun.
+//
+// Each pixel is computed independently from its world-space direction, so
+// the output is perfectly stable (no per-frame noise) and cheap.
 //
 // Parameters are uploaded via a uniform buffer matching the layout below.
-// Total struct size: 6 rows × 16 bytes = 96 bytes.
+// Total struct size: 3 rows × 16 bytes = 48 bytes.
 
 const PI: f32 = 3.14159265359;
-const VIEW_SAMPLES: u32 = 64u;
-const SUN_SAMPLES: u32 = 8u;
+const TWO_PI: f32 = 6.28318530718;
 
 // ---------------------------------------------------------------------------
 // Uniform buffer — must stay in sync with GeneratedSkyParameters on the
 // Rust side.  Every row is 16 bytes (std140 alignment).
 // ---------------------------------------------------------------------------
 struct SkyParams {
-    // Row 0 (offset  0): vec3<f32> + 4 bytes pad
-    sun_direction_x: f32,
-    sun_direction_y: f32,
-    sun_direction_z: f32,
-    _pad0: f32,
-
-    // Row 1 (offset 16): 4 × f32
+    // Row 0 (offset  0): 4 × f32
+    time_of_day_hours: f32,
+    sun_azimuth: f32,
     sun_angular_radius: f32,
     sun_intensity: f32,
-    rayleigh_scale_height: f32,
-    mie_scale_height: f32,
+
+    // Row 1 (offset 16): 4 × f32
+    moon_angular_radius: f32,
+    moon_intensity: f32,
+    star_intensity: f32,
+    exposure: f32,
 
     // Row 2 (offset 32): vec3<f32> + 4 bytes pad
-    rayleigh_scatter_r: f32,
-    rayleigh_scatter_g: f32,
-    rayleigh_scatter_b: f32,
-    _pad1: f32,
-
-    // Row 3 (offset 48): 4 × f32
-    mie_scattering_coeff: f32,
-    mie_absorption_coeff: f32,
-    mie_anisotropy: f32,
-    _pad2: f32,
-
-    // Row 4 (offset 64): vec3<f32> + 4 bytes pad
     ground_albedo_r: f32,
     ground_albedo_g: f32,
     ground_albedo_b: f32,
-    _pad3: f32,
-
-    // Row 5 (offset 80): 4 × f32
-    planet_radius: f32,
-    atmosphere_radius: f32,
-    exposure: f32,
-    _pad4: f32,
+    _pad: f32,
 }
 
 // ---------------------------------------------------------------------------
@@ -61,63 +47,13 @@ struct SkyParams {
 @group(0) @binding(1) var dst: texture_storage_2d<rgba32float, write>;
 
 // ---------------------------------------------------------------------------
-// Phase functions
+// Deterministic 3D integer hash (simple integer-noise), used for the stars.
 // ---------------------------------------------------------------------------
-fn rayleigh_phase(cos_theta: f32) -> f32 {
-    return (3.0 / (16.0 * PI)) * (1.0 + cos_theta * cos_theta);
-}
-
-fn henyey_greenstein(cos_theta: f32, g: f32) -> f32 {
-    let g2 = g * g;
-    let denominator = 1.0 + g2 - 2.0 * g * cos_theta;
-    return (1.0 - g2) / (4.0 * PI * denominator * sqrt(denominator));
-}
-
-// ---------------------------------------------------------------------------
-// Ray-sphere intersection
-//
-// Returns (t_near, t_far) for a ray O + t*D intersecting a sphere centred
-// at the origin with the given radius.  If there is no intersection both
-// components are -1.
-// ---------------------------------------------------------------------------
-fn ray_sphere_intersection(
-    ray_origin: vec3<f32>,
-    ray_dir: vec3<f32>,
-    radius: f32,
-) -> vec2<f32> {
-    let b = 2.0 * dot(ray_origin, ray_dir);
-    let c = dot(ray_origin, ray_origin) - radius * radius;
-    let discriminant = b * b - 4.0 * c;
-    if discriminant < 0.0 {
-        return vec2(-1.0, -1.0);
-    }
-    let d = sqrt(discriminant);
-    return vec2((-b - d) * 0.5, (-b + d) * 0.5);
-}
-
-// ---------------------------------------------------------------------------
-// Integral of exp(-h / scale_height) along a ray segment (optical depth).
-// Used for the *inner* sun-direction march.
-// ---------------------------------------------------------------------------
-fn integrate_optical_depth(
-    ray_start: vec3<f32>,
-    ray_dir: vec3<f32>,
-    ray_len: f32,
-    num_samples: u32,
-    scale_height: f32,
-    planet_radius: f32,
-) -> f32 {
-    let step = ray_len / f32(num_samples);
-    var od: f32 = 0.0;
-    for (var i = 0u; i < num_samples; i++) {
-        let t = (f32(i) + 0.5) * step;
-        let P = ray_start + t * ray_dir;
-        let h = length(P) - planet_radius;
-        if h > 0.0 {
-            od += exp(-h / scale_height) * step;
-        }
-    }
-    return od;
+fn star_hash(cx: u32, cy: u32, cz: u32) -> u32 {
+    var h = cx * 374761393u + cy * 668265263u + cz * 1274126177u;
+    h = (h ^ (h >> 13u)) * 1103515245u;
+    h = h ^ (h >> 16u);
+    return h;
 }
 
 // ---------------------------------------------------------------------------
@@ -131,148 +67,127 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         return;
     }
 
-    // --- Pack scalar parameters -------------------------------------------
-    let R_planet = params.planet_radius;
-    let R_atm    = params.atmosphere_radius;
-    let H_R      = params.rayleigh_scale_height;
-    let H_M      = params.mie_scale_height;
-
-    let beta_R = vec3<f32>(
-        params.rayleigh_scatter_r,
-        params.rayleigh_scatter_g,
-        params.rayleigh_scatter_b,
-    );
-    let beta_M = vec3<f32>(params.mie_scattering_coeff);
-    let beta_M_abs = vec3<f32>(params.mie_absorption_coeff);
-    let beta_M_ext = beta_M + beta_M_abs; // Mie extinction
-    let g_mie      = params.mie_anisotropy;
-
-    let sun_dir = normalize(vec3<f32>(
-        params.sun_direction_x,
-        params.sun_direction_y,
-        params.sun_direction_z,
-    ));
-
     // --- Equirectangular UV → world-space direction -----------------------
     //
     // Inverse of the mapping used by make_ibl_diffuse / make_ibl_specular:
     //   u = atan2(L.z, L.x) / (2π) + 0.5       →  phi
     //   v = asin(L.y)    / π     + 0.5          →  theta
     let uv = (vec2<f32>(gid.xy) + 0.5) / dims;
-    let phi   = (uv.x - 0.5) * 2.0 * PI;
+    let phi   = (uv.x - 0.5) * TWO_PI;
     let y_dir = sin((uv.y - 0.5) * PI);
     let r_dir = cos((uv.y - 0.5) * PI);
     let D = normalize(vec3<f32>(r_dir * cos(phi), y_dir, r_dir * sin(phi)));
 
-    // --- Viewer position (on the planet surface at the "equator") ---------
-    let viewer = vec3<f32>(0.0, R_planet, 0.0);
+    // --- Sun position from time of day ------------------------------------
+    // `theta` is the sun's elevation angle over 24 h:
+    //   6 h → 0 (dawn, on horizon), 12 h → π/2 (noon, overhead),
+    //  18 h → π (dusk, opposite horizon), 0/24 h → −π/2 (midnight, below).
+    let theta = (params.time_of_day_hours - 6.0) / 24.0 * TWO_PI;
+    let cos_t = cos(theta);
+    let sin_t = sin(theta);
+    let sun_elev = sin_t; // in [-1, 1]
 
-    // --- Atmosphere intersection ------------------------------------------
-    let atm_hit = ray_sphere_intersection(viewer, D, R_atm);
-    let t_atm_exit = atm_hit.y; // viewer is inside → t_near < 0, t_far > 0
+    let sun_dir = normalize(vec3<f32>(
+        cos_t * cos(params.sun_azimuth),
+        sin_t,
+        cos_t * sin(params.sun_azimuth),
+    ));
 
-    // --- Planet intersection (second root — where the ray re-enters) ------
-    let p_hit = ray_sphere_intersection(viewer, D, R_planet);
-    let t_planet = select(p_hit.y, 1e20, p_hit.y <= 0.001);
+    let day_factor = smoothstep(-0.1, 0.25, sun_elev);
+    let night_factor = 1.0 - day_factor;
 
-    let max_t = min(t_atm_exit, t_planet);
-    if max_t <= 0.0 {
-        let ground = vec3<f32>(
-            params.ground_albedo_r,
-            params.ground_albedo_g,
-            params.ground_albedo_b,
+    // --- Day / night sky gradient -----------------------------------------
+    let day_zenith   = vec3<f32>(0.35, 0.55, 0.95);
+    let day_horizon  = vec3<f32>(0.75, 0.85, 1.0);
+    let night_zenith = vec3<f32>(0.005, 0.008, 0.03);
+    let night_horizon = vec3<f32>(0.02, 0.02, 0.05);
+
+    let zenith   = mix(night_zenith, day_zenith, day_factor);
+    let horizon  = mix(night_horizon, day_horizon, day_factor);
+
+    // Per-pixel vertical fade between horizon and zenith.
+    let height = clamp(D.y, 0.0, 1.0);
+    var colour = mix(horizon, zenith, pow(height, 0.5));
+
+    // --- Twilight warm band -----------------------------------------------
+    // Peaks when the sun sits on the horizon and hugs the horizon line.
+    let twilight = exp(-abs(sun_elev) * 8.0);
+    let horizon_term = pow(1.0 - height, 2.0);
+    let warm = vec3<f32>(1.5, 0.7, 0.25);
+    colour += warm * twilight * horizon_term;
+
+    // --- Sun disk + halo --------------------------------------------------
+    let cos_a = clamp(dot(D, sun_dir), -1.0, 1.0);
+    let sun_ang = acos(cos_a);
+    let sun_visible = smoothstep(-0.05, 0.05, sun_elev);
+
+    // Soft HDR disk with a slight warm tint.
+    let disk = smoothstep(
+        params.sun_angular_radius * 1.5,
+        params.sun_angular_radius * 0.5,
+        sun_ang,
+    );
+    let sun_colour = vec3<f32>(1.0, 0.92, 0.78);
+    colour += sun_colour * params.sun_intensity * disk * sun_visible;
+
+    // Wide faint halo so the sun reads as a bright glowing spot.
+    let halo = exp(-sun_ang * sun_ang / (2.0 * 0.12 * 0.12));
+    colour += warm * params.sun_intensity * 0.15 * halo * sun_visible;
+
+    // --- Moon (opposite the sun, visible at night) -------------------------
+    let moon_dir = -sun_dir;
+    let moon_ang = acos(clamp(dot(D, moon_dir), -1.0, 1.0));
+    let moon_visible = smoothstep(0.05, -0.05, sun_elev); // night only
+
+    let moon_disk = smoothstep(
+        params.moon_angular_radius * 1.5,
+        params.moon_angular_radius * 0.5,
+        moon_ang,
+    );
+    let moon_colour = vec3<f32>(0.72, 0.76, 0.85);
+    colour += moon_colour * params.moon_intensity * moon_disk * moon_visible;
+
+    let moon_halo = exp(-moon_ang * moon_ang / (2.0 * 0.02 * 0.02));
+    colour += moon_colour * params.moon_intensity * 0.3 * moon_halo * moon_visible;
+
+    // --- Stars (deterministic, faded in at night) --------------------------
+    const STAR_GRID: f32 = 90.0;
+    let bias = i32(STAR_GRID);
+    let cell = vec3<i32>(floor(D * STAR_GRID)) + vec3<i32>(bias);
+    let h = star_hash(u32(cell.x), u32(cell.y), u32(cell.z));
+    let bright = f32(h & 0xFFFFu) / 65535.0;
+
+    // Only a fraction of cells actually contain a star.
+    if bright > 0.94 {
+        // Star centre offset inside the cell (also hashed → stable).
+        let off = star_hash(
+            u32(cell.x) + 0x9E3779B9u,
+            u32(cell.y) + 0x85EBCA6Bu,
+            u32(cell.z) + 0xC2B2AE35u,
         );
-        textureStore(dst, gid.xy, vec4<f32>(ground * params.exposure, 1.0));
-        return;
+        let ox = f32(off & 0xFFu) / 255.0 - 0.5;
+        let oy = f32((off >> 8u) & 0xFFu) / 255.0 - 0.5;
+        let oz = f32((off >> 16u) & 0xFFu) / 255.0 - 0.5;
+        let centre = (vec3<f32>(cell) - vec3<f32>(f32(bias))) + vec3<f32>(ox, oy, oz);
+        let dist = length(D * STAR_GRID - centre);
+
+        let star_val = exp(-dist * dist * 60.0);
+        let star_bright = (bright - 0.94) / 0.06 * star_val;
+        let star_colour = vec3<f32>(0.85, 0.9, 1.0);
+        colour += star_colour * star_bright * params.star_intensity
+                * night_factor * 0.8;
     }
 
-    // --- Ray-march the view ray -------------------------------------------
-    let step = max_t / f32(VIEW_SAMPLES);
-    var view_od_R: f32 = 0.0;
-    var view_od_M: f32 = 0.0;
-    var colour = vec3<f32>(0.0);
-    // Track the transmittance at the atmosphere exit for the sun disk.
-    var final_transmittance = vec3<f32>(1.0);
+    // --- Ground (below the horizon) ----------------------------------------
+    let ground = vec3<f32>(
+        params.ground_albedo_r,
+        params.ground_albedo_g,
+        params.ground_albedo_b,
+    );
+    let ground_fade = smoothstep(-0.02, 0.02, D.y);
+    colour = mix(ground, colour, ground_fade);
 
-    for (var i = 0u; i < VIEW_SAMPLES; i++) {
-        let t = (f32(i) + 0.5) * step;
-        let P = viewer + t * D;
-        let h = length(P) - R_planet;
-
-        let dens_R = exp(-h / H_R);
-        let dens_M = exp(-h / H_M);
-
-        // --- Optical depth from P toward the sun --------------------------
-        let sun_hit = ray_sphere_intersection(P, sun_dir, R_atm);
-        let sun_dist = sun_hit.y;
-        var od_R_sun: f32 = 0.0;
-        var od_M_sun: f32 = 0.0;
-        if sun_dist > 0.0 {
-            od_R_sun = integrate_optical_depth(
-                P, sun_dir, sun_dist, SUN_SAMPLES, H_R, R_planet,
-            );
-            od_M_sun = integrate_optical_depth(
-                P, sun_dir, sun_dist, SUN_SAMPLES, H_M, R_planet,
-            );
-        }
-
-        let sun_trans = exp(-(beta_R * od_R_sun + beta_M_ext * od_M_sun));
-
-        // --- Accumulate view optical depth --------------------------------
-        view_od_R += dens_R * step;
-        view_od_M += dens_M * step;
-
-        let view_trans = exp(-(beta_R * view_od_R + beta_M_ext * view_od_M));
-
-        // --- Scattering at point P ----------------------------------------
-        let cos_theta = dot(D, sun_dir);
-        let phase_R = rayleigh_phase(cos_theta);
-        let phase_M = henyey_greenstein(cos_theta, g_mie);
-
-        let scatter_R = beta_R * dens_R;
-        let scatter_M = beta_M * dens_M;
-
-        colour += (scatter_R * phase_R + scatter_M * phase_M)
-                * sun_trans * view_trans * step;
-
-        final_transmittance = view_trans;
-    }
-
-    // --- Sun disk (direct sunlight) ---------------------------------------
-    let cos_sun = dot(D, sun_dir);
-    let sun_angle = acos(clamp(cos_sun, -1.0, 1.0));
-    let disk_radius = params.sun_angular_radius;
-
-    // Only draw the sun disk when the sun is near or above the horizon.
-    if sun_dir.y > -0.15 && sun_angle < disk_radius * 3.0 {
-        // Optical depth from viewer to space along the sun direction.
-        let sun_hit_viewer = ray_sphere_intersection(viewer, sun_dir, R_atm);
-        let sun_to_atm = sun_hit_viewer.y;
-        var od_R_sun_disk: f32 = 0.0;
-        var od_M_sun_disk: f32 = 0.0;
-        if sun_to_atm > 0.0 {
-            od_R_sun_disk = integrate_optical_depth(
-                viewer, sun_dir, sun_to_atm, 16u, H_R, R_planet,
-            );
-            od_M_sun_disk = integrate_optical_depth(
-                viewer, sun_dir, sun_to_atm, 16u, H_M, R_planet,
-            );
-        }
-        let sun_transmittance =
-            exp(-(beta_R * od_R_sun_disk + beta_M_ext * od_M_sun_disk));
-
-        // Angular falloff — use smoothstep for a soft edge.
-        let fade = 1.0 - smoothstep(
-            disk_radius * 0.3, disk_radius * 2.5, sun_angle,
-        );
-
-        // The sun disk is white-ish, slightly warm.
-        let sun_colour = vec3<f32>(1.0, 0.92, 0.75);
-        colour += sun_colour * params.sun_intensity
-                * sun_transmittance * fade * 0.002;
-    }
-
-    // --- Apply exposure ---------------------------------------------------
+    // --- Exposure ----------------------------------------------------------
     colour *= params.exposure;
 
     textureStore(dst, gid.xy, vec4<f32>(colour, 1.0));

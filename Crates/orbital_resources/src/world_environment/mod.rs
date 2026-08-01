@@ -960,39 +960,24 @@ impl WorldEnvironment {
         params: &GeneratedSkyParameters,
         device: &Device,
     ) -> wgpu::Buffer {
-        let mut data = Vec::with_capacity(96);
+        let mut data = Vec::with_capacity(48);
 
         let wf = |v: &mut Vec<u8>, f: f32| v.extend_from_slice(&f.to_le_bytes());
 
-        // Row 0: sun_direction (vec3) + _pad0
-        wf(&mut data, params.sun_direction[0]);
-        wf(&mut data, params.sun_direction[1]);
-        wf(&mut data, params.sun_direction[2]);
-        wf(&mut data, 0.0);
-        // Row 1: 4 × f32
+        // Row 0: 4 × f32
+        wf(&mut data, params.time_of_day_hours);
+        wf(&mut data, params.sun_azimuth);
         wf(&mut data, params.sun_angular_radius);
         wf(&mut data, params.sun_intensity);
-        wf(&mut data, params.rayleigh_scale_height);
-        wf(&mut data, params.mie_scale_height);
-        // Row 2: rayleigh_scattering (vec3) + _pad1
-        wf(&mut data, params.rayleigh_scattering_coeff[0]);
-        wf(&mut data, params.rayleigh_scattering_coeff[1]);
-        wf(&mut data, params.rayleigh_scattering_coeff[2]);
-        wf(&mut data, 0.0);
-        // Row 3: 4 × f32
-        wf(&mut data, params.mie_scattering_coeff);
-        wf(&mut data, params.mie_absorption_coeff);
-        wf(&mut data, params.mie_anisotropy);
-        wf(&mut data, 0.0);
-        // Row 4: ground_albedo (vec3) + _pad3
+        // Row 1: 4 × f32
+        wf(&mut data, params.moon_angular_radius);
+        wf(&mut data, params.moon_intensity);
+        wf(&mut data, params.star_intensity);
+        wf(&mut data, params.exposure);
+        // Row 2: ground_albedo (vec3) + _pad2
         wf(&mut data, params.ground_albedo[0]);
         wf(&mut data, params.ground_albedo[1]);
         wf(&mut data, params.ground_albedo[2]);
-        wf(&mut data, 0.0);
-        // Row 5: 4 × f32
-        wf(&mut data, params.planet_radius);
-        wf(&mut data, params.atmosphere_radius);
-        wf(&mut data, params.exposure);
         wf(&mut data, 0.0);
 
         device.create_buffer_init(&BufferInitDescriptor {
