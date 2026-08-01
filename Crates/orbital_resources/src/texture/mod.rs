@@ -1,7 +1,9 @@
 use std::ffi::OsString;
+use std::time::Duration;
 
 use cgmath::{Vector2, Vector4};
 use image::ImageReader;
+use log::warn;
 use wgpu::wgt::PollType;
 use wgpu::{
     AddressMode, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Device, Extent3d,
@@ -10,6 +12,49 @@ use wgpu::{
     TextureAspect, TextureDescriptor as WTextureDescriptor, TextureDimension, TextureFormat,
     TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
 };
+
+/// Maximum total time to spend polling for GPU work completion.
+const GPU_POLL_TIMEOUT: Duration = Duration::from_secs(120);
+/// Sleep duration between non-blocking poll checks.
+const GPU_POLL_INTERVAL: Duration = Duration::from_millis(15);
+
+/// Wait for all submitted GPU work to complete, without using
+/// `device.poll(Wait)` which can **panic** inside wgpu on device loss.
+///
+/// Uses `device.poll(Poll)` in a tight loop with `thread::sleep`, wrapped
+/// in `catch_unwind` to safely handle any panics from wgpu.
+fn poll_wait_texture(device: &Device, label: &str) {
+    let start = std::time::Instant::now();
+    loop {
+        if start.elapsed() > GPU_POLL_TIMEOUT {
+            warn!("[Texture] Poll wait for '{}' timed out", label);
+            return;
+        }
+
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| device.poll(PollType::Poll)))
+        {
+            Ok(Ok(s)) => match s {
+                wgpu::PollStatus::QueueEmpty | wgpu::PollStatus::WaitSucceeded => return,
+                wgpu::PollStatus::Poll => {
+                    std::thread::sleep(GPU_POLL_INTERVAL);
+                    continue;
+                }
+            },
+            Ok(Err(e)) => {
+                warn!("[Texture] Poll wait for '{}' error: {:?}", label, e);
+                std::thread::sleep(GPU_POLL_INTERVAL);
+                continue;
+            }
+            Err(panic_payload) => {
+                warn!(
+                    "[Texture] Poll wait for '{}' panicked: {:?}",
+                    label, panic_payload
+                );
+                return;
+            }
+        }
+    }
+}
 
 mod size;
 pub use size::*;
@@ -585,13 +630,8 @@ impl Texture {
                 );
 
                 // Submit the "copy texture to buffer" command and wait for it to finish
-                let submission_index = queue.submit([encoder.finish()]);
-                device
-                    .poll(PollType::Wait {
-                        submission_index: Some(submission_index),
-                        timeout: None,
-                    })
-                    .expect("Waiting for queue submission failed!");
+                queue.submit([encoder.finish()]);
+                poll_wait_texture(device, "Texture readback (copy to buffer)");
 
                 // Mark buffer as readable by mapping it and wait for it to finish
                 buffer.slice(..).map_async(wgpu::MapMode::Read, |_| {});

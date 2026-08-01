@@ -12,27 +12,28 @@ matrix:
 
 steps:
   restore_cache:
-    image: alpine:latest
+    image: forgejo.sakul-flee.de/sakulflee/orbital-ci-build-image:latest
+    pull: true
     volumes:
       - /var/lib/woodpecker/cache:/cache:rw
     commands:
-      - apk add --no-cache rsync
-      - mkdir -p /cache/orbital/target
-      - rsync -a /cache/orbital/target/ target/ || true
+      - mkdir -p "/cache/orbital/release-$TARGET" /cache/orbital/cargo
+      - rsync -a "/cache/orbital/release-$TARGET/" target/ || true
+      - rsync -a /cache/orbital/cargo/ /usr/local/cargo/ || true
 
   build:
-    image: nixos/nix:latest
+    image: forgejo.sakul-flee.de/sakulflee/orbital-ci-build-image:latest
+    pull: true
     environment:
       SKIP_GLTF_EXPORT: "true"
     commands:
       - |
-        DEV_SHELL=""
-        [ "$TARGET" = "aarch64-unknown-linux-gnu" ] && DEV_SHELL=".#aarch64-cross"
-        [ "$TARGET" = "x86_64-pc-windows-gnu" ] && DEV_SHELL=".#windows-x86_64-cross"
-        nix develop --extra-experimental-features 'nix-command flakes' $DEV_SHELL --command cargo build --release --target "$TARGET"
+        [ "$TARGET" = "aarch64-unknown-linux-gnu" ] && export PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig
+        cargo build --release --target "$TARGET"
 
   package:
-    image: nixos/nix:latest
+    image: forgejo.sakul-flee.de/sakulflee/orbital-ci-build-image:latest
+    pull: true
     commands:
       - mkdir upload
       - find "target/$TARGET/release" -mindepth 1 -maxdepth 1 -type f -not -name '*.d' -not -name '*.rlib' -not -name '.cargo-lock' -not -name 'CACHEDIR.TAG' -not -name '*.pdb' -exec mv {} upload/ \;
@@ -40,7 +41,8 @@ steps:
       - cd upload && zip -r "../$TARGET.zip" .
 
   publish:
-    image: nixos/nix:latest
+    image: forgejo.sakul-flee.de/sakulflee/orbital-ci-build-image:latest
+    pull: true
     environment:
       FORGEJO_USER:
         from_secret: forgejo_user
@@ -72,3 +74,16 @@ steps:
           echo "Failed to get or create release"
           exit 1
         fi
+
+  save_cache:
+    image: forgejo.sakul-flee.de/sakulflee/orbital-ci-build-image:latest
+    pull: true
+    volumes:
+      - /var/lib/woodpecker/cache:/cache:rw
+    commands:
+      - mkdir -p "/cache/orbital/release-$TARGET"
+      - '[ -d target ] && rsync -a --delete target/ "/cache/orbital/release-$TARGET/" || true'
+      - mkdir -p /cache/orbital/cargo/registry
+      - '[ -d /usr/local/cargo/registry ] && rsync -a /usr/local/cargo/registry/ /cache/orbital/cargo/registry/ || true'
+      - mkdir -p /cache/orbital/cargo/git
+      - '[ -d /usr/local/cargo/git ] && rsync -a /usr/local/cargo/git/ /cache/orbital/cargo/git/ || true'

@@ -6,25 +6,32 @@ when:
 
 steps:
   restore_cache:
-    image: alpine:latest
+    image: forgejo.sakul-flee.de/sakulflee/orbital-ci-build-image:latest
+    pull: true
     volumes:
       - /var/lib/woodpecker/cache:/cache:rw
     commands:
-      - apk add --no-cache rsync
-      - mkdir -p /cache/orbital/target
+      - mkdir -p /cache/orbital/target /cache/orbital/cargo
       - rsync -a /cache/orbital/target/ target/ || true
+      - rsync -a /cache/orbital/cargo/ /usr/local/cargo/ || true
 
   test:
-    image: nixos/nix:latest
+    image: forgejo.sakul-flee.de/sakulflee/orbital-ci-build-image:latest
+    pull: true
     environment:
       SKIP_GLTF_EXPORT: "true"
     commands:
-      - nix develop --extra-experimental-features 'nix-command flakes' --command cargo test --no-fail-fast
+      - cargo test --no-fail-fast
 
   save_cache:
-    image: alpine:latest
+    image: forgejo.sakul-flee.de/sakulflee/orbital-ci-build-image:latest
+    pull: true
     volumes:
       - /var/lib/woodpecker/cache:/cache:rw
     commands:
-      - apk add --no-cache rsync
-      - rsync -a --delete target/ /cache/orbital/target/
+      - mkdir -p /cache/orbital/target
+      - "[ -d target ] && rsync -a --delete target/ /cache/orbital/target/ || true"
+      - mkdir -p /cache/orbital/cargo/registry
+      - "[ -d /usr/local/cargo/registry ] && rsync -a /usr/local/cargo/registry/ /cache/orbital/cargo/registry/ || true"
+      - mkdir -p /cache/orbital/cargo/git
+      - "[ -d /usr/local/cargo/git ] && rsync -a /usr/local/cargo/git/ /cache/orbital/cargo/git/ || true"

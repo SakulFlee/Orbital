@@ -8,6 +8,7 @@ use cgmath::Vector2;
 use image::{GenericImageView, ImageReader};
 use log::{debug, info, warn};
 use std::error::Error;
+use std::time::Duration;
 use std::{
     hash::{DefaultHasher, Hash, Hasher},
     path::PathBuf,
@@ -16,8 +17,8 @@ use wgpu::MipmapFilterMode;
 use wgpu::{
     AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
-    BufferBindingType, BufferUsages, CommandEncoder, CompareFunction, ComputePassDescriptor,
-    ComputePipeline, ComputePipelineDescriptor, Device, Extent3d, FilterMode as WFilterMode,
+    BufferBindingType, BufferUsages, CompareFunction, ComputePassDescriptor, ComputePipeline,
+    ComputePipelineDescriptor, Device, Extent3d, FilterMode as WFilterMode,
     PipelineLayoutDescriptor, Queue, SamplerBindingType, SamplerDescriptor, ShaderModuleDescriptor,
     ShaderStages, StorageTextureAccess, TextureDimension, TextureFormat, TextureSampleType,
     TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension, include_wgsl,
@@ -25,7 +26,6 @@ use wgpu::{
 };
 
 use crate::{FilterMode, MaterialShader, Texture, TextureSize};
-use orbital_core::mip_level::max_mip_level;
 
 mod error;
 pub use error::*;
@@ -43,6 +43,57 @@ mod descriptor;
 pub use descriptor::*;
 
 use super::{MaterialShaderDescriptor, ShaderSource, TextureDescriptor};
+
+/// Maximum total time to spend polling for GPU work completion.
+const GPU_POLL_TIMEOUT: Duration = Duration::from_secs(120);
+
+/// Tile edge length (texels) used to split cubemap faces into small enough
+/// dispatches to stay under the DX12 TDR timeout (~2 s).
+/// 128 divides 1024 evenly, giving 8×8 = 64 tiles per face.
+const TILE_SIZE: u32 = 128;
+/// Wait for all submitted GPU work to complete, with a panic-safe wrapper.
+///
+/// WGPU 30.0.0 + DX12 panics internally (at `wgpu_core.rs:1924`) when the
+/// device is lost during a `device.poll(Wait)`. We use
+/// `catch_unwind(AssertUnwindSafe(...))` to prevent those panics from crashing
+/// the application. If the device is genuinely lost we bail out early with
+/// `Err` so the caller can abort the IBL pipeline gracefully.
+///
+/// Unlike a `Poll`-based busy-loop, this uses the real GPU fence wait so
+/// submissions are properly serialised (no pile-up).
+fn poll_wait(device: &Device, label: &str) -> Result<(), ()> {
+    let start = std::time::Instant::now();
+    loop {
+        if start.elapsed() > GPU_POLL_TIMEOUT {
+            warn!(
+                "[IBL] Poll wait for '{}' timed out after {:?}",
+                label, GPU_POLL_TIMEOUT
+            );
+            return Err(());
+        }
+
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            device.poll(wgpu::wgt::PollType::Wait {
+                submission_index: None,
+                timeout: None,
+            })
+        })) {
+            Ok(Ok(_)) => return Ok(()),
+            Ok(Err(e)) => {
+                warn!("[IBL] Wait error for '{}': {:?}. Retrying ...", label, e);
+                std::thread::sleep(Duration::from_millis(100));
+                continue;
+            }
+            Err(panic_payload) => {
+                warn!(
+                    "[IBL] Wait for '{}' panicked (device lost?): {:?}",
+                    label, panic_payload
+                );
+                return Err(());
+            }
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct WorldEnvironment {
@@ -85,6 +136,18 @@ impl WorldEnvironment {
                         access: StorageTextureAccess::WriteOnly,
                         format: TextureFormat::Rgba16Float,
                         view_dimension: TextureViewDimension::D2Array,
+                    },
+                    count: None,
+                },
+                // Tile offset (used by the diffuse shader to split a face across
+                // multiple dispatches; specular shader declares but ignores it).
+                BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
                     },
                     count: None,
                 },
@@ -210,9 +273,8 @@ impl WorldEnvironment {
             material_shader: shader,
         };
 
-        if write_to_cache {
-            s.write_to_cache(&cache_file, device, queue)
-                .expect("Failed to write to cache!");
+        if write_to_cache && let Err(e) = s.write_to_cache(&cache_file, device, queue) {
+            warn!("[IBL] Failed to write IBL cache (non-fatal): {e:?}");
         }
 
         Ok(s)
@@ -384,293 +446,166 @@ impl WorldEnvironment {
             queue,
         );
 
-        // Generate diffuse IBL and wait for completion
-        let diffuse = {
-            let mut encoder = device.create_command_encoder(&Default::default());
-            let result = Self::make_ibl_diffuse(
-                dst_size,
-                &device.create_bind_group_layout(&Self::bind_group_layout_descriptor()),
-                src_texture.view(),
-                &mut encoder,
-                device,
-            );
-            let _ = queue.submit([encoder.finish()]);
-            // Note: In wgpu, submissions are automatically synchronized
-            result
-        };
+        let bind_group_layout =
+            device.create_bind_group_layout(&Self::bind_group_layout_descriptor());
 
-        // Generate specular IBL base level and wait for completion
-        let raw_specular = {
-            let mut encoder = device.create_command_encoder(&Default::default());
-            let result = Self::make_ibl_specular(
-                dst_size,
-                &device.create_bind_group_layout(&Self::bind_group_layout_descriptor()),
-                src_texture.view(),
-                specular_mip_level_count,
-                &mut encoder,
-                device,
-            );
-            let _ = queue.submit([encoder.finish()]);
-            // Note: In wgpu, submissions are automatically synchronized
-            result
-        };
+        // Phase 1a: Generate diffuse irradiance map.
+        // Each face is split into tiles to stay under the DX12 TDR timeout.
+        let diffuse = Self::dispatch_ibl_cubemap_per_face(
+            dst_size,
+            "PBR IBL Diffuse",
+            &bind_group_layout,
+            src_texture.view(),
+            include_wgsl!("make_ibl_diffuse.wgsl"),
+            TextureFormat::Rgba16Float,
+            1,
+            TILE_SIZE,
+            device,
+            queue,
+        )?;
 
-        // Generate specular mip maps incrementally
+        // Phase 1b: Generate raw specular (LoD 0).
+        // This shader is very fast (1 sample/texel), so no tiling needed.
+        let raw_specular = Self::dispatch_ibl_cubemap_per_face(
+            dst_size,
+            "PBR IBL Specular without LoDs",
+            &bind_group_layout,
+            src_texture.view(),
+            include_wgsl!("make_ibl_specular.wgsl"),
+            TextureFormat::Rgba16Float,
+            specular_mip_level_count,
+            dst_size,
+            device,
+            queue,
+        )?;
+
+        // Phase 2: Generate specular mip maps — each mip level is submitted
+        //           separately to stay under the Windows/DX12 TDR timeout.
         let specular = Self::generate_specular_mip_maps_incremental(
             &raw_specular,
             sampling_type,
             specular_mip_level_count,
             device,
             queue,
-        );
+        )?;
 
         Ok((diffuse, specular))
     }
 
-    fn make_ibl_diffuse(
+    /// Helper: dispatches a cubemap-generating compute shader one face at a
+    /// time.  Heavy shaders (diffuse) are further split into tiles so that no
+    /// single GPU dispatch exceeds the DX12 TDR timeout.
+    ///
+    /// Pass `tile_size >= dst_size` to skip tiling (e.g. for the specular
+    /// base shader which takes <1 ms per face).
+    fn dispatch_ibl_cubemap_per_face(
         dst_size: u32,
+        label: &str,
         bind_group_layout: &BindGroupLayout,
         src_view: &TextureView,
-        encoder: &mut CommandEncoder,
+        shader: ShaderModuleDescriptor<'static>,
+        format: TextureFormat,
+        mip_level_count: u32,
+        tile_size: u32,
         device: &Device,
-    ) -> Texture {
-        let pipeline = Self::make_compute_pipeline(
-            &[Some(bind_group_layout)],
-            include_wgsl!("make_ibl_diffuse.wgsl"),
-            "main",
-            device,
-        );
+        queue: &Queue,
+    ) -> Result<Texture, Box<dyn Error>> {
+        let pipeline =
+            Self::make_compute_pipeline(&[Some(bind_group_layout)], shader, "main", device);
 
         let dst_texture = Texture::create_empty_cube_texture(
-            Some("PBR IBL Diffuse"),
+            Some(label),
             Vector2 {
                 x: dst_size,
                 y: dst_size,
             },
-            TextureFormat::Rgba16Float,
+            format,
             TextureUsages::STORAGE_BINDING
                 | TextureUsages::TEXTURE_BINDING
                 | TextureUsages::COPY_SRC,
-            1,
+            mip_level_count,
             device,
         );
 
-        let dst_view = dst_texture.texture().create_view(&TextureViewDescriptor {
-            label: Some("PBR IBL Diffuse --- !!! PROCESSING VIEW !!!"),
-            dimension: Some(TextureViewDimension::D2Array),
-            ..Default::default()
-        });
-
-        let bind_group = device.create_bind_group(&BindGroupDescriptor {
-            label: Some("World Environment Processing Bind Group for PBR IBL Diffuse"),
-            layout: bind_group_layout,
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureView(src_view),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::TextureView(&dst_view),
-                },
-            ],
-        });
-
-        let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor {
-            label: Some("Equirectangular Compute Task - Diffuse"),
-            ..Default::default()
-        });
-
-        debug!("Generating PBR IBL Diffuse ...");
-        // Using 8x8 workgroups for better occupancy
         let workgroup_size = 8u32;
-        let workgroups = dst_size.div_ceil(workgroup_size);
-        pass.set_pipeline(&pipeline);
-        pass.set_bind_group(0, &bind_group, &[]);
-        pass.dispatch_workgroups(workgroups, workgroups, 6);
+        let tiles = dst_size.div_ceil(tile_size);
 
-        dst_texture
-    }
-
-    fn make_ibl_specular(
-        dst_size: u32,
-        bind_group_layout: &BindGroupLayout,
-        src_view: &TextureView,
-        specular_mip_level_count: u32,
-        encoder: &mut CommandEncoder,
-        device: &Device,
-    ) -> Texture {
-        let pipeline = Self::make_compute_pipeline(
-            &[Some(bind_group_layout)],
-            include_wgsl!("make_ibl_specular.wgsl"),
-            "main",
-            device,
-        );
-
-        let max_mip_level = max_mip_level(dst_size);
-        let specular_mip_level = if specular_mip_level_count > max_mip_level {
-            warn!(
-                "Attempting to create specular texture with size {dst_size}, which gives a max allowed mip level of {max_mip_level}, but {specular_mip_level_count} was set! Defaulting to the maximum allowed value."
-            );
-            max_mip_level
-        } else {
-            specular_mip_level_count
-        };
-
-        let dst_texture = Texture::create_empty_cube_texture(
-            Some("PBR IBL Specular without LoDs"),
-            Vector2 {
-                x: dst_size,
-                y: dst_size,
-            },
-            TextureFormat::Rgba16Float,
-            TextureUsages::STORAGE_BINDING
-                | TextureUsages::TEXTURE_BINDING
-                | TextureUsages::COPY_SRC,
-            specular_mip_level,
-            device,
-        );
-
-        let dst_view = dst_texture.texture().create_view(&TextureViewDescriptor {
-            label: Some("PBR IBL Specular --- !!! PROCESSING VIEW !!!"),
-            dimension: Some(TextureViewDimension::D2Array),
-            base_mip_level: 0,
-            mip_level_count: Some(1),
-            ..Default::default()
-        });
-
-        let bind_group = device.create_bind_group(&BindGroupDescriptor {
-            label: Some("World Environment Processing Bind Group for PBR IBL Diffuse"),
-            layout: bind_group_layout,
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureView(src_view),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::TextureView(&dst_view),
-                },
-            ],
-        });
-
-        let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor {
-            label: Some("Equirectangular Compute Task - Specular"),
-            ..Default::default()
-        });
-
-        debug!("Generating RAW PBR IBL Specular (LoD = 0 / Roughness = 0%) ...");
-        // Using 8x8 workgroups for better occupancy
-        let workgroup_size = 8u32;
-        let workgroups = dst_size.div_ceil(workgroup_size);
-        pass.set_pipeline(&pipeline);
-        pass.set_bind_group(0, &bind_group, &[]);
-        pass.dispatch_workgroups(workgroups, workgroups, 6);
-
-        dst_texture
-    }
-
-    #[allow(dead_code)]
-    fn generate_specular_mip_maps(
-        src_specular_ibl: &Texture,
-        sampling_type: &SamplingType,
-        specular_mip_level_count: u32,
-        encoder: &mut CommandEncoder,
-        device: &Device,
-    ) -> Texture {
-        let bind_group_layout =
-            device.create_bind_group_layout(&Self::bind_group_layout_descriptor_mip_mapping());
-        let mip_buffer_bind_group_layout =
-            device.create_bind_group_layout(&Self::bind_group_layout_descriptor_buffer());
-
-        let pipeline = Self::make_compute_pipeline(
-            &[
-                Some(&bind_group_layout),
-                Some(&mip_buffer_bind_group_layout),
-            ],
-            include_wgsl!("make_mip_maps.wgsl"),
-            "main",
-            device,
-        );
-
-        let max_mip_levels = specular_mip_level_count;
-
-        let dst_texture = Texture::create_empty_cube_texture(
-            Some("PBR IBL Specular with LoDs"),
-            Vector2 {
-                x: src_specular_ibl.texture().width(),
-                y: src_specular_ibl.texture().height(),
-            },
-            TextureFormat::Rgba16Float,
-            TextureUsages::STORAGE_BINDING
-                | TextureUsages::TEXTURE_BINDING
-                | TextureUsages::COPY_SRC,
-            max_mip_levels,
-            device,
-        );
-
-        for mip_level in 0..max_mip_levels {
+        for face in 0..6 {
             let dst_view = dst_texture.texture().create_view(&TextureViewDescriptor {
-                label: Some("PBR IBL Specular LoD processing view"),
+                label: Some(&format!("{label} face {face}")),
                 dimension: Some(TextureViewDimension::D2Array),
-                base_mip_level: mip_level,
+                base_array_layer: face,
+                array_layer_count: Some(1),
+                base_mip_level: 0,
                 mip_level_count: Some(1),
                 ..Default::default()
             });
 
-            let bind_group = device.create_bind_group(&BindGroupDescriptor {
-                label: Some("World Environment Processing Bind Group for PBR IBL Diffuse"),
-                layout: &bind_group_layout,
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: BindingResource::TextureView(src_specular_ibl.view()),
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: BindingResource::Sampler(src_specular_ibl.sampler()),
-                    },
-                    BindGroupEntry {
-                        binding: 2,
-                        resource: BindingResource::TextureView(&dst_view),
-                    },
-                ],
+            // One reusable uniform buffer per face — updated via
+            // `queue.write_buffer` before each tile.
+            let offset_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some(&format!("{label} face {face} offset")),
+                size: 16,
+                usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+                mapped_at_creation: false,
             });
 
-            let mip_bind_group = Self::make_mip_buffer(
-                mip_level,
-                max_mip_levels,
-                sampling_type,
-                &mip_buffer_bind_group_layout,
-                device,
-            );
+            debug!("{label} face {face} ...");
 
-            let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor {
-                label: Some("PBR IBL Specular Mip Mapping task"),
-                ..Default::default()
-            });
+            for ty in 0..tiles {
+                for tx in 0..tiles {
+                    let tile_x = tx * tile_size;
+                    let tile_y = ty * tile_size;
+                    let wg_x = tile_size.min(dst_size - tile_x).div_ceil(workgroup_size);
+                    let wg_y = tile_size.min(dst_size - tile_y).div_ceil(workgroup_size);
 
-            debug!(
-                "Generating PBR IBL Specular (LoD = {} / Roughness = {:.1}%) ...",
-                mip_level,
-                (mip_level as f32 / (max_mip_levels - 1) as f32) * 100.0
-            );
-            // Calculate the dimensions of the current mip level
-            let dst_size = dst_texture.texture().size();
-            let current_mip_width = (dst_size.width >> mip_level).max(1);
-            let current_mip_height = (dst_size.height >> mip_level).max(1);
-            // Calculate workgroup count based on current mip level dimensions
-            // Using 8x8 workgroups for better occupancy
-            let workgroup_size = 8u32;
-            let workgroups_x = current_mip_width.div_ceil(workgroup_size);
-            let workgroups_y = current_mip_height.div_ceil(workgroup_size);
-            pass.set_pipeline(&pipeline);
-            pass.set_bind_group(0, &bind_group, &[]);
-            pass.set_bind_group(1, &mip_bind_group, &[]);
-            pass.dispatch_workgroups(workgroups_x, workgroups_y, 6);
+                    let mut buf = [0u8; 16];
+                    buf[..4].copy_from_slice(&tile_x.to_ne_bytes());
+                    buf[4..8].copy_from_slice(&tile_y.to_ne_bytes());
+                    buf[8..12].copy_from_slice(&face.to_ne_bytes());
+                    queue.write_buffer(&offset_buffer, 0, &buf);
+
+                    let bind_group = device.create_bind_group(&BindGroupDescriptor {
+                        label: Some(&format!("{label} face {face} tile {tx}x{ty}")),
+                        layout: bind_group_layout,
+                        entries: &[
+                            BindGroupEntry {
+                                binding: 0,
+                                resource: BindingResource::TextureView(src_view),
+                            },
+                            BindGroupEntry {
+                                binding: 1,
+                                resource: BindingResource::TextureView(&dst_view),
+                            },
+                            BindGroupEntry {
+                                binding: 2,
+                                resource: BindingResource::Buffer(wgpu::BufferBinding {
+                                    buffer: &offset_buffer,
+                                    offset: 0,
+                                    size: None,
+                                }),
+                            },
+                        ],
+                    });
+
+                    let mut encoder = device.create_command_encoder(&Default::default());
+                    {
+                        let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor {
+                            label: Some(&format!("{label} face {face} tile {tx}x{ty}")),
+                            ..Default::default()
+                        });
+                        pass.set_pipeline(&pipeline);
+                        pass.set_bind_group(0, &bind_group, &[]);
+                        pass.dispatch_workgroups(wg_x, wg_y, 1);
+                    }
+                    queue.submit([encoder.finish()]);
+                    poll_wait(device, &format!("{label} face {face} tile {tx}x{ty}"))
+                        .map_err(|_| format!("{label} failed on face {face}"))?;
+                }
+            }
         }
 
-        dst_texture
+        Ok(dst_texture)
     }
 
     fn generate_specular_mip_maps_incremental(
@@ -679,7 +614,7 @@ impl WorldEnvironment {
         specular_mip_level_count: u32,
         device: &Device,
         queue: &Queue,
-    ) -> Texture {
+    ) -> Result<Texture, Box<dyn Error>> {
         let bind_group_layout =
             device.create_bind_group_layout(&Self::bind_group_layout_descriptor_mip_mapping());
         let mip_buffer_bind_group_layout =
@@ -711,7 +646,7 @@ impl WorldEnvironment {
             device,
         );
 
-        let mut encoder = device.create_command_encoder(&Default::default());
+        let dst_size = dst_texture.texture().size();
 
         for mip_level in 0..max_mip_levels {
             let dst_view = dst_texture.texture().create_view(&TextureViewDescriptor {
@@ -723,7 +658,7 @@ impl WorldEnvironment {
             });
 
             let bind_group = device.create_bind_group(&BindGroupDescriptor {
-                label: Some("World Environment Processing Bind Group for PBR IBL Diffuse"),
+                label: Some("World Environment Processing Bind Group for PBR IBL Specular Mip"),
                 layout: &bind_group_layout,
                 entries: &[
                     BindGroupEntry {
@@ -744,51 +679,60 @@ impl WorldEnvironment {
             let mip_bind_group = Self::make_mip_buffer(
                 mip_level,
                 max_mip_levels,
+                dst_size.width,
+                dst_size.height,
                 sampling_type,
                 &mip_buffer_bind_group_layout,
                 device,
             );
 
-            let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor {
-                label: Some("PBR IBL Specular Mip Mapping task"),
-                ..Default::default()
-            });
+            // Each mip level gets its own encoder and submission to avoid
+            // Windows/DX12 TDR from overly large single submissions.
+            let mut encoder = device.create_command_encoder(&Default::default());
+            {
+                let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor {
+                    label: Some("PBR IBL Specular Mip Mapping task"),
+                    ..Default::default()
+                });
 
-            debug!(
-                "Generating PBR IBL Specular (LoD = {} / Roughness = {:.1}%) ...",
-                mip_level,
-                (mip_level as f32 / (max_mip_levels - 1) as f32) * 100.0
-            );
-            // Calculate the dimensions of the current mip level
-            let dst_size = dst_texture.texture().size();
-            let current_mip_width = (dst_size.width >> mip_level).max(1);
-            let current_mip_height = (dst_size.height >> mip_level).max(1);
-            // Calculate workgroup count based on current mip level dimensions
-            // Using 8x8 workgroups for better occupancy
-            let workgroup_size = 8u32;
-            let workgroups_x = current_mip_width.div_ceil(workgroup_size);
-            let workgroups_y = current_mip_height.div_ceil(workgroup_size);
-            pass.set_pipeline(&pipeline);
-            pass.set_bind_group(0, &bind_group, &[]);
-            pass.set_bind_group(1, &mip_bind_group, &[]);
-            pass.dispatch_workgroups(workgroups_x, workgroups_y, 6);
+                debug!(
+                    "Generating PBR IBL Specular (LoD = {} / Roughness = {:.1}%) ...",
+                    mip_level,
+                    if max_mip_levels > 1 {
+                        (mip_level as f32 / (max_mip_levels - 1) as f32) * 100.0
+                    } else {
+                        0.0
+                    }
+                );
+                let current_mip_width = (dst_size.width >> mip_level).max(1);
+                let current_mip_height = (dst_size.height >> mip_level).max(1);
+                // Calculate workgroup count based on current mip level dimensions
+                // Using 8x8 workgroups for better occupancy
+                let workgroup_size = 8u32;
+                let workgroups_x = current_mip_width.div_ceil(workgroup_size);
+                let workgroups_y = current_mip_height.div_ceil(workgroup_size);
+                pass.set_pipeline(&pipeline);
+                pass.set_bind_group(0, &bind_group, &[]);
+                pass.set_bind_group(1, &mip_bind_group, &[]);
+                pass.dispatch_workgroups(workgroups_x, workgroups_y, 6);
+            }
+            queue.submit([encoder.finish()]);
+            poll_wait(device, &format!("IBL Specular Mip Level {mip_level}"))
+                .map_err(|_| format!("IBL specular mip level {mip_level} failed"))?;
         }
 
-        let _ = queue.submit([encoder.finish()]);
-        dst_texture
+        Ok(dst_texture)
     }
 
     fn make_mip_buffer(
         mip_level: u32,
         max_mip_level: u32,
+        base_width: u32,
+        base_height: u32,
         sampling_type: &SamplingType,
         mip_buffer_bind_group_layout: &BindGroupLayout,
         device: &Device,
     ) -> BindGroup {
-        // Calculate the dimensions of the current mip level
-        // TODO: Get base dimensions from the texture instead of hardcoding
-        let base_width = 2048u32;
-        let base_height = 2048u32;
         let current_mip_width = (base_width >> mip_level).max(1);
         let current_mip_height = (base_height >> mip_level).max(1);
 
