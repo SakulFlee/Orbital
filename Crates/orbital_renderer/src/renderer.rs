@@ -74,7 +74,10 @@ impl Renderer {
                 mapped_at_creation: false,
             })
         };
-        let timestamp_staging_bufs = [make_staging("Orbital::TS_Staging0"), make_staging("Orbital::TS_Staging1")];
+        let timestamp_staging_bufs = [
+            make_staging("Orbital::TS_Staging0"),
+            make_staging("Orbital::TS_Staging1"),
+        ];
 
         Self {
             surface_texture_format,
@@ -239,9 +242,7 @@ impl Renderer {
                     if let Ok(data) = prev_slice.get_mapped_range() {
                         let mut ns = [0.0f64; 3];
                         for i in 0..3 {
-                            let bytes: [u8; 8] = data[i * 8..(i + 1) * 8]
-                                .try_into()
-                                .unwrap();
+                            let bytes: [u8; 8] = data[i * 8..(i + 1) * 8].try_into().unwrap();
                             ns[i] = u64::from_ne_bytes(bytes) as f64;
                         }
                         self.prev_gpu_ns = ns;
