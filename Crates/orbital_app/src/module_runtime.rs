@@ -240,7 +240,7 @@ impl ModuleRuntime {
             ..TextureViewDescriptor::default()
         });
 
-        let t_ecs_start = std::time::Instant::now();
+        let _t_ecs_start = std::time::Instant::now();
 
         // ─── section timing ──────────────────────────────────────────
         use std::time::Instant;
@@ -645,7 +645,7 @@ impl ModuleRuntime {
             WORLD_BG_LAYOUT.get_or_init(|| orbital_resources::make_world_bind_group_layout(device));
         let world_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("World Bind Group"),
-            layout: &bind_group_layout,
+            layout: bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
