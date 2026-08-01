@@ -39,6 +39,95 @@ macro_rules! ctx_lock {
     };
 }
 
+struct TimingAccumulator {
+    count: u64,
+    surface_acq: f64,
+    realize: f64,
+    stagger: f64,
+    cull_extract: f64,
+    bind_group_models: f64,
+    render_ms: f64,
+    present_ms: f64,
+    total_ms: f64,
+    gpu_shadow_ns: f64,
+    gpu_main_ns: f64,
+    gpu_total_ns: f64,
+    last_print: std::time::Instant,
+}
+
+impl TimingAccumulator {
+    fn new() -> Self {
+        Self {
+            count: 0,
+            surface_acq: 0.0,
+            realize: 0.0,
+            stagger: 0.0,
+            cull_extract: 0.0,
+            bind_group_models: 0.0,
+            render_ms: 0.0,
+            present_ms: 0.0,
+            total_ms: 0.0,
+            gpu_shadow_ns: 0.0,
+            gpu_main_ns: 0.0,
+            gpu_total_ns: 0.0,
+            last_print: std::time::Instant::now(),
+        }
+    }
+
+    fn push(
+        &mut self,
+        surface_acq: std::time::Duration,
+        realize: std::time::Duration,
+        stagger: std::time::Duration,
+        cull_extract: std::time::Duration,
+        bind_group_models: std::time::Duration,
+        render_ms: std::time::Duration,
+        present_ms: std::time::Duration,
+        total: std::time::Duration,
+        gpu_ns: [f64; 3],
+    ) {
+        self.count += 1;
+        self.surface_acq += surface_acq.as_secs_f64() * 1000.0;
+        self.realize += realize.as_secs_f64() * 1000.0;
+        self.stagger += stagger.as_secs_f64() * 1000.0;
+        self.cull_extract += cull_extract.as_secs_f64() * 1000.0;
+        self.bind_group_models += bind_group_models.as_secs_f64() * 1000.0;
+        self.render_ms += render_ms.as_secs_f64() * 1000.0;
+        self.present_ms += present_ms.as_secs_f64() * 1000.0;
+        self.total_ms += total.as_secs_f64() * 1000.0;
+        // gpu_ns: raw GPU timestamps at [shadow_start, skybox_start, main_end]
+        // Compute durations in ms (timestamps are in ns on Vulkan)
+        let ns_to_ms = 1.0 / 1_000_000.0;
+        self.gpu_shadow_ns += (gpu_ns[1] - gpu_ns[0]) * ns_to_ms;
+        self.gpu_main_ns += (gpu_ns[2] - gpu_ns[1]) * ns_to_ms;
+        self.gpu_total_ns += (gpu_ns[2] - gpu_ns[0]) * ns_to_ms;
+    }
+
+    fn try_print(&mut self) {
+        let elapsed = self.last_print.elapsed();
+        if elapsed.as_secs_f64() < 1.0 || self.count == 0 {
+            return;
+        }
+        let n = self.count as f64;
+        info!(
+            "TIMING avg({} frames): surface_acq={:.2}ms realize={:.2}ms stagger={:.2}ms cull+extract={:.2}ms bind+models={:.2}ms render={:.2}ms present={:.2}ms TOTAL={:.2}ms | GPU shadow={:.2}ms skybox+models={:.2}ms GPU_TOTAL={:.2}ms",
+            self.count,
+            self.surface_acq / n,
+            self.realize / n,
+            self.stagger / n,
+            self.cull_extract / n,
+            self.bind_group_models / n,
+            self.render_ms / n,
+            self.present_ms / n,
+            self.total_ms / n,
+            self.gpu_shadow_ns / n,
+            self.gpu_main_ns / n,
+            self.gpu_total_ns / n,
+        );
+        *self = Self::new();
+    }
+}
+
 pub struct ModuleRuntime {
     module: Box<dyn Module>,
     settings: AppSettings,
@@ -50,6 +139,7 @@ pub struct ModuleRuntime {
     game_schedule: Schedule,
     module_setup_done: bool,
     renderer: Option<orbital_renderer::Renderer>,
+    timing_accum: TimingAccumulator,
     #[cfg(feature = "gamepad_input")]
     gil: Gilrs,
 }
@@ -76,6 +166,7 @@ impl ModuleRuntime {
             game_schedule: Schedule::new(),
             module_setup_done: false,
             renderer: None,
+            timing_accum: TimingAccumulator::new(),
             #[cfg(feature = "gamepad_input")]
             gil: Gilrs::new().expect("Gamepad input initialization failed!"),
         };
@@ -100,6 +191,8 @@ impl ModuleRuntime {
     }
 
     fn redraw(&mut self) {
+        let t_start = std::time::Instant::now();
+
         let AppState::Ready(ctx) = &self.state else {
             error!(
                 "Trying to redraw when app state is in a non-ready state! ({:?})",
@@ -147,11 +240,83 @@ impl ModuleRuntime {
             ..TextureViewDescriptor::default()
         });
 
+        let _t_ecs_start = std::time::Instant::now();
+
+        // ─── section timing ──────────────────────────────────────────
+        use std::time::Instant;
+        let t_realize_start = Instant::now();
+
+        // Check for any model modifications BEFORE realize clears ModelDirty.
+        // This catches newly-imported models (e.g. DamagedHelmet) whose
+        // ModelDirty(true) is cleared by realize_models on the same frame;
+        // if we checked AFTER realize, global_model_dirty would always be
+        // false and shadow maps would never include the new model.
+        let global_model_dirty = {
+            if let Some(store) = self
+                .ecs_world
+                .get_component_store::<orbital_ecs_bridge::ModelDirty>()
+            {
+                store.dense.iter().any(|&eid| {
+                    store
+                        .sparse
+                        .get(eid)
+                        .copied()
+                        .flatten()
+                        .map(|idx| store.components[idx].0)
+                        .unwrap_or(false)
+                })
+            } else {
+                false
+            }
+        };
+
         // Realize all ECS state (needs &mut self.ecs_world)
         crate::systems::realize::realize_cameras(&mut self.ecs_world);
         crate::systems::realize::realize_lights(&mut self.ecs_world);
         crate::systems::realize::realize_environment(&mut self.ecs_world);
         crate::systems::realize::realize_models(&mut self.ecs_world);
+        let t_stagger_start = Instant::now();
+        let d_realize = t_stagger_start - t_realize_start;
+
+        // Check if new lights were added this frame (forces full bootstrap)
+        let new_light_bootstrap = self
+            .ecs_world
+            .get_resource::<orbital_ecs_bridge::NewLightBootstrap>()
+            .map(|n| n.0)
+            .unwrap_or(false);
+        if new_light_bootstrap {
+            self.ecs_world
+                .insert_resource(orbital_ecs_bridge::NewLightBootstrap(false));
+        }
+
+        // Schedule shadow updates respecting the per-frame budget
+        // Set ORBITAL_STAGGER_ALL=1 env-var to render all shadows each frame (for perf comparison).
+        if std::env::var("ORBITAL_STAGGER_ALL").is_ok() {
+            self.ecs_world
+                .insert_resource(orbital_ecs_bridge::StaggeredLightConfig {
+                    max_updates_per_frame: 6,
+                });
+        }
+        let dirty_set = crate::systems::stagger::sys_stagger_shadow_updates(
+            &mut self.ecs_world,
+            global_model_dirty,
+            new_light_bootstrap,
+        );
+
+        log::trace!(
+            "stagger: gmd={} nlb={} dirty_set_len={}",
+            global_model_dirty,
+            new_light_bootstrap,
+            dirty_set.len(),
+        );
+        // Count active lights for the shader's light-store loop bound
+        let active_light_count = self
+            .ecs_world
+            .get_component_store::<orbital_ecs_bridge::LightDescriptorEcs>()
+            .map(|s| s.dense.len() as u32)
+            .unwrap_or(0u32);
+        let t_cull_start = Instant::now();
+        let d_stagger = t_cull_start - t_stagger_start;
 
         // Freeze/unfreeze the culling frustum (default F4)
         {
@@ -253,6 +418,8 @@ impl ModuleRuntime {
             let sl = self.collect_shadow_lights();
             (cb, lb, ei, mp, sl, pvp, near, far)
         };
+        let t_bind_start = Instant::now();
+        let d_cull_extract = t_bind_start - t_cull_start;
 
         // IBL BRDF (static cache)
         static BRDF_ONCE: std::sync::OnceLock<orbital_resources::IblBrdf> =
@@ -454,11 +621,31 @@ impl ModuleRuntime {
             cube_shadow_sampler = cs;
         };
 
-        // Build bind group
-        let bind_group_layout = orbital_resources::make_world_bind_group_layout(device);
+        // Active light count uniform — limits the light-store loop in the shader
+        static LIGHT_COUNT_BUF: std::sync::OnceLock<wgpu::Buffer> = std::sync::OnceLock::new();
+        let light_count_buf = LIGHT_COUNT_BUF.get_or_init(|| {
+            device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("Light Count Uniform"),
+                size: 16,
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            })
+        });
+        let light_count_bytes: [u8; 16] = {
+            let mut d = [0u8; 16];
+            d[..4].copy_from_slice(&active_light_count.to_le_bytes());
+            d
+        };
+        queue.write_buffer(light_count_buf, 0, &light_count_bytes);
+
+        // Build bind group — cache the layout (expensive driver call)
+        static WORLD_BG_LAYOUT: std::sync::OnceLock<wgpu::BindGroupLayout> =
+            std::sync::OnceLock::new();
+        let bind_group_layout =
+            WORLD_BG_LAYOUT.get_or_init(|| orbital_resources::make_world_bind_group_layout(device));
         let world_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("World Bind Group"),
-            layout: &bind_group_layout,
+            layout: bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
@@ -519,6 +706,14 @@ impl ModuleRuntime {
                     binding: 12,
                     resource: wgpu::BindingResource::Sampler(cube_shadow_sampler),
                 },
+                wgpu::BindGroupEntry {
+                    binding: 13,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: light_count_buf,
+                        offset: 0,
+                        size: None,
+                    }),
+                },
             ],
         });
 
@@ -527,6 +722,9 @@ impl ModuleRuntime {
             .iter()
             .filter_map(|ptr| unsafe { ptr.as_ref() })
             .collect();
+
+        let t_render_start = Instant::now();
+        let d_bind_group_models = t_render_start - t_bind_start;
 
         // Render
         if let Some(renderer) = &mut self.renderer {
@@ -543,8 +741,11 @@ impl ModuleRuntime {
                 camera_pvp.as_ref(),
                 camera_near,
                 camera_far,
+                &dirty_set,
             );
         }
+        let t_present_start = Instant::now();
+        let d_render = t_present_start - t_render_start;
 
         // Optional post‑main‑pass overlay (debug viz, HUD, gizmos, …)
         if let Some(overlay_res) = self.ecs_world.get_resource::<RenderOverlayResource>() {
@@ -560,6 +761,23 @@ impl ModuleRuntime {
         }
 
         lock.queue().present(frame);
+
+        let d_present = Instant::now() - t_present_start;
+        let d_total = Instant::now() - t_realize_start;
+        let d_surface_acq = t_realize_start - t_start;
+
+        self.timing_accum.push(
+            d_surface_acq,
+            d_realize,
+            d_stagger,
+            d_cull_extract,
+            d_bind_group_models,
+            d_render,
+            d_present,
+            d_total,
+            self.renderer.as_ref().map_or([0.0; 3], |r| r.prev_gpu_ns()),
+        );
+        self.timing_accum.try_print();
     }
 
     /// Extract camera buffer as an owned Buffer (cheap Arc clone).
@@ -690,7 +908,6 @@ impl ModuleRuntime {
             None => (None, 0.1, 1000.0),
         }
     }
-
     /// Collect shadow-casting light info from ECS.
     fn collect_shadow_lights(&self) -> Vec<ShadowLightInfo> {
         let descs = match self.ecs_world.get_component_store::<LightDescriptorEcs>() {
@@ -705,16 +922,17 @@ impl ModuleRuntime {
             Some(s) => s,
             None => return Vec::new(),
         };
+        let slot_idx_store = self
+            .ecs_world
+            .get_component_store::<orbital_ecs_bridge::LightSlotIndex>();
+        let has_slot_store = slot_idx_store.is_some();
 
         let mut lights = Vec::new();
-        let mut light_store_index = 0u32;
+        let mut fallback_counter = 0u32;
         for &eid in descs.dense.as_slice() {
             let desc_idx = match descs.sparse.get(eid).copied().flatten() {
                 Some(i) => i,
-                None => {
-                    light_store_index += 1;
-                    continue;
-                }
+                None => continue,
             };
             let desc = &descs.components[desc_idx];
 
@@ -727,10 +945,7 @@ impl ModuleRuntime {
             if has_shadow {
                 let pos_idx = match positions.sparse.get(eid).copied().flatten() {
                     Some(i) => i,
-                    None => {
-                        light_store_index += 1;
-                        continue;
-                    }
+                    None => continue,
                 };
                 let caster = &casters.components[casters.sparse[eid].unwrap()];
                 let pos = &positions.components[pos_idx];
@@ -741,6 +956,18 @@ impl ModuleRuntime {
                         outer_cone_angle, ..
                     } => (2, outer_cone_angle),
                 };
+                let light_store_index = if has_slot_store {
+                    slot_idx_store
+                        .as_ref()
+                        .and_then(|s| s.get_component(eid))
+                        .map(|si| si.0)
+                        .unwrap_or(fallback_counter)
+                } else {
+                    fallback_counter
+                };
+                if !has_slot_store {
+                    fallback_counter += 1;
+                }
                 lights.push(ShadowLightInfo {
                     light_type,
                     direction: desc.direction,
@@ -750,8 +977,8 @@ impl ModuleRuntime {
                     light_store_index,
                 });
             }
-            light_store_index += 1;
         }
+
         lights
     }
 
