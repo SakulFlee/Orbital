@@ -180,6 +180,17 @@ pub fn make_world_bind_group_layout(device: &Device) -> BindGroupLayout {
                 ty: BindingType::Sampler(SamplerBindingType::Comparison),
                 count: None,
             },
+            // Active light count (binding 13) — limits the light-store loop in the shader
+            BindGroupLayoutEntry {
+                binding: 13,
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
         ],
     })
 }
