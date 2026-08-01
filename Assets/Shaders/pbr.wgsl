@@ -372,6 +372,12 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_depth: f32, light_idx: u3
     for (var i = 0u; i < shadow_data.cascade_count; i++) {
         let slot = shadow_data.slots[i];
 
+        // Slots are sorted by light_store_index ascending.
+        // If we've passed this light's index, no remaining slots can match.
+        if (slot.light_index > light_idx) {
+            break;
+        }
+
         // Skip slots that don't belong to this light
         if (slot.light_index != light_idx) {
             continue;
