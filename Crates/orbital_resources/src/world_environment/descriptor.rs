@@ -50,7 +50,10 @@ impl PartialEq for GeneratedSkyParameters {
             && self.sun_intensity.to_bits() == other.sun_intensity.to_bits()
             && self.rayleigh_scale_height.to_bits() == other.rayleigh_scale_height.to_bits()
             && self.mie_scale_height.to_bits() == other.mie_scale_height.to_bits()
-            && f3_eq(&self.rayleigh_scattering_coeff, &other.rayleigh_scattering_coeff)
+            && f3_eq(
+                &self.rayleigh_scattering_coeff,
+                &other.rayleigh_scattering_coeff,
+            )
             && self.mie_scattering_coeff.to_bits() == other.mie_scattering_coeff.to_bits()
             && self.mie_absorption_coeff.to_bits() == other.mie_absorption_coeff.to_bits()
             && self.mie_anisotropy.to_bits() == other.mie_anisotropy.to_bits()
