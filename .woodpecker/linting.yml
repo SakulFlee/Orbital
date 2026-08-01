@@ -1,3 +1,7 @@
+depends_on:
+  - name: image
+    optional: true
+
 when:
   - event: pull_request
   - event: manual
@@ -73,6 +77,9 @@ steps:
     volumes:
       - /var/lib/woodpecker/cache:/cache:rw
     commands:
-      - rsync -a --delete target/ /cache/orbital/target/
-      - rsync -a /usr/local/cargo/registry/ /cache/orbital/cargo/registry/
-      - rsync -a /usr/local/cargo/git/ /cache/orbital/cargo/git/
+      - mkdir -p /cache/orbital/target
+      - "[ -d target ] && rsync -a --delete target/ /cache/orbital/target/ || true"
+      - mkdir -p /cache/orbital/cargo/registry
+      - "[ -d /usr/local/cargo/registry ] && rsync -a /usr/local/cargo/registry/ /cache/orbital/cargo/registry/ || true"
+      - mkdir -p /cache/orbital/cargo/git
+      - "[ -d /usr/local/cargo/git ] && rsync -a /usr/local/cargo/git/ /cache/orbital/cargo/git/ || true"
