@@ -1,19 +1,25 @@
+depends_on:
+  - name: image
+    optional: true
+
 when:
   - event: pull_request
   - event: manual
 
 steps:
   restore_cache:
-    image: alpine:latest
+    image: forgejo.sakul-flee.de/sakulflee/orbital-ci-build-image:latest
+    pull: true
     volumes:
       - /var/lib/woodpecker/cache:/cache:rw
     commands:
-      - apk add --no-cache rsync
-      - mkdir -p /cache/orbital/target
+      - mkdir -p /cache/orbital/target /cache/orbital/cargo
       - rsync -a /cache/orbital/target/ target/ || true
+      - rsync -a /cache/orbital/cargo/ /usr/local/cargo/ || true
 
   format:
-    image: nixos/nix:latest
+    image: forgejo.sakul-flee.de/sakulflee/orbital-ci-build-image:latest
+    pull: true
     environment:
       FORGEJO_USER:
         from_secret: forgejo_user
@@ -21,7 +27,7 @@ steps:
         from_secret: forgejo_token
       SKIP_GLTF_EXPORT: "true"
     commands:
-      - nix develop --extra-experimental-features 'nix-command flakes' --command cargo fmt --all
+      - cargo fmt --all
       - |
         if [ -n "$(git status --porcelain)" ]; then
           BRANCH="$CI_COMMIT_SOURCE_BRANCH"
@@ -39,7 +45,8 @@ steps:
         fi
 
   clippy:
-    image: nixos/nix:latest
+    image: forgejo.sakul-flee.de/sakulflee/orbital-ci-build-image:latest
+    pull: true
     environment:
       FORGEJO_USER:
         from_secret: forgejo_user
@@ -47,7 +54,7 @@ steps:
         from_secret: forgejo_token
       SKIP_GLTF_EXPORT: "true"
     commands:
-      - nix develop --extra-experimental-features 'nix-command flakes' --command cargo clippy --fix --allow-dirty
+      - cargo clippy --fix --allow-dirty
       - |
         if [ -n "$(git status --porcelain)" ]; then
           BRANCH="$CI_COMMIT_SOURCE_BRANCH"
@@ -65,9 +72,14 @@ steps:
         fi
 
   save_cache:
-    image: alpine:latest
+    image: forgejo.sakul-flee.de/sakulflee/orbital-ci-build-image:latest
+    pull: true
     volumes:
       - /var/lib/woodpecker/cache:/cache:rw
     commands:
-      - apk add --no-cache rsync
-      - rsync -a --delete target/ /cache/orbital/target/
+      - mkdir -p /cache/orbital/target
+      - "[ -d target ] && rsync -a --delete target/ /cache/orbital/target/ || true"
+      - mkdir -p /cache/orbital/cargo/registry
+      - "[ -d /usr/local/cargo/registry ] && rsync -a /usr/local/cargo/registry/ /cache/orbital/cargo/registry/ || true"
+      - mkdir -p /cache/orbital/cargo/git
+      - "[ -d /usr/local/cargo/git ] && rsync -a /usr/local/cargo/git/ /cache/orbital/cargo/git/ || true"
