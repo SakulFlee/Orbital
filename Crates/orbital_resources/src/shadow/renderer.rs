@@ -303,6 +303,10 @@ impl ShadowRenderer {
     ///
     /// `camera_perspective_view_proj` is the camera's combined perspective × view matrix.
     /// `camera_near` / `camera_far` are the camera's clip planes (for cascade splits).
+    ///
+    /// `dirty_set` contains `light_store_index` values for lights whose shadows
+    /// need re-rendering this frame. Lights NOT in the set reuse their existing
+    /// depth data from the previous frame (no rendering, slot data preserved).
     pub fn render(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
@@ -313,8 +317,37 @@ impl ShadowRenderer {
         camera_far: f32,
         device: &Device,
         queue: &Queue,
+        dirty_set: &std::collections::HashSet<u32>,
     ) {
+        let prev_gpu_data = self.gpu_data;
         self.gpu_data = ShadowGpuData::new();
+
+        // Pre-compute needed texture capacities BEFORE the render loop to
+        // avoid mid-loop reallocations that silently discard previously-rendered
+        // depth data (e.g. a cube texture reallocation dropping cube 0).
+        let mut needed_cubes = 0u32;
+        let mut needed_layers = 0u32;
+        for light in shadow_lights {
+            if !light.caster.enabled {
+                continue;
+            }
+            match light.light_type {
+                0 => needed_cubes += 1,
+                1 => needed_layers += light.caster.cascade_count.max(1),
+                2 => needed_layers += 1,
+                _ => {}
+            }
+        }
+        let grew_cubes = needed_cubes > self.cube_count;
+        let grew_layers = needed_layers > self.layer_count;
+        let force_all_dirty = grew_cubes || grew_layers;
+
+        if needed_cubes > 0 {
+            self.ensure_cubes(device, needed_cubes);
+        }
+        if needed_layers > 0 {
+            self.ensure_layers(device, needed_layers);
+        }
 
         let mut slot_index = 0u32;
         let mut layer_index = 0u32;
@@ -340,14 +373,27 @@ impl ShadowRenderer {
 
             let _resolution = light.caster.resolution.max(1);
 
+            let is_dirty = dirty_set.contains(&light.light_store_index) || force_all_dirty;
+
             match light.light_type {
                 0 => {
                     // Point light — cube shadow map (6 faces)
+                    if !is_dirty {
+                        // Clean: preserve previous slot data, skip rendering
+                        if slot_index < self.max_slots {
+                            self.gpu_data.slots[slot_index as usize] =
+                                prev_gpu_data.slots[slot_index as usize];
+                        }
+                        slot_matrix_offsets.push(matrix_index);
+                        slot_index += 1;
+                        cube_index += 1;
+                        matrix_index += 6;
+                        continue;
+                    }
                     if slot_index >= self.max_slots {
                         break;
                     }
                     let my_cube = cube_index;
-                    self.ensure_cubes(device, my_cube + 1);
 
                     let pos = Point3::new(light.position.x, light.position.y, light.position.z);
                     let far_plane = POINT_LIGHT_FAR;
@@ -439,6 +485,26 @@ impl ShadowRenderer {
                 }
                 1 => {
                     // Directional light → CSM
+                    if !is_dirty {
+                        let cascade_count = light.caster.cascade_count.max(1);
+                        for _ in 0..cascade_count {
+                            if slot_index < self.max_slots {
+                                self.gpu_data.slots[slot_index as usize] =
+                                    prev_gpu_data.slots[slot_index as usize];
+                                // Preserve previous frame's VP matrix
+                                let vp_bytes = matrix_to_bytes(&Matrix4::from(
+                                    prev_gpu_data.slots[slot_index as usize].light_view_proj,
+                                ));
+                                let off = matrix_index as usize * self.slot_stride as usize;
+                                matrix_bytes[off..off + 64].copy_from_slice(&vp_bytes);
+                            }
+                            slot_matrix_offsets.push(matrix_index);
+                            slot_index += 1;
+                            layer_index += 1;
+                            matrix_index += 1;
+                        }
+                        continue;
+                    }
                     let cascades = compute_csm_cascades(
                         camera_perspective_view_proj,
                         light.direction,
@@ -476,6 +542,23 @@ impl ShadowRenderer {
                 }
                 2 => {
                     // Spot light — single perspective depth map.
+                    if !is_dirty {
+                        if slot_index < self.max_slots {
+                            self.gpu_data.slots[slot_index as usize] =
+                                prev_gpu_data.slots[slot_index as usize];
+                            // Preserve previous frame's VP matrix
+                            let vp_bytes = matrix_to_bytes(&Matrix4::from(
+                                prev_gpu_data.slots[slot_index as usize].light_view_proj,
+                            ));
+                            let off = matrix_index as usize * self.slot_stride as usize;
+                            matrix_bytes[off..off + 64].copy_from_slice(&vp_bytes);
+                        }
+                        slot_matrix_offsets.push(matrix_index);
+                        slot_index += 1;
+                        layer_index += 1;
+                        matrix_index += 1;
+                        continue;
+                    }
                     let vp = Self::spot_light_vp(
                         light.position,
                         light.direction,
@@ -507,11 +590,6 @@ impl ShadowRenderer {
 
         self.gpu_data.cascade_count = slot_index;
 
-        // Ensure enough layers in the depth texture
-        if layer_index > 0 {
-            self.ensure_layers(device, layer_index);
-        }
-
         // Upload slot data
         queue.write_buffer(&self.slot_data_buffer, 0, self.gpu_data.as_bytes());
 
@@ -519,10 +597,15 @@ impl ShadowRenderer {
         queue.write_buffer(&self.matrix_buffer, 0, &matrix_bytes);
 
         // Render each slot that targets the 2D depth array
-        // (directional cascades + spot lights; point lights rendered inline above)
+        // (directional cascades + spot lights; point lights rendered inline above).
+        // Clean slots (not in dirty_set) are skipped — their depth data from the
+        // previous frame is preserved without re-rendering.
         for i in 0..slot_index {
             let slot = &self.gpu_data.slots[i as usize];
             if slot.shadow_type == SHADOW_TYPE_POINT {
+                continue;
+            }
+            if !dirty_set.contains(&slot.light_index) {
                 continue;
             }
 

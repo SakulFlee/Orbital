@@ -31,25 +31,25 @@ fn poll_wait_texture(device: &Device, label: &str) {
             return;
         }
 
-        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            device.poll(PollType::Poll)
-        })) {
-            Ok(Ok(s)) => {
-                match s {
-                    wgpu::PollStatus::QueueEmpty | wgpu::PollStatus::WaitSucceeded => return,
-                    wgpu::PollStatus::Poll => {
-                        std::thread::sleep(GPU_POLL_INTERVAL);
-                        continue;
-                    }
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| device.poll(PollType::Poll)))
+        {
+            Ok(Ok(s)) => match s {
+                wgpu::PollStatus::QueueEmpty | wgpu::PollStatus::WaitSucceeded => return,
+                wgpu::PollStatus::Poll => {
+                    std::thread::sleep(GPU_POLL_INTERVAL);
+                    continue;
                 }
-            }
+            },
             Ok(Err(e)) => {
                 warn!("[Texture] Poll wait for '{}' error: {:?}", label, e);
                 std::thread::sleep(GPU_POLL_INTERVAL);
                 continue;
             }
             Err(panic_payload) => {
-                warn!("[Texture] Poll wait for '{}' panicked: {:?}", label, panic_payload);
+                warn!(
+                    "[Texture] Poll wait for '{}' panicked: {:?}",
+                    label, panic_payload
+                );
                 return;
             }
         }
