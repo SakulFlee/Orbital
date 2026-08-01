@@ -252,9 +252,9 @@ impl ModuleRuntime {
         // if we checked AFTER realize, global_model_dirty would always be
         // false and shadow maps would never include the new model.
         let global_model_dirty = {
-            if let Some(store) =
-                self.ecs_world
-                    .get_component_store::<orbital_ecs_bridge::ModelDirty>()
+            if let Some(store) = self
+                .ecs_world
+                .get_component_store::<orbital_ecs_bridge::ModelDirty>()
             {
                 store.dense.iter().any(|&eid| {
                     store
@@ -285,21 +285,23 @@ impl ModuleRuntime {
             .map(|n| n.0)
             .unwrap_or(false);
         if new_light_bootstrap {
-            self.ecs_world.insert_resource(orbital_ecs_bridge::NewLightBootstrap(false));
+            self.ecs_world
+                .insert_resource(orbital_ecs_bridge::NewLightBootstrap(false));
         }
 
         // Schedule shadow updates respecting the per-frame budget
         // Set ORBITAL_STAGGER_ALL=1 env-var to render all shadows each frame (for perf comparison).
         if std::env::var("ORBITAL_STAGGER_ALL").is_ok() {
             self.ecs_world
-                .insert_resource(orbital_ecs_bridge::StaggeredLightConfig { max_updates_per_frame: 6 });
+                .insert_resource(orbital_ecs_bridge::StaggeredLightConfig {
+                    max_updates_per_frame: 6,
+                });
         }
-        let dirty_set =
-            crate::systems::stagger::sys_stagger_shadow_updates(
-                &mut self.ecs_world,
-                global_model_dirty,
-                new_light_bootstrap,
-            );
+        let dirty_set = crate::systems::stagger::sys_stagger_shadow_updates(
+            &mut self.ecs_world,
+            global_model_dirty,
+            new_light_bootstrap,
+        );
 
         log::trace!(
             "stagger: gmd={} nlb={} dirty_set_len={}",
@@ -703,13 +705,11 @@ impl ModuleRuntime {
                 },
                 wgpu::BindGroupEntry {
                     binding: 13,
-                    resource: wgpu::BindingResource::Buffer(
-                        wgpu::BufferBinding {
-                            buffer: light_count_buf,
-                            offset: 0,
-                            size: None,
-                        },
-                    ),
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: light_count_buf,
+                        offset: 0,
+                        size: None,
+                    }),
                 },
             ],
         });
