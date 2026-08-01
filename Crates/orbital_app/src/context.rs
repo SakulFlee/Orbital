@@ -137,7 +137,8 @@ impl AppContext {
     }
 
     fn make_device_and_queue(adapter: &Adapter) -> Result<(Device, Queue), RequestDeviceError> {
-        let timestamp_features = Features::TIMESTAMP_QUERY | Features::TIMESTAMP_QUERY_INSIDE_ENCODERS;
+        let timestamp_features =
+            Features::TIMESTAMP_QUERY | Features::TIMESTAMP_QUERY_INSIDE_ENCODERS;
         let mut features = Features::default() | Features::POLYGON_MODE_LINE;
         if adapter.features().contains(timestamp_features) {
             features |= timestamp_features;

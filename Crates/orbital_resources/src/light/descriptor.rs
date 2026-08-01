@@ -121,9 +121,7 @@ impl LightDescriptor {
         // w = padding
         let range_sq = match &self.light_type {
             LightType::Directional { .. } => 0.0f32,
-            LightType::Point { intensity } | LightType::Spot { intensity, .. } => {
-                intensity / 0.01
-            }
+            LightType::Point { intensity } | LightType::Spot { intensity, .. } => intensity / 0.01,
         };
         match &self.light_type {
             LightType::Spot {
