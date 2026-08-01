@@ -239,14 +239,15 @@ impl Renderer {
                 let _ = device.poll(wgpu::PollType::Poll);
 
                 if done.load(std::sync::atomic::Ordering::Relaxed)
-                    && let Ok(data) = prev_slice.get_mapped_range() {
-                        let mut ns = [0.0f64; 3];
-                        for i in 0..3 {
-                            let bytes: [u8; 8] = data[i * 8..(i + 1) * 8].try_into().unwrap();
-                            ns[i] = u64::from_ne_bytes(bytes) as f64;
-                        }
-                        self.prev_gpu_ns = ns;
+                    && let Ok(data) = prev_slice.get_mapped_range()
+                {
+                    let mut ns = [0.0f64; 3];
+                    for i in 0..3 {
+                        let bytes: [u8; 8] = data[i * 8..(i + 1) * 8].try_into().unwrap();
+                        ns[i] = u64::from_ne_bytes(bytes) as f64;
                     }
+                    self.prev_gpu_ns = ns;
+                }
                 prev_buf.unmap();
             }
 
