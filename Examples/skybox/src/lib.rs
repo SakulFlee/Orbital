@@ -6,7 +6,9 @@ use orbital::ecs_bridge::{
     Position, Rotation,
 };
 use orbital::logging::{self, error, info};
-use orbital::resources::{GeneratedSkyParameters, SunPosition, WorldEnvironmentDescriptor};
+use orbital::resources::{
+    GeneratedSkyParameters, SamplingType, SunPosition, WorldEnvironmentDescriptor,
+};
 
 pub const NAME: &str = "Orbital-Demo-Project: SkyBox";
 
@@ -66,7 +68,7 @@ impl Module for SkyboxModule {
         ecs.insert_resource(EnvironmentDescriptorResource(Some(
             WorldEnvironmentDescriptor::Generated {
                 cube_face_size: DYNAMIC_SKY_CUBE_SIZE,
-                sampling_type: WorldEnvironmentDescriptor::DEFAULT_SAMPLING_TYPE,
+                sampling_type: SamplingType::GaussianBlur,
                 custom_specular_mip_level_count: Some(DYNAMIC_SKY_MIP_LEVELS),
                 parameters: Some(GeneratedSkyParameters {
                     sun_position: SunPosition::TimeOfDay { hours: 14.0 },
@@ -99,7 +101,7 @@ fn sys_animate_sky(
 
         descriptor.0 = Some(WorldEnvironmentDescriptor::Generated {
             cube_face_size: DYNAMIC_SKY_CUBE_SIZE,
-            sampling_type: WorldEnvironmentDescriptor::DEFAULT_SAMPLING_TYPE,
+            sampling_type: SamplingType::GaussianBlur,
             custom_specular_mip_level_count: Some(DYNAMIC_SKY_MIP_LEVELS),
             parameters: Some(GeneratedSkyParameters {
                 sun_position: SunPosition::TimeOfDay { hours: clock },

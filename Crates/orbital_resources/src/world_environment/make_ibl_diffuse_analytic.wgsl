@@ -96,7 +96,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let N = normalize(face.forward + face.right * cube_uv.x - face.up * cube_uv.y);
 
     // --- Fibonacci-sphere quadrature for the smooth parts -------------------
-    const N_SAMPLES: u32 = 128u;
+    // The sky is smooth (gradients + halos) and the sun/moon are added in
+    // closed form below, so 64 samples is visually indistinguishable from
+    // more while costing half as much.
+    const N_SAMPLES: u32 = 64u;
     let weight = 4.0 * PI / f32(N_SAMPLES); // solid angle per sample
 
     var irradiance = vec3<f32>(0.0);
