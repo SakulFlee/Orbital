@@ -18,7 +18,7 @@ use winit::{
     application::ApplicationHandler,
     error::EventLoopError,
     event::{DeviceEvent, DeviceId, WindowEvent},
-    event_loop::{ActiveEventLoop, EventLoop},
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
     window::{CursorGrabMode, WindowId},
 };
 
@@ -1314,6 +1314,10 @@ impl ApplicationHandler for ModuleRuntime {
         if let Some(input_event) = input_event {
             self.input_state.handle_event(input_event);
         }
+    }
+
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        event_loop.set_control_flow(ControlFlow::Poll);
     }
 
     fn device_event(

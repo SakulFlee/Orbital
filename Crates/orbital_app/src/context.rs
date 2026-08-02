@@ -189,7 +189,7 @@ impl AppContext {
 
         let present_mode = match vsync {
             true => PresentMode::AutoVsync,
-            false => PresentMode::AutoNoVsync,
+            false => PresentMode::Immediate,
         };
 
         info!(
