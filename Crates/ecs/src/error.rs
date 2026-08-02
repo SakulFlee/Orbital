@@ -12,10 +12,14 @@ impl Display for ECSError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ECSError::InvalidEntity(entity) => {
-                writeln!(f, "Invalid Entity (Index: {}, Generation: {}). Index invalid or generation was superseeded!", entity.index, entity.generation).unwrap()
-            },
+                writeln!(
+                    f,
+                    "Invalid Entity (Index: {}, Generation: {}). Index invalid or generation was superseeded!",
+                    entity.index, entity.generation
+                )?;
+            }
             ECSError::ComponentStoreNotExisting => {
-                let _ = writeln!(f, "There is no ComponentStore for the requested Component!");
+                writeln!(f, "There is no ComponentStore for the requested Component!")?;
             }
         }
         writeln!(f, "{self:?}")
@@ -32,6 +36,6 @@ mod tests {
     fn test_error_display() {
         let error = ECSError::InvalidEntity(Entity::new(1, 123));
         let output = error.to_string();
-        println!("{output}");
+        assert!(output.contains("Invalid Entity"));
     }
 }
