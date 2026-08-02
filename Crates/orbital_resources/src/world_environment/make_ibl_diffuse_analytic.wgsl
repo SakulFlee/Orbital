@@ -113,7 +113,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let sun_dir = params.sun_direction;
     let sun_elev = sun_dir.y;
     let sun_visible = smoothstep(-0.05, 0.05, sun_elev);
-    let moon_visible = smoothstep(0.05, -0.05, sun_elev);
+    // `smoothstep` requires `edge0 < edge1`, so night = `1.0 - day`.
+    let moon_visible = 1.0 - smoothstep(-0.05, 0.05, sun_elev);
 
     if sun_visible > 0.0 {
         irradiance += disk_irradiance(
