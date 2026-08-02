@@ -137,13 +137,12 @@ impl AppContext {
     }
 
     fn make_device_and_queue(adapter: &Adapter) -> Result<(Device, Queue), RequestDeviceError> {
-        // TEMP: disabled to measure CPU render cost without timestamp resolve overhead
-        // let timestamp_features =
-        //     Features::TIMESTAMP_QUERY | Features::TIMESTAMP_QUERY_INSIDE_ENCODERS;
+        let timestamp_features =
+            Features::TIMESTAMP_QUERY | Features::TIMESTAMP_QUERY_INSIDE_ENCODERS;
         let mut features = Features::default() | Features::POLYGON_MODE_LINE;
-        // if adapter.features().contains(timestamp_features) {
-        //     features |= timestamp_features;
-        // }
+        if adapter.features().contains(timestamp_features) {
+            features |= timestamp_features;
+        }
         block_on(adapter.request_device(&DeviceDescriptor {
             label: Some("Orbital GPU"),
             required_features: features,

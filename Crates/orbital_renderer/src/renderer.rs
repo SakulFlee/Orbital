@@ -221,12 +221,9 @@ impl Renderer {
             );
             let resolve_sub = queue.submit(vec![resolve_encoder.finish()]);
 
-            // Wait for PREVIOUS frame's resolve to complete (already done in practice)
+            // Read the PREVIOUS frame's staging buffer (double-buffered: it's from 2 frames ago, so done).
             if let Some(prev_sub) = self.prev_resolve_sub.take() {
-                let _ = device.poll(wgpu::PollType::Wait {
-                    submission_index: Some(prev_sub),
-                    timeout: None,
-                });
+                let _ = prev_sub; // unused without blocking poll
 
                 // Map the PREVIOUS frame's staging buffer to read back its results
                 let prev_buf = &self.timestamp_staging_bufs[prev];
