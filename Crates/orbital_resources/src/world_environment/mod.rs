@@ -122,8 +122,9 @@ struct DynamicSkyState {
     mip_src_bind_groups: Vec<BindGroup>,
     /// Per-mip `MipInfo` uniform bind groups (group 1). Same indexing as above.
     mip_buffer_bind_groups: Vec<BindGroup>,
-    /// Round-robin counter selecting which specular mip to convolve next.
-    next_mip: AtomicU32,
+    /// Round-robin counter selecting which heavy pass (diffuse or a specular
+    /// mip) to run next. LoD 0 is rewritten every frame regardless.
+    next_pass: AtomicU32,
     cube_face_size: u32,
     specular_mip_level_count: u32,
     sampling_type: SamplingType,
@@ -883,7 +884,7 @@ impl WorldEnvironment {
             pipeline_mip,
             mip_src_bind_groups,
             mip_buffer_bind_groups,
-            next_mip: AtomicU32::new(0),
+            next_pass: AtomicU32::new(0),
             cube_face_size,
             specular_mip_level_count,
             sampling_type: sampling_type.clone(),
@@ -894,9 +895,11 @@ impl WorldEnvironment {
     ///
     /// Reuses the existing GPU textures and pipelines — one encoder, one
     /// submission, no `poll_wait` (the following render pass synchronises
-    /// naturally on the same queue).  The sky LoD 0 and analytic diffuse are
-    /// updated every call; the specular mip levels (1..N) are convolved one
-    /// per call, round-robin, so the per-frame cost stays flat.
+    /// naturally on the same queue).  The `SkyParams` uniform and the sky
+    /// LoD 0 are updated every call (cheap, keeps the analytic skybox and the
+    /// mip-convolution base current); the heavier analytic diffuse and specular
+    /// mip levels (1..N) are run one per call, round-robin, so the per-frame
+    /// cost stays flat.
     ///
     /// Only valid for environments created from
     /// `WorldEnvironmentDescriptor::Generated { dynamic: true }`.
@@ -940,8 +943,16 @@ impl WorldEnvironment {
             pass.dispatch_workgroups(wg_x, wg_y, 6);
         }
 
-        // Pass 2 — analytic diffuse into the existing irradiance cube.
-        {
+        // Pass 2 — one heavy pass per update, round-robin over the analytic
+        // diffuse and the specular mips. LoD 0 (above) is cheap and keeps the
+        // mip-convolution base fresh every frame; the diffuse and mips only
+        // feed object lighting/reflections, so alternating them keeps the
+        // per-frame cost flat (the analytic skybox always reads current params).
+        let phase_count = state.specular_mip_level_count.max(1); // {diffuse, mips 1..N-1}
+        let phase = state.next_pass.fetch_add(1, Ordering::Relaxed) % phase_count;
+
+        if phase == 0 {
+            // Analytic diffuse into the existing irradiance cube.
             let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor {
                 label: Some("Dynamic Sky: Diffuse"),
                 ..Default::default()
@@ -949,12 +960,9 @@ impl WorldEnvironment {
             pass.set_pipeline(&state.pipeline_diffuse);
             pass.set_bind_group(0, &state.diffuse_bind_group, &[]);
             pass.dispatch_workgroups(diffuse_wg, diffuse_wg, 6);
-        }
-
-        // Pass 3 — one specular mip per update, round-robin over 1..N-1.
-        let mip_count = state.specular_mip_level_count;
-        if mip_count > 1 {
-            let mip_level = 1 + state.next_mip.fetch_add(1, Ordering::Relaxed) % (mip_count - 1);
+        } else {
+            // One specular mip: phase `k` → mip level `k` (1..N-1).
+            let mip_level = phase;
             let mip_size = (state.cube_face_size >> mip_level).max(1);
             let idx = (mip_level - 1) as usize;
 

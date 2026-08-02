@@ -14,7 +14,9 @@ use orbital::importer::{ImportTask, gltf::GltfImport};
 use orbital::logging::{self, error, info};
 use orbital::procgeo::scene::SceneBuilder;
 use orbital::resources::WorldEnvironmentDescriptor;
-use orbital::resources::{GeneratedSkyParameters, ShadowCaster, SunPosition, Transform};
+use orbital::resources::{
+    GeneratedSkyParameters, SamplingType, ShadowCaster, SunPosition, Transform,
+};
 use winit::keyboard::KeyCode;
 
 pub const NAME: &str = "Orbital-Demo-Project: ProcGeo Scene";
@@ -216,7 +218,7 @@ fn sys_animate_dynamic_sky(
 
         descriptor.0 = Some(WorldEnvironmentDescriptor::Generated {
             cube_face_size: DYNAMIC_SKY_CUBE_SIZE,
-            sampling_type: WorldEnvironmentDescriptor::DEFAULT_SAMPLING_TYPE,
+            sampling_type: SamplingType::GaussianBlur,
             custom_specular_mip_level_count: Some(DYNAMIC_SKY_MIP_LEVELS),
             parameters: Some(GeneratedSkyParameters {
                 sun_position: SunPosition::TimeOfDay { hours: clock },
@@ -260,7 +262,7 @@ impl Module for ProcgeoSceneModule {
         ecs.insert_resource(EnvironmentDescriptorResource(Some(
             WorldEnvironmentDescriptor::Generated {
                 cube_face_size: DYNAMIC_SKY_CUBE_SIZE,
-                sampling_type: WorldEnvironmentDescriptor::DEFAULT_SAMPLING_TYPE,
+                sampling_type: SamplingType::GaussianBlur,
                 custom_specular_mip_level_count: Some(DYNAMIC_SKY_MIP_LEVELS),
                 parameters: Some(GeneratedSkyParameters::default()),
                 dynamic: true,
