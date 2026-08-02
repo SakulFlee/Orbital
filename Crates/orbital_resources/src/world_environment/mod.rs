@@ -208,9 +208,9 @@ impl WorldEnvironment {
         }
     }
 
-    pub fn bind_group_layout_descriptor_sky_gen() -> BindGroupLayoutDescriptor<'static> {
+    pub fn bind_group_layout_descriptor_sky_cube() -> BindGroupLayoutDescriptor<'static> {
         BindGroupLayoutDescriptor {
-            label: Some("Sky Generation"),
+            label: Some("Sky Generation (direct-to-cube)"),
             entries: &[
                 BindGroupLayoutEntry {
                     binding: 0,
@@ -227,8 +227,8 @@ impl WorldEnvironment {
                     visibility: ShaderStages::COMPUTE,
                     ty: BindingType::StorageTexture {
                         access: StorageTextureAccess::WriteOnly,
-                        format: TextureFormat::Rgba32Float,
-                        view_dimension: TextureViewDimension::D2,
+                        format: TextureFormat::Rgba16Float,
+                        view_dimension: TextureViewDimension::D2Array,
                     },
                     count: None,
                 },
@@ -258,38 +258,48 @@ impl WorldEnvironment {
         device: &Device,
         queue: &Queue,
     ) -> Result<Self, Box<dyn Error>> {
+        // Dynamic generated skies are expected to change frequently, so the
+        // disk cache is bypassed entirely — every change regenerates in memory.
+        let dynamic = matches!(
+            descriptor,
+            WorldEnvironmentDescriptor::Generated { dynamic: true, .. }
+        );
+
         let cache_file = Self::find_cache_file(descriptor);
         debug!("Cache file: {:?}", cache_file);
 
         // Try loading cache file
-        let (pbr_ibl_diffuse, pbr_ibl_specular, write_to_cache) = match CacheFile::from_path(
-            cache_file.clone(),
-        ) {
-            Ok(cache_file) => {
-                let (pbr_ibl_diffuse, pbr_ibl_specular) =
-                    cache_file.make_textures(descriptor, device, queue);
+        let (pbr_ibl_diffuse, pbr_ibl_specular, write_to_cache) = if dynamic {
+            let (x, y) = Self::make_from_descriptor(descriptor, device, queue)?;
+            (x, y, false)
+        } else {
+            match CacheFile::from_path(cache_file.clone()) {
+                Ok(cache_file) => {
+                    let (pbr_ibl_diffuse, pbr_ibl_specular) =
+                        cache_file.make_textures(descriptor, device, queue);
 
-                info!("Using cached WorldEnvironment/IBL!");
-                debug!(
-                    "Cached PBR IBL Diffuse Size: {:?} + Mip Levels: {:?}",
-                    pbr_ibl_diffuse.texture().size(),
-                    pbr_ibl_diffuse.texture().mip_level_count()
-                );
-                debug!(
-                    "Cached PBR IBL Specular Size: {:?} + Mip Levels: {:?}",
-                    pbr_ibl_specular.texture().size(),
-                    pbr_ibl_specular.texture().mip_level_count()
-                );
+                    info!("Using cached WorldEnvironment/IBL!");
+                    debug!(
+                        "Cached PBR IBL Diffuse Size: {:?} + Mip Levels: {:?}",
+                        pbr_ibl_diffuse.texture().size(),
+                        pbr_ibl_diffuse.texture().mip_level_count()
+                    );
+                    debug!(
+                        "Cached PBR IBL Specular Size: {:?} + Mip Levels: {:?}",
+                        pbr_ibl_specular.texture().size(),
+                        pbr_ibl_specular.texture().mip_level_count()
+                    );
 
-                (pbr_ibl_diffuse, pbr_ibl_specular, false)
-            }
-            Err(e) => {
-                warn!(
-                    "WorldEnvironment::IBL cache failed to load, is corrupt or doesn't exist! Will continue generating IBL from HDRI. This may take a few seconds. Error: {e:?}"
-                );
+                    (pbr_ibl_diffuse, pbr_ibl_specular, false)
+                }
+                Err(e) => {
+                    warn!(
+                        "WorldEnvironment::IBL cache failed to load, is corrupt or doesn't exist! Will continue generating IBL from HDRI. This may take a few seconds. Error: {e:?}"
+                    );
 
-                let (x, y) = Self::make_from_descriptor(descriptor, device, queue)?;
-                (x, y, true)
+                    let (x, y) = Self::make_from_descriptor(descriptor, device, queue)?;
+                    (x, y, true)
+                }
             }
         };
 
@@ -389,6 +399,7 @@ impl WorldEnvironment {
                 sampling_type,
                 custom_specular_mip_level_count: specular_mip_level_count,
                 parameters,
+                ..
             } => {
                 let clamped_mip_levels = Self::calculate_specular_mip_level_count(
                     *cube_face_size,
@@ -545,6 +556,14 @@ impl WorldEnvironment {
         Ok((diffuse, specular))
     }
 
+    /// Generates the analytic time-of-day sky as a full IBL environment.
+    ///
+    /// This is the *fast* path: the sky is written **directly** into the cube
+    /// faces (no equirectangular intermediate) and the diffuse irradiance is
+    /// computed analytically (deterministic Fibonacci-sphere quadrature +
+    /// closed-form sun/moon disks) instead of an 8192-sample Monte Carlo
+    /// convolution.  Both shaders share the same `sky_color` function, so the
+    /// skybox and the irradiance are always consistent.
     fn make_ibl_from_sky_parameters(
         params: &GeneratedSkyParameters,
         dst_size: u32,
@@ -553,131 +572,38 @@ impl WorldEnvironment {
         device: &Device,
         queue: &Queue,
     ) -> Result<(Texture, Texture), Box<dyn Error>> {
-        let src_width = dst_size * 2;
-        let src_height = dst_size;
-
-        // Create empty equirectangular source texture
-        let raw_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Generated Sky Equirectangular SRC"),
-            size: Extent3d {
-                width: src_width,
-                height: src_height,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: TextureDimension::D2,
-            format: TextureFormat::Rgba32Float,
-            usage: TextureUsages::STORAGE_BINDING
-                | TextureUsages::TEXTURE_BINDING
-                | TextureUsages::COPY_DST,
-            view_formats: &[],
-        });
-
-        let src_view = raw_texture.create_view(&TextureViewDescriptor::default());
-        let dst_view = raw_texture.create_view(&TextureViewDescriptor {
-            label: Some("Generated Sky processing view"),
-            dimension: Some(TextureViewDimension::D2),
-            ..Default::default()
-        });
-
-        let src_sampler = device.create_sampler(&SamplerDescriptor {
-            label: Some("Generated Sky SRC Sampler"),
-            address_mode_u: AddressMode::ClampToEdge,
-            address_mode_v: AddressMode::ClampToEdge,
-            address_mode_w: AddressMode::ClampToEdge,
-            mag_filter: WFilterMode::Linear,
-            min_filter: WFilterMode::Linear,
-            mipmap_filter: MipmapFilterMode::Linear,
-            ..Default::default()
-        });
-
-        let src_tex =
-            Texture::from_existing(raw_texture, src_view, src_sampler, TextureViewDimension::D2);
-
-        // Generate the atmospheric scattering sky
-        {
-            let bind_group_layout =
-                device.create_bind_group_layout(&Self::bind_group_layout_descriptor_sky_gen());
-            let params_buffer = Self::make_sky_parameters_buffer(params, device);
-
-            let bind_group = device.create_bind_group(&BindGroupDescriptor {
-                label: Some("Sky Generation Bind Group"),
-                layout: &bind_group_layout,
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: BindingResource::Buffer(params_buffer.as_entire_buffer_binding()),
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: BindingResource::TextureView(&dst_view),
-                    },
-                ],
-            });
-
-            let pipeline = Self::make_compute_pipeline(
-                &[Some(&bind_group_layout)],
-                include_wgsl!("generate_sky.wgsl"),
-                "main",
-                device,
-            );
-
-            let mut encoder = device.create_command_encoder(&Default::default());
-            {
-                let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor {
-                    label: Some("Procedural Sky Generation"),
-                    ..Default::default()
-                });
-
-                let workgroup_size = 8u32;
-                let wg_x = src_width.div_ceil(workgroup_size);
-                let wg_y = src_height.div_ceil(workgroup_size);
-
-                debug!(
-                    "Generating procedural atmospheric sky ({}x{}) ...",
-                    src_width, src_height
-                );
-
-                pass.set_pipeline(&pipeline);
-                pass.set_bind_group(0, &bind_group, &[]);
-                pass.dispatch_workgroups(wg_x, wg_y, 1);
-            }
-            queue.submit([encoder.finish()]);
-        }
-
         let bind_group_layout =
-            device.create_bind_group_layout(&Self::bind_group_layout_descriptor());
+            device.create_bind_group_layout(&Self::bind_group_layout_descriptor_sky_cube());
 
-        // Generate diffuse IBL from the generated source.
-        let diffuse = Self::dispatch_ibl_cubemap_per_face(
-            dst_size,
-            "PBR IBL Diffuse (Generated Sky)",
-            &bind_group_layout,
-            src_tex.view(),
-            include_wgsl!("make_ibl_diffuse.wgsl"),
-            TextureFormat::Rgba16Float,
-            1,
-            TILE_SIZE,
-            device,
-            queue,
-        )?;
+        let params_buffer = Self::make_sky_parameters_buffer(params, device);
 
-        // Generate specular IBL base level (LoD 0).
-        let raw_specular = Self::dispatch_ibl_cubemap_per_face(
+        // Phase 1: Generate the sky directly into the specular cube (LoD 0).
+        let raw_specular = Self::dispatch_sky_cube(
             dst_size,
-            "PBR IBL Specular without LoDs (Generated Sky)",
+            "Generated Sky Specular (direct-to-cube)",
             &bind_group_layout,
-            src_tex.view(),
-            include_wgsl!("make_ibl_specular.wgsl"),
+            &params_buffer,
+            include_str!("generate_sky_cube.wgsl"),
             TextureFormat::Rgba16Float,
             specular_mip_level_count,
-            dst_size,
             device,
             queue,
         )?;
 
-        // Generate specular mip maps
+        // Phase 2: Generate diffuse irradiance analytically, also direct-to-cube.
+        let diffuse = Self::dispatch_sky_cube(
+            dst_size,
+            "Generated Sky Diffuse (analytic)",
+            &bind_group_layout,
+            &params_buffer,
+            include_str!("make_ibl_diffuse_analytic.wgsl"),
+            TextureFormat::Rgba16Float,
+            1,
+            device,
+            queue,
+        )?;
+
+        // Phase 3: Generate specular mip maps for reflections.
         let specular = Self::generate_specular_mip_maps_incremental(
             &raw_specular,
             sampling_type,
@@ -687,6 +613,95 @@ impl WorldEnvironment {
         )?;
 
         Ok((diffuse, specular))
+    }
+
+    /// Dispatches a sky-generation compute shader that writes directly into a
+    /// cubemap (all 6 faces in a single dispatch, selected by `gid.z`).
+    ///
+    /// The shader source is the concatenation of `sky_common.wgsl` (shared
+    /// `SkyParams` + `sky_color`) and the given entry shader.
+    fn dispatch_sky_cube(
+        dst_size: u32,
+        label: &str,
+        bind_group_layout: &BindGroupLayout,
+        params_buffer: &wgpu::Buffer,
+        entry_shader: &'static str,
+        format: TextureFormat,
+        mip_level_count: u32,
+        device: &Device,
+        queue: &Queue,
+    ) -> Result<Texture, Box<dyn Error>> {
+        let source = format!("{}\n{}", include_str!("sky_common.wgsl"), entry_shader);
+        let pipeline = Self::make_compute_pipeline(
+            &[Some(bind_group_layout)],
+            ShaderModuleDescriptor {
+                label: Some(label),
+                source: wgpu::ShaderSource::Wgsl(source.into()),
+            },
+            "main",
+            device,
+        );
+
+        let dst_texture = Texture::create_empty_cube_texture(
+            Some(label),
+            Vector2 {
+                x: dst_size,
+                y: dst_size,
+            },
+            format,
+            TextureUsages::STORAGE_BINDING
+                | TextureUsages::TEXTURE_BINDING
+                | TextureUsages::COPY_SRC,
+            mip_level_count,
+            device,
+        );
+
+        // Full D2Array view covering all 6 faces (single mip level — storage
+        // texture bindings cannot span multiple mips).
+        let dst_view = dst_texture.texture().create_view(&TextureViewDescriptor {
+            label: Some(&format!("{label} full D2Array view")),
+            dimension: Some(TextureViewDimension::D2Array),
+            base_mip_level: 0,
+            mip_level_count: Some(1),
+            ..Default::default()
+        });
+
+        let bind_group = device.create_bind_group(&BindGroupDescriptor {
+            label: Some(label),
+            layout: bind_group_layout,
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::Buffer(params_buffer.as_entire_buffer_binding()),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::TextureView(&dst_view),
+                },
+            ],
+        });
+
+        let mut encoder = device.create_command_encoder(&Default::default());
+        {
+            let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor {
+                label: Some(label),
+                ..Default::default()
+            });
+
+            let workgroup_size = 8u32;
+            let wg_x = dst_size.div_ceil(workgroup_size);
+            let wg_y = dst_size.div_ceil(workgroup_size);
+
+            debug!("{label} ({}², {mip_level_count} mips) ...", dst_size);
+
+            pass.set_pipeline(&pipeline);
+            pass.set_bind_group(0, &bind_group, &[]);
+            pass.dispatch_workgroups(wg_x, wg_y, 6);
+        }
+        queue.submit([encoder.finish()]);
+        poll_wait(device, label).map_err(|_| format!("{label} failed"))?;
+
+        Ok(dst_texture)
     }
 
     /// Helper: dispatches a cubemap-generating compute shader one face at a
@@ -960,25 +975,47 @@ impl WorldEnvironment {
         params: &GeneratedSkyParameters,
         device: &Device,
     ) -> wgpu::Buffer {
-        let mut data = Vec::with_capacity(48);
+        let mut data = Vec::with_capacity(176);
 
         let wf = |v: &mut Vec<u8>, f: f32| v.extend_from_slice(&f.to_le_bytes());
 
-        // Row 0: 4 × f32
-        wf(&mut data, params.time_of_day_hours);
-        wf(&mut data, params.sun_azimuth);
+        let sun_dir = params.sun_direction();
+
+        // Row 0: sun_direction (vec3) + _pad
+        wf(&mut data, sun_dir[0]);
+        wf(&mut data, sun_dir[1]);
+        wf(&mut data, sun_dir[2]);
+        wf(&mut data, 0.0);
+        // Row 1: 4 × f32
         wf(&mut data, params.sun_angular_radius);
         wf(&mut data, params.sun_intensity);
-        // Row 1: 4 × f32
         wf(&mut data, params.moon_angular_radius);
         wf(&mut data, params.moon_intensity);
+        // Row 2: 4 × f32
         wf(&mut data, params.star_intensity);
+        wf(&mut data, params.star_density);
         wf(&mut data, params.exposure);
-        // Row 2: ground_albedo (vec3) + _pad2
+        wf(&mut data, 0.0);
+        // Row 3: ground_albedo (vec3) + _pad
         wf(&mut data, params.ground_albedo[0]);
         wf(&mut data, params.ground_albedo[1]);
         wf(&mut data, params.ground_albedo[2]);
         wf(&mut data, 0.0);
+        // Rows 4-10: palette (7 × vec3 + pad each)
+        for c in [
+            &params.palette.day_zenith,
+            &params.palette.day_horizon,
+            &params.palette.night_zenith,
+            &params.palette.night_horizon,
+            &params.palette.twilight,
+            &params.palette.sun_color,
+            &params.palette.moon_color,
+        ] {
+            wf(&mut data, c[0]);
+            wf(&mut data, c[1]);
+            wf(&mut data, c[2]);
+            wf(&mut data, 0.0);
+        }
 
         device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Sky Parameters"),
