@@ -698,6 +698,7 @@ pub fn realize_environment(ecs: &mut World) {
                 sampling_type: WorldEnvironmentDescriptor::DEFAULT_SAMPLING_TYPE,
                 custom_specular_mip_level_count: None,
                 parameters: None,
+                dynamic: false,
             }
         }
     };

@@ -61,16 +61,11 @@ fn entrypoint_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // Sample HDRI WorldEnvironment as Sky Box, based on LoD (-1 = diffuse)
     var world_environment_sample = textureSampleLevel(specular_env_map, specular_env_sampler, ray_direction, 0.0).rgb;
 
-    // Clamp sample to be within range (possible detail loss if there is data past >1.0)
-    let clamped = clamp(world_environment_sample, vec3(0.0), vec3(1.0));
+    // ACES Tone Map (HDR mapping) — keeps the sun's gradient instead of
+    // clamping it to a flat white core.
+    let aces_tone_mapped = aces_tone_map(world_environment_sample);
 
-    // Adjust for gamma
-    let gamma_adjustment = pow(clamped, vec3(camera.global_gamma));
-
-    // ACES Tone Map (HDR mapping)
-    let aces_tone_mapped = aces_tone_map(gamma_adjustment);
-
-    return vec4<f32>(gamma_adjustment, 1.0);
+    return vec4<f32>(aces_tone_mapped, 1.0);
 }
 
 // ACES tone mapping
