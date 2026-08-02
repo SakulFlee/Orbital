@@ -1,10 +1,12 @@
 use orbital::app::{App, AppSettings, Module, sys_camera_controller};
 use orbital::cgmath::{Point3, Rad};
-use orbital::ecs::{IntoSystem, System, World};
+use orbital::ecs::{IntoSystem, Res, ResMut, System, World};
 use orbital::ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, Position, Rotation,
+    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, DeltaTime, EnvironmentDescriptorResource,
+    Position, Rotation,
 };
 use orbital::logging::{self, error, info};
+use orbital::resources::{GeneratedSkyParameters, SunPosition, WorldEnvironmentDescriptor};
 
 pub const NAME: &str = "Orbital-Demo-Project: SkyBox";
 
@@ -61,7 +63,49 @@ impl Module for SkyboxModule {
         ecs.attach_component(&camera, Rotation::identity()).unwrap();
         ecs.insert_resource(ActiveCamera(camera));
         ecs.insert_resource(CursorGrabConfig(true));
+        ecs.insert_resource(EnvironmentDescriptorResource(Some(
+            WorldEnvironmentDescriptor::Generated {
+                cube_face_size: DYNAMIC_SKY_CUBE_SIZE,
+                sampling_type: WorldEnvironmentDescriptor::DEFAULT_SAMPLING_TYPE,
+                custom_specular_mip_level_count: Some(DYNAMIC_SKY_MIP_LEVELS),
+                parameters: Some(GeneratedSkyParameters {
+                    sun_position: SunPosition::TimeOfDay { hours: 14.0 },
+                    ..GeneratedSkyParameters::default()
+                }),
+                dynamic: true,
+            },
+        )));
 
-        vec![sys_camera_controller.into_system()]
+        vec![
+            sys_camera_controller.into_system(),
+            sys_animate_sky(14.0).into_system(),
+        ]
+    }
+}
+
+const DYNAMIC_SKY_CUBE_SIZE: u32 = 256;
+const DYNAMIC_SKY_MIP_LEVELS: u32 = 3;
+
+fn sys_animate_sky(
+    initial_hours: f32,
+) -> impl FnMut(Res<DeltaTime>, ResMut<EnvironmentDescriptorResource>) {
+    let mut clock = initial_hours;
+
+    // The in-place dynamic sky path makes per-frame updates cheap, so there is
+    // no throttling here — the sky updates every frame.
+    move |dt: Res<DeltaTime>, mut descriptor: ResMut<EnvironmentDescriptorResource>| {
+        let dt = dt.0 as f32;
+        clock = (clock + dt / 240.0).rem_euclid(24.0);
+
+        descriptor.0 = Some(WorldEnvironmentDescriptor::Generated {
+            cube_face_size: DYNAMIC_SKY_CUBE_SIZE,
+            sampling_type: WorldEnvironmentDescriptor::DEFAULT_SAMPLING_TYPE,
+            custom_specular_mip_level_count: Some(DYNAMIC_SKY_MIP_LEVELS),
+            parameters: Some(GeneratedSkyParameters {
+                sun_position: SunPosition::TimeOfDay { hours: clock },
+                ..GeneratedSkyParameters::default()
+            }),
+            dynamic: true,
+        });
     }
 }

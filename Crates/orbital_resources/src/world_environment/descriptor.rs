@@ -117,7 +117,7 @@ pub struct GeneratedSkyParameters {
     pub sun_angular_radius: f32,
     /// Sun intensity multiplier (default: 6.0).
     pub sun_intensity: f32,
-    /// Angular radius of the moon disk in radians (default: ~0.46°).
+    /// Angular radius of the moon disk in radians (default: ~0.69°).
     pub moon_angular_radius: f32,
     /// Moon intensity multiplier (default: 2.0).
     pub moon_intensity: f32,
@@ -142,7 +142,7 @@ impl Default for GeneratedSkyParameters {
             sun_azimuth: 0.0,
             sun_angular_radius: 0.02,
             sun_intensity: 6.0,
-            moon_angular_radius: 0.008,
+            moon_angular_radius: 0.012,
             moon_intensity: 2.0,
             star_intensity: 1.0,
             star_density: 0.06,
@@ -156,11 +156,11 @@ impl Default for GeneratedSkyParameters {
 impl Default for SkyPalette {
     fn default() -> Self {
         Self {
-            day_zenith: [0.35, 0.55, 0.95],
+            day_zenith: [0.15, 0.4, 1.0],
             day_horizon: [0.75, 0.85, 1.0],
             night_zenith: [0.005, 0.008, 0.03],
             night_horizon: [0.02, 0.02, 0.05],
-            twilight: [1.5, 0.7, 0.25],
+            twilight: [2.0, 0.85, 0.45],
             sun_color: [1.0, 0.92, 0.78],
             moon_color: [0.72, 0.76, 0.85],
         }
@@ -335,7 +335,15 @@ pub enum WorldEnvironmentDescriptor {
         parameters: Option<GeneratedSkyParameters>,
         /// When `true` the environment is expected to change frequently (e.g.
         /// an animated time-of-day). The disk cache is skipped entirely and
-        /// the sky is regenerated from scratch on every descriptor change.
+        /// the sky is updated **in place** on every descriptor change: the
+        /// sky LoD 0 and analytic diffuse are recomputed immediately, while
+        /// the specular reflection mip levels (1..N) are convolved one-per-
+        /// update on a round-robin schedule (mirroring the one-shadow-per-
+        /// frame light stagger). This keeps the per-frame GPU cost flat so a
+        /// dynamic sky can be animated at full frame rate.
+        ///
+        /// See [`WorldEnvironment::update_sky_parameters`] and
+        /// [`WorldEnvironment::can_update_dynamic_sky`].
         dynamic: bool,
     },
     /// Explicitly disable the environment — no skybox, no IBL lighting.
@@ -740,11 +748,11 @@ mod tests {
     #[test]
     fn sky_palette_default_matches_constants() {
         let p = SkyPalette::default();
-        assert_eq!(p.day_zenith, [0.35, 0.55, 0.95]);
+        assert_eq!(p.day_zenith, [0.15, 0.4, 1.0]);
         assert_eq!(p.day_horizon, [0.75, 0.85, 1.0]);
         assert_eq!(p.night_zenith, [0.005, 0.008, 0.03]);
         assert_eq!(p.night_horizon, [0.02, 0.02, 0.05]);
-        assert_eq!(p.twilight, [1.5, 0.7, 0.25]);
+        assert_eq!(p.twilight, [2.0, 0.85, 0.45]);
         assert_eq!(p.sun_color, [1.0, 0.92, 0.78]);
         assert_eq!(p.moon_color, [0.72, 0.76, 0.85]);
     }

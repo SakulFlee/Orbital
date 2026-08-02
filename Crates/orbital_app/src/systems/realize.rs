@@ -670,15 +670,15 @@ pub fn realize_environment(ecs: &mut World) {
 
     // If the environment is already realized AND no new descriptor is
     // waiting, there is nothing to do.
-    let gpu_exists = ecs
+    let gpu_env = ecs
         .get_resource::<EnvironmentGpuResource>()
-        .map_or(false, |r| r.0.is_some());
+        .and_then(|r| r.0.clone());
 
     let descriptor_opt = ecs
         .get_resource::<EnvironmentDescriptorResource>()
         .and_then(|r| r.0.clone());
 
-    if gpu_exists && descriptor_opt.is_none() {
+    if gpu_env.is_some() && descriptor_opt.is_none() {
         return;
     }
 
@@ -702,6 +702,25 @@ pub fn realize_environment(ecs: &mut World) {
             }
         }
     };
+
+    // Fast path: a `Generated { dynamic: true }` descriptor that matches the
+    // existing environment's size/mips updates the sky **in place** — no
+    // texture rebuild, no pipeline recompilation, no `poll_wait`. This keeps
+    // per-frame sky animation cheap (see `WorldEnvironment::update_sky_parameters`).
+    if let Some(existing) = &gpu_env
+        && existing.can_update_dynamic_sky(&descriptor)
+    {
+        let params = match &descriptor {
+            WorldEnvironmentDescriptor::Generated { parameters, .. } => {
+                parameters.clone().unwrap_or_default()
+            }
+            _ => unreachable!("can_update_dynamic_sky only matches Generated"),
+        };
+        existing.update_sky_parameters(&params, &device, &queue);
+        // Descriptor consumed.
+        ecs.insert_resource(EnvironmentDescriptorResource(None));
+        return;
+    }
 
     match orbital_resources::WorldEnvironment::from_descriptor(
         &descriptor,

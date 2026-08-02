@@ -191,6 +191,19 @@ pub fn make_world_bind_group_layout(device: &Device) -> BindGroupLayout {
                 },
                 count: None,
             },
+            // Sky parameters uniform (binding 14) — the analytic skybox fragment
+            // shader evaluates `sky_color` from these. Unused by texture-based
+            // material shaders, which is a valid subset of this layout.
+            BindGroupLayoutEntry {
+                binding: 14,
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
         ],
     })
 }

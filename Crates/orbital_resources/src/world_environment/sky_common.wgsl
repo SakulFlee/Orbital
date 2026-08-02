@@ -68,15 +68,21 @@ fn sky_color(D: vec3<f32>, params: SkyParams) -> vec3<f32> {
     let zenith = mix(params.night_zenith, params.day_zenith, day_factor);
     let horizon = mix(params.night_horizon, params.day_horizon, day_factor);
 
-    // Per-pixel vertical fade between horizon and zenith.
+    // Per-pixel vertical fade between horizon and zenith. The low exponent
+    // makes the saturated zenith blue dominate most of the sky, keeping the
+    // pale horizon to a thin band at the bottom.
     let height = clamp(D.y, 0.0, 1.0);
-    var colour = mix(horizon, zenith, pow(height, 0.5));
+    var colour = mix(horizon, zenith, pow(height, 0.3));
 
     // --- Twilight warm band -----------------------------------------------
     // Peaks when the sun sits on the horizon and hugs the horizon line.
-    let twilight = exp(-abs(sun_elev) * 8.0);
+    // The falloff is widened so the glow persists over a broader sunset band,
+    // but `twilight_visible` gates it off entirely once the sun is well below
+    // the horizon, keeping the night sky clean.
+    let twilight = exp(-abs(sun_elev) * 5.0);
+    let twilight_visible = smoothstep(-0.15, 0.0, sun_elev);
     let horizon_term = pow(1.0 - height, 2.0);
-    colour += params.twilight * twilight * horizon_term;
+    colour += params.twilight * twilight * horizon_term * twilight_visible;
 
     // --- Sun disk + halo --------------------------------------------------
     let cos_a = clamp(dot(D, sun_dir), -1.0, 1.0);
@@ -97,17 +103,22 @@ fn sky_color(D: vec3<f32>, params: SkyParams) -> vec3<f32> {
     // --- Moon (opposite the sun, visible at night) -------------------------
     let moon_dir = -sun_dir;
     let moon_ang = acos(clamp(dot(D, moon_dir), -1.0, 1.0));
-    let moon_visible = smoothstep(0.05, -0.05, sun_elev); // night only
+    // Note: `edge0 < edge1` is required for `smoothstep` (the reverse would be
+    // undefined behaviour in WGSL), so night = `1.0 - day` instead.
+    let moon_visible = 1.0 - smoothstep(-0.05, 0.05, sun_elev); // night only
 
-    let moon_disk = smoothstep(
-        params.moon_angular_radius * 1.5,
-        params.moon_angular_radius * 0.5,
-        moon_ang,
-    );
+    // Super-Gaussian disk (^8): a uniformly lit moon with a tight soft edge.
+    // Lower powers leave a flat bright "dot" in the centre and spread the
+    // falloff far past the disk, making the moon look bigger than it is.
+    let moon_sigma = params.moon_angular_radius;
+    let moon_disk = exp(-pow(moon_ang / moon_sigma, 8.0));
     colour += params.moon_color * params.moon_intensity * moon_disk * moon_visible;
 
-    let moon_halo = exp(-moon_ang * moon_ang / (2.0 * 0.02 * 0.02));
-    colour += params.moon_color * params.moon_intensity * 0.3 * moon_halo * moon_visible;
+    // Compact halo, sized relative to the moon like the sun's — kept faint so
+    // it reads as a subtle earthshine glow rather than a big soft field.
+    let moon_halo_sigma = moon_sigma * 1.5;
+    let moon_halo = exp(-moon_ang * moon_ang / (2.0 * moon_halo_sigma * moon_halo_sigma));
+    colour += params.moon_color * params.moon_intensity * 0.1 * moon_halo * moon_visible;
 
     // --- Stars (deterministic, faded in at night) --------------------------
     const STAR_GRID: f32 = 90.0;
@@ -131,7 +142,7 @@ fn sky_color(D: vec3<f32>, params: SkyParams) -> vec3<f32> {
         let centre = (vec3<f32>(cell) - vec3<f32>(f32(bias))) + vec3<f32>(ox, oy, oz);
         let dist = length(D * STAR_GRID - centre);
 
-        let star_val = exp(-dist * dist * 60.0);
+        let star_val = exp(-dist * dist * 30.0);
         let star_bright = (bright - threshold) / (1.0 - threshold) * star_val;
         let star_colour = vec3<f32>(0.85, 0.9, 1.0);
         colour += star_colour * star_bright * params.star_intensity
@@ -139,8 +150,12 @@ fn sky_color(D: vec3<f32>, params: SkyParams) -> vec3<f32> {
     }
 
     // --- Ground (below the horizon) ----------------------------------------
+    // The ground is a flat albedo tint that fades into the sky across the
+    // horizon. At night it is dimmed hard so the lower half of the sky reads
+    // as near-black instead of a bright grey band (daytime is unchanged).
     let ground_fade = smoothstep(-0.02, 0.02, D.y);
-    colour = mix(params.ground_albedo, colour, ground_fade);
+    let ground_tint = mix(0.03, 1.0, day_factor);
+    colour = mix(params.ground_albedo * ground_tint, colour, ground_fade);
 
     // --- Exposure ----------------------------------------------------------
     colour *= params.exposure;
