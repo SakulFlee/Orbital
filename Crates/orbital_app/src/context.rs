@@ -1,6 +1,6 @@
 use std::{error::Error, mem::transmute};
 
-use log::debug;
+use log::{debug, info};
 use orbital_core::wgpu_util::block_on;
 use wgpu::{
     Adapter, BackendOptions, Backends, CompositeAlphaMode, CreateSurfaceError,
@@ -192,6 +192,11 @@ impl AppContext {
             false => PresentMode::AutoNoVsync,
         };
 
+        info!(
+            "[Surface] Supported present modes: {:?}, selected: {:?} (vsync={})",
+            capabilities.present_modes, present_mode, vsync
+        );
+
         let window_size = self.window.inner_size();
 
         let (srgb_format, view_formats) = Self::make_view_formats(&capabilities);
@@ -205,13 +210,13 @@ impl AppContext {
                 width: 100,
                 height: 100,
                 present_mode,
-                desired_maximum_frame_latency: 3,
+                desired_maximum_frame_latency: 2,
                 alpha_mode: CompositeAlphaMode::Auto,
                 view_formats: vec![],
                 color_space: SurfaceColorSpace::Auto,
             });
 
-        default_config.desired_maximum_frame_latency = 3;
+        default_config.desired_maximum_frame_latency = 2;
         default_config.present_mode = present_mode;
         default_config.alpha_mode = CompositeAlphaMode::Auto;
         default_config.format = srgb_format;
@@ -219,7 +224,7 @@ impl AppContext {
         default_config.view_formats = view_formats;
         default_config.width = window_size.width;
         default_config.height = window_size.height;
-        default_config.desired_maximum_frame_latency = 3;
+        default_config.desired_maximum_frame_latency = 2;
 
         default_config
     }
