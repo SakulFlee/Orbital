@@ -205,13 +205,13 @@ impl AppContext {
                 width: 100,
                 height: 100,
                 present_mode,
-                desired_maximum_frame_latency: 2,
+                desired_maximum_frame_latency: 3,
                 alpha_mode: CompositeAlphaMode::Auto,
                 view_formats: vec![],
                 color_space: SurfaceColorSpace::Auto,
             });
 
-        default_config.desired_maximum_frame_latency = 2;
+        default_config.desired_maximum_frame_latency = 3;
         default_config.present_mode = present_mode;
         default_config.alpha_mode = CompositeAlphaMode::Auto;
         default_config.format = srgb_format;
@@ -219,7 +219,7 @@ impl AppContext {
         default_config.view_formats = view_formats;
         default_config.width = window_size.width;
         default_config.height = window_size.height;
-        default_config.desired_maximum_frame_latency = 2;
+        default_config.desired_maximum_frame_latency = 3;
 
         default_config
     }
