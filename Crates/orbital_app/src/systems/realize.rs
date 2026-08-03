@@ -14,7 +14,7 @@ use orbital_ecs_bridge::{
     MeshCacheResource, ModelDescriptorEcs, ModelDirty, ModelInstances, ModelRealization, Position,
     PrevPosition, QueueResource, Rotation, ShadowDirtyFlag, SurfaceFormatResource,
 };
-use orbital_resources::{Camera, Model};
+use orbital_resources::{Camera, Model, WorldEnvironmentDescriptor};
 
 /// Realize (create or update) GPU camera state for all dirty camera entities.
 ///
@@ -648,7 +648,9 @@ pub fn realize_lights(ecs: &mut World) {
 
 /// Realize the world environment (IBL textures, skybox) from the descriptor.
 ///
-/// Only runs when the environment descriptor has changed (new Some value).
+/// If no descriptor has ever been set, automatically generates a default
+/// procedural atmospheric-scattering sky.  Use `WorldEnvironmentDescriptor::None`
+/// to explicitly opt out of IBL / skybox.
 pub fn realize_environment(ecs: &mut World) {
     let (device, queue, surface_format) = {
         let d = match ecs.get_resource::<DeviceResource>() {
@@ -666,18 +668,59 @@ pub fn realize_environment(ecs: &mut World) {
         (d, q, sf)
     };
 
-    // Check if there's a new descriptor to realize
-    let descriptor = match ecs.get_resource::<EnvironmentDescriptorResource>() {
-        Some(r) => match &r.0 {
-            Some(d) => d.clone(),
-            None => return, // No environment set
-        },
-        None => return,
+    // If the environment is already realized AND no new descriptor is
+    // waiting, there is nothing to do.
+    let gpu_env = ecs
+        .get_resource::<EnvironmentGpuResource>()
+        .and_then(|r| r.0.clone());
+
+    let descriptor_opt = ecs
+        .get_resource::<EnvironmentDescriptorResource>()
+        .and_then(|r| r.0.clone());
+
+    if gpu_env.is_some() && descriptor_opt.is_none() {
+        return;
+    }
+
+    // Determine which descriptor to use.
+    let descriptor = match descriptor_opt {
+        Some(WorldEnvironmentDescriptor::None) => {
+            // Explicitly disable the environment (no skybox, no IBL).
+            ecs.insert_resource(EnvironmentGpuResource(None));
+            ecs.insert_resource(EnvironmentDescriptorResource(None));
+            return;
+        }
+        Some(d) => d,
+        None => {
+            // No descriptor was ever set — use a default procedural sky.
+            WorldEnvironmentDescriptor::Generated {
+                cube_face_size: WorldEnvironmentDescriptor::DEFAULT_SIZE,
+                sampling_type: WorldEnvironmentDescriptor::DEFAULT_SAMPLING_TYPE,
+                custom_specular_mip_level_count: None,
+                parameters: None,
+                dynamic: false,
+            }
+        }
     };
 
-    // Check if already realized (compare would need hash, so just re-realize if descriptor exists)
-    // For simplicity, always re-realize when the resource is present.
-    // A dirty flag pattern could be added later for optimization.
+    // Fast path: a `Generated { dynamic: true }` descriptor that matches the
+    // existing environment's size/mips updates the sky **in place** — no
+    // texture rebuild, no pipeline recompilation, no `poll_wait`. This keeps
+    // per-frame sky animation cheap (see `WorldEnvironment::update_sky_parameters`).
+    if let Some(existing) = &gpu_env
+        && existing.can_update_dynamic_sky(&descriptor)
+    {
+        let params = match &descriptor {
+            WorldEnvironmentDescriptor::Generated { parameters, .. } => {
+                parameters.clone().unwrap_or_default()
+            }
+            _ => unreachable!("can_update_dynamic_sky only matches Generated"),
+        };
+        existing.update_sky_parameters(&params, &device, &queue);
+        // Descriptor consumed.
+        ecs.insert_resource(EnvironmentDescriptorResource(None));
+        return;
+    }
 
     match orbital_resources::WorldEnvironment::from_descriptor(
         &descriptor,

@@ -1,3 +1,11 @@
+// Analytic skybox — evaluates the procedural `sky_color` per-pixel at full
+// window resolution instead of sampling the regenerated specular cube (LoD 0).
+//
+// `sky_common.wgsl` (SkyParams + `sky_color`) is concatenated ahead of this
+// file by `make_material_shader_descriptor(generated = true)`, so the skybox
+// and the baked IBL reflections stay consistent. The cube texture is still
+// regenerated for the reflection mips; only the background samples it no more.
+
 // Light types
 const LIGHT_TYPE_POINT: f32 = 0.0;
 const LIGHT_TYPE_DIRECTIONAL: f32 = 1.0;
@@ -21,20 +29,13 @@ struct Light {
 
 struct VertexOutput {
     @builtin(position) frag_position: vec4<f32>,
-    // idk why this split is needed but these are actually two 
-    // different variables!! DO NOT REMOVE!!!
     @location(0) clip_position: vec4<f32>,
 }
 
 @group(0) @binding(0) var<uniform> camera: CameraUniform;
 
-@group(0) @binding(1) var<storage> light_store: array<Light>;
-
-@group(0) @binding(2) var diffuse_env_map: texture_cube<f32>;
-@group(0) @binding(3) var diffuse_env_sampler: sampler;
-
-@group(0) @binding(4) var specular_env_map: texture_cube<f32>;
-@group(0) @binding(5) var specular_env_sampler: sampler;
+// `SkyParams` comes from the prepended `sky_common.wgsl`.
+@group(0) @binding(14) var<uniform> sky_params: SkyParams;
 
 @vertex
 fn entrypoint_vertex(
@@ -58,8 +59,9 @@ fn entrypoint_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let view_ray_direction = view_position.xyz / view_position.w;
     var ray_direction = normalize((camera.view_projection_transposed * vec4(view_ray_direction, 0.0)).xyz);
 
-    // Sample HDRI WorldEnvironment as Sky Box, based on LoD (-1 = diffuse)
-    var world_environment_sample = textureSampleLevel(specular_env_map, specular_env_sampler, ray_direction, 0.0).rgb;
+    // Evaluate the procedural sky directly at full resolution — no cube
+    // texture sampling, so the moon, stars and sun are never resolution-bound.
+    var world_environment_sample = sky_color(ray_direction, sky_params);
 
     // ACES Tone Map (HDR mapping) — keeps the sun's gradient instead of
     // clamping it to a flat white core.

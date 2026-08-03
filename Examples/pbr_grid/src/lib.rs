@@ -3,12 +3,10 @@ use orbital::cgmath::{Point3, Rad};
 use orbital::debug_render::DebugModule;
 use orbital::ecs::{IntoSystem, System, World};
 use orbital::ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, EnvironmentDescriptorResource,
-    ImportQueueResource, Position, Rotation,
+    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, ImportQueueResource, Position, Rotation,
 };
 use orbital::importer::{ImportTask, gltf::GltfImport};
 use orbital::logging::{self, error, info};
-use orbital::resources::WorldEnvironmentDescriptor;
 use winit::keyboard::KeyCode;
 
 pub const NAME: &str = "Orbital-Demo-Project: PBRSpheres";
@@ -71,16 +69,6 @@ impl Module for PbrGridModule {
         ecs.attach_component(&camera, Rotation::identity()).unwrap();
         ecs.insert_resource(ActiveCamera(camera));
         ecs.insert_resource(CursorGrabConfig(true));
-
-        // Set environment
-        ecs.insert_resource(EnvironmentDescriptorResource(Some(
-            WorldEnvironmentDescriptor::FromFile {
-                cube_face_size: 2048,
-                path: "Assets/WorldEnvironments/PhotoStudio.hdr".to_string(),
-                sampling_type: WorldEnvironmentDescriptor::DEFAULT_SAMPLING_TYPE,
-                custom_specular_mip_level_count: None,
-            },
-        )));
 
         // Queue glTF import
         if let Some(mut queue) = ecs.get_resource_mut::<ImportQueueResource>() {

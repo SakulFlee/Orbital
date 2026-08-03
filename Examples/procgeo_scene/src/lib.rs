@@ -4,16 +4,19 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use orbital::app::{App, AppSettings, Module, sys_camera_controller};
 use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector3};
 use orbital::debug_render::DebugModule;
-use orbital::ecs::{Commands, ComponentAccess, IntoSystem, System, World};
+use orbital::ecs::{Commands, ComponentAccess, IntoSystem, Res, ResMut, System, World};
 use orbital::ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, EnvironmentDescriptorResource,
+    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, DeltaTime, EnvironmentDescriptorResource,
     ImportQueueResource, LightDescriptorEcs, LightDirty, ModelDescriptorEcs, ModelDirty,
     ModelInstances, Position, Rotation,
 };
 use orbital::importer::{ImportTask, gltf::GltfImport};
 use orbital::logging::{self, error, info};
 use orbital::procgeo::scene::SceneBuilder;
-use orbital::resources::{ShadowCaster, Transform, WorldEnvironmentDescriptor};
+use orbital::resources::WorldEnvironmentDescriptor;
+use orbital::resources::{
+    GeneratedSkyParameters, SamplingType, ShadowCaster, SunPosition, Transform,
+};
 use winit::keyboard::KeyCode;
 
 pub const NAME: &str = "Orbital-Demo-Project: ProcGeo Scene";
@@ -29,7 +32,7 @@ pub fn entrypoint(
     let event_loop = event_loop_result.expect("Event Loop failure");
 
     let mut app_settings = AppSettings::default();
-    app_settings.vsync_enabled = true;
+    app_settings.vsync_enabled = false;
     app_settings.name = NAME.to_string();
 
     match App::new()
@@ -198,6 +201,34 @@ impl System for LightAnimator {
 
 // ────────────────────────────────────────────────────────────────────
 
+// Dynamic time-of-day sky. Uses the cheap in-place update path
+// (`WorldEnvironment::update_sky_parameters`), so the descriptor is rewritten
+// and realized every frame.
+const DYNAMIC_SKY_CUBE_SIZE: u32 = 256;
+const DYNAMIC_SKY_MIP_LEVELS: u32 = 3;
+
+fn sys_animate_dynamic_sky(
+    initial_hours: f32,
+) -> impl FnMut(Res<DeltaTime>, ResMut<EnvironmentDescriptorResource>) {
+    let mut clock = initial_hours;
+
+    move |dt: Res<DeltaTime>, mut descriptor: ResMut<EnvironmentDescriptorResource>| {
+        // Full day/night cycle every ~2 minutes of real time.
+        clock = (clock + dt.0 as f32 / 5.0).rem_euclid(24.0);
+
+        descriptor.0 = Some(WorldEnvironmentDescriptor::Generated {
+            cube_face_size: DYNAMIC_SKY_CUBE_SIZE,
+            sampling_type: SamplingType::GaussianBlur,
+            custom_specular_mip_level_count: Some(DYNAMIC_SKY_MIP_LEVELS),
+            parameters: Some(GeneratedSkyParameters {
+                sun_position: SunPosition::TimeOfDay { hours: clock },
+                ..GeneratedSkyParameters::default()
+            }),
+            dynamic: true,
+        });
+    }
+}
+
 impl Module for ProcgeoSceneModule {
     fn setup(
         &self,
@@ -227,13 +258,14 @@ impl Module for ProcgeoSceneModule {
         ecs.insert_resource(ActiveCamera(camera));
         ecs.insert_resource(CursorGrabConfig(true));
 
-        // Load an IBL environment map for realistic ambient lighting
+        // Dynamic procedural sky (in-place updates, cheap per frame).
         ecs.insert_resource(EnvironmentDescriptorResource(Some(
-            WorldEnvironmentDescriptor::FromFile {
-                cube_face_size: 2048,
-                path: "Assets/WorldEnvironments/PhotoStudio.hdr".to_string(),
-                sampling_type: WorldEnvironmentDescriptor::DEFAULT_SAMPLING_TYPE,
-                custom_specular_mip_level_count: None,
+            WorldEnvironmentDescriptor::Generated {
+                cube_face_size: DYNAMIC_SKY_CUBE_SIZE,
+                sampling_type: SamplingType::GaussianBlur,
+                custom_specular_mip_level_count: Some(DYNAMIC_SKY_MIP_LEVELS),
+                parameters: Some(GeneratedSkyParameters::default()),
+                dynamic: true,
             },
         )));
 
@@ -397,6 +429,7 @@ impl Module for ProcgeoSceneModule {
             sys_camera_controller.into_system(),
             Box::new(HelmetAdjuster::new()),
             Box::new(animator),
+            sys_animate_dynamic_sky(14.0).into_system(),
         ]
     }
 }

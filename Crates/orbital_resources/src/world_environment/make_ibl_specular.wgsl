@@ -43,16 +43,16 @@ fn gid_z_to_face(gid_z: u32) -> Face {
         // FACE +Y
         case 2u: {
             return Face(
-                vec3(0.0, -1.0, 0.0),
-                vec3(0.0, 0.0, 1.0),
+                vec3(0.0, 1.0, 0.0),
+                vec3(0.0, 0.0, -1.0),
                 vec3(1.0, 0.0, 0.0),
             );
         }
         // FACE -Y
         case 3u: {
             return Face(
-                vec3(0.0, 1.0, 0.0),
-                vec3(0.0, 0.0, -1.0),
+                vec3(0.0, -1.0, 0.0),
+                vec3(0.0, 0.0, 1.0),
                 vec3(1.0, 0.0, 0.0),
             );
         }
@@ -97,10 +97,10 @@ fn main(
         return;
     }
 
-    let cube_uv = vec2<f32>(abs_xy) / dst_dimensions * 2.0 - 1.0;
+    let cube_uv = (vec2<f32>(abs_xy) + 0.5) / dst_dimensions * 2.0 - 1.0;
 
     let face = gid_z_to_face(params.face_index);
-    let N = normalize(face.forward + face.right * cube_uv.x + face.up * cube_uv.y);
+    let N = normalize(face.forward + face.right * cube_uv.x - face.up * cube_uv.y);
 
     let eq_uv = vec2(
         atan2(N.z, N.x), 

@@ -1,6 +1,6 @@
 use std::{error::Error, mem::transmute};
 
-use log::debug;
+use log::{debug, info};
 use orbital_core::wgpu_util::block_on;
 use wgpu::{
     Adapter, BackendOptions, Backends, CompositeAlphaMode, CreateSurfaceError,
@@ -189,8 +189,13 @@ impl AppContext {
 
         let present_mode = match vsync {
             true => PresentMode::AutoVsync,
-            false => PresentMode::AutoNoVsync,
+            false => PresentMode::Immediate,
         };
+
+        info!(
+            "[Surface] Supported present modes: {:?}, selected: {:?} (vsync={})",
+            capabilities.present_modes, present_mode, vsync
+        );
 
         let window_size = self.window.inner_size();
 
