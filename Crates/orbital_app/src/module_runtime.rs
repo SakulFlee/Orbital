@@ -18,11 +18,13 @@ use winit::{
     application::ApplicationHandler,
     error::EventLoopError,
     event::{DeviceEvent, DeviceId, WindowEvent},
-    event_loop::{ActiveEventLoop, EventLoop},
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
     window::{CursorGrabMode, WindowId},
 };
 
-use orbital_resources::{LightType, ShadowCaster, ShadowLightInfo};
+use orbital_resources::{
+    GeneratedSkyParameters, LightType, ShadowCaster, ShadowLightInfo, WorldEnvironment,
+};
 
 use crate::{
     AppContext, AppSettings, AppState, Module, RenderOverlayResource, Timer, make_core_schedule,
@@ -464,6 +466,23 @@ impl ModuleRuntime {
             }
         };
 
+        // Sky parameters uniform for the analytic skybox (binding 14). Generated
+        // skies expose a live buffer; file/data environments use a static
+        // default that the texture-based skybox shader never reads.
+        static FALLBACK_SKY_PARAMS_BUF: std::sync::OnceLock<wgpu::Buffer> =
+            std::sync::OnceLock::new();
+        let sky_params_buf: &wgpu::Buffer = env_ibl
+            .as_ref()
+            .and_then(|env: &Arc<WorldEnvironment>| env.sky_parameters_buffer())
+            .unwrap_or_else(|| {
+                FALLBACK_SKY_PARAMS_BUF.get_or_init(|| {
+                    WorldEnvironment::make_sky_parameters_buffer(
+                        &GeneratedSkyParameters::default(),
+                        device,
+                    )
+                })
+            });
+
         // Extract shadow resources from renderer's shadow renderer (with static fallbacks)
         static FALLBACK_SHADOW_BUF: std::sync::OnceLock<wgpu::Buffer> = std::sync::OnceLock::new();
         static FALLBACK_SHADOW_TEX: std::sync::OnceLock<(wgpu::Texture, wgpu::TextureView)> =
@@ -713,6 +732,13 @@ impl ModuleRuntime {
                         offset: 0,
                         size: None,
                     }),
+                },
+                // Sky parameters uniform (analytic skybox)
+                wgpu::BindGroupEntry {
+                    binding: 14,
+                    resource: wgpu::BindingResource::Buffer(
+                        sky_params_buf.as_entire_buffer_binding(),
+                    ),
                 },
             ],
         });
@@ -1288,6 +1314,10 @@ impl ApplicationHandler for ModuleRuntime {
         if let Some(input_event) = input_event {
             self.input_state.handle_event(input_event);
         }
+    }
+
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        event_loop.set_control_flow(ControlFlow::Poll);
     }
 
     fn device_event(

@@ -54,6 +54,11 @@ struct PBRFactors {
     roughness_factor: f32,
 }
 
+struct LightContribution {
+    brdf: vec3<f32>,
+    ndotl: f32,
+}
+
 struct PBRData {
     // Albedo (color) texture sample
     albedo: vec3<f32>,
@@ -233,14 +238,16 @@ fn calculate_light_contribution(pbr: PBRData, world_position: vec3<f32>, view_de
             let dist_sq = dot(light.position.xyz - world_position, light.position.xyz - world_position);
             if (dist_sq > light.params.z) { continue; }
         }
-        var brdf = calculate_light_brdf(light, pbr, world_position);
+        let contrib = calculate_light_brdf(light, pbr, world_position);
+        // Skip shadow sampling for back-facing lights (NdotL ≤ 0).
+        if (contrib.ndotl <= 0.0) { continue; }
         let shadow = compute_shadow_for_light(world_position, view_depth, i, pbr.N);
-        Lo += brdf * shadow;
+        Lo += contrib.brdf * shadow;
     }
     return Lo;
 }
 
-fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -> vec3<f32> {
+fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -> LightContribution {
     var L: vec3<f32>;
     var light_distance: f32 = 1.0;
     var attenuation: f32 = 1.0;
@@ -280,7 +287,7 @@ fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -
         attenuation *= angular;
     } else {
         // Unknown light type, return zero contribution
-        return vec3(0.0);
+        return LightContribution(vec3(0.0), 0.0);
     }
 
     let H = normalize(pbr.V + L);
@@ -308,7 +315,7 @@ fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -
         
         Lo += (diffuse + specular) * light.color.rgb * light.color.w * attenuation * NdotL;
     }
-    return Lo;
+    return LightContribution(Lo, NdotL);
 }
 
 fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
