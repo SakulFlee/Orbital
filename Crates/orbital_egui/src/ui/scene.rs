@@ -13,8 +13,4 @@ impl Panel for ScenePanel {
         ui.label("Scene inspection will be available");
         ui.label("when ECS integration is complete.");
     }
-
-    fn clone_panel(&self) -> Box<dyn Panel> {
-        Box::new(Self)
-    }
 }

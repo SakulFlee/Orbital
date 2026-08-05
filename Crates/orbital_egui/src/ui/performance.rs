@@ -12,11 +12,11 @@ impl Panel for PerformancePanel {
         ui.heading("Frame Info");
         ui.separator();
 
-                let viewport_info = ui.ctx().input(|i| {
-                    let screen_rect = i.raw.screen_rect.unwrap_or(egui::Rect::ZERO);
-                    let dt = i.predicted_dt;
-                    (screen_rect.width(), screen_rect.height(), dt)
-                });
+        let viewport_info = ui.ctx().input(|i| {
+            let screen_rect = i.raw.screen_rect.unwrap_or(egui::Rect::ZERO);
+            let dt = i.predicted_dt;
+            (screen_rect.width(), screen_rect.height(), dt)
+        });
 
         ui.horizontal(|ui| {
             ui.label("Viewport:");
@@ -44,9 +44,5 @@ impl Panel for PerformancePanel {
         ui.separator();
         ui.label("GPU timestamp queries available via");
         ui.label("Renderer timing data in the engine.");
-    }
-
-    fn clone_panel(&self) -> Box<dyn Panel> {
-        Box::new(Self)
     }
 }

@@ -1,16 +1,19 @@
 use orbital_app::{RenderOverlay, RenderOverlayContext};
 
-use crate::EguiState;
+use crate::state::{EguiPanels, EguiState};
 
 /// [`RenderOverlay`] implementation that draws the egui debug UI.
 ///
 /// Created by [`EguiModule`](crate::EguiModule) and inserted as a
 /// [`RenderOverlayResource`](orbital_app::RenderOverlayResource).
+///
+/// Panels are not stored on this struct — they are read from the
+/// [`EguiPanels`] ECS resource each frame, so any module can register
+/// panels without depending on the egui module directly.
 pub struct EguiOverlay {
     pub(crate) egui_ctx: egui::Context,
     pub(crate) winit_state: Option<egui_winit::State>,
     pub(crate) wgpu_renderer: egui_wgpu::Renderer,
-    pub(crate) panels: Vec<Box<dyn crate::ui::Panel>>,
     /// Whether deferred initialization has completed (scale factor, etc.).
     pub(crate) initialized: bool,
 }
@@ -46,18 +49,17 @@ impl RenderOverlay for EguiOverlay {
         // Collect raw input from egui_winit
         let raw_input = winit_state.take_egui_input(ctx.window);
 
-        // Run egui frame
+        // Run egui frame — panels are read from the ECS resource
         let full_output = self.egui_ctx.run_ui(raw_input, |ui| {
-            for panel in &mut self.panels {
-                panel.ui(ui);
+            if let Some(mut panels) = ctx.ecs.get_resource_mut::<EguiPanels>() {
+                for panel in &mut panels.0 {
+                    panel.ui(ui);
+                }
             }
         });
 
         // Handle platform output (cursor icons, clipboard, etc.)
-        winit_state.handle_platform_output(
-            ctx.window,
-            full_output.platform_output,
-        );
+        winit_state.handle_platform_output(ctx.window, full_output.platform_output);
 
         // Tessellate
         let pixels_per_point = ctx.window.scale_factor() as f32;

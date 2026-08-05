@@ -1,7 +1,8 @@
 //! UI panels for the egui debug overlay.
 //!
-//! Each panel is a self-contained widget that can be added to the overlay
-//! via [`EguiModule::with_panel`](crate::EguiModule::with_panel).
+//! Each panel is a self-contained widget that can be registered as an
+//! ECS resource via [`EguiPanels`](crate::EguiPanels) and is drawn
+//! every frame when the overlay is visible.
 //!
 //! # Built-in Panels
 //!
@@ -20,10 +21,4 @@ use egui::Ui;
 pub trait Panel: Send + Sync {
     /// Draw the panel UI using the given egui context.
     fn ui(&mut self, ui: &mut Ui);
-
-    /// Clone this panel into a boxed trait object.
-    ///
-    /// Required because `Panel` objects are stored in a `Vec<Box<dyn Panel>>`
-    /// on the overlay, and we need to clone them during module setup.
-    fn clone_panel(&self) -> Box<dyn Panel>;
 }
