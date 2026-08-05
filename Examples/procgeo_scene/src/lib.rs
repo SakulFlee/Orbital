@@ -17,6 +17,7 @@ use orbital::resources::WorldEnvironmentDescriptor;
 use orbital::resources::{
     GeneratedSkyParameters, SamplingType, ShadowCaster, SunPosition, Transform,
 };
+use orbital_egui::EguiModule;
 use winit::keyboard::KeyCode;
 
 pub const NAME: &str = "Orbital-Demo-Project: ProcGeo Scene";
@@ -41,6 +42,11 @@ pub fn entrypoint(
             DebugModule::new()
                 .with_toggle_key(KeyCode::F3)
                 .with_freeze_key(KeyCode::F4),
+        )
+        .add_module(
+            EguiModule::new()
+                .with_toggle_key(KeyCode::F2)
+                .with_panel(orbital_egui::ui::performance::PerformancePanel),
         )
         .liftoff(event_loop, app_settings)
     {
