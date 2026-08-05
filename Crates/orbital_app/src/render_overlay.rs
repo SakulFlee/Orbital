@@ -12,6 +12,11 @@ pub struct RenderOverlayContext<'a> {
     /// Read‑only access to the ECS world so the overlay can query
     /// camera, models, instances, etc.
     pub ecs: &'a orbital_ecs::World,
+    /// Reference to the application window.
+    ///
+    /// Useful for overlays that need screen dimensions, scale factor,
+    /// or need to interact with the windowing system (e.g. egui).
+    pub window: &'a winit::window::Window,
 }
 
 /// A render‑overlay that draws after the main scene pass.
@@ -21,6 +26,16 @@ pub struct RenderOverlayContext<'a> {
 /// and submit the encoder.
 pub trait RenderOverlay: Send + Sync {
     fn render(&mut self, ctx: RenderOverlayContext);
+
+    /// Called for each [`WindowEvent`](winit::event::WindowEvent) before the
+    /// engine processes it. Override this to forward events to a UI library
+    /// (e.g. egui-winit). The default implementation does nothing.
+    fn on_window_event(
+        &mut self,
+        _window: &winit::window::Window,
+        _event: &winit::event::WindowEvent,
+    ) {
+    }
 }
 
 /// ECS resource — insert this into the world to activate an overlay.

@@ -782,6 +782,7 @@ impl ModuleRuntime {
                 device,
                 queue,
                 ecs: &self.ecs_world,
+                window: lock.window(),
             };
             overlay_res.0.lock().unwrap().render(ctx);
         }
@@ -1234,6 +1235,16 @@ impl ApplicationHandler for ModuleRuntime {
                 return;
             }
         };
+
+        // Forward window events to the active overlay (e.g. egui).
+        // This must happen before the event is consumed by the match below,
+        // so the overlay can track input state (mouse position, clicks, etc.).
+        if let Some(overlay_res) = self.ecs_world.get_resource::<RenderOverlayResource>() {
+            if let Ok(mut overlay) = overlay_res.0.try_lock() {
+                let ctx_guard = ctx_lock!(ctx);
+                overlay.on_window_event(ctx_guard.window(), &event);
+            }
+        }
 
         let input_event = match event {
             WindowEvent::CloseRequested => {

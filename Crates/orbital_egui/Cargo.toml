@@ -1,0 +1,17 @@
+[package]
+name = "orbital_egui"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+egui = { git = "https://github.com/emilk/egui.git", rev = "3fcadda" }
+egui-wgpu = { git = "https://github.com/emilk/egui.git", rev = "3fcadda" }
+egui-winit = { git = "https://github.com/emilk/egui.git", rev = "3fcadda" }
+wgpu = { workspace = true }
+winit = { workspace = true }
+log = { workspace = true }
+
+orbital_app = { path = "../orbital_app" }
+orbital_ecs = { path = "../ecs" }
+orbital_ecs_bridge = { path = "../orbital_ecs_bridge" }
+orbital_input = { path = "../orbital_input" }
