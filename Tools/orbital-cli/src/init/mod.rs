@@ -7,14 +7,16 @@ pub fn run(
     name: Option<String>,
     package: Option<String>,
     template: Option<String>,
+    android: Option<bool>,
     yes: bool,
 ) -> Result<()> {
     let config = if yes {
         // Non-interactive mode: use defaults or provided values
-        prompt::non_interactive(name, package, template)?
+        let android_flag = android.unwrap_or(false);
+        prompt::non_interactive(name, package, template, android_flag)?
     } else {
         // Interactive mode: prompt for all values
-        prompt::interactive(name, package, template)?
+        prompt::interactive(name, package, template, android)?
     };
 
     println!("\nGenerating project...");
@@ -37,14 +39,28 @@ pub fn run(
         "\nProject '{}' created successfully!",
         config.project_name
     );
+
+    // Auto-run init android if requested
+    if config.generate_android {
+        println!("\nInitializing Android project...");
+
+        // Save current directory and change to project directory
+        let original_dir = std::env::current_dir()?;
+        std::env::set_current_dir(&project_dir)?;
+
+        // Run init android
+        crate::android::project::init()?;
+
+        // Change back to original directory
+        std::env::set_current_dir(original_dir)?;
+    }
+
     println!("\nNext steps:");
     println!("  cd {}", config.project_name);
 
     if config.generate_android {
-        println!("  orbital init android");
         println!("  orbital build android");
     } else {
-        println!("  # Add orbital dependency to Cargo.toml");
         println!("  # Run 'orbital init android' later to add Android support");
     }
 
