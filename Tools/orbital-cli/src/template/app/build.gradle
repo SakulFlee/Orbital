@@ -1,0 +1,25 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace '@@@PACKAGE_NAME@@@'
+    compileSdk @@@TARGET_SDK@@@
+
+    defaultConfig {
+        applicationId "@@@PACKAGE_NAME@@@"
+        minSdk @@@MIN_SDK@@@
+        targetSdk @@@TARGET_SDK@@@
+        ndkVersion '@@@NDK_VERSION@@@'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+dependencies {
+}
