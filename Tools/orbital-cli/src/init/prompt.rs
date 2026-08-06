@@ -14,6 +14,7 @@ pub fn interactive(
     name: Option<String>,
     package: Option<String>,
     template: Option<String>,
+    android: Option<bool>,
 ) -> Result<ProjectConfig> {
     // 1. Project name
     let project_name = match name {
@@ -21,29 +22,51 @@ pub fn interactive(
         None => Text::new("Project name:").prompt()?,
     };
 
-    // 2. Package name
-    let default_package = format!("com.example.{}", project_name.replace('-', "_"));
-    let package_name = match package {
-        Some(p) => p,
-        None => Text::new("Package name:")
-            .with_default(&default_package)
+    // 2. Android support (ask FIRST)
+    let generate_android = match android {
+        Some(a) => a,
+        None => Confirm::new("Do you need Android support?")
+            .with_default(true)
             .prompt()?,
     };
 
-    // 3. SDK versions
-    let min_sdk: u32 = Text::new("Android min SDK:")
-        .with_default("21")
-        .prompt()?
-        .parse()
-        .unwrap_or(21);
+    // 3. Package name (only if Android, otherwise use default for Cargo.toml)
+    let package_name = if generate_android {
+        let default_package = format!("com.example.{}", project_name.replace('-', "_"));
+        match package {
+            Some(p) => p,
+            None => Text::new("Package name:")
+                .with_default(&default_package)
+                .prompt()?,
+        }
+    } else {
+        // Still need a package name for Cargo.toml
+        match package {
+            Some(p) => p,
+            None => format!("com.example.{}", project_name.replace('-', "_")),
+        }
+    };
 
-    let target_sdk: u32 = Text::new("Android target SDK:")
-        .with_default("34")
-        .prompt()?
-        .parse()
-        .unwrap_or(34);
+    // 4. SDK versions (only if Android)
+    let (min_sdk, target_sdk) = if generate_android {
+        let min_sdk: u32 = Text::new("Android min SDK:")
+            .with_default("21")
+            .prompt()?
+            .parse()
+            .unwrap_or(21);
 
-    // 4. Template selection
+        let target_sdk: u32 = Text::new("Android target SDK:")
+            .with_default("34")
+            .prompt()?
+            .parse()
+            .unwrap_or(34);
+
+        (min_sdk, target_sdk)
+    } else {
+        (21, 34)
+    };
+
+    // 5. Template selection
     let template_name = match template {
         Some(t) => t,
         None => Select::new(
@@ -53,11 +76,6 @@ pub fn interactive(
         .prompt()?
         .to_string(),
     };
-
-    // 5. Generate Android project?
-    let generate_android = Confirm::new("Generate Android project?")
-        .with_default(true)
-        .prompt()?;
 
     Ok(ProjectConfig {
         project_name,
@@ -73,6 +91,7 @@ pub fn non_interactive(
     name: Option<String>,
     package: Option<String>,
     template: Option<String>,
+    android: bool,
 ) -> Result<ProjectConfig> {
     let project_name = name.ok_or_else(|| {
         anyhow::anyhow!("Project name is required in non-interactive mode. Usage: orbital init <name>")
@@ -90,6 +109,6 @@ pub fn non_interactive(
         min_sdk: 21,
         target_sdk: 34,
         template: template_name,
-        generate_android: false,
+        generate_android: android,
     })
 }

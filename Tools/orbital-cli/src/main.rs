@@ -28,6 +28,9 @@ enum Commands {
         /// Template to use (minimal, skybox, instancing, gltf)
         #[arg(short, long)]
         template: Option<String>,
+        /// Enable Android support
+        #[arg(long)]
+        android: Option<bool>,
         /// Skip interactive prompts (use defaults)
         #[arg(long)]
         yes: bool,
@@ -70,8 +73,9 @@ fn main() -> Result<()> {
             name,
             package,
             template,
+            android,
             yes,
-        } => init::run(name, package, template, yes),
+        } => init::run(name, package, template, android, yes),
         Commands::InitAndroid => android::project::init(),
         Commands::Build {
             platform,
