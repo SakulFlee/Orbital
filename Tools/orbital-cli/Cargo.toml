@@ -12,3 +12,4 @@ clap = { version = "4", features = ["derive"] }
 anyhow = "1"
 toml = "0.8"
 serde = { version = "1", features = ["derive"] }
+inquire = "0.7"
