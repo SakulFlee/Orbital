@@ -1,5 +1,6 @@
 mod android;
 mod config;
+mod init;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -17,12 +18,22 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Initialize a platform project (e.g., Android)
+    /// Initialize a new Orbital project
     Init {
-        /// Platform to initialize
-        #[arg(value_enum)]
-        platform: Platform,
+        /// Project name (optional, will prompt if not provided)
+        name: Option<String>,
+        /// Package name (e.g., com.mycompany.mygame)
+        #[arg(short, long)]
+        package: Option<String>,
+        /// Template to use (minimal, skybox, instancing, gltf)
+        #[arg(short, long)]
+        template: Option<String>,
+        /// Skip interactive prompts (use defaults)
+        #[arg(long)]
+        yes: bool,
     },
+    /// Initialize Android project for existing Orbital project
+    InitAndroid,
     /// Build for a platform
     Build {
         /// Platform to build for
@@ -55,9 +66,13 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Init { platform } => match platform {
-            Platform::Android => android::project::init(),
-        },
+        Commands::Init {
+            name,
+            package,
+            template,
+            yes,
+        } => init::run(name, package, template, yes),
+        Commands::InitAndroid => android::project::init(),
         Commands::Build {
             platform,
             package,
