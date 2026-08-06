@@ -2995,6 +2995,7 @@ name = "procgeo_scene"
 version = "0.1.0"
 dependencies = [
  "orbital",
+ "orbital_egui",
  "winit",
 ]
 
