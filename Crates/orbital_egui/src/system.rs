@@ -9,9 +9,7 @@ use crate::state::EguiState;
 pub fn sys_egui_toggle(input: Res<InputSnapshot>, mut state: ResMut<EguiState>) {
     let pressed = input
         .0
-        .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(
-            state.toggle_key,
-        )))
+        .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(state.toggle_key)))
         .map(|(_, s)| s)
         .unwrap_or(false);
     if pressed && !state.was_pressed {

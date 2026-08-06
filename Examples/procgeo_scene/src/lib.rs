@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use crate::ui_demo::UiDemo;
 use orbital::app::{App, AppSettings, Module, sys_camera_controller};
 use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector3};
 use orbital::debug_render::DebugModule;
@@ -19,7 +20,6 @@ use orbital::resources::{
 };
 use orbital_egui::EguiModule;
 use winit::keyboard::KeyCode;
-use crate::ui_demo::UiDemo;
 
 mod ui_demo;
 
@@ -49,7 +49,7 @@ pub fn entrypoint(
         .add_module(
             EguiModule::new()
                 .with_toggle_key(KeyCode::F2)
-                .with_panel(orbital_egui::ui::performance::PerformancePanel)
+                .with_panel(orbital_egui::ui::performance::PerformancePanel),
         )
         .add_module(UiDemo)
         .liftoff(event_loop, app_settings)

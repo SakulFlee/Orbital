@@ -1,11 +1,11 @@
-use winit::keyboard::KeyCode;
+use crate::ui_demo;
 use orbital::app::Module;
 use orbital::ecs::{System, World};
 use orbital::wgpu::{Device, Queue};
-use orbital_egui::{egui, EguiModule, EguiPanels};
 use orbital_egui::egui::Ui;
 use orbital_egui::ui::Panel;
-use crate::ui_demo;
+use orbital_egui::{EguiModule, EguiPanels, egui};
+use winit::keyboard::KeyCode;
 
 pub(crate) struct UiDemo;
 

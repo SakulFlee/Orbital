@@ -20,10 +20,7 @@ impl Panel for PerformancePanel {
 
         ui.horizontal(|ui| {
             ui.label("Viewport:");
-            ui.monospace(format!(
-                "{:.0} x {:.0}",
-                viewport_info.0, viewport_info.1
-            ));
+            ui.monospace(format!("{:.0} x {:.0}", viewport_info.0, viewport_info.1));
         });
         ui.horizontal(|ui| {
             ui.label("Predicted dt:");
