@@ -19,6 +19,9 @@ use orbital::resources::{
 };
 use orbital_egui::EguiModule;
 use winit::keyboard::KeyCode;
+use crate::ui_demo::UiDemo;
+
+mod ui_demo;
 
 pub const NAME: &str = "Orbital-Demo-Project: ProcGeo Scene";
 
@@ -46,8 +49,9 @@ pub fn entrypoint(
         .add_module(
             EguiModule::new()
                 .with_toggle_key(KeyCode::F2)
-                .with_panel(orbital_egui::ui::performance::PerformancePanel),
+                .with_panel(orbital_egui::ui::performance::PerformancePanel)
         )
+        .add_module(UiDemo)
         .liftoff(event_loop, app_settings)
     {
         Ok(()) => info!("Cleanly exited!"),
