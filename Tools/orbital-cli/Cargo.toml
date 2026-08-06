@@ -1,0 +1,14 @@
+[package]
+name = "orbital-cli"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "orbital"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+anyhow = "1"
+toml = "0.8"
+serde = { version = "1", features = ["derive"] }

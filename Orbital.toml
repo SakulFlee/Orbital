@@ -1,0 +1,7 @@
+[orbital]
+# Engine workspace configuration
+
+[android]
+package = "de.sakulflee.orbital"
+min_sdk = 21
+target_sdk = 34
