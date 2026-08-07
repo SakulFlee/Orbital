@@ -4,9 +4,9 @@ use std::process::Command;
 
 use crate::config;
 
-pub fn build(package_name: Option<&str>, release: bool) -> Result<()> {
-    let project_root = config::find_project_root()?;
-    let android_dir = project_root.join("Android");
+pub fn build(example_name: &str, release: bool) -> Result<()> {
+    let workspace_root = config::find_workspace_root()?;
+    let android_dir = workspace_root.join("Android");
 
     if !android_dir.exists() {
         println!("Android/ directory not found. Generating project first...");
@@ -14,24 +14,19 @@ pub fn build(package_name: Option<&str>, release: bool) -> Result<()> {
     }
 
     let android_config = config::load_android_config()?;
-
-    let (package, lib_name) = if let Some(pkg) = package_name {
-        // Workspace mode: build specified package
-        (pkg.to_string(), config::find_package_lib_name(pkg)?)
-    } else {
-        // Standalone mode: build current project
-        (config::get_package_name()?, config::get_lib_name()?)
-    };
+    let lib_name = config::find_example_lib_name(example_name)?;
+    let example_path = config::find_example_path(example_name)?;
 
     println!("Building for Android...");
-    println!("  Package: {}", package);
+    println!("  Example: {}", example_name);
     println!("  Library: {}", lib_name);
     println!("  Mode: {}", if release { "release" } else { "debug" });
 
     // Update the Android project with the correct library name and app name
-    update_android_project(&android_dir, &package, &lib_name, &android_config)?;
+    update_android_project(&android_dir, example_name, &lib_name, &android_config)?;
 
     // Run cargo ndk
+    let build_mode = if release { "--release" } else { "" };
     let jni_libs_dir = android_dir.join("app").join("src").join("main").join("jniLibs");
 
     // Clean previous build artifacts
@@ -48,22 +43,19 @@ pub fn build(package_name: Option<&str>, release: bool) -> Result<()> {
         "-o", jni_libs_dir.to_str().context("Invalid jniLibs path")?,
         "build",
         "--lib",
-        "--package", &package,
+        "--package", example_name,
     ];
 
     if release {
         cargo_ndk_args.push("--release");
     }
 
-    // Check if cargo-ndk is installed, auto-install if missing
-    ensure_cargo_ndk()?;
-
     let status = Command::new("cargo")
         .arg("ndk")
         .args(&cargo_ndk_args)
-        .current_dir(&project_root)
+        .current_dir(&workspace_root)
         .status()
-        .context("Failed to run cargo ndk")?;
+        .context("Failed to run cargo ndk. Is cargo-ndk installed?")?;
 
     if !status.success() {
         anyhow::bail!("cargo ndk build failed");
@@ -114,7 +106,7 @@ pub fn build(package_name: Option<&str>, release: bool) -> Result<()> {
 
 fn update_android_project(
     android_dir: &Path,
-    package_name: &str,
+    example_name: &str,
     lib_name: &str,
     config: &config::AndroidConfig,
 ) -> Result<()> {
@@ -145,7 +137,7 @@ fn update_android_project(
     if strings_path.exists() {
         let content = std::fs::read_to_string(&strings_path)
             .context("Failed to read strings.xml")?;
-        let content = content.replace("@@@APP_NAME@@@", package_name);
+        let content = content.replace("@@@APP_NAME@@@", example_name);
         std::fs::write(&strings_path, content)
             .context("Failed to write strings.xml")?;
     }
@@ -155,61 +147,11 @@ fn update_android_project(
     if build_gradle_path.exists() {
         let content = std::fs::read_to_string(&build_gradle_path)
             .context("Failed to read app/build.gradle")?;
-        let content = content.replace("@@@PACKAGE_NAME@@@", &format!("{}.{}", config.package_name(), package_name));
+        let content = content.replace("@@@PACKAGE_NAME@@@", &format!("{}.{}", config.package_name(), example_name));
         let content = content.replace("@@@MIN_SDK@@@", &config.min_sdk().to_string());
         let content = content.replace("@@@TARGET_SDK@@@", &config.target_sdk().to_string());
         std::fs::write(&build_gradle_path, content)
             .context("Failed to write app/build.gradle")?;
-    }
-
-    Ok(())
-}
-
-/// Ensure cargo-ndk is installed, auto-install if missing
-fn ensure_cargo_ndk() -> Result<()> {
-    // Check if cargo-ndk is already installed
-    let ndk_check = Command::new("cargo")
-        .arg("ndk")
-        .arg("--version")
-        .output();
-
-    if let Ok(output) = ndk_check {
-        if output.status.success() {
-            return Ok(());
-        }
-    }
-
-    // cargo-ndk not found, attempt to install it
-    println!("cargo-ndk not found. Installing...");
-
-    let status = Command::new("cargo")
-        .args(["install", "cargo-ndk"])
-        .status()
-        .context("Failed to run 'cargo install cargo-ndk'. Is Cargo installed?")?;
-
-    if !status.success() {
-        anyhow::bail!(
-            "Failed to install cargo-ndk automatically.\n\n\
-             Please install it manually:\n  \
-             cargo install cargo-ndk\n\n\
-             Also ensure you have the Android NDK installed and ANDROID_NDK_HOME set."
-        );
-    }
-
-    println!("cargo-ndk installed successfully!");
-
-    // Verify installation
-    let verify = Command::new("cargo")
-        .arg("ndk")
-        .arg("--version")
-        .output()
-        .context("Failed to verify cargo-ndk installation")?;
-
-    if !verify.status.success() {
-        anyhow::bail!(
-            "cargo-ndk installation completed but verification failed.\n\
-             Please restart your terminal and try again."
-        );
     }
 
     Ok(())
