@@ -62,6 +62,8 @@ fn generate_orbital_toml(project_dir: &Path, config: &ProjectConfig) -> Result<(
 package = "{package}"
 min_sdk = {min_sdk}
 target_sdk = {target_sdk}
+targets = ["arm64-v8a", "armeabi-v7a", "x86_64", "x86"]
+apk_mode = "multiarch"
 "#,
         package = config.package_name,
         min_sdk = config.min_sdk,

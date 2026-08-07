@@ -1,4 +1,6 @@
 use anyhow::{Context, Result};
+use std::collections::HashMap;
+use std::io::Write;
 use std::path::Path;
 use std::process::Command;
 
@@ -28,8 +30,18 @@ pub fn build(package_name: Option<&str>, release: bool) -> Result<()> {
     println!("  Library: {}", lib_name);
     println!("  Mode: {}", if release { "release" } else { "debug" });
 
+    // Ensure Android SDK is configured
+    super::sdk::ensure_android_sdk()?;
+
     // Update the Android project with the correct library name and app name
     update_android_project(&android_dir, &package, &lib_name, &android_config)?;
+
+    // Ensure cargo-ndk is installed
+    ensure_cargo_ndk()?;
+
+    // Ensure required Rust targets are installed
+    let targets = android_config.targets();
+    ensure_rust_targets(&targets)?;
 
     // Run cargo ndk
     let jni_libs_dir = android_dir.join("app").join("src").join("main").join("jniLibs");
@@ -43,20 +55,21 @@ pub fn build(package_name: Option<&str>, release: bool) -> Result<()> {
     println!("\nRunning cargo ndk...");
 
     let mut cargo_ndk_args = vec![
-        "-t", "arm64-v8a",
-        "-t", "armeabi-v7a",
         "-o", jni_libs_dir.to_str().context("Invalid jniLibs path")?,
         "build",
         "--lib",
         "--package", &package,
     ];
 
+    // Add targets from config
+    for target in &targets {
+        cargo_ndk_args.push("-t");
+        cargo_ndk_args.push(target);
+    }
+
     if release {
         cargo_ndk_args.push("--release");
     }
-
-    // Check if cargo-ndk is installed, auto-install if missing
-    ensure_cargo_ndk()?;
 
     let status = Command::new("cargo")
         .arg("ndk")
@@ -70,9 +83,8 @@ pub fn build(package_name: Option<&str>, release: bool) -> Result<()> {
     }
 
     // Run gradlew
-    println!("\nRunning gradlew assembleDebug...");
-
-    let gradle_task = if release { "assembleRelease" } else { "assembleDebug" };
+    let apk_mode = android_config.apk_mode();
+    println!("\nRunning gradlew...");
 
     let gradlew = if cfg!(windows) {
         android_dir.join("gradlew.bat")
@@ -80,14 +92,88 @@ pub fn build(package_name: Option<&str>, release: bool) -> Result<()> {
         android_dir.join("gradlew")
     };
 
-    let status = Command::new(&gradlew)
-        .arg(gradle_task)
-        .current_dir(&android_dir)
-        .status()
-        .context("Failed to run gradlew")?;
+    match apk_mode {
+        "single" => {
+            // Build separate APKs for each architecture
+            for target in &targets {
+                let abi_dir = jni_libs_dir.join(target);
+                if !abi_dir.exists() {
+                    continue;
+                }
 
-    if !status.success() {
-        anyhow::bail!("gradlew build failed");
+                println!("\nBuilding APK for {}...", target);
+
+                // Clean build for this ABI
+                let build_dir = android_dir.join("app").join("build");
+                if build_dir.exists() {
+                    std::fs::remove_dir_all(&build_dir).ok();
+                }
+
+                // Build with split ABI
+                let gradle_task = if release { "assembleRelease" } else { "assembleDebug" };
+                let status = Command::new(&gradlew)
+                    .args([gradle_task, &format!("-PtargetAbi={}", target)])
+                    .current_dir(&android_dir)
+                    .status()
+                    .context("Failed to run gradlew")?;
+
+                if !status.success() {
+                    anyhow::bail!("gradlew build failed for {}", target);
+                }
+            }
+        }
+        "both" => {
+            // Build multiarch first, then single APKs
+            println!("\nBuilding multiarch APK...");
+            let gradle_task = if release { "assembleRelease" } else { "assembleDebug" };
+            let status = Command::new(&gradlew)
+                .arg(gradle_task)
+                .current_dir(&android_dir)
+                .status()
+                .context("Failed to run gradlew")?;
+
+            if !status.success() {
+                anyhow::bail!("gradlew multiarch build failed");
+            }
+
+            // Then build single APKs
+            for target in &targets {
+                let abi_dir = jni_libs_dir.join(target);
+                if !abi_dir.exists() {
+                    continue;
+                }
+
+                println!("\nBuilding single APK for {}...", target);
+
+                let build_dir = android_dir.join("app").join("build");
+                if build_dir.exists() {
+                    std::fs::remove_dir_all(&build_dir).ok();
+                }
+
+                let status = Command::new(&gradlew)
+                    .args([gradle_task, &format!("-PtargetAbi={}", target)])
+                    .current_dir(&android_dir)
+                    .status()
+                    .context("Failed to run gradlew")?;
+
+                if !status.success() {
+                    anyhow::bail!("gradlew build failed for {}", target);
+                }
+            }
+        }
+        _ => {
+            // Default: multiarch (all targets in one APK)
+            let gradle_task = if release { "assembleRelease" } else { "assembleDebug" };
+            let status = Command::new(&gradlew)
+                .arg(gradle_task)
+                .current_dir(&android_dir)
+                .status()
+                .context("Failed to run gradlew")?;
+
+            if !status.success() {
+                anyhow::bail!("gradlew build failed");
+            }
+        }
     }
 
     let apk_path = if release {
@@ -211,6 +297,71 @@ fn ensure_cargo_ndk() -> Result<()> {
              Please restart your terminal and try again."
         );
     }
+
+    Ok(())
+}
+
+/// Ensure required Rust targets are installed, prompt user to install if missing
+fn ensure_rust_targets(targets: &[String]) -> Result<()> {
+    let target_map = HashMap::from([
+        ("arm64-v8a", "aarch64-linux-android"),
+        ("armeabi-v7a", "armv7-linux-androideabi"),
+        ("x86_64", "x86_64-linux-android"),
+        ("x86", "i686-linux-android"),
+    ]);
+
+    // Get installed targets
+    let output = Command::new("rustup")
+        .args(["target", "list", "--installed"])
+        .output()
+        .context("Failed to run 'rustup target list'. Is rustup installed?")?;
+
+    let installed = String::from_utf8_lossy(&output.stdout);
+
+    // Check which targets are missing
+    let mut missing = Vec::new();
+    for abi in targets {
+        if let Some(triple) = target_map.get(abi.as_str()) {
+            if !installed.contains(triple) {
+                missing.push(triple.to_string());
+            }
+        }
+    }
+
+    if missing.is_empty() {
+        return Ok(());
+    }
+
+    // Ask user if they want to install missing targets
+    println!("\nMissing Rust targets: {}", missing.join(", "));
+    print!("Install them now? [Y/n] ");
+    std::io::stdout().flush()?;
+
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input)?;
+
+    if input.trim().to_lowercase() == "n" {
+        anyhow::bail!(
+            "Cannot build without required targets.\n\
+             Install them with:\n  \
+             rustup target install {}",
+            missing.join(" ")
+        );
+    }
+
+    for target in &missing {
+        println!("Installing {}...", target);
+        let status = Command::new("rustup")
+            .args(["target", "install", target])
+            .status()
+            .context("Failed to run 'rustup target install'")?;
+
+        if !status.success() {
+            anyhow::bail!("Failed to install target: {}", target);
+        }
+    }
+
+    println!("All targets installed successfully!");
 
     Ok(())
 }
