@@ -321,8 +321,15 @@ fn download_sdk() -> Result<()> {
             println!("\nSDK installed to: {}", install_path.display());
             println!("ANDROID_HOME set to: {}", install_path.display());
 
-            println!("\nNote: You may need to add this to your shell profile:");
-            println!("  export ANDROID_HOME={}", install_path.display());
+            // Show platform-specific instructions
+            println!("\nNote: You may need to add this to your environment:");
+            if cfg!(windows) {
+                println!("  set ANDROID_HOME={}", install_path.display());
+                println!("  (Or set it permanently via System Properties > Environment Variables)");
+            } else {
+                println!("  export ANDROID_HOME={}", install_path.display());
+                println!("  (Add to ~/.bashrc, ~/.zshrc, or ~/.profile)");
+            }
 
             // Now ensure NDK is installed
             ensure_sdkmanager(&install_path)?;
@@ -337,11 +344,13 @@ fn download_sdk() -> Result<()> {
 }
 
 fn show_manual_instructions(install_path: &Path) {
+    let expected_path = install_path.join("cmdline-tools").join("latest");
+
     println!("\nPlease download Android command-line tools manually:");
     println!("  1. Go to: https://developer.android.com/studio#command-line-tools-only");
     println!("  2. Download the 'Command line tools only' package for your platform");
     println!("  3. Extract the zip to: {}", install_path.display());
-    println!("  4. Ensure the structure is: {}/cmdline-tools/latest/...", install_path.display());
+    println!("  4. Ensure the structure is: {}/...", expected_path.display());
     println!("  5. Set ANDROID_HOME={}", install_path.display());
     println!("  6. Run 'orbital build android' again");
 }
