@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use inquire::{Confirm, Text};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 
 /// Check if Android SDK and NDK are properly configured
@@ -42,12 +42,11 @@ pub fn ensure_android_sdk() -> Result<()> {
 
             let sdk_path = PathBuf::from(&sdk_path);
             if !sdk_path.exists() {
-                anyhow::bail!("Path does not exist: {}", sdk_path.display());
+                anyhow::bail!("Path does not exist: {}", sdk_path);
             }
 
             // Set ANDROID_HOME for this session
-            // SAFETY: We're setting an environment variable for the current process
-            unsafe { std::env::set_var("ANDROID_HOME", &sdk_path) };
+            std::env::set_var("ANDROID_HOME", &sdk_path);
             println!("ANDROID_HOME set to: {}", sdk_path.display());
 
             // Check for sdkmanager
@@ -176,42 +175,26 @@ fn download_sdk() -> Result<()> {
     // Download the file
     println!("Downloading from: {}", url);
 
-    let download_result = if cfg!(windows) {
+    let status = if cfg!(windows) {
         Command::new("powershell")
-            .args(["-Command", &format!("Invoke-WebRequest -Uri '{}' -OutFile '{}\\{}' -UseBasicParsing", url, install_path.display(), filename)])
-            .output()
+            .args(["-Command", &format!("Invoke-WebRequest -Uri '{}' -OutFile '{}\\{}'", url, install_path.display(), filename)])
+            .status()
     } else {
         Command::new("curl")
             .args(["-L", "-o", &install_path.join(filename).to_string_lossy(), url])
-            .output()
+            .status()
     };
 
-    match download_result {
-        Ok(output) => {
-            if !output.status.success() {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                println!("\nDownload failed: {}", stderr);
-                show_manual_instructions(&install_path);
-                return Ok(());
-            }
-        }
-        Err(e) => {
-            println!("\nFailed to run download command: {}", e);
-            show_manual_instructions(&install_path);
-            return Ok(());
-        }
+    let status = status.context("Failed to download SDK tools. Is curl/powershell installed?")?;
+
+    if !status.success() {
+        anyhow::bail!("Failed to download SDK tools");
     }
 
     // Extract the file
     println!("Extracting...");
 
     let zip_path = install_path.join(filename);
-    if !zip_path.exists() {
-        println!("\nDownloaded file not found.");
-        show_manual_instructions(&install_path);
-        return Ok(());
-    }
-
     let status = if cfg!(windows) {
         Command::new("powershell")
             .args(["-Command", &format!("Expand-Archive -Path '{}' -DestinationPath '{}' -Force", zip_path.display(), install_path.display())])
@@ -222,46 +205,33 @@ fn download_sdk() -> Result<()> {
             .status()
     };
 
-    match status {
-        Ok(s) if s.success() => {
-            // Move cmdline-tools to the right place
-            let cmdline_tools = install_path.join("cmdline-tools");
-            let latest = install_path.join("cmdline-tools").join("latest");
+    let status = status.context("Failed to extract SDK tools")?;
 
-            if cmdline_tools.exists() && !latest.exists() {
-                std::fs::rename(&cmdline_tools, &latest)?;
-            }
-
-            // Clean up zip file
-            std::fs::remove_file(&zip_path).ok();
-
-            // Set ANDROID_HOME
-            // SAFETY: We're setting an environment variable for the current process
-            unsafe { std::env::set_var("ANDROID_HOME", &install_path) };
-            println!("\nSDK installed to: {}", install_path.display());
-            println!("ANDROID_HOME set to: {}", install_path.display());
-
-            println!("\nNote: You may need to add this to your shell profile:");
-            println!("  export ANDROID_HOME={}", install_path.display());
-
-            // Now ensure NDK is installed
-            ensure_sdkmanager(&install_path)?;
-        }
-        _ => {
-            println!("\nFailed to extract SDK tools.");
-            show_manual_instructions(&install_path);
-        }
+    if !status.success() {
+        anyhow::bail!("Failed to extract SDK tools");
     }
 
-    Ok(())
-}
+    // Move cmdline-tools to the right place
+    let cmdline_tools = install_path.join("cmdline-tools");
+    let latest = install_path.join("cmdline-tools").join("latest");
 
-fn show_manual_instructions(install_path: &Path) {
-    println!("\nPlease download Android command-line tools manually:");
-    println!("  1. Go to: https://developer.android.com/studio#command-line-tools-only");
-    println!("  2. Download the 'Command line tools only' package for your platform");
-    println!("  3. Extract the zip to: {}", install_path.display());
-    println!("  4. Ensure the structure is: {}/cmdline-tools/latest/...", install_path.display());
-    println!("  5. Set ANDROID_HOME={}", install_path.display());
-    println!("  6. Run 'orbital build android' again");
+    if cmdline_tools.exists() && !latest.exists() {
+        std::fs::rename(&cmdline_tools, &latest)?;
+    }
+
+    // Clean up zip file
+    std::fs::remove_file(&zip_path).ok();
+
+    // Set ANDROID_HOME
+    std::env::set_var("ANDROID_HOME", &install_path);
+    println!("\nSDK installed to: {}", install_path.display());
+    println!("ANDROID_HOME set to: {}", install_path.display());
+
+    println!("\nNote: You may need to add this to your shell profile:");
+    println!("  export ANDROID_HOME={}", install_path.display());
+
+    // Now ensure NDK is installed
+    ensure_sdkmanager(&install_path)?;
+
+    Ok(())
 }
