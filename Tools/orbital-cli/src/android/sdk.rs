@@ -148,22 +148,100 @@ fn ensure_sdkmanager(sdk_path: &PathBuf) -> Result<()> {
     Ok(())
 }
 
+/// Fetch the latest command-line tools URL from Google's repository index
+fn fetch_latest_commandline_tools_url() -> Result<(String, String)> {
+    let repo_url = "https://dl.google.com/android/repository/repository2-3.xml";
+
+    // Determine the platform suffix we're looking for
+    let platform_suffix = if cfg!(target_os = "linux") {
+        "linux"
+    } else if cfg!(target_os = "macos") && cfg!(target_arch = "aarch64") {
+        "mac_arm64"
+    } else if cfg!(target_os = "macos") {
+        "mac_x86_64"
+    } else if cfg!(target_os = "windows") {
+        "win"
+    } else {
+        anyhow::bail!("Unsupported platform");
+    };
+
+    // Fetch the repository index
+    println!("Fetching latest version from Google's repository...");
+
+    let output = if cfg!(windows) {
+        Command::new("powershell")
+            .args(["-Command", &format!("(Invoke-WebRequest -Uri '{}' -UseBasicParsing).Content", repo_url)])
+            .output()
+    } else {
+        Command::new("curl")
+            .args(["-s", repo_url])
+            .output()
+    };
+
+    let output = output.context("Failed to fetch repository index. Is curl/powershell installed?")?;
+
+    if !output.status.success() {
+        anyhow::bail!("Failed to fetch repository index");
+    }
+
+    let xml = String::from_utf8_lossy(&output.stdout);
+
+    // Parse the XML to find the latest command-line tools version
+    // Look for patterns like: commandlinetools-{platform}-{version}_latest.zip
+    let mut latest_version: Option<u64> = None;
+    let mut latest_url: Option<String> = None;
+
+    for line in xml.lines() {
+        let line = line.trim();
+
+        // Look for URL lines containing commandlinetools
+        if line.starts_with("<url>") && line.contains("commandlinetools") && line.contains(platform_suffix) {
+            // Extract the URL content
+            if let Some(url_start) = line.find("<url>") {
+                if let Some(url_end) = line.find("</url>") {
+                    let url = &line[url_start + 5..url_end];
+
+                    // Extract version number from URL like "commandlinetools-linux-15859902_latest.zip"
+                    if let Some(pos) = url.find(&format!("{}-", platform_suffix)) {
+                        let after_platform = &url[pos + platform_suffix.len() + 1..];
+                        if let Some(dash_pos) = after_platform.find('-') {
+                            let version_str = &after_platform[..dash_pos];
+                            if let Ok(version) = version_str.parse::<u64>() {
+                                if latest_version.is_none() || version > latest_version.unwrap() {
+                                    latest_version = Some(version);
+                                    latest_url = Some(format!("https://dl.google.com/android/repository/{}", url));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    match (latest_version, latest_url) {
+        (Some(version), Some(url)) => {
+            println!("Found latest version: {}", version);
+            Ok((url, "commandlinetools.zip".to_string()))
+        }
+        _ => {
+            // Fallback to a known working version if parsing fails
+            println!("Could not determine latest version, using fallback...");
+            let fallback_url = format!(
+                "https://dl.google.com/android/repository/commandlinetools-{}-15859902_latest.zip",
+                platform_suffix
+            );
+            Ok((fallback_url, "commandlinetools.zip".to_string()))
+        }
+    }
+}
+
 /// Download Android SDK command-line tools
 fn download_sdk() -> Result<()> {
     println!("\nDownloading Android command-line tools...");
 
-    // Determine download URL based on platform
-    let (url, filename) = if cfg!(target_os = "linux") {
-        ("https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip", "commandlinetools.zip")
-    } else if cfg!(target_os = "macos") && cfg!(target_arch = "aarch64") {
-        ("https://dl.google.com/android/repository/commandlinetools-mac_arm64-15859902_latest.zip", "commandlinetools.zip")
-    } else if cfg!(target_os = "macos") {
-        ("https://dl.google.com/android/repository/commandlinetools-mac_x86_64-15859902_latest.zip", "commandlinetools.zip")
-    } else if cfg!(target_os = "windows") {
-        ("https://dl.google.com/android/repository/commandlinetools-win-15859902_latest.zip", "commandlinetools.zip")
-    } else {
-        anyhow::bail!("Unsupported platform for automatic SDK download");
-    };
+    // Fetch the latest version from Google's repository index
+    let (url, filename) = fetch_latest_commandline_tools_url()?;
 
     // Ask user where to install
     let install_path = Text::new("Enter installation path:")
@@ -184,7 +262,7 @@ fn download_sdk() -> Result<()> {
             .output()
     } else {
         Command::new("curl")
-            .args(["-L", "-o", &install_path.join(filename).to_string_lossy(), url])
+            .args(["-L", "-o", &install_path.join(&filename).to_string_lossy(), &url])
             .output()
     };
 
