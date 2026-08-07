@@ -55,20 +55,8 @@ pub fn build(package_name: Option<&str>, release: bool) -> Result<()> {
         cargo_ndk_args.push("--release");
     }
 
-    // Check if cargo-ndk is installed
-    let ndk_check = Command::new("cargo")
-        .arg("ndk")
-        .arg("--version")
-        .output();
-
-    if ndk_check.is_err() || !ndk_check.unwrap().status.success() {
-        anyhow::bail!(
-            "cargo-ndk is not installed.\n\n\
-             Install it with:\n  \
-             cargo install cargo-ndk\n\n\
-             Also ensure you have the Android NDK installed and ANDROID_NDK_HOME set."
-        );
-    }
+    // Check if cargo-ndk is installed, auto-install if missing
+    ensure_cargo_ndk()?;
 
     let status = Command::new("cargo")
         .arg("ndk")
@@ -172,6 +160,56 @@ fn update_android_project(
         let content = content.replace("@@@TARGET_SDK@@@", &config.target_sdk().to_string());
         std::fs::write(&build_gradle_path, content)
             .context("Failed to write app/build.gradle")?;
+    }
+
+    Ok(())
+}
+
+/// Ensure cargo-ndk is installed, auto-install if missing
+fn ensure_cargo_ndk() -> Result<()> {
+    // Check if cargo-ndk is already installed
+    let ndk_check = Command::new("cargo")
+        .arg("ndk")
+        .arg("--version")
+        .output();
+
+    if let Ok(output) = ndk_check {
+        if output.status.success() {
+            return Ok(());
+        }
+    }
+
+    // cargo-ndk not found, attempt to install it
+    println!("cargo-ndk not found. Installing...");
+
+    let status = Command::new("cargo")
+        .args(["install", "cargo-ndk"])
+        .status()
+        .context("Failed to run 'cargo install cargo-ndk'. Is Cargo installed?")?;
+
+    if !status.success() {
+        anyhow::bail!(
+            "Failed to install cargo-ndk automatically.\n\n\
+             Please install it manually:\n  \
+             cargo install cargo-ndk\n\n\
+             Also ensure you have the Android NDK installed and ANDROID_NDK_HOME set."
+        );
+    }
+
+    println!("cargo-ndk installed successfully!");
+
+    // Verify installation
+    let verify = Command::new("cargo")
+        .arg("ndk")
+        .arg("--version")
+        .output()
+        .context("Failed to verify cargo-ndk installation")?;
+
+    if !verify.status.success() {
+        anyhow::bail!(
+            "cargo-ndk installation completed but verification failed.\n\
+             Please restart your terminal and try again."
+        );
     }
 
     Ok(())
