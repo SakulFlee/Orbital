@@ -18,6 +18,8 @@ pub struct AndroidConfig {
     pub package: Option<String>,
     pub min_sdk: Option<u32>,
     pub target_sdk: Option<u32>,
+    pub targets: Option<Vec<String>>,
+    pub apk_mode: Option<String>,
 }
 
 impl Default for AndroidConfig {
@@ -26,6 +28,8 @@ impl Default for AndroidConfig {
             package: Some("de.sakulflee.orbital".to_string()),
             min_sdk: Some(21),
             target_sdk: Some(34),
+            targets: None,
+            apk_mode: None,
         }
     }
 }
@@ -41,6 +45,21 @@ impl AndroidConfig {
 
     pub fn target_sdk(&self) -> u32 {
         self.target_sdk.unwrap_or(34)
+    }
+
+    pub fn targets(&self) -> Vec<String> {
+        self.targets.clone().unwrap_or_else(|| {
+            vec![
+                "arm64-v8a".to_string(),
+                "armeabi-v7a".to_string(),
+                "x86_64".to_string(),
+                "x86".to_string(),
+            ]
+        })
+    }
+
+    pub fn apk_mode(&self) -> &str {
+        self.apk_mode.as_deref().unwrap_or("multiarch")
     }
 }
 
