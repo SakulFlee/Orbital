@@ -54,8 +54,10 @@ pub fn build(package_name: Option<&str>, release: bool) -> Result<()> {
 
     println!("\nRunning cargo ndk...");
 
+    // Use to_string_lossy to handle non-UTF-8 paths on Unix
+    let jni_libs_str = jni_libs_dir.to_string_lossy().to_string();
     let mut cargo_ndk_args = vec![
-        "-o", jni_libs_dir.to_str().context("Invalid jniLibs path")?,
+        "-o", &jni_libs_str,
         "build",
         "--lib",
         "--package", &package,
