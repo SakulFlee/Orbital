@@ -154,11 +154,13 @@ fn download_sdk() -> Result<()> {
 
     // Determine download URL based on platform
     let (url, filename) = if cfg!(target_os = "linux") {
-        ("https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip", "commandlinetools.zip")
+        ("https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip", "commandlinetools.zip")
+    } else if cfg!(target_os = "macos") && cfg!(target_arch = "aarch64") {
+        ("https://dl.google.com/android/repository/commandlinetools-mac_arm64-15859902_latest.zip", "commandlinetools.zip")
     } else if cfg!(target_os = "macos") {
-        ("https://dl.google.com/android/repository/commandlinetools-mac-11076708_latest.zip", "commandlinetools.zip")
+        ("https://dl.google.com/android/repository/commandlinetools-mac_x86_64-15859902_latest.zip", "commandlinetools.zip")
     } else if cfg!(target_os = "windows") {
-        ("https://dl.google.com/android/repository/commandlinetools-windows-11076708_latest.zip", "commandlinetools.zip")
+        ("https://dl.google.com/android/repository/commandlinetools-win-15859902_latest.zip", "commandlinetools.zip")
     } else {
         anyhow::bail!("Unsupported platform for automatic SDK download");
     };
