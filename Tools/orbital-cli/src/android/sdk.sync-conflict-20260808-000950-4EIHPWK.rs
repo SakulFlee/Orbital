@@ -186,80 +186,42 @@ fn fetch_latest_commandline_tools_url() -> Result<(String, String)> {
 
     let xml = String::from_utf8_lossy(&output.stdout);
 
-    // Parse the XML to find the cmdline-tools;latest package
-    // Look for the remotePackage with path="cmdline-tools;latest"
-    let mut in_latest_package = false;
-    let mut in_archives = false;
-    let mut found_host_os = false;
+    // Parse the XML to find the latest command-line tools version
+    // Look for patterns like: commandlinetools-{platform}-{version}_latest.zip
+    let mut latest_version: Option<u64> = None;
     let mut latest_url: Option<String> = None;
 
     for line in xml.lines() {
         let line = line.trim();
 
-        // Check if we're entering the cmdline-tools;latest package
-        if line.contains("path=\"cmdline-tools;latest\"") {
-            in_latest_package = true;
-            continue;
-        }
+        // Look for URL lines containing commandlinetools
+        if line.starts_with("<url>") && line.contains("commandlinetools") && line.contains(platform_suffix) {
+            // Extract the URL content
+            if let Some(url_start) = line.find("<url>") {
+                if let Some(url_end) = line.find("</url>") {
+                    let url = &line[url_start + 5..url_end];
 
-        if in_latest_package {
-            // Check if we're entering archives section
-            if line == "<archives>" {
-                in_archives = true;
-                continue;
-            }
-
-            if in_archives {
-                // Look for host-os tag to match our platform
-                if line.starts_with("<host-os>") {
-                    let os = line
-                        .trim_start_matches("<host-os>")
-                        .trim_end_matches("</host-os>");
-                    if os == platform_suffix {
-                        found_host_os = true;
-                    }
-                    continue;
-                }
-
-                // Look for URL tag
-                if line.starts_with("<url>") && found_host_os {
-                    if let Some(url_start) = line.find("<url>") {
-                        if let Some(url_end) = line.find("</url>") {
-                            let url = &line[url_start + 5..url_end];
-                            latest_url = Some(format!("https://dl.google.com/android/repository/{}", url));
-                            break;
+                    // Extract version number from URL like "commandlinetools-linux-15859902_latest.zip"
+                    if let Some(pos) = url.find(&format!("{}-", platform_suffix)) {
+                        let after_platform = &url[pos + platform_suffix.len() + 1..];
+                        if let Some(dash_pos) = after_platform.find('-') {
+                            let version_str = &after_platform[..dash_pos];
+                            if let Ok(version) = version_str.parse::<u64>() {
+                                if latest_version.is_none() || version > latest_version.unwrap() {
+                                    latest_version = Some(version);
+                                    latest_url = Some(format!("https://dl.google.com/android/repository/{}", url));
+                                }
+                            }
                         }
                     }
                 }
-
-                // Reset if we hit a new archive without finding URL
-                if line == "</archive>" {
-                    found_host_os = false;
-                }
-            }
-
-            // Exit if we hit a new remotePackage
-            if line.starts_with("<remotePackage") && !line.contains("cmdline-tools;latest") {
-                break;
             }
         }
     }
 
-    match latest_url {
-        Some(url) => {
-            // Extract version from URL
-            if let Some(pos) = url.find(&format!("{}-", platform_suffix)) {
-                let after_platform = &url[pos + platform_suffix.len() + 1..];
-                if let Some(dash_pos) = after_platform.find('-') {
-                    let version_str = &after_platform[..dash_pos];
-                    if let Ok(version) = version_str.parse::<u64>() {
-                        println!("Found latest version: {}", version);
-                        return Ok((url, "commandlinetools.zip".to_string()));
-                    }
-                }
-            }
-            // If we couldn't extract version, still return the URL
-            println!("Found latest command-line tools");
+    match (latest_version, latest_url) {
+        (Some(version), Some(url)) => {
+            println!("Found latest version: {}", version);
             Ok((url, "commandlinetools.zip".to_string()))
         }
         _ => {
@@ -300,7 +262,7 @@ fn download_sdk() -> Result<()> {
             .output()
     } else {
         Command::new("curl")
-            .args(["-L", "-o", &install_path.join(&filename).to_string_lossy(), &url])
+            .args(["-L", "-o", &install_path.join(filename).to_string_lossy(), &url])
             .output()
     };
 
@@ -359,15 +321,8 @@ fn download_sdk() -> Result<()> {
             println!("\nSDK installed to: {}", install_path.display());
             println!("ANDROID_HOME set to: {}", install_path.display());
 
-            // Show platform-specific instructions
-            println!("\nNote: You may need to add this to your environment:");
-            if cfg!(windows) {
-                println!("  set ANDROID_HOME={}", install_path.display());
-                println!("  (Or set it permanently via System Properties > Environment Variables)");
-            } else {
-                println!("  export ANDROID_HOME={}", install_path.display());
-                println!("  (Add to ~/.bashrc, ~/.zshrc, or ~/.profile)");
-            }
+            println!("\nNote: You may need to add this to your shell profile:");
+            println!("  export ANDROID_HOME={}", install_path.display());
 
             // Now ensure NDK is installed
             ensure_sdkmanager(&install_path)?;
@@ -382,13 +337,11 @@ fn download_sdk() -> Result<()> {
 }
 
 fn show_manual_instructions(install_path: &Path) {
-    let expected_path = install_path.join("cmdline-tools").join("latest");
-
     println!("\nPlease download Android command-line tools manually:");
     println!("  1. Go to: https://developer.android.com/studio#command-line-tools-only");
     println!("  2. Download the 'Command line tools only' package for your platform");
     println!("  3. Extract the zip to: {}", install_path.display());
-    println!("  4. Ensure the structure is: {}/...", expected_path.display());
+    println!("  4. Ensure the structure is: {}/cmdline-tools/latest/...", install_path.display());
     println!("  5. Set ANDROID_HOME={}", install_path.display());
     println!("  6. Run 'orbital build android' again");
 }
