@@ -244,27 +244,45 @@ fn download_sdk() -> Result<()> {
     // Download the file using ureq (Rust HTTP library)
     println!("Downloading from: {}", url);
 
-    let zip_path = install_path.join(filename);
+    let zip_path = install_path.join(&filename);
+    let temp_path = install_path.join(format!("{}.tmp", filename));
 
-    // Remove any existing partial download
+    // Remove any existing files
     if zip_path.exists() {
         std::fs::remove_file(&zip_path).ok();
     }
+    if temp_path.exists() {
+        std::fs::remove_file(&temp_path).ok();
+    }
 
+    // Download to temporary file first, then rename
+    // This ensures the file is fully written before we try to extract it
     let download_result = (|| -> Result<()> {
         let mut response = ureq::get(&url)
             .call()
             .map_err(|e| anyhow::anyhow!("HTTP request failed: {}", e))?;
 
-        let mut file = std::fs::File::create(&zip_path)
-            .map_err(|e| anyhow::anyhow!("Failed to create file: {}", e))?;
+        let mut file = std::fs::File::create(&temp_path)
+            .map_err(|e| anyhow::anyhow!("Failed to create temp file: {}", e))?;
 
         let mut reader = response.body_mut().as_reader();
         std::io::copy(&mut reader, &mut file)
             .map_err(|e| anyhow::anyhow!("Failed to write file: {}", e))?;
 
+        // Explicitly drop the file handle before renaming
+        drop(file);
+
+        // Rename temp file to final name
+        std::fs::rename(&temp_path, &zip_path)
+            .map_err(|e| anyhow::anyhow!("Failed to rename file: {}", e))?;
+
         Ok(())
     })();
+
+    // Clean up temp file if it exists
+    if temp_path.exists() {
+        std::fs::remove_file(&temp_path).ok();
+    }
 
     match download_result {
         Ok(()) => {
