@@ -163,53 +163,61 @@ fn fetch_latest_commandline_tools_url() -> Result<(String, String)> {
         anyhow::bail!("Unsupported platform");
     };
 
-    // Try to fetch the latest version from Google's repository
+    // Try to fetch the latest version from Google's repository using ureq
     // If it fails, fall back to a known working version
     let repo_url = "https://dl.google.com/android/repository/repository2-3.xml";
 
     println!("Fetching latest version from Google's repository...");
 
-    let output = if cfg!(windows) {
-        Command::new("powershell")
-            .args(["-Command", &format!("try {{ (Invoke-WebRequest -Uri '{}' -UseBasicParsing -TimeoutSec 10).Content }} catch {{ '' }}", repo_url)])
-            .output()
-    } else {
-        Command::new("curl")
-            .args(["-s", "--max-time", "10", repo_url])
-            .output()
+    let xml = match ureq::get(repo_url).call() {
+        Ok(mut response) => {
+            match response.body_mut().read_to_string() {
+                Ok(xml) => xml,
+                Err(_) => {
+                    println!("Using fallback version...");
+                    let fallback_url = format!(
+                        "https://dl.google.com/android/repository/commandlinetools-{}-15859902_latest.zip",
+                        platform_suffix
+                    );
+                    return Ok((fallback_url, "commandlinetools.zip".to_string()));
+                }
+            }
+        }
+        Err(_) => {
+            println!("Using fallback version...");
+            let fallback_url = format!(
+                "https://dl.google.com/android/repository/commandlinetools-{}-15859902_latest.zip",
+                platform_suffix
+            );
+            return Ok((fallback_url, "commandlinetools.zip".to_string()));
+        }
     };
 
-    if let Ok(output) = output {
-        if output.status.success() {
-            let xml = String::from_utf8_lossy(&output.stdout);
+    // Simple pattern matching: find URL containing commandlinetools-{platform}-
+    let pattern = format!("commandlinetools-{}-", platform_suffix);
+    for line in xml.lines() {
+        let line = line.trim();
+        if line.contains("<url>") && line.contains(&pattern) {
+            if let Some(url_start) = line.find("<url>") {
+                if let Some(url_end) = line.find("</url>") {
+                    let url = &line[url_start + 5..url_end];
+                    let full_url = format!("https://dl.google.com/android/repository/{}", url);
 
-            // Simple pattern matching: find URL containing commandlinetools-{platform}-
-            let pattern = format!("commandlinetools-{}-", platform_suffix);
-            for line in xml.lines() {
-                let line = line.trim();
-                if line.contains("<url>") && line.contains(&pattern) {
-                    if let Some(url_start) = line.find("<url>") {
-                        if let Some(url_end) = line.find("</url>") {
-                            let url = &line[url_start + 5..url_end];
-                            let full_url = format!("https://dl.google.com/android/repository/{}", url);
-
-                            // Extract version
-                            if let Some(pos) = url.find(&pattern) {
-                                let after_platform = &url[pos + pattern.len()..];
-                                if let Some(dash_pos) = after_platform.find('-') {
-                                    let version_str = &after_platform[..dash_pos];
-                                    if let Ok(version) = version_str.parse::<u64>() {
-                                        println!("Found latest version: {}", version);
-                                        return Ok((full_url, "commandlinetools.zip".to_string()));
-                                    }
-                                }
+                    // Extract version
+                    if let Some(pos) = url.find(&pattern) {
+                        let after_platform = &url[pos + pattern.len()..];
+                        if let Some(dash_pos) = after_platform.find('-') {
+                            let version_str = &after_platform[..dash_pos];
+                            if let Ok(version) = version_str.parse::<u64>() {
+                                println!("Found latest version: {}", version);
+                                return Ok((full_url, "commandlinetools.zip".to_string()));
                             }
-
-                            // If we couldn't extract version, still return the URL
-                            println!("Found latest command-line tools");
-                            return Ok((full_url, "commandlinetools.zip".to_string()));
                         }
                     }
+
+                    // If we couldn't extract version, still return the URL
+                    println!("Found latest command-line tools");
+                    return Ok((full_url, "commandlinetools.zip".to_string()));
                 }
             }
         }
@@ -302,50 +310,18 @@ fn download_sdk() -> Result<()> {
         return Ok(());
     }
 
-    // Extract the file
+    // Extract the file using Rust zip library (avoids file locking issues)
     println!("Extracting...");
 
-    // Try extraction with retries
-    let mut extract_success = false;
-    for attempt in 1..=3 {
-        let status = if cfg!(windows) {
-            Command::new("tar")
-                .args(["-xf", &zip_path.to_string_lossy(), "-C", &install_path.to_string_lossy()])
-                .status()
-        } else {
-            Command::new("unzip")
-                .args(["-o", &zip_path.to_string_lossy(), "-d", &install_path.to_string_lossy()])
-                .status()
-        };
-
-        match status {
-            Ok(s) if s.success() => {
-                extract_success = true;
-                break;
-            }
-            Ok(_) => {
-                if attempt < 3 {
-                    println!("Extraction attempt {} failed, retrying...", attempt);
-                    std::thread::sleep(std::time::Duration::from_millis(1000));
-                }
-            }
-            Err(e) => {
-                if attempt < 3 {
-                    println!("Extraction attempt {} failed: {}, retrying...", attempt, e);
-                    std::thread::sleep(std::time::Duration::from_millis(1000));
-                } else {
-                    println!("\nFailed to extract SDK tools: {}", e);
-                    show_manual_instructions(&install_path);
-                    return Ok(());
-                }
-            }
+    match extract_zip(&zip_path, &install_path) {
+        Ok(()) => {
+            println!("Extraction complete!");
         }
-    }
-
-    if !extract_success {
-        println!("\nFailed to extract SDK tools after multiple attempts.");
-        show_manual_instructions(&install_path);
-        return Ok(());
+        Err(e) => {
+            println!("\nFailed to extract SDK tools: {}", e);
+            show_manual_instructions(&install_path);
+            return Ok(());
+        }
     }
 
     // Move cmdline-tools to the right place
@@ -391,4 +367,39 @@ fn show_manual_instructions(install_path: &Path) {
     println!("  4. Ensure the structure is: {}/...", expected_path.display());
     println!("  5. Set ANDROID_HOME={}", install_path.display());
     println!("  6. Run 'orbital build android' again");
+}
+
+/// Extract a zip file using the Rust zip library
+/// This avoids file locking issues with external tools like tar/unzip
+fn extract_zip(zip_path: &Path, dest_dir: &Path) -> Result<()> {
+    let file = std::fs::File::open(zip_path)
+        .map_err(|e| anyhow::anyhow!("Failed to open zip file: {}", e))?;
+
+    let mut archive = zip::ZipArchive::new(file)
+        .map_err(|e| anyhow::anyhow!("Failed to read zip archive: {}", e))?;
+
+    for i in 0..archive.len() {
+        let mut file = archive.by_index(i)
+            .map_err(|e| anyhow::anyhow!("Failed to read zip entry: {}", e))?;
+
+        let outpath = dest_dir.join(file.mangled_name());
+
+        if file.is_dir() {
+            std::fs::create_dir_all(&outpath)
+                .map_err(|e| anyhow::anyhow!("Failed to create directory: {}", e))?;
+        } else {
+            if let Some(parent) = outpath.parent() {
+                if !parent.exists() {
+                    std::fs::create_dir_all(parent)
+                        .map_err(|e| anyhow::anyhow!("Failed to create directory: {}", e))?;
+                }
+            }
+            let mut out_file = std::fs::File::create(&outpath)
+                .map_err(|e| anyhow::anyhow!("Failed to create file: {}", e))?;
+            std::io::copy(&mut file, &mut out_file)
+                .map_err(|e| anyhow::anyhow!("Failed to write file: {}", e))?;
+        }
+    }
+
+    Ok(())
 }
