@@ -280,9 +280,10 @@ fn download_sdk() -> Result<()> {
         return Ok(());
     }
 
+    // Use tar on Windows (available on Windows 10+), unzip on Unix
     let status = if cfg!(windows) {
-        Command::new("powershell")
-            .args(["-Command", &format!("Expand-Archive -Path '{}' -DestinationPath '{}' -Force", zip_path.display(), install_path.display())])
+        Command::new("tar")
+            .args(["-xf", &zip_path.to_string_lossy(), "-C", &install_path.to_string_lossy()])
             .status()
     } else {
         Command::new("unzip")
