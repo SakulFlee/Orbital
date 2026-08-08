@@ -241,7 +241,7 @@ fn download_sdk() -> Result<()> {
     let install_path = PathBuf::from(&install_path);
     std::fs::create_dir_all(&install_path)?;
 
-    // Download the file
+    // Download the file using ureq (Rust HTTP library)
     println!("Downloading from: {}", url);
 
     let zip_path = install_path.join(filename);
@@ -251,22 +251,27 @@ fn download_sdk() -> Result<()> {
         std::fs::remove_file(&zip_path).ok();
     }
 
-    // Use curl with progress bar on all platforms
-    let download_result = Command::new("curl")
-        .args(["-L", "#", "-o", &zip_path.to_string_lossy(), &url])
-        .output();
+    let download_result = (|| -> Result<()> {
+        let mut response = ureq::get(&url)
+            .call()
+            .map_err(|e| anyhow::anyhow!("HTTP request failed: {}", e))?;
+
+        let mut file = std::fs::File::create(&zip_path)
+            .map_err(|e| anyhow::anyhow!("Failed to create file: {}", e))?;
+
+        let mut reader = response.body_mut().as_reader();
+        std::io::copy(&mut reader, &mut file)
+            .map_err(|e| anyhow::anyhow!("Failed to write file: {}", e))?;
+
+        Ok(())
+    })();
 
     match download_result {
-        Ok(output) => {
-            if !output.status.success() {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                println!("\nDownload failed: {}", stderr);
-                show_manual_instructions(&install_path);
-                return Ok(());
-            }
+        Ok(()) => {
+            println!("Download complete!");
         }
         Err(e) => {
-            println!("\nFailed to run download command: {}", e);
+            println!("\nDownload failed: {}", e);
             show_manual_instructions(&install_path);
             return Ok(());
         }
@@ -277,23 +282,6 @@ fn download_sdk() -> Result<()> {
         println!("\nDownloaded file not found.");
         show_manual_instructions(&install_path);
         return Ok(());
-    }
-
-    // Wait for file to be fully written (retry mechanism)
-    let mut retries = 0;
-    loop {
-        match std::fs::File::open(&zip_path) {
-            Ok(_) => break, // File is accessible
-            Err(_) if retries < 10 => {
-                retries += 1;
-                std::thread::sleep(std::time::Duration::from_millis(500));
-            }
-            Err(e) => {
-                println!("\nFailed to access downloaded file: {}", e);
-                show_manual_instructions(&install_path);
-                return Ok(());
-            }
-        }
     }
 
     // Extract the file
