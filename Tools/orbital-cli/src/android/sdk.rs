@@ -244,9 +244,16 @@ fn download_sdk() -> Result<()> {
     // Download the file
     println!("Downloading from: {}", url);
 
-    // Use curl on all platforms (available on Windows 10+, macOS, and Linux)
+    let zip_path = install_path.join(filename);
+
+    // Remove any existing partial download
+    if zip_path.exists() {
+        std::fs::remove_file(&zip_path).ok();
+    }
+
+    // Use curl with progress bar on all platforms
     let download_result = Command::new("curl")
-        .args(["-L", "-o", &install_path.join(&filename).to_string_lossy(), &url])
+        .args(["-L", "#", "-o", &zip_path.to_string_lossy(), &url])
         .output();
 
     match download_result {
@@ -265,64 +272,105 @@ fn download_sdk() -> Result<()> {
         }
     }
 
-    // Extract the file
-    println!("Extracting...");
-
-    let zip_path = install_path.join(filename);
+    // Verify the file was downloaded
     if !zip_path.exists() {
         println!("\nDownloaded file not found.");
         show_manual_instructions(&install_path);
         return Ok(());
     }
 
-    // Use tar on Windows (available on Windows 10+), unzip on Unix
-    let status = if cfg!(windows) {
-        Command::new("tar")
-            .args(["-xf", &zip_path.to_string_lossy(), "-C", &install_path.to_string_lossy()])
-            .status()
-    } else {
-        Command::new("unzip")
-            .args(["-o", &zip_path.to_string_lossy(), "-d", &install_path.to_string_lossy()])
-            .status()
-    };
-
-    match status {
-        Ok(s) if s.success() => {
-            // Move cmdline-tools to the right place
-            let cmdline_tools = install_path.join("cmdline-tools");
-            let latest = install_path.join("cmdline-tools").join("latest");
-
-            if cmdline_tools.exists() && !latest.exists() {
-                std::fs::rename(&cmdline_tools, &latest)?;
+    // Wait for file to be fully written (retry mechanism)
+    let mut retries = 0;
+    loop {
+        match std::fs::File::open(&zip_path) {
+            Ok(_) => break, // File is accessible
+            Err(_) if retries < 10 => {
+                retries += 1;
+                std::thread::sleep(std::time::Duration::from_millis(500));
             }
-
-            // Clean up zip file
-            std::fs::remove_file(&zip_path).ok();
-
-            // Set ANDROID_HOME
-            // SAFETY: We're setting an environment variable for the current process
-            unsafe { std::env::set_var("ANDROID_HOME", &install_path) };
-            println!("\nSDK installed to: {}", install_path.display());
-            println!("ANDROID_HOME set to: {}", install_path.display());
-
-            // Show platform-specific instructions
-            println!("\nNote: You may need to add this to your environment:");
-            if cfg!(windows) {
-                println!("  set ANDROID_HOME={}", install_path.display());
-                println!("  (Or set it permanently via System Properties > Environment Variables)");
-            } else {
-                println!("  export ANDROID_HOME={}", install_path.display());
-                println!("  (Add to ~/.bashrc, ~/.zshrc, or ~/.profile)");
+            Err(e) => {
+                println!("\nFailed to access downloaded file: {}", e);
+                show_manual_instructions(&install_path);
+                return Ok(());
             }
-
-            // Now ensure NDK is installed
-            ensure_sdkmanager(&install_path)?;
-        }
-        _ => {
-            println!("\nFailed to extract SDK tools.");
-            show_manual_instructions(&install_path);
         }
     }
+
+    // Extract the file
+    println!("Extracting...");
+
+    // Try extraction with retries
+    let mut extract_success = false;
+    for attempt in 1..=3 {
+        let status = if cfg!(windows) {
+            Command::new("tar")
+                .args(["-xf", &zip_path.to_string_lossy(), "-C", &install_path.to_string_lossy()])
+                .status()
+        } else {
+            Command::new("unzip")
+                .args(["-o", &zip_path.to_string_lossy(), "-d", &install_path.to_string_lossy()])
+                .status()
+        };
+
+        match status {
+            Ok(s) if s.success() => {
+                extract_success = true;
+                break;
+            }
+            Ok(_) => {
+                if attempt < 3 {
+                    println!("Extraction attempt {} failed, retrying...", attempt);
+                    std::thread::sleep(std::time::Duration::from_millis(1000));
+                }
+            }
+            Err(e) => {
+                if attempt < 3 {
+                    println!("Extraction attempt {} failed: {}, retrying...", attempt, e);
+                    std::thread::sleep(std::time::Duration::from_millis(1000));
+                } else {
+                    println!("\nFailed to extract SDK tools: {}", e);
+                    show_manual_instructions(&install_path);
+                    return Ok(());
+                }
+            }
+        }
+    }
+
+    if !extract_success {
+        println!("\nFailed to extract SDK tools after multiple attempts.");
+        show_manual_instructions(&install_path);
+        return Ok(());
+    }
+
+    // Move cmdline-tools to the right place
+    let cmdline_tools = install_path.join("cmdline-tools");
+    let latest = install_path.join("cmdline-tools").join("latest");
+
+    if cmdline_tools.exists() && !latest.exists() {
+        std::fs::rename(&cmdline_tools, &latest)?;
+    }
+
+    // Clean up zip file
+    std::fs::remove_file(&zip_path).ok();
+
+    // Set ANDROID_HOME
+    // SAFETY: We're setting an environment variable for the current process
+    unsafe { std::env::set_var("ANDROID_HOME", &install_path) };
+    println!("\nSDK installed to: {}", install_path.display());
+    println!("ANDROID_HOME set to: {}", install_path.display());
+
+    // Show platform-specific instructions
+    println!("\nNote: You may need to add this to your environment:");
+    if cfg!(windows) {
+        println!("  set ANDROID_HOME={}", install_path.display());
+        println!("  (Or set it permanently via System Properties > Environment Variables)");
+    } else {
+        println!("  export ANDROID_HOME={}", install_path.display());
+        println!("  (Add to ~/.bashrc, ~/.zshrc, or ~/.profile)");
+    }
+
+    // Now ensure NDK is installed
+    ensure_sdkmanager(&install_path)?;
 
     Ok(())
 }
