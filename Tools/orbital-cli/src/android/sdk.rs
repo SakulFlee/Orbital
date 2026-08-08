@@ -324,12 +324,24 @@ fn download_sdk() -> Result<()> {
         }
     }
 
-    // Move cmdline-tools to the right place
+    // Move cmdline-tools to the right place (with retry for Windows file locking)
     let cmdline_tools = install_path.join("cmdline-tools");
     let latest = install_path.join("cmdline-tools").join("latest");
 
     if cmdline_tools.exists() && !latest.exists() {
-        std::fs::rename(&cmdline_tools, &latest)?;
+        for attempt in 1..=5 {
+            match std::fs::rename(&cmdline_tools, &latest) {
+                Ok(()) => break,
+                Err(_e) if attempt < 5 => {
+                    println!("Waiting for files to be released (attempt {}/5)...", attempt);
+                    std::thread::sleep(std::time::Duration::from_millis(1000));
+                }
+                Err(e) => {
+                    println!("Warning: Could not reorganize SDK directory: {}", e);
+                    println!("You may need to manually move cmdline-tools/ to cmdline-tools/latest/");
+                }
+            }
+        }
     }
 
     // Clean up zip file
