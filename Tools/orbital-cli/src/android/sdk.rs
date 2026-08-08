@@ -270,6 +270,9 @@ fn download_sdk() -> Result<()> {
         }
     }
 
+    // Small delay to ensure file handle is released (Windows issue)
+    std::thread::sleep(std::time::Duration::from_millis(500));
+
     // Extract the file
     println!("Extracting...");
 
