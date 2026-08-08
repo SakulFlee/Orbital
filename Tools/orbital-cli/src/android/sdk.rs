@@ -244,15 +244,10 @@ fn download_sdk() -> Result<()> {
     // Download the file
     println!("Downloading from: {}", url);
 
-    let download_result = if cfg!(windows) {
-        Command::new("powershell")
-            .args(["-Command", &format!("Invoke-WebRequest -Uri '{}' -OutFile '{}\\{}' -UseBasicParsing", url, install_path.display(), filename)])
-            .output()
-    } else {
-        Command::new("curl")
-            .args(["-L", "-o", &install_path.join(&filename).to_string_lossy(), &url])
-            .output()
-    };
+    // Use curl on all platforms (available on Windows 10+, macOS, and Linux)
+    let download_result = Command::new("curl")
+        .args(["-L", "-o", &install_path.join(&filename).to_string_lossy(), &url])
+        .output();
 
     match download_result {
         Ok(output) => {
@@ -269,9 +264,6 @@ fn download_sdk() -> Result<()> {
             return Ok(());
         }
     }
-
-    // Small delay to ensure file handle is released (Windows issue)
-    std::thread::sleep(std::time::Duration::from_millis(500));
 
     // Extract the file
     println!("Extracting...");
