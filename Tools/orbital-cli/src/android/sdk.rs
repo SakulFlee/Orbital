@@ -105,46 +105,79 @@ fn ensure_sdkmanager(sdk_path: &PathBuf) -> Result<()> {
                 .with_default(true)
                 .prompt()?
             {
-                // Find latest NDK version
-                let list_output = Command::new(&sdkmanager)
-                    .args(["--list"])
-                    .output();
+                let ndk_version = crate::config::load_android_config()?.ndk_version().to_string();
+                let ndk_package = format!("ndk;{}", ndk_version);
 
-                if let Ok(list) = list_output {
-                    let list_str = String::from_utf8_lossy(&list.stdout);
-                    // Find NDK versions (look for lines starting with "ndk;")
-                    let ndk_versions: Vec<&str> = list_str.lines()
-                        .filter(|line| line.trim().starts_with("ndk;"))
-                        .collect();
+                // sdkmanager needs the Android SDK licenses accepted before it can
+                // download packages. Auto-accept them (the user was already prompted
+                // and confirmed the install above).
+                warn_license_acceptance();
+                accept_sdk_licenses(sdk_path)?;
 
-                    if let Some(latest_ndk) = ndk_versions.last() {
-                        let ndk_version = latest_ndk.split_whitespace().next().unwrap_or("ndk;26.2.11394342");
-                        println!("Installing {}...", ndk_version);
+                println!("Installing {}...", ndk_package);
+                let status = Command::new(&sdkmanager)
+                    .arg(&ndk_package)
+                    .status()
+                    .context("Failed to run sdkmanager")?;
 
-                        let status = Command::new(&sdkmanager)
-                            .args([ndk_version])
-                            .status()
-                            .context("Failed to run sdkmanager")?;
-
-                        if status.success() {
-                            println!("NDK installed successfully!");
-                        } else {
-                            anyhow::bail!("Failed to install NDK");
-                        }
-                    } else {
-                        println!("Could not find NDK version. Please install manually:");
-                        println!("  {} \"ndk;26.2.11394342\"", sdkmanager.display());
-                    }
+                if status.success() {
+                    println!("NDK installed successfully!");
+                } else {
+                    anyhow::bail!(
+                        "Failed to install NDK. You can try manually:\n  {} \"{}\"",
+                        sdkmanager.display(),
+                        ndk_package
+                    );
                 }
             } else {
+                let ndk_version = crate::config::load_android_config()?.ndk_version().to_string();
                 println!("Please install NDK manually:");
-                println!("  {} \"ndk;26.2.11394342\"", sdkmanager.display());
+                println!("  {} \"ndk;{}\"", sdkmanager.display(), ndk_version);
             }
         } else {
             println!("Android NDK is installed.");
         }
     }
 
+    Ok(())
+}
+
+/// Prints a warning that the following steps auto-accept the Android SDK licenses.
+fn warn_license_acceptance() {
+    println!(
+        "\nNote: The following step will automatically accept the Android SDK license agreements."
+    );
+    println!(
+        "By continuing you agree to the terms at https://developer.android.com/studio/terms"
+    );
+}
+
+/// Accepts the Android SDK license agreements non-interactively by writing the
+/// standard license hash files. This is the conventional approach used in CI.
+fn accept_sdk_licenses(sdk_path: &Path) -> Result<()> {
+    let licenses_dir = sdk_path.join("licenses");
+    std::fs::create_dir_all(&licenses_dir)
+        .context("Failed to create licenses directory")?;
+
+    // Well-known accepted hashes for the Android SDK licenses
+    let android_sdk_license =
+        "24333f8a63b6825ea9c5514f83c2829b004d1fee\n";
+    let android_sdk_preview_license =
+        "84831b9409646a918e30573bab4c9c91346d8abd\n";
+
+    std::fs::write(
+        licenses_dir.join("android-sdk-license"),
+        android_sdk_license,
+    )
+    .context("Failed to write android-sdk-license")?;
+
+    std::fs::write(
+        licenses_dir.join("android-sdk-preview-license"),
+        android_sdk_preview_license,
+    )
+    .context("Failed to write android-sdk-preview-license")?;
+
+    println!("Android SDK licenses accepted.");
     Ok(())
 }
 
