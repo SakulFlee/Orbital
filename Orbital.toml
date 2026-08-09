@@ -7,3 +7,4 @@ min_sdk = 21
 target_sdk = 34
 targets = ["arm64-v8a", "armeabi-v7a"]
 apk_mode = "multiarch"
+ndk_version = "26.2.11394342"

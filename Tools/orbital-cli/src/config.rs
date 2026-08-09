@@ -20,6 +20,7 @@ pub struct AndroidConfig {
     pub target_sdk: Option<u32>,
     pub targets: Option<Vec<String>>,
     pub apk_mode: Option<String>,
+    pub ndk_version: Option<String>,
 }
 
 impl Default for AndroidConfig {
@@ -30,6 +31,7 @@ impl Default for AndroidConfig {
             target_sdk: Some(34),
             targets: None,
             apk_mode: None,
+            ndk_version: None,
         }
     }
 }
@@ -60,6 +62,10 @@ impl AndroidConfig {
 
     pub fn apk_mode(&self) -> &str {
         self.apk_mode.as_deref().unwrap_or("multiarch")
+    }
+
+    pub fn ndk_version(&self) -> &str {
+        self.ndk_version.as_deref().unwrap_or("26.2.11394342")
     }
 }
 
