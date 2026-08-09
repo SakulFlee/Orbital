@@ -1,6 +1,8 @@
 mod android;
 mod config;
 mod init;
+mod java;
+mod tooling;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
