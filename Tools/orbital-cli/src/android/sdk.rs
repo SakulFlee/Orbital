@@ -310,10 +310,13 @@ fn download_sdk() -> Result<()> {
         return Ok(());
     }
 
-    // Extract the file using Rust zip library (avoids file locking issues)
+    // Extract the file directly into the cmdline-tools/latest/ structure.
+    // The zip contains a top-level "cmdline-tools/" folder, so we strip that
+    // component and write straight to cmdline-tools/latest/. This avoids a
+    // directory rename, which Windows frequently blocks on freshly extracted files.
     println!("Extracting...");
 
-    match extract_zip(&zip_path, &install_path) {
+    match extract_cmdline_tools(&zip_path, &install_path) {
         Ok(()) => {
             println!("Extraction complete!");
         }
@@ -321,26 +324,6 @@ fn download_sdk() -> Result<()> {
             println!("\nFailed to extract SDK tools: {}", e);
             show_manual_instructions(&install_path);
             return Ok(());
-        }
-    }
-
-    // Move cmdline-tools to the right place (with retry for Windows file locking)
-    let cmdline_tools = install_path.join("cmdline-tools");
-    let latest = install_path.join("cmdline-tools").join("latest");
-
-    if cmdline_tools.exists() && !latest.exists() {
-        for attempt in 1..=5 {
-            match std::fs::rename(&cmdline_tools, &latest) {
-                Ok(()) => break,
-                Err(_e) if attempt < 5 => {
-                    println!("Waiting for files to be released (attempt {}/5)...", attempt);
-                    std::thread::sleep(std::time::Duration::from_millis(1000));
-                }
-                Err(e) => {
-                    println!("Warning: Could not reorganize SDK directory: {}", e);
-                    println!("You may need to manually move cmdline-tools/ to cmdline-tools/latest/");
-                }
-            }
         }
     }
 
@@ -381,37 +364,75 @@ fn show_manual_instructions(install_path: &Path) {
     println!("  6. Run 'orbital build android' again");
 }
 
-/// Extract a zip file using the Rust zip library
-/// This avoids file locking issues with external tools like tar/unzip
-fn extract_zip(zip_path: &Path, dest_dir: &Path) -> Result<()> {
+/// Extract the Android command-line tools zip directly into the
+/// `cmdline-tools/latest/` structure.
+///
+/// The zip contains a top-level `cmdline-tools/` folder. We strip that leading
+/// component from every entry so files land in
+/// `<sdk>/cmdline-tools/latest/...` without needing a directory rename.
+/// (Windows frequently locks freshly extracted files, making the rename fail.)
+fn extract_cmdline_tools(zip_path: &Path, sdk_dir: &Path) -> Result<()> {
     let file = std::fs::File::open(zip_path)
         .map_err(|e| anyhow::anyhow!("Failed to open zip file: {}", e))?;
 
     let mut archive = zip::ZipArchive::new(file)
         .map_err(|e| anyhow::anyhow!("Failed to read zip archive: {}", e))?;
 
+    let latest_dir = sdk_dir.join("cmdline-tools").join("latest");
+    std::fs::create_dir_all(&latest_dir)
+        .map_err(|e| anyhow::anyhow!("Failed to create {}: {}", latest_dir.display(), e))?;
+
     for i in 0..archive.len() {
         let mut file = archive.by_index(i)
             .map_err(|e| anyhow::anyhow!("Failed to read zip entry: {}", e))?;
 
-        let outpath = dest_dir.join(file.mangled_name());
+        // Get the entry name and strip the leading "cmdline-tools/" component
+        let name = file.name().to_string();
+        let stripped = strip_top_level(&name);
+
+        // Skip the top-level directory entry itself
+        if stripped.is_empty() {
+            continue;
+        }
+
+        let outpath = latest_dir.join(stripped);
 
         if file.is_dir() {
             std::fs::create_dir_all(&outpath)
-                .map_err(|e| anyhow::anyhow!("Failed to create directory: {}", e))?;
+                .map_err(|e| anyhow::anyhow!("Failed to create directory {}: {}", outpath.display(), e))?;
         } else {
             if let Some(parent) = outpath.parent() {
                 if !parent.exists() {
                     std::fs::create_dir_all(parent)
-                        .map_err(|e| anyhow::anyhow!("Failed to create directory: {}", e))?;
+                        .map_err(|e| anyhow::anyhow!("Failed to create directory {}: {}", parent.display(), e))?;
                 }
             }
             let mut out_file = std::fs::File::create(&outpath)
-                .map_err(|e| anyhow::anyhow!("Failed to create file: {}", e))?;
+                .map_err(|e| anyhow::anyhow!("Failed to create file {}: {}", outpath.display(), e))?;
             std::io::copy(&mut file, &mut out_file)
-                .map_err(|e| anyhow::anyhow!("Failed to write file: {}", e))?;
+                .map_err(|e| anyhow::anyhow!("Failed to write file {}: {}", outpath.display(), e))?;
         }
     }
 
     Ok(())
+}
+
+/// Strips the leading directory component from an archive entry path.
+/// E.g. "cmdline-tools/bin/sdkmanager.bat" -> "bin/sdkmanager.bat"
+fn strip_top_level(name: &str) -> String {
+    let normalized = name.replace('\\', "/");
+    let mut parts = normalized.splitn(2, '/');
+    let first = parts.next().unwrap_or("");
+    let rest = parts.next().unwrap_or("");
+
+    // Only strip if the first component is "cmdline-tools" (case-insensitive)
+    if first.eq_ignore_ascii_case("cmdline-tools") {
+        rest.to_string()
+    } else if rest.is_empty() {
+        // Single top-level entry that isn't cmdline-tools — keep as-is
+        first.to_string()
+    } else {
+        // Unexpected structure — keep full path
+        normalized
+    }
 }
