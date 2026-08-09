@@ -5,29 +5,34 @@ use std::process::Command;
 
 /// Check if Android SDK and NDK are properly configured
 pub fn ensure_android_sdk() -> Result<()> {
-    // Check if ANDROID_HOME or ANDROID_SDK_ROOT is set
-    let sdk_path = std::env::var("ANDROID_HOME")
-        .or_else(|_| std::env::var("ANDROID_SDK_ROOT"));
+    // Detection chain:
+    // 1. Orbital-owned SDK in the cache dir
+    // 2. ANDROID_HOME
+    // 3. ANDROID_SDK_ROOT
+    // 4. ANDROID_SDK
+    // 5. Android Studio default locations
+    let sdk_path = detect_android_sdk();
 
     match sdk_path {
-        Ok(path) => {
-            let sdk_path = PathBuf::from(path);
+        Some(sdk_path) => {
             if sdk_path.exists() {
                 println!("Android SDK found at: {}", sdk_path.display());
+                set_android_home(&sdk_path);
+                ensure_sdkmanager(&sdk_path)?;
                 return Ok(());
             }
-            println!("ANDROID_HOME is set but path doesn't exist: {}", sdk_path.display());
+            println!("Configured SDK path does not exist: {}", sdk_path.display());
         }
-        Err(_) => {
-            println!("Android SDK not found (ANDROID_HOME not set).");
+        None => {
+            println!("Android SDK not found.");
         }
     }
 
-    // Ask user for SDK path or offer to download
+    // Ask user for SDK path or offer to install our own
     println!("\nAndroid SDK is required for building Android apps.");
     println!("Options:");
     println!("  1. Provide path to existing Android SDK");
-    println!("  2. Download Android command-line tools");
+    println!("  2. Install an Orbital-managed Android SDK");
     println!("  3. Skip (you'll need to set up SDK manually)");
 
     let choice = Text::new("Choose an option [1/2/3]:")
@@ -45,16 +50,13 @@ pub fn ensure_android_sdk() -> Result<()> {
                 anyhow::bail!("Path does not exist: {}", sdk_path.display());
             }
 
-            // Set ANDROID_HOME for this session
-            // SAFETY: We're setting an environment variable for the current process
-            unsafe { std::env::set_var("ANDROID_HOME", &sdk_path) };
-            println!("ANDROID_HOME set to: {}", sdk_path.display());
+            set_android_home(&sdk_path);
 
             // Check for sdkmanager
             ensure_sdkmanager(&sdk_path)?;
         }
         "2" => {
-            // Download Android command-line tools
+            // Install an Orbital-managed Android SDK
             download_sdk()?;
         }
         "3" => {
@@ -66,6 +68,57 @@ pub fn ensure_android_sdk() -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Detect an existing Android SDK via the standard env vars and default locations.
+fn detect_android_sdk() -> Option<PathBuf> {
+    // 1. Orbital-owned SDK in the cache dir
+    if let Ok(dir) = crate::tooling::android_sdk_dir() {
+        if dir.join("cmdline-tools").join("latest").exists() {
+            return Some(dir);
+        }
+    }
+
+    // 2-4. Env vars (note: ANDROID_SDK_HOME is the AVD/preferences home, NOT the SDK)
+    for var in ["ANDROID_HOME", "ANDROID_SDK_ROOT", "ANDROID_SDK"] {
+        if let Ok(path) = std::env::var(var) {
+            let path = PathBuf::from(path);
+            if path.exists() {
+                return Some(path);
+            }
+        }
+    }
+
+    // 5. Android Studio default locations
+    if cfg!(windows) {
+        if let Ok(local) = std::env::var("LOCALAPPDATA") {
+            let p = PathBuf::from(local).join("Android").join("Sdk");
+            if p.exists() {
+                return Some(p);
+            }
+        }
+    } else if cfg!(target_os = "macos") {
+        let home = std::env::var("HOME").ok()?;
+        let p = PathBuf::from(home).join("Library").join("Android").join("sdk");
+        if p.exists() {
+            return Some(p);
+        }
+    } else {
+        let home = std::env::var("HOME").ok()?;
+        let p = PathBuf::from(home).join("Android").join("Sdk");
+        if p.exists() {
+            return Some(p);
+        }
+    }
+
+    None
+}
+
+/// Sets ANDROID_HOME for this process so sdkmanager/gradle can find the SDK.
+fn set_android_home(sdk_path: &Path) {
+    // SAFETY: Setting an env var for the current process before spawning children.
+    unsafe { std::env::set_var("ANDROID_HOME", sdk_path) };
+    println!("ANDROID_HOME set to: {}", sdk_path.display());
 }
 
 /// Ensure sdkmanager is available and NDK is installed
@@ -91,8 +144,12 @@ fn ensure_sdkmanager(sdk_path: &PathBuf) -> Result<()> {
         return Ok(());
     }
 
+    // sdkmanager requires Java. Ensure it's available before running any sdkmanager command.
+    let java_home = crate::java::ensure_java()?;
+
     // Check if NDK is installed
     let ndk_installed = Command::new(&sdkmanager)
+        .env("JAVA_HOME", &java_home)
         .args(["--list_installed"])
         .output();
 
@@ -116,6 +173,7 @@ fn ensure_sdkmanager(sdk_path: &PathBuf) -> Result<()> {
 
                 println!("Installing {}...", ndk_package);
                 let status = Command::new(&sdkmanager)
+                    .env("JAVA_HOME", &java_home)
                     .arg(&ndk_package)
                     .status()
                     .context("Failed to run sdkmanager")?;
@@ -272,11 +330,13 @@ fn download_sdk() -> Result<()> {
     // Fetch the latest version from Google's repository index
     let (url, filename) = fetch_latest_commandline_tools_url()?;
 
-    // Ask user where to install
+    // Ask user where to install (default: Orbital-managed SDK in the cache dir)
+    let default_path = crate::tooling::android_sdk_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|_| "./android-sdk".to_string());
+
     let install_path = Text::new("Enter installation path:")
-        .with_default(&dirs::home_dir()
-            .map(|h| h.join("android-sdk").to_string_lossy().to_string())
-            .unwrap_or_else(|| "./android-sdk".to_string()))
+        .with_default(&default_path)
         .prompt()?;
 
     let install_path = PathBuf::from(&install_path);

@@ -33,6 +33,9 @@ pub fn build(package_name: Option<&str>, release: bool) -> Result<()> {
     // Ensure Android SDK is configured
     super::sdk::ensure_android_sdk()?;
 
+    // Ensure Java is available (gradlew needs it)
+    let java_home = crate::java::ensure_java()?;
+
     // Update the Android project with the correct library name and app name
     update_android_project(&android_dir, &package, &lib_name, &android_config)?;
 
@@ -114,6 +117,7 @@ pub fn build(package_name: Option<&str>, release: bool) -> Result<()> {
                 // Build with split ABI
                 let gradle_task = if release { "assembleRelease" } else { "assembleDebug" };
                 let status = Command::new(&gradlew)
+                    .env("JAVA_HOME", &java_home)
                     .args([gradle_task, &format!("-PtargetAbi={}", target)])
                     .current_dir(&android_dir)
                     .status()
@@ -129,6 +133,7 @@ pub fn build(package_name: Option<&str>, release: bool) -> Result<()> {
             println!("\nBuilding multiarch APK...");
             let gradle_task = if release { "assembleRelease" } else { "assembleDebug" };
             let status = Command::new(&gradlew)
+                .env("JAVA_HOME", &java_home)
                 .arg(gradle_task)
                 .current_dir(&android_dir)
                 .status()
@@ -153,6 +158,7 @@ pub fn build(package_name: Option<&str>, release: bool) -> Result<()> {
                 }
 
                 let status = Command::new(&gradlew)
+                    .env("JAVA_HOME", &java_home)
                     .args([gradle_task, &format!("-PtargetAbi={}", target)])
                     .current_dir(&android_dir)
                     .status()
@@ -167,6 +173,7 @@ pub fn build(package_name: Option<&str>, release: bool) -> Result<()> {
             // Default: multiarch (all targets in one APK)
             let gradle_task = if release { "assembleRelease" } else { "assembleDebug" };
             let status = Command::new(&gradlew)
+                .env("JAVA_HOME", &java_home)
                 .arg(gradle_task)
                 .current_dir(&android_dir)
                 .status()
