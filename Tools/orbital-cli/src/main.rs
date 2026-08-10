@@ -33,6 +33,12 @@ enum Commands {
         /// Enable Android support
         #[arg(long)]
         android: Option<bool>,
+        /// Orbital engine git repo URL
+        #[arg(long)]
+        engine_repo: Option<String>,
+        /// Orbital engine git branch
+        #[arg(long)]
+        engine_branch: Option<String>,
         /// Skip interactive prompts (use defaults)
         #[arg(long)]
         yes: bool,
@@ -76,8 +82,10 @@ fn main() -> Result<()> {
             package,
             template,
             android,
+            engine_repo,
+            engine_branch,
             yes,
-        } => init::run(name, package, template, android, yes),
+        } => init::run(name, package, template, android, engine_repo, engine_branch, yes),
         Commands::InitAndroid => android::project::init(),
         Commands::Build {
             platform,

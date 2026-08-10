@@ -8,9 +8,37 @@ pub struct OrbitalConfig {
     pub android: Option<AndroidConfig>,
 }
 
-#[derive(Debug, Deserialize)]
+impl OrbitalConfig {
+    pub fn orbital(&self) -> OrbitalGeneral {
+        self.orbital.clone().unwrap_or_default()
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct OrbitalGeneral {
-    // Reserved for future use
+    pub engine_repo: Option<String>,
+    pub engine_branch: Option<String>,
+}
+
+impl OrbitalGeneral {
+    pub fn engine_repo(&self) -> &str {
+        self.engine_repo
+            .as_deref()
+            .unwrap_or("https://forgejo.sakul-flee.de/SakulFlee/Orbital.git")
+    }
+
+    pub fn engine_branch(&self) -> &str {
+        self.engine_branch.as_deref().unwrap_or("main")
+    }
+}
+
+impl Default for OrbitalGeneral {
+    fn default() -> Self {
+        Self {
+            engine_repo: None,
+            engine_branch: None,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]

@@ -19,11 +19,13 @@ fn java_executable(jre_home: &Path) -> PathBuf {
 /// Checks the Orbital-owned JRE first, then JAVA_HOME, then PATH.
 /// Returns the JRE home directory if a working Java is found.
 pub fn find_java() -> Option<PathBuf> {
-    // 1. Orbital-owned JRE in the cache dir
+    // 1. Orbital-owned JRE in the cache dir (may be nested in a versioned subdir)
     if let Ok(dir) = crate::tooling::java_dir(JDK_VERSION) {
-        let java = java_executable(&dir);
-        if java.exists() && java_works(&java) {
-            return Some(dir);
+        if let Ok(jre_home) = find_jre_home_in(&dir) {
+            let java = java_executable(&jre_home);
+            if java.exists() && java_works(&java) {
+                return Some(jre_home);
+            }
         }
     }
 
@@ -38,10 +40,7 @@ pub fn find_java() -> Option<PathBuf> {
 
     // 3. java on PATH
     if java_works_on_path() {
-        // Best we can do is signal "present"; the JRE home is where PATH points.
-        // Return a sentinel by resolving `which java`.
         if let Some(java) = find_java_on_path() {
-            // java home is the parent of bin/
             if let Some(bin) = java.parent() {
                 if let Some(home) = bin.parent() {
                     return Some(home.to_path_buf());
@@ -132,7 +131,21 @@ fn download_java(version: &str) -> Result<PathBuf> {
 
 /// Finds the actual JRE home inside the extraction dir (handles a single wrapping dir).
 fn find_jre_home(dest_dir: &Path) -> Result<PathBuf> {
-    let mut entries: Vec<PathBuf> = std::fs::read_dir(dest_dir)?
+    find_jre_home_in(dest_dir)
+}
+
+/// Scans a directory for a nested JRE home.
+/// Adoptium archives extract into a single top-level dir (e.g. "jdk-25.x+y").
+/// This finds the dir that actually contains `bin/java[.exe]`.
+fn find_jre_home_in(dir: &Path) -> Result<PathBuf> {
+    // Fast path: direct bin/java check
+    if java_executable(dir).exists() {
+        return Ok(dir.to_path_buf());
+    }
+
+    let mut entries: Vec<PathBuf> = std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
         .filter_map(|e| e.ok())
         .map(|e| e.path())
         .filter(|p| p.is_dir())
@@ -150,8 +163,8 @@ fn find_jre_home(dest_dir: &Path) -> Result<PathBuf> {
         return Ok(entries[0].clone());
     }
 
-    // No wrapper dir; extraction went directly into dest_dir
-    Ok(dest_dir.to_path_buf())
+    // No wrapper dir; files went directly into dir
+    Ok(dir.to_path_buf())
 }
 
 fn platform_tokens() -> (&'static str, &'static str, &'static str) {

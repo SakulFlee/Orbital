@@ -1,5 +1,7 @@
 [orbital]
 # Engine workspace configuration
+engine_repo = "https://forgejo.sakul-flee.de/SakulFlee/Orbital.git"
+engine_branch = "main"
 
 [android]
 package = "de.sakulflee.orbital"

@@ -1,6 +1,8 @@
 use anyhow::Result;
 use inquire::{Confirm, Select, Text};
 
+use crate::config;
+
 pub struct ProjectConfig {
     pub project_name: String,
     pub package_name: String,
@@ -8,6 +10,8 @@ pub struct ProjectConfig {
     pub target_sdk: u32,
     pub template: String,
     pub generate_android: bool,
+    pub engine_repo: String,
+    pub engine_branch: String,
 }
 
 pub fn interactive(
@@ -15,7 +19,13 @@ pub fn interactive(
     package: Option<String>,
     template: Option<String>,
     android: Option<bool>,
+    engine_repo: Option<String>,
+    engine_branch: Option<String>,
 ) -> Result<ProjectConfig> {
+    let orbital_config = config::load_config()
+        .map(|c| c.orbital())
+        .unwrap_or_default();
+
     // 1. Project name
     let project_name = match name {
         Some(n) => n,
@@ -77,6 +87,22 @@ pub fn interactive(
         .to_string(),
     };
 
+    // 6. Engine repository
+    let engine_repo = match engine_repo {
+        Some(r) => r,
+        None => Text::new("Orbital engine git repo:")
+            .with_default(orbital_config.engine_repo())
+            .prompt()?,
+    };
+
+    // 7. Engine branch
+    let engine_branch = match engine_branch {
+        Some(b) => b,
+        None => Text::new("Orbital engine branch:")
+            .with_default(orbital_config.engine_branch())
+            .prompt()?,
+    };
+
     Ok(ProjectConfig {
         project_name,
         package_name,
@@ -84,6 +110,8 @@ pub fn interactive(
         target_sdk,
         template: template_name,
         generate_android,
+        engine_repo,
+        engine_branch,
     })
 }
 
@@ -92,7 +120,13 @@ pub fn non_interactive(
     package: Option<String>,
     template: Option<String>,
     android: bool,
+    engine_repo: Option<String>,
+    engine_branch: Option<String>,
 ) -> Result<ProjectConfig> {
+    let orbital_config = config::load_config()
+        .map(|c| c.orbital())
+        .unwrap_or_default();
+
     let project_name = name.ok_or_else(|| {
         anyhow::anyhow!("Project name is required in non-interactive mode. Usage: orbital init <name>")
     })?;
@@ -102,6 +136,8 @@ pub fn non_interactive(
     });
 
     let template_name = template.unwrap_or_else(|| "minimal".to_string());
+    let engine_repo = engine_repo.unwrap_or_else(|| orbital_config.engine_repo().to_string());
+    let engine_branch = engine_branch.unwrap_or_else(|| orbital_config.engine_branch().to_string());
 
     Ok(ProjectConfig {
         project_name,
@@ -110,5 +146,7 @@ pub fn non_interactive(
         target_sdk: 34,
         template: template_name,
         generate_android: android,
+        engine_repo,
+        engine_branch,
     })
 }

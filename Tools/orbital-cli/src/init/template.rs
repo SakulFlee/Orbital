@@ -41,11 +41,13 @@ name = "{name}_desktop"
 path = "src/main.rs"
 
 [dependencies]
-orbital = {{ path = "path/to/orbital" }}
+orbital = {{ git = "{repo}", branch = "{branch}" }}
 winit = "0.30.0"
 "#,
         name = config.project_name,
         lib_name = lib_name,
+        repo = config.engine_repo,
+        branch = config.engine_branch,
     );
 
     fs::write(project_dir.join("Cargo.toml"), content)
