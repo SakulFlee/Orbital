@@ -8,15 +8,17 @@ pub fn run(
     package: Option<String>,
     template: Option<String>,
     android: Option<bool>,
+    engine_repo: Option<String>,
+    engine_branch: Option<String>,
     yes: bool,
 ) -> Result<()> {
     let config = if yes {
         // Non-interactive mode: use defaults or provided values
         let android_flag = android.unwrap_or(false);
-        prompt::non_interactive(name, package, template, android_flag)?
+        prompt::non_interactive(name, package, template, android_flag, engine_repo, engine_branch)?
     } else {
         // Interactive mode: prompt for all values
-        prompt::interactive(name, package, template, android)?
+        prompt::interactive(name, package, template, android, engine_repo, engine_branch)?
     };
 
     println!("\nGenerating project...");
