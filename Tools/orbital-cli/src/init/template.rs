@@ -24,7 +24,7 @@ pub fn generate_project(project_dir: &Path, config: &ProjectConfig) -> Result<()
 }
 
 fn generate_cargo_toml(project_dir: &Path, config: &ProjectConfig) -> Result<()> {
-    let lib_name = config.project_name.replace('-', "_");
+    let lib_name = config.project_name.replace('-', "_").to_lowercase();
 
     let content = format!(
         r#"[package]
@@ -96,7 +96,7 @@ fn generate_lib_rs(project_dir: &Path, config: &ProjectConfig) -> Result<()> {
 }
 
 fn generate_main_rs(project_dir: &Path, config: &ProjectConfig) -> Result<()> {
-    let lib_name = config.project_name.replace('-', "_");
+    let lib_name = config.project_name.replace('-', "_").to_lowercase();
 
     let content = format!(
         r#"fn main() {{
