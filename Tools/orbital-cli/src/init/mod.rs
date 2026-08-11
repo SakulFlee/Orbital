@@ -63,7 +63,7 @@ pub fn run(
     if config.generate_android {
         println!("  orbital build android");
     } else {
-        println!("  # Run 'orbital init android' later to add Android support");
+        println!("  orbital build");
     }
 
     Ok(())

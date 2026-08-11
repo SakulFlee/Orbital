@@ -1,5 +1,6 @@
 mod android;
 mod config;
+mod desktop;
 mod init;
 mod java;
 mod tooling;
@@ -45,11 +46,11 @@ enum Commands {
     },
     /// Initialize Android project for existing Orbital project
     InitAndroid,
-    /// Build for a platform
+    /// Build for a platform (defaults to desktop)
     Build {
-        /// Platform to build for
+        /// Platform to build for (defaults to desktop)
         #[arg(value_enum)]
-        platform: Platform,
+        platform: Option<Platform>,
         /// Package to build (optional in standalone projects)
         #[arg(short, long)]
         package: Option<String>,
@@ -57,11 +58,11 @@ enum Commands {
         #[arg(long)]
         release: bool,
     },
-    /// Build, install, and run on a connected device
+    /// Build, install, and run on a connected device (defaults to desktop)
     Run {
-        /// Platform to run on
+        /// Platform to run on (defaults to desktop)
         #[arg(value_enum)]
-        platform: Platform,
+        platform: Option<Platform>,
         /// Package to run (optional in standalone projects)
         #[arg(short, long)]
         package: Option<String>,
@@ -70,6 +71,7 @@ enum Commands {
 
 #[derive(clap::ValueEnum, Clone)]
 enum Platform {
+    Desktop,
     Android,
 }
 
@@ -91,10 +93,12 @@ fn main() -> Result<()> {
             platform,
             package,
             release,
-        } => match platform {
+        } => match platform.unwrap_or(Platform::Desktop) {
+            Platform::Desktop => desktop::build(release),
             Platform::Android => android::build::build(package.as_deref(), release),
         },
-        Commands::Run { platform, package } => match platform {
+        Commands::Run { platform, package } => match platform.unwrap_or(Platform::Desktop) {
+            Platform::Desktop => desktop::run(),
             Platform::Android => android::run::run(package.as_deref()),
         },
     }

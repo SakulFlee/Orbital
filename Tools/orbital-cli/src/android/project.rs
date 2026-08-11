@@ -27,8 +27,7 @@ pub fn init() -> Result<()> {
         android_dir.display()
     );
     println!("\nNext steps:");
-    println!("  1. Make sure you have the Android SDK and NDK installed");
-    println!("  2. Run: orbital build android");
+    println!("  Run: orbital build android");
 
     Ok(())
 }
