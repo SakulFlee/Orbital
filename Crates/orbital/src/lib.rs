@@ -16,7 +16,7 @@ pub use orbital_shader_preprocessor as shader_preprocessor;
 pub mod wgpu_test_adapter;
 
 pub use orbital_core::{cache, logging, macros, mip_level, or, quaternion};
-pub use orbital_core::{make_android_main, make_desktop_main};
+pub use orbital_core::{make_android_main, make_desktop_main, make_main};
 
 // Re-exports
 pub use cgmath;

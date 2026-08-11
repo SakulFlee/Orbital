@@ -124,7 +124,6 @@ use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, Position, Rotation,
 };
 use orbital::logging::{self, error, info};
-use winit::keyboard::KeyCode;
 
 pub const NAME: &str = "{{PROJECT_NAME}}";
 
@@ -194,7 +193,6 @@ use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, Position, Rotation,
 };
 use orbital::logging::{self, error, info};
-use winit::keyboard::KeyCode;
 
 pub const NAME: &str = "{{PROJECT_NAME}}";
 
@@ -265,7 +263,6 @@ use orbital::ecs_bridge::{
 };
 use orbital::importer::{ImportTask, gltf::GltfImport};
 use orbital::logging::{self, error, info};
-use winit::keyboard::KeyCode;
 
 pub const NAME: &str = "{{PROJECT_NAME}}";
 
@@ -344,7 +341,6 @@ use orbital::ecs_bridge::{
 };
 use orbital::importer::{ImportTask, gltf::GltfImport};
 use orbital::logging::{self, error, info};
-use winit::keyboard::KeyCode;
 
 pub const NAME: &str = "{{PROJECT_NAME}}";
 
