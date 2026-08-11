@@ -197,8 +197,7 @@ const ANDROID_MANIFEST: &str = r#"<?xml version="1.0" encoding="utf-8"?>
     android:versionName="1.0">
     <application
         android:hasCode="false"
-        android:label="@string/app_name"
-        android:icon="@mipmap/ic_launcher">
+        android:label="@string/app_name">
         <activity
             android:name="android.app.NativeActivity"
             android:configChanges="orientation|keyboardHidden|screenSize"
