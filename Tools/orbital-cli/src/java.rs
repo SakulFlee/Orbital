@@ -16,15 +16,31 @@ fn java_executable(jre_home: &Path) -> PathBuf {
     }
 }
 
-/// Checks the Orbital-owned JRE first, then JAVA_HOME, then PATH.
-/// Returns the JRE home directory if a working Java is found.
+/// Returns the path to the `javac` executable for a given JDK home directory.
+fn javac_executable(jdk_home: &Path) -> PathBuf {
+    let bin = jdk_home.join("bin");
+    if cfg!(windows) {
+        bin.join("javac.exe")
+    } else {
+        bin.join("javac")
+    }
+}
+
+/// True if the given home is a full JDK (has both `java` and `javac`).
+/// Gradle needs the compiler, so a bare JRE is not sufficient.
+fn is_jdk(home: &Path) -> bool {
+    java_executable(home).exists() && javac_executable(home).exists()
+}
+
+/// Checks the Orbital-owned JDK first, then JAVA_HOME, then PATH.
+/// Returns the JDK home directory if a working Java (with javac) is found.
 pub fn find_java() -> Option<PathBuf> {
-    // 1. Orbital-owned JRE in the cache dir (may be nested in a versioned subdir)
+    // 1. Orbital-owned JDK in the cache dir (may be nested in a versioned subdir)
     if let Ok(dir) = crate::tooling::java_dir(JDK_VERSION) {
-        if let Ok(jre_home) = find_jre_home_in(&dir) {
-            let java = java_executable(&jre_home);
-            if java.exists() && java_works(&java) {
-                return Some(jre_home);
+        if let Ok(jdk_home) = find_jre_home_in(&dir) {
+            let java = java_executable(&jdk_home);
+            if java.exists() && java_works(&java) && is_jdk(&jdk_home) {
+                return Some(jdk_home);
             }
         }
     }
@@ -33,17 +49,20 @@ pub fn find_java() -> Option<PathBuf> {
     if let Ok(java_home) = std::env::var("JAVA_HOME") {
         let java_home = PathBuf::from(java_home);
         let java = java_executable(&java_home);
-        if java.exists() && java_works(&java) {
+        if java.exists() && java_works(&java) && is_jdk(&java_home) {
             return Some(java_home);
         }
     }
 
-    // 3. java on PATH
+    // 3. java on PATH (only if a full JDK is available)
     if java_works_on_path() {
         if let Some(java) = find_java_on_path() {
             if let Some(bin) = java.parent() {
                 if let Some(home) = bin.parent() {
-                    return Some(home.to_path_buf());
+                    let home = home.to_path_buf();
+                    if is_jdk(&home) {
+                        return Some(home);
+                    }
                 }
             }
         }
@@ -62,7 +81,7 @@ pub fn ensure_java() -> Result<PathBuf> {
 
     println!("\nNo compatible Java runtime found (JDK {} required for Android builds).", JDK_VERSION);
 
-    if Confirm::new("Install an Orbital-managed Temurin JRE automatically?")
+    if Confirm::new("Install an Orbital-managed Temurin JDK automatically?")
         .with_default(true)
         .prompt()?
     {
@@ -83,19 +102,19 @@ fn download_java(version: &str) -> Result<PathBuf> {
     let (os, arch, ext) = platform_tokens();
 
     let url = format!(
-        "https://api.adoptium.net/v3/binary/latest/{version}/ga/{os}/{arch}/jre/hotspot/normal/eclipse"
+        "https://api.adoptium.net/v3/binary/latest/{version}/ga/{os}/{arch}/jdk/hotspot/normal/eclipse"
     );
 
     let dest_dir = crate::tooling::java_dir(version)?;
-    std::fs::create_dir_all(&dest_dir).context("Failed to create JRE directory")?;
+    std::fs::create_dir_all(&dest_dir).context("Failed to create JDK directory")?;
 
-    println!("\nDownloading Temurin JRE {} ({os}/{arch})...", version);
+    println!("\nDownloading Temurin JDK {} ({os}/{arch})...", version);
     println!("  {url}");
 
-    let archive_path = dest_dir.join(format!("jre.{}", ext));
+    let archive_path = dest_dir.join(format!("jdk.{}", ext));
 
     // Download with progress bar
-    crate::tooling::download_with_progress(&url, &archive_path, "Downloading JRE")?;
+    crate::tooling::download_with_progress(&url, &archive_path, "Downloading JDK")?;
 
     println!("Extracting...");
     if ext == "zip" {
@@ -108,15 +127,21 @@ fn download_java(version: &str) -> Result<PathBuf> {
     std::fs::remove_file(&archive_path).ok();
 
     // Adoptium zips/tarballs wrap everything in a single top-level dir (e.g. "jdk-25.x+y").
-    // Find that dir so we return the actual JRE home.
-    let jre_home = find_jre_home(&dest_dir)?;
-    let java = java_executable(&jre_home);
+    // Find that dir so we return the actual JDK home.
+    let jdk_home = find_jre_home(&dest_dir)?;
+    let java = java_executable(&jdk_home);
 
     if !java.exists() {
-        anyhow::bail!("Extracted JRE does not contain a java executable at {}", java.display());
+        anyhow::bail!("Extracted JDK does not contain a java executable at {}", java.display());
+    }
+    if !is_jdk(&jdk_home) {
+        anyhow::bail!(
+            "Extracted JDK is missing javac at {} — Gradle requires a full JDK, not a JRE",
+            javac_executable(&jdk_home).display()
+        );
     }
 
-    Ok(jre_home)
+    Ok(jdk_home)
 }
 
 /// Finds the actual JRE home inside the extraction dir (handles a single wrapping dir).
@@ -124,12 +149,12 @@ fn find_jre_home(dest_dir: &Path) -> Result<PathBuf> {
     find_jre_home_in(dest_dir)
 }
 
-/// Scans a directory for a nested JRE home.
+/// Scans a directory for a nested JDK home.
 /// Adoptium archives extract into a single top-level dir (e.g. "jdk-25.x+y").
-/// This finds the dir that actually contains `bin/java[.exe]`.
+/// Prefers a full JDK (has `javac`) over a bare JRE.
 fn find_jre_home_in(dir: &Path) -> Result<PathBuf> {
-    // Fast path: direct bin/java check
-    if java_executable(dir).exists() {
+    // Fast path: direct bin/java + javac check
+    if is_jdk(dir) {
         return Ok(dir.to_path_buf());
     }
 
@@ -143,7 +168,12 @@ fn find_jre_home_in(dir: &Path) -> Result<PathBuf> {
 
     entries.sort();
 
-    // Prefer the dir that actually contains bin/java
+    // Prefer a full JDK
+    if let Some(dir) = entries.iter().find(|d| is_jdk(d)) {
+        return Ok(dir.clone());
+    }
+
+    // Otherwise fall back to any dir that contains java
     if let Some(dir) = entries.iter().find(|d| java_executable(d).exists()) {
         return Ok(dir.clone());
     }
