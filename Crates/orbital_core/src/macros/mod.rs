@@ -30,3 +30,16 @@ macro_rules! make_android_main {
         }
     };
 }
+
+/// Generates both the desktop (`main`) and Android (`android_main`) entry points.
+///
+/// Each inner macro carries its own `cfg` gate, so exactly one compiles per target:
+/// - Desktop: `fn main()`
+/// - Android: `#[no_mangle] fn android_main(app: AndroidApp)`
+#[macro_export]
+macro_rules! make_main {
+    ($entrypoint_fn:ident) => {
+        $crate::make_desktop_main!($entrypoint_fn);
+        $crate::make_android_main!($entrypoint_fn);
+    };
+}
