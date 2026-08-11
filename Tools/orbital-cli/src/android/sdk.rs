@@ -1,7 +1,8 @@
 use anyhow::{Context, Result};
 use inquire::{Confirm, Text};
+use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 /// Check if Android SDK and NDK are properly configured
 pub fn ensure_android_sdk() -> Result<()> {
@@ -120,7 +121,6 @@ fn set_android_home(sdk_path: &Path) {
     unsafe { std::env::set_var("ANDROID_HOME", sdk_path) };
     println!("ANDROID_HOME set to: {}", sdk_path.display());
 }
-
 /// Ensure sdkmanager is available and NDK is installed
 fn ensure_sdkmanager(sdk_path: &PathBuf) -> Result<()> {
     let sdkmanager = if cfg!(windows) {
@@ -517,3 +517,127 @@ fn strip_top_level(name: &str) -> String {
         normalized
     }
 }
+
+/// Return the currently detected SDK path, if any.
+pub fn current_sdk_path() -> Option<PathBuf> {
+    detect_android_sdk()
+}
+
+fn sdkmanager_path(sdk_path: &Path) -> PathBuf {
+    if cfg!(windows) {
+        sdk_path
+            .join("cmdline-tools")
+            .join("latest")
+            .join("bin")
+            .join("sdkmanager.bat")
+    } else {
+        sdk_path
+            .join("cmdline-tools")
+            .join("latest")
+            .join("bin")
+            .join("sdkmanager")
+    }
+}
+
+fn avdmanager_path(sdk_path: &Path) -> PathBuf {
+    if cfg!(windows) {
+        sdk_path
+            .join("cmdline-tools")
+            .join("latest")
+            .join("bin")
+            .join("avdmanager.bat")
+    } else {
+        sdk_path
+            .join("cmdline-tools")
+            .join("latest")
+            .join("bin")
+            .join("avdmanager")
+    }
+}
+
+/// The system image package to use for a new AVD: matches the project's
+/// target SDK and the host's CPU architecture.
+pub fn system_image_package() -> Result<String> {
+    let target_sdk = crate::config::load_android_config()?.target_sdk();
+    let abi = if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+        "arm64-v8a"
+    } else {
+        "x86_64"
+    };
+    Ok(format!(
+        "system-images;android-{};google_apis;{}",
+        target_sdk, abi
+    ))
+}
+
+/// Install the given sdkmanager packages (e.g. "emulator", system images).
+/// Accepts the SDK licenses first (a warning is printed).
+pub fn sdkmanager_install(packages: &[String]) -> Result<()> {
+    let sdk_path = current_sdk_path().context("Android SDK not found")?;
+    let java_home = crate::java::ensure_java()?;
+    let sdkmanager = sdkmanager_path(&sdk_path);
+
+    if !sdkmanager.exists() {
+        anyhow::bail!("sdkmanager not found at {}", sdkmanager.display());
+    }
+
+    warn_license_acceptance();
+    accept_sdk_licenses(&sdk_path)?;
+
+    for pkg in packages {
+        println!("Installing {}...", pkg);
+        let status = Command::new(&sdkmanager)
+            .env("JAVA_HOME", &java_home)
+            .arg(pkg)
+            .status()
+            .with_context(|| format!("Failed to run sdkmanager for {}", pkg))?;
+        if !status.success() {
+            anyhow::bail!("sdkmanager failed to install {}", pkg);
+        }
+    }
+
+    Ok(())
+}
+
+/// Create an AVD using avdmanager. Answers "no" to the custom hardware
+/// profile prompt so creation is fully non-interactive.
+pub fn create_avd(name: &str, system_image: &str) -> Result<()> {
+    let sdk_path = current_sdk_path().context("Android SDK not found")?;
+    let java_home = crate::java::ensure_java()?;
+    let avdmanager = avdmanager_path(&sdk_path);
+
+    if !avdmanager.exists() {
+        anyhow::bail!("avdmanager not found at {}", avdmanager.display());
+    }
+
+    println!("Creating AVD '{}'...", name);
+    let mut child = Command::new(&avdmanager)
+        .env("JAVA_HOME", &java_home)
+        .args([
+            "create",
+            "avd",
+            "--name",
+            name,
+            "--package",
+            system_image,
+            "--force",
+        ])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .spawn()
+        .context("Failed to run avdmanager")?;
+
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin.write_all(b"no\n")?;
+    }
+
+    let status = child.wait().context("Failed to wait for avdmanager")?;
+    if !status.success() {
+        anyhow::bail!("avdmanager create avd failed");
+    }
+
+    println!("AVD '{}' created.", name);
+    Ok(())
+}
+

@@ -58,7 +58,7 @@ enum Commands {
         #[arg(long)]
         release: bool,
     },
-    /// Build, install, and run on a connected device (defaults to desktop)
+    /// Build, install, and run on a connected device or emulator (defaults to desktop)
     Run {
         /// Platform to run on (defaults to desktop)
         #[arg(value_enum)]
@@ -66,6 +66,15 @@ enum Commands {
         /// Package to run (optional in standalone projects)
         #[arg(short, long)]
         package: Option<String>,
+        /// Device serial or AVD name to run on
+        #[arg(short, long)]
+        device: Option<String>,
+        /// Skip rebuilding and install the existing APK
+        #[arg(long)]
+        skip_build: bool,
+        /// Stream logcat output after launching
+        #[arg(long)]
+        logcat: bool,
     },
 }
 
@@ -97,9 +106,15 @@ fn main() -> Result<()> {
             Platform::Desktop => desktop::build(release),
             Platform::Android => android::build::build(package.as_deref(), release),
         },
-        Commands::Run { platform, package } => match platform.unwrap_or(Platform::Desktop) {
+        Commands::Run {
+            platform,
+            package,
+            device,
+            skip_build,
+            logcat,
+        } => match platform.unwrap_or(Platform::Desktop) {
             Platform::Desktop => desktop::run(),
-            Platform::Android => android::run::run(package.as_deref()),
+            Platform::Android => android::run::run(package.as_deref(), device.as_deref(), skip_build, logcat),
         },
     }
 }
