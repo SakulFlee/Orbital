@@ -359,19 +359,7 @@ fn download_sdk() -> Result<()> {
     // Download to temporary file first, then rename
     // This ensures the file is fully written before we try to extract it
     let download_result = (|| -> Result<()> {
-        let mut response = ureq::get(&url)
-            .call()
-            .map_err(|e| anyhow::anyhow!("HTTP request failed: {}", e))?;
-
-        let mut file = std::fs::File::create(&temp_path)
-            .map_err(|e| anyhow::anyhow!("Failed to create temp file: {}", e))?;
-
-        let mut reader = response.body_mut().as_reader();
-        std::io::copy(&mut reader, &mut file)
-            .map_err(|e| anyhow::anyhow!("Failed to write file: {}", e))?;
-
-        // Explicitly drop the file handle before renaming
-        drop(file);
+        crate::tooling::download_with_progress(&url, &temp_path, "Downloading SDK")?;
 
         // Rename temp file to final name
         std::fs::rename(&temp_path, &zip_path)

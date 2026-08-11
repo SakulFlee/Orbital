@@ -10,3 +10,6 @@ fern = { workspace = true }
 humantime = { workspace = true }
 cgmath = { workspace = true }
 pollster = { workspace = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+android_logger = { workspace = true }

@@ -94,18 +94,8 @@ fn download_java(version: &str) -> Result<PathBuf> {
 
     let archive_path = dest_dir.join(format!("jre.{}", ext));
 
-    // Download with ureq
-    let mut response = ureq::get(&url)
-        .call()
-        .map_err(|e| anyhow::anyhow!("HTTP request failed: {}", e))?;
-
-    let mut file = std::fs::File::create(&archive_path)
-        .map_err(|e| anyhow::anyhow!("Failed to create archive file: {}", e))?;
-
-    let mut reader = response.body_mut().as_reader();
-    std::io::copy(&mut reader, &mut file)
-        .map_err(|e| anyhow::anyhow!("Failed to write archive: {}", e))?;
-    drop(file);
+    // Download with progress bar
+    crate::tooling::download_with_progress(&url, &archive_path, "Downloading JRE")?;
 
     println!("Extracting...");
     if ext == "zip" {
