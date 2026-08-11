@@ -18,11 +18,11 @@ macro_rules! make_android_main {
     ($entrypoint_fn:ident) => {
         #[cfg(target_os = "android")]
         #[allow(dead_code)]
-        #[no_mangle]
-        fn android_main(app: AndroidApp) {
+        #[unsafe(no_mangle)]
+        fn android_main(app: ::winit::platform::android::activity::AndroidApp) {
             use ::winit::{
                 event_loop::EventLoop,
-                platform::android::{EventLoopBuilderExtAndroid, activity::AndroidApp},
+                platform::android::EventLoopBuilderExtAndroid,
             };
             let event_loop = EventLoop::builder().with_android_app(app).build();
 
