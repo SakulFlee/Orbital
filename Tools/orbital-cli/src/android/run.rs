@@ -98,7 +98,19 @@ fn select_device(adb: &Path, requested: Option<&str>) -> Result<String> {
 
     // No connected devices: look for existing AVDs
     println!("\nNo connected devices found.");
-    let emulator = device::resolve_emulator()?;
+
+    // If no emulator package is installed, go straight to setup.
+    if device::resolve_emulator()?.is_none() {
+        println!("No emulator is installed.");
+        let avd = setup_new_avd()?;
+        let emulator = device::resolve_emulator()?
+            .context("Emulator was installed but the binary could not be found")?;
+        let serial = device::boot_avd(&emulator, &avd, adb)?;
+        device::wait_for_boot(adb, &serial)?;
+        return Ok(serial);
+    }
+
+    let emulator = device::resolve_emulator()?.unwrap();
     let avds = device::list_avds(&emulator)?;
 
     let avd = if avds.is_empty() {
@@ -109,6 +121,10 @@ fn select_device(adb: &Path, requested: Option<&str>) -> Result<String> {
     } else {
         Select::new("Select an emulator to boot:", avds).prompt()?
     };
+
+    // setup_new_avd may have just installed the emulator package; re-resolve.
+    let emulator = device::resolve_emulator()?
+        .context("Emulator was installed but the binary could not be found")?;
 
     match device::check_acceleration(&emulator) {
         Ok(false) => println!(
@@ -133,7 +149,12 @@ fn select_requested(adb: &Path, devices: &[Device], requested: &str) -> Result<S
     }
 
     // Not a connected device — maybe it's an AVD to boot.
-    let emulator = device::resolve_emulator()?;
+    let emulator = match device::resolve_emulator()? {
+        Some(e) => e,
+        None => anyhow::bail!(
+            "No emulator is installed. Run 'orbital run android' without --device to set one up."
+        ),
+    };
     let avds = device::list_avds(&emulator)?;
     if avds.iter().any(|a| a == requested) {
         let serial = device::boot_avd(&emulator, requested, adb)?;

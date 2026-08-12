@@ -21,15 +21,32 @@ pub fn resolve_adb() -> Result<PathBuf> {
     Ok(PathBuf::from("adb"))
 }
 
-/// Resolve the emulator binary: prefer the SDK's emulator package, fall back to PATH.
-pub fn resolve_emulator() -> Result<PathBuf> {
+/// Resolve the emulator binary, or `None` if no emulator package is installed
+/// and none is on PATH.
+pub fn resolve_emulator() -> Result<Option<PathBuf>> {
     if let Some(sdk) = crate::android::sdk::current_sdk_path() {
         let emulator = sdk.join("emulator").join(exe_name("emulator"));
         if emulator.exists() {
-            return Ok(emulator);
+            return Ok(Some(emulator));
         }
     }
-    Ok(PathBuf::from("emulator"))
+    if command_on_path("emulator") {
+        return Ok(Some(PathBuf::from("emulator")));
+    }
+    Ok(None)
+}
+
+/// Whether `name` resolves to an executable on PATH.
+fn command_on_path(name: &str) -> bool {
+    let exe = exe_name(name);
+    if let Ok(path) = std::env::var("PATH") {
+        for dir in std::env::split_paths(&path) {
+            if dir.join(&exe).exists() {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 fn exe_name(name: &str) -> String {
