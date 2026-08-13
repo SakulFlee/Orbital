@@ -6,10 +6,7 @@
 use orbital_file_manager::{FileManager, Storage};
 
 fn temp_dir(tag: &str) -> std::path::PathBuf {
-    let dir = std::env::temp_dir().join(format!(
-        "orbital_fm_test_{tag}_{}",
-        std::process::id()
-    ));
+    let dir = std::env::temp_dir().join(format!("orbital_fm_test_{tag}_{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("create temp dir");
     dir
@@ -25,13 +22,19 @@ fn storage_write_read_round_trip() {
         .expect("write creates parent dirs");
     assert!(storage.path_exists("nested/dir/file.bin"));
 
-    let bytes = storage.read_bytes("nested/dir/file.bin").expect("read back");
+    let bytes = storage
+        .read_bytes("nested/dir/file.bin")
+        .expect("read back");
     assert_eq!(bytes, vec![1, 2, 3, 4]);
 
     let text = "hello storage";
-    storage.write_bytes("nested/note.txt", text.as_bytes()).expect("write text");
+    storage
+        .write_bytes("nested/note.txt", text.as_bytes())
+        .expect("write text");
     assert_eq!(
-        storage.read_to_string("nested/note.txt").expect("read text"),
+        storage
+            .read_to_string("nested/note.txt")
+            .expect("read text"),
         text
     );
 
@@ -63,7 +66,9 @@ fn cache_namespace_is_separate_from_storage() {
         .expect("write cache creates parent dirs");
     assert!(storage.cache_path_exists("Orbital/IBLs/abc.bin"));
     assert_eq!(
-        storage.read_cache_bytes("Orbital/IBLs/abc.bin").expect("read cache"),
+        storage
+            .read_cache_bytes("Orbital/IBLs/abc.bin")
+            .expect("read cache"),
         vec![9, 8, 7]
     );
 
@@ -81,7 +86,8 @@ fn desktop_cache_uses_platform_cache_dir() {
     // Writing through the cache namespace must end up under the platform cache
     // dir, not the working directory.
     let probe = "orbital_fm_cache_probe.bin";
-    fm.write_cache_bytes(probe, &[1, 2, 3]).expect("write cache");
+    fm.write_cache_bytes(probe, &[1, 2, 3])
+        .expect("write cache");
     assert!(fm.cache_path_exists(probe));
 
     let cache_dir = dirs::cache_dir().expect("desktop cache dir exists");
@@ -103,10 +109,7 @@ fn global_file_manager_resolves_from_working_directory() {
     std::fs::write(assets.join(probe), "probe").expect("write probe");
 
     assert!(fm.asset_exists(probe));
-    assert_eq!(
-        fm.read_asset_to_string(probe).expect("read probe"),
-        "probe"
-    );
+    assert_eq!(fm.read_asset_to_string(probe).expect("read probe"), "probe");
 
     let _ = std::fs::remove_file(assets.join(probe));
 }

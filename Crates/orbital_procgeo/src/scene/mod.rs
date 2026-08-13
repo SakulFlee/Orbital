@@ -223,8 +223,8 @@ impl SceneBuilder {
 
     pub fn save(&self, path: &str) -> Result<(), Box<dyn std::error::Error>> {
         let s = self.to_ron()?;
-        let file_manager =
-            orbital_file_manager::FileManager::global().map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
+        let file_manager = orbital_file_manager::FileManager::global()
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
         file_manager
             .write_bytes(path, s.as_bytes())
             .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
@@ -232,8 +232,8 @@ impl SceneBuilder {
     }
 
     pub fn load(path: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        let file_manager =
-            orbital_file_manager::FileManager::global().map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
+        let file_manager = orbital_file_manager::FileManager::global()
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
         let s = file_manager
             .read_asset_to_string(path)
             .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
