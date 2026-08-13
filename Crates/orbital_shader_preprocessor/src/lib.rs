@@ -6,8 +6,8 @@ mod tests;
 
 use std::collections::HashMap;
 
-use orbital_file_manager::FileManager;
 use log::debug;
+use orbital_file_manager::FileManager;
 
 pub struct ShaderPreprocessor {
     known_imports: HashMap<String, String>,

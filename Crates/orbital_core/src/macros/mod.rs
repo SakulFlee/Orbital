@@ -20,10 +20,7 @@ macro_rules! make_android_main {
         #[allow(dead_code)]
         #[unsafe(no_mangle)]
         fn android_main(app: ::winit::platform::android::activity::AndroidApp) {
-            use ::winit::{
-                event_loop::EventLoop,
-                platform::android::EventLoopBuilderExtAndroid,
-            };
+            use ::winit::{event_loop::EventLoop, platform::android::EventLoopBuilderExtAndroid};
 
             // Set up the cross-platform file manager (AAssetManager + internal
             // storage) before anything tries to load assets.

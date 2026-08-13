@@ -136,7 +136,11 @@ fn imports_gltf_with_external_assets() {
 
     let _ = std::fs::remove_dir_all(&root);
 
-    assert!(result.errors.is_empty(), "import errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "import errors: {:?}",
+        result.errors
+    );
     assert_eq!(result.models.len(), 1, "expected exactly one model");
     assert_eq!(result.models[0].mesh.indices.len(), 3);
 }
@@ -193,7 +197,11 @@ fn imports_glb_with_embedded_bin() {
 
     let _ = std::fs::remove_dir_all(&root);
 
-    assert!(result.errors.is_empty(), "import errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "import errors: {:?}",
+        result.errors
+    );
     assert_eq!(result.models.len(), 1, "expected exactly one model");
     assert_eq!(result.models[0].mesh.indices.len(), 3);
 }

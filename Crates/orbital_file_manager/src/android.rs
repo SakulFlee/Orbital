@@ -23,8 +23,7 @@ impl AndroidAssetSource {
     }
 
     fn open(&self, path: &str) -> Result<Asset, FsError> {
-        let cstr = CString::new(path)
-            .map_err(|_| FsError::Utf8(path.to_string()))?;
+        let cstr = CString::new(path).map_err(|_| FsError::Utf8(path.to_string()))?;
         self.asset_manager
             .open(&cstr)
             .ok_or_else(|| FsError::NotFound(path.to_string()))

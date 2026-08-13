@@ -9,12 +9,10 @@ use image::{GenericImageView, ImageReader};
 use log::{debug, info, warn};
 use orbital_file_manager::FileManager;
 use std::error::Error;
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::Cursor;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Duration;
-use std::{
-    hash::{DefaultHasher, Hash, Hasher},
-};
 use wgpu::MipmapFilterMode;
 use wgpu::{
     AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,

@@ -39,11 +39,7 @@ use orbital_core::quaternion::quaternion_to_pitch_yaw;
 
 /// The result of parsing a glTF document: the document plus its decoded
 /// buffers and images.
-pub type GltfImportPayload = (
-    Document,
-    Vec<gltf::buffer::Data>,
-    Vec<gltf::image::Data>,
-);
+pub type GltfImportPayload = (Document, Vec<gltf::buffer::Data>, Vec<gltf::image::Data>);
 
 /// Reads the bytes backing a glTF buffer/image URI.
 ///
@@ -242,9 +238,8 @@ impl GltfImporter {
                 }
             };
 
-            let format = gltf_image_format(&decoded).ok_or_else(|| {
-                gltf::Error::UnsupportedImageFormat(decoded.clone())
-            })?;
+            let format = gltf_image_format(&decoded)
+                .ok_or_else(|| gltf::Error::UnsupportedImageFormat(decoded.clone()))?;
             let (width, height) = decoded.dimensions();
             let pixels = decoded.into_bytes();
 

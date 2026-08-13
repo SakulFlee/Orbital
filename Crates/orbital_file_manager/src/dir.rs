@@ -83,7 +83,10 @@ impl DirStorage {
     /// Creates storage rooted at `base_dir`, with cached files rooted at
     /// `cache_dir`.
     pub fn with_cache_dir(base_dir: PathBuf, cache_dir: PathBuf) -> Self {
-        Self { base_dir, cache_dir }
+        Self {
+            base_dir,
+            cache_dir,
+        }
     }
 
     fn resolve(&self, path: &str) -> PathBuf {

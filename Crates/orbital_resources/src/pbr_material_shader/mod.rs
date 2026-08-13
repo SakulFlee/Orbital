@@ -139,7 +139,7 @@ impl From<PBRMaterialShaderDescriptor> for MaterialShaderDescriptor {
             Some(base) => base,
             None => {
                 let mut base = MaterialShaderDescriptor::default();
-                base.shader_source =             ShaderSource::Path("Shaders/pbr.wgsl");
+                base.shader_source = ShaderSource::Path("Shaders/pbr.wgsl");
                 base.vertex_stage_layouts = Some(vec![
                     VertexStageLayout::ComplexVertexData,
                     VertexStageLayout::InstanceData,
