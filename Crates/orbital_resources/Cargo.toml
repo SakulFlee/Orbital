@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 orbital_core = { path = "../orbital_core" }
 orbital_shader_preprocessor = { path = "../orbital_shader_preprocessor" }
+orbital_file_manager = { path = "../orbital_file_manager" }
 wgpu = { workspace = true }
 cgmath = { workspace = true }
 image = { workspace = true }
@@ -13,7 +14,6 @@ log = { workspace = true }
 serde = { workspace = true }
 ulid = { workspace = true }
 hashbrown = { workspace = true }
-dirs = { workspace = true }
 
 [dev-dependencies]
 # Matches the naga version used by wgpu 30 — validates WGSL shaders in tests.

@@ -1,5 +1,7 @@
 pub use log::*;
+#[cfg(not(target_os = "android"))]
 use std::sync::Once;
+#[cfg(not(target_os = "android"))]
 use std::{fs, path::Path, time::SystemTime};
 
 #[cfg(target_os = "android")]

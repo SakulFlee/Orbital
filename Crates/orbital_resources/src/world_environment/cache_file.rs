@@ -1,11 +1,8 @@
-use std::{
-    fs::{self, File},
-    io::{Read, Write},
-    path::Path,
-};
+use std::io::{Cursor, Read};
 
 use cgmath::Vector2;
-use log::{debug, warn};
+use log::debug;
+use orbital_file_manager::FileManager;
 use serde::{Deserialize, Serialize};
 use wgpu::{Device, Queue, TextureFormat, TextureUsages};
 
@@ -22,27 +19,35 @@ pub struct CacheFile {
 }
 
 impl CacheFile {
-    pub fn from_path<P>(path: P) -> Result<Self, WorldEnvironmentError>
-    where
-        P: AsRef<Path>,
-    {
-        let mut file = File::open(path).map_err(WorldEnvironmentError::IO)?;
+    pub fn from_path(path: &str) -> Result<Self, WorldEnvironmentError> {
+        let file_manager = FileManager::global().map_err(WorldEnvironmentError::Fs)?;
+        let bytes = file_manager
+            .read_cache_bytes(path)
+            .map_err(WorldEnvironmentError::Fs)?;
+        Self::from_bytes(&bytes)
+    }
+
+    fn from_bytes(bytes: &[u8]) -> Result<Self, WorldEnvironmentError> {
+        let mut reader = Cursor::new(bytes);
 
         // Read sizes
         let mut size_buffer = [0u8; 8];
-        file.read_exact(&mut size_buffer)
+        reader
+            .read_exact(&mut size_buffer)
             .map_err(WorldEnvironmentError::IO)?;
         let diffuse_size = u64::from_le_bytes(size_buffer);
         debug!("IBL Diffuse expected size in bytes: {diffuse_size}");
 
-        file.read_exact(&mut size_buffer)
+        reader
+            .read_exact(&mut size_buffer)
             .map_err(WorldEnvironmentError::IO)?;
         let specular_size = u64::from_le_bytes(size_buffer);
         debug!("IBL Specular expected size in bytes: {specular_size}");
 
         // Read specular mip level count
         let mut mip_level_buffer = [0u8; 4];
-        file.read_exact(&mut mip_level_buffer)
+        reader
+            .read_exact(&mut mip_level_buffer)
             .map_err(WorldEnvironmentError::IO)?;
         let ibl_specular_mip_level_count = u32::from_le_bytes(mip_level_buffer);
         log::debug!("IBL Specular mip level count read from cache: {ibl_specular_mip_level_count}");
@@ -51,9 +56,11 @@ impl CacheFile {
         let mut ibl_diffuse_data = vec![0u8; diffuse_size as usize];
         let mut ibl_specular_data = vec![0u8; specular_size as usize];
 
-        file.read_exact(&mut ibl_diffuse_data)
+        reader
+            .read_exact(&mut ibl_diffuse_data)
             .map_err(WorldEnvironmentError::IO)?;
-        file.read_exact(&mut ibl_specular_data)
+        reader
+            .read_exact(&mut ibl_specular_data)
             .map_err(WorldEnvironmentError::IO)?;
 
         Ok(Self {
@@ -63,43 +70,30 @@ impl CacheFile {
         })
     }
 
-    pub fn to_path<P>(&self, path: P) -> Result<(), WorldEnvironmentError>
-    where
-        P: AsRef<Path>,
-    {
-        // Create parent folder(s) if they don't exist
-        if let Some(parent) = path.as_ref().parent() {
-            if !parent.exists() {
-                fs::create_dir_all(parent).map_err(WorldEnvironmentError::IO)?;
-            }
-        } else {
-            warn!(
-                "Path doesn't have a parent, the next step might fail to save the cache to disk!"
-            );
-        }
+    pub fn to_path(&self, path: &str) -> Result<(), WorldEnvironmentError> {
+        let file_manager = FileManager::global().map_err(WorldEnvironmentError::Fs)?;
+        file_manager
+            .write_cache_bytes(path, &self.to_bytes())
+            .map_err(WorldEnvironmentError::Fs)
+    }
 
-        // Create the file if it doesn't exist, truncate if it does, and write self to it
-        let mut file = File::create(path).map_err(WorldEnvironmentError::IO)?;
+    fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::with_capacity(
+            8 + 8 + 4 + self.ibl_diffuse_data.len() + self.ibl_specular_data.len(),
+        );
 
         // Write sizes first
-        file.write_all(&(self.ibl_diffuse_data.len() as u64).to_le_bytes())
-            .map_err(WorldEnvironmentError::IO)?;
-        file.write_all(&(self.ibl_specular_data.len() as u64).to_le_bytes())
-            .map_err(WorldEnvironmentError::IO)?;
+        bytes.extend_from_slice(&(self.ibl_diffuse_data.len() as u64).to_le_bytes());
+        bytes.extend_from_slice(&(self.ibl_specular_data.len() as u64).to_le_bytes());
 
         // Write specular mip level count
-        file.write_all(&self.ibl_specular_mip_level_count.to_le_bytes())
-            .map_err(WorldEnvironmentError::IO)?;
+        bytes.extend_from_slice(&self.ibl_specular_mip_level_count.to_le_bytes());
 
         // Write actual data
-        file.write_all(&self.ibl_diffuse_data)
-            .map_err(WorldEnvironmentError::IO)?;
-        file.write_all(&self.ibl_specular_data)
-            .map_err(WorldEnvironmentError::IO)?;
+        bytes.extend_from_slice(&self.ibl_diffuse_data);
+        bytes.extend_from_slice(&self.ibl_specular_data);
 
-        file.flush().map_err(WorldEnvironmentError::IO)?;
-
-        Ok(())
+        bytes
     }
 
     pub fn make_textures(
