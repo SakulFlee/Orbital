@@ -15,7 +15,7 @@ ulid = { workspace = true }
 wgpu = { workspace = true }
 rayon = { workspace = true }
 image = { workspace = true }
-base64 = "0.22"
+base64 = "0.23"
 urlencoding = "2.1"
 
 [dev-dependencies]
