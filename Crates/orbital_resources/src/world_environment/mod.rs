@@ -7,12 +7,13 @@
 use cgmath::Vector2;
 use image::{GenericImageView, ImageReader};
 use log::{debug, info, warn};
+use orbital_file_manager::FileManager;
 use std::error::Error;
+use std::io::Cursor;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Duration;
 use std::{
     hash::{DefaultHasher, Hash, Hasher},
-    path::PathBuf,
 };
 use wgpu::MipmapFilterMode;
 use wgpu::{
@@ -278,20 +279,19 @@ impl WorldEnvironment {
         }
     }
 
-    pub fn find_cache_dir() -> PathBuf {
-        dirs::cache_dir().expect("Could not find a valid cache location for the current platform! This platform might be unsupported ...")
-    .join("Orbital").join("IBLs")
-    }
+    /// Logical, FileManager-cache-relative directory of the IBL disk cache.
+    /// On desktop this resolves to the platform cache dir (`~/.cache`,
+    /// `%LOCALAPPDATA%`, `~/Library/Caches`); on Android it lands in the app's
+    /// internal cache storage.
+    pub const IBL_CACHE_DIR: &'static str = "Orbital/IBLs";
 
-    pub fn find_cache_file(descriptor: &WorldEnvironmentDescriptor) -> PathBuf {
-        let cache_dir = Self::find_cache_dir();
-
+    pub fn find_cache_file(descriptor: &WorldEnvironmentDescriptor) -> String {
         // Hash the descriptor to use as filename
         let mut hasher = DefaultHasher::new();
         descriptor.hash(&mut hasher);
         let hash = hasher.finish().to_string();
 
-        cache_dir.join(format!("{hash}.bin"))
+        format!("{}/{}", Self::IBL_CACHE_DIR, hash)
     }
 
     pub fn from_descriptor(
@@ -319,7 +319,7 @@ impl WorldEnvironment {
             let (x, y) = Self::make_from_descriptor(descriptor, device, queue)?;
             (x, y, false)
         } else {
-            match CacheFile::from_path(cache_file.clone()) {
+            match CacheFile::from_path(&cache_file) {
                 Ok(cache_file) => {
                     let (pbr_ibl_diffuse, pbr_ibl_specular) =
                         cache_file.make_textures(descriptor, device, queue);
@@ -527,7 +527,13 @@ impl WorldEnvironment {
         device: &Device,
         queue: &Queue,
     ) -> Result<(Texture, Texture), Box<dyn Error>> {
-        let img = ImageReader::open(file_path)
+        let file_manager = FileManager::global().map_err(WorldEnvironmentError::Fs)?;
+        let bytes = file_manager
+            .read_asset_bytes(file_path)
+            .map_err(WorldEnvironmentError::Fs)?;
+
+        let img = ImageReader::new(Cursor::new(bytes))
+            .with_guessed_format()
             .map_err(WorldEnvironmentError::IO)?
             .decode()
             .map_err(WorldEnvironmentError::Image)?;
@@ -1537,7 +1543,7 @@ impl WorldEnvironment {
 
     pub fn write_to_cache(
         &self,
-        cache_path: &PathBuf,
+        cache_path: &str,
         device: &Device,
         queue: &Queue,
     ) -> Result<(), WorldEnvironmentError> {

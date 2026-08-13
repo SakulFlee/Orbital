@@ -73,7 +73,7 @@ impl Module for PbrGridModule {
         // Queue glTF import
         if let Some(mut queue) = ecs.get_resource_mut::<ImportQueueResource>() {
             queue.push(ImportTask::Gltf {
-                file_path: "Assets/Models/PBR_Grid.glb".into(),
+                file_path: "Models/PBR_Grid.glb".into(),
                 task: GltfImport::WholeFile,
             });
         }

@@ -21,13 +21,13 @@ glob = { workspace = true }
 
 [dependencies]
 orbital_core = { path = "../orbital_core" }
+orbital_file_manager = { path = "../orbital_file_manager" }
 orbital_input = { path = "../orbital_input" }
 orbital_shader_preprocessor = { path = "../orbital_shader_preprocessor" }
 orbital_resources = { path = "../orbital_resources" }
 orbital_importer_gltf = { path = "../orbital_importer_gltf" }
 wgpu = { workspace = true }
 cgmath = { workspace = true }
-dirs = { workspace = true }
 gltf = { workspace = true }
 hashbrown = { workspace = true }
 image = { workspace = true }
