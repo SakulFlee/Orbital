@@ -231,8 +231,8 @@ impl GltfImporter {
                 }
                 gltf::image::Source::View { view, .. } => {
                     let parent = &buffers[view.buffer().index()].0;
-                    let start = view.offset() as usize;
-                    let end = start + view.length() as usize;
+                    let start = view.offset();
+                    let end = start + view.length();
                     let encoded = &parent[start..end];
                     image::load_from_memory(encoded)?
                 }
