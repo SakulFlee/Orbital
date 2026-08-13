@@ -1,4 +1,4 @@
-use std::fs::read_to_string;
+use orbital_file_manager::FileManager;
 
 use super::ShaderError;
 
@@ -17,7 +17,12 @@ impl Default for ShaderSource {
 impl ShaderSource {
     pub fn read_as_string(self) -> Result<String, ShaderError> {
         match self {
-            ShaderSource::Path(path) => read_to_string(path).map_err(ShaderError::IO),
+            ShaderSource::Path(path) => {
+                let file_manager = FileManager::global().map_err(ShaderError::Fs)?;
+                file_manager
+                    .read_asset_to_string(path)
+                    .map_err(ShaderError::Fs)
+            }
             ShaderSource::String(string) => Ok(string.to_string()),
         }
     }

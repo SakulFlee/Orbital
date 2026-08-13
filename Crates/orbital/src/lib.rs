@@ -6,6 +6,7 @@ pub use orbital_app as app;
 pub use orbital_debug_render as debug_render;
 pub use orbital_ecs as ecs;
 pub use orbital_ecs_bridge as ecs_bridge;
+pub use orbital_file_manager as file_manager;
 pub use orbital_importer_gltf as importer;
 pub use orbital_procgeo as procgeo;
 pub use orbital_renderer as renderer;
@@ -16,7 +17,7 @@ pub use orbital_shader_preprocessor as shader_preprocessor;
 pub mod wgpu_test_adapter;
 
 pub use orbital_core::{cache, logging, macros, mip_level, or, quaternion};
-pub use orbital_core::{make_android_main, make_desktop_main};
+pub use orbital_core::{make_android_main, make_desktop_main, make_main};
 
 // Re-exports
 pub use cgmath;

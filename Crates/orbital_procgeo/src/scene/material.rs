@@ -148,7 +148,7 @@ impl SceneMaterial {
             }
             SceneMaterial::GridWireframe => {
                 let mut base = MaterialShaderDescriptor::default();
-                base.shader_source = ShaderSource::Path("Assets/Shaders/wireframe.wgsl");
+                base.shader_source = ShaderSource::Path("Shaders/wireframe.wgsl");
                 base.entrypoint_vertex = "entrypoint_vertex";
                 base.entrypoint_fragment = "entrypoint_fragment";
                 base.vertex_stage_layouts = Some(vec![

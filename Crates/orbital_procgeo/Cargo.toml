@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 orbital_resources = { path = "../orbital_resources" }
+orbital_file_manager = { path = "../orbital_file_manager" }
 cgmath = { workspace = true }
 wgpu = { workspace = true }
 serde = { workspace = true }

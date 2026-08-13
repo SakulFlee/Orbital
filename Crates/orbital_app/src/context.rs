@@ -137,12 +137,20 @@ impl AppContext {
     }
 
     fn make_device_and_queue(adapter: &Adapter) -> Result<(Device, Queue), RequestDeviceError> {
-        let timestamp_features =
-            Features::TIMESTAMP_QUERY | Features::TIMESTAMP_QUERY_INSIDE_ENCODERS;
-        let mut features = Features::default() | Features::POLYGON_MODE_LINE;
-        if adapter.features().contains(timestamp_features) {
-            features |= timestamp_features;
+        // Only request features the adapter actually reports. In particular
+        // `POLYGON_MODE_LINE` is commonly missing on mobile GPUs (Android), and
+        // requesting unsupported features makes `request_device` fail outright.
+        let mut features = Features::default();
+        for feature in [
+            Features::POLYGON_MODE_LINE,
+            Features::TIMESTAMP_QUERY,
+            Features::TIMESTAMP_QUERY_INSIDE_ENCODERS,
+        ] {
+            if adapter.features().contains(feature) {
+                features |= feature;
+            }
         }
+
         block_on(adapter.request_device(&DeviceDescriptor {
             label: Some("Orbital GPU"),
             required_features: features,

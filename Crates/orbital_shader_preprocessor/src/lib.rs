@@ -4,14 +4,10 @@ pub use error::ShaderPreprocessorError;
 #[cfg(test)]
 mod tests;
 
-use std::{
-    collections::HashMap,
-    fs::{canonicalize, read_to_string},
-    path::PathBuf,
-};
+use std::collections::HashMap;
 
-use glob::glob;
 use log::debug;
+use orbital_file_manager::FileManager;
 
 pub struct ShaderPreprocessor {
     known_imports: HashMap<String, String>,
@@ -22,21 +18,16 @@ impl ShaderPreprocessor {
 
     pub const IMPORT_EXPRESSION_END: &'static str = ">";
 
-    #[cfg(debug_assertions)]
-    pub const SHADER_LIB_IMPORT_FOLDER_PATH_DEBUG_BUILD: &'static str = "../../Assets/Shaders";
-
-    #[cfg(not(debug_assertions))]
-    pub const SHADER_LIB_IMPORT_FOLDER_PATH: &'static str = "Assets/shaders";
+    /// Asset-relative folder (no `Assets/` prefix) scanned for importable WGSL
+    /// shader snippets. Resolved through the
+    /// [`FileManager`](orbital_file_manager::FileManager).
+    pub const SHADER_LIB_IMPORT_FOLDER_PATH: &'static str = "Shaders";
 
     pub fn new_with_defaults() -> Result<Self, ShaderPreprocessorError> {
         let mut s = Self {
             known_imports: HashMap::new(),
         };
 
-        #[cfg(debug_assertions)]
-        s.import_folder(Self::SHADER_LIB_IMPORT_FOLDER_PATH_DEBUG_BUILD)?;
-
-        #[cfg(not(debug_assertions))]
         s.import_folder(Self::SHADER_LIB_IMPORT_FOLDER_PATH)?;
 
         Ok(s)
@@ -52,24 +43,24 @@ impl ShaderPreprocessor {
         self.known_imports.insert(directive.into(), content.into());
     }
 
-    pub fn add_file_import<D: Into<String>, P: Into<PathBuf>>(
+    pub fn add_file_import<S0: Into<String>, S1: Into<String>>(
         &mut self,
-        directive: Option<D>,
-        path: P,
+        directive: Option<S0>,
+        path: S1,
     ) -> Result<(), ShaderPreprocessorError> {
-        let path: PathBuf = path.into();
-
-        let directive: String = directive.map(|x| x.into()).unwrap_or(
-            path.file_stem()
-                .expect("A filename must be present")
-                .to_str()
-                .ok_or(ShaderPreprocessorError::NonUTF8FileName {
-                    file_name: path.clone().into_os_string(),
-                })?
+        let path = path.into();
+        let directive: String = directive.map(Into::into).unwrap_or(
+            path.rsplit('/')
+                .next()
+                .and_then(|name| name.split('.').next())
+                .unwrap_or(&path)
                 .to_string(),
         );
 
-        let content = read_to_string(&path).map_err(ShaderPreprocessorError::IOError)?;
+        let file_manager = FileManager::global().map_err(ShaderPreprocessorError::Fs)?;
+        let content = file_manager
+            .read_asset_to_string(&path)
+            .map_err(ShaderPreprocessorError::Fs)?;
 
         self.add_import(directive, content);
 
@@ -80,39 +71,30 @@ impl ShaderPreprocessor {
         &mut self,
         path: S,
     ) -> Result<(), ShaderPreprocessorError> {
-        const PATTERN: &str = "**/*.wgsl";
+        let path = path.into();
 
-        let path_into = path.into();
+        let file_manager = FileManager::global().map_err(ShaderPreprocessorError::Fs)?;
+        let files = file_manager
+            .list_asset_dir(&path)
+            .map_err(ShaderPreprocessorError::Fs)?;
 
-        let mut pattern_path = path_into.clone();
-        if !pattern_path.ends_with("/") {
-            pattern_path.push('/');
-        }
-
-        pattern_path += PATTERN;
-        for entry in glob(&pattern_path)
-            .map_err(ShaderPreprocessorError::PatternError)?
-            .filter_map(Result::ok)
-        {
-            let directive = &entry
-                .strip_prefix(&path_into)
-                .expect("Base got merged into pattern. It cannot not be here.")
-                .to_str()
-                .ok_or(ShaderPreprocessorError::NonUTF8FileName {
-                    file_name: entry.clone().into_os_string(),
-                })?
-                .replace("\\", "/")
-                .replace(".wgsl", "")
+        for file in files {
+            let directive = file
+                .strip_suffix(".wgsl")
+                .unwrap_or(&file)
+                .replace('\\', "/")
                 .to_lowercase();
 
-            let content = read_to_string(&entry).map_err(ShaderPreprocessorError::IOError)?;
-            debug!(
-                "Imported content for directive '{}' ({:?}):\n{}\n",
-                directive,
-                canonicalize(&entry)
-                    .expect("Debug print for canonicalized relative path failed ...?"),
-                content
-            );
+            let full_path = if path.is_empty() {
+                file.clone()
+            } else {
+                format!("{path}/{file}")
+            };
+
+            let content = file_manager
+                .read_asset_to_string(&full_path)
+                .map_err(ShaderPreprocessorError::Fs)?;
+            debug!("Imported content for directive '{directive}' ({full_path}):\n{content}\n");
 
             self.add_import(directive, content);
         }
