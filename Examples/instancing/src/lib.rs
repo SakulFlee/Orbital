@@ -73,7 +73,7 @@ impl Module for InstancingModule {
         // Import instancing test model
         if let Some(mut queue) = ecs.get_resource_mut::<ImportQueueResource>() {
             queue.push(ImportTask::Gltf {
-                file_path: "Assets/Models/InstancingTest.glb".into(),
+                file_path: "Models/InstancingTest.glb".into(),
                 task: GltfImport::WholeFile,
             });
         }
