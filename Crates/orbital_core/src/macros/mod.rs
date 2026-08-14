@@ -8,7 +8,7 @@ macro_rules! make_desktop_main {
 
             let event_loop = EventLoop::builder().build();
 
-            entrypoint(event_loop);
+            $entrypoint_fn(event_loop);
         }
     };
 }
@@ -26,7 +26,7 @@ macro_rules! make_android_main {
             };
             let event_loop = EventLoop::builder().with_android_app(app).build();
 
-            entrypoint(event_loop);
+            $entrypoint_fn(event_loop);
         }
     };
 }

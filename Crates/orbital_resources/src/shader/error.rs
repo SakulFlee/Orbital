@@ -12,6 +12,7 @@ pub enum ShaderError {
     ShaderPreprocessor(ShaderPreprocessorError),
     Texture(TextureError),
     IO(IOError),
+    Fs(orbital_file_manager::FsError),
 }
 
 impl Display for ShaderError {

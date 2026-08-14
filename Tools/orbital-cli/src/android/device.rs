@@ -143,7 +143,7 @@ pub fn wait_for_boot(adb: &Path, serial: &str) -> Result<()> {
         .args(["-s", serial, "wait-for-device"])
         .status();
 
-    let timeout = Duration::from_secs(180);
+    let timeout = Duration::from_secs(300);
     let start = Instant::now();
     while !is_booted(adb, serial) {
         if start.elapsed() > timeout {
@@ -151,6 +151,9 @@ pub fn wait_for_boot(adb: &Path, serial: &str) -> Result<()> {
                 "Timed out waiting for device {} to finish booting",
                 serial
             );
+        }
+        if start.elapsed().as_secs().is_multiple_of(30) {
+            println!("Still waiting for {} to finish booting...", serial);
         }
         std::thread::sleep(Duration::from_secs(2));
     }
@@ -169,26 +172,48 @@ pub fn boot_avd(emulator: &Path, name: &str, adb: &Path) -> Result<String> {
         .map(|d| d.serial)
         .collect();
 
+    // Capture emulator output so startup failures are diagnosable.
+    let log_path = std::env::temp_dir().join(format!("orbital-emulator-{}.log", name));
+    let log_file = std::fs::File::create(&log_path)
+        .with_context(|| format!("Failed to create emulator log at {}", log_path.display()))?;
+    let log_stdout = log_file.try_clone()?;
+
     println!("Starting emulator '{}'...", name);
+    println!("Emulator log: {}", log_path.display());
     Command::new(emulator)
-        .args(["-avd", name, "-no-snapshot", "-no-audio"])
+        .args(["-avd", name, "-no-boot-anim", "-no-audio"])
         .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stdout(Stdio::from(log_stdout))
+        .stderr(Stdio::from(log_file))
         .spawn()
         .with_context(|| format!("Failed to start emulator: {}", emulator.display()))?;
 
-    // Wait for a new emulator-* device to appear.
-    let timeout = Duration::from_secs(120);
+    // Wait for a new emulator-* device to appear in adb.
+    let timeout = Duration::from_secs(300);
     let start = Instant::now();
     loop {
-        if start.elapsed() > timeout {
-            anyhow::bail!("Timed out waiting for emulator '{}' to start", name);
-        }
         for d in list_devices(adb)? {
             if d.is_emulator && !before.contains(&d.serial) {
+                println!("Emulator '{}' appeared as {}.", name, d.serial);
                 return Ok(d.serial);
             }
+        }
+
+        let elapsed = start.elapsed();
+        if elapsed > timeout {
+            anyhow::bail!(
+                "Timed out waiting for emulator '{}' to start.\n\
+                 Check the emulator log for errors: {}",
+                name,
+                log_path.display()
+            );
+        }
+        if elapsed.as_secs().is_multiple_of(30) {
+            println!(
+                "Still waiting for emulator '{}' to appear in adb ({}s elapsed)...",
+                name,
+                elapsed.as_secs()
+            );
         }
         std::thread::sleep(Duration::from_secs(2));
     }

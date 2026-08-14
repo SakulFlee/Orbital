@@ -10,6 +10,7 @@ fern = { workspace = true }
 humantime = { workspace = true }
 cgmath = { workspace = true }
 pollster = { workspace = true }
+orbital_file_manager = { path = "../orbital_file_manager" }
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = { workspace = true }

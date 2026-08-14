@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 orbital_core = { path = "../orbital_core" }
 orbital_resources = { path = "../orbital_resources" }
+orbital_file_manager = { path = "../orbital_file_manager" }
 cgmath = { workspace = true }
 gltf = { workspace = true }
 hashbrown = { workspace = true }
@@ -13,3 +14,9 @@ log = { workspace = true }
 ulid = { workspace = true }
 wgpu = { workspace = true }
 rayon = { workspace = true }
+image = { workspace = true }
+base64 = "0.22"
+urlencoding = "2.1"
+
+[dev-dependencies]
+serde_json = "1"

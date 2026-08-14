@@ -4,6 +4,7 @@ use std::fmt::Display;
 pub enum WorldEnvironmentError {
     IO(std::io::Error),
     Image(image::ImageError),
+    Fs(orbital_file_manager::FsError),
     Msg(String),
 }
 
@@ -20,6 +21,7 @@ impl Display for WorldEnvironmentError {
         match self {
             Self::IO(e) => write!(f, "IO error: {e}"),
             Self::Image(e) => write!(f, "Image error: {e}"),
+            Self::Fs(e) => write!(f, "FileManager error: {e}"),
             Self::Msg(m) => write!(f, "{m}"),
         }
     }
