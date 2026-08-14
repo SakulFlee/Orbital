@@ -250,7 +250,7 @@ fn update_android_project(
     if build_gradle_path.exists() {
         let content = std::fs::read_to_string(&build_gradle_path)
             .context("Failed to read app/build.gradle")?;
-        let content = content.replace("@@@PACKAGE_NAME@@@", &format!("{}.{}", config.package_name(), package_name));
+        let content = content.replace("@@@PACKAGE_NAME@@@", config.package_name());
         let content = content.replace("@@@MIN_SDK@@@", &config.min_sdk().to_string());
         let content = content.replace("@@@TARGET_SDK@@@", &config.target_sdk().to_string());
         std::fs::write(&build_gradle_path, content)

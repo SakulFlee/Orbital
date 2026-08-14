@@ -10,7 +10,7 @@ pub fn run(
     package_name: Option<&str>,
     device_serial: Option<&str>,
     skip_build: bool,
-    logcat: bool,
+    no_logcat: bool,
 ) -> Result<()> {
     // First build (unless skipped)
     if !skip_build {
@@ -21,12 +21,8 @@ pub fn run(
     let android_dir = project_root.join("Android");
 
     let android_config = config::load_android_config()?;
-    let package = if let Some(pkg) = package_name {
-        pkg.to_string()
-    } else {
-        config::get_package_name()?
-    };
-    let full_package = format!("{}.{}", android_config.package_name(), package);
+    // The applicationId is exactly the [android] package value (see init).
+    let full_package = android_config.package_name().to_string();
 
     // Resolve adb and pick a target (device, emulator, or create one)
     let adb = device::resolve_adb()?;
@@ -46,27 +42,40 @@ pub fn run(
     }
 
     println!("Launching app...");
-    let status = Command::new(&adb)
-        .args([
-            "-s", &serial, "shell", "am", "start", "-n",
-        ])
+    let output = Command::new(&adb)
+        .args(["-s", &serial, "shell", "am", "start", "-n"])
         .arg(format!("{}/android.app.NativeActivity", full_package))
-        .status()
+        .output()
         .context("Failed to run adb shell am start")?;
-    if !status.success() {
-        anyhow::bail!("Failed to launch app");
+
+    // `am start` exits 0 even when the launch fails, so inspect the output.
+    let combined = format!(
+        "{} {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    if !output.status.success() || combined.contains("Error") {
+        anyhow::bail!(
+            "Failed to launch app on {}:\n{}",
+            serial,
+            combined.trim()
+        );
     }
 
     println!("\nApp launched successfully on {}!", serial);
 
-    if logcat {
-        println!("Streaming logcat (Ctrl+C to stop)...\n");
-        Command::new(&adb)
-            .args(["-s", &serial, "logcat", "-s", "rust_std_out"])
-            .status()
-            .context("Failed to run adb logcat")?;
+    if no_logcat {
+        println!(
+            "To view logs: {} -s {} logcat -s rust_std_out",
+            adb.display(),
+            serial
+        );
     } else {
-        println!("To view logs: adb -s {} logcat -s rust_std_out", serial);
+        // Automatically attach to the device log stream.
+        println!("Streaming logcat (Ctrl+C to stop)...\n");
+        let _ = Command::new(&adb)
+            .args(["-s", &serial, "logcat", "-s", "rust_std_out"])
+            .status();
     }
 
     Ok(())
