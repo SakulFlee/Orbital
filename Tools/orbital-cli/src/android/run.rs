@@ -113,13 +113,23 @@ fn select_device(adb: &Path, requested: Option<&str>) -> Result<String> {
     let emulator = device::resolve_emulator()?.unwrap();
     let avds = device::list_avds(&emulator)?;
 
-    let avd = if avds.is_empty() {
+    // Only AVDs whose system image is present in some SDK can actually boot.
+    let bootable: Vec<String> = avds
+        .iter()
+        .filter(|a| device::avd_sdk_root(a).is_some())
+        .cloned()
+        .collect();
+
+    let avd = if bootable.is_empty() {
+        if !avds.is_empty() {
+            println!("No existing AVD has a usable system image installed.");
+        }
         setup_new_avd()?
-    } else if avds.len() == 1 {
-        println!("Using existing AVD: {}", avds[0]);
-        avds[0].clone()
+    } else if bootable.len() == 1 {
+        println!("Using existing AVD: {}", bootable[0]);
+        bootable[0].clone()
     } else {
-        Select::new("Select an emulator to boot:", avds).prompt()?
+        Select::new("Select an emulator to boot:", bootable).prompt()?
     };
 
     // setup_new_avd may have just installed the emulator package; re-resolve.
@@ -157,6 +167,12 @@ fn select_requested(adb: &Path, devices: &[Device], requested: &str) -> Result<S
     };
     let avds = device::list_avds(&emulator)?;
     if avds.iter().any(|a| a == requested) {
+        if device::avd_sdk_root(requested).is_none() {
+            anyhow::bail!(
+                "AVD '{}' has no usable system image installed. Run 'orbital run android' without --device to create a working emulator.",
+                requested
+            );
+        }
         let serial = device::boot_avd(&emulator, requested, adb)?;
         device::wait_for_boot(adb, &serial)?;
         return Ok(serial);
@@ -204,22 +220,38 @@ fn prompt_device(devices: &[Device]) -> Result<Device> {
 fn setup_new_avd() -> Result<String> {
     let system_image = crate::android::sdk::system_image_package()?;
 
-    println!("\nNo emulator (AVD) is configured.");
-    println!("To run on an emulator we need to install:");
-    println!("  - Android Emulator (~400 MB)");
-    println!("  - System image {} (~1.5 GB)", system_image);
-    println!("  - Create a new AVD");
+    let emulator_missing = device::resolve_emulator()?.is_none();
+    let image_missing = !crate::android::sdk::package_installed(&system_image);
 
-    let confirmed = Confirm::new("Install these and create an emulator now?")
-        .with_default(true)
-        .prompt()?;
-    if !confirmed {
-        anyhow::bail!(
-            "Emulator setup declined. Connect a device with USB debugging enabled or run again to set up an emulator."
-        );
+    if emulator_missing || image_missing {
+        println!("\nNo working emulator is configured.");
+        println!("To set one up we need to install:");
+        if emulator_missing {
+            println!("  - Android Emulator (~400 MB)");
+        }
+        if image_missing {
+            println!("  - System image {} (~1.5 GB)", system_image);
+        }
+
+        let confirmed = Confirm::new("Install these and create an emulator now?")
+            .with_default(true)
+            .prompt()?;
+        if !confirmed {
+            anyhow::bail!(
+                "Emulator setup declined. Connect a device with USB debugging enabled or run again to set up an emulator."
+            );
+        }
+
+        let mut to_install = Vec::new();
+        if emulator_missing {
+            to_install.push("emulator".to_string());
+        }
+        if image_missing {
+            to_install.push(system_image.clone());
+        }
+        crate::android::sdk::sdkmanager_install(&to_install)?;
     }
 
-    crate::android::sdk::sdkmanager_install(&["emulator".to_string(), system_image.clone()])?;
     crate::android::sdk::create_avd("orbital-default", &system_image)?;
 
     Ok("orbital-default".to_string())
