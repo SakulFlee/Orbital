@@ -72,9 +72,9 @@ enum Commands {
         /// Skip rebuilding and install the existing APK
         #[arg(long)]
         skip_build: bool,
-        /// Stream logcat output after launching
+        /// Skip streaming logcat after launching (attached by default)
         #[arg(long)]
-        logcat: bool,
+        no_logcat: bool,
     },
 }
 
@@ -111,10 +111,10 @@ fn main() -> Result<()> {
             package,
             device,
             skip_build,
-            logcat,
+            no_logcat,
         } => match platform.unwrap_or(Platform::Desktop) {
             Platform::Desktop => desktop::run(),
-            Platform::Android => android::run::run(package.as_deref(), device.as_deref(), skip_build, logcat),
+            Platform::Android => android::run::run(package.as_deref(), device.as_deref(), skip_build, no_logcat),
         },
     }
 }

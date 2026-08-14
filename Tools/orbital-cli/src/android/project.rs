@@ -109,9 +109,9 @@ fn create_replacements(config: &config::AndroidConfig) -> Vec<(String, String)> 
         ("@@@TARGET_SDK@@@".to_string(), config.target_sdk().to_string()),
         ("@@@AGP_VERSION@@@".to_string(), "9.3.1".to_string()),
         ("@@@NDK_VERSION@@@".to_string(), config.ndk_version().to_string()),
-        // These will be replaced later during build
-        ("@@@LIBRARY_NAME@@@".to_string(), "placeholder".to_string()),
-        ("@@@APP_NAME@@@".to_string(), "Orbital App".to_string()),
+        // @@@LIBRARY_NAME@@@ and @@@APP_NAME@@@ are intentionally left
+        // unreplaced here; they're finalized during build with the actual
+        // crate/lib names (see update_android_project).
     ]
 }
 
