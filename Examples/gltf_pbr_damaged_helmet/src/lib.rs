@@ -100,7 +100,7 @@ impl Module for DamagedHelmetModule {
         // Import model
         if let Some(mut queue) = ecs.get_resource_mut::<ImportQueueResource>() {
             queue.push(ImportTask::Gltf {
-                file_path: "Assets/Models/DamagedHelmet.glb".into(),
+                file_path: "Models/DamagedHelmet.glb".into(),
                 task: GltfImport::WholeFile,
             });
         }

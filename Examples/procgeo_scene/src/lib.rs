@@ -270,7 +270,7 @@ impl Module for ProcgeoSceneModule {
         )));
 
         // Load scene from RON file
-        let scene = match SceneBuilder::load("Assets/Scenes/procgeo_demo.ron") {
+        let scene = match SceneBuilder::load("Scenes/procgeo_demo.ron") {
             Ok(s) => s,
             Err(e) => {
                 error!("Failed to load scene: {}", e);
@@ -302,7 +302,7 @@ impl Module for ProcgeoSceneModule {
         // Import the DamagedHelmet into Room 2
         if let Some(mut queue) = ecs.get_resource_mut::<ImportQueueResource>() {
             queue.push(ImportTask::Gltf {
-                file_path: "Assets/Models/DamagedHelmet.glb".into(),
+                file_path: "Models/DamagedHelmet.glb".into(),
                 task: GltfImport::WholeFile,
             });
             info!("Queued DamagedHelmet import");

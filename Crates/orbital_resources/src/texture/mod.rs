@@ -1,9 +1,11 @@
 use std::ffi::OsString;
+use std::io::Cursor;
 use std::time::Duration;
 
 use cgmath::{Vector2, Vector4};
 use image::ImageReader;
 use log::warn;
+use orbital_file_manager::FileManager;
 use wgpu::wgt::PollType;
 use wgpu::{
     AddressMode, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Device, Extent3d,
@@ -246,7 +248,15 @@ impl Texture {
         device: &Device,
         queue: &Queue,
     ) -> Result<Self, TextureError> {
-        let img = ImageReader::open(file_path)
+        let path = file_path.to_string_lossy();
+
+        let file_manager = FileManager::global().map_err(TextureError::FsError)?;
+        let bytes = file_manager
+            .read_asset_bytes(&path)
+            .map_err(TextureError::FsError)?;
+
+        let img = ImageReader::new(Cursor::new(bytes))
+            .with_guessed_format()
             .map_err(TextureError::IOError)?
             .decode()
             .map_err(TextureError::ImageError)?;

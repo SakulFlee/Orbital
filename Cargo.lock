@@ -2532,7 +2532,6 @@ version = "0.1.0"
 dependencies = [
  "android_logger",
  "cgmath",
- "dirs",
  "gilrs",
  "glob",
  "gltf",
@@ -2544,6 +2543,7 @@ dependencies = [
  "orbital_debug_render",
  "orbital_ecs",
  "orbital_ecs_bridge",
+ "orbital_file_manager",
  "orbital_importer_gltf",
  "orbital_input",
  "orbital_procgeo",
@@ -2603,6 +2603,7 @@ dependencies = [
  "hashbrown 0.17.1",
  "humantime",
  "log",
+ "orbital_file_manager",
  "pollster",
 ]
 
@@ -2645,17 +2646,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "orbital_file_manager"
+version = "0.1.0"
+dependencies = [
+ "dirs",
+ "log",
+ "ndk",
+]
+
+[[package]]
 name = "orbital_importer_gltf"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "cgmath",
  "gltf",
  "hashbrown 0.17.1",
+ "image",
  "log",
  "orbital_core",
+ "orbital_file_manager",
  "orbital_resources",
  "rayon",
+ "serde_json",
  "ulid",
+ "urlencoding",
  "wgpu",
 ]
 
@@ -2676,6 +2691,7 @@ version = "0.1.0"
 dependencies = [
  "cgmath",
  "log",
+ "orbital_file_manager",
  "orbital_resources",
  "ron",
  "serde",
@@ -2696,12 +2712,12 @@ name = "orbital_resources"
 version = "0.1.0"
 dependencies = [
  "cgmath",
- "dirs",
  "hashbrown 0.17.1",
  "image",
  "log",
  "naga",
  "orbital_core",
+ "orbital_file_manager",
  "orbital_shader_preprocessor",
  "serde",
  "ulid",
@@ -2712,8 +2728,8 @@ dependencies = [
 name = "orbital_shader_preprocessor"
 version = "0.1.0"
 dependencies = [
- "glob",
  "log",
+ "orbital_file_manager",
 ]
 
 [[package]]
