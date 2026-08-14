@@ -523,6 +523,43 @@ pub fn current_sdk_path() -> Option<PathBuf> {
     detect_android_sdk()
 }
 
+/// Return all candidate SDK paths, in priority order (Orbital cache, then
+/// env vars, then Android Studio defaults). Some AVDs reference system
+/// images that live in a different SDK than the first one detected, so the
+/// emulator must search across all of them.
+pub fn candidate_sdk_paths() -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+
+    if let Ok(dir) = crate::tooling::android_sdk_dir() {
+        push_unique(&mut paths, dir);
+    }
+    for var in ["ANDROID_HOME", "ANDROID_SDK_ROOT", "ANDROID_SDK"] {
+        if let Ok(path) = std::env::var(var) {
+            push_unique(&mut paths, PathBuf::from(path));
+        }
+    }
+
+    if cfg!(windows) {
+        if let Ok(local) = std::env::var("LOCALAPPDATA") {
+            push_unique(&mut paths, PathBuf::from(local).join("Android").join("Sdk"));
+        }
+    } else if cfg!(target_os = "macos") {
+        let home = std::env::var("HOME").unwrap_or_default();
+        push_unique(&mut paths, PathBuf::from(home).join("Library").join("Android").join("sdk"));
+    } else {
+        let home = std::env::var("HOME").unwrap_or_default();
+        push_unique(&mut paths, PathBuf::from(home).join("Android").join("Sdk"));
+    }
+
+    paths
+}
+
+fn push_unique(paths: &mut Vec<PathBuf>, p: PathBuf) {
+    if !paths.contains(&p) {
+        paths.push(p);
+    }
+}
+
 fn sdkmanager_path(sdk_path: &Path) -> PathBuf {
     if cfg!(windows) {
         sdk_path
@@ -568,6 +605,28 @@ pub fn system_image_package() -> Result<String> {
         "system-images;android-{};google_apis;{}",
         target_sdk, abi
     ))
+}
+
+/// Whether an sdkmanager package is actually installed in the SDK (by mapping
+/// the package id to its on-disk directory, e.g.
+/// `system-images;android-34;google_apis;x86_64` ->
+/// `<sdk>/system-images/android-34/google_apis/x86_64`). A system image only
+/// counts as installed once its `system.img` is present — an empty dir with
+/// just an `.installer` marker means a stale/interrupted install.
+pub fn package_installed(package: &str) -> bool {
+    let Some(sdk) = current_sdk_path() else {
+        return false;
+    };
+    let rel = package.replace(';', "/");
+    let dir = sdk.join(&rel);
+    if !dir.exists() {
+        return false;
+    }
+    if package.starts_with("system-images;") {
+        dir.join("system.img").exists()
+    } else {
+        true
+    }
 }
 
 /// Install the given sdkmanager packages (e.g. "emulator", system images).

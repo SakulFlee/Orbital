@@ -180,12 +180,21 @@ pub fn boot_avd(emulator: &Path, name: &str, adb: &Path) -> Result<String> {
 
     println!("Starting emulator '{}'...", name);
     println!("Emulator log: {}", log_path.display());
-    Command::new(emulator)
-        .args(["-avd", name, "-no-boot-anim", "-no-audio"])
+
+    let mut cmd = Command::new(emulator);
+    cmd.args(["-avd", name, "-no-boot-anim", "-no-audio"])
         .stdin(Stdio::null())
         .stdout(Stdio::from(log_stdout))
-        .stderr(Stdio::from(log_file))
-        .spawn()
+        .stderr(Stdio::from(log_file));
+
+    // An AVD's system image may live in a different SDK than the one the
+    // emulator infers from its own location. Point it at the correct root.
+    if let Some(root) = avd_sdk_root(name) {
+        println!("AVD system image found in SDK: {}", root.display());
+        cmd.env("ANDROID_SDK_ROOT", &root).env("ANDROID_HOME", &root);
+    }
+
+    cmd.spawn()
         .with_context(|| format!("Failed to start emulator: {}", emulator.display()))?;
 
     // Wait for a new emulator-* device to appear in adb.
@@ -217,4 +226,41 @@ pub fn boot_avd(emulator: &Path, name: &str, adb: &Path) -> Result<String> {
         }
         std::thread::sleep(Duration::from_secs(2));
     }
+}
+
+/// Find which SDK root contains the system image used by the given AVD, by
+/// reading the AVD's `config.ini` (`image.sysdir.1`) and checking every
+/// candidate SDK. Returns `None` if the AVD's image can't be located (the
+/// AVD is broken and won't boot).
+pub fn avd_sdk_root(name: &str) -> Option<PathBuf> {
+    let avd_home = std::env::var("ANDROID_AVD_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| {
+            let home = std::env::var("USERPROFILE")
+                .or_else(|_| std::env::var("HOME"))
+                .unwrap_or_default();
+            PathBuf::from(home).join(".android").join("avd")
+        });
+
+    let config = avd_home.join(format!("{}.avd", name)).join("config.ini");
+    let content = std::fs::read_to_string(&config).ok()?;
+
+    let sysdir = content.lines().find_map(|line| {
+        let line = line.trim();
+        line.strip_prefix("image.sysdir.1=").map(|rest| {
+            rest.trim()
+                .trim_matches('"')
+                .trim_matches('\\')
+                .trim_matches('/')
+                .replace('\\', "/")
+        })
+    })?;
+
+    if sysdir.is_empty() {
+        return None;
+    }
+
+    crate::android::sdk::candidate_sdk_paths()
+        .into_iter()
+        .find(|root| root.join(&sysdir).exists())
 }
