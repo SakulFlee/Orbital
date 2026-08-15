@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use inquire::{Confirm, Select};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::{Duration, Instant};
 
 use crate::android::device::{self, Device};
 use crate::config;
@@ -42,6 +43,10 @@ pub fn run(
     }
 
     println!("Launching app...");
+    // Clear buffered logs so the attached stream only shows this run.
+    let _ = Command::new(&adb)
+        .args(["-s", &serial, "logcat", "-c"])
+        .status();
     let output = Command::new(&adb)
         .args(["-s", &serial, "shell", "am", "start", "-n"])
         .arg(format!("{}/android.app.NativeActivity", full_package))
@@ -64,17 +69,49 @@ pub fn run(
 
     println!("\nApp launched successfully on {}!", serial);
 
+    // Confirm the app process actually started. It can take a few seconds for
+    // the process to appear even though `am start` returned success.
+    println!("Waiting for app process...");
+    let deadline = Instant::now() + Duration::from_secs(30);
+    let pid = loop {
+        if let Ok(output) = Command::new(&adb)
+            .args(["-s", &serial, "shell", "pidof", &full_package])
+            .output()
+        {
+            let out = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !out.is_empty() {
+                break Some(out);
+            }
+        }
+        if Instant::now() > deadline {
+            break None;
+        }
+        std::thread::sleep(Duration::from_secs(2));
+    };
+
+    match pid {
+        Some(pid) => println!("App is running (pid {}).", pid),
+        None => println!(
+            "Warning: app process not detected after launch. Check the logcat stream below for crash details."
+        ),
+    }
+
     if no_logcat {
         println!(
-            "To view logs: {} -s {} logcat -s rust_std_out",
+            "To view logs: {} -s {} logcat -s rust_std_out AndroidRuntime",
             adb.display(),
             serial
         );
     } else {
-        // Automatically attach to the device log stream.
+        // Automatically attach to the device log stream. rust_std_out carries
+        // the engine's Rust logs; AndroidRuntime/DEBUG surface crashes (Java
+        // exceptions and native SIGSEGV) that otherwise look like "nothing
+        // happened".
         println!("Streaming logcat (Ctrl+C to stop)...\n");
         let _ = Command::new(&adb)
-            .args(["-s", &serial, "logcat", "-s", "rust_std_out"])
+            .args([
+                "-s", &serial, "logcat", "-s", "rust_std_out", "AndroidRuntime", "DEBUG",
+            ])
             .status();
     }
 
