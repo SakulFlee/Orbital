@@ -187,6 +187,20 @@ pub fn boot_avd(emulator: &Path, name: &str, adb: &Path) -> Result<String> {
         .stdout(Stdio::from(log_stdout))
         .stderr(Stdio::from(log_file));
 
+    // Detach the emulator from our console/process group so it keeps running
+    // after this CLI exits (otherwise it gets shut down when we return).
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+        cmd.creation_flags(0x00000008 | 0x00000200);
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        cmd.process_group(0);
+    }
+
     // An AVD's system image may live in a different SDK than the one the
     // emulator infers from its own location. Point it at the correct root.
     if let Some(root) = avd_sdk_root(name) {
