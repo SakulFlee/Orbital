@@ -57,12 +57,11 @@ pub fn find_java() -> Option<PathBuf> {
     // 3. java on PATH (only if a full JDK is available)
     if java_works_on_path() {
         if let Some(java) = find_java_on_path() {
-            if let Some(bin) = java.parent() {
-                if let Some(home) = bin.parent() {
-                    let home = home.to_path_buf();
-                    if is_jdk(&home) {
-                        return Some(home);
-                    }
+            // Resolve symlinks (e.g. /usr/bin/java -> /usr/lib/jvm/.../bin/java)
+            // then walk up to find the JDK root directory.
+            if let Some(home) = resolve_jdk_home(&java) {
+                if is_jdk(&home) {
+                    return Some(home);
                 }
             }
         }
@@ -252,6 +251,39 @@ fn find_java_on_path() -> Option<PathBuf> {
         }
         None
     }
+}
+
+/// Given a path to a java executable (possibly a symlink), resolve symlinks
+/// and walk up the directory tree to find the JDK root directory.
+///
+/// On Linux, `/usr/bin/java` is typically a symlink to something like
+/// `/usr/lib/jvm/java-26-openjdk/bin/java`. This function resolves the
+/// symlink chain and then walks up from `bin/` to find the directory
+/// containing `include/` or `release` (markers of a JDK root).
+fn resolve_jdk_home(java_path: &Path) -> Option<PathBuf> {
+    // Resolve the real path (follows symlinks)
+    let resolved = std::fs::canonicalize(java_path).ok()?;
+
+    // Walk up from the resolved binary to find the JDK root.
+    // The binary is typically at <jdk_root>/bin/java, so go up one level
+    // from the parent (bin/) directory.
+    let bin_dir = resolved.parent()?;
+    let candidate = bin_dir.parent()?;
+
+    // Check if this is a JDK root (has include/ dir or release file)
+    if candidate.join("include").exists() || candidate.join("release").exists() {
+        return Some(candidate.to_path_buf());
+    }
+
+    // If not found, try the old heuristic: go up one more level
+    // (handles cases where java is in a deeper nested path)
+    let grandparent = candidate.parent()?;
+    if grandparent.join("include").exists() || grandparent.join("release").exists() {
+        return Some(grandparent.to_path_buf());
+    }
+
+    // Fallback: just return the parent of bin/
+    Some(candidate.to_path_buf())
 }
 
 fn extract_zip(archive: &Path, dest: &Path) -> Result<()> {
