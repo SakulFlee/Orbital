@@ -98,7 +98,7 @@ pub fn run(
 
     if no_logcat {
         println!(
-            "To view logs: {} -s {} logcat -s rust_std_out AndroidRuntime",
+            "To view logs: {} -s {} logcat -s rust_std_out AndroidRuntime DEBUG linker",
             adb.display(),
             serial
         );
@@ -110,7 +110,7 @@ pub fn run(
         println!("Streaming logcat (Ctrl+C to stop)...\n");
         let _ = Command::new(&adb)
             .args([
-                "-s", &serial, "logcat", "-s", "rust_std_out", "AndroidRuntime", "DEBUG",
+                "-s", &serial, "logcat", "-s", "rust_std_out", "AndroidRuntime", "DEBUG", "linker",
             ])
             .status();
     }
