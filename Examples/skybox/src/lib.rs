@@ -5,6 +5,7 @@ use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, DeltaTime, EnvironmentDescriptorResource,
     Position, Rotation,
 };
+#[cfg(target_os = "android")]
 use orbital::file_manager::FileManager;
 use orbital::logging::{self, error, info};
 use orbital::resources::{

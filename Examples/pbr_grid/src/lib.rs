@@ -6,6 +6,7 @@ use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, ImportQueueResource, Position, Rotation,
 };
 use orbital::importer::{ImportTask, gltf::GltfImport};
+#[cfg(target_os = "android")]
 use orbital::file_manager::FileManager;
 use orbital::logging::{self, error, info};
 use winit::keyboard::KeyCode;

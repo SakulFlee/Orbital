@@ -1,5 +1,6 @@
 use orbital::app::{App, AppSettings};
 use orbital::debug_render::DebugModule;
+#[cfg(target_os = "android")]
 use orbital::file_manager::FileManager;
 use orbital::logging::{self, error, info};
 
