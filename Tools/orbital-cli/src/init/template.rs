@@ -123,6 +123,7 @@ use orbital::ecs::{IntoSystem, System, World};
 use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, Position, Rotation,
 };
+#[cfg(target_os = "android")]
 use orbital::file_manager::FileManager;
 use orbital::logging::{self, error, info};
 
@@ -204,6 +205,7 @@ use orbital::ecs::{IntoSystem, System, World};
 use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, Position, Rotation,
 };
+#[cfg(target_os = "android")]
 use orbital::file_manager::FileManager;
 use orbital::logging::{self, error, info};
 
@@ -285,6 +287,7 @@ use orbital::ecs::{IntoSystem, System, World};
 use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, ImportQueueResource, Position, Rotation,
 };
+#[cfg(target_os = "android")]
 use orbital::file_manager::FileManager;
 use orbital::importer::{ImportTask, gltf::GltfImport};
 use orbital::logging::{self, error, info};
@@ -375,6 +378,7 @@ use orbital::ecs::{IntoSystem, System, World};
 use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, ImportQueueResource, Position, Rotation,
 };
+#[cfg(target_os = "android")]
 use orbital::file_manager::FileManager;
 use orbital::importer::{ImportTask, gltf::GltfImport};
 use orbital::logging::{self, error, info};

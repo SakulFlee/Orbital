@@ -7,6 +7,7 @@ use orbital::ecs_bridge::{
     LightDirty, Position, Rotation,
 };
 use orbital::importer::{ImportTask, gltf::GltfImport};
+#[cfg(target_os = "android")]
 use orbital::file_manager::FileManager;
 use orbital::logging::{self, error, info};
 use orbital::resources::ShadowCaster;
