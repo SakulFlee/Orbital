@@ -7,7 +7,9 @@ use std::{fs, path::Path, time::SystemTime};
 #[cfg(target_os = "android")]
 pub fn init() {
     android_logger::init_once(
-        android_logger::Config::default().with_max_level(log::LevelFilter::Debug),
+        android_logger::Config::default()
+            .with_tag("rust_std_out")
+            .with_max_level(log::LevelFilter::Debug),
     );
 }
 
