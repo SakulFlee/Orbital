@@ -121,13 +121,10 @@ fn set_android_home(sdk_path: &Path) {
     unsafe { std::env::set_var("ANDROID_HOME", sdk_path) };
     println!("ANDROID_HOME set to: {}", sdk_path.display());
 }
-/// Ensure sdkmanager is available and NDK is installed
-fn ensure_sdkmanager(sdk_path: &PathBuf) -> Result<()> {
-    let sdkmanager = if cfg!(windows) {
-        sdk_path.join("cmdline-tools").join("latest").join("bin").join("sdkmanager.bat")
-    } else {
-        sdk_path.join("cmdline-tools").join("latest").join("bin").join("sdkmanager")
-    };
+/// Ensure sdkmanager is available and NDK is installed.
+/// Returns the path to the NDK directory.
+fn ensure_sdkmanager(sdk_path: &Path) -> Result<PathBuf> {
+    let sdkmanager = sdkmanager_path(sdk_path);
 
     if !sdkmanager.exists() {
         println!("\nsdkmanager not found at: {}", sdkmanager.display());
@@ -141,63 +138,10 @@ fn ensure_sdkmanager(sdk_path: &PathBuf) -> Result<()> {
         } else {
             println!("Please install Android SDK manually.");
         }
-        return Ok(());
     }
 
-    // sdkmanager requires Java. Ensure it's available before running any sdkmanager command.
-    let java_home = crate::java::ensure_java()?;
-
-    // Check if NDK is installed
-    let ndk_installed = Command::new(&sdkmanager)
-        .env("JAVA_HOME", &java_home)
-        .args(["--list_installed"])
-        .output();
-
-    if let Ok(output) = ndk_installed {
-        let output_str = String::from_utf8_lossy(&output.stdout);
-        if !output_str.contains("ndk;") {
-            println!("\nAndroid NDK not installed.");
-
-            if Confirm::new("Install Android NDK now?")
-                .with_default(true)
-                .prompt()?
-            {
-                let ndk_version = crate::config::load_android_config()?.ndk_version().to_string();
-                let ndk_package = format!("ndk;{}", ndk_version);
-
-                // sdkmanager needs the Android SDK licenses accepted before it can
-                // download packages. Auto-accept them (the user was already prompted
-                // and confirmed the install above).
-                warn_license_acceptance();
-                accept_sdk_licenses(sdk_path)?;
-
-                println!("Installing {}...", ndk_package);
-                let status = Command::new(&sdkmanager)
-                    .env("JAVA_HOME", &java_home)
-                    .arg(&ndk_package)
-                    .status()
-                    .context("Failed to run sdkmanager")?;
-
-                if status.success() {
-                    println!("NDK installed successfully!");
-                } else {
-                    anyhow::bail!(
-                        "Failed to install NDK. You can try manually:\n  {} \"{}\"",
-                        sdkmanager.display(),
-                        ndk_package
-                    );
-                }
-            } else {
-                let ndk_version = crate::config::load_android_config()?.ndk_version().to_string();
-                println!("Please install NDK manually:");
-                println!("  {} \"ndk;{}\"", sdkmanager.display(), ndk_version);
-            }
-        } else {
-            println!("Android NDK is installed.");
-        }
-    }
-
-    Ok(())
+    // Ensure NDK is installed and return its path
+    ensure_ndk(sdk_path)
 }
 
 /// Prints a warning that the following steps auto-accept the Android SDK licenses.
@@ -516,6 +460,80 @@ fn strip_top_level(name: &str) -> String {
         // Unexpected structure — keep full path
         normalized
     }
+}
+
+/// Return the expected NDK path inside the given SDK directory.
+pub fn ndk_path(sdk_path: &Path, ndk_version: &str) -> PathBuf {
+    sdk_path.join("ndk").join(ndk_version)
+}
+
+/// Ensure the Android NDK is installed and return its path.
+///
+/// Checks if the NDK directory exists at `sdk_path/ndk/<ndk_version>`.
+/// If not, runs sdkmanager to install it. Returns the NDK path on success.
+pub fn ensure_ndk(sdk_path: &Path) -> Result<PathBuf> {
+    let ndk_version = crate::config::load_android_config()?.ndk_version().to_string();
+    let ndk = ndk_path(sdk_path, &ndk_version);
+
+    if ndk.exists() {
+        println!("Android NDK found at: {}", ndk.display());
+        return Ok(ndk);
+    }
+
+    println!("\nAndroid NDK not installed.");
+
+    if Confirm::new("Install Android NDK now?")
+        .with_default(true)
+        .prompt()?
+    {
+        let sdkmanager = sdkmanager_path(sdk_path);
+        if !sdkmanager.exists() {
+            anyhow::bail!(
+                "sdkmanager not found at {}. Cannot install NDK automatically.",
+                sdkmanager.display()
+            );
+        }
+
+        let java_home = crate::java::ensure_java()?;
+        let ndk_package = format!("ndk;{}", ndk_version);
+
+        warn_license_acceptance();
+        accept_sdk_licenses(sdk_path)?;
+
+        println!("Installing {}...", ndk_package);
+        let status = Command::new(&sdkmanager)
+            .env("JAVA_HOME", &java_home)
+            .arg(&ndk_package)
+            .status()
+            .context("Failed to run sdkmanager")?;
+
+        if status.success() {
+            println!("NDK installed successfully!");
+        } else {
+            anyhow::bail!(
+                "Failed to install NDK. You can try manually:\n  {} \"{}\"",
+                sdkmanager.display(),
+                ndk_package
+            );
+        }
+    } else {
+        anyhow::bail!(
+            "Android NDK is required for building.\n\
+             Install it with:\n  \
+             {} \"ndk;{}\"",
+            sdkmanager_path(sdk_path).display(),
+            ndk_version
+        );
+    }
+
+    if !ndk.exists() {
+        anyhow::bail!(
+            "NDK installation reported success but directory not found at: {}",
+            ndk.display()
+        );
+    }
+
+    Ok(ndk)
 }
 
 /// Return the currently detected SDK path, if any.
