@@ -79,8 +79,22 @@ fn generate_project(android_dir: &Path, config: &config::AndroidConfig) -> Resul
         .join("src")
         .join("template")
         .join("gradlew");
-    fs::copy(&template_gradlew, android_dir.join("gradlew"))
-        .context("Failed to copy gradlew")?;
+
+    // On Unix, strip CRLF line endings from gradlew so the shebang works.
+    // The template may have CRLF from being checked out on Windows.
+    #[cfg(unix)]
+    {
+        let content = fs::read_to_string(&template_gradlew)
+            .context("Failed to read gradlew template")?;
+        let content = content.replace("\r\n", "\n");
+        fs::write(android_dir.join("gradlew"), content)
+            .context("Failed to write gradlew")?;
+    }
+    #[cfg(not(unix))]
+    {
+        fs::copy(&template_gradlew, android_dir.join("gradlew"))
+            .context("Failed to copy gradlew")?;
+    }
 
     let template_gradlew_bat = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("src")
