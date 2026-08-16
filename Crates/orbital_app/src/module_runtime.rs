@@ -6,7 +6,7 @@
 
 use std::sync::{Arc, Mutex};
 
-#[cfg(feature = "gamepad_input")]
+#[cfg(all(feature = "gamepad_input", not(target_os = "android")))]
 use gilrs::Gilrs;
 use log::trace;
 use orbital_core::logging::{self, debug, error, info, warn};
@@ -142,7 +142,7 @@ pub struct ModuleRuntime {
     module_setup_done: bool,
     renderer: Option<orbital_renderer::Renderer>,
     timing_accum: TimingAccumulator,
-    #[cfg(feature = "gamepad_input")]
+    #[cfg(all(feature = "gamepad_input", not(target_os = "android")))]
     gil: Gilrs,
 }
 
@@ -169,7 +169,7 @@ impl ModuleRuntime {
             module_setup_done: false,
             renderer: None,
             timing_accum: TimingAccumulator::new(),
-            #[cfg(feature = "gamepad_input")]
+            #[cfg(all(feature = "gamepad_input", not(target_os = "android")))]
             gil: Gilrs::new().expect("Gamepad input initialization failed!"),
         };
 
@@ -1008,7 +1008,7 @@ impl ModuleRuntime {
         lights
     }
 
-    #[cfg(feature = "gamepad_input")]
+    #[cfg(all(feature = "gamepad_input", not(target_os = "android")))]
     fn receive_controller_inputs(&mut self) {
         while let Some(gil_event) = self.gil.next_event() {
             if let Some(input_event) = InputEvent::convert_gil_event(gil_event) {
@@ -1038,7 +1038,7 @@ impl ModuleRuntime {
         // Run game schedule (user systems)
         self.game_schedule.run(&mut self.ecs_world);
 
-        #[cfg(feature = "gamepad_input_poll")]
+        #[cfg(all(feature = "gamepad_input_poll", not(target_os = "android")))]
         self.receive_controller_inputs();
 
         // Process engine events
