@@ -33,6 +33,21 @@ pub fn build(package_name: Option<&str>, release: bool) -> Result<()> {
     // Ensure Android SDK is configured
     super::sdk::ensure_android_sdk()?;
 
+    // Get SDK and NDK paths for cargo-ndk
+    let sdk_path = super::sdk::current_sdk_path()
+        .context("Android SDK path not available after setup")?;
+    let ndk_version = android_config.ndk_version();
+    let ndk_path = super::sdk::ndk_path(&sdk_path, ndk_version);
+
+    // Verify NDK exists
+    if !ndk_path.exists() {
+        anyhow::bail!(
+            "Android NDK not found at: {}\n\
+             Run 'orbital build android' again to install it, or set ANDROID_NDK_HOME.",
+            ndk_path.display()
+        );
+    }
+
     // Ensure Java is available (gradlew needs it)
     let java_home = crate::java::ensure_java()?;
 
@@ -79,6 +94,7 @@ pub fn build(package_name: Option<&str>, release: bool) -> Result<()> {
     let status = Command::new("cargo")
         .arg("ndk")
         .args(&cargo_ndk_args)
+        .env("ANDROID_NDK_HOME", &ndk_path)
         .current_dir(&project_root)
         .status()
         .context("Failed to run cargo ndk")?;
