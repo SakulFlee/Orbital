@@ -436,6 +436,16 @@ fn extract_cmdline_tools(zip_path: &Path, sdk_dir: &Path) -> Result<()> {
                 .map_err(|e| anyhow::anyhow!("Failed to create file {}: {}", outpath.display(), e))?;
             std::io::copy(&mut file, &mut out_file)
                 .map_err(|e| anyhow::anyhow!("Failed to write file {}: {}", outpath.display(), e))?;
+
+            // On Unix, set executable permission for extracted files (especially
+            // shell scripts like sdkmanager). The zip crate's manual extraction
+            // drops Unix permission bits, leaving files at 644 (non-executable).
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                std::fs::set_permissions(&outpath, std::fs::Permissions::from_mode(0o755))
+                    .map_err(|e| anyhow::anyhow!("Failed to set permissions on {}: {}", outpath.display(), e))?;
+            }
         }
     }
 
