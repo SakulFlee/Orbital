@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 
+#[cfg(feature = "gamepad_input")]
 use gilrs::{Axis, Button, EventType, GamepadId};
 use winit::{
     dpi::PhysicalPosition,
