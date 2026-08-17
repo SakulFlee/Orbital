@@ -5,8 +5,6 @@ use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, DeltaTime, EnvironmentDescriptorResource,
     Position, Rotation,
 };
-#[cfg(target_os = "android")]
-use orbital::file_manager::FileManager;
 use orbital::logging::{self, error, info};
 use orbital::resources::{
     GeneratedSkyParameters, SamplingType, SunPosition, WorldEnvironmentDescriptor,
@@ -20,20 +18,10 @@ pub fn entrypoint(
         orbital::winit::error::EventLoopError,
     >,
 ) {
+    #[cfg(not(target_os = "android"))]
     logging::init();
 
     let event_loop = event_loop_result.expect("Event Loop failure");
-
-    #[cfg(target_os = "android")]
-    {
-        use orbital::winit::platform::android::EventLoopExtAndroid;
-        let app = event_loop.android_app();
-        FileManager::init_android_global(
-            app.asset_manager(),
-            app.internal_data_path(),
-        )
-        .expect("Failed to initialize FileManager for Android");
-    }
 
     let mut app_settings = AppSettings::default();
     app_settings.vsync_enabled = true;
