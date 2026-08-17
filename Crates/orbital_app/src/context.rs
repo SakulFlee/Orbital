@@ -28,7 +28,9 @@ pub struct AppContext {
     adapter: Adapter,
     device: Device,
     queue: Queue,
-    surface: Surface<'static>,
+    /// The GPU surface. `None` while the app is suspended on Android (the
+    /// native window was destroyed) and recreated on resume.
+    surface: Option<Surface<'static>>,
 }
 
 impl AppContext {
@@ -84,7 +86,7 @@ impl AppContext {
             adapter,
             device,
             queue,
-            surface,
+            surface: Some(surface),
         };
 
         let surface_configuration = ctx.make_surface_configuration(settings.vsync_enabled);
@@ -193,13 +195,19 @@ impl AppContext {
 
     pub fn get_first_view_format(&self) -> TextureFormat {
         self.surface
+            .as_ref()
+            .expect("Surface must be present (app not suspended)!")
             .get_configuration()
             .expect("Surface must be configured first!")
             .format
     }
 
     pub fn make_surface_configuration(&self, vsync: bool) -> SurfaceConfiguration {
-        let capabilities = self.surface.get_capabilities(&self.adapter);
+        let surface = self
+            .surface
+            .as_ref()
+            .expect("Surface must be present (app not suspended)!");
+        let capabilities = surface.get_capabilities(&self.adapter);
 
         let present_mode = match vsync {
             true => PresentMode::AutoVsync,
@@ -230,8 +238,7 @@ impl AppContext {
             );
         }
 
-        let mut default_config = self
-            .surface
+        let mut default_config = surface
             .get_default_config(&self.adapter, window_size.width, window_size.height)
             .unwrap_or(SurfaceConfiguration {
                 usage: TextureUsages::empty(),
@@ -263,11 +270,32 @@ impl AppContext {
     }
 
     pub fn current_surface_texture(&self) -> CurrentSurfaceTexture {
-        self.surface().get_current_texture()
+        self.surface()
+            .get_current_texture()
     }
 
     pub fn reconfigure_surface(&self, configuration: &SurfaceConfiguration) {
-        self.surface.configure(&self.device, configuration);
+        let surface = self
+            .surface
+            .as_ref()
+            .expect("Surface must be present (app not suspended)!");
+        surface.configure(&self.device, configuration);
+    }
+
+    /// Drops the GPU surface. Called on suspend on Android, where the native
+    /// window is destroyed; the surface must be recreated on resume.
+    pub fn drop_surface(&mut self) {
+        self.surface = None;
+    }
+
+    /// Recreates the GPU surface from the current (recreated) native window
+    /// and reconfigures it. Called on resume after [`AppContext::drop_surface`].
+    pub fn recreate_surface(&mut self, vsync: bool) {
+        let surface = Self::make_surface(&self.instance, &self.window)
+            .expect("Failed to recreate surface on resume");
+        self.surface = Some(surface);
+        let config = self.make_surface_configuration(vsync);
+        self.reconfigure_surface(&config);
     }
 
     pub fn instance(&self) -> &Instance {
@@ -303,11 +331,15 @@ impl AppContext {
     }
 
     pub fn surface(&self) -> &Surface<'static> {
-        &self.surface
+        self.surface
+            .as_ref()
+            .expect("Surface must be present (app not suspended)!")
     }
 
     pub fn surface_mut(&mut self) -> &mut Surface<'static> {
-        &mut self.surface
+        self.surface
+            .as_mut()
+            .expect("Surface must be present (app not suspended)!")
     }
 
     pub fn window(&self) -> &Window {
