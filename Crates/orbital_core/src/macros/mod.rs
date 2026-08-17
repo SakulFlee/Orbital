@@ -36,20 +36,20 @@ macro_rules! make_android_main {
                 Ok(el) => el,
                 Err(e) => {
                     $crate::logging::error!("Event loop build failed: {:?}", e);
-                    // winit allows only one EventLoop per process. A previous
-                    // loop already exists (e.g. a recreated activity after an
-                    // OOM kill), so this process is poisoned. Terminate it so
-                    // the next launch starts fresh instead of hanging.
-                    ::std::process::exit(0);
+                    // winit allows only one EventLoop per process. This
+                    // android_main was invoked for a recreated activity in an
+                    // already-running process, so there is nothing to do here.
+                    // Return (and let this thread end) like Bevy does, leaving
+                    // the original event loop alive so the app keeps running
+                    // and resumes on the next open.
+                    return;
                 }
             };
 
             $entrypoint_fn(Ok(event_loop));
 
-            // The event loop only returns when the app exits. Terminate the
-            // process so a relaunch starts a fresh process instead of reusing
-            // this one (whose EVENT_LOOP_CREATED flag is still set).
-            ::std::process::exit(0);
+            // The event loop only returns when the app exits. Just return from
+            // android_main; do not kill the process.
         }
     };
 }
