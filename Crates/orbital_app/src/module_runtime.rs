@@ -1124,8 +1124,9 @@ impl ApplicationHandler for ModuleRuntime {
 
         debug!("Resuming app ...");
 
-        // Reuse the existing context (native window + surface + device) when
-        // resuming from a pause, so we don't create a second window. Only
+        // Reuse the existing context (window/device/queue) when resuming from
+        // a pause, so we don't create a second window or rebuild the GPU
+        // device. The surface (dropped on suspend) is recreated below. Only
         // build a fresh context on the first start.
         let ctx = match std::mem::replace(&mut self.state, AppState::Starting) {
             AppState::Paused(ctx) => ctx,
@@ -1142,9 +1143,11 @@ impl ApplicationHandler for ModuleRuntime {
         };
 
         {
-            let ctx_guard = ctx_lock!(ctx);
-            let config = ctx_guard.make_surface_configuration(self.settings.vsync_enabled);
-            ctx_guard.reconfigure_surface(&config);
+            let mut ctx_guard = ctx_lock!(ctx);
+            // Recreate the surface against the (possibly recreated) native
+            // window. On first start this reconfigures the surface created by
+            // AppContext::new; on resume it rebuilds it after suspend dropped it.
+            ctx_guard.recreate_surface(self.settings.vsync_enabled);
         }
 
         self.state = AppState::Ready(ctx);
@@ -1240,11 +1243,16 @@ impl ApplicationHandler for ModuleRuntime {
 
         self.module.save_state(&mut self.ecs_world);
 
-        // Move the context into `Paused` (instead of dropping it) so the
-        // native window survives and can be resumed without recreating it,
-        // mirroring Bevy's suspend/resume handling.
+        // Move the context into `Paused` (keeping the window/device/queue
+        // alive) but drop the GPU surface and renderer, which reference the
+        // native window that Android destroys on suspend. They are recreated
+        // on resume.
         self.state = match std::mem::replace(&mut self.state, AppState::Starting) {
-            AppState::Ready(ctx) => AppState::Paused(ctx),
+            AppState::Ready(ctx) => {
+                ctx_lock!(ctx).drop_surface();
+                self.renderer = None;
+                AppState::Paused(ctx)
+            }
             other => other,
         };
         info!("App suspended!");
