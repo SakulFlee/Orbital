@@ -35,7 +35,7 @@ macro_rules! make_android_main {
             let event_loop = match EventLoop::builder().with_android_app(app).build() {
                 Ok(el) => el,
                 Err(e) => {
-                    ::log::error!("Event loop build failed: {:?}", e);
+                    $crate::logging::error!("Event loop build failed: {:?}", e);
                     return;
                 }
             };
