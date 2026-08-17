@@ -1107,6 +1107,8 @@ impl ModuleRuntime {
     }
 
     fn exit(&mut self, event_loop: &ActiveEventLoop) {
+        // Clean exit: drop any persisted state so the next launch is fresh.
+        self.module.clear_state(&mut self.ecs_world);
         event_loop.exit();
     }
 }
@@ -1192,6 +1194,10 @@ impl ApplicationHandler for ModuleRuntime {
                     "Module setup complete, game schedule has {} systems",
                     self.game_schedule.system_count()
                 );
+
+                // Restore any persisted state (only runs once on a fresh
+                // process start, since setup is guarded by module_setup_done).
+                self.module.restore_state(&mut self.ecs_world);
             }
 
             // Auto-grab cursor if configured
@@ -1218,6 +1224,8 @@ impl ApplicationHandler for ModuleRuntime {
                 self.state
             );
         }
+
+        self.module.save_state(&mut self.ecs_world);
 
         self.state = AppState::Paused;
         info!("App suspended!");
