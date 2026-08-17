@@ -1,6 +1,6 @@
-use std::{error::Error, mem::transmute};
+use std::{error::Error, mem::transmute, sync::Arc};
 
-use log::{debug, info};
+use log::{debug, error, info, warn};
 use orbital_core::wgpu_util::block_on;
 use wgpu::{
     Adapter, BackendOptions, Backends, CompositeAlphaMode, CreateSurfaceError,
@@ -71,6 +71,12 @@ impl AppContext {
         let (device, queue) = Self::make_device_and_queue(&adapter)?;
         debug!("Device: {:?}", device);
         debug!("Queue: {:?}", queue);
+
+        // Surface wgpu errors through the `log` crate so they appear in logcat
+        // (`rust_std_out` tag) instead of a panic whose output gets filtered.
+        device.on_uncaptured_error(Arc::new(|err| {
+            error!("wgpu uncaptured error: {err:?}");
+        }));
 
         let ctx = Self {
             window,
@@ -209,6 +215,21 @@ impl AppContext {
 
         let (srgb_format, view_formats) = Self::make_view_formats(&capabilities);
 
+        // Some adapters (e.g. the Android emulator's Vulkan backend) do not
+        // support `SURFACE_VIEW_FORMATS`; configuring a surface with a
+        // non-empty `view_formats` list fails with `MissingDownlevelFlags`.
+        // Only request them when the adapter supports the flag.
+        let supports_view_formats = self
+            .adapter
+            .get_downlevel_capabilities()
+            .flags
+            .contains(wgpu::DownlevelFlags::SURFACE_VIEW_FORMATS);
+        if !supports_view_formats {
+            warn!(
+                "[Surface] SURFACE_VIEW_FORMATS not supported; configuring surface without view_formats"
+            );
+        }
+
         let mut default_config = self
             .surface
             .get_default_config(&self.adapter, window_size.width, window_size.height)
@@ -229,7 +250,11 @@ impl AppContext {
         default_config.alpha_mode = CompositeAlphaMode::Auto;
         default_config.format = srgb_format;
         default_config.usage = TextureUsages::RENDER_ATTACHMENT;
-        default_config.view_formats = view_formats;
+        default_config.view_formats = if supports_view_formats {
+            view_formats
+        } else {
+            vec![]
+        };
         default_config.width = window_size.width;
         default_config.height = window_size.height;
         default_config.desired_maximum_frame_latency = 2;
