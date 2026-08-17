@@ -17,8 +17,9 @@ use wgpu::TextureViewDescriptor;
 use winit::{
     application::ApplicationHandler,
     error::EventLoopError,
-    event::{DeviceEvent, DeviceId, WindowEvent},
+    event::{DeviceEvent, DeviceId, ElementState, WindowEvent},
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
+    keyboard::{Key, NamedKey},
     window::{CursorGrabMode, WindowId},
 };
 
@@ -142,6 +143,8 @@ pub struct ModuleRuntime {
     module_setup_done: bool,
     renderer: Option<orbital_renderer::Renderer>,
     timing_accum: TimingAccumulator,
+    back_press_count: u8,
+    last_back_press: Option<std::time::Instant>,
     #[cfg(all(feature = "gamepad_input", not(target_os = "android")))]
     gil: Gilrs,
 }
@@ -169,6 +172,8 @@ impl ModuleRuntime {
             module_setup_done: false,
             renderer: None,
             timing_accum: TimingAccumulator::new(),
+            back_press_count: 0,
+            last_back_press: None,
             #[cfg(all(feature = "gamepad_input", not(target_os = "android")))]
             gil: Gilrs::new().expect("Gamepad input initialization failed!"),
         };
@@ -1234,6 +1239,44 @@ impl ApplicationHandler for ModuleRuntime {
                 return;
             }
         };
+
+        // Android Back: always forwarded to the input system so apps can use
+        // single back actions. Additionally, when configured, N consecutive
+        // presses within `back_exit_window` quit the app.
+        if self.settings.back_presses_to_exit > 0 {
+            if let WindowEvent::KeyboardInput {
+                event,
+                is_synthetic: false,
+                ..
+            } = &event
+            {
+                if event.logical_key == Key::Named(NamedKey::BrowserBack)
+                    && event.state == ElementState::Pressed
+                    && !event.repeat
+                {
+                    let now = std::time::Instant::now();
+                    let within_window = self
+                        .last_back_press
+                        .map(|t| now.duration_since(t) <= self.settings.back_exit_window)
+                        .unwrap_or(false);
+                    self.back_press_count = if within_window {
+                        self.back_press_count.saturating_add(1)
+                    } else {
+                        1
+                    };
+                    self.last_back_press = Some(now);
+
+                    if self.back_press_count >= self.settings.back_presses_to_exit {
+                        info!(
+                            "Back pressed {} times within window; exiting",
+                            self.back_press_count
+                        );
+                        self.exit(event_loop);
+                        return;
+                    }
+                }
+            }
+        }
 
         let input_event = match event {
             WindowEvent::CloseRequested => {
