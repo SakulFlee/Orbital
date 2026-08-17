@@ -1115,7 +1115,7 @@ impl ModuleRuntime {
 
 impl ApplicationHandler for ModuleRuntime {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        if !matches!(self.state, AppState::Starting | AppState::Paused) {
+        if !matches!(self.state, AppState::Starting | AppState::Paused(_)) {
             debug!(
                 "Attempting to resume while not in required state! (State: {:?})",
                 self.state
@@ -1124,23 +1124,36 @@ impl ApplicationHandler for ModuleRuntime {
 
         debug!("Resuming app ...");
 
-        let ctx = match AppContext::new(event_loop, &self.settings) {
-            Ok(ctx) => ctx,
-            Err(e) => {
-                error!("Critical error: Failed to acquire context while resuming app!");
-                trace!("Error: {:?}", e);
-                return;
-            }
+        // Reuse the existing context (native window + surface + device) when
+        // resuming from a pause, so we don't create a second window. Only
+        // build a fresh context on the first start.
+        let ctx = match std::mem::replace(&mut self.state, AppState::Starting) {
+            AppState::Paused(ctx) => ctx,
+            AppState::Ready(ctx) => ctx,
+            _ => match AppContext::new(event_loop, &self.settings) {
+                Ok(ctx) => Arc::new(Mutex::new(ctx)),
+                Err(e) => {
+                    error!("Critical error: Failed to acquire context while resuming app!");
+                    trace!("Error: {:?}", e);
+                    self.state = AppState::Starting;
+                    return;
+                }
+            },
         };
 
-        let config = ctx.make_surface_configuration(self.settings.vsync_enabled);
+        {
+            let ctx_guard = ctx_lock!(ctx);
+            let config = ctx_guard.make_surface_configuration(self.settings.vsync_enabled);
+            ctx_guard.reconfigure_surface(&config);
+        }
 
-        self.state = AppState::Ready(Arc::new(Mutex::new(ctx)));
+        self.state = AppState::Ready(ctx);
 
         self.timer = Some(Timer::new());
 
         if let AppState::Ready(ctx_arc) = &self.state {
             let ctx_guard = ctx_lock!(ctx_arc);
+            let config = ctx_guard.make_surface_configuration(self.settings.vsync_enabled);
 
             self.ecs_world
                 .insert_resource(DeviceResource(Arc::new(ctx_guard.device().clone())));
@@ -1227,7 +1240,13 @@ impl ApplicationHandler for ModuleRuntime {
 
         self.module.save_state(&mut self.ecs_world);
 
-        self.state = AppState::Paused;
+        // Move the context into `Paused` (instead of dropping it) so the
+        // native window survives and can be resumed without recreating it,
+        // mirroring Bevy's suspend/resume handling.
+        self.state = match std::mem::replace(&mut self.state, AppState::Starting) {
+            AppState::Ready(ctx) => AppState::Paused(ctx),
+            other => other,
+        };
         info!("App suspended!");
     }
 
