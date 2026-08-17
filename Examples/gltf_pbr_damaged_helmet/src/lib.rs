@@ -27,6 +27,7 @@ pub fn entrypoint(
     let mut app_settings = AppSettings::default();
     app_settings.vsync_enabled = true;
     app_settings.name = NAME.to_string();
+    app_settings.back_presses_to_exit = 3;
 
     match App::new()
         .add_module(DamagedHelmetModule)
