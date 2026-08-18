@@ -3,6 +3,7 @@
 //! A multi-platform 3D rendering engine built in Rust using wgpu as the graphics backend.
 
 pub use orbital_app as app;
+pub use orbital_app::{TouchControlsConfig, set_touch_controls, touch_controls};
 pub use orbital_debug_render as debug_render;
 pub use orbital_ecs as ecs;
 pub use orbital_ecs_bridge as ecs_bridge;

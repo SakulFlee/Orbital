@@ -5,11 +5,12 @@
 //! (see [`orbital_input::InputState::touch_gesture`]), plus a [`TouchUiModule`]
 //! to register it in an application.
 
-use cgmath::Vector2;
-use orbital_app::{Module, RenderOverlay, RenderOverlayContext, RenderOverlayResource};
+use cgmath::{InnerSpace, Vector2};
+use orbital_app::{
+    touch_controls, Module, RenderOverlay, RenderOverlayContext, RenderOverlayResource,
+};
 use orbital_ecs::{System, World};
 use orbital_ecs_bridge::{InputSnapshot, SurfaceFormatResource};
-use orbital_input::TOUCH_JOYSTICK_RADIUS;
 use wgpu::{
     BlendComponent, BlendFactor, BlendOperation, BlendState, Buffer, BufferDescriptor,
     BufferUsages, ColorTargetState, ColorWrites, CommandEncoderDescriptor, Device, FragmentState,
@@ -54,11 +55,30 @@ const VERTEX_STRIDE: u64 = 24;
 const CIRCLE_SEGMENTS: u32 = 32;
 const KNOB_SEGMENTS: u32 = 24;
 const KNOB_RADIUS_RATIO: f64 = 0.45;
+const HINT_SEGMENTS: u32 = 24;
+
+/// Radius (window pixels) of the idle "move"/"look" hint circles.
+const HINT_RADIUS: f64 = 45.0;
+/// Radius (window pixels) of the small knob dot inside the move hint.
+const HINT_KNOB_RADIUS: f64 = 12.0;
 
 /// Semi-transparent white for the joystick base ring.
 const BASE_COLOR: [f32; 4] = [1.0, 1.0, 1.0, 0.18];
 /// Brighter white for the draggable knob.
 const KNOB_COLOR: [f32; 4] = [1.0, 1.0, 1.0, 0.6];
+/// Base ring color at full joystick deflection (max-deflection feedback).
+const BASE_COLOR_MAX: [f32; 4] = [1.0, 1.0, 1.0, 0.32];
+/// Knob color at full joystick deflection.
+const KNOB_COLOR_MAX: [f32; 4] = [1.0, 1.0, 1.0, 0.8];
+/// Knob radius (as a fraction of the base radius) at full deflection.
+const KNOB_RADIUS_MAX_RATIO: f64 = 0.55;
+
+/// Faint white for the idle move-hint circle.
+const HINT_MOVE_COLOR: [f32; 4] = [1.0, 1.0, 1.0, 0.08];
+/// Slightly brighter dot in the middle of the move hint.
+const HINT_MOVE_KNOB_COLOR: [f32; 4] = [1.0, 1.0, 1.0, 0.14];
+/// Faint white for the idle look-hint circle.
+const HINT_LOOK_COLOR: [f32; 4] = [1.0, 1.0, 1.0, 0.08];
 
 // ---------------------------------------------------------------------------
 // Overlay
@@ -168,36 +188,86 @@ impl RenderOverlay for JoystickOverlay {
         let Some(input) = ctx.ecs.get_resource::<InputSnapshot>() else {
             return;
         };
-        let gesture = input.0.touch_gesture();
-        let Some(origin) = gesture.joystick_origin else {
-            return;
-        };
         let Some(size) = input.0.surface_size() else {
             return;
         };
         let width = size.x as f64;
         let height = size.y as f64;
-        let position = gesture.joystick_position.unwrap_or(origin);
 
-        let mut verts = Vec::with_capacity((CIRCLE_SEGMENTS * 3 + KNOB_SEGMENTS * 3) as usize * 6);
-        push_circle(
-            &mut verts,
-            origin,
-            TOUCH_JOYSTICK_RADIUS,
-            CIRCLE_SEGMENTS,
-            BASE_COLOR,
-            width,
-            height,
-        );
-        push_circle(
-            &mut verts,
-            position,
-            TOUCH_JOYSTICK_RADIUS * KNOB_RADIUS_RATIO,
-            KNOB_SEGMENTS,
-            KNOB_COLOR,
-            width,
-            height,
-        );
+        let cfg = touch_controls();
+        let gesture = input
+            .0
+            .touch_gesture_with_config(cfg.joystick_radius, cfg.joystick_deadzone);
+
+        let mut verts = Vec::with_capacity(MAX_VERTS as usize * 6);
+
+        if let Some(origin) = gesture.joystick_origin {
+            // Active movement joystick — draw base + knob, with max-deflection
+            // feedback (brighter base, larger knob) at full radius.
+            let position = gesture.joystick_position.unwrap_or(origin);
+            let at_max = (position - origin).magnitude() >= cfg.joystick_radius;
+            let (base_color, knob_color, knob_ratio) = if at_max {
+                (BASE_COLOR_MAX, KNOB_COLOR_MAX, KNOB_RADIUS_MAX_RATIO)
+            } else {
+                (BASE_COLOR, KNOB_COLOR, KNOB_RADIUS_RATIO)
+            };
+
+            push_circle(
+                &mut verts,
+                origin,
+                cfg.joystick_radius,
+                CIRCLE_SEGMENTS,
+                base_color,
+                width,
+                height,
+            );
+            push_circle(
+                &mut verts,
+                position,
+                cfg.joystick_radius * knob_ratio,
+                KNOB_SEGMENTS,
+                knob_color,
+                width,
+                height,
+            );
+        } else if cfg.show_idle_hints && input.0.has_seen_touch() && !gesture.active {
+            // Touch device with nothing touching — hint at the two control zones.
+            let hint_y = height * 0.5;
+            let move_hint = Vector2::new(width * 0.2, hint_y);
+            let look_hint = Vector2::new(width * 0.8, hint_y);
+
+            push_circle(
+                &mut verts,
+                move_hint,
+                HINT_RADIUS,
+                HINT_SEGMENTS,
+                HINT_MOVE_COLOR,
+                width,
+                height,
+            );
+            push_circle(
+                &mut verts,
+                move_hint,
+                HINT_KNOB_RADIUS,
+                HINT_SEGMENTS,
+                HINT_MOVE_KNOB_COLOR,
+                width,
+                height,
+            );
+            push_circle(
+                &mut verts,
+                look_hint,
+                HINT_RADIUS,
+                HINT_SEGMENTS,
+                HINT_LOOK_COLOR,
+                width,
+                height,
+            );
+        }
+
+        if verts.is_empty() {
+            return;
+        }
 
         let bytes =
             unsafe { std::slice::from_raw_parts(verts.as_ptr() as *const u8, verts.len() * 4) };

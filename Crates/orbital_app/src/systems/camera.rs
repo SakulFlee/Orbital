@@ -10,15 +10,10 @@ use orbital_ecs_bridge::{DeltaTime, InputSnapshot, Position, Rotation};
 use orbital_input::{InputAxis, InputButton, InputState};
 use winit::keyboard::{KeyCode, PhysicalKey};
 
+use crate::touch_controls;
+
 const MOVE_SPEED: f32 = 5.0;
 const LOOK_SENSITIVITY: f32 = 1.5;
-/// Touch look sensitivity in radians per screen pixel. Mouse deltas are
-/// normalized to `[-1, 1]` by `InputState`, but touch deltas arrive as raw
-/// pixels, so they need a much smaller per-unit scale.
-const TOUCH_LOOK_SENSITIVITY: f32 = 0.005;
-/// Maximum pitch (radians) for touch look — prevents the "spinning wildly /
-/// random directions" feel when pitch exceeds ±90° and the up vector flips.
-const TOUCH_PITCH_LIMIT: f32 = 1.45;
 
 /// Camera controller system: WASD movement + mouse look.
 ///
@@ -55,15 +50,16 @@ pub fn sys_touch_camera_controller(
 }
 
 fn apply_touch_controls(dt: f32, input: &InputState, pos: &mut Position, rot: &mut Rotation) {
-    let gesture = input.touch_gesture();
+    let cfg = touch_controls();
+    let gesture = input.touch_gesture_with_config(cfg.joystick_radius, cfg.joystick_deadzone);
     if !gesture.active {
         return;
     }
 
     let (forward, right, _up) = rot.forward_right_up();
 
-    let movement = forward * (gesture.move_vector.y as f32 * MOVE_SPEED * dt)
-        + right * (gesture.move_vector.x as f32 * MOVE_SPEED * dt);
+    let movement = forward * (gesture.move_vector.y as f32 * cfg.move_speed * dt)
+        + right * (gesture.move_vector.x as f32 * cfg.move_speed * dt);
     pos.0 += movement;
 
     // Drag-to-look on the right half. `look_delta` is in raw screen pixels
@@ -73,14 +69,14 @@ fn apply_touch_controls(dt: f32, input: &InputState, pos: &mut Position, rot: &m
     // spinning past ±90°.
     let look = gesture.look_delta;
 
-    let pitch_delta = -look.y as f32 * TOUCH_LOOK_SENSITIVITY;
+    let pitch_delta = -look.y as f32 * cfg.look_sensitivity;
     let (forward, _, _) = rot.forward_right_up();
     let current_pitch = forward.y.asin();
     let clamped_pitch_delta =
-        (current_pitch + pitch_delta).clamp(-TOUCH_PITCH_LIMIT, TOUCH_PITCH_LIMIT) - current_pitch;
+        (current_pitch + pitch_delta).clamp(-cfg.pitch_limit, cfg.pitch_limit) - current_pitch;
     rot.rotate_pitch(Rad(clamped_pitch_delta));
 
-    rot.rotate_yaw(Rad(-look.x as f32 * TOUCH_LOOK_SENSITIVITY));
+    rot.rotate_yaw(Rad(-look.x as f32 * cfg.look_sensitivity));
 }
 
 fn apply_keyboard_mouse_controls(
