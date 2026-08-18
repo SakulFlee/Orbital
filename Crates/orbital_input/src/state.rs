@@ -20,6 +20,9 @@ pub struct InputState {
     touch_origins: HashMap<u64, Vector2<f64>>,
     /// Accumulated movement delta (window pixels) of each finger since the last frame reset.
     touch_deltas: HashMap<u64, Vector2<f64>>,
+    /// Whether any touch event has ever been observed — used to detect that
+    /// the running platform actually reports touch input (e.g. Android/iOS).
+    seen_touch: bool,
     surface_size: Option<Vector2<u64>>,
 }
 
@@ -38,6 +41,7 @@ impl InputState {
             touch_positions: HashMap::new(),
             touch_origins: HashMap::new(),
             touch_deltas: HashMap::new(),
+            seen_touch: false,
             surface_size: None,
         }
     }
@@ -124,6 +128,7 @@ impl InputState {
                 id,
                 force: _,
             } => {
+                self.seen_touch = true;
                 let position = Vector2::new(location.x, location.y);
                 let input_id = InputId::Touch(device_id);
                 let input_button = InputButton::Touch(id);
@@ -280,6 +285,14 @@ impl InputState {
     /// Whether any finger is currently touching the screen.
     pub fn has_active_touches(&self) -> bool {
         !self.touch_positions.is_empty()
+    }
+
+    /// Whether the platform has ever reported touch events.
+    ///
+    /// `false` on platforms that only report keyboard/mouse (e.g. desktop),
+    /// `true` once any touch has been seen on a touch-capable device.
+    pub fn has_seen_touch(&self) -> bool {
+        self.seen_touch
     }
 
     /// Number of fingers currently touching the screen.
@@ -459,13 +472,22 @@ impl InputState {
     }
 
     /// Resolve the engine's default touch control scheme from the current
-    /// touch state (see [`TouchGesture`]).
+    /// touch state (see [`TouchGesture`]), using the default joystick
+    /// radius/dead-zone.
     ///
     /// The screen is split in half: the **left half** acts as a virtual
     /// joystick for movement (origin = finger down point), the **right half**
     /// as a drag-to-look zone. When multiple fingers are on a half, the
     /// lowest finger id wins so assignment is deterministic.
     pub fn touch_gesture(&self) -> TouchGesture {
+        self.touch_gesture_with_config(TOUCH_JOYSTICK_RADIUS, TOUCH_JOYSTICK_DEADZONE)
+    }
+
+    /// Like [`InputState::touch_gesture`], but with a custom joystick
+    /// `radius` and `deadzone` (window pixels). Callers that both control the
+    /// camera and draw the joystick UI should pass the same values so the
+    /// visuals and movement agree.
+    pub fn touch_gesture_with_config(&self, radius: f64, deadzone: f64) -> TouchGesture {
         let Some(size) = self.surface_size else {
             return TouchGesture::default();
         };
@@ -501,22 +523,19 @@ impl InputState {
 
             let offset = position - origin;
             let length = offset.magnitude();
-            let clamped = if length > TOUCH_JOYSTICK_RADIUS {
-                offset * (TOUCH_JOYSTICK_RADIUS / length)
+            let clamped = if length > radius {
+                offset * (radius / length)
             } else {
                 offset
             };
             let magnitude = clamped.magnitude();
-            let clamped = if magnitude < TOUCH_JOYSTICK_DEADZONE {
+            let clamped = if magnitude < deadzone {
                 Vector2::zero()
             } else {
                 clamped
             };
             // x: screen-right = strafe right; y: screen-down = backwards, so negate.
-            gesture.move_vector = Vector2::new(
-                clamped.x / TOUCH_JOYSTICK_RADIUS,
-                -clamped.y / TOUCH_JOYSTICK_RADIUS,
-            );
+            gesture.move_vector = Vector2::new(clamped.x / radius, -clamped.y / radius);
         }
 
         if let Some(finger) = look_finger {
@@ -678,5 +697,34 @@ mod tests {
         let gesture = state.touch_gesture();
         assert!(!gesture.active);
         assert!(gesture.joystick_origin.is_none());
+    }
+
+    #[test]
+    fn touch_gesture_honors_custom_radius_and_deadzone() {
+        let mut state = setup_state();
+        state.handle_event(touch_event(TouchPhase::Started, (200.0, 400.0), 1));
+
+        // Full deflection is relative to the configured radius: a 40px push
+        // against a 100px radius yields a 0.4 move vector.
+        state.handle_event(touch_event(TouchPhase::Moved, (240.0, 400.0), 1));
+        let gesture = state.touch_gesture_with_config(100.0, 10.0);
+        assert!((gesture.move_vector.x - 0.4).abs() < 1e-9);
+        assert_eq!(gesture.move_vector.y, 0.0);
+
+        // Deltas below the dead-zone clamp to zero.
+        state.handle_event(touch_event(TouchPhase::Moved, (204.0, 400.0), 1));
+        let gesture = state.touch_gesture_with_config(100.0, 10.0);
+        assert_eq!(gesture.move_vector.x, 0.0);
+    }
+
+    #[test]
+    fn seen_touch_detects_touch_device() {
+        let mut state = InputState::new();
+        assert!(!state.has_seen_touch());
+        state.handle_event(touch_event(TouchPhase::Started, (200.0, 400.0), 1));
+        assert!(state.has_seen_touch());
+        // Remains true after the finger lifts.
+        state.handle_event(touch_event(TouchPhase::Ended, (200.0, 400.0), 1));
+        assert!(state.has_seen_touch());
     }
 }

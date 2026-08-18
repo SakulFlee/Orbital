@@ -27,6 +27,9 @@ pub use module_runtime::ModuleRuntime;
 pub mod render_overlay;
 pub use render_overlay::{RenderOverlay, RenderOverlayContext, RenderOverlayResource};
 
+mod touch_controls;
+pub use touch_controls::{TouchControlsConfig, set_touch_controls, touch_controls};
+
 /// Key used by the freeze-frustum toggle (default F4).
 ///
 /// Set by [`DebugModule`](orbital_debug_render::DebugModule) during setup.
