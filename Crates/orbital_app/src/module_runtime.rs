@@ -1281,14 +1281,13 @@ impl ApplicationHandler for ModuleRuntime {
         // Android Back: always forwarded to the input system so apps can use
         // single back actions. Additionally, when configured, N consecutive
         // presses within `back_exit_window` quit the app.
-        if self.settings.back_presses_to_exit > 0 {
-            if let WindowEvent::KeyboardInput {
+        if self.settings.back_presses_to_exit > 0
+            && let WindowEvent::KeyboardInput {
                 event,
                 is_synthetic: false,
                 ..
             } = &event
-            {
-                if event.logical_key == Key::Named(NamedKey::BrowserBack)
+                && event.logical_key == Key::Named(NamedKey::BrowserBack)
                     && event.state == ElementState::Pressed
                     && !event.repeat
                 {
@@ -1313,8 +1312,6 @@ impl ApplicationHandler for ModuleRuntime {
                         return;
                     }
                 }
-            }
-        }
 
         let input_event = match event {
             WindowEvent::CloseRequested => {
