@@ -2570,6 +2570,7 @@ dependencies = [
  "indicatif",
  "inquire",
  "serde",
+ "serde_json",
  "tar",
  "toml",
  "ureq",

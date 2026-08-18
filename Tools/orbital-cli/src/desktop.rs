@@ -5,6 +5,10 @@ use std::process::Command;
 pub fn build(release: bool) -> Result<()> {
     let project_root = crate::config::find_project_root()?;
 
+    // Sync engine assets so runtime path loads (e.g. "Shaders/pbr.wgsl")
+    // resolve against <cwd>/Assets on desktop.
+    crate::assets::sync_assets(&project_root)?;
+
     println!("Building for Desktop...");
     println!("  Mode: {}", if release { "release" } else { "debug" });
 
@@ -30,6 +34,9 @@ pub fn build(release: bool) -> Result<()> {
 /// Runs the desktop binary of the current project.
 pub fn run() -> Result<()> {
     let project_root = crate::config::find_project_root()?;
+
+    // Sync engine assets so runtime path loads resolve on desktop.
+    crate::assets::sync_assets(&project_root)?;
 
     println!("Running Desktop app...");
 
