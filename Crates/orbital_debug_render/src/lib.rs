@@ -548,9 +548,12 @@ impl Module for DebugModule {
             was_pressed: false,
             enabled: false,
         });
-        ecs.insert_resource(RenderOverlayResource(std::sync::Mutex::new(Box::new(
-            overlay,
-        ))));
+        if ecs.get_resource::<RenderOverlayResource>().is_none() {
+            ecs.insert_resource(RenderOverlayResource::new());
+        }
+        if let Some(res) = ecs.get_resource_mut::<RenderOverlayResource>() {
+            res.add(Box::new(overlay));
+        }
 
         vec![sys_debug_toggle.into_system()]
     }
