@@ -1,4 +1,5 @@
 use cgmath::{Vector2, Zero};
+#[cfg(feature = "gamepad_input")]
 use gilrs::Axis;
 use hashbrown::HashMap;
 use log::warn;

@@ -18,6 +18,7 @@ pub fn entrypoint(
         orbital::winit::error::EventLoopError,
     >,
 ) {
+    #[cfg(not(target_os = "android"))]
     logging::init();
 
     let event_loop = event_loop_result.expect("Event Loop failure");
@@ -25,6 +26,7 @@ pub fn entrypoint(
     let mut app_settings = AppSettings::default();
     app_settings.vsync_enabled = true;
     app_settings.name = NAME.to_string();
+    app_settings.back_presses_to_exit = 3;
 
     match App::new()
         .add_module(SkyboxModule)
@@ -35,7 +37,7 @@ pub fn entrypoint(
     }
 }
 
-orbital::make_desktop_main!(entrypoint);
+orbital::make_main!(entrypoint);
 
 struct SkyboxModule;
 
