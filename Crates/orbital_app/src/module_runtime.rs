@@ -1128,25 +1128,29 @@ impl ApplicationHandler for ModuleRuntime {
         // a pause, so we don't create a second window or rebuild the GPU
         // device. The surface (dropped on suspend) is recreated below. Only
         // build a fresh context on the first start.
-        let ctx = match std::mem::replace(&mut self.state, AppState::Starting) {
-            AppState::Paused(ctx) => ctx,
-            AppState::Ready(ctx) => ctx,
-            _ => match AppContext::new(event_loop, &self.settings) {
-                Ok(ctx) => Arc::new(Mutex::new(ctx)),
-                Err(e) => {
-                    error!("Critical error: Failed to acquire context while resuming app!");
-                    trace!("Error: {:?}", e);
-                    self.state = AppState::Starting;
-                    return;
-                }
-            },
-        };
+        let (ctx, needs_surface_recreate) =
+            match std::mem::replace(&mut self.state, AppState::Starting) {
+                AppState::Paused(ctx) => (ctx, true),
+                AppState::Ready(ctx) => (ctx, true),
+                _ => match AppContext::new(event_loop, &self.settings) {
+                    Ok(ctx) => (Arc::new(Mutex::new(ctx)), false),
+                    Err(e) => {
+                        error!("Critical error: Failed to acquire context while resuming app!");
+                        trace!("Error: {:?}", e);
+                        self.state = AppState::Starting;
+                        return;
+                    }
+                },
+            };
 
-        {
+        if needs_surface_recreate {
             let mut ctx_guard = ctx_lock!(ctx);
-            // Recreate the surface against the (possibly recreated) native
-            // window. On first start this reconfigures the surface created by
-            // AppContext::new; on resume it rebuilds it after suspend dropped it.
+            // Rebuild the surface against the (recreated) native window. This
+            // only happens when resuming from a pause, where the surface was
+            // dropped on suspend. On first start AppContext::new already
+            // created and configured the surface, so we must NOT recreate it
+            // (creating a second surface from the same window crashes on
+            // Android).
             ctx_guard.recreate_surface(self.settings.vsync_enabled);
         }
 
