@@ -66,6 +66,7 @@ target_sdk = {target_sdk}
 targets = ["arm64-v8a", "armeabi-v7a", "x86_64", "x86"]
 apk_mode = "multiarch"
 ndk_version = "26.2.11394342"
+screen_orientation = "landscape"
 "#,
         package = config.package_name,
         min_sdk = config.min_sdk,
@@ -121,7 +122,9 @@ use orbital::ecs::{IntoSystem, System, World};
 use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, Position, Rotation,
 };
-use orbital::logging::{self, error, info};
+#[cfg(not(target_os = "android"))]
+use orbital::logging::self;
+use orbital::logging::{error, info};
 
 pub const NAME: &str = "{{PROJECT_NAME}}";
 
@@ -252,7 +255,9 @@ use orbital::ecs::{IntoSystem, System, World};
 use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, Position, Rotation,
 };
-use orbital::logging::{self, error, info};
+#[cfg(not(target_os = "android"))]
+use orbital::logging::self;
+use orbital::logging::{error, info};
 
 pub const NAME: &str = "{{PROJECT_NAME}}";
 
@@ -324,7 +329,9 @@ use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, ImportQueueResource, Position, Rotation,
 };
 use orbital::importer::{ImportTask, gltf::GltfImport};
-use orbital::logging::{self, error, info};
+#[cfg(not(target_os = "android"))]
+use orbital::logging::self;
+use orbital::logging::{error, info};
 
 pub const NAME: &str = "{{PROJECT_NAME}}";
 
@@ -404,7 +411,9 @@ use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, ImportQueueResource, Position, Rotation,
 };
 use orbital::importer::{ImportTask, gltf::GltfImport};
-use orbital::logging::{self, error, info};
+#[cfg(not(target_os = "android"))]
+use orbital::logging::self;
+use orbital::logging::{error, info};
 
 pub const NAME: &str = "{{PROJECT_NAME}}";
 

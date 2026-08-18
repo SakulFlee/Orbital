@@ -40,6 +40,7 @@ pub struct AndroidConfig {
     pub targets: Option<Vec<String>>,
     pub apk_mode: Option<String>,
     pub ndk_version: Option<String>,
+    pub screen_orientation: Option<String>,
 }
 
 impl Default for AndroidConfig {
@@ -51,6 +52,7 @@ impl Default for AndroidConfig {
             targets: None,
             apk_mode: None,
             ndk_version: None,
+            screen_orientation: None,
         }
     }
 }
@@ -86,6 +88,10 @@ impl AndroidConfig {
     pub fn ndk_version(&self) -> &str {
         self.ndk_version.as_deref().unwrap_or("26.2.11394342")
     }
+
+    pub fn screen_orientation(&self) -> &str {
+        self.screen_orientation.as_deref().unwrap_or("landscape")
+    }
 }
 
 /// Find the project root by looking for Orbital.toml
@@ -120,8 +126,38 @@ pub fn load_config() -> Result<OrbitalConfig> {
 /// Load Android config with defaults
 pub fn load_android_config() -> Result<AndroidConfig> {
     let config = load_config()?;
-    Ok(config.android.unwrap_or_default())
+    let android = config.android.unwrap_or_default();
+    if let Some(orientation) = &android.screen_orientation
+        && !VALID_SCREEN_ORIENTATIONS.contains(&orientation.as_str())
+    {
+        anyhow::bail!(
+            "Invalid screen_orientation \"{orientation}\" in Orbital.toml. \
+             Valid values: {}",
+            VALID_SCREEN_ORIENTATIONS.join(", ")
+        );
+    }
+    Ok(android)
 }
+
+/// Valid values for the `android:screenOrientation` manifest attribute.
+const VALID_SCREEN_ORIENTATIONS: &[&str] = &[
+    "unspecified",
+    "behind",
+    "landscape",
+    "portrait",
+    "reverseLandscape",
+    "reversePortrait",
+    "sensorLandscape",
+    "sensorPortrait",
+    "userLandscape",
+    "userPortrait",
+    "sensor",
+    "fullSensor",
+    "nosensor",
+    "user",
+    "fullUser",
+    "locked",
+];
 
 /// Get the package name from the current directory's Cargo.toml
 pub fn get_package_name() -> Result<String> {

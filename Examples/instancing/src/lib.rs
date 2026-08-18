@@ -6,7 +6,9 @@ use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, ImportQueueResource, Position, Rotation,
 };
 use orbital::importer::{ImportTask, gltf::GltfImport};
-use orbital::logging::{self, error, info};
+#[cfg(not(target_os = "android"))]
+use orbital::logging;
+use orbital::logging::{error, info};
 use winit::keyboard::KeyCode;
 
 pub const NAME: &str = "Orbital-Demo-Project: Instancing Test";

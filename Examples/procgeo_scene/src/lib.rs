@@ -11,7 +11,9 @@ use orbital::ecs_bridge::{
     ModelInstances, Position, Rotation,
 };
 use orbital::importer::{ImportTask, gltf::GltfImport};
-use orbital::logging::{self, error, info};
+#[cfg(not(target_os = "android"))]
+use orbital::logging;
+use orbital::logging::{error, info};
 use orbital::procgeo::scene::SceneBuilder;
 use orbital::resources::WorldEnvironmentDescriptor;
 use orbital::resources::{
