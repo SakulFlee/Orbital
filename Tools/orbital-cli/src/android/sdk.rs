@@ -43,8 +43,7 @@ pub fn ensure_android_sdk() -> Result<()> {
     match choice.as_str() {
         "1" => {
             // Ask for SDK path
-            let sdk_path = Text::new("Enter Android SDK path:")
-                .prompt()?;
+            let sdk_path = Text::new("Enter Android SDK path:").prompt()?;
 
             let sdk_path = PathBuf::from(&sdk_path);
             if !sdk_path.exists() {
@@ -74,10 +73,10 @@ pub fn ensure_android_sdk() -> Result<()> {
 /// Detect an existing Android SDK via the standard env vars and default locations.
 fn detect_android_sdk() -> Option<PathBuf> {
     // 1. Orbital-owned SDK in the cache dir
-    if let Ok(dir) = crate::tooling::android_sdk_dir() {
-        if dir.join("cmdline-tools").join("latest").exists() {
-            return Some(dir);
-        }
+    if let Ok(dir) = crate::tooling::android_sdk_dir()
+        && dir.join("cmdline-tools").join("latest").exists()
+    {
+        return Some(dir);
     }
 
     // 2-4. Env vars (note: ANDROID_SDK_HOME is the AVD/preferences home, NOT the SDK)
@@ -100,7 +99,10 @@ fn detect_android_sdk() -> Option<PathBuf> {
         }
     } else if cfg!(target_os = "macos") {
         let home = std::env::var("HOME").ok()?;
-        let p = PathBuf::from(home).join("Library").join("Android").join("sdk");
+        let p = PathBuf::from(home)
+            .join("Library")
+            .join("Android")
+            .join("sdk");
         if p.exists() {
             return Some(p);
         }
@@ -149,23 +151,18 @@ fn warn_license_acceptance() {
     println!(
         "\nNote: The following step will automatically accept the Android SDK license agreements."
     );
-    println!(
-        "By continuing you agree to the terms at https://developer.android.com/studio/terms"
-    );
+    println!("By continuing you agree to the terms at https://developer.android.com/studio/terms");
 }
 
 /// Accepts the Android SDK license agreements non-interactively by writing the
 /// standard license hash files. This is the conventional approach used in CI.
 fn accept_sdk_licenses(sdk_path: &Path) -> Result<()> {
     let licenses_dir = sdk_path.join("licenses");
-    std::fs::create_dir_all(&licenses_dir)
-        .context("Failed to create licenses directory")?;
+    std::fs::create_dir_all(&licenses_dir).context("Failed to create licenses directory")?;
 
     // Well-known accepted hashes for the Android SDK licenses
-    let android_sdk_license =
-        "24333f8a63b6825ea9c5514f83c2829b004d1fee\n";
-    let android_sdk_preview_license =
-        "84831b9409646a918e30573bab4c9c91346d8abd\n";
+    let android_sdk_license = "24333f8a63b6825ea9c5514f83c2829b004d1fee\n";
+    let android_sdk_preview_license = "84831b9409646a918e30573bab4c9c91346d8abd\n";
 
     std::fs::write(
         licenses_dir.join("android-sdk-license"),
@@ -205,19 +202,17 @@ fn fetch_latest_commandline_tools_url() -> Result<(String, String)> {
     println!("Fetching latest version from Google's repository...");
 
     let xml = match ureq::get(repo_url).call() {
-        Ok(mut response) => {
-            match response.body_mut().read_to_string() {
-                Ok(xml) => xml,
-                Err(_) => {
-                    println!("Using fallback version...");
-                    let fallback_url = format!(
-                        "https://dl.google.com/android/repository/commandlinetools-{}-15859902_latest.zip",
-                        platform_suffix
-                    );
-                    return Ok((fallback_url, "commandlinetools.zip".to_string()));
-                }
+        Ok(mut response) => match response.body_mut().read_to_string() {
+            Ok(xml) => xml,
+            Err(_) => {
+                println!("Using fallback version...");
+                let fallback_url = format!(
+                    "https://dl.google.com/android/repository/commandlinetools-{}-15859902_latest.zip",
+                    platform_suffix
+                );
+                return Ok((fallback_url, "commandlinetools.zip".to_string()));
             }
-        }
+        },
         Err(_) => {
             println!("Using fallback version...");
             let fallback_url = format!(
@@ -232,29 +227,29 @@ fn fetch_latest_commandline_tools_url() -> Result<(String, String)> {
     let pattern = format!("commandlinetools-{}-", platform_suffix);
     for line in xml.lines() {
         let line = line.trim();
-        if line.contains("<url>") && line.contains(&pattern) {
-            if let Some(url_start) = line.find("<url>") {
-                if let Some(url_end) = line.find("</url>") {
-                    let url = &line[url_start + 5..url_end];
-                    let full_url = format!("https://dl.google.com/android/repository/{}", url);
+        if line.contains("<url>")
+            && line.contains(&pattern)
+            && let Some(url_start) = line.find("<url>")
+            && let Some(url_end) = line.find("</url>")
+        {
+            let url = &line[url_start + 5..url_end];
+            let full_url = format!("https://dl.google.com/android/repository/{}", url);
 
-                    // Extract version
-                    if let Some(pos) = url.find(&pattern) {
-                        let after_platform = &url[pos + pattern.len()..];
-                        if let Some(dash_pos) = after_platform.find('-') {
-                            let version_str = &after_platform[..dash_pos];
-                            if let Ok(version) = version_str.parse::<u64>() {
-                                println!("Found latest version: {}", version);
-                                return Ok((full_url, "commandlinetools.zip".to_string()));
-                            }
-                        }
+            // Extract version
+            if let Some(pos) = url.find(&pattern) {
+                let after_platform = &url[pos + pattern.len()..];
+                if let Some(dash_pos) = after_platform.find('-') {
+                    let version_str = &after_platform[..dash_pos];
+                    if let Ok(version) = version_str.parse::<u64>() {
+                        println!("Found latest version: {}", version);
+                        return Ok((full_url, "commandlinetools.zip".to_string()));
                     }
-
-                    // If we couldn't extract version, still return the URL
-                    println!("Found latest command-line tools");
-                    return Ok((full_url, "commandlinetools.zip".to_string()));
                 }
             }
+
+            // If we couldn't extract version, still return the URL
+            println!("Found latest command-line tools");
+            return Ok((full_url, "commandlinetools.zip".to_string()));
         }
     }
 
@@ -384,7 +379,10 @@ fn show_manual_instructions(install_path: &Path) {
     println!("  1. Go to: https://developer.android.com/studio#command-line-tools-only");
     println!("  2. Download the 'Command line tools only' package for your platform");
     println!("  3. Extract the zip to: {}", install_path.display());
-    println!("  4. Ensure the structure is: {}/...", expected_path.display());
+    println!(
+        "  4. Ensure the structure is: {}/...",
+        expected_path.display()
+    );
     println!("  5. Set ANDROID_HOME={}", install_path.display());
     println!("  6. Run 'orbital build android' again");
 }
@@ -408,7 +406,8 @@ fn extract_cmdline_tools(zip_path: &Path, sdk_dir: &Path) -> Result<()> {
         .map_err(|e| anyhow::anyhow!("Failed to create {}: {}", latest_dir.display(), e))?;
 
     for i in 0..archive.len() {
-        let mut file = archive.by_index(i)
+        let mut file = archive
+            .by_index(i)
             .map_err(|e| anyhow::anyhow!("Failed to read zip entry: {}", e))?;
 
         // Get the entry name and strip the leading "cmdline-tools/" component
@@ -423,19 +422,23 @@ fn extract_cmdline_tools(zip_path: &Path, sdk_dir: &Path) -> Result<()> {
         let outpath = latest_dir.join(stripped);
 
         if file.is_dir() {
-            std::fs::create_dir_all(&outpath)
-                .map_err(|e| anyhow::anyhow!("Failed to create directory {}: {}", outpath.display(), e))?;
+            std::fs::create_dir_all(&outpath).map_err(|e| {
+                anyhow::anyhow!("Failed to create directory {}: {}", outpath.display(), e)
+            })?;
         } else {
-            if let Some(parent) = outpath.parent() {
-                if !parent.exists() {
-                    std::fs::create_dir_all(parent)
-                        .map_err(|e| anyhow::anyhow!("Failed to create directory {}: {}", parent.display(), e))?;
-                }
+            if let Some(parent) = outpath.parent()
+                && !parent.exists()
+            {
+                std::fs::create_dir_all(parent).map_err(|e| {
+                    anyhow::anyhow!("Failed to create directory {}: {}", parent.display(), e)
+                })?;
             }
-            let mut out_file = std::fs::File::create(&outpath)
-                .map_err(|e| anyhow::anyhow!("Failed to create file {}: {}", outpath.display(), e))?;
-            std::io::copy(&mut file, &mut out_file)
-                .map_err(|e| anyhow::anyhow!("Failed to write file {}: {}", outpath.display(), e))?;
+            let mut out_file = std::fs::File::create(&outpath).map_err(|e| {
+                anyhow::anyhow!("Failed to create file {}: {}", outpath.display(), e)
+            })?;
+            std::io::copy(&mut file, &mut out_file).map_err(|e| {
+                anyhow::anyhow!("Failed to write file {}: {}", outpath.display(), e)
+            })?;
 
             // On Unix, set executable permission for extracted files (especially
             // shell scripts like sdkmanager). The zip crate's manual extraction
@@ -444,7 +447,9 @@ fn extract_cmdline_tools(zip_path: &Path, sdk_dir: &Path) -> Result<()> {
             {
                 use std::os::unix::fs::PermissionsExt;
                 std::fs::set_permissions(&outpath, std::fs::Permissions::from_mode(0o755))
-                    .map_err(|e| anyhow::anyhow!("Failed to set permissions on {}: {}", outpath.display(), e))?;
+                    .map_err(|e| {
+                        anyhow::anyhow!("Failed to set permissions on {}: {}", outpath.display(), e)
+                    })?;
             }
         }
     }
@@ -482,7 +487,9 @@ pub fn ndk_path(sdk_path: &Path, ndk_version: &str) -> PathBuf {
 /// Checks if the NDK directory exists at `sdk_path/ndk/<ndk_version>`.
 /// If not, runs sdkmanager to install it. Returns the NDK path on success.
 pub fn ensure_ndk(sdk_path: &Path) -> Result<PathBuf> {
-    let ndk_version = crate::config::load_android_config()?.ndk_version().to_string();
+    let ndk_version = crate::config::load_android_config()?
+        .ndk_version()
+        .to_string();
     let ndk = ndk_path(sdk_path, &ndk_version);
 
     if ndk.exists() {
@@ -573,7 +580,13 @@ pub fn candidate_sdk_paths() -> Vec<PathBuf> {
         }
     } else if cfg!(target_os = "macos") {
         let home = std::env::var("HOME").unwrap_or_default();
-        push_unique(&mut paths, PathBuf::from(home).join("Library").join("Android").join("sdk"));
+        push_unique(
+            &mut paths,
+            PathBuf::from(home)
+                .join("Library")
+                .join("Android")
+                .join("sdk"),
+        );
     } else {
         let home = std::env::var("HOME").unwrap_or_default();
         push_unique(&mut paths, PathBuf::from(home).join("Android").join("Sdk"));
@@ -727,4 +740,3 @@ pub fn create_avd(name: &str, system_image: &str) -> Result<()> {
     println!("AVD '{}' created.", name);
     Ok(())
 }
-

@@ -36,30 +36,66 @@ fn generate_project(android_dir: &Path, config: &config::AndroidConfig) -> Resul
     let replacements = create_replacements(config);
 
     // Create directory structure
-    fs::create_dir_all(android_dir.join("app").join("src").join("main").join("res").join("values"))
-        .context("Failed to create Android directory structure")?;
+    fs::create_dir_all(
+        android_dir
+            .join("app")
+            .join("src")
+            .join("main")
+            .join("res")
+            .join("values"),
+    )
+    .context("Failed to create Android directory structure")?;
     fs::create_dir_all(android_dir.join("gradle").join("wrapper"))
         .context("Failed to create gradle wrapper directory")?;
 
     // Write template files
-    write_template_file(android_dir.join("build.gradle"), BUILD_GRADLE, &replacements)?;
-    write_template_file(android_dir.join("settings.gradle"), SETTINGS_GRADLE, &replacements)?;
-    write_template_file(android_dir.join("gradle.properties"), GRADLE_PROPERTIES, &replacements)?;
-    write_template_file(android_dir.join("app").join("build.gradle"), APP_BUILD_GRADLE, &replacements)?;
     write_template_file(
-        android_dir.join("app").join("src").join("main").join("AndroidManifest.xml"),
+        android_dir.join("build.gradle"),
+        BUILD_GRADLE,
+        &replacements,
+    )?;
+    write_template_file(
+        android_dir.join("settings.gradle"),
+        SETTINGS_GRADLE,
+        &replacements,
+    )?;
+    write_template_file(
+        android_dir.join("gradle.properties"),
+        GRADLE_PROPERTIES,
+        &replacements,
+    )?;
+    write_template_file(
+        android_dir.join("app").join("build.gradle"),
+        APP_BUILD_GRADLE,
+        &replacements,
+    )?;
+    write_template_file(
+        android_dir
+            .join("app")
+            .join("src")
+            .join("main")
+            .join("AndroidManifest.xml"),
         ANDROID_MANIFEST,
         &replacements,
     )?;
     write_template_file(
-        android_dir.join("app").join("src").join("main").join("res").join("values").join("strings.xml"),
+        android_dir
+            .join("app")
+            .join("src")
+            .join("main")
+            .join("res")
+            .join("values")
+            .join("strings.xml"),
         STRINGS_XML,
         &replacements,
     )?;
 
     // Write gradle wrapper files
     fs::write(
-        android_dir.join("gradle").join("wrapper").join("gradle-wrapper.properties"),
+        android_dir
+            .join("gradle")
+            .join("wrapper")
+            .join("gradle-wrapper.properties"),
         GRADLE_WRAPPER_PROPERTIES,
     )
     .context("Failed to write gradle-wrapper.properties")?;
@@ -71,8 +107,14 @@ fn generate_project(android_dir: &Path, config: &config::AndroidConfig) -> Resul
         .join("gradle")
         .join("wrapper")
         .join("gradle-wrapper.jar");
-    fs::copy(&template_jar, android_dir.join("gradle").join("wrapper").join("gradle-wrapper.jar"))
-        .context("Failed to copy gradle-wrapper.jar")?;
+    fs::copy(
+        &template_jar,
+        android_dir
+            .join("gradle")
+            .join("wrapper")
+            .join("gradle-wrapper.jar"),
+    )
+    .context("Failed to copy gradle-wrapper.jar")?;
 
     // Copy gradlew scripts
     let template_gradlew = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -84,11 +126,10 @@ fn generate_project(android_dir: &Path, config: &config::AndroidConfig) -> Resul
     // The template may have CRLF from being checked out on Windows.
     #[cfg(unix)]
     {
-        let content = fs::read_to_string(&template_gradlew)
-            .context("Failed to read gradlew template")?;
+        let content =
+            fs::read_to_string(&template_gradlew).context("Failed to read gradlew template")?;
         let content = content.replace("\r\n", "\n");
-        fs::write(android_dir.join("gradlew"), content)
-            .context("Failed to write gradlew")?;
+        fs::write(android_dir.join("gradlew"), content).context("Failed to write gradlew")?;
     }
     #[cfg(not(unix))]
     {
@@ -118,18 +159,31 @@ fn generate_project(android_dir: &Path, config: &config::AndroidConfig) -> Resul
 
 fn create_replacements(config: &config::AndroidConfig) -> Vec<(String, String)> {
     vec![
-        ("@@@PACKAGE_NAME@@@".to_string(), config.package_name().to_string()),
+        (
+            "@@@PACKAGE_NAME@@@".to_string(),
+            config.package_name().to_string(),
+        ),
         ("@@@MIN_SDK@@@".to_string(), config.min_sdk().to_string()),
-        ("@@@TARGET_SDK@@@".to_string(), config.target_sdk().to_string()),
+        (
+            "@@@TARGET_SDK@@@".to_string(),
+            config.target_sdk().to_string(),
+        ),
         ("@@@AGP_VERSION@@@".to_string(), "9.3.1".to_string()),
-        ("@@@NDK_VERSION@@@".to_string(), config.ndk_version().to_string()),
+        (
+            "@@@NDK_VERSION@@@".to_string(),
+            config.ndk_version().to_string(),
+        ),
         // @@@LIBRARY_NAME@@@ and @@@APP_NAME@@@ are intentionally left
         // unreplaced here; they're finalized during build with the actual
         // crate/lib names (see update_android_project).
     ]
 }
 
-fn write_template_file(path: PathBuf, content: &str, replacements: &[(String, String)]) -> Result<()> {
+fn write_template_file(
+    path: PathBuf,
+    content: &str,
+    replacements: &[(String, String)],
+) -> Result<()> {
     let replaced_content = replace_placeholders(content, replacements);
     fs::write(&path, replaced_content)
         .with_context(|| format!("Failed to write file: {}", path.display()))?;
@@ -215,6 +269,7 @@ const ANDROID_MANIFEST: &str = r#"<?xml version="1.0" encoding="utf-8"?>
         <activity
             android:name="android.app.NativeActivity"
             android:configChanges="orientation|keyboardHidden|screenSize"
+            android:screenOrientation="@@@SCREEN_ORIENTATION@@@"
             android:exported="true"
             android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
             <meta-data

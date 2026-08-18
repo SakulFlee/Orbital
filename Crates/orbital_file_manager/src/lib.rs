@@ -66,6 +66,9 @@ pub trait Storage: Send + Sync {
     /// Whether the given stored path exists.
     fn path_exists(&self, path: &str) -> bool;
 
+    /// Deletes a stored file, if it exists.
+    fn remove_file(&self, path: &str) -> Result<(), FsError>;
+
     /// Reads the full contents of a cached file as bytes.
     fn read_cache_bytes(&self, path: &str) -> Result<Vec<u8>, FsError>;
     /// Writes bytes to a cached file, creating parent directories as needed.
@@ -181,6 +184,11 @@ impl FileManager {
     /// Whether a stored path exists.
     pub fn storage_path_exists(&self, path: &str) -> bool {
         self.storage.path_exists(path)
+    }
+
+    /// Deletes a stored file, if it exists.
+    pub fn remove_file(&self, path: &str) -> Result<(), FsError> {
+        self.storage.remove_file(path)
     }
 
     /// Reads a cached file as bytes.

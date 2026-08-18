@@ -14,7 +14,7 @@ impl OrbitalConfig {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct OrbitalGeneral {
     pub engine_repo: Option<String>,
     pub engine_branch: Option<String>,
@@ -32,15 +32,6 @@ impl OrbitalGeneral {
     }
 }
 
-impl Default for OrbitalGeneral {
-    fn default() -> Self {
-        Self {
-            engine_repo: None,
-            engine_branch: None,
-        }
-    }
-}
-
 #[derive(Debug, Deserialize)]
 pub struct AndroidConfig {
     pub package: Option<String>,
@@ -49,6 +40,7 @@ pub struct AndroidConfig {
     pub targets: Option<Vec<String>>,
     pub apk_mode: Option<String>,
     pub ndk_version: Option<String>,
+    pub screen_orientation: Option<String>,
 }
 
 impl Default for AndroidConfig {
@@ -60,6 +52,7 @@ impl Default for AndroidConfig {
             targets: None,
             apk_mode: None,
             ndk_version: None,
+            screen_orientation: None,
         }
     }
 }
@@ -95,6 +88,10 @@ impl AndroidConfig {
     pub fn ndk_version(&self) -> &str {
         self.ndk_version.as_deref().unwrap_or("26.2.11394342")
     }
+
+    pub fn screen_orientation(&self) -> &str {
+        self.screen_orientation.as_deref().unwrap_or("landscape")
+    }
 }
 
 /// Find the project root by looking for Orbital.toml
@@ -121,8 +118,7 @@ pub fn load_config() -> Result<OrbitalConfig> {
     let content = std::fs::read_to_string(&config_path)
         .with_context(|| format!("Failed to read {}", config_path.display()))?;
 
-    let config: OrbitalConfig =
-        toml::from_str(&content).context("Failed to parse Orbital.toml")?;
+    let config: OrbitalConfig = toml::from_str(&content).context("Failed to parse Orbital.toml")?;
 
     Ok(config)
 }
@@ -130,8 +126,38 @@ pub fn load_config() -> Result<OrbitalConfig> {
 /// Load Android config with defaults
 pub fn load_android_config() -> Result<AndroidConfig> {
     let config = load_config()?;
-    Ok(config.android.unwrap_or_default())
+    let android = config.android.unwrap_or_default();
+    if let Some(orientation) = &android.screen_orientation
+        && !VALID_SCREEN_ORIENTATIONS.contains(&orientation.as_str())
+    {
+        anyhow::bail!(
+            "Invalid screen_orientation \"{orientation}\" in Orbital.toml. \
+             Valid values: {}",
+            VALID_SCREEN_ORIENTATIONS.join(", ")
+        );
+    }
+    Ok(android)
 }
+
+/// Valid values for the `android:screenOrientation` manifest attribute.
+const VALID_SCREEN_ORIENTATIONS: &[&str] = &[
+    "unspecified",
+    "behind",
+    "landscape",
+    "portrait",
+    "reverseLandscape",
+    "reversePortrait",
+    "sensorLandscape",
+    "sensorPortrait",
+    "userLandscape",
+    "userPortrait",
+    "sensor",
+    "fullSensor",
+    "nosensor",
+    "user",
+    "fullUser",
+    "locked",
+];
 
 /// Get the package name from the current directory's Cargo.toml
 pub fn get_package_name() -> Result<String> {
@@ -140,8 +166,7 @@ pub fn get_package_name() -> Result<String> {
         anyhow::bail!("No Cargo.toml found in current directory");
     }
 
-    let content = std::fs::read_to_string(cargo_toml_path)
-        .context("Failed to read Cargo.toml")?;
+    let content = std::fs::read_to_string(cargo_toml_path).context("Failed to read Cargo.toml")?;
 
     // Parse [package] name
     let mut in_package_section = false;
@@ -158,11 +183,12 @@ pub fn get_package_name() -> Result<String> {
             continue;
         }
 
-        if in_package_section && trimmed.starts_with("name") {
-            if let Some(value) = trimmed.split_once('=') {
-                let value = value.1.trim().trim_matches('"');
-                return Ok(value.to_string());
-            }
+        if in_package_section
+            && trimmed.starts_with("name")
+            && let Some(value) = trimmed.split_once('=')
+        {
+            let value = value.1.trim().trim_matches('"');
+            return Ok(value.to_string());
         }
     }
 
@@ -176,8 +202,7 @@ pub fn get_lib_name() -> Result<String> {
         anyhow::bail!("No Cargo.toml found in current directory");
     }
 
-    let content = std::fs::read_to_string(cargo_toml_path)
-        .context("Failed to read Cargo.toml")?;
+    let content = std::fs::read_to_string(cargo_toml_path).context("Failed to read Cargo.toml")?;
 
     // Parse [lib] name
     let mut in_lib_section = false;
@@ -194,11 +219,12 @@ pub fn get_lib_name() -> Result<String> {
             continue;
         }
 
-        if in_lib_section && trimmed.starts_with("name") {
-            if let Some(value) = trimmed.split_once('=') {
-                let value = value.1.trim().trim_matches('"');
-                return Ok(value.to_string());
-            }
+        if in_lib_section
+            && trimmed.starts_with("name")
+            && let Some(value) = trimmed.split_once('=')
+        {
+            let value = value.1.trim().trim_matches('"');
+            return Ok(value.to_string());
         }
     }
 
@@ -241,15 +267,15 @@ pub fn find_package_path(package_name: &str) -> Result<PathBuf> {
         if in_workspace_section && trimmed.starts_with("members") {
             in_members_list = true;
             // Check for inline list
-            if let Some(list_start) = trimmed.find('[') {
-                if let Some(list_end) = trimmed.find(']') {
-                    let list = &trimmed[list_start + 1..list_end];
-                    for item in list.split(',') {
-                        let item = item.trim().trim_matches('"');
-                        members.push(item.to_string());
-                    }
-                    in_members_list = false;
+            if let Some(list_start) = trimmed.find('[')
+                && let Some(list_end) = trimmed.find(']')
+            {
+                let list = &trimmed[list_start + 1..list_end];
+                for item in list.split(',') {
+                    let item = item.trim().trim_matches('"');
+                    members.push(item.to_string());
                 }
+                in_members_list = false;
             }
             continue;
         }
@@ -294,12 +320,13 @@ pub fn find_package_path(package_name: &str) -> Result<PathBuf> {
                 continue;
             }
 
-            if in_package_section && trimmed.starts_with("name") {
-                if let Some(value) = trimmed.split_once('=') {
-                    let value = value.1.trim().trim_matches('"');
-                    if value == package_name {
-                        return Ok(member_path);
-                    }
+            if in_package_section
+                && trimmed.starts_with("name")
+                && let Some(value) = trimmed.split_once('=')
+            {
+                let value = value.1.trim().trim_matches('"');
+                if value == package_name {
+                    return Ok(member_path);
                 }
             }
         }
@@ -331,11 +358,12 @@ pub fn find_package_lib_name(package_name: &str) -> Result<String> {
             continue;
         }
 
-        if in_lib_section && trimmed.starts_with("name") {
-            if let Some(value) = trimmed.split_once('=') {
-                let value = value.1.trim().trim_matches('"');
-                return Ok(value.to_string());
-            }
+        if in_lib_section
+            && trimmed.starts_with("name")
+            && let Some(value) = trimmed.split_once('=')
+        {
+            let value = value.1.trim().trim_matches('"');
+            return Ok(value.to_string());
         }
     }
 

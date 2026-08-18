@@ -36,12 +36,12 @@ fn is_jdk(home: &Path) -> bool {
 /// Returns the JDK home directory if a working Java (with javac) is found.
 pub fn find_java() -> Option<PathBuf> {
     // 1. Orbital-owned JDK in the cache dir (may be nested in a versioned subdir)
-    if let Ok(dir) = crate::tooling::java_dir(JDK_VERSION) {
-        if let Ok(jdk_home) = find_jre_home_in(&dir) {
-            let java = java_executable(&jdk_home);
-            if java.exists() && java_works(&java) && is_jdk(&jdk_home) {
-                return Some(jdk_home);
-            }
+    if let Ok(dir) = crate::tooling::java_dir(JDK_VERSION)
+        && let Ok(jdk_home) = find_jre_home_in(&dir)
+    {
+        let java = java_executable(&jdk_home);
+        if java.exists() && java_works(&java) && is_jdk(&jdk_home) {
+            return Some(jdk_home);
         }
     }
 
@@ -55,15 +55,15 @@ pub fn find_java() -> Option<PathBuf> {
     }
 
     // 3. java on PATH (only if a full JDK is available)
-    if java_works_on_path() {
-        if let Some(java) = find_java_on_path() {
-            // Resolve symlinks (e.g. /usr/bin/java -> /usr/lib/jvm/.../bin/java)
-            // then walk up to find the JDK root directory.
-            if let Some(home) = resolve_jdk_home(&java) {
-                if is_jdk(&home) {
-                    return Some(home);
-                }
-            }
+    if java_works_on_path()
+        && let Some(java) = find_java_on_path()
+    {
+        // Resolve symlinks (e.g. /usr/bin/java -> /usr/lib/jvm/.../bin/java)
+        // then walk up to find the JDK root directory.
+        if let Some(home) = resolve_jdk_home(&java)
+            && is_jdk(&home)
+        {
+            return Some(home);
         }
     }
 
@@ -78,7 +78,10 @@ pub fn ensure_java() -> Result<PathBuf> {
         return Ok(home);
     }
 
-    println!("\nNo compatible Java runtime found (JDK {} required for Android builds).", JDK_VERSION);
+    println!(
+        "\nNo compatible Java runtime found (JDK {} required for Android builds).",
+        JDK_VERSION
+    );
 
     if Confirm::new("Install an Orbital-managed Temurin JDK automatically?")
         .with_default(true)
@@ -88,7 +91,10 @@ pub fn ensure_java() -> Result<PathBuf> {
         println!("Java installed to: {}", home.display());
         Ok(home)
     } else {
-        println!("\nPlease install a JDK {} (or newer) manually and set JAVA_HOME.", JDK_VERSION);
+        println!(
+            "\nPlease install a JDK {} (or newer) manually and set JAVA_HOME.",
+            JDK_VERSION
+        );
         println!("  - https://adoptium.net");
         println!("Then run 'orbital build android' again.");
         anyhow::bail!("Java runtime required but not installed.");
@@ -131,7 +137,10 @@ fn download_java(version: &str) -> Result<PathBuf> {
     let java = java_executable(&jdk_home);
 
     if !java.exists() {
-        anyhow::bail!("Extracted JDK does not contain a java executable at {}", java.display());
+        anyhow::bail!(
+            "Extracted JDK does not contain a java executable at {}",
+            java.display()
+        );
     }
     if !is_jdk(&jdk_home) {
         anyhow::bail!(
@@ -225,28 +234,25 @@ fn java_works_on_path() -> bool {
 fn find_java_on_path() -> Option<PathBuf> {
     if cfg!(windows) {
         // `where java` returns full path
-        if let Ok(out) = Command::new("where").arg("java").output() {
-            if out.status.success() {
-                if let Ok(s) = String::from_utf8(out.stdout) {
-                    if let Some(line) = s.lines().next() {
-                        let p = PathBuf::from(line.trim());
-                        if p.exists() {
-                            return Some(p);
-                        }
-                    }
-                }
+        if let Ok(out) = Command::new("where").arg("java").output()
+            && out.status.success()
+            && let Ok(s) = String::from_utf8(out.stdout)
+            && let Some(line) = s.lines().next()
+        {
+            let p = PathBuf::from(line.trim());
+            if p.exists() {
+                return Some(p);
             }
         }
         None
     } else {
-        if let Ok(out) = Command::new("sh").args(["-c", "command -v java"]).output() {
-            if out.status.success() {
-                if let Ok(s) = String::from_utf8(out.stdout) {
-                    let p = PathBuf::from(s.trim());
-                    if p.exists() {
-                        return Some(p);
-                    }
-                }
+        if let Ok(out) = Command::new("sh").args(["-c", "command -v java"]).output()
+            && out.status.success()
+            && let Ok(s) = String::from_utf8(out.stdout)
+        {
+            let p = PathBuf::from(s.trim());
+            if p.exists() {
+                return Some(p);
             }
         }
         None
@@ -287,13 +293,14 @@ fn resolve_jdk_home(java_path: &Path) -> Option<PathBuf> {
 }
 
 fn extract_zip(archive: &Path, dest: &Path) -> Result<()> {
-    let file = std::fs::File::open(archive)
-        .map_err(|e| anyhow::anyhow!("Failed to open zip: {}", e))?;
-    let mut zip = zip::ZipArchive::new(file)
-        .map_err(|e| anyhow::anyhow!("Failed to read zip: {}", e))?;
+    let file =
+        std::fs::File::open(archive).map_err(|e| anyhow::anyhow!("Failed to open zip: {}", e))?;
+    let mut zip =
+        zip::ZipArchive::new(file).map_err(|e| anyhow::anyhow!("Failed to read zip: {}", e))?;
 
     for i in 0..zip.len() {
-        let mut entry = zip.by_index(i)
+        let mut entry = zip
+            .by_index(i)
             .map_err(|e| anyhow::anyhow!("Failed to read zip entry: {}", e))?;
         let outpath = dest.join(entry.mangled_name());
 
@@ -301,11 +308,11 @@ fn extract_zip(archive: &Path, dest: &Path) -> Result<()> {
             std::fs::create_dir_all(&outpath)
                 .map_err(|e| anyhow::anyhow!("Failed to create dir: {}", e))?;
         } else {
-            if let Some(parent) = outpath.parent() {
-                if !parent.exists() {
-                    std::fs::create_dir_all(parent)
-                        .map_err(|e| anyhow::anyhow!("Failed to create dir: {}", e))?;
-                }
+            if let Some(parent) = outpath.parent()
+                && !parent.exists()
+            {
+                std::fs::create_dir_all(parent)
+                    .map_err(|e| anyhow::anyhow!("Failed to create dir: {}", e))?;
             }
             let mut out_file = std::fs::File::create(&outpath)
                 .map_err(|e| anyhow::anyhow!("Failed to create file: {}", e))?;

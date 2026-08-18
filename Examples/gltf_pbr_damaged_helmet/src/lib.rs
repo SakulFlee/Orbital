@@ -7,7 +7,9 @@ use orbital::ecs_bridge::{
     LightDirty, Position, Rotation,
 };
 use orbital::importer::{ImportTask, gltf::GltfImport};
-use orbital::logging::{self, error, info};
+#[cfg(not(target_os = "android"))]
+use orbital::logging;
+use orbital::logging::{error, info};
 use orbital::resources::ShadowCaster;
 use winit::keyboard::KeyCode;
 
@@ -27,6 +29,7 @@ pub fn entrypoint(
     let mut app_settings = AppSettings::default();
     app_settings.vsync_enabled = true;
     app_settings.name = NAME.to_string();
+    app_settings.back_presses_to_exit = 3;
 
     match App::new()
         .add_module(DamagedHelmetModule)
