@@ -14,8 +14,7 @@ impl OrbitalConfig {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct OrbitalGeneral {
     pub engine_repo: Option<String>,
     pub engine_branch: Option<String>,
@@ -32,7 +31,6 @@ impl OrbitalGeneral {
         self.engine_branch.as_deref().unwrap_or("android")
     }
 }
-
 
 #[derive(Debug, Deserialize)]
 pub struct AndroidConfig {
@@ -149,11 +147,13 @@ pub fn get_package_name() -> Result<String> {
             continue;
         }
 
-        if in_package_section && trimmed.starts_with("name")
-            && let Some(value) = trimmed.split_once('=') {
-                let value = value.1.trim().trim_matches('"');
-                return Ok(value.to_string());
-            }
+        if in_package_section
+            && trimmed.starts_with("name")
+            && let Some(value) = trimmed.split_once('=')
+        {
+            let value = value.1.trim().trim_matches('"');
+            return Ok(value.to_string());
+        }
     }
 
     anyhow::bail!("No [package] name found in Cargo.toml")
@@ -183,11 +183,13 @@ pub fn get_lib_name() -> Result<String> {
             continue;
         }
 
-        if in_lib_section && trimmed.starts_with("name")
-            && let Some(value) = trimmed.split_once('=') {
-                let value = value.1.trim().trim_matches('"');
-                return Ok(value.to_string());
-            }
+        if in_lib_section
+            && trimmed.starts_with("name")
+            && let Some(value) = trimmed.split_once('=')
+        {
+            let value = value.1.trim().trim_matches('"');
+            return Ok(value.to_string());
+        }
     }
 
     // Fallback: use package name
@@ -230,14 +232,15 @@ pub fn find_package_path(package_name: &str) -> Result<PathBuf> {
             in_members_list = true;
             // Check for inline list
             if let Some(list_start) = trimmed.find('[')
-                && let Some(list_end) = trimmed.find(']') {
-                    let list = &trimmed[list_start + 1..list_end];
-                    for item in list.split(',') {
-                        let item = item.trim().trim_matches('"');
-                        members.push(item.to_string());
-                    }
-                    in_members_list = false;
+                && let Some(list_end) = trimmed.find(']')
+            {
+                let list = &trimmed[list_start + 1..list_end];
+                for item in list.split(',') {
+                    let item = item.trim().trim_matches('"');
+                    members.push(item.to_string());
                 }
+                in_members_list = false;
+            }
             continue;
         }
 
@@ -281,13 +284,15 @@ pub fn find_package_path(package_name: &str) -> Result<PathBuf> {
                 continue;
             }
 
-            if in_package_section && trimmed.starts_with("name")
-                && let Some(value) = trimmed.split_once('=') {
-                    let value = value.1.trim().trim_matches('"');
-                    if value == package_name {
-                        return Ok(member_path);
-                    }
+            if in_package_section
+                && trimmed.starts_with("name")
+                && let Some(value) = trimmed.split_once('=')
+            {
+                let value = value.1.trim().trim_matches('"');
+                if value == package_name {
+                    return Ok(member_path);
                 }
+            }
         }
     }
 
@@ -317,11 +322,13 @@ pub fn find_package_lib_name(package_name: &str) -> Result<String> {
             continue;
         }
 
-        if in_lib_section && trimmed.starts_with("name")
-            && let Some(value) = trimmed.split_once('=') {
-                let value = value.1.trim().trim_matches('"');
-                return Ok(value.to_string());
-            }
+        if in_lib_section
+            && trimmed.starts_with("name")
+            && let Some(value) = trimmed.split_once('=')
+        {
+            let value = value.1.trim().trim_matches('"');
+            return Ok(value.to_string());
+        }
     }
 
     // Fallback: use package name
