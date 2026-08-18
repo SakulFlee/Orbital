@@ -126,8 +126,38 @@ pub fn load_config() -> Result<OrbitalConfig> {
 /// Load Android config with defaults
 pub fn load_android_config() -> Result<AndroidConfig> {
     let config = load_config()?;
-    Ok(config.android.unwrap_or_default())
+    let android = config.android.unwrap_or_default();
+    if let Some(orientation) = &android.screen_orientation {
+        if !VALID_SCREEN_ORIENTATIONS.contains(&orientation.as_str()) {
+            anyhow::bail!(
+                "Invalid screen_orientation \"{orientation}\" in Orbital.toml. \
+                 Valid values: {}",
+                VALID_SCREEN_ORIENTATIONS.join(", ")
+            );
+        }
+    }
+    Ok(android)
 }
+
+/// Valid values for the `android:screenOrientation` manifest attribute.
+const VALID_SCREEN_ORIENTATIONS: &[&str] = &[
+    "unspecified",
+    "behind",
+    "landscape",
+    "portrait",
+    "reverseLandscape",
+    "reversePortrait",
+    "sensorLandscape",
+    "sensorPortrait",
+    "userLandscape",
+    "userPortrait",
+    "sensor",
+    "fullSensor",
+    "nosensor",
+    "user",
+    "fullUser",
+    "locked",
+];
 
 /// Get the package name from the current directory's Cargo.toml
 pub fn get_package_name() -> Result<String> {
