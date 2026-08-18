@@ -28,7 +28,7 @@ enum Commands {
         /// Package name (e.g., com.mycompany.mygame)
         #[arg(short, long)]
         package: Option<String>,
-        /// Template to use (minimal, skybox, instancing, gltf)
+        /// Template to use (minimal)
         #[arg(short, long)]
         template: Option<String>,
         /// Enable Android support
