@@ -270,8 +270,7 @@ impl AppContext {
     }
 
     pub fn current_surface_texture(&self) -> CurrentSurfaceTexture {
-        self.surface()
-            .get_current_texture()
+        self.surface().get_current_texture()
     }
 
     pub fn reconfigure_surface(&self, configuration: &SurfaceConfiguration) {

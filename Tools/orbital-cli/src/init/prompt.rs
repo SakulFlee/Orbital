@@ -79,12 +79,9 @@ pub fn interactive(
     // 5. Template selection
     let template_name = match template {
         Some(t) => t,
-        None => Select::new(
-            "Template:",
-            vec!["minimal", "skybox", "instancing", "gltf"],
-        )
-        .prompt()?
-        .to_string(),
+        None => Select::new("Template:", vec!["minimal", "skybox", "instancing", "gltf"])
+            .prompt()?
+            .to_string(),
     };
 
     // 6. Engine repository
@@ -128,12 +125,13 @@ pub fn non_interactive(
         .unwrap_or_default();
 
     let project_name = name.ok_or_else(|| {
-        anyhow::anyhow!("Project name is required in non-interactive mode. Usage: orbital init <name>")
+        anyhow::anyhow!(
+            "Project name is required in non-interactive mode. Usage: orbital init <name>"
+        )
     })?;
 
-    let package_name = package.unwrap_or_else(|| {
-        format!("com.example.{}", project_name.replace('-', "_"))
-    });
+    let package_name =
+        package.unwrap_or_else(|| format!("com.example.{}", project_name.replace('-', "_")));
 
     let template_name = template.unwrap_or_else(|| "minimal".to_string());
     let engine_repo = engine_repo.unwrap_or_else(|| orbital_config.engine_repo().to_string());
