@@ -127,8 +127,7 @@ pub fn load_config() -> Result<OrbitalConfig> {
     let content = std::fs::read_to_string(&config_path)
         .with_context(|| format!("Failed to read {}", config_path.display()))?;
 
-    let config: OrbitalConfig =
-        toml::from_str(&content).context("Failed to parse Orbital.toml")?;
+    let config: OrbitalConfig = toml::from_str(&content).context("Failed to parse Orbital.toml")?;
 
     Ok(config)
 }
@@ -146,8 +145,7 @@ pub fn get_package_name() -> Result<String> {
         anyhow::bail!("No Cargo.toml found in current directory");
     }
 
-    let content = std::fs::read_to_string(cargo_toml_path)
-        .context("Failed to read Cargo.toml")?;
+    let content = std::fs::read_to_string(cargo_toml_path).context("Failed to read Cargo.toml")?;
 
     // Parse [package] name
     let mut in_package_section = false;
@@ -182,8 +180,7 @@ pub fn get_lib_name() -> Result<String> {
         anyhow::bail!("No Cargo.toml found in current directory");
     }
 
-    let content = std::fs::read_to_string(cargo_toml_path)
-        .context("Failed to read Cargo.toml")?;
+    let content = std::fs::read_to_string(cargo_toml_path).context("Failed to read Cargo.toml")?;
 
     // Parse [lib] name
     let mut in_lib_section = false;

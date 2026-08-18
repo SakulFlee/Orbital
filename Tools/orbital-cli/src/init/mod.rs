@@ -15,7 +15,14 @@ pub fn run(
     let config = if yes {
         // Non-interactive mode: use defaults or provided values
         let android_flag = android.unwrap_or(false);
-        prompt::non_interactive(name, package, template, android_flag, engine_repo, engine_branch)?
+        prompt::non_interactive(
+            name,
+            package,
+            template,
+            android_flag,
+            engine_repo,
+            engine_branch,
+        )?
     } else {
         // Interactive mode: prompt for all values
         prompt::interactive(name, package, template, android, engine_repo, engine_branch)?
@@ -37,10 +44,7 @@ pub fn run(
     // Generate project files
     template::generate_project(&project_dir, &config)?;
 
-    println!(
-        "\nProject '{}' created successfully!",
-        config.project_name
-    );
+    println!("\nProject '{}' created successfully!", config.project_name);
 
     // Auto-run init android if requested
     if config.generate_android {

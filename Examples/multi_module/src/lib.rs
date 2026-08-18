@@ -1,7 +1,7 @@
 use orbital::app::{App, AppSettings};
 use orbital::debug_render::DebugModule;
 #[cfg(not(target_os = "android"))]
-use orbital::logging::self;
+use orbital::logging;
 use orbital::logging::{error, info};
 
 mod modules;

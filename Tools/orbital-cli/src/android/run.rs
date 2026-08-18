@@ -30,7 +30,10 @@ pub fn run(
     let serial = select_device(&adb, device_serial)?;
 
     // Pick the APK that matches the device ABI when there are multiple
-    let apk_path = find_apk(&android_dir, device::device_abi(&adb, &serial).ok().as_deref())?;
+    let apk_path = find_apk(
+        &android_dir,
+        device::device_abi(&adb, &serial).ok().as_deref(),
+    )?;
 
     println!("\nInstalling on {}...", serial);
     let status = Command::new(&adb)
@@ -60,11 +63,7 @@ pub fn run(
         String::from_utf8_lossy(&output.stderr)
     );
     if !output.status.success() || combined.contains("Error") {
-        anyhow::bail!(
-            "Failed to launch app on {}:\n{}",
-            serial,
-            combined.trim()
-        );
+        anyhow::bail!("Failed to launch app on {}:\n{}", serial, combined.trim());
     }
 
     println!("\nApp launched successfully on {}!", serial);
@@ -110,7 +109,14 @@ pub fn run(
         println!("Streaming logcat (Ctrl+C to stop)...\n");
         let _ = Command::new(&adb)
             .args([
-                "-s", &serial, "logcat", "-s", "rust_std_out", "AndroidRuntime", "DEBUG", "linker",
+                "-s",
+                &serial,
+                "logcat",
+                "-s",
+                "rust_std_out",
+                "AndroidRuntime",
+                "DEBUG",
+                "linker",
             ])
             .status();
     }
@@ -183,9 +189,9 @@ fn select_device(adb: &Path, requested: Option<&str>) -> Result<String> {
         .context("Emulator was installed but the binary could not be found")?;
 
     match device::check_acceleration(&emulator) {
-        Ok(false) => println!(
-            "Warning: no hardware acceleration detected; the emulator may run slowly."
-        ),
+        Ok(false) => {
+            println!("Warning: no hardware acceleration detected; the emulator may run slowly.")
+        }
         Ok(true) => {}
         Err(_) => {}
     }

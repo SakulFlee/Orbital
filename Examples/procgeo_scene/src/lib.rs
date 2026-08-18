@@ -12,7 +12,7 @@ use orbital::ecs_bridge::{
 };
 use orbital::importer::{ImportTask, gltf::GltfImport};
 #[cfg(not(target_os = "android"))]
-use orbital::logging::self;
+use orbital::logging;
 use orbital::logging::{error, info};
 use orbital::procgeo::scene::SceneBuilder;
 use orbital::resources::WorldEnvironmentDescriptor;
