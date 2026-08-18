@@ -5,7 +5,8 @@ use gilrs::{Axis, Button, EventType, GamepadId};
 use winit::{
     dpi::PhysicalPosition,
     event::{
-        DeviceEvent, DeviceId, ElementState, KeyEvent, MouseButton, MouseScrollDelta, TouchPhase,
+        DeviceEvent, DeviceId, ElementState, Force, KeyEvent, MouseButton, MouseScrollDelta,
+        TouchPhase,
     },
 };
 
@@ -34,6 +35,13 @@ pub enum InputEvent {
     MouseMovedDelta {
         device_id: DeviceId,
         delta: (f64, f64),
+    },
+    Touch {
+        device_id: DeviceId,
+        phase: TouchPhase,
+        location: PhysicalPosition<f64>,
+        id: u64,
+        force: Option<Force>,
     },
     DeviceConnected {
         device_id: DeviceId,
