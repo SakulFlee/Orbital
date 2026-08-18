@@ -215,6 +215,7 @@ const ANDROID_MANIFEST: &str = r#"<?xml version="1.0" encoding="utf-8"?>
         <activity
             android:name="android.app.NativeActivity"
             android:configChanges="orientation|keyboardHidden|screenSize"
+            android:screenOrientation="@@@SCREEN_ORIENTATION@@@"
             android:exported="true"
             android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
             <meta-data

@@ -288,14 +288,16 @@ impl AppContext {
         self.surface = None;
     }
 
-    /// Recreates the GPU surface from the current (recreated) native window
-    /// and reconfigures it. Called on resume after [`AppContext::drop_surface`].
-    pub fn recreate_surface(&mut self, vsync: bool) {
+    /// Recreates the GPU surface from the current (recreated) native window,
+    /// reconfigures it, and returns the resulting surface configuration.
+    /// Called on resume after [`AppContext::drop_surface`].
+    pub fn recreate_surface(&mut self, vsync: bool) -> SurfaceConfiguration {
         let surface = Self::make_surface(&self.instance, &self.window)
             .expect("Failed to recreate surface on resume");
         self.surface = Some(surface);
         let config = self.make_surface_configuration(vsync);
         self.reconfigure_surface(&config);
+        config
     }
 
     pub fn instance(&self) -> &Instance {

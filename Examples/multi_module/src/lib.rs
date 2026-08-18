@@ -1,6 +1,8 @@
 use orbital::app::{App, AppSettings};
 use orbital::debug_render::DebugModule;
-use orbital::logging::{self, error, info};
+#[cfg(not(target_os = "android"))]
+use orbital::logging::self;
+use orbital::logging::{error, info};
 
 mod modules;
 use modules::camera_module::CameraModule;
