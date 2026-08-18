@@ -74,9 +74,10 @@ pub fn ensure_android_sdk() -> Result<()> {
 fn detect_android_sdk() -> Option<PathBuf> {
     // 1. Orbital-owned SDK in the cache dir
     if let Ok(dir) = crate::tooling::android_sdk_dir()
-        && dir.join("cmdline-tools").join("latest").exists() {
-            return Some(dir);
-        }
+        && dir.join("cmdline-tools").join("latest").exists()
+    {
+        return Some(dir);
+    }
 
     // 2-4. Env vars (note: ANDROID_SDK_HOME is the AVD/preferences home, NOT the SDK)
     for var in ["ANDROID_HOME", "ANDROID_SDK_ROOT", "ANDROID_SDK"] {
@@ -226,28 +227,30 @@ fn fetch_latest_commandline_tools_url() -> Result<(String, String)> {
     let pattern = format!("commandlinetools-{}-", platform_suffix);
     for line in xml.lines() {
         let line = line.trim();
-        if line.contains("<url>") && line.contains(&pattern)
+        if line.contains("<url>")
+            && line.contains(&pattern)
             && let Some(url_start) = line.find("<url>")
-                && let Some(url_end) = line.find("</url>") {
-                    let url = &line[url_start + 5..url_end];
-                    let full_url = format!("https://dl.google.com/android/repository/{}", url);
+            && let Some(url_end) = line.find("</url>")
+        {
+            let url = &line[url_start + 5..url_end];
+            let full_url = format!("https://dl.google.com/android/repository/{}", url);
 
-                    // Extract version
-                    if let Some(pos) = url.find(&pattern) {
-                        let after_platform = &url[pos + pattern.len()..];
-                        if let Some(dash_pos) = after_platform.find('-') {
-                            let version_str = &after_platform[..dash_pos];
-                            if let Ok(version) = version_str.parse::<u64>() {
-                                println!("Found latest version: {}", version);
-                                return Ok((full_url, "commandlinetools.zip".to_string()));
-                            }
-                        }
+            // Extract version
+            if let Some(pos) = url.find(&pattern) {
+                let after_platform = &url[pos + pattern.len()..];
+                if let Some(dash_pos) = after_platform.find('-') {
+                    let version_str = &after_platform[..dash_pos];
+                    if let Ok(version) = version_str.parse::<u64>() {
+                        println!("Found latest version: {}", version);
+                        return Ok((full_url, "commandlinetools.zip".to_string()));
                     }
-
-                    // If we couldn't extract version, still return the URL
-                    println!("Found latest command-line tools");
-                    return Ok((full_url, "commandlinetools.zip".to_string()));
                 }
+            }
+
+            // If we couldn't extract version, still return the URL
+            println!("Found latest command-line tools");
+            return Ok((full_url, "commandlinetools.zip".to_string()));
+        }
     }
 
     // Fallback to a known working version
@@ -424,11 +427,12 @@ fn extract_cmdline_tools(zip_path: &Path, sdk_dir: &Path) -> Result<()> {
             })?;
         } else {
             if let Some(parent) = outpath.parent()
-                && !parent.exists() {
-                    std::fs::create_dir_all(parent).map_err(|e| {
-                        anyhow::anyhow!("Failed to create directory {}: {}", parent.display(), e)
-                    })?;
-                }
+                && !parent.exists()
+            {
+                std::fs::create_dir_all(parent).map_err(|e| {
+                    anyhow::anyhow!("Failed to create directory {}: {}", parent.display(), e)
+                })?;
+            }
             let mut out_file = std::fs::File::create(&outpath).map_err(|e| {
                 anyhow::anyhow!("Failed to create file {}: {}", outpath.display(), e)
             })?;
