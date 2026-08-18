@@ -7,7 +7,9 @@ use orbital::ecs_bridge::{
     LightDirty, Position, Rotation,
 };
 use orbital::importer::{ImportTask, gltf::GltfImport};
-use orbital::logging::{self, error, info};
+#[cfg(not(target_os = "android"))]
+use orbital::logging::self;
+use orbital::logging::{error, info};
 use orbital::resources::ShadowCaster;
 use winit::keyboard::KeyCode;
 

@@ -5,7 +5,9 @@ use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, DeltaTime, EnvironmentDescriptorResource,
     Position, Rotation,
 };
-use orbital::logging::{self, error, info};
+#[cfg(not(target_os = "android"))]
+use orbital::logging::self;
+use orbital::logging::{error, info};
 use orbital::resources::{
     GeneratedSkyParameters, SamplingType, SunPosition, WorldEnvironmentDescriptor,
 };

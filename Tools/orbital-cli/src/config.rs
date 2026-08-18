@@ -49,6 +49,7 @@ pub struct AndroidConfig {
     pub targets: Option<Vec<String>>,
     pub apk_mode: Option<String>,
     pub ndk_version: Option<String>,
+    pub screen_orientation: Option<String>,
 }
 
 impl Default for AndroidConfig {
@@ -60,6 +61,7 @@ impl Default for AndroidConfig {
             targets: None,
             apk_mode: None,
             ndk_version: None,
+            screen_orientation: None,
         }
     }
 }
@@ -94,6 +96,10 @@ impl AndroidConfig {
 
     pub fn ndk_version(&self) -> &str {
         self.ndk_version.as_deref().unwrap_or("26.2.11394342")
+    }
+
+    pub fn screen_orientation(&self) -> &str {
+        self.screen_orientation.as_deref().unwrap_or("landscape")
     }
 }
 
