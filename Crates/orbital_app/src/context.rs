@@ -1,6 +1,6 @@
-use std::{error::Error, mem::transmute};
+use std::{error::Error, mem::transmute, sync::Arc};
 
-use log::{debug, info};
+use log::{debug, error, info, warn};
 use orbital_core::wgpu_util::block_on;
 use wgpu::{
     Adapter, BackendOptions, Backends, CompositeAlphaMode, CreateSurfaceError,
@@ -28,7 +28,9 @@ pub struct AppContext {
     adapter: Adapter,
     device: Device,
     queue: Queue,
-    surface: Surface<'static>,
+    /// The GPU surface. `None` while the app is suspended on Android (the
+    /// native window was destroyed) and recreated on resume.
+    surface: Option<Surface<'static>>,
 }
 
 impl AppContext {
@@ -72,13 +74,19 @@ impl AppContext {
         debug!("Device: {:?}", device);
         debug!("Queue: {:?}", queue);
 
+        // Surface wgpu errors through the `log` crate so they appear in logcat
+        // (`rust_std_out` tag) instead of a panic whose output gets filtered.
+        device.on_uncaptured_error(Arc::new(|err| {
+            error!("wgpu uncaptured error: {err:?}");
+        }));
+
         let ctx = Self {
             window,
             instance,
             adapter,
             device,
             queue,
-            surface,
+            surface: Some(surface),
         };
 
         let surface_configuration = ctx.make_surface_configuration(settings.vsync_enabled);
@@ -187,13 +195,19 @@ impl AppContext {
 
     pub fn get_first_view_format(&self) -> TextureFormat {
         self.surface
+            .as_ref()
+            .expect("Surface must be present (app not suspended)!")
             .get_configuration()
             .expect("Surface must be configured first!")
             .format
     }
 
     pub fn make_surface_configuration(&self, vsync: bool) -> SurfaceConfiguration {
-        let capabilities = self.surface.get_capabilities(&self.adapter);
+        let surface = self
+            .surface
+            .as_ref()
+            .expect("Surface must be present (app not suspended)!");
+        let capabilities = surface.get_capabilities(&self.adapter);
 
         let present_mode = match vsync {
             true => PresentMode::AutoVsync,
@@ -209,8 +223,22 @@ impl AppContext {
 
         let (srgb_format, view_formats) = Self::make_view_formats(&capabilities);
 
-        let mut default_config = self
-            .surface
+        // Some adapters (e.g. the Android emulator's Vulkan backend) do not
+        // support `SURFACE_VIEW_FORMATS`; configuring a surface with a
+        // non-empty `view_formats` list fails with `MissingDownlevelFlags`.
+        // Only request them when the adapter supports the flag.
+        let supports_view_formats = self
+            .adapter
+            .get_downlevel_capabilities()
+            .flags
+            .contains(wgpu::DownlevelFlags::SURFACE_VIEW_FORMATS);
+        if !supports_view_formats {
+            warn!(
+                "[Surface] SURFACE_VIEW_FORMATS not supported; configuring surface without view_formats"
+            );
+        }
+
+        let mut default_config = surface
             .get_default_config(&self.adapter, window_size.width, window_size.height)
             .unwrap_or(SurfaceConfiguration {
                 usage: TextureUsages::empty(),
@@ -229,7 +257,11 @@ impl AppContext {
         default_config.alpha_mode = CompositeAlphaMode::Auto;
         default_config.format = srgb_format;
         default_config.usage = TextureUsages::RENDER_ATTACHMENT;
-        default_config.view_formats = view_formats;
+        default_config.view_formats = if supports_view_formats {
+            view_formats
+        } else {
+            vec![]
+        };
         default_config.width = window_size.width;
         default_config.height = window_size.height;
         default_config.desired_maximum_frame_latency = 2;
@@ -242,7 +274,27 @@ impl AppContext {
     }
 
     pub fn reconfigure_surface(&self, configuration: &SurfaceConfiguration) {
-        self.surface.configure(&self.device, configuration);
+        let surface = self
+            .surface
+            .as_ref()
+            .expect("Surface must be present (app not suspended)!");
+        surface.configure(&self.device, configuration);
+    }
+
+    /// Drops the GPU surface. Called on suspend on Android, where the native
+    /// window is destroyed; the surface must be recreated on resume.
+    pub fn drop_surface(&mut self) {
+        self.surface = None;
+    }
+
+    /// Recreates the GPU surface from the current (recreated) native window
+    /// and reconfigures it. Called on resume after [`AppContext::drop_surface`].
+    pub fn recreate_surface(&mut self, vsync: bool) {
+        let surface = Self::make_surface(&self.instance, &self.window)
+            .expect("Failed to recreate surface on resume");
+        self.surface = Some(surface);
+        let config = self.make_surface_configuration(vsync);
+        self.reconfigure_surface(&config);
     }
 
     pub fn instance(&self) -> &Instance {
@@ -278,11 +330,15 @@ impl AppContext {
     }
 
     pub fn surface(&self) -> &Surface<'static> {
-        &self.surface
+        self.surface
+            .as_ref()
+            .expect("Surface must be present (app not suspended)!")
     }
 
     pub fn surface_mut(&mut self) -> &mut Surface<'static> {
-        &mut self.surface
+        self.surface
+            .as_mut()
+            .expect("Surface must be present (app not suspended)!")
     }
 
     pub fn window(&self) -> &Window {
