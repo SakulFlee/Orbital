@@ -76,9 +76,8 @@ fn apply_touch_controls(dt: f32, input: &InputState, pos: &mut Position, rot: &m
     let pitch_delta = -look.y as f32 * TOUCH_LOOK_SENSITIVITY;
     let (forward, _, _) = rot.forward_right_up();
     let current_pitch = forward.y.asin();
-    let clamped_pitch_delta = (current_pitch + pitch_delta)
-        .clamp(-TOUCH_PITCH_LIMIT, TOUCH_PITCH_LIMIT)
-        - current_pitch;
+    let clamped_pitch_delta =
+        (current_pitch + pitch_delta).clamp(-TOUCH_PITCH_LIMIT, TOUCH_PITCH_LIMIT) - current_pitch;
     rot.rotate_pitch(Rad(clamped_pitch_delta));
 
     rot.rotate_yaw(Rad(-look.x as f32 * TOUCH_LOOK_SENSITIVITY));
