@@ -12,6 +12,13 @@ use winit::keyboard::{KeyCode, PhysicalKey};
 
 const MOVE_SPEED: f32 = 5.0;
 const LOOK_SENSITIVITY: f32 = 1.5;
+/// Touch look sensitivity in radians per screen pixel. Mouse deltas are
+/// normalized to `[-1, 1]` by `InputState`, but touch deltas arrive as raw
+/// pixels, so they need a much smaller per-unit scale.
+const TOUCH_LOOK_SENSITIVITY: f32 = 0.005;
+/// Maximum pitch (radians) for touch look — prevents the "spinning wildly /
+/// random directions" feel when pitch exceeds ±90° and the up vector flips.
+const TOUCH_PITCH_LIMIT: f32 = 1.45;
 
 /// Camera controller system: WASD movement + mouse look.
 ///
@@ -59,12 +66,22 @@ fn apply_touch_controls(dt: f32, input: &InputState, pos: &mut Position, rot: &m
         + right * (gesture.move_vector.x as f32 * MOVE_SPEED * dt);
     pos.0 += movement;
 
-    // Drag-to-look on the right half. `look_delta` is in screen pixels
-    // (x = horizontal, y = vertical with positive = down). Signs mirror the
-    // mouse-look convention so both input styles feel identical.
+    // Drag-to-look on the right half. `look_delta` is in raw screen pixels
+    // (x = horizontal, y = vertical with positive = down), so scale by a
+    // per-pixel sensitivity. Signs mirror the mouse-look convention so both
+    // input styles feel identical. Pitch is clamped to keep the camera from
+    // spinning past ±90°.
     let look = gesture.look_delta;
-    rot.rotate_pitch(Rad(-look.y as f32 * LOOK_SENSITIVITY));
-    rot.rotate_yaw(Rad(-look.x as f32 * LOOK_SENSITIVITY));
+
+    let pitch_delta = -look.y as f32 * TOUCH_LOOK_SENSITIVITY;
+    let (forward, _, _) = rot.forward_right_up();
+    let current_pitch = forward.y.asin();
+    let clamped_pitch_delta = (current_pitch + pitch_delta)
+        .clamp(-TOUCH_PITCH_LIMIT, TOUCH_PITCH_LIMIT)
+        - current_pitch;
+    rot.rotate_pitch(Rad(clamped_pitch_delta));
+
+    rot.rotate_yaw(Rad(-look.x as f32 * TOUCH_LOOK_SENSITIVITY));
 }
 
 fn apply_keyboard_mouse_controls(

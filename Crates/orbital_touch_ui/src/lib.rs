@@ -49,7 +49,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 }
 "#;
 
-const MAX_VERTS: u32 = 256;
+const MAX_VERTS: u32 = 512;
 const VERTEX_STRIDE: u64 = 24;
 const CIRCLE_SEGMENTS: u32 = 32;
 const KNOB_SEGMENTS: u32 = 24;
@@ -179,7 +179,7 @@ impl RenderOverlay for JoystickOverlay {
         let height = size.y as f64;
         let position = gesture.joystick_position.unwrap_or(origin);
 
-        let mut verts = Vec::with_capacity((1 + CIRCLE_SEGMENTS + 1 + KNOB_SEGMENTS) as usize * 6);
+        let mut verts = Vec::with_capacity((CIRCLE_SEGMENTS * 3 + KNOB_SEGMENTS * 3) as usize * 6);
         push_circle(
             &mut verts,
             origin,
@@ -235,7 +235,11 @@ impl RenderOverlay for JoystickOverlay {
     }
 }
 
-/// Append a filled circle (triangle fan) in NDC derived from pixel coordinates.
+/// Append a filled circle (explicit triangle list) in NDC derived from pixel coordinates.
+///
+/// Emits `segments` triangles `(center, p_i, p_{i+1})` matching the pipeline's
+/// `TriangleList` topology. A triangle-fan vertex stream would be misinterpreted
+/// as disjoint triangles, producing a dashed/spiky circle.
 fn push_circle(
     verts: &mut Vec<f32>,
     center: Vector2<f64>,
@@ -250,13 +254,39 @@ fn push_circle(
     let radius_x = radius / width * 2.0;
     let radius_y = radius / height * 2.0;
 
-    verts.extend_from_slice(&[cx as f32, cy as f32, color[0], color[1], color[2], color[3]]);
-    for i in 0..=segments {
-        let theta = (i % segments) as f64 * std::f64::consts::TAU / segments as f64;
-        let (s, c) = theta.sin_cos();
-        let px = cx + s * radius_x;
-        let py = cy - c * radius_y;
-        verts.extend_from_slice(&[px as f32, py as f32, color[0], color[1], color[2], color[3]]);
+    let center_xy = [cx as f32, cy as f32];
+    for i in 0..segments {
+        let theta_a = i as f64 * std::f64::consts::TAU / segments as f64;
+        let theta_b = (i + 1) as f64 * std::f64::consts::TAU / segments as f64;
+        let (sa, ca) = theta_a.sin_cos();
+        let (sb, cb) = theta_b.sin_cos();
+        let pa = [cx + sa * radius_x, cy - ca * radius_y];
+        let pb = [cx + sb * radius_x, cy - cb * radius_y];
+
+        verts.extend_from_slice(&[
+            center_xy[0],
+            center_xy[1],
+            color[0],
+            color[1],
+            color[2],
+            color[3],
+        ]);
+        verts.extend_from_slice(&[
+            pa[0] as f32,
+            pa[1] as f32,
+            color[0],
+            color[1],
+            color[2],
+            color[3],
+        ]);
+        verts.extend_from_slice(&[
+            pb[0] as f32,
+            pb[1] as f32,
+            color[0],
+            color[1],
+            color[2],
+            color[3],
+        ]);
     }
 }
 
@@ -293,5 +323,36 @@ impl Module for TouchUiModule {
         }
 
         vec![]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn push_circle_emits_valid_triangle_list() {
+        let mut verts = Vec::new();
+        push_circle(
+            &mut verts,
+            Vector2::new(200.0, 300.0),
+            70.0,
+            32,
+            [1.0, 1.0, 1.0, 1.0],
+            1000.0,
+            800.0,
+        );
+
+        // 32 triangles * 3 vertices * 6 floats.
+        assert_eq!(verts.len(), 32 * 3 * 6);
+        assert!(verts.iter().all(|v| v.is_finite()));
+
+        // Every triangle shares the circle center as its first vertex.
+        let cx = ((200.0 / 1000.0) * 2.0 - 1.0) as f32;
+        let cy = (1.0 - (300.0 / 800.0) * 2.0) as f32;
+        for triangle in verts.chunks_exact(6 * 3) {
+            assert_eq!(triangle[0], cx);
+            assert_eq!(triangle[1], cy);
+        }
     }
 }
