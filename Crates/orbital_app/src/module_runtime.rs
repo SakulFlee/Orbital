@@ -1128,31 +1128,31 @@ impl ApplicationHandler for ModuleRuntime {
         // a pause, so we don't create a second window or rebuild the GPU
         // device. The surface (dropped on suspend) is recreated below. Only
         // build a fresh context on the first start.
-        let (ctx, needs_surface_recreate) =
-            match std::mem::replace(&mut self.state, AppState::Starting) {
-                AppState::Paused(ctx) => (ctx, true),
-                AppState::Ready(ctx) => (ctx, true),
-                _ => match AppContext::new(event_loop, &self.settings) {
-                    Ok(ctx) => (Arc::new(Mutex::new(ctx)), false),
-                    Err(e) => {
-                        error!("Critical error: Failed to acquire context while resuming app!");
-                        trace!("Error: {:?}", e);
-                        self.state = AppState::Starting;
-                        return;
-                    }
-                },
-            };
-
-        if needs_surface_recreate {
-            let mut ctx_guard = ctx_lock!(ctx);
-            // Rebuild the surface against the (recreated) native window. This
-            // only happens when resuming from a pause, where the surface was
-            // dropped on suspend. On first start AppContext::new already
-            // created and configured the surface, so we must NOT recreate it
-            // (creating a second surface from the same window crashes on
-            // Android).
-            ctx_guard.recreate_surface(self.settings.vsync_enabled);
-        }
+        let (ctx, config) = match std::mem::replace(&mut self.state, AppState::Starting) {
+            AppState::Paused(ctx) => {
+                // Resume: the surface was dropped on suspend, so rebuild it
+                // against the (recreated) native window. Creating a second
+                // surface from the same window crashes on Android, which is why
+                // this only happens here and not on first start.
+                let config = {
+                    let mut ctx_guard = ctx_lock!(ctx);
+                    ctx_guard.recreate_surface(self.settings.vsync_enabled)
+                };
+                (ctx, config)
+            }
+            _ => match AppContext::new(event_loop, &self.settings) {
+                Ok(ctx) => {
+                    let config = ctx.make_surface_configuration(self.settings.vsync_enabled);
+                    (Arc::new(Mutex::new(ctx)), config)
+                }
+                Err(e) => {
+                    error!("Critical error: Failed to acquire context while resuming app!");
+                    trace!("Error: {:?}", e);
+                    self.state = AppState::Starting;
+                    return;
+                }
+            },
+        };
 
         self.state = AppState::Ready(ctx);
 
@@ -1160,7 +1160,6 @@ impl ApplicationHandler for ModuleRuntime {
 
         if let AppState::Ready(ctx_arc) = &self.state {
             let ctx_guard = ctx_lock!(ctx_arc);
-            let config = ctx_guard.make_surface_configuration(self.settings.vsync_enabled);
 
             self.ecs_world
                 .insert_resource(DeviceResource(Arc::new(ctx_guard.device().clone())));
