@@ -1288,31 +1288,31 @@ impl ApplicationHandler for ModuleRuntime {
                 is_synthetic: false,
                 ..
             } = &event
-                && event.logical_key == Key::Named(NamedKey::BrowserBack)
-                    && event.state == ElementState::Pressed
-                    && !event.repeat
-                {
-                    let now = std::time::Instant::now();
-                    let within_window = self
-                        .last_back_press
-                        .map(|t| now.duration_since(t) <= self.settings.back_exit_window)
-                        .unwrap_or(false);
-                    self.back_press_count = if within_window {
-                        self.back_press_count.saturating_add(1)
-                    } else {
-                        1
-                    };
-                    self.last_back_press = Some(now);
+            && event.logical_key == Key::Named(NamedKey::BrowserBack)
+            && event.state == ElementState::Pressed
+            && !event.repeat
+        {
+            let now = std::time::Instant::now();
+            let within_window = self
+                .last_back_press
+                .map(|t| now.duration_since(t) <= self.settings.back_exit_window)
+                .unwrap_or(false);
+            self.back_press_count = if within_window {
+                self.back_press_count.saturating_add(1)
+            } else {
+                1
+            };
+            self.last_back_press = Some(now);
 
-                    if self.back_press_count >= self.settings.back_presses_to_exit {
-                        info!(
-                            "Back pressed {} times within window; exiting",
-                            self.back_press_count
-                        );
-                        self.exit(event_loop);
-                        return;
-                    }
-                }
+            if self.back_press_count >= self.settings.back_presses_to_exit {
+                info!(
+                    "Back pressed {} times within window; exiting",
+                    self.back_press_count
+                );
+                self.exit(event_loop);
+                return;
+            }
+        }
 
         let input_event = match event {
             WindowEvent::CloseRequested => {
