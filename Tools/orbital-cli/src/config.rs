@@ -127,14 +127,14 @@ pub fn load_config() -> Result<OrbitalConfig> {
 pub fn load_android_config() -> Result<AndroidConfig> {
     let config = load_config()?;
     let android = config.android.unwrap_or_default();
-    if let Some(orientation) = &android.screen_orientation {
-        if !VALID_SCREEN_ORIENTATIONS.contains(&orientation.as_str()) {
-            anyhow::bail!(
-                "Invalid screen_orientation \"{orientation}\" in Orbital.toml. \
-                 Valid values: {}",
-                VALID_SCREEN_ORIENTATIONS.join(", ")
-            );
-        }
+    if let Some(orientation) = &android.screen_orientation
+        && !VALID_SCREEN_ORIENTATIONS.contains(&orientation.as_str())
+    {
+        anyhow::bail!(
+            "Invalid screen_orientation \"{orientation}\" in Orbital.toml. \
+             Valid values: {}",
+            VALID_SCREEN_ORIENTATIONS.join(", ")
+        );
     }
     Ok(android)
 }
