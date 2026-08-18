@@ -23,8 +23,29 @@ pub trait RenderOverlay: Send + Sync {
     fn render(&mut self, ctx: RenderOverlayContext);
 }
 
-/// ECS resource — insert this into the world to activate an overlay.
+/// ECS resource — insert this into the world to activate render overlays.
 ///
 /// `ModuleRuntime::redraw()` checks for this resource after the main render
-/// pass and calls [`RenderOverlay::render`] on it.
-pub struct RenderOverlayResource(pub std::sync::Mutex<Box<dyn RenderOverlay>>);
+/// pass and calls [`RenderOverlay::render`] on each registered overlay, in
+/// insertion order.
+pub struct RenderOverlayResource(pub std::sync::Mutex<Vec<Box<dyn RenderOverlay>>>);
+
+impl RenderOverlayResource {
+    pub fn new() -> Self {
+        Self(std::sync::Mutex::new(Vec::new()))
+    }
+
+    /// Register an overlay to be drawn after the main scene pass.
+    ///
+    /// Multiple modules can call this on the same resource; overlays render in
+    /// the order they were added.
+    pub fn add(&self, overlay: Box<dyn RenderOverlay>) {
+        self.0.lock().unwrap().push(overlay);
+    }
+}
+
+impl Default for RenderOverlayResource {
+    fn default() -> Self {
+        Self::new()
+    }
+}

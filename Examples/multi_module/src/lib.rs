@@ -36,6 +36,7 @@ pub fn entrypoint(
                 .with_toggle_key(KeyCode::F3)
                 .with_freeze_key(KeyCode::F4),
         )
+        .add_module(orbital::touch_ui::TouchUiModule)
         .liftoff(event_loop, app_settings)
     {
         Ok(()) => info!("Cleanly exited!"),

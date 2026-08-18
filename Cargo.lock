@@ -2550,6 +2550,7 @@ dependencies = [
  "orbital_renderer",
  "orbital_resources",
  "orbital_shader_preprocessor",
+ "orbital_touch_ui",
  "rand 0.10.2",
  "rayon",
  "serde",
@@ -2730,6 +2731,18 @@ version = "0.1.0"
 dependencies = [
  "log",
  "orbital_file_manager",
+]
+
+[[package]]
+name = "orbital_touch_ui"
+version = "0.1.0"
+dependencies = [
+ "cgmath",
+ "orbital_app",
+ "orbital_ecs",
+ "orbital_ecs_bridge",
+ "orbital_input",
+ "wgpu",
 ]
 
 [[package]]

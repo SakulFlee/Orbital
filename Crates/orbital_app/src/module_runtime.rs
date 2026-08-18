@@ -778,17 +778,20 @@ impl ModuleRuntime {
         let t_present_start = Instant::now();
         let d_render = t_present_start - t_render_start;
 
-        // Optional post‑main‑pass overlay (debug viz, HUD, gizmos, …)
+        // Optional post‑main‑pass overlays (debug viz, HUD, gizmos, touch UI, …)
         if let Some(overlay_res) = self.ecs_world.get_resource::<RenderOverlayResource>() {
             let camera_buffer = self.extract_camera_buffer(device, queue);
-            let ctx = crate::RenderOverlayContext {
-                target_view: &view,
-                camera_buffer: &camera_buffer,
-                device,
-                queue,
-                ecs: &self.ecs_world,
-            };
-            overlay_res.0.lock().unwrap().render(ctx);
+            let mut overlays = overlay_res.0.lock().unwrap();
+            for overlay in overlays.iter_mut() {
+                let ctx = crate::RenderOverlayContext {
+                    target_view: &view,
+                    camera_buffer: &camera_buffer,
+                    device,
+                    queue,
+                    ecs: &self.ecs_world,
+                };
+                overlay.render(ctx);
+            }
         }
 
         lock.queue().present(frame);
@@ -1358,6 +1361,13 @@ impl ApplicationHandler for ModuleRuntime {
                 device_id,
                 delta,
                 phase,
+            }),
+            WindowEvent::Touch(touch) => Some(InputEvent::Touch {
+                device_id: touch.device_id,
+                phase: touch.phase,
+                location: touch.location,
+                id: touch.id,
+                force: touch.force,
             }),
             WindowEvent::CursorMoved {
                 device_id,

@@ -4,6 +4,7 @@
 
 pub use orbital_app as app;
 pub use orbital_debug_render as debug_render;
+pub use orbital_touch_ui as touch_ui;
 pub use orbital_ecs as ecs;
 pub use orbital_ecs_bridge as ecs_bridge;
 pub use orbital_file_manager as file_manager;
