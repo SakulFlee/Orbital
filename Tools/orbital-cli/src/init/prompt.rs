@@ -1,5 +1,5 @@
 use anyhow::Result;
-use inquire::{Confirm, Select, Text};
+use inquire::{Confirm, Text};
 
 use crate::config;
 
@@ -76,13 +76,8 @@ pub fn interactive(
         (21, 34)
     };
 
-    // 5. Template selection
-    let template_name = match template {
-        Some(t) => t,
-        None => Select::new("Template:", vec!["minimal", "skybox", "instancing", "gltf"])
-            .prompt()?
-            .to_string(),
-    };
+    // 5. Template selection (only minimal is available for now)
+    let template_name = template.unwrap_or_else(|| "minimal".to_string());
 
     // 6. Engine repository
     let engine_repo = match engine_repo {
