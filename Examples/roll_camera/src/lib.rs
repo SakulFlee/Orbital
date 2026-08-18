@@ -6,7 +6,7 @@ use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, DeltaTime, Position, Rotation,
 };
 #[cfg(not(target_os = "android"))]
-use orbital::logging::self;
+use orbital::logging;
 use orbital::logging::{error, info};
 
 pub const NAME: &str = "Orbital-Demo-Project: RollCamera";

@@ -50,8 +50,7 @@ winit = "0.30.0"
         branch = config.engine_branch,
     );
 
-    fs::write(project_dir.join("Cargo.toml"), content)
-        .context("Failed to write Cargo.toml")?;
+    fs::write(project_dir.join("Cargo.toml"), content).context("Failed to write Cargo.toml")?;
 
     Ok(())
 }
@@ -74,8 +73,7 @@ screen_orientation = "landscape"
         target_sdk = config.target_sdk,
     );
 
-    fs::write(project_dir.join("Orbital.toml"), content)
-        .context("Failed to write Orbital.toml")?;
+    fs::write(project_dir.join("Orbital.toml"), content).context("Failed to write Orbital.toml")?;
 
     Ok(())
 }

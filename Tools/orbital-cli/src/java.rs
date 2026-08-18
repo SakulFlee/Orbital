@@ -78,7 +78,10 @@ pub fn ensure_java() -> Result<PathBuf> {
         return Ok(home);
     }
 
-    println!("\nNo compatible Java runtime found (JDK {} required for Android builds).", JDK_VERSION);
+    println!(
+        "\nNo compatible Java runtime found (JDK {} required for Android builds).",
+        JDK_VERSION
+    );
 
     if Confirm::new("Install an Orbital-managed Temurin JDK automatically?")
         .with_default(true)
@@ -88,7 +91,10 @@ pub fn ensure_java() -> Result<PathBuf> {
         println!("Java installed to: {}", home.display());
         Ok(home)
     } else {
-        println!("\nPlease install a JDK {} (or newer) manually and set JAVA_HOME.", JDK_VERSION);
+        println!(
+            "\nPlease install a JDK {} (or newer) manually and set JAVA_HOME.",
+            JDK_VERSION
+        );
         println!("  - https://adoptium.net");
         println!("Then run 'orbital build android' again.");
         anyhow::bail!("Java runtime required but not installed.");
@@ -131,7 +137,10 @@ fn download_java(version: &str) -> Result<PathBuf> {
     let java = java_executable(&jdk_home);
 
     if !java.exists() {
-        anyhow::bail!("Extracted JDK does not contain a java executable at {}", java.display());
+        anyhow::bail!(
+            "Extracted JDK does not contain a java executable at {}",
+            java.display()
+        );
     }
     if !is_jdk(&jdk_home) {
         anyhow::bail!(
@@ -287,13 +296,14 @@ fn resolve_jdk_home(java_path: &Path) -> Option<PathBuf> {
 }
 
 fn extract_zip(archive: &Path, dest: &Path) -> Result<()> {
-    let file = std::fs::File::open(archive)
-        .map_err(|e| anyhow::anyhow!("Failed to open zip: {}", e))?;
-    let mut zip = zip::ZipArchive::new(file)
-        .map_err(|e| anyhow::anyhow!("Failed to read zip: {}", e))?;
+    let file =
+        std::fs::File::open(archive).map_err(|e| anyhow::anyhow!("Failed to open zip: {}", e))?;
+    let mut zip =
+        zip::ZipArchive::new(file).map_err(|e| anyhow::anyhow!("Failed to read zip: {}", e))?;
 
     for i in 0..zip.len() {
-        let mut entry = zip.by_index(i)
+        let mut entry = zip
+            .by_index(i)
             .map_err(|e| anyhow::anyhow!("Failed to read zip entry: {}", e))?;
         let outpath = dest.join(entry.mangled_name());
 
