@@ -17,8 +17,9 @@ use wgpu::TextureViewDescriptor;
 use winit::{
     application::ApplicationHandler,
     error::EventLoopError,
-    event::{DeviceEvent, DeviceId, WindowEvent},
+    event::{DeviceEvent, DeviceId, ElementState, WindowEvent},
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
+    keyboard::{Key, NamedKey},
     window::{CursorGrabMode, WindowId},
 };
 
@@ -142,6 +143,8 @@ pub struct ModuleRuntime {
     module_setup_done: bool,
     renderer: Option<orbital_renderer::Renderer>,
     timing_accum: TimingAccumulator,
+    back_press_count: u8,
+    last_back_press: Option<std::time::Instant>,
     #[cfg(all(feature = "gamepad_input", not(target_os = "android")))]
     gil: Gilrs,
 }
@@ -169,6 +172,8 @@ impl ModuleRuntime {
             module_setup_done: false,
             renderer: None,
             timing_accum: TimingAccumulator::new(),
+            back_press_count: 0,
+            last_back_press: None,
             #[cfg(all(feature = "gamepad_input", not(target_os = "android")))]
             gil: Gilrs::new().expect("Gamepad input initialization failed!"),
         };
@@ -1102,13 +1107,15 @@ impl ModuleRuntime {
     }
 
     fn exit(&mut self, event_loop: &ActiveEventLoop) {
+        // Clean exit: drop any persisted state so the next launch is fresh.
+        self.module.clear_state(&mut self.ecs_world);
         event_loop.exit();
     }
 }
 
 impl ApplicationHandler for ModuleRuntime {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        if !matches!(self.state, AppState::Starting | AppState::Paused) {
+        if !matches!(self.state, AppState::Starting | AppState::Paused(_)) {
             debug!(
                 "Attempting to resume while not in required state! (State: {:?})",
                 self.state
@@ -1117,18 +1124,37 @@ impl ApplicationHandler for ModuleRuntime {
 
         debug!("Resuming app ...");
 
-        let ctx = match AppContext::new(event_loop, &self.settings) {
-            Ok(ctx) => ctx,
-            Err(e) => {
-                error!("Critical error: Failed to acquire context while resuming app!");
-                trace!("Error: {:?}", e);
-                return;
+        // Reuse the existing context (window/device/queue) when resuming from
+        // a pause, so we don't create a second window or rebuild the GPU
+        // device. The surface (dropped on suspend) is recreated below. Only
+        // build a fresh context on the first start.
+        let (ctx, config) = match std::mem::replace(&mut self.state, AppState::Starting) {
+            AppState::Paused(ctx) => {
+                // Resume: the surface was dropped on suspend, so rebuild it
+                // against the (recreated) native window. Creating a second
+                // surface from the same window crashes on Android, which is why
+                // this only happens here and not on first start.
+                let config = {
+                    let mut ctx_guard = ctx_lock!(ctx);
+                    ctx_guard.recreate_surface(self.settings.vsync_enabled)
+                };
+                (ctx, config)
             }
+            _ => match AppContext::new(event_loop, &self.settings) {
+                Ok(ctx) => {
+                    let config = ctx.make_surface_configuration(self.settings.vsync_enabled);
+                    (Arc::new(Mutex::new(ctx)), config)
+                }
+                Err(e) => {
+                    error!("Critical error: Failed to acquire context while resuming app!");
+                    trace!("Error: {:?}", e);
+                    self.state = AppState::Starting;
+                    return;
+                }
+            },
         };
 
-        let config = ctx.make_surface_configuration(self.settings.vsync_enabled);
-
-        self.state = AppState::Ready(Arc::new(Mutex::new(ctx)));
+        self.state = AppState::Ready(ctx);
 
         self.timer = Some(Timer::new());
 
@@ -1187,6 +1213,10 @@ impl ApplicationHandler for ModuleRuntime {
                     "Module setup complete, game schedule has {} systems",
                     self.game_schedule.system_count()
                 );
+
+                // Restore any persisted state (only runs once on a fresh
+                // process start, since setup is guarded by module_setup_done).
+                self.module.restore_state(&mut self.ecs_world);
             }
 
             // Auto-grab cursor if configured
@@ -1214,7 +1244,20 @@ impl ApplicationHandler for ModuleRuntime {
             );
         }
 
-        self.state = AppState::Paused;
+        self.module.save_state(&mut self.ecs_world);
+
+        // Move the context into `Paused` (keeping the window/device/queue
+        // alive) but drop the GPU surface and renderer, which reference the
+        // native window that Android destroys on suspend. They are recreated
+        // on resume.
+        self.state = match std::mem::replace(&mut self.state, AppState::Starting) {
+            AppState::Ready(ctx) => {
+                ctx_lock!(ctx).drop_surface();
+                self.renderer = None;
+                AppState::Paused(ctx)
+            }
+            other => other,
+        };
         info!("App suspended!");
     }
 
@@ -1234,6 +1277,41 @@ impl ApplicationHandler for ModuleRuntime {
                 return;
             }
         };
+
+        // Android Back: always forwarded to the input system so apps can use
+        // single back actions. Additionally, when configured, N consecutive
+        // presses within `back_exit_window` quit the app.
+        if self.settings.back_presses_to_exit > 0
+            && let WindowEvent::KeyboardInput {
+                event,
+                is_synthetic: false,
+                ..
+            } = &event
+            && event.logical_key == Key::Named(NamedKey::BrowserBack)
+            && event.state == ElementState::Pressed
+            && !event.repeat
+        {
+            let now = std::time::Instant::now();
+            let within_window = self
+                .last_back_press
+                .map(|t| now.duration_since(t) <= self.settings.back_exit_window)
+                .unwrap_or(false);
+            self.back_press_count = if within_window {
+                self.back_press_count.saturating_add(1)
+            } else {
+                1
+            };
+            self.last_back_press = Some(now);
+
+            if self.back_press_count >= self.settings.back_presses_to_exit {
+                info!(
+                    "Back pressed {} times within window; exiting",
+                    self.back_press_count
+                );
+                self.exit(event_loop);
+                return;
+            }
+        }
 
         let input_event = match event {
             WindowEvent::CloseRequested => {

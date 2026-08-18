@@ -137,6 +137,10 @@ impl Storage for DirStorage {
         self.resolve(path).exists()
     }
 
+    fn remove_file(&self, path: &str) -> Result<(), FsError> {
+        fs::remove_file(self.resolve(path)).map_err(|e| FsError::from_io(path, e))
+    }
+
     fn read_cache_bytes(&self, path: &str) -> Result<Vec<u8>, FsError> {
         fs::read(self.resolve_cache(path)).map_err(|e| FsError::from_io(path, e))
     }
@@ -206,6 +210,10 @@ impl Storage for DesktopStorage {
 
     fn path_exists(&self, path: &str) -> bool {
         self.inner.path_exists(path)
+    }
+
+    fn remove_file(&self, path: &str) -> Result<(), FsError> {
+        self.inner.remove_file(path)
     }
 
     fn read_cache_bytes(&self, path: &str) -> Result<Vec<u8>, FsError> {

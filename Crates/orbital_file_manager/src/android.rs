@@ -128,6 +128,10 @@ impl Storage for AndroidStorage {
         self.inner.path_exists(path)
     }
 
+    fn remove_file(&self, path: &str) -> Result<(), FsError> {
+        self.inner.remove_file(path)
+    }
+
     fn read_cache_bytes(&self, path: &str) -> Result<Vec<u8>, FsError> {
         self.inner.read_cache_bytes(path)
     }

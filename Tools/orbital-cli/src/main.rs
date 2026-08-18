@@ -96,7 +96,15 @@ fn main() -> Result<()> {
             engine_repo,
             engine_branch,
             yes,
-        } => init::run(name, package, template, android, engine_repo, engine_branch, yes),
+        } => init::run(
+            name,
+            package,
+            template,
+            android,
+            engine_repo,
+            engine_branch,
+            yes,
+        ),
         Commands::InitAndroid => android::project::init(),
         Commands::Build {
             platform,
@@ -114,7 +122,9 @@ fn main() -> Result<()> {
             no_logcat,
         } => match platform.unwrap_or(Platform::Desktop) {
             Platform::Desktop => desktop::run(),
-            Platform::Android => android::run::run(package.as_deref(), device.as_deref(), skip_build, no_logcat),
+            Platform::Android => {
+                android::run::run(package.as_deref(), device.as_deref(), skip_build, no_logcat)
+            }
         },
     }
 }
