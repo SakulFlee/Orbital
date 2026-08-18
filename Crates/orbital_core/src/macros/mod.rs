@@ -27,10 +27,7 @@ macro_rules! make_android_main {
                 app.internal_data_path(),
             );
 
-            use ::winit::{
-                event_loop::EventLoop,
-                platform::android::EventLoopBuilderExtAndroid,
-            };
+            use ::winit::{event_loop::EventLoop, platform::android::EventLoopBuilderExtAndroid};
 
             let event_loop = match EventLoop::builder().with_android_app(app).build() {
                 Ok(el) => el,

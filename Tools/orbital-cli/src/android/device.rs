@@ -147,10 +147,7 @@ pub fn wait_for_boot(adb: &Path, serial: &str) -> Result<()> {
     let start = Instant::now();
     while !is_booted(adb, serial) {
         if start.elapsed() > timeout {
-            anyhow::bail!(
-                "Timed out waiting for device {} to finish booting",
-                serial
-            );
+            anyhow::bail!("Timed out waiting for device {} to finish booting", serial);
         }
         if start.elapsed().as_secs().is_multiple_of(30) {
             println!("Still waiting for {} to finish booting...", serial);
@@ -205,7 +202,8 @@ pub fn boot_avd(emulator: &Path, name: &str, adb: &Path) -> Result<String> {
     // emulator infers from its own location. Point it at the correct root.
     if let Some(root) = avd_sdk_root(name) {
         println!("AVD system image found in SDK: {}", root.display());
-        cmd.env("ANDROID_SDK_ROOT", &root).env("ANDROID_HOME", &root);
+        cmd.env("ANDROID_SDK_ROOT", &root)
+            .env("ANDROID_HOME", &root);
     }
 
     cmd.spawn()
