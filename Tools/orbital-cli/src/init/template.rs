@@ -158,6 +158,7 @@ pub fn entrypoint(
 
     match App::new()
         .add_module(GameModule)
+        .add_module(orbital::touch_ui::TouchUiModule)
         .liftoff(event_loop, app_settings)
     {
         Ok(()) => info!("Cleanly exited!"),
