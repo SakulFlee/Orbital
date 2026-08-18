@@ -474,7 +474,11 @@ impl InputState {
         let mut move_finger: Option<u64> = None;
         let mut look_finger: Option<u64> = None;
         for &id in self.touch_origins.keys() {
-            let origin = self.touch_origins.get(&id).copied().unwrap_or(Vector2::zero());
+            let origin = self
+                .touch_origins
+                .get(&id)
+                .copied()
+                .unwrap_or(Vector2::zero());
             if origin.x < half_width {
                 if move_finger.is_none_or(|current| id < current) {
                     move_finger = Some(id);
@@ -567,11 +571,7 @@ mod tests {
     use winit::dpi::PhysicalPosition;
     use winit::event::DeviceId;
 
-    fn touch_event(
-        phase: TouchPhase,
-        location: (f64, f64),
-        id: u64,
-    ) -> InputEvent {
+    fn touch_event(phase: TouchPhase, location: (f64, f64), id: u64) -> InputEvent {
         InputEvent::Touch {
             device_id: DeviceId::dummy(),
             phase,
@@ -596,12 +596,11 @@ mod tests {
         assert_eq!(state.active_touch_count(), 1);
         assert_eq!(state.touch_position(1), Some(Vector2::new(200.0, 300.0)));
         assert_eq!(state.touch_origin(1), Some(Vector2::new(200.0, 300.0)));
-        assert!(state
-            .button_state_specific(
-                &InputButton::Touch(1),
-                InputId::Touch(DeviceId::dummy())
-            )
-            .unwrap());
+        assert!(
+            state
+                .button_state_specific(&InputButton::Touch(1), InputId::Touch(DeviceId::dummy()))
+                .unwrap()
+        );
 
         state.handle_event(touch_event(TouchPhase::Moved, (230.0, 330.0), 1));
         assert_eq!(state.touch_delta(1), Some(Vector2::new(30.0, 30.0)));
@@ -613,12 +612,11 @@ mod tests {
         assert_eq!(state.touch_position(1), None);
         assert_eq!(state.touch_origin(1), None);
         assert_eq!(state.touch_delta(1), None);
-        assert!(!state
-            .button_state_specific(
-                &InputButton::Touch(1),
-                InputId::Touch(DeviceId::dummy())
-            )
-            .unwrap());
+        assert!(
+            !state
+                .button_state_specific(&InputButton::Touch(1), InputId::Touch(DeviceId::dummy()))
+                .unwrap()
+        );
     }
 
     #[test]

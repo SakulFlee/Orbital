@@ -28,7 +28,9 @@ impl OrbitalGeneral {
     }
 
     pub fn engine_branch(&self) -> &str {
-        self.engine_branch.as_deref().unwrap_or("android-touch-input")
+        self.engine_branch
+            .as_deref()
+            .unwrap_or("android-touch-input")
     }
 }
 

@@ -15,8 +15,8 @@ use wgpu::{
     BufferUsages, ColorTargetState, ColorWrites, CommandEncoderDescriptor, Device, FragmentState,
     MultisampleState, PipelineLayoutDescriptor, PrimitiveState, PrimitiveTopology, Queue,
     RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
-    ShaderModuleDescriptor, ShaderSource, TextureFormat, VertexAttribute,
-    VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
+    ShaderModuleDescriptor, ShaderSource, TextureFormat, VertexAttribute, VertexBufferLayout,
+    VertexFormat, VertexState, VertexStepMode,
 };
 
 // ---------------------------------------------------------------------------
@@ -180,7 +180,15 @@ impl RenderOverlay for JoystickOverlay {
         let position = gesture.joystick_position.unwrap_or(origin);
 
         let mut verts = Vec::with_capacity((1 + CIRCLE_SEGMENTS + 1 + KNOB_SEGMENTS) as usize * 6);
-        push_circle(&mut verts, origin, TOUCH_JOYSTICK_RADIUS, CIRCLE_SEGMENTS, BASE_COLOR, width, height);
+        push_circle(
+            &mut verts,
+            origin,
+            TOUCH_JOYSTICK_RADIUS,
+            CIRCLE_SEGMENTS,
+            BASE_COLOR,
+            width,
+            height,
+        );
         push_circle(
             &mut verts,
             position,

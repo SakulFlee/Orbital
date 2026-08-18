@@ -67,7 +67,12 @@ fn apply_touch_controls(dt: f32, input: &InputState, pos: &mut Position, rot: &m
     rot.rotate_yaw(Rad(-look.x as f32 * LOOK_SENSITIVITY));
 }
 
-fn apply_keyboard_mouse_controls(dt: f32, input: &InputState, pos: &mut Position, rot: &mut Rotation) {
+fn apply_keyboard_mouse_controls(
+    dt: f32,
+    input: &InputState,
+    pos: &mut Position,
+    rot: &mut Rotation,
+) {
     let (forward, right, _up) = rot.forward_right_up();
 
     // WASD movement
