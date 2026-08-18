@@ -291,13 +291,19 @@ fn update_android_project(
         let content = if content.contains("android:screenOrientation=") {
             set_screen_orientation_value(&content, screen_orientation)
         } else {
-            content.replacen(
-                "android:configChanges=\"orientation|keyboardHidden|screenSize\"",
-                &format!(
-                    "android:screenOrientation=\"{screen_orientation}\"\n            android:configChanges=\"orientation|keyboardHidden|screenSize\""
-                ),
-                1,
-            )
+            let anchor = "android:configChanges=\"orientation|keyboardHidden|screenSize\"";
+            let replacement =
+                format!("android:screenOrientation=\"{screen_orientation}\"\n            {anchor}");
+            match content.replacen(anchor, &replacement, 1) {
+                updated if updated != content => updated,
+                _ => {
+                    anyhow::bail!(
+                        "Failed to insert android:screenOrientation into {}: \
+                         expected the activity to contain {anchor}",
+                        manifest_path.display()
+                    )
+                }
+            }
         };
 
         std::fs::write(&manifest_path, content).context("Failed to write AndroidManifest.xml")?;
