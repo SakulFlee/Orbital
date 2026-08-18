@@ -309,11 +309,10 @@ fn ensure_cargo_ndk() -> Result<()> {
     // Check if cargo-ndk is already installed
     let ndk_check = Command::new("cargo").arg("ndk").arg("--version").output();
 
-    if let Ok(output) = ndk_check {
-        if output.status.success() {
+    if let Ok(output) = ndk_check
+        && output.status.success() {
             return Ok(());
         }
-    }
 
     // cargo-ndk not found, attempt to install it
     println!("cargo-ndk not found. Installing...");
@@ -371,11 +370,10 @@ fn ensure_rust_targets(targets: &[String]) -> Result<()> {
     // Check which targets are missing
     let mut missing = Vec::new();
     for abi in targets {
-        if let Some(triple) = target_map.get(abi.as_str()) {
-            if !installed.contains(triple) {
+        if let Some(triple) = target_map.get(abi.as_str())
+            && !installed.contains(triple) {
                 missing.push(triple.to_string());
             }
-        }
     }
 
     if missing.is_empty() {
