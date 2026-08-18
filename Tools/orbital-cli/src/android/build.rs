@@ -233,6 +233,31 @@ pub fn build(package_name: Option<&str>, release: bool) -> Result<()> {
     Ok(())
 }
 
+/// Replaces the value of an existing `android:screenOrientation` attribute so
+/// orientation changes from the config take effect on rebuild. Returns the
+/// content unchanged if the attribute is not present.
+fn set_screen_orientation_value(content: &str, screen_orientation: &str) -> String {
+    const MARKER: &str = "android:screenOrientation=\"";
+    match content.find(MARKER) {
+        Some(start) => {
+            let value_start = start + MARKER.len();
+            match content[value_start..].find('"') {
+                Some(len) => {
+                    let value_end = value_start + len;
+                    format!(
+                        "{}{}{}",
+                        &content[..value_start],
+                        screen_orientation,
+                        &content[value_end..]
+                    )
+                }
+                None => content.to_string(),
+            }
+        }
+        None => content.to_string(),
+    }
+}
+
 fn update_android_project(
     android_dir: &Path,
     package_name: &str,
@@ -254,13 +279,17 @@ fn update_android_project(
         // literal "placeholder" value.
         let content = content.replace("placeholder", lib_name);
 
-        // Resolve the screen orientation. For manifests generated before this
-        // feature existed (which never had the attribute or placeholder),
-        // insert the attribute before the configChanges line.
+        // Resolve the screen orientation. New templates carry the
+        // @@@SCREEN_ORIENTATION@@@ placeholder, which is resolved on first
+        // build. On later rebuilds the attribute already holds a literal
+        // value, which is rewritten from the config so that changes to
+        // Orbital.toml take effect. Manifests generated before this feature
+        // existed (which never had the attribute or placeholder) get the
+        // attribute inserted before the configChanges line.
         let screen_orientation = config.screen_orientation();
         let content = content.replace("@@@SCREEN_ORIENTATION@@@", screen_orientation);
         let content = if content.contains("android:screenOrientation=") {
-            content
+            set_screen_orientation_value(&content, screen_orientation)
         } else {
             content.replacen(
                 "android:configChanges=\"orientation|keyboardHidden|screenSize\"",
