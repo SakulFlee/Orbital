@@ -10,7 +10,7 @@ jobs:
     env:
       SKIP_GLTF_EXPORT: "true"
     steps:
-      - uses: https://code.forgejo.org/actions/checkout@v6
+      - uses: https://code.forgejo.org/actions/checkout@v7
         with:
           ref: ${{ forgejo.head_ref || forgejo.ref_name }}
           fetch-depth: 0
@@ -71,7 +71,7 @@ jobs:
     env:
       SKIP_GLTF_EXPORT: "true"
     steps:
-      - uses: https://code.forgejo.org/actions/checkout@v6
+      - uses: https://code.forgejo.org/actions/checkout@v7
       - name: Install system dependencies
         run: |
           apt-get update
