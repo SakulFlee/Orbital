@@ -26,7 +26,7 @@ jobs:
         run: |
           dpkg --add-architecture arm64
           apt-get update
-          apt-get install -y --no-install-recommends pkg-config gcc build-essential libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev mesa-vulkan-drivers libgl1-mesa-dri gcc-aarch64-linux-gnu gcc-mingw-w64-x86-64 libudev-dev:arm64 libwayland-dev:arm64 libxkbcommon-dev:arm64 libvulkan-dev:arm64 zip git curl ca-certificates rsync
+          apt-get install -y --no-install-recommends pkg-config gcc build-essential libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev mesa-vulkan-drivers libgl1-mesa-dri gcc-aarch64-linux-gnu gcc-mingw-w64-x86-64 libc6-dev:arm64 libudev-dev:arm64 libwayland-dev:arm64 libxkbcommon-dev:arm64 libvulkan-dev:arm64 zip git curl ca-certificates rsync
       - name: Install Rust
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
