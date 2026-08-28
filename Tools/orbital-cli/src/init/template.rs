@@ -24,11 +24,8 @@ pub fn generate_project(project_dir: &Path, config: &ProjectConfig) -> Result<()
     // (e.g. "Shaders/pbr.wgsl") resolve against this directory on desktop
     // (<cwd>/Assets) and are bundled into the APK on Android.
     fs::create_dir_all(project_dir.join("Assets"))?;
-    fs::write(
-        project_dir.join("Assets").join(".gitkeep"),
-        "",
-    )
-    .context("Failed to write Assets/.gitkeep")?;
+    fs::write(project_dir.join("Assets").join(".gitkeep"), "")
+        .context("Failed to write Assets/.gitkeep")?;
 
     Ok(())
 }
