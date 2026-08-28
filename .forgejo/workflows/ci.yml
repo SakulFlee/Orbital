@@ -22,11 +22,13 @@ jobs:
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
           echo "$HOME/.cargo/bin" >> "$FORGEJO_PATH"
+          export PATH="$HOME/.cargo/bin:$PATH"
           rustup component add rustfmt clippy
       - name: Format
         env:
           TOKEN: ${{ forgejo.token }}
         run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
           cargo fmt --all
           if [ -n "$(git status --porcelain)" ]; then
             BRANCH="${{ forgejo.head_ref }}"
@@ -46,6 +48,7 @@ jobs:
         env:
           TOKEN: ${{ forgejo.token }}
         run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
           cargo clippy --fix --allow-dirty
           if [ -n "$(git status --porcelain)" ]; then
             BRANCH="${{ forgejo.head_ref }}"
@@ -78,4 +81,6 @@ jobs:
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
           echo "$HOME/.cargo/bin" >> "$FORGEJO_PATH"
       - name: Test
-        run: cargo test --no-fail-fast
+        run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+          cargo test --no-fail-fast
