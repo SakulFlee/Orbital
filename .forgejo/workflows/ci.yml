@@ -1,86 +1,79 @@
 name: CI
-
 on:
   pull_request:
   workflow_dispatch:
-
 jobs:
   lint:
     runs-on: ubuntu-latest
+    container:
+      image: forgejo-http.forgejo.svc.cluster.local:3000/sakulflee/orbital-ci-build-image:latest
     env:
       SKIP_GLTF_EXPORT: "true"
+      RUSTC_WRAPPER: sccache
+      CARGO_INCREMENTAL: 0
+      SCCACHE_CACHE_SIZE: 10G
     steps:
       - uses: https://code.forgejo.org/actions/checkout@v6
         with:
           ref: ${{ forgejo.head_ref || forgejo.ref_name }}
           fetch-depth: 0
-      - name: Install system dependencies
-        run: |
-          apt-get update
-          apt-get install -y --no-install-recommends pkg-config gcc build-essential libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev mesa-vulkan-drivers libgl1-mesa-dri zip git curl ca-certificates rsync
-      - name: Install Rust
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
-          echo "$HOME/.cargo/bin" >> "$FORGEJO_PATH"
-          export PATH="$HOME/.cargo/bin:$PATH"
-          rustup component add rustfmt clippy
+      - name: Cache sccache
+        uses: https://code.forgejo.org/actions/cache@v4
+        continue-on-error: true
+        with:
+          path: /root/.cache/sccache
+          key: sccache-ci-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            sccache-ci-
       - name: Format
         env:
           TOKEN: ${{ forgejo.token }}
         run: |
-          export PATH="$HOME/.cargo/bin:$PATH"
           cargo fmt --all
           if [ -n "$(git status --porcelain)" ]; then
-            BRANCH="${{ forgejo.head_ref }}"
-            [ -z "$BRANCH" ] && BRANCH="${{ forgejo.ref_name }}"
-            REPO_URL=$(git remote get-url origin)
-            HOST_PATH=$(echo "$REPO_URL" | cut -d/ -f3-)
+            BRANCH="${{ forgejo.head_ref }}"; [ -z "$BRANCH" ] && BRANCH="${{ forgejo.ref_name }}"
+            REPO_URL=$(git remote get-url origin); HOST_PATH=$(echo "$REPO_URL" | cut -d/ -f3-)
             git remote set-url origin "https://oauth2:${TOKEN}@${HOST_PATH}"
-            git config user.name "Orbital CI"
-            git config user.email "ci@orbital.local"
-            git add -A
-            git commit -m "style: auto-format code "
-            git push origin HEAD:refs/heads/$BRANCH
-            echo "Format issues were fixed. Pipeline aborted - next run will use corrected code."
-            exit 1
+            git config user.name "Orbital CI"; git config user.email "ci@orbital.local"
+            git add -A; git commit -m "style: auto-format code "; git push origin HEAD:refs/heads/$BRANCH
+            echo "Format issues were fixed. Pipeline aborted - next run will use corrected code."; exit 1
           fi
       - name: Clippy
         env:
           TOKEN: ${{ forgejo.token }}
         run: |
-          export PATH="$HOME/.cargo/bin:$PATH"
           cargo clippy --fix --allow-dirty
           if [ -n "$(git status --porcelain)" ]; then
-            BRANCH="${{ forgejo.head_ref }}"
-            [ -z "$BRANCH" ] && BRANCH="${{ forgejo.ref_name }}"
-            REPO_URL=$(git remote get-url origin)
-            HOST_PATH=$(echo "$REPO_URL" | cut -d/ -f3-)
+            BRANCH="${{ forgejo.head_ref }}"; [ -z "$BRANCH" ] && BRANCH="${{ forgejo.ref_name }}"
+            REPO_URL=$(git remote get-url origin); HOST_PATH=$(echo "$REPO_URL" | cut -d/ -f3-)
             git remote set-url origin "https://oauth2:${TOKEN}@${HOST_PATH}"
-            git config user.name "Orbital CI"
-            git config user.email "ci@orbital.local"
-            git add -A
-            git commit -m "fix: auto-fix clippy warnings "
-            git push origin HEAD:refs/heads/$BRANCH
-            echo "Clippy issues were fixed. Pipeline aborted - next run will use corrected code."
-            exit 1
+            git config user.name "Orbital CI"; git config user.email "ci@orbital.local"
+            git add -A; git commit -m "fix: auto-fix clippy warnings "; git push origin HEAD:refs/heads/$BRANCH
+            echo "Clippy issues were fixed. Pipeline aborted - next run will use corrected code."; exit 1
           fi
-
+      - name: sccache stats
+        run: sccache --show-stats
   test:
     runs-on: ubuntu-latest
     needs: lint
+    container:
+      image: forgejo-http.forgejo.svc.cluster.local:3000/sakulflee/orbital-ci-build-image:latest
     env:
       SKIP_GLTF_EXPORT: "true"
+      RUSTC_WRAPPER: sccache
+      CARGO_INCREMENTAL: 0
+      SCCACHE_CACHE_SIZE: 10G
     steps:
       - uses: https://code.forgejo.org/actions/checkout@v6
-      - name: Install system dependencies
-        run: |
-          apt-get update
-          apt-get install -y --no-install-recommends pkg-config gcc build-essential libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev mesa-vulkan-drivers libgl1-mesa-dri zip git curl ca-certificates rsync
-      - name: Install Rust
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
-          echo "$HOME/.cargo/bin" >> "$FORGEJO_PATH"
+      - name: Cache sccache
+        uses: https://code.forgejo.org/actions/cache@v4
+        continue-on-error: true
+        with:
+          path: /root/.cache/sccache
+          key: sccache-test-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            sccache-test-
       - name: Test
-        run: |
-          export PATH="$HOME/.cargo/bin:$PATH"
-          cargo test --no-fail-fast
+        run: cargo test --no-fail-fast
+      - name: sccache stats
+        run: sccache --show-stats
