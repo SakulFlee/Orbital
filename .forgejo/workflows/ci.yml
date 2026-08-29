@@ -6,7 +6,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     container:
-      image: forgejo-http.forgejo.svc.cluster.local:3000/sakulflee/orbital-ci-build-image:latest
+      image: forgejo.sakul-flee.de/sakulflee/orbital-ci-build-image:latest
     env:
       SKIP_GLTF_EXPORT: "true"
       RUSTC_WRAPPER: sccache
@@ -57,7 +57,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: lint
     container:
-      image: forgejo-http.forgejo.svc.cluster.local:3000/sakulflee/orbital-ci-build-image:latest
+      image: forgejo.sakul-flee.de/sakulflee/orbital-ci-build-image:latest
     env:
       SKIP_GLTF_EXPORT: "true"
       RUSTC_WRAPPER: sccache
