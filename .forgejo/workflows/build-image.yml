@@ -1,0 +1,42 @@
+name: Build CI Image
+on:
+  push:
+    branches: [main, ci-caching]
+    paths: ['.forgejo/ci/Dockerfile', 'Containerfile']
+  workflow_dispatch:
+    inputs:
+      rebuild:
+        description: Force rebuild and push the CI image
+        type: boolean
+        default: true
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    env:
+      FORGEJO_REGISTRY: forgejo-http.forgejo.svc.cluster.local:3000
+      OCI_PUSH_TOKEN: ${{ secrets.OCI_PUSH_TOKEN }}
+      IMAGE: orbital-ci-build-image
+    steps:
+      - uses: https://code.forgejo.org/actions/checkout@v6
+      - name: Install Buildah
+        run: apt-get update && apt-get install -y buildah
+      - name: Configure Buildah storage
+        run: |
+          mkdir -p /etc/containers /tmp/buildah-{root,runroot}
+          cat > /etc/containers/storage.conf << 'EOF'
+          [storage]
+          driver = "vfs"
+          graphroot = "/tmp/buildah-root"
+          runroot = "/tmp/buildah-runroot"
+          EOF
+      - name: Create auth config
+        run: |
+          AUTH=$(printf '%s:%s' 'sakulflee' "$OCI_PUSH_TOKEN" | base64 -w0)
+          printf '{"auths":{"%s":{"auth":"%s"},"forgejo.sakul-flee.de":{"auth":"%s"}}}' "$FORGEJO_REGISTRY" "$AUTH" "forgejo.sakul-flee.de" "$AUTH" > /tmp/auth.json
+      - name: Build image
+        run: buildah bud --storage-driver vfs --isolation chroot -t "$IMAGE:latest" -f .forgejo/ci/Dockerfile .
+      - name: Push image
+        run: buildah push --storage-driver vfs --authfile /tmp/auth.json --tls-verify=false --retry 10 "$IMAGE:latest" "docker://$FORGEJO_REGISTRY/sakulflee/$IMAGE:latest"
+      - name: Push image (external ingress, best-effort)
+        continue-on-error: true
+        run: buildah push --storage-driver vfs --authfile /tmp/auth.json --tls-verify=true --retry 10 "$IMAGE:latest" "docker://forgejo.sakul-flee.de/sakulflee/$IMAGE:latest"
