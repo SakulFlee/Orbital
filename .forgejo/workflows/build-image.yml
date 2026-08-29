@@ -1,8 +1,8 @@
 name: Build CI Image
 on:
   push:
-    branches: [main]
-    paths: ['.forgejo/ci/Dockerfile']
+    branches: [main, ci-caching]
+    paths: ['.forgejo/ci/Dockerfile', 'Containerfile']
   workflow_dispatch:
     inputs:
       rebuild:
