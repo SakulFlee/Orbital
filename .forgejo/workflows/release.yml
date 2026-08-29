@@ -6,7 +6,7 @@ on:
       - 'v*'
 
 jobs:
-  release:
+  build:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -26,7 +26,7 @@ jobs:
         run: |
           dpkg --add-architecture arm64
           apt-get update
-          apt-get install -y --no-install-recommends pkg-config gcc build-essential libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev mesa-vulkan-drivers libgl1-mesa-dri gcc-aarch64-linux-gnu gcc-mingw-w64-x86-64 libc6-dev:arm64 libudev-dev:arm64 libwayland-dev:arm64 libxkbcommon-dev:arm64 libvulkan-dev:arm64 zip git curl ca-certificates rsync
+          apt-get install -y --no-install-recommends pkg-config gcc build-essential libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev mesa-vulkan-drivers libgl1-mesa-dri gcc-aarch64-linux-gnu gcc-mingw-w64-x86-64 libc6-dev:arm64 libudev-dev:arm64 libwayland-dev:arm64 libxkbcommon-dev:arm64 libvulkan-dev:arm64 zip git curl ca-certificates rsync jq
       - name: Install Rust
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
@@ -44,8 +44,30 @@ jobs:
           find "target/${{ matrix.target }}/release" -mindepth 1 -maxdepth 1 -type f -not -name '*.d' -not -name '*.rlib' -not -name '.cargo-lock' -not -name 'CACHEDIR.TAG' -not -name '*.pdb' -exec mv {} upload/ \;
           mv Assets/ upload/
           cd upload && zip -r "../${{ matrix.target }}.zip" .
-      - name: Publish
+      - name: Upload artifact
+        uses: https://code.forgejo.org/actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.target }}
+          path: ${{ matrix.target }}.zip
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: https://code.forgejo.org/actions/checkout@v6
+      - name: Download artifacts
+        uses: https://code.forgejo.org/actions/download-artifact@v4
+        with:
+          path: dist
+      - name: Flatten artifacts
+        run: |
+          mkdir -p release
+          find dist -type f -name '*.zip' -exec mv {} release/ \;
+      - name: Publish release
         uses: https://code.forgejo.org/actions/forgejo-release@v2
         with:
           direction: upload
-          release-dir: upload
+          override: true
+          release-dir: release
+          sha256sum: true
+          token: ${{ forgejo.token }}
