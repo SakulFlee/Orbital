@@ -32,8 +32,11 @@ jobs:
       - name: Create auth config
         run: |
           AUTH=$(printf '%s:%s' 'sakulflee' "$OCI_PUSH_TOKEN" | base64 -w0)
-          printf '{"auths":{"%s":{"auth":"%s"}}}' "$FORGEJO_REGISTRY" "$AUTH" > /tmp/auth.json
+          printf '{"auths":{"%s":{"auth":"%s"},"forgejo.sakul-flee.de":{"auth":"%s"}}}' "$FORGEJO_REGISTRY" "$AUTH" "forgejo.sakul-flee.de" "$AUTH" > /tmp/auth.json
       - name: Build image
         run: buildah bud --storage-driver vfs --isolation chroot -t "$IMAGE:latest" -f .forgejo/ci/Dockerfile .
       - name: Push image
         run: buildah push --storage-driver vfs --authfile /tmp/auth.json --tls-verify=false --retry 10 "$IMAGE:latest" "docker://$FORGEJO_REGISTRY/sakulflee/$IMAGE:latest"
+      - name: Push image (external ingress, best-effort)
+        continue-on-error: true
+        run: buildah push --storage-driver vfs --authfile /tmp/auth.json --tls-verify=true --retry 10 "$IMAGE:latest" "docker://forgejo.sakul-flee.de/sakulflee/$IMAGE:latest"

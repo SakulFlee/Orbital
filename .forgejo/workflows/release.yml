@@ -6,7 +6,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: forgejo-http.forgejo.svc.cluster.local:3000/sakulflee/orbital-ci-build-image:latest
+      image: forgejo.sakul-flee.de/sakulflee/orbital-ci-build-image:latest
     strategy:
       fail-fast: false
       matrix:
