@@ -1,4 +1,4 @@
-FROM rust:latest
+FROM docker.io/library/rust:latest
 
 RUN dpkg --add-architecture arm64 \
  && apt-get update \
