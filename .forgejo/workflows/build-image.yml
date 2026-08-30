@@ -32,7 +32,7 @@ jobs:
       - name: Create auth config
         run: |
           AUTH=$(printf '%s:%s' 'sakulflee' "$OCI_PUSH_TOKEN" | base64 -w0)
-          printf '{"auths":{"%s":{"auth":"%s"},"forgejo.sakul-flee.de":{"auth":"%s"}}}' "$FORGEJO_REGISTRY" "$AUTH" "forgejo.sakul-flee.de" "$AUTH" > /tmp/auth.json
+          printf '{"auths":{"%s":{"auth":"%s"},"forgejo.sakul-flee.de":{"auth":"%s"}}}' "$FORGEJO_REGISTRY" "$AUTH" "$AUTH" > /tmp/auth.json
       - name: Build image
         run: buildah bud --storage-driver vfs --isolation chroot -t "$IMAGE:latest" -f .forgejo/ci/Dockerfile .
       - name: Push image
