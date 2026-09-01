@@ -4,17 +4,22 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-orbital_core = { path = "../orbital_core" }
-orbital_shader_preprocessor = { path = "../orbital_shader_preprocessor" }
-orbital_file_manager = { path = "../orbital_file_manager" }
-wgpu = { workspace = true }
-cgmath = { workspace = true }
-image = { workspace = true }
-log = { workspace = true }
-serde = { workspace = true }
-ulid = { workspace = true }
-hashbrown = { workspace = true }
+orbital_camera = { path = "../orbital_camera" }
+orbital_cull = { path = "../orbital_cull" }
+orbital_ibl_brdf = { path = "../orbital_ibl_brdf" }
+orbital_instance = { path = "../orbital_instance" }
+orbital_light = { path = "../orbital_light" }
+orbital_material_shader = { path = "../orbital_material_shader" }
+orbital_math = { path = "../orbital_math" }
+orbital_mesh = { path = "../orbital_mesh" }
+orbital_model = { path = "../orbital_model" }
+orbital_shader_core = { path = "../orbital_shader_core" }
+orbital_shader_pbr = { path = "../orbital_shader_pbr" }
+orbital_shadow = { path = "../orbital_shadow" }
+orbital_texture = { path = "../orbital_texture" }
+orbital_vertex = { path = "../orbital_vertex" }
+orbital_world_environment = { path = "../orbital_world_environment" }
 
 [dev-dependencies]
-# Matches the naga version used by wgpu 30 — validates WGSL shaders in tests.
+orbital_shader_preprocessor = { path = "../orbital_shader_preprocessor" }
 naga = { version = "30.0.0", default-features = false, features = ["wgsl-in"] }
