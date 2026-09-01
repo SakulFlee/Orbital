@@ -26,7 +26,7 @@ pub fn sys_poll_importer(ecs: &mut World) {
     // Extract tasks first, then submit (avoids nested mutable borrows)
     let tasks: Vec<_> = {
         match ecs.get_resource_mut::<ImportQueueResource>() {
-            Some(mut q) => q.0.drain(..).collect(),
+            Some(mut q) => std::mem::take(&mut q.0),
             None => Vec::new(),
         }
     };
