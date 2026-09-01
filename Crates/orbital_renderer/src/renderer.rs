@@ -5,10 +5,12 @@ use wgpu::{
     RenderPassDescriptor, StoreOp, TextureFormat, TextureView,
 };
 
-use orbital_resources::{
-    CullResources, MaterialShader, Model, ShadowLightInfo, ShadowRenderer, Texture,
-    WorldEnvironment,
-};
+use orbital_cull::CullResources;
+use orbital_material_shader::MaterialShader;
+use orbital_model::Model;
+use orbital_shadow::{ShadowLightInfo, ShadowRenderer};
+use orbital_texture::Texture;
+use orbital_world_environment::WorldEnvironment;
 
 pub struct Renderer {
     surface_texture_format: TextureFormat,

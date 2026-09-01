@@ -1,5 +1,5 @@
 use cgmath::{InnerSpace, Vector2, Vector3};
-use orbital_resources::{MeshDescriptor, Vertex};
+use orbital_mesh::{MeshDescriptor, Vertex};
 
 pub fn torus(
     major_radius: f32,

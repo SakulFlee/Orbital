@@ -4,7 +4,8 @@ use orbital_ecs_bridge::{
     ActiveCamera, CullResource, DeviceResource, EcsCameraStore, FrozenFrustum, ModelInstances,
     ModelRealization, QueueResource,
 };
-use orbital_resources::{CullResources, Instance};
+use orbital_cull::CullResources;
+use orbital_instance::Instance;
 use wgpu::util::DeviceExt;
 
 /// Per‑frame GPU‑accelerated frustum‑culling system.

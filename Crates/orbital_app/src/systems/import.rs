@@ -13,7 +13,8 @@ use orbital_ecs_bridge::{
     EcsCameraStore, ImportQueueResource, ImporterResource, LightDescriptorEcs, LightDirty,
     ModelDescriptorEcs, ModelDirty, ModelInstances, Position, QueueResource, Rotation,
 };
-use orbital_resources::{Camera, ShadowCaster};
+use orbital_camera::Camera;
+use orbital_shadow::ShadowCaster;
 
 /// Poll the importer for completed results and spawn ECS entities.
 ///
