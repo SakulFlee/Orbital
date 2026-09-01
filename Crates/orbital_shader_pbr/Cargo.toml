@@ -1,0 +1,15 @@
+[package]
+name = "orbital_shader_pbr"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+orbital_shader_core = { path = "../orbital_shader_core" }
+orbital_shader_preprocessor = { path = "../orbital_shader_preprocessor" }
+orbital_shader_math = { path = "../orbital_shader_math" }
+orbital_shader_engine = { path = "../orbital_shader_engine" }
+orbital_material_shader = { path = "../orbital_material_shader" }
+orbital_texture = { path = "../orbital_texture" }
+cgmath = { workspace = true }
+wgpu = { workspace = true }
+log = { workspace = true }
