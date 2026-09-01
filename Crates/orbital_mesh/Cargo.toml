@@ -1,0 +1,10 @@
+[package]
+name = "orbital_mesh"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+orbital_core = { path = "../orbital_core" }
+orbital_vertex = { path = "../orbital_vertex" }
+cgmath = { workspace = true }
+wgpu = { workspace = true }
