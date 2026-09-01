@@ -4,6 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-orbital_resources = { path = "../orbital_resources" }
+orbital_cull = { path = "../orbital_cull" }
+orbital_material_shader = { path = "../orbital_material_shader" }
+orbital_model = { path = "../orbital_model" }
+orbital_shadow = { path = "../orbital_shadow" }
+orbital_texture = { path = "../orbital_texture" }
+orbital_world_environment = { path = "../orbital_world_environment" }
 wgpu = { workspace = true }
 cgmath = { workspace = true }

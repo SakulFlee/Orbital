@@ -14,7 +14,9 @@ use orbital_ecs_bridge::{
     MeshCacheResource, ModelDescriptorEcs, ModelDirty, ModelInstances, ModelRealization, Position,
     PrevPosition, QueueResource, Rotation, ShadowDirtyFlag, SurfaceFormatResource,
 };
-use orbital_resources::{Camera, Model, WorldEnvironmentDescriptor};
+use orbital_camera::Camera;
+use orbital_model::Model;
+use orbital_world_environment::WorldEnvironmentDescriptor;
 
 /// Realize (create or update) GPU camera state for all dirty camera entities.
 ///
@@ -238,7 +240,7 @@ pub fn realize_models(ecs: &mut World) {
     // Realize each model
     for (eid, desc, instances, needs_new) in entities_to_realize {
         // Build a ModelDescriptor from ECS components
-        let model_desc = orbital_resources::ModelDescriptor {
+        let model_desc = orbital_model::ModelDescriptor {
             label: desc.label.clone(),
             mesh: desc.mesh.clone(),
             materials: desc.materials.clone(),
@@ -444,7 +446,7 @@ pub fn realize_lights(ecs: &mut World) {
         is_dirty: bool,
         position_moved: bool,
         pos: cgmath::Point3<f32>,
-        desc: orbital_resources::LightDescriptor,
+        desc: orbital_light::LightDescriptor,
     }
 
     let mut slot_infos: Vec<LightSlotInfo> = Vec::new();
@@ -502,7 +504,7 @@ pub fn realize_lights(ecs: &mut World) {
             }
         };
 
-        let light_desc = orbital_resources::LightDescriptor {
+        let light_desc = orbital_light::LightDescriptor {
             label: String::new(),
             light_type: desc_component.light_type.clone(),
             color: desc_component.color,
@@ -722,7 +724,7 @@ pub fn realize_environment(ecs: &mut World) {
         return;
     }
 
-    match orbital_resources::WorldEnvironment::from_descriptor(
+    match orbital_world_environment::WorldEnvironment::from_descriptor(
         &descriptor,
         Some(surface_format),
         &device,

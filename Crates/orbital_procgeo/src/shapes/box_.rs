@@ -1,5 +1,5 @@
 use cgmath::{Vector2, Vector3};
-use orbital_resources::{MeshDescriptor, Vertex};
+use orbital_mesh::{MeshDescriptor, Vertex};
 
 struct Face {
     origin: Vector3<f32>,

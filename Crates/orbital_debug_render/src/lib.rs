@@ -5,7 +5,7 @@ use orbital_ecs_bridge::{
     ActiveCamera, EcsCameraStore, InputSnapshot, LightDescriptorEcs, ModelInstances,
     ModelRealization, Position,
 };
-use orbital_resources::LightType;
+use orbital_light::LightType;
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState,
@@ -565,7 +565,7 @@ impl Module for DebugModule {
 
 fn collect_spheres(
     ecs: &World,
-    frozen_frustum: Option<&orbital_resources::Frustum>,
+    frozen_frustum: Option<&orbital_camera::Frustum>,
 ) -> Vec<SphereInstance> {
     let mut spheres = Vec::new();
 

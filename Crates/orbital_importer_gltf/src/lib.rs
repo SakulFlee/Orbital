@@ -2,7 +2,9 @@ pub mod gltf;
 
 use std::sync::{Mutex, mpsc};
 
-use orbital_resources::{CameraDescriptor, LightDescriptor, ModelDescriptor};
+use orbital_camera::CameraDescriptor;
+use orbital_light::LightDescriptor;
+use orbital_model::ModelDescriptor;
 
 pub use gltf::{GltfImport, GltfImportTask, GltfImporter};
 

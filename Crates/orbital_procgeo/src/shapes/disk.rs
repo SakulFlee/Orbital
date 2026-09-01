@@ -1,5 +1,5 @@
 use cgmath::{Vector2, Vector3};
-use orbital_resources::{MeshDescriptor, Vertex};
+use orbital_mesh::{MeshDescriptor, Vertex};
 
 pub fn disk(radius: f32, segments: u32) -> MeshDescriptor {
     let segs = segments.max(3);

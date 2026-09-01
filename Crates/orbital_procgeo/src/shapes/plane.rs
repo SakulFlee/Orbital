@@ -1,5 +1,5 @@
 use cgmath::{Vector2, Vector3};
-use orbital_resources::{MeshDescriptor, Vertex};
+use orbital_mesh::{MeshDescriptor, Vertex};
 
 pub fn plane(size: Vector2<f32>, subdivisions: u32) -> MeshDescriptor {
     let sw = subdivisions.max(1);
