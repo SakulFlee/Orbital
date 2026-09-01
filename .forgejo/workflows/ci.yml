@@ -32,8 +32,7 @@ jobs:
           cargo fmt --all
           if [ -n "$(git status --porcelain)" ]; then
             BRANCH="${{ forgejo.head_ref }}"; [ -z "$BRANCH" ] && BRANCH="${{ forgejo.ref_name }}"
-            REPO_URL=$(git remote get-url origin); HOST_PATH=$(echo "$REPO_URL" | cut -d/ -f3-)
-            git remote set-url origin "https://oauth2:${TOKEN}@${HOST_PATH}"
+            git remote set-url origin "https://oauth2:${TOKEN}@forgejo.sakul-flee.de/${GITHUB_REPOSITORY}"
             git config user.name "Orbital CI"; git config user.email "ci@orbital.local"
             git add -A; git commit -m "style: auto-format code "; git push origin HEAD:refs/heads/$BRANCH
             echo "Format issues were fixed. Pipeline aborted - next run will use corrected code."; exit 1
@@ -45,8 +44,7 @@ jobs:
           cargo clippy --fix --allow-dirty
           if [ -n "$(git status --porcelain)" ]; then
             BRANCH="${{ forgejo.head_ref }}"; [ -z "$BRANCH" ] && BRANCH="${{ forgejo.ref_name }}"
-            REPO_URL=$(git remote get-url origin); HOST_PATH=$(echo "$REPO_URL" | cut -d/ -f3-)
-            git remote set-url origin "https://oauth2:${TOKEN}@${HOST_PATH}"
+            git remote set-url origin "https://oauth2:${TOKEN}@forgejo.sakul-flee.de/${GITHUB_REPOSITORY}"
             git config user.name "Orbital CI"; git config user.email "ci@orbital.local"
             git add -A; git commit -m "fix: auto-fix clippy warnings "; git push origin HEAD:refs/heads/$BRANCH
             echo "Clippy issues were fixed. Pipeline aborted - next run will use corrected code."; exit 1
