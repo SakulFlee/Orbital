@@ -2584,14 +2584,32 @@ dependencies = [
  "cgmath",
  "gilrs",
  "log",
+ "orbital_camera",
  "orbital_core",
+ "orbital_cull",
  "orbital_ecs",
  "orbital_ecs_bridge",
+ "orbital_ibl_brdf",
  "orbital_input",
+ "orbital_instance",
+ "orbital_light",
+ "orbital_material_shader",
+ "orbital_model",
  "orbital_renderer",
- "orbital_resources",
+ "orbital_shadow",
+ "orbital_texture",
+ "orbital_world_environment",
  "wgpu",
  "winit",
+]
+
+[[package]]
+name = "orbital_camera"
+version = "0.1.0"
+dependencies = [
+ "cgmath",
+ "orbital_math",
+ "wgpu",
 ]
 
 [[package]]
@@ -2609,14 +2627,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "orbital_cull"
+version = "0.1.0"
+dependencies = [
+ "orbital_camera",
+ "wgpu",
+]
+
+[[package]]
 name = "orbital_debug_render"
 version = "0.1.0"
 dependencies = [
  "cgmath",
  "orbital_app",
+ "orbital_camera",
  "orbital_ecs",
  "orbital_ecs_bridge",
- "orbital_resources",
+ "orbital_light",
  "wgpu",
  "winit",
 ]
@@ -2637,11 +2664,19 @@ version = "0.1.0"
 dependencies = [
  "cgmath",
  "hashbrown 0.17.1",
+ "orbital_camera",
  "orbital_core",
+ "orbital_cull",
  "orbital_ecs",
+ "orbital_ibl_brdf",
  "orbital_importer_gltf",
  "orbital_input",
- "orbital_resources",
+ "orbital_light",
+ "orbital_material_shader",
+ "orbital_math",
+ "orbital_mesh",
+ "orbital_model",
+ "orbital_world_environment",
  "ulid",
  "wgpu",
 ]
@@ -2656,6 +2691,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "orbital_ibl_brdf"
+version = "0.1.0"
+dependencies = [
+ "cgmath",
+ "orbital_texture",
+ "wgpu",
+]
+
+[[package]]
 name = "orbital_importer_gltf"
 version = "0.1.0"
 dependencies = [
@@ -2665,9 +2709,16 @@ dependencies = [
  "hashbrown 0.17.1",
  "image",
  "log",
+ "orbital_camera",
  "orbital_core",
  "orbital_file_manager",
- "orbital_resources",
+ "orbital_light",
+ "orbital_material_shader",
+ "orbital_math",
+ "orbital_mesh",
+ "orbital_model",
+ "orbital_shader_pbr",
+ "orbital_texture",
  "rayon",
  "serde_json",
  "ulid",
@@ -2687,13 +2738,78 @@ dependencies = [
 ]
 
 [[package]]
+name = "orbital_instance"
+version = "0.1.0"
+dependencies = [
+ "cgmath",
+ "orbital_math",
+ "wgpu",
+]
+
+[[package]]
+name = "orbital_light"
+version = "0.1.0"
+dependencies = [
+ "cgmath",
+]
+
+[[package]]
+name = "orbital_material_shader"
+version = "0.1.0"
+dependencies = [
+ "orbital_core",
+ "orbital_instance",
+ "orbital_shader_core",
+ "orbital_shader_preprocessor",
+ "orbital_texture",
+ "orbital_vertex",
+ "wgpu",
+]
+
+[[package]]
+name = "orbital_math"
+version = "0.1.0"
+dependencies = [
+ "cgmath",
+]
+
+[[package]]
+name = "orbital_mesh"
+version = "0.1.0"
+dependencies = [
+ "cgmath",
+ "orbital_core",
+ "orbital_vertex",
+ "wgpu",
+]
+
+[[package]]
+name = "orbital_model"
+version = "0.1.0"
+dependencies = [
+ "hashbrown 0.17.1",
+ "orbital_core",
+ "orbital_instance",
+ "orbital_material_shader",
+ "orbital_math",
+ "orbital_mesh",
+ "ulid",
+ "wgpu",
+]
+
+[[package]]
 name = "orbital_procgeo"
 version = "0.1.0"
 dependencies = [
  "cgmath",
  "log",
  "orbital_file_manager",
- "orbital_resources",
+ "orbital_material_shader",
+ "orbital_math",
+ "orbital_mesh",
+ "orbital_shader_debug",
+ "orbital_shader_pbr",
+ "orbital_texture",
  "ron",
  "serde",
  "wgpu",
@@ -2704,7 +2820,12 @@ name = "orbital_renderer"
 version = "0.1.0"
 dependencies = [
  "cgmath",
- "orbital_resources",
+ "orbital_cull",
+ "orbital_material_shader",
+ "orbital_model",
+ "orbital_shadow",
+ "orbital_texture",
+ "orbital_world_environment",
  "wgpu",
 ]
 
@@ -2712,16 +2833,77 @@ dependencies = [
 name = "orbital_resources"
 version = "0.1.0"
 dependencies = [
- "cgmath",
- "hashbrown 0.17.1",
- "image",
- "log",
  "naga",
- "orbital_core",
- "orbital_file_manager",
+ "orbital_camera",
+ "orbital_cull",
+ "orbital_ibl_brdf",
+ "orbital_instance",
+ "orbital_light",
+ "orbital_material_shader",
+ "orbital_math",
+ "orbital_mesh",
+ "orbital_model",
+ "orbital_shader_core",
+ "orbital_shader_pbr",
  "orbital_shader_preprocessor",
- "serde",
- "ulid",
+ "orbital_shadow",
+ "orbital_texture",
+ "orbital_vertex",
+ "orbital_world_environment",
+]
+
+[[package]]
+name = "orbital_shader_core"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "orbital_shader_preprocessor",
+ "orbital_texture",
+ "wgpu",
+]
+
+[[package]]
+name = "orbital_shader_debug"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "orbital_material_shader",
+ "orbital_shader_core",
+ "orbital_shader_engine",
+ "orbital_shader_math",
+ "orbital_shader_preprocessor",
+ "wgpu",
+]
+
+[[package]]
+name = "orbital_shader_engine"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "orbital_shader_math",
+ "orbital_shader_preprocessor",
+]
+
+[[package]]
+name = "orbital_shader_math"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "orbital_shader_preprocessor",
+]
+
+[[package]]
+name = "orbital_shader_pbr"
+version = "0.1.0"
+dependencies = [
+ "cgmath",
+ "log",
+ "orbital_material_shader",
+ "orbital_shader_core",
+ "orbital_shader_engine",
+ "orbital_shader_math",
+ "orbital_shader_preprocessor",
+ "orbital_texture",
  "wgpu",
 ]
 
@@ -2734,6 +2916,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "orbital_shadow"
+version = "0.1.0"
+dependencies = [
+ "cgmath",
+ "log",
+ "orbital_instance",
+ "orbital_material_shader",
+ "orbital_math",
+ "orbital_model",
+ "orbital_texture",
+ "orbital_vertex",
+ "wgpu",
+]
+
+[[package]]
+name = "orbital_texture"
+version = "0.1.0"
+dependencies = [
+ "cgmath",
+ "image",
+ "log",
+ "orbital_core",
+ "orbital_file_manager",
+ "serde",
+ "wgpu",
+]
+
+[[package]]
 name = "orbital_touch_ui"
 version = "0.1.0"
 dependencies = [
@@ -2742,6 +2952,31 @@ dependencies = [
  "orbital_ecs",
  "orbital_ecs_bridge",
  "orbital_input",
+ "wgpu",
+]
+
+[[package]]
+name = "orbital_vertex"
+version = "0.1.0"
+dependencies = [
+ "cgmath",
+ "wgpu",
+]
+
+[[package]]
+name = "orbital_world_environment"
+version = "0.1.0"
+dependencies = [
+ "cgmath",
+ "image",
+ "log",
+ "orbital_file_manager",
+ "orbital_material_shader",
+ "orbital_shader_engine",
+ "orbital_shader_math",
+ "orbital_shader_preprocessor",
+ "orbital_texture",
+ "serde",
  "wgpu",
 ]
 
