@@ -1,0 +1,13 @@
+[package]
+name = "orbital_material_shader"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+orbital_core = { path = "../orbital_core" }
+orbital_shader_core = { path = "../orbital_shader_core" }
+orbital_shader_preprocessor = { path = "../orbital_shader_preprocessor" }
+orbital_texture = { path = "../orbital_texture" }
+orbital_vertex = { path = "../orbital_vertex" }
+orbital_instance = { path = "../orbital_instance" }
+wgpu = { workspace = true }
