@@ -31,6 +31,10 @@ jobs:
         run: |
           cargo fmt --all
           if [ -n "$(git status --porcelain)" ]; then
+            if [ "${{ forgejo.ref_name }}" = "main" ]; then
+              echo "Format issues found on protected branch 'main'. Please fix locally with: cargo fmt --all"
+              exit 1
+            fi
             BRANCH="${{ forgejo.head_ref }}"; [ -z "$BRANCH" ] && BRANCH="${{ forgejo.ref_name }}"
             git remote set-url origin "https://oauth2:${TOKEN}@forgejo.sakul-flee.de/${GITHUB_REPOSITORY}"
             git config user.name "Orbital CI"; git config user.email "ci@orbital.local"
@@ -43,6 +47,10 @@ jobs:
         run: |
           cargo clippy --fix --allow-dirty
           if [ -n "$(git status --porcelain)" ]; then
+            if [ "${{ forgejo.ref_name }}" = "main" ]; then
+              echo "Clippy warnings found on protected branch 'main'. Please fix locally with: cargo clippy --fix --allow-dirty"
+              exit 1
+            fi
             BRANCH="${{ forgejo.head_ref }}"; [ -z "$BRANCH" ] && BRANCH="${{ forgejo.ref_name }}"
             git remote set-url origin "https://oauth2:${TOKEN}@forgejo.sakul-flee.de/${GITHUB_REPOSITORY}"
             git config user.name "Orbital CI"; git config user.email "ci@orbital.local"
