@@ -1201,6 +1201,25 @@ impl ApplicationHandler for ModuleRuntime {
 
             // Call Module::setup() and build game schedule
             if !self.module_setup_done {
+                // Register all shader node libraries with the global registry
+                // before any shader assembly occurs.
+                orbital_shader_preprocessor::register_global_library(
+                    &orbital_shader_math::math_library(),
+                )
+                .expect("failed to register math library");
+                orbital_shader_preprocessor::register_global_library(
+                    &orbital_shader_engine::engine_library(),
+                )
+                .expect("failed to register engine library");
+                orbital_shader_preprocessor::register_global_library(
+                    &orbital_shader_pbr::pbr_library(),
+                )
+                .expect("failed to register PBR library");
+                orbital_shader_preprocessor::register_global_library(
+                    &orbital_world_environment::world_environment_library(),
+                )
+                .expect("failed to register world-environment library");
+
                 let systems =
                     self.module
                         .setup(&mut self.ecs_world, ctx_guard.device(), ctx_guard.queue());
