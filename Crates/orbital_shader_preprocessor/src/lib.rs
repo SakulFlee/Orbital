@@ -79,16 +79,28 @@ impl ShaderPreprocessor {
             .map_err(ShaderPreprocessorError::Fs)?;
 
         for file in files {
-            let directive = file
+            // Strip leading directory components to handle Android's full-path filenames
+            let bare_filename = if file.starts_with(&format!("{}/", path)) {
+                file.strip_prefix(&format!("{}/", path))
+                    .unwrap_or(&file)
+                    .to_string()
+            } else {
+                file.split('/')
+                    .last()
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| file.clone())
+            };
+
+            let directive = bare_filename
                 .strip_suffix(".wgsl")
-                .unwrap_or(&file)
+                .unwrap_or(&bare_filename)
                 .replace('\\', "/")
                 .to_lowercase();
 
             let full_path = if path.is_empty() {
                 file.clone()
             } else {
-                format!("{path}/{file}")
+                format!("{path}/{bare_filename}")
             };
 
             let content = file_manager
