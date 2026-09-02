@@ -172,13 +172,29 @@ impl AppContext {
     fn make_view_formats(
         capabilities: &SurfaceCapabilities,
     ) -> (TextureFormat, Vec<TextureFormat>) {
-        let first_format = capabilities
-            .formats
-            .first()
-            .expect("There must be at least one surface format!");
-        let srgb_format = first_format.add_srgb_suffix();
+        let formats = capabilities.formats.clone();
+        if formats.is_empty() {
+            panic!("There must be at least one surface format!");
+        }
 
-        let base = srgb_format.remove_srgb_suffix();
+        // Prefer an sRGB surface format when the device actually supports one.
+        // Some Adreno Vulkan drivers silently fail to present frames (black screen)
+        // when configured with an unsupported sRGB variant, even though they keep
+        // running at full FPS — so we must only use sRGB formats that are genuinely
+        // in the supported list rather than synthesizing one from the first format.
+        let has_srgb = formats.iter().any(|f| f.is_srgb());
+        let surface_format = if has_srgb {
+            formats
+                .iter()
+                .find(|f| f.is_srgb())
+                .copied()
+                .unwrap_or(formats[0])
+        } else {
+            // Fall back to a linear format (Bgra8Unorm is broadly supported).
+            formats.iter().find(|f| !f.is_srgb()).copied().unwrap_or(formats[0])
+        };
+
+        let base = surface_format.remove_srgb_suffix();
         let view_formats: Vec<TextureFormat> = capabilities
             .formats
             .iter()
@@ -186,7 +202,7 @@ impl AppContext {
             .copied()
             .collect();
 
-        (srgb_format, view_formats)
+        (surface_format, view_formats)
     }
 
     pub fn adapter_features(&self) -> wgpu::Features {
