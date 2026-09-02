@@ -183,12 +183,16 @@ impl AppContext {
         // running at full FPS — so we must only use sRGB formats that are genuinely
         // in the supported list rather than synthesizing one from the first format.
         let has_srgb = formats.iter().any(|f| f.is_srgb());
-        let surface_format = if has_srgb {
-            formats
-                .iter()
-                .find(|f| f.is_srgb())
-                .copied()
-                .unwrap_or(formats[0])
+
+        // On Android, some Adreno Vulkan drivers report sRGB surface formats as
+        // supported but fail to present frames with them (black screen). Prefer a
+        // linear format (Bgra8Unorm) in that case. Override with ORBITAL_FORCE_SRGB=1
+        // if you need sRGB on such a device for testing.
+        #[cfg(target_os = "android")]
+        let force_srgb = std::env::var("ORBITAL_FORCE_SRGB").is_ok();
+
+        let surface_format = if has_srgb && !force_srgb {
+            formats.iter().find(|f| f.is_srgb()).copied().unwrap_or(formats[0])
         } else {
             // Fall back to a linear format (Bgra8Unorm is broadly supported).
             formats.iter().find(|f| !f.is_srgb()).copied().unwrap_or(formats[0])
@@ -238,6 +242,13 @@ impl AppContext {
         let window_size = self.window.inner_size();
 
         let (srgb_format, view_formats) = Self::make_view_formats(&capabilities);
+
+        // Diagnostic: log the selected surface format so we can confirm which path
+        // was taken on each device (sRGB vs linear fallback).
+        info!(
+            "[Surface] Selected surface format: {:?} (view_formats={:?})",
+            srgb_format, view_formats
+        );
 
         // Some adapters (e.g. the Android emulator's Vulkan backend) do not
         // support `SURFACE_VIEW_FORMATS`; configuring a surface with a
