@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, LazyLock, RwLock};
 
 use crate::{NodeLibrary, ShaderNode};
 
@@ -7,9 +7,8 @@ use crate::{NodeLibrary, ShaderNode};
 ///
 /// Nodes are keyed by name so shaders can reference them without wiring each
 /// node manually. The process-wide [`NodeRegistry::global`] is preloaded with
-/// the engine's built-in prelude; third-party crates register their own
-/// [`NodeLibrary`]s (into the global registry, or a custom one for isolation /
-/// testing).
+/// the engine's built-in prelude; additional libraries are registered via
+/// [`register_global_library`] at engine startup.
 #[derive(Debug, Default, Clone)]
 pub struct NodeRegistry {
     nodes: HashMap<Arc<str>, Arc<ShaderNode>>,
@@ -70,17 +69,38 @@ impl NodeRegistry {
         self.nodes.is_empty()
     }
 
-    /// Returns the process-wide registry, lazily initialized with the engine's
-    /// built-in prelude.
-    pub fn global() -> &'static NodeRegistry {
-        static GLOBAL: OnceLock<NodeRegistry> = OnceLock::new();
-        GLOBAL.get_or_init(|| {
-            let mut registry = NodeRegistry::new();
-            let prelude = crate::prelude::prelude_library();
-            registry
-                .register_library(&prelude)
-                .expect("prelude library must not contain conflicting node names");
-            registry
-        })
+    /// Returns a snapshot (clone) of the process-wide registry.
+    ///
+    /// The global registry is lazily initialized with the engine's built-in
+    /// prelude, then extended via [`register_global_library`] before any
+    /// shader assembly occurs.
+    pub fn global() -> Self {
+        GLOBAL.read().unwrap().clone()
     }
+}
+
+/// The process-wide registry, backed by a `RwLock` for extensibility.
+///
+/// Initialized with the prelude library. Additional libraries (math, engine,
+/// PBR, world-environment) are registered via [`register_global_library`]
+/// at engine startup, before any shader assembly occurs.
+static GLOBAL: LazyLock<RwLock<NodeRegistry>> = LazyLock::new(|| {
+    let mut registry = NodeRegistry::new();
+    let prelude = crate::prelude::prelude_library();
+    registry
+        .register_library(&prelude)
+        .expect("prelude library must not contain conflicting node names");
+    RwLock::new(registry)
+});
+
+/// Registers a [`NodeLibrary`] with the process-wide global registry.
+///
+/// Call this at engine startup (before any `MaterialShader::from_descriptor`)
+/// to make the library's nodes available to all shaders. Registering a node
+/// whose name already maps to an identical node is idempotent; registering
+/// a different node with the same name returns an error.
+pub fn register_global_library(
+    lib: &NodeLibrary,
+) -> Result<(), crate::ShaderPreprocessorError> {
+    GLOBAL.write().unwrap().register_library(lib)
 }

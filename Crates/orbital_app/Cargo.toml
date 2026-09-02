@@ -22,6 +22,10 @@ orbital_light = { path = "../orbital_light" }
 orbital_material_shader = { path = "../orbital_material_shader" }
 orbital_model = { path = "../orbital_model" }
 orbital_renderer = { path = "../orbital_renderer" }
+orbital_shader_engine = { path = "../orbital_shader_engine" }
+orbital_shader_math = { path = "../orbital_shader_math" }
+orbital_shader_preprocessor = { path = "../orbital_shader_preprocessor" }
+orbital_shader_pbr = { path = "../orbital_shader_pbr" }
 orbital_shadow = { path = "../orbital_shadow" }
 orbital_texture = { path = "../orbital_texture" }
 orbital_world_environment = { path = "../orbital_world_environment" }
