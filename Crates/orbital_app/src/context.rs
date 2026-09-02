@@ -186,12 +186,14 @@ impl AppContext {
 
         // On Android, some Adreno Vulkan drivers report sRGB surface formats as
         // supported but fail to present frames with them (black screen). Prefer a
-        // linear format (Bgra8Unorm) in that case. Override with ORBITAL_FORCE_SRGB=1
-        // if you need sRGB on such a device for testing.
+        // linear format in that case unless ORBITAL_FORCE_SRGB=1 is set. Non-Android
+        // platforms keep using sRGB for color accuracy since they work fine there.
         #[cfg(target_os = "android")]
-        let force_srgb = std::env::var("ORBITAL_FORCE_SRGB").is_ok();
+        let prefer_srgb = std::env::var("ORBITAL_FORCE_SRGB").is_ok();
+        #[cfg(not(target_os = "android"))]
+        let prefer_srgb = true;
 
-        let surface_format = if has_srgb && !force_srgb {
+        let surface_format = if has_srgb && prefer_srgb {
             formats.iter().find(|f| f.is_srgb()).copied().unwrap_or(formats[0])
         } else {
             // Fall back to a linear format (Bgra8Unorm is broadly supported).
