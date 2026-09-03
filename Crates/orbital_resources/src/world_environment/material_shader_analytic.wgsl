@@ -59,98 +59,32 @@ fn entrypoint_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let view_ray_direction = view_position.xyz / view_position.w;
     var ray_direction = normalize((camera.view_projection_transposed * vec4(view_ray_direction, 0.0)).xyz);
 
-    // Inline sky computation for the skybox.
-    //
-    // NOTE: This is the body of the shared `sky_color(D, params)` function
-    // from `sky_common.wgsl`, inlined here so we read the `sky_params`
-    // uniform directly. Passing the 176-byte `SkyParams` struct by value into
-    // a function is miscompiled on some Adreno Vulkan drivers (the standalone
-    // call returns ~0 there), while the identical inline arithmetic is
-    // correct — confirmed on a 4x4 diagnostic grid on the affected tablet.
-    let D = ray_direction;
-    let sun_dir = sky_params.sun_direction;
-    let sun_elev = sun_dir.y; // in [-1, 1]
-
-    let day_factor = smoothstep(-0.1, 0.25, sun_elev);
-    let night_factor = 1.0 - day_factor;
-
-    // --- Day / night sky gradient -----------------------------------------
-    let zenith = mix(sky_params.night_zenith, sky_params.day_zenith, day_factor);
-    let horizon = mix(sky_params.night_horizon, sky_params.day_horizon, day_factor);
-
-    // Per-pixel vertical fade between horizon and zenith.
-    let height = clamp(D.y, 0.0, 1.0);
-    var colour = mix(horizon, zenith, pow(height, 0.3));
-
-    // --- Twilight warm band -----------------------------------------------
-    let twilight = exp(-abs(sun_elev) * 5.0);
-    let twilight_visible = smoothstep(-0.15, 0.0, sun_elev);
-    let horizon_term = pow(1.0 - height, 2.0);
-    colour += sky_params.twilight * twilight * horizon_term * twilight_visible;
-
-    // --- Sun disk + halo --------------------------------------------------
-    let cos_a = clamp(dot(D, sun_dir), -1.0, 1.0);
-    let sun_ang = acos(cos_a);
-    let sun_visible = smoothstep(-0.05, 0.05, sun_elev);
-
-    let core_sigma = sky_params.sun_angular_radius;
-    let disk = exp(-0.5 * sun_ang * sun_ang / (core_sigma * core_sigma));
-    colour += sky_params.sun_color * sky_params.sun_intensity * disk * sun_visible;
-
-    let halo_sigma = sky_params.sun_angular_radius * 2.5;
-    let halo = exp(-0.5 * sun_ang * sun_ang / (halo_sigma * halo_sigma));
-    colour += sky_params.twilight * sky_params.sun_intensity * 0.1 * halo * sun_visible;
-
-    // --- Moon (opposite the sun, visible at night) -------------------------
-    let moon_dir = -sun_dir;
-    let moon_ang = acos(clamp(dot(D, moon_dir), -1.0, 1.0));
-    let moon_visible = 1.0 - smoothstep(-0.05, 0.05, sun_elev); // night only
-
-    let moon_sigma = sky_params.moon_angular_radius;
-    let moon_disk = exp(-pow(moon_ang / moon_sigma, 8.0));
-    colour += sky_params.moon_color * sky_params.moon_intensity * moon_disk * moon_visible;
-
-    let moon_halo_sigma = moon_sigma * 1.5;
-    let moon_halo = exp(-moon_ang * moon_ang / (2.0 * moon_halo_sigma * moon_halo_sigma));
-    colour += sky_params.moon_color * sky_params.moon_intensity * 0.1 * moon_halo * moon_visible;
-
-    // --- Stars (deterministic, faded in at night) --------------------------
-    const STAR_GRID: f32 = 90.0;
-    let bias = i32(STAR_GRID);
-    let cell = vec3<i32>(floor(D * STAR_GRID)) + vec3<i32>(bias);
-    let h = star_hash(u32(cell.x), u32(cell.y), u32(cell.z));
-    let bright = f32(h & 0xFFFFu) / 65535.0;
-
-    let threshold = 1.0 - clamp(sky_params.star_density, 0.0, 1.0);
-    if bright > threshold {
-        let off = star_hash(
-            u32(cell.x) + 0x9E3779B9u,
-            u32(cell.y) + 0x85EBCA6Bu,
-            u32(cell.z) + 0xC2B2AE35u,
-        );
-        let ox = f32(off & 0xFFu) / 255.0 - 0.5;
-        let oy = f32((off >> 8u) & 0xFFu) / 255.0 - 0.5;
-        let oz = f32((off >> 16u) & 0xFFu) / 255.0 - 0.5;
-        let centre = (vec3<f32>(cell) - vec3<f32>(f32(bias))) + vec3<f32>(ox, oy, oz);
-        let dist = length(D * STAR_GRID - centre);
-
-        let star_val = exp(-dist * dist * 30.0);
-        let star_bright = (bright - threshold) / (1.0 - threshold) * star_val;
-        colour += vec3<f32>(0.85, 0.9, 1.0) * star_bright * sky_params.star_intensity
-                * night_factor * 0.8;
-    }
-
-    // --- Ground (below the horizon) ----------------------------------------
-    let ground_fade = smoothstep(-0.02, 0.02, D.y);
-    let ground_tint = mix(0.03, 1.0, day_factor);
-    colour = mix(sky_params.ground_albedo * ground_tint, colour, ground_fade);
-
-    // --- Exposure ----------------------------------------------------------
-    colour *= sky_params.exposure;
+    // A/B test: `sky_color` now takes individual fields (not the 176-byte
+    // `SkyParams` struct by value), so we can call it directly again. If this
+    // still renders black on the Adreno tablet, revert to the inline body.
+    var world_environment_sample = sky_color(
+        ray_direction,
+        sky_params.sun_direction,
+        sky_params.sun_angular_radius,
+        sky_params.sun_intensity,
+        sky_params.moon_angular_radius,
+        sky_params.moon_intensity,
+        sky_params.star_intensity,
+        sky_params.star_density,
+        sky_params.exposure,
+        sky_params.ground_albedo,
+        sky_params.day_zenith,
+        sky_params.day_horizon,
+        sky_params.night_zenith,
+        sky_params.night_horizon,
+        sky_params.twilight,
+        sky_params.sun_color,
+        sky_params.moon_color,
+    );
 
     // ACES Tone Map (HDR mapping) — keeps the sun's gradient instead of
     // clamping it to a flat white core.
-    let aces_tone_mapped = aces_tone_map(colour);
+    let aces_tone_mapped = aces_tone_map(world_environment_sample);
 
     return vec4<f32>(aces_tone_mapped, 1.0);
 }
