@@ -307,17 +307,15 @@ impl AppContext {
             .surface
             .as_ref()
             .expect("Surface must be present (app not suspended)!");
-        // Surface configuration can fail silently on some drivers (e.g., emulator
-        // with unsupported format). Log the error so we can diagnose it.
-        match surface.configure(&self.device, configuration) {
-            Ok(()) => {}
-            Err(e) => {
-                error!(
-                    "[Surface] Failed to configure surface: {:?} (format={:?}, alpha_mode={:?}, present_mode={:?})",
-                    e, configuration.format, configuration.alpha_mode, configuration.present_mode
-                );
-            }
-        }
+        // wgpu's Surface::configure returns () — errors surface through the
+        // device's uncaptured_error callback (see AppContext::new). Log what
+        // we're configuring so failures can be correlated with the callback.
+        info!(
+            "[Surface] Configuring surface: format={:?} alpha_mode={:?} present_mode={:?} width={} height={}",
+            configuration.format, configuration.alpha_mode, configuration.present_mode,
+            configuration.width, configuration.height
+        );
+        surface.configure(&self.device, configuration);
     }
 
     /// Drops the GPU surface. Called on suspend on Android, where the native
