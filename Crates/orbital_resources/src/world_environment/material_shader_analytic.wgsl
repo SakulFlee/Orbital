@@ -54,8 +54,23 @@ fn entrypoint_vertex(
 
 @fragment
 fn entrypoint_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    // DIAG step 2: try direct sky color with hardcoded up direction (skip camera matrices)
-    var world_environment_sample = sky_color(vec3<f32>(0.0, 1.0, 0.0), sky_params);
+    // DIAG step 3: hardcode sky params to test if uniform buffer is the issue
+    let hardcoded_params = SkyParams(
+        vec3<f32>(0.5, 0.5, 0.0),  // sun_direction
+        0.05, 0.0,  // sun_angular_radius, sun_intensity
+        0.0, 0.0, 0.0,  // moon_angular_radius, moon_intensity, star_intensity
+        0.0,  // star_density
+        1.0,  // exposure (was 0.0)
+        vec3<f32>(0.0),  // ground_albedo
+        vec3<f32>(0.2, 0.4, 0.8),  // day_zenith (blue)
+        vec3<f32>(0.0, 0.0, 0.0),
+        vec3<f32>(0.0, 0.0, 0.0),
+        vec3<f32>(0.0, 0.0, 0.0),
+        vec3<f32>(0.0, 0.0, 0.0),
+        vec3<f32>(0.0, 0.0, 0.0),
+        vec3<f32>(0.0, 0.0, 0.0),
+    );
+    var world_environment_sample = sky_color(vec3<f32>(0.0, 1.0, 0.0), hardcoded_params);
     let aces_tone_mapped = aces_tone_map(world_environment_sample);
     return vec4<f32>(aces_tone_mapped, 1.0);
 }
