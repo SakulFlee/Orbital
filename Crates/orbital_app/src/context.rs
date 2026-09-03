@@ -276,14 +276,14 @@ impl AppContext {
                 height: 100,
                 present_mode,
                 desired_maximum_frame_latency: 2,
-                alpha_mode: CompositeAlphaMode::Auto,
+                alpha_mode: CompositeAlphaMode::Opaque,
                 view_formats: vec![],
                 color_space: SurfaceColorSpace::Auto,
             });
 
         default_config.desired_maximum_frame_latency = 2;
         default_config.present_mode = present_mode;
-        default_config.alpha_mode = CompositeAlphaMode::Auto;
+        default_config.alpha_mode = CompositeAlphaMode::Opaque;
         default_config.format = srgb_format;
         default_config.usage = TextureUsages::RENDER_ATTACHMENT;
         default_config.view_formats = if supports_view_formats {
@@ -307,7 +307,17 @@ impl AppContext {
             .surface
             .as_ref()
             .expect("Surface must be present (app not suspended)!");
-        surface.configure(&self.device, configuration);
+        // Surface configuration can fail silently on some drivers (e.g., emulator
+        // with unsupported format). Log the error so we can diagnose it.
+        match surface.configure(&self.device, configuration) {
+            Ok(()) => {}
+            Err(e) => {
+                error!(
+                    "[Surface] Failed to configure surface: {:?} (format={:?}, alpha_mode={:?}, present_mode={:?})",
+                    e, configuration.format, configuration.alpha_mode, configuration.present_mode
+                );
+            }
+        }
     }
 
     /// Drops the GPU surface. Called on suspend on Android, where the native
