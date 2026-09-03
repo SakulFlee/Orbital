@@ -172,35 +172,13 @@ impl AppContext {
     fn make_view_formats(
         capabilities: &SurfaceCapabilities,
     ) -> (TextureFormat, Vec<TextureFormat>) {
-        let formats = capabilities.formats.clone();
-        if formats.is_empty() {
-            panic!("There must be at least one surface format!");
-        }
+        let first_format = capabilities
+            .formats
+            .first()
+            .expect("There must be at least one surface format!");
+        let srgb_format = first_format.add_srgb_suffix();
 
-        // Prefer an sRGB surface format when the device actually supports one.
-        // Some Adreno Vulkan drivers silently fail to present frames (black screen)
-        // when configured with an unsupported sRGB variant, even though they keep
-        // running at full FPS — so we must only use sRGB formats that are genuinely
-        // in the supported list rather than synthesizing one from the first format.
-        let has_srgb = formats.iter().any(|f| f.is_srgb());
-
-        // On Android, some Adreno Vulkan drivers report sRGB surface formats as
-        // supported but fail to present frames with them (black screen). Prefer a
-        // linear format in that case unless ORBITAL_FORCE_SRGB=1 is set. Non-Android
-        // platforms keep using sRGB for color accuracy since they work fine there.
-        #[cfg(target_os = "android")]
-        let prefer_srgb = std::env::var("ORBITAL_FORCE_SRGB").is_ok();
-        #[cfg(not(target_os = "android"))]
-        let prefer_srgb = true;
-
-        let surface_format = if has_srgb && prefer_srgb {
-            formats.iter().find(|f| f.is_srgb()).copied().unwrap_or(formats[0])
-        } else {
-            // Fall back to a linear format (Bgra8Unorm is broadly supported).
-            formats.iter().find(|f| !f.is_srgb()).copied().unwrap_or(formats[0])
-        };
-
-        let base = surface_format.remove_srgb_suffix();
+        let base = srgb_format.remove_srgb_suffix();
         let view_formats: Vec<TextureFormat> = capabilities
             .formats
             .iter()
@@ -208,7 +186,7 @@ impl AppContext {
             .copied()
             .collect();
 
-        (surface_format, view_formats)
+        (srgb_format, view_formats)
     }
 
     pub fn adapter_features(&self) -> wgpu::Features {
@@ -244,13 +222,6 @@ impl AppContext {
         let window_size = self.window.inner_size();
 
         let (srgb_format, view_formats) = Self::make_view_formats(&capabilities);
-
-        // Diagnostic: log the selected surface format so we can confirm which path
-        // was taken on each device (sRGB vs linear fallback).
-        info!(
-            "[Surface] Selected surface format: {:?} (view_formats={:?})",
-            srgb_format, view_formats
-        );
 
         // Some adapters (e.g. the Android emulator's Vulkan backend) do not
         // support `SURFACE_VIEW_FORMATS`; configuring a surface with a
