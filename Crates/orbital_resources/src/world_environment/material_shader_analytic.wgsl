@@ -54,37 +54,34 @@ fn entrypoint_vertex(
 
 @fragment
 fn entrypoint_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    // Precalculations
+    // [DEBUG tablet] Phase 2 — 4-quadrant diagnostic. Remove before shipping.
+    // Precalculations (same math as the real pipeline: view_position -> ray -> sky -> ACES)
     let view_position = camera.perspective_projection_invert * in.clip_position;
     let view_ray_direction = view_position.xyz / view_position.w;
     var ray_direction = normalize((camera.view_projection_transposed * vec4(view_ray_direction, 0.0)).xyz);
 
-    // [DEBUG tablet] Phase 1 sentinels — isolate which stage becomes
-    // non-finite on the Adreno variant. Remove before shipping.
-    if !finite_vec3(ray_direction) { return vec4<f32>(1.0, 0.0, 1.0, 1.0); } // magenta = ray_direction is NaN/Inf
-
-    // Evaluate the procedural sky directly at full resolution — no cube
-    // texture sampling, so the moon, stars and sun are never resolution-bound.
     var world_environment_sample = sky_color(ray_direction, sky_params);
-
-    // [DEBUG tablet] sentinel
-    if !finite_vec3(world_environment_sample) { return vec4<f32>(0.0, 1.0, 0.0, 1.0); } // green = sky_color produced NaN/Inf
-
-    // ACES Tone Map (HDR mapping) — keeps the sun's gradient instead of
-    // clamping it to a flat white core.
     let aces_tone_mapped = aces_tone_map(world_environment_sample);
 
-    // [DEBUG tablet] sentinel
-    if !finite_vec3(aces_tone_mapped) { return vec4<f32>(1.0, 1.0, 0.0, 1.0); } // yellow = ACES produced NaN/Inf
+    let px = in.clip_position.x; // in [-1, 1]
+    let py = in.clip_position.y;
+    let left = px < 0.0;
+    let top = py >= 0.0;
 
-    return vec4<f32>(aces_tone_mapped, 1.0);
+    // Top-left:      constant sanity probe (confirm this build/deploy is live).
+    if left && top { return color_probe(vec3<f32>(0.8, 0.2, 0.5)); }
+    // Bottom-right:  raw sky, clamped — does sky_color produce anything?
+    if !left && !top { return color_probe(world_environment_sample); }
+    // Top-right:     raw sky * 100 — distinguish tiny-but-nonzero from exactly 0.0.
+    if !left && top { return color_probe(world_environment_sample * 100.0); }
+    // Bottom-left:   ray visualization — is ray_direction degenerate (≈0 or constant)?
+    // (falls through)
+    return color_probe(vec3<f32>(ray_direction * 0.5 + 0.5));
 }
 
-// [DEBUG tablet] Non-finite check for naga 30 (which lacks isFinite/isNan
-// WGSL builtins): NaN (x != x) or abs(x) > max f32. Remove before shipping.
-fn finite_vec3(v: vec3<f32>) -> bool {
-    let ok = (v == v) & (abs(v) <= vec3<f32>(3.4028234663852886e38));
-    return all(ok);
+// [DEBUG tablet] Freeze a value into a viewable UNORM color (clamp to [0,1]).
+fn color_probe(v: vec3<f32>) -> vec4<f32> {
+    return vec4<f32>(clamp(v, vec3<f32>(0.0), vec3<f32>(1.0)), 1.0);
 }
 
 // ACES tone mapping
