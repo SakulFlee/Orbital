@@ -57,16 +57,35 @@ fn star_hash(cx: u32, cy: u32, cz: u32) -> u32 {
 // ---------------------------------------------------------------------------
 // Sky colour for a world-space direction `D`.
 // ---------------------------------------------------------------------------
-fn sky_color(D: vec3<f32>, params: SkyParams) -> vec3<f32> {
-    let sun_dir = params.sun_direction;
+fn sky_color(
+    D: vec3<f32>,
+    sun_dir: vec3<f32>,
+    sun_angular_radius: f32,
+    sun_intensity: f32,
+    moon_angular_radius: f32,
+    moon_intensity: f32,
+    star_intensity: f32,
+    star_density: f32,
+    exposure: f32,
+    ground_albedo: vec3<f32>,
+    day_zenith: vec3<f32>,
+    day_horizon: vec3<f32>,
+    night_zenith: vec3<f32>,
+    night_horizon: vec3<f32>,
+    twilight: vec3<f32>,
+    sun_color: vec3<f32>,
+    moon_color: vec3<f32>,
+) -> vec3<f32> {
+    // By-value `SkyParams` struct args are miscompiled on some Adreno Vulkan
+    // drivers (read as ~0), so this function takes each field individually.
     let sun_elev = sun_dir.y; // in [-1, 1]
 
     let day_factor = smoothstep(-0.1, 0.25, sun_elev);
     let night_factor = 1.0 - day_factor;
 
     // --- Day / night sky gradient -----------------------------------------
-    let zenith = mix(params.night_zenith, params.day_zenith, day_factor);
-    let horizon = mix(params.night_horizon, params.day_horizon, day_factor);
+    let zenith = mix(night_zenith, day_zenith, day_factor);
+    let horizon = mix(night_horizon, day_horizon, day_factor);
 
     // Per-pixel vertical fade between horizon and zenith. The low exponent
     // makes the saturated zenith blue dominate most of the sky, keeping the
@@ -79,10 +98,10 @@ fn sky_color(D: vec3<f32>, params: SkyParams) -> vec3<f32> {
     // The falloff is widened so the glow persists over a broader sunset band,
     // but `twilight_visible` gates it off entirely once the sun is well below
     // the horizon, keeping the night sky clean.
-    let twilight = exp(-abs(sun_elev) * 5.0);
+    let twilight_ish = exp(-abs(sun_elev) * 5.0);
     let twilight_visible = smoothstep(-0.15, 0.0, sun_elev);
     let horizon_term = pow(1.0 - height, 2.0);
-    colour += params.twilight * twilight * horizon_term * twilight_visible;
+    colour += twilight * twilight_ish * horizon_term * twilight_visible;
 
     // --- Sun disk + halo --------------------------------------------------
     let cos_a = clamp(dot(D, sun_dir), -1.0, 1.0);
@@ -91,14 +110,14 @@ fn sky_color(D: vec3<f32>, params: SkyParams) -> vec3<f32> {
 
     // Soft Gaussian core: a smooth falloff from a bright centre so the sun
     // reads as a gradient instead of a flat-topped dot.
-    let core_sigma = params.sun_angular_radius;
+    let core_sigma = sun_angular_radius;
     let disk = exp(-0.5 * sun_ang * sun_ang / (core_sigma * core_sigma));
-    colour += params.sun_color * params.sun_intensity * disk * sun_visible;
+    colour += sun_color * sun_intensity * disk * sun_visible;
 
     // Compact halo, sized relative to the sun so it stays a tight glow.
-    let halo_sigma = params.sun_angular_radius * 2.5;
+    let halo_sigma = sun_angular_radius * 2.5;
     let halo = exp(-0.5 * sun_ang * sun_ang / (halo_sigma * halo_sigma));
-    colour += params.twilight * params.sun_intensity * 0.1 * halo * sun_visible;
+    colour += twilight * sun_intensity * 0.1 * halo * sun_visible;
 
     // --- Moon (opposite the sun, visible at night) -------------------------
     let moon_dir = -sun_dir;
@@ -110,15 +129,15 @@ fn sky_color(D: vec3<f32>, params: SkyParams) -> vec3<f32> {
     // Super-Gaussian disk (^8): a uniformly lit moon with a tight soft edge.
     // Lower powers leave a flat bright "dot" in the centre and spread the
     // falloff far past the disk, making the moon look bigger than it is.
-    let moon_sigma = params.moon_angular_radius;
+    let moon_sigma = moon_angular_radius;
     let moon_disk = exp(-pow(moon_ang / moon_sigma, 8.0));
-    colour += params.moon_color * params.moon_intensity * moon_disk * moon_visible;
+    colour += moon_color * moon_intensity * moon_disk * moon_visible;
 
     // Compact halo, sized relative to the moon like the sun's — kept faint so
     // it reads as a subtle earthshine glow rather than a big soft field.
     let moon_halo_sigma = moon_sigma * 1.5;
     let moon_halo = exp(-moon_ang * moon_ang / (2.0 * moon_halo_sigma * moon_halo_sigma));
-    colour += params.moon_color * params.moon_intensity * 0.1 * moon_halo * moon_visible;
+    colour += moon_color * moon_intensity * 0.1 * moon_halo * moon_visible;
 
     // --- Stars (deterministic, faded in at night) --------------------------
     const STAR_GRID: f32 = 90.0;
@@ -128,7 +147,7 @@ fn sky_color(D: vec3<f32>, params: SkyParams) -> vec3<f32> {
     let bright = f32(h & 0xFFFFu) / 65535.0;
 
     // Only a fraction of cells (star_density) actually contain a star.
-    let threshold = 1.0 - clamp(params.star_density, 0.0, 1.0);
+    let threshold = 1.0 - clamp(star_density, 0.0, 1.0);
     if bright > threshold {
         // Star centre offset inside the cell (also hashed → stable).
         let off = star_hash(
@@ -145,7 +164,7 @@ fn sky_color(D: vec3<f32>, params: SkyParams) -> vec3<f32> {
         let star_val = exp(-dist * dist * 30.0);
         let star_bright = (bright - threshold) / (1.0 - threshold) * star_val;
         let star_colour = vec3<f32>(0.85, 0.9, 1.0);
-        colour += star_colour * star_bright * params.star_intensity
+        colour += star_colour * star_bright * star_intensity
                 * night_factor * 0.8;
     }
 
@@ -155,10 +174,10 @@ fn sky_color(D: vec3<f32>, params: SkyParams) -> vec3<f32> {
     // as near-black instead of a bright grey band (daytime is unchanged).
     let ground_fade = smoothstep(-0.02, 0.02, D.y);
     let ground_tint = mix(0.03, 1.0, day_factor);
-    colour = mix(params.ground_albedo * ground_tint, colour, ground_fade);
+    colour = mix(ground_albedo * ground_tint, colour, ground_fade);
 
     // --- Exposure ----------------------------------------------------------
-    colour *= params.exposure;
+    colour *= exposure;
 
     return colour;
 }

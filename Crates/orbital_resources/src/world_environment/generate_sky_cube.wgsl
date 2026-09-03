@@ -62,7 +62,25 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let cube_uv = (vec2<f32>(gid.xy) + 0.5) / vec2<f32>(dims) * 2.0 - 1.0;
     let D = normalize(face.forward + face.right * cube_uv.x - face.up * cube_uv.y);
 
-    let colour = sky_color(D, params);
+    let colour = sky_color(
+        D,
+        params.sun_direction,
+        params.sun_angular_radius,
+        params.sun_intensity,
+        params.moon_angular_radius,
+        params.moon_intensity,
+        params.star_intensity,
+        params.star_density,
+        params.exposure,
+        params.ground_albedo,
+        params.day_zenith,
+        params.day_horizon,
+        params.night_zenith,
+        params.night_horizon,
+        params.twilight,
+        params.sun_color,
+        params.moon_color,
+    );
 
     textureStore(dst, gid.xy, gid.z, vec4<f32>(colour, 1.0));
 }
