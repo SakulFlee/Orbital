@@ -54,8 +54,10 @@ fn entrypoint_vertex(
 
 @fragment
 fn entrypoint_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    // DIAG: return solid red to verify fragment pipeline on tablet
-    return vec4<f32>(1.0, 0.0, 0.0, 1.0);
+    // DIAG step 2: try direct sky color with hardcoded up direction (skip camera matrices)
+    var world_environment_sample = sky_color(vec3<f32>(0.0, 1.0, 0.0), sky_params);
+    let aces_tone_mapped = aces_tone_map(world_environment_sample);
+    return vec4<f32>(aces_tone_mapped, 1.0);
 }
 
 // ACES tone mapping
