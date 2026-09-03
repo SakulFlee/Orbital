@@ -276,14 +276,14 @@ impl AppContext {
                 height: 100,
                 present_mode,
                 desired_maximum_frame_latency: 2,
-                alpha_mode: CompositeAlphaMode::Opaque,
+                alpha_mode: CompositeAlphaMode::Auto,
                 view_formats: vec![],
                 color_space: SurfaceColorSpace::Auto,
             });
 
         default_config.desired_maximum_frame_latency = 2;
         default_config.present_mode = present_mode;
-        default_config.alpha_mode = CompositeAlphaMode::Opaque;
+        default_config.alpha_mode = CompositeAlphaMode::Auto;
         default_config.format = srgb_format;
         default_config.usage = TextureUsages::RENDER_ATTACHMENT;
         default_config.view_formats = if supports_view_formats {
