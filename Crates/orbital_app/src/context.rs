@@ -172,11 +172,16 @@ impl AppContext {
     fn make_view_formats(
         capabilities: &SurfaceCapabilities,
     ) -> (TextureFormat, Vec<TextureFormat>) {
-        let first_format = capabilities
+        // DIAG: Force linear Bgra8Unorm for tablet test
+        let linear = capabilities
             .formats
-            .first()
-            .expect("There must be at least one surface format!");
-        let srgb_format = first_format.add_srgb_suffix();
+            .iter()
+            .find(|f| {
+                !f.is_srgb() && matches!(f, wgpu::TextureFormat::Bgra8Unorm | wgpu::TextureFormat::Rgba8Unorm)
+            })
+            .copied()
+            .unwrap_or_else(|| capabilities.formats.first().copied().expect("No surface formats"));
+        let srgb_format = linear; // Use linear for presentation on this device
 
         let base = srgb_format.remove_srgb_suffix();
         let view_formats: Vec<TextureFormat> = capabilities
