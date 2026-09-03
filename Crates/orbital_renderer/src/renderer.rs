@@ -266,7 +266,7 @@ impl Renderer {
                 view: target_view,
                 resolve_target: None,
                 ops: Operations {
-                    load: LoadOp::Clear(Color::WHITE),
+                    load: LoadOp::Clear(Color::BLACK),
                     store: StoreOp::Store,
                 },
                 depth_slice: None,

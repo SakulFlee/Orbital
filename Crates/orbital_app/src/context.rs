@@ -172,16 +172,11 @@ impl AppContext {
     fn make_view_formats(
         capabilities: &SurfaceCapabilities,
     ) -> (TextureFormat, Vec<TextureFormat>) {
-        // DIAG: Force linear Bgra8Unorm for tablet test
-        let linear = capabilities
+        let first_format = capabilities
             .formats
-            .iter()
-            .find(|f| {
-                !f.is_srgb() && matches!(f, wgpu::TextureFormat::Bgra8Unorm | wgpu::TextureFormat::Rgba8Unorm)
-            })
-            .copied()
-            .unwrap_or_else(|| capabilities.formats.first().copied().expect("No surface formats"));
-        let srgb_format = linear; // Use linear for presentation on this device
+            .first()
+            .expect("There must be at least one surface format!");
+        let srgb_format = first_format.add_srgb_suffix();
 
         let base = srgb_format.remove_srgb_suffix();
         let view_formats: Vec<TextureFormat> = capabilities
@@ -270,14 +265,6 @@ impl AppContext {
         default_config.width = window_size.width;
         default_config.height = window_size.height;
         default_config.desired_maximum_frame_latency = 2;
-
-        // DIAG: Log final surface config to diagnose tablet black screen
-        info!(
-            "[Surface] Final config: format={:?} present_mode={:?} alpha_mode={:?} color_space={:?} view_formats={:?} size={}x{}",
-            default_config.format, default_config.present_mode, default_config.alpha_mode,
-            default_config.color_space, default_config.view_formats,
-            default_config.width, default_config.height
-        );
 
         default_config
     }
