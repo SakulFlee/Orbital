@@ -74,3 +74,11 @@ fn sky_diffuse_analytic_shader_is_valid_wgsl() {
         "Crates/orbital_resources/src/world_environment/make_ibl_diffuse_analytic.wgsl",
     ]);
 }
+
+#[test]
+fn sky_material_analytic_shader_is_valid_wgsl() {
+    validate_concatenated(&[
+        "Crates/orbital_resources/src/world_environment/sky_common.wgsl",
+        "Crates/orbital_resources/src/world_environment/material_shader_analytic.wgsl",
+    ]);
+}
