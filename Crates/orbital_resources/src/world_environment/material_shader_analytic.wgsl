@@ -54,20 +54,8 @@ fn entrypoint_vertex(
 
 @fragment
 fn entrypoint_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    // Precalculations
-    let view_position = camera.perspective_projection_invert * in.clip_position;
-    let view_ray_direction = view_position.xyz / view_position.w;
-    var ray_direction = normalize((camera.view_projection_transposed * vec4(view_ray_direction, 0.0)).xyz);
-
-    // Evaluate the procedural sky directly at full resolution — no cube
-    // texture sampling, so the moon, stars and sun are never resolution-bound.
-    var world_environment_sample = sky_color(ray_direction, sky_params);
-
-    // ACES Tone Map (HDR mapping) — keeps the sun's gradient instead of
-    // clamping it to a flat white core.
-    let aces_tone_mapped = aces_tone_map(world_environment_sample);
-
-    return vec4<f32>(aces_tone_mapped, 1.0);
+    // DIAG: return solid red to verify fragment pipeline on tablet
+    return vec4<f32>(1.0, 0.0, 0.0, 1.0);
 }
 
 // ACES tone mapping
