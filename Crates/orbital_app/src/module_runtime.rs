@@ -759,7 +759,18 @@ impl ModuleRuntime {
 
         // Render
         if let Some(renderer) = &mut self.renderer {
-            let cull = cull_res.as_ref().and_then(|r| r.0.as_ref());
+            // Debug override: `ORBITAL_DISABLE_CULL=1` forces the un-culled
+            // draw path (direct instance_buffer draws, like the shadow pass).
+            // Use this to discriminate "culling compacts to zero instances"
+            // from "PBR fragment outputs black" on devices with GPU issues.
+            let disable_cull = std::env::var("ORBITAL_DISABLE_CULL")
+                .map(|v| v == "1")
+                .unwrap_or(false);
+            let cull = if disable_cull {
+                None
+            } else {
+                cull_res.as_ref().and_then(|r| r.0.as_ref())
+            };
             renderer.render(
                 &view,
                 &world_bind_group,

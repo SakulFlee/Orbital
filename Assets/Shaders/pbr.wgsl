@@ -54,35 +54,12 @@ struct PBRFactors {
     roughness_factor: f32,
 }
 
-struct LightContribution {
-    brdf: vec3<f32>,
-    ndotl: f32,
-}
-
-struct PBRData {
-    // Albedo (color) texture sample
-    albedo: vec3<f32>,
-    // Metallic factor
-    metallic: f32,
-    // Roughness factor
-    roughness: f32,
-    // Occlusion factor
-    occlusion: f32,
-    // Emissive (like albedo, but ignores light) texture sample
-    emissive: vec3<f32>,
-    // Diffuse IBL
-    ibl_diffuse: vec3<f32>,
-    // Specular IBL
-    ibl_specular: vec3<f32>,
-    // BRDF LuT (look-up-table) (used for IBL)
-    brdf_lut: vec2<f32>,
-    // Normal
-    N: vec3<f32>,
-    // Outgoing light direction originating from camera
-    V: vec3<f32>,
-    // Dot product (multiplication) of normal and outgoing light
-    NdotV: f32,
-}
+// NOTE: The PBR values that used to be aggregated into a `PBRData` struct
+// (and the `LightContribution` struct returned by the BRDF function) are kept
+// as individual scalar/vector variables instead. The Adreno Vulkan driver on
+// the affected tablet miscompiles user functions that take (or return)
+// structs by value — the same bug that black-boxed `sky_color(D, params)` —
+// so no struct ever crosses a user-function call boundary in this shader.
 
 @group(0) @binding(0) var<uniform> camera: CameraUniform;
 
@@ -188,19 +165,110 @@ fn entrypoint_vertex(
 
 @fragment
 fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
-    let pbr = pbr_data(in);
-    var output = vec3(0.0);
-
     let view_pos = camera.view_projection_matrix * vec4<f32>(in.world_position, 1.0);
     let view_depth = -view_pos.z;
 
-    var ambient = calculate_ambient_ibl(pbr);
+    // --- Normal / view precalculations (formerly `pbr_data`) --------------
+    let normal_sample = textureSample(
+        normal_texture,
+        normal_sampler,
+        in.uv
+    ).rgb;
+    let tangent_normal = 2.0 * normal_sample - 1.0;
+    let TBN = mat3x3(
+        in.tangent,
+        in.bitangent,
+        in.normal,
+    );
+    let N = normalize(TBN * tangent_normal);
+    let V = normalize(camera.position.xyz - in.world_position);
+    let R = normalize(reflect(-V, N));
+    let NdotV = clamp(dot(N, V), 0.0, 1.0);
+
+    // Material properties
+    let albedo_sample = textureSample(
+        albedo_texture,
+        albedo_sampler,
+        in.uv
+    ).rgb;
+    let albedo_factored = albedo_sample * pbr_factors.albedo_factor.rgb;
+    let albedo_clamped = clamp(albedo_factored, vec3(0.0), vec3(1.0));
+    let albedo = pow(albedo_clamped, vec3(camera.global_gamma));
+
+    let metallic_sample = textureSample(
+        metallic_texture,
+        metallic_sampler,
+        in.uv
+    ).r;
+    let metallic = clamp(metallic_sample * pbr_factors.metallic_factor, 0.0, 1.0);
+
+    let roughness_sample = textureSample(
+        roughness_texture,
+        roughness_sampler,
+        in.uv
+    ).r;
+    let roughness = clamp(roughness_sample * pbr_factors.roughness_factor, 0.045, 0.9999);
+
+    let occlusion_sample = textureSample(
+        occlusion_texture,
+        occlusion_sampler,
+        in.uv
+    ).r;
+    let occlusion = clamp(occlusion_sample, 0.0, 1.0);
+
+    let emissive_sample = textureSample(
+        emissive_texture,
+        emissive_sampler,
+        in.uv
+    ).rgb;
+    let emissive_clamped = clamp(emissive_sample, vec3(0.0), vec3(1.0));
+    let emissive = pow(emissive_clamped, vec3(camera.global_gamma));
+
+    let diffuse_sample = textureSample(
+        diffuse_env_map,
+        diffuse_sampler,
+        N
+    ).rgb;
+    // IBL environment maps are HDR linear (Rgba16Float) — no gamma
+    // decode needed, unlike sRGB albedo/emissive textures.
+    let ibl_diffuse = diffuse_sample;
+
+    let specular_mip_count = textureNumLevels(specular_env_map);
+    let specular_mip_level = roughness * roughness * f32(specular_mip_count - 1u);
+    let specular_sample = textureSampleLevel(
+        specular_env_map,
+        specular_sampler,
+        R,
+        specular_mip_level
+    ).rgb;
+    let ibl_specular = specular_sample;
+
+    // The BRDF LUT was baked with roughness directly on the V axis
+    // (see ibl_brdf.wgsl). No 1.0-roughness inversion is needed.
+    let brdf_lut = textureSample(
+        ibl_brdf_lut_texture,
+        ibl_brdf_lut_sampler,
+        vec2<f32>(
+            max(NdotV, 0.0001), 
+            clamp(roughness, 0.0001, 1.0)
+    )).rg;
+
+    // --- Lighting ----------------------------------------------------------
+    var output = vec3(0.0);
+
+    var ambient = calculate_ambient_ibl(
+        albedo, metallic, roughness, occlusion, NdotV,
+        ibl_diffuse, ibl_specular, brdf_lut
+    );
     ambient = max(ambient, vec3(0.005));
     output += ambient;
 
-    let light_reflectance = calculate_light_contribution(pbr, in.world_position, view_depth);
+    let light_reflectance = calculate_light_contribution(
+        albedo, metallic, roughness, N, V, NdotV,
+        in.world_position, view_depth
+    );
     output += light_reflectance;
-    output += pbr.emissive;
+    output += emissive;
 
     let tone_mapped_color = aces_tone_map(output);
     return vec4<f32>(tone_mapped_color, 1.0);
@@ -227,7 +295,16 @@ fn aces_tone_map(color: vec3<f32>) -> vec3<f32> {
         vec3(1.0)
     );
 }
-fn calculate_light_contribution(pbr: PBRData, world_position: vec3<f32>, view_depth: f32) -> vec3<f32> {
+fn calculate_light_contribution(
+    albedo: vec3<f32>,
+    metallic: f32,
+    roughness: f32,
+    N: vec3<f32>,
+    V: vec3<f32>,
+    NdotV: f32,
+    world_position: vec3<f32>,
+    view_depth: f32,
+) -> vec3<f32> {
     var Lo = vec3(0.0);
     for (var i = u32(0); i < light_count; i++) {
         let light = light_store[i];
@@ -238,38 +315,62 @@ fn calculate_light_contribution(pbr: PBRData, world_position: vec3<f32>, view_de
             let dist_sq = dot(light.position.xyz - world_position, light.position.xyz - world_position);
             if (dist_sq > light.params.z) { continue; }
         }
-        let contrib = calculate_light_brdf(light, pbr, world_position);
+        let contrib = calculate_light_brdf(
+            light.position.xyz, light.color.rgb, light.color.w,
+            light.direction.xyz, light.direction.w,
+            light.params.x, light.params.y,
+            V, N, NdotV, roughness, metallic, albedo,
+            world_position
+        );
         // Skip shadow sampling for back-facing lights (NdotL ≤ 0).
-        if (contrib.ndotl <= 0.0) { continue; }
-        let shadow = compute_shadow_for_light(world_position, view_depth, i, pbr.N);
-        Lo += contrib.brdf * shadow;
+        if (contrib.w <= 0.0) { continue; }
+        let shadow = compute_shadow_for_light(world_position, view_depth, i, N);
+        Lo += contrib.rgb * shadow;
     }
     return Lo;
 }
 
-fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -> LightContribution {
+/// Direct-light BRDF for a single punctual light.
+/// Returns the BRDF (rgb) packed with NdotL in the alpha channel — a struct
+/// return would trip the Adreno by-value-struct miscompilation.
+fn calculate_light_brdf(
+    light_position: vec3<f32>,
+    light_color: vec3<f32>,
+    light_intensity: f32,
+    light_direction: vec3<f32>,
+    light_type: f32,
+    spot_scale: f32,
+    spot_offset: f32,
+    V: vec3<f32>,
+    N: vec3<f32>,
+    NdotV: f32,
+    roughness: f32,
+    metallic: f32,
+    albedo: vec3<f32>,
+    world_position: vec3<f32>,
+) -> vec4<f32> {
     var L: vec3<f32>;
     var light_distance: f32 = 1.0;
     var attenuation: f32 = 1.0;
 
     // Determine light type and calculate light direction and attenuation
-    if (light.direction.w == LIGHT_TYPE_POINT) {
+    if (light_type == LIGHT_TYPE_POINT) {
         // Point light
-        L = light.position.xyz - world_position;
+        L = light_position - world_position;
         light_distance = length(L);
         L = normalize(L);
         // Attenuation for point lights: inverse-square with a distance
         // floor to prevent radiance blowout near the light source.
         let atten_dist = max(light_distance, 0.5);
         attenuation = 1.0 / (atten_dist * atten_dist);
-    } else if (light.direction.w == LIGHT_TYPE_DIRECTIONAL) {
+    } else if (light_type == LIGHT_TYPE_DIRECTIONAL) {
         // Directional light
-        L = normalize(-light.direction.xyz);
+        L = normalize(-light_direction);
         // No attenuation for directional lights
         attenuation = 1.0;
-    } else if (light.direction.w == LIGHT_TYPE_SPOT) {
+    } else if (light_type == LIGHT_TYPE_SPOT) {
         // Spot light (glTF KHR_lights_punctual semantics)
-        L = light.position.xyz - world_position;
+        L = light_position - world_position;
         light_distance = length(L);
         L = normalize(L);
         // Distance attenuation: inverse-square with a distance floor to
@@ -279,60 +380,69 @@ fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -
         attenuation = 1.0 / (atten_dist * atten_dist);
 
         // Angular attenuation in the cosine domain with CPU-precomputed
-        // coefficients: params.x = scale, params.y = offset.
+        // coefficients: spot_scale = scale, spot_offset = offset.
         // cos_theta is the angle between the light direction and the
         // direction from the light toward the fragment (-L).
-        let cos_theta = dot(-L, normalize(light.direction.xyz));
-        let angular = clamp(cos_theta * light.params.x + light.params.y, 0.0, 1.0);
+        let cos_theta = dot(-L, normalize(light_direction));
+        let angular = clamp(cos_theta * spot_scale + spot_offset, 0.0, 1.0);
         attenuation *= angular;
     } else {
         // Unknown light type, return zero contribution
-        return LightContribution(vec3(0.0), 0.0);
+        return vec4<f32>(vec3(0.0), 0.0);
     }
 
-    let H = normalize(pbr.V + L);
-    let NdotL = clamp(dot(pbr.N, L), 0.0, 1.0);
-    let NdotH = clamp(dot(pbr.N, H), 0.0, 1.0);
-    let VdotH = clamp(dot(pbr.V, H), 0.0, 1.0);
+    let H = normalize(V + L);
+    let NdotL = clamp(dot(N, L), 0.0, 1.0);
+    let NdotH = clamp(dot(N, H), 0.0, 1.0);
+    let VdotH = clamp(dot(V, H), 0.0, 1.0);
 
-    var Lo: vec3<f32>;
+    var Lo = vec3(0.0);
     if NdotL > 0.0 {
         // Normal distribution of the microfacets
-        let D = distribution_ggx(NdotH, pbr.roughness);
+        let D = distribution_ggx(NdotH, roughness);
         // Geometric/Microfacet shadowing term
-        let G = schlick_smith_ggx(NdotL, pbr.NdotV, pbr.roughness);
+        let G = schlick_smith_ggx(NdotL, NdotV, roughness);
         // Fresnel — evaluated at V·H for direct lighting (IBL uses N·V separately)
-        let F = fresnel_schlick(VdotH, pbr);
+        let F = fresnel_schlick(VdotH, albedo, metallic);
 
         let nominator = D * F * G;
-        let denominator = 4.0 * NdotL * pbr.NdotV + 0.0001;
+        let denominator = 4.0 * NdotL * NdotV + 0.0001;
         let specular = min(nominator / denominator, vec3(50.0));
         
         // Combine diffuse and specular — metals get zero diffuse
         let kS = F;
-        let kD = (vec3(1.0) - kS) * (1.0 - pbr.metallic);
-        let diffuse = kD * pbr.albedo / PI;
+        let kD = (vec3(1.0) - kS) * (1.0 - metallic);
+        let diffuse = kD * albedo / PI;
         
-        Lo += (diffuse + specular) * light.color.rgb * light.color.w * attenuation * NdotL;
+        Lo += (diffuse + specular) * light_color * light_intensity * attenuation * NdotL;
     }
-    return LightContribution(Lo, NdotL);
+    return vec4<f32>(Lo, NdotL);
 }
 
-fn calculate_ambient_ibl(pbr: PBRData) -> vec3<f32> {
+fn calculate_ambient_ibl(
+    albedo: vec3<f32>,
+    metallic: f32,
+    roughness: f32,
+    occlusion: f32,
+    NdotV: f32,
+    ibl_diffuse: vec3<f32>,
+    ibl_specular: vec3<f32>,
+    brdf_lut: vec2<f32>,
+) -> vec3<f32> {
     // Calculate reflectance at normal incidence
-    let F0 = mix(vec3(F0_DEFAULT), pbr.albedo, pbr.metallic);
-    let F = fresnel_schlick_roughness(pbr.NdotV, F0, pbr.roughness);
+    let F0 = mix(vec3(F0_DEFAULT), albedo, metallic);
+    let F = fresnel_schlick_roughness(NdotV, F0, roughness);
 
     // IBL Diffuse
-    let diffuse_color = (pbr.albedo * (vec3(1.0) - F) + 0.0001) * (1.0 - pbr.metallic + 0.0001);
-    let diffuse_ibl = pbr.ibl_diffuse * diffuse_color;
+    let diffuse_color = (albedo * (vec3(1.0) - F) + 0.0001) * (1.0 - metallic + 0.0001);
+    let diffuse_ibl = ibl_diffuse * diffuse_color;
 
     // IBL Specular
-    let specular_color = mix(F0, pbr.albedo, pbr.metallic);
-    var specular_ibl = pbr.ibl_specular * (F * pbr.brdf_lut.x + pbr.brdf_lut.y);
+    let specular_color = mix(F0, albedo, metallic);
+    let specular_ibl = ibl_specular * (F * brdf_lut.x + brdf_lut.y);
 
     // Ambient light calculation (IBL), multiplied by ambient occlusion
-    return (diffuse_ibl + specular_ibl) * pbr.occlusion * AMBIENT_INTENSITY;
+    return (diffuse_ibl + specular_ibl) * occlusion * AMBIENT_INTENSITY;
 }
 
 /// Sample a 2D-array shadow map with 3x3 PCF: 9 hardware-compare taps,
@@ -462,27 +572,9 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_depth: f32, light_idx: u3
     return 1.0;
 }
 
-/// Samples the fragment's normal and transforms it into world space
-fn sample_normal_from_map(fragment_data: FragmentData) -> vec3<f32> {
-    let normal_sample = textureSample(
-        normal_texture,
-        normal_sampler,
-        fragment_data.uv
-    ).rgb;
-    let tangent_normal = 2.0 * normal_sample - 1.0;
-
-    let TBN = mat3x3(
-        fragment_data.tangent,
-        fragment_data.bitangent,
-        fragment_data.normal,
-    );
-    let N = normalize(TBN * tangent_normal);
-    return N;
-}
-
 // Fresnel
-fn fresnel_schlick(cos_theta: f32, pbr: PBRData) -> vec3<f32> {
-    let F0 = mix(vec3(F0_DEFAULT), pbr.albedo, pbr.metallic);
+fn fresnel_schlick(cos_theta: f32, albedo: vec3<f32>, metallic: f32) -> vec3<f32> {
+    let F0 = mix(vec3(F0_DEFAULT), albedo, metallic);
     let F = F0 + (1.0 - F0) * pow(1.0 - cos_theta, 5.0);
     return F;
 }
@@ -507,92 +599,4 @@ fn distribution_ggx(NdotH: f32, roughness: f32) -> f32 {
 
     let denom = (NdotH * NdotH) * (alpha_squared - 1.0) + 1.0;
     return alpha_squared / (PI * denom);
-}
-
-fn pbr_data(fragment_data: FragmentData) -> PBRData {
-    var out: PBRData;
-
-    // Precalculations
-    out.N = sample_normal_from_map(fragment_data);
-    out.V = normalize(camera.position.xyz - fragment_data.world_position);
-    let R = normalize(reflect(-out.V, out.N));
-    out.NdotV = clamp(dot(out.N, out.V), 0.0, 1.0);
-
-    // Material properties
-    let albedo_sample = textureSample(
-        albedo_texture,
-        albedo_sampler,
-        fragment_data.uv
-    ).rgb;
-    let albedo_factored = albedo_sample * pbr_factors.albedo_factor.rgb;
-    let albedo_clamped = clamp(albedo_factored, vec3(0.0), vec3(1.0));
-    let albedo_gamma_applied = pow(albedo_clamped, vec3(camera.global_gamma));
-    out.albedo = albedo_gamma_applied;
-
-    let metallic_sample = textureSample(
-        metallic_texture,
-        metallic_sampler,
-        fragment_data.uv
-    ).r;
-    let metallic_factored = metallic_sample * pbr_factors.metallic_factor;
-    let metallic_clamped = clamp(metallic_factored, 0.0, 1.0);
-    out.metallic = metallic_clamped;
-
-    let roughness_sample = textureSample(
-        roughness_texture,
-        roughness_sampler,
-        fragment_data.uv
-    ).r;
-    let roughness_factored = roughness_sample * pbr_factors.roughness_factor;
-    let roughness_clamped = clamp(roughness_factored, 0.045, 0.9999);
-    out.roughness = roughness_clamped;
-
-    let occlusion_sample = textureSample(
-        occlusion_texture,
-        occlusion_sampler,
-        fragment_data.uv
-    ).r;
-    let occlusion_clamped = clamp(occlusion_sample, 0.0, 1.0);
-    out.occlusion = occlusion_clamped;
-
-    let emissive_sample = textureSample(
-        emissive_texture,
-        emissive_sampler,
-        fragment_data.uv
-    ).rgb;
-    let emissive_clamped = clamp(emissive_sample, vec3(0.0), vec3(1.0));
-    let emissive_gamma_applied = pow(emissive_clamped, vec3(camera.global_gamma));
-    out.emissive = emissive_gamma_applied;
-
-    let diffuse_sample = textureSample(
-        diffuse_env_map,
-        diffuse_sampler,
-        out.N
-    ).rgb;
-    // IBL environment maps are HDR linear (Rgba16Float) — no gamma
-    // decode needed, unlike sRGB albedo/emissive textures.
-    out.ibl_diffuse = diffuse_sample;
-
-    let specular_mip_count = textureNumLevels(specular_env_map);
-    let specular_mip_level = out.roughness * out.roughness * f32(specular_mip_count - 1u);
-    let specular_sample = textureSampleLevel(
-        specular_env_map,
-        specular_sampler,
-        R,
-        specular_mip_level
-    ).rgb;
-    out.ibl_specular = specular_sample;
-
-    // The BRDF LUT was baked with roughness directly on the V axis
-    // (see ibl_brdf.wgsl). No 1.0-roughness inversion is needed.
-    let brdf_lut_sample = textureSample(
-        ibl_brdf_lut_texture,
-        ibl_brdf_lut_sampler,
-        vec2<f32>(
-            max(out.NdotV, 0.0001), 
-            clamp(out.roughness, 0.0001, 1.0)
-    )).rg;
-    out.brdf_lut = brdf_lut_sample;
-
-    return out;
 }
