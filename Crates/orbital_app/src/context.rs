@@ -271,6 +271,14 @@ impl AppContext {
         default_config.height = window_size.height;
         default_config.desired_maximum_frame_latency = 2;
 
+        // DIAG: Log final surface config to diagnose tablet black screen
+        info!(
+            "[Surface] Final config: format={:?} present_mode={:?} alpha_mode={:?} color_space={:?} view_formats={:?} size={}x{}",
+            default_config.format, default_config.present_mode, default_config.alpha_mode,
+            default_config.color_space, default_config.view_formats,
+            default_config.width, default_config.height
+        );
+
         default_config
     }
 
