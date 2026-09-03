@@ -54,25 +54,20 @@ fn entrypoint_vertex(
 
 @fragment
 fn entrypoint_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    // DIAG step 3: hardcode sky params to test if uniform buffer is the issue
-    let hardcoded_params = SkyParams(
-        vec3<f32>(0.5, 0.5, 0.0),  // sun_direction
-        0.05, 0.0,  // sun_angular_radius, sun_intensity
-        0.0, 0.0, 0.0,  // moon_angular_radius, moon_intensity, star_intensity
-        0.0,  // star_density
-        1.0,  // exposure (was 0.0)
-        vec3<f32>(0.0),  // ground_albedo
-        vec3<f32>(0.2, 0.4, 0.8),  // day_zenith (blue)
-        vec3<f32>(0.0, 0.0, 0.0),
-        vec3<f32>(0.0, 0.0, 0.0),
-        vec3<f32>(0.0, 0.0, 0.0),
-        vec3<f32>(0.0, 0.0, 0.0),
-        vec3<f32>(0.0, 0.0, 0.0),
-        vec3<f32>(0.0, 0.0, 0.0),
-    );
-    var world_environment_sample = sky_color(vec3<f32>(0.0, 1.0, 0.0), hardcoded_params);
+    // Precalculations
+    let view_position = camera.perspective_projection_invert * in.clip_position;
+    let view_ray_direction = view_position.xyz / view_position.w;
+    var ray_direction = normalize((camera.view_projection_transposed * vec4(view_ray_direction, 0.0)).xyz);
+
+    // Evaluate the procedural sky directly at full resolution — no cube
+    // texture sampling, so the moon, stars and sun are never resolution-bound.
+    var world_environment_sample = sky_color(ray_direction, sky_params);
+
+    // ACES Tone Map (HDR mapping) — keeps the sun's gradient instead of
+    // clamping it to a flat white core.
     let aces_tone_mapped = aces_tone_map(world_environment_sample);
-    return vec4<f32>(aces_tone_mapped, 1.0);
+
+    return vec4<f32>(1.0, 0.0, 0.2, 1.0);
 }
 
 // ACES tone mapping
