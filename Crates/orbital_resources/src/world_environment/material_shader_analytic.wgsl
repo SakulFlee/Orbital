@@ -67,7 +67,7 @@ fn entrypoint_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // clamping it to a flat white core.
     let aces_tone_mapped = aces_tone_map(world_environment_sample);
 
-    return vec4<f32>(1.0, 0.0, 0.2, 1.0);
+    return vec4<f32>(aces_tone_mapped, 1.0);
 }
 
 // ACES tone mapping
