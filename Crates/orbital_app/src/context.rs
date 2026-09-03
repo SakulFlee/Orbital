@@ -307,14 +307,6 @@ impl AppContext {
             .surface
             .as_ref()
             .expect("Surface must be present (app not suspended)!");
-        // wgpu's Surface::configure returns () — errors surface through the
-        // device's uncaptured_error callback (see AppContext::new). Log what
-        // we're configuring so failures can be correlated with the callback.
-        info!(
-            "[Surface] Configuring surface: format={:?} alpha_mode={:?} present_mode={:?} width={} height={}",
-            configuration.format, configuration.alpha_mode, configuration.present_mode,
-            configuration.width, configuration.height
-        );
         surface.configure(&self.device, configuration);
     }
 
