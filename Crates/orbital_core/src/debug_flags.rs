@@ -25,6 +25,9 @@
 //! # Single-encoder cull: submit cull compute with the render pass (barrier probe)
 //! adb shell run-as <package> touch files/orbital_cull_single_encoder
 //!
+//! # Cull-all probe: admit every instance (skips only the frustum test)
+//! adb shell run-as <package> touch files/orbital_cull_all
+//!
 //! # Remove again to restore normal behaviour
 //! adb shell run-as <package> rm files/orbital_disable_cull files/orbital_cull_debug files/orbital_cull_single_encoder
 //! ```
@@ -43,6 +46,11 @@ const CULL_DEBUG_FILE: &str = "orbital_cull_debug";
 /// Marker file (in the storage root) that switches culling to single-encoder
 /// mode (compute dispatched inside the render submission).
 const SINGLE_ENCODER_FILE: &str = "orbital_cull_single_encoder";
+/// Marker file (in the storage root) that forces culling to admit every
+/// instance (`cull_all` entry point — skips only the frustum test, keeps the
+/// identical compaction + indirect path). Content-free: its existence is
+/// enough, so it can be enabled with a plain `touch` (no `echo`/`sh`).
+const CULL_ALL_FILE: &str = "orbital_cull_all";
 
 /// Whether GPU culling is disabled (`ORBITAL_DISABLE_CULL=1` env or an
 /// existing `orbital_disable_cull` storage marker file).
@@ -67,6 +75,21 @@ pub fn cull_single_encoder() -> bool {
         Ok(v) => v == "1",
         Err(_) => FileManager::global()
             .map(|fm| fm.storage_path_exists(SINGLE_ENCODER_FILE))
+            .unwrap_or(false),
+    })
+}
+
+/// Whether culling should admit every instance (skipping only the frustum
+/// test) via the `cull_all` entry point. Existence-based: `ORBITAL_CULL_ALL=1`
+/// env or an `orbital_cull_all` storage marker file (plain `touch`). Keeps the
+/// identical compaction + indirect path as normal culling, so it cleanly
+/// separates a frustum-math problem from a compaction/indirect one.
+pub fn cull_all() -> bool {
+    static FLAG: OnceLock<bool> = OnceLock::new();
+    *FLAG.get_or_init(|| match std::env::var("ORBITAL_CULL_ALL") {
+        Ok(v) => v == "1",
+        Err(_) => FileManager::global()
+            .map(|fm| fm.storage_path_exists(CULL_ALL_FILE))
             .unwrap_or(false),
     })
 }
@@ -138,10 +161,11 @@ pub fn log_active_flags() {
             .map(|fm| fm.storage_root().display().to_string())
             .unwrap_or_else(|_| "<FileManager not initialized>".to_string());
         crate::logging::info!(
-            "debug_flags: disable_cull={} cull_debug={:?} single_encoder={} storage_root={}",
+            "debug_flags: disable_cull={} cull_debug={:?} single_encoder={} cull_all={} storage_root={}",
             disable_cull(),
             cull_debug_mode(),
             cull_single_encoder(),
+            cull_all(),
             root,
         );
     });
