@@ -173,7 +173,12 @@ pub fn sys_frustum_cull(ecs: &mut World) {
     cr.upload_frustum(&queue, &frustum);
 
     // Per-model params + offsets
-    let mut params_bytes = Vec::with_capacity(entries.len() * 24);
+    // Per-model params are packed as 8 × u32 = 32 bytes per model to match
+    // the shader, which reads each model as two `vec4<u32>` (`params[model*2]`
+    // and `params[model*2+1]`). The host layout is:
+    //   [0] = (first_instance, instance_count, index_count, first_index)
+    //   [1] = (base_vertex as u32, pad, pad, pad)
+    let mut params_bytes = Vec::with_capacity(entries.len() * 32);
     let mut offsets = Vec::with_capacity(entries.len());
     for e in &entries {
         params_bytes.extend_from_slice(&e.first_instance.to_le_bytes());
@@ -181,7 +186,9 @@ pub fn sys_frustum_cull(ecs: &mut World) {
         params_bytes.extend_from_slice(&e.index_count.to_le_bytes());
         params_bytes.extend_from_slice(&e.first_index.to_le_bytes());
         params_bytes.extend_from_slice(&(e.base_vertex as u32).to_le_bytes());
-        params_bytes.extend_from_slice(&0u32.to_le_bytes());
+        params_bytes.extend_from_slice(&0u32.to_le_bytes()); // pad
+        params_bytes.extend_from_slice(&0u32.to_le_bytes()); // pad (already part of
+        params_bytes.extend_from_slice(&0u32.to_le_bytes()); // the empty vec4[1])
         offsets.push(e.first_instance);
     }
     cr.set_model_offsets(offsets);
