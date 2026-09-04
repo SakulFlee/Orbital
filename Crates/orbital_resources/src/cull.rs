@@ -240,12 +240,17 @@ impl CullResources {
         let counters_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Cull Counters"),
             contents: &vec![0u8; counters_size as usize],
-            usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
+            usage: BufferUsages::STORAGE
+                | BufferUsages::COPY_DST
+                | BufferUsages::COPY_SRC, // readback: source for copy to staging
         });
         let indirect_buffer = device.create_buffer(&BufferDescriptor {
             label: Some("Cull Indirect Args"),
             size: max_models as u64 * indirect_entry_size,
-            usage: BufferUsages::STORAGE | BufferUsages::INDIRECT | BufferUsages::COPY_DST,
+            usage: BufferUsages::STORAGE
+                | BufferUsages::INDIRECT
+                | BufferUsages::COPY_DST
+                | BufferUsages::COPY_SRC, // readback: source for copy to staging
             mapped_at_creation: false,
         });
 
@@ -455,9 +460,12 @@ impl CullResources {
         let counters_bytes = (num_models as u64 * 4).max(4);
         let indirect_bytes = num_models as u64 * 20;
 
+        // Staging holds counters followed by indirect args concatenated. Both
+        // sources carry COPY_SRC now, and each region gets its own offset so
+        // they don't overwrite each other.
         let staging = device.create_buffer(&BufferDescriptor {
             label: Some("Cull Debug Staging"),
-            size: counters_bytes.max(indirect_bytes),
+            size: counters_bytes + indirect_bytes,
             usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -466,7 +474,7 @@ impl CullResources {
             label: Some("Cull Debug Readback"),
         });
         enc.copy_buffer_to_buffer(&self.counters_buffer, 0, &staging, 0, counters_bytes);
-        enc.copy_buffer_to_buffer(&self.indirect_buffer, 0, &staging, 0, indirect_bytes);
+        enc.copy_buffer_to_buffer(&self.indirect_buffer, 0, &staging, counters_bytes, indirect_bytes);
         queue.submit(Some(enc.finish()));
 
         let done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -485,9 +493,14 @@ impl CullResources {
         {
             log::debug!("──────── ORBITAL_CULL_DEBUG readback ────────");
             for m in 0..num_models as usize {
+                // Counters region at [0..counters_bytes); indirect region at
+                // [counters_bytes..]. (Note: `visible` here is the raw counter,
+                // which finalize resets to 0 each frame — the meaningful value
+                // is `instance_count` below, committed into the draw args.)
                 let cb: [u8; 4] = data[m * 4..m * 4 + 4].try_into().unwrap();
                 let visible = u32::from_le_bytes(cb);
-                let ib: [u8; 20] = data[m * 20..m * 20 + 20].try_into().unwrap();
+                let ib_start = counters_bytes as usize + m * 20;
+                let ib: [u8; 20] = data[ib_start..ib_start + 20].try_into().unwrap();
                 let index_count = u32::from_le_bytes(ib[0..4].try_into().unwrap());
                 let instance_count = u32::from_le_bytes(ib[4..8].try_into().unwrap());
                 let first_index = u32::from_le_bytes(ib[8..12].try_into().unwrap());
