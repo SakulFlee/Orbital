@@ -8,67 +8,9 @@ use wgpu::{
     ShaderModuleDescriptor, ShaderSource, ShaderStages, util::DeviceExt,
 };
 
-const SHADER: &str = r#"
-struct ModelParams {
-    first_instance: u32,
-    total_count: u32,
-    index_count: u32,
-    first_index: u32,
-    base_vertex: i32,
-    _pad: u32,
-};
-
-struct DrawIndexedIndirect {
-    index_count: u32,
-    instance_count: u32,
-    first_index: u32,
-    base_vertex: i32,
-    first_instance: u32,
-};
-
-@group(0) @binding(0) var<uniform> frustum_planes: array<vec4<f32>, 6>;
-@group(0) @binding(1) var<storage, read> params: array<ModelParams>;
-@group(0) @binding(2) var<storage, read> in_instances: array<mat4x4<f32>>;
-@group(0) @binding(3) var<storage, read> in_bounds: array<vec4<f32>>;
-@group(0) @binding(4) var<storage, read_write> out_instances: array<mat4x4<f32>>;
-@group(0) @binding(5) var<storage, read_write> counters: array<atomic<u32>>;
-@group(0) @binding(6) var<storage, read_write> indirect: array<DrawIndexedIndirect>;
-
-@compute @workgroup_size(64)
-fn cull(@builtin(global_invocation_id) id: vec3<u32>) {
-    let model = id.y;
-    let local_idx = id.x;
-    let p = params[model];
-    if local_idx >= p.total_count { return; }
-
-    let global_idx = p.first_instance + local_idx;
-    let bounds = in_bounds[global_idx];
-
-    for (var i = 0u; i < 6u; i++) {
-        let plane = frustum_planes[i];
-        let dist = dot(plane.xyz, bounds.xyz) + plane.w;
-        if dist <= -bounds.w { return; }
-    }
-
-    let slot = atomicAdd(&counters[model], 1u);
-    out_instances[p.first_instance + slot] = in_instances[global_idx];
-}
-
-@compute @workgroup_size(1)
-fn finalize(@builtin(global_invocation_id) id: vec3<u32>) {
-    let model = id.x;
-    let p = params[model];
-    let count = atomicExchange(&counters[model], 0u);
-
-    indirect[model] = DrawIndexedIndirect(
-        p.index_count,
-        count,
-        p.first_index,
-        p.base_vertex,
-        0u,
-    );
-}
-"#;
+/// Runtime cull shader — the single source of truth, shared with the naga
+/// validation test (`tests/wgsl_shaders.rs`) and the standalone WGSL file.
+const SHADER: &str = include_str!("../../../Assets/Shaders/instance_cull.wgsl");
 
 /// All GPU resources needed for compute‑based per‑instance culling.
 ///
@@ -89,6 +31,7 @@ pub struct CullResources {
     pub indirect_buffer: Buffer,
 
     cull_pipeline: ComputePipeline,
+    cull_all_pipeline: ComputePipeline,
     finalize_pipeline: ComputePipeline,
     bind_group: BindGroup,
 
@@ -107,6 +50,18 @@ impl std::fmt::Debug for CullResources {
 
 impl CullResources {
     pub fn new(device: &Device, max_instances: u32, max_models: u32) -> Self {
+        Self::with_debug(device, max_instances, max_models, false)
+    }
+
+    /// Like [`new`], but with `debug_cull_all = true` the `cull_all` entry
+    /// point is also compiled (used by `ORBITAL_CULL_DEBUG=cull_all` probing —
+    /// same compaction/indirect path as `cull`, but no frustum test).
+    pub fn with_debug(
+        device: &Device,
+        max_instances: u32,
+        max_models: u32,
+        debug_cull_all: bool,
+    ) -> Self {
         let shader = device.create_shader_module(ShaderModuleDescriptor {
             label: Some("Cull Compute Shader"),
             source: ShaderSource::Wgsl(SHADER.into()),
@@ -207,6 +162,17 @@ impl CullResources {
             layout: Some(&pipeline_layout),
             module: &shader,
             entry_point: Some("cull"),
+            compilation_options: Default::default(),
+            cache: None,
+        });
+
+        // Optional debug pipeline — same compaction/indirect path as `cull`
+        // but without the frustum test (ORBITAL_CULL_DEBUG=cull_all).
+        let cull_all_pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
+            label: Some("Cull All Pass"),
+            layout: Some(&pipeline_layout),
+            module: &shader,
+            entry_point: if debug_cull_all { Some("cull_all") } else { None },
             compilation_options: Default::default(),
             cache: None,
         });
@@ -316,6 +282,7 @@ impl CullResources {
             counters_buffer,
             indirect_buffer,
             cull_pipeline,
+            cull_all_pipeline,
             finalize_pipeline,
             bind_group,
             first_instance: Vec::new(),
@@ -381,11 +348,17 @@ impl CullResources {
     }
 
     /// Dispatch the cull and finalize compute passes.
+    ///
+    /// With `cull_all = true` (debug probing via `ORBITAL_CULL_DEBUG=cull_all`),
+    /// pass 1 uses the `cull_all` entry point, which admits every instance
+    /// without the frustum test — compaction, counters and indirect args are
+    /// handled identically.
     pub fn dispatch(
         &self,
         encoder: &mut wgpu::CommandEncoder,
         num_models: u32,
         max_inst_per_model: u32,
+        cull_all: bool,
     ) {
         // Pass 1 — cull
         {
@@ -393,7 +366,11 @@ impl CullResources {
                 label: Some("Cull Compute Pass"),
                 timestamp_writes: None,
             });
-            pass.set_pipeline(&self.cull_pipeline);
+            if cull_all {
+                pass.set_pipeline(&self.cull_all_pipeline);
+            } else {
+                pass.set_pipeline(&self.cull_pipeline);
+            }
             pass.set_bind_group(0, &self.bind_group, &[]);
             // Dispatch: X = instances per model (rounded up to workgroup size),
             //          Y = number of models
@@ -412,4 +389,90 @@ impl CullResources {
             pass.dispatch_workgroups(num_models.max(1), 1, 1);
         }
     }
+
+    /// Debug readback of per-model counters + indirect args.
+    ///
+    /// Must be called **after** `dispatch`'s submission has been enqueued.
+    /// Blocks until the GPU work is done, so only use it while debugging
+    /// (`ORBITAL_CULL_DEBUG=1` / `=cull_all`)!
+    pub fn readback_cull_state(&self, device: &Device, queue: &wgpu::Queue, num_models: u32) {
+        if num_models == 0 {
+            return;
+        }
+        let counters_bytes = (num_models as u64 * 4).max(4);
+        let indirect_bytes = num_models as u64 * 20;
+
+        let staging = device.create_buffer(&BufferDescriptor {
+            label: Some("Cull Debug Staging"),
+            size: counters_bytes.max(indirect_bytes),
+            usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        let mut enc = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Cull Debug Readback"),
+        });
+        enc.copy_buffer_to_buffer(&self.counters_buffer, 0, &staging, 0, counters_bytes);
+        enc.copy_buffer_to_buffer(&self.indirect_buffer, 0, &staging, 0, indirect_bytes);
+        queue.submit(Some(enc.finish()));
+
+        let done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let done2 = done.clone();
+        staging.slice(..).map_async(wgpu::MapMode::Read, move |_| {
+            done2.store(true, std::sync::atomic::Ordering::Relaxed);
+        });
+        let mapped = poll_until(
+            device,
+            &done,
+            std::time::Duration::from_millis(500),
+        );
+
+        if mapped
+            && let Ok(data) = staging.slice(..).get_mapped_range()
+        {
+            log::debug!("──────── ORBITAL_CULL_DEBUG readback ────────");
+            for m in 0..num_models as usize {
+                let cb: [u8; 4] = data[m * 4..m * 4 + 4].try_into().unwrap();
+                let visible = u32::from_le_bytes(cb);
+                let ib: [u8; 20] = data[m * 20..m * 20 + 20].try_into().unwrap();
+                let index_count = u32::from_le_bytes(ib[0..4].try_into().unwrap());
+                let instance_count = u32::from_le_bytes(ib[4..8].try_into().unwrap());
+                let first_index = u32::from_le_bytes(ib[8..12].try_into().unwrap());
+                let base_vertex = i32::from_le_bytes(ib[12..16].try_into().unwrap());
+                let first_instance = u32::from_le_bytes(ib[16..20].try_into().unwrap());
+                log::debug!(
+                    "model {m}: visible={visible}  indirect=[index_count={index_count}, instance_count={instance_count}, first_index={first_index}, base_vertex={base_vertex}, first_instance={first_instance}]"
+                );
+            }
+            log::debug!("─────────────────────────────────────────────");
+        } else {
+            log::warn!("ORBITAL_CULL_DEBUG: staging buffer not ready after poll");
+        }
+        staging.unmap();
+    }
+}
+
+/// Busy-polls the device until `done` is set (map callback fired) or the
+/// timeout elapses. Returns `true` when the buffer is ready to read.
+fn poll_until(
+    device: &Device,
+    done: &std::sync::atomic::AtomicBool,
+    timeout: std::time::Duration,
+) -> bool {
+    use std::sync::atomic::Ordering;
+    let start = std::time::Instant::now();
+    while !done.load(Ordering::Relaxed) {
+        match device.poll(wgpu::PollType::Poll) {
+            Ok(_) => {}
+            Err(e) => log::warn!("Cull debug readback poll error: {e:?}"),
+        }
+        if done.load(Ordering::Relaxed) {
+            return true;
+        }
+        if start.elapsed() > timeout {
+            return false;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    }
+    true
 }
