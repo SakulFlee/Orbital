@@ -140,15 +140,28 @@ pub fn sys_frustum_cull(ecs: &mut World) {
     let existing_info = ecs
         .get_resource::<CullResource>()
         .map(|r| r.0.as_ref().map(|cr| (cr.max_instances(), cr.max_models())));
-    let needs_alloc = match existing_info {
-        Some(Some((max_inst, max_mdl))) => max_inst < total_instances || max_mdl < num_models,
-        _ => true,
+    // Debug probe (`ORBITAL_CULL_DEBUG=cull_all`) needs the `cull_all` entry
+    // point compiled into the pipelines — force a (re)allocation so the
+    // resource is always built with the debug pipeline enabled.
+    let debug_cull_all = std::env::var("ORBITAL_CULL_DEBUG")
+        .map(|v| v.eq_ignore_ascii_case("cull_all"))
+        .unwrap_or(false);
+    let needs_alloc = if debug_cull_all {
+        true
+    } else {
+        match existing_info {
+            Some(Some((max_inst, max_mdl))) => {
+                max_inst < total_instances || max_mdl < num_models
+            }
+            _ => true,
+        }
     };
     if needs_alloc {
-        ecs.insert_resource(CullResource(Some(CullResources::new(
+        ecs.insert_resource(CullResource(Some(CullResources::with_debug(
             &device,
             total_instances,
             num_models,
+            debug_cull_all,
         ))));
     }
 
@@ -230,7 +243,7 @@ pub fn sys_frustum_cull(ecs: &mut World) {
             },
             None => return,
         };
-        cr3.dispatch(&mut cmd_enc, num_models, max_inst_per_model);
+        cr3.dispatch(&mut cmd_enc, num_models, max_inst_per_model, debug_cull_all);
         queue.submit(vec![cmd_enc.finish()]);
     }
 }

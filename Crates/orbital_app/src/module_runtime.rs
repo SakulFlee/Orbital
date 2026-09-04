@@ -399,6 +399,36 @@ impl ModuleRuntime {
         // and write indirect draw args.
         crate::systems::cull::sys_frustum_cull(&mut self.ecs_world);
 
+        // Debug readback: with `ORBITAL_CULL_DEBUG=1` / `=cull_all`, dump
+        // per-model visible counts and the GPU-written indirect draw args to
+        // the log (throttled to every 60th frame so `adb logcat -s
+        // rust_std_out` stays readable).
+        let cull_debug = std::env::var("ORBITAL_CULL_DEBUG")
+            .map(|v| v == "1" || v.eq_ignore_ascii_case("cull_all"))
+            .unwrap_or(false);
+        if cull_debug {
+            use std::sync::atomic::{AtomicU64, Ordering};
+            static FRAME: AtomicU64 = AtomicU64::new(0);
+            let frame = FRAME.fetch_add(1, Ordering::Relaxed);
+            if frame % 60 == 0 {
+                let dev = self
+                    .ecs_world
+                    .get_resource::<DeviceResource>()
+                    .map(|d| d.0.clone());
+                let queue = self
+                    .ecs_world
+                    .get_resource::<QueueResource>()
+                    .map(|q| q.0.clone());
+                let cull_guard = self
+                    .ecs_world
+                    .get_resource::<orbital_ecs_bridge::CullResource>();
+                let cull = cull_guard.as_ref().and_then(|r| r.0.as_ref());
+                if let (Some(cull), Some(dev), Some(queue)) = (cull, dev, queue) {
+                    cull.readback_cull_state(&dev, &queue, cull.max_models());
+                }
+            }
+        }
+
         // Keep a borrow of the cull resource for the render call below.
         // This borrows self.ecs_world immutably — OK because all subsequent
         // accesses of ecs_world are also immutable.
@@ -759,10 +789,17 @@ impl ModuleRuntime {
 
         // Render
         if let Some(renderer) = &mut self.renderer {
-            // Debug override: `ORBITAL_DISABLE_CULL=1` forces the un-culled
-            // draw path (direct instance_buffer draws, like the shadow pass).
-            // Use this to discriminate "culling compacts to zero instances"
-            // from "PBR fragment outputs black" on devices with GPU issues.
+            // Debug overrides:
+            //   `ORBITAL_DISABLE_CULL=1`      — skip GPU culling entirely; draws
+            //                                   directly from the instance buffer
+            //                                   (same path as the shadow pass).
+            //   `ORBITAL_CULL_DEBUG=cull_all` — run GPU culling with the frustum
+            //                                   test disabled (`cull_all` entry
+            //                                   point): every instance is
+            //                                   admitted, so invisibility that
+            //                                   remains implicates the
+            //                                   compaction/indirect path rather
+            //                                   than frustum math.
             let disable_cull = std::env::var("ORBITAL_DISABLE_CULL")
                 .map(|v| v == "1")
                 .unwrap_or(false);
