@@ -142,6 +142,18 @@ impl Renderer {
             label: Some("Orbital::Render::Encoder"),
         });
 
+        // Single-encoder cull mode (`ORBITAL_CULL_SINGLE_ENCODER`): dispatch
+        // the GPU cull compute here, at the top of the render submission, so
+        // the storage→vertex/indirect buffer transitions are tracked within a
+        // single submit. This sidesteps cross-submission barrier gaps that
+        // some drivers (notably Adreno) exhibit when the cull compute is
+        // submitted separately from the pass that reads its output.
+        if let Some(cr) = cull
+            && cr.single_encoder()
+        {
+            cr.dispatch_into_render(&mut command_encoder);
+        }
+
         // Write timestamp 0: start of shadow pass
         if let Some(qs) = &self.timestamp_query_set {
             command_encoder.write_timestamp(qs, 0);

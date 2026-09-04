@@ -145,7 +145,11 @@ pub fn sys_frustum_cull(ecs: &mut World) {
     // resource is always built with the debug pipeline enabled.
     let debug_cull_all = orbital_core::debug_flags::cull_debug_mode()
         == orbital_core::debug_flags::CullDebugMode::CullAll;
-    let needs_alloc = if debug_cull_all {
+    // Single-encoder mode: cull compute is submitted with the render pass
+    // (inside the renderer's encoder) rather than in its own submission.
+    // Forces a fresh allocation so the flag is carried on the resource.
+    let debug_single_encoder = orbital_core::debug_flags::cull_single_encoder();
+    let needs_alloc = if debug_cull_all || debug_single_encoder {
         true
     } else {
         match existing_info {
@@ -161,6 +165,7 @@ pub fn sys_frustum_cull(ecs: &mut World) {
             total_instances,
             num_models,
             debug_cull_all,
+            debug_single_encoder,
         ))));
     }
 
@@ -207,6 +212,15 @@ pub fn sys_frustum_cull(ecs: &mut World) {
 
     // Drop guard so we can borrow ecs again for encoder creation.
     drop(guard);
+
+    // In single-encoder mode the cull compute is dispatched inside the
+    // renderer's submission (`CullResources::dispatch_into_render`), so we
+    // skip the separate zero-counters and compute submissions here. Counters
+    // are still self-resetting: `finalize` atomicExchange's them back to 0
+    // every frame, and the buffers are created zero-initialised.
+    if debug_single_encoder {
+        return;
+    }
 
     // ── Zero counters via buffer copy ─────────────────────────────────
     {
