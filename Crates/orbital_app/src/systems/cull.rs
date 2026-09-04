@@ -145,11 +145,13 @@ pub fn sys_frustum_cull(ecs: &mut World) {
     let existing_info = ecs
         .get_resource::<CullResource>()
         .map(|r| r.0.as_ref().map(|cr| (cr.max_instances(), cr.max_models())));
-    // Debug probe (`ORBITAL_CULL_DEBUG=cull_all`) needs the `cull_all` entry
-    // point compiled into the pipelines — force a (re)allocation so the
-    // resource is always built with the debug pipeline enabled.
-    let debug_cull_all = orbital_core::debug_flags::cull_debug_mode()
-        == orbital_core::debug_flags::CullDebugMode::CullAll;
+    // `cull_all` (the `orbital_cull_all` marker / `ORBITAL_CULL_ALL=1`, or the
+    // legacy `ORBITAL_CULL_DEBUG=cull_all`) needs that entry point compiled
+    // into the pipelines — force a (re)allocation so the resource is always
+    // built with it enabled.
+    let debug_cull_all = orbital_core::debug_flags::cull_all()
+        || orbital_core::debug_flags::cull_debug_mode()
+            == orbital_core::debug_flags::CullDebugMode::CullAll;
     // Single-encoder mode: cull compute is submitted with the render pass
     // (inside the renderer's encoder) rather than in its own submission.
     // Forces a fresh allocation so the flag is carried on the resource.
