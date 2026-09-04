@@ -22,8 +22,11 @@
 //! # Cull debug: full cull_all mode (skips frustum test + readback logging)
 //! adb shell run-as <package> sh -c 'echo cull_all > files/orbital_cull_debug'
 //!
+//! # Single-encoder cull: submit cull compute with the render pass (barrier probe)
+//! adb shell run-as <package> touch files/orbital_cull_single_encoder
+//!
 //! # Remove again to restore normal behaviour
-//! adb shell run-as <package> rm files/orbital_disable_cull files/orbital_cull_debug
+//! adb shell run-as <package> rm files/orbital_disable_cull files/orbital_cull_debug files/orbital_cull_single_encoder
 //! ```
 //!
 //! Both mechanisms are read **once** and cached for the process lifetime —
@@ -37,6 +40,9 @@ use orbital_file_manager::FileManager;
 const DISABLE_CULL_FILE: &str = "orbital_disable_cull";
 /// Marker file (in the storage root) holding the cull debug mode.
 const CULL_DEBUG_FILE: &str = "orbital_cull_debug";
+/// Marker file (in the storage root) that switches culling to single-encoder
+/// mode (compute dispatched inside the render submission).
+const SINGLE_ENCODER_FILE: &str = "orbital_cull_single_encoder";
 
 /// Whether GPU culling is disabled (`ORBITAL_DISABLE_CULL=1` env or an
 /// existing `orbital_disable_cull` storage marker file).
@@ -46,6 +52,21 @@ pub fn disable_cull() -> bool {
         Ok(v) => v == "1",
         Err(_) => FileManager::global()
             .map(|fm| fm.storage_path_exists(DISABLE_CULL_FILE))
+            .unwrap_or(false),
+    })
+}
+
+/// Whether GPU culling is dispatched inside the render submission
+/// (`ORBITAL_CULL_SINGLE_ENCODER=1` env or an existing
+/// `orbital_cull_single_encoder` storage marker file). SIDESTEPS
+/// cross-submission storage→vertex/indirect barrier gaps by submitting the
+/// cull compute together with the render passes.
+pub fn cull_single_encoder() -> bool {
+    static FLAG: OnceLock<bool> = OnceLock::new();
+    *FLAG.get_or_init(|| match std::env::var("ORBITAL_CULL_SINGLE_ENCODER") {
+        Ok(v) => v == "1",
+        Err(_) => FileManager::global()
+            .map(|fm| fm.storage_path_exists(SINGLE_ENCODER_FILE))
             .unwrap_or(false),
     })
 }

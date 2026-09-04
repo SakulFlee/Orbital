@@ -35,6 +35,9 @@ pub struct CullResources {
     finalize_pipeline: ComputePipeline,
     bind_group: BindGroup,
 
+    debug_cull_all: bool,
+    debug_single_encoder: bool,
+
     first_instance: Vec<u32>,
 }
 
@@ -50,17 +53,24 @@ impl std::fmt::Debug for CullResources {
 
 impl CullResources {
     pub fn new(device: &Device, max_instances: u32, max_models: u32) -> Self {
-        Self::with_debug(device, max_instances, max_models, false)
+        Self::with_debug(device, max_instances, max_models, false, false)
     }
 
     /// Like [`new`], but with `debug_cull_all = true` the `cull_all` entry
     /// point is also compiled (used by `ORBITAL_CULL_DEBUG=cull_all` probing —
     /// same compaction/indirect path as `cull`, but no frustum test).
+    ///
+    /// `debug_single_encoder = true` marks this resource for single-encoder
+    /// culling: the compute dispatch is submitted together with the render
+    /// pass (see [`Self::dispatch_into_render`]) instead of in a separate
+    /// submission. Used by `ORBITAL_CULL_SINGLE_ENCODER=1` to sidestep
+    /// cross-submission storage→vertex/indirect barrier gaps on some drivers.
     pub fn with_debug(
         device: &Device,
         max_instances: u32,
         max_models: u32,
         debug_cull_all: bool,
+        debug_single_encoder: bool,
     ) -> Self {
         let shader = device.create_shader_module(ShaderModuleDescriptor {
             label: Some("Cull Compute Shader"),
@@ -285,6 +295,8 @@ impl CullResources {
             cull_all_pipeline,
             finalize_pipeline,
             bind_group,
+            debug_cull_all,
+            debug_single_encoder,
             first_instance: Vec::new(),
         }
     }
@@ -335,6 +347,31 @@ impl CullResources {
 
     pub fn model_first_instance(&self, i: usize) -> u32 {
         self.first_instance.get(i).copied().unwrap_or(0)
+    }
+
+    /// Whether this resource is in single-encoder mode (compute culled inside
+    /// the render submission, see [`Self::dispatch_into_render`]).
+    pub fn single_encoder(&self) -> bool {
+        self.debug_single_encoder
+    }
+
+    /// Whether the `cull_all` (frustum-test-skipping) entry point is active.
+    pub fn cull_all(&self) -> bool {
+        self.debug_cull_all
+    }
+
+    /// Dispatch both cull passes into `encoder` — used by the renderer when in
+    /// single-encoder mode so the storage→vertex/indirect buffer transitions
+    /// are tracked within one submission. Workgroup sizing is safe: X is
+    /// rounded up over the *total* instance count (any extra instances
+    /// early-return via `local_idx >= instance_count`), Y is the model count.
+    pub fn dispatch_into_render(&self, encoder: &mut wgpu::CommandEncoder) {
+        self.dispatch(
+            encoder,
+            self.max_models,
+            self.max_instances,
+            self.debug_cull_all,
+        );
     }
 
     /// Upload all instance matrices (flat) and bounds (flat).
