@@ -11,6 +11,11 @@ use wgpu::util::DeviceExt;
 ///
 /// Call **after** `realize_models()` and **before** extraction.
 pub fn sys_frustum_cull(ecs: &mut World) {
+    // Log the resolved cull debug flags + storage root once per process so
+    // on-device tests are self-verifying from logcat (marker files are
+    // platform + launch-timing sensitive on Android).
+    orbital_core::debug_flags::log_active_flags();
+
     // ── Device / queue ────────────────────────────────────────────────
     let (device, queue) = {
         let d = match ecs.get_resource::<DeviceResource>() {

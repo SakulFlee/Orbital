@@ -126,6 +126,27 @@ pub fn cull_debug_mode() -> CullDebugMode {
     })
 }
 
+/// Log the resolved cull-related debug flags and the storage root once per
+/// process. Call this each process start (idempotent) so that from logcat we
+/// can confirm whether env vars / Android marker files were actually picked up
+/// — and where marker files resolve to.
+pub fn log_active_flags() {
+    use std::sync::Once;
+    static ONCE: Once = Once::new();
+    ONCE.call_once(|| {
+        let root = FileManager::global()
+            .map(|fm| fm.storage_root().display().to_string())
+            .unwrap_or_else(|_| "<FileManager not initialized>".to_string());
+        crate::logging::info!(
+            "debug_flags: disable_cull={} cull_debug={:?} single_encoder={} storage_root={}",
+            disable_cull(),
+            cull_debug_mode(),
+            cull_single_encoder(),
+            root,
+        );
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
