@@ -399,14 +399,11 @@ impl ModuleRuntime {
         // and write indirect draw args.
         crate::systems::cull::sys_frustum_cull(&mut self.ecs_world);
 
-        // Debug readback: with `ORBITAL_CULL_DEBUG=1` / `=cull_all`, dump
-        // per-model visible counts and the GPU-written indirect draw args to
-        // the log (throttled to every 60th frame so `adb logcat -s
-        // rust_std_out` stays readable).
-        let cull_debug = std::env::var("ORBITAL_CULL_DEBUG")
-            .map(|v| v == "1" || v.eq_ignore_ascii_case("cull_all"))
-            .unwrap_or(false);
-        if cull_debug {
+        // Debug readback: with `ORBITAL_CULL_DEBUG=1` / `=cull_all` (or the
+        // Android storage marker file), dump per-model visible counts and the
+        // GPU-written indirect draw args to the log (throttled to every 60th
+        // frame so `adb logcat -s rust_std_out` stays readable).
+        if orbital_core::debug_flags::cull_debug_mode().readback() {
             use std::sync::atomic::{AtomicU64, Ordering};
             static FRAME: AtomicU64 = AtomicU64::new(0);
             let frame = FRAME.fetch_add(1, Ordering::Relaxed);
@@ -789,7 +786,8 @@ impl ModuleRuntime {
 
         // Render
         if let Some(renderer) = &mut self.renderer {
-            // Debug overrides:
+            // Debug overrides (env vars, or Android storage marker files —
+            // see `orbital_core::debug_flags`):
             //   `ORBITAL_DISABLE_CULL=1`      — skip GPU culling entirely; draws
             //                                   directly from the instance buffer
             //                                   (same path as the shadow pass).
@@ -800,9 +798,7 @@ impl ModuleRuntime {
             //                                   remains implicates the
             //                                   compaction/indirect path rather
             //                                   than frustum math.
-            let disable_cull = std::env::var("ORBITAL_DISABLE_CULL")
-                .map(|v| v == "1")
-                .unwrap_or(false);
+            let disable_cull = orbital_core::debug_flags::disable_cull();
             let cull = if disable_cull {
                 None
             } else {
