@@ -188,7 +188,7 @@ impl CullResources {
 
         // ── Buffers ────────────────────────────────────────────────────
         let frustum_size = 6 * 4 * 4; // 6 × vec4<f32> = 96 bytes
-        let params_size = max_models as u64 * 24; // 6 × u32 per model
+        let params_size = max_models as u64 * 32; // 8 × u32 per model (two vec4<u32>)
         let instances_size = max_instances as u64 * 64; // mat4x4<f32> each
         let bounds_size = max_instances as u64 * 16; // vec4<f32> each
         let counters_size = max_models as u64 * 4;
@@ -302,8 +302,9 @@ impl CullResources {
         queue.write_buffer(&self.frustum_buffer, 0, &data);
     }
 
-    /// Upload per-model params (`[first_instance, total_count, index_count,
-    /// first_index, base_vertex, _pad]` × `num_models`).
+    /// Upload per-model params (8 × u32 = 32 B per model:
+    /// `[first_instance, total_count, index_count, first_index,
+    /// base_vertex, pad, pad, pad]` × `num_models`).
     pub fn upload_params(&self, queue: &wgpu::Queue, params_bytes: &[u8]) {
         queue.write_buffer(&self.params_buffer, 0, params_bytes);
     }
