@@ -336,7 +336,7 @@ impl Renderer {
                 if let Some(cr) = cull {
                     // GPU-culled: read from compacted output at model offset
                     let byte_off = cr.model_first_instance(i) as u64 * 64;
-                    render_pass.set_vertex_buffer(1, cr.compacted_buffer().slice(byte_off..));
+                    render_pass.set_vertex_buffer(1, cr.compacted_vertex_buffer().slice(byte_off..));
                     render_pass.set_index_buffer(
                         model.mesh().index_buffer().slice(..),
                         IndexFormat::Uint32,

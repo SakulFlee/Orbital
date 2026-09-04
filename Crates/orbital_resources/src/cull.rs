@@ -26,7 +26,13 @@ pub struct CullResources {
     pub params_buffer: Buffer,
     pub instances_buffer: Buffer,
     pub bounds_buffer: Buffer,
+    /// Compute-write target (STORAGE): visible instances are compacted here.
     pub compacted_buffer: Buffer,
+    /// Vertex-read source (VERTEX | COPY_DST): the compute's compacted output is
+    /// copied into this buffer before drawing. Breaking storage→vertex this way
+    /// sidesteps the Adreno weak spot of reading a compute-written storage
+    /// buffer directly as vertex data.
+    pub compacted_vertex_buffer: Buffer,
     pub counters_buffer: Buffer,
     pub indirect_buffer: Buffer,
 
@@ -231,10 +237,22 @@ impl CullResources {
             usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
+        // Compute writes here (STORAGE); the contents are then copied to
+        // `compacted_vertex_buffer` before drawing (see `dispatch`). Not read
+        // as vertex data directly.
         let compacted_buffer = device.create_buffer(&BufferDescriptor {
-            label: Some("Cull Compacted Out"),
+            label: Some("Cull Compacted Out (Storage)"),
             size: instances_size,
-            usage: BufferUsages::VERTEX | BufferUsages::STORAGE,
+            usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        });
+        // The actual vertex source — filled by a COPY from `compacted_buffer`
+        // each frame after the compute dispatch, avoiding a compute-write →
+        // vertex-read alias on drivers that mishandle it.
+        let compacted_vertex_buffer = device.create_buffer(&BufferDescriptor {
+            label: Some("Cull Compacted Out (Vertex)"),
+            size: instances_size,
+            usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
         let counters_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -297,6 +315,7 @@ impl CullResources {
             instances_buffer,
             bounds_buffer,
             compacted_buffer,
+            compacted_vertex_buffer,
             counters_buffer,
             indirect_buffer,
             cull_pipeline,
@@ -348,6 +367,12 @@ impl CullResources {
     }
     pub fn compacted_buffer(&self) -> &Buffer {
         &self.compacted_buffer
+    }
+    /// The vertex-read buffer containing the compacted visible instances
+    /// (filled by a copy from [`Self::compacted_buffer`] after each dispatch).
+    /// This is the buffer the renderer should bind at vertex-input slot 1.
+    pub fn compacted_vertex_buffer(&self) -> &Buffer {
+        &self.compacted_vertex_buffer
     }
     pub fn indirect_buffer(&self) -> &Buffer {
         &self.indirect_buffer
@@ -446,6 +471,22 @@ impl CullResources {
             pass.set_bind_group(0, &self.bind_group, &[]);
             pass.dispatch_workgroups(num_models.max(1), 1, 1);
         }
+
+        self.copy_compacted_to_vertex(encoder);
+    }
+
+    /// Stage the compute's compacted instance buffer into the vertex-read buffer
+    /// so the render pass consumes a plain VERTEX bind point rather than reading
+    /// a compute-written STORAGE buffer directly (which Adreno mishandles).
+    fn copy_compacted_to_vertex(&self, encoder: &mut wgpu::CommandEncoder) {
+        let bytes = self.max_instances as u64 * 64; // 64 B per instance (mat4)
+        encoder.copy_buffer_to_buffer(
+            &self.compacted_buffer,
+            0,
+            &self.compacted_vertex_buffer,
+            0,
+            bytes,
+        );
     }
 
     /// Debug readback of per-model counters + indirect args.
