@@ -143,9 +143,8 @@ pub fn sys_frustum_cull(ecs: &mut World) {
     // Debug probe (`ORBITAL_CULL_DEBUG=cull_all`) needs the `cull_all` entry
     // point compiled into the pipelines — force a (re)allocation so the
     // resource is always built with the debug pipeline enabled.
-    let debug_cull_all = std::env::var("ORBITAL_CULL_DEBUG")
-        .map(|v| v.eq_ignore_ascii_case("cull_all"))
-        .unwrap_or(false);
+    let debug_cull_all = orbital_core::debug_flags::cull_debug_mode()
+        == orbital_core::debug_flags::CullDebugMode::CullAll;
     let needs_alloc = if debug_cull_all {
         true
     } else {
