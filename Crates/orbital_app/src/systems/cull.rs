@@ -145,34 +145,29 @@ pub fn sys_frustum_cull(ecs: &mut World) {
     let existing_info = ecs
         .get_resource::<CullResource>()
         .map(|r| r.0.as_ref().map(|cr| (cr.max_instances(), cr.max_models())));
-    // `cull_all` (the `orbital_cull_all` marker / `ORBITAL_CULL_ALL=1`, or the
-    // legacy `ORBITAL_CULL_DEBUG=cull_all`) needs that entry point compiled
-    // into the pipelines — force a (re)allocation so the resource is always
-    // built with it enabled.
+    // Runtime flags. Both `cull` and `cull_all` entry points are always
+    // compiled into the pipeline set, so these are toggled via the resource
+    // setters each frame — no resource reallocation required (which keeps the
+    // `cull_all` probe on the identical single-allocation path as production
+    // culling, a clean control, and avoids re-validating the shader per frame).
     let debug_cull_all = orbital_core::debug_flags::cull_all()
         || orbital_core::debug_flags::cull_debug_mode()
             == orbital_core::debug_flags::CullDebugMode::CullAll;
-    // Single-encoder mode: cull compute is submitted with the render pass
-    // (inside the renderer's encoder) rather than in its own submission.
-    // Forces a fresh allocation so the flag is carried on the resource.
     let debug_single_encoder = orbital_core::debug_flags::cull_single_encoder();
-    let needs_alloc = if debug_cull_all || debug_single_encoder {
-        true
-    } else {
-        match existing_info {
-            Some(Some((max_inst, max_mdl))) => {
-                max_inst < total_instances || max_mdl < num_models
-            }
-            _ => true,
+
+    let needs_alloc = match existing_info {
+        Some(Some((max_inst, max_mdl))) => {
+            max_inst < total_instances || max_mdl < num_models
         }
+        _ => true,
     };
     if needs_alloc {
         ecs.insert_resource(CullResource(Some(CullResources::with_debug(
             &device,
             total_instances,
             num_models,
-            debug_cull_all,
-            debug_single_encoder,
+            false,
+            false,
         ))));
     }
 
@@ -181,6 +176,11 @@ pub fn sys_frustum_cull(ecs: &mut World) {
         return;
     };
     let Some(ref mut cr) = guard.0 else { return };
+
+    // Propagate the runtime flags onto the resource (entry points are always
+    // compiled, so this is a cheap setter — no reallocation).
+    cr.set_cull_all(debug_cull_all);
+    cr.set_single_encoder(debug_single_encoder);
 
     cr.upload_frustum(&queue, &frustum);
 

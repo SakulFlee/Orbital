@@ -176,13 +176,16 @@ impl CullResources {
             cache: None,
         });
 
-        // Optional debug pipeline — same compaction/indirect path as `cull`
-        // but without the frustum test (ORBITAL_CULL_DEBUG=cull_all).
+        // Always compile the `cull_all` entry point too (same compaction /
+        // indirect path as `cull`, but without the frustum test). Compiling it
+        // unconditionally means enabling the `cull_all` probe does NOT require
+        // a resource reallocation — the probe exercises the identical
+        // single-allocation path as production culling (a clean control).
         let cull_all_pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
             label: Some("Cull All Pass"),
             layout: Some(&pipeline_layout),
             module: &shader,
-            entry_point: if debug_cull_all { Some("cull_all") } else { None },
+            entry_point: Some("cull_all"),
             compilation_options: Default::default(),
             cache: None,
         });
@@ -358,6 +361,18 @@ impl CullResources {
     /// Whether the `cull_all` (frustum-test-skipping) entry point is active.
     pub fn cull_all(&self) -> bool {
         self.debug_cull_all
+    }
+
+    /// Set the `cull_all` (frustum-test-skipping) runtime mode. Because both
+    /// entry points are always compiled, this can be toggled without a
+    /// resource reallocation — each frame picks the pipeline at dispatch time.
+    pub fn set_cull_all(&mut self, v: bool) {
+        self.debug_cull_all = v;
+    }
+
+    /// Set single-encoder mode (compute culled inside the render submission).
+    pub fn set_single_encoder(&mut self, v: bool) {
+        self.debug_single_encoder = v;
     }
 
     /// Dispatch both cull passes into `encoder` — used by the renderer when in
