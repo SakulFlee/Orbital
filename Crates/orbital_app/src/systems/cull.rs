@@ -1,21 +1,19 @@
-use cgmath::Vector4;
+use cgmath::{Point3, Vector4};
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
     ActiveCamera, CullResource, DeviceResource, EcsCameraStore, FrozenFrustum, ModelInstances,
     ModelRealization, QueueResource,
 };
 use orbital_resources::{CullResources, Instance};
-use wgpu::util::DeviceExt;
 
-/// Per‑frame GPU‑accelerated frustum‑culling system.
+/// Per-frame CPU frustum-culling system.
+///
+/// Tests each instance's bounding sphere against the camera frustum on the
+/// CPU.  Visible instance matrices are compacted into a vertex buffer that
+/// the renderer consumes via direct `draw_indexed` calls.
 ///
 /// Call **after** `realize_models()` and **before** extraction.
 pub fn sys_frustum_cull(ecs: &mut World) {
-    // Log the resolved cull debug flags + storage root once per process so
-    // on-device tests are self-verifying from logcat (marker files are
-    // platform + launch-timing sensitive on Android).
-    orbital_core::debug_flags::log_active_flags();
-
     // ── Device / queue ────────────────────────────────────────────────
     let (device, queue) = {
         let d = match ecs.get_resource::<DeviceResource>() {
@@ -57,11 +55,7 @@ pub fn sys_frustum_cull(ecs: &mut World) {
     // ── Build entries (all immutable borrows scoped here) ─────────────
     #[derive(Default)]
     struct Entry {
-        first_instance: u32,
         instance_count: u32,
-        index_count: u32,
-        first_index: u32,
-        base_vertex: i32,
         instance_bytes: Vec<u8>,
         bounds_bytes: Vec<u8>,
     }
@@ -77,7 +71,6 @@ pub fn sys_frustum_cull(ecs: &mut World) {
         };
 
         let mut entries: Vec<Entry> = Vec::new();
-        let mut total: u32 = 0;
 
         for &eid in realizations.dense.as_slice() {
             let Some(real_idx) = realizations.sparse[eid] else {
@@ -116,15 +109,10 @@ pub fn sys_frustum_cull(ecs: &mut World) {
             }
 
             entries.push(Entry {
-                first_instance: total,
                 instance_count: count,
-                index_count: mesh.index_count(),
-                first_index: 0,
-                base_vertex: 0,
                 instance_bytes: inst_bytes,
                 bounds_bytes,
             });
-            total += count;
         }
         entries
     };
@@ -135,173 +123,71 @@ pub fn sys_frustum_cull(ecs: &mut World) {
     }
 
     let num_models = entries.len() as u32;
-    let total_instances: u32 = entries
-        .last()
-        .map(|e| e.first_instance + e.instance_count)
-        .unwrap_or(0);
-    let max_inst_per_model = entries.iter().map(|e| e.instance_count).max().unwrap_or(1);
+    let total_instances: u32 = entries.iter().map(|e| e.instance_count).sum();
 
     // ── Ensure CullResources exists with sufficient capacity ──────────
-    let existing_info = ecs
-        .get_resource::<CullResource>()
-        .map(|r| r.0.as_ref().map(|cr| (cr.max_instances(), cr.max_models())));
-    // Runtime flags. Both `cull` and `cull_all` entry points are always
-    // compiled into the pipeline set, so these are toggled via the resource
-    // setters each frame — no resource reallocation required (which keeps the
-    // `cull_all` probe on the identical single-allocation path as production
-    // culling, a clean control, and avoids re-validating the shader per frame).
-    let debug_cull_all = orbital_core::debug_flags::cull_all()
-        || orbital_core::debug_flags::cull_debug_mode()
-            == orbital_core::debug_flags::CullDebugMode::CullAll;
-    let debug_single_encoder = orbital_core::debug_flags::cull_single_encoder();
-    // CPU-args probe: args/instances written from the CPU below, no compute.
-    let debug_cpu_args = orbital_core::debug_flags::cull_cpu_args();
+    // Always recreate to ensure buffer is large enough.
+    // A more optimal approach would cache and only reallocate when capacity is exceeded.
+    ecs.insert_resource(CullResource(Some(CullResources::new(
+        &device,
+        total_instances,
+        num_models,
+    ))));
 
-    let needs_alloc = match existing_info {
-        Some(Some((max_inst, max_mdl))) => {
-            max_inst < total_instances || max_mdl < num_models
-        }
-        _ => true,
-    };
-    if needs_alloc {
-        ecs.insert_resource(CullResource(Some(CullResources::with_debug(
-            &device,
-            total_instances,
-            num_models,
-            false,
-            false,
-        ))));
-    }
-
-    // ── Get mutable access & upload ───────────────────────────────────
+    // ── CPU frustum cull + upload ─────────────────────────────────────
     let Some(mut guard) = ecs.get_resource_mut::<CullResource>() else {
         return;
     };
-    let Some(ref mut cr) = guard.0 else { return };
-
-    // Propagate the runtime flags onto the resource (entry points are always
-    // compiled, so this is a cheap setter — no reallocation).
-    cr.set_cull_all(debug_cull_all);
-    cr.set_single_encoder(debug_single_encoder);
-
-    cr.upload_frustum(&queue, &frustum);
-
-    // Per-model params + offsets
-    // Per-model params are packed as 8 × u32 = 32 bytes per model to match
-    // the shader, which reads each model as two `vec4<u32>` (`params[model*2]`
-    // and `params[model*2+1]`). The host layout is:
-    //   [0] = (first_instance, instance_count, index_count, first_index)
-    //   [1] = (base_vertex as u32, pad, pad, pad)
-    let mut params_bytes = Vec::with_capacity(entries.len() * 32);
-    let mut offsets = Vec::with_capacity(entries.len());
-    for e in &entries {
-        params_bytes.extend_from_slice(&e.first_instance.to_le_bytes());
-        params_bytes.extend_from_slice(&e.instance_count.to_le_bytes());
-        params_bytes.extend_from_slice(&e.index_count.to_le_bytes());
-        params_bytes.extend_from_slice(&e.first_index.to_le_bytes());
-        params_bytes.extend_from_slice(&(e.base_vertex as u32).to_le_bytes());
-        params_bytes.extend_from_slice(&0u32.to_le_bytes()); // pad
-        params_bytes.extend_from_slice(&0u32.to_le_bytes()); // pad (already part of
-        params_bytes.extend_from_slice(&0u32.to_le_bytes()); // the empty vec4[1])
-        offsets.push(e.first_instance);
-    }
-    cr.set_model_offsets(offsets);
-    cr.upload_params(&queue, &params_bytes);
-
-    // Instances + bounds
-    let all_inst: Vec<u8> = entries
-        .iter()
-        .flat_map(|e| e.instance_bytes.clone())
-        .collect();
-    let all_bounds: Vec<u8> = entries
-        .iter()
-        .flat_map(|e| e.bounds_bytes.clone())
-        .collect();
-    cr.upload_instances_and_bounds(&queue, &all_inst, &all_bounds);
-
-    // ── CPU-args probe (`ORBITAL_CULL_CPU_ARGS`) ──────────────────────
-    // Skip the cull compute entirely; write indirect draw args (full,
-    // un-culled instance counts) and the un-compacted instance matrices from
-    // the CPU. The render pass then consumes `draw_indexed_indirect` with
-    // CPU-written args — isolating "the driver does not execute indirect
-    // draws with compute-written args" from "the GPU cull data itself is the
-    // problem". The early return skips both the zero-counters copy and the
-    // compute dispatch: no compute ever runs, so counters stay zero (buffers
-    // are zero-initialised) and nothing overwrites the CPU-written data.
-    if orbital_core::debug_flags::cull_cpu_args() {
-        // (index_count, instance_count, first_index, base_vertex, first_instance)
-        let model_params: Vec<(u32, u32, u32, i32, u32)> = entries
-            .iter()
-            .map(|e| {
-                (
-                    e.index_count,
-                    e.instance_count,
-                    e.first_index,
-                    e.base_vertex,
-                    e.first_instance,
-                )
-            })
-            .collect();
-        cr.write_cpu_args(&queue, &model_params, &all_inst);
+    let Some(ref mut cr) = guard.0 else {
         return;
+    };
+
+    let mut all_visible = Vec::new();
+    let mut offsets = Vec::new();
+    let mut counts = Vec::new();
+    let mut offset = 0u32;
+
+    for entry in &entries {
+        offsets.push(offset);
+        let mut model_visible = 0u32;
+
+        let instance_count = entry.instance_count as usize;
+        for inst_idx in 0..instance_count {
+            // Extract pre-computed world-space bounds: [center_x, center_y, center_z, radius]
+            let base = inst_idx * 16;
+            if base + 16 > entry.bounds_bytes.len() {
+                continue;
+            }
+            let cx = f32::from_le_bytes(entry.bounds_bytes[base..base + 4].try_into().unwrap());
+            let cy =
+                f32::from_le_bytes(entry.bounds_bytes[base + 4..base + 8].try_into().unwrap());
+            let cz =
+                f32::from_le_bytes(entry.bounds_bytes[base + 8..base + 12].try_into().unwrap());
+            let radius =
+                f32::from_le_bytes(entry.bounds_bytes[base + 12..base + 16].try_into().unwrap());
+
+            let center = Point3::new(cx, cy, cz);
+            if frustum.intersects_sphere(&center, radius) {
+                // Copy this instance's 64-byte matrix to the visible list
+                let mat_base = inst_idx * 64;
+                let mat_end = mat_base + 64;
+                if mat_end <= entry.instance_bytes.len() {
+                    all_visible
+                        .extend_from_slice(&entry.instance_bytes[mat_base..mat_end]);
+                    model_visible += 1;
+                }
+            }
+        }
+
+        offset += model_visible;
+        counts.push(model_visible);
     }
 
-    // Drop guard so we can borrow ecs again for encoder creation.
-    drop(guard);
+    let total_visible: u32 = counts.iter().sum();
+    log::debug!(
+        "CPU frustum cull: {total_visible}/{} instances visible across {num_models} models",
+        total_instances,
+    );
 
-    // In single-encoder mode the cull compute is dispatched inside the
-    // renderer's submission (`CullResources::dispatch_into_render`), so we
-    // skip the separate zero-counters and compute submissions here. Counters
-    // are still self-resetting: `finalize` atomicExchange's them back to 0
-    // every frame, and the buffers are created zero-initialised.
-    // The CPU-args probe likewise skips the compute dispatch (args were
-    // already written above); counters stay zero as no compute ever ran.
-    if debug_single_encoder || debug_cpu_args {
-        return;
-    }
-
-    // ── Zero counters via buffer copy ─────────────────────────────────
-    {
-        let zero_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Cull Zero Init"),
-            contents: &vec![0u8; num_models as usize * 4],
-            usage: wgpu::BufferUsages::COPY_SRC,
-        });
-        let mut cmd_enc = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Cull Init Encoder"),
-        });
-        let guard2 = ecs.get_resource::<CullResource>();
-        let cr2 = match guard2 {
-            Some(ref r) => match r.0 {
-                Some(ref c) => c,
-                None => return,
-            },
-            None => return,
-        };
-        cmd_enc.copy_buffer_to_buffer(
-            &zero_buf,
-            0,
-            cr2.counters_buffer(),
-            0,
-            num_models as u64 * 4,
-        );
-        queue.submit(vec![cmd_enc.finish()]);
-    }
-
-    // ── Dispatch compute ──────────────────────────────────────────────
-    {
-        let mut cmd_enc = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Cull Compute Encoder"),
-        });
-        let guard3 = ecs.get_resource::<CullResource>();
-        let cr3 = match guard3 {
-            Some(ref r) => match r.0 {
-                Some(ref c) => c,
-                None => return,
-            },
-            None => return,
-        };
-        cr3.dispatch(&mut cmd_enc, num_models, max_inst_per_model, debug_cull_all);
-        queue.submit(vec![cmd_enc.finish()]);
-    }
+    cr.write_visible_instances(&queue, &all_visible, offsets, counts);
 }
