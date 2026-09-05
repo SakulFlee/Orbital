@@ -183,11 +183,5 @@ pub fn sys_frustum_cull(ecs: &mut World) {
         counts.push(model_visible);
     }
 
-    let total_visible: u32 = counts.iter().sum();
-    log::debug!(
-        "CPU frustum cull: {total_visible}/{} instances visible across {num_models} models",
-        total_instances,
-    );
-
     cr.write_visible_instances(&queue, &all_visible, offsets, counts);
 }
