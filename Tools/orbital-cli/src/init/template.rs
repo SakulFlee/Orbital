@@ -198,9 +198,12 @@ impl Module for GameModule {
             },
         )
         .unwrap();
-        ecs.attach_component(&camera, Position(Point3::new(0.0, 2.0, 5.0)))
+        ecs.attach_component(&camera, Position(Point3::new(0.0, 3.0, 5.0)))
             .unwrap();
-        ecs.attach_component(&camera, Rotation::identity()).unwrap();
+        let mut rot = Rotation::identity();
+        rot.rotate_yaw(Rad(-std::f32::consts::FRAC_PI_2));
+        rot.rotate_pitch(Rad(-0.3));
+        ecs.attach_component(&camera, rot).unwrap();
         ecs.insert_resource(ActiveCamera(camera));
         ecs.insert_resource(CursorGrabConfig(true));
 
