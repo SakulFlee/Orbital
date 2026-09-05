@@ -395,36 +395,9 @@ impl ModuleRuntime {
             PREV_FREEZE.store(pressed, Ordering::Relaxed);
         }
 
-        // Frustum culling — dispatches GPU compute to compact visible instances
-        // and write indirect draw args.
+        // CPU frustum culling — tests bounding spheres against the camera
+        // frustum and compacts visible instances into a vertex buffer.
         crate::systems::cull::sys_frustum_cull(&mut self.ecs_world);
-
-        // Debug readback: with `ORBITAL_CULL_DEBUG=1` / `=cull_all` (or the
-        // Android storage marker file), dump per-model visible counts and the
-        // GPU-written indirect draw args to the log (throttled to every 60th
-        // frame so `adb logcat -s rust_std_out` stays readable).
-        if orbital_core::debug_flags::cull_debug_mode().readback() {
-            use std::sync::atomic::{AtomicU64, Ordering};
-            static FRAME: AtomicU64 = AtomicU64::new(0);
-            let frame = FRAME.fetch_add(1, Ordering::Relaxed);
-            if frame % 60 == 0 {
-                let dev = self
-                    .ecs_world
-                    .get_resource::<DeviceResource>()
-                    .map(|d| d.0.clone());
-                let queue = self
-                    .ecs_world
-                    .get_resource::<QueueResource>()
-                    .map(|q| q.0.clone());
-                let cull_guard = self
-                    .ecs_world
-                    .get_resource::<orbital_ecs_bridge::CullResource>();
-                let cull = cull_guard.as_ref().and_then(|r| r.0.as_ref());
-                if let (Some(cull), Some(dev), Some(queue)) = (cull, dev, queue) {
-                    cull.readback_cull_state(&dev, &queue, cull.max_models());
-                }
-            }
-        }
 
         // Keep a borrow of the cull resource for the render call below.
         // This borrows self.ecs_world immutably — OK because all subsequent
@@ -788,16 +761,9 @@ impl ModuleRuntime {
         if let Some(renderer) = &mut self.renderer {
             // Debug overrides (env vars, or Android storage marker files —
             // see `orbital_core::debug_flags`):
-            //   `ORBITAL_DISABLE_CULL=1`      — skip GPU culling entirely; draws
-            //                                   directly from the instance buffer
-            //                                   (same path as the shadow pass).
-            //   `ORBITAL_CULL_DEBUG=cull_all` — run GPU culling with the frustum
-            //                                   test disabled (`cull_all` entry
-            //                                   point): every instance is
-            //                                   admitted, so invisibility that
-            //                                   remains implicates the
-            //                                   compaction/indirect path rather
-            //                                   than frustum math.
+            //   `ORBITAL_DISABLE_CULL=1` — skip CPU frustum culling entirely;
+            //                              draws all instances from the
+            //                              original instance buffer.
             let disable_cull = orbital_core::debug_flags::disable_cull();
             let cull = if disable_cull {
                 None
