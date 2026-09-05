@@ -28,6 +28,12 @@
 //! # Cull-all probe: admit every instance (skips only the frustum test)
 //! adb shell run-as <package> touch files/orbital_cull_all
 //!
+//! # CPU-args probe: skip the cull compute entirely; CPU writes the indirect
+//! draw args + identity-compacted instances. Isolates "does
+//! draw_indexed_indirect work on this driver at all" from "does it work with
+//! compute-written args".
+//! adb shell run-as <package> touch files/orbital_cull_cpu_args
+//!
 //! # Remove again to restore normal behaviour
 //! adb shell run-as <package> rm files/orbital_disable_cull files/orbital_cull_debug files/orbital_cull_single_encoder
 //! ```
@@ -51,6 +57,10 @@ const SINGLE_ENCODER_FILE: &str = "orbital_cull_single_encoder";
 /// identical compaction + indirect path). Content-free: its existence is
 /// enough, so it can be enabled with a plain `touch` (no `echo`/`sh`).
 const CULL_ALL_FILE: &str = "orbital_cull_all";
+/// Marker file (in the storage root) enabling the CPU-args probe: the cull
+/// compute is skipped entirely; indirect draw args and the compacted instance
+/// data are written from the CPU instead. Content-free marker file.
+const CULL_CPU_ARGS_FILE: &str = "orbital_cull_cpu_args";
 
 /// Whether GPU culling is disabled (`ORBITAL_DISABLE_CULL=1` env or an
 /// existing `orbital_disable_cull` storage marker file).
@@ -115,6 +125,22 @@ impl CullDebugMode {
     }
 }
 
+/// Whether the CPU-args cull probe is active (`ORBITAL_CULL_CPU_ARGS=1` env or
+/// an existing `orbital_cull_cpu_args` storage marker file). Skips the cull
+/// compute entirely; the system writes indirect draw args and the compacted
+/// instance data from the CPU, so the render pass consumes
+/// `draw_indexed_indirect` with CPU-written args. Isolates "does the driver
+/// execute `draw_indexed_indirect` with args it did not write itself".
+pub fn cull_cpu_args() -> bool {
+    static FLAG: OnceLock<bool> = OnceLock::new();
+    *FLAG.get_or_init(|| match std::env::var("ORBITAL_CULL_CPU_ARGS") {
+        Ok(v) => v == "1",
+        Err(_) => FileManager::global()
+            .map(|fm| fm.storage_path_exists(CULL_CPU_ARGS_FILE))
+            .unwrap_or(false),
+    })
+}
+
 /// Parses a `ORBITAL_CULL_DEBUG` value; `None` means "not set".
 fn parse_cull_debug(env: Option<&str>, file: Option<&str>) -> CullDebugMode {
     // An empty env var counts as unset; an empty marker file still counts
@@ -161,11 +187,12 @@ pub fn log_active_flags() {
             .map(|fm| fm.storage_root().display().to_string())
             .unwrap_or_else(|_| "<FileManager not initialized>".to_string());
         crate::logging::info!(
-            "debug_flags: disable_cull={} cull_debug={:?} single_encoder={} cull_all={} storage_root={}",
+            "debug_flags: disable_cull={} cull_debug={:?} single_encoder={} cull_all={} cpu_args={} storage_root={}",
             disable_cull(),
             cull_debug_mode(),
             cull_single_encoder(),
             cull_all(),
+            cull_cpu_args(),
             root,
         );
     });
