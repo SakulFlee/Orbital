@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use std::fs;
 use std::path::Path;
 
@@ -92,9 +92,7 @@ fn generate_lib_rs(project_dir: &Path, config: &ProjectConfig) -> Result<()> {
     //   3. Add "foo" to the prompt list in `init/prompt.rs`.
     let template = match config.template.as_str() {
         "minimal" => MINIMAL_TEMPLATE,
-        other => bail!(
-            "Unknown template '{other}'. Available templates: minimal"
-        ),
+        other => bail!("Unknown template '{other}'. Available templates: minimal"),
     };
 
     let content = template.replace("{{PROJECT_NAME}}", &config.project_name);
@@ -308,4 +306,6 @@ impl Module for GameModule {
         vec![sys_camera_controller.into_system()]
     }
 }
+
+const SAVE_PATH: &str = "savegame.bin";
 "#;
