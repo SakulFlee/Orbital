@@ -65,14 +65,19 @@ impl std::fmt::Debug for CullResources {
 
 impl CullResources {
     /// Probe helper: enqueue a copy of `byte_len` bytes from `src` into the
-    /// debug readback's staging region, returning the staging offset used.
-    /// Lets `readback_cull_state` dump *both sides* of each intermediary copy
+    /// debug readback's staging region at `dst_offset`. Lets
+    /// `readback_cull_state` dump *both sides* of each intermediary copy
     /// (storage vs consumer buffer) to tell "compute stored nothing" apart
     /// from "the copy dropped it".
-    fn probe_copy(&self, enc: &mut wgpu::CommandEncoder, staging: &Buffer, src: &Buffer, byte_len: u64) -> u64 {
-        let offset = staging.size() - byte_len;
-        enc.copy_buffer_to_buffer(src, 0, staging, offset, byte_len);
-        offset
+    fn probe_copy(
+        &self,
+        enc: &mut wgpu::CommandEncoder,
+        staging: &Buffer,
+        src: &Buffer,
+        dst_offset: u64,
+        byte_len: u64,
+    ) {
+        enc.copy_buffer_to_buffer(src, 0, staging, dst_offset, byte_len);
     }
 
     pub fn new(device: &Device, max_instances: u32, max_models: u32) -> Self {
@@ -581,8 +586,12 @@ impl CullResources {
         // frame, so a probe-mode matrix dump of [1.5, 2.5, 3.5, ...] confirms
         // the write landed (and that the readback pipeline itself works).
         if bytes >= 16 {
+            // Near-identity scale (0.1–0.3% off): visually harmless when the
+            // sentinel instance is drawn, but unmistakable in the dump (a real
+            // transform carries rotation/translation values here).
             let m0: [f32; 16] = [
-                1.5, 2.5, 3.5, 4.5, 5.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                1.001, 0.0, 0.0, 0.0, 0.0, 1.002, 0.0, 0.0, 0.0, 0.0, 1.003, 0.0, 0.0, 0.0, 0.0,
+                1.0,
             ];
             let mut m0b = Vec::with_capacity(64);
             for v in m0 {
@@ -638,7 +647,7 @@ impl CullResources {
         // Consumer side (what the draw consumes) + storage side (what finalize
         // wrote) of the args intermediary copy.
         enc.copy_buffer_to_buffer(&self.indirect_buffer, 0, &staging, counters_bytes, indirect_bytes);
-        let args_probe_at = self.probe_copy(&mut enc, &staging, &self.indirect_storage_buffer, indirect_bytes);
+        self.probe_copy(&mut enc, &staging, &self.indirect_storage_buffer, args_probe_off, indirect_bytes);
         // Consumer + storage side of the instance-matrix intermediary copy.
         enc.copy_buffer_to_buffer(
             &self.compacted_vertex_buffer,
@@ -647,9 +656,7 @@ impl CullResources {
             args_probe_off,
             matrix_bytes,
         );
-        let mat_probe_at = self.probe_copy(&mut enc, &staging, &self.compacted_buffer, matrix_bytes);
-        debug_assert_eq!(args_probe_at, args_probe_off);
-        debug_assert_eq!(mat_probe_at, mat_probe_off);
+        self.probe_copy(&mut enc, &staging, &self.compacted_buffer, mat_probe_off, matrix_bytes);
         queue.submit(Some(enc.finish()));
 
         let done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
