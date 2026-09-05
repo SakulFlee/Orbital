@@ -1442,22 +1442,8 @@ impl ApplicationHandler for ModuleRuntime {
                 }
 
                 let ctx_lock = ctx_lock!(ctx);
-
-                // Log to verify whether window.inner_size() matches the event.
-                let window_size = ctx_lock.window().inner_size();
-                info!(
-                    "[Resized] event={:?} window_inner={:?}",
-                    new_size, window_size
-                );
-
-                // On Android, window.inner_size() may not yet reflect the
-                // new dimensions when the Resized event fires.  Override the
-                // width/height with the event's new_size so the surface,
-                // depth texture, and camera always agree.
-                let mut configuration =
+                let configuration =
                     ctx_lock.make_surface_configuration(self.settings.vsync_enabled);
-                configuration.width = new_size.width;
-                configuration.height = new_size.height;
                 ctx_lock.reconfigure_surface(&configuration);
 
                 self.input_state.surface_resize(new_size);
