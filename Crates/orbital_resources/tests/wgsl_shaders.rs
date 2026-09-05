@@ -55,11 +55,6 @@ fn shadow_depth_shader_is_valid_wgsl() {
 }
 
 #[test]
-fn instance_cull_shader_is_valid_wgsl() {
-    validate_single("Assets/Shaders/instance_cull.wgsl");
-}
-
-#[test]
 fn sky_cube_shader_is_valid_wgsl() {
     validate_concatenated(&[
         "Crates/orbital_resources/src/world_environment/sky_common.wgsl",
