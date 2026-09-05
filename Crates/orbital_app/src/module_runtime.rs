@@ -1244,6 +1244,35 @@ impl ApplicationHandler for ModuleRuntime {
                 }
                 ctx_guard.window().set_cursor_visible(false);
             }
+
+            // After a suspend→resume (e.g. Android rotation), the surface is
+            // recreated with the new native-window dimensions but the camera's
+            // aspect ratio still holds the old value.  Sync it now so the
+            // projection matches the fresh surface.
+            let new_aspect = config.width as f32 / config.height as f32;
+            if let Some(active_camera) =
+                self.ecs_world.get_resource::<ActiveCamera>()
+            {
+                let eid = active_camera.0.index;
+                if let Some(desc_store) =
+                    self.ecs_world.get_component_store_mut::<CameraDescriptorEcs>()
+                {
+                    if let Some(idx) = desc_store.sparse[eid] {
+                        desc_store.get_mut_store().components[idx].aspect = new_aspect;
+                    }
+                }
+                if let Some(dirty_store) =
+                    self.ecs_world.get_component_store_mut::<CameraDirty>()
+                {
+                    if let Some(idx) = dirty_store.sparse[eid] {
+                        dirty_store.get_mut_store().components[idx].0 = true;
+                    }
+                }
+            }
+            self.ecs_world.insert_resource(WindowSize(cgmath::Vector2::new(
+                config.width,
+                config.height,
+            )));
         }
 
         info!("App resumed.");
@@ -1397,22 +1426,8 @@ impl ApplicationHandler for ModuleRuntime {
                 }
 
                 let ctx_lock = ctx_lock!(ctx);
-
-                // Log to verify whether window.inner_size() matches the event.
-                let window_size = ctx_lock.window().inner_size();
-                info!(
-                    "[Resized] event={:?} window_inner={:?}",
-                    new_size, window_size
-                );
-
-                // On Android, window.inner_size() may not yet reflect the
-                // new dimensions when the Resized event fires.  Override the
-                // width/height with the event's new_size so the surface,
-                // depth texture, and camera always agree.
-                let mut configuration =
+                let configuration =
                     ctx_lock.make_surface_configuration(self.settings.vsync_enabled);
-                configuration.width = new_size.width;
-                configuration.height = new_size.height;
                 ctx_lock.reconfigure_surface(&configuration);
 
                 self.input_state.surface_resize(new_size);
