@@ -34,6 +34,12 @@ pub struct CullResources {
     /// buffer directly as vertex data.
     pub compacted_vertex_buffer: Buffer,
     pub counters_buffer: Buffer,
+    /// Compute-write target (STORAGE): `finalize` writes the per-model
+    /// DrawIndexedIndirect args here; they are then copied into
+    /// [`Self::indirect_buffer`] before drawing — mirroring the
+    /// compacted→vertex copy, so the `INDIRECT` bind point is never fed by a
+    /// compute-written storage buffer either.
+    pub indirect_storage_buffer: Buffer,
     pub indirect_buffer: Buffer,
 
     cull_pipeline: ComputePipeline,
@@ -262,11 +268,20 @@ impl CullResources {
                 | BufferUsages::COPY_DST
                 | BufferUsages::COPY_SRC, // readback: source for copy to staging
         });
-        let indirect_buffer = device.create_buffer(&BufferDescriptor {
-            label: Some("Cull Indirect Args"),
+        // Compute writes the DrawIndexedIndirect args here (STORAGE); they are
+        // then copied into `indirect_buffer` before drawing. Same rationale as
+        // the compacted→vertex copy: never consume a compute-written STORAGE
+        // buffer directly, whether as vertex data or as indirect args.
+        let indirect_storage_buffer = device.create_buffer(&BufferDescriptor {
+            label: Some("Cull Indirect Args (Storage)"),
             size: max_models as u64 * indirect_entry_size,
-            usage: BufferUsages::STORAGE
-                | BufferUsages::INDIRECT
+            usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        });
+        let indirect_buffer = device.create_buffer(&BufferDescriptor {
+            label: Some("Cull Indirect Args (Indirect)"),
+            size: max_models as u64 * indirect_entry_size,
+            usage: BufferUsages::INDIRECT
                 | BufferUsages::COPY_DST
                 | BufferUsages::COPY_SRC, // readback: source for copy to staging
             mapped_at_creation: false,
@@ -302,7 +317,7 @@ impl CullResources {
                 },
                 BindGroupEntry {
                     binding: 6,
-                    resource: indirect_buffer.as_entire_binding(),
+                    resource: indirect_storage_buffer.as_entire_binding(),
                 },
             ],
         });
@@ -317,6 +332,7 @@ impl CullResources {
             compacted_buffer,
             compacted_vertex_buffer,
             counters_buffer,
+            indirect_storage_buffer,
             indirect_buffer,
             cull_pipeline,
             cull_all_pipeline,
@@ -376,6 +392,13 @@ impl CullResources {
     }
     pub fn indirect_buffer(&self) -> &Buffer {
         &self.indirect_buffer
+    }
+    /// The compute-write target for the per-model indirect draw args. The
+    /// render pass never reads this directly — it consumes
+    /// [`Self::indirect_buffer`], which is filled by a copy after each
+    /// dispatch.
+    pub fn indirect_storage_buffer(&self) -> &Buffer {
+        &self.indirect_storage_buffer
     }
 
     pub fn model_first_instance(&self, i: usize) -> u32 {
@@ -473,6 +496,7 @@ impl CullResources {
         }
 
         self.copy_compacted_to_vertex(encoder);
+        self.copy_indirect_args(encoder);
     }
 
     /// Stage the compute's compacted instance buffer into the vertex-read buffer
@@ -489,6 +513,60 @@ impl CullResources {
         );
     }
 
+    /// Stage the finalize pass' per-model indirect draw args into the
+    /// `INDIRECT`-usage buffer the render pass consumes, mirroring
+    /// [`Self::copy_compacted_to_vertex`]: the `draw_indexed_indirect` args
+    /// buffer is never a compute-written storage buffer.
+    fn copy_indirect_args(&self, encoder: &mut wgpu::CommandEncoder) {
+        let bytes = self.max_models as u64 * 20; // 20 B per DrawIndexedIndirect
+        encoder.copy_buffer_to_buffer(
+            &self.indirect_storage_buffer,
+            0,
+            &self.indirect_buffer,
+            0,
+            bytes,
+        );
+    }
+
+    /// CPU-args probe (`ORBITAL_CULL_CPU_ARGS` / `orbital_cull_cpu_args`):
+    /// bypass the cull compute entirely — write known-correct indirect draw
+    /// args and "compacted" instance matrices from the CPU.
+    ///
+    /// Args: each model draws its full (un-culled) instance count; the first
+    /// model therefore always renders, which discriminates "the driver does
+    /// not execute `draw_indexed_indirect` with compute-written args" from
+    /// "the draw works and the GPU-computed data itself is the problem".
+    /// The compacted instance data is filled with the same matrices that were
+    /// uploaded as cull input (a manual compaction admitting everything), so
+    /// vertex data stays valid too. Counters are never touched: no compute
+    /// runs in this mode, so they stay zero (buffers are zero-initialised).
+    pub fn write_cpu_args(
+        &self,
+        queue: &wgpu::Queue,
+        // (index_count, instance_count, first_index, base_vertex, first_instance)
+        model_params: &[(u32, u32, u32, i32, u32)],
+        instance_matrices: &[u8],
+    ) {
+        // Indirect args: (index_count, instance_count, first_index,
+        // base_vertex, first_instance) — instance_count = full model count,
+        // first_instance = 0 (compacted layout == input layout here).
+        let mut args = Vec::with_capacity(model_params.len() * 20);
+        for &(index_count, instance_count, first_index, base_vertex, _first_instance) in
+            model_params
+        {
+            args.extend_from_slice(&index_count.to_le_bytes());
+            args.extend_from_slice(&instance_count.to_le_bytes());
+            args.extend_from_slice(&first_index.to_le_bytes());
+            args.extend_from_slice(&(base_vertex as u32).to_le_bytes());
+            args.extend_from_slice(&0u32.to_le_bytes()); // first_instance
+        }
+        queue.write_buffer(&self.indirect_buffer, 0, &args);
+
+        // Compacted instances: identity compaction (same order as input).
+        let bytes = (self.max_instances as u64 * 64).min(instance_matrices.len() as u64);
+        queue.write_buffer(&self.compacted_vertex_buffer, 0, &instance_matrices[..bytes as usize]);
+    }
+
     /// Debug readback of per-model counters + indirect args.
     ///
     /// Must be called **after** `dispatch`'s submission has been enqueued.
@@ -500,13 +578,17 @@ impl CullResources {
         }
         let counters_bytes = (num_models as u64 * 4).max(4);
         let indirect_bytes = num_models as u64 * 20;
+        // First compacted instance matrix (model 0, 64 B) — content check for
+        // the compaction stores (garbage here + correct draw args = the
+        // compute writes bad transforms, not a draw-side problem).
+        let matrix_bytes = 64u64;
 
-        // Staging holds counters followed by indirect args concatenated. Both
-        // sources carry COPY_SRC now, and each region gets its own offset so
+        // Staging holds counters, then indirect args, then the matrix dump.
+        // All sources carry COPY_SRC, and each region gets its own offset so
         // they don't overwrite each other.
         let staging = device.create_buffer(&BufferDescriptor {
             label: Some("Cull Debug Staging"),
-            size: counters_bytes + indirect_bytes,
+            size: counters_bytes + indirect_bytes + matrix_bytes,
             usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -516,6 +598,13 @@ impl CullResources {
         });
         enc.copy_buffer_to_buffer(&self.counters_buffer, 0, &staging, 0, counters_bytes);
         enc.copy_buffer_to_buffer(&self.indirect_buffer, 0, &staging, counters_bytes, indirect_bytes);
+        enc.copy_buffer_to_buffer(
+            &self.compacted_vertex_buffer,
+            0,
+            &staging,
+            counters_bytes + indirect_bytes,
+            matrix_bytes,
+        );
         queue.submit(Some(enc.finish()));
 
         let done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -551,6 +640,18 @@ impl CullResources {
                     "model {m}: visible={visible}  indirect=[index_count={index_count}, instance_count={instance_count}, first_index={first_index}, base_vertex={base_vertex}, first_instance={first_instance}]"
                 );
             }
+            // First compacted instance matrix of model 0 (16 × f32). With
+            // correct draw args but degenerate values here (zeros/NaN/nonsense
+            // — a valid transform has a 1.0 in one diagonal slot per row and
+            // translation in the last row), the compaction stores themselves
+            // are what the driver miscompiles.
+            let mb_start = counters_bytes as usize + indirect_bytes as usize;
+            let mut mx = [0f32; 16];
+            for (k, mxk) in mx.iter_mut().enumerate() {
+                let o = mb_start + k * 4;
+                *mxk = f32::from_le_bytes(data[o..o + 4].try_into().unwrap());
+            }
+            log::debug!("model 0 matrix0 = {mx:?}");
             log::debug!("─────────────────────────────────────────────");
         } else {
             log::warn!("ORBITAL_CULL_DEBUG: staging buffer not ready after poll");

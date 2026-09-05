@@ -154,6 +154,8 @@ pub fn sys_frustum_cull(ecs: &mut World) {
         || orbital_core::debug_flags::cull_debug_mode()
             == orbital_core::debug_flags::CullDebugMode::CullAll;
     let debug_single_encoder = orbital_core::debug_flags::cull_single_encoder();
+    // CPU-args probe: args/instances written from the CPU below, no compute.
+    let debug_cpu_args = orbital_core::debug_flags::cull_cpu_args();
 
     let needs_alloc = match existing_info {
         Some(Some((max_inst, max_mdl))) => {
@@ -217,6 +219,33 @@ pub fn sys_frustum_cull(ecs: &mut World) {
         .collect();
     cr.upload_instances_and_bounds(&queue, &all_inst, &all_bounds);
 
+    // ── CPU-args probe (`ORBITAL_CULL_CPU_ARGS`) ──────────────────────
+    // Skip the cull compute entirely; write indirect draw args (full,
+    // un-culled instance counts) and the un-compacted instance matrices from
+    // the CPU. The render pass then consumes `draw_indexed_indirect` with
+    // CPU-written args — isolating "the driver does not execute indirect
+    // draws with compute-written args" from "the GPU cull data itself is the
+    // problem". The early return skips both the zero-counters copy and the
+    // compute dispatch: no compute ever runs, so counters stay zero (buffers
+    // are zero-initialised) and nothing overwrites the CPU-written data.
+    if orbital_core::debug_flags::cull_cpu_args() {
+        // (index_count, instance_count, first_index, base_vertex, first_instance)
+        let model_params: Vec<(u32, u32, u32, i32, u32)> = entries
+            .iter()
+            .map(|e| {
+                (
+                    e.index_count,
+                    e.instance_count,
+                    e.first_index,
+                    e.base_vertex,
+                    e.first_instance,
+                )
+            })
+            .collect();
+        cr.write_cpu_args(&queue, &model_params, &all_inst);
+        return;
+    }
+
     // Drop guard so we can borrow ecs again for encoder creation.
     drop(guard);
 
@@ -225,7 +254,9 @@ pub fn sys_frustum_cull(ecs: &mut World) {
     // skip the separate zero-counters and compute submissions here. Counters
     // are still self-resetting: `finalize` atomicExchange's them back to 0
     // every frame, and the buffers are created zero-initialised.
-    if debug_single_encoder {
+    // The CPU-args probe likewise skips the compute dispatch (args were
+    // already written above); counters stay zero as no compute ever ran.
+    if debug_single_encoder || debug_cpu_args {
         return;
     }
 
