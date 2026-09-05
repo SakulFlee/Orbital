@@ -31,9 +31,9 @@ use crate::{
     AppContext, AppSettings, AppState, Module, RenderOverlayResource, Timer, make_core_schedule,
 };
 use orbital_ecs_bridge::{
-    CursorGrabConfig, CursorPosition, DeltaTime, DeviceResource, EcsCameraStore, EngineEvent,
-    EngineEvents, FrameCounter, InputSnapshot, LightDescriptorEcs, Position, QueueResource,
-    SurfaceFormatResource, TotalTime, WindowSize,
+    ActiveCamera, CameraDescriptorEcs, CameraDirty, CursorGrabConfig, CursorPosition, DeltaTime,
+    DeviceResource, EcsCameraStore, EngineEvent, EngineEvents, FrameCounter, InputSnapshot,
+    LightDescriptorEcs, Position, QueueResource, SurfaceFormatResource, TotalTime, WindowSize,
 };
 
 macro_rules! ctx_lock {
@@ -1392,9 +1392,27 @@ impl ApplicationHandler for ModuleRuntime {
                 })
             }
             WindowEvent::Resized(new_size) => {
+                if new_size.width == 0 || new_size.height == 0 {
+                    return;
+                }
+
                 let ctx_lock = ctx_lock!(ctx);
-                let configuration =
+
+                // Log to verify whether window.inner_size() matches the event.
+                let window_size = ctx_lock.window().inner_size();
+                info!(
+                    "[Resized] event={:?} window_inner={:?}",
+                    new_size, window_size
+                );
+
+                // On Android, window.inner_size() may not yet reflect the
+                // new dimensions when the Resized event fires.  Override the
+                // width/height with the event's new_size so the surface,
+                // depth texture, and camera always agree.
+                let mut configuration =
                     ctx_lock.make_surface_configuration(self.settings.vsync_enabled);
+                configuration.width = new_size.width;
+                configuration.height = new_size.height;
                 ctx_lock.reconfigure_surface(&configuration);
 
                 self.input_state.surface_resize(new_size);
@@ -1403,6 +1421,38 @@ impl ApplicationHandler for ModuleRuntime {
                         new_size.width,
                         new_size.height,
                     )));
+
+                // Recreate the depth texture to match the new surface dimensions.
+                let resolution = cgmath::Vector2::new(new_size.width, new_size.height);
+                if let Some(renderer) = &mut self.renderer {
+                    renderer.change_resolution(
+                        resolution,
+                        ctx_lock.device(),
+                        ctx_lock.queue(),
+                    );
+                }
+
+                // Update camera aspect ratio so the projection isn't stretched.
+                let new_aspect = new_size.width as f32 / new_size.height as f32;
+                if let Some(active_camera) =
+                    self.ecs_world.get_resource::<ActiveCamera>()
+                {
+                    let eid = active_camera.0.index;
+                    if let Some(desc_store) =
+                        self.ecs_world.get_component_store_mut::<CameraDescriptorEcs>()
+                    {
+                        if let Some(idx) = desc_store.sparse[eid] {
+                            desc_store.get_mut_store().components[idx].aspect = new_aspect;
+                        }
+                    }
+                    if let Some(dirty_store) =
+                        self.ecs_world.get_component_store_mut::<CameraDirty>()
+                    {
+                        if let Some(idx) = dirty_store.sparse[eid] {
+                            dirty_store.get_mut_store().components[idx].0 = true;
+                        }
+                    }
+                }
 
                 None
             }
