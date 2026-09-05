@@ -64,6 +64,17 @@ impl std::fmt::Debug for CullResources {
 }
 
 impl CullResources {
+    /// Probe helper: enqueue a copy of `byte_len` bytes from `src` into the
+    /// debug readback's staging region, returning the staging offset used.
+    /// Lets `readback_cull_state` dump *both sides* of each intermediary copy
+    /// (storage vs consumer buffer) to tell "compute stored nothing" apart
+    /// from "the copy dropped it".
+    fn probe_copy(&self, enc: &mut wgpu::CommandEncoder, staging: &Buffer, src: &Buffer, byte_len: u64) -> u64 {
+        let offset = staging.size() - byte_len;
+        enc.copy_buffer_to_buffer(src, 0, staging, offset, byte_len);
+        offset
+    }
+
     pub fn new(device: &Device, max_instances: u32, max_models: u32) -> Self {
         Self::with_debug(device, max_instances, max_models, false, false)
     }
@@ -565,6 +576,26 @@ impl CullResources {
         // Compacted instances: identity compaction (same order as input).
         let bytes = (self.max_instances as u64 * 64).min(instance_matrices.len() as u64);
         queue.write_buffer(&self.compacted_vertex_buffer, 0, &instance_matrices[..bytes as usize]);
+
+        // Readback sentinel in the first instance matrix: CPU wrote it this
+        // frame, so a probe-mode matrix dump of [1.5, 2.5, 3.5, ...] confirms
+        // the write landed (and that the readback pipeline itself works).
+        if bytes >= 16 {
+            let m0: [f32; 16] = [
+                1.5, 2.5, 3.5, 4.5, 5.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            ];
+            let mut m0b = Vec::with_capacity(64);
+            for v in m0 {
+                m0b.extend_from_slice(&v.to_le_bytes());
+            }
+            queue.write_buffer(&self.compacted_vertex_buffer, 0, &m0b);
+        }
+        log::info!(
+            "cull CPU-args probe: wrote {} models (model0 index_count={}) + {} instance bytes",
+            model_params.len(),
+            model_params.first().map(|p| p.0).unwrap_or(0),
+            bytes,
+        );
     }
 
     /// Debug readback of per-model counters + indirect args.
@@ -572,23 +603,30 @@ impl CullResources {
     /// Must be called **after** `dispatch`'s submission has been enqueued.
     /// Blocks until the GPU work is done, so only use it while debugging
     /// (`ORBITAL_CULL_DEBUG=1` / `=cull_all`)!
+    ///
+    /// Dumps *both sides* of each intermediary copy (storage vs consumer) so a
+    /// zero in the draw-visible buffer can be attributed to the compute store
+    /// or to the copy. Also self-identifies which debug mode was active, and
+    /// reports the CPU-args sentinel ([1.5, 2.5, 3.5, 4.5, 5.5, ...]) when the
+    /// CPU-args probe wrote the data that frame.
     pub fn readback_cull_state(&self, device: &Device, queue: &wgpu::Queue, num_models: u32) {
         if num_models == 0 {
             return;
         }
+        let cpu_args = orbital_core::debug_flags::cull_cpu_args();
         let counters_bytes = (num_models as u64 * 4).max(4);
         let indirect_bytes = num_models as u64 * 20;
-        // First compacted instance matrix (model 0, 64 B) — content check for
-        // the compaction stores (garbage here + correct draw args = the
-        // compute writes bad transforms, not a draw-side problem).
         let matrix_bytes = 64u64;
 
-        // Staging holds counters, then indirect args, then the matrix dump.
-        // All sources carry COPY_SRC, and each region gets its own offset so
-        // they don't overwrite each other.
+        // Staging regions: [counters | indirect args | matrix], then one
+        // trailing probe region per intermediary copy (args-storage side,
+        // matrix-storage side), each of the same size, aligned to their start.
+        let args_probe_off = counters_bytes + indirect_bytes + matrix_bytes;
+        let mat_probe_off = args_probe_off + indirect_bytes;
+        let total = mat_probe_off + matrix_bytes;
         let staging = device.create_buffer(&BufferDescriptor {
             label: Some("Cull Debug Staging"),
-            size: counters_bytes + indirect_bytes + matrix_bytes,
+            size: total,
             usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -597,14 +635,21 @@ impl CullResources {
             label: Some("Cull Debug Readback"),
         });
         enc.copy_buffer_to_buffer(&self.counters_buffer, 0, &staging, 0, counters_bytes);
+        // Consumer side (what the draw consumes) + storage side (what finalize
+        // wrote) of the args intermediary copy.
         enc.copy_buffer_to_buffer(&self.indirect_buffer, 0, &staging, counters_bytes, indirect_bytes);
+        let args_probe_at = self.probe_copy(&mut enc, &staging, &self.indirect_storage_buffer, indirect_bytes);
+        // Consumer + storage side of the instance-matrix intermediary copy.
         enc.copy_buffer_to_buffer(
             &self.compacted_vertex_buffer,
             0,
             &staging,
-            counters_bytes + indirect_bytes,
+            args_probe_off,
             matrix_bytes,
         );
+        let mat_probe_at = self.probe_copy(&mut enc, &staging, &self.compacted_buffer, matrix_bytes);
+        debug_assert_eq!(args_probe_at, args_probe_off);
+        debug_assert_eq!(mat_probe_at, mat_probe_off);
         queue.submit(Some(enc.finish()));
 
         let done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -621,42 +666,39 @@ impl CullResources {
         if mapped
             && let Ok(data) = staging.slice(..).get_mapped_range()
         {
-            log::debug!("──────── ORBITAL_CULL_DEBUG readback ────────");
+            log::debug!(
+                "──────── ORBITAL_CULL_DEBUG readback (cpu_args={cpu_args}) ────────"
+            );
+            let u32_at = |o: usize| -> u32 {
+                u32::from_le_bytes(data[o..o + 4].try_into().unwrap())
+            };
             for m in 0..num_models as usize {
-                // Counters region at [0..counters_bytes); indirect region at
-                // [counters_bytes..]. (Note: `visible` here is the raw counter,
-                // which finalize resets to 0 each frame — the meaningful value
-                // is `instance_count` below, committed into the draw args.)
-                let cb: [u8; 4] = data[m * 4..m * 4 + 4].try_into().unwrap();
-                let visible = u32::from_le_bytes(cb);
-                let ib_start = counters_bytes as usize + m * 20;
-                let ib: [u8; 20] = data[ib_start..ib_start + 20].try_into().unwrap();
-                let index_count = u32::from_le_bytes(ib[0..4].try_into().unwrap());
-                let instance_count = u32::from_le_bytes(ib[4..8].try_into().unwrap());
-                let first_index = u32::from_le_bytes(ib[8..12].try_into().unwrap());
-                let base_vertex = i32::from_le_bytes(ib[12..16].try_into().unwrap());
-                let first_instance = u32::from_le_bytes(ib[16..20].try_into().unwrap());
+                let visible = u32_at(m * 4);
+                let ib = counters_bytes as usize + m * 20;
                 log::debug!(
-                    "model {m}: visible={visible}  indirect=[index_count={index_count}, instance_count={instance_count}, first_index={first_index}, base_vertex={base_vertex}, first_instance={first_instance}]"
+                    "model {m}: visible={visible}  args.consumed=[{}, {}, {}, {}, {}]  args.storage=[{}, {}, {}, {}, {}]",
+                    u32_at(ib), u32_at(ib + 4), u32_at(ib + 8), u32_at(ib + 12), u32_at(ib + 16),
+                    u32_at(args_probe_off as usize + m * 20), u32_at(args_probe_off as usize + m * 20 + 4),
+                    u32_at(args_probe_off as usize + m * 20 + 8), u32_at(args_probe_off as usize + m * 20 + 12),
+                    u32_at(args_probe_off as usize + m * 20 + 16),
                 );
             }
-            // First compacted instance matrix of model 0 (16 × f32). With
-            // correct draw args but degenerate values here (zeros/NaN/nonsense
-            // — a valid transform has a 1.0 in one diagonal slot per row and
-            // translation in the last row), the compaction stores themselves
-            // are what the driver miscompiles.
-            let mb_start = counters_bytes as usize + indirect_bytes as usize;
-            let mut mx = [0f32; 16];
-            for (k, mxk) in mx.iter_mut().enumerate() {
-                let o = mb_start + k * 4;
-                *mxk = f32::from_le_bytes(data[o..o + 4].try_into().unwrap());
-            }
-            log::debug!("model 0 matrix0 = {mx:?}");
-            log::debug!("─────────────────────────────────────────────");
+            let f32_at = |o: usize| -> f32 {
+                f32::from_le_bytes(data[o..o + 4].try_into().unwrap())
+            };
+            let dump_matrix = |label: &str, off: usize| {
+                let mut mx = [0f32; 16];
+                for (k, v) in mx.iter_mut().enumerate() {
+                    *v = f32_at(off + k * 4);
+                }
+                log::debug!("{label} = {mx:?}");
+            };
+            dump_matrix("mat.vertex_buffer (draw consumes)", args_probe_off as usize);
+            dump_matrix("mat.compute_direct (copy source)", mat_probe_off as usize);
+            staging.unmap();
         } else {
             log::warn!("ORBITAL_CULL_DEBUG: staging buffer not ready after poll");
         }
-        staging.unmap();
     }
 }
 
