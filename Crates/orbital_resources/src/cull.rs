@@ -274,7 +274,7 @@ impl CullResources {
         let compacted_vertex_buffer = device.create_buffer(&BufferDescriptor {
             label: Some("Cull Compacted Out (Vertex)"),
             size: instances_size,
-            usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
+            usage: BufferUsages::VERTEX | BufferUsages::COPY_DST | BufferUsages::COPY_SRC, // readback src
             mapped_at_creation: false,
         });
         let counters_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
