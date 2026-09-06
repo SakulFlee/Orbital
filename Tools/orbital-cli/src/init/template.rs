@@ -73,7 +73,7 @@ target_sdk = {target_sdk}
 targets = ["arm64-v8a", "armeabi-v7a", "x86_64", "x86"]
 apk_mode = "multiarch"
 ndk_version = "26.2.11394342"
-screen_orientation = "landscape"
+screen_orientation = "unspecified"
 "#,
         package = config.package_name,
         min_sdk = config.min_sdk,
@@ -135,9 +135,7 @@ use orbital::ecs_bridge::{
     LightDescriptorEcs, LightDirty, ModelDescriptorEcs, ModelDirty, ModelInstances, Position,
     Rotation,
 };
-#[cfg(not(target_os = "android"))]
-use orbital::logging::self;
-use orbital::logging::{error, info};
+use orbital::logging::{self, error, info};
 use orbital::procgeo::scene::{
     EntityDescriptor, SceneBuilder, SceneMaterial, SceneShape, TransformDef,
 };
@@ -306,64 +304,6 @@ impl Module for GameModule {
         .unwrap();
 
         vec![sys_camera_controller.into_system()]
-    }
-
-    fn save_state(&self, ecs: &mut World) {
-        let Some(camera) = ecs.get_resource::<ActiveCamera>() else {
-            return;
-        };
-        let position = {
-            let Some(store) = ecs.get_component_store::<Position>() else {
-                return;
-            };
-            let Some(position) = store.get_component(camera.0.index) else {
-                return;
-            };
-            *position
-        };
-        let data = format!("{},{},{}", position.0.x, position.0.y, position.0.z);
-        if let Ok(fm) = orbital::file_manager::FileManager::global() {
-            let _ = fm.write_bytes(SAVE_PATH, data.as_bytes());
-            info!("Saved camera position: {data}");
-        }
-    }
-
-    fn restore_state(&self, ecs: &mut World) {
-        let Ok(fm) = orbital::file_manager::FileManager::global() else {
-            return;
-        };
-        if !fm.storage_path_exists(SAVE_PATH) {
-            return;
-        }
-        let Ok(bytes) = fm.read_bytes(SAVE_PATH) else {
-            return;
-        };
-        let Ok(text) = String::from_utf8(bytes) else {
-            return;
-        };
-        let parts: Vec<f32> = text
-            .split(',')
-            .filter_map(|s| s.trim().parse().ok())
-            .collect();
-        if parts.len() != 3 {
-            return;
-        }
-        let Some(camera) = ecs.get_resource::<ActiveCamera>() else {
-            return;
-        };
-        if let Some(mut store) = ecs.get_component_store_mut::<Position>() {
-            if let Some(index) = store.sparse.get(camera.0.index).copied().flatten() {
-                store.components[index] = Position(Point3::new(parts[0], parts[1], parts[2]));
-                info!("Restored camera position: {text}");
-            }
-        }
-    }
-
-    fn clear_state(&self, _ecs: &mut World) {
-        if let Ok(fm) = orbital::file_manager::FileManager::global() {
-            let _ = fm.remove_file(SAVE_PATH);
-            info!("Cleared saved state");
-        }
     }
 }
 
