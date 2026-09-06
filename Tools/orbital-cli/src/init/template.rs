@@ -73,7 +73,7 @@ target_sdk = {target_sdk}
 targets = ["arm64-v8a", "armeabi-v7a", "x86_64", "x86"]
 apk_mode = "multiarch"
 ndk_version = "26.2.11394342"
-screen_orientation = "landscape"
+screen_orientation = "unspecified"
 "#,
         package = config.package_name,
         min_sdk = config.min_sdk,
