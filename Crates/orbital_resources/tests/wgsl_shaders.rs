@@ -295,11 +295,7 @@ fn node_assembled_pbr_shader_is_valid_wgsl() {
 
 // --- Full assembled world-environment shaders ------------------------------
 
-fn validate_assembled_world_env(
-    label: &str,
-    node_names: &[&str],
-    entrypoint_path: &str,
-) {
+fn validate_assembled_world_env(label: &str, node_names: &[&str], entrypoint_path: &str) {
     use orbital_shader_preprocessor::{NodeRegistry, ShaderBuilder};
     use std::sync::Arc;
 

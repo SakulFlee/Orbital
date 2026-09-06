@@ -6,6 +6,7 @@
 use std::sync::{Arc, RwLock};
 
 use log::warn;
+use orbital_camera::Camera;
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
     CameraDescriptorEcs, CameraDirty, CameraRealization, DeviceResource, EcsCameraStore,
@@ -14,7 +15,6 @@ use orbital_ecs_bridge::{
     MeshCacheResource, ModelDescriptorEcs, ModelDirty, ModelInstances, ModelRealization, Position,
     PrevPosition, QueueResource, Rotation, ShadowDirtyFlag, SurfaceFormatResource,
 };
-use orbital_camera::Camera;
 use orbital_model::Model;
 use orbital_world_environment::WorldEnvironmentDescriptor;
 

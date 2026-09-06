@@ -151,14 +151,12 @@ pub fn prelude_library() -> NodeLibrary {
         )
         .with_deps(["aces_constants"]),
     );
-    lib.add(
-        crate::ShaderNode::new(
-            "fresnel_schlick",
-            "fn fresnel_schlick(cos_theta: f32, F0: vec3<f32>) -> vec3<f32> {\n\
+    lib.add(crate::ShaderNode::new(
+        "fresnel_schlick",
+        "fn fresnel_schlick(cos_theta: f32, F0: vec3<f32>) -> vec3<f32> {\n\
                  return F0 + (1.0 - F0) * pow(1.0 - cos_theta, 5.0);\n\
              }\n",
-        ),
-    );
+    ));
     lib.add(crate::ShaderNode::new("fresnel_schlick_roughness",
         "fn fresnel_schlick_roughness(cos_theta: f32, F0: vec3<f32>, roughness: f32) -> vec3<f32> {\n\
              return F0 + (max(vec3<f32>(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cos_theta, 0.0, 1.0), 5.0);\n\

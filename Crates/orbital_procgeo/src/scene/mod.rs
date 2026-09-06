@@ -10,8 +10,8 @@ use std::sync::Arc;
 
 use cgmath::{Quaternion, Vector3};
 use orbital_material_shader::MaterialShaderDescriptor;
-use orbital_mesh::MeshDescriptor;
 use orbital_math::Transform;
+use orbital_mesh::MeshDescriptor;
 
 use crate::shapes;
 

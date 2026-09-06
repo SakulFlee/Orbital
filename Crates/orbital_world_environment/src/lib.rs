@@ -25,8 +25,8 @@ use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
 };
 
-use orbital_texture::{FilterMode, Texture, TextureSize};
 use orbital_material_shader::MaterialShader;
+use orbital_texture::{FilterMode, Texture, TextureSize};
 
 mod error;
 pub use error::*;
@@ -1511,7 +1511,9 @@ impl WorldEnvironment {
             MaterialShaderDescriptor {
                 name: Some(String::from("WorldEnvironment MaterialShader")),
                 nodes: WORLD_ENV_ANALYTIC_NODES,
-                raw_source: Some(include_str!("wgsl_nodes/world_env_analytic_entrypoints.wgsl").into()),
+                raw_source: Some(
+                    include_str!("wgsl_nodes/world_env_analytic_entrypoints.wgsl").into(),
+                ),
                 variables: vec![],
                 depth_stencil: false,
                 vertex_stage_layouts: None,
@@ -1522,7 +1524,9 @@ impl WorldEnvironment {
             MaterialShaderDescriptor {
                 name: Some(String::from("WorldEnvironment MaterialShader")),
                 nodes: WORLD_ENV_TEXTURE_NODES,
-                raw_source: Some(include_str!("wgsl_nodes/world_env_texture_entrypoints.wgsl").into()),
+                raw_source: Some(
+                    include_str!("wgsl_nodes/world_env_texture_entrypoints.wgsl").into(),
+                ),
                 variables: vec![],
                 depth_stencil: false,
                 vertex_stage_layouts: None,

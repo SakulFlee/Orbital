@@ -23,9 +23,9 @@ use winit::{
     window::{CursorGrabMode, WindowId},
 };
 
-use orbital_world_environment::{GeneratedSkyParameters, WorldEnvironment};
 use orbital_light::LightType;
 use orbital_shadow::{ShadowCaster, ShadowLightInfo};
+use orbital_world_environment::{GeneratedSkyParameters, WorldEnvironment};
 
 use crate::{
     AppContext, AppSettings, AppState, Module, RenderOverlayResource, Timer, make_core_schedule,
@@ -665,8 +665,8 @@ impl ModuleRuntime {
         // Build bind group — cache the layout (expensive driver call)
         static WORLD_BG_LAYOUT: std::sync::OnceLock<wgpu::BindGroupLayout> =
             std::sync::OnceLock::new();
-        let bind_group_layout =
-            WORLD_BG_LAYOUT.get_or_init(|| orbital_material_shader::make_world_bind_group_layout(device));
+        let bind_group_layout = WORLD_BG_LAYOUT
+            .get_or_init(|| orbital_material_shader::make_world_bind_group_layout(device));
         let world_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("World Bind Group"),
             layout: bind_group_layout,

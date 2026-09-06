@@ -1,5 +1,5 @@
-use orbital_math::Transform;
 use cgmath::{Quaternion, Vector3, Zero};
+use orbital_math::Transform;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct InstanceDescriptor {

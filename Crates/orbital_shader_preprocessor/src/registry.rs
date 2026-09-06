@@ -99,8 +99,6 @@ static GLOBAL: LazyLock<RwLock<NodeRegistry>> = LazyLock::new(|| {
 /// to make the library's nodes available to all shaders. Registering a node
 /// whose name already maps to an identical node is idempotent; registering
 /// a different node with the same name returns an error.
-pub fn register_global_library(
-    lib: &NodeLibrary,
-) -> Result<(), crate::ShaderPreprocessorError> {
+pub fn register_global_library(lib: &NodeLibrary) -> Result<(), crate::ShaderPreprocessorError> {
     GLOBAL.write().unwrap().register_library(lib)
 }

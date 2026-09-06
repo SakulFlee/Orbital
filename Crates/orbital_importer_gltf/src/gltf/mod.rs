@@ -6,14 +6,14 @@ use gltf::{Camera, Document, Material, Mesh, Node, Scene, Semantic};
 use hashbrown::HashMap;
 use image::GenericImageView;
 use log::{debug, trace, warn};
-use orbital_file_manager::FileManager;
 use orbital_camera::CameraDescriptor;
+use orbital_file_manager::FileManager;
 use orbital_light::LightDescriptor;
 use orbital_material_shader::MaterialShaderDescriptor;
+use orbital_math::Transform;
 use orbital_mesh::{MeshDescriptor, Vertex};
 use orbital_model::ModelDescriptor;
 use orbital_texture::{FilterMode, TextureDescriptor, TextureSize};
-use orbital_math::Transform;
 
 type MaterialDescriptor = MaterialShaderDescriptor;
 type PBRMaterialDescriptor = orbital_shader_pbr::PBRMaterialShaderDescriptor;

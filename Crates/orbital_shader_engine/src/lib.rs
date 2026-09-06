@@ -58,12 +58,18 @@ pub fn engine_library() -> NodeLibrary {
         "ambient_intensity",
         include_str!("wgsl/ambient_intensity.wgsl"),
     ));
-    lib.add(ShaderNode::new("inv_atan", include_str!("wgsl/inv_atan.wgsl")));
+    lib.add(ShaderNode::new(
+        "inv_atan",
+        include_str!("wgsl/inv_atan.wgsl"),
+    ));
     lib.add(ShaderNode::new(
         "tile_params",
         include_str!("wgsl/tile_params.wgsl"),
     ));
-    lib.add(ShaderNode::new("mip_info", include_str!("wgsl/mip_info.wgsl")));
+    lib.add(ShaderNode::new(
+        "mip_info",
+        include_str!("wgsl/mip_info.wgsl"),
+    ));
     lib.add(ShaderNode::new(
         "sky_params",
         include_str!("wgsl/sky_params.wgsl"),
