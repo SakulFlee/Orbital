@@ -1458,21 +1458,16 @@ impl ApplicationHandler for ModuleRuntime {
                 // Recreate the depth texture to match the new surface dimensions.
                 let resolution = cgmath::Vector2::new(new_size.width, new_size.height);
                 if let Some(renderer) = &mut self.renderer {
-                    renderer.change_resolution(
-                        resolution,
-                        ctx_lock.device(),
-                        ctx_lock.queue(),
-                    );
+                    renderer.change_resolution(resolution, ctx_lock.device(), ctx_lock.queue());
                 }
 
                 // Update camera aspect ratio so the projection isn't stretched.
                 let new_aspect = new_size.width as f32 / new_size.height as f32;
-                if let Some(active_camera) =
-                    self.ecs_world.get_resource::<ActiveCamera>()
-                {
+                if let Some(active_camera) = self.ecs_world.get_resource::<ActiveCamera>() {
                     let eid = active_camera.0.index;
-                    if let Some(desc_store) =
-                        self.ecs_world.get_component_store_mut::<CameraDescriptorEcs>()
+                    if let Some(desc_store) = self
+                        .ecs_world
+                        .get_component_store_mut::<CameraDescriptorEcs>()
                     {
                         if let Some(idx) = desc_store.sparse[eid] {
                             desc_store.get_mut_store().components[idx].aspect = new_aspect;
