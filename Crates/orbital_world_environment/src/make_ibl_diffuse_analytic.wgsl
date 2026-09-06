@@ -107,7 +107,25 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         let dir = fib_direction(i, N_SAMPLES);
         let ndotl = max(dot(dir, N), 0.0);
         if ndotl > 0.0 {
-            irradiance += sky_color(dir, params) * ndotl;
+            irradiance += sky_color(
+                dir,
+                params.sun_direction,
+                params.sun_angular_radius,
+                params.sun_intensity,
+                params.moon_angular_radius,
+                params.moon_intensity,
+                params.star_intensity,
+                params.star_density,
+                params.exposure,
+                params.ground_albedo,
+                params.day_zenith,
+                params.day_horizon,
+                params.night_zenith,
+                params.night_horizon,
+                params.twilight,
+                params.sun_color,
+                params.moon_color,
+            ) * ndotl;
         }
     }
     irradiance *= weight;

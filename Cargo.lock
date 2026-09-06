@@ -2587,9 +2587,11 @@ dependencies = [
  "indicatif",
  "inquire",
  "serde",
+ "serde_json",
  "tar",
  "toml",
  "ureq",
+ "xz2",
  "zip",
 ]
 

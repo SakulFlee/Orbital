@@ -324,16 +324,20 @@ impl Renderer {
                 render_pass.set_vertex_buffer(0, model.mesh().vertex_buffer().slice(..));
 
                 if let Some(cr) = cull {
-                    // GPU-culled: read from compacted output at model offset
+                    // CPU-culled: read from filtered output at model offset
                     let byte_off = cr.model_first_instance(i) as u64 * 64;
-                    render_pass.set_vertex_buffer(1, cr.compacted_buffer().slice(byte_off..));
+                    render_pass.set_vertex_buffer(1, cr.filtered_instance_buffer().slice(byte_off..));
                     render_pass.set_index_buffer(
                         model.mesh().index_buffer().slice(..),
                         IndexFormat::Uint32,
                     );
-                    render_pass.draw_indexed_indirect(cr.indirect_buffer(), i as u64 * 20);
+                    render_pass.draw_indexed(
+                        0..model.mesh().index_count(),
+                        0,
+                        0..cr.visible_count(i),
+                    );
                 } else {
-                    // Un-culled: draw all instances from the original buffer
+                    // No culling data: draw all instances from the original buffer
                     render_pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
                     render_pass.set_index_buffer(
                         model.mesh().index_buffer().slice(..),

@@ -54,6 +54,10 @@ pub fn build(package_name: Option<&str>, release: bool) -> Result<()> {
     // Update the Android project with the correct library name and app name
     update_android_project(&android_dir, &package, &lib_name, &android_config)?;
 
+    // Sync engine assets into the project's Assets/ so they're bundled into
+    // the APK (the app/build.gradle sourceSets points at that directory).
+    crate::assets::sync_assets(&project_root)?;
+
     // Ensure cargo-ndk is installed
     ensure_cargo_ndk()?;
 
