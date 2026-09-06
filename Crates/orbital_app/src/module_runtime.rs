@@ -395,8 +395,8 @@ impl ModuleRuntime {
             PREV_FREEZE.store(pressed, Ordering::Relaxed);
         }
 
-        // Frustum culling — dispatches GPU compute to compact visible instances
-        // and write indirect draw args.
+        // CPU frustum culling — tests bounding spheres against the camera
+        // frustum and compacts visible instances into a vertex buffer.
         crate::systems::cull::sys_frustum_cull(&mut self.ecs_world);
 
         // Keep a borrow of the cull resource for the render call below.
@@ -759,7 +759,17 @@ impl ModuleRuntime {
 
         // Render
         if let Some(renderer) = &mut self.renderer {
-            let cull = cull_res.as_ref().and_then(|r| r.0.as_ref());
+            // Debug overrides (env vars, or Android storage marker files —
+            // see `orbital_core::debug_flags`):
+            //   `ORBITAL_DISABLE_CULL=1` — skip CPU frustum culling entirely;
+            //                              draws all instances from the
+            //                              original instance buffer.
+            let disable_cull = orbital_core::debug_flags::disable_cull();
+            let cull = if disable_cull {
+                None
+            } else {
+                cull_res.as_ref().and_then(|r| r.0.as_ref())
+            };
             renderer.render(
                 &view,
                 &world_bind_group,

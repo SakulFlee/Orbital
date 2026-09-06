@@ -20,6 +20,13 @@ pub fn generate_project(project_dir: &Path, config: &ProjectConfig) -> Result<()
     // Generate src/main.rs for desktop
     generate_main_rs(project_dir, config)?;
 
+    // Create the Assets/ directory. Assets referenced by engine shaders
+    // (e.g. "Shaders/pbr.wgsl") resolve against this directory on desktop
+    // (<cwd>/Assets) and are bundled into the APK on Android.
+    fs::create_dir_all(project_dir.join("Assets"))?;
+    fs::write(project_dir.join("Assets").join(".gitkeep"), "")
+        .context("Failed to write Assets/.gitkeep")?;
+
     Ok(())
 }
 
@@ -191,9 +198,12 @@ impl Module for GameModule {
             },
         )
         .unwrap();
-        ecs.attach_component(&camera, Position(Point3::new(0.0, 2.0, 5.0)))
+        ecs.attach_component(&camera, Position(Point3::new(0.0, 3.0, 5.0)))
             .unwrap();
-        ecs.attach_component(&camera, Rotation::identity()).unwrap();
+        let mut rot = Rotation::identity();
+        rot.rotate_yaw(Rad(std::f32::consts::FRAC_PI_2));
+        rot.rotate_pitch(Rad(-0.3));
+        ecs.attach_component(&camera, rot).unwrap();
         ecs.insert_resource(ActiveCamera(camera));
         ecs.insert_resource(CursorGrabConfig(true));
 

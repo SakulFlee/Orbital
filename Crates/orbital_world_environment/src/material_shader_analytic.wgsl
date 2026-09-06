@@ -59,9 +59,28 @@ fn entrypoint_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let view_ray_direction = view_position.xyz / view_position.w;
     var ray_direction = normalize((camera.view_projection_transposed * vec4(view_ray_direction, 0.0)).xyz);
 
-    // Evaluate the procedural sky directly at full resolution — no cube
-    // texture sampling, so the moon, stars and sun are never resolution-bound.
-    var world_environment_sample = sky_color(ray_direction, sky_params);
+    // A/B test: `sky_color` now takes individual fields (not the 176-byte
+    // `SkyParams` struct by value), so we can call it directly again. If this
+    // still renders black on the Adreno tablet, revert to the inline body.
+    var world_environment_sample = sky_color(
+        ray_direction,
+        sky_params.sun_direction,
+        sky_params.sun_angular_radius,
+        sky_params.sun_intensity,
+        sky_params.moon_angular_radius,
+        sky_params.moon_intensity,
+        sky_params.star_intensity,
+        sky_params.star_density,
+        sky_params.exposure,
+        sky_params.ground_albedo,
+        sky_params.day_zenith,
+        sky_params.day_horizon,
+        sky_params.night_zenith,
+        sky_params.night_horizon,
+        sky_params.twilight,
+        sky_params.sun_color,
+        sky_params.moon_color,
+    );
 
     // ACES Tone Map (HDR mapping) — keeps the sun's gradient instead of
     // clamping it to a flat white core.
