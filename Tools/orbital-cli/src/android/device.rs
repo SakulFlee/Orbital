@@ -69,18 +69,47 @@ pub fn list_devices(adb: &Path) -> Result<Vec<Device>> {
 
     // Skip the "List of devices attached" header line.
     for line in text.lines().skip(1) {
-        let mut parts = line.split_whitespace();
-        let serial = match parts.next() {
-            Some(s) => s,
-            None => continue,
-        };
-        let state = parts.next().unwrap_or("");
-        if state != "device" {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
             continue;
         }
+
+        // The serial may contain spaces (e.g. WiFi ADB serials like
+        // "adb-d6260ff205bc-htaRwx (3)._adb-tls-connect._tcp").  The device
+        // state column is always one of the known keywords that follow the
+        // serial.  Find the keyword to determine where the serial ends.
+        let state_keywords = ["device", "offline", "unauthorized"];
+        let serial;
+        let state;
+
+        if let Some(pos) = trimmed.find(" no permissions") {
+            serial = trimmed[..pos].trim().to_string();
+            state = "no permissions";
+        } else if let Some((kw, kw_pos)) = state_keywords
+            .iter()
+            .filter_map(|kw| trimmed.find(kw).map(|p| (*kw, p)))
+            .min_by_key(|(_, p)| *p)
+        {
+            // Make sure the keyword is a standalone word (preceded by
+            // whitespace or at the start of the line).
+            if kw_pos == 0 || trimmed.as_bytes()[kw_pos - 1] == b' ' {
+                serial = trimmed[..kw_pos].trim().to_string();
+                state = kw;
+            } else {
+                continue;
+            }
+        } else {
+            continue;
+        }
+
+        if state != "device" || serial.is_empty() {
+            continue;
+        }
+
+        let is_emulator = serial.starts_with("emulator-");
         devices.push(Device {
-            serial: serial.to_string(),
-            is_emulator: serial.starts_with("emulator-"),
+            serial,
+            is_emulator,
         });
     }
 
