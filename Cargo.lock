@@ -2653,7 +2653,6 @@ dependencies = [
 name = "orbital_cull"
 version = "0.1.0"
 dependencies = [
- "orbital_camera",
  "wgpu",
 ]
 
