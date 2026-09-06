@@ -86,7 +86,7 @@ impl ShaderPreprocessor {
                     .to_string()
             } else {
                 file.split('/')
-                    .last()
+                    .next_back()
                     .map(|s| s.to_string())
                     .unwrap_or_else(|| file.clone())
             };

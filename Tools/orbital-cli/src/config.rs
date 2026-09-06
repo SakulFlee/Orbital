@@ -90,7 +90,7 @@ impl AndroidConfig {
     }
 
     pub fn screen_orientation(&self) -> &str {
-        self.screen_orientation.as_deref().unwrap_or("landscape")
+        self.screen_orientation.as_deref().unwrap_or("unspecified")
     }
 }
 
