@@ -1274,16 +1274,13 @@ impl ApplicationHandler for ModuleRuntime {
                 if let Some(desc_store) = self
                     .ecs_world
                     .get_component_store_mut::<CameraDescriptorEcs>()
-                {
-                    if let Some(idx) = desc_store.sparse[eid] {
+                    && let Some(idx) = desc_store.sparse[eid] {
                         desc_store.get_mut_store().components[idx].aspect = new_aspect;
                     }
-                }
-                if let Some(dirty_store) = self.ecs_world.get_component_store_mut::<CameraDirty>() {
-                    if let Some(idx) = dirty_store.sparse[eid] {
+                if let Some(dirty_store) = self.ecs_world.get_component_store_mut::<CameraDirty>()
+                    && let Some(idx) = dirty_store.sparse[eid] {
                         dirty_store.get_mut_store().components[idx].0 = true;
                     }
-                }
             }
             self.ecs_world
                 .insert_resource(WindowSize(cgmath::Vector2::new(
@@ -1467,18 +1464,14 @@ impl ApplicationHandler for ModuleRuntime {
                     if let Some(desc_store) = self
                         .ecs_world
                         .get_component_store_mut::<CameraDescriptorEcs>()
-                    {
-                        if let Some(idx) = desc_store.sparse[eid] {
+                        && let Some(idx) = desc_store.sparse[eid] {
                             desc_store.get_mut_store().components[idx].aspect = new_aspect;
                         }
-                    }
                     if let Some(dirty_store) =
                         self.ecs_world.get_component_store_mut::<CameraDirty>()
-                    {
-                        if let Some(idx) = dirty_store.sparse[eid] {
+                        && let Some(idx) = dirty_store.sparse[eid] {
                             dirty_store.get_mut_store().components[idx].0 = true;
                         }
-                    }
                 }
 
                 None
