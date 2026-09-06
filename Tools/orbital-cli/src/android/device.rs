@@ -82,9 +82,13 @@ pub fn list_devices(adb: &Path) -> Result<Vec<Device>> {
         let serial;
         let state;
 
-        if let Some(pos) = trimmed.find(" no permissions") {
-            serial = trimmed[..pos].trim().to_string();
-            state = "no permissions";
+        if let Some(pos) = trimmed.find("no permissions") {
+            if pos == 0 || trimmed.as_bytes()[pos - 1].is_ascii_whitespace() {
+                serial = trimmed[..pos].trim().to_string();
+                state = "no permissions";
+            } else {
+                continue;
+            }
         } else if let Some((kw, kw_pos)) = state_keywords
             .iter()
             .filter_map(|kw| trimmed.find(kw).map(|p| (*kw, p)))
@@ -92,7 +96,7 @@ pub fn list_devices(adb: &Path) -> Result<Vec<Device>> {
         {
             // Make sure the keyword is a standalone word (preceded by
             // whitespace or at the start of the line).
-            if kw_pos == 0 || trimmed.as_bytes()[kw_pos - 1] == b' ' {
+            if kw_pos == 0 || trimmed.as_bytes()[kw_pos - 1].is_ascii_whitespace() {
                 serial = trimmed[..kw_pos].trim().to_string();
                 state = kw;
             } else {
