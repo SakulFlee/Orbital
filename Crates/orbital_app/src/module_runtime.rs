@@ -31,9 +31,9 @@ use crate::{
     AppContext, AppSettings, AppState, Module, RenderOverlayResource, Timer, make_core_schedule,
 };
 use orbital_ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CameraDirty, CursorGrabConfig, CursorPosition, DeltaTime,
-    DeviceResource, EcsCameraStore, EngineEvent, EngineEvents, FrameCounter, InputSnapshot,
-    LightDescriptorEcs, Position, QueueResource, SurfaceFormatResource, TotalTime, WindowSize,
+    CursorGrabConfig, CursorPosition, DeltaTime, DeviceResource, EcsCameraStore, EngineEvent,
+    EngineEvents, FrameCounter, InputSnapshot, LightDescriptorEcs, Position, QueueResource,
+    SurfaceFormatResource, TotalTime, WindowSize,
 };
 
 macro_rules! ctx_lock {
@@ -1264,31 +1264,6 @@ impl ApplicationHandler for ModuleRuntime {
                 ctx_guard.window().set_cursor_visible(false);
             }
 
-            // After a suspend→resume (e.g. Android rotation), the surface is
-            // recreated with the new native-window dimensions but the camera's
-            // aspect ratio still holds the old value.  Sync it now so the
-            // projection matches the fresh surface.
-            let new_aspect = config.width as f32 / config.height as f32;
-            if let Some(active_camera) = self.ecs_world.get_resource::<ActiveCamera>() {
-                let eid = active_camera.0.index;
-                if let Some(desc_store) = self
-                    .ecs_world
-                    .get_component_store_mut::<CameraDescriptorEcs>()
-                    && let Some(idx) = desc_store.sparse[eid]
-                {
-                    desc_store.get_mut_store().components[idx].aspect = new_aspect;
-                }
-                if let Some(dirty_store) = self.ecs_world.get_component_store_mut::<CameraDirty>()
-                    && let Some(idx) = dirty_store.sparse[eid]
-                {
-                    dirty_store.get_mut_store().components[idx].0 = true;
-                }
-            }
-            self.ecs_world
-                .insert_resource(WindowSize(cgmath::Vector2::new(
-                    config.width,
-                    config.height,
-                )));
         }
 
         info!("App resumed.");
@@ -1437,10 +1412,6 @@ impl ApplicationHandler for ModuleRuntime {
                 })
             }
             WindowEvent::Resized(new_size) => {
-                if new_size.width == 0 || new_size.height == 0 {
-                    return;
-                }
-
                 let ctx_lock = ctx_lock!(ctx);
                 let configuration =
                     ctx_lock.make_surface_configuration(self.settings.vsync_enabled);
@@ -1452,31 +1423,6 @@ impl ApplicationHandler for ModuleRuntime {
                         new_size.width,
                         new_size.height,
                     )));
-
-                // Recreate the depth texture to match the new surface dimensions.
-                let resolution = cgmath::Vector2::new(new_size.width, new_size.height);
-                if let Some(renderer) = &mut self.renderer {
-                    renderer.change_resolution(resolution, ctx_lock.device(), ctx_lock.queue());
-                }
-
-                // Update camera aspect ratio so the projection isn't stretched.
-                let new_aspect = new_size.width as f32 / new_size.height as f32;
-                if let Some(active_camera) = self.ecs_world.get_resource::<ActiveCamera>() {
-                    let eid = active_camera.0.index;
-                    if let Some(desc_store) = self
-                        .ecs_world
-                        .get_component_store_mut::<CameraDescriptorEcs>()
-                        && let Some(idx) = desc_store.sparse[eid]
-                    {
-                        desc_store.get_mut_store().components[idx].aspect = new_aspect;
-                    }
-                    if let Some(dirty_store) =
-                        self.ecs_world.get_component_store_mut::<CameraDirty>()
-                        && let Some(idx) = dirty_store.sparse[eid]
-                    {
-                        dirty_store.get_mut_store().components[idx].0 = true;
-                    }
-                }
 
                 None
             }
