@@ -159,8 +159,7 @@ pub fn sys_frustum_cull(ecs: &mut World) {
                 continue;
             }
             let cx = f32::from_le_bytes(entry.bounds_bytes[base..base + 4].try_into().unwrap());
-            let cy =
-                f32::from_le_bytes(entry.bounds_bytes[base + 4..base + 8].try_into().unwrap());
+            let cy = f32::from_le_bytes(entry.bounds_bytes[base + 4..base + 8].try_into().unwrap());
             let cz =
                 f32::from_le_bytes(entry.bounds_bytes[base + 8..base + 12].try_into().unwrap());
             let radius =
@@ -172,8 +171,7 @@ pub fn sys_frustum_cull(ecs: &mut World) {
                 let mat_base = inst_idx * 64;
                 let mat_end = mat_base + 64;
                 if mat_end <= entry.instance_bytes.len() {
-                    all_visible
-                        .extend_from_slice(&entry.instance_bytes[mat_base..mat_end]);
+                    all_visible.extend_from_slice(&entry.instance_bytes[mat_base..mat_end]);
                     model_visible += 1;
                 }
             }
