@@ -326,7 +326,8 @@ impl Renderer {
                 if let Some(cr) = cull {
                     // CPU-culled: read from filtered output at model offset
                     let byte_off = cr.model_first_instance(i) as u64 * 64;
-                    render_pass.set_vertex_buffer(1, cr.filtered_instance_buffer().slice(byte_off..));
+                    render_pass
+                        .set_vertex_buffer(1, cr.filtered_instance_buffer().slice(byte_off..));
                     render_pass.set_index_buffer(
                         model.mesh().index_buffer().slice(..),
                         IndexFormat::Uint32,

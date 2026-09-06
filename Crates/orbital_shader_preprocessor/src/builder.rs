@@ -163,7 +163,10 @@ impl ShaderBuilder {
                 .map(|n| n.to_string())
                 .collect::<Vec<_>>()
                 .join(", ");
-            log::debug!("[ShaderBuilder] resolved nodes ({}): {nodes}", self.order.len());
+            log::debug!(
+                "[ShaderBuilder] resolved nodes ({}): {nodes}",
+                self.order.len()
+            );
             log::debug!("[ShaderBuilder] assembled WGSL:\n{out}");
         }
 

@@ -7,8 +7,8 @@ use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
 };
 
-use orbital_texture::Texture;
 use orbital_shader_preprocessor::{NodeRegistry, ShaderBuilder};
+use orbital_texture::Texture;
 
 mod error;
 pub use error::*;

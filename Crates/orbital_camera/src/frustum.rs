@@ -94,8 +94,8 @@ impl Frustum {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use orbital_math::perspective_wgpu;
     use cgmath::{Deg, Rad};
+    use orbital_math::perspective_wgpu;
 
     fn wgpu_proj(fovy: Deg<f32>, aspect: f32, near: f32, far: f32) -> Matrix4<f32> {
         perspective_wgpu(Rad::from(fovy), aspect, near, far, false)

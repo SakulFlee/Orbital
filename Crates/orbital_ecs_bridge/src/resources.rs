@@ -219,7 +219,9 @@ pub struct LightBufferResource(pub Option<Arc<wgpu::Buffer>>);
 /// Current world environment descriptor (singleton).
 /// Set by the environment system when the user changes the HDRI/skybox.
 #[derive(Debug, Clone)]
-pub struct EnvironmentDescriptorResource(pub Option<orbital_world_environment::WorldEnvironmentDescriptor>);
+pub struct EnvironmentDescriptorResource(
+    pub Option<orbital_world_environment::WorldEnvironmentDescriptor>,
+);
 
 /// Realized world environment GPU state (IBL textures, skybox).
 /// Created by `realize_environment` from the descriptor.

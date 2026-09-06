@@ -8,10 +8,10 @@ use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
 };
 
-pub use orbital_mesh::{Mesh, MeshDescriptor};
+use orbital_core::cache::{Cache, CacheEntry};
 use orbital_instance::Instance;
 use orbital_material_shader::{MaterialShader, MaterialShaderDescriptor};
-use orbital_core::cache::{Cache, CacheEntry};
+pub use orbital_mesh::{Mesh, MeshDescriptor};
 
 mod descriptor;
 pub use descriptor::*;

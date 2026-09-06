@@ -35,8 +35,11 @@ pub fn math_library() -> NodeLibrary {
         include_str!("wgsl/fresnel_schlick_roughness.wgsl"),
     ));
     lib.add(
-        ShaderNode::new("distribution_ggx", include_str!("wgsl/distribution_ggx.wgsl"))
-            .with_deps(["pi"]),
+        ShaderNode::new(
+            "distribution_ggx",
+            include_str!("wgsl/distribution_ggx.wgsl"),
+        )
+        .with_deps(["pi"]),
     );
     lib.add(ShaderNode::new(
         "schlick_smith_ggx",
@@ -54,7 +57,10 @@ pub fn math_library() -> NodeLibrary {
         "radical_inverse_vdc",
         include_str!("wgsl/radical_inverse_vdc.wgsl"),
     ));
-    lib.add(ShaderNode::new("pcg_hash", include_str!("wgsl/pcg_hash.wgsl")));
+    lib.add(ShaderNode::new(
+        "pcg_hash",
+        include_str!("wgsl/pcg_hash.wgsl"),
+    ));
     lib.add(
         ShaderNode::new(
             "hammersley2d_scrambled",
@@ -88,16 +94,21 @@ pub fn math_library() -> NodeLibrary {
         "importance_sample_ggx_mip",
         include_str!("wgsl/importance_sample_ggx_mip.wgsl"),
     ));
-    lib.add(ShaderNode::new("luminance", include_str!("wgsl/luminance.wgsl")));
+    lib.add(ShaderNode::new(
+        "luminance",
+        include_str!("wgsl/luminance.wgsl"),
+    ));
     lib.add(
-        ShaderNode::new("fib_direction", include_str!("wgsl/fib_direction.wgsl"))
-            .with_deps(["pi"]),
+        ShaderNode::new("fib_direction", include_str!("wgsl/fib_direction.wgsl")).with_deps(["pi"]),
     );
     lib.add(
         ShaderNode::new("disk_irradiance", include_str!("wgsl/disk_irradiance.wgsl"))
             .with_deps(["pi"]),
     );
-    lib.add(ShaderNode::new("star_hash", include_str!("wgsl/star_hash.wgsl")));
+    lib.add(ShaderNode::new(
+        "star_hash",
+        include_str!("wgsl/star_hash.wgsl"),
+    ));
 
     lib
 }
