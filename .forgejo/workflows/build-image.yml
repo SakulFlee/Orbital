@@ -17,7 +17,7 @@ jobs:
       OCI_PUSH_TOKEN: ${{ secrets.OCI_PUSH_TOKEN }}
       IMAGE: orbital-ci-build-image
     steps:
-      - uses: https://code.forgejo.org/actions/checkout@v6
+      - uses: https://code.forgejo.org/actions/checkout@v7
       - name: Install Buildah
         run: apt-get update && apt-get install -y buildah
       - name: Configure Buildah storage
