@@ -1,0 +1,17 @@
+[package]
+name = "orbital_world_environment"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+orbital_texture = { path = "../orbital_texture" }
+orbital_material_shader = { path = "../orbital_material_shader" }
+orbital_shader_preprocessor = { path = "../orbital_shader_preprocessor" }
+orbital_shader_engine = { path = "../orbital_shader_engine" }
+orbital_shader_math = { path = "../orbital_shader_math" }
+orbital_file_manager = { path = "../orbital_file_manager" }
+cgmath = { workspace = true }
+image = { workspace = true }
+log = { workspace = true }
+serde = { workspace = true }
+wgpu = { workspace = true }

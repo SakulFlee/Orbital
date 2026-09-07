@@ -1,0 +1,15 @@
+[package]
+name = "orbital_shadow"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+orbital_math = { path = "../orbital_math" }
+orbital_texture = { path = "../orbital_texture" }
+orbital_vertex = { path = "../orbital_vertex" }
+orbital_instance = { path = "../orbital_instance" }
+orbital_model = { path = "../orbital_model" }
+orbital_material_shader = { path = "../orbital_material_shader" }
+cgmath = { workspace = true }
+wgpu = { workspace = true }
+log = { workspace = true }

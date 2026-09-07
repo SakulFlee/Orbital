@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use cgmath::{InnerSpace, Vector2, Vector3};
-use orbital_resources::{MeshDescriptor, Vertex};
+use orbital_mesh::{MeshDescriptor, Vertex};
 
 const PHI: f32 = 1.618_034;
 

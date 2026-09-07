@@ -23,9 +23,9 @@ use winit::{
     window::{CursorGrabMode, WindowId},
 };
 
-use orbital_resources::{
-    GeneratedSkyParameters, LightType, ShadowCaster, ShadowLightInfo, WorldEnvironment,
-};
+use orbital_light::LightType;
+use orbital_shadow::{ShadowCaster, ShadowLightInfo};
+use orbital_world_environment::{GeneratedSkyParameters, WorldEnvironment};
 
 use crate::{
     AppContext, AppSettings, AppState, Module, RenderOverlayResource, Timer, make_core_schedule,
@@ -429,9 +429,9 @@ impl ModuleRuntime {
         let d_cull_extract = t_bind_start - t_cull_start;
 
         // IBL BRDF (static cache)
-        static BRDF_ONCE: std::sync::OnceLock<orbital_resources::IblBrdf> =
+        static BRDF_ONCE: std::sync::OnceLock<orbital_ibl_brdf::IblBrdf> =
             std::sync::OnceLock::new();
-        let brdf = BRDF_ONCE.get_or_init(|| orbital_resources::IblBrdf::generate(device, queue));
+        let brdf = BRDF_ONCE.get_or_init(|| orbital_ibl_brdf::IblBrdf::generate(device, queue));
         let brdf_tex = brdf.texture_ref();
 
         // Environment IBL textures (from owned Arc)
@@ -444,12 +444,12 @@ impl ModuleRuntime {
             ),
             None => {
                 static FALLBACK_ONCE: std::sync::OnceLock<(
-                    orbital_resources::Texture,
-                    orbital_resources::Texture,
+                    orbital_texture::Texture,
+                    orbital_texture::Texture,
                 )> = std::sync::OnceLock::new();
                 let (diff, spec) = FALLBACK_ONCE.get_or_init(|| {
                     (
-                        orbital_resources::Texture::create_empty_cube_texture(
+                        orbital_texture::Texture::create_empty_cube_texture(
                             Some("default IBL diffuse"),
                             cgmath::Vector2::new(1, 1),
                             wgpu::TextureFormat::R8Unorm,
@@ -457,7 +457,7 @@ impl ModuleRuntime {
                             1,
                             device,
                         ),
-                        orbital_resources::Texture::create_empty_cube_texture(
+                        orbital_texture::Texture::create_empty_cube_texture(
                             Some("default IBL specular"),
                             cgmath::Vector2::new(1, 1),
                             wgpu::TextureFormat::R8Unorm,
@@ -516,7 +516,7 @@ impl ModuleRuntime {
                 let fb = FALLBACK_SHADOW_BUF.get_or_init(|| {
                     device.create_buffer(&wgpu::BufferDescriptor {
                         label: Some("Fallback Shadow Buffer"),
-                        size: std::mem::size_of::<orbital_resources::ShadowGpuData>() as u64,
+                        size: std::mem::size_of::<orbital_shadow::ShadowGpuData>() as u64,
                         usage: wgpu::BufferUsages::UNIFORM,
                         mapped_at_creation: false,
                     })
@@ -582,7 +582,7 @@ impl ModuleRuntime {
             let fb = FALLBACK_SHADOW_BUF.get_or_init(|| {
                 device.create_buffer(&wgpu::BufferDescriptor {
                     label: Some("Fallback Shadow Buffer 2"),
-                    size: std::mem::size_of::<orbital_resources::ShadowGpuData>() as u64,
+                    size: std::mem::size_of::<orbital_shadow::ShadowGpuData>() as u64,
                     usage: wgpu::BufferUsages::UNIFORM,
                     mapped_at_creation: false,
                 })
@@ -665,8 +665,8 @@ impl ModuleRuntime {
         // Build bind group — cache the layout (expensive driver call)
         static WORLD_BG_LAYOUT: std::sync::OnceLock<wgpu::BindGroupLayout> =
             std::sync::OnceLock::new();
-        let bind_group_layout =
-            WORLD_BG_LAYOUT.get_or_init(|| orbital_resources::make_world_bind_group_layout(device));
+        let bind_group_layout = WORLD_BG_LAYOUT
+            .get_or_init(|| orbital_material_shader::make_world_bind_group_layout(device));
         let world_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("World Bind Group"),
             layout: bind_group_layout,
@@ -749,7 +749,7 @@ impl ModuleRuntime {
         });
 
         // Collect models (owned Vec of raw pointers)
-        let models: Vec<&orbital_resources::Model> = model_ptrs
+        let models: Vec<&orbital_model::Model> = model_ptrs
             .iter()
             .filter_map(|ptr| unsafe { ptr.as_ref() })
             .collect();
@@ -856,8 +856,8 @@ impl ModuleRuntime {
         static FALLBACK_ONCE: std::sync::OnceLock<wgpu::Buffer> = std::sync::OnceLock::new();
         FALLBACK_ONCE
             .get_or_init(|| {
-                let desc = orbital_resources::CameraDescriptor::default();
-                let cam = orbital_resources::Camera::from_descriptor(desc, device, queue);
+                let desc = orbital_camera::CameraDescriptor::default();
+                let cam = orbital_camera::Camera::from_descriptor(desc, device, queue);
                 cam.camera_buffer().clone()
             })
             .clone()
@@ -894,7 +894,7 @@ impl ModuleRuntime {
 
     /// Extract environment IBL textures.
     /// Returns owned Arc<WorldEnvironment> to keep references valid.
-    fn extract_env_ibl(&self) -> Option<Arc<orbital_resources::WorldEnvironment>> {
+    fn extract_env_ibl(&self) -> Option<Arc<orbital_world_environment::WorldEnvironment>> {
         self.ecs_world
             .get_resource::<orbital_ecs_bridge::EnvironmentGpuResource>()
             .and_then(|r| r.0.clone())
@@ -902,7 +902,7 @@ impl ModuleRuntime {
 
     /// Collect realized model pointers from ECS.
     /// Returns raw pointers — caller must ensure validity.
-    fn collect_model_ptrs(&self) -> Vec<*const orbital_resources::Model> {
+    fn collect_model_ptrs(&self) -> Vec<*const orbital_model::Model> {
         let store = match self
             .ecs_world
             .get_component_store::<orbital_ecs_bridge::ModelRealization>()
@@ -916,7 +916,7 @@ impl ModuleRuntime {
             .filter_map(|&eid| {
                 store.sparse[eid].map(|idx| {
                     let realization = &store.components[idx];
-                    &*realization.0 as *const orbital_resources::Model
+                    &*realization.0 as *const orbital_model::Model
                 })
             })
             .collect()
@@ -1211,6 +1211,25 @@ impl ApplicationHandler for ModuleRuntime {
 
             // Call Module::setup() and build game schedule
             if !self.module_setup_done {
+                // Register all shader node libraries with the global registry
+                // before any shader assembly occurs.
+                orbital_shader_preprocessor::register_global_library(
+                    &orbital_shader_math::math_library(),
+                )
+                .expect("failed to register math library");
+                orbital_shader_preprocessor::register_global_library(
+                    &orbital_shader_engine::engine_library(),
+                )
+                .expect("failed to register engine library");
+                orbital_shader_preprocessor::register_global_library(
+                    &orbital_shader_pbr::pbr_library(),
+                )
+                .expect("failed to register PBR library");
+                orbital_shader_preprocessor::register_global_library(
+                    &orbital_world_environment::world_environment_library(),
+                )
+                .expect("failed to register world-environment library");
+
                 let systems =
                     self.module
                         .setup(&mut self.ecs_world, ctx_guard.device(), ctx_guard.queue());
@@ -1255,13 +1274,15 @@ impl ApplicationHandler for ModuleRuntime {
                 if let Some(desc_store) = self
                     .ecs_world
                     .get_component_store_mut::<CameraDescriptorEcs>()
-                    && let Some(idx) = desc_store.sparse[eid] {
-                        desc_store.get_mut_store().components[idx].aspect = new_aspect;
-                    }
+                    && let Some(idx) = desc_store.sparse[eid]
+                {
+                    desc_store.get_mut_store().components[idx].aspect = new_aspect;
+                }
                 if let Some(dirty_store) = self.ecs_world.get_component_store_mut::<CameraDirty>()
-                    && let Some(idx) = dirty_store.sparse[eid] {
-                        dirty_store.get_mut_store().components[idx].0 = true;
-                    }
+                    && let Some(idx) = dirty_store.sparse[eid]
+                {
+                    dirty_store.get_mut_store().components[idx].0 = true;
+                }
             }
             self.ecs_world
                 .insert_resource(WindowSize(cgmath::Vector2::new(
@@ -1445,14 +1466,16 @@ impl ApplicationHandler for ModuleRuntime {
                     if let Some(desc_store) = self
                         .ecs_world
                         .get_component_store_mut::<CameraDescriptorEcs>()
-                        && let Some(idx) = desc_store.sparse[eid] {
-                            desc_store.get_mut_store().components[idx].aspect = new_aspect;
-                        }
+                        && let Some(idx) = desc_store.sparse[eid]
+                    {
+                        desc_store.get_mut_store().components[idx].aspect = new_aspect;
+                    }
                     if let Some(dirty_store) =
                         self.ecs_world.get_component_store_mut::<CameraDirty>()
-                        && let Some(idx) = dirty_store.sparse[eid] {
-                            dirty_store.get_mut_store().components[idx].0 = true;
-                        }
+                        && let Some(idx) = dirty_store.sparse[eid]
+                    {
+                        dirty_store.get_mut_store().components[idx].0 = true;
+                    }
                 }
 
                 None
