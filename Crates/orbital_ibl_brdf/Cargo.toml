@@ -1,0 +1,9 @@
+[package]
+name = "orbital_ibl_brdf"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+orbital_texture = { path = "../orbital_texture" }
+cgmath = { workspace = true }
+wgpu = { workspace = true }

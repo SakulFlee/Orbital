@@ -7,13 +7,14 @@ use std::sync::Arc;
 
 use cgmath::{InnerSpace, Point3, Quaternion, Rotation3, Vector3};
 use log::warn;
+use orbital_camera::Camera;
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CameraDirty, CameraRealization, DeviceResource,
     EcsCameraStore, ImportQueueResource, ImporterResource, LightDescriptorEcs, LightDirty,
     ModelDescriptorEcs, ModelDirty, ModelInstances, Position, QueueResource, Rotation,
 };
-use orbital_resources::{Camera, ShadowCaster};
+use orbital_shadow::ShadowCaster;
 
 /// Poll the importer for completed results and spawn ECS entities.
 ///

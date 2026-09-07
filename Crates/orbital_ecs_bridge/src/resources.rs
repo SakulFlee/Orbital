@@ -189,8 +189,8 @@ mod tests {
 pub type MeshCacheResource = Arc<
     std::sync::RwLock<
         orbital_core::cache::Cache<
-            std::sync::Arc<orbital_resources::MeshDescriptor>,
-            orbital_resources::Mesh,
+            std::sync::Arc<orbital_mesh::MeshDescriptor>,
+            orbital_mesh::Mesh,
         >,
     >,
 >;
@@ -201,8 +201,8 @@ pub type MeshCacheResource = Arc<
 pub type MaterialCacheResource = Arc<
     std::sync::RwLock<
         orbital_core::cache::Cache<
-            std::sync::Arc<orbital_resources::MaterialShaderDescriptor>,
-            orbital_resources::MaterialShader,
+            std::sync::Arc<orbital_material_shader::MaterialShaderDescriptor>,
+            orbital_material_shader::MaterialShader,
         >,
     >,
 >;
@@ -219,18 +219,20 @@ pub struct LightBufferResource(pub Option<Arc<wgpu::Buffer>>);
 /// Current world environment descriptor (singleton).
 /// Set by the environment system when the user changes the HDRI/skybox.
 #[derive(Debug, Clone)]
-pub struct EnvironmentDescriptorResource(pub Option<orbital_resources::WorldEnvironmentDescriptor>);
+pub struct EnvironmentDescriptorResource(
+    pub Option<orbital_world_environment::WorldEnvironmentDescriptor>,
+);
 
 /// Realized world environment GPU state (IBL textures, skybox).
 /// Created by `realize_environment` from the descriptor.
 #[derive(Debug, Clone)]
-pub struct EnvironmentGpuResource(pub Option<Arc<orbital_resources::WorldEnvironment>>);
+pub struct EnvironmentGpuResource(pub Option<Arc<orbital_world_environment::WorldEnvironment>>);
 
 /// GPU camera store — flat Vec indexed by entity.index.
 /// CameraRealization on entities holds the index into this store.
 /// This avoids the temporary-borrow problem with get_component_store.
 pub struct EcsCameraStore {
-    cameras: Vec<Option<Arc<std::sync::RwLock<orbital_resources::Camera>>>>,
+    cameras: Vec<Option<Arc<std::sync::RwLock<orbital_camera::Camera>>>>,
 }
 
 impl EcsCameraStore {
@@ -243,7 +245,7 @@ impl EcsCameraStore {
     pub fn insert(
         &mut self,
         entity_idx: usize,
-        camera: Arc<std::sync::RwLock<orbital_resources::Camera>>,
+        camera: Arc<std::sync::RwLock<orbital_camera::Camera>>,
     ) -> usize {
         if entity_idx >= self.cameras.len() {
             self.cameras.resize_with(entity_idx + 1, || None);
@@ -255,7 +257,7 @@ impl EcsCameraStore {
     pub fn get(
         &self,
         entity_idx: usize,
-    ) -> Option<&Arc<std::sync::RwLock<orbital_resources::Camera>>> {
+    ) -> Option<&Arc<std::sync::RwLock<orbital_camera::Camera>>> {
         self.cameras.get(entity_idx)?.as_ref()
     }
 
@@ -282,7 +284,7 @@ impl std::fmt::Debug for EcsCameraStore {
 
 /// IBL BRDF lookup texture — generated once, reused every frame.
 /// Stored as the IblBrdf generator itself so we can borrow the texture ref.
-pub struct IblBrdfResource(pub Option<orbital_resources::IblBrdf>);
+pub struct IblBrdfResource(pub Option<orbital_ibl_brdf::IblBrdf>);
 
 impl Clone for IblBrdfResource {
     fn clone(&self) -> Self {
@@ -305,7 +307,7 @@ impl std::fmt::Debug for IblBrdfResource {
 ///
 /// The renderer reads from this resource to issue indirect draws.
 #[derive(Debug)]
-pub struct CullResource(pub Option<orbital_resources::CullResources>);
+pub struct CullResource(pub Option<orbital_cull::CullResources>);
 
 /// Queue of pending import tasks (glTF files to load).
 #[derive(Debug, Default)]
@@ -346,7 +348,7 @@ impl std::fmt::Debug for ImporterResource {
 /// See [`FrozenFrustum`].
 #[derive(Debug, Clone)]
 pub struct FrozenFrustumData {
-    pub frustum: orbital_resources::Frustum,
+    pub frustum: orbital_camera::Frustum,
     /// Stored so the debug overlay can draw the frozen frustum wireframe
     /// without recomputing it from the planes.
     pub perspective_view_projection_matrix: cgmath::Matrix4<f32>,
