@@ -6,7 +6,7 @@ use orbital_shader_debug::wireframe_descriptor;
 use orbital_shader_pbr::PBRMaterialShaderDescriptor;
 use orbital_texture::{FilterMode, TextureDescriptor, TextureSize};
 use wgpu::{
-    PolygonMode, PrimitiveTopology, TextureUsages, VertexAttribute, VertexBufferLayout,
+    TextureUsages, VertexAttribute, VertexBufferLayout,
     VertexFormat, VertexStepMode,
 };
 
