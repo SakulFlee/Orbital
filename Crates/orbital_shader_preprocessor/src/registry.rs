@@ -84,8 +84,7 @@ impl NodeRegistry {
 /// Starts empty. Libraries (math, engine, PBR, world-environment) are
 /// registered via [`register_global_library`] at engine startup, before any
 /// shader assembly occurs.
-static GLOBAL: LazyLock<RwLock<NodeRegistry>> =
-    LazyLock::new(|| RwLock::new(NodeRegistry::new()));
+static GLOBAL: LazyLock<RwLock<NodeRegistry>> = LazyLock::new(|| RwLock::new(NodeRegistry::new()));
 
 /// Registers a [`NodeLibrary`] with the process-wide global registry.
 ///
