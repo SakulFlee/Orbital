@@ -1024,6 +1024,7 @@ impl WorldEnvironment {
     ///
     /// The shader source is the concatenation of `sky_common.wgsl` (shared
     /// `SkyParams` + `sky_color`) and the given entry shader.
+    #[allow(clippy::too_many_arguments)]
     fn dispatch_sky_cube(
         dst_size: u32,
         label: &str,
@@ -1114,6 +1115,7 @@ impl WorldEnvironment {
     ///
     /// Pass `tile_size >= dst_size` to skip tiling (e.g. for the specular
     /// base shader which takes <1 ms per face).
+    #[allow(clippy::too_many_arguments)]
     fn dispatch_ibl_cubemap_per_face(
         dst_size: u32,
         label: &str,

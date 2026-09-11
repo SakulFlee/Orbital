@@ -77,6 +77,7 @@ impl TimingAccumulator {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn push(
         &mut self,
         surface_acq: std::time::Duration,
