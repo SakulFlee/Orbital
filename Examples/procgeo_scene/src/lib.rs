@@ -126,12 +126,22 @@ impl System for HelmetAdjuster {
                 })
                 .unwrap_or(Transform::new(
                     Vector3::new(10.0, 1.85, 0.0),
-                    Quaternion::new(std::f32::consts::FRAC_1_SQRT_2, 0.0, -std::f32::consts::FRAC_1_SQRT_2, 0.0),
+                    Quaternion::new(
+                        std::f32::consts::FRAC_1_SQRT_2,
+                        0.0,
+                        -std::f32::consts::FRAC_1_SQRT_2,
+                        0.0,
+                    ),
                     Vector3::new(1.0, 1.0, 1.0),
                 ));
 
             // Rotate 90° Y so the helmet faces +Z (toward camera)
-            let correction = Quaternion::new(std::f32::consts::FRAC_1_SQRT_2, 0.0, std::f32::consts::FRAC_1_SQRT_2, 0.0);
+            let correction = Quaternion::new(
+                std::f32::consts::FRAC_1_SQRT_2,
+                0.0,
+                std::f32::consts::FRAC_1_SQRT_2,
+                0.0,
+            );
             let final_rot = correction * original_transform.rotation;
 
             let mut new_instances = ModelInstances::new();
@@ -256,7 +266,12 @@ impl Module for ProcgeoSceneModule {
         )
         .unwrap();
         // Rotate +90° around Y so forward (+X) faces -Z (toward rooms)
-        let rot = Quaternion::new(std::f32::consts::FRAC_1_SQRT_2, 0.0, std::f32::consts::FRAC_1_SQRT_2, 0.0);
+        let rot = Quaternion::new(
+            std::f32::consts::FRAC_1_SQRT_2,
+            0.0,
+            std::f32::consts::FRAC_1_SQRT_2,
+            0.0,
+        );
         ecs.attach_component(&camera, Position(Point3::new(0.0, 7.0, 14.0)))
             .unwrap();
         ecs.attach_component(&camera, Rotation(rot)).unwrap();

@@ -166,18 +166,16 @@ impl From<PBRMaterialShaderDescriptor> for MaterialShaderDescriptor {
     fn from(val: PBRMaterialShaderDescriptor) -> Self {
         let mut base = match val.custom_material_shader {
             Some(base) => base,
-            None => {
-                MaterialShaderDescriptor {
-                    nodes: PBR_NODES,
-                    raw_source: Some(include_str!("wgsl/pbr_entrypoints.wgsl").into()),
-                    vertex_stage_layouts: Some(vec![
-                        VertexStageLayout::ComplexVertexData,
-                        VertexStageLayout::InstanceData,
-                    ]),
-                    cull_mode: Some(Face::Front),
-                    ..MaterialShaderDescriptor::default()
-                }
-            }
+            None => MaterialShaderDescriptor {
+                nodes: PBR_NODES,
+                raw_source: Some(include_str!("wgsl/pbr_entrypoints.wgsl").into()),
+                vertex_stage_layouts: Some(vec![
+                    VertexStageLayout::ComplexVertexData,
+                    VertexStageLayout::InstanceData,
+                ]),
+                cull_mode: Some(Face::Front),
+                ..MaterialShaderDescriptor::default()
+            },
         };
 
         base.name = val.name;
