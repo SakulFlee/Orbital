@@ -1,0 +1,13 @@
+[package]
+name = "orbital_texture"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+orbital_core = { path = "../orbital_core" }
+orbital_file_manager = { path = "../orbital_file_manager" }
+wgpu = { workspace = true }
+cgmath = { workspace = true }
+image = { workspace = true }
+log = { workspace = true }
+serde = { workspace = true }

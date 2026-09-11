@@ -21,13 +21,13 @@ glob = { workspace = true }
 
 [dependencies]
 orbital_core = { path = "../orbital_core" }
+orbital_file_manager = { path = "../orbital_file_manager" }
 orbital_input = { path = "../orbital_input" }
 orbital_shader_preprocessor = { path = "../orbital_shader_preprocessor" }
 orbital_resources = { path = "../orbital_resources" }
 orbital_importer_gltf = { path = "../orbital_importer_gltf" }
 wgpu = { workspace = true }
 cgmath = { workspace = true }
-dirs = { workspace = true }
 gltf = { workspace = true }
 hashbrown = { workspace = true }
 image = { workspace = true }
@@ -43,6 +43,9 @@ orbital_renderer = { path = "../orbital_renderer" }
 orbital_app = { path = "../orbital_app" }
 orbital_ecs = { path = "../ecs" }
 orbital_ecs_bridge = { path = "../orbital_ecs_bridge" }
+orbital_procgeo = { path = "../orbital_procgeo" }
+orbital_debug_render = { path = "../orbital_debug_render" }
+orbital_touch_ui = { path = "../orbital_touch_ui" }
 
 gilrs = { workspace = true, optional = true }
 

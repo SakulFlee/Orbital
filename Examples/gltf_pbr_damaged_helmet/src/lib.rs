@@ -1,13 +1,17 @@
 use orbital::app::{App, AppSettings, Module, sys_camera_controller};
 use orbital::cgmath::{Point3, Rad, Vector3};
+use orbital::debug_render::DebugModule;
 use orbital::ecs::{IntoSystem, System, World};
 use orbital::ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, EnvironmentDescriptorResource,
-    ImportQueueResource, LightDescriptorEcs, LightDirty, Position, Rotation,
+    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, ImportQueueResource, LightDescriptorEcs,
+    LightDirty, Position, Rotation,
 };
 use orbital::importer::{ImportTask, gltf::GltfImport};
-use orbital::logging::{self, error, info};
-use orbital::resources::WorldEnvironmentDescriptor;
+#[cfg(not(target_os = "android"))]
+use orbital::logging;
+use orbital::logging::{error, info};
+use orbital::resources::ShadowCaster;
+use winit::keyboard::KeyCode;
 
 pub const NAME: &str = "Orbital-Demo-Project: DamagedHelmet";
 
@@ -17,16 +21,25 @@ pub fn entrypoint(
         orbital::winit::error::EventLoopError,
     >,
 ) {
+    #[cfg(not(target_os = "android"))]
     logging::init();
 
     let event_loop = event_loop_result.expect("Event Loop failure");
 
-    let mut app_settings = AppSettings::default();
-    app_settings.vsync_enabled = true;
-    app_settings.name = NAME.to_string();
+    let app_settings = AppSettings {
+        name: NAME.to_string(),
+        back_presses_to_exit: 3,
+        ..AppSettings::default()
+    };
 
     match App::new()
         .add_module(DamagedHelmetModule)
+        .add_module(
+            DebugModule::new()
+                .with_toggle_key(KeyCode::F3)
+                .with_freeze_key(KeyCode::F4),
+        )
+        .add_module(orbital::touch_ui::TouchUiModule)
         .liftoff(event_loop, app_settings)
     {
         Ok(()) => info!("Cleanly exited!"),
@@ -34,7 +47,7 @@ pub fn entrypoint(
     }
 }
 
-orbital::make_desktop_main!(entrypoint);
+orbital::make_main!(entrypoint);
 
 struct DamagedHelmetModule;
 
@@ -65,48 +78,93 @@ impl Module for DamagedHelmetModule {
         ecs.insert_resource(ActiveCamera(camera));
         ecs.insert_resource(CursorGrabConfig(true));
 
-        // Environment
-        ecs.insert_resource(EnvironmentDescriptorResource(Some(
-            WorldEnvironmentDescriptor::FromFile {
-                cube_face_size: 2048,
-                path: "Assets/WorldEnvironments/PhotoStudio.hdr".to_string(),
-                sampling_type: WorldEnvironmentDescriptor::DEFAULT_SAMPLING_TYPE,
-                custom_specular_mip_level_count: None,
+        // Spot light from behind the camera, casting shadows
+        let spot = ecs.spawn_entity();
+        ecs.attach_component(
+            &spot,
+            LightDescriptorEcs::new_spot(
+                Vector3::new(1.0, 0.9, 0.7), // warm white
+                8.0,
+                Vector3::new(0.0, -1.0, 1.0), // down + forward toward helmet
+                0.3,                          // inner cone (~17°)
+                0.5,                          // outer cone (~29°)
+            ),
+        )
+        .unwrap();
+        ecs.attach_component(&spot, Position(Point3::new(0.0, 4.0, -4.0)))
+            .unwrap();
+        ecs.attach_component(&spot, LightDirty(true)).unwrap();
+        ecs.attach_component(
+            &spot,
+            ShadowCaster {
+                cascade_count: 0, // ignored for spot lights (single perspective map)
+                ..Default::default()
             },
-        )));
+        )
+        .unwrap();
 
         // Import model
         if let Some(mut queue) = ecs.get_resource_mut::<ImportQueueResource>() {
             queue.push(ImportTask::Gltf {
-                file_path: "Assets/Models/DamagedHelmet.glb".into(),
+                file_path: "Models/DamagedHelmet.glb".into(),
                 task: GltfImport::WholeFile,
             });
         }
 
-        // Spawn lights
-        let light1 = ecs.spawn_entity();
+        // Spawn directional light with shadows
+        let sun = ecs.spawn_entity();
         ecs.attach_component(
-            &light1,
-            LightDescriptorEcs::new_point(Vector3::new(1.0, 1.0, 1.0), 10.0),
-        )
-        .unwrap();
-        ecs.attach_component(&light1, Position(Point3::new(5.0, 5.0, 5.0)))
-            .unwrap();
-        ecs.attach_component(&light1, LightDirty(true)).unwrap();
-
-        let light2 = ecs.spawn_entity();
-        ecs.attach_component(
-            &light2,
+            &sun,
             LightDescriptorEcs::new_directional(
                 Vector3::new(-1.0, -1.0, -1.0),
                 Vector3::new(1.0, 1.0, 1.0),
-                1.0,
+                1.5,
             ),
         )
         .unwrap();
-        ecs.attach_component(&light2, Position(Point3::new(0.0, 0.0, 0.0)))
+        ecs.attach_component(&sun, Position(Point3::new(0.0, 0.0, 0.0)))
             .unwrap();
-        ecs.attach_component(&light2, LightDirty(true)).unwrap();
+        ecs.attach_component(&sun, LightDirty(true)).unwrap();
+        ecs.attach_component(&sun, ShadowCaster::default()).unwrap();
+
+        // Rainbow ring of 10 point lights around the helmet
+        let colors = [
+            [1.0, 0.0, 0.0], // red
+            [1.0, 0.5, 0.0], // orange
+            [1.0, 1.0, 0.0], // yellow
+            [0.5, 1.0, 0.0], // lime
+            [0.0, 1.0, 0.0], // green
+            [0.0, 1.0, 1.0], // cyan
+            [0.0, 0.5, 1.0], // blue
+            [0.5, 0.0, 1.0], // purple
+            [1.0, 0.0, 1.0], // magenta
+            [1.0, 0.2, 0.5], // pink
+        ];
+        let count = colors.len();
+        for (i, &rgb) in colors.iter().enumerate() {
+            let angle = i as f32 * std::f32::consts::TAU / count as f32;
+            let (s, c) = angle.sin_cos();
+            let entity = ecs.spawn_entity();
+            ecs.attach_component(
+                &entity,
+                LightDescriptorEcs::new_point(Vector3::new(rgb[0], rgb[1], rgb[2]), 3.0),
+            )
+            .unwrap();
+            ecs.attach_component(&entity, Position(Point3::new(c * 3.0, 2.0, s * 3.0)))
+                .unwrap();
+            ecs.attach_component(&entity, LightDirty(true)).unwrap();
+            // First red light casts cube shadows
+            if i == 0 {
+                ecs.attach_component(
+                    &entity,
+                    ShadowCaster {
+                        cascade_count: 0,
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+            }
+        }
 
         vec![sys_camera_controller.into_system()]
     }

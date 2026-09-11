@@ -1,0 +1,1 @@
+const AMBIENT_INTENSITY: f32 = 0.2;

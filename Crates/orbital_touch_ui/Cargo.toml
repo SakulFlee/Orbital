@@ -1,0 +1,13 @@
+[package]
+name = "orbital_touch_ui"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+cgmath = { workspace = true }
+wgpu = { workspace = true }
+
+orbital_app = { path = "../orbital_app" }
+orbital_ecs = { path = "../ecs" }
+orbital_ecs_bridge = { path = "../orbital_ecs_bridge" }
+orbital_input = { path = "../orbital_input" }

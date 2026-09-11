@@ -4,12 +4,21 @@ use gltf::image::Format;
 use gltf::khr_lights_punctual;
 use gltf::{Camera, Document, Material, Mesh, Node, Scene, Semantic};
 use hashbrown::HashMap;
+use image::GenericImageView;
 use log::{debug, trace, warn};
-use orbital_resources::{
-    CameraDescriptor, FilterMode, LightDescriptor, MaterialDescriptor, MeshDescriptor,
-    ModelDescriptor, PBRMaterialDescriptor, TextureDescriptor, TextureSize, Transform, Vertex,
-};
+use orbital_camera::CameraDescriptor;
+use orbital_file_manager::FileManager;
+use orbital_light::LightDescriptor;
+use orbital_material_shader::MaterialShaderDescriptor;
+use orbital_math::Transform;
+use orbital_mesh::{MeshDescriptor, Vertex};
+use orbital_model::ModelDescriptor;
+use orbital_texture::{FilterMode, TextureDescriptor, TextureSize};
+
+type MaterialDescriptor = MaterialShaderDescriptor;
+type PBRMaterialDescriptor = orbital_shader_pbr::PBRMaterialShaderDescriptor;
 use std::error::Error;
+use std::path::Path;
 use std::sync::Arc;
 use ulid::Ulid;
 use wgpu::TextureFormat::R32Float;
@@ -33,6 +42,69 @@ pub use result::*;
 mod error;
 pub use error::*;
 use orbital_core::quaternion::quaternion_to_pitch_yaw;
+
+/// The result of parsing a glTF document: the document plus its decoded
+/// buffers and images.
+pub type GltfImportPayload = (Document, Vec<gltf::buffer::Data>, Vec<gltf::image::Data>);
+
+/// Reads the bytes backing a glTF buffer/image URI.
+///
+/// Inline `data:` URIs are base64-decoded in memory. External paths are
+/// percent-decoded and resolved relative to the importing glTF file's own
+/// directory, then read through the [`FileManager`] — this is what makes
+/// separated glTF assets load on Android as well as on desktop.
+fn read_gltf_uri(
+    file_manager: &FileManager,
+    base_file: &str,
+    uri: &str,
+) -> Result<Vec<u8>, Box<dyn Error>> {
+    if let Some(rest) = uri.strip_prefix("data:") {
+        let base64_data = rest
+            .split(";base64,")
+            .nth(1)
+            .ok_or(gltf::Error::ExternalReferenceInSliceImport)?;
+        use base64::Engine as _;
+        return base64::engine::general_purpose::STANDARD
+            .decode(base64_data)
+            .map_err(|e| Box::new(e) as Box<dyn Error>);
+    }
+
+    let decoded = urlencoding::decode(uri).map_err(|e| Box::new(e) as Box<dyn Error>)?;
+    let base_dir = Path::new(base_file)
+        .parent()
+        .map(|parent| parent.to_string_lossy().replace('\\', "/"))
+        .unwrap_or_default();
+
+    let asset_path = if base_dir.is_empty() {
+        decoded.to_string()
+    } else {
+        format!("{base_dir}/{decoded}")
+    };
+
+    file_manager
+        .read_asset_bytes(&asset_path)
+        .map_err(|e| Box::new(e) as Box<dyn Error>)
+}
+
+/// Maps an [`image::DynamicImage`] variant to the matching
+/// [`gltf::image::Format`], mirroring the mapping the `gltf` crate itself uses.
+fn gltf_image_format(image: &image::DynamicImage) -> Option<gltf::image::Format> {
+    use image::DynamicImage::*;
+
+    Some(match image {
+        ImageLuma8(_) => gltf::image::Format::R8,
+        ImageLumaA8(_) => gltf::image::Format::R8G8,
+        ImageRgb8(_) => gltf::image::Format::R8G8B8,
+        ImageRgba8(_) => gltf::image::Format::R8G8B8A8,
+        ImageLuma16(_) => gltf::image::Format::R16,
+        ImageLumaA16(_) => gltf::image::Format::R16G16,
+        ImageRgb16(_) => gltf::image::Format::R16G16B16,
+        ImageRgba16(_) => gltf::image::Format::R16G16B16A16,
+        ImageRgb32F(_) => gltf::image::Format::R32G32B32FLOAT,
+        ImageRgba32F(_) => gltf::image::Format::R32G32B32A32FLOAT,
+        _ => return None,
+    })
+}
 
 /// Used to load/import "things" from a glTF file.
 /// This should support most variants of glTF files but not necessarily everything.
@@ -63,11 +135,32 @@ impl GltfImporter {
     /// materials, it will be automatically instanced by the World system.
     /// Each instance gets a unique transform that preserves the original positioning.
     pub fn import(import_task: GltfImportTask) -> GltfImportResult {
-        let (document, buffers, textures) = match gltf::import(&import_task.file) {
-            Ok(x) => x,
+        let file_manager = match FileManager::global() {
+            Ok(fm) => fm,
             Err(e) => {
                 return GltfImportResult {
                     errors: vec![Box::new(e)],
+                    ..Default::default()
+                };
+            }
+        };
+        Self::import_with_file_manager(file_manager, import_task)
+    }
+
+    /// Like [`Self::import`], but reads assets through the given
+    /// [`FileManager`] instead of the process-wide one. Exposed so embedders
+    /// can use a custom asset root and so the importer can be unit-tested
+    /// against a temp directory.
+    pub fn import_with_file_manager(
+        file_manager: &FileManager,
+        import_task: GltfImportTask,
+    ) -> GltfImportResult {
+        let (document, buffers, textures) = match Self::import_gltf(file_manager, &import_task.file)
+        {
+            Ok(x) => x,
+            Err(e) => {
+                return GltfImportResult {
+                    errors: vec![e],
                     ..Default::default()
                 };
             }
@@ -89,12 +182,90 @@ impl GltfImporter {
         }
     }
 
+    /// Loads the glTF document from a file path resolved through the
+    /// [`FileManager`](orbital_file_manager::FileManager).
+    ///
+    /// The main file's bytes are read through the platform's asset source (disk
+    /// on desktop, `AAssetManager` on Android). The document is parsed
+    /// in-memory and any externally-referenced `.bin` buffers or image files are
+    /// read relative to the glTF file's own directory through the same source —
+    /// so separated glTF assets work on all platforms. Self-contained `.glb`
+    /// files and inline `data:` URIs are handled in-memory.
+    fn import_gltf(
+        file_manager: &FileManager,
+        file_path: &str,
+    ) -> Result<GltfImportPayload, Box<dyn Error>> {
+        let bytes = file_manager
+            .read_asset_bytes(file_path)
+            .map_err(|e| Box::new(e) as Box<dyn Error>)?;
+
+        let gltf::Gltf { document, mut blob } = gltf::Gltf::from_slice(&bytes)?;
+
+        // Load every buffer: external file / `data:` URI via the FileManager,
+        // or the GLB binary chunk when `source` points at it.
+        let mut buffers = Vec::new();
+        for buffer in document.buffers() {
+            let mut data = match buffer.source() {
+                gltf::buffer::Source::Bin => blob.take().ok_or(gltf::Error::MissingBlob)?,
+                gltf::buffer::Source::Uri(uri) => read_gltf_uri(file_manager, file_path, uri)?,
+            };
+
+            // Buffers are padded to 4-byte alignment per the glTF spec.
+            while data.len() % 4 != 0 {
+                data.push(0);
+            }
+
+            if data.len() < buffer.length() {
+                return Err(Box::new(gltf::Error::BufferLength {
+                    buffer: buffer.index(),
+                    expected: buffer.length(),
+                    actual: data.len(),
+                }));
+            }
+
+            buffers.push(gltf::buffer::Data(data));
+        }
+
+        // Load and decode every image: either sliced out of a buffer view or
+        // read through the FileManager.
+        let mut images = Vec::new();
+        for image in document.images() {
+            let decoded = match image.source() {
+                gltf::image::Source::Uri { uri, .. } => {
+                    let encoded = read_gltf_uri(file_manager, file_path, uri)?;
+                    image::load_from_memory(&encoded)?
+                }
+                gltf::image::Source::View { view, .. } => {
+                    let parent = &buffers[view.buffer().index()].0;
+                    let start = view.offset();
+                    let end = start + view.length();
+                    let encoded = &parent[start..end];
+                    image::load_from_memory(encoded)?
+                }
+            };
+
+            let format = gltf_image_format(&decoded)
+                .ok_or_else(|| gltf::Error::UnsupportedImageFormat(decoded.clone()))?;
+            let (width, height) = decoded.dimensions();
+            let pixels = decoded.into_bytes();
+
+            images.push(gltf::image::Data {
+                format,
+                width,
+                height,
+                pixels,
+            });
+        }
+
+        Ok((document, buffers, images))
+    }
+
     /// Handles importing from a glTF [`Document`] given a [`SpecificGltfImport`].
     fn import_specific(
         specific_import: SpecificGltfImport,
         document: &Document,
-        buffers: &Vec<gltf::buffer::Data>,
-        textures: &Vec<gltf::image::Data>,
+        buffers: &[gltf::buffer::Data],
+        textures: &[gltf::image::Data],
     ) -> GltfImportResult {
         let mut result = GltfImportResult::empty();
 
@@ -159,8 +330,8 @@ impl GltfImporter {
     /// Handles importing a whole glTF file
     fn import_whole_file(
         document: &Document,
-        buffers: &Vec<gltf::buffer::Data>,
-        textures: &Vec<gltf::image::Data>,
+        buffers: &[gltf::buffer::Data],
+        textures: &[gltf::image::Data],
     ) -> GltfImportResult {
         let mut result = GltfImportResult::empty();
 
@@ -176,8 +347,8 @@ impl GltfImporter {
     fn import_whole_scene(
         scene: Scene,
         _document: &Document,
-        buffers: &Vec<gltf::buffer::Data>,
-        textures: &Vec<gltf::image::Data>,
+        buffers: &[gltf::buffer::Data],
+        textures: &[gltf::image::Data],
     ) -> GltfImportResult {
         let nodes: Vec<_> = scene.nodes().collect();
 
@@ -187,8 +358,8 @@ impl GltfImporter {
     /// Handles importing a specific set of [`Node`]s from a glTF [`Document`].
     fn import_nodes(
         nodes: Vec<Node>,
-        buffers: &Vec<gltf::buffer::Data>,
-        textures: &Vec<gltf::image::Data>,
+        buffers: &[gltf::buffer::Data],
+        textures: &[gltf::image::Data],
     ) -> GltfImportResult {
         let mut model_descriptors = Vec::new();
         let mut camera_descriptors = Vec::new();
@@ -315,9 +486,7 @@ impl GltfImporter {
                     processed_pixels.push(byte);
                 }
                 // Pad with zeros if needed to reach 3 channels (RGB)
-                for _ in chunk.len()..3 {
-                    processed_pixels.push(0u8);
-                }
+                processed_pixels.extend(std::iter::repeat_n(0u8, 3 - chunk.len()));
                 // Add full alpha (255)
                 processed_pixels.push(255u8);
             }
@@ -465,10 +634,7 @@ impl GltfImporter {
     }
 
     /// Handles parsing a glTF [`Material`] into an Orbital [`MaterialDescriptor`].
-    fn parse_materials(
-        material: &Material,
-        textures: &Vec<gltf::image::Data>,
-    ) -> MaterialDescriptor {
+    fn parse_materials(material: &Material, textures: &[gltf::image::Data]) -> MaterialDescriptor {
         let normal = if let Some(normal_info) = material.normal_texture() {
             Self::parse_texture_linear(textures[normal_info.texture().source().index()].clone())
         } else {
@@ -591,8 +757,8 @@ impl GltfImporter {
     fn parse_models(
         node: &Node,
         mesh: &Mesh,
-        buffers: &Vec<gltf::buffer::Data>,
-        textures: &Vec<gltf::image::Data>,
+        buffers: &[gltf::buffer::Data],
+        textures: &[gltf::image::Data],
     ) -> Result<Vec<ModelDescriptor>, Box<dyn Error>> {
         let primitives = mesh.primitives();
         let mut results = Vec::new();
@@ -838,7 +1004,7 @@ impl GltfImporter {
     fn parse_camera(
         node: &Node,
         camera: &Camera,
-        _buffers: &Vec<gltf::buffer::Data>,
+        _buffers: &[gltf::buffer::Data],
     ) -> Result<CameraDescriptor, Box<dyn Error>> {
         let perspective = match camera.projection() {
             Projection::Orthographic(_) => {
@@ -914,7 +1080,7 @@ impl GltfImporter {
     fn parse_light(
         node: &Node,
         light: &khr_lights_punctual::Light,
-        _buffers: &Vec<gltf::buffer::Data>,
+        _buffers: &[gltf::buffer::Data],
     ) -> Result<LightDescriptor, Box<dyn Error>> {
         let transform = node.transform();
         let decomposed = transform.decomposed();

@@ -14,7 +14,7 @@ pub struct Res<'a, T: 'static>(&'a T);
 
 impl<T: 'static> Clone for Res<'_, T> {
     fn clone(&self) -> Self {
-        Res(self.0)
+        *self
     }
 }
 impl<T: 'static> Copy for Res<'_, T> {}

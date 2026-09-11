@@ -1,0 +1,11 @@
+[package]
+name = "orbital_file_manager"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+log = { workspace = true }
+dirs = { workspace = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+ndk = "0.9"

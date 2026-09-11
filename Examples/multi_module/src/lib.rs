@@ -1,10 +1,13 @@
 use orbital::app::{App, AppSettings};
-use orbital::logging::{self, error, info};
+use orbital::debug_render::DebugModule;
+#[cfg(not(target_os = "android"))]
+use orbital::logging;
+use orbital::logging::{error, info};
 
 mod modules;
 use modules::camera_module::CameraModule;
-use modules::light_module::LightModule;
 use modules::model_module::ModelModule;
+use winit::keyboard::KeyCode;
 
 pub const NAME: &str = "Orbital-Demo-Project: MultiModule";
 
@@ -14,18 +17,27 @@ pub fn entrypoint(
         orbital::winit::error::EventLoopError,
     >,
 ) {
+    #[cfg(not(target_os = "android"))]
     logging::init();
 
     let event_loop = event_loop_result.expect("Event Loop failure");
 
-    let mut app_settings = AppSettings::default();
-    app_settings.vsync_enabled = true;
-    app_settings.name = NAME.to_string();
+    let app_settings = AppSettings {
+        name: NAME.to_string(),
+        back_presses_to_exit: 3,
+        ..AppSettings::default()
+    };
 
     match App::new()
         .add_module(CameraModule)
         .add_module(ModelModule)
-        .add_module(LightModule)
+        // .add_module(LightModule)
+        .add_module(
+            DebugModule::new()
+                .with_toggle_key(KeyCode::F3)
+                .with_freeze_key(KeyCode::F4),
+        )
+        .add_module(orbital::touch_ui::TouchUiModule)
         .liftoff(event_loop, app_settings)
     {
         Ok(()) => info!("Cleanly exited!"),
@@ -33,4 +45,4 @@ pub fn entrypoint(
     }
 }
 
-orbital::make_desktop_main!(entrypoint);
+orbital::make_main!(entrypoint);

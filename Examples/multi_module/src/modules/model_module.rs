@@ -15,7 +15,7 @@ impl Module for ModelModule {
         // Queue a glTF import — Cubes.glb has multiple colored cubes
         if let Some(mut queue) = ecs.get_resource_mut::<ImportQueueResource>() {
             queue.push(ImportTask::Gltf {
-                file_path: "Assets/Models/Cubes.glb".into(),
+                file_path: "Models/Cubes.glb".into(),
                 task: GltfImport::WholeFile,
             });
         }

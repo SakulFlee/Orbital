@@ -7,14 +7,28 @@ edition = "2024"
 gamepad_input = ["dep:gilrs"]
 auto_request_redraw = []
 gamepad_input_poll = ["gamepad_input"]
+default = []
 
 [dependencies]
 orbital_core = { path = "../orbital_core" }
+orbital_camera = { path = "../orbital_camera" }
+orbital_cull = { path = "../orbital_cull" }
 orbital_ecs = { path = "../ecs" }
 orbital_ecs_bridge = { path = "../orbital_ecs_bridge" }
+orbital_ibl_brdf = { path = "../orbital_ibl_brdf" }
 orbital_input = { path = "../orbital_input" }
+orbital_instance = { path = "../orbital_instance" }
+orbital_light = { path = "../orbital_light" }
+orbital_material_shader = { path = "../orbital_material_shader" }
+orbital_model = { path = "../orbital_model" }
 orbital_renderer = { path = "../orbital_renderer" }
-orbital_resources = { path = "../orbital_resources" }
+orbital_shader_engine = { path = "../orbital_shader_engine" }
+orbital_shader_math = { path = "../orbital_shader_math" }
+orbital_shader_preprocessor = { path = "../orbital_shader_preprocessor" }
+orbital_shader_pbr = { path = "../orbital_shader_pbr" }
+orbital_shadow = { path = "../orbital_shadow" }
+orbital_texture = { path = "../orbital_texture" }
+orbital_world_environment = { path = "../orbital_world_environment" }
 cgmath = { workspace = true }
 log = { workspace = true }
 wgpu = { workspace = true }

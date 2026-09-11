@@ -6,7 +6,7 @@
 
 use std::sync::{Arc, Mutex};
 
-#[cfg(feature = "gamepad_input")]
+#[cfg(all(feature = "gamepad_input", not(target_os = "android")))]
 use gilrs::Gilrs;
 use log::trace;
 use orbital_core::logging::{self, debug, error, info, warn};
@@ -17,22 +17,119 @@ use wgpu::TextureViewDescriptor;
 use winit::{
     application::ApplicationHandler,
     error::EventLoopError,
-    event::{DeviceEvent, DeviceId, WindowEvent},
-    event_loop::{ActiveEventLoop, EventLoop},
+    event::{DeviceEvent, DeviceId, ElementState, WindowEvent},
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
+    keyboard::{Key, NamedKey},
     window::{CursorGrabMode, WindowId},
 };
 
-use crate::{AppContext, AppSettings, AppState, Module, Timer, make_core_schedule};
+use orbital_light::LightType;
+use orbital_shadow::{ShadowCaster, ShadowLightInfo};
+use orbital_world_environment::{GeneratedSkyParameters, WorldEnvironment};
+
+use crate::{
+    AppContext, AppSettings, AppState, Module, RenderOverlayResource, Timer, make_core_schedule,
+};
 use orbital_ecs_bridge::{
-    CursorGrabConfig, CursorPosition, DeltaTime, DeviceResource, EcsCameraStore, EngineEvent,
-    EngineEvents, FrameCounter, InputSnapshot, QueueResource, SurfaceFormatResource, TotalTime,
-    WindowSize,
+    ActiveCamera, CameraDescriptorEcs, CameraDirty, CursorGrabConfig, CursorPosition, DeltaTime,
+    DeviceResource, EcsCameraStore, EngineEvent, EngineEvents, FrameCounter, InputSnapshot,
+    LightDescriptorEcs, Position, QueueResource, SurfaceFormatResource, TotalTime, WindowSize,
 };
 
 macro_rules! ctx_lock {
     ($ctx:ident) => {
         $ctx.lock().expect("Mutex failure")
     };
+}
+
+struct TimingAccumulator {
+    count: u64,
+    surface_acq: f64,
+    realize: f64,
+    stagger: f64,
+    cull_extract: f64,
+    bind_group_models: f64,
+    render_ms: f64,
+    present_ms: f64,
+    total_ms: f64,
+    gpu_shadow_ns: f64,
+    gpu_main_ns: f64,
+    gpu_total_ns: f64,
+    last_print: std::time::Instant,
+}
+
+impl TimingAccumulator {
+    fn new() -> Self {
+        Self {
+            count: 0,
+            surface_acq: 0.0,
+            realize: 0.0,
+            stagger: 0.0,
+            cull_extract: 0.0,
+            bind_group_models: 0.0,
+            render_ms: 0.0,
+            present_ms: 0.0,
+            total_ms: 0.0,
+            gpu_shadow_ns: 0.0,
+            gpu_main_ns: 0.0,
+            gpu_total_ns: 0.0,
+            last_print: std::time::Instant::now(),
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn push(
+        &mut self,
+        surface_acq: std::time::Duration,
+        realize: std::time::Duration,
+        stagger: std::time::Duration,
+        cull_extract: std::time::Duration,
+        bind_group_models: std::time::Duration,
+        render_ms: std::time::Duration,
+        present_ms: std::time::Duration,
+        total: std::time::Duration,
+        gpu_ns: [f64; 3],
+    ) {
+        self.count += 1;
+        self.surface_acq += surface_acq.as_secs_f64() * 1000.0;
+        self.realize += realize.as_secs_f64() * 1000.0;
+        self.stagger += stagger.as_secs_f64() * 1000.0;
+        self.cull_extract += cull_extract.as_secs_f64() * 1000.0;
+        self.bind_group_models += bind_group_models.as_secs_f64() * 1000.0;
+        self.render_ms += render_ms.as_secs_f64() * 1000.0;
+        self.present_ms += present_ms.as_secs_f64() * 1000.0;
+        self.total_ms += total.as_secs_f64() * 1000.0;
+        // gpu_ns: raw GPU timestamps at [shadow_start, skybox_start, main_end]
+        // Compute durations in ms (timestamps are in ns on Vulkan)
+        let ns_to_ms = 1.0 / 1_000_000.0;
+        self.gpu_shadow_ns += (gpu_ns[1] - gpu_ns[0]) * ns_to_ms;
+        self.gpu_main_ns += (gpu_ns[2] - gpu_ns[1]) * ns_to_ms;
+        self.gpu_total_ns += (gpu_ns[2] - gpu_ns[0]) * ns_to_ms;
+    }
+
+    fn try_print(&mut self) {
+        let elapsed = self.last_print.elapsed();
+        if elapsed.as_secs_f64() < 1.0 || self.count == 0 {
+            return;
+        }
+        let n = self.count as f64;
+        info!(
+            "TIMING avg({} frames): surface_acq={:.2}ms realize={:.2}ms stagger={:.2}ms cull+extract={:.2}ms bind+models={:.2}ms render={:.2}ms present={:.2}ms TOTAL={:.2}ms | GPU shadow={:.2}ms skybox+models={:.2}ms GPU_TOTAL={:.2}ms",
+            self.count,
+            self.surface_acq / n,
+            self.realize / n,
+            self.stagger / n,
+            self.cull_extract / n,
+            self.bind_group_models / n,
+            self.render_ms / n,
+            self.present_ms / n,
+            self.total_ms / n,
+            self.gpu_shadow_ns / n,
+            self.gpu_main_ns / n,
+            self.gpu_total_ns / n,
+        );
+        *self = Self::new();
+    }
 }
 
 pub struct ModuleRuntime {
@@ -46,7 +143,10 @@ pub struct ModuleRuntime {
     game_schedule: Schedule,
     module_setup_done: bool,
     renderer: Option<orbital_renderer::Renderer>,
-    #[cfg(feature = "gamepad_input")]
+    timing_accum: TimingAccumulator,
+    back_press_count: u8,
+    last_back_press: Option<std::time::Instant>,
+    #[cfg(all(feature = "gamepad_input", not(target_os = "android")))]
     gil: Gilrs,
 }
 
@@ -72,7 +172,10 @@ impl ModuleRuntime {
             game_schedule: Schedule::new(),
             module_setup_done: false,
             renderer: None,
-            #[cfg(feature = "gamepad_input")]
+            timing_accum: TimingAccumulator::new(),
+            back_press_count: 0,
+            last_back_press: None,
+            #[cfg(all(feature = "gamepad_input", not(target_os = "android")))]
             gil: Gilrs::new().expect("Gamepad input initialization failed!"),
         };
 
@@ -96,6 +199,8 @@ impl ModuleRuntime {
     }
 
     fn redraw(&mut self) {
+        let t_start = std::time::Instant::now();
+
         let AppState::Ready(ctx) = &self.state else {
             error!(
                 "Trying to redraw when app state is in a non-ready state! ({:?})",
@@ -143,25 +248,191 @@ impl ModuleRuntime {
             ..TextureViewDescriptor::default()
         });
 
+        let _t_ecs_start = std::time::Instant::now();
+
+        // ─── section timing ──────────────────────────────────────────
+        use std::time::Instant;
+        let t_realize_start = Instant::now();
+
+        // Check for any model modifications BEFORE realize clears ModelDirty.
+        // This catches newly-imported models (e.g. DamagedHelmet) whose
+        // ModelDirty(true) is cleared by realize_models on the same frame;
+        // if we checked AFTER realize, global_model_dirty would always be
+        // false and shadow maps would never include the new model.
+        let global_model_dirty = {
+            if let Some(store) = self
+                .ecs_world
+                .get_component_store::<orbital_ecs_bridge::ModelDirty>()
+            {
+                store.dense.iter().any(|&eid| {
+                    store
+                        .sparse
+                        .get(eid)
+                        .copied()
+                        .flatten()
+                        .map(|idx| store.components[idx].0)
+                        .unwrap_or(false)
+                })
+            } else {
+                false
+            }
+        };
+
         // Realize all ECS state (needs &mut self.ecs_world)
         crate::systems::realize::realize_cameras(&mut self.ecs_world);
         crate::systems::realize::realize_lights(&mut self.ecs_world);
         crate::systems::realize::realize_environment(&mut self.ecs_world);
         crate::systems::realize::realize_models(&mut self.ecs_world);
+        let t_stagger_start = Instant::now();
+        let d_realize = t_stagger_start - t_realize_start;
+
+        // Check if new lights were added this frame (forces full bootstrap)
+        let new_light_bootstrap = self
+            .ecs_world
+            .get_resource::<orbital_ecs_bridge::NewLightBootstrap>()
+            .map(|n| n.0)
+            .unwrap_or(false);
+        if new_light_bootstrap {
+            self.ecs_world
+                .insert_resource(orbital_ecs_bridge::NewLightBootstrap(false));
+        }
+
+        // Schedule shadow updates respecting the per-frame budget
+        // Set ORBITAL_STAGGER_ALL=1 env-var to render all shadows each frame (for perf comparison).
+        if std::env::var("ORBITAL_STAGGER_ALL").is_ok() {
+            self.ecs_world
+                .insert_resource(orbital_ecs_bridge::StaggeredLightConfig {
+                    max_updates_per_frame: 6,
+                });
+        }
+        let dirty_set = crate::systems::stagger::sys_stagger_shadow_updates(
+            &mut self.ecs_world,
+            global_model_dirty,
+            new_light_bootstrap,
+        );
+
+        log::trace!(
+            "stagger: gmd={} nlb={} dirty_set_len={}",
+            global_model_dirty,
+            new_light_bootstrap,
+            dirty_set.len(),
+        );
+        // Count active lights for the shader's light-store loop bound
+        let active_light_count = self
+            .ecs_world
+            .get_component_store::<orbital_ecs_bridge::LightDescriptorEcs>()
+            .map(|s| s.dense.len() as u32)
+            .unwrap_or(0u32);
+        let t_cull_start = Instant::now();
+        let d_stagger = t_cull_start - t_stagger_start;
+
+        // Freeze/unfreeze the culling frustum (default F4)
+        {
+            use orbital_input::InputButton;
+            use std::sync::atomic::Ordering;
+            use winit::keyboard::PhysicalKey;
+
+            static PREV_FREEZE: std::sync::atomic::AtomicBool =
+                std::sync::atomic::AtomicBool::new(false);
+
+            let freeze_key = self
+                .ecs_world
+                .get_resource::<crate::FreezeKeyConfig>()
+                .map(|c| c.0)
+                .unwrap_or(winit::keyboard::KeyCode::F4);
+
+            let input_res = self.ecs_world.get_resource::<InputSnapshot>();
+            let pressed = input_res
+                .map(|input| {
+                    input
+                        .0
+                        .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(freeze_key)))
+                        .map(|(_, s)| s)
+                        .unwrap_or(false)
+                })
+                .unwrap_or(false);
+
+            if pressed && !PREV_FREEZE.load(Ordering::Relaxed) {
+                // Rising edge — toggle frozen state.
+                // Read the current state (immutable borrow of ecs_world).
+                let was_frozen = self
+                    .ecs_world
+                    .get_resource::<orbital_ecs_bridge::FrozenFrustum>()
+                    .and_then(|f| f.0.clone())
+                    .is_some();
+
+                // Read camera data while ecs_world is still immutably borrowed.
+                let capture = if !was_frozen {
+                    let active_cam = self
+                        .ecs_world
+                        .get_resource::<orbital_ecs_bridge::ActiveCamera>();
+                    let store = self
+                        .ecs_world
+                        .get_resource::<orbital_ecs_bridge::EcsCameraStore>();
+                    active_cam.and_then(|active| {
+                        store.and_then(|s| {
+                            s.get(active.0.index).map(|arc_cam| {
+                                let cam = arc_cam.read().unwrap();
+                                orbital_ecs_bridge::FrozenFrustumData {
+                                    frustum: cam.frustum(),
+                                    perspective_view_projection_matrix: *cam
+                                        .perspective_view_projection_matrix(),
+                                }
+                            })
+                        })
+                    })
+                } else {
+                    None
+                };
+
+                // Now mutate ecs_world.
+                self.ecs_world
+                    .insert_resource(orbital_ecs_bridge::FrozenFrustum(if was_frozen {
+                        None
+                    } else {
+                        capture
+                    }));
+            }
+            PREV_FREEZE.store(pressed, Ordering::Relaxed);
+        }
+
+        // CPU frustum culling — tests bounding spheres against the camera
+        // frustum and compacts visible instances into a vertex buffer.
+        crate::systems::cull::sys_frustum_cull(&mut self.ecs_world);
+
+        // Keep a borrow of the cull resource for the render call below.
+        // This borrows self.ecs_world immutably — OK because all subsequent
+        // accesses of ecs_world are also immutable.
+        let cull_res = self
+            .ecs_world
+            .get_resource::<orbital_ecs_bridge::CullResource>();
 
         // Extract all rendering data while ecs_world is not mutably borrowed
-        let (camera_buffer, light_buffer, env_ibl, model_ptrs) = {
+        let (
+            camera_buffer,
+            light_buffer,
+            env_ibl,
+            model_ptrs,
+            shadow_lights,
+            camera_pvp,
+            camera_near,
+            camera_far,
+        ) = {
             let cb = self.extract_camera_buffer(device, queue);
+            let (pvp, near, far) = self.extract_camera_projection_data();
             let lb = self.extract_light_buffer(device);
             let ei = self.extract_env_ibl();
             let mp = self.collect_model_ptrs();
-            (cb, lb, ei, mp)
+            let sl = self.collect_shadow_lights();
+            (cb, lb, ei, mp, sl, pvp, near, far)
         };
+        let t_bind_start = Instant::now();
+        let d_cull_extract = t_bind_start - t_cull_start;
 
         // IBL BRDF (static cache)
-        static BRDF_ONCE: std::sync::OnceLock<orbital_resources::IblBrdf> =
+        static BRDF_ONCE: std::sync::OnceLock<orbital_ibl_brdf::IblBrdf> =
             std::sync::OnceLock::new();
-        let brdf = BRDF_ONCE.get_or_init(|| orbital_resources::IblBrdf::generate(device, queue));
+        let brdf = BRDF_ONCE.get_or_init(|| orbital_ibl_brdf::IblBrdf::generate(device, queue));
         let brdf_tex = brdf.texture_ref();
 
         // Environment IBL textures (from owned Arc)
@@ -174,12 +445,12 @@ impl ModuleRuntime {
             ),
             None => {
                 static FALLBACK_ONCE: std::sync::OnceLock<(
-                    orbital_resources::Texture,
-                    orbital_resources::Texture,
+                    orbital_texture::Texture,
+                    orbital_texture::Texture,
                 )> = std::sync::OnceLock::new();
                 let (diff, spec) = FALLBACK_ONCE.get_or_init(|| {
                     (
-                        orbital_resources::Texture::create_empty_cube_texture(
+                        orbital_texture::Texture::create_empty_cube_texture(
                             Some("default IBL diffuse"),
                             cgmath::Vector2::new(1, 1),
                             wgpu::TextureFormat::R8Unorm,
@@ -187,7 +458,7 @@ impl ModuleRuntime {
                             1,
                             device,
                         ),
-                        orbital_resources::Texture::create_empty_cube_texture(
+                        orbital_texture::Texture::create_empty_cube_texture(
                             Some("default IBL specular"),
                             cgmath::Vector2::new(1, 1),
                             wgpu::TextureFormat::R8Unorm,
@@ -201,11 +472,205 @@ impl ModuleRuntime {
             }
         };
 
-        // Build bind group
-        let bind_group_layout = orbital_resources::make_world_bind_group_layout(device);
+        // Sky parameters uniform for the analytic skybox (binding 14). Generated
+        // skies expose a live buffer; file/data environments use a static
+        // default that the texture-based skybox shader never reads.
+        static FALLBACK_SKY_PARAMS_BUF: std::sync::OnceLock<wgpu::Buffer> =
+            std::sync::OnceLock::new();
+        let sky_params_buf: &wgpu::Buffer = env_ibl
+            .as_ref()
+            .and_then(|env: &Arc<WorldEnvironment>| env.sky_parameters_buffer())
+            .unwrap_or_else(|| {
+                FALLBACK_SKY_PARAMS_BUF.get_or_init(|| {
+                    WorldEnvironment::make_sky_parameters_buffer(
+                        &GeneratedSkyParameters::default(),
+                        device,
+                    )
+                })
+            });
+
+        // Extract shadow resources from renderer's shadow renderer (with static fallbacks)
+        static FALLBACK_SHADOW_BUF: std::sync::OnceLock<wgpu::Buffer> = std::sync::OnceLock::new();
+        static FALLBACK_SHADOW_TEX: std::sync::OnceLock<(wgpu::Texture, wgpu::TextureView)> =
+            std::sync::OnceLock::new();
+        static FALLBACK_SHADOW_SAMPLER: std::sync::OnceLock<wgpu::Sampler> =
+            std::sync::OnceLock::new();
+        static FALLBACK_CUBE_TEX: std::sync::OnceLock<(wgpu::Texture, wgpu::TextureView)> =
+            std::sync::OnceLock::new();
+        static FALLBACK_CUBE_SAMPLER: std::sync::OnceLock<wgpu::Sampler> =
+            std::sync::OnceLock::new();
+
+        let shadow_slot_buffer: &wgpu::Buffer;
+        let shadow_depth_view: &wgpu::TextureView;
+        let shadow_sampler: &wgpu::Sampler;
+        let cube_shadow_depth_view: &wgpu::TextureView;
+        let cube_shadow_sampler: &wgpu::Sampler;
+
+        if let Some(renderer) = &self.renderer {
+            if let Some(sr) = renderer.shadow_renderer() {
+                shadow_slot_buffer = sr.slot_data_buffer();
+                shadow_depth_view = sr.depth_texture().view();
+                shadow_sampler = sr.sampler();
+                cube_shadow_depth_view = sr.cube_depth_texture().view();
+                cube_shadow_sampler = sr.cube_sampler();
+            } else {
+                let fb = FALLBACK_SHADOW_BUF.get_or_init(|| {
+                    device.create_buffer(&wgpu::BufferDescriptor {
+                        label: Some("Fallback Shadow Buffer"),
+                        size: std::mem::size_of::<orbital_shadow::ShadowGpuData>() as u64,
+                        usage: wgpu::BufferUsages::UNIFORM,
+                        mapped_at_creation: false,
+                    })
+                });
+                let (_, fbv) = FALLBACK_SHADOW_TEX.get_or_init(|| {
+                    let t = device.create_texture(&wgpu::TextureDescriptor {
+                        label: Some("Fallback Shadow Tex"),
+                        size: wgpu::Extent3d {
+                            width: 1,
+                            height: 1,
+                            depth_or_array_layers: 1,
+                        },
+                        mip_level_count: 1,
+                        sample_count: 1,
+                        dimension: wgpu::TextureDimension::D2,
+                        format: wgpu::TextureFormat::Depth32Float,
+                        usage: wgpu::TextureUsages::TEXTURE_BINDING,
+                        view_formats: &[],
+                    });
+                    let v = t.create_view(&Default::default());
+                    (t, v)
+                });
+                let fs = FALLBACK_SHADOW_SAMPLER.get_or_init(|| {
+                    device.create_sampler(&wgpu::SamplerDescriptor {
+                        label: Some("Fallback Shadow Sampler"),
+                        ..Default::default()
+                    })
+                });
+                let (_, cbv) = FALLBACK_CUBE_TEX.get_or_init(|| {
+                    let t = device.create_texture(&wgpu::TextureDescriptor {
+                        label: Some("Fallback Cube Shadow Tex"),
+                        size: wgpu::Extent3d {
+                            width: 1,
+                            height: 1,
+                            depth_or_array_layers: 6,
+                        },
+                        mip_level_count: 1,
+                        sample_count: 1,
+                        dimension: wgpu::TextureDimension::D2,
+                        format: wgpu::TextureFormat::Depth32Float,
+                        usage: wgpu::TextureUsages::TEXTURE_BINDING,
+                        view_formats: &[],
+                    });
+                    let v = t.create_view(&wgpu::TextureViewDescriptor {
+                        dimension: Some(wgpu::TextureViewDimension::CubeArray),
+                        ..Default::default()
+                    });
+                    (t, v)
+                });
+                let cs = FALLBACK_CUBE_SAMPLER.get_or_init(|| {
+                    device.create_sampler(&wgpu::SamplerDescriptor {
+                        label: Some("Fallback Cube Shadow Sampler"),
+                        ..Default::default()
+                    })
+                });
+                shadow_slot_buffer = fb;
+                shadow_depth_view = fbv;
+                shadow_sampler = fs;
+                cube_shadow_depth_view = cbv;
+                cube_shadow_sampler = cs;
+            }
+        } else {
+            let fb = FALLBACK_SHADOW_BUF.get_or_init(|| {
+                device.create_buffer(&wgpu::BufferDescriptor {
+                    label: Some("Fallback Shadow Buffer 2"),
+                    size: std::mem::size_of::<orbital_shadow::ShadowGpuData>() as u64,
+                    usage: wgpu::BufferUsages::UNIFORM,
+                    mapped_at_creation: false,
+                })
+            });
+            let (_, fbv) = FALLBACK_SHADOW_TEX.get_or_init(|| {
+                let t = device.create_texture(&wgpu::TextureDescriptor {
+                    label: Some("Fallback Shadow Tex 2"),
+                    size: wgpu::Extent3d {
+                        width: 1,
+                        height: 1,
+                        depth_or_array_layers: 1,
+                    },
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format: wgpu::TextureFormat::Depth32Float,
+                    usage: wgpu::TextureUsages::TEXTURE_BINDING,
+                    view_formats: &[],
+                });
+                let v = t.create_view(&Default::default());
+                (t, v)
+            });
+            let fs = FALLBACK_SHADOW_SAMPLER.get_or_init(|| {
+                device.create_sampler(&wgpu::SamplerDescriptor {
+                    label: Some("Fallback Shadow Sampler 2"),
+                    ..Default::default()
+                })
+            });
+            let (_, cbv) = FALLBACK_CUBE_TEX.get_or_init(|| {
+                let t2 = device.create_texture(&wgpu::TextureDescriptor {
+                    label: Some("Fallback Cube Shadow Tex 2"),
+                    size: wgpu::Extent3d {
+                        width: 1,
+                        height: 1,
+                        depth_or_array_layers: 6,
+                    },
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format: wgpu::TextureFormat::Depth32Float,
+                    usage: wgpu::TextureUsages::TEXTURE_BINDING,
+                    view_formats: &[],
+                });
+                let v2 = t2.create_view(&wgpu::TextureViewDescriptor {
+                    dimension: Some(wgpu::TextureViewDimension::CubeArray),
+                    ..Default::default()
+                });
+                (t2, v2)
+            });
+            let cs = FALLBACK_CUBE_SAMPLER.get_or_init(|| {
+                device.create_sampler(&wgpu::SamplerDescriptor {
+                    label: Some("Fallback Cube Shadow Sampler 2"),
+                    ..Default::default()
+                })
+            });
+            shadow_slot_buffer = fb;
+            shadow_depth_view = fbv;
+            shadow_sampler = fs;
+            cube_shadow_depth_view = cbv;
+            cube_shadow_sampler = cs;
+        };
+
+        // Active light count uniform — limits the light-store loop in the shader
+        static LIGHT_COUNT_BUF: std::sync::OnceLock<wgpu::Buffer> = std::sync::OnceLock::new();
+        let light_count_buf = LIGHT_COUNT_BUF.get_or_init(|| {
+            device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("Light Count Uniform"),
+                size: 16,
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            })
+        });
+        let light_count_bytes: [u8; 16] = {
+            let mut d = [0u8; 16];
+            d[..4].copy_from_slice(&active_light_count.to_le_bytes());
+            d
+        };
+        queue.write_buffer(light_count_buf, 0, &light_count_bytes);
+
+        // Build bind group — cache the layout (expensive driver call)
+        static WORLD_BG_LAYOUT: std::sync::OnceLock<wgpu::BindGroupLayout> =
+            std::sync::OnceLock::new();
+        let bind_group_layout = WORLD_BG_LAYOUT
+            .get_or_init(|| orbital_material_shader::make_world_bind_group_layout(device));
         let world_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("World Bind Group"),
-            layout: &bind_group_layout,
+            layout: bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
@@ -243,17 +708,69 @@ impl ModuleRuntime {
                     binding: 7,
                     resource: wgpu::BindingResource::Sampler(brdf_tex.sampler()),
                 },
+                // Shadow bindings (optional — use fallback empty resources if no shadow renderer)
+                wgpu::BindGroupEntry {
+                    binding: 8,
+                    resource: wgpu::BindingResource::Buffer(
+                        shadow_slot_buffer.as_entire_buffer_binding(),
+                    ),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 9,
+                    resource: wgpu::BindingResource::TextureView(shadow_depth_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 10,
+                    resource: wgpu::BindingResource::Sampler(shadow_sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 11,
+                    resource: wgpu::BindingResource::TextureView(cube_shadow_depth_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 12,
+                    resource: wgpu::BindingResource::Sampler(cube_shadow_sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 13,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: light_count_buf,
+                        offset: 0,
+                        size: None,
+                    }),
+                },
+                // Sky parameters uniform (analytic skybox)
+                wgpu::BindGroupEntry {
+                    binding: 14,
+                    resource: wgpu::BindingResource::Buffer(
+                        sky_params_buf.as_entire_buffer_binding(),
+                    ),
+                },
             ],
         });
 
         // Collect models (owned Vec of raw pointers)
-        let models: Vec<&orbital_resources::Model> = model_ptrs
+        let models: Vec<&orbital_model::Model> = model_ptrs
             .iter()
             .filter_map(|ptr| unsafe { ptr.as_ref() })
             .collect();
 
+        let t_render_start = Instant::now();
+        let d_bind_group_models = t_render_start - t_bind_start;
+
         // Render
         if let Some(renderer) = &mut self.renderer {
+            // Debug overrides (env vars, or Android storage marker files —
+            // see `orbital_core::debug_flags`):
+            //   `ORBITAL_DISABLE_CULL=1` — skip CPU frustum culling entirely;
+            //                              draws all instances from the
+            //                              original instance buffer.
+            let disable_cull = orbital_core::debug_flags::disable_cull();
+            let cull = if disable_cull {
+                None
+            } else {
+                cull_res.as_ref().and_then(|r| r.0.as_ref())
+            };
             renderer.render(
                 &view,
                 &world_bind_group,
@@ -261,10 +778,51 @@ impl ModuleRuntime {
                 models,
                 device,
                 queue,
+                cull,
+                &shadow_lights,
+                camera_pvp.as_ref(),
+                camera_near,
+                camera_far,
+                &dirty_set,
             );
+        }
+        let t_present_start = Instant::now();
+        let d_render = t_present_start - t_render_start;
+
+        // Optional post‑main‑pass overlays (debug viz, HUD, gizmos, touch UI, …)
+        if let Some(overlay_res) = self.ecs_world.get_resource::<RenderOverlayResource>() {
+            let camera_buffer = self.extract_camera_buffer(device, queue);
+            let mut overlays = overlay_res.0.lock().unwrap();
+            for overlay in overlays.iter_mut() {
+                let ctx = crate::RenderOverlayContext {
+                    target_view: &view,
+                    camera_buffer: &camera_buffer,
+                    device,
+                    queue,
+                    ecs: &self.ecs_world,
+                };
+                overlay.render(ctx);
+            }
         }
 
         lock.queue().present(frame);
+
+        let d_present = Instant::now() - t_present_start;
+        let d_total = Instant::now() - t_realize_start;
+        let d_surface_acq = t_realize_start - t_start;
+
+        self.timing_accum.push(
+            d_surface_acq,
+            d_realize,
+            d_stagger,
+            d_cull_extract,
+            d_bind_group_models,
+            d_render,
+            d_present,
+            d_total,
+            self.renderer.as_ref().map_or([0.0; 3], |r| r.prev_gpu_ns()),
+        );
+        self.timing_accum.try_print();
     }
 
     /// Extract camera buffer as an owned Buffer (cheap Arc clone).
@@ -299,8 +857,8 @@ impl ModuleRuntime {
         static FALLBACK_ONCE: std::sync::OnceLock<wgpu::Buffer> = std::sync::OnceLock::new();
         FALLBACK_ONCE
             .get_or_init(|| {
-                let desc = orbital_resources::CameraDescriptor::default();
-                let cam = orbital_resources::Camera::from_descriptor(desc, device, queue);
+                let desc = orbital_camera::CameraDescriptor::default();
+                let cam = orbital_camera::Camera::from_descriptor(desc, device, queue);
                 cam.camera_buffer().clone()
             })
             .clone()
@@ -337,7 +895,7 @@ impl ModuleRuntime {
 
     /// Extract environment IBL textures.
     /// Returns owned Arc<WorldEnvironment> to keep references valid.
-    fn extract_env_ibl(&self) -> Option<Arc<orbital_resources::WorldEnvironment>> {
+    fn extract_env_ibl(&self) -> Option<Arc<orbital_world_environment::WorldEnvironment>> {
         self.ecs_world
             .get_resource::<orbital_ecs_bridge::EnvironmentGpuResource>()
             .and_then(|r| r.0.clone())
@@ -345,7 +903,7 @@ impl ModuleRuntime {
 
     /// Collect realized model pointers from ECS.
     /// Returns raw pointers — caller must ensure validity.
-    fn collect_model_ptrs(&self) -> Vec<*const orbital_resources::Model> {
+    fn collect_model_ptrs(&self) -> Vec<*const orbital_model::Model> {
         let store = match self
             .ecs_world
             .get_component_store::<orbital_ecs_bridge::ModelRealization>()
@@ -359,13 +917,117 @@ impl ModuleRuntime {
             .filter_map(|&eid| {
                 store.sparse[eid].map(|idx| {
                     let realization = &store.components[idx];
-                    &*realization.0 as *const orbital_resources::Model
+                    &*realization.0 as *const orbital_model::Model
                 })
             })
             .collect()
     }
 
-    #[cfg(feature = "gamepad_input")]
+    /// Extract camera perspective view-projection matrix, near, and far from the active camera.
+    fn extract_camera_projection_data(&self) -> (Option<cgmath::Matrix4<f32>>, f32, f32) {
+        let active_entity = self
+            .ecs_world
+            .get_resource::<orbital_ecs_bridge::ActiveCamera>()
+            .map(|a| a.0);
+
+        match active_entity {
+            Some(entity) => {
+                let store = self
+                    .ecs_world
+                    .get_resource::<orbital_ecs_bridge::EcsCameraStore>();
+                match store {
+                    Some(s) => match s.get(entity.index) {
+                        Some(arc_camera) => {
+                            let guard = arc_camera.read().unwrap();
+                            (
+                                Some(*guard.perspective_view_projection_matrix()),
+                                guard.near(),
+                                guard.far(),
+                            )
+                        }
+                        None => (None, 0.1, 1000.0),
+                    },
+                    None => (None, 0.1, 1000.0),
+                }
+            }
+            None => (None, 0.1, 1000.0),
+        }
+    }
+    /// Collect shadow-casting light info from ECS.
+    fn collect_shadow_lights(&self) -> Vec<ShadowLightInfo> {
+        let descs = match self.ecs_world.get_component_store::<LightDescriptorEcs>() {
+            Some(s) => s,
+            None => return Vec::new(),
+        };
+        let positions = match self.ecs_world.get_component_store::<Position>() {
+            Some(s) => s,
+            None => return Vec::new(),
+        };
+        let casters = match self.ecs_world.get_component_store::<ShadowCaster>() {
+            Some(s) => s,
+            None => return Vec::new(),
+        };
+        let slot_idx_store = self
+            .ecs_world
+            .get_component_store::<orbital_ecs_bridge::LightSlotIndex>();
+        let has_slot_store = slot_idx_store.is_some();
+
+        let mut lights = Vec::new();
+        let mut fallback_counter = 0u32;
+        for &eid in descs.dense.as_slice() {
+            let desc_idx = match descs.sparse.get(eid).copied().flatten() {
+                Some(i) => i,
+                None => continue,
+            };
+            let desc = &descs.components[desc_idx];
+
+            // Check if this light has a shadow caster
+            let has_shadow = match casters.sparse.get(eid).copied().flatten() {
+                Some(idx) => casters.components[idx].enabled,
+                None => false,
+            };
+
+            if has_shadow {
+                let pos_idx = match positions.sparse.get(eid).copied().flatten() {
+                    Some(i) => i,
+                    None => continue,
+                };
+                let caster = &casters.components[casters.sparse[eid].unwrap()];
+                let pos = &positions.components[pos_idx];
+                let (light_type, outer_cone_angle) = match desc.light_type {
+                    LightType::Point { .. } => (0, 0.0),
+                    LightType::Directional { .. } => (1, 0.0),
+                    LightType::Spot {
+                        outer_cone_angle, ..
+                    } => (2, outer_cone_angle),
+                };
+                let light_store_index = if has_slot_store {
+                    slot_idx_store
+                        .as_ref()
+                        .and_then(|s| s.get_component(eid))
+                        .map(|si| si.0)
+                        .unwrap_or(fallback_counter)
+                } else {
+                    fallback_counter
+                };
+                if !has_slot_store {
+                    fallback_counter += 1;
+                }
+                lights.push(ShadowLightInfo {
+                    light_type,
+                    direction: desc.direction,
+                    position: cgmath::Vector3::new(pos.0.x, pos.0.y, pos.0.z),
+                    caster: caster.clone(),
+                    outer_cone_angle,
+                    light_store_index,
+                });
+            }
+        }
+
+        lights
+    }
+
+    #[cfg(all(feature = "gamepad_input", not(target_os = "android")))]
     fn receive_controller_inputs(&mut self) {
         while let Some(gil_event) = self.gil.next_event() {
             if let Some(input_event) = InputEvent::convert_gil_event(gil_event) {
@@ -395,7 +1057,7 @@ impl ModuleRuntime {
         // Run game schedule (user systems)
         self.game_schedule.run(&mut self.ecs_world);
 
-        #[cfg(feature = "gamepad_input_poll")]
+        #[cfg(all(feature = "gamepad_input_poll", not(target_os = "android")))]
         self.receive_controller_inputs();
 
         // Process engine events
@@ -459,13 +1121,15 @@ impl ModuleRuntime {
     }
 
     fn exit(&mut self, event_loop: &ActiveEventLoop) {
+        // Clean exit: drop any persisted state so the next launch is fresh.
+        self.module.clear_state(&mut self.ecs_world);
         event_loop.exit();
     }
 }
 
 impl ApplicationHandler for ModuleRuntime {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        if !matches!(self.state, AppState::Starting | AppState::Paused) {
+        if !matches!(self.state, AppState::Starting | AppState::Paused(_)) {
             debug!(
                 "Attempting to resume while not in required state! (State: {:?})",
                 self.state
@@ -474,18 +1138,37 @@ impl ApplicationHandler for ModuleRuntime {
 
         debug!("Resuming app ...");
 
-        let ctx = match AppContext::new(event_loop, &self.settings) {
-            Ok(ctx) => ctx,
-            Err(e) => {
-                error!("Critical error: Failed to acquire context while resuming app!");
-                trace!("Error: {:?}", e);
-                return;
+        // Reuse the existing context (window/device/queue) when resuming from
+        // a pause, so we don't create a second window or rebuild the GPU
+        // device. The surface (dropped on suspend) is recreated below. Only
+        // build a fresh context on the first start.
+        let (ctx, config) = match std::mem::replace(&mut self.state, AppState::Starting) {
+            AppState::Paused(ctx) => {
+                // Resume: the surface was dropped on suspend, so rebuild it
+                // against the (recreated) native window. Creating a second
+                // surface from the same window crashes on Android, which is why
+                // this only happens here and not on first start.
+                let config = {
+                    let mut ctx_guard = ctx_lock!(ctx);
+                    ctx_guard.recreate_surface(self.settings.vsync_enabled)
+                };
+                (ctx, config)
             }
+            _ => match AppContext::new(event_loop, &self.settings) {
+                Ok(ctx) => {
+                    let config = ctx.make_surface_configuration(self.settings.vsync_enabled);
+                    (Arc::new(Mutex::new(ctx)), config)
+                }
+                Err(e) => {
+                    error!("Critical error: Failed to acquire context while resuming app!");
+                    trace!("Error: {:?}", e);
+                    self.state = AppState::Starting;
+                    return;
+                }
+            },
         };
 
-        let config = ctx.make_surface_configuration(self.settings.vsync_enabled);
-
-        self.state = AppState::Ready(Arc::new(Mutex::new(ctx)));
+        self.state = AppState::Ready(ctx);
 
         self.timer = Some(Timer::new());
 
@@ -517,8 +1200,37 @@ impl ApplicationHandler for ModuleRuntime {
                 ctx_guard.queue(),
             ));
 
+            // Enable shadows with default settings
+            if let Some(renderer) = &mut self.renderer {
+                renderer.enable_shadows(
+                    ctx_guard.device(),
+                    ctx_guard.queue(),
+                    16,   // max shadow slots
+                    2048, // shadow map resolution
+                );
+            }
+
             // Call Module::setup() and build game schedule
             if !self.module_setup_done {
+                // Register all shader node libraries with the global registry
+                // before any shader assembly occurs.
+                orbital_shader_preprocessor::register_global_library(
+                    &orbital_shader_math::math_library(),
+                )
+                .expect("failed to register math library");
+                orbital_shader_preprocessor::register_global_library(
+                    &orbital_shader_engine::engine_library(),
+                )
+                .expect("failed to register engine library");
+                orbital_shader_preprocessor::register_global_library(
+                    &orbital_shader_pbr::pbr_library(),
+                )
+                .expect("failed to register PBR library");
+                orbital_shader_preprocessor::register_global_library(
+                    &orbital_world_environment::world_environment_library(),
+                )
+                .expect("failed to register world-environment library");
+
                 let systems =
                     self.module
                         .setup(&mut self.ecs_world, ctx_guard.device(), ctx_guard.queue());
@@ -534,6 +1246,10 @@ impl ApplicationHandler for ModuleRuntime {
                     "Module setup complete, game schedule has {} systems",
                     self.game_schedule.system_count()
                 );
+
+                // Restore any persisted state (only runs once on a fresh
+                // process start, since setup is guarded by module_setup_done).
+                self.module.restore_state(&mut self.ecs_world);
             }
 
             // Auto-grab cursor if configured
@@ -548,6 +1264,32 @@ impl ApplicationHandler for ModuleRuntime {
                 }
                 ctx_guard.window().set_cursor_visible(false);
             }
+
+            // After a suspend→resume (e.g. Android rotation), the surface is
+            // recreated with the new native-window dimensions but the camera's
+            // aspect ratio still holds the old value.  Sync it now so the
+            // projection matches the fresh surface.
+            let new_aspect = config.width as f32 / config.height as f32;
+            if let Some(active_camera) = self.ecs_world.get_resource::<ActiveCamera>() {
+                let eid = active_camera.0.index;
+                if let Some(desc_store) = self
+                    .ecs_world
+                    .get_component_store_mut::<CameraDescriptorEcs>()
+                    && let Some(idx) = desc_store.sparse[eid]
+                {
+                    desc_store.get_mut_store().components[idx].aspect = new_aspect;
+                }
+                if let Some(dirty_store) = self.ecs_world.get_component_store_mut::<CameraDirty>()
+                    && let Some(idx) = dirty_store.sparse[eid]
+                {
+                    dirty_store.get_mut_store().components[idx].0 = true;
+                }
+            }
+            self.ecs_world
+                .insert_resource(WindowSize(cgmath::Vector2::new(
+                    config.width,
+                    config.height,
+                )));
         }
 
         info!("App resumed.");
@@ -561,7 +1303,20 @@ impl ApplicationHandler for ModuleRuntime {
             );
         }
 
-        self.state = AppState::Paused;
+        self.module.save_state(&mut self.ecs_world);
+
+        // Move the context into `Paused` (keeping the window/device/queue
+        // alive) but drop the GPU surface and renderer, which reference the
+        // native window that Android destroys on suspend. They are recreated
+        // on resume.
+        self.state = match std::mem::replace(&mut self.state, AppState::Starting) {
+            AppState::Ready(ctx) => {
+                ctx_lock!(ctx).drop_surface();
+                self.renderer = None;
+                AppState::Paused(ctx)
+            }
+            other => other,
+        };
         info!("App suspended!");
     }
 
@@ -581,6 +1336,41 @@ impl ApplicationHandler for ModuleRuntime {
                 return;
             }
         };
+
+        // Android Back: always forwarded to the input system so apps can use
+        // single back actions. Additionally, when configured, N consecutive
+        // presses within `back_exit_window` quit the app.
+        if self.settings.back_presses_to_exit > 0
+            && let WindowEvent::KeyboardInput {
+                event,
+                is_synthetic: false,
+                ..
+            } = &event
+            && event.logical_key == Key::Named(NamedKey::BrowserBack)
+            && event.state == ElementState::Pressed
+            && !event.repeat
+        {
+            let now = std::time::Instant::now();
+            let within_window = self
+                .last_back_press
+                .map(|t| now.duration_since(t) <= self.settings.back_exit_window)
+                .unwrap_or(false);
+            self.back_press_count = if within_window {
+                self.back_press_count.saturating_add(1)
+            } else {
+                1
+            };
+            self.last_back_press = Some(now);
+
+            if self.back_press_count >= self.settings.back_presses_to_exit {
+                info!(
+                    "Back pressed {} times within window; exiting",
+                    self.back_press_count
+                );
+                self.exit(event_loop);
+                return;
+            }
+        }
 
         let input_event = match event {
             WindowEvent::CloseRequested => {
@@ -628,6 +1418,13 @@ impl ApplicationHandler for ModuleRuntime {
                 delta,
                 phase,
             }),
+            WindowEvent::Touch(touch) => Some(InputEvent::Touch {
+                device_id: touch.device_id,
+                phase: touch.phase,
+                location: touch.location,
+                id: touch.id,
+                force: touch.force,
+            }),
             WindowEvent::CursorMoved {
                 device_id,
                 position,
@@ -641,6 +1438,10 @@ impl ApplicationHandler for ModuleRuntime {
                 })
             }
             WindowEvent::Resized(new_size) => {
+                if new_size.width == 0 || new_size.height == 0 {
+                    return;
+                }
+
                 let ctx_lock = ctx_lock!(ctx);
                 let configuration =
                     ctx_lock.make_surface_configuration(self.settings.vsync_enabled);
@@ -653,6 +1454,31 @@ impl ApplicationHandler for ModuleRuntime {
                         new_size.height,
                     )));
 
+                // Recreate the depth texture to match the new surface dimensions.
+                let resolution = cgmath::Vector2::new(new_size.width, new_size.height);
+                if let Some(renderer) = &mut self.renderer {
+                    renderer.change_resolution(resolution, ctx_lock.device(), ctx_lock.queue());
+                }
+
+                // Update camera aspect ratio so the projection isn't stretched.
+                let new_aspect = new_size.width as f32 / new_size.height as f32;
+                if let Some(active_camera) = self.ecs_world.get_resource::<ActiveCamera>() {
+                    let eid = active_camera.0.index;
+                    if let Some(desc_store) = self
+                        .ecs_world
+                        .get_component_store_mut::<CameraDescriptorEcs>()
+                        && let Some(idx) = desc_store.sparse[eid]
+                    {
+                        desc_store.get_mut_store().components[idx].aspect = new_aspect;
+                    }
+                    if let Some(dirty_store) =
+                        self.ecs_world.get_component_store_mut::<CameraDirty>()
+                        && let Some(idx) = dirty_store.sparse[eid]
+                    {
+                        dirty_store.get_mut_store().components[idx].0 = true;
+                    }
+                }
+
                 None
             }
             _ => None,
@@ -661,6 +1487,10 @@ impl ApplicationHandler for ModuleRuntime {
         if let Some(input_event) = input_event {
             self.input_state.handle_event(input_event);
         }
+    }
+
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        event_loop.set_control_flow(ControlFlow::Poll);
     }
 
     fn device_event(

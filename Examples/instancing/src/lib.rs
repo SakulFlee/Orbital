@@ -1,13 +1,15 @@
 use orbital::app::{App, AppSettings, Module, sys_camera_controller};
 use orbital::cgmath::{Point3, Rad};
+use orbital::debug_render::DebugModule;
 use orbital::ecs::{IntoSystem, System, World};
 use orbital::ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, EnvironmentDescriptorResource,
-    ImportQueueResource, Position, Rotation,
+    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, ImportQueueResource, Position, Rotation,
 };
 use orbital::importer::{ImportTask, gltf::GltfImport};
-use orbital::logging::{self, error, info};
-use orbital::resources::WorldEnvironmentDescriptor;
+#[cfg(not(target_os = "android"))]
+use orbital::logging;
+use orbital::logging::{error, info};
+use winit::keyboard::KeyCode;
 
 pub const NAME: &str = "Orbital-Demo-Project: Instancing Test";
 
@@ -17,16 +19,25 @@ pub fn entrypoint(
         orbital::winit::error::EventLoopError,
     >,
 ) {
+    #[cfg(not(target_os = "android"))]
     logging::init();
 
     let event_loop = event_loop_result.expect("Event Loop failure");
 
-    let mut app_settings = AppSettings::default();
-    app_settings.vsync_enabled = true;
-    app_settings.name = NAME.to_string();
+    let app_settings = AppSettings {
+        name: NAME.to_string(),
+        back_presses_to_exit: 3,
+        ..AppSettings::default()
+    };
 
     match App::new()
         .add_module(InstancingModule)
+        .add_module(
+            DebugModule::new()
+                .with_toggle_key(KeyCode::F3)
+                .with_freeze_key(KeyCode::F4),
+        )
+        .add_module(orbital::touch_ui::TouchUiModule)
         .liftoff(event_loop, app_settings)
     {
         Ok(()) => info!("Cleanly exited!"),
@@ -34,7 +45,7 @@ pub fn entrypoint(
     }
 }
 
-orbital::make_desktop_main!(entrypoint);
+orbital::make_main!(entrypoint);
 
 struct InstancingModule;
 
@@ -65,20 +76,10 @@ impl Module for InstancingModule {
         ecs.insert_resource(ActiveCamera(camera));
         ecs.insert_resource(CursorGrabConfig(true));
 
-        // Environment
-        ecs.insert_resource(EnvironmentDescriptorResource(Some(
-            WorldEnvironmentDescriptor::FromFile {
-                cube_face_size: 2048,
-                path: "Assets/WorldEnvironments/PhotoStudio.hdr".to_string(),
-                sampling_type: WorldEnvironmentDescriptor::DEFAULT_SAMPLING_TYPE,
-                custom_specular_mip_level_count: None,
-            },
-        )));
-
         // Import instancing test model
         if let Some(mut queue) = ecs.get_resource_mut::<ImportQueueResource>() {
             queue.push(ImportTask::Gltf {
-                file_path: "Assets/Models/InstancingTest.glb".into(),
+                file_path: "Models/InstancingTest.glb".into(),
                 task: GltfImport::WholeFile,
             });
         }

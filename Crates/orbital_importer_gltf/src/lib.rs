@@ -2,7 +2,9 @@ pub mod gltf;
 
 use std::sync::{Mutex, mpsc};
 
-use orbital_resources::{CameraDescriptor, ModelDescriptor};
+use orbital_camera::CameraDescriptor;
+use orbital_light::LightDescriptor;
+use orbital_model::ModelDescriptor;
 
 pub use gltf::{GltfImport, GltfImportTask, GltfImporter};
 
@@ -15,6 +17,7 @@ pub enum ImportTask {
 pub struct ImportResult {
     pub models: Vec<ModelDescriptor>,
     pub cameras: Vec<CameraDescriptor>,
+    pub lights: Vec<LightDescriptor>,
 }
 
 pub struct Importer {
@@ -67,6 +70,7 @@ impl Importer {
                         ImportResult {
                             models: gltf_result.models,
                             cameras: gltf_result.cameras,
+                            lights: gltf_result.lights,
                         }
                     }
                 };

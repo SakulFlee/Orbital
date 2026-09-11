@@ -1,0 +1,3 @@
+const LIGHT_TYPE_POINT: f32 = 0.0;
+const LIGHT_TYPE_DIRECTIONAL: f32 = 1.0;
+const LIGHT_TYPE_SPOT: f32 = 2.0;

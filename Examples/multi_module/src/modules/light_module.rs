@@ -2,7 +2,9 @@ use orbital::app::Module;
 use orbital::cgmath::{Point3, Vector3};
 use orbital::ecs::{System, World};
 use orbital::ecs_bridge::{LightDescriptorEcs, LightDirty, Position};
+use orbital::resources::ShadowCaster;
 
+#[allow(dead_code)]
 pub struct LightModule;
 
 impl Module for LightModule {
@@ -26,6 +28,8 @@ impl Module for LightModule {
         ecs.attach_component(&light, Position(Point3::new(0.0, 0.0, 0.0)))
             .unwrap();
         ecs.attach_component(&light, LightDirty(true)).unwrap();
+        ecs.attach_component(&light, ShadowCaster::default())
+            .unwrap();
 
         // Spawn a point light
         let light2 = ecs.spawn_entity();

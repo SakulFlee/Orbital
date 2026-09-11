@@ -1,6 +1,7 @@
-use std::{error::Error, mem::transmute};
+use std::{error::Error, mem::transmute, sync::Arc};
 
-use log::debug;
+use log::{debug, error, info, warn};
+use orbital_core::wgpu_util::block_on;
 use wgpu::{
     Adapter, BackendOptions, Backends, CompositeAlphaMode, CreateSurfaceError,
     CurrentSurfaceTexture, Device, DeviceDescriptor, ExperimentalFeatures, Features, Instance,
@@ -18,18 +19,6 @@ use winit::{
 
 use crate::AppSettings;
 
-fn block_on<F: std::future::Future>(future: F) -> F::Output {
-    let waker = std::task::Waker::noop();
-    let mut cx = std::task::Context::from_waker(waker);
-    let mut pinned = Box::pin(future);
-    loop {
-        match pinned.as_mut().poll(&mut cx) {
-            std::task::Poll::Ready(val) => return val,
-            std::task::Poll::Pending => std::thread::yield_now(),
-        }
-    }
-}
-
 pub type AppCtx = AppContext;
 
 #[derive(Debug)]
@@ -39,7 +28,9 @@ pub struct AppContext {
     adapter: Adapter,
     device: Device,
     queue: Queue,
-    surface: Surface<'static>,
+    /// The GPU surface. `None` while the app is suspended on Android (the
+    /// native window was destroyed) and recreated on resume.
+    surface: Option<Surface<'static>>,
 }
 
 impl AppContext {
@@ -60,9 +51,34 @@ impl AppContext {
         let adapter = Self::make_adapter(&instance, &surface)?;
         debug!("Adapter: {:?}", adapter);
 
+        let adapter_info = adapter.get_info();
+        log::info!("[orbital] Selected adapter: {}", adapter_info.name);
+        log::info!("[orbital]   backend:    {:?}", adapter_info.backend);
+        log::info!("[orbital]   device type: {:?}", adapter_info.device_type);
+        log::info!("[orbital]   vendor ID:  0x{:04X}", adapter_info.vendor);
+        log::info!("[orbital]   device ID:  0x{:04X}", adapter_info.device);
+
+        log::info!("[orbital] All available adapters:");
+        let all_adapters = block_on(instance.enumerate_adapters(Backends::all()));
+        for adapter in all_adapters {
+            let info = adapter.get_info();
+            log::info!(
+                "[orbital]   - {} (backend: {:?}, type: {:?})",
+                info.name,
+                info.backend,
+                info.device_type,
+            );
+        }
+
         let (device, queue) = Self::make_device_and_queue(&adapter)?;
         debug!("Device: {:?}", device);
         debug!("Queue: {:?}", queue);
+
+        // Surface wgpu errors through the `log` crate so they appear in logcat
+        // (`rust_std_out` tag) instead of a panic whose output gets filtered.
+        device.on_uncaptured_error(Arc::new(|err| {
+            error!("wgpu uncaptured error: {err:?}");
+        }));
 
         let ctx = Self {
             window,
@@ -70,7 +86,7 @@ impl AppContext {
             adapter,
             device,
             queue,
-            surface,
+            surface: Some(surface),
         };
 
         let surface_configuration = ctx.make_surface_configuration(settings.vsync_enabled);
@@ -93,6 +109,13 @@ impl AppContext {
     }
 
     fn make_instance(owned_display_handle: OwnedDisplayHandle) -> Instance {
+        #[cfg(target_os = "windows")]
+        unsafe {
+            // VK_LAYER_AMD_switchable_graphics hangs vkEnumeratePhysicalDevices
+            // on some AMD driver versions. Disable the implicit layer.
+            std::env::set_var("DISABLE_LAYER_AMD_SWITCHABLE_GRAPHICS_1", "1");
+        }
+
         Instance::new(InstanceDescriptor {
             backends: Backends::from_env().unwrap_or(Backends::all()),
             flags: InstanceFlags::from_build_config(),
@@ -122,9 +145,23 @@ impl AppContext {
     }
 
     fn make_device_and_queue(adapter: &Adapter) -> Result<(Device, Queue), RequestDeviceError> {
+        // Only request features the adapter actually reports. In particular
+        // `POLYGON_MODE_LINE` is commonly missing on mobile GPUs (Android), and
+        // requesting unsupported features makes `request_device` fail outright.
+        let mut features = Features::default();
+        for feature in [
+            Features::POLYGON_MODE_LINE,
+            Features::TIMESTAMP_QUERY,
+            Features::TIMESTAMP_QUERY_INSIDE_ENCODERS,
+        ] {
+            if adapter.features().contains(feature) {
+                features |= feature;
+            }
+        }
+
         block_on(adapter.request_device(&DeviceDescriptor {
             label: Some("Orbital GPU"),
-            required_features: Features::default() | Features::POLYGON_MODE_LINE,
+            required_features: features,
             required_limits: Limits::default(),
             memory_hints: MemoryHints::Performance,
             trace: Trace::Off,
@@ -152,27 +189,56 @@ impl AppContext {
         (srgb_format, view_formats)
     }
 
+    pub fn adapter_features(&self) -> wgpu::Features {
+        self.adapter.features()
+    }
+
     pub fn get_first_view_format(&self) -> TextureFormat {
         self.surface
+            .as_ref()
+            .expect("Surface must be present (app not suspended)!")
             .get_configuration()
             .expect("Surface must be configured first!")
             .format
     }
 
     pub fn make_surface_configuration(&self, vsync: bool) -> SurfaceConfiguration {
-        let capabilities = self.surface.get_capabilities(&self.adapter);
+        let surface = self
+            .surface
+            .as_ref()
+            .expect("Surface must be present (app not suspended)!");
+        let capabilities = surface.get_capabilities(&self.adapter);
 
         let present_mode = match vsync {
             true => PresentMode::AutoVsync,
-            false => PresentMode::AutoNoVsync,
+            false => PresentMode::Immediate,
         };
+
+        info!(
+            "[Surface] Supported present modes: {:?}, selected: {:?} (vsync={})",
+            capabilities.present_modes, present_mode, vsync
+        );
 
         let window_size = self.window.inner_size();
 
         let (srgb_format, view_formats) = Self::make_view_formats(&capabilities);
 
-        let mut default_config = self
-            .surface
+        // Some adapters (e.g. the Android emulator's Vulkan backend) do not
+        // support `SURFACE_VIEW_FORMATS`; configuring a surface with a
+        // non-empty `view_formats` list fails with `MissingDownlevelFlags`.
+        // Only request them when the adapter supports the flag.
+        let supports_view_formats = self
+            .adapter
+            .get_downlevel_capabilities()
+            .flags
+            .contains(wgpu::DownlevelFlags::SURFACE_VIEW_FORMATS);
+        if !supports_view_formats {
+            warn!(
+                "[Surface] SURFACE_VIEW_FORMATS not supported; configuring surface without view_formats"
+            );
+        }
+
+        let mut default_config = surface
             .get_default_config(&self.adapter, window_size.width, window_size.height)
             .unwrap_or(SurfaceConfiguration {
                 usage: TextureUsages::empty(),
@@ -191,7 +257,11 @@ impl AppContext {
         default_config.alpha_mode = CompositeAlphaMode::Auto;
         default_config.format = srgb_format;
         default_config.usage = TextureUsages::RENDER_ATTACHMENT;
-        default_config.view_formats = view_formats;
+        default_config.view_formats = if supports_view_formats {
+            view_formats
+        } else {
+            vec![]
+        };
         default_config.width = window_size.width;
         default_config.height = window_size.height;
         default_config.desired_maximum_frame_latency = 2;
@@ -204,7 +274,29 @@ impl AppContext {
     }
 
     pub fn reconfigure_surface(&self, configuration: &SurfaceConfiguration) {
-        self.surface.configure(&self.device, configuration);
+        let surface = self
+            .surface
+            .as_ref()
+            .expect("Surface must be present (app not suspended)!");
+        surface.configure(&self.device, configuration);
+    }
+
+    /// Drops the GPU surface. Called on suspend on Android, where the native
+    /// window is destroyed; the surface must be recreated on resume.
+    pub fn drop_surface(&mut self) {
+        self.surface = None;
+    }
+
+    /// Recreates the GPU surface from the current (recreated) native window,
+    /// reconfigures it, and returns the resulting surface configuration.
+    /// Called on resume after [`AppContext::drop_surface`].
+    pub fn recreate_surface(&mut self, vsync: bool) -> SurfaceConfiguration {
+        let surface = Self::make_surface(&self.instance, &self.window)
+            .expect("Failed to recreate surface on resume");
+        self.surface = Some(surface);
+        let config = self.make_surface_configuration(vsync);
+        self.reconfigure_surface(&config);
+        config
     }
 
     pub fn instance(&self) -> &Instance {
@@ -240,11 +332,15 @@ impl AppContext {
     }
 
     pub fn surface(&self) -> &Surface<'static> {
-        &self.surface
+        self.surface
+            .as_ref()
+            .expect("Surface must be present (app not suspended)!")
     }
 
     pub fn surface_mut(&mut self) -> &mut Surface<'static> {
-        &mut self.surface
+        self.surface
+            .as_mut()
+            .expect("Surface must be present (app not suspended)!")
     }
 
     pub fn window(&self) -> &Window {

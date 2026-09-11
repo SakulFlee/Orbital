@@ -1,0 +1,18 @@
+[package]
+name = "orbital_procgeo"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+orbital_mesh = { path = "../orbital_mesh" }
+orbital_math = { path = "../orbital_math" }
+orbital_material_shader = { path = "../orbital_material_shader" }
+orbital_shader_debug = { path = "../orbital_shader_debug" }
+orbital_shader_pbr = { path = "../orbital_shader_pbr" }
+orbital_texture = { path = "../orbital_texture" }
+orbital_file_manager = { path = "../orbital_file_manager" }
+cgmath = { workspace = true }
+wgpu = { workspace = true }
+serde = { workspace = true }
+ron = "0.12"
+log = { workspace = true }

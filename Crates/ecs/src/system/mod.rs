@@ -6,6 +6,7 @@ mod param_function;
 mod param_resource;
 mod runner;
 mod schedule;
+#[allow(clippy::module_inception)]
 mod system;
 
 pub use access::ComponentAccess;

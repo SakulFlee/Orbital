@@ -3,11 +3,11 @@ use orbital::app::{App, AppSettings, Module};
 use orbital::cgmath::{Point3, Rad};
 use orbital::ecs::{IntoSystem, Res, System, World};
 use orbital::ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, DeltaTime, EnvironmentDescriptorResource,
-    Position, Rotation,
+    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, DeltaTime, Position, Rotation,
 };
-use orbital::logging::{self, error, info};
-use orbital::resources::WorldEnvironmentDescriptor;
+#[cfg(not(target_os = "android"))]
+use orbital::logging;
+use orbital::logging::{error, info};
 
 pub const NAME: &str = "Orbital-Demo-Project: RollCamera";
 
@@ -17,16 +17,20 @@ pub fn entrypoint(
         orbital::winit::error::EventLoopError,
     >,
 ) {
+    #[cfg(not(target_os = "android"))]
     logging::init();
 
     let event_loop = event_loop_result.expect("Event Loop failure");
 
-    let mut app_settings = AppSettings::default();
-    app_settings.vsync_enabled = true;
-    app_settings.name = NAME.to_string();
+    let app_settings = AppSettings {
+        name: NAME.to_string(),
+        back_presses_to_exit: 3,
+        ..AppSettings::default()
+    };
 
     match App::new()
         .add_module(RollCameraModule)
+        .add_module(orbital::touch_ui::TouchUiModule)
         .liftoff(event_loop, app_settings)
     {
         Ok(()) => info!("Cleanly exited!"),
@@ -34,7 +38,7 @@ pub fn entrypoint(
     }
 }
 
-orbital::make_desktop_main!(entrypoint);
+orbital::make_main!(entrypoint);
 
 // ---------------------------------------------------------------------------
 // Module
@@ -68,16 +72,6 @@ impl Module for RollCameraModule {
         ecs.attach_component(&camera, Rotation::identity()).unwrap();
         ecs.insert_resource(ActiveCamera(camera));
         ecs.insert_resource(CursorGrabConfig(true));
-
-        // Set environment
-        ecs.insert_resource(EnvironmentDescriptorResource(Some(
-            WorldEnvironmentDescriptor::FromFile {
-                cube_face_size: 2048,
-                path: "Assets/WorldEnvironments/PhotoStudio.hdr".to_string(),
-                sampling_type: WorldEnvironmentDescriptor::DEFAULT_SAMPLING_TYPE,
-                custom_specular_mip_level_count: None,
-            },
-        )));
 
         // Return systems
         vec![
