@@ -119,7 +119,7 @@ impl ShaderBuilder {
 
         let deps = node.depends_on.clone();
         for dep in deps {
-            if self.order.iter().any(|o| *o == dep) {
+            if self.order.contains(&dep) {
                 continue;
             }
             if let Some(dep_node) = self.registry.get(&dep) {
