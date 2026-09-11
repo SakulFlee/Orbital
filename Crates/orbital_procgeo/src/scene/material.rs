@@ -5,10 +5,7 @@ use orbital_material_shader::{MaterialShaderDescriptor, VertexStageLayout};
 use orbital_shader_debug::wireframe_descriptor;
 use orbital_shader_pbr::PBRMaterialShaderDescriptor;
 use orbital_texture::{FilterMode, TextureDescriptor, TextureSize};
-use wgpu::{
-    TextureUsages, VertexAttribute, VertexBufferLayout,
-    VertexFormat, VertexStepMode,
-};
+use wgpu::{TextureUsages, VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode};
 
 const DEFAULT_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8UnormSrgb;
 
