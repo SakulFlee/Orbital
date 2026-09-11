@@ -1,0 +1,28 @@
+name: PR
+on:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: forgejo.sakul-flee.de/sakulflee/orbital-ci-build-image:latest
+    env:
+      SKIP_GLTF_EXPORT: "true"
+      RUSTC_WRAPPER: sccache
+      CARGO_INCREMENTAL: 0
+      SCCACHE_CACHE_SIZE: 10G
+    steps:
+      - uses: https://code.forgejo.org/actions/checkout@v6
+      - name: Cache sccache
+        uses: https://code.forgejo.org/actions/cache@v4
+        continue-on-error: true
+        with:
+          path: /root/.cache/sccache
+          key: sccache-test-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            sccache-test-
+      - name: Test
+        run: cargo test --no-fail-fast
+      - name: sccache stats
+        run: sccache --show-stats
