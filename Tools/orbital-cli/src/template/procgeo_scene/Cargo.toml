@@ -1,0 +1,16 @@
+[package]
+name = "{name}"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "{name}_desktop"
+path = "src/main.rs"
+
+[lib]
+name = "{lib_name}"
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+orbital = {{ git = "{repo}", branch = "{branch}" }}
+winit = "0.30.0"

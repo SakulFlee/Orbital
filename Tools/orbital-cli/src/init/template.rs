@@ -5,6 +5,14 @@ use std::path::Path;
 use super::prompt::ProjectConfig;
 
 pub fn generate_project(project_dir: &Path, config: &ProjectConfig) -> Result<()> {
+    match config.template.as_str() {
+        "minimal" => generate_project_minimal(project_dir, config),
+        "procgeo_scene" => generate_project_procgeo_scene(project_dir, config),
+        other => bail!("Unknown template '{other}'. Available templates: minimal, procgeo_scene"),
+    }
+}
+
+fn generate_project_minimal(project_dir: &Path, config: &ProjectConfig) -> Result<()> {
     // Create directory structure
     fs::create_dir_all(project_dir.join("src"))?;
 
@@ -30,6 +38,95 @@ pub fn generate_project(project_dir: &Path, config: &ProjectConfig) -> Result<()
     Ok(())
 }
 
+fn generate_project_procgeo_scene(project_dir: &Path, config: &ProjectConfig) -> Result<()> {
+    let lib_name = config.project_name.replace('-', "_").to_lowercase();
+
+    // Get the template directory path (relative to the executable)
+    let template_dir = std::env::current_exe()
+        .context("Failed to get executable path")?
+        .parent()
+        .context("Failed to get executable parent")?
+        .join("templates")
+        .join("procgeo_scene");
+
+    // If the template directory doesn't exist next to the executable,
+    // fall back to looking in the source tree
+    let template_dir = if template_dir.exists() {
+        template_dir
+    } else {
+        // Try to find it relative to the source file
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("src")
+            .join("template")
+            .join("procgeo_scene")
+    };
+
+    if !template_dir.exists() {
+        bail!(
+            "Template directory not found: {}",
+            template_dir.display()
+        );
+    }
+
+    // Copy the entire template directory
+    copy_dir_all(&template_dir, project_dir)
+        .context("Failed to copy template directory")?;
+
+    // Generate Orbital.toml
+    generate_orbital_toml(project_dir, config)?;
+
+    // Replace placeholders in Cargo.toml
+    let cargo_toml_path = project_dir.join("Cargo.toml");
+    if cargo_toml_path.exists() {
+        let content = fs::read_to_string(&cargo_toml_path)
+            .context("Failed to read Cargo.toml")?;
+        let content = content
+            .replace("{name}", &config.project_name)
+            .replace("{lib_name}", &lib_name)
+            .replace("{repo}", &config.engine_repo)
+            .replace("{branch}", &config.engine_branch);
+        fs::write(&cargo_toml_path, content)
+            .context("Failed to write Cargo.toml")?;
+    }
+
+    // Replace placeholders in lib.rs
+    let lib_rs_path = project_dir.join("src").join("lib.rs");
+    if lib_rs_path.exists() {
+        let content = fs::read_to_string(&lib_rs_path)
+            .context("Failed to read lib.rs")?;
+        let content = content.replace("{{PROJECT_NAME}}", &config.project_name);
+        fs::write(&lib_rs_path, content)
+            .context("Failed to write lib.rs")?;
+    }
+
+    // Replace placeholders in main.rs
+    let main_rs_path = project_dir.join("src").join("main.rs");
+    if main_rs_path.exists() {
+        let content = fs::read_to_string(&main_rs_path)
+            .context("Failed to read main.rs")?;
+        let content = content.replace("{lib_name}", &lib_name);
+        fs::write(&main_rs_path, content)
+            .context("Failed to write main.rs")?;
+    }
+
+    Ok(())
+}
+
+fn copy_dir_all(src: &Path, dst: &Path) -> Result<()> {
+    fs::create_dir_all(dst)?;
+    for entry in fs::read_dir(src).context("Failed to read template directory")? {
+        let entry = entry.context("Failed to read directory entry")?;
+        let ty = entry.file_type().context("Failed to get file type")?;
+        if ty.is_dir() {
+            copy_dir_all(&entry.path(), &dst.join(entry.file_name()))?;
+        } else {
+            fs::copy(entry.path(), dst.join(entry.file_name()))
+                .context(format!("Failed to copy {}", entry.path().display()))?;
+        }
+    }
+    Ok(())
+}
+
 fn generate_cargo_toml(project_dir: &Path, config: &ProjectConfig) -> Result<()> {
     let lib_name = config.project_name.replace('-', "_").to_lowercase();
 
@@ -39,13 +136,13 @@ name = "{name}"
 version = "0.1.0"
 edition = "2024"
 
-[lib]
-name = "{lib_name}"
-crate-type = ["cdylib", "lib"]
-
 [[bin]]
 name = "{name}_desktop"
 path = "src/main.rs"
+
+[lib]
+name = "{lib_name}"
+crate-type = ["cdylib", "lib"]
 
 [dependencies]
 orbital = {{ git = "{repo}", branch = "{branch}" }}
@@ -92,7 +189,12 @@ fn generate_lib_rs(project_dir: &Path, config: &ProjectConfig) -> Result<()> {
     //   3. Add "foo" to the prompt list in `init/prompt.rs`.
     let template = match config.template.as_str() {
         "minimal" => MINIMAL_TEMPLATE,
-        other => bail!("Unknown template '{other}'. Available templates: minimal"),
+        "procgeo_scene" => {
+            // procgeo_scene is handled by generate_project_procgeo_scene
+            // This function should not be called for procgeo_scene template
+            bail!("procgeo_scene template should be handled by generate_project_procgeo_scene");
+        }
+        other => bail!("Unknown template '{other}'. Available templates: minimal, procgeo_scene"),
     };
 
     let content = template.replace("{{PROJECT_NAME}}", &config.project_name);

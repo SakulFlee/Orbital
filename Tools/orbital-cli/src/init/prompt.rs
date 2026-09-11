@@ -76,7 +76,7 @@ pub fn interactive(
         (21, 34)
     };
 
-    // 5. Template selection (only minimal is available for now)
+    // 5. Template selection (minimal or procgeo_scene)
     let template_name = template.unwrap_or_else(|| "minimal".to_string());
 
     // 6. Engine repository
