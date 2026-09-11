@@ -5,7 +5,7 @@ use wgpu::{SamplerBindingType, TextureSampleType};
 pub enum VariableType {
     Buffer(BufferDescriptor),
     Texture {
-        descriptor: TextureDescriptor,
+        descriptor: Box<TextureDescriptor>,
         sample_type: TextureSampleType,
         sampler_binding_type: SamplerBindingType,
     },
