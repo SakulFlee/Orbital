@@ -14,10 +14,12 @@ pub struct FunctionSystemMetadata {
 
 pub struct FunctionSystem {
     pub metadata: FunctionSystemMetadata,
+    #[allow(clippy::type_complexity)]
     run_fn: Box<dyn FnMut(&crate::World, &mut Commands) + Send>,
 }
 
 impl FunctionSystem {
+    #[allow(clippy::type_complexity)]
     pub fn new(
         metadata: FunctionSystemMetadata,
         run_fn: Box<dyn FnMut(&crate::World, &mut Commands) + Send>,

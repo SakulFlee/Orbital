@@ -121,7 +121,13 @@ fn validate_node_shader(label: &str, node_names: &[&str], raw: &str) {
     use orbital_shader_preprocessor::{NodeRegistry, ShaderBuilder};
     use std::sync::Arc;
 
-    let mut builder = ShaderBuilder::new(Arc::new(NodeRegistry::global().clone()));
+    let mut registry = NodeRegistry::new();
+    let math = orbital_shader_math::math_library();
+    registry.register_library(&math).unwrap();
+    let engine = orbital_shader_engine::engine_library();
+    registry.register_library(&engine).unwrap();
+
+    let mut builder = ShaderBuilder::new(Arc::new(registry));
     builder.add_nodes(node_names).unwrap();
     builder.add_source(raw);
     let source = builder.build();
@@ -132,32 +138,17 @@ fn validate_node_with_deps(label: &str, node_name: &str, extra: &str) {
     use orbital_shader_preprocessor::{NodeRegistry, ShaderBuilder};
     use std::sync::Arc;
 
-    let mut builder = ShaderBuilder::new(Arc::new(NodeRegistry::global().clone()));
+    let mut registry = NodeRegistry::new();
+    let math = orbital_shader_math::math_library();
+    registry.register_library(&math).unwrap();
+    let engine = orbital_shader_engine::engine_library();
+    registry.register_library(&engine).unwrap();
+
+    let mut builder = ShaderBuilder::new(Arc::new(registry));
     builder.add_node(node_name).unwrap();
     builder.add_source(extra);
     let source = builder.build();
     validate(label, &source);
-}
-
-#[test]
-fn every_prelude_node_is_valid_with_its_dependencies() {
-    use orbital_shader_preprocessor::prelude_library;
-
-    let lib = prelude_library();
-
-    let external_context: &[(&str, &str)] = &[];
-
-    for node in &lib.nodes {
-        let label = format!("prelude node '{}'", node.name);
-
-        let extra = external_context
-            .iter()
-            .find(|(name, _)| *name == &*node.name)
-            .map(|(_, src)| *src)
-            .unwrap_or("");
-
-        validate_node_with_deps(&label, &node.name, extra);
-    }
 }
 
 #[test]
@@ -227,8 +218,10 @@ fn validate_pbr_node_with_deps(label: &str, node_name: &str) {
     use std::sync::Arc;
 
     let mut registry = NodeRegistry::new();
-    let prelude = orbital_shader_preprocessor::prelude_library();
-    registry.register_library(&prelude).unwrap();
+    let math = orbital_shader_math::math_library();
+    registry.register_library(&math).unwrap();
+    let engine = orbital_shader_engine::engine_library();
+    registry.register_library(&engine).unwrap();
     let pbr = orbital_shader_pbr::pbr_library();
     registry.register_library(&pbr).unwrap();
 
@@ -272,8 +265,10 @@ fn validate_assembled_pbr_shader(label: &str) {
     use std::sync::Arc;
 
     let mut registry = NodeRegistry::new();
-    let prelude = orbital_shader_preprocessor::prelude_library();
-    registry.register_library(&prelude).unwrap();
+    let math = orbital_shader_math::math_library();
+    registry.register_library(&math).unwrap();
+    let engine = orbital_shader_engine::engine_library();
+    registry.register_library(&engine).unwrap();
     let pbr = orbital_shader_pbr::pbr_library();
     registry.register_library(&pbr).unwrap();
 
@@ -299,8 +294,15 @@ fn validate_assembled_world_env(label: &str, node_names: &[&str], entrypoint_pat
     use orbital_shader_preprocessor::{NodeRegistry, ShaderBuilder};
     use std::sync::Arc;
 
-    let registry = Arc::new(NodeRegistry::global().clone());
-    let mut builder = ShaderBuilder::new(registry);
+    let mut registry = NodeRegistry::new();
+    let math = orbital_shader_math::math_library();
+    registry.register_library(&math).unwrap();
+    let engine = orbital_shader_engine::engine_library();
+    registry.register_library(&engine).unwrap();
+    let world_env = orbital_world_environment::world_environment_library();
+    registry.register_library(&world_env).unwrap();
+
+    let mut builder = ShaderBuilder::new(Arc::new(registry));
     for node_name in node_names {
         builder.add_node(node_name).unwrap();
     }

@@ -125,6 +125,7 @@ impl Renderer {
         self.depth_texture = Texture::depth_texture(&resolution, device, queue);
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn render(
         &mut self,
         target_view: &TextureView,
@@ -200,7 +201,7 @@ impl Renderer {
         // Read the OTHER staging buffer from the previous frame (double-buffered to avoid stalls).
         // We wait only on the PREVIOUS frame's resolve submission (not the current frame's render),
         // so CPU/GPU overlap is preserved and the harness doesn't distort FPS measurements.
-        if self.timestamp_query_set.is_some() {
+        if let Some(timestamp_query_set) = &self.timestamp_query_set {
             let cur = self.timestamp_read_frame & 1;
             let prev = 1 - cur;
 
@@ -209,7 +210,7 @@ impl Renderer {
                 label: Some("Orbital::TS_Resolve"),
             });
             resolve_encoder.resolve_query_set(
-                self.timestamp_query_set.as_ref().unwrap(),
+                timestamp_query_set,
                 0..TS_COUNT,
                 &self.timestamp_resolve_buffer,
                 0,

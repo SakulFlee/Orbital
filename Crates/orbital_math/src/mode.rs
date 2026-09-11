@@ -5,22 +5,22 @@
 /// There are four modes:
 ///
 /// - `Mode::Overwrite`: Directly overwrites the value in question.
-///     Does not offset or figure out view angles.
+///   Does not offset or figure out view angles.
 /// - `Mode::Offset`: Offsets the current value by the given amount.
-///     Does not figure out view angles and offset according to the view angle.
+///   Does not figure out view angles and offset according to the view angle.
 /// - `Mode::OffsetViewAligned`: Checks where "Forward" is based on
-///     where the camera is currently looking at and offsets the current
-///     value by the supplied amount, where "forward" will be equal to where
-///     the camera is looking at.
+///   where the camera is currently looking at and offsets the current
+///   value by the supplied amount, where "forward" will be equal to where
+///   the camera is looking at.
 /// - `Mode::OffsetViewAlignedWithY`: Same as `OffsetViewAligned`, but will also offset the Y-axis.
 ///
 /// # When to use what?
 ///
 /// Use `Mode::Overwrite` when:
 /// - You need to set the position of something, like a camera,
-///     directly to a specific location in the world.
+///   directly to a specific location in the world.
 /// - You need to "teleport" something and thus set the position to a new
-///     location without needing to figure out an offset.
+///   location without needing to figure out an offset.
 ///
 /// Use `Mode::Offset` when:
 /// - You need to _offset_ a position by a certain amount.
@@ -28,7 +28,7 @@
 ///
 /// Use `Mode::OffsetViewAligned` when:
 /// - You need to _offset_ a position by a certain amount, following where the
-///     camera is looking at.
+///   camera is looking at.
 /// - Ideal for any kind of 1st-person camera!
 #[derive(Debug)]
 pub enum Mode<T> {

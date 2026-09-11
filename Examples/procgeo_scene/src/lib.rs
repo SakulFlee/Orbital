@@ -34,10 +34,12 @@ pub fn entrypoint(
 
     let event_loop = event_loop_result.expect("Event Loop failure");
 
-    let mut app_settings = AppSettings::default();
-    app_settings.vsync_enabled = false;
-    app_settings.name = NAME.to_string();
-    app_settings.back_presses_to_exit = 3;
+    let app_settings = AppSettings {
+        vsync_enabled: false,
+        name: NAME.to_string(),
+        back_presses_to_exit: 3,
+        ..AppSettings::default()
+    };
 
     match App::new()
         .add_module(ProcgeoSceneModule)
@@ -124,12 +126,22 @@ impl System for HelmetAdjuster {
                 })
                 .unwrap_or(Transform::new(
                     Vector3::new(10.0, 1.85, 0.0),
-                    Quaternion::new(0.7071, 0.0, -0.7071, 0.0),
+                    Quaternion::new(
+                        std::f32::consts::FRAC_1_SQRT_2,
+                        0.0,
+                        -std::f32::consts::FRAC_1_SQRT_2,
+                        0.0,
+                    ),
                     Vector3::new(1.0, 1.0, 1.0),
                 ));
 
             // Rotate 90° Y so the helmet faces +Z (toward camera)
-            let correction = Quaternion::new(0.7071, 0.0, 0.7071, 0.0);
+            let correction = Quaternion::new(
+                std::f32::consts::FRAC_1_SQRT_2,
+                0.0,
+                std::f32::consts::FRAC_1_SQRT_2,
+                0.0,
+            );
             let final_rot = correction * original_transform.rotation;
 
             let mut new_instances = ModelInstances::new();
@@ -163,7 +175,6 @@ struct LightAnimator {
     t: f32,
     access: ComponentAccess,
     entity: orbital::ecs::Entity,
-    started: bool,
 }
 
 impl LightAnimator {
@@ -171,7 +182,6 @@ impl LightAnimator {
         Self {
             t: 0.0,
             entity,
-            started: false,
             access: ComponentAccess::new()
                 .reads::<Position>()
                 .writes::<Position>()
@@ -256,7 +266,12 @@ impl Module for ProcgeoSceneModule {
         )
         .unwrap();
         // Rotate +90° around Y so forward (+X) faces -Z (toward rooms)
-        let rot = Quaternion::new(0.7071, 0.0, 0.7071, 0.0);
+        let rot = Quaternion::new(
+            std::f32::consts::FRAC_1_SQRT_2,
+            0.0,
+            std::f32::consts::FRAC_1_SQRT_2,
+            0.0,
+        );
         ecs.attach_component(&camera, Position(Point3::new(0.0, 7.0, 14.0)))
             .unwrap();
         ecs.attach_component(&camera, Rotation(rot)).unwrap();

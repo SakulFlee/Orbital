@@ -102,11 +102,9 @@ fn registry_accepts_runtime_generated_source() {
 }
 
 #[test]
-fn global_registry_contains_prelude() {
+fn global_registry_starts_empty() {
     let registry = NodeRegistry::global();
-    assert!(registry.get("pi").is_some());
-    assert!(registry.get("fresnel_schlick").is_some());
-    assert!(registry.get("aces_tone_map").is_some());
+    assert!(registry.is_empty());
     assert!(registry.get("does_not_exist").is_none());
 }
 

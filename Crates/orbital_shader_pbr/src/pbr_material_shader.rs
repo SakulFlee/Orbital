@@ -166,54 +166,53 @@ impl From<PBRMaterialShaderDescriptor> for MaterialShaderDescriptor {
     fn from(val: PBRMaterialShaderDescriptor) -> Self {
         let mut base = match val.custom_material_shader {
             Some(base) => base,
-            None => {
-                let mut base = MaterialShaderDescriptor::default();
-                base.nodes = PBR_NODES;
-                base.raw_source = Some(include_str!("wgsl/pbr_entrypoints.wgsl").into());
-                base.vertex_stage_layouts = Some(vec![
+            None => MaterialShaderDescriptor {
+                nodes: PBR_NODES,
+                raw_source: Some(include_str!("wgsl/pbr_entrypoints.wgsl").into()),
+                vertex_stage_layouts: Some(vec![
                     VertexStageLayout::ComplexVertexData,
                     VertexStageLayout::InstanceData,
-                ]);
-                base.cull_mode = Some(Face::Front);
-                base
-            }
+                ]),
+                cull_mode: Some(Face::Front),
+                ..MaterialShaderDescriptor::default()
+            },
         };
 
         base.name = val.name;
         base.variables = vec![
             // Normal
             VariableType::Texture {
-                descriptor: val.normal,
+                descriptor: Box::new(val.normal),
                 sample_type: TextureSampleType::Float { filterable: true },
                 sampler_binding_type: SamplerBindingType::Filtering,
             },
             // Albedo
             VariableType::Texture {
-                descriptor: val.albedo,
+                descriptor: Box::new(val.albedo),
                 sample_type: TextureSampleType::Float { filterable: true },
                 sampler_binding_type: SamplerBindingType::Filtering,
             },
             // Metallic
             VariableType::Texture {
-                descriptor: val.metallic,
+                descriptor: Box::new(val.metallic),
                 sample_type: TextureSampleType::Float { filterable: true },
                 sampler_binding_type: SamplerBindingType::Filtering,
             },
             // Roughness
             VariableType::Texture {
-                descriptor: val.roughness,
+                descriptor: Box::new(val.roughness),
                 sample_type: TextureSampleType::Float { filterable: true },
                 sampler_binding_type: SamplerBindingType::Filtering,
             },
             // Occlusion
             VariableType::Texture {
-                descriptor: val.occlusion,
+                descriptor: Box::new(val.occlusion),
                 sample_type: TextureSampleType::Float { filterable: true },
                 sampler_binding_type: SamplerBindingType::Filtering,
             },
             // Emissive
             VariableType::Texture {
-                descriptor: val.emissive,
+                descriptor: Box::new(val.emissive),
                 sample_type: TextureSampleType::Float { filterable: true },
                 sampler_binding_type: SamplerBindingType::Filtering,
             },

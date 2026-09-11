@@ -21,5 +21,7 @@ orbital_vertex = { path = "../orbital_vertex" }
 orbital_world_environment = { path = "../orbital_world_environment" }
 
 [dev-dependencies]
+orbital_shader_engine = { path = "../orbital_shader_engine" }
+orbital_shader_math = { path = "../orbital_shader_math" }
 orbital_shader_preprocessor = { path = "../orbital_shader_preprocessor" }
 naga = { version = "30.0.0", default-features = false, features = ["wgsl-in"] }

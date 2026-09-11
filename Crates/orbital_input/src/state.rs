@@ -58,6 +58,7 @@ impl InputState {
         self.touch_deltas.clear();
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn handle_event(&mut self, input_event: InputEvent) {
         let (input_id, input_button_state, input_axis_state): (
             InputId,
