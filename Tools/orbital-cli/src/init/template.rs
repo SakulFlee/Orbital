@@ -7,8 +7,8 @@ use super::prompt::ProjectConfig;
 pub fn generate_project(project_dir: &Path, config: &ProjectConfig) -> Result<()> {
     match config.template.as_str() {
         "minimal" => generate_project_minimal(project_dir, config),
-        "procgeo_scene" => generate_project_procgeo_scene(project_dir, config),
-        other => bail!("Unknown template '{other}'. Available templates: minimal, procgeo_scene"),
+        "all-in-one" => generate_project_all_in_one(project_dir, config),
+        other => bail!("Unknown template '{other}'. Available templates: minimal, all-in-one"),
     }
 }
 
@@ -38,7 +38,7 @@ fn generate_project_minimal(project_dir: &Path, config: &ProjectConfig) -> Resul
     Ok(())
 }
 
-fn generate_project_procgeo_scene(project_dir: &Path, config: &ProjectConfig) -> Result<()> {
+fn generate_project_all_in_one(project_dir: &Path, config: &ProjectConfig) -> Result<()> {
     let lib_name = config.project_name.replace('-', "_").to_lowercase();
 
     // Get the template directory path (relative to the executable)
@@ -47,7 +47,7 @@ fn generate_project_procgeo_scene(project_dir: &Path, config: &ProjectConfig) ->
         .parent()
         .context("Failed to get executable parent")?
         .join("templates")
-        .join("procgeo_scene");
+        .join("all-in-one");
 
     // If the template directory doesn't exist next to the executable,
     // fall back to looking in the source tree
@@ -58,7 +58,7 @@ fn generate_project_procgeo_scene(project_dir: &Path, config: &ProjectConfig) ->
         Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("src")
             .join("template")
-            .join("procgeo_scene")
+            .join("all-in-one")
     };
 
     if !template_dir.exists() {
@@ -189,12 +189,12 @@ fn generate_lib_rs(project_dir: &Path, config: &ProjectConfig) -> Result<()> {
     //   3. Add "foo" to the prompt list in `init/prompt.rs`.
     let template = match config.template.as_str() {
         "minimal" => MINIMAL_TEMPLATE,
-        "procgeo_scene" => {
-            // procgeo_scene is handled by generate_project_procgeo_scene
-            // This function should not be called for procgeo_scene template
-            bail!("procgeo_scene template should be handled by generate_project_procgeo_scene");
+        "all-in-one" => {
+            // all-in-one is handled by generate_project_all_in_one
+            // This function should not be called for all-in-one template
+            bail!("all-in-one template should be handled by generate_project_all_in_one");
         }
-        other => bail!("Unknown template '{other}'. Available templates: minimal, procgeo_scene"),
+        other => bail!("Unknown template '{other}'. Available templates: minimal, all-in-one"),
     };
 
     let content = template.replace("{{PROJECT_NAME}}", &config.project_name);

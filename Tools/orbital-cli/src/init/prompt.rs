@@ -76,11 +76,11 @@ pub fn interactive(
         (21, 34)
     };
 
-    // 5. Template selection (minimal or procgeo_scene)
+    // 5. Template selection (minimal or all-in-one)
     let template_name = match template {
         Some(t) => t,
         None => {
-            let templates = vec!["minimal", "procgeo_scene"];
+            let templates = vec!["minimal", "all-in-one"];
             Select::new("Select a template:", templates)
                 .prompt()?
                 .to_string()
