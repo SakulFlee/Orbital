@@ -267,6 +267,7 @@ impl DebugRenderer {
     /// Default to `[1.0, 1.0, 0.0]` (yellow) for the live frustum,
     /// `[0.0, 1.0, 1.0]` (cyan) for the live frustum when a frozen
     /// frustum is also visible.
+    #[allow(clippy::too_many_arguments)]
     pub fn render(
         &mut self,
         render_pass: &mut RenderPass,
@@ -725,7 +726,7 @@ fn light_cone(
 ) -> Vec<[f32; 6]> {
     let dir = direction.normalize();
     let range = 2.0;
-    let half_angle = outer_angle.min(1.5).max(0.01);
+    let half_angle = outer_angle.clamp(0.01, 1.5);
 
     let tip = Point3::new(
         position.x + dir.x * range,
