@@ -486,8 +486,7 @@ impl GltfImporter {
                     processed_pixels.push(byte);
                 }
                 // Pad with zeros if needed to reach 3 channels (RGB)
-                processed_pixels
-                    .extend(std::iter::repeat_n(0u8, 3 - chunk.len()));
+                processed_pixels.extend(std::iter::repeat_n(0u8, 3 - chunk.len()));
                 // Add full alpha (255)
                 processed_pixels.push(255u8);
             }
@@ -635,10 +634,7 @@ impl GltfImporter {
     }
 
     /// Handles parsing a glTF [`Material`] into an Orbital [`MaterialDescriptor`].
-    fn parse_materials(
-        material: &Material,
-        textures: &[gltf::image::Data],
-    ) -> MaterialDescriptor {
+    fn parse_materials(material: &Material, textures: &[gltf::image::Data]) -> MaterialDescriptor {
         let normal = if let Some(normal_info) = material.normal_texture() {
             Self::parse_texture_linear(&textures[normal_info.texture().source().index()])
         } else {

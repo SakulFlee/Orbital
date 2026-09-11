@@ -40,7 +40,9 @@ impl CameraDescriptor {
                 | Mode::OffsetViewAlignedWithY(pitch) => self.pitch += pitch,
             }
 
-            self.pitch = self.pitch.clamp(-Self::SAFE_FRAC_PI_2, Self::SAFE_FRAC_PI_2);
+            self.pitch = self
+                .pitch
+                .clamp(-Self::SAFE_FRAC_PI_2, Self::SAFE_FRAC_PI_2);
         }
 
         if let Some(mode) = change.yaw {
