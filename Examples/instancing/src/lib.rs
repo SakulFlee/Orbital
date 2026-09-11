@@ -24,10 +24,11 @@ pub fn entrypoint(
 
     let event_loop = event_loop_result.expect("Event Loop failure");
 
-    let mut app_settings = AppSettings::default();
-    app_settings.vsync_enabled = true;
-    app_settings.name = NAME.to_string();
-    app_settings.back_presses_to_exit = 3;
+    let app_settings = AppSettings {
+        name: NAME.to_string(),
+        back_presses_to_exit: 3,
+        ..AppSettings::default()
+    };
 
     match App::new()
         .add_module(InstancingModule)

@@ -221,6 +221,7 @@ impl Camera {
     /// Create a camera from split ECS components (position, rotation, camera props).
     ///
     /// The view matrix is computed directly from the quaternion — no Euler decomposition.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         position: Point3<f32>,
         rotation: Quaternion<f32>,
@@ -274,6 +275,7 @@ impl Camera {
     /// - forward = rotation * (0, 0, -1)  (camera looks along -Z in local space)
     /// - right   = rotation * (1, 0, 0)
     /// - up      = rotation * (0, 1, 0)
+    #[allow(clippy::too_many_arguments)]
     pub fn update_from_parts(
         &mut self,
         position: Point3<f32>,

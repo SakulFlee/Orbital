@@ -3,6 +3,7 @@ mod filter;
 mod iter;
 pub(crate) mod macros;
 pub(crate) mod marker;
+#[allow(clippy::module_inception)]
 mod query;
 #[cfg(test)]
 mod tests;

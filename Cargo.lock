@@ -2866,6 +2866,8 @@ dependencies = [
  "orbital_mesh",
  "orbital_model",
  "orbital_shader_core",
+ "orbital_shader_engine",
+ "orbital_shader_math",
  "orbital_shader_pbr",
  "orbital_shader_preprocessor",
  "orbital_shadow",

@@ -18,21 +18,20 @@ pub const WIREFRAME_NODES: &[&str] = &[
 
 /// Builds a wireframe [`MaterialShaderDescriptor`].
 pub fn wireframe_descriptor() -> MaterialShaderDescriptor {
-    let mut base = MaterialShaderDescriptor::default();
-    base.name = Some("Wireframe Material Shader".to_string());
-    base.nodes = WIREFRAME_NODES;
-    base.raw_source = Some(include_str!("wgsl/wireframe_entrypoints.wgsl").into());
-    base.entrypoint_vertex = "entrypoint_vertex";
-    base.entrypoint_fragment = "entrypoint_fragment";
-    base.vertex_stage_layouts = Some(vec![
-        VertexStageLayout::SimpleVertexData,
-        VertexStageLayout::InstanceData,
-    ]);
-    base.primitive_topology = PrimitiveTopology::LineList;
-    base.polygon_mode = PolygonMode::Fill;
-    base.cull_mode = None;
-    base.depth_stencil = true;
-    base
+    MaterialShaderDescriptor {
+        name: Some("Wireframe Material Shader".to_string()),
+        nodes: WIREFRAME_NODES,
+        raw_source: Some(include_str!("wgsl/wireframe_entrypoints.wgsl").into()),
+        vertex_stage_layouts: Some(vec![
+            VertexStageLayout::SimpleVertexData,
+            VertexStageLayout::InstanceData,
+        ]),
+        primitive_topology: PrimitiveTopology::LineList,
+        polygon_mode: PolygonMode::Fill,
+        cull_mode: None,
+        depth_stencil: true,
+        ..MaterialShaderDescriptor::default()
+    }
 }
 
 /// Returns the debug shader node library (currently empty aside from any

@@ -81,17 +81,10 @@ impl NodeRegistry {
 
 /// The process-wide registry, backed by a `RwLock` for extensibility.
 ///
-/// Initialized with the prelude library. Additional libraries (math, engine,
-/// PBR, world-environment) are registered via [`register_global_library`]
-/// at engine startup, before any shader assembly occurs.
-static GLOBAL: LazyLock<RwLock<NodeRegistry>> = LazyLock::new(|| {
-    let mut registry = NodeRegistry::new();
-    let prelude = crate::prelude::prelude_library();
-    registry
-        .register_library(&prelude)
-        .expect("prelude library must not contain conflicting node names");
-    RwLock::new(registry)
-});
+/// Starts empty. Libraries (math, engine, PBR, world-environment) are
+/// registered via [`register_global_library`] at engine startup, before any
+/// shader assembly occurs.
+static GLOBAL: LazyLock<RwLock<NodeRegistry>> = LazyLock::new(|| RwLock::new(NodeRegistry::new()));
 
 /// Registers a [`NodeLibrary`] with the process-wide global registry.
 ///
