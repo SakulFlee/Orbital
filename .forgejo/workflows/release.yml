@@ -14,6 +14,17 @@ jobs:
       SCCACHE_CACHE_SIZE: 10G
     steps:
       - uses: https://code.forgejo.org/actions/checkout@v6
+      - name: Cache cargo registry
+        uses: https://code.forgejo.org/actions/cache@v4
+        continue-on-error: true
+        with:
+          path: |
+            /usr/local/cargo/registry/index
+            /usr/local/cargo/registry/cache
+            /usr/local/cargo/git/db
+          key: cargo-lint-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-lint-
       - name: Cache sccache
         uses: https://code.forgejo.org/actions/cache@v4
         continue-on-error: true
@@ -52,6 +63,17 @@ jobs:
       AR_x86_64_pc_windows_gnu: x86_64-w64-mingw32-ar
     steps:
       - uses: https://code.forgejo.org/actions/checkout@v6
+      - name: Cache cargo registry
+        uses: https://code.forgejo.org/actions/cache@v4
+        continue-on-error: true
+        with:
+          path: |
+            /usr/local/cargo/registry/index
+            /usr/local/cargo/registry/cache
+            /usr/local/cargo/git/db
+          key: cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ matrix.target }}-
       - name: Cache sccache
         uses: https://code.forgejo.org/actions/cache@v4
         continue-on-error: true
