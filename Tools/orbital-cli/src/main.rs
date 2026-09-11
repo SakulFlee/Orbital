@@ -29,7 +29,7 @@ enum Commands {
         /// Package name (e.g., com.mycompany.mygame)
         #[arg(short, long)]
         package: Option<String>,
-        /// Template to use (minimal, procgeo_scene)
+        /// Template to use (minimal, all-in-one)
         #[arg(short, long)]
         template: Option<String>,
         /// Enable Android support
