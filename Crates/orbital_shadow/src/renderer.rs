@@ -308,6 +308,7 @@ impl ShadowRenderer {
     /// `dirty_set` contains `light_store_index` values for lights whose shadows
     /// need re-rendering this frame. Lights NOT in the set reuse their existing
     /// depth data from the previous frame (no rendering, slot data preserved).
+    #[allow(clippy::too_many_arguments)]
     pub fn render(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,

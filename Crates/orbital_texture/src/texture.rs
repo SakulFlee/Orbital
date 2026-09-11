@@ -161,6 +161,7 @@ impl Texture {
         Texture::from_existing(texture, view, sampler, TextureViewDimension::Cube)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn from_binary_data(
         data: &[u8],
         label: Option<&str>,
@@ -323,6 +324,7 @@ impl Texture {
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn from_data(
         pixels: &[u8],
         size: &TextureSize,
