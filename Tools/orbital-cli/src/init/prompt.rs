@@ -1,5 +1,5 @@
 use anyhow::Result;
-use inquire::{Confirm, Text};
+use inquire::{Confirm, Select, Text};
 
 use crate::config;
 
@@ -77,7 +77,15 @@ pub fn interactive(
     };
 
     // 5. Template selection (minimal or procgeo_scene)
-    let template_name = template.unwrap_or_else(|| "minimal".to_string());
+    let template_name = match template {
+        Some(t) => t,
+        None => {
+            let templates = vec!["minimal", "procgeo_scene"];
+            Select::new("Select a template:", templates)
+                .prompt()?
+                .to_string()
+        }
+    };
 
     // 6. Engine repository
     let engine_repo = match engine_repo {
