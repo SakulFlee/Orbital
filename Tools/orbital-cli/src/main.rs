@@ -6,6 +6,8 @@ mod init;
 mod java;
 mod tooling;
 
+use std::path::PathBuf;
+
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
@@ -26,6 +28,12 @@ enum Commands {
     Init {
         /// Project name (optional, will prompt if not provided)
         name: Option<String>,
+        /// Parent directory for the project (creates <path>/<name>/)
+        #[arg(long)]
+        parent_path: Option<PathBuf>,
+        /// Exact project directory (files placed directly here)
+        #[arg(long)]
+        project_path: Option<PathBuf>,
         /// Package name (e.g., com.mycompany.mygame)
         #[arg(short, long)]
         package: Option<String>,
@@ -91,6 +99,8 @@ fn main() -> Result<()> {
     match cli.command {
         Commands::Init {
             name,
+            parent_path,
+            project_path,
             package,
             template,
             android,
@@ -99,6 +109,8 @@ fn main() -> Result<()> {
             yes,
         } => init::run(
             name,
+            parent_path,
+            project_path,
             package,
             template,
             android,
