@@ -76,11 +76,11 @@ pub fn interactive(
         (21, 34)
     };
 
-    // 5. Template selection (minimal or all-in-one)
+    // 5. Template selection (minimal, all-in-one, or 2d)
     let template_name = match template {
         Some(t) => t,
         None => {
-            let templates = vec!["minimal", "all-in-one"];
+            let templates = vec!["minimal", "all-in-one", "2d"];
             Select::new("Select a template:", templates)
                 .prompt()?
                 .to_string()

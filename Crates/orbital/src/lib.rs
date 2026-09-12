@@ -14,6 +14,9 @@ pub use orbital_renderer as renderer;
 pub use orbital_resources as resources;
 pub use orbital_shader_preprocessor as shader_preprocessor;
 pub use orbital_touch_ui as touch_ui;
+pub use orbital_2d as twod;
+pub use orbital_text as text;
+pub use orbital_ui as ui;
 
 #[cfg(test)]
 pub mod wgpu_test_adapter;
