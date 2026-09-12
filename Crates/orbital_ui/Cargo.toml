@@ -1,0 +1,12 @@
+[package]
+name = "orbital_ui"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+orbital_2d = { path = "../orbital_2d" }
+orbital_ecs = { path = "../ecs" }
+orbital_text = { path = "../orbital_text" }
+cgmath = { workspace = true }
+wgpu = { workspace = true }
+log = { workspace = true }
