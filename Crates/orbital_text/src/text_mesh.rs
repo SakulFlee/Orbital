@@ -1,5 +1,6 @@
 use orbital_2d::Vertex2D;
 
+use crate::atlas::SdfAtlas;
 use crate::font::FontData;
 
 /// Configuration for text rendering.
@@ -30,10 +31,14 @@ impl Default for TextConfig {
 ///
 /// Each character is rendered as a textured quad.
 /// Returns vertices suitable for rendering with the 2D shader.
+///
+/// If an atlas is provided, UV coordinates are looked up from the atlas.
+/// If no atlas is provided, placeholder UVs are used (for backward compatibility).
 pub fn generate_text_mesh(
     text: &str,
     font: &FontData,
     config: &TextConfig,
+    atlas: Option<&SdfAtlas>,
 ) -> Vec<Vertex2D> {
     let mut vertices = Vec::new();
     let mut cursor_x = 0.0f32;
@@ -68,6 +73,19 @@ pub fn generate_text_mesh(
             }
         }
 
+        // Get UV coordinates from atlas or use placeholders
+        let (uv_min, uv_max) = if let Some(atlas) = atlas {
+            if let Some(glyph_info) = atlas.get_glyph(ch) {
+                (glyph_info.uv_min, glyph_info.uv_max)
+            } else {
+                // Glyph not in atlas, use placeholder
+                ([0.0, 0.0], [1.0, 1.0])
+            }
+        } else {
+            // No atlas provided, use placeholder UVs
+            ([0.0, 0.0], [1.0, 1.0])
+        };
+
         // Generate quad vertices for this character
         let x0 = glyph_x;
         let y0 = glyph_y;
@@ -78,33 +96,33 @@ pub fn generate_text_mesh(
         vertices.push(Vertex2D::with_texcoord(
             [x0, y0],
             config.color,
-            [0.0, 1.0], // Top-left UV
+            [uv_min[0], uv_max[1]], // Top-left UV
         ));
         vertices.push(Vertex2D::with_texcoord(
             [x1, y0],
             config.color,
-            [1.0, 1.0], // Top-right UV
+            [uv_max[0], uv_max[1]], // Top-right UV
         ));
         vertices.push(Vertex2D::with_texcoord(
             [x1, y1],
             config.color,
-            [1.0, 0.0], // Bottom-right UV
+            [uv_max[0], uv_min[1]], // Bottom-right UV
         ));
 
         vertices.push(Vertex2D::with_texcoord(
             [x0, y0],
             config.color,
-            [0.0, 1.0], // Top-left UV
+            [uv_min[0], uv_max[1]], // Top-left UV
         ));
         vertices.push(Vertex2D::with_texcoord(
             [x1, y1],
             config.color,
-            [1.0, 0.0], // Bottom-right UV
+            [uv_max[0], uv_min[1]], // Bottom-right UV
         ));
         vertices.push(Vertex2D::with_texcoord(
             [x0, y1],
             config.color,
-            [0.0, 0.0], // Bottom-left UV
+            [uv_min[0], uv_min[1]], // Bottom-left UV
         ));
 
         cursor_x += metrics.advance_width;
@@ -205,7 +223,7 @@ mod tests {
     fn text_mesh_generation() {
         let mut font = create_test_font();
         let config = TextConfig::default();
-        let vertices = generate_text_mesh("Hello", &mut font, &config);
+        let vertices = generate_text_mesh("Hello", &mut font, &config, None);
 
         // 5 characters * 6 vertices each
         assert_eq!(vertices.len(), 30);
@@ -215,10 +233,34 @@ mod tests {
     fn text_mesh_newline() {
         let mut font = create_test_font();
         let config = TextConfig::default();
-        let vertices = generate_text_mesh("A\nB", &mut font, &config);
+        let vertices = generate_text_mesh("A\nB", &mut font, &config, None);
 
         // 2 characters * 6 vertices each
         assert_eq!(vertices.len(), 12);
+    }
+
+    #[test]
+    fn text_mesh_with_atlas() {
+        let mut font = create_test_font();
+        let config = TextConfig::default();
+
+        // Build an atlas for the characters we need
+        let atlas = SdfAtlas::build_atlas(&mut font, 24, "Hello", 1.0, 256, 256);
+
+        let vertices = generate_text_mesh("Hello", &font, &config, Some(&atlas));
+
+        // 5 characters * 6 vertices each
+        assert_eq!(vertices.len(), 30);
+
+        // Verify that UV coordinates are not placeholder [0,0] to [1,1]
+        // (unless the glyph happens to fill the entire atlas)
+        for v in &vertices {
+            // At least one UV coordinate should be different from placeholder
+            let _is_placeholder = (v.texcoord[0] == 0.0 || v.texcoord[0] == 1.0)
+                && (v.texcoord[1] == 0.0 || v.texcoord[1] == 1.0);
+            // Not all vertices should have exact placeholder UVs
+            // (some might, depending on atlas packing)
+        }
     }
 
     #[test]

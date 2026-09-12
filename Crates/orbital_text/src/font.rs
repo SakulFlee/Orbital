@@ -100,7 +100,7 @@ impl FontData {
 /// - Negative values inside the glyph
 /// - Positive values outside the glyph
 /// - 0 at the edge
-fn generate_sdf(bitmap: &[u8], width: usize, height: usize, scale: f32) -> Vec<f32> {
+pub fn generate_sdf(bitmap: &[u8], width: usize, height: usize, scale: f32) -> Vec<f32> {
     if width == 0 || height == 0 {
         return Vec::new();
     }
