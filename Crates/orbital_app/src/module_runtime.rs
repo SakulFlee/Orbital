@@ -792,7 +792,17 @@ impl ModuleRuntime {
         // Optional post‑main‑pass overlays (debug viz, HUD, gizmos, touch UI, …)
         if let Some(overlay_res) = self.ecs_world.get_resource::<RenderOverlayResource>() {
             let camera_buffer = self.extract_camera_buffer(device, queue);
-            let mut overlays = overlay_res.0.lock().unwrap();
+
+            // Get screen size for overlay context
+            let screen_size = if let Some(size_res) = self.ecs_world.get_resource::<WindowSize>()
+            {
+                (size_res.0.x as f32, size_res.0.y as f32)
+            } else {
+                (800.0, 600.0)
+            };
+
+            // Render legacy overlays (without layer ordering)
+            let mut overlays = overlay_res.overlays.lock().unwrap();
             for overlay in overlays.iter_mut() {
                 let ctx = crate::RenderOverlayContext {
                     target_view: &view,
@@ -800,8 +810,27 @@ impl ModuleRuntime {
                     device,
                     queue,
                     ecs: &self.ecs_world,
+                    screen_size,
                 };
                 overlay.render(ctx);
+            }
+            drop(overlays);
+
+            // Render layer-aware renderers (sorted by layer order)
+            let mut layer_renderers = overlay_res.layer_renderers.lock().unwrap();
+            // Sort by layer order
+            layer_renderers.sort_by_key(|r| r.layer().index());
+
+            for renderer in layer_renderers.iter_mut() {
+                let ctx = crate::RenderOverlayContext {
+                    target_view: &view,
+                    camera_buffer: &camera_buffer,
+                    device,
+                    queue,
+                    ecs: &self.ecs_world,
+                    screen_size,
+                };
+                renderer.render(ctx);
             }
         }
 
