@@ -41,5 +41,10 @@ pub fn shader_2d_library() -> NodeLibrary {
         include_str!("wgsl/fragment_2d_texture.wgsl"),
     ));
 
+    lib.add(ShaderNode::new(
+        "fragment_sdf_text",
+        include_str!("wgsl/fragment_sdf_text.wgsl"),
+    ));
+
     lib
 }
