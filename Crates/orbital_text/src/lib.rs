@@ -33,6 +33,24 @@ pub use atlas::{SdfAtlas, ShelfPacker};
 pub use font::{FontData, GlyphInfo};
 pub use text_mesh::{generate_billboard_text_mesh, generate_text_mesh, measure_text, TextConfig};
 
+/// The default font embedded in the binary.
+///
+/// Uses Inter, a font designed for screens and UI.
+/// Licensed under the SIL Open Font License.
+pub struct DefaultFont;
+
+impl DefaultFont {
+    /// Returns the default Inter font as raw bytes.
+    pub fn bytes() -> &'static [u8] {
+        include_bytes!("../assets/default.ttf")
+    }
+
+    /// Returns a FontData loaded from the bundled default font.
+    pub fn load() -> FontData {
+        FontData::from_bytes(Self::bytes()).expect("Failed to load default font")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
