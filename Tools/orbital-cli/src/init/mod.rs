@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 
+#[warn(clippy::too_many_arguments)]
 pub fn run(
     name: Option<String>,
     parent_path: Option<PathBuf>,
