@@ -62,15 +62,11 @@ fn generate_project_all_in_one(project_dir: &Path, config: &ProjectConfig) -> Re
     };
 
     if !template_dir.exists() {
-        bail!(
-            "Template directory not found: {}",
-            template_dir.display()
-        );
+        bail!("Template directory not found: {}", template_dir.display());
     }
 
     // Copy the entire template directory
-    copy_dir_all(&template_dir, project_dir)
-        .context("Failed to copy template directory")?;
+    copy_dir_all(&template_dir, project_dir).context("Failed to copy template directory")?;
 
     // Generate Orbital.toml
     generate_orbital_toml(project_dir, config)?;
@@ -78,35 +74,29 @@ fn generate_project_all_in_one(project_dir: &Path, config: &ProjectConfig) -> Re
     // Replace placeholders in Cargo.toml
     let cargo_toml_path = project_dir.join("Cargo.toml");
     if cargo_toml_path.exists() {
-        let content = fs::read_to_string(&cargo_toml_path)
-            .context("Failed to read Cargo.toml")?;
+        let content = fs::read_to_string(&cargo_toml_path).context("Failed to read Cargo.toml")?;
         let content = content
             .replace("{name}", &config.project_name)
             .replace("{lib_name}", &lib_name)
             .replace("{repo}", &config.engine_repo)
             .replace("{branch}", &config.engine_branch);
-        fs::write(&cargo_toml_path, content)
-            .context("Failed to write Cargo.toml")?;
+        fs::write(&cargo_toml_path, content).context("Failed to write Cargo.toml")?;
     }
 
     // Replace placeholders in lib.rs
     let lib_rs_path = project_dir.join("src").join("lib.rs");
     if lib_rs_path.exists() {
-        let content = fs::read_to_string(&lib_rs_path)
-            .context("Failed to read lib.rs")?;
+        let content = fs::read_to_string(&lib_rs_path).context("Failed to read lib.rs")?;
         let content = content.replace("{{PROJECT_NAME}}", &config.project_name);
-        fs::write(&lib_rs_path, content)
-            .context("Failed to write lib.rs")?;
+        fs::write(&lib_rs_path, content).context("Failed to write lib.rs")?;
     }
 
     // Replace placeholders in main.rs
     let main_rs_path = project_dir.join("src").join("main.rs");
     if main_rs_path.exists() {
-        let content = fs::read_to_string(&main_rs_path)
-            .context("Failed to read main.rs")?;
+        let content = fs::read_to_string(&main_rs_path).context("Failed to read main.rs")?;
         let content = content.replace("{lib_name}", &lib_name);
-        fs::write(&main_rs_path, content)
-            .context("Failed to write main.rs")?;
+        fs::write(&main_rs_path, content).context("Failed to write main.rs")?;
     }
 
     Ok(())
