@@ -1,10 +1,14 @@
 mod prompt;
 mod template;
 
+use std::path::PathBuf;
+
 use anyhow::Result;
 
 pub fn run(
     name: Option<String>,
+    parent_path: Option<PathBuf>,
+    project_path: Option<PathBuf>,
     package: Option<String>,
     template: Option<String>,
     android: Option<bool>,
@@ -12,6 +16,10 @@ pub fn run(
     engine_branch: Option<String>,
     yes: bool,
 ) -> Result<()> {
+    if parent_path.is_some() && project_path.is_some() {
+        anyhow::bail!("--parent-path and --project-path are mutually exclusive");
+    }
+
     let config = if yes {
         // Non-interactive mode: use defaults or provided values
         let android_flag = android.unwrap_or(false);
@@ -31,7 +39,13 @@ pub fn run(
     println!("\nGenerating project...");
 
     // Create project directory
-    let project_dir = std::env::current_dir()?.join(&config.project_name);
+    let project_dir = if let Some(parent) = parent_path {
+        parent.join(&config.project_name)
+    } else if let Some(project) = project_path {
+        project
+    } else {
+        std::env::current_dir()?.join(&config.project_name)
+    };
     if project_dir.exists() {
         anyhow::bail!(
             "Directory '{}' already exists. Please choose a different name.",
@@ -62,7 +76,7 @@ pub fn run(
     }
 
     println!("\nNext steps:");
-    println!("  cd {}", config.project_name);
+    println!("  cd {}", project_dir.display());
 
     if config.generate_android {
         println!("  orbital build android");
