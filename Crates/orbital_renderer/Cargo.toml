@@ -8,6 +8,7 @@ orbital_cull = { path = "../orbital_cull" }
 orbital_material_shader = { path = "../orbital_material_shader" }
 orbital_model = { path = "../orbital_model" }
 orbital_shadow = { path = "../orbital_shadow" }
+orbital_text = { path = "../orbital_text" }
 orbital_texture = { path = "../orbital_texture" }
 orbital_world_environment = { path = "../orbital_world_environment" }
 wgpu = { workspace = true }
