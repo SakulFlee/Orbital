@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+orbital_2d = { path = "../orbital_2d" }
 orbital_cull = { path = "../orbital_cull" }
 orbital_material_shader = { path = "../orbital_material_shader" }
 orbital_model = { path = "../orbital_model" }
