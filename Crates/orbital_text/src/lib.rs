@@ -55,7 +55,7 @@ mod tests {
             ..Default::default()
         };
 
-        let vertices = generate_text_mesh("Test", &mut font, &config);
+        let vertices = generate_text_mesh("Test", &mut font, &config, None);
         assert!(!vertices.is_empty());
 
         let (width, height) = measure_text("Test", &font, 32.0);

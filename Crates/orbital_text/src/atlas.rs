@@ -1,4 +1,4 @@
-use crate::font::GlyphInfo;
+use crate::font::{FontData, GlyphInfo};
 
 /// A texture atlas containing SDF glyphs.
 #[derive(Debug)]
@@ -85,6 +85,60 @@ impl SdfAtlas {
     /// Returns the raw RGBA pixel data.
     pub fn data(&self) -> &[u8] {
         &self.data
+    }
+
+    /// Builds an SDF atlas from a font for the given character set.
+    ///
+    /// Generates SDF data for each character and packs it into the atlas.
+    /// Returns the populated atlas with glyph UV coordinates.
+    pub fn build_atlas(
+        font: &mut FontData,
+        font_size: u32,
+        characters: &str,
+        sdf_scale: f32,
+        atlas_width: u32,
+        atlas_height: u32,
+    ) -> Self {
+        let mut atlas = SdfAtlas::new(atlas_width, atlas_height);
+        let mut packer = ShelfPacker::new(atlas_width, atlas_height);
+
+        for ch in characters.chars() {
+            // Get glyph info (generates SDF and caches it)
+            let _glyph_info = font.get_glyph(ch, font_size, sdf_scale);
+
+            // Get the SDF bitmap from fontdue
+            let (metrics, bitmap) = font.font().rasterize(ch, font_size as f32);
+
+            if metrics.width == 0 || metrics.height == 0 {
+                continue;
+            }
+
+            // Generate SDF from the bitmap
+            let sdf_data = crate::font::generate_sdf(
+                &bitmap,
+                metrics.width,
+                metrics.height,
+                sdf_scale,
+            );
+
+            // Allocate space in the atlas
+            if let Some((offset_x, offset_y)) = packer.allocate(
+                metrics.width as u32 + 2, // +2 for padding
+                metrics.height as u32 + 2,
+            ) {
+                // Pack the glyph into the atlas
+                atlas.pack_glyph(
+                    ch,
+                    &sdf_data,
+                    metrics.width,
+                    metrics.height,
+                    offset_x + 1, // +1 for padding
+                    offset_y + 1,
+                );
+            }
+        }
+
+        atlas
     }
 }
 
