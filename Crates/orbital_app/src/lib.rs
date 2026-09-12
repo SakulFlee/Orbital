@@ -24,8 +24,11 @@ pub use module::Module;
 pub mod module_runtime;
 pub use module_runtime::ModuleRuntime;
 
+pub mod render_layer;
+pub use render_layer::{LayerConfig, RenderLayer};
+
 pub mod render_overlay;
-pub use render_overlay::{RenderOverlay, RenderOverlayContext, RenderOverlayResource};
+pub use render_overlay::{LayerRenderer, RenderOverlay, RenderOverlayContext, RenderOverlayResource};
 
 mod touch_controls;
 pub use touch_controls::{TouchControlsConfig, set_touch_controls, touch_controls};
