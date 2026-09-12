@@ -2596,6 +2596,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "orbital_2d"
+version = "0.1.0"
+dependencies = [
+ "cgmath",
+ "wgpu",
+]
+
+[[package]]
 name = "orbital_app"
 version = "0.1.0"
 dependencies = [
@@ -2874,6 +2882,13 @@ dependencies = [
  "orbital_texture",
  "orbital_vertex",
  "orbital_world_environment",
+]
+
+[[package]]
+name = "orbital_shader_2d"
+version = "0.1.0"
+dependencies = [
+ "orbital_shader_preprocessor",
 ]
 
 [[package]]
