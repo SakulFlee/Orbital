@@ -68,7 +68,7 @@ impl UiBackgroundOverlay {
         // UV: (0,0) = top-left, (1,1) = bottom-right
         // shape_params: (corner_radius_normalized, 0)
 
-        let r = corner_radius / w.min(h); // Normalize corner radius
+        let r = corner_radius / (w.min(h) / 2.0); // Normalize corner radius (p ranges 0-1, where 1 = min(w,h)/2 pixels from center)
 
         // Top-left triangle
         vertices.push(Vertex2D::full([x, y], color, [0.0, 0.0], [r, 0.0]));
