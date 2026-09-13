@@ -63,7 +63,7 @@ pub fn generate_text_mesh(
         let glyph_width = metrics.width as f32;
         let glyph_height = metrics.height as f32;
         let glyph_x = cursor_x + metrics.xmin as f32;
-        let glyph_y = cursor_y + metrics.ymin as f32;
+        let glyph_y = cursor_y - metrics.ymin as f32 - glyph_height;
 
         // Check for word wrapping
         if let Some(max_width) = config.max_width {
