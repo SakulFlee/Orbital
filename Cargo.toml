@@ -38,12 +38,12 @@ wasm-bindgen-rayon = "1.2"
 criterion = { version = "0.8", features = ["html_reports"] }
 
 # Iced (wgpu 30 fork)
-iced_core = { path = "crates/orbital-iced/core" }
-iced_runtime = { path = "crates/orbital-iced/runtime" }
-iced_winit = { path = "crates/orbital-iced/winit", default-features = false }
-iced_wgpu = { path = "crates/orbital-iced/wgpu", default-features = false }
-iced_widget = { path = "crates/orbital-iced/widget", default-features = false }
-iced = { path = "crates/orbital-iced", default-features = false }
+iced_core = { path = "Crates/orbital-iced/core" }
+iced_runtime = { path = "Crates/orbital-iced/runtime" }
+iced_winit = { path = "Crates/orbital-iced/winit", default-features = false }
+iced_wgpu = { path = "Crates/orbital-iced/wgpu", default-features = false }
+iced_widget = { path = "Crates/orbital-iced/widget", default-features = false }
+iced = { path = "Crates/orbital-iced", default-features = false }
 
 [profile.release]
 lto = true

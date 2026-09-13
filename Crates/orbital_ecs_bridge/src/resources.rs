@@ -103,6 +103,67 @@ pub struct QueueResource(pub Arc<wgpu::Queue>);
 #[derive(Debug, Clone)]
 pub struct AdapterResource(pub Arc<wgpu::Adapter>);
 
+/// An owned window event relevant to iced UI processing.
+///
+/// Stored in [`IcedEventQueue`] so the iced overlay can consume events
+/// without lifetime issues from `winit::event::WindowEvent<'_>`.
+#[derive(Debug, Clone)]
+pub enum IcedWindowEvent {
+    CursorMoved {
+        position: winit::dpi::PhysicalPosition<f64>,
+    },
+    MouseInput {
+        state: winit::event::ElementState,
+        button: winit::event::MouseButton,
+    },
+    KeyboardInput {
+        event: winit::event::KeyEvent,
+        is_synthetic: bool,
+    },
+    ModifiersChanged(winit::keyboard::ModifiersState),
+    Resized(winit::dpi::PhysicalSize<u32>),
+    RedrawRequested,
+}
+
+/// Queue of winit events to be forwarded to iced UI overlays.
+///
+/// Populated each frame by `module_runtime.rs` before overlay rendering.
+/// Consumed by `IcedLayerRenderer::render()` and drained.
+pub struct IcedEventQueue {
+    pub events: Vec<IcedWindowEvent>,
+    pub cursor_position: Option<winit::dpi::PhysicalPosition<f64>>,
+    pub modifiers: winit::keyboard::ModifiersState,
+}
+
+impl Default for IcedEventQueue {
+    fn default() -> Self {
+        Self {
+            events: Vec::new(),
+            cursor_position: None,
+            modifiers: winit::keyboard::ModifiersState::empty(),
+        }
+    }
+}
+
+impl IcedEventQueue {
+    pub fn push(&mut self, event: IcedWindowEvent) {
+        match &event {
+            IcedWindowEvent::CursorMoved { position } => {
+                self.cursor_position = Some(*position);
+            }
+            IcedWindowEvent::ModifiersChanged(mods) => {
+                self.modifiers = *mods;
+            }
+            _ => {}
+        }
+        self.events.push(event);
+    }
+
+    pub fn drain(&mut self) -> Vec<IcedWindowEvent> {
+        std::mem::take(&mut self.events)
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Engine events (replace AppEvent)
 // ---------------------------------------------------------------------------

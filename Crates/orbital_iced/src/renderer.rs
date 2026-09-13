@@ -1,7 +1,7 @@
 use crate::state::IcedState;
 use orbital_app::render_overlay::{LayerRenderer as LayerRendererTrait, RenderOverlayContext};
 use orbital_app::RenderLayer;
-use orbital_ecs_bridge::{AdapterResource, SurfaceFormatResource};
+use orbital_ecs_bridge::{AdapterResource, IcedEventQueue, IcedWindowEvent, SurfaceFormatResource};
 use std::sync::Mutex;
 
 pub struct IcedLayerRenderer {
@@ -10,7 +10,6 @@ pub struct IcedLayerRenderer {
 }
 
 struct RendererInner {
-    engine: iced_wgpu::Engine,
     renderer: iced_wgpu::Renderer,
 }
 
@@ -53,7 +52,7 @@ impl LayerRendererTrait for IcedLayerRenderer {
                 let adapter = match ctx.ecs.get_resource::<AdapterResource>() {
                     Some(a) => a.0.as_ref().clone(),
                     None => {
-                        log::warn!("No AdapterResource — skipping iced render");
+                        log::warn!("No AdapterResource - skipping iced render");
                         return;
                     }
                 };
@@ -67,8 +66,37 @@ impl LayerRendererTrait for IcedLayerRenderer {
                     iced_graphics::Shell::headless(),
                 );
 
-                let renderer = iced_wgpu::Renderer::new(engine.clone(), Default::default());
-                *guard = Some(RendererInner { engine, renderer });
+                let renderer = iced_wgpu::Renderer::new(engine, Default::default());
+                *guard = Some(RendererInner { renderer });
+            }
+        }
+
+        // Consume events from the ECS queue
+        let (iced_events, cursor) = {
+            let mut queue = ctx.ecs.get_resource_mut::<IcedEventQueue>();
+            if let Some(ref mut q) = queue {
+                let events = q.drain();
+                let cursor_pos = q.cursor_position;
+                (events, cursor_pos)
+            } else {
+                (Vec::new(), None)
+            }
+        };
+
+        // Convert cursor position
+        let cursor = match cursor {
+            Some(pos) => iced_winit::core::mouse::Cursor::Available(iced_core::Point::new(
+                pos.x as f32,
+                pos.y as f32,
+            )),
+            None => iced_winit::core::mouse::Cursor::Unavailable,
+        };
+
+        // Convert our owned events to iced events
+        let mut iced_core_events = Vec::new();
+        for evt in &iced_events {
+            if let Some(converted) = convert_event(evt) {
+                iced_core_events.push(converted);
             }
         }
 
@@ -90,12 +118,11 @@ impl LayerRendererTrait for IcedLayerRenderer {
 
         let waker = iced_winit::core::shell::Waker::noop();
         let mut bus = iced_winit::core::shell::Bus::new();
-        let cursor = iced_winit::core::mouse::Cursor::Unavailable;
 
         let _ = interface.update(
             &NoopWindow,
             &waker,
-            &[],
+            &iced_core_events,
             cursor,
             renderer,
             &mut bus,
@@ -130,6 +157,52 @@ impl LayerRendererTrait for IcedLayerRenderer {
         );
 
         inner.renderer.present(None, format, ctx.target_view, &viewport);
+    }
+}
+
+fn convert_event(evt: &IcedWindowEvent) -> Option<iced_core::Event> {
+    use iced_core::event::Event;
+    use iced_core::mouse;
+    use iced_core::window;
+
+    match evt {
+        IcedWindowEvent::CursorMoved { position } => {
+            Some(Event::Mouse(mouse::Event::CursorMoved {
+                position: iced_core::Point::new(position.x as f32, position.y as f32),
+            }))
+        }
+        IcedWindowEvent::MouseInput { state, button } => {
+            let iced_button = match button {
+                winit::event::MouseButton::Left => mouse::Button::Left,
+                winit::event::MouseButton::Right => mouse::Button::Right,
+                winit::event::MouseButton::Middle => mouse::Button::Middle,
+                _ => return None,
+            };
+            let iced_state = match state {
+                winit::event::ElementState::Pressed => mouse::Event::ButtonPressed(iced_button),
+                winit::event::ElementState::Released => mouse::Event::ButtonReleased(iced_button),
+            };
+            Some(Event::Mouse(iced_state))
+        }
+        IcedWindowEvent::ModifiersChanged(mods) => {
+            let mut iced_mods = iced_core::keyboard::Modifiers::empty();
+            if mods.shift_key() {
+                iced_mods |= iced_core::keyboard::Modifiers::SHIFT;
+            }
+            if mods.control_key() {
+                iced_mods |= iced_core::keyboard::Modifiers::CTRL;
+            }
+            if mods.alt_key() {
+                iced_mods |= iced_core::keyboard::Modifiers::ALT;
+            }
+            Some(Event::Keyboard(iced_core::keyboard::Event::ModifiersChanged(iced_mods)))
+        }
+        IcedWindowEvent::RedrawRequested => {
+            Some(Event::Window(window::Event::RedrawRequested(
+                iced_core::time::Instant::now(),
+            )))
+        }
+        _ => None,
     }
 }
 
