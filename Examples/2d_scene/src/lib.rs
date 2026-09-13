@@ -158,11 +158,12 @@ impl Module for Scene2DModule {
         // Create shapes and generate vertices
         let mut batch = Batch2D::new();
 
-        // Red square
-        let square = ShapeDescriptor::solid_quad([0.9, 0.3, 0.2, 1.0]);
-        batch.push_shape(&orbital::twod::shape::generate_shape_vertices(&square, 100.0, 100.0));
+        // Red square at (100, 100) with size 100x100
+        batch.push_shape(&orbital::twod::shape::generate_rect(
+            100.0, 100.0, 100.0, 100.0, [0.9, 0.3, 0.2, 1.0],
+        ));
 
-        // Green circle
+        // Green circle at (300, 200) with radius 50
         batch.push_shape(&orbital::twod::shape::generate_circle(
             [300.0, 200.0],
             50.0,
@@ -170,13 +171,28 @@ impl Module for Scene2DModule {
             [0.2, 0.8, 0.3, 1.0],
         ));
 
-        // Blue triangle
+        // Blue triangle at (500, 150) - generate at origin then offset
         let triangle = ShapeDescriptor::solid_triangle([0.3, 0.4, 0.9, 1.0]);
-        batch.push_shape(&orbital::twod::shape::generate_shape_vertices(&triangle, 500.0, 150.0));
+        let mut tri_verts = orbital::twod::shape::generate_shape_vertices(&triangle, 80.0, 80.0);
+        for v in &mut tri_verts {
+            v.position[0] += 500.0;
+            v.position[1] += 150.0;
+        }
+        batch.push_shape(&tri_verts);
 
-        // Yellow quad
-        let quad = ShapeDescriptor::solid_quad([1.0, 1.0, 0.2, 1.0]);
-        batch.push_shape(&orbital::twod::shape::generate_shape_vertices(&quad, 200.0, 350.0));
+        // Yellow quad at (200, 350) with size 150x80
+        batch.push_shape(&orbital::twod::shape::generate_rect(
+            200.0, 350.0, 150.0, 80.0, [1.0, 1.0, 0.2, 1.0],
+        ));
+
+        // Cyan polygon (hexagon) at (600, 300)
+        let hex = ShapeDescriptor::solid_polygon(6, [0.2, 0.8, 0.8, 1.0]);
+        let mut hex_verts = orbital::twod::shape::generate_shape_vertices(&hex, 60.0, 60.0);
+        for v in &mut hex_verts {
+            v.position[0] += 600.0;
+            v.position[1] += 300.0;
+        }
+        batch.push_shape(&hex_verts);
 
         info!("Created 2D scene with {} vertices", batch.vertex_count());
 
