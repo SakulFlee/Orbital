@@ -31,7 +31,7 @@ use crate::{
     AppContext, AppSettings, AppState, Module, RenderOverlayResource, Timer, make_core_schedule,
 };
 use orbital_ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CameraDirty, CursorGrabConfig, CursorPosition, DeltaTime,
+    ActiveCamera, AdapterResource, CameraDescriptorEcs, CameraDirty, CursorGrabConfig, CursorPosition, DeltaTime,
     DeviceResource, EcsCameraStore, EngineEvent, EngineEvents, FrameCounter, InputSnapshot,
     LightDescriptorEcs, Position, QueueResource, SurfaceFormatResource, TotalTime, WindowSize,
 };
@@ -1208,6 +1208,8 @@ impl ApplicationHandler for ModuleRuntime {
                 .insert_resource(DeviceResource(Arc::new(ctx_guard.device().clone())));
             self.ecs_world
                 .insert_resource(QueueResource(Arc::new(ctx_guard.queue().clone())));
+            self.ecs_world
+                .insert_resource(AdapterResource(Arc::new(ctx_guard.adapter().clone())));
             self.ecs_world
                 .insert_resource(SurfaceFormatResource(config.format));
 

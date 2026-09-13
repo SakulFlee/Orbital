@@ -7,9 +7,18 @@ license = "MIT"
 
 [dependencies]
 orbital_app = { path = "../orbital_app" }
-orbital_input = { path = "../orbital_input" }
+orbital_ecs = { path = "../ecs" }
+orbital_ecs_bridge = { path = "../orbital_ecs_bridge" }
 log = "0.4"
-iced = { path = "../orbital-iced", default-features = false, features = ["wgpu", "x11", "wayland", "linux-theme-detection", "thread-pool"] }
+
+# iced sub-crates
+iced_core = { path = "../orbital-iced/core", default-features = false }
+iced_widget = { path = "../orbital-iced/widget", default-features = false }
+iced_runtime = { path = "../orbital-iced/runtime", default-features = false }
+iced_graphics = { path = "../orbital-iced/graphics", default-features = false }
+iced_wgpu = { path = "../orbital-iced/wgpu", default-features = false }
+iced_winit = { path = "../orbital-iced/winit", default-features = false, features = ["x11", "wayland"] }
+
 wgpu = { version = "30.0.0", features = ["wgsl"] }
 winit = "0.30.0"
-pollster = "1.0"
+raw-window-handle = "0.6"
