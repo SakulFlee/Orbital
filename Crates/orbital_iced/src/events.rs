@@ -1,5 +1,5 @@
 use crate::state::IcedState;
-use winit::event::{ElementState, MouseButton, WindowEvent};
+use iced_winit::winit::event::{ElementState, MouseButton, WindowEvent};
 
 pub enum IcedEvent {
     None,

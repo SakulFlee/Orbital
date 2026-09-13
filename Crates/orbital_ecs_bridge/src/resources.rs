@@ -97,6 +97,12 @@ pub struct DeviceResource(pub Arc<wgpu::Device>);
 #[derive(Debug, Clone)]
 pub struct QueueResource(pub Arc<wgpu::Queue>);
 
+/// Shared reference to the wgpu [`Adapter`].
+///
+/// Needed by iced's `Engine::new()` to construct its renderer.
+#[derive(Debug, Clone)]
+pub struct AdapterResource(pub Arc<wgpu::Adapter>);
+
 // ---------------------------------------------------------------------------
 // Engine events (replace AppEvent)
 // ---------------------------------------------------------------------------
