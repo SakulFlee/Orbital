@@ -3121,6 +3121,7 @@ dependencies = [
  "orbital_world_environment",
  "ulid",
  "wgpu",
+ "winit 0.30.13",
 ]
 
 [[package]]

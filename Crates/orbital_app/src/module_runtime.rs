@@ -32,7 +32,7 @@ use crate::{
 };
 use orbital_ecs_bridge::{
     ActiveCamera, AdapterResource, CameraDescriptorEcs, CameraDirty, CursorGrabConfig, CursorPosition, DeltaTime,
-    DeviceResource, EcsCameraStore, EngineEvent, EngineEvents, FrameCounter, InputSnapshot,
+    DeviceResource, EcsCameraStore, EngineEvent, EngineEvents, FrameCounter, IcedEventQueue, InputSnapshot,
     LightDescriptorEcs, Position, QueueResource, SurfaceFormatResource, TotalTime, WindowSize,
 };
 
@@ -1212,6 +1212,8 @@ impl ApplicationHandler for ModuleRuntime {
                 .insert_resource(AdapterResource(Arc::new(ctx_guard.adapter().clone())));
             self.ecs_world
                 .insert_resource(SurfaceFormatResource(config.format));
+            self.ecs_world
+                .insert_resource(IcedEventQueue::default());
 
             // Initialize import pipeline resources
             self.ecs_world
@@ -1400,6 +1402,38 @@ impl ApplicationHandler for ModuleRuntime {
                 );
                 self.exit(event_loop);
                 return;
+            }
+        }
+
+        // Forward relevant events to iced UI overlays
+        if let Some(mut queue) = self.ecs_world.get_resource_mut::<IcedEventQueue>() {
+            use orbital_ecs_bridge::IcedWindowEvent;
+            match &event {
+                WindowEvent::CursorMoved { position, .. } => {
+                    queue.push(IcedWindowEvent::CursorMoved { position: *position });
+                }
+                WindowEvent::MouseInput { state, button, .. } => {
+                    queue.push(IcedWindowEvent::MouseInput {
+                        state: *state,
+                        button: *button,
+                    });
+                }
+                WindowEvent::KeyboardInput { event, is_synthetic, .. } => {
+                    queue.push(IcedWindowEvent::KeyboardInput {
+                        event: event.clone(),
+                        is_synthetic: *is_synthetic,
+                    });
+                }
+                WindowEvent::ModifiersChanged(mods) => {
+                    queue.push(IcedWindowEvent::ModifiersChanged(mods.state()));
+                }
+                WindowEvent::Resized(size) => {
+                    queue.push(IcedWindowEvent::Resized(*size));
+                }
+                WindowEvent::RedrawRequested => {
+                    queue.push(IcedWindowEvent::RedrawRequested);
+                }
+                _ => {}
             }
         }
 
