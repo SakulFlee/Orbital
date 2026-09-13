@@ -35,6 +35,7 @@ impl SdfAtlas {
         height: usize,
         offset_x: u32,
         offset_y: u32,
+        metrics: &fontdue::Metrics,
     ) -> GlyphInfo {
         let atlas_width = self.width as usize;
         let atlas_height = self.height as usize;
@@ -69,8 +70,8 @@ impl SdfAtlas {
                 (offset_y + height as u32) as f32 / self.height as f32,
             ],
             size: [width as f32, height as f32],
-            offset: [0.0, 0.0],
-            advance: width as f32,
+            offset: [metrics.xmin as f32, metrics.ymin as f32],
+            advance: metrics.advance_width,
         };
 
         self.glyphs.insert(ch, glyph);
@@ -134,6 +135,7 @@ impl SdfAtlas {
                     metrics.height,
                     offset_x + 1, // +1 for padding
                     offset_y + 1,
+                    &metrics,
                 );
             }
         }
@@ -230,7 +232,16 @@ mod tests {
         let mut atlas = SdfAtlas::new(256, 256);
         let sdf_data = vec![0.0; 16 * 16]; // 16x16 SDF
 
-        let glyph = atlas.pack_glyph('A', &sdf_data, 16, 16, 0, 0);
+        let metrics = fontdue::Metrics {
+            width: 16,
+            height: 16,
+            xmin: 0,
+            ymin: 0,
+            advance_width: 10.0,
+            advance_height: 0.0,
+            bounds: fontdue::OutlineBounds::default(),
+        };
+        let glyph = atlas.pack_glyph('A', &sdf_data, 16, 16, 0, 0, &metrics);
         assert!(atlas.get_glyph('A').is_some());
         assert_eq!(glyph.size, [16.0, 16.0]);
     }

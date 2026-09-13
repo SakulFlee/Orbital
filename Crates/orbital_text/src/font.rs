@@ -132,13 +132,13 @@ pub fn generate_sdf(bitmap: &[u8], width: usize, height: usize, scale: f32) -> V
                 }
             }
 
-            // Convert to signed distance
+            // Convert to signed distance (standard convention: positive inside, negative outside)
             if pixel > 0.5 {
-                // Inside the glyph
-                sdf[y * width + x] = -min_dist / spread as f32;
-            } else {
-                // Outside the glyph
+                // Inside the glyph → positive
                 sdf[y * width + x] = min_dist / spread as f32;
+            } else {
+                // Outside the glyph → negative
+                sdf[y * width + x] = -min_dist / spread as f32;
             }
         }
     }
