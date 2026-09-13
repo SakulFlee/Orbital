@@ -92,37 +92,37 @@ pub fn generate_text_mesh(
         let x1 = glyph_x + glyph_width;
         let y1 = glyph_y + glyph_height;
 
-        // Two triangles for the quad
+        // Two triangles for the quad (UV Y-coordinates: y0=top of screen=top of atlas, y1=bottom)
         vertices.push(Vertex2D::with_texcoord(
             [x0, y0],
             config.color,
-            [uv_min[0], uv_max[1]], // Top-left UV
+            [uv_min[0], uv_min[1]], // Top-left UV
         ));
         vertices.push(Vertex2D::with_texcoord(
             [x1, y0],
             config.color,
-            [uv_max[0], uv_max[1]], // Top-right UV
+            [uv_max[0], uv_min[1]], // Top-right UV
         ));
         vertices.push(Vertex2D::with_texcoord(
             [x1, y1],
             config.color,
-            [uv_max[0], uv_min[1]], // Bottom-right UV
+            [uv_max[0], uv_max[1]], // Bottom-right UV
         ));
 
         vertices.push(Vertex2D::with_texcoord(
             [x0, y0],
             config.color,
-            [uv_min[0], uv_max[1]], // Top-left UV
+            [uv_min[0], uv_min[1]], // Top-left UV
         ));
         vertices.push(Vertex2D::with_texcoord(
             [x1, y1],
             config.color,
-            [uv_max[0], uv_min[1]], // Bottom-right UV
+            [uv_max[0], uv_max[1]], // Bottom-right UV
         ));
         vertices.push(Vertex2D::with_texcoord(
             [x0, y1],
             config.color,
-            [uv_min[0], uv_min[1]], // Bottom-left UV
+            [uv_min[0], uv_max[1]], // Bottom-left UV
         ));
 
         cursor_x += metrics.advance_width;
