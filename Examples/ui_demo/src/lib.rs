@@ -251,6 +251,7 @@ impl RenderOverlay for TextOverlay {
         let sdf_params = orbital::renderer::SdfParamsUniform {
             smoothing: 0.04,
             outline_width: 0.0,
+            _padding: [0.0; 2],
             outline_color: [0.0, 0.0, 0.0, 1.0],
         };
 
