@@ -1,0 +1,15 @@
+[package]
+name = "orbital_iced"
+version = "0.1.0"
+edition = "2024"
+description = "Iced UI integration for the Orbital game engine"
+license = "MIT"
+
+[dependencies]
+orbital_app = { path = "../orbital_app" }
+orbital_input = { path = "../orbital_input" }
+log = "0.4"
+iced = { path = "../orbital-iced", default-features = false, features = ["wgpu", "x11", "wayland", "linux-theme-detection", "thread-pool"] }
+wgpu = { version = "30.0.0", features = ["wgsl"] }
+winit = "0.30.0"
+pollster = "1.0"
