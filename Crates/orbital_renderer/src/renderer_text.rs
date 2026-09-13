@@ -30,6 +30,8 @@ pub struct SdfParamsUniform {
     pub smoothing: f32,
     /// Width of outline (0 = no outline).
     pub outline_width: f32,
+    /// Padding for vec4 alignment (WGSL requires 16-byte alignment for vec4).
+    pub _padding: [f32; 2],
     /// Outline color (RGBA).
     pub outline_color: [f32; 4],
 }
