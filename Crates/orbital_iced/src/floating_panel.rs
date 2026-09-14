@@ -143,13 +143,11 @@ where
         Node::with_children(
             Size::new(panel_width, panel_height),
             vec![
-                title_size.move_to(state.position),
-                content_size.move_to(Point::new(
-                    state.position.x,
-                    state.position.y + TITLE_BAR_HEIGHT,
-                )),
+                title_size,
+                content_size.move_to(Point::new(0.0, TITLE_BAR_HEIGHT)),
             ],
         )
+        .move_to(state.position)
     }
 
     fn diff(&mut self, tree: &mut Tree) {
