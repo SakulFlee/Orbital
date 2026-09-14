@@ -152,16 +152,20 @@ where
     }
 
     fn diff(&mut self, tree: &mut Tree) {
-        // Initialize state if tree was created via Cache::new() (State::None)
         if let widget::tree::State::None = &tree.state {
             tree.tag = self.tag();
             tree.state = self.state();
         }
         tree.children.clear();
-        tree.children
-            .push(Tree::new(self.title.as_widget_mut()));
-        tree.children
-            .push(Tree::new(self.content.as_widget_mut()));
+        tree.children.push(Tree::new(self.title.as_widget_mut()));
+        tree.children.push(Tree::new(self.content.as_widget_mut()));
+        // Tree::new() doesn't call diff(), so recursively populate sub-trees
+        self.title
+            .as_widget_mut()
+            .diff(&mut tree.children[0]);
+        self.content
+            .as_widget_mut()
+            .diff(&mut tree.children[1]);
     }
 
     fn update(
