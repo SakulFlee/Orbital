@@ -70,6 +70,18 @@ impl IcedState {
             .height(iced_core::Length::Fill)
             .center_x(iced_core::Length::Fill)
             .center_y(iced_core::Length::Fill)
+            .style(|_theme| iced_widget::container::Style {
+                background: Some(iced_winit::core::Background::Color(
+                    iced_winit::core::Color {
+                        r: 0.05,
+                        g: 0.05,
+                        b: 0.1,
+                        a: 0.75,
+                    },
+                )),
+                border: iced_winit::core::Border::default().rounded(12),
+                ..Default::default()
+            })
             .into()
     }
 }
