@@ -111,6 +111,11 @@ where
         renderer: &Renderer,
         _limits: &layout::Limits,
     ) -> Node {
+        // Tree::new() doesn't call diff(), so on first frame children may be empty
+        if tree.children.len() < 2 {
+            self.diff(tree);
+        }
+
         let state = tree.state.downcast_mut::<State>();
 
         let title_widget = self.title.as_widget_mut();
