@@ -50,8 +50,8 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let p = abs(input.uv * 2.0 - 1.0);
 
     // Distance from rounded rect edge
-    // For a unit quad, we scale the corner radius by the quad size
-    let d = length(max(p - vec2(1.0 - corner_radius), vec2(0.0))) - corner_radius;
+    let q = p - vec2(1.0 - corner_radius);
+    let d = length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - corner_radius;
 
     // Anti-aliased edge
     let aa_width = fwidth(d); // Screen-space derivatives for anti-aliasing

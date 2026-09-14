@@ -1,11 +1,12 @@
+use iced_core::border::{self, Border};
 use iced_core::event::Event;
 use iced_core::layout::{self, Layout, Node};
 use iced_core::mouse;
 use iced_core::overlay;
-use iced_core::renderer;
+use iced_core::renderer::{self, Quad};
 use iced_core::shell::Shell;
 use iced_core::widget::{self, Tree};
-use iced_core::{Element, Length, Point, Rectangle, Size, Vector};
+use iced_core::{Color, Element, Length, Point, Rectangle, Size, Vector};
 
 const TITLE_BAR_HEIGHT: f32 = 28.0;
 const DRAG_DEADBAND: f32 = 3.0;
@@ -274,7 +275,81 @@ where
         cursor: mouse::Cursor,
         viewport: &Rectangle,
     ) {
-        // Draw title
+        let bounds = layout.bounds();
+        let state = tree.state.downcast_ref::<State>();
+
+        // Panel background
+        renderer.fill_quad(
+            Quad {
+                bounds,
+                border: border::rounded(6.0)
+                    .width(1.0)
+                    .color(Color::from_rgba(0.3, 0.3, 0.4, 0.5)),
+                ..Default::default()
+            },
+            Color::from_rgba(0.08, 0.08, 0.14, 0.9),
+        );
+
+        // Title bar background
+        let title_bar_bounds = Rectangle {
+            x: bounds.x,
+            y: bounds.y,
+            width: bounds.width,
+            height: TITLE_BAR_HEIGHT,
+        };
+        renderer.fill_quad(
+            Quad {
+                bounds: title_bar_bounds,
+                border: Border {
+                    radius: border::Radius {
+                        top_left: 6.0,
+                        top_right: 6.0,
+                        bottom_left: 0.0,
+                        bottom_right: 0.0,
+                    },
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            Color::from_rgba(0.15, 0.15, 0.25, 1.0),
+        );
+
+        // Close button
+        let close_bounds = Rectangle {
+            x: bounds.x + bounds.width - TITLE_BAR_HEIGHT,
+            y: bounds.y,
+            width: TITLE_BAR_HEIGHT,
+            height: TITLE_BAR_HEIGHT,
+        };
+        let close_hover = state.is_dragging == false
+            && cursor
+                .position()
+                .map_or(false, |p| close_bounds.contains(p));
+        let close_bg = if close_hover {
+            Color::from_rgba(0.8, 0.2, 0.2, 0.8)
+        } else {
+            Color::from_rgba(0.5, 0.15, 0.15, 0.6)
+        };
+        renderer.fill_quad(
+            Quad {
+                bounds: close_bounds,
+                border: Border {
+                    radius: border::Radius {
+                        top_left: 0.0,
+                        top_right: 6.0,
+                        bottom_left: 0.0,
+                        bottom_right: 0.0,
+                    },
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            close_bg,
+        );
+
+        // Close button — click detection handled in update()
+
+        // Title text
         let title_layout = layout.child(0);
         self.title.as_widget().draw(
             tree.children.get(0).unwrap(),
@@ -286,7 +361,7 @@ where
             viewport,
         );
 
-        // Draw content
+        // Content
         let content_layout = layout.child(1);
         self.content.as_widget().draw(
             tree.children.get(1).unwrap(),
