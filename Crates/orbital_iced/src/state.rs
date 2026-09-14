@@ -1,3 +1,4 @@
+use crate::floating_panel::FloatingPanel;
 use iced_winit::core::{Element, Theme};
 use iced_wgpu::Renderer;
 
@@ -5,11 +6,13 @@ use iced_wgpu::Renderer;
 pub enum Message {
     None,
     ButtonPressed(String),
+    ClosePanel,
 }
 
 pub struct IcedState {
     title: String,
     button_label: String,
+    panel_visible: bool,
 }
 
 impl Default for IcedState {
@@ -17,6 +20,7 @@ impl Default for IcedState {
         Self {
             title: "Orbital UI".to_string(),
             button_label: "Click Me".to_string(),
+            panel_visible: true,
         }
     }
 }
@@ -49,6 +53,10 @@ impl IcedState {
             Message::ButtonPressed(id) => {
                 log::info!("Button pressed: {}", id);
             }
+            Message::ClosePanel => {
+                log::info!("Panel closed");
+                self.panel_visible = false;
+            }
             Message::None => {}
         }
     }
@@ -56,32 +64,25 @@ impl IcedState {
     pub fn view(&self) -> Element<'_, Message, Theme, Renderer> {
         use iced_widget::{button, column, container, text};
 
-        let title_text = text(&self.title)
-            .size(24)
+        if !self.panel_visible {
+            return container(text(""))
+                .width(iced_core::Length::Fill)
+                .height(iced_core::Length::Fill)
+                .into();
+        }
+
+        let title_bar = text(&self.title)
+            .size(14)
             .color(iced_winit::core::Color::WHITE);
 
         let btn = button(text(&self.button_label))
             .on_press(Message::ButtonPressed(self.button_label.clone()));
 
-        let content = column![title_text, btn].spacing(10).padding(20);
+        let content = column![btn].spacing(10).padding(10);
 
-        container(content)
-            .width(iced_core::Length::Fill)
-            .height(iced_core::Length::Fill)
-            .center_x(iced_core::Length::Fill)
-            .center_y(iced_core::Length::Fill)
-            .style(|_theme| iced_widget::container::Style {
-                background: Some(iced_winit::core::Background::Color(
-                    iced_winit::core::Color {
-                        r: 0.05,
-                        g: 0.05,
-                        b: 0.1,
-                        a: 0.75,
-                    },
-                )),
-                border: iced_winit::core::Border::default().rounded(12),
-                ..Default::default()
-            })
+        FloatingPanel::new(title_bar, content)
+            .initial_position(80.0, 80.0)
+            .on_close(Message::ClosePanel)
             .into()
     }
 }
