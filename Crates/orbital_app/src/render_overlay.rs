@@ -59,14 +59,6 @@ impl RenderOverlayResource {
         }
     }
 
-    /// Ensures the resource exists in the ECS world and returns a mutable handle.
-    pub fn ensure(ecs: &mut orbital_ecs::World) -> orbital_ecs::ResourceMutHandle<'_, Self> {
-        if ecs.get_resource::<Self>().is_none() {
-            ecs.insert_resource(Self::new());
-        }
-        ecs.get_resource_mut::<Self>().unwrap()
-    }
-
     /// Register an overlay to be drawn after the main scene pass.
     ///
     /// Multiple modules can call this on the same resource; overlays render in

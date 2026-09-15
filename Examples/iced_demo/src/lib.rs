@@ -1,7 +1,7 @@
 use orbital::app::{App, AppSettings, Module};
 use orbital::ecs::{System, World};
 use orbital::logging::{error, info};
-use orbital_iced::{IcedLayerRenderer, IcedState};
+use orbital_iced::{IcedBridgeModule, IcedState, IcedUiState};
 
 pub fn entrypoint(
     event_loop_result: Result<
@@ -23,6 +23,7 @@ pub fn entrypoint(
 
     match App::new()
         .add_module(IcedDemoModule)
+        .add_module(IcedBridgeModule)
         .liftoff(event_loop, app_settings)
     {
         Ok(()) => info!("Cleanly exited!"),
@@ -43,7 +44,7 @@ impl Module for IcedDemoModule {
             .with_title("Orbital + Iced")
             .with_button_label("Click Me!");
 
-        IcedLayerRenderer::new(state).register(ecs);
+        ecs.insert_resource(IcedUiState(state));
 
         info!("Iced demo module registered");
         vec![]

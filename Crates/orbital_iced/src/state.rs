@@ -9,6 +9,7 @@ pub enum Message {
     ClosePanel,
 }
 
+#[derive(Clone)]
 pub struct IcedState {
     title: String,
     button_label: String,
@@ -86,3 +87,9 @@ impl IcedState {
             .into()
     }
 }
+
+/// ECS resource — insert this to declare a iced UI panel.
+///
+/// The [`IcedBridgeModule`](crate::IcedBridgeModule) will detect this resource
+/// and automatically create an [`IcedLayerRenderer`](crate::IcedLayerRenderer) for it.
+pub struct IcedUiState(pub IcedState);
