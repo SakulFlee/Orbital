@@ -49,6 +49,7 @@ orbital_touch_ui = { path = "../orbital_touch_ui" }
 orbital_2d = { path = "../orbital_2d" }
 orbital_text = { path = "../orbital_text" }
 orbital_ui = { path = "../orbital_ui" }
+orbital_iced = { path = "../orbital_iced" }
 
 gilrs = { workspace = true, optional = true }
 

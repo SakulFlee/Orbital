@@ -13,3 +13,5 @@ pub use bridge::IcedBridgeModule;
 pub use bridge::IcedBridgeModule as IcedBridge;
 pub use bridge::IcedBridgeModule as OrbitalUI;
 pub use bridge::IcedBridgeModule as OrbitalUIModule;
+
+pub use iced_widget;

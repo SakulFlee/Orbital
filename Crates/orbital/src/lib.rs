@@ -17,6 +17,7 @@ pub use orbital_touch_ui as touch_ui;
 pub use orbital_2d as twod;
 pub use orbital_text as text;
 pub use orbital_ui as ui;
+pub use orbital_iced as iced;
 
 #[cfg(test)]
 pub mod wgpu_test_adapter;

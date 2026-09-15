@@ -11,7 +11,7 @@ use orbital::ecs_bridge::{
     ModelInstances, Position, Rotation,
 };
 use orbital::importer::{ImportTask, gltf::GltfImport};
-use orbital_iced::{OrbitalUI, IcedState, IcedUiState};
+use orbital::iced::{OrbitalUI, IcedState, IcedUiState};
 #[cfg(not(target_os = "android"))]
 use orbital::logging;
 use orbital::logging::{error, info};
@@ -295,8 +295,7 @@ impl Module for ProcgeoSceneModule {
             IcedState::titled("HUD")
                 .with_hud()
                 .with_view(|ecs: &orbital::ecs::World| {
-                    use orbital::ecs::Res;
-                    use iced_widget::{column, text};
+                    use orbital::iced::iced_widget::{column, text};
 
                     let health_text = ecs
                         .get_resource::<Health>()
