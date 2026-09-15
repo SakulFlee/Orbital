@@ -1787,15 +1787,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "iced_demo"
-version = "0.1.0"
-dependencies = [
- "orbital",
- "orbital_iced",
- "winit 0.30.13",
-]
-
-[[package]]
 name = "iced_futures"
 version = "0.15.0-dev"
 dependencies = [
@@ -4251,14 +4242,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93fc1dc3aaa9bfed95e02e6eadabb4baf7e3078b0bd1b4d7b6b0b68378900502"
 dependencies = [
  "winapi-util",
-]
-
-[[package]]
-name = "scene_2d"
-version = "0.1.0"
-dependencies = [
- "orbital",
- "winit 0.30.13",
 ]
 
 [[package]]

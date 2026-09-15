@@ -11,6 +11,7 @@ use orbital::ecs_bridge::{
     ModelInstances, Position, Rotation,
 };
 use orbital::importer::{ImportTask, gltf::GltfImport};
+use orbital_iced::{IcedBridgeModule, IcedState, IcedUiState};
 #[cfg(not(target_os = "android"))]
 use orbital::logging;
 use orbital::logging::{error, info};
@@ -43,6 +44,7 @@ pub fn entrypoint(
 
     match App::new()
         .add_module(ProcgeoSceneModule)
+        .add_module(IcedBridgeModule)
         .add_module(
             DebugModule::new()
                 .with_toggle_key(KeyCode::F3)
@@ -277,6 +279,13 @@ impl Module for ProcgeoSceneModule {
         ecs.attach_component(&camera, Rotation(rot)).unwrap();
         ecs.insert_resource(ActiveCamera(camera));
         ecs.insert_resource(CursorGrabConfig(true));
+
+        // Iced UI panel
+        ecs.insert_resource(IcedUiState(
+            IcedState::new()
+                .with_title("{{PROJECT_NAME}}")
+                .with_button_label("Click Me!"),
+        ));
 
         // Dynamic procedural sky (in-place updates, cheap per frame).
         ecs.insert_resource(EnvironmentDescriptorResource(Some(

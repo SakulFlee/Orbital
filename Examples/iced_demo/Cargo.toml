@@ -1,9 +1,0 @@
-[package]
-name = "iced_demo"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-orbital = { path = "../../Crates/orbital" }
-orbital_iced = { path = "../../Crates/orbital_iced" }
-winit = "0.30.0"
