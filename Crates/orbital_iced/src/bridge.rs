@@ -9,7 +9,7 @@ use wgpu::{Device, Queue};
 ///
 /// Add this module to your [`App`](orbital_app::App) after any modules that
 /// insert [`IcedUiState`]. The bridge will detect the state and automatically
-/// create an [`IcedLayerRenderer`] for it.
+/// create an [`IcedLayerRenderer`] for each panel.
 pub struct IcedBridgeModule;
 
 impl Module for IcedBridgeModule {
@@ -19,19 +19,25 @@ impl Module for IcedBridgeModule {
         _device: &Device,
         _queue: &Queue,
     ) -> Vec<Box<dyn System>> {
-        let ui_state = ecs.get_resource::<IcedUiState>().map(|s| s.0.clone());
+        let panels = ecs
+            .get_resource::<IcedUiState>()
+            .map(|ui| ui.0.iter().map(|(k, v)| (k.clone(), v.clone())).collect::<Vec<_>>())
+            .unwrap_or_default();
 
-        if let Some(state) = ui_state {
+        if panels.is_empty() {
+            return vec![];
+        }
+
+        if ecs.get_resource::<RenderOverlayResource>().is_none() {
+            ecs.insert_resource(RenderOverlayResource::new());
+        }
+
+        for (name, state) in panels {
             let renderer = IcedLayerRenderer::new(state);
-
-            if ecs.get_resource::<RenderOverlayResource>().is_none() {
-                ecs.insert_resource(RenderOverlayResource::new());
-            }
             if let Some(res) = ecs.get_resource_mut::<RenderOverlayResource>() {
                 res.add_layer_renderer(Box::new(renderer));
             }
-
-            log::info!("Iced UI bridge: registered renderer");
+            log::info!("Iced UI bridge: registered panel '{}'", name);
         }
 
         vec![]

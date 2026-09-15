@@ -106,7 +106,7 @@ impl LayerRendererTrait for IcedLayerRenderer {
         }
 
         // Build the view (borrows self.state temporarily)
-        let view = self.state.view();
+        let view = self.state.view(ctx.ecs);
         let logical_size = iced_core::Size::new(ctx.screen_size.0, ctx.screen_size.1);
 
         let mut guard = self.inner.lock().unwrap();
