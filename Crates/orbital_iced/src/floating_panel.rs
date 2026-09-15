@@ -1,3 +1,4 @@
+use iced_core::alignment;
 use iced_core::border::{self, Border};
 use iced_core::event::Event;
 use iced_core::layout::{self, Layout, Node};
@@ -5,8 +6,9 @@ use iced_core::mouse;
 use iced_core::overlay;
 use iced_core::renderer::{self, Quad};
 use iced_core::shell::Shell;
+use iced_core::text;
 use iced_core::widget::{self, Tree};
-use iced_core::{Color, Element, Length, Point, Rectangle, Size, Vector};
+use iced_core::{Color, Element, Font, Length, Pixels, Point, Rectangle, Size, Vector};
 
 const TITLE_BAR_HEIGHT: f32 = 28.0;
 const DRAG_DEADBAND: f32 = 3.0;
@@ -88,7 +90,7 @@ impl<'a, Message, Theme, Renderer> widget::Widget<Message, Theme, Renderer>
 where
     Message: Clone + 'a,
     Theme: 'a,
-    Renderer: renderer::Renderer + 'a,
+    Renderer: renderer::Renderer + text::Renderer + 'a,
 {
     fn size(&self) -> Size<Length> {
         Size::new(self.width, self.height)
@@ -343,7 +345,25 @@ where
             close_bg,
         );
 
-        // Close button — click detection handled in update()
+        // Close button "X" text
+        renderer.fill_text(
+            text::Text {
+                content: "X".to_string(),
+                font: Font::DEFAULT,
+                size: Pixels(13.0),
+                line_height: text::LineHeight::Absolute(Pixels(16.0)),
+                bounds: close_bounds.size(),
+                align_x: text::Alignment::Center,
+                align_y: alignment::Vertical::Center,
+                shaping: text::Shaping::Basic,
+                wrapping: text::Wrapping::None,
+                ellipsis: text::Ellipsis::default(),
+                hint_factor: None,
+            },
+            close_bounds.center(),
+            Color::WHITE,
+            *viewport,
+        );
 
         // Title text
         let title_layout = layout.child(0);
@@ -418,7 +438,7 @@ impl<'a, Message, Theme, Renderer> From<FloatingPanel<'a, Message, Theme, Render
 where
     Message: Clone + 'a,
     Theme: 'a,
-    Renderer: renderer::Renderer + 'a,
+    Renderer: renderer::Renderer + text::Renderer + 'a,
 {
     fn from(panel: FloatingPanel<'a, Message, Theme, Renderer>) -> Self {
         Element::new(panel)
