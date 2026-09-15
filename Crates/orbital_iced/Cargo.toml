@@ -9,16 +9,16 @@ license = "MIT"
 orbital_app = { path = "../orbital_app" }
 orbital_ecs = { path = "../ecs" }
 orbital_ecs_bridge = { path = "../orbital_ecs_bridge" }
-log = "0.4"
+log = { workspace = true }
 
 # iced sub-crates
-iced_core = { path = "../orbital-iced/core", default-features = false }
-iced_widget = { path = "../orbital-iced/widget", default-features = false }
-iced_runtime = { path = "../orbital-iced/runtime", default-features = false }
-iced_graphics = { path = "../orbital-iced/graphics", default-features = false, features = ["fira-sans"] }
-iced_wgpu = { path = "../orbital-iced/wgpu", default-features = false }
-iced_winit = { path = "../orbital-iced/winit", default-features = false, features = ["x11", "wayland"] }
+iced_core = { workspace = true }
+iced_widget = { workspace = true }
+iced_runtime = { workspace = true }
+iced_graphics = { workspace = true, features = ["fira-sans"] }
+iced_wgpu = { workspace = true }
+iced_winit = { workspace = true, features = ["x11", "wayland"] }
 
-wgpu = { version = "30.0.0", features = ["wgsl"] }
-winit = "0.30.0"
-raw-window-handle = "0.6"
+wgpu = { workspace = true }
+winit = { workspace = true }
+raw-window-handle = { workspace = true }
