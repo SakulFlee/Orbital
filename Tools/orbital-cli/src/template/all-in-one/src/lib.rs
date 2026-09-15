@@ -11,7 +11,7 @@ use orbital::ecs_bridge::{
     ModelInstances, Position, Rotation,
 };
 use orbital::importer::{ImportTask, gltf::GltfImport};
-use orbital_iced::{IcedBridgeModule, IcedState, IcedUiState};
+use orbital_iced::{OrbitalUI, IcedState, IcedUiState};
 #[cfg(not(target_os = "android"))]
 use orbital::logging;
 use orbital::logging::{error, info};
@@ -23,6 +23,12 @@ use orbital::resources::{
 use winit::keyboard::KeyCode;
 
 pub const NAME: &str = "{{PROJECT_NAME}}";
+
+#[derive(Clone)]
+struct Health(u32);
+
+#[derive(Clone)]
+struct Mana(u32);
 
 pub fn entrypoint(
     event_loop_result: Result<
@@ -44,7 +50,7 @@ pub fn entrypoint(
 
     match App::new()
         .add_module(ProcgeoSceneModule)
-        .add_module(IcedBridgeModule)
+        .add_module(OrbitalUI)
         .add_module(
             DebugModule::new()
                 .with_toggle_key(KeyCode::F3)
@@ -280,12 +286,43 @@ impl Module for ProcgeoSceneModule {
         ecs.insert_resource(ActiveCamera(camera));
         ecs.insert_resource(CursorGrabConfig(true));
 
-        // Iced UI panel
-        ecs.insert_resource(IcedUiState(
-            IcedState::new()
-                .with_title("{{PROJECT_NAME}}")
-                .with_button_label("Click Me!"),
-        ));
+        // Iced UI panels
+        let mut ui = IcedUiState::new();
+
+        // HUD: static overlay, reads game state from ECS directly
+        ui.push(
+            "hud",
+            IcedState::titled("HUD")
+                .with_hud()
+                .with_view(|ecs: &orbital::ecs::World| {
+                    use orbital::ecs::Res;
+                    use iced_widget::{column, text};
+
+                    let health_text = ecs
+                        .get_resource::<Health>()
+                        .map(|h| format!("Health: {}", h.0))
+                        .unwrap_or_else(|| "Health: --".to_string());
+
+                    let mana_text = ecs
+                        .get_resource::<Mana>()
+                        .map(|m| format!("Mana: {}", m.0))
+                        .unwrap_or_else(|| "Mana: --".to_string());
+
+                    column![text(health_text).size(16), text(mana_text).size(16)]
+                        .spacing(4)
+                        .into()
+                }),
+        );
+
+        // Windowed panel: draggable, title bar, close button
+        ui.push(
+            "inventory",
+            IcedState::titled("Inventory")
+                .with_position(100.0, 100.0)
+                .with_button_label("Open Chest"),
+        );
+
+        ecs.insert_resource(ui);
 
         // Dynamic procedural sky (in-place updates, cheap per frame).
         ecs.insert_resource(EnvironmentDescriptorResource(Some(
