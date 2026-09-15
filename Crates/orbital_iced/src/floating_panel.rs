@@ -155,16 +155,14 @@ where
             tree.tag = self.tag();
             tree.state = self.state();
         }
-        tree.children.clear();
-        tree.children.push(Tree::new(self.title.as_widget_mut()));
-        tree.children.push(Tree::new(self.content.as_widget_mut()));
-        // Tree::new() doesn't call diff(), so recursively populate sub-trees
-        self.title
-            .as_widget_mut()
-            .diff(&mut tree.children[0]);
-        self.content
-            .as_widget_mut()
-            .diff(&mut tree.children[1]);
+        // Use diff_children to preserve existing child trees across frames.
+        // Tree::new() creates fresh state (e.g. is_pressed = false), which
+        // destroys widget state on every frame. diff_children reconciles
+        // old/new children, keeping state for unchanged widgets alive.
+        tree.diff_children(&mut [
+            self.title.as_widget_mut(),
+            self.content.as_widget_mut(),
+        ]);
     }
 
     fn update(
