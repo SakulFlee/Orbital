@@ -1,7 +1,18 @@
-use anyhow::Result;
+use anyhow::{Result, bail};
 use inquire::{Confirm, Select, Text};
 
 use crate::config;
+
+fn validate_engine_repo(repo: &str) -> Result<()> {
+    let valid_prefixes = ["ssh://", "https://", "http://", "git://", "git@"];
+    if valid_prefixes.iter().any(|p| repo.starts_with(p)) {
+        return Ok(());
+    }
+    bail!(
+        "engine-repo must be a remote git URL (ssh://, https://, git://, git@...), \
+         not a local path: {repo}"
+    );
+}
 
 pub struct ProjectConfig {
     pub project_name: String,
@@ -94,6 +105,7 @@ pub fn interactive(
             .with_default(orbital_config.engine_repo())
             .prompt()?,
     };
+    validate_engine_repo(&engine_repo)?;
 
     // 7. Engine branch
     let engine_branch = match engine_branch {
@@ -139,6 +151,7 @@ pub fn non_interactive(
     let template_name = template.unwrap_or_else(|| "minimal".to_string());
     let engine_repo = engine_repo.unwrap_or_else(|| orbital_config.engine_repo().to_string());
     let engine_branch = engine_branch.unwrap_or_else(|| orbital_config.engine_branch().to_string());
+    validate_engine_repo(&engine_repo)?;
 
     Ok(ProjectConfig {
         project_name,
