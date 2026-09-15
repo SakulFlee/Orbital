@@ -1,6 +1,7 @@
-use orbital::app::{App, AppSettings, Module, RenderOverlayResource};
+use orbital::app::{App, AppSettings, Module};
 use orbital::ecs::{System, World};
 use orbital::logging::{error, info};
+use orbital_iced::{IcedLayerRenderer, IcedState};
 
 pub fn entrypoint(
     event_loop_result: Result<
@@ -38,18 +39,11 @@ impl Module for IcedDemoModule {
         _device: &orbital::wgpu::Device,
         _queue: &orbital::wgpu::Queue,
     ) -> Vec<Box<dyn System>> {
-        let state = orbital_iced::IcedState::new()
+        let state = IcedState::new()
             .with_title("Orbital + Iced")
             .with_button_label("Click Me!");
 
-        let overlay = orbital_iced::IcedLayerRenderer::new(state);
-
-        if ecs.get_resource::<RenderOverlayResource>().is_none() {
-            ecs.insert_resource(RenderOverlayResource::new());
-        }
-        if let Some(res) = ecs.get_resource_mut::<RenderOverlayResource>() {
-            res.add_layer_renderer(Box::new(overlay));
-        }
+        IcedLayerRenderer::new(state).register(ecs);
 
         info!("Iced demo module registered");
         vec![]

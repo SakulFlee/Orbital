@@ -1,6 +1,7 @@
 use crate::state::IcedState;
 use orbital_app::render_overlay::{LayerRenderer as LayerRendererTrait, RenderOverlayContext};
-use orbital_app::RenderLayer;
+use orbital_app::{RenderLayer, RenderOverlayResource};
+use orbital_ecs::World;
 use orbital_ecs_bridge::{AdapterResource, IcedEventQueue, IcedWindowEvent, SurfaceFormatResource};
 use std::sync::Mutex;
 
@@ -31,6 +32,11 @@ impl IcedLayerRenderer {
 
     pub fn state_mut(&mut self) -> &mut IcedState {
         &mut self.state
+    }
+
+    /// Registers this renderer with the ECS world, ensuring the overlay resource exists.
+    pub fn register(self, ecs: &mut World) {
+        RenderOverlayResource::ensure(ecs).add_layer_renderer(Box::new(self));
     }
 }
 
