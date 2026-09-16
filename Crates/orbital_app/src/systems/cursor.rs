@@ -1,15 +1,16 @@
-use orbital_ecs_bridge::{EngineEvent, EngineEvents, InputSnapshot};
+use orbital_ecs_bridge::{CursorGrabState, EngineEvent, EngineEvents, InputSnapshot};
 use orbital_input::{InputButton, InputState};
 use winit::keyboard::{KeyCode, PhysicalKey};
 
 use orbital_ecs::{Commands, ComponentAccess, System, World};
 
-/// Toggles cursor grab on Escape press.
+/// Toggles cursor grab on Alt press.
 ///
-/// Tracks the previous frame's Escape state for edge detection so the toggle
+/// Tracks the previous frame's Alt state for edge detection so the toggle
 /// only fires once per press. Pushes [`EngineEvent::CursorGrabbed`] and
 /// [`EngineEvent::CursorVisible`] events; the runtime processes them after
-/// schedules complete.
+/// schedules complete. Also updates [`CursorGrabState`] so the camera
+/// controller can skip mouse rotation when the cursor is free.
 pub struct CursorToggle {
     grabbed: bool,
     was_pressed: bool,
@@ -41,23 +42,27 @@ impl System for CursorToggle {
             None => return,
         };
 
-        let escape_pressed = is_escape_pressed(&input.0);
+        let alt_pressed = is_alt_pressed(&input.0);
 
         // Edge detection: toggle only on fresh press (not held)
-        if escape_pressed && !self.was_pressed {
+        if alt_pressed && !self.was_pressed {
             self.grabbed = !self.grabbed;
             if let Some(mut events) = world.get_resource_mut::<EngineEvents>() {
                 events.0.push(EngineEvent::CursorGrabbed(self.grabbed));
                 events.0.push(EngineEvent::CursorVisible(self.grabbed));
             }
+            // Expose grab state to other systems (e.g. camera controller)
+            if let Some(mut state) = world.get_resource_mut::<CursorGrabState>() {
+                state.0 = self.grabbed;
+            }
         }
-        self.was_pressed = escape_pressed;
+        self.was_pressed = alt_pressed;
     }
 }
 
-fn is_escape_pressed(input: &InputState) -> bool {
+fn is_alt_pressed(input: &InputState) -> bool {
     input
-        .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(KeyCode::Escape)))
+        .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(KeyCode::AltLeft)))
         .map(|(_, pressed)| pressed)
         .unwrap_or(false)
 }

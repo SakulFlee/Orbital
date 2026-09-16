@@ -6,7 +6,7 @@
 
 use cgmath::{Rad, Vector3};
 use orbital_ecs::Res;
-use orbital_ecs_bridge::{DeltaTime, InputSnapshot, Position, Rotation};
+use orbital_ecs_bridge::{CursorGrabState, DeltaTime, InputSnapshot, Position, Rotation};
 use orbital_input::{InputAxis, InputButton, InputState};
 use winit::keyboard::{KeyCode, PhysicalKey};
 
@@ -20,18 +20,22 @@ const LOOK_SENSITIVITY: f32 = 1.5;
 /// When any finger is touching the screen (mobile), it automatically switches
 /// to touch controls instead ([`sys_touch_camera_controller`]).
 ///
+/// Mouse look is skipped when [`CursorGrabState`] is `false` (cursor visible),
+/// so the user can interact with UI while the camera holds position.
+///
 /// Reads `Res<DeltaTime>`, `Res<InputSnapshot>`, writes `&mut Position`, `&mut Rotation`.
 /// Must be a named function (not inline closure) for IntoSystem macro compatibility.
 pub fn sys_camera_controller(
     dt: Res<DeltaTime>,
     input: Res<InputSnapshot>,
+    grab: Res<CursorGrabState>,
     pos: &mut Position,
     rot: &mut Rotation,
 ) {
     if input.0.has_active_touches() {
         apply_touch_controls(dt.0 as f32, &input.0, pos, rot);
     } else {
-        apply_keyboard_mouse_controls(dt.0 as f32, &input.0, pos, rot);
+        apply_keyboard_mouse_controls(dt.0 as f32, &input.0, grab.0, pos, rot);
     }
 }
 
@@ -82,12 +86,13 @@ fn apply_touch_controls(dt: f32, input: &InputState, pos: &mut Position, rot: &m
 fn apply_keyboard_mouse_controls(
     dt: f32,
     input: &InputState,
+    cursor_grabbed: bool,
     pos: &mut Position,
     rot: &mut Rotation,
 ) {
     let (forward, right, _up) = rot.forward_right_up();
 
-    // WASD movement
+    // WASD movement (always active)
     let mut movement = Vector3::new(0.0, 0.0, 0.0);
     if input
         .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyW)))
@@ -133,10 +138,11 @@ fn apply_keyboard_mouse_controls(
     }
     pos.0 += movement;
 
-    // Mouse rotation
-    // delta.x = mouse Y movement (normalized), delta.y = mouse X movement (normalized)
-    if let Some((_, delta)) = input.delta_state_any(&InputAxis::MouseMovement) {
-        rot.rotate_pitch(Rad(delta.x as f32 * LOOK_SENSITIVITY)); // mouse Y → pitch (up/down)
-        rot.rotate_yaw(Rad(-delta.y as f32 * LOOK_SENSITIVITY)); // mouse X → yaw (negated: right = positive)
+    // Mouse rotation — only when cursor is grabbed (hidden)
+    if cursor_grabbed {
+        if let Some((_, delta)) = input.delta_state_any(&InputAxis::MouseMovement) {
+            rot.rotate_pitch(Rad(delta.x as f32 * LOOK_SENSITIVITY));
+            rot.rotate_yaw(Rad(-delta.y as f32 * LOOK_SENSITIVITY));
+        }
     }
 }

@@ -69,6 +69,11 @@ pub struct WindowSize(pub Vector2<u32>);
 #[derive(Debug, Clone, Copy)]
 pub struct CursorGrabConfig(pub bool);
 
+/// Live cursor grab state — updated by [`CursorToggle`](orbital_app::systems::CursorToggle)
+/// and read by the camera controller to skip mouse rotation when the cursor is free.
+#[derive(Debug, Clone, Copy)]
+pub struct CursorGrabState(pub bool);
+
 /// A snapshot of the engine's aggregated input state at the start of the
 /// current frame.
 ///
