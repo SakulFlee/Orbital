@@ -49,7 +49,7 @@ impl System for CursorToggle {
             self.grabbed = !self.grabbed;
             if let Some(mut events) = world.get_resource_mut::<EngineEvents>() {
                 events.0.push(EngineEvent::CursorGrabbed(self.grabbed));
-                events.0.push(EngineEvent::CursorVisible(self.grabbed));
+                events.0.push(EngineEvent::CursorVisible(!self.grabbed));
             }
             // Expose grab state to other systems (e.g. camera controller)
             if let Some(mut state) = world.get_resource_mut::<CursorGrabState>() {

@@ -319,44 +319,33 @@ impl ShapeOverlay {
         let cx = screen_w / 2.0;
         let top = 15.0;
 
-        // Red rectangle — left of center
-        self.vertices.extend_from_slice(
-            &orbital::twod::shape::generate_rect(
-                cx - 160.0,
-                top,
-                90.0,
-                25.0,
-                [0.9, 0.2, 0.2, 0.85],
-            ),
-        );
-
-        // Green circle — left-center
+        // Green circle — left
         self.vertices.extend_from_slice(
             &orbital::twod::shape::generate_circle(
-                [cx - 60.0, top + 12.5],
-                15.0,
-                20,
+                [cx - 60.0, top + 15.0],
+                20.0,
+                24,
                 [0.2, 0.8, 0.3, 0.85],
             ),
         );
 
-        // Blue triangle — right-center
+        // Blue triangle — center
         let tri = orbital::twod::shape::ShapeDescriptor::solid_triangle([0.3, 0.4, 0.9, 0.85]);
-        let mut tri_verts = orbital::twod::shape::generate_shape_vertices(&tri, 35.0, 35.0);
+        let mut tri_verts = orbital::twod::shape::generate_shape_vertices(&tri, 40.0, 40.0);
         for v in &mut tri_verts {
-            v.position[0] += cx + 40.0;
+            v.position[0] += cx - 20.0;
             v.position[1] += top + 5.0;
         }
         self.vertices.extend_from_slice(&tri_verts);
 
-        // Yellow quad — right of center
+        // Red rectangle — right
         self.vertices.extend_from_slice(
             &orbital::twod::shape::generate_rect(
-                cx + 100.0,
-                top + 2.0,
-                70.0,
-                20.0,
-                [1.0, 1.0, 0.2, 0.8],
+                cx + 30.0,
+                top + 5.0,
+                80.0,
+                25.0,
+                [0.9, 0.2, 0.2, 0.85],
             ),
         );
 
