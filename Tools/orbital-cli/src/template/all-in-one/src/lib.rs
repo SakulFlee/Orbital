@@ -338,16 +338,14 @@ impl ShapeOverlay {
         }
         self.vertices.extend_from_slice(&tri_verts);
 
-        // Red rectangle — right
-        self.vertices.extend_from_slice(
-            &orbital::twod::shape::generate_rect(
-                cx + 30.0,
-                top + 5.0,
-                80.0,
-                25.0,
-                [0.9, 0.2, 0.2, 0.85],
-            ),
-        );
+        // Red quad — right
+        let quad = orbital::twod::shape::ShapeDescriptor::solid_quad([0.9, 0.2, 0.2, 0.85]);
+        let mut quad_verts = orbital::twod::shape::generate_shape_vertices(&quad, 70.0, 25.0);
+        for v in &mut quad_verts {
+            v.position[0] += cx + 55.0;
+            v.position[1] += top + 12.5;
+        }
+        self.vertices.extend_from_slice(&quad_verts);
 
         self.needs_layout = false;
     }
