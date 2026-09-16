@@ -40,8 +40,6 @@ fn generate_project_minimal(project_dir: &Path, config: &ProjectConfig) -> Resul
 }
 
 fn generate_project_all_in_one(project_dir: &Path, config: &ProjectConfig) -> Result<()> {
-    let lib_name = config.project_name.replace('-', "_").to_lowercase();
-
     // Get the template directory path (relative to the executable)
     let template_dir = std::env::current_exe()
         .context("Failed to get executable path")?
@@ -66,23 +64,15 @@ fn generate_project_all_in_one(project_dir: &Path, config: &ProjectConfig) -> Re
         bail!("Template directory not found: {}", template_dir.display());
     }
 
-    // Copy the entire template directory
+    // Copy the entire template directory (no Cargo.toml in template dirs)
     copy_dir_all(&template_dir, project_dir).context("Failed to copy template directory")?;
+
+    // Generate Cargo.toml from code (avoids template files with {name}
+    // being parsed by cargo during workspace resolution from git deps)
+    generate_cargo_toml(project_dir, config)?;
 
     // Generate Orbital.toml
     generate_orbital_toml(project_dir, config)?;
-
-    // Replace placeholders in Cargo.toml
-    let cargo_toml_path = project_dir.join("Cargo.toml");
-    if cargo_toml_path.exists() {
-        let content = fs::read_to_string(&cargo_toml_path).context("Failed to read Cargo.toml")?;
-        let content = content
-            .replace("{name}", &config.project_name)
-            .replace("{lib_name}", &lib_name)
-            .replace("{repo}", &config.engine_repo)
-            .replace("{branch}", &config.engine_branch);
-        fs::write(&cargo_toml_path, content).context("Failed to write Cargo.toml")?;
-    }
 
     // Replace placeholders in lib.rs
     let lib_rs_path = project_dir.join("src").join("lib.rs");
@@ -96,6 +86,7 @@ fn generate_project_all_in_one(project_dir: &Path, config: &ProjectConfig) -> Re
     let main_rs_path = project_dir.join("src").join("main.rs");
     if main_rs_path.exists() {
         let content = fs::read_to_string(&main_rs_path).context("Failed to read main.rs")?;
+        let lib_name = config.project_name.replace('-', "_").to_lowercase();
         let content = content.replace("{lib_name}", &lib_name);
         fs::write(&main_rs_path, content).context("Failed to write main.rs")?;
     }
@@ -119,8 +110,6 @@ fn copy_dir_all(src: &Path, dst: &Path) -> Result<()> {
 }
 
 fn generate_project_2d(project_dir: &Path, config: &ProjectConfig) -> Result<()> {
-    let lib_name = config.project_name.replace('-', "_").to_lowercase();
-
     // Get the template directory path (relative to the executable)
     let template_dir = std::env::current_exe()
         .context("Failed to get executable path")?
@@ -144,23 +133,14 @@ fn generate_project_2d(project_dir: &Path, config: &ProjectConfig) -> Result<()>
         bail!("Template directory not found: {}", template_dir.display());
     }
 
-    // Copy the entire template directory
+    // Copy the entire template directory (no Cargo.toml in template dirs)
     copy_dir_all(&template_dir, project_dir).context("Failed to copy template directory")?;
+
+    // Generate Cargo.toml from code
+    generate_cargo_toml(project_dir, config)?;
 
     // Generate Orbital.toml
     generate_orbital_toml(project_dir, config)?;
-
-    // Replace placeholders in Cargo.toml
-    let cargo_toml_path = project_dir.join("Cargo.toml");
-    if cargo_toml_path.exists() {
-        let content = fs::read_to_string(&cargo_toml_path).context("Failed to read Cargo.toml")?;
-        let content = content
-            .replace("{name}", &config.project_name)
-            .replace("{lib_name}", &lib_name)
-            .replace("{repo}", &config.engine_repo)
-            .replace("{branch}", &config.engine_branch);
-        fs::write(&cargo_toml_path, content).context("Failed to write Cargo.toml")?;
-    }
 
     // Replace placeholders in lib.rs
     let lib_rs_path = project_dir.join("src").join("lib.rs");
@@ -174,6 +154,7 @@ fn generate_project_2d(project_dir: &Path, config: &ProjectConfig) -> Result<()>
     let main_rs_path = project_dir.join("src").join("main.rs");
     if main_rs_path.exists() {
         let content = fs::read_to_string(&main_rs_path).context("Failed to read main.rs")?;
+        let lib_name = config.project_name.replace('-', "_").to_lowercase();
         let content = content.replace("{lib_name}", &lib_name);
         fs::write(&main_rs_path, content).context("Failed to write main.rs")?;
     }
