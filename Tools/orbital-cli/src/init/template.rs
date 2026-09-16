@@ -205,7 +205,6 @@ crate-type = ["cdylib", "lib"]
 
 [dependencies]
 orbital = {{ git = "{repo}", branch = "{branch}" }}
-winit = "0.30.0"
 
 # orbital_iced depends on cryoglyph (git), which pulls cosmic-text 0.19.0
 # from crates.io. The iced fork uses a patched cosmic-text from hecrj.
