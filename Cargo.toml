@@ -24,11 +24,6 @@ members = [
     "Crates/orbital-iced/winit",
 ]
 
-# Template Cargo.toml files contain {name} placeholders that are not valid
-# package names. Exclude them so cargo doesn't try to parse them as workspace
-# members when resolving the workspace from a git checkout.
-exclude = ["Tools/orbital-cli/src/template/*"]
-
 [workspace.package]
 version = "0.15.0-dev"
 authors = ["Héctor Ramón Jiménez <hector@hecrj.dev>"]
