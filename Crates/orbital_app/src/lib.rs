@@ -43,7 +43,7 @@ pub struct FreezeKeyConfig(pub winit::keyboard::KeyCode);
 pub mod systems;
 pub use systems::{
     realize_cameras, realize_environment, realize_lights, realize_models, sys_camera_controller,
-    sys_frustum_cull, sys_touch_camera_controller,
+    sys_frustum_cull, sys_touch_camera_controller, CursorToggle,
 };
 
 pub use orbital_input as input;
