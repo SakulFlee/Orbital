@@ -20,7 +20,7 @@ use orbital::resources::WorldEnvironmentDescriptor;
 use orbital::resources::{
     GeneratedSkyParameters, SamplingType, ShadowCaster, SunPosition, Transform,
 };
-use winit::keyboard::KeyCode;
+use orbital::winit::keyboard::KeyCode;
 
 pub const NAME: &str = "{{PROJECT_NAME}}";
 
