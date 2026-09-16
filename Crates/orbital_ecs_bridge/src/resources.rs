@@ -138,6 +138,7 @@ pub struct IcedEventQueue {
     pub events: Vec<IcedWindowEvent>,
     pub cursor_position: Option<winit::dpi::PhysicalPosition<f64>>,
     pub modifiers: winit::keyboard::ModifiersState,
+    pub scale_factor: f64,
 }
 
 impl Default for IcedEventQueue {
@@ -146,6 +147,7 @@ impl Default for IcedEventQueue {
             events: Vec::new(),
             cursor_position: None,
             modifiers: winit::keyboard::ModifiersState::empty(),
+            scale_factor: 1.0,
         }
     }
 }
@@ -162,6 +164,10 @@ impl IcedEventQueue {
             _ => {}
         }
         self.events.push(event);
+    }
+
+    pub fn set_scale_factor(&mut self, scale: f64) {
+        self.scale_factor = scale;
     }
 
     pub fn drain(&mut self) -> Vec<IcedWindowEvent> {
