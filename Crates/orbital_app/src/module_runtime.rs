@@ -1408,6 +1408,11 @@ impl ApplicationHandler for ModuleRuntime {
         // Forward relevant events to iced UI overlays
         if let Some(mut queue) = self.ecs_world.get_resource_mut::<IcedEventQueue>() {
             use orbital_ecs_bridge::IcedWindowEvent;
+            
+            // Update scale factor from window
+            let scale = ctx_lock!(ctx).window().scale_factor();
+            queue.set_scale_factor(scale);
+            
             match &event {
                 WindowEvent::CursorMoved { position, .. } => {
                     queue.push(IcedWindowEvent::CursorMoved { position: *position });

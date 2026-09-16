@@ -76,38 +76,46 @@ impl LayerRendererTrait for IcedLayerRenderer {
         }
 
         // Consume events from the ECS queue
-        let (iced_events, cursor, modifiers) = {
+        let (iced_events, cursor, modifiers, scale_factor) = {
             let mut queue = ctx.ecs.get_resource_mut::<IcedEventQueue>();
             if let Some(ref mut q) = queue {
                 let events = q.drain();
                 let cursor_pos = q.cursor_position;
                 let mods = q.modifiers;
-                (events, cursor_pos, mods)
+                let scale = q.scale_factor;
+                (events, cursor_pos, mods, scale)
             } else {
-                (Vec::new(), None, winit::keyboard::ModifiersState::empty())
+                (Vec::new(), None, winit::keyboard::ModifiersState::empty(), 1.0)
             }
         };
 
-        // Convert cursor position
+        // Convert cursor position from physical to logical coordinates
         let cursor = match cursor {
-            Some(pos) => iced_winit::core::mouse::Cursor::Available(iced_core::Point::new(
-                pos.x as f32,
-                pos.y as f32,
-            )),
+            Some(pos) => {
+                let logical_x = pos.x / scale_factor;
+                let logical_y = pos.y / scale_factor;
+                iced_winit::core::mouse::Cursor::Available(iced_core::Point::new(
+                    logical_x as f32,
+                    logical_y as f32,
+                ))
+            }
             None => iced_winit::core::mouse::Cursor::Unavailable,
         };
 
         // Convert our owned events to iced events
         let mut iced_core_events = Vec::new();
         for evt in &iced_events {
-            if let Some(converted) = convert_event(evt, &modifiers) {
+            if let Some(converted) = convert_event(evt, &modifiers, scale_factor) {
                 iced_core_events.push(converted);
             }
         }
 
         // Build the view (borrows self.state temporarily)
         let view = self.state.view(ctx.ecs);
-        let logical_size = iced_core::Size::new(ctx.screen_size.0, ctx.screen_size.1);
+        let logical_size = iced_core::Size::new(
+            ctx.screen_size.0 / scale_factor as f32,
+            ctx.screen_size.1 / scale_factor as f32,
+        );
 
         let mut guard = self.inner.lock().unwrap();
         let inner = guard.as_mut().unwrap();
@@ -158,8 +166,8 @@ impl LayerRendererTrait for IcedLayerRenderer {
         let viewport = iced_graphics::Viewport::with_physical_size(
             physical_size,
             iced_winit::core::renderer::Scale {
-                window: 1.0,
-                application: 1.0,
+                window: scale_factor as f32,
+                application: scale_factor as f32,
             },
         );
 
@@ -170,6 +178,7 @@ impl LayerRendererTrait for IcedLayerRenderer {
 fn convert_event(
     evt: &IcedWindowEvent,
     mods: &winit::keyboard::ModifiersState,
+    scale_factor: f64,
 ) -> Option<iced_core::Event> {
     use iced_core::event::Event;
     use iced_core::keyboard;
@@ -178,8 +187,11 @@ fn convert_event(
 
     match evt {
         IcedWindowEvent::CursorMoved { position } => {
+            // Convert physical coordinates to logical
+            let logical_x = position.x / scale_factor;
+            let logical_y = position.y / scale_factor;
             Some(Event::Mouse(mouse::Event::CursorMoved {
-                position: iced_core::Point::new(position.x as f32, position.y as f32),
+                position: iced_core::Point::new(logical_x as f32, logical_y as f32),
             }))
         }
         IcedWindowEvent::MouseInput { state, button } => {
