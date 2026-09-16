@@ -7,7 +7,8 @@ use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector3};
 use orbital::debug_render::DebugModule;
 use orbital::ecs::{Commands, ComponentAccess, IntoSystem, Res, ResMut, System, World};
 use orbital::ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, DeltaTime, EnvironmentDescriptorResource,
+    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, CursorGrabState, DeltaTime,
+    EnvironmentDescriptorResource,
     ImportQueueResource, LightDescriptorEcs, LightDirty, ModelDescriptorEcs, ModelDirty,
     ModelInstances, Position, Rotation,
 };
@@ -22,7 +23,7 @@ use orbital::resources::WorldEnvironmentDescriptor;
 use orbital::resources::{
     GeneratedSkyParameters, SamplingType, ShadowCaster, SunPosition, Transform,
 };
-use orbital::twod::{Batch2D, Vertex2D};
+use orbital::twod::Vertex2D;
 use orbital::winit::keyboard::KeyCode;
 
 pub const NAME: &str = "{{PROJECT_NAME}}";
@@ -288,6 +289,7 @@ struct ShapeOverlay {
     camera_buffer: orbital::wgpu::Buffer,
     camera_bind_group: orbital::wgpu::BindGroup,
     vertices: Vec<Vertex2D>,
+    needs_layout: bool,
 }
 
 impl ShapeOverlay {
@@ -308,12 +310,65 @@ impl ShapeOverlay {
             camera_buffer,
             camera_bind_group,
             vertices: Vec::new(),
+            needs_layout: true,
         }
+    }
+
+    fn layout_shapes(&mut self, screen_w: f32, screen_h: f32) {
+        self.vertices.clear();
+        let cx = screen_w / 2.0;
+        let top = 15.0;
+
+        // Red rectangle — left of center
+        self.vertices.extend_from_slice(
+            &orbital::twod::shape::generate_rect(
+                cx - 160.0,
+                top,
+                90.0,
+                25.0,
+                [0.9, 0.2, 0.2, 0.85],
+            ),
+        );
+
+        // Green circle — left-center
+        self.vertices.extend_from_slice(
+            &orbital::twod::shape::generate_circle(
+                [cx - 60.0, top + 12.5],
+                15.0,
+                20,
+                [0.2, 0.8, 0.3, 0.85],
+            ),
+        );
+
+        // Blue triangle — right-center
+        let tri = orbital::twod::shape::ShapeDescriptor::solid_triangle([0.3, 0.4, 0.9, 0.85]);
+        let mut tri_verts = orbital::twod::shape::generate_shape_vertices(&tri, 35.0, 35.0);
+        for v in &mut tri_verts {
+            v.position[0] += cx + 40.0;
+            v.position[1] += top + 5.0;
+        }
+        self.vertices.extend_from_slice(&tri_verts);
+
+        // Yellow quad — right of center
+        self.vertices.extend_from_slice(
+            &orbital::twod::shape::generate_rect(
+                cx + 100.0,
+                top + 2.0,
+                70.0,
+                20.0,
+                [1.0, 1.0, 0.2, 0.8],
+            ),
+        );
+
+        self.needs_layout = false;
     }
 }
 
 impl RenderOverlay for ShapeOverlay {
     fn render(&mut self, ctx: RenderOverlayContext) {
+        if self.needs_layout {
+            self.layout_shapes(ctx.screen_size.0, ctx.screen_size.1);
+        }
         if self.vertices.is_empty() {
             return;
         }
@@ -446,6 +501,7 @@ impl Module for ProcgeoSceneModule {
         ecs.attach_component(&camera, Rotation(rot)).unwrap();
         ecs.insert_resource(ActiveCamera(camera));
         ecs.insert_resource(CursorGrabConfig(true));
+        ecs.insert_resource(CursorGrabState(true));
 
         // Game state resources (driven by StatsAnimator)
         ecs.insert_resource(Health(100));
@@ -488,43 +544,13 @@ impl Module for ProcgeoSceneModule {
 
         ecs.insert_resource(ui);
 
-        // 2D shape overlay (draws on top of 3D scene)
+        // 2D shape overlay (draws on top of 3D scene, layout computed on first render)
         let format = ecs
             .get_resource::<orbital::ecs_bridge::SurfaceFormatResource>()
             .map(|f| f.0)
             .unwrap_or(orbital::wgpu::TextureFormat::Bgra8UnormSrgb);
 
-        let mut batch = Batch2D::new();
-
-        // Red rectangle at top-right corner
-        batch.push_shape(&orbital::twod::shape::generate_rect(
-            20.0, 20.0, 120.0, 40.0, [0.9, 0.2, 0.2, 0.8],
-        ));
-
-        // Green circle at bottom-left
-        batch.push_shape(&orbital::twod::shape::generate_circle(
-            [80.0, -60.0],
-            30.0,
-            24,
-            [0.2, 0.8, 0.3, 0.8],
-        ));
-
-        // Blue triangle at bottom-right
-        let tri = orbital::twod::shape::ShapeDescriptor::solid_triangle([0.3, 0.4, 0.9, 0.8]);
-        let mut tri_verts = orbital::twod::shape::generate_shape_vertices(&tri, 60.0, 60.0);
-        for v in &mut tri_verts {
-            v.position[0] += -80.0;
-            v.position[1] += -50.0;
-        }
-        batch.push_shape(&tri_verts);
-
-        // Yellow quad at top-center
-        batch.push_shape(&orbital::twod::shape::generate_rect(
-            -60.0, 20.0, 80.0, 30.0, [1.0, 1.0, 0.2, 0.7],
-        ));
-
-        let mut overlay = ShapeOverlay::new(_device, format);
-        overlay.vertices = batch.vertices;
+        let overlay = ShapeOverlay::new(_device, format);
 
         if ecs.get_resource::<RenderOverlayResource>().is_none() {
             ecs.insert_resource(RenderOverlayResource::new());
