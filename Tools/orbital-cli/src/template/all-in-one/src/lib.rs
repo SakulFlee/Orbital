@@ -1,7 +1,8 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use orbital::app::{App, AppSettings, Module, sys_camera_controller};
+use orbital::app::{App, AppSettings, CursorToggle, Module, RenderOverlay, RenderOverlayContext,
+    RenderOverlayResource, sys_camera_controller};
 use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector3};
 use orbital::debug_render::DebugModule;
 use orbital::ecs::{Commands, ComponentAccess, IntoSystem, Res, ResMut, System, World};
@@ -16,10 +17,12 @@ use orbital::iced::{OrbitalUI, IcedState, IcedUiState};
 use orbital::logging;
 use orbital::logging::{error, info};
 use orbital::procgeo::scene::SceneBuilder;
+use orbital::renderer::{Camera2DUniform, Renderer2D};
 use orbital::resources::WorldEnvironmentDescriptor;
 use orbital::resources::{
     GeneratedSkyParameters, SamplingType, ShadowCaster, SunPosition, Transform,
 };
+use orbital::twod::{Batch2D, Vertex2D};
 use orbital::winit::keyboard::KeyCode;
 
 pub const NAME: &str = "{{PROJECT_NAME}}";
@@ -224,6 +227,164 @@ impl System for LightAnimator {
 
 // ────────────────────────────────────────────────────────────────────
 
+// ── Stats animation: decrements Health/Mana, resets at 0 ──────────
+
+struct StatsAnimator {
+    timer: f32,
+    access: ComponentAccess,
+}
+
+const STAT_TICK_INTERVAL: f32 = 0.5; // seconds between decrements
+
+impl StatsAnimator {
+    fn new() -> Self {
+        Self {
+            timer: 0.0,
+            access: ComponentAccess::new(),
+        }
+    }
+}
+
+impl System for StatsAnimator {
+    fn name(&self) -> &str {
+        "stats_animator"
+    }
+    fn access(&self) -> &ComponentAccess {
+        &self.access
+    }
+
+    fn run(&mut self, world: &World, _commands: &mut Commands) {
+        let dt = world
+            .get_resource::<DeltaTime>()
+            .map(|d| d.0)
+            .unwrap_or(0.016) as f32;
+        self.timer += dt;
+        if self.timer < STAT_TICK_INTERVAL {
+            return;
+        }
+        self.timer -= STAT_TICK_INTERVAL;
+
+        if let Some(mut health) = world.get_resource_mut::<Health>() {
+            if health.0 == 0 {
+                health.0 = 100;
+            } else {
+                health.0 -= 1;
+            }
+        }
+        if let Some(mut mana) = world.get_resource_mut::<Mana>() {
+            if mana.0 == 0 {
+                mana.0 = 100;
+            } else {
+                mana.0 -= 1;
+            }
+        }
+    }
+}
+
+// ── 2D shape overlay ──────────────────────────────────────────────
+
+struct ShapeOverlay {
+    renderer: Renderer2D,
+    camera_buffer: orbital::wgpu::Buffer,
+    camera_bind_group: orbital::wgpu::BindGroup,
+    vertices: Vec<Vertex2D>,
+}
+
+impl ShapeOverlay {
+    fn new(device: &orbital::wgpu::Device, format: orbital::wgpu::TextureFormat) -> Self {
+        let renderer = Renderer2D::new(device, format);
+
+        let camera_buffer = device.create_buffer(&orbital::wgpu::BufferDescriptor {
+            label: Some("2D Camera Buffer"),
+            size: std::mem::size_of::<Camera2DUniform>() as u64,
+            usage: orbital::wgpu::BufferUsages::UNIFORM | orbital::wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        let camera_bind_group = renderer.create_bind_group(device, &camera_buffer);
+
+        Self {
+            renderer,
+            camera_buffer,
+            camera_bind_group,
+            vertices: Vec::new(),
+        }
+    }
+}
+
+impl RenderOverlay for ShapeOverlay {
+    fn render(&mut self, ctx: RenderOverlayContext) {
+        if self.vertices.is_empty() {
+            return;
+        }
+
+        let (screen_w, screen_h) = ctx.screen_size;
+
+        let projection = [
+            [2.0 / screen_w, 0.0, 0.0, 0.0],
+            [0.0, -2.0 / screen_h, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [-1.0, 1.0, 0.0, 1.0],
+        ];
+
+        let uniform = Camera2DUniform {
+            view_proj: projection,
+            screen_size: [screen_w, screen_h],
+            _padding: [0.0; 2],
+        };
+
+        let uniform_bytes = unsafe {
+            std::slice::from_raw_parts(
+                &uniform as *const Camera2DUniform as *const u8,
+                std::mem::size_of::<Camera2DUniform>(),
+            )
+        };
+
+        ctx.queue
+            .write_buffer(&self.camera_buffer, 0, uniform_bytes);
+
+        let mut command_encoder = ctx.device.create_command_encoder(&orbital::wgpu::CommandEncoderDescriptor {
+            label: Some("2D Overlay Encoder"),
+        });
+
+        {
+            let mut render_pass = command_encoder.begin_render_pass(&orbital::wgpu::RenderPassDescriptor {
+                label: Some("2D Overlay Pass"),
+                color_attachments: &[Some(orbital::wgpu::RenderPassColorAttachment {
+                    view: ctx.target_view,
+                    resolve_target: None,
+                    ops: orbital::wgpu::Operations {
+                        load: orbital::wgpu::LoadOp::Load,
+                        store: orbital::wgpu::StoreOp::Store,
+                    },
+                    depth_slice: None,
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+
+            let byte_data = unsafe {
+                std::slice::from_raw_parts(
+                    self.vertices.as_ptr() as *const u8,
+                    self.vertices.len() * std::mem::size_of::<Vertex2D>(),
+                )
+            };
+            ctx.queue.write_buffer(self.renderer.vertex_buffer(), 0, byte_data);
+
+            render_pass.set_pipeline(self.renderer.pipeline());
+            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+            render_pass.set_vertex_buffer(0, self.renderer.vertex_buffer().slice(..));
+            render_pass.draw(0..self.vertices.len() as u32, 0..1);
+        }
+
+        ctx.queue.submit(std::iter::once(command_encoder.finish()));
+    }
+}
+
+// ────────────────────────────────────────────────────────────────────
+
 // Dynamic time-of-day sky. Uses the cheap in-place update path
 // (`WorldEnvironment::update_sky_parameters`), so the descriptor is rewritten
 // and realized every frame.
@@ -286,6 +447,10 @@ impl Module for ProcgeoSceneModule {
         ecs.insert_resource(ActiveCamera(camera));
         ecs.insert_resource(CursorGrabConfig(true));
 
+        // Game state resources (driven by StatsAnimator)
+        ecs.insert_resource(Health(100));
+        ecs.insert_resource(Mana(100));
+
         // Iced UI panels
         let mut ui = IcedUiState::new();
 
@@ -323,6 +488,51 @@ impl Module for ProcgeoSceneModule {
 
         ecs.insert_resource(ui);
 
+        // 2D shape overlay (draws on top of 3D scene)
+        let format = ecs
+            .get_resource::<orbital::ecs_bridge::SurfaceFormatResource>()
+            .map(|f| f.0)
+            .unwrap_or(orbital::wgpu::TextureFormat::Bgra8UnormSrgb);
+
+        let mut batch = Batch2D::new();
+
+        // Red rectangle at top-right corner
+        batch.push_shape(&orbital::twod::shape::generate_rect(
+            20.0, 20.0, 120.0, 40.0, [0.9, 0.2, 0.2, 0.8],
+        ));
+
+        // Green circle at bottom-left
+        batch.push_shape(&orbital::twod::shape::generate_circle(
+            [80.0, -60.0],
+            30.0,
+            24,
+            [0.2, 0.8, 0.3, 0.8],
+        ));
+
+        // Blue triangle at bottom-right
+        let tri = orbital::twod::shape::ShapeDescriptor::solid_triangle([0.3, 0.4, 0.9, 0.8]);
+        let mut tri_verts = orbital::twod::shape::generate_shape_vertices(&tri, 60.0, 60.0);
+        for v in &mut tri_verts {
+            v.position[0] += -80.0;
+            v.position[1] += -50.0;
+        }
+        batch.push_shape(&tri_verts);
+
+        // Yellow quad at top-center
+        batch.push_shape(&orbital::twod::shape::generate_rect(
+            -60.0, 20.0, 80.0, 30.0, [1.0, 1.0, 0.2, 0.7],
+        ));
+
+        let mut overlay = ShapeOverlay::new(_device, format);
+        overlay.vertices = batch.vertices;
+
+        if ecs.get_resource::<RenderOverlayResource>().is_none() {
+            ecs.insert_resource(RenderOverlayResource::new());
+        }
+        if let Some(res) = ecs.get_resource_mut::<RenderOverlayResource>() {
+            res.add(Box::new(overlay));
+        }
+
         // Dynamic procedural sky (in-place updates, cheap per frame).
         ecs.insert_resource(EnvironmentDescriptorResource(Some(
             WorldEnvironmentDescriptor::Generated {
@@ -339,7 +549,10 @@ impl Module for ProcgeoSceneModule {
             Ok(s) => s,
             Err(e) => {
                 error!("Failed to load scene: {}", e);
-                return vec![sys_camera_controller.into_system()];
+                return vec![
+                    sys_camera_controller.into_system(),
+                    Box::new(CursorToggle::new(true)),
+                ];
             }
         };
 
@@ -492,7 +705,9 @@ impl Module for ProcgeoSceneModule {
 
         vec![
             sys_camera_controller.into_system(),
+            Box::new(CursorToggle::new(true)),
             Box::new(HelmetAdjuster::new()),
+            Box::new(StatsAnimator::new()),
             Box::new(animator),
             sys_animate_dynamic_sky(14.0).into_system(),
         ]
