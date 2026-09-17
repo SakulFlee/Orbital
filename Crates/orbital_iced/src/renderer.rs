@@ -112,44 +112,6 @@ impl LayerRendererTrait for IcedLayerRenderer {
             1.0
         };
 
-        // --- Diagnostic trace (INFO-level so it lands in release logs; the
-        // previous attempt used log::debug! which release builds filter out).
-        // Only logged when the queue is non-empty (discrete input) or a
-        // mouse button transitioned, so idle frames stay quiet.
-        let has_mouse_button = iced_events.iter().any(|e| {
-            matches!(
-                e,
-                IcedWindowEvent::MouseInput { .. } | IcedWindowEvent::Focused(_)
-            )
-        });
-        if !iced_events.is_empty() && (has_mouse_button || iced_events.len() <= 3) {
-            let counts = {
-                let mut moved = 0usize;
-                let mut input = 0usize;
-                let mut other = 0usize;
-                for e in &iced_events {
-                    match e {
-                        IcedWindowEvent::CursorMoved { .. } => moved += 1,
-                        IcedWindowEvent::MouseInput { .. } => input += 1,
-                        _ => other += 1,
-                    }
-                }
-                (moved, input, other)
-            };
-            log::info!(
-                "[iced-trace:{}] queue total={} (moved={} input={} other={}) cursor_phys={:?} scale={:.2} screen_phys=({:.0},{:.0})",
-                self.state.title(),
-                iced_events.len(),
-                counts.0,
-                counts.1,
-                counts.2,
-                cursor_phys,
-                scale_factor,
-                ctx.screen_size.0,
-                ctx.screen_size.1,
-            );
-        }
-
         // Physical → logical: iced layout + hit-testing expect logical
         // coordinates (same conversion as `conversion::cursor_position`).
         let cursor = match cursor_phys {
@@ -191,7 +153,7 @@ impl LayerRendererTrait for IcedLayerRenderer {
         let waker = iced_winit::core::shell::Waker::noop();
         let mut bus = iced_winit::core::shell::Bus::new();
 
-        let (ui_state, statuses) = interface.update(
+        let _ = interface.update(
             &NoopWindow,
             &waker,
             &iced_core_events,
@@ -199,45 +161,6 @@ impl LayerRendererTrait for IcedLayerRenderer {
             renderer,
             &mut bus,
         );
-
-        // --- Diagnostic trace: only when something non-trivial happened.
-        // Button press/release and window events are rare, so always log
-        // them plus the resulting statuses (Captured vs Ignored tells us
-        // whether a widget actually consumed the event).
-        if iced_core_events.iter().any(|e| {
-            !matches!(
-                e,
-                iced_core::event::Event::Mouse(iced_core::mouse::Event::CursorMoved { .. })
-            )
-        }) {
-            let kinds: Vec<&'static str> = iced_core_events
-                .iter()
-                .map(|e| match e {
-                    iced_core::event::Event::Mouse(m) => match m {
-                        iced_core::mouse::Event::ButtonPressed(_) => "MousePress",
-                        iced_core::mouse::Event::ButtonReleased(_) => "MouseRelease",
-                        iced_core::mouse::Event::CursorMoved { .. } => "CursorMoved",
-                        iced_core::mouse::Event::WheelScrolled { .. } => "Wheel",
-                        _ => "MouseOther",
-                    },
-                    iced_core::event::Event::Window(_) => "Window",
-                    iced_core::event::Event::Keyboard(_) => "Keyboard",
-                    iced_core::event::Event::Touch(_) => "Touch",
-                    _ => "Other",
-                })
-                .collect();
-            log::info!(
-                "[iced-trace:{}] update events={:?} cursor={:?} statuses={:?} state_updated={}",
-                self.state.title(),
-                kinds,
-                cursor,
-                statuses,
-                matches!(
-                    ui_state,
-                    iced_runtime::user_interface::State::Updated { .. }
-                ),
-            );
-        }
 
         interface.draw(
             renderer,
@@ -251,11 +174,6 @@ impl LayerRendererTrait for IcedLayerRenderer {
 
         // Process messages
         for message in bus {
-            log::info!(
-                "[iced-trace:{}] published message: {:?}",
-                self.state.title(),
-                message,
-            );
             self.state.handle_message(message);
         }
 
