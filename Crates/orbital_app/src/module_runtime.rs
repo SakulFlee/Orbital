@@ -31,7 +31,8 @@ use crate::{
     AppContext, AppSettings, AppState, Module, RenderOverlayResource, Timer, make_core_schedule,
 };
 use orbital_ecs_bridge::{
-    ActiveCamera, AdapterResource, CameraDescriptorEcs, CameraDirty, CursorGrabConfig, CursorPosition, DeltaTime,
+    ActiveCamera, AdapterResource, CameraDescriptorEcs, CameraDirty, CursorGrabConfig, CursorGrabState,
+    CursorPosition, DeltaTime,
     DeviceResource, EcsCameraStore, EngineEvent, EngineEvents, FrameCounter, IcedEventQueue, InputSnapshot,
     LightDescriptorEcs, Position, QueueResource, SurfaceFormatResource, TotalTime, WindowSize,
 };
@@ -1435,10 +1436,33 @@ impl ApplicationHandler for ModuleRuntime {
                 WindowEvent::Resized(size) => {
                     queue.push(IcedWindowEvent::Resized(*size));
                 }
+                WindowEvent::Focused(focused) => {
+                    queue.push(IcedWindowEvent::Focused(*focused));
+                }
                 WindowEvent::RedrawRequested => {
                     queue.push(IcedWindowEvent::RedrawRequested);
                 }
                 _ => {}
+            }
+        }
+
+        // When the window loses focus, release cursor grab so the OS/compositor
+        // doesn't keep pointer constraints active. This prevents the "cursor
+        // visible but iced UI unresponsive" issue on Wayland.
+        if let WindowEvent::Focused(false) = &event {
+            {
+                let lock = ctx_lock!(ctx);
+                if let Err(e) = lock.window().set_cursor_grab(CursorGrabMode::None) {
+                    debug!("Focus loss: failed to release cursor grab: {e}");
+                }
+                lock.window().set_cursor_visible(true);
+            }
+            if let Some(mut state) = self.ecs_world.get_resource_mut::<CursorGrabState>() {
+                state.0 = false;
+            }
+            if let Some(mut events) = self.ecs_world.get_resource_mut::<EngineEvents>() {
+                events.0.push(EngineEvent::CursorGrabbed(false));
+                events.0.push(EngineEvent::CursorVisible(true));
             }
         }
 
