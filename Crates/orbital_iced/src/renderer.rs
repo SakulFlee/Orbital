@@ -75,11 +75,13 @@ impl LayerRendererTrait for IcedLayerRenderer {
             }
         }
 
-        // Consume events from the ECS queue
+        // Read events from the ECS queue (clone, don't drain — multiple
+        // IcedLayerRenderers share the same queue; the main runtime drains
+        // once after all renderers have processed).
         let (iced_events, cursor, modifiers) = {
-            let mut queue = ctx.ecs.get_resource_mut::<IcedEventQueue>();
-            if let Some(ref mut q) = queue {
-                let events = q.drain();
+            let queue = ctx.ecs.get_resource::<IcedEventQueue>();
+            if let Some(ref q) = queue {
+                let events = q.events.clone();
                 let cursor_pos = q.cursor_position;
                 let mods = q.modifiers;
                 (events, cursor_pos, mods)
