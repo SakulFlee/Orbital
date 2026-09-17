@@ -195,6 +195,24 @@ where
         };
 
         if let Event::Mouse(mouse_event) = event {
+            // --- Diagnostic trace (INFO-level; release builds filter debug!).
+            // Only press/release so idle hover frames stay quiet. This shows
+            // whether the press even reached the panel, with which cursor
+            // position, and whether hit-testing accepted it.
+            if matches!(
+                mouse_event,
+                mouse::Event::ButtonPressed(_) | mouse::Event::ButtonReleased(_)
+            ) {
+                log::info!(
+                    "[iced-trace:panel] event={:?} cursor={:?} panel_bounds={:?} title_bounds={:?} close_bounds={:?} dragging={}",
+                    mouse_event,
+                    cursor.position(),
+                    bounds,
+                    title_bounds,
+                    close_bounds,
+                    state.is_dragging,
+                );
+            }
             match mouse_event {
                 mouse::Event::ButtonPressed(mouse::Button::Left) => {
                     if let Some(cursor_pos) = cursor.position() {
@@ -204,18 +222,31 @@ where
                             state.is_dragging = true;
                             state.drag_origin = cursor_pos;
                             state.drag_offset = cursor_pos - state.position;
+                            log::info!(
+                                "[iced-trace:panel] drag START at ({:.1},{:.1})",
+                                cursor_pos.x,
+                                cursor_pos.y,
+                            );
                             shell.capture_event();
                         } else if close_bounds.contains(cursor_pos) {
                             if let Some(msg) = self.on_close.clone() {
+                                log::info!("[iced-trace:panel] CLOSE pressed");
                                 shell.publish(msg);
                                 shell.capture_event();
                             }
+                        } else {
+                            log::info!(
+                                "[iced-trace:panel] press MISSED panel chrome at ({:.1},{:.1})",
+                                cursor_pos.x,
+                                cursor_pos.y,
+                            );
                         }
                     }
                 }
                 mouse::Event::ButtonReleased(mouse::Button::Left) => {
                     if state.is_dragging {
                         state.is_dragging = false;
+                        log::info!("[iced-trace:panel] drag END");
                         shell.capture_event();
                     }
                 }

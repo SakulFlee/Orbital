@@ -78,24 +78,84 @@ impl LayerRendererTrait for IcedLayerRenderer {
         // Read events from the ECS queue (clone, don't drain — multiple
         // IcedLayerRenderers share the same queue; the main runtime drains
         // once after all renderers have processed).
-        let (iced_events, cursor, modifiers) = {
+        //
+        // Coordinate spaces: winit reports cursor/events/window size in
+        // PHYSICAL pixels, while iced layout + hit-testing work in LOGICAL
+        // pixels (physical / scale_factor). Mirror the canonical iced
+        // `integration` example: convert cursor, CursorMoved events and the
+        // layout size to logical, and build the viewport with the real
+        // window scale so rendering matches. Skipping this makes the UI
+        // offset grow with distance from the top-left on HiDPI displays.
+        let (iced_events, cursor_phys, modifiers, scale_factor) = {
             let queue = ctx.ecs.get_resource::<IcedEventQueue>();
             if let Some(ref q) = queue {
                 let events = q.events.clone();
                 let cursor_pos = q.cursor_position;
                 let mods = q.modifiers;
-                (events, cursor_pos, mods)
+                let scale = q.scale_factor;
+                (events, cursor_pos, mods, scale)
             } else {
-                (Vec::new(), None, winit::keyboard::ModifiersState::empty())
+                (
+                    Vec::new(),
+                    None,
+                    winit::keyboard::ModifiersState::empty(),
+                    1.0,
+                )
             }
         };
 
-        // Use physical pixel coordinates directly — matches the viewport
-        // Scale { 1.0, 1.0 } so layout and hit-testing are consistent.
-        let cursor = match cursor {
+        // Guard against a bogus scale (queue default is 1.0; scale should
+        // never be <= 0 — fall back to 1.0 so we never divide by zero).
+        let scale_factor = if scale_factor > 0.0 {
+            scale_factor
+        } else {
+            1.0
+        };
+
+        // --- Diagnostic trace (INFO-level so it lands in release logs; the
+        // previous attempt used log::debug! which release builds filter out).
+        // Only logged when the queue is non-empty (discrete input) or a
+        // mouse button transitioned, so idle frames stay quiet.
+        let has_mouse_button = iced_events.iter().any(|e| {
+            matches!(
+                e,
+                IcedWindowEvent::MouseInput { .. } | IcedWindowEvent::Focused(_)
+            )
+        });
+        if !iced_events.is_empty() && (has_mouse_button || iced_events.len() <= 3) {
+            let counts = {
+                let mut moved = 0usize;
+                let mut input = 0usize;
+                let mut other = 0usize;
+                for e in &iced_events {
+                    match e {
+                        IcedWindowEvent::CursorMoved { .. } => moved += 1,
+                        IcedWindowEvent::MouseInput { .. } => input += 1,
+                        _ => other += 1,
+                    }
+                }
+                (moved, input, other)
+            };
+            log::info!(
+                "[iced-trace:{}] queue total={} (moved={} input={} other={}) cursor_phys={:?} scale={:.2} screen_phys=({:.0},{:.0})",
+                self.state.title(),
+                iced_events.len(),
+                counts.0,
+                counts.1,
+                counts.2,
+                cursor_phys,
+                scale_factor,
+                ctx.screen_size.0,
+                ctx.screen_size.1,
+            );
+        }
+
+        // Physical → logical: iced layout + hit-testing expect logical
+        // coordinates (same conversion as `conversion::cursor_position`).
+        let cursor = match cursor_phys {
             Some(pos) => iced_winit::core::mouse::Cursor::Available(iced_core::Point::new(
-                pos.x as f32,
-                pos.y as f32,
+                (pos.x / scale_factor) as f32,
+                (pos.y / scale_factor) as f32,
             )),
             None => iced_winit::core::mouse::Cursor::Unavailable,
         };
@@ -103,14 +163,19 @@ impl LayerRendererTrait for IcedLayerRenderer {
         // Convert our owned events to iced events
         let mut iced_core_events = Vec::new();
         for evt in &iced_events {
-            if let Some(converted) = convert_event(evt, &modifiers) {
+            if let Some(converted) = convert_event(evt, &modifiers, scale_factor) {
                 iced_core_events.push(converted);
             }
         }
 
-        // Build the view (borrows self.state temporarily)
+        // Build the view (borrows self.state temporarily).
+        // `screen_size` is physical (winit `inner_size`); iced expects the
+        // logical size here (= viewport.logical_size()).
         let view = self.state.view(ctx.ecs);
-        let logical_size = iced_core::Size::new(ctx.screen_size.0, ctx.screen_size.1);
+        let logical_size = iced_core::Size::new(
+            ctx.screen_size.0 / scale_factor as f32,
+            ctx.screen_size.1 / scale_factor as f32,
+        );
 
         let mut guard = self.inner.lock().unwrap();
         let inner = guard.as_mut().unwrap();
@@ -126,7 +191,7 @@ impl LayerRendererTrait for IcedLayerRenderer {
         let waker = iced_winit::core::shell::Waker::noop();
         let mut bus = iced_winit::core::shell::Bus::new();
 
-        let _ = interface.update(
+        let (ui_state, statuses) = interface.update(
             &NoopWindow,
             &waker,
             &iced_core_events,
@@ -134,6 +199,45 @@ impl LayerRendererTrait for IcedLayerRenderer {
             renderer,
             &mut bus,
         );
+
+        // --- Diagnostic trace: only when something non-trivial happened.
+        // Button press/release and window events are rare, so always log
+        // them plus the resulting statuses (Captured vs Ignored tells us
+        // whether a widget actually consumed the event).
+        if iced_core_events.iter().any(|e| {
+            !matches!(
+                e,
+                iced_core::event::Event::Mouse(iced_core::mouse::Event::CursorMoved { .. })
+            )
+        }) {
+            let kinds: Vec<&'static str> = iced_core_events
+                .iter()
+                .map(|e| match e {
+                    iced_core::event::Event::Mouse(m) => match m {
+                        iced_core::mouse::Event::ButtonPressed(_) => "MousePress",
+                        iced_core::mouse::Event::ButtonReleased(_) => "MouseRelease",
+                        iced_core::mouse::Event::CursorMoved { .. } => "CursorMoved",
+                        iced_core::mouse::Event::WheelScrolled { .. } => "Wheel",
+                        _ => "MouseOther",
+                    },
+                    iced_core::event::Event::Window(_) => "Window",
+                    iced_core::event::Event::Keyboard(_) => "Keyboard",
+                    iced_core::event::Event::Touch(_) => "Touch",
+                    _ => "Other",
+                })
+                .collect();
+            log::info!(
+                "[iced-trace:{}] update events={:?} cursor={:?} statuses={:?} state_updated={}",
+                self.state.title(),
+                kinds,
+                cursor,
+                statuses,
+                matches!(
+                    ui_state,
+                    iced_runtime::user_interface::State::Updated { .. }
+                ),
+            );
+        }
 
         interface.draw(
             renderer,
@@ -147,6 +251,11 @@ impl LayerRendererTrait for IcedLayerRenderer {
 
         // Process messages
         for message in bus {
+            log::info!(
+                "[iced-trace:{}] published message: {:?}",
+                self.state.title(),
+                message,
+            );
             self.state.handle_message(message);
         }
 
@@ -161,7 +270,7 @@ impl LayerRendererTrait for IcedLayerRenderer {
         let viewport = iced_graphics::Viewport::with_physical_size(
             physical_size,
             iced_winit::core::renderer::Scale {
-                window: 1.0,
+                window: scale_factor as f32,
                 application: 1.0,
             },
         );
@@ -173,6 +282,7 @@ impl LayerRendererTrait for IcedLayerRenderer {
 fn convert_event(
     evt: &IcedWindowEvent,
     mods: &winit::keyboard::ModifiersState,
+    scale_factor: f64,
 ) -> Option<iced_core::Event> {
     use iced_core::event::Event;
     use iced_core::keyboard;
@@ -181,9 +291,12 @@ fn convert_event(
 
     match evt {
         IcedWindowEvent::CursorMoved { position } => {
-            // Physical pixel coordinates — consistent with viewport Scale { 1.0, 1.0 }
+            // winit reports physical pixels; iced expects logical.
             Some(Event::Mouse(mouse::Event::CursorMoved {
-                position: iced_core::Point::new(position.x as f32, position.y as f32),
+                position: iced_core::Point::new(
+                    (position.x / scale_factor) as f32,
+                    (position.y / scale_factor) as f32,
+                ),
             }))
         }
         IcedWindowEvent::MouseInput { state, button } => {
