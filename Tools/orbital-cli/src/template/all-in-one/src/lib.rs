@@ -342,7 +342,7 @@ impl ShapeOverlay {
         let quad = orbital::twod::shape::ShapeDescriptor::solid_quad([0.9, 0.2, 0.2, 0.85]);
         let mut quad_verts = orbital::twod::shape::generate_shape_vertices(&quad, 40.0, 40.0);
         for v in &mut quad_verts {
-            v.position[0] += cx + 55.0;
+            v.position[0] += cx + 25.0;
             v.position[1] += top + 20.0;
         }
         self.vertices.extend_from_slice(&quad_verts);

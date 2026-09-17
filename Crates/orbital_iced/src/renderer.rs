@@ -166,8 +166,8 @@ impl LayerRendererTrait for IcedLayerRenderer {
         let viewport = iced_graphics::Viewport::with_physical_size(
             physical_size,
             iced_winit::core::renderer::Scale {
-                window: scale_factor as f32,
-                application: scale_factor as f32,
+                window: 1.0,
+                application: 1.0,
             },
         );
 
