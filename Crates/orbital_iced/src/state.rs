@@ -74,6 +74,10 @@ impl IcedState {
         self
     }
 
+    pub fn title(&self) -> &str {
+        &self.title
+    }
+
     pub fn set_title(&mut self, title: impl Into<String>) {
         self.title = title.into();
     }

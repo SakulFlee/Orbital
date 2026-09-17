@@ -89,17 +89,36 @@ impl LayerRendererTrait for IcedLayerRenderer {
             }
         };
 
+        log::debug!(
+            "[iced:{}] events={} cursor_phys={:?} sf={:.2} screen=({:.0},{:.0})",
+            self.state.title(),
+            iced_events.len(),
+            cursor,
+            scale_factor,
+            ctx.screen_size.0,
+            ctx.screen_size.1,
+        );
+
         // Convert cursor position from physical to logical coordinates
         let cursor = match cursor {
             Some(pos) => {
                 let logical_x = pos.x / scale_factor;
                 let logical_y = pos.y / scale_factor;
+                log::debug!(
+                    "[iced:{}] cursor logical=({:.1},{:.1})",
+                    self.state.title(),
+                    logical_x,
+                    logical_y,
+                );
                 iced_winit::core::mouse::Cursor::Available(iced_core::Point::new(
                     logical_x as f32,
                     logical_y as f32,
                 ))
             }
-            None => iced_winit::core::mouse::Cursor::Unavailable,
+            None => {
+                log::debug!("[iced:{}] cursor UNAVAILABLE", self.state.title());
+                iced_winit::core::mouse::Cursor::Unavailable
+            }
         };
 
         // Convert our owned events to iced events
@@ -117,6 +136,14 @@ impl LayerRendererTrait for IcedLayerRenderer {
             ctx.screen_size.1 / scale_factor as f32,
         );
 
+        log::debug!(
+            "[iced:{}] logical_size=({:.1},{:.1}) iced_events={}",
+            self.state.title(),
+            logical_size.width,
+            logical_size.height,
+            iced_core_events.len(),
+        );
+
         let mut guard = self.inner.lock().unwrap();
         let inner = guard.as_mut().unwrap();
         let renderer = &mut inner.renderer;
@@ -131,13 +158,20 @@ impl LayerRendererTrait for IcedLayerRenderer {
         let waker = iced_winit::core::shell::Waker::noop();
         let mut bus = iced_winit::core::shell::Bus::new();
 
-        let _ = interface.update(
+        let (state, statuses) = interface.update(
             &NoopWindow,
             &waker,
             &iced_core_events,
             cursor,
             renderer,
             &mut bus,
+        );
+
+        log::debug!(
+            "[iced:{}] update state={:?} statuses={:?}",
+            self.state.title(),
+            std::mem::discriminant(&state),
+            statuses,
         );
 
         interface.draw(
@@ -152,6 +186,11 @@ impl LayerRendererTrait for IcedLayerRenderer {
 
         // Process messages
         for message in bus {
+            log::debug!(
+                "[iced:{}] got message: {:?}",
+                self.state.title(),
+                std::mem::discriminant(&message),
+            );
             self.state.handle_message(message);
         }
 
