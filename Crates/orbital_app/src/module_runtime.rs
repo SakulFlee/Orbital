@@ -1426,6 +1426,7 @@ impl ApplicationHandler for ModuleRuntime {
                     queue.push(IcedWindowEvent::CursorMoved { position: *position });
                 }
                 WindowEvent::MouseInput { state, button, .. } => {
+                    info!("[iced-trace] push MouseInput button={:?} state={:?}", button, state);
                     queue.push(IcedWindowEvent::MouseInput {
                         state: *state,
                         button: *button,
@@ -1444,6 +1445,7 @@ impl ApplicationHandler for ModuleRuntime {
                     queue.push(IcedWindowEvent::Resized(*size));
                 }
                 WindowEvent::Focused(focused) => {
+                    info!("[iced-trace] push Focused({})", focused);
                     queue.push(IcedWindowEvent::Focused(*focused));
                 }
                 WindowEvent::RedrawRequested => {
