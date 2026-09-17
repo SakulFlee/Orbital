@@ -1426,7 +1426,6 @@ impl ApplicationHandler for ModuleRuntime {
                     queue.push(IcedWindowEvent::CursorMoved { position: *position });
                 }
                 WindowEvent::MouseInput { state, button, .. } => {
-                    info!("[iced-trace] push MouseInput button={:?} state={:?}", button, state);
                     queue.push(IcedWindowEvent::MouseInput {
                         state: *state,
                         button: *button,
@@ -1445,11 +1444,12 @@ impl ApplicationHandler for ModuleRuntime {
                     queue.push(IcedWindowEvent::Resized(*size));
                 }
                 WindowEvent::Focused(focused) => {
-                    info!("[iced-trace] push Focused({})", focused);
                     queue.push(IcedWindowEvent::Focused(*focused));
                 }
                 WindowEvent::RedrawRequested => {
-                    queue.push(IcedWindowEvent::RedrawRequested);
+                    // Not forwarded: a winit-level signal, not iced input.
+                    // Forwarding it forces a useless interface.update() with a
+                    // Window(RedrawRequested) event on every frame per panel.
                 }
                 _ => {}
             }
