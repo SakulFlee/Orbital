@@ -1467,10 +1467,6 @@ impl ApplicationHandler for ModuleRuntime {
             if let Some(mut state) = self.ecs_world.get_resource_mut::<CursorGrabState>() {
                 state.0 = false;
             }
-            if let Some(mut events) = self.ecs_world.get_resource_mut::<EngineEvents>() {
-                events.0.push(EngineEvent::CursorGrabbed(false));
-                events.0.push(EngineEvent::CursorVisible(true));
-            }
         }
 
         let input_event = match event {
