@@ -127,6 +127,7 @@ pub enum IcedWindowEvent {
     },
     ModifiersChanged(winit::keyboard::ModifiersState),
     Resized(winit::dpi::PhysicalSize<u32>),
+    Focused(bool),
     RedrawRequested,
 }
 
