@@ -833,6 +833,13 @@ impl ModuleRuntime {
                 };
                 renderer.render(ctx);
             }
+
+            // Drain iced events once after all layer renderers have processed.
+            // Each IcedLayerRenderer clones (not drains) the queue so that
+            // multiple panels all receive the same events.
+            if let Some(mut queue) = self.ecs_world.get_resource_mut::<IcedEventQueue>() {
+                queue.drain();
+            }
         }
 
         lock.queue().present(frame);
