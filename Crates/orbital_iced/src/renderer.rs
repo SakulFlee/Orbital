@@ -231,6 +231,10 @@ fn convert_event(
             Some(Event::Mouse(iced_state))
         }
         IcedWindowEvent::KeyboardInput { event, is_synthetic } if !is_synthetic => {
+            // `modifier_supplement` is unavailable on wasm32 and Android in
+            // winit; fall back to the logical key / plain text there (same as
+            // `iced_winit::conversion`).
+            #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
             use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 
             let winit::event::KeyEvent {
@@ -242,12 +246,18 @@ fn convert_event(
                 ..
             } = event;
 
+            #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
             let k = convert_winit_key(&event.key_without_modifiers());
+            #[cfg(any(target_arch = "wasm32", target_os = "android"))]
+            let k = convert_winit_key(logical_key);
             let modified_key = convert_winit_key(logical_key);
             let phys = convert_physical_key(*winit_physical);
+            #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
             let text = event
                 .text_with_all_modifiers()
                 .map(iced_core::SmolStr::new);
+            #[cfg(any(target_arch = "wasm32", target_os = "android"))]
+            let text = event.text.clone();
 
             let location = match location {
                 winit::keyboard::KeyLocation::Standard => keyboard::Location::Standard,
