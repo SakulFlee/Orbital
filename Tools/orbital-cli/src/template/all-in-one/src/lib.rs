@@ -314,7 +314,7 @@ impl ShapeOverlay {
         }
     }
 
-    fn layout_shapes(&mut self, screen_w: f32, screen_h: f32) {
+    fn layout_shapes(&mut self, screen_w: f32, _screen_h: f32) {
         self.vertices.clear();
         let cx = screen_w / 2.0;
         let top = 15.0;
