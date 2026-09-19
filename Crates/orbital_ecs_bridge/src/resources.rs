@@ -129,6 +129,10 @@ pub enum IcedWindowEvent {
     Resized(winit::dpi::PhysicalSize<u32>),
     Focused(bool),
     RedrawRequested,
+    /// A touch event. On Android (and other touch-only platforms) winit emits
+    /// *only* `WindowEvent::Touch` — no synthetic mouse events — so this is the
+    /// sole pointer input iced can consume there.
+    Touch(winit::event::Touch),
 }
 
 /// Queue of winit events to be forwarded to iced UI overlays.
@@ -158,6 +162,12 @@ impl IcedEventQueue {
         match &event {
             IcedWindowEvent::CursorMoved { position } => {
                 self.cursor_position = Some(*position);
+            }
+            // Like `iced_winit::window::State::update`, a touch updates the
+            // cursor position too — otherwise the cursor stays `Unavailable`
+            // on touch-only platforms and *all* hit-testing fails.
+            IcedWindowEvent::Touch(touch) => {
+                self.cursor_position = Some(touch.location);
             }
             IcedWindowEvent::ModifiersChanged(mods) => {
                 self.modifiers = *mods;

@@ -1446,6 +1446,11 @@ impl ApplicationHandler for ModuleRuntime {
                 WindowEvent::Focused(focused) => {
                     queue.push(IcedWindowEvent::Focused(*focused));
                 }
+                WindowEvent::Touch(touch) => {
+                    // Touch-only platforms (Android) emit no synthetic mouse
+                    // events, so forward these for iced hit-testing.
+                    queue.push(IcedWindowEvent::Touch(*touch));
+                }
                 WindowEvent::RedrawRequested => {
                     // Not forwarded: a winit-level signal, not iced input.
                     // Forwarding it forces a useless interface.update() with a
