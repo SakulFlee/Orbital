@@ -289,7 +289,13 @@ struct ShapeOverlay {
     camera_buffer: orbital::wgpu::Buffer,
     camera_bind_group: orbital::wgpu::BindGroup,
     vertices: Vec<Vertex2D>,
-    needs_layout: bool,
+    /// Screen size (physical pixels) the vertices were last laid out for.
+    ///
+    /// Vertex positions are baked in absolute pixels (`cx = screen_w / 2.0`),
+    /// so they must be regenerated whenever the screen size changes — e.g. on
+    /// Android screen rotation — otherwise the shapes stay anchored to the
+    /// old width while the projection follows the new one.
+    last_layout_size: Option<(f32, f32)>,
 }
 
 impl ShapeOverlay {
@@ -310,11 +316,11 @@ impl ShapeOverlay {
             camera_buffer,
             camera_bind_group,
             vertices: Vec::new(),
-            needs_layout: true,
+            last_layout_size: None,
         }
     }
 
-    fn layout_shapes(&mut self, screen_w: f32, _screen_h: f32) {
+    fn layout_shapes(&mut self, screen_w: f32, screen_h: f32) {
         self.vertices.clear();
         let cx = screen_w / 2.0;
         let top = 15.0;
@@ -347,20 +353,28 @@ impl ShapeOverlay {
         }
         self.vertices.extend_from_slice(&quad_verts);
 
-        self.needs_layout = false;
+        self.last_layout_size = Some((screen_w, screen_h));
     }
 }
 
 impl RenderOverlay for ShapeOverlay {
     fn render(&mut self, ctx: RenderOverlayContext) {
-        if self.needs_layout {
-            self.layout_shapes(ctx.screen_size.0, ctx.screen_size.1);
+        let (screen_w, screen_h) = ctx.screen_size;
+
+        // `WindowSize` starts at (0, 0) until the first `Resized` arrives, and
+        // a zero size would produce a NaN projection below.
+        if screen_w <= 0.0 || screen_h <= 0.0 {
+            return;
+        }
+
+        // Vertex positions are baked in absolute pixels, so re-layout whenever
+        // the screen size changes (screen rotation, window resize, …).
+        if self.last_layout_size != Some((screen_w, screen_h)) {
+            self.layout_shapes(screen_w, screen_h);
         }
         if self.vertices.is_empty() {
             return;
         }
-
-        let (screen_w, screen_h) = ctx.screen_size;
 
         let projection = [
             [2.0 / screen_w, 0.0, 0.0, 0.0],
@@ -531,7 +545,8 @@ impl Module for ProcgeoSceneModule {
 
         ecs.insert_resource(ui);
 
-        // 2D shape overlay (draws on top of 3D scene, layout computed on first render)
+        // 2D shape overlay (draws on top of 3D scene; layout is regenerated
+        // whenever the screen size changes, e.g. on screen rotation)
         let format = ecs
             .get_resource::<orbital::ecs_bridge::SurfaceFormatResource>()
             .map(|f| f.0)

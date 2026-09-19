@@ -292,6 +292,9 @@ fn convert_event(
                 convert_modifiers(*mods),
             )))
         }
+        IcedWindowEvent::Touch(touch) => Some(Event::Touch(
+            iced_winit::conversion::touch_event(*touch, scale_factor as f32),
+        )),
         IcedWindowEvent::RedrawRequested => Some(Event::Window(window::Event::RedrawRequested(
             iced_core::time::Instant::now(),
         ))),

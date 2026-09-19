@@ -7,6 +7,7 @@ use iced_core::overlay;
 use iced_core::renderer::{self, Quad};
 use iced_core::shell::Shell;
 use iced_core::text;
+use iced_core::touch;
 use iced_core::widget::{self, Tree};
 use iced_core::{Color, Element, Font, Length, Pixels, Point, Rectangle, Size, Vector};
 
@@ -194,47 +195,59 @@ where
             height: TITLE_BAR_HEIGHT,
         };
 
-        if let Event::Mouse(mouse_event) = event {
-            match mouse_event {
-                mouse::Event::ButtonPressed(mouse::Button::Left) => {
-                    if let Some(cursor_pos) = cursor.position() {
-                        if title_bounds.contains(cursor_pos)
-                            && !close_bounds.contains(cursor_pos)
-                        {
-                            state.is_dragging = true;
-                            state.drag_origin = cursor_pos;
-                            state.drag_offset = cursor_pos - state.position;
-                            shell.capture_event();
-                        } else if close_bounds.contains(cursor_pos) {
-                            if let Some(msg) = self.on_close.clone() {
-                                shell.publish(msg);
-                                shell.capture_event();
-                            }
-                        }
-                    }
-                }
-                mouse::Event::ButtonReleased(mouse::Button::Left) => {
-                    if state.is_dragging {
-                        state.is_dragging = false;
-                        shell.capture_event();
-                    }
-                }
-                mouse::Event::CursorMoved { position } => {
-                    if state.is_dragging {
-                        let delta = *position - state.drag_origin;
-                        let dist = (delta.x * delta.x + delta.y * delta.y).sqrt();
-                        let offset_dist =
-                            (state.drag_offset.x * state.drag_offset.x
-                                + state.drag_offset.y * state.drag_offset.y)
-                                .sqrt();
-                        if dist > DRAG_DEADBAND || offset_dist > 0.0 {
-                            state.position = *position - state.drag_offset;
-                            shell.request_redraw();
-                            shell.capture_event();
-                        }
-                    }
-                }
-                _ => {}
+        // Pointer input: mouse *and* touch. On touch-only platforms (Android)
+        // winit emits no synthetic mouse events, so without the touch arms a
+        // panel could neither be dragged nor closed with a finger.
+        let (pressed_at, moved_to, released) = match event {
+            Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
+                (cursor.position(), None, false)
+            }
+            Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) => (None, None, true),
+            Event::Mouse(mouse::Event::CursorMoved { position }) => (None, Some(*position), false),
+            Event::Touch(touch::Event::FingerPressed { position, .. }) => {
+                (Some(*position), None, false)
+            }
+            Event::Touch(touch::Event::FingerMoved { position, .. }) => {
+                (None, Some(*position), false)
+            }
+            Event::Touch(
+                touch::Event::FingerLifted { .. } | touch::Event::FingerLost { .. },
+            ) => (None, None, true),
+            _ => (None, None, false),
+        };
+
+        if let Some(cursor_pos) = pressed_at {
+            if title_bounds.contains(cursor_pos) && !close_bounds.contains(cursor_pos) {
+                state.is_dragging = true;
+                state.drag_origin = cursor_pos;
+                state.drag_offset = cursor_pos - state.position;
+                shell.capture_event();
+            } else if close_bounds.contains(cursor_pos)
+                && let Some(msg) = self.on_close.clone()
+            {
+                shell.publish(msg);
+                shell.capture_event();
+            }
+        }
+
+        if released && state.is_dragging {
+            state.is_dragging = false;
+            shell.capture_event();
+        }
+
+        if let Some(position) = moved_to
+            && state.is_dragging
+        {
+            let delta = position - state.drag_origin;
+            let dist = (delta.x * delta.x + delta.y * delta.y).sqrt();
+            let offset_dist =
+                (state.drag_offset.x * state.drag_offset.x
+                    + state.drag_offset.y * state.drag_offset.y)
+                    .sqrt();
+            if dist > DRAG_DEADBAND || offset_dist > 0.0 {
+                state.position = position - state.drag_offset;
+                shell.request_redraw();
+                shell.capture_event();
             }
         }
 
