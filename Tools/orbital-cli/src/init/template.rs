@@ -170,6 +170,16 @@ fn generate_project_2d(project_dir: &Path, config: &ProjectConfig) -> Result<()>
 fn generate_cargo_toml(project_dir: &Path, config: &ProjectConfig) -> Result<()> {
     let lib_name = config.project_name.replace('-', "_").to_lowercase();
 
+    let orbital_dep = if let Some(path) = &config.engine_path {
+        format!(r#"orbital = {{ path = "{path}/Crates/orbital" }}"#)
+    } else {
+        format!(
+            r#"orbital = {{ git = "{repo}", branch = "{branch}" }}"#,
+            repo = config.engine_repo,
+            branch = config.engine_branch,
+        )
+    };
+
     let content = format!(
         r#"[package]
 name = "{name}"
@@ -185,7 +195,7 @@ name = "{lib_name}"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-orbital = {{ git = "{repo}", branch = "{branch}" }}
+{orbital_dep}
 
 # orbital_iced depends on cryoglyph (git), which pulls cosmic-text 0.19.0
 # from crates.io. The iced fork uses a patched cosmic-text from hecrj.
@@ -197,8 +207,7 @@ cosmic-text = {{ git = "https://github.com/hecrj/cosmic-text.git", rev = "6e10ac
 "#,
         name = config.project_name,
         lib_name = lib_name,
-        repo = config.engine_repo,
-        branch = config.engine_branch,
+        orbital_dep = orbital_dep,
     );
 
     fs::write(project_dir.join("Cargo.toml"), content).context("Failed to write Cargo.toml")?;

@@ -15,11 +15,18 @@ pub fn run(
     android: Option<bool>,
     engine_repo: Option<String>,
     engine_branch: Option<String>,
+    engine_path: Option<PathBuf>,
     yes: bool,
 ) -> Result<()> {
     if parent_path.is_some() && project_path.is_some() {
         anyhow::bail!("--parent-path and --project-path are mutually exclusive");
     }
+
+    let engine_path_str = engine_path.map(|p| {
+        p.into_os_string()
+            .into_string()
+            .expect("engine path contains invalid UTF-8")
+    });
 
     let config = if yes {
         // Non-interactive mode: use defaults or provided values
@@ -31,10 +38,19 @@ pub fn run(
             android_flag,
             engine_repo,
             engine_branch,
+            engine_path_str,
         )?
     } else {
         // Interactive mode: prompt for all values
-        prompt::interactive(name, package, template, android, engine_repo, engine_branch)?
+        prompt::interactive(
+            name,
+            package,
+            template,
+            android,
+            engine_repo,
+            engine_branch,
+            engine_path_str,
+        )?
     };
 
     println!("\nGenerating project...");
