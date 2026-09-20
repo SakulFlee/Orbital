@@ -1,7 +1,10 @@
 use crate::state::IcedState;
 use orbital_app::render_overlay::{LayerRenderer as LayerRendererTrait, RenderOverlayContext};
 use orbital_app::RenderLayer;
-use orbital_ecs_bridge::{AdapterResource, IcedEventQueue, IcedWindowEvent, SurfaceFormatResource};
+use orbital_ecs_bridge::{
+    AdapterResource, IcedCapturedTouches, IcedEventQueue, IcedWindowEvent, SurfaceFormatResource,
+};
+use winit::event::TouchPhase;
 use std::sync::Mutex;
 
 pub struct IcedLayerRenderer {
@@ -122,10 +125,24 @@ impl LayerRendererTrait for IcedLayerRenderer {
             None => iced_winit::core::mouse::Cursor::Unavailable,
         };
 
-        // Convert our owned events to iced events
+        // Convert our owned events to iced events, remembering which winit
+        // touch id each converted event belongs to (None for non-touch
+        // events). Needed afterwards to map per-event capture statuses back
+        // to winit touch ids for `IcedCapturedTouches`.
         let mut iced_core_events = Vec::new();
+        let mut event_touch_ids: Vec<Option<u64>> = Vec::new();
+        let mut touch_release_info: Vec<(u64, TouchPhase)> = Vec::new();
         for evt in &iced_events {
             if let Some(converted) = convert_event(evt, &modifiers, scale_factor) {
+                match evt {
+                    IcedWindowEvent::Touch(touch) => {
+                        event_touch_ids.push(Some(touch.id));
+                        if matches!(touch.phase, TouchPhase::Ended | TouchPhase::Cancelled) {
+                            touch_release_info.push((touch.id, touch.phase));
+                        }
+                    }
+                    _ => event_touch_ids.push(None),
+                }
                 iced_core_events.push(converted);
             }
         }
@@ -153,7 +170,7 @@ impl LayerRendererTrait for IcedLayerRenderer {
         let waker = iced_winit::core::shell::Waker::noop();
         let mut bus = iced_winit::core::shell::Bus::new();
 
-        let _ = interface.update(
+        let (_, event_statuses) = interface.update(
             &NoopWindow,
             &waker,
             &iced_core_events,
@@ -175,6 +192,32 @@ impl LayerRendererTrait for IcedLayerRenderer {
         // Process messages
         for message in bus {
             self.state.handle_message(message);
+        }
+
+        // Track which fingers the UI consumed (`event::Status::Captured` —
+        // e.g. button presses, `FloatingPanel` title-bar drags, sliders).
+        // `module_runtime` consults this when feeding touch events into the
+        // game-input path so UI touches don't also drive the virtual
+        // joystick / drag-to-look camera.
+        //
+        // The release sweep runs even when this panel saw no lifted-touch
+        // event, so stale ids can never linger and permanently block game
+        // controls for that finger id.
+        for (status, touch_id) in event_statuses.iter().zip(event_touch_ids.iter()) {
+            let Some(touch_id) = touch_id else {
+                continue;
+            };
+            if *status == iced_winit::core::event::Status::Captured
+                && let Some(mut captured) = ctx.ecs.get_resource_mut::<IcedCapturedTouches>()
+                && captured.capture(*touch_id)
+            {
+                log::info!("iced: touch {touch_id} newly captured by the UI");
+            }
+        }
+        for (touch_id, _phase) in &touch_release_info {
+            if let Some(mut captured) = ctx.ecs.get_resource_mut::<IcedCapturedTouches>() {
+                captured.release(*touch_id);
+            }
         }
 
         // Write back the cache after releasing the borrow on self.state

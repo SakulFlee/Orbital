@@ -17,7 +17,7 @@ use wgpu::TextureViewDescriptor;
 use winit::{
     application::ApplicationHandler,
     error::EventLoopError,
-    event::{DeviceEvent, DeviceId, ElementState, WindowEvent},
+    event::{DeviceEvent, DeviceId, ElementState, TouchPhase, WindowEvent},
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
     keyboard::{Key, NamedKey},
     window::{CursorGrabMode, WindowId},
@@ -33,7 +33,8 @@ use crate::{
 use orbital_ecs_bridge::{
     ActiveCamera, AdapterResource, CameraDescriptorEcs, CameraDirty, CursorGrabConfig, CursorGrabState,
     CursorPosition, DeltaTime,
-    DeviceResource, EcsCameraStore, EngineEvent, EngineEvents, FrameCounter, IcedEventQueue, InputSnapshot,
+    DeviceResource, EcsCameraStore, EngineEvent, EngineEvents, FrameCounter, IcedCapturedTouches,
+    IcedEventQueue, InputSnapshot,
     LightDescriptorEcs, Position, QueueResource, SurfaceFormatResource, TotalTime, WindowSize,
 };
 
@@ -1222,6 +1223,8 @@ impl ApplicationHandler for ModuleRuntime {
                 .insert_resource(SurfaceFormatResource(config.format));
             self.ecs_world
                 .insert_resource(IcedEventQueue::default());
+            self.ecs_world
+                .insert_resource(IcedCapturedTouches::default());
 
             // Initialize import pipeline resources
             self.ecs_world
@@ -1522,13 +1525,56 @@ impl ApplicationHandler for ModuleRuntime {
                 delta,
                 phase,
             }),
-            WindowEvent::Touch(touch) => Some(InputEvent::Touch {
-                device_id: touch.device_id,
-                phase: touch.phase,
-                location: touch.location,
-                id: touch.id,
-                force: touch.force,
-            }),
+            WindowEvent::Touch(touch) => {
+                // Touches consumed by an iced UI overlay (button press,
+                // FloatingPanel title-bar drag, etc.) must not also drive the
+                // game's touch controls (virtual joystick / drag-to-look).
+                //
+                // `IcedCapturedTouches` is written during the render pass —
+                // *after* this frame's ECS schedule already ran — so capture
+                // for a freshly pressed finger is one frame late. Compensate
+                // by synthesizing a `Cancelled` for that finger once, which
+                // fully releases it from the game-input state; the event
+                // itself is dropped so the UI keeps its finger exclusively.
+                if let Some(captured) = self.ecs_world.get_resource::<IcedCapturedTouches>()
+                    && captured.contains(touch.id)
+                {
+                    let game_phases =
+                        touch.phase == TouchPhase::Started || touch.phase == TouchPhase::Moved;
+                    if game_phases && self.input_state.touch_position(touch.id).is_some() {
+                        // Press slipped through before capture was
+                        // known — release the finger now so the
+                        // joystick/camera doesn't keep reacting.
+                        info!(
+                            "iced: touch {} captured by UI — releasing from game input",
+                            touch.id
+                        );
+                        self.input_state.handle_event(InputEvent::Touch {
+                            device_id: touch.device_id,
+                            phase: TouchPhase::Cancelled,
+                            location: touch.location,
+                            id: touch.id,
+                            force: touch.force,
+                        });
+                    }
+                    if game_phases {
+                        // Drop the event for the game-input path. The iced
+                        // queue above still receives every touch event, so
+                        // UI widgets keep working.
+                        return;
+                    }
+                    // Ended/Cancelled are forwarded regardless so the
+                    // game-input state deterministically clears the finger.
+                }
+
+                Some(InputEvent::Touch {
+                    device_id: touch.device_id,
+                    phase: touch.phase,
+                    location: touch.location,
+                    id: touch.id,
+                    force: touch.force,
+                })
+            }
             WindowEvent::CursorMoved {
                 device_id,
                 position,
