@@ -64,7 +64,12 @@ impl Camera2D {
 
     /// Creates a new perspective camera.
     pub fn perspective(eye: Point3<f32>, fov: Rad<f32>, near: f32, far: f32) -> Self {
-        Self::Perspective { eye, fov, near, far }
+        Self::Perspective {
+            eye,
+            fov,
+            near,
+            far,
+        }
     }
 
     /// Builds the view-projection matrix for the given screen size.
@@ -72,9 +77,18 @@ impl Camera2D {
     /// The resulting matrix transforms world-space 2D coordinates to clip space.
     /// For orthographic, this maps (eye - screen/zoom) to (eye + screen/zoom).
     /// For perspective, this uses standard perspective projection.
-    pub fn build_view_projection_matrix(&self, screen_width: f32, screen_height: f32) -> Matrix4<f32> {
+    pub fn build_view_projection_matrix(
+        &self,
+        screen_width: f32,
+        screen_height: f32,
+    ) -> Matrix4<f32> {
         match *self {
-            Camera2D::Orthographic { eye, zoom, near, far } => {
+            Camera2D::Orthographic {
+                eye,
+                zoom,
+                near,
+                far,
+            } => {
                 let half_width = screen_width / (2.0 * zoom);
                 let half_height = screen_height / (2.0 * zoom);
 
@@ -86,7 +100,12 @@ impl Camera2D {
 
                 cgmath::ortho(left, right, bottom, top, near, far)
             }
-            Camera2D::Perspective { eye, fov, near, far } => {
+            Camera2D::Perspective {
+                eye,
+                fov,
+                near,
+                far,
+            } => {
                 let aspect = screen_width / screen_height;
                 let proj = cgmath::perspective(fov, aspect, near, far);
                 let view = Matrix4::look_at_rh(

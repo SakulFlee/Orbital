@@ -90,8 +90,8 @@ fn generate_triangle(desc: &ShapeDescriptor, width: f32, height: f32) -> Vec<Ver
     // Triangle pointing up
     let vertices = vec![
         Vertex2D::new([0.0, half_h], color),      // Top
-        Vertex2D::new([-half_w, -half_h], color),  // Bottom-left
-        Vertex2D::new([half_w, -half_h], color),   // Bottom-right
+        Vertex2D::new([-half_w, -half_h], color), // Bottom-left
+        Vertex2D::new([half_w, -half_h], color),  // Bottom-right
     ];
 
     vertices
@@ -148,13 +148,7 @@ fn generate_polygon(desc: &ShapeDescriptor, width: f32, height: f32) -> Vec<Vert
 }
 
 /// Generates vertices for a filled rectangle (axis-aligned quad).
-pub fn generate_rect(
-    x: f32,
-    y: f32,
-    width: f32,
-    height: f32,
-    color: [f32; 4],
-) -> Vec<Vertex2D> {
+pub fn generate_rect(x: f32, y: f32, width: f32, height: f32, color: [f32; 4]) -> Vec<Vertex2D> {
     vec![
         Vertex2D::new([x, y], color),
         Vertex2D::new([x + width, y], color),

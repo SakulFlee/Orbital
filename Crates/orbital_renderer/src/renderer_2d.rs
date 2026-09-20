@@ -1,8 +1,8 @@
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingType, Buffer, BufferDescriptor, BufferUsages,
-    ColorTargetState, ColorWrites, Device, FragmentState, MultisampleState, PipelineLayoutDescriptor,
-    PrimitiveState, PrimitiveTopology, RenderPipeline, RenderPipelineDescriptor, ShaderModuleDescriptor,
+    BindGroupLayoutEntry, BindingType, Buffer, BufferDescriptor, BufferUsages, ColorTargetState,
+    ColorWrites, Device, FragmentState, MultisampleState, PipelineLayoutDescriptor, PrimitiveState,
+    PrimitiveTopology, RenderPipeline, RenderPipelineDescriptor, ShaderModuleDescriptor,
     ShaderSource, VertexAttribute, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
 };
 

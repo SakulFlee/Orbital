@@ -68,7 +68,10 @@ impl RenderLayer {
 
     /// Returns true if this layer should use depth testing.
     pub fn uses_depth_test(&self) -> bool {
-        matches!(self, Self::Scene3D | Self::Scene3DTransparent | Self::Overlay3D)
+        matches!(
+            self,
+            Self::Scene3D | Self::Scene3DTransparent | Self::Overlay3D
+        )
     }
 
     /// Returns true if this layer should use alpha blending.

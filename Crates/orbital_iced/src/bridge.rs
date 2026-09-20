@@ -1,7 +1,7 @@
 use crate::renderer::IcedLayerRenderer;
 use crate::state::IcedUiState;
-use orbital_app::render_overlay::{LayerRenderer, RenderOverlay};
 use orbital_app::Module;
+use orbital_app::render_overlay::{LayerRenderer, RenderOverlay};
 use orbital_ecs::{System, World};
 use wgpu::{Device, Queue};
 
@@ -13,12 +13,7 @@ use wgpu::{Device, Queue};
 pub struct IcedBridgeModule;
 
 impl Module for IcedBridgeModule {
-    fn setup(
-        &self,
-        _ecs: &mut World,
-        _device: &Device,
-        _queue: &Queue,
-    ) -> Vec<Box<dyn System>> {
+    fn setup(&self, _ecs: &mut World, _device: &Device, _queue: &Queue) -> Vec<Box<dyn System>> {
         // Panels are read during register_overlays(), not here.
         vec![]
     }
@@ -31,7 +26,11 @@ impl Module for IcedBridgeModule {
     ) {
         let panels = ecs
             .get_resource::<IcedUiState>()
-            .map(|ui| ui.0.iter().map(|(k, v)| (k.clone(), v.clone())).collect::<Vec<_>>())
+            .map(|ui| {
+                ui.0.iter()
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect::<Vec<_>>()
+            })
             .unwrap_or_default();
 
         if panels.is_empty() {

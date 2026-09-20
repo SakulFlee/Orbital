@@ -48,7 +48,9 @@ pub fn create_styled_text(
     world
         .attach_component(
             &entity,
-            UiText::new(content).with_font_size(font_size).with_color(color),
+            UiText::new(content)
+                .with_font_size(font_size)
+                .with_color(color),
         )
         .expect("Failed to attach UiText");
     world

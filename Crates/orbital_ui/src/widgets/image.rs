@@ -4,11 +4,7 @@ use crate::components::{UiElement, UiEntity, UiImage};
 use crate::layout::UiLayout;
 
 /// Creates an image entity with the given layout.
-pub fn create_image(
-    world: &mut World,
-    id: impl Into<String>,
-    layout: UiLayout,
-) -> Entity {
+pub fn create_image(world: &mut World, id: impl Into<String>, layout: UiLayout) -> Entity {
     let entity = world.spawn_entity();
 
     world
@@ -68,7 +64,12 @@ mod tests {
     #[test]
     fn create_tinted_image_entity() {
         let mut world = World::new();
-        let entity = create_tinted_image(&mut world, "img2", [1.0, 0.0, 0.0, 1.0], UiLayout::default());
+        let entity = create_tinted_image(
+            &mut world,
+            "img2",
+            [1.0, 0.0, 0.0, 1.0],
+            UiLayout::default(),
+        );
 
         let store = world.get_component_store::<UiImage>().unwrap();
         let image = store.get_component(entity.index).unwrap();

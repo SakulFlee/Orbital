@@ -28,9 +28,15 @@ impl IcedEventBridge {
             WindowEvent::MouseInput { state, button, .. } => {
                 if *state == ElementState::Pressed {
                     match button {
-                        MouseButton::Left => Some(IcedEvent::ButtonPressed("left_click".to_string())),
-                        MouseButton::Right => Some(IcedEvent::ButtonPressed("right_click".to_string())),
-                        MouseButton::Middle => Some(IcedEvent::ButtonPressed("middle_click".to_string())),
+                        MouseButton::Left => {
+                            Some(IcedEvent::ButtonPressed("left_click".to_string()))
+                        }
+                        MouseButton::Right => {
+                            Some(IcedEvent::ButtonPressed("right_click".to_string()))
+                        }
+                        MouseButton::Middle => {
+                            Some(IcedEvent::ButtonPressed("middle_click".to_string()))
+                        }
                         _ => None,
                     }
                 } else {

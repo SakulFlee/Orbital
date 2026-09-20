@@ -68,7 +68,12 @@ mod tests {
         batch.push_shape(&shape::generate_shape_vertices(&quad, 50.0, 50.0));
 
         // Add a circle
-        batch.push_shape(&shape::generate_circle([0.0, 0.0], 25.0, 16, [0.0, 1.0, 0.0, 1.0]));
+        batch.push_shape(&shape::generate_circle(
+            [0.0, 0.0],
+            25.0,
+            16,
+            [0.0, 1.0, 0.0, 1.0],
+        ));
 
         // Add a triangle
         let tri = ShapeDescriptor::solid_triangle([0.0, 0.0, 1.0, 1.0]);

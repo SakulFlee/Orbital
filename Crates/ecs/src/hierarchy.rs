@@ -43,7 +43,11 @@ impl Default for Children {
 
 /// Adds a child entity to a parent entity.
 /// This sets the child's `Parent` component and adds the child to the parent's `Children`.
-pub fn add_child(world: &mut World, parent: &Entity, child: &Entity) -> Result<(), crate::ECSError> {
+pub fn add_child(
+    world: &mut World,
+    parent: &Entity,
+    child: &Entity,
+) -> Result<(), crate::ECSError> {
     if !world.is_valid(parent) {
         return Err(crate::ECSError::InvalidEntity(*parent));
     }
@@ -78,7 +82,11 @@ pub fn add_child(world: &mut World, parent: &Entity, child: &Entity) -> Result<(
 
 /// Removes a child entity from its parent.
 /// This removes the child's `Parent` component and removes the child from the parent's `Children`.
-pub fn remove_child(world: &mut World, parent: &Entity, child: &Entity) -> Result<(), crate::ECSError> {
+pub fn remove_child(
+    world: &mut World,
+    parent: &Entity,
+    child: &Entity,
+) -> Result<(), crate::ECSError> {
     if !world.is_valid(parent) {
         return Err(crate::ECSError::InvalidEntity(*parent));
     }
@@ -145,7 +153,21 @@ pub fn descendants(world: &World, entity: &Entity) -> Vec<Entity> {
 
     // Start with direct children
     if let Some(store) = world.get_component_store::<Children>()
-        && let Some(children) = store.get_component(entity.index) {
+        && let Some(children) = store.get_component(entity.index)
+    {
+        for &child in &children.0 {
+            if world.is_valid(&child) {
+                queue.push_back(child);
+                result.push(child);
+            }
+        }
+    }
+
+    // BFS through all descendants
+    while let Some(current) = queue.pop_front() {
+        if let Some(store) = world.get_component_store::<Children>()
+            && let Some(children) = store.get_component(current.index)
+        {
             for &child in &children.0 {
                 if world.is_valid(&child) {
                     queue.push_back(child);
@@ -153,18 +175,6 @@ pub fn descendants(world: &World, entity: &Entity) -> Vec<Entity> {
                 }
             }
         }
-
-    // BFS through all descendants
-    while let Some(current) = queue.pop_front() {
-        if let Some(store) = world.get_component_store::<Children>()
-            && let Some(children) = store.get_component(current.index) {
-                for &child in &children.0 {
-                    if world.is_valid(&child) {
-                        queue.push_back(child);
-                        result.push(child);
-                    }
-                }
-            }
     }
 
     result
@@ -180,10 +190,11 @@ pub fn clean_hierarchy(world: &mut World) {
         if let Some(store) = world.get_component_store::<Parent>() {
             for &entity_idx in &store.dense {
                 if let Some(parent) = store.get_component(entity_idx)
-                    && !world.is_valid(&parent.0) {
-                        let generation = world.generation(entity_idx);
-                        stale.push(Entity::new(entity_idx, generation));
-                    }
+                    && !world.is_valid(&parent.0)
+                {
+                    let generation = world.generation(entity_idx);
+                    stale.push(Entity::new(entity_idx, generation));
+                }
             }
         }
         stale
@@ -199,7 +210,9 @@ pub fn clean_hierarchy(world: &mut World) {
         let entities_to_check: Vec<usize> = store_mut.dense.clone();
         for entity_idx in entities_to_check {
             if let Some(idx) = store_mut.sparse.get(entity_idx).and_then(|x| *x) {
-                store_mut.components[idx].0.retain(|child| world.is_valid(child));
+                store_mut.components[idx]
+                    .0
+                    .retain(|child| world.is_valid(child));
             }
         }
     }

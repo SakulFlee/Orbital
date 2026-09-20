@@ -31,7 +31,7 @@ pub mod text_mesh;
 
 pub use atlas::{SdfAtlas, ShelfPacker};
 pub use font::{FontData, GlyphInfo};
-pub use text_mesh::{generate_billboard_text_mesh, generate_text_mesh, measure_text, TextConfig};
+pub use text_mesh::{TextConfig, generate_billboard_text_mesh, generate_text_mesh, measure_text};
 
 /// The default font embedded in the binary.
 ///

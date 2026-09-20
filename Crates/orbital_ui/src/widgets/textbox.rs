@@ -25,10 +25,7 @@ pub fn create_textbox(
         .attach_component(&entity, layout)
         .expect("Failed to attach UiLayout");
     world
-        .attach_component(
-            &entity,
-            UiBackground::rounded([0.15, 0.15, 0.15, 0.9], 4.0),
-        )
+        .attach_component(&entity, UiBackground::rounded([0.15, 0.15, 0.15, 0.9], 4.0))
         .expect("Failed to attach UiBackground");
     world
         .attach_component(&entity, UiFocus::default())
