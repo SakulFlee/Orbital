@@ -274,6 +274,25 @@ where
             shell,
             _viewport,
         );
+
+        // Whole-panel capture: any touch press/move inside the panel bounds
+        // marks the panel as owning that finger — even when no interactive
+        // widget was hit (body background, labels, text). Without this, a
+        // finger resting on the panel body leaks to the game's touch controls
+        // (virtual joystick / drag-to-look). Runs *after* the children above
+        // so buttons/sliders inside the content keep consuming events first;
+        // this only fires when nothing else captured the event.
+        //
+        // Touch-only by design: desktop mouse *hover* (CursorMoved) must keep
+        // its previous sibling-overlap semantics, and mouse clicks are
+        // handled by the dedicated arms above.
+        if matches!(event, iced_winit::core::event::Event::Touch(_))
+            && !shell.is_event_captured()
+            && let Some(position) = pressed_at.or(moved_to)
+            && bounds.contains(position)
+        {
+            shell.capture_event();
+        }
     }
 
     fn draw(

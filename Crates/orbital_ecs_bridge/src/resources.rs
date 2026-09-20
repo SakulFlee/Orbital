@@ -186,6 +186,52 @@ impl IcedEventQueue {
     }
 }
 
+/// Winit touch ids currently **captured** by an iced UI overlay.
+///
+/// Populated by the iced overlay renderers (`orbital_iced`): whenever a
+/// `WindowEvent::Touch` is converted and handed to iced and the widget tree
+/// consumes it (`event::Status::Captured` — e.g. a button press, a
+/// `FloatingPanel` title-bar drag or a slider), the touch id is inserted
+/// here. Lifted/lost fingers are removed again so stale ids cannot
+/// accumulate.
+///
+/// `module_runtime.rs` consults this resource *before* feeding touch events
+/// into the engine's game-input path (`orbital_input::InputState`), so that
+/// touches interacting with UI panels don't also drive the virtual joystick
+/// or the drag-to-look camera. The iced event queue itself keeps receiving
+/// every touch event regardless — capture only masks the game-input path.
+///
+/// Mirrors [`IcedEventQueue`]: populated during the render pass (iced
+/// consumes events *while* rendering), which means capture information for a
+/// freshly pressed finger is one frame late. The consumer compensates by
+/// synthesizing a `TouchPhase::Cancelled` for the finger once, fully
+/// releasing it from the game-input state.
+#[derive(Debug, Clone, Default)]
+pub struct IcedCapturedTouches(pub hashbrown::HashSet<u64>);
+
+impl IcedCapturedTouches {
+    /// Whether the given winit touch id is currently captured by the UI.
+    pub fn contains(&self, touch_id: u64) -> bool {
+        self.0.contains(&touch_id)
+    }
+
+    /// Mark a touch id as captured by the UI. Returns `true` if the id was
+    /// newly inserted (i.e. it wasn't captured already).
+    pub fn capture(&mut self, touch_id: u64) -> bool {
+        self.0.insert(touch_id)
+    }
+
+    /// Release a touch id (finger lifted/lost/cancelled).
+    pub fn release(&mut self, touch_id: u64) {
+        self.0.remove(&touch_id);
+    }
+
+    /// Whether any finger is currently captured by the UI.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Engine events (replace AppEvent)
 // ---------------------------------------------------------------------------
@@ -265,6 +311,42 @@ mod tests {
         let drained = events.drain();
         assert_eq!(drained.len(), 10);
         assert!(events.is_empty());
+    }
+
+    #[test]
+    fn iced_captured_touches_lifecycle() {
+        let mut captured = IcedCapturedTouches::default();
+        assert!(captured.is_empty());
+        assert!(!captured.contains(42));
+
+        // A widget captures the finger...
+        captured.capture(42);
+        assert!(captured.contains(42));
+        assert!(!captured.is_empty());
+
+        // ...and the finger is eventually lifted.
+        captured.release(42);
+        assert!(!captured.contains(42));
+        assert!(captured.is_empty());
+    }
+
+    #[test]
+    fn iced_captured_touches_track_multiple_fingers() {
+        let mut captured = IcedCapturedTouches::default();
+
+        captured.capture(1);
+        captured.capture(2);
+        assert!(captured.contains(1) && captured.contains(2));
+
+        // Releasing one finger must not disturb the other (multi-touch:
+        // one finger on the UI while another drives the camera).
+        captured.release(1);
+        assert!(!captured.contains(1));
+        assert!(captured.contains(2));
+
+        // Capturing again is idempotent.
+        captured.capture(2);
+        assert!(captured.contains(2));
     }
 }
 
