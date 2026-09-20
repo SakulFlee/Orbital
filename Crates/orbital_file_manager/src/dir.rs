@@ -8,18 +8,18 @@ use std::{
 
 use crate::{FsError, Storage};
 
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 use crate::AssetSource;
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 use std::path::Path;
 
 /// Desktop asset source: resolves relative paths against `<cwd>/Assets`.
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub struct DesktopAssetSource {
     base_dir: PathBuf,
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 impl DesktopAssetSource {
     pub fn new() -> Self {
         Self::with_base_dir(
@@ -39,14 +39,14 @@ impl DesktopAssetSource {
     }
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 impl Default for DesktopAssetSource {
     fn default() -> Self {
         Self::new()
     }
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 impl AssetSource for DesktopAssetSource {
     fn read_bytes(&self, path: &str) -> Result<Vec<u8>, FsError> {
         fs::read(self.resolve(path)).map_err(|e| FsError::from_io(path, e))
@@ -89,7 +89,7 @@ impl DirStorage {
         }
     }
 
-    fn resolve(&self, path: &str) -> PathBuf {
+    pub fn resolve(&self, path: &str) -> PathBuf {
         self.base_dir.join(path)
     }
 
@@ -159,12 +159,12 @@ impl Storage for DirStorage {
 }
 
 /// Desktop storage: rooted at the process working directory.
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub struct DesktopStorage {
     inner: DirStorage,
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 impl DesktopStorage {
     pub fn new() -> Self {
         let cwd = std::env::current_dir().unwrap_or_default();
@@ -175,14 +175,14 @@ impl DesktopStorage {
     }
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 impl Default for DesktopStorage {
     fn default() -> Self {
         Self::new()
     }
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 impl Storage for DesktopStorage {
     fn read_bytes(&self, path: &str) -> Result<Vec<u8>, FsError> {
         self.inner.read_bytes(path)
@@ -230,7 +230,7 @@ impl Storage for DesktopStorage {
 }
 
 /// Recursively collects file paths under `dir`, relative to `root`.
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 fn collect_files(root: &Path, dir: &Path, out: &mut Vec<String>) {
     let Ok(entries) = fs::read_dir(dir) else {
         return;
