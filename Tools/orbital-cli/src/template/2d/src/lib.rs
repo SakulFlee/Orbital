@@ -3,7 +3,7 @@ use orbital::ecs::{System, World};
 use orbital::ecs_bridge::SurfaceFormatResource;
 use orbital::logging::{self, error, info};
 use orbital::twod::{ShapeDescriptor, Vertex2D, Batch2D};
-use orbital::app::{RenderOverlay, RenderOverlayContext, RenderOverlayResource};
+use orbital::app::{RenderOverlay, RenderOverlayContext, LayerRenderer};
 use orbital::renderer::{Camera2DUniform, Renderer2D};
 
 pub const NAME: &str = "{{PROJECT_NAME}}";
@@ -27,7 +27,9 @@ pub fn entrypoint(
     };
 
     match App::new()
-        .add_module(Scene2DModule)
+        .add_module(Scene2DModule {
+            vertices: std::sync::Mutex::new(Vec::new()),
+        })
         .liftoff(event_loop, app_settings)
     {
         Ok(()) => info!("Cleanly exited!"),
@@ -138,7 +140,9 @@ impl RenderOverlay for ShapeOverlay {
     }
 }
 
-struct Scene2DModule;
+struct Scene2DModule {
+    vertices: std::sync::Mutex<Vec<orbital::twod::Vertex2D>>,
+}
 
 impl Module for Scene2DModule {
     fn setup(
@@ -192,16 +196,33 @@ impl Module for Scene2DModule {
 
         info!("Created 2D scene with {} vertices", batch.vertex_count());
 
-        let mut overlay = ShapeOverlay::new(device, format);
-        overlay.vertices = batch.vertices;
-
-        if ecs.get_resource::<RenderOverlayResource>().is_none() {
-            ecs.insert_resource(RenderOverlayResource::new());
-        }
-        if let Some(res) = ecs.get_resource_mut::<RenderOverlayResource>() {
-            res.add(Box::new(overlay));
-        }
+        // Store vertices for register_overlays().
+        *self.vertices.lock().unwrap() = batch.vertices;
 
         vec![]
+    }
+
+    fn register_overlays(
+        &self,
+        ecs: &mut World,
+        _layer_renderers: &mut Vec<Box<dyn LayerRenderer>>,
+        legacy_overlays: &mut Vec<Box<dyn RenderOverlay>>,
+    ) {
+        let format = ecs
+            .get_resource::<SurfaceFormatResource>()
+            .map(|f| f.0)
+            .unwrap_or(orbital::wgpu::TextureFormat::Bgra8UnormSrgb);
+
+        let device = match ecs.get_resource::<orbital::ecs_bridge::DeviceResource>() {
+            Some(d) => d,
+            None => {
+                eprintln!("Scene2DModule: no DeviceResource, skipping overlay registration");
+                return;
+            }
+        };
+
+        let mut overlay = ShapeOverlay::new(&device.0, format);
+        overlay.vertices = std::mem::take(&mut *self.vertices.lock().unwrap());
+        legacy_overlays.push(Box::new(overlay));
     }
 }
