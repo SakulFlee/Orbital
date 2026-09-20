@@ -2,7 +2,8 @@ use crate::state::IcedState;
 use orbital_app::render_overlay::{LayerRenderer as LayerRendererTrait, RenderOverlayContext};
 use orbital_app::RenderLayer;
 use orbital_ecs_bridge::{
-    AdapterResource, IcedCapturedTouches, IcedEventQueue, IcedWindowEvent, SurfaceFormatResource,
+    AdapterResource, DeviceResource, IcedCapturedTouches, IcedEventQueue, IcedWindowEvent,
+    QueueResource, SurfaceFormatResource, WindowSize,
 };
 use winit::event::TouchPhase;
 use std::sync::Mutex;
@@ -10,6 +11,8 @@ use std::sync::Mutex;
 pub struct IcedLayerRenderer {
     state: IcedState,
     inner: Mutex<Option<RendererInner>>,
+    device: Option<wgpu::Device>,
+    queue: Option<wgpu::Queue>,
 }
 
 struct RendererInner {
@@ -25,6 +28,8 @@ impl IcedLayerRenderer {
         Self {
             state,
             inner: Mutex::new(None),
+            device: None,
+            queue: None,
         }
     }
 
@@ -40,6 +45,176 @@ impl IcedLayerRenderer {
 impl LayerRendererTrait for IcedLayerRenderer {
     fn layer(&self) -> RenderLayer {
         RenderLayer::UI
+    }
+
+    /// Process input events and update `IcedCapturedTouches` **without**
+    /// GPU rendering.  Called from `ModuleRuntime::update()` before game
+    /// systems so touch-capture information is current when game touch
+    /// input is processed.
+    fn process_events(&mut self, ecs: &mut orbital_ecs::World) {
+        // Ensure renderer is initialized (needed for text layout in hit-testing).
+        let format = ecs
+            .get_resource::<SurfaceFormatResource>()
+            .map(|f| f.0)
+            .unwrap_or(wgpu::TextureFormat::Bgra8UnormSrgb);
+
+        // Clone device/queue from ECS resources on first call.
+        if self.device.is_none() {
+            self.device = ecs.get_resource::<DeviceResource>().map(|d| (*d.0).clone());
+            self.queue = ecs.get_resource::<QueueResource>().map(|q| (*q.0).clone());
+        }
+
+        let device = match self.device {
+            Some(ref d) => d,
+            None => {
+                log::warn!("No DeviceResource - skipping iced process_events");
+                return;
+            }
+        };
+        let queue = match self.queue {
+            Some(ref q) => q,
+            None => {
+                log::warn!("No QueueResource - skipping iced process_events");
+                return;
+            }
+        };
+
+        {
+            let mut guard = self.inner.lock().unwrap();
+            if guard.is_none() {
+                let adapter = match ecs.get_resource::<AdapterResource>() {
+                    Some(a) => a.0.as_ref().clone(),
+                    None => {
+                        log::warn!("No AdapterResource - skipping iced process_events");
+                        return;
+                    }
+                };
+                let engine = iced_wgpu::Engine::new(
+                    &adapter,
+                    device.clone(),
+                    queue.clone(),
+                    format,
+                    None,
+                    iced_graphics::Shell::headless(),
+                );
+                let renderer = iced_wgpu::Renderer::new(engine, Default::default());
+                *guard = Some(RendererInner {
+                    renderer,
+                    cache: Some(iced_runtime::user_interface::Cache::new()),
+                });
+            }
+        }
+
+        // Clone events from the shared queue (don't drain — render() also
+        // clones, and the main runtime drains once after all renderers).
+        let (iced_events, cursor_phys, modifiers, scale_factor) = {
+            let queue = ecs.get_resource::<IcedEventQueue>();
+            if let Some(ref q) = queue {
+                (
+                    q.events.clone(),
+                    q.cursor_position,
+                    q.modifiers,
+                    q.scale_factor,
+                )
+            } else {
+                (
+                    Vec::new(),
+                    None,
+                    winit::keyboard::ModifiersState::empty(),
+                    1.0,
+                )
+            }
+        };
+
+        let scale_factor = if scale_factor > 0.0 { scale_factor } else { 1.0 };
+
+        // Physical → logical cursor position.
+        let cursor = match cursor_phys {
+            Some(pos) => iced_winit::core::mouse::Cursor::Available(iced_core::Point::new(
+                (pos.x / scale_factor) as f32,
+                (pos.y / scale_factor) as f32,
+            )),
+            None => iced_winit::core::mouse::Cursor::Unavailable,
+        };
+
+        // Convert events, tracking touch IDs for capture status mapping.
+        let mut iced_core_events = Vec::new();
+        let mut event_touch_ids: Vec<Option<u64>> = Vec::new();
+        let mut touch_release_info: Vec<(u64, TouchPhase)> = Vec::new();
+        for evt in &iced_events {
+            if let Some(converted) = convert_event(evt, &modifiers, scale_factor) {
+                match evt {
+                    IcedWindowEvent::Touch(touch) => {
+                        event_touch_ids.push(Some(touch.id));
+                        if matches!(touch.phase, TouchPhase::Ended | TouchPhase::Cancelled) {
+                            touch_release_info.push((touch.id, touch.phase));
+                        }
+                    }
+                    _ => event_touch_ids.push(None),
+                }
+                iced_core_events.push(converted);
+            }
+        }
+
+        // Build view and interface.
+        let view = self.state.view(ecs);
+        let logical_size = iced_core::Size::new(
+            ecs.get_resource::<WindowSize>()
+                .map(|s| s.0.x as f32 / scale_factor as f32)
+                .unwrap_or(800.0),
+            ecs.get_resource::<WindowSize>()
+                .map(|s| s.0.y as f32 / scale_factor as f32)
+                .unwrap_or(600.0),
+        );
+
+        let mut guard = self.inner.lock().unwrap();
+        let inner = guard.as_mut().unwrap();
+        let renderer = &mut inner.renderer;
+
+        let mut interface = iced_runtime::user_interface::UserInterface::build(
+            view,
+            logical_size,
+            inner.cache.take().unwrap_or_default(),
+            renderer,
+        );
+
+        let waker = iced_winit::core::shell::Waker::noop();
+        let mut bus = iced_winit::core::shell::Bus::new();
+
+        let (_, event_statuses) = interface.update(
+            &NoopWindow,
+            &waker,
+            &iced_core_events,
+            cursor,
+            renderer,
+            &mut bus,
+        );
+
+        // Process messages.
+        for message in bus {
+            self.state.handle_message(message);
+        }
+
+        // Update IcedCapturedTouches based on per-event capture statuses.
+        for (status, touch_id) in event_statuses.iter().zip(event_touch_ids.iter()) {
+            let Some(touch_id) = touch_id else {
+                continue;
+            };
+            if *status == iced_winit::core::event::Status::Captured
+                && let Some(mut captured) = ecs.get_resource_mut::<IcedCapturedTouches>()
+                && captured.capture(*touch_id)
+            {
+                log::info!("iced: touch {touch_id} newly captured by the UI");
+            }
+        }
+        for (touch_id, _phase) in &touch_release_info {
+            if let Some(mut captured) = ecs.get_resource_mut::<IcedCapturedTouches>() {
+                captured.release(*touch_id);
+            }
+        }
+
+        // Save updated cache.
+        inner.cache = Some(interface.into_cache());
     }
 
     fn render(&mut self, ctx: RenderOverlayContext) {

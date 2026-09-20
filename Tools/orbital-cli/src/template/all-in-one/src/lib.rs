@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use orbital::app::{App, AppSettings, CursorToggle, Module, RenderOverlay, RenderOverlayContext,
-    RenderOverlayResource, sys_camera_controller};
+    LayerRenderer, sys_camera_controller};
 use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector3};
 use orbital::debug_render::DebugModule;
 use orbital::ecs::{Commands, ComponentAccess, IntoSystem, Res, ResMut, System, World};
@@ -547,19 +547,9 @@ impl Module for ProcgeoSceneModule {
 
         // 2D shape overlay (draws on top of 3D scene; layout is regenerated
         // whenever the screen size changes, e.g. on screen rotation)
-        let format = ecs
-            .get_resource::<orbital::ecs_bridge::SurfaceFormatResource>()
-            .map(|f| f.0)
-            .unwrap_or(orbital::wgpu::TextureFormat::Bgra8UnormSrgb);
-
-        let overlay = ShapeOverlay::new(_device, format);
-
-        if ecs.get_resource::<RenderOverlayResource>().is_none() {
-            ecs.insert_resource(RenderOverlayResource::new());
-        }
-        if let Some(res) = ecs.get_resource_mut::<RenderOverlayResource>() {
-            res.add(Box::new(overlay));
-        }
+        // 2D shape overlay (draws on top of 3D scene; layout is regenerated
+        // whenever the screen size changes, e.g. on screen rotation)
+        // NOTE: ShapeOverlay is registered via register_overlays() below.
 
         // Dynamic procedural sky (in-place updates, cheap per frame).
         ecs.insert_resource(EnvironmentDescriptorResource(Some(
@@ -739,5 +729,28 @@ impl Module for ProcgeoSceneModule {
             Box::new(animator),
             sys_animate_dynamic_sky(14.0).into_system(),
         ]
+    }
+
+    fn register_overlays(
+        &self,
+        ecs: &mut World,
+        _layer_renderers: &mut Vec<Box<dyn LayerRenderer>>,
+        legacy_overlays: &mut Vec<Box<dyn RenderOverlay>>,
+    ) {
+        let format = ecs
+            .get_resource::<orbital::ecs_bridge::SurfaceFormatResource>()
+            .map(|f| f.0)
+            .unwrap_or(orbital::wgpu::TextureFormat::Bgra8UnormSrgb);
+
+        let device = match ecs.get_resource::<orbital::ecs_bridge::DeviceResource>() {
+            Some(d) => d,
+            None => {
+                log::warn!("ProcgeoSceneModule: no DeviceResource, skipping overlay registration");
+                return;
+            }
+        };
+
+        let overlay = ShapeOverlay::new(&device.0, format);
+        legacy_overlays.push(Box::new(overlay));
     }
 }

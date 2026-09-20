@@ -37,6 +37,15 @@ pub trait LayerRenderer: Send + Sync {
 
     /// Renders the overlay.
     fn render(&mut self, ctx: RenderOverlayContext);
+
+    /// Process input events and update capture state (no GPU rendering).
+    ///
+    /// Called from `ModuleRuntime::update()` **before** game systems run so
+    /// that touch-capture information (e.g. `IcedCapturedTouches`) is current
+    /// when game touch input is processed.  The default implementation is a
+    /// no-op — only renderers that need per-frame event processing (like
+    /// iced UI panels) should override this.
+    fn process_events(&mut self, _ecs: &mut orbital_ecs::World) {}
 }
 
 /// ECS resource — insert this into the world to activate render overlays.
