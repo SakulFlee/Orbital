@@ -42,8 +42,10 @@ impl UiElement {
 
 /// State of a button.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum ButtonState {
     /// Normal state.
+    #[default]
     Normal,
     /// Button is being hovered.
     Hovered,
@@ -51,11 +53,6 @@ pub enum ButtonState {
     Pressed,
 }
 
-impl Default for ButtonState {
-    fn default() -> Self {
-        Self::Normal
-    }
-}
 
 /// Button widget component.
 #[derive(Debug, Clone)]
@@ -117,6 +114,7 @@ impl UiText {
 
 /// TextBox widget component for text input.
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct UiTextBox {
     /// Current text value.
     pub value: String,
@@ -128,16 +126,6 @@ pub struct UiTextBox {
     pub focused: bool,
 }
 
-impl Default for UiTextBox {
-    fn default() -> Self {
-        Self {
-            value: String::new(),
-            placeholder: String::new(),
-            cursor_pos: 0,
-            focused: false,
-        }
-    }
-}
 
 impl UiTextBox {
     pub fn new() -> Self {
@@ -152,6 +140,7 @@ impl UiTextBox {
 
 /// Checkbox widget component.
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct UiCheckbox {
     /// Whether the checkbox is checked.
     pub checked: bool,
@@ -159,14 +148,6 @@ pub struct UiCheckbox {
     pub label: String,
 }
 
-impl Default for UiCheckbox {
-    fn default() -> Self {
-        Self {
-            checked: false,
-            label: String::new(),
-        }
-    }
-}
 
 impl UiCheckbox {
     pub fn new(label: impl Into<String>) -> Self {

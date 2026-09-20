@@ -144,8 +144,8 @@ pub fn descendants(world: &World, entity: &Entity) -> Vec<Entity> {
     let mut queue = VecDeque::new();
 
     // Start with direct children
-    if let Some(store) = world.get_component_store::<Children>() {
-        if let Some(children) = store.get_component(entity.index) {
+    if let Some(store) = world.get_component_store::<Children>()
+        && let Some(children) = store.get_component(entity.index) {
             for &child in &children.0 {
                 if world.is_valid(&child) {
                     queue.push_back(child);
@@ -153,12 +153,11 @@ pub fn descendants(world: &World, entity: &Entity) -> Vec<Entity> {
                 }
             }
         }
-    }
 
     // BFS through all descendants
     while let Some(current) = queue.pop_front() {
-        if let Some(store) = world.get_component_store::<Children>() {
-            if let Some(children) = store.get_component(current.index) {
+        if let Some(store) = world.get_component_store::<Children>()
+            && let Some(children) = store.get_component(current.index) {
                 for &child in &children.0 {
                     if world.is_valid(&child) {
                         queue.push_back(child);
@@ -166,7 +165,6 @@ pub fn descendants(world: &World, entity: &Entity) -> Vec<Entity> {
                     }
                 }
             }
-        }
     }
 
     result
@@ -181,12 +179,11 @@ pub fn clean_hierarchy(world: &mut World) {
         let mut stale = Vec::new();
         if let Some(store) = world.get_component_store::<Parent>() {
             for &entity_idx in &store.dense {
-                if let Some(parent) = store.get_component(entity_idx) {
-                    if !world.is_valid(&parent.0) {
+                if let Some(parent) = store.get_component(entity_idx)
+                    && !world.is_valid(&parent.0) {
                         let generation = world.generation(entity_idx);
                         stale.push(Entity::new(entity_idx, generation));
                     }
-                }
             }
         }
         stale

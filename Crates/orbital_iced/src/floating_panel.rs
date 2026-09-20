@@ -351,10 +351,10 @@ where
             width: TITLE_BAR_HEIGHT,
             height: TITLE_BAR_HEIGHT,
         };
-        let close_hover = state.is_dragging == false
+        let close_hover = !state.is_dragging
             && cursor
                 .position()
-                .map_or(false, |p| close_bounds.contains(p));
+                .is_some_and(|p| close_bounds.contains(p));
         let close_bg = if close_hover {
             Color::from_rgba(0.8, 0.2, 0.2, 0.8)
         } else {
@@ -400,7 +400,7 @@ where
         // Title text
         let title_layout = layout.child(0);
         self.title.as_widget().draw(
-            tree.children.get(0).unwrap(),
+            tree.children.first().unwrap(),
             renderer,
             theme,
             style,
@@ -444,11 +444,10 @@ where
             return mouse::Interaction::Grabbing;
         }
 
-        if let Some(cursor_pos) = cursor.position() {
-            if title_bounds.contains(cursor_pos) {
+        if let Some(cursor_pos) = cursor.position()
+            && title_bounds.contains(cursor_pos) {
                 return mouse::Interaction::Grab;
             }
-        }
 
         mouse::Interaction::None
     }

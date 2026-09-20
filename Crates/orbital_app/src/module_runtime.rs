@@ -1616,7 +1616,7 @@ impl ApplicationHandler for ModuleRuntime {
                 // processed, IcedLayerRenderer::process_events() will have
                 // populated IcedCapturedTouches so we know which touches
                 // the UI consumed.
-                self.deferred_touches.push(touch.clone());
+                self.deferred_touches.push(touch);
                 None
             }
             WindowEvent::CursorMoved {
