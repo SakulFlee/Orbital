@@ -18,6 +18,7 @@ impl OrbitalConfig {
 pub struct OrbitalGeneral {
     pub engine_repo: Option<String>,
     pub engine_branch: Option<String>,
+    pub engine_path: Option<String>,
 }
 
 impl OrbitalGeneral {
