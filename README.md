@@ -57,7 +57,7 @@ The goal of this project is to bridge well established industry-standard techniq
 - ✅ **macOS**: Full support
 - ⚠️ **Web**: Theoretically possible but not currently supported
 - ⚠️ **Android**: Works but requires frequent updates to keep compatible
-- ❓ **iOS**: Should work similarly to Android but cannot be verified
+- ⚠️ **iOS**: Compiles but untested — boilerplate provided, community testing welcome
 
 ## Getting Started
 
