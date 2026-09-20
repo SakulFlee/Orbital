@@ -1,0 +1,10 @@
+[package]
+name = "orbital_text"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+orbital_2d = { path = "../orbital_2d" }
+cgmath = { workspace = true }
+fontdue = { workspace = true }
+log = { workspace = true }
