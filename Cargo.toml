@@ -135,7 +135,7 @@ wasm-bindgen-futures = "0.4"
 wasmtimer = "0.4.2"
 web-sys = "0.3"
 web-time = "1.1"
-winit = { git = "https://github.com/iced-rs/winit.git", rev = "05b8ff17a06562f0a10bb46e6eaacbe2a95cb5ed", default-features = false, features = ["rwh_06"] }
+winit = { git = "https://github.com/iced-rs/winit.git", rev = "2e28820207080f4499382df3a4fedb0da81562d3", default-features = false, features = ["rwh_06"] }
 
 [profile.release]
 lto = true
