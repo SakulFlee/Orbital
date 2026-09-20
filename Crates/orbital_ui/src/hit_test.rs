@@ -24,7 +24,7 @@ pub fn hit_test(
 ) -> Option<HitResult> {
     // Sort by z-index (highest first) for topmost element
     let mut sorted = elements.to_vec();
-    sorted.sort_by(|a, b| b.2.cmp(&a.2));
+    sorted.sort_by_key(|a| std::cmp::Reverse(a.2));
 
     for (entity, layout, z_index) in sorted {
         if layout.contains(screen_x, screen_y) {
@@ -57,7 +57,7 @@ pub fn hit_test_all(
         })
         .collect();
 
-    results.sort_by(|a, b| b.z_index.cmp(&a.z_index));
+    results.sort_by_key(|a| std::cmp::Reverse(a.z_index));
     results
 }
 
