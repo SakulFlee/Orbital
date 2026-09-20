@@ -6,10 +6,7 @@ use crate::config;
 
 /// Validates that the engine source (repo URL or local path) is valid.
 /// `engine_repo` and `engine_path` are mutually exclusive.
-fn validate_engine_source(
-    engine_repo: &str,
-    engine_path: Option<&str>,
-) -> Result<()> {
+fn validate_engine_source(engine_repo: &str, engine_path: Option<&str>) -> Result<()> {
     if let Some(path) = engine_path {
         // Local path mode: engine_repo should be the default (unused for Cargo.toml)
         let p = Path::new(path);
@@ -17,9 +14,7 @@ fn validate_engine_source(
             bail!("engine path does not exist: {path}");
         }
         if !p.join("Crates/orbital/Cargo.toml").exists() {
-            bail!(
-                "not an Orbital engine repo (missing Crates/orbital/Cargo.toml): {path}"
-            );
+            bail!("not an Orbital engine repo (missing Crates/orbital/Cargo.toml): {path}");
         }
         return Ok(());
     }
@@ -127,19 +122,15 @@ pub fn interactive(
         None => {
             if engine_repo.is_none() {
                 // No --engine-repo or --engine-path given; ask the user
-                let use_local =
-                    Confirm::new("Use a local engine path instead of a git repo?")
-                        .with_default(false)
-                        .prompt()?;
+                let use_local = Confirm::new("Use a local engine path instead of a git repo?")
+                    .with_default(false)
+                    .prompt()?;
                 if use_local {
-                    Some(Text::new("Orbital engine local path:")
-                        .with_default(
-                            orbital_config
-                                .engine_path
-                                .as_deref()
-                                .unwrap_or(""),
-                        )
-                        .prompt()?)
+                    Some(
+                        Text::new("Orbital engine local path:")
+                            .with_default(orbital_config.engine_path.as_deref().unwrap_or(""))
+                            .prompt()?,
+                    )
                 } else {
                     None
                 }
