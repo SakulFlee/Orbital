@@ -4,7 +4,7 @@ macro_rules! make_desktop_main {
         #[cfg(not(target_os = "android"))]
         #[allow(dead_code)]
         fn main() {
-            use ::winit::event_loop::EventLoop;
+            use ::orbital::winit::event_loop::EventLoop;
 
             let event_loop = EventLoop::builder().build();
 
@@ -19,7 +19,7 @@ macro_rules! make_android_main {
         #[cfg(target_os = "android")]
         #[allow(dead_code)]
         #[unsafe(no_mangle)]
-        fn android_main(app: ::winit::platform::android::activity::AndroidApp) {
+        fn android_main(app: ::orbital::winit::platform::android::activity::AndroidApp) {
             $crate::logging::init();
 
             let _ = $crate::file_manager::FileManager::init_android_global(
@@ -27,7 +27,9 @@ macro_rules! make_android_main {
                 app.internal_data_path(),
             );
 
-            use ::winit::{event_loop::EventLoop, platform::android::EventLoopBuilderExtAndroid};
+            use ::orbital::winit::{
+                event_loop::EventLoop, platform::android::EventLoopBuilderExtAndroid,
+            };
 
             let event_loop = match EventLoop::builder().with_android_app(app).build() {
                 Ok(el) => el,

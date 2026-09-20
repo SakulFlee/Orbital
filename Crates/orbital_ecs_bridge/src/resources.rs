@@ -69,6 +69,11 @@ pub struct WindowSize(pub Vector2<u32>);
 #[derive(Debug, Clone, Copy)]
 pub struct CursorGrabConfig(pub bool);
 
+/// Live cursor grab state — updated by [`CursorToggle`](orbital_app::systems::CursorToggle)
+/// and read by the camera controller to skip mouse rotation when the cursor is free.
+#[derive(Debug, Clone, Copy)]
+pub struct CursorGrabState(pub bool);
+
 /// A snapshot of the engine's aggregated input state at the start of the
 /// current frame.
 ///
@@ -96,6 +101,136 @@ pub struct DeviceResource(pub Arc<wgpu::Device>);
 /// so shared access suffices for most use cases.
 #[derive(Debug, Clone)]
 pub struct QueueResource(pub Arc<wgpu::Queue>);
+
+/// Shared reference to the wgpu [`Adapter`].
+///
+/// Needed by iced's `Engine::new()` to construct its renderer.
+#[derive(Debug, Clone)]
+pub struct AdapterResource(pub Arc<wgpu::Adapter>);
+
+/// An owned window event relevant to iced UI processing.
+///
+/// Stored in [`IcedEventQueue`] so the iced overlay can consume events
+/// without lifetime issues from `winit::event::WindowEvent<'_>`.
+#[derive(Debug, Clone)]
+pub enum IcedWindowEvent {
+    CursorMoved {
+        position: winit::dpi::PhysicalPosition<f64>,
+    },
+    MouseInput {
+        state: winit::event::ElementState,
+        button: winit::event::MouseButton,
+    },
+    KeyboardInput {
+        event: winit::event::KeyEvent,
+        is_synthetic: bool,
+    },
+    ModifiersChanged(winit::keyboard::ModifiersState),
+    Resized(winit::dpi::PhysicalSize<u32>),
+    Focused(bool),
+    RedrawRequested,
+    /// A touch event. On Android (and other touch-only platforms) winit emits
+    /// *only* `WindowEvent::Touch` — no synthetic mouse events — so this is the
+    /// sole pointer input iced can consume there.
+    Touch(winit::event::Touch),
+}
+
+/// Queue of winit events to be forwarded to iced UI overlays.
+///
+/// Populated each frame by `module_runtime.rs` before overlay rendering.
+/// Consumed by `IcedLayerRenderer::render()` and drained.
+pub struct IcedEventQueue {
+    pub events: Vec<IcedWindowEvent>,
+    pub cursor_position: Option<winit::dpi::PhysicalPosition<f64>>,
+    pub modifiers: winit::keyboard::ModifiersState,
+    pub scale_factor: f64,
+}
+
+impl Default for IcedEventQueue {
+    fn default() -> Self {
+        Self {
+            events: Vec::new(),
+            cursor_position: None,
+            modifiers: winit::keyboard::ModifiersState::empty(),
+            scale_factor: 1.0,
+        }
+    }
+}
+
+impl IcedEventQueue {
+    pub fn push(&mut self, event: IcedWindowEvent) {
+        match &event {
+            IcedWindowEvent::CursorMoved { position } => {
+                self.cursor_position = Some(*position);
+            }
+            // Like `iced_winit::window::State::update`, a touch updates the
+            // cursor position too — otherwise the cursor stays `Unavailable`
+            // on touch-only platforms and *all* hit-testing fails.
+            IcedWindowEvent::Touch(touch) => {
+                self.cursor_position = Some(touch.location);
+            }
+            IcedWindowEvent::ModifiersChanged(mods) => {
+                self.modifiers = *mods;
+            }
+            _ => {}
+        }
+        self.events.push(event);
+    }
+
+    pub fn set_scale_factor(&mut self, scale: f64) {
+        self.scale_factor = scale;
+    }
+
+    pub fn drain(&mut self) -> Vec<IcedWindowEvent> {
+        std::mem::take(&mut self.events)
+    }
+}
+
+/// Winit touch ids currently **captured** by an iced UI overlay.
+///
+/// Populated by the iced overlay renderers (`orbital_iced`): whenever a
+/// `WindowEvent::Touch` is converted and handed to iced and the widget tree
+/// consumes it (`event::Status::Captured` — e.g. a button press, a
+/// `FloatingPanel` title-bar drag or a slider), the touch id is inserted
+/// here. Lifted/lost fingers are removed again so stale ids cannot
+/// accumulate.
+///
+/// `module_runtime.rs` consults this resource *before* feeding touch events
+/// into the engine's game-input path (`orbital_input::InputState`), so that
+/// touches interacting with UI panels don't also drive the virtual joystick
+/// or the drag-to-look camera. The iced event queue itself keeps receiving
+/// every touch event regardless — capture only masks the game-input path.
+///
+/// Mirrors [`IcedEventQueue`]: populated during the render pass (iced
+/// consumes events *while* rendering), which means capture information for a
+/// freshly pressed finger is one frame late. The consumer compensates by
+/// synthesizing a `TouchPhase::Cancelled` for the finger once, fully
+/// releasing it from the game-input state.
+#[derive(Debug, Clone, Default)]
+pub struct IcedCapturedTouches(pub hashbrown::HashSet<u64>);
+
+impl IcedCapturedTouches {
+    /// Whether the given winit touch id is currently captured by the UI.
+    pub fn contains(&self, touch_id: u64) -> bool {
+        self.0.contains(&touch_id)
+    }
+
+    /// Mark a touch id as captured by the UI. Returns `true` if the id was
+    /// newly inserted (i.e. it wasn't captured already).
+    pub fn capture(&mut self, touch_id: u64) -> bool {
+        self.0.insert(touch_id)
+    }
+
+    /// Release a touch id (finger lifted/lost/cancelled).
+    pub fn release(&mut self, touch_id: u64) {
+        self.0.remove(&touch_id);
+    }
+
+    /// Whether any finger is currently captured by the UI.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Engine events (replace AppEvent)
@@ -176,6 +311,42 @@ mod tests {
         let drained = events.drain();
         assert_eq!(drained.len(), 10);
         assert!(events.is_empty());
+    }
+
+    #[test]
+    fn iced_captured_touches_lifecycle() {
+        let mut captured = IcedCapturedTouches::default();
+        assert!(captured.is_empty());
+        assert!(!captured.contains(42));
+
+        // A widget captures the finger...
+        captured.capture(42);
+        assert!(captured.contains(42));
+        assert!(!captured.is_empty());
+
+        // ...and the finger is eventually lifted.
+        captured.release(42);
+        assert!(!captured.contains(42));
+        assert!(captured.is_empty());
+    }
+
+    #[test]
+    fn iced_captured_touches_track_multiple_fingers() {
+        let mut captured = IcedCapturedTouches::default();
+
+        captured.capture(1);
+        captured.capture(2);
+        assert!(captured.contains(1) && captured.contains(2));
+
+        // Releasing one finger must not disturb the other (multi-touch:
+        // one finger on the UI while another drives the camera).
+        captured.release(1);
+        assert!(!captured.contains(1));
+        assert!(captured.contains(2));
+
+        // Capturing again is idempotent.
+        captured.capture(2);
+        assert!(captured.contains(2));
     }
 }
 
