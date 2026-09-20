@@ -139,9 +139,8 @@ fn apply_keyboard_mouse_controls(
     pos.0 += movement;
 
     // Mouse rotation — only when cursor is grabbed (hidden)
-    if cursor_grabbed
-        && let Some((_, delta)) = input.delta_state_any(&InputAxis::MouseMovement) {
-            rot.rotate_pitch(Rad(delta.x as f32 * LOOK_SENSITIVITY));
-            rot.rotate_yaw(Rad(-delta.y as f32 * LOOK_SENSITIVITY));
-        }
+    if cursor_grabbed && let Some((_, delta)) = input.delta_state_any(&InputAxis::MouseMovement) {
+        rot.rotate_pitch(Rad(delta.x as f32 * LOOK_SENSITIVITY));
+        rot.rotate_yaw(Rad(-delta.y as f32 * LOOK_SENSITIVITY));
+    }
 }

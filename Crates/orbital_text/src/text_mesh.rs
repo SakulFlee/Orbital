@@ -67,10 +67,11 @@ pub fn generate_text_mesh(
 
         // Check for word wrapping
         if let Some(max_width) = config.max_width
-            && glyph_x + glyph_width > max_width {
-                cursor_x = 0.0;
-                cursor_y += line_height;
-            }
+            && glyph_x + glyph_width > max_width
+        {
+            cursor_x = 0.0;
+            cursor_y += line_height;
+        }
 
         // Get UV coordinates from atlas or use placeholders
         let (uv_min, uv_max) = if let Some(atlas) = atlas {
@@ -167,7 +168,7 @@ pub fn generate_billboard_text_mesh(
 ) -> Vec<[f32; 3]> {
     let mut vertices = Vec::new();
     let mut cursor_x = 0.0f32;
-        let _line_height = font.line_height(config.font_size) * config.line_height_multiplier * scale;
+    let _line_height = font.line_height(config.font_size) * config.line_height_multiplier * scale;
 
     for ch in text.chars() {
         if ch == '\n' {

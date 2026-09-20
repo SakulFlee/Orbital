@@ -109,12 +109,7 @@ where
         widget::tree::State::new(s)
     }
 
-    fn layout(
-        &mut self,
-        tree: &mut Tree,
-        renderer: &Renderer,
-        _limits: &layout::Limits,
-    ) -> Node {
+    fn layout(&mut self, tree: &mut Tree, renderer: &Renderer, _limits: &layout::Limits) -> Node {
         // Tree::new() doesn't call diff(), so on first frame children may be empty
         if tree.children.len() < 2 {
             self.diff(tree);
@@ -162,10 +157,7 @@ where
         // Tree::new() creates fresh state (e.g. is_pressed = false), which
         // destroys widget state on every frame. diff_children reconciles
         // old/new children, keeping state for unchanged widgets alive.
-        tree.diff_children(&mut [
-            self.title.as_widget_mut(),
-            self.content.as_widget_mut(),
-        ]);
+        tree.diff_children(&mut [self.title.as_widget_mut(), self.content.as_widget_mut()]);
     }
 
     fn update(
@@ -210,9 +202,9 @@ where
             Event::Touch(touch::Event::FingerMoved { position, .. }) => {
                 (None, Some(*position), false)
             }
-            Event::Touch(
-                touch::Event::FingerLifted { .. } | touch::Event::FingerLost { .. },
-            ) => (None, None, true),
+            Event::Touch(touch::Event::FingerLifted { .. } | touch::Event::FingerLost { .. }) => {
+                (None, None, true)
+            }
             _ => (None, None, false),
         };
 
@@ -240,10 +232,9 @@ where
         {
             let delta = position - state.drag_origin;
             let dist = (delta.x * delta.x + delta.y * delta.y).sqrt();
-            let offset_dist =
-                (state.drag_offset.x * state.drag_offset.x
-                    + state.drag_offset.y * state.drag_offset.y)
-                    .sqrt();
+            let offset_dist = (state.drag_offset.x * state.drag_offset.x
+                + state.drag_offset.y * state.drag_offset.y)
+                .sqrt();
             if dist > DRAG_DEADBAND || offset_dist > 0.0 {
                 state.position = position - state.drag_offset;
                 shell.request_redraw();
@@ -351,10 +342,8 @@ where
             width: TITLE_BAR_HEIGHT,
             height: TITLE_BAR_HEIGHT,
         };
-        let close_hover = !state.is_dragging
-            && cursor
-                .position()
-                .is_some_and(|p| close_bounds.contains(p));
+        let close_hover =
+            !state.is_dragging && cursor.position().is_some_and(|p| close_bounds.contains(p));
         let close_bg = if close_hover {
             Color::from_rgba(0.8, 0.2, 0.2, 0.8)
         } else {
@@ -445,9 +434,10 @@ where
         }
 
         if let Some(cursor_pos) = cursor.position()
-            && title_bounds.contains(cursor_pos) {
-                return mouse::Interaction::Grab;
-            }
+            && title_bounds.contains(cursor_pos)
+        {
+            return mouse::Interaction::Grab;
+        }
 
         mouse::Interaction::None
     }

@@ -25,10 +25,7 @@ pub fn create_button(
         .attach_component(&entity, layout)
         .expect("Failed to attach UiLayout");
     world
-        .attach_component(
-            &entity,
-            UiBackground::rounded([0.3, 0.3, 0.3, 0.9], 4.0),
-        )
+        .attach_component(&entity, UiBackground::rounded([0.3, 0.3, 0.3, 0.9], 4.0))
         .expect("Failed to attach UiBackground");
     world
         .attach_component(&entity, UiFocus::default())
@@ -38,11 +35,7 @@ pub fn create_button(
 }
 
 /// Updates the button state based on hover and press status.
-pub fn update_button_state(
-    button: &mut UiButton,
-    hovered: bool,
-    pressed: bool,
-) {
+pub fn update_button_state(button: &mut UiButton, hovered: bool, pressed: bool) {
     button.state = if pressed {
         ButtonState::Pressed
     } else if hovered {

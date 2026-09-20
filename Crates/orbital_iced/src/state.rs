@@ -1,6 +1,6 @@
 use crate::floating_panel::FloatingPanel;
-use iced_winit::core::{Element, Theme};
 use iced_wgpu::Renderer;
+use iced_winit::core::{Element, Theme};
 use orbital_ecs::World;
 use std::collections::HashMap;
 use std::sync::Arc;

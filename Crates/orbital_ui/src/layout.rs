@@ -38,8 +38,7 @@ impl Default for UiLayout {
 }
 
 /// Alignment within a layout container.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Alignment {
     /// Align to the start (left for horizontal, top for vertical).
     #[default]
@@ -49,7 +48,6 @@ pub enum Alignment {
     /// Align to the end (right for horizontal, bottom for vertical).
     End,
 }
-
 
 /// A container for child layouts.
 #[derive(Debug, Clone)]

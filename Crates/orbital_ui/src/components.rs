@@ -1,5 +1,3 @@
-
-
 /// Marker component for UI entities.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct UiEntity;
@@ -41,8 +39,7 @@ impl UiElement {
 }
 
 /// State of a button.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ButtonState {
     /// Normal state.
     #[default]
@@ -52,7 +49,6 @@ pub enum ButtonState {
     /// Button is being pressed.
     Pressed,
 }
-
 
 /// Button widget component.
 #[derive(Debug, Clone)]
@@ -113,8 +109,7 @@ impl UiText {
 }
 
 /// TextBox widget component for text input.
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub struct UiTextBox {
     /// Current text value.
     pub value: String,
@@ -125,7 +120,6 @@ pub struct UiTextBox {
     /// Whether this text box has focus.
     pub focused: bool,
 }
-
 
 impl UiTextBox {
     pub fn new() -> Self {
@@ -139,15 +133,13 @@ impl UiTextBox {
 }
 
 /// Checkbox widget component.
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub struct UiCheckbox {
     /// Whether the checkbox is checked.
     pub checked: bool,
     /// Checkbox label.
     pub label: String,
 }
-
 
 impl UiCheckbox {
     pub fn new(label: impl Into<String>) -> Self {
@@ -266,7 +258,9 @@ mod tests {
 
     #[test]
     fn ui_text_builder() {
-        let text = UiText::new("Hello").with_font_size(32.0).with_color([1.0, 0.0, 0.0, 1.0]);
+        let text = UiText::new("Hello")
+            .with_font_size(32.0)
+            .with_color([1.0, 0.0, 0.0, 1.0]);
         assert_eq!(text.content, "Hello");
         assert_eq!(text.font_size, 32.0);
         assert_eq!(text.color, [1.0, 0.0, 0.0, 1.0]);

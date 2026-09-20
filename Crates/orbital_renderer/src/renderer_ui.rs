@@ -1,8 +1,8 @@
 use wgpu::{
-    Buffer, BufferDescriptor, BufferUsages,
-    ColorTargetState, ColorWrites, Device, FragmentState, MultisampleState, PipelineLayoutDescriptor,
-    PrimitiveState, PrimitiveTopology, RenderPipeline, RenderPipelineDescriptor, ShaderModuleDescriptor,
-    ShaderSource, VertexAttribute, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
+    Buffer, BufferDescriptor, BufferUsages, ColorTargetState, ColorWrites, Device, FragmentState,
+    MultisampleState, PipelineLayoutDescriptor, PrimitiveState, PrimitiveTopology, RenderPipeline,
+    RenderPipelineDescriptor, ShaderModuleDescriptor, ShaderSource, VertexAttribute,
+    VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
 };
 
 /// GPU renderer for UI backgrounds using SDF rounded rectangles.

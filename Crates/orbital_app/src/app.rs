@@ -11,8 +11,8 @@
 use orbital_ecs::{System, World};
 use wgpu::{Device, Queue};
 
-use crate::{Module, ModuleRuntime};
 use crate::render_overlay::{LayerRenderer, RenderOverlay};
+use crate::{Module, ModuleRuntime};
 
 /// Application builder — the entry point for Orbital applications.
 ///

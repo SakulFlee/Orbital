@@ -1,12 +1,12 @@
 use orbital::app::{App, AppSettings, Module};
+use orbital::app::{RenderOverlay, RenderOverlayContext, RenderOverlayResource};
 use orbital::ecs::{System, World};
 use orbital::ecs_bridge::SurfaceFormatResource;
 use orbital::logging::{self, error, info};
-use orbital::app::{RenderOverlay, RenderOverlayContext, RenderOverlayResource};
-use orbital::renderer::UiRenderer;
 use orbital::renderer::TextRenderer;
-use orbital::twod::Vertex2D;
+use orbital::renderer::UiRenderer;
 use orbital::text::{FontData, SdfAtlas, TextConfig, generate_text_mesh};
+use orbital::twod::Vertex2D;
 
 pub fn entrypoint(
     event_loop_result: Result<
@@ -106,27 +106,30 @@ impl RenderOverlay for UiBackgroundOverlay {
             ));
         }
 
-        let mut command_encoder = ctx.device.create_command_encoder(&orbital::wgpu::CommandEncoderDescriptor {
-            label: Some("UI Background Encoder"),
-        });
+        let mut command_encoder =
+            ctx.device
+                .create_command_encoder(&orbital::wgpu::CommandEncoderDescriptor {
+                    label: Some("UI Background Encoder"),
+                });
 
         {
-            let mut render_pass = command_encoder.begin_render_pass(&orbital::wgpu::RenderPassDescriptor {
-                label: Some("UI Background Pass"),
-                color_attachments: &[Some(orbital::wgpu::RenderPassColorAttachment {
-                    view: ctx.target_view,
-                    resolve_target: None,
-                    ops: orbital::wgpu::Operations {
-                        load: orbital::wgpu::LoadOp::Load,
-                        store: orbital::wgpu::StoreOp::Store,
-                    },
-                    depth_slice: None,
-                })],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-                multiview_mask: None,
-            });
+            let mut render_pass =
+                command_encoder.begin_render_pass(&orbital::wgpu::RenderPassDescriptor {
+                    label: Some("UI Background Pass"),
+                    color_attachments: &[Some(orbital::wgpu::RenderPassColorAttachment {
+                        view: ctx.target_view,
+                        resolve_target: None,
+                        ops: orbital::wgpu::Operations {
+                            load: orbital::wgpu::LoadOp::Load,
+                            store: orbital::wgpu::StoreOp::Store,
+                        },
+                        depth_slice: None,
+                    })],
+                    depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
+                    multiview_mask: None,
+                });
 
             // Upload vertex data
             let byte_data = unsafe {
@@ -135,7 +138,8 @@ impl RenderOverlay for UiBackgroundOverlay {
                     ndc_vertices.len() * std::mem::size_of::<Vertex2D>(),
                 )
             };
-            ctx.queue.write_buffer(self.renderer.vertex_buffer(), 0, byte_data);
+            ctx.queue
+                .write_buffer(self.renderer.vertex_buffer(), 0, byte_data);
 
             render_pass.set_pipeline(self.renderer.pipeline());
             render_pass.set_vertex_buffer(0, self.renderer.vertex_buffer().slice(..));
@@ -190,7 +194,8 @@ impl TextOverlay {
 
     /// Adds a text to render.
     fn add_text(&mut self, text: &str, x: f32, y: f32, font_size: f32, color: [f32; 4]) {
-        self.texts.push((text.to_string(), [x, y], font_size, color));
+        self.texts
+            .push((text.to_string(), [x, y], font_size, color));
     }
 
     /// Generates all text vertices.
@@ -277,36 +282,41 @@ impl RenderOverlay for TextOverlay {
             None => return,
         };
 
-        let params_bind_group = ctx.device.create_bind_group(&orbital::wgpu::BindGroupDescriptor {
-            label: Some("SDF Params Bind Group"),
-            layout: &self.renderer.pipeline().get_bind_group_layout(2),
-            entries: &[orbital::wgpu::BindGroupEntry {
-                binding: 0,
-                resource: sdf_params_buffer.as_entire_binding(),
-            }],
-        });
+        let params_bind_group = ctx
+            .device
+            .create_bind_group(&orbital::wgpu::BindGroupDescriptor {
+                label: Some("SDF Params Bind Group"),
+                layout: &self.renderer.pipeline().get_bind_group_layout(2),
+                entries: &[orbital::wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: sdf_params_buffer.as_entire_binding(),
+                }],
+            });
 
-        let mut command_encoder = ctx.device.create_command_encoder(&orbital::wgpu::CommandEncoderDescriptor {
-            label: Some("Text Encoder"),
-        });
+        let mut command_encoder =
+            ctx.device
+                .create_command_encoder(&orbital::wgpu::CommandEncoderDescriptor {
+                    label: Some("Text Encoder"),
+                });
 
         {
-            let mut render_pass = command_encoder.begin_render_pass(&orbital::wgpu::RenderPassDescriptor {
-                label: Some("Text Pass"),
-                color_attachments: &[Some(orbital::wgpu::RenderPassColorAttachment {
-                    view: ctx.target_view,
-                    resolve_target: None,
-                    ops: orbital::wgpu::Operations {
-                        load: orbital::wgpu::LoadOp::Load,
-                        store: orbital::wgpu::StoreOp::Store,
-                    },
-                    depth_slice: None,
-                })],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-                multiview_mask: None,
-            });
+            let mut render_pass =
+                command_encoder.begin_render_pass(&orbital::wgpu::RenderPassDescriptor {
+                    label: Some("Text Pass"),
+                    color_attachments: &[Some(orbital::wgpu::RenderPassColorAttachment {
+                        view: ctx.target_view,
+                        resolve_target: None,
+                        ops: orbital::wgpu::Operations {
+                            load: orbital::wgpu::LoadOp::Load,
+                            store: orbital::wgpu::StoreOp::Store,
+                        },
+                        depth_slice: None,
+                    })],
+                    depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
+                    multiview_mask: None,
+                });
 
             // Upload vertex data
             let byte_data = unsafe {
@@ -315,7 +325,8 @@ impl RenderOverlay for TextOverlay {
                     ndc_vertices.len() * std::mem::size_of::<Vertex2D>(),
                 )
             };
-            ctx.queue.write_buffer(self.renderer.vertex_buffer(), 0, byte_data);
+            ctx.queue
+                .write_buffer(self.renderer.vertex_buffer(), 0, byte_data);
 
             render_pass.set_pipeline(self.renderer.pipeline());
             render_pass.set_bind_group(1, &atlas_bind_group, &[]);
@@ -354,31 +365,56 @@ impl Module for UiDemoModule {
         // Title background
         UiBackgroundOverlay::push_rounded_rect(
             &mut overlay.vertices,
-            50.0, 20.0, 500.0, 50.0, 8.0, bg_color,
+            50.0,
+            20.0,
+            500.0,
+            50.0,
+            8.0,
+            bg_color,
         );
 
         // Play button
         UiBackgroundOverlay::push_rounded_rect(
             &mut overlay.vertices,
-            100.0, 100.0, 200.0, 50.0, 8.0, accent_color,
+            100.0,
+            100.0,
+            200.0,
+            50.0,
+            8.0,
+            accent_color,
         );
 
         // Text box background
         UiBackgroundOverlay::push_rounded_rect(
             &mut overlay.vertices,
-            100.0, 180.0, 250.0, 40.0, 4.0, [0.15, 0.15, 0.15, 0.9],
+            100.0,
+            180.0,
+            250.0,
+            40.0,
+            4.0,
+            [0.15, 0.15, 0.15, 0.9],
         );
 
         // Checkbox background
         UiBackgroundOverlay::push_rounded_rect(
             &mut overlay.vertices,
-            100.0, 240.0, 30.0, 30.0, 4.0, btn_color,
+            100.0,
+            240.0,
+            30.0,
+            30.0,
+            4.0,
+            btn_color,
         );
 
         // Exit button
         UiBackgroundOverlay::push_rounded_rect(
             &mut overlay.vertices,
-            100.0, 300.0, 200.0, 50.0, 8.0, btn_color,
+            100.0,
+            300.0,
+            200.0,
+            50.0,
+            8.0,
+            btn_color,
         );
 
         info!("Created UI demo with {} vertices", overlay.vertices.len());
@@ -393,10 +429,22 @@ impl Module for UiDemoModule {
         text_overlay.add_text("Play Game", 150.0, 115.0, 20.0, [1.0, 1.0, 1.0, 1.0]);
 
         // Text box placeholder
-        text_overlay.add_text("Enter username...", 110.0, 195.0, 16.0, [0.5, 0.5, 0.5, 1.0]);
+        text_overlay.add_text(
+            "Enter username...",
+            110.0,
+            195.0,
+            16.0,
+            [0.5, 0.5, 0.5, 1.0],
+        );
 
         // Checkbox label
-        text_overlay.add_text("I agree to the terms", 140.0, 248.0, 14.0, [0.8, 0.8, 0.8, 1.0]);
+        text_overlay.add_text(
+            "I agree to the terms",
+            140.0,
+            248.0,
+            14.0,
+            [0.8, 0.8, 0.8, 1.0],
+        );
 
         // Exit button text
         text_overlay.add_text("Exit", 180.0, 315.0, 20.0, [1.0, 1.0, 1.0, 1.0]);

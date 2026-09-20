@@ -1,12 +1,12 @@
 use crate::state::IcedState;
-use orbital_app::render_overlay::{LayerRenderer as LayerRendererTrait, RenderOverlayContext};
 use orbital_app::RenderLayer;
+use orbital_app::render_overlay::{LayerRenderer as LayerRendererTrait, RenderOverlayContext};
 use orbital_ecs_bridge::{
     AdapterResource, DeviceResource, IcedCapturedTouches, IcedEventQueue, IcedWindowEvent,
     QueueResource, SurfaceFormatResource, WindowSize,
 };
-use winit::event::TouchPhase;
 use std::sync::Mutex;
+use winit::event::TouchPhase;
 
 pub struct IcedLayerRenderer {
     state: IcedState,
@@ -126,7 +126,11 @@ impl LayerRendererTrait for IcedLayerRenderer {
             }
         };
 
-        let scale_factor = if scale_factor > 0.0 { scale_factor } else { 1.0 };
+        let scale_factor = if scale_factor > 0.0 {
+            scale_factor
+        } else {
+            1.0
+        };
 
         // Physical → logical cursor position.
         let cursor = match cursor_phys {
@@ -398,10 +402,8 @@ impl LayerRendererTrait for IcedLayerRenderer {
         // Write back the cache after releasing the borrow on self.state
         inner.cache = Some(updated_cache);
 
-        let physical_size = iced_core::Size::new(
-            ctx.screen_size.0 as u32,
-            ctx.screen_size.1 as u32,
-        );
+        let physical_size =
+            iced_core::Size::new(ctx.screen_size.0 as u32, ctx.screen_size.1 as u32);
 
         let viewport = iced_graphics::Viewport::with_physical_size(
             physical_size,
@@ -411,7 +413,9 @@ impl LayerRendererTrait for IcedLayerRenderer {
             },
         );
 
-        inner.renderer.present(None, format, ctx.target_view, &viewport);
+        inner
+            .renderer
+            .present(None, format, ctx.target_view, &viewport);
     }
 }
 
@@ -448,7 +452,10 @@ fn convert_event(
             };
             Some(Event::Mouse(iced_state))
         }
-        IcedWindowEvent::KeyboardInput { event, is_synthetic } if !is_synthetic => {
+        IcedWindowEvent::KeyboardInput {
+            event,
+            is_synthetic,
+        } if !is_synthetic => {
             // `modifier_supplement` is unavailable on wasm32 and Android in
             // winit; fall back to the logical key / plain text there (same as
             // `iced_winit::conversion`).
@@ -471,9 +478,7 @@ fn convert_event(
             let modified_key = convert_winit_key(logical_key);
             let phys = convert_physical_key(*winit_physical);
             #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
-            let text = event
-                .text_with_all_modifiers()
-                .map(iced_core::SmolStr::new);
+            let text = event.text_with_all_modifiers().map(iced_core::SmolStr::new);
             #[cfg(any(target_arch = "wasm32", target_os = "android"))]
             let text = event.text.clone();
 
@@ -505,14 +510,13 @@ fn convert_event(
                 },
             }))
         }
-        IcedWindowEvent::ModifiersChanged(mods) => {
-            Some(Event::Keyboard(keyboard::Event::ModifiersChanged(
-                convert_modifiers(*mods),
-            )))
-        }
-        IcedWindowEvent::Touch(touch) => Some(Event::Touch(
-            iced_winit::conversion::touch_event(*touch, scale_factor as f32),
+        IcedWindowEvent::ModifiersChanged(mods) => Some(Event::Keyboard(
+            keyboard::Event::ModifiersChanged(convert_modifiers(*mods)),
         )),
+        IcedWindowEvent::Touch(touch) => Some(Event::Touch(iced_winit::conversion::touch_event(
+            *touch,
+            scale_factor as f32,
+        ))),
         IcedWindowEvent::RedrawRequested => Some(Event::Window(window::Event::RedrawRequested(
             iced_core::time::Instant::now(),
         ))),
@@ -590,9 +594,7 @@ fn convert_named_key(n: winit::keyboard::NamedKey) -> iced_core::keyboard::key::
     }
 }
 
-fn convert_physical_key(
-    pk: winit::keyboard::PhysicalKey,
-) -> iced_core::keyboard::key::Physical {
+fn convert_physical_key(pk: winit::keyboard::PhysicalKey) -> iced_core::keyboard::key::Physical {
     match pk {
         winit::keyboard::PhysicalKey::Code(code) => {
             iced_core::keyboard::key::Physical::Code(convert_key_code(code))

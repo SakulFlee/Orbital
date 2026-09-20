@@ -52,10 +52,10 @@ impl SdfAtlas {
                     let byte_value = ((sdf_value + 1.0) * 0.5 * 255.0).clamp(0.0, 255.0) as u8;
 
                     let idx = (atlas_y * atlas_width + atlas_x) * 4;
-                    self.data[idx] = byte_value;     // R
+                    self.data[idx] = byte_value; // R
                     self.data[idx + 1] = byte_value; // G
                     self.data[idx + 2] = byte_value; // B
-                    self.data[idx + 3] = 255;        // A
+                    self.data[idx + 3] = 255; // A
                 }
             }
         }
@@ -115,12 +115,8 @@ impl SdfAtlas {
             }
 
             // Generate SDF from the bitmap
-            let sdf_data = crate::font::generate_sdf(
-                &bitmap,
-                metrics.width,
-                metrics.height,
-                sdf_scale,
-            );
+            let sdf_data =
+                crate::font::generate_sdf(&bitmap, metrics.width, metrics.height, sdf_scale);
 
             // Allocate space in the atlas
             if let Some((offset_x, offset_y)) = packer.allocate(

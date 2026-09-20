@@ -71,18 +71,16 @@ mod tests {
 
     #[test]
     fn hit_test_basic() {
-        let elements = vec![
-            (
-                make_entity(0),
-                ResolvedLayout {
-                    x: 0.0,
-                    y: 0.0,
-                    width: 100.0,
-                    height: 50.0,
-                },
-                0,
-            ),
-        ];
+        let elements = vec![(
+            make_entity(0),
+            ResolvedLayout {
+                x: 0.0,
+                y: 0.0,
+                width: 100.0,
+                height: 50.0,
+            },
+            0,
+        )];
 
         let result = hit_test(50.0, 25.0, &elements);
         assert!(result.is_some());
@@ -91,18 +89,16 @@ mod tests {
 
     #[test]
     fn hit_test_miss() {
-        let elements = vec![
-            (
-                make_entity(0),
-                ResolvedLayout {
-                    x: 0.0,
-                    y: 0.0,
-                    width: 100.0,
-                    height: 50.0,
-                },
-                0,
-            ),
-        ];
+        let elements = vec![(
+            make_entity(0),
+            ResolvedLayout {
+                x: 0.0,
+                y: 0.0,
+                width: 100.0,
+                height: 50.0,
+            },
+            0,
+        )];
 
         let result = hit_test(150.0, 25.0, &elements);
         assert!(result.is_none());

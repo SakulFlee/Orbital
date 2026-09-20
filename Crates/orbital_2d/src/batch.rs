@@ -130,7 +130,11 @@ mod tests {
     #[test]
     fn push_single_shape() {
         let mut batch = Batch2D::new();
-        let verts = vec![test_vertex(0.0, 0.0), test_vertex(1.0, 0.0), test_vertex(0.5, 1.0)];
+        let verts = vec![
+            test_vertex(0.0, 0.0),
+            test_vertex(1.0, 0.0),
+            test_vertex(0.5, 1.0),
+        ];
 
         batch.push_shape(&verts);
 

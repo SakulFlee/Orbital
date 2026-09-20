@@ -31,7 +31,7 @@ pub mod widgets;
 
 pub use components::*;
 pub use events::*;
-pub use hit_test::{hit_test, hit_test_all, HitResult};
+pub use hit_test::{HitResult, hit_test, hit_test_all};
 pub use layout::{Alignment, UiLayout};
 
 #[cfg(test)]

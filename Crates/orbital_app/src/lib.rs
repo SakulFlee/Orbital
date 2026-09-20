@@ -28,7 +28,9 @@ pub mod render_layer;
 pub use render_layer::{LayerConfig, RenderLayer};
 
 pub mod render_overlay;
-pub use render_overlay::{LayerRenderer, RenderOverlay, RenderOverlayContext, RenderOverlayResource};
+pub use render_overlay::{
+    LayerRenderer, RenderOverlay, RenderOverlayContext, RenderOverlayResource,
+};
 
 mod touch_controls;
 pub use touch_controls::{TouchControlsConfig, set_touch_controls, touch_controls};
@@ -42,8 +44,8 @@ pub struct FreezeKeyConfig(pub winit::keyboard::KeyCode);
 
 pub mod systems;
 pub use systems::{
-    realize_cameras, realize_environment, realize_lights, realize_models, sys_camera_controller,
-    sys_frustum_cull, sys_touch_camera_controller, CursorToggle,
+    CursorToggle, realize_cameras, realize_environment, realize_lights, realize_models,
+    sys_camera_controller, sys_frustum_cull, sys_touch_camera_controller,
 };
 
 pub use orbital_input as input;

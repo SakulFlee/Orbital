@@ -6,9 +6,7 @@
 //! to register it in an application.
 
 use cgmath::{InnerSpace, Vector2};
-use orbital_app::{
-    touch_controls, Module, RenderOverlay, RenderOverlayContext,
-};
+use orbital_app::{touch_controls, Module, RenderOverlay, RenderOverlayContext};
 use orbital_ecs::{System, World};
 use orbital_ecs_bridge::{InputSnapshot, SurfaceFormatResource};
 use wgpu::{
@@ -395,7 +393,9 @@ impl Module for TouchUiModule {
         let device = match ecs.get_resource::<orbital_ecs_bridge::DeviceResource>() {
             Some(d) => d,
             None => {
-                orbital_core::logging::warn!("TouchUiModule: no DeviceResource, skipping overlay registration");
+                orbital_core::logging::warn!(
+                    "TouchUiModule: no DeviceResource, skipping overlay registration"
+                );
                 return;
             }
         };

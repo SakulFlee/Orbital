@@ -17,7 +17,7 @@ mod system;
 pub use system::*;
 
 pub mod hierarchy;
-pub use hierarchy::{Parent, Children};
+pub use hierarchy::{Children, Parent};
 
 pub mod events;
 pub use events::Events;

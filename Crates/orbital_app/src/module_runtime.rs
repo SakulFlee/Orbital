@@ -27,14 +27,11 @@ use orbital_light::LightType;
 use orbital_shadow::{ShadowCaster, ShadowLightInfo};
 use orbital_world_environment::{GeneratedSkyParameters, WorldEnvironment};
 
-use crate::{
-    AppContext, AppSettings, AppState, Module, Timer, make_core_schedule,
-};
+use crate::{AppContext, AppSettings, AppState, Module, Timer, make_core_schedule};
 use orbital_ecs_bridge::{
-    ActiveCamera, AdapterResource, CameraDescriptorEcs, CameraDirty, CursorGrabConfig, CursorGrabState,
-    CursorPosition, DeltaTime,
-    DeviceResource, EcsCameraStore, EngineEvent, EngineEvents, FrameCounter, IcedCapturedTouches,
-    IcedEventQueue, InputSnapshot,
+    ActiveCamera, AdapterResource, CameraDescriptorEcs, CameraDirty, CursorGrabConfig,
+    CursorGrabState, CursorPosition, DeltaTime, DeviceResource, EcsCameraStore, EngineEvent,
+    EngineEvents, FrameCounter, IcedCapturedTouches, IcedEventQueue, InputSnapshot,
     LightDescriptorEcs, Position, QueueResource, SurfaceFormatResource, TotalTime, WindowSize,
 };
 
@@ -813,8 +810,7 @@ impl ModuleRuntime {
             let camera_buffer = self.extract_camera_buffer(device, queue);
 
             // Get screen size for overlay context
-            let screen_size = if let Some(size_res) = self.ecs_world.get_resource::<WindowSize>()
-            {
+            let screen_size = if let Some(size_res) = self.ecs_world.get_resource::<WindowSize>() {
                 (size_res.0.x as f32, size_res.0.y as f32)
             } else {
                 (800.0, 600.0)
@@ -1298,8 +1294,7 @@ impl ApplicationHandler for ModuleRuntime {
                 .insert_resource(AdapterResource(Arc::new(ctx_guard.adapter().clone())));
             self.ecs_world
                 .insert_resource(SurfaceFormatResource(config.format));
-            self.ecs_world
-                .insert_resource(IcedEventQueue::default());
+            self.ecs_world.insert_resource(IcedEventQueue::default());
             self.ecs_world
                 .insert_resource(IcedCapturedTouches::default());
 
@@ -1504,14 +1499,16 @@ impl ApplicationHandler for ModuleRuntime {
         // Forward relevant events to iced UI overlays
         if let Some(mut queue) = self.ecs_world.get_resource_mut::<IcedEventQueue>() {
             use orbital_ecs_bridge::IcedWindowEvent;
-            
+
             // Update scale factor from window
             let scale = ctx_lock!(ctx).window().scale_factor();
             queue.set_scale_factor(scale);
-            
+
             match &event {
                 WindowEvent::CursorMoved { position, .. } => {
-                    queue.push(IcedWindowEvent::CursorMoved { position: *position });
+                    queue.push(IcedWindowEvent::CursorMoved {
+                        position: *position,
+                    });
                 }
                 WindowEvent::MouseInput { state, button, .. } => {
                     queue.push(IcedWindowEvent::MouseInput {
@@ -1519,7 +1516,11 @@ impl ApplicationHandler for ModuleRuntime {
                         button: *button,
                     });
                 }
-                WindowEvent::KeyboardInput { event, is_synthetic, .. } => {
+                WindowEvent::KeyboardInput {
+                    event,
+                    is_synthetic,
+                    ..
+                } => {
                     queue.push(IcedWindowEvent::KeyboardInput {
                         event: event.clone(),
                         is_synthetic: *is_synthetic,
