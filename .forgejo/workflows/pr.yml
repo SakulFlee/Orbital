@@ -14,6 +14,8 @@ jobs:
       SCCACHE_CACHE_SIZE: 10G
     steps:
       - uses: https://code.forgejo.org/actions/checkout@v6
+        with:
+          submodules: true
       - name: Cache cargo registry
         uses: https://code.forgejo.org/actions/cache@v4
         continue-on-error: true
