@@ -52,3 +52,6 @@ gilrs = { workspace = true, optional = true }
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = { workspace = true }
 winit = { workspace = true, features = ["android-native-activity"] }
+
+[target.'cfg(target_os = "ios")'.dependencies]
+winit = { workspace = true }
