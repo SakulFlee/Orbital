@@ -1100,8 +1100,6 @@ impl ModuleRuntime {
 
         // Write frame-computed engine state into the ECS world
         self.ecs_world.insert_resource(DeltaTime(delta_time));
-        self.ecs_world
-            .insert_resource(InputSnapshot(self.input_state.clone()));
 
         // ── Process iced UI events BEFORE game systems ──────────────
         // IcedLayerRenderer::process_events() clones the queued events,
@@ -1158,6 +1156,12 @@ impl ModuleRuntime {
                 force: touch.force,
             });
         }
+
+        // Snapshot input state AFTER deferred touches are processed so game
+        // systems (camera controller, etc.) see the current frame's touch
+        // data — including right-side look deltas.
+        self.ecs_world
+            .insert_resource(InputSnapshot(self.input_state.clone()));
 
         // Run core schedule (timing, frame counter)
         self.core_schedule.run(&mut self.ecs_world);
