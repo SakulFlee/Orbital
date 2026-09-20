@@ -55,7 +55,7 @@ impl FontData {
     pub fn get_glyph(&mut self, ch: char, font_size: u32, sdf_scale: f32) -> &GlyphInfo {
         let size_cache = self.glyph_cache.entry(font_size).or_default();
 
-        if !size_cache.contains_key(&ch) {
+        if let std::collections::hash_map::Entry::Vacant(e) = size_cache.entry(ch) {
             let (metrics, bitmap) = self.font.rasterize(ch, font_size as f32);
 
             // Generate SDF from the rasterized bitmap
@@ -71,7 +71,7 @@ impl FontData {
                 advance: metrics.advance_width,
             };
 
-            size_cache.insert(ch, glyph);
+            e.insert(glyph);
         }
 
         size_cache.get(&ch).unwrap()

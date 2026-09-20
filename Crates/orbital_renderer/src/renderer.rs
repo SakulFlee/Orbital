@@ -398,7 +398,7 @@ impl Renderer {
             let byte_data = unsafe {
                 std::slice::from_raw_parts(
                     vertices.as_ptr() as *const u8,
-                    vertices.len() * std::mem::size_of::<orbital_2d::Vertex2D>(),
+                    std::mem::size_of_val(vertices),
                 )
             };
             queue.write_buffer(renderer_2d.vertex_buffer(), 0, byte_data);
@@ -454,7 +454,7 @@ impl Renderer {
             let byte_data = unsafe {
                 std::slice::from_raw_parts(
                     vertices.as_ptr() as *const u8,
-                    vertices.len() * std::mem::size_of::<orbital_2d::Vertex2D>(),
+                    std::mem::size_of_val(vertices),
                 )
             };
             queue.write_buffer(ui_renderer.vertex_buffer(), 0, byte_data);
@@ -510,7 +510,7 @@ impl Renderer {
             let byte_data = unsafe {
                 std::slice::from_raw_parts(
                     vertices.as_ptr() as *const u8,
-                    vertices.len() * std::mem::size_of::<orbital_2d::Vertex2D>(),
+                    std::mem::size_of_val(vertices),
                 )
             };
             queue.write_buffer(text_renderer.vertex_buffer(), 0, byte_data);
