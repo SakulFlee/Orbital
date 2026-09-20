@@ -3,6 +3,7 @@ mod assets;
 mod config;
 mod desktop;
 mod init;
+mod ios;
 mod java;
 mod tooling;
 
@@ -91,6 +92,7 @@ enum Commands {
 enum Platform {
     Desktop,
     Android,
+    Ios,
 }
 
 fn main() -> Result<()> {
@@ -126,6 +128,7 @@ fn main() -> Result<()> {
         } => match platform.unwrap_or(Platform::Desktop) {
             Platform::Desktop => desktop::build(release),
             Platform::Android => android::build::build(package.as_deref(), release),
+            Platform::Ios => ios::build::build(package.as_deref(), release),
         },
         Commands::Run {
             platform,
@@ -137,6 +140,9 @@ fn main() -> Result<()> {
             Platform::Desktop => desktop::run(),
             Platform::Android => {
                 android::run::run(package.as_deref(), device.as_deref(), skip_build, no_logcat)
+            }
+            Platform::Ios => {
+                ios::run::run(package.as_deref(), device.as_deref(), skip_build)
             }
         },
     }
