@@ -3995,6 +3995,7 @@ dependencies = [
  "cgmath",
  "orbital_app",
  "orbital_camera",
+ "orbital_core",
  "orbital_ecs",
  "orbital_ecs_bridge",
  "orbital_light",
@@ -4344,6 +4345,7 @@ version = "0.1.0"
 dependencies = [
  "cgmath",
  "orbital_app",
+ "orbital_core",
  "orbital_ecs",
  "orbital_ecs_bridge",
  "orbital_input",

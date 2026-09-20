@@ -745,7 +745,7 @@ impl Module for ProcgeoSceneModule {
         let device = match ecs.get_resource::<orbital::ecs_bridge::DeviceResource>() {
             Some(d) => d,
             None => {
-                log::warn!("ProcgeoSceneModule: no DeviceResource, skipping overlay registration");
+                orbital::logging::warn!("ProcgeoSceneModule: no DeviceResource, skipping overlay registration");
                 return;
             }
         };

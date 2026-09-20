@@ -395,7 +395,7 @@ impl Module for TouchUiModule {
         let device = match ecs.get_resource::<orbital_ecs_bridge::DeviceResource>() {
             Some(d) => d,
             None => {
-                eprintln!("TouchUiModule: no DeviceResource, skipping overlay registration");
+                orbital_core::logging::warn!("TouchUiModule: no DeviceResource, skipping overlay registration");
                 return;
             }
         };
