@@ -12,6 +12,7 @@ use orbital_ecs::{System, World};
 use wgpu::{Device, Queue};
 
 use crate::{Module, ModuleRuntime};
+use crate::render_overlay::{LayerRenderer, RenderOverlay};
 
 /// Application builder — the entry point for Orbital applications.
 ///
@@ -84,5 +85,16 @@ impl Module for CombinedModule {
             self.modules.len()
         );
         all_systems
+    }
+
+    fn register_overlays(
+        &self,
+        ecs: &mut World,
+        layer_renderers: &mut Vec<Box<dyn LayerRenderer>>,
+        legacy_overlays: &mut Vec<Box<dyn RenderOverlay>>,
+    ) {
+        for module in &self.modules {
+            module.register_overlays(ecs, layer_renderers, legacy_overlays);
+        }
     }
 }
