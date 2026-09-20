@@ -559,7 +559,7 @@ impl Module for DebugModule {
         let device = match ecs.get_resource::<orbital_ecs_bridge::DeviceResource>() {
             Some(d) => d,
             None => {
-                eprintln!("DebugModule: no DeviceResource, skipping overlay registration");
+                orbital_core::logging::warn!("DebugModule: no DeviceResource, skipping overlay registration");
                 return;
             }
         };

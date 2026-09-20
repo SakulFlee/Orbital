@@ -216,7 +216,7 @@ impl Module for Scene2DModule {
         let device = match ecs.get_resource::<orbital::ecs_bridge::DeviceResource>() {
             Some(d) => d,
             None => {
-                eprintln!("Scene2DModule: no DeviceResource, skipping overlay registration");
+                orbital::logging::warn!("Scene2DModule: no DeviceResource, skipping overlay registration");
                 return;
             }
         };
