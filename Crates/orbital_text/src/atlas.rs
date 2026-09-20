@@ -27,6 +27,7 @@ impl SdfAtlas {
     /// Packs a glyph into the atlas at the given position.
     ///
     /// This is a simple shelf packing algorithm.
+    #[allow(clippy::too_many_arguments)]
     pub fn pack_glyph(
         &mut self,
         ch: char,
