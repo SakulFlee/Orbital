@@ -1,7 +1,34 @@
-use anyhow::Result;
+use anyhow::{Result, bail};
 use inquire::{Confirm, Select, Text};
+use std::path::Path;
 
 use crate::config;
+
+/// Validates that the engine source (repo URL or local path) is valid.
+/// `engine_repo` and `engine_path` are mutually exclusive.
+fn validate_engine_source(engine_repo: &str, engine_path: Option<&str>) -> Result<()> {
+    if let Some(path) = engine_path {
+        // Local path mode: engine_repo should be the default (unused for Cargo.toml)
+        let p = Path::new(path);
+        if !p.exists() {
+            bail!("engine path does not exist: {path}");
+        }
+        if !p.join("Crates/orbital/Cargo.toml").exists() {
+            bail!("not an Orbital engine repo (missing Crates/orbital/Cargo.toml): {path}");
+        }
+        return Ok(());
+    }
+
+    // Remote URL mode: validate it looks like a git URL
+    let valid_prefixes = ["ssh://", "https://", "http://", "git://", "git@"];
+    if !valid_prefixes.iter().any(|p| engine_repo.starts_with(p)) {
+        bail!(
+            "engine-repo must be a remote git URL (ssh://, https://, git://, git@...), \
+             or use --engine-path for a local path: {engine_repo}"
+        );
+    }
+    Ok(())
+}
 
 pub struct ProjectConfig {
     pub project_name: String,
@@ -12,6 +39,7 @@ pub struct ProjectConfig {
     pub generate_android: bool,
     pub engine_repo: String,
     pub engine_branch: String,
+    pub engine_path: Option<String>,
 }
 
 pub fn interactive(
@@ -21,6 +49,7 @@ pub fn interactive(
     android: Option<bool>,
     engine_repo: Option<String>,
     engine_branch: Option<String>,
+    engine_path: Option<String>,
 ) -> Result<ProjectConfig> {
     let orbital_config = config::load_config()
         .map(|c| c.orbital())
@@ -76,32 +105,67 @@ pub fn interactive(
         (21, 34)
     };
 
-    // 5. Template selection (minimal or all-in-one)
+    // 5. Template selection (minimal, all-in-one, or 2d)
     let template_name = match template {
         Some(t) => t,
         None => {
-            let templates = vec!["minimal", "all-in-one"];
+            let templates = vec!["minimal", "all-in-one", "2d"];
             Select::new("Select a template:", templates)
                 .prompt()?
                 .to_string()
         }
     };
 
-    // 6. Engine repository
-    let engine_repo = match engine_repo {
-        Some(r) => r,
-        None => Text::new("Orbital engine git repo:")
-            .with_default(orbital_config.engine_repo())
-            .prompt()?,
+    // 6. Engine source: local path or remote URL
+    let engine_path = match engine_path {
+        Some(p) => Some(p),
+        None => {
+            if engine_repo.is_none() {
+                // No --engine-repo or --engine-path given; ask the user
+                let use_local = Confirm::new("Use a local engine path instead of a git repo?")
+                    .with_default(false)
+                    .prompt()?;
+                if use_local {
+                    Some(
+                        Text::new("Orbital engine local path:")
+                            .with_default(orbital_config.engine_path.as_deref().unwrap_or(""))
+                            .prompt()?,
+                    )
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }
     };
 
-    // 7. Engine branch
-    let engine_branch = match engine_branch {
-        Some(b) => b,
-        None => Text::new("Orbital engine branch:")
-            .with_default(orbital_config.engine_branch())
-            .prompt()?,
+    // 7. Engine repository (only if not using local path)
+    let engine_repo = if engine_path.is_some() {
+        // Still need a value for the struct, use default
+        orbital_config.engine_repo().to_string()
+    } else {
+        match engine_repo {
+            Some(r) => r,
+            None => Text::new("Orbital engine git repo:")
+                .with_default(orbital_config.engine_repo())
+                .prompt()?,
+        }
     };
+
+    // 8. Engine branch (only if not using local path)
+    let engine_branch = if engine_path.is_some() {
+        orbital_config.engine_branch().to_string()
+    } else {
+        match engine_branch {
+            Some(b) => b,
+            None => Text::new("Orbital engine branch:")
+                .with_default(orbital_config.engine_branch())
+                .prompt()?,
+        }
+    };
+
+    validate_engine_source(&engine_repo, engine_path.as_deref())?;
 
     Ok(ProjectConfig {
         project_name,
@@ -112,6 +176,7 @@ pub fn interactive(
         generate_android,
         engine_repo,
         engine_branch,
+        engine_path,
     })
 }
 
@@ -122,6 +187,7 @@ pub fn non_interactive(
     android: bool,
     engine_repo: Option<String>,
     engine_branch: Option<String>,
+    engine_path: Option<String>,
 ) -> Result<ProjectConfig> {
     let orbital_config = config::load_config()
         .map(|c| c.orbital())
@@ -140,6 +206,11 @@ pub fn non_interactive(
     let engine_repo = engine_repo.unwrap_or_else(|| orbital_config.engine_repo().to_string());
     let engine_branch = engine_branch.unwrap_or_else(|| orbital_config.engine_branch().to_string());
 
+    // Resolve engine_path: use provided, or fall back to config
+    let engine_path = engine_path.or_else(|| orbital_config.engine_path.clone());
+
+    validate_engine_source(&engine_repo, engine_path.as_deref())?;
+
     Ok(ProjectConfig {
         project_name,
         package_name,
@@ -149,5 +220,6 @@ pub fn non_interactive(
         generate_android: android,
         engine_repo,
         engine_branch,
+        engine_path,
     })
 }

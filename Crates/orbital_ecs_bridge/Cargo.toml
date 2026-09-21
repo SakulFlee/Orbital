@@ -21,3 +21,4 @@ hashbrown = { workspace = true }
 orbital_input = { path = "../orbital_input" }
 ulid = { workspace = true }
 wgpu = { workspace = true }
+winit = { workspace = true }
