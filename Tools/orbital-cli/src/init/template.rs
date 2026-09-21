@@ -73,7 +73,6 @@ fn generate_project_all_in_one(project_dir: &Path, config: &ProjectConfig) -> Re
 
     // Generate Orbital.toml
     generate_orbital_toml(project_dir, config)?;
-
     // Replace placeholders in lib.rs
     let lib_rs_path = project_dir.join("src").join("lib.rs");
     if lib_rs_path.exists() {
