@@ -1,10 +1,10 @@
 #[macro_export]
 macro_rules! make_desktop_main {
     ($entrypoint_fn:ident) => {
-        #[cfg(not(target_os = "android"))]
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
         #[allow(dead_code)]
         fn main() {
-            use ::winit::event_loop::EventLoop;
+            use ::orbital::winit::event_loop::EventLoop;
 
             let event_loop = EventLoop::builder().build();
 
@@ -19,7 +19,7 @@ macro_rules! make_android_main {
         #[cfg(target_os = "android")]
         #[allow(dead_code)]
         #[unsafe(no_mangle)]
-        fn android_main(app: ::winit::platform::android::activity::AndroidApp) {
+        fn android_main(app: ::orbital::winit::platform::android::activity::AndroidApp) {
             $crate::logging::init();
 
             let _ = $crate::file_manager::FileManager::init_android_global(
@@ -27,7 +27,9 @@ macro_rules! make_android_main {
                 app.internal_data_path(),
             );
 
-            use ::winit::{event_loop::EventLoop, platform::android::EventLoopBuilderExtAndroid};
+            use ::orbital::winit::{
+                event_loop::EventLoop, platform::android::EventLoopBuilderExtAndroid,
+            };
 
             let event_loop = match EventLoop::builder().with_android_app(app).build() {
                 Ok(el) => el,
@@ -56,10 +58,30 @@ macro_rules! make_android_main {
 /// Each inner macro carries its own `cfg` gate, so exactly one compiles per target:
 /// - Desktop: `fn main()`
 /// - Android: `#[no_mangle] fn android_main(app: AndroidApp)`
+/// - iOS: `#[no_mangle] extern "C" fn ios_main()`
 #[macro_export]
 macro_rules! make_main {
     ($entrypoint_fn:ident) => {
         $crate::make_desktop_main!($entrypoint_fn);
         $crate::make_android_main!($entrypoint_fn);
+        $crate::make_ios_main!($entrypoint_fn);
+    };
+}
+
+#[macro_export]
+macro_rules! make_ios_main {
+    ($entrypoint_fn:ident) => {
+        #[cfg(target_os = "ios")]
+        #[allow(dead_code)]
+        #[unsafe(no_mangle)]
+        extern "C" fn ios_main() {
+            $crate::logging::init();
+
+            let _ = $crate::file_manager::FileManager::init_ios_global();
+
+            let event_loop = ::winit::event_loop::EventLoop::builder().build();
+
+            $entrypoint_fn(event_loop);
+        }
     };
 }

@@ -1,27 +1,38 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use orbital::app::{App, AppSettings, Module, sys_camera_controller};
+use orbital::app::{App, AppSettings, CursorToggle, Module, RenderOverlay, RenderOverlayContext,
+    LayerRenderer, sys_camera_controller};
 use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector3};
 use orbital::debug_render::DebugModule;
 use orbital::ecs::{Commands, ComponentAccess, IntoSystem, Res, ResMut, System, World};
 use orbital::ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, DeltaTime, EnvironmentDescriptorResource,
+    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, CursorGrabState, DeltaTime,
+    EnvironmentDescriptorResource,
     ImportQueueResource, LightDescriptorEcs, LightDirty, ModelDescriptorEcs, ModelDirty,
     ModelInstances, Position, Rotation,
 };
 use orbital::importer::{ImportTask, gltf::GltfImport};
-#[cfg(not(target_os = "android"))]
+use orbital::iced::{OrbitalUI, IcedState, IcedUiState};
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 use orbital::logging;
 use orbital::logging::{error, info};
 use orbital::procgeo::scene::SceneBuilder;
+use orbital::renderer::{Camera2DUniform, Renderer2D};
 use orbital::resources::WorldEnvironmentDescriptor;
 use orbital::resources::{
     GeneratedSkyParameters, SamplingType, ShadowCaster, SunPosition, Transform,
 };
-use winit::keyboard::KeyCode;
+use orbital::twod::Vertex2D;
+use orbital::winit::keyboard::KeyCode;
 
 pub const NAME: &str = "{{PROJECT_NAME}}";
+
+#[derive(Clone)]
+struct Health(u32);
+
+#[derive(Clone)]
+struct Mana(u32);
 
 pub fn entrypoint(
     event_loop_result: Result<
@@ -29,7 +40,7 @@ pub fn entrypoint(
         orbital::winit::error::EventLoopError,
     >,
 ) {
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     logging::init();
 
     let event_loop = event_loop_result.expect("Event Loop failure");
@@ -43,6 +54,7 @@ pub fn entrypoint(
 
     match App::new()
         .add_module(ProcgeoSceneModule)
+        .add_module(OrbitalUI)
         .add_module(
             DebugModule::new()
                 .with_toggle_key(KeyCode::F3)
@@ -216,6 +228,219 @@ impl System for LightAnimator {
 
 // ────────────────────────────────────────────────────────────────────
 
+// ── Stats animation: decrements Health/Mana, resets at 0 ──────────
+
+struct StatsAnimator {
+    timer: f32,
+    access: ComponentAccess,
+}
+
+const STAT_TICK_INTERVAL: f32 = 0.5; // seconds between decrements
+
+impl StatsAnimator {
+    fn new() -> Self {
+        Self {
+            timer: 0.0,
+            access: ComponentAccess::new(),
+        }
+    }
+}
+
+impl System for StatsAnimator {
+    fn name(&self) -> &str {
+        "stats_animator"
+    }
+    fn access(&self) -> &ComponentAccess {
+        &self.access
+    }
+
+    fn run(&mut self, world: &World, _commands: &mut Commands) {
+        let dt = world
+            .get_resource::<DeltaTime>()
+            .map(|d| d.0)
+            .unwrap_or(0.016) as f32;
+        self.timer += dt;
+        if self.timer < STAT_TICK_INTERVAL {
+            return;
+        }
+        self.timer -= STAT_TICK_INTERVAL;
+
+        if let Some(mut health) = world.get_resource_mut::<Health>() {
+            if health.0 == 0 {
+                health.0 = 100;
+            } else {
+                health.0 -= 1;
+            }
+        }
+        if let Some(mut mana) = world.get_resource_mut::<Mana>() {
+            if mana.0 == 0 {
+                mana.0 = 100;
+            } else {
+                mana.0 -= 1;
+            }
+        }
+    }
+}
+
+// ── 2D shape overlay ──────────────────────────────────────────────
+
+struct ShapeOverlay {
+    renderer: Renderer2D,
+    camera_buffer: orbital::wgpu::Buffer,
+    camera_bind_group: orbital::wgpu::BindGroup,
+    vertices: Vec<Vertex2D>,
+    /// Screen size (physical pixels) the vertices were last laid out for.
+    ///
+    /// Vertex positions are baked in absolute pixels (`cx = screen_w / 2.0`),
+    /// so they must be regenerated whenever the screen size changes — e.g. on
+    /// Android screen rotation — otherwise the shapes stay anchored to the
+    /// old width while the projection follows the new one.
+    last_layout_size: Option<(f32, f32)>,
+}
+
+impl ShapeOverlay {
+    fn new(device: &orbital::wgpu::Device, format: orbital::wgpu::TextureFormat) -> Self {
+        let renderer = Renderer2D::new(device, format);
+
+        let camera_buffer = device.create_buffer(&orbital::wgpu::BufferDescriptor {
+            label: Some("2D Camera Buffer"),
+            size: std::mem::size_of::<Camera2DUniform>() as u64,
+            usage: orbital::wgpu::BufferUsages::UNIFORM | orbital::wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        let camera_bind_group = renderer.create_bind_group(device, &camera_buffer);
+
+        Self {
+            renderer,
+            camera_buffer,
+            camera_bind_group,
+            vertices: Vec::new(),
+            last_layout_size: None,
+        }
+    }
+
+    fn layout_shapes(&mut self, screen_w: f32, screen_h: f32) {
+        self.vertices.clear();
+        let cx = screen_w / 2.0;
+        let top = 15.0;
+
+        // Green circle — left
+        self.vertices.extend_from_slice(
+            &orbital::twod::shape::generate_circle(
+                [cx - 60.0, top + 15.0],
+                20.0,
+                24,
+                [0.2, 0.8, 0.3, 0.85],
+            ),
+        );
+
+        // Blue triangle — center
+        let tri = orbital::twod::shape::ShapeDescriptor::solid_triangle([0.3, 0.4, 0.9, 0.85]);
+        let mut tri_verts = orbital::twod::shape::generate_shape_vertices(&tri, 40.0, 40.0);
+        for v in &mut tri_verts {
+            v.position[0] += cx - 20.0;
+            v.position[1] += top + 5.0;
+        }
+        self.vertices.extend_from_slice(&tri_verts);
+
+        // Red square — right
+        let quad = orbital::twod::shape::ShapeDescriptor::solid_quad([0.9, 0.2, 0.2, 0.85]);
+        let mut quad_verts = orbital::twod::shape::generate_shape_vertices(&quad, 40.0, 40.0);
+        for v in &mut quad_verts {
+            v.position[0] += cx + 25.0;
+            v.position[1] += top + 10.0;
+        }
+        self.vertices.extend_from_slice(&quad_verts);
+
+        self.last_layout_size = Some((screen_w, screen_h));
+    }
+}
+
+impl RenderOverlay for ShapeOverlay {
+    fn render(&mut self, ctx: RenderOverlayContext) {
+        let (screen_w, screen_h) = ctx.screen_size;
+
+        // `WindowSize` starts at (0, 0) until the first `Resized` arrives, and
+        // a zero size would produce a NaN projection below.
+        if screen_w <= 0.0 || screen_h <= 0.0 {
+            return;
+        }
+
+        // Vertex positions are baked in absolute pixels, so re-layout whenever
+        // the screen size changes (screen rotation, window resize, …).
+        if self.last_layout_size != Some((screen_w, screen_h)) {
+            self.layout_shapes(screen_w, screen_h);
+        }
+        if self.vertices.is_empty() {
+            return;
+        }
+
+        let projection = [
+            [2.0 / screen_w, 0.0, 0.0, 0.0],
+            [0.0, -2.0 / screen_h, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [-1.0, 1.0, 0.0, 1.0],
+        ];
+
+        let uniform = Camera2DUniform {
+            view_proj: projection,
+            screen_size: [screen_w, screen_h],
+            _padding: [0.0; 2],
+        };
+
+        let uniform_bytes = unsafe {
+            std::slice::from_raw_parts(
+                &uniform as *const Camera2DUniform as *const u8,
+                std::mem::size_of::<Camera2DUniform>(),
+            )
+        };
+
+        ctx.queue
+            .write_buffer(&self.camera_buffer, 0, uniform_bytes);
+
+        let mut command_encoder = ctx.device.create_command_encoder(&orbital::wgpu::CommandEncoderDescriptor {
+            label: Some("2D Overlay Encoder"),
+        });
+
+        {
+            let mut render_pass = command_encoder.begin_render_pass(&orbital::wgpu::RenderPassDescriptor {
+                label: Some("2D Overlay Pass"),
+                color_attachments: &[Some(orbital::wgpu::RenderPassColorAttachment {
+                    view: ctx.target_view,
+                    resolve_target: None,
+                    ops: orbital::wgpu::Operations {
+                        load: orbital::wgpu::LoadOp::Load,
+                        store: orbital::wgpu::StoreOp::Store,
+                    },
+                    depth_slice: None,
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+
+            let byte_data = unsafe {
+                std::slice::from_raw_parts(
+                    self.vertices.as_ptr() as *const u8,
+                    self.vertices.len() * std::mem::size_of::<Vertex2D>(),
+                )
+            };
+            ctx.queue.write_buffer(self.renderer.vertex_buffer(), 0, byte_data);
+
+            render_pass.set_pipeline(self.renderer.pipeline());
+            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+            render_pass.set_vertex_buffer(0, self.renderer.vertex_buffer().slice(..));
+            render_pass.draw(0..self.vertices.len() as u32, 0..1);
+        }
+
+        ctx.queue.submit(std::iter::once(command_encoder.finish()));
+    }
+}
+
+// ────────────────────────────────────────────────────────────────────
+
 // Dynamic time-of-day sky. Uses the cheap in-place update path
 // (`WorldEnvironment::update_sky_parameters`), so the descriptor is rewritten
 // and realized every frame.
@@ -277,6 +502,54 @@ impl Module for ProcgeoSceneModule {
         ecs.attach_component(&camera, Rotation(rot)).unwrap();
         ecs.insert_resource(ActiveCamera(camera));
         ecs.insert_resource(CursorGrabConfig(true));
+        ecs.insert_resource(CursorGrabState(true));
+
+        // Game state resources (driven by StatsAnimator)
+        ecs.insert_resource(Health(100));
+        ecs.insert_resource(Mana(100));
+
+        // Iced UI panels
+        let mut ui = IcedUiState::new();
+
+        // HUD: static overlay, reads game state from ECS directly
+        ui.push(
+            "hud",
+            IcedState::titled("HUD")
+                .with_hud()
+                .with_view(|ecs: &orbital::ecs::World| {
+                    use orbital::iced::iced_widget::{column, text};
+
+                    let health_text = ecs
+                        .get_resource::<Health>()
+                        .map(|h| format!("Health: {}", h.0))
+                        .unwrap_or_else(|| "Health: --".to_string());
+
+                    let mana_text = ecs
+                        .get_resource::<Mana>()
+                        .map(|m| format!("Mana: {}", m.0))
+                        .unwrap_or_else(|| "Mana: --".to_string());
+
+                    column![text(health_text).size(16), text(mana_text).size(16)]
+                        .spacing(4)
+                        .into()
+                }),
+        );
+
+        // Windowed panel: draggable, title bar, close button
+        ui.push(
+            "inventory",
+            IcedState::titled("Inventory")
+                .with_position(100.0, 100.0)
+                .with_button_label("Open Chest"),
+        );
+
+        ecs.insert_resource(ui);
+
+        // 2D shape overlay (draws on top of 3D scene; layout is regenerated
+        // whenever the screen size changes, e.g. on screen rotation)
+        // 2D shape overlay (draws on top of 3D scene; layout is regenerated
+        // whenever the screen size changes, e.g. on screen rotation)
+        // NOTE: ShapeOverlay is registered via register_overlays() below.
 
         // Dynamic procedural sky (in-place updates, cheap per frame).
         ecs.insert_resource(EnvironmentDescriptorResource(Some(
@@ -294,7 +567,10 @@ impl Module for ProcgeoSceneModule {
             Ok(s) => s,
             Err(e) => {
                 error!("Failed to load scene: {}", e);
-                return vec![sys_camera_controller.into_system()];
+                return vec![
+                    sys_camera_controller.into_system(),
+                    Box::new(CursorToggle::new(true)),
+                ];
             }
         };
 
@@ -447,9 +723,34 @@ impl Module for ProcgeoSceneModule {
 
         vec![
             sys_camera_controller.into_system(),
+            Box::new(CursorToggle::new(true)),
             Box::new(HelmetAdjuster::new()),
+            Box::new(StatsAnimator::new()),
             Box::new(animator),
             sys_animate_dynamic_sky(14.0).into_system(),
         ]
+    }
+
+    fn register_overlays(
+        &self,
+        ecs: &mut World,
+        _layer_renderers: &mut Vec<Box<dyn LayerRenderer>>,
+        legacy_overlays: &mut Vec<Box<dyn RenderOverlay>>,
+    ) {
+        let format = ecs
+            .get_resource::<orbital::ecs_bridge::SurfaceFormatResource>()
+            .map(|f| f.0)
+            .unwrap_or(orbital::wgpu::TextureFormat::Bgra8UnormSrgb);
+
+        let device = match ecs.get_resource::<orbital::ecs_bridge::DeviceResource>() {
+            Some(d) => d,
+            None => {
+                orbital::logging::warn!("ProcgeoSceneModule: no DeviceResource, skipping overlay registration");
+                return;
+            }
+        };
+
+        let overlay = ShapeOverlay::new(&device.0, format);
+        legacy_overlays.push(Box::new(overlay));
     }
 }
