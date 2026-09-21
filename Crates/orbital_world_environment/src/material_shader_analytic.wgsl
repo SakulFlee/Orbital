@@ -59,9 +59,8 @@ fn entrypoint_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let view_ray_direction = view_position.xyz / view_position.w;
     var ray_direction = normalize((camera.view_projection_transposed * vec4(view_ray_direction, 0.0)).xyz);
 
-    // A/B test: `sky_color` now takes individual fields (not the 176-byte
-    // `SkyParams` struct by value), so we can call it directly again. If this
-    // still renders black on the Adreno tablet, revert to the inline body.
+    // Sample analytic sky colour via `sky_color` (takes individual params to
+    // avoid the Adreno Vulkan struct-by-value miscompilation bug).
     var world_environment_sample = sky_color(
         ray_direction,
         sky_params.sun_direction,
