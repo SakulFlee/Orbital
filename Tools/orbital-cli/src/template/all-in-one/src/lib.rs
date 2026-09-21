@@ -14,7 +14,7 @@ use orbital::ecs_bridge::{
 };
 use orbital::importer::{ImportTask, gltf::GltfImport};
 use orbital::iced::{OrbitalUI, IcedState, IcedUiState};
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 use orbital::logging;
 use orbital::logging::{error, info};
 use orbital::procgeo::scene::SceneBuilder;
@@ -40,7 +40,7 @@ pub fn entrypoint(
         orbital::winit::error::EventLoopError,
     >,
 ) {
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     logging::init();
 
     let event_loop = event_loop_result.expect("Event Loop failure");

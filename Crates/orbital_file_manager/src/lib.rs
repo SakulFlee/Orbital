@@ -10,20 +10,26 @@
 //! - **Desktop**: assets resolve against `<cwd>/Assets`, storage against `<cwd>`.
 //! - **Android**: assets are read through `AAssetManager` from the APK; storage
 //!   lands in the app's internal data directory.
+//! - **iOS**: assets are read from the app bundle's resource directory; storage
+//!   uses the app's Documents directory.
 //!
 //! The process-wide instance is accessed via [`FileManager::global`]. On Android
-//! it must be initialized first from `android_main` through
-//! [`FileManager::init_android_global`] (wired up by the `orbital` entry-point
-//! macros).
+//! and iOS it must be initialized first from the platform entry point through
+//! [`FileManager::init_android_global`] / [`FileManager::init_ios_global`]
+//! (wired up by the `orbital` entry-point macros).
 
 #[cfg(target_os = "android")]
 mod android;
+#[cfg(target_os = "ios")]
+mod ios;
 mod dir;
 mod error;
 
 #[cfg(target_os = "android")]
 pub use android::{AndroidAssetSource, AndroidStorage};
-#[cfg(not(target_os = "android"))]
+#[cfg(target_os = "ios")]
+pub use ios::{IosAssetSource, IosStorage};
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub use dir::{DesktopAssetSource, DesktopStorage};
 
 pub use dir::DirStorage;
@@ -106,16 +112,21 @@ impl FileManager {
     /// Returns the process-wide [`FileManager`].
     ///
     /// On desktop this lazily initializes a working-directory-backed backend.
-    /// On Android the backend must have been set up first via
-    /// [`FileManager::init_android_global`], otherwise
-    /// [`FsError::NotInitialized`] is returned.
+    /// On Android and iOS the backend must have been set up first via
+    /// [`FileManager::init_android_global`] / [`FileManager::init_ios_global`],
+    /// otherwise [`FsError::NotInitialized`] is returned.
     pub fn global() -> Result<&'static FileManager, FsError> {
         #[cfg(target_os = "android")]
         {
             GLOBAL.get().ok_or(FsError::NotInitialized)
         }
 
-        #[cfg(not(target_os = "android"))]
+        #[cfg(target_os = "ios")]
+        {
+            GLOBAL.get().ok_or(FsError::NotInitialized)
+        }
+
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
         {
             let cwd = std::env::current_dir().unwrap_or_default();
             Ok(GLOBAL.get_or_init(|| FileManager {
@@ -139,6 +150,21 @@ impl FileManager {
             assets: Box::new(AndroidAssetSource::new(asset_manager)),
             storage: Box::new(AndroidStorage::new(data_dir.clone())),
             storage_root: data_dir,
+        });
+        Ok(())
+    }
+
+    /// Initializes the iOS backend. Called by the `make_ios_main!` macro
+    /// before the event loop is created. Assets are read from the app bundle's
+    /// resource directory; storage uses the app's Documents directory.
+    #[cfg(target_os = "ios")]
+    pub fn init_ios_global() -> Result<(), FsError> {
+        let storage = IosStorage::new();
+        let storage_root = std::path::PathBuf::new(); // resolved by IosStorage internally
+        let _ = GLOBAL.set(FileManager {
+            assets: Box::new(IosAssetSource::new()),
+            storage: Box::new(storage),
+            storage_root,
         });
         Ok(())
     }

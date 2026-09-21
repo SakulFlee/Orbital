@@ -5,7 +5,7 @@ use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, DeltaTime, EnvironmentDescriptorResource,
     Position, Rotation,
 };
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 use orbital::logging;
 use orbital::logging::{error, info};
 use orbital::resources::{
@@ -20,7 +20,7 @@ pub fn entrypoint(
         orbital::winit::error::EventLoopError,
     >,
 ) {
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     logging::init();
 
     let event_loop = event_loop_result.expect("Event Loop failure");
