@@ -1,0 +1,31 @@
+[package]
+name = "orbital_iced"
+version = "0.1.0"
+edition = "2024"
+description = "Iced UI integration for the Orbital game engine"
+license = "MIT"
+
+[dependencies]
+orbital_app = { path = "../orbital_app" }
+orbital_ecs = { path = "../ecs" }
+orbital_ecs_bridge = { path = "../orbital_ecs_bridge" }
+log = { workspace = true }
+
+# iced sub-crates
+iced_core = { workspace = true }
+iced_widget = { workspace = true }
+iced_runtime = { workspace = true }
+iced_graphics = { workspace = true, features = ["fira-sans"] }
+iced_wgpu = { workspace = true }
+iced_winit = { workspace = true }
+
+wgpu = { workspace = true }
+winit = { workspace = true }
+raw-window-handle = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+# X11/Wayland backends are Linux-only. In particular the `wayland` feature
+# enables `arboard/wayland-data-control`, and `arboard` itself is not a
+# dependency on Android (see Crates/orbital-iced/winit/Cargo.toml), so these
+# must not be enabled unconditionally.
+iced_winit = { workspace = true, features = ["x11", "wayland"] }

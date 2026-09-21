@@ -8,7 +8,8 @@ pub fn generate_project(project_dir: &Path, config: &ProjectConfig) -> Result<()
     match config.template.as_str() {
         "minimal" => generate_project_minimal(project_dir, config),
         "all-in-one" => generate_project_all_in_one(project_dir, config),
-        other => bail!("Unknown template '{other}'. Available templates: minimal, all-in-one"),
+        "2d" => generate_project_2d(project_dir, config),
+        other => bail!("Unknown template '{other}'. Available templates: minimal, all-in-one, 2d"),
     }
 }
 
@@ -39,8 +40,6 @@ fn generate_project_minimal(project_dir: &Path, config: &ProjectConfig) -> Resul
 }
 
 fn generate_project_all_in_one(project_dir: &Path, config: &ProjectConfig) -> Result<()> {
-    let lib_name = config.project_name.replace('-', "_").to_lowercase();
-
     // Get the template directory path (relative to the executable)
     let template_dir = std::env::current_exe()
         .context("Failed to get executable path")?
@@ -65,23 +64,15 @@ fn generate_project_all_in_one(project_dir: &Path, config: &ProjectConfig) -> Re
         bail!("Template directory not found: {}", template_dir.display());
     }
 
-    // Copy the entire template directory
+    // Copy the entire template directory (no Cargo.toml in template dirs)
     copy_dir_all(&template_dir, project_dir).context("Failed to copy template directory")?;
+
+    // Generate Cargo.toml from code (avoids template files with {name}
+    // being parsed by cargo during workspace resolution from git deps)
+    generate_cargo_toml(project_dir, config)?;
 
     // Generate Orbital.toml
     generate_orbital_toml(project_dir, config)?;
-
-    // Replace placeholders in Cargo.toml
-    let cargo_toml_path = project_dir.join("Cargo.toml");
-    if cargo_toml_path.exists() {
-        let content = fs::read_to_string(&cargo_toml_path).context("Failed to read Cargo.toml")?;
-        let content = content
-            .replace("{name}", &config.project_name)
-            .replace("{lib_name}", &lib_name)
-            .replace("{repo}", &config.engine_repo)
-            .replace("{branch}", &config.engine_branch);
-        fs::write(&cargo_toml_path, content).context("Failed to write Cargo.toml")?;
-    }
 
     // Replace placeholders in lib.rs
     let lib_rs_path = project_dir.join("src").join("lib.rs");
@@ -95,6 +86,7 @@ fn generate_project_all_in_one(project_dir: &Path, config: &ProjectConfig) -> Re
     let main_rs_path = project_dir.join("src").join("main.rs");
     if main_rs_path.exists() {
         let content = fs::read_to_string(&main_rs_path).context("Failed to read main.rs")?;
+        let lib_name = config.project_name.replace('-', "_").to_lowercase();
         let content = content.replace("{lib_name}", &lib_name);
         fs::write(&main_rs_path, content).context("Failed to write main.rs")?;
     }
@@ -117,8 +109,76 @@ fn copy_dir_all(src: &Path, dst: &Path) -> Result<()> {
     Ok(())
 }
 
+fn generate_project_2d(project_dir: &Path, config: &ProjectConfig) -> Result<()> {
+    // Get the template directory path (relative to the executable)
+    let template_dir = std::env::current_exe()
+        .context("Failed to get executable path")?
+        .parent()
+        .context("Failed to get executable parent")?
+        .join("templates")
+        .join("2d");
+
+    // If the template directory doesn't exist next to the executable,
+    // fall back to looking in the source tree
+    let template_dir = if template_dir.exists() {
+        template_dir
+    } else {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("src")
+            .join("template")
+            .join("2d")
+    };
+
+    if !template_dir.exists() {
+        bail!("Template directory not found: {}", template_dir.display());
+    }
+
+    // Copy the entire template directory (no Cargo.toml in template dirs)
+    copy_dir_all(&template_dir, project_dir).context("Failed to copy template directory")?;
+
+    // Generate Cargo.toml from code
+    generate_cargo_toml(project_dir, config)?;
+
+    // Generate Orbital.toml
+    generate_orbital_toml(project_dir, config)?;
+
+    // Replace placeholders in lib.rs
+    let lib_rs_path = project_dir.join("src").join("lib.rs");
+    if lib_rs_path.exists() {
+        let content = fs::read_to_string(&lib_rs_path).context("Failed to read lib.rs")?;
+        let content = content.replace("{{PROJECT_NAME}}", &config.project_name);
+        fs::write(&lib_rs_path, content).context("Failed to write lib.rs")?;
+    }
+
+    // Replace placeholders in main.rs
+    let main_rs_path = project_dir.join("src").join("main.rs");
+    if main_rs_path.exists() {
+        let content = fs::read_to_string(&main_rs_path).context("Failed to read main.rs")?;
+        let lib_name = config.project_name.replace('-', "_").to_lowercase();
+        let content = content.replace("{lib_name}", &lib_name);
+        fs::write(&main_rs_path, content).context("Failed to write main.rs")?;
+    }
+
+    // Create the Assets directory
+    fs::create_dir_all(project_dir.join("Assets"))?;
+    fs::write(project_dir.join("Assets").join(".gitkeep"), "")
+        .context("Failed to write Assets/.gitkeep")?;
+
+    Ok(())
+}
+
 fn generate_cargo_toml(project_dir: &Path, config: &ProjectConfig) -> Result<()> {
     let lib_name = config.project_name.replace('-', "_").to_lowercase();
+
+    let orbital_dep = if let Some(path) = &config.engine_path {
+        format!(r#"orbital = {{ path = "{path}/Crates/orbital" }}"#)
+    } else {
+        format!(
+            r#"orbital = {{ git = "{repo}", branch = "{branch}" }}"#,
+            repo = config.engine_repo,
+            branch = config.engine_branch,
+        )
+    };
 
     let content = format!(
         r#"[package]
@@ -135,13 +195,19 @@ name = "{lib_name}"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-orbital = {{ git = "{repo}", branch = "{branch}" }}
-winit = "0.30.0"
+{orbital_dep}
+
+# orbital_iced depends on cryoglyph (git), which pulls cosmic-text 0.19.0
+# from crates.io. The iced fork uses a patched cosmic-text from hecrj.
+# Without this, cargo builds two incompatible cosmic-text versions and
+# iced_wgpu fails to compile. This patch forces cryoglyph to use the
+# same cosmic-text as the rest of the engine.
+[patch.crates-io]
+cosmic-text = {{ git = "https://github.com/hecrj/cosmic-text.git", rev = "6e10ac2ce889f48c9eeb1f19c1340a37d6afae31" }}
 "#,
         name = config.project_name,
         lib_name = lib_name,
-        repo = config.engine_repo,
-        branch = config.engine_branch,
+        orbital_dep = orbital_dep,
     );
 
     fs::write(project_dir.join("Cargo.toml"), content).context("Failed to write Cargo.toml")?;

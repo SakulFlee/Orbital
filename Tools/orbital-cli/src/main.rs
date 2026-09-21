@@ -50,6 +50,9 @@ enum Commands {
         /// Orbital engine git branch
         #[arg(long)]
         engine_branch: Option<String>,
+        /// Local path to Orbital engine repo (alternative to --engine-repo)
+        #[arg(long)]
+        engine_path: Option<PathBuf>,
         /// Skip interactive prompts (use defaults)
         #[arg(long)]
         yes: bool,
@@ -108,6 +111,7 @@ fn main() -> Result<()> {
             android,
             engine_repo,
             engine_branch,
+            engine_path,
             yes,
         } => init::run(
             name,
@@ -118,6 +122,7 @@ fn main() -> Result<()> {
             android,
             engine_repo,
             engine_branch,
+            engine_path,
             yes,
         ),
         Commands::InitAndroid => android::project::init(),
