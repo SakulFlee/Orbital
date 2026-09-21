@@ -13,7 +13,7 @@ log = { workspace = true }
 
 # iced sub-crates
 iced_core = { workspace = true }
-iced_widget = { workspace = true }
+iced_widget = { workspace = true, features = ["wgpu"] }
 iced_runtime = { workspace = true }
 iced_graphics = { workspace = true, features = ["fira-sans"] }
 iced_wgpu = { workspace = true }
