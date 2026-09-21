@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 pub struct OrbitalConfig {
     pub orbital: Option<OrbitalGeneral>,
     pub android: Option<AndroidConfig>,
+    pub ios: Option<IosConfig>,
 }
 
 impl OrbitalConfig {
@@ -95,6 +96,37 @@ impl AndroidConfig {
     }
 }
 
+#[derive(Debug, Deserialize)]
+pub struct IosConfig {
+    pub bundle_id: Option<String>,
+    pub deployment_target: Option<String>,
+    pub app_name: Option<String>,
+}
+
+impl Default for IosConfig {
+    fn default() -> Self {
+        Self {
+            bundle_id: Some("de.sakulflee.orbital".to_string()),
+            deployment_target: Some("16.0".to_string()),
+            app_name: Some("Orbital".to_string()),
+        }
+    }
+}
+
+impl IosConfig {
+    pub fn bundle_id(&self) -> &str {
+        self.bundle_id.as_deref().unwrap_or("de.sakulflee.orbital")
+    }
+
+    pub fn deployment_target(&self) -> &str {
+        self.deployment_target.as_deref().unwrap_or("16.0")
+    }
+
+    pub fn app_name(&self) -> &str {
+        self.app_name.as_deref().unwrap_or("Orbital")
+    }
+}
+
 /// Find the project root by looking for Orbital.toml
 pub fn find_project_root() -> Result<PathBuf> {
     let mut dir = std::env::current_dir().context("Failed to get current directory")?;
@@ -138,6 +170,12 @@ pub fn load_android_config() -> Result<AndroidConfig> {
         );
     }
     Ok(android)
+}
+
+/// Load iOS config with defaults
+pub fn load_ios_config() -> Result<IosConfig> {
+    let config = load_config()?;
+    Ok(config.ios.unwrap_or_default())
 }
 
 /// Valid values for the `android:screenOrientation` manifest attribute.
