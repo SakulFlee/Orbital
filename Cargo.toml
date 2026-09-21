@@ -1,28 +1,6 @@
 [workspace]
 resolver = "2"
-members = [
-    "Examples/*",
-    "Crates/*",
-    "Tools/*",
-    "Crates/orbital-iced",
-    "Crates/orbital-iced/beacon",
-    "Crates/orbital-iced/core",
-    "Crates/orbital-iced/debug",
-    "Crates/orbital-iced/devtools",
-    "Crates/orbital-iced/futures",
-    "Crates/orbital-iced/graphics",
-    "Crates/orbital-iced/highlighter",
-    "Crates/orbital-iced/program",
-    "Crates/orbital-iced/renderer",
-    "Crates/orbital-iced/runtime",
-    "Crates/orbital-iced/selector",
-    "Crates/orbital-iced/test",
-    "Crates/orbital-iced/tester",
-    "Crates/orbital-iced/tiny_skia",
-    "Crates/orbital-iced/wgpu",
-    "Crates/orbital-iced/widget",
-    "Crates/orbital-iced/winit",
-]
+members = ["Examples/*", "Crates/*"]
 
 [workspace.package]
 version = "0.15.0-dev"
@@ -38,16 +16,16 @@ rust-version = "1.93"
 [workspace.dependencies]
 # Orbital crates
 wgpu = { version = "30.0.0", features = [
-    "angle",
-    "dx12",
-    "glsl",
-    "metal",
-    "naga-ir",
-    "serde",
-    "spirv",
-    "webgl",
-    "webgpu",
-    "wgsl",
+  "angle",
+  "dx12",
+  "glsl",
+  "metal",
+  "naga-ir",
+  "serde",
+  "spirv",
+  "webgl",
+  "webgpu",
+  "wgsl",
 ] }
 cgmath = "0.18.0"
 dirs = "6.0.0"
@@ -97,7 +75,10 @@ bytes = "1.6"
 cargo-hot = { version = "0.1", package = "cargo-hot-protocol" }
 cosmic-text = { git = "https://github.com/hecrj/cosmic-text.git", rev = "6e10ac2ce889f48c9eeb1f19c1340a37d6afae31" }
 cryoglyph = { git = "https://github.com/sertonix/cryoglyph.git", branch = "wgpu-30" }
-futures = { version = "0.3", default-features = false, features = ["std", "async-await"] }
+futures = { version = "0.3", default-features = false, features = [
+  "std",
+  "async-await",
+] }
 glam = "0.33.2"
 guillotiere = "0.6"
 half = "2.2"
@@ -127,17 +108,24 @@ smol_str = "0.2"
 softbuffer = { version = "0.4", default-features = false }
 sysinfo = "0.33"
 thiserror = "2"
-tiny-skia = { version = "0.11", default-features = false, features = ["std", "simd"] }
+tiny-skia = { version = "0.11", default-features = false, features = [
+  "std",
+  "simd",
+] }
 tokio = "1.0"
 tracing = "0.1"
-two-face = { version = "0.5", default-features = false, features = ["syntect-fancy"] }
+two-face = { version = "0.5", default-features = false, features = [
+  "syntect-fancy",
+] }
 unicode-segmentation = "1.0"
 url = "2.5"
 wasm-bindgen-futures = "0.4"
 wasmtimer = "0.4.2"
 web-sys = "0.3"
 web-time = "1.1"
-winit = { git = "https://github.com/iced-rs/winit.git", rev = "05b8ff17a06562f0a10bb46e6eaacbe2a95cb5ed", default-features = false, features = ["rwh_06"] }
+winit = { git = "https://github.com/iced-rs/winit.git", rev = "05b8ff17a06562f0a10bb46e6eaacbe2a95cb5ed", default-features = false, features = [
+  "rwh_06",
+] }
 
 [profile.release]
 lto = true
