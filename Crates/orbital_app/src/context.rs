@@ -211,7 +211,11 @@ impl AppContext {
 
         let present_mode = match vsync {
             true => PresentMode::AutoVsync,
-            false => PresentMode::Immediate,
+            // Note: `Auto*` modes gracefully fall back to a supported mode
+            // inside wgpu (AutoNoVsync -> Immediate -> Mailbox -> Fifo),
+            // while bare `Immediate`/`Mailbox`/`FifoRelaxed` fail validation
+            // on surfaces that don't advertise them (e.g. Android).
+            false => PresentMode::AutoNoVsync,
         };
 
         info!(

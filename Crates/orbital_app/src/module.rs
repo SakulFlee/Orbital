@@ -22,6 +22,20 @@ pub trait Module: Send + Sync {
     /// systems from all modules into a single schedule.
     fn setup(&self, ecs: &mut World, device: &Device, queue: &Queue) -> Vec<Box<dyn System>>;
 
+    /// Register overlay renderers with the runtime.
+    ///
+    /// Called after [`Module::setup`] for each module.  Modules that
+    /// create render overlays should override this to add their
+    /// renderers to the provided vectors instead of inserting a
+    /// `RenderOverlayResource` into the ECS world.
+    fn register_overlays(
+        &self,
+        _ecs: &mut World,
+        _layer_renderers: &mut Vec<Box<dyn crate::render_overlay::LayerRenderer>>,
+        _legacy_overlays: &mut Vec<Box<dyn crate::render_overlay::RenderOverlay>>,
+    ) {
+    }
+
     /// Called when the app is paused/backgrounded.
     ///
     /// The OS may kill the process at any point (OOM, aggressive battery
