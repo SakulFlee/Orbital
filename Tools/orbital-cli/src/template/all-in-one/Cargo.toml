@@ -14,3 +14,6 @@ crate-type = ["cdylib", "lib"]
 [dependencies]
 orbital = { git = "{repo}", branch = "{branch}" }
 winit = "0.30.0"
+
+[patch.crates-io]
+cosmic-text = { git = "https://github.com/hecrj/cosmic-text.git", rev = "6e10ac2ce889f48c9eeb1f19c1340a37d6afae31" }
