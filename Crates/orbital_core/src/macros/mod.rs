@@ -8,7 +8,7 @@ macro_rules! make_desktop_main {
 
             let event_loop = EventLoop::builder().build();
 
-            $entrypoint_fn(Ok(event_loop));
+            $entrypoint_fn(event_loop);
         }
     };
 }
@@ -81,7 +81,7 @@ macro_rules! make_ios_main {
 
             let event_loop = ::winit::event_loop::EventLoop::builder().build();
 
-            $entrypoint_fn(Ok(event_loop));
+            $entrypoint_fn(event_loop);
         }
     };
 }
