@@ -8,6 +8,7 @@ cgmath = { workspace = true }
 wgpu = { workspace = true }
 
 orbital_app = { path = "../orbital_app" }
+orbital_core = { path = "../orbital_core" }
 orbital_ecs = { path = "../ecs" }
 orbital_ecs_bridge = { path = "../orbital_ecs_bridge" }
 orbital_input = { path = "../orbital_input" }

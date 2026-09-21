@@ -16,6 +16,12 @@ pub use query::*;
 mod system;
 pub use system::*;
 
+pub mod hierarchy;
+pub use hierarchy::{Children, Parent};
+
+pub mod events;
+pub use events::Events;
+
 #[cfg(test)]
 mod tests {
     use std::time::Instant;
