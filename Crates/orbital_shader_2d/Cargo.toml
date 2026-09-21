@@ -1,0 +1,7 @@
+[package]
+name = "orbital_shader_2d"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+orbital_shader_preprocessor = { path = "../orbital_shader_preprocessor" }
