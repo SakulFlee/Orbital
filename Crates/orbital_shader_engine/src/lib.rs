@@ -75,8 +75,7 @@ pub fn engine_library() -> NodeLibrary {
         include_str!("wgsl/sky_params.wgsl"),
     ));
     lib.add(
-        ShaderNode::new("sky_color", include_str!("wgsl/sky_color.wgsl"))
-            .with_deps(["star_hash"]),
+        ShaderNode::new("sky_color", include_str!("wgsl/sky_color.wgsl")).with_deps(["star_hash"]),
     );
 
     lib
