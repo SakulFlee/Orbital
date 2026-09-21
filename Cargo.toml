@@ -121,7 +121,7 @@ serde = { version = "1.0.174", features = ["derive"] }
 sha2 = "0.10"
 sipper = "0.2"
 smol = "2"
-smol_str = "0.2"
+smol_str = "0.3"
 softbuffer = { version = "0.4", default-features = false }
 sysinfo = "0.33"
 thiserror = "2"
