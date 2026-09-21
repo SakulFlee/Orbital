@@ -53,12 +53,12 @@ jobs:
       - name: Commit and push fixes
         if: (steps.fmt.outcome == 'failure' || steps.clippy.outcome == 'failure') && !startsWith(github.event.head_commit.message, '[ci]')
         run: |
-          git config --global user.name "ci-bot[bot]"
-          git config --global user.email "ci-bot[bot]@users.noreply.forgejo"
+          git config --global user.name "Orbital-CI"
+          git config --global user.email "orbital-ci@sakul-flee.de"
           git add -A
           if ! git diff --cached --quiet; then
             git commit -m "[ci] Linting and formatting"
-            git push origin HEAD:${{ github.head_ref || github.ref_name }}
+            git push https://x-access-token:${{ secrets.BOT_TOKEN }}@${GITHUB_SERVER_URL#https://}/${GITHUB_REPOSITORY}.git HEAD:${{ github.head_ref || github.ref_name }}
           fi
       - name: Fail if issues found
         if: steps.fmt.outcome == 'failure' || steps.clippy.outcome == 'failure'
