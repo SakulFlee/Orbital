@@ -48,6 +48,8 @@ jobs:
       AR_x86_64_pc_windows_gnu: x86_64-w64-mingw32-ar
     steps:
       - uses: https://code.forgejo.org/actions/checkout@v6
+        with:
+          submodules: true
       - name: Cache cargo registry
         uses: https://code.forgejo.org/actions/cache@v4
         continue-on-error: true
