@@ -146,7 +146,7 @@ pub fn select_simulator(requested: Option<&str>) -> Result<Simulator> {
     let mut input = String::new();
     std::io::stdin().read_line(&mut input)?;
 
-    let index: usize = input.trim().parse().unwrap_or(1).saturating_sub(1);
+    let index: usize = input.trim().parse::<usize>().unwrap_or(1).saturating_sub(1);
     let index = index.min(simulators.len() - 1);
 
     Ok(simulators[index].clone())

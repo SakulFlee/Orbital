@@ -118,7 +118,7 @@ fn replace_placeholders(content: &str, replacements: &[(String, String)]) -> Str
 }
 
 // Template files — pbxproj loaded from file to avoid Rust string escaping issues
-const PROJECT_PBXPROJ: &str = include_str!("../../template/ios/project.pbxproj");
+const PROJECT_PBXPROJ: &str = include_str!("../template/ios/project.pbxproj");
 
 const INFO_PLIST: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
