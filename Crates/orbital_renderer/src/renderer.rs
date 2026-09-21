@@ -354,4 +354,173 @@ impl Renderer {
             }
         }
     }
+
+    /// Renders 2D geometry (solid-color shapes) on top of the existing scene.
+    ///
+    /// Call this after `render()` to add 2D overlays.
+    /// The 2D content is rendered with alpha blending and no depth testing.
+    pub fn render_2d(
+        &self,
+        renderer_2d: &crate::Renderer2D,
+        bind_group: &BindGroup,
+        vertices: &[orbital_2d::Vertex2D],
+        target_view: &TextureView,
+        device: &Device,
+        queue: &Queue,
+    ) {
+        if vertices.is_empty() {
+            return;
+        }
+
+        let mut command_encoder = device.create_command_encoder(&CommandEncoderDescriptor {
+            label: Some("Orbital::Render2D::Encoder"),
+        });
+
+        {
+            let mut render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
+                label: Some("RenderPass::2D"),
+                color_attachments: &[Some(RenderPassColorAttachment {
+                    view: target_view,
+                    resolve_target: None,
+                    ops: Operations {
+                        load: LoadOp::Load,
+                        store: StoreOp::Store,
+                    },
+                    depth_slice: None,
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+
+            // Upload vertex data
+            let byte_data = unsafe {
+                std::slice::from_raw_parts(
+                    vertices.as_ptr() as *const u8,
+                    std::mem::size_of_val(vertices),
+                )
+            };
+            queue.write_buffer(renderer_2d.vertex_buffer(), 0, byte_data);
+
+            render_pass.set_pipeline(renderer_2d.pipeline());
+            render_pass.set_bind_group(0, bind_group, &[]);
+            render_pass.set_vertex_buffer(0, renderer_2d.vertex_buffer().slice(..));
+            render_pass.draw(0..vertices.len() as u32, 0..1);
+        }
+
+        queue.submit(std::iter::once(command_encoder.finish()));
+    }
+
+    /// Renders UI backgrounds (SDF rounded rectangles) on top of the existing scene.
+    ///
+    /// Call this after `render()` to add UI elements.
+    /// The UI content is rendered with alpha blending and no depth testing.
+    pub fn render_ui(
+        &self,
+        ui_renderer: &crate::UiRenderer,
+        vertices: &[orbital_2d::Vertex2D],
+        target_view: &TextureView,
+        device: &Device,
+        queue: &Queue,
+    ) {
+        if vertices.is_empty() {
+            return;
+        }
+
+        let mut command_encoder = device.create_command_encoder(&CommandEncoderDescriptor {
+            label: Some("Orbital::RenderUI::Encoder"),
+        });
+
+        {
+            let mut render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
+                label: Some("RenderPass::UI"),
+                color_attachments: &[Some(RenderPassColorAttachment {
+                    view: target_view,
+                    resolve_target: None,
+                    ops: Operations {
+                        load: LoadOp::Load,
+                        store: StoreOp::Store,
+                    },
+                    depth_slice: None,
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+
+            // Upload vertex data
+            let byte_data = unsafe {
+                std::slice::from_raw_parts(
+                    vertices.as_ptr() as *const u8,
+                    std::mem::size_of_val(vertices),
+                )
+            };
+            queue.write_buffer(ui_renderer.vertex_buffer(), 0, byte_data);
+
+            render_pass.set_pipeline(ui_renderer.pipeline());
+            render_pass.set_vertex_buffer(0, ui_renderer.vertex_buffer().slice(..));
+            render_pass.draw(0..vertices.len() as u32, 0..1);
+        }
+
+        queue.submit(std::iter::once(command_encoder.finish()));
+    }
+
+    /// Renders text (SDF) on top of the existing scene.
+    ///
+    /// Call this after `render()` to add text labels.
+    /// The text is rendered with alpha blending and no depth testing.
+    pub fn render_text(
+        &self,
+        text_renderer: &crate::TextRenderer,
+        atlas_bind_group: &BindGroup,
+        vertices: &[orbital_2d::Vertex2D],
+        target_view: &TextureView,
+        device: &Device,
+        queue: &Queue,
+    ) {
+        if vertices.is_empty() || !text_renderer.has_atlas() {
+            return;
+        }
+
+        let mut command_encoder = device.create_command_encoder(&CommandEncoderDescriptor {
+            label: Some("Orbital::RenderText::Encoder"),
+        });
+
+        {
+            let mut render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
+                label: Some("RenderPass::Text"),
+                color_attachments: &[Some(RenderPassColorAttachment {
+                    view: target_view,
+                    resolve_target: None,
+                    ops: Operations {
+                        load: LoadOp::Load,
+                        store: StoreOp::Store,
+                    },
+                    depth_slice: None,
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+
+            // Upload vertex data
+            let byte_data = unsafe {
+                std::slice::from_raw_parts(
+                    vertices.as_ptr() as *const u8,
+                    std::mem::size_of_val(vertices),
+                )
+            };
+            queue.write_buffer(text_renderer.vertex_buffer(), 0, byte_data);
+
+            render_pass.set_pipeline(text_renderer.pipeline());
+            render_pass.set_bind_group(1, atlas_bind_group, &[]);
+            render_pass.set_vertex_buffer(0, text_renderer.vertex_buffer().slice(..));
+            render_pass.draw(0..vertices.len() as u32, 0..1);
+        }
+
+        queue.submit(std::iter::once(command_encoder.finish()));
+    }
 }

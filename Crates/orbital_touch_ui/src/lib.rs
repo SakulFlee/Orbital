@@ -6,9 +6,7 @@
 //! to register it in an application.
 
 use cgmath::{InnerSpace, Vector2};
-use orbital_app::{
-    touch_controls, Module, RenderOverlay, RenderOverlayContext, RenderOverlayResource,
-};
+use orbital_app::{touch_controls, Module, RenderOverlay, RenderOverlayContext};
 use orbital_ecs::{System, World};
 use orbital_ecs_bridge::{InputSnapshot, SurfaceFormatResource};
 use wgpu::{
@@ -377,22 +375,33 @@ fn push_circle(
 pub struct TouchUiModule;
 
 impl Module for TouchUiModule {
-    fn setup(&self, ecs: &mut World, device: &Device, _queue: &Queue) -> Vec<Box<dyn System>> {
+    fn setup(&self, _ecs: &mut World, _device: &Device, _queue: &Queue) -> Vec<Box<dyn System>> {
+        vec![]
+    }
+
+    fn register_overlays(
+        &self,
+        ecs: &mut World,
+        _layer_renderers: &mut Vec<Box<dyn orbital_app::LayerRenderer>>,
+        legacy_overlays: &mut Vec<Box<dyn RenderOverlay>>,
+    ) {
         let format = ecs
             .get_resource::<SurfaceFormatResource>()
             .map(|f| f.0)
             .unwrap_or(TextureFormat::Bgra8UnormSrgb);
 
-        let overlay = JoystickOverlay::new(device, format);
+        let device = match ecs.get_resource::<orbital_ecs_bridge::DeviceResource>() {
+            Some(d) => d,
+            None => {
+                orbital_core::logging::warn!(
+                    "TouchUiModule: no DeviceResource, skipping overlay registration"
+                );
+                return;
+            }
+        };
 
-        if ecs.get_resource::<RenderOverlayResource>().is_none() {
-            ecs.insert_resource(RenderOverlayResource::new());
-        }
-        if let Some(res) = ecs.get_resource_mut::<RenderOverlayResource>() {
-            res.add(Box::new(overlay));
-        }
-
-        vec![]
+        let overlay = JoystickOverlay::new(&device.0, format);
+        legacy_overlays.push(Box::new(overlay));
     }
 }
 
