@@ -1,0 +1,68 @@
+name: Lint
+on:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    container:
+      image: forgejo.sakul-flee.de/sakulflee/orbital-ci-build-image:latest
+    env:
+      SKIP_GLTF_EXPORT: "true"
+      RUSTC_WRAPPER: sccache
+      CARGO_INCREMENTAL: 0
+      SCCACHE_CACHE_SIZE: 10G
+    steps:
+      - uses: https://code.forgejo.org/actions/checkout@v6
+        with:
+          submodules: true
+      - name: Cache cargo registry
+        uses: https://code.forgejo.org/actions/cache@v4
+        continue-on-error: true
+        with:
+          path: |
+            /usr/local/cargo/registry/index
+            /usr/local/cargo/registry/cache
+            /usr/local/cargo/git/db
+          key: cargo-lint-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-lint-
+      - name: Cache sccache
+        uses: https://code.forgejo.org/actions/cache@v4
+        continue-on-error: true
+        with:
+          path: /root/.cache/sccache
+          key: sccache-lint-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            sccache-lint-
+      - name: Check formatting
+        id: fmt
+        run: cargo fmt --all -- --check
+        continue-on-error: true
+      - name: Check clippy
+        id: clippy
+        run: cargo clippy -- -D warnings
+        continue-on-error: true
+      - name: Auto-fix formatting
+        if: steps.fmt.outcome == 'failure' && !startsWith(github.event.head_commit.message, '[ci]')
+        run: cargo fmt --all
+      - name: Auto-fix clippy
+        if: steps.clippy.outcome == 'failure' && !startsWith(github.event.head_commit.message, '[ci]')
+        run: cargo clippy --fix --allow-dirty --allow-staged -- -D warnings
+      - name: Commit and push fixes
+        if: (steps.fmt.outcome == 'failure' || steps.clippy.outcome == 'failure') && !startsWith(github.event.head_commit.message, '[ci]')
+        run: |
+          git config --global user.name "Orbital-CI"
+          git config --global user.email "orbital-ci@sakul-flee.de"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "[ci] Linting and formatting"
+            git push https://x-access-token:${{ secrets.BOT_TOKEN }}@${GITHUB_SERVER_URL#https://}/${GITHUB_REPOSITORY}.git HEAD:${{ github.head_ref || github.ref_name }}
+          fi
+      - name: Fail if issues found
+        if: steps.fmt.outcome == 'failure' || steps.clippy.outcome == 'failure'
+        run: |
+          echo "Lint issues found and auto-fixed. A new commit will trigger a re-run."
+          exit 1
+      - name: sccache stats
+        run: sccache --show-stats

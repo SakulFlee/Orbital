@@ -18,6 +18,8 @@ jobs:
       IMAGE: orbital-ci-build-image
     steps:
       - uses: https://code.forgejo.org/actions/checkout@v6
+        with:
+          submodules: true
       - name: Install Buildah
         run: apt-get update && apt-get install -y buildah
       - name: Configure Buildah storage
