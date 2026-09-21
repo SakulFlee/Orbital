@@ -68,11 +68,18 @@ fn generate_project_all_in_one(project_dir: &Path, config: &ProjectConfig) -> Re
     // Copy the entire template directory
     copy_dir_all(&template_dir, project_dir).context("Failed to copy template directory")?;
 
+    // Rename Cargo.toml.tmpl back to Cargo.toml
+    let tmpl_path = project_dir.join("Cargo.toml.tmpl");
+    let cargo_toml_path = project_dir.join("Cargo.toml");
+    if tmpl_path.exists() {
+        fs::rename(&tmpl_path, &cargo_toml_path)
+            .context("Failed to rename Cargo.toml.tmpl to Cargo.toml")?;
+    }
+
     // Generate Orbital.toml
     generate_orbital_toml(project_dir, config)?;
 
     // Replace placeholders in Cargo.toml
-    let cargo_toml_path = project_dir.join("Cargo.toml");
     if cargo_toml_path.exists() {
         let content = fs::read_to_string(&cargo_toml_path).context("Failed to read Cargo.toml")?;
         let content = content
