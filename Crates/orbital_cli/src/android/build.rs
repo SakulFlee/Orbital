@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::config;
@@ -57,6 +57,11 @@ pub fn build(package_name: Option<&str>, release: bool) -> Result<()> {
     // Sync engine assets into the project's Assets/ so they're bundled into
     // the APK (the app/build.gradle sourceSets points at that directory).
     crate::assets::sync_assets(&project_root)?;
+
+    // Ensure keystore exists for signing release APKs
+    if release {
+        ensure_keystore(&android_dir, &android_config)?;
+    }
 
     // Ensure cargo-ndk is installed
     ensure_cargo_ndk()?;
@@ -234,6 +239,85 @@ pub fn build(package_name: Option<&str>, release: bool) -> Result<()> {
     println!("\nBuild successful!");
     println!("APK output: {}", apk_path.display());
 
+    Ok(())
+}
+
+/// Ensures a keystore exists for signing release APKs.
+/// If no keystore is configured, generates a debug keystore.
+/// Returns the path to the keystore file.
+fn ensure_keystore(
+    android_dir: &Path,
+    config: &config::AndroidConfig,
+) -> Result<PathBuf> {
+    let keystore_path = if let Some(path) = config.keystore_path() {
+        let path = PathBuf::from(path);
+        if path.is_absolute() {
+            path
+        } else {
+            android_dir.join("app").join(path)
+        }
+    } else {
+        // Generate a debug keystore
+        let debug_keystore = android_dir.join("app").join("keystore").join("debug.keystore");
+        if !debug_keystore.exists() {
+            generate_debug_keystore(&debug_keystore)?;
+        }
+        debug_keystore
+    };
+
+    if !keystore_path.exists() {
+        anyhow::bail!(
+            "Keystore not found at: {}\n\
+             Please check the keystore_path in your Orbital.toml",
+            keystore_path.display()
+        );
+    }
+
+    Ok(keystore_path)
+}
+
+/// Generates a debug keystore for signing release APKs.
+fn generate_debug_keystore(keystore_path: &Path) -> Result<()> {
+    // Create the keystore directory if it doesn't exist
+    if let Some(parent) = keystore_path.parent() {
+        std::fs::create_dir_all(parent).context("Failed to create keystore directory")?;
+    }
+
+    println!("Generating debug keystore...");
+
+    // Use keytool to generate a debug keystore
+    let status = Command::new("keytool")
+        .args([
+            "-genkeypair",
+            "-v",
+            "-keystore",
+            keystore_path.to_str().unwrap_or("debug.keystore"),
+            "-alias",
+            "androiddebugkey",
+            "-keyalg",
+            "RSA",
+            "-keysize",
+            "2048",
+            "-validity",
+            "10000",
+            "-storepass",
+            "android",
+            "-keypass",
+            "android",
+            "-dname",
+            "CN=Android Debug,O=Android,C=US",
+        ])
+        .status()
+        .context("Failed to run keytool. Is Java installed?")?;
+
+    if !status.success() {
+        anyhow::bail!(
+            "Failed to generate debug keystore.\n\
+             Ensure Java keytool is available in your PATH."
+        );
+    }
+
+    println!("Debug keystore generated at: {}", keystore_path.display());
     Ok(())
 }
 
