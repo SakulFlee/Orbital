@@ -6,7 +6,10 @@
 
 use std::sync::{Arc, Mutex};
 
-#[cfg(all(feature = "gamepad_input", not(any(target_os = "android", target_os = "ios"))))]
+#[cfg(all(
+    feature = "gamepad_input",
+    not(any(target_os = "android", target_os = "ios"))
+))]
 use gilrs::Gilrs;
 use log::trace;
 use orbital_core::logging::{self, debug, error, info, warn};
@@ -31,7 +34,7 @@ use crate::{AppContext, AppSettings, AppState, Module, Timer, make_core_schedule
 use orbital_ecs_bridge::{
     ActiveCamera, AdapterResource, CameraDescriptorEcs, CameraDirty, CursorGrabConfig,
     CursorGrabState, CursorPosition, DeltaTime, DeviceResource, EcsCameraStore, EngineEvent,
-    EngineEvents, FrameCounter, IcedCapturedTouches, IcedEventQueue, InputSnapshot,
+    EngineEvents, FpsStats, FrameCounter, IcedCapturedTouches, IcedEventQueue, InputSnapshot,
     LightDescriptorEcs, Position, QueueResource, SurfaceFormatResource, TotalTime, WindowSize,
 };
 
@@ -159,7 +162,10 @@ pub struct ModuleRuntime {
     overlay_renderers: std::sync::Mutex<Vec<Box<dyn crate::render_overlay::LayerRenderer>>>,
     /// Legacy overlays (without layer ordering).
     legacy_overlays: std::sync::Mutex<Vec<Box<dyn crate::render_overlay::RenderOverlay>>>,
-    #[cfg(all(feature = "gamepad_input", not(any(target_os = "android", target_os = "ios"))))]
+    #[cfg(all(
+        feature = "gamepad_input",
+        not(any(target_os = "android", target_os = "ios"))
+    ))]
     gil: Gilrs,
 }
 
@@ -191,13 +197,17 @@ impl ModuleRuntime {
             deferred_touches: Vec::new(),
             overlay_renderers: std::sync::Mutex::new(Vec::new()),
             legacy_overlays: std::sync::Mutex::new(Vec::new()),
-            #[cfg(all(feature = "gamepad_input", not(any(target_os = "android", target_os = "ios"))))]
+            #[cfg(all(
+                feature = "gamepad_input",
+                not(any(target_os = "android", target_os = "ios"))
+            ))]
             gil: Gilrs::new().expect("Gamepad input initialization failed!"),
         };
 
         // Initialise built-in ECS resources
         runtime.ecs_world.insert_resource(FrameCounter(0));
         runtime.ecs_world.insert_resource(DeltaTime(0.0));
+        runtime.ecs_world.insert_resource(FpsStats::default());
         runtime.ecs_world.insert_resource(TotalTime(0.0));
         runtime
             .ecs_world
@@ -1078,7 +1088,10 @@ impl ModuleRuntime {
         lights
     }
 
-    #[cfg(all(feature = "gamepad_input", not(any(target_os = "android", target_os = "ios"))))]
+    #[cfg(all(
+        feature = "gamepad_input",
+        not(any(target_os = "android", target_os = "ios"))
+    ))]
     fn receive_controller_inputs(&mut self) {
         while let Some(gil_event) = self.gil.next_event() {
             if let Some(input_event) = InputEvent::convert_gil_event(gil_event) {
@@ -1092,6 +1105,17 @@ impl ModuleRuntime {
 
         if let Some((total_delta, fps)) = cycle {
             info!("FPS: {fps} | TDT: {total_delta}s | CDT: {delta_time}s");
+            self.ecs_world.insert_resource(FpsStats {
+                fps,
+                total_delta_time: total_delta,
+                cycle_delta_time: delta_time,
+            });
+        } else {
+            // Update cycle_delta_time every frame so the HUD shows the
+            // latest per-frame delta even between one-second boundaries.
+            if let Some(mut stats) = self.ecs_world.get_resource_mut::<FpsStats>() {
+                stats.cycle_delta_time = delta_time;
+            }
         }
 
         // Write frame-computed engine state into the ECS world
@@ -1168,7 +1192,10 @@ impl ModuleRuntime {
         // Run game schedule (user systems)
         self.game_schedule.run(&mut self.ecs_world);
 
-        #[cfg(all(feature = "gamepad_input_poll", not(any(target_os = "android", target_os = "ios"))))]
+        #[cfg(all(
+            feature = "gamepad_input_poll",
+            not(any(target_os = "android", target_os = "ios"))
+        ))]
         self.receive_controller_inputs();
 
         // Process engine events

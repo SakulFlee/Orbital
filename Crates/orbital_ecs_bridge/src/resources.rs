@@ -24,6 +24,31 @@ use hashbrown::HashMap;
 #[derive(Debug, Clone, Copy)]
 pub struct FrameCounter(pub u64);
 
+/// Frame-rate statistics updated every second by the runtime.
+///
+/// Written by `ModuleRuntime::update()` alongside the `info!()` log line.
+/// Read by HUD overlays (e.g. the all-in-one template) to display live
+/// performance metrics on screen.
+#[derive(Debug, Clone, Copy)]
+pub struct FpsStats {
+    /// Frames rendered in the last complete one-second window.
+    pub fps: u64,
+    /// Cumulative delta time for the current one-second window (seconds).
+    pub total_delta_time: f64,
+    /// Delta time of the most recent frame (seconds).
+    pub cycle_delta_time: f64,
+}
+
+impl Default for FpsStats {
+    fn default() -> Self {
+        Self {
+            fps: 0,
+            total_delta_time: 0.0,
+            cycle_delta_time: 0.0,
+        }
+    }
+}
+
 /// Time elapsed since the previous frame, in seconds.
 ///
 /// Measured as wall-clock time between consecutive `tick()` calls in the

@@ -146,9 +146,7 @@ fn main() -> Result<()> {
             Platform::Android => {
                 android::run::run(package.as_deref(), device.as_deref(), skip_build, no_logcat)
             }
-            Platform::Ios => {
-                ios::run::run(package.as_deref(), device.as_deref(), skip_build)
-            }
+            Platform::Ios => ios::run::run(package.as_deref(), device.as_deref(), skip_build),
         },
     }
 }
