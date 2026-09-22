@@ -40,12 +40,7 @@ pub fn build(package_name: Option<&str>, release: bool) -> Result<()> {
 
     // Build the Rust static library
     println!("\nBuilding Rust static library...");
-    let mut cargo_args = vec![
-        "build",
-        "--lib",
-        "--target",
-        "aarch64-apple-ios",
-    ];
+    let mut cargo_args = vec!["build", "--lib", "--target", "aarch64-apple-ios"];
     if let Some(pkg) = package_name {
         cargo_args.push("--package");
         cargo_args.push(pkg);

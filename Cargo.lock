@@ -3902,7 +3902,7 @@ dependencies = [
 
 [[package]]
 name = "orbital-cli"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -4044,6 +4044,8 @@ dependencies = [
  "dirs",
  "log",
  "ndk",
+ "objc2 0.6.4",
+ "objc2-foundation 0.3.2",
 ]
 
 [[package]]

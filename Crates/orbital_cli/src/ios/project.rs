@@ -41,7 +41,10 @@ fn generate_project(ios_dir: &Path, config: &config::IosConfig) -> Result<()> {
     fs::create_dir_all(ios_dir.join("Orbital").join("Assets.xcassets"))
         .context("Failed to create Assets.xcassets directory")?;
     fs::create_dir_all(
-        ios_dir.join("Orbital").join("Assets.xcassets").join("AppIcon.appiconset"),
+        ios_dir
+            .join("Orbital")
+            .join("Assets.xcassets")
+            .join("AppIcon.appiconset"),
     )
     .context("Failed to create AppIcon.appiconset directory")?;
 
@@ -89,7 +92,10 @@ fn generate_project(ios_dir: &Path, config: &config::IosConfig) -> Result<()> {
 
 fn create_replacements(config: &config::IosConfig) -> Vec<(String, String)> {
     vec![
-        ("@@@BUNDLE_ID@@@".to_string(), config.bundle_id().to_string()),
+        (
+            "@@@BUNDLE_ID@@@".to_string(),
+            config.bundle_id().to_string(),
+        ),
         (
             "@@@DEPLOYMENT_TARGET@@@".to_string(),
             config.deployment_target().to_string(),
