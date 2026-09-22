@@ -57,7 +57,7 @@ jobs:
           git add -A
           if ! git diff --cached --quiet; then
             git commit -m "[ci] Linting and formatting"
-            git push https://x-access-token:${{ secrets.BOT_TOKEN }}@${GITHUB_SERVER_URL#*://}/${GITHUB_REPOSITORY}.git HEAD:${{ github.head_ref || github.ref_name }}
+            git push http://x-access-token:${{ secrets.BOT_TOKEN }}@forgejo-http.forgejo.svc.cluster.local:3000/${GITHUB_REPOSITORY}.git HEAD:${{ github.head_ref || github.ref_name }}
           fi
       - name: Fail if issues found
         if: steps.fmt.outcome == 'failure' || steps.clippy.outcome == 'failure'
