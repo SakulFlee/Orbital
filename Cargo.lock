@@ -3910,6 +3910,7 @@ dependencies = [
  "flate2",
  "indicatif",
  "inquire",
+ "libc",
  "serde",
  "serde_json",
  "tar",
