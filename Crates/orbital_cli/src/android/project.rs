@@ -48,6 +48,12 @@ fn generate_project(android_dir: &Path, config: &config::AndroidConfig) -> Resul
     fs::create_dir_all(android_dir.join("gradle").join("wrapper"))
         .context("Failed to create gradle wrapper directory")?;
 
+    // Create keystore directory if signing is configured
+    if config.has_signing_config() {
+        fs::create_dir_all(android_dir.join("app").join("keystore"))
+            .context("Failed to create keystore directory")?;
+    }
+
     // Write template files
     write_template_file(
         android_dir.join("build.gradle"),
@@ -158,6 +164,13 @@ fn generate_project(android_dir: &Path, config: &config::AndroidConfig) -> Resul
 }
 
 fn create_replacements(config: &config::AndroidConfig) -> Vec<(String, String)> {
+    // Determine keystore path. If configured, use it; otherwise use a default
+    // debug keystore path that will be generated later.
+    let keystore_path = config
+        .keystore_path()
+        .map(|p| p.to_string())
+        .unwrap_or_else(|| "keystore/debug.keystore".to_string());
+
     vec![
         (
             "@@@PACKAGE_NAME@@@".to_string(),
@@ -172,6 +185,20 @@ fn create_replacements(config: &config::AndroidConfig) -> Vec<(String, String)> 
         (
             "@@@NDK_VERSION@@@".to_string(),
             config.ndk_version().to_string(),
+        ),
+        // Signing configuration placeholders
+        ("@@@KEYSTORE_PATH@@@".to_string(), keystore_path),
+        (
+            "@@@KEYSTORE_PASSWORD@@@".to_string(),
+            config.keystore_password().to_string(),
+        ),
+        (
+            "@@@KEY_ALIAS@@@".to_string(),
+            config.key_alias().to_string(),
+        ),
+        (
+            "@@@KEY_PASSWORD@@@".to_string(),
+            config.key_password().to_string(),
         ),
         // @@@LIBRARY_NAME@@@ and @@@APP_NAME@@@ are intentionally left
         // unreplaced here; they're finalized during build with the actual
@@ -247,10 +274,20 @@ android {
         ndkVersion '@@@NDK_VERSION@@@'
     }
 
+    signingConfigs {
+        release {
+            storeFile file('@@@KEYSTORE_PATH@@@')
+            storePassword '@@@KEYSTORE_PASSWORD@@@'
+            keyAlias '@@@KEY_ALIAS@@@'
+            keyPassword '@@@KEY_PASSWORD@@@'
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
     }
 
