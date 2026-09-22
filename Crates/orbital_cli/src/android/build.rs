@@ -266,7 +266,10 @@ fn ensure_keystore(
         }
     } else {
         // No keystore configured - check if debug keystore exists
-        let debug_keystore = android_dir.join("app").join("keystore").join("debug.keystore");
+        let debug_keystore = android_dir
+            .join("app")
+            .join("keystore")
+            .join("debug.keystore");
         if debug_keystore.exists() {
             return Ok(Some(debug_keystore));
         }
@@ -365,8 +368,8 @@ fn update_orbital_toml_keystore(project_root: &Path, keystore_path: &str) -> Res
         return Ok(());
     }
 
-    let content = std::fs::read_to_string(&orbital_toml_path)
-        .context("Failed to read Orbital.toml")?;
+    let content =
+        std::fs::read_to_string(&orbital_toml_path).context("Failed to read Orbital.toml")?;
 
     // Check if keystore_path is already configured
     if content.contains("keystore_path") {
@@ -384,17 +387,16 @@ fn update_orbital_toml_keystore(project_root: &Path, keystore_path: &str) -> Res
         // Insert keystore_path before the next section
         let before = &content[..section_end];
         let after = &content[section_end..];
-        format!(
-            "{}keystore_path = \"{}\"\n{}",
-            before, keystore_path, after
-        )
+        format!("{}keystore_path = \"{}\"\n{}", before, keystore_path, after)
     } else {
         // No [android] section - add it
-        format!("{}\n[android]\nkeystore_path = \"{}\"\n", content, keystore_path)
+        format!(
+            "{}\n[android]\nkeystore_path = \"{}\"\n",
+            content, keystore_path
+        )
     };
 
-    std::fs::write(&orbital_toml_path, updated_content)
-        .context("Failed to write Orbital.toml")?;
+    std::fs::write(&orbital_toml_path, updated_content).context("Failed to write Orbital.toml")?;
 
     println!("Updated Orbital.toml with keystore path.");
     Ok(())
