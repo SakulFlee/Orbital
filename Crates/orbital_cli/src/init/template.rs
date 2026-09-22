@@ -226,6 +226,13 @@ targets = ["arm64-v8a", "armeabi-v7a", "x86_64", "x86"]
 apk_mode = "multiarch"
 ndk_version = "26.2.11394342"
 screen_orientation = "unspecified"
+
+# Signing configuration for release APKs (optional)
+# If not specified, a debug keystore will be automatically generated
+# keystore_path = "keystore/release.keystore"
+# keystore_password = "your_keystore_password"
+# key_alias = "your_key_alias"
+# key_password = "your_key_password"
 "#,
         package = config.package_name,
         min_sdk = config.min_sdk,
