@@ -31,7 +31,7 @@ use crate::{AppContext, AppSettings, AppState, Module, Timer, make_core_schedule
 use orbital_ecs_bridge::{
     ActiveCamera, AdapterResource, CameraDescriptorEcs, CameraDirty, CursorGrabConfig,
     CursorGrabState, CursorPosition, DeltaTime, DeviceResource, EcsCameraStore, EngineEvent,
-    EngineEvents, FrameCounter, IcedCapturedTouches, IcedEventQueue, InputSnapshot,
+    EngineEvents, FpsStats, FrameCounter, IcedCapturedTouches, IcedEventQueue, InputSnapshot,
     LightDescriptorEcs, Position, QueueResource, SurfaceFormatResource, TotalTime, WindowSize,
 };
 
@@ -198,6 +198,7 @@ impl ModuleRuntime {
         // Initialise built-in ECS resources
         runtime.ecs_world.insert_resource(FrameCounter(0));
         runtime.ecs_world.insert_resource(DeltaTime(0.0));
+        runtime.ecs_world.insert_resource(FpsStats::default());
         runtime.ecs_world.insert_resource(TotalTime(0.0));
         runtime
             .ecs_world
@@ -1092,6 +1093,17 @@ impl ModuleRuntime {
 
         if let Some((total_delta, fps)) = cycle {
             info!("FPS: {fps} | TDT: {total_delta}s | CDT: {delta_time}s");
+            self.ecs_world.insert_resource(FpsStats {
+                fps,
+                total_delta_time: total_delta,
+                cycle_delta_time: delta_time,
+            });
+        } else {
+            // Update cycle_delta_time every frame so the HUD shows the
+            // latest per-frame delta even between one-second boundaries.
+            if let Some(mut stats) = self.ecs_world.get_resource_mut::<FpsStats>() {
+                stats.cycle_delta_time = delta_time;
+            }
         }
 
         // Write frame-computed engine state into the ECS world
