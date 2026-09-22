@@ -3902,7 +3902,7 @@ dependencies = [
 
 [[package]]
 name = "orbital-cli"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -3910,6 +3910,7 @@ dependencies = [
  "flate2",
  "indicatif",
  "inquire",
+ "libc",
  "serde",
  "serde_json",
  "tar",
