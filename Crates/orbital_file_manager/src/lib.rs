@@ -20,17 +20,17 @@
 
 #[cfg(target_os = "android")]
 mod android;
-#[cfg(target_os = "ios")]
-mod ios;
 mod dir;
 mod error;
+#[cfg(target_os = "ios")]
+mod ios;
 
 #[cfg(target_os = "android")]
 pub use android::{AndroidAssetSource, AndroidStorage};
-#[cfg(target_os = "ios")]
-pub use ios::{IosAssetSource, IosStorage};
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub use dir::{DesktopAssetSource, DesktopStorage};
+#[cfg(target_os = "ios")]
+pub use ios::{IosAssetSource, IosStorage};
 
 pub use dir::DirStorage;
 

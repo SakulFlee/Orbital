@@ -519,6 +519,16 @@ impl Module for ProcgeoSceneModule {
                 .with_view(|ecs: &orbital::ecs::World| {
                     use orbital::iced::iced_widget::{column, text};
 
+                    let fps_text = ecs
+                        .get_resource::<orbital::ecs_bridge::FpsStats>()
+                        .map(|s| {
+                            format!(
+                                "FPS: {} | TDT: {:.2}s | CDT: {:.4}s",
+                                s.fps, s.total_delta_time, s.cycle_delta_time
+                            )
+                        })
+                        .unwrap_or_else(|| "FPS: --".to_string());
+
                     let health_text = ecs
                         .get_resource::<Health>()
                         .map(|h| format!("Health: {}", h.0))
@@ -529,9 +539,13 @@ impl Module for ProcgeoSceneModule {
                         .map(|m| format!("Mana: {}", m.0))
                         .unwrap_or_else(|| "Mana: --".to_string());
 
-                    column![text(health_text).size(16), text(mana_text).size(16)]
-                        .spacing(4)
-                        .into()
+                    column![
+                        text(fps_text).size(16),
+                        text(health_text).size(16),
+                        text(mana_text).size(16),
+                    ]
+                    .spacing(4)
+                    .into()
                 }),
         );
 

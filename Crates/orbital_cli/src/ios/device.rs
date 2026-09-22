@@ -33,18 +33,9 @@ pub fn list_simulators() -> Result<Vec<Simulator>> {
         for (_runtime, device_list) in devices.as_object().unwrap_or(&serde_json::Map::new()) {
             if let Some(arr) = device_list.as_array() {
                 for device in arr {
-                    let udid = device["udid"]
-                        .as_str()
-                        .unwrap_or("")
-                        .to_string();
-                    let name = device["name"]
-                        .as_str()
-                        .unwrap_or("")
-                        .to_string();
-                    let state = device["state"]
-                        .as_str()
-                        .unwrap_or("")
-                        .to_string();
+                    let udid = device["udid"].as_str().unwrap_or("").to_string();
+                    let name = device["name"].as_str().unwrap_or("").to_string();
+                    let state = device["state"].as_str().unwrap_or("").to_string();
 
                     // Only include available (bootable) simulators
                     if state == "Booted" || state == "Shutdown" {
@@ -135,8 +126,18 @@ pub fn select_simulator(requested: Option<&str>) -> Result<Simulator> {
     // Prompt user to select
     println!("\nAvailable simulators:");
     for (i, sim) in simulators.iter().enumerate() {
-        let state_marker = if sim.state == "Booted" { " (running)" } else { "" };
-        println!("  [{}] {} ({}){}", i + 1, sim.name, &sim.udid[..8], state_marker);
+        let state_marker = if sim.state == "Booted" {
+            " (running)"
+        } else {
+            ""
+        };
+        println!(
+            "  [{}] {} ({}){}",
+            i + 1,
+            sim.name,
+            &sim.udid[..8],
+            state_marker
+        );
     }
 
     print!("Select simulator [1]: ");
