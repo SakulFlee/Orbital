@@ -4,11 +4,7 @@ use std::process::Command;
 
 use crate::config;
 
-pub fn run(
-    package_name: Option<&str>,
-    device_id: Option<&str>,
-    skip_build: bool,
-) -> Result<()> {
+pub fn run(package_name: Option<&str>, device_id: Option<&str>, skip_build: bool) -> Result<()> {
     // Check that we're on macOS
     if cfg!(not(target_os = "macos")) {
         anyhow::bail!(
@@ -56,11 +52,10 @@ pub fn run(
         build_dir
     } else if let Some(dd) = derived_data {
         // Search DerivedData for our .app
-        find_app_in_derived_data(&dd, app_name)?
-            .unwrap_or_else(|| {
-                println!("Warning: Could not find .app bundle. Using default path.");
-                build_dir
-            })
+        find_app_in_derived_data(&dd, app_name)?.unwrap_or_else(|| {
+            println!("Warning: Could not find .app bundle. Using default path.");
+            build_dir
+        })
     } else {
         build_dir
     };
@@ -121,7 +116,10 @@ pub fn run(
 }
 
 /// Search DerivedData for an .app bundle matching the given name.
-fn find_app_in_derived_data(derived_data: &Path, app_name: &str) -> Result<Option<std::path::PathBuf>> {
+fn find_app_in_derived_data(
+    derived_data: &Path,
+    app_name: &str,
+) -> Result<Option<std::path::PathBuf>> {
     let suffix = format!("{}.app", app_name);
 
     if !derived_data.exists() {
