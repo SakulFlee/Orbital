@@ -421,6 +421,17 @@ fn update_android_project(
         let content = content.replace("@@@PACKAGE_NAME@@@", config.package_name());
         let content = content.replace("@@@MIN_SDK@@@", &config.min_sdk().to_string());
         let content = content.replace("@@@TARGET_SDK@@@", &config.target_sdk().to_string());
+
+        // Update signing configuration placeholders
+        let keystore_path = config
+            .keystore_path()
+            .map(|p| p.to_string())
+            .unwrap_or_else(|| "keystore/debug.keystore".to_string());
+        let content = content.replace("@@@KEYSTORE_PATH@@@", &keystore_path);
+        let content = content.replace("@@@KEYSTORE_PASSWORD@@@", config.keystore_password());
+        let content = content.replace("@@@KEY_ALIAS@@@", config.key_alias());
+        let content = content.replace("@@@KEY_PASSWORD@@@", config.key_password());
+
         std::fs::write(&build_gradle_path, content).context("Failed to write app/build.gradle")?;
     }
 
