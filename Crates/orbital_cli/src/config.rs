@@ -43,6 +43,14 @@ pub struct AndroidConfig {
     pub apk_mode: Option<String>,
     pub ndk_version: Option<String>,
     pub screen_orientation: Option<String>,
+    /// Path to the keystore file for signing release APKs (relative to project root or absolute)
+    pub keystore_path: Option<String>,
+    /// Keystore password
+    pub keystore_password: Option<String>,
+    /// Key alias in the keystore
+    pub key_alias: Option<String>,
+    /// Key password
+    pub key_password: Option<String>,
 }
 
 impl Default for AndroidConfig {
@@ -55,6 +63,10 @@ impl Default for AndroidConfig {
             apk_mode: None,
             ndk_version: None,
             screen_orientation: None,
+            keystore_path: None,
+            keystore_password: None,
+            key_alias: None,
+            key_password: None,
         }
     }
 }
@@ -93,6 +105,32 @@ impl AndroidConfig {
 
     pub fn screen_orientation(&self) -> &str {
         self.screen_orientation.as_deref().unwrap_or("unspecified")
+    }
+
+    /// Returns the path to the keystore file, or None if not configured.
+    /// The path is resolved relative to the project root if it's not absolute.
+    pub fn keystore_path(&self) -> Option<&str> {
+        self.keystore_path.as_deref()
+    }
+
+    /// Returns the keystore password, or "android" as a default.
+    pub fn keystore_password(&self) -> &str {
+        self.keystore_password.as_deref().unwrap_or("android")
+    }
+
+    /// Returns the key alias, or "androiddebugkey" as a default.
+    pub fn key_alias(&self) -> &str {
+        self.key_alias.as_deref().unwrap_or("androiddebugkey")
+    }
+
+    /// Returns the key password, or "android" as a default.
+    pub fn key_password(&self) -> &str {
+        self.key_password.as_deref().unwrap_or("android")
+    }
+
+    /// Returns true if signing configuration is provided.
+    pub fn has_signing_config(&self) -> bool {
+        self.keystore_path.is_some()
     }
 }
 
