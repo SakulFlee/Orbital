@@ -6,6 +6,11 @@ use std::process::Command;
 
 use crate::config;
 
+/// Returns true if stdin is a terminal (interactive mode).
+fn is_terminal() -> bool {
+    unsafe { libc::isatty(libc::STDIN_FILENO) != 0 }
+}
+
 pub fn build(package_name: Option<&str>, release: bool) -> Result<()> {
     let project_root = config::find_project_root()?;
     let android_dir = project_root.join("Android");
@@ -59,9 +64,11 @@ pub fn build(package_name: Option<&str>, release: bool) -> Result<()> {
     crate::assets::sync_assets(&project_root)?;
 
     // Ensure keystore exists for signing release APKs
-    if release {
-        ensure_keystore(&android_dir, &android_config)?;
-    }
+    let _keystore_path = if release {
+        ensure_keystore(&android_dir, &android_config, &project_root)?
+    } else {
+        None
+    };
 
     // Ensure cargo-ndk is installed
     ensure_cargo_ndk()?;
@@ -243,12 +250,13 @@ pub fn build(package_name: Option<&str>, release: bool) -> Result<()> {
 }
 
 /// Ensures a keystore exists for signing release APKs.
-/// If no keystore is configured, generates a debug keystore.
-/// Returns the path to the keystore file.
+/// If no keystore is configured, prompts the user to generate a debug keystore.
+/// Returns the path to the keystore file, or None if signing is skipped.
 fn ensure_keystore(
     android_dir: &Path,
     config: &config::AndroidConfig,
-) -> Result<PathBuf> {
+    project_root: &Path,
+) -> Result<Option<PathBuf>> {
     let keystore_path = if let Some(path) = config.keystore_path() {
         let path = PathBuf::from(path);
         if path.is_absolute() {
@@ -257,11 +265,40 @@ fn ensure_keystore(
             android_dir.join("app").join(path)
         }
     } else {
-        // Generate a debug keystore
+        // No keystore configured - check if debug keystore exists
         let debug_keystore = android_dir.join("app").join("keystore").join("debug.keystore");
-        if !debug_keystore.exists() {
-            generate_debug_keystore(&debug_keystore)?;
+        if debug_keystore.exists() {
+            return Ok(Some(debug_keystore));
         }
+
+        // No keystore exists - prompt user to generate one
+        if is_terminal() {
+            println!("\nNo signing keystore found for release builds.");
+            print!("Generate a debug keystore? [Y/n] ");
+            std::io::stdout().flush()?;
+
+            let mut input = String::new();
+            std::io::stdin().read_line(&mut input)?;
+
+            if input.trim().to_lowercase() == "n" {
+                println!("\nSkipping keystore generation.");
+                println!("Release APK will not be signed and cannot be installed on devices.");
+                println!("To configure signing, add keystore_path to your Orbital.toml:");
+                println!("  [android]");
+                println!("  keystore_path = \"keystore/release.keystore\"");
+                return Ok(None);
+            }
+        } else {
+            // Non-interactive mode (CI) - auto-generate
+            println!("\nNo signing keystore found. Generating debug keystore...");
+        }
+
+        // Generate the debug keystore
+        generate_debug_keystore(&debug_keystore)?;
+
+        // Update Orbital.toml to record the keystore path
+        update_orbital_toml_keystore(project_root, "keystore/debug.keystore")?;
+
         debug_keystore
     };
 
@@ -273,7 +310,7 @@ fn ensure_keystore(
         );
     }
 
-    Ok(keystore_path)
+    Ok(Some(keystore_path))
 }
 
 /// Generates a debug keystore for signing release APKs.
@@ -318,6 +355,48 @@ fn generate_debug_keystore(keystore_path: &Path) -> Result<()> {
     }
 
     println!("Debug keystore generated at: {}", keystore_path.display());
+    Ok(())
+}
+
+/// Updates Orbital.toml to record the keystore path.
+fn update_orbital_toml_keystore(project_root: &Path, keystore_path: &str) -> Result<()> {
+    let orbital_toml_path = project_root.join("Orbital.toml");
+    if !orbital_toml_path.exists() {
+        return Ok(());
+    }
+
+    let content = std::fs::read_to_string(&orbital_toml_path)
+        .context("Failed to read Orbital.toml")?;
+
+    // Check if keystore_path is already configured
+    if content.contains("keystore_path") {
+        return Ok(());
+    }
+
+    // Add keystore_path after the [android] section
+    let updated_content = if let Some(pos) = content.find("[android]") {
+        // Find the end of the [android] section (next [ section or end of file)
+        let section_end = content[pos..]
+            .find("\n[")
+            .map(|p| pos + p)
+            .unwrap_or(content.len());
+
+        // Insert keystore_path before the next section
+        let before = &content[..section_end];
+        let after = &content[section_end..];
+        format!(
+            "{}keystore_path = \"{}\"\n{}",
+            before, keystore_path, after
+        )
+    } else {
+        // No [android] section - add it
+        format!("{}\n[android]\nkeystore_path = \"{}\"\n", content, keystore_path)
+    };
+
+    std::fs::write(&orbital_toml_path, updated_content)
+        .context("Failed to write Orbital.toml")?;
+
+    println!("Updated Orbital.toml with keystore path.");
     Ok(())
 }
 
