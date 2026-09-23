@@ -181,7 +181,10 @@ pub struct ModuleRuntime {
         feature = "gamepad_input",
         not(any(target_os = "android", target_os = "ios"))
     ))]
-    gil: Gilrs,
+    /// Gamepad event source. `None` when gilrs fails to initialize (e.g. no
+    /// input subsystem) — the app runs without gamepad support instead of
+    /// panicking at startup.
+    gil: Option<Gilrs>,
 }
 
 impl ModuleRuntime {
@@ -216,7 +219,13 @@ impl ModuleRuntime {
                 feature = "gamepad_input",
                 not(any(target_os = "android", target_os = "ios"))
             ))]
-            gil: Gilrs::new().expect("Gamepad input initialization failed!"),
+            gil: match Gilrs::new() {
+                Ok(gil) => Some(gil),
+                Err(e) => {
+                    warn!("Gamepad input unavailable, continuing without: {e}");
+                    None
+                }
+            },
         };
 
         // Initialise built-in ECS resources
@@ -1108,7 +1117,10 @@ impl ModuleRuntime {
         not(any(target_os = "android", target_os = "ios"))
     ))]
     fn receive_controller_inputs(&mut self) {
-        while let Some(gil_event) = self.gil.next_event() {
+        let Some(gil) = self.gil.as_mut() else {
+            return;
+        };
+        while let Some(gil_event) = gil.next_event() {
             if let Some(input_event) = InputEvent::convert_gil_event(gil_event) {
                 self.input_state.handle_event(input_event);
             }
@@ -1192,6 +1204,15 @@ impl ModuleRuntime {
             });
         }
 
+        #[cfg(all(
+            feature = "gamepad_input_poll",
+            not(any(target_os = "android", target_os = "ios"))
+        ))]
+        // Poll gamepads BEFORE taking the input snapshot and running the
+        // schedules, so this frame's stick/button input is visible to the
+        // game systems instead of arriving one frame late.
+        self.receive_controller_inputs();
+
         // Snapshot input state AFTER deferred touches are processed so game
         // systems (camera controller, etc.) see the current frame's touch
         // data — including right-side look deltas.
@@ -1206,12 +1227,6 @@ impl ModuleRuntime {
 
         // Run game schedule (user systems)
         self.game_schedule.run(&mut self.ecs_world);
-
-        #[cfg(all(
-            feature = "gamepad_input_poll",
-            not(any(target_os = "android", target_os = "ios"))
-        ))]
-        self.receive_controller_inputs();
 
         // Process engine events
         let exit_requested = self.process_engine_events();
