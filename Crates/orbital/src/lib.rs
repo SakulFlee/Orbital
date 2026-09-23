@@ -27,7 +27,7 @@ pub use orbital_core::{make_android_main, make_desktop_main, make_main};
 
 // Re-exports
 pub use cgmath;
-#[cfg(feature = "gamepad_input")]
+#[cfg(feature = "gamepad_gilrs")]
 pub use gilrs;
 pub use wgpu;
 pub use winit;

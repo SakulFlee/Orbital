@@ -7,7 +7,7 @@
 use std::sync::{Arc, Mutex};
 
 #[cfg(all(
-    feature = "gamepad_input",
+    feature = "gamepad_gilrs",
     not(any(target_os = "android", target_os = "ios"))
 ))]
 use gilrs::Gilrs;
@@ -178,7 +178,7 @@ pub struct ModuleRuntime {
     /// Legacy overlays (without layer ordering).
     legacy_overlays: std::sync::Mutex<Vec<Box<dyn crate::render_overlay::RenderOverlay>>>,
     #[cfg(all(
-        feature = "gamepad_input",
+        feature = "gamepad_gilrs",
         not(any(target_os = "android", target_os = "ios"))
     ))]
     /// Gamepad event source. `None` when gilrs fails to initialize (e.g. no
@@ -216,7 +216,7 @@ impl ModuleRuntime {
             overlay_renderers: std::sync::Mutex::new(Vec::new()),
             legacy_overlays: std::sync::Mutex::new(Vec::new()),
             #[cfg(all(
-                feature = "gamepad_input",
+                feature = "gamepad_gilrs",
                 not(any(target_os = "android", target_os = "ios"))
             ))]
             gil: match Gilrs::new() {
@@ -1113,7 +1113,7 @@ impl ModuleRuntime {
     }
 
     #[cfg(all(
-        feature = "gamepad_input",
+        feature = "gamepad_gilrs",
         not(any(target_os = "android", target_os = "ios"))
     ))]
     fn receive_controller_inputs(&mut self) {

@@ -9,10 +9,20 @@ crate-type = ["lib", "cdylib"]
 [features]
 default = ["gamepad_input", "gamepad_input_poll", "auto_request_redraw"]
 renderdoc = []
-# Enables gamepad inputs from being polled and processed.
-gamepad_input = ["dep:gilrs", "orbital_input/gamepad_input", "orbital_app/gamepad_input"]
+# Semantic gamepad input (backend-independent buttons/axes/ids + state).
+gamepad_input = ["orbital_input/gamepad_input", "orbital_app/gamepad_input"]
+# gilrs backend for desktop gamepads (also re-exported by this crate).
+gamepad_gilrs = [
+    "dep:gilrs",
+    "orbital_input/gamepad_gilrs",
+    "orbital_app/gamepad_gilrs",
+]
 # Automatically polls gamepad inputs and processes them.
-gamepad_input_poll = ["gamepad_input", "orbital_app/gamepad_input_poll"]
+gamepad_input_poll = [
+    "gamepad_input",
+    "gamepad_gilrs",
+    "orbital_app/gamepad_input_poll",
+]
 # Will automatically request a redraw when the last frame was rendered.
 auto_request_redraw = ["orbital_app/auto_request_redraw"]
 
