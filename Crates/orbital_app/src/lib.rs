@@ -35,6 +35,9 @@ pub use render_overlay::{
 mod touch_controls;
 pub use touch_controls::{TouchControlsConfig, set_touch_controls, touch_controls};
 
+#[cfg(all(feature = "gamepad_input_poll", target_os = "ios"))]
+mod ios_gamepad;
+
 /// Key used by the freeze-frustum toggle (default F4).
 ///
 /// Set by [`DebugModule`](orbital_debug_render::DebugModule) during setup.
