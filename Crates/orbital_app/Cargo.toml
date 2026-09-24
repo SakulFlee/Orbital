@@ -4,9 +4,19 @@ version = "0.1.0"
 edition = "2024"
 
 [features]
-gamepad_input = ["dep:gilrs"]
+# Semantic gamepad input; always available through orbital_input's
+# default features. Kept as a no-op for downstream compatibility.
+gamepad_input = []
+# gilrs polling backend for desktop gamepads (mobile relies on the
+# platform's own providers instead).
+gamepad_gilrs = [
+    "dep:gilrs",
+    "orbital_input/gamepad_input",
+    "orbital_input/gamepad_gilrs",
+]
 auto_request_redraw = []
-gamepad_input_poll = ["gamepad_input"]
+# Poll gamepads every frame (implies the gilrs backend).
+gamepad_input_poll = ["gamepad_gilrs"]
 default = []
 
 [dependencies]

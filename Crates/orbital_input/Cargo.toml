@@ -4,8 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [features]
-default = ["gamepad_input", "gamepad_input_poll"]
-gamepad_input = ["dep:gilrs"]
+default = ["gamepad_input"]
+# Semantic gamepad input (backend-independent buttons/axes/ids + state).
+# No dependencies: mobile backends report through this vocabulary directly.
+gamepad_input = []
+# gilrs backend for desktop gamepads (SDL mapping DB, hotplug, PC pad
+# variation). Mobile platforms never enable this — they translate their
+# platform providers into the semantic types instead.
+gamepad_gilrs = ["dep:gilrs", "gamepad_input"]
 gamepad_input_poll = ["gamepad_input"]
 
 [dependencies]

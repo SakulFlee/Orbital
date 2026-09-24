@@ -257,6 +257,34 @@ impl IcedCapturedTouches {
     }
 }
 
+/// Whether the current mouse-button drag is owned by the iced UI.
+///
+/// Set when iced reports `Status::Captured` for a primary-button press
+/// (the press started on a widget), cleared when the button is released
+/// or focus is lost. The mouse-event path itself is not masked — the
+/// camera controller reads this to keep drag-to-look from also firing
+/// while the user is dragging a UI element.
+///
+/// Mirrors [`IcedCapturedTouches`]: populated during
+/// `process_events()`. Unlike touch capture there is no need to defer
+/// game input — the camera system runs after `process_events()` within
+/// the same update, so the verdict is always current when look deltas
+/// are consumed.
+#[derive(Debug, Clone, Default)]
+pub struct IcedCapturedMouseDrag(pub bool);
+
+impl IcedCapturedMouseDrag {
+    /// Mark the current mouse drag as captured by the UI.
+    pub fn capture(&mut self) {
+        self.0 = true;
+    }
+
+    /// End capture (button released or focus lost).
+    pub fn release(&mut self) {
+        self.0 = false;
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Engine events (replace AppEvent)
 // ---------------------------------------------------------------------------
