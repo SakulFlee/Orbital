@@ -8,7 +8,10 @@ use std::{
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
 use objc2::{class, msg_send};
-use objc2_foundation::{NSArray, NSString};
+use objc2_foundation::{
+    NSArray, NSSearchPathDirectory, NSSearchPathDomainMask, NSSearchPathForDirectoriesInDomains,
+    NSString,
+};
 
 use crate::dir::DirStorage;
 use crate::{AssetSource, FsError, Storage};
@@ -26,40 +29,30 @@ fn bundle_resource_path() -> PathBuf {
 /// Returns the app's Documents directory via
 /// `NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, ...)`.
 fn documents_path() -> PathBuf {
-    unsafe {
-        let ns_document_directory: usize = 9; // NSDocumentDirectory
-        let ns_user_domain_mask: usize = 1; // NSUserDomainMask
-        let paths: Retained<NSArray> = msg_send![
-            class!(NSSearchPathForDirectoriesInDomains),
-            ns_document_directory,
-            ns_user_domain_mask,
-            true,
-        ];
-        let first: Option<Retained<NSString>> = msg_send![&paths, firstObject];
-        match first {
-            Some(p) => PathBuf::from(p.to_string()),
-            None => PathBuf::new(),
-        }
+    // A free Foundation function, not a class message — call the wrapper
+    // objc2-foundation provides instead of msg_send!-ing a fake class.
+    let paths: Retained<NSArray<NSString>> = NSSearchPathForDirectoriesInDomains(
+        NSSearchPathDirectory::DocumentDirectory,
+        NSSearchPathDomainMask::UserDomainMask,
+        true,
+    );
+    match paths.firstObject() {
+        Some(p) => PathBuf::from(p.to_string()),
+        None => PathBuf::new(),
     }
 }
 
 /// Returns the app's Caches directory via
 /// `NSSearchPathForDirectoriesInDomains(NSCachesDirectory, ...)`.
 fn caches_path() -> PathBuf {
-    unsafe {
-        let ns_caches_directory: usize = 13; // NSCachesDirectory
-        let ns_user_domain_mask: usize = 1; // NSUserDomainMask
-        let paths: Retained<NSArray> = msg_send![
-            class!(NSSearchPathForDirectoriesInDomains),
-            ns_caches_directory,
-            ns_user_domain_mask,
-            true,
-        ];
-        let first: Option<Retained<NSString>> = msg_send![&paths, firstObject];
-        match first {
-            Some(p) => PathBuf::from(p.to_string()),
-            None => PathBuf::new(),
-        }
+    let paths: Retained<NSArray<NSString>> = NSSearchPathForDirectoriesInDomains(
+        NSSearchPathDirectory::CachesDirectory,
+        NSSearchPathDomainMask::UserDomainMask,
+        true,
+    );
+    match paths.firstObject() {
+        Some(p) => PathBuf::from(p.to_string()),
+        None => PathBuf::new(),
     }
 }
 
