@@ -41,6 +41,7 @@ gilrs = "0.11.0"
 android_logger = "0.15.0"
 objc2 = "0.6"
 objc2-foundation = "0.3"
+objc2-game-controller = "0.3"
 pollster = "1.0"
 rayon = "1.10"
 wasm-bindgen-rayon = "1.2"
@@ -123,7 +124,7 @@ wasm-bindgen-futures = "0.4"
 wasmtimer = "0.4.2"
 web-sys = "0.3"
 web-time = "1.1"
-winit = { git = "https://forgejo.sakul-flee.de/SakulFlee/Orbital-Winit.git", rev = "af2218c9c98385ef7882d619b98b57e04e40dde6", default-features = false, features = [
+winit = { git = "https://forgejo.sakul-flee.de/SakulFlee/Orbital-Winit.git", rev = "13ed4eaa580bd91b5030fe8beef655d482f74a6d", default-features = false, features = [
   "rwh_06",
 ] }
 
