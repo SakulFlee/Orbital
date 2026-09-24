@@ -37,8 +37,8 @@ impl System for CursorToggle {
     }
 
     fn run(&mut self, world: &World, _commands: &mut Commands) {
-        // Sync with ECS state so we stay in sync if Focused(false) or other
-        // code modifies CursorGrabState outside of CursorToggle.
+        // Sync with ECS state so we stay in sync if other code modifies
+        // CursorGrabState outside of CursorToggle.
         if let Some(state) = world.get_resource::<CursorGrabState>() {
             self.grabbed = state.0;
         }

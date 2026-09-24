@@ -1,10 +1,11 @@
-//! Camera controller system — WASD movement + mouse look, with automatic
-//! touch-screen fallback (virtual joystick + drag-to-look).
+//! Camera controller system — WASD movement + mouse look, gamepad (left
+//! stick move / right stick look), with automatic touch-screen fallback
+//! (virtual joystick + drag-to-look).
 //!
 //! Reads `DeltaTime` and `InputSnapshot` resources, writes `Position` and
 //! `Rotation` components on entities with a camera.
 
-use cgmath::{Rad, Vector3};
+use cgmath::Rad;
 use orbital_ecs::Res;
 use orbital_ecs_bridge::{CursorGrabState, DeltaTime, InputSnapshot, Position, Rotation};
 use orbital_input::{InputAxis, InputButton, InputState};
@@ -14,8 +15,12 @@ use crate::touch_controls;
 
 const MOVE_SPEED: f32 = 5.0;
 const LOOK_SENSITIVITY: f32 = 1.5;
+/// Angular speed (rad/s) at full right-stick deflection. Unlike mouse deltas
+/// (impulses, already frame-sized), a stick reports its position, so it is
+/// scaled by `dt` into an angular velocity.
+const STICK_LOOK_SPEED: f32 = 2.0;
 
-/// Camera controller system: WASD movement + mouse look.
+/// Camera controller system: WASD movement + mouse look + gamepad sticks.
 ///
 /// When any finger is touching the screen (mobile), it automatically switches
 /// to touch controls instead ([`sys_touch_camera_controller`]).
@@ -92,36 +97,21 @@ fn apply_keyboard_mouse_controls(
 ) {
     let (forward, right, _up) = rot.forward_right_up();
 
-    // WASD movement (always active)
-    let mut movement = Vector3::new(0.0, 0.0, 0.0);
-    if input
-        .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyW)))
-        .map(|(_, s)| s)
-        .unwrap_or(false)
-    {
-        movement += forward * MOVE_SPEED * dt;
-    }
-    if input
-        .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyS)))
-        .map(|(_, s)| s)
-        .unwrap_or(false)
-    {
-        movement -= forward * MOVE_SPEED * dt;
-    }
-    if input
-        .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyD)))
-        .map(|(_, s)| s)
-        .unwrap_or(false)
-    {
-        movement += right * MOVE_SPEED * dt;
-    }
-    if input
-        .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyA)))
-        .map(|(_, s)| s)
-        .unwrap_or(false)
-    {
-        movement -= right * MOVE_SPEED * dt;
-    }
+    // Horizontal movement: the left stick wins when it's deflected,
+    // otherwise movement_vector falls back to the WASD buttons.
+    // x = forward, y = right (both normalized to [-1, 1]).
+    let (_, move_vec) = input.movement_vector(
+        Some(&InputAxis::GamepadLeftStick),
+        &InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyW)),
+        &InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyS)),
+        &InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyA)),
+        &InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyD)),
+    );
+
+    let mut movement = forward * (move_vec.x as f32 * MOVE_SPEED * dt)
+        + right * (move_vec.y as f32 * MOVE_SPEED * dt);
+
+    // Vertical movement (keyboard only)
     if input
         .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyE)))
         .map(|(_, s)| s)
@@ -142,5 +132,15 @@ fn apply_keyboard_mouse_controls(
     if cursor_grabbed && let Some((_, delta)) = input.delta_state_any(&InputAxis::MouseMovement) {
         rot.rotate_pitch(Rad(delta.x as f32 * LOOK_SENSITIVITY));
         rot.rotate_yaw(Rad(-delta.y as f32 * LOOK_SENSITIVITY));
+    }
+
+    // Right-stick look. Signs mirror the mouse-look convention: the stored
+    // stick delta is +up / +right, the same frame of reference as
+    // normalized mouse deltas. Active regardless of cursor grab state —
+    // a gamepad doesn't drive the UI cursor.
+    let (gamepad_look, look) = input.view_vector(Some(&InputAxis::GamepadRightStick));
+    if gamepad_look {
+        rot.rotate_pitch(Rad(look.x as f32 * STICK_LOOK_SPEED * dt));
+        rot.rotate_yaw(Rad(-look.y as f32 * STICK_LOOK_SPEED * dt));
     }
 }
