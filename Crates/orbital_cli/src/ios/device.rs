@@ -6,6 +6,8 @@ use std::process::Command;
 pub struct Simulator {
     pub udid: String,
     pub name: String,
+    /// Not read yet; kept for future device-type-aware selection.
+    #[allow(dead_code)]
     pub device_type: String,
     pub state: String,
 }
@@ -81,6 +83,8 @@ pub fn boot_simulator(udid: &str) -> Result<()> {
 }
 
 /// Shutdown a simulator by UDID.
+/// Not wired up to any command yet.
+#[allow(dead_code)]
 pub fn shutdown_simulator(udid: &str) -> Result<()> {
     let status = Command::new("xcrun")
         .args(["simctl", "shutdown", udid])
