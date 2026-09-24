@@ -124,7 +124,7 @@ wasm-bindgen-futures = "0.4"
 wasmtimer = "0.4.2"
 web-sys = "0.3"
 web-time = "1.1"
-winit = { git = "https://forgejo.sakul-flee.de/SakulFlee/Orbital-Winit.git", rev = "13ed4eaa580bd91b5030fe8beef655d482f74a6d", default-features = false, features = [
+winit = { git = "https://forgejo.sakul-flee.de/SakulFlee/Orbital-Winit.git", rev = "bab16ec60e76c0a38b326353aef4bcb1196386ca", default-features = false, features = [
   "rwh_06",
 ] }
 
