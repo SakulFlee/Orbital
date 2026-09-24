@@ -20,7 +20,7 @@ use wgpu::TextureViewDescriptor;
 use winit::{
     application::ApplicationHandler,
     error::EventLoopError,
-    event::{DeviceEvent, DeviceId, ElementState, TouchPhase, WindowEvent},
+    event::{DeviceEvent, DeviceId, ElementState, MouseButton, TouchPhase, WindowEvent},
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
     keyboard::{Key, NamedKey},
     window::{CursorGrabMode, WindowId},
@@ -34,8 +34,9 @@ use crate::{AppContext, AppSettings, AppState, Module, Timer, make_core_schedule
 use orbital_ecs_bridge::{
     ActiveCamera, AdapterResource, CameraDescriptorEcs, CameraDirty, CursorGrabConfig,
     CursorGrabState, CursorPosition, DeltaTime, DeviceResource, EcsCameraStore, EngineEvent,
-    EngineEvents, FpsStats, FrameCounter, IcedCapturedTouches, IcedEventQueue, InputSnapshot,
-    LightDescriptorEcs, Position, QueueResource, SurfaceFormatResource, TotalTime, WindowSize,
+    EngineEvents, FpsStats, FrameCounter, IcedCapturedMouseDrag, IcedCapturedTouches,
+    IcedEventQueue, InputSnapshot, LightDescriptorEcs, Position, QueueResource,
+    SurfaceFormatResource, TotalTime, WindowSize,
 };
 
 macro_rules! ctx_lock {
@@ -1351,6 +1352,8 @@ impl ApplicationHandler for ModuleRuntime {
             self.ecs_world.insert_resource(IcedEventQueue::default());
             self.ecs_world
                 .insert_resource(IcedCapturedTouches::default());
+            self.ecs_world
+                .insert_resource(IcedCapturedMouseDrag::default());
 
             // Initialize import pipeline resources
             self.ecs_world
@@ -1611,6 +1614,18 @@ impl ApplicationHandler for ModuleRuntime {
             }
         }
 
+        // A released primary button ends any UI-captured look-drag before
+        // the next process_events() run.
+        if let WindowEvent::MouseInput {
+            state: ElementState::Released,
+            button: MouseButton::Left,
+            ..
+        } = &event
+            && let Some(mut captured) = self.ecs_world.get_resource_mut::<IcedCapturedMouseDrag>()
+        {
+            captured.release();
+        }
+
         // Keep the OS-level cursor grab in sync with focus, while treating
         // `CursorGrabState` as the *desired* state (owned by CursorToggle/Alt)
         // rather than a snapshot of the OS grab:
@@ -1629,6 +1644,13 @@ impl ApplicationHandler for ModuleRuntime {
                 let lock = ctx_lock!(ctx);
                 apply_cursor_grab(lock.window(), CursorGrabMode::None);
                 lock.window().set_cursor_visible(true);
+                // A missed button release must not leave look-drag
+                // suppressed forever.
+                if let Some(mut captured) =
+                    self.ecs_world.get_resource_mut::<IcedCapturedMouseDrag>()
+                {
+                    captured.release();
+                }
             }
             WindowEvent::Focused(true) => {
                 let grabbed = self

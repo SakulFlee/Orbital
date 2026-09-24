@@ -7,7 +7,9 @@
 
 use cgmath::Rad;
 use orbital_ecs::Res;
-use orbital_ecs_bridge::{CursorGrabState, DeltaTime, InputSnapshot, Position, Rotation};
+use orbital_ecs_bridge::{
+    CursorGrabState, DeltaTime, IcedCapturedMouseDrag, InputSnapshot, Position, Rotation,
+};
 use orbital_input::{InputAxis, InputButton, InputState};
 use winit::keyboard::{KeyCode, PhysicalKey};
 
@@ -26,7 +28,9 @@ const STICK_LOOK_SPEED: f32 = 2.0;
 /// to touch controls instead ([`sys_touch_camera_controller`]).
 ///
 /// Mouse look is skipped when [`CursorGrabState`] is `false` (cursor visible),
-/// so the user can interact with UI while the camera holds position.
+/// so the user can interact with UI while the camera holds position. It is
+/// also skipped while iced owns the current primary-button drag (the press
+/// started on a widget), so dragging UI elements never turns the camera.
 ///
 /// Reads `Res<DeltaTime>`, `Res<InputSnapshot>`, writes `&mut Position`, `&mut Rotation`.
 /// Must be a named function (not inline closure) for IntoSystem macro compatibility.
@@ -34,13 +38,14 @@ pub fn sys_camera_controller(
     dt: Res<DeltaTime>,
     input: Res<InputSnapshot>,
     grab: Res<CursorGrabState>,
+    ui_drag: Res<IcedCapturedMouseDrag>,
     pos: &mut Position,
     rot: &mut Rotation,
 ) {
     if input.0.has_active_touches() {
         apply_touch_controls(dt.0 as f32, &input.0, pos, rot);
     } else {
-        apply_keyboard_mouse_controls(dt.0 as f32, &input.0, grab.0, pos, rot);
+        apply_keyboard_mouse_controls(dt.0 as f32, &input.0, grab.0 && !ui_drag.0, pos, rot);
     }
 }
 
