@@ -2,11 +2,11 @@ use crate::state::IcedState;
 use orbital_app::RenderLayer;
 use orbital_app::render_overlay::{LayerRenderer as LayerRendererTrait, RenderOverlayContext};
 use orbital_ecs_bridge::{
-    AdapterResource, DeviceResource, IcedCapturedTouches, IcedEventQueue, IcedWindowEvent,
-    QueueResource, SurfaceFormatResource, WindowSize,
+    AdapterResource, DeviceResource, IcedCapturedMouseDrag, IcedCapturedTouches, IcedEventQueue,
+    IcedWindowEvent, QueueResource, SurfaceFormatResource, WindowSize,
 };
 use std::sync::Mutex;
-use winit::event::TouchPhase;
+use winit::event::{ElementState, MouseButton, TouchPhase};
 
 pub struct IcedLayerRenderer {
     state: IcedState,
@@ -142,19 +142,40 @@ impl LayerRendererTrait for IcedLayerRenderer {
         };
 
         // Convert events, tracking touch IDs for capture status mapping.
+        #[derive(Clone, Copy)]
+        enum MouseDragAction {
+            Press,
+            Release,
+        }
         let mut iced_core_events = Vec::new();
         let mut event_touch_ids: Vec<Option<u64>> = Vec::new();
         let mut touch_release_info: Vec<(u64, TouchPhase)> = Vec::new();
+        // Parallel to `iced_core_events`: primary-button press/release
+        // events whose status decides `IcedCapturedMouseDrag`.
+        let mut mouse_drag_events: Vec<Option<MouseDragAction>> = Vec::new();
         for evt in &iced_events {
             if let Some(converted) = convert_event(evt, &modifiers, scale_factor) {
                 match evt {
                     IcedWindowEvent::Touch(touch) => {
                         event_touch_ids.push(Some(touch.id));
+                        mouse_drag_events.push(None);
                         if matches!(touch.phase, TouchPhase::Ended | TouchPhase::Cancelled) {
                             touch_release_info.push((touch.id, touch.phase));
                         }
                     }
-                    _ => event_touch_ids.push(None),
+                    IcedWindowEvent::MouseInput { state, button }
+                        if *button == MouseButton::Left =>
+                    {
+                        mouse_drag_events.push(Some(match state {
+                            ElementState::Pressed => MouseDragAction::Press,
+                            ElementState::Released => MouseDragAction::Release,
+                        }));
+                        event_touch_ids.push(None);
+                    }
+                    _ => {
+                        event_touch_ids.push(None);
+                        mouse_drag_events.push(None);
+                    }
                 }
                 iced_core_events.push(converted);
             }
@@ -214,6 +235,31 @@ impl LayerRendererTrait for IcedLayerRenderer {
         for (touch_id, _phase) in &touch_release_info {
             if let Some(mut captured) = ecs.get_resource_mut::<IcedCapturedTouches>() {
                 captured.release(*touch_id);
+            }
+        }
+
+        // Primary-button presses that iced captured start a UI-owned
+        // look-drag; releases end it. Captures union across renderers
+        // (each press that any renderer captures wins), releases clear.
+        for (status, action) in event_statuses.iter().zip(mouse_drag_events.iter()) {
+            let Some(action) = action else {
+                continue;
+            };
+            match action {
+                MouseDragAction::Press => {
+                    if *status == iced_winit::core::event::Status::Captured
+                        && let Some(mut captured) = ecs.get_resource_mut::<IcedCapturedMouseDrag>()
+                        && !captured.0
+                    {
+                        captured.capture();
+                        log::info!("iced: mouse look-drag captured by the UI");
+                    }
+                }
+                MouseDragAction::Release => {
+                    if let Some(mut captured) = ecs.get_resource_mut::<IcedCapturedMouseDrag>() {
+                        captured.release();
+                    }
+                }
             }
         }
 
