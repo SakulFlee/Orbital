@@ -44,6 +44,21 @@ macro_rules! ctx_lock {
     };
 }
 
+/// Physically apply a cursor grab to a window.
+///
+/// "Not supported" is expected on platforms without pointer constraints
+/// (Android/iOS) and is downgraded to a debug log so routine focus
+/// transitions don't spam errors; genuine grab failures still log a warning.
+fn apply_cursor_grab(window: &winit::window::Window, mode: CursorGrabMode) {
+    match window.set_cursor_grab(mode) {
+        Ok(()) => {}
+        Err(e @ winit::error::ExternalError::NotSupported(_)) => {
+            debug!("Cursor grab ({mode:?}) is not supported on this platform: {e}");
+        }
+        Err(e) => warn!("Cursor grab ({mode:?}) failed: {e}"),
+    }
+}
+
 struct TimingAccumulator {
     count: u64,
     surface_acq: f64,
@@ -166,7 +181,10 @@ pub struct ModuleRuntime {
         feature = "gamepad_input",
         not(any(target_os = "android", target_os = "ios"))
     ))]
-    gil: Gilrs,
+    /// Gamepad event source. `None` when gilrs fails to initialize (e.g. no
+    /// input subsystem) — the app runs without gamepad support instead of
+    /// panicking at startup.
+    gil: Option<Gilrs>,
 }
 
 impl ModuleRuntime {
@@ -201,7 +219,13 @@ impl ModuleRuntime {
                 feature = "gamepad_input",
                 not(any(target_os = "android", target_os = "ios"))
             ))]
-            gil: Gilrs::new().expect("Gamepad input initialization failed!"),
+            gil: match Gilrs::new() {
+                Ok(gil) => Some(gil),
+                Err(e) => {
+                    warn!("Gamepad input unavailable, continuing without: {e}");
+                    None
+                }
+            },
         };
 
         // Initialise built-in ECS resources
@@ -1093,7 +1117,10 @@ impl ModuleRuntime {
         not(any(target_os = "android", target_os = "ios"))
     ))]
     fn receive_controller_inputs(&mut self) {
-        while let Some(gil_event) = self.gil.next_event() {
+        let Some(gil) = self.gil.as_mut() else {
+            return;
+        };
+        while let Some(gil_event) = gil.next_event() {
             if let Some(input_event) = InputEvent::convert_gil_event(gil_event) {
                 self.input_state.handle_event(input_event);
             }
@@ -1177,6 +1204,15 @@ impl ModuleRuntime {
             });
         }
 
+        #[cfg(all(
+            feature = "gamepad_input_poll",
+            not(any(target_os = "android", target_os = "ios"))
+        ))]
+        // Poll gamepads BEFORE taking the input snapshot and running the
+        // schedules, so this frame's stick/button input is visible to the
+        // game systems instead of arriving one frame late.
+        self.receive_controller_inputs();
+
         // Snapshot input state AFTER deferred touches are processed so game
         // systems (camera controller, etc.) see the current frame's touch
         // data — including right-side look deltas.
@@ -1191,12 +1227,6 @@ impl ModuleRuntime {
 
         // Run game schedule (user systems)
         self.game_schedule.run(&mut self.ecs_world);
-
-        #[cfg(all(
-            feature = "gamepad_input_poll",
-            not(any(target_os = "android", target_os = "ios"))
-        ))]
-        self.receive_controller_inputs();
 
         // Process engine events
         let exit_requested = self.process_engine_events();
@@ -1228,15 +1258,12 @@ impl ModuleRuntime {
             match event {
                 EngineEvent::CursorGrabbed(grab) => {
                     let lock = ctx_lock!(ctx);
-                    if grab {
-                        if let Err(e) = lock.window().set_cursor_grab(CursorGrabMode::Confined) {
-                            error!(
-                                "Failed to set cursor grab! This might not be supported on your platform. Error: {e}"
-                            );
-                        }
-                    } else if let Err(e) = lock.window().set_cursor_grab(CursorGrabMode::None) {
-                        error!("Failed to unset cursor grab! Error: {e}");
-                    }
+                    let mode = if grab {
+                        CursorGrabMode::Confined
+                    } else {
+                        CursorGrabMode::None
+                    };
+                    apply_cursor_grab(lock.window(), mode);
                 }
                 EngineEvent::CursorVisible(visible) => {
                     ctx_lock!(ctx).window().set_cursor_visible(visible);
@@ -1403,17 +1430,25 @@ impl ApplicationHandler for ModuleRuntime {
                 self.module.restore_state(&mut self.ecs_world);
             }
 
-            // Auto-grab cursor if configured
+            // Auto-grab cursor if configured. May fail transiently when the
+            // window isn't focused yet (e.g. unfocused startup on Wayland) —
+            // `Focused(true)` re-applies the grab in that case.
             if let Some(config) = self.ecs_world.get_resource::<CursorGrabConfig>()
                 && config.0
             {
-                if let Err(e) = ctx_guard
-                    .window()
-                    .set_cursor_grab(winit::window::CursorGrabMode::Confined)
-                {
-                    log::error!("Failed to grab cursor: {e}");
-                }
+                apply_cursor_grab(ctx_guard.window(), CursorGrabMode::Confined);
                 ctx_guard.window().set_cursor_visible(false);
+            }
+
+            // Seed the input surface size immediately: mouse-delta
+            // normalization (and touch-gesture zones) depend on
+            // `InputState::surface_size`, which otherwise is only set by a
+            // WindowEvent::Resized. If the platform never delivers an
+            // initial resize, mouse deltas would arrive as raw, unnormalized
+            // pixel counts (wildly wrong sensitivity).
+            if config.width > 0 && config.height > 0 {
+                self.input_state
+                    .surface_resize(winit::dpi::PhysicalSize::new(config.width, config.height));
             }
 
             // After a suspend→resume (e.g. Android rotation), the surface is
@@ -1576,20 +1611,37 @@ impl ApplicationHandler for ModuleRuntime {
             }
         }
 
-        // When the window loses focus, release cursor grab so the OS/compositor
-        // doesn't keep pointer constraints active. This prevents the "cursor
-        // visible but iced UI unresponsive" issue on Wayland.
-        if let WindowEvent::Focused(false) = &event {
-            {
+        // Keep the OS-level cursor grab in sync with focus, while treating
+        // `CursorGrabState` as the *desired* state (owned by CursorToggle/Alt)
+        // rather than a snapshot of the OS grab:
+        //   focus lost  -> release the grab + show the cursor so the
+        //                  compositor doesn't keep pointer constraints
+        //                  active (the Wayland "cursor visible but iced UI
+        //                  unresponsive" issue), but leave the desired state
+        //                  untouched;
+        //   focus gained -> re-apply the desired grab. Without this, mouse
+        //                  look stays dead after any alt-tab or an
+        //                  unfocused startup: on Wayland mouse-motion device
+        //                  events only flow while a pointer constraint is
+        //                  active, and nothing else re-acquired it.
+        match event {
+            WindowEvent::Focused(false) => {
                 let lock = ctx_lock!(ctx);
-                if let Err(e) = lock.window().set_cursor_grab(CursorGrabMode::None) {
-                    debug!("Focus loss: failed to release cursor grab: {e}");
-                }
+                apply_cursor_grab(lock.window(), CursorGrabMode::None);
                 lock.window().set_cursor_visible(true);
             }
-            if let Some(mut state) = self.ecs_world.get_resource_mut::<CursorGrabState>() {
-                state.0 = false;
+            WindowEvent::Focused(true) => {
+                let grabbed = self
+                    .ecs_world
+                    .get_resource::<CursorGrabState>()
+                    .is_some_and(|state| state.0);
+                if grabbed {
+                    let lock = ctx_lock!(ctx);
+                    apply_cursor_grab(lock.window(), CursorGrabMode::Confined);
+                    lock.window().set_cursor_visible(false);
+                }
             }
+            _ => {}
         }
 
         let input_event = match event {
