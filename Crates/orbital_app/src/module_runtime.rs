@@ -186,6 +186,8 @@ pub struct ModuleRuntime {
     /// input subsystem) — the app runs without gamepad support instead of
     /// panicking at startup.
     gil: Option<Gilrs>,
+    #[cfg(all(feature = "gamepad_input_poll", target_os = "ios"))]
+    ios_gamepad: crate::ios_gamepad::IosGamepad,
 }
 
 impl ModuleRuntime {
@@ -227,6 +229,8 @@ impl ModuleRuntime {
                     None
                 }
             },
+            #[cfg(all(feature = "gamepad_input_poll", target_os = "ios"))]
+            ios_gamepad: crate::ios_gamepad::IosGamepad::new(),
         };
 
         // Initialise built-in ECS resources
@@ -1213,6 +1217,14 @@ impl ModuleRuntime {
         // schedules, so this frame's stick/button input is visible to the
         // game systems instead of arriving one frame late.
         self.receive_controller_inputs();
+
+        // iOS pads arrive through the GameController provider (winit has
+        // no gamepad path there); drain them BEFORE the snapshot so game
+        // systems see this frame's state, like desktop's gilrs poll.
+        #[cfg(all(feature = "gamepad_input_poll", target_os = "ios"))]
+        for input_event in self.ios_gamepad.poll() {
+            self.input_state.handle_event(input_event);
+        }
 
         // Snapshot input state AFTER deferred touches are processed so game
         // systems (camera controller, etc.) see the current frame's touch
