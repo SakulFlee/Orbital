@@ -1,0 +1,6 @@
+[submodule "crates/orbital-iced"]
+	path = crates/orbital-iced
+	url = https://forgejo.sakul-flee.de/SakulFlee/orbital-iced.git
+[submodule "Crates/orbital-iced"]
+	path = Crates/orbital-iced
+	url = https://forgejo.sakul-flee.de/SakulFlee/orbital-iced.git

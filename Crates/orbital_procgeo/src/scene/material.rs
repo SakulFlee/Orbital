@@ -1,14 +1,11 @@
 use std::sync::Arc;
 
 use cgmath::Vector3;
-use orbital_resources::{
-    FilterMode, MaterialShaderDescriptor, PBRMaterialShaderDescriptor, ShaderSource,
-    TextureDescriptor, TextureSize, VertexStageLayout,
-};
-use wgpu::{
-    PolygonMode, PrimitiveTopology, TextureUsages, VertexAttribute, VertexBufferLayout,
-    VertexFormat, VertexStepMode,
-};
+use orbital_material_shader::{MaterialShaderDescriptor, VertexStageLayout};
+use orbital_shader_debug::wireframe_descriptor;
+use orbital_shader_pbr::PBRMaterialShaderDescriptor;
+use orbital_texture::{FilterMode, TextureDescriptor, TextureSize};
+use wgpu::{TextureUsages, VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode};
 
 const DEFAULT_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8UnormSrgb;
 
@@ -147,10 +144,7 @@ impl SceneMaterial {
                 Arc::new(MaterialShaderDescriptor::default())
             }
             SceneMaterial::GridWireframe => {
-                let mut base = MaterialShaderDescriptor::default();
-                base.shader_source = ShaderSource::Path("Shaders/wireframe.wgsl");
-                base.entrypoint_vertex = "entrypoint_vertex";
-                base.entrypoint_fragment = "entrypoint_fragment";
+                let mut base = wireframe_descriptor();
                 base.vertex_stage_layouts = Some(vec![
                     VertexStageLayout::Custom(VertexBufferLayout {
                         array_stride: 56,
@@ -163,10 +157,6 @@ impl SceneMaterial {
                     }),
                     VertexStageLayout::InstanceData,
                 ]);
-                base.primitive_topology = PrimitiveTopology::LineList;
-                base.polygon_mode = PolygonMode::Fill;
-                base.cull_mode = None;
-                base.depth_stencil = true;
                 Arc::new(base)
             }
         }

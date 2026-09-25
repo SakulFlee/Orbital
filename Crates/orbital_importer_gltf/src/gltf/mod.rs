@@ -6,11 +6,17 @@ use gltf::{Camera, Document, Material, Mesh, Node, Scene, Semantic};
 use hashbrown::HashMap;
 use image::GenericImageView;
 use log::{debug, trace, warn};
+use orbital_camera::CameraDescriptor;
 use orbital_file_manager::FileManager;
-use orbital_resources::{
-    CameraDescriptor, FilterMode, LightDescriptor, MaterialDescriptor, MeshDescriptor,
-    ModelDescriptor, PBRMaterialDescriptor, TextureDescriptor, TextureSize, Transform, Vertex,
-};
+use orbital_light::LightDescriptor;
+use orbital_material_shader::MaterialShaderDescriptor;
+use orbital_math::Transform;
+use orbital_mesh::{MeshDescriptor, Vertex};
+use orbital_model::ModelDescriptor;
+use orbital_texture::{FilterMode, TextureDescriptor, TextureSize};
+
+type MaterialDescriptor = MaterialShaderDescriptor;
+type PBRMaterialDescriptor = orbital_shader_pbr::PBRMaterialShaderDescriptor;
 use std::error::Error;
 use std::path::Path;
 use std::sync::Arc;
@@ -258,8 +264,8 @@ impl GltfImporter {
     fn import_specific(
         specific_import: SpecificGltfImport,
         document: &Document,
-        buffers: &Vec<gltf::buffer::Data>,
-        textures: &Vec<gltf::image::Data>,
+        buffers: &[gltf::buffer::Data],
+        textures: &[gltf::image::Data],
     ) -> GltfImportResult {
         let mut result = GltfImportResult::empty();
 
@@ -324,8 +330,8 @@ impl GltfImporter {
     /// Handles importing a whole glTF file
     fn import_whole_file(
         document: &Document,
-        buffers: &Vec<gltf::buffer::Data>,
-        textures: &Vec<gltf::image::Data>,
+        buffers: &[gltf::buffer::Data],
+        textures: &[gltf::image::Data],
     ) -> GltfImportResult {
         let mut result = GltfImportResult::empty();
 
@@ -341,8 +347,8 @@ impl GltfImporter {
     fn import_whole_scene(
         scene: Scene,
         _document: &Document,
-        buffers: &Vec<gltf::buffer::Data>,
-        textures: &Vec<gltf::image::Data>,
+        buffers: &[gltf::buffer::Data],
+        textures: &[gltf::image::Data],
     ) -> GltfImportResult {
         let nodes: Vec<_> = scene.nodes().collect();
 
@@ -352,8 +358,8 @@ impl GltfImporter {
     /// Handles importing a specific set of [`Node`]s from a glTF [`Document`].
     fn import_nodes(
         nodes: Vec<Node>,
-        buffers: &Vec<gltf::buffer::Data>,
-        textures: &Vec<gltf::image::Data>,
+        buffers: &[gltf::buffer::Data],
+        textures: &[gltf::image::Data],
     ) -> GltfImportResult {
         let mut model_descriptors = Vec::new();
         let mut camera_descriptors = Vec::new();
@@ -480,9 +486,7 @@ impl GltfImporter {
                     processed_pixels.push(byte);
                 }
                 // Pad with zeros if needed to reach 3 channels (RGB)
-                for _ in chunk.len()..3 {
-                    processed_pixels.push(0u8);
-                }
+                processed_pixels.extend(std::iter::repeat_n(0u8, 3 - chunk.len()));
                 // Add full alpha (255)
                 processed_pixels.push(255u8);
             }
@@ -630,10 +634,7 @@ impl GltfImporter {
     }
 
     /// Handles parsing a glTF [`Material`] into an Orbital [`MaterialDescriptor`].
-    fn parse_materials(
-        material: &Material,
-        textures: &Vec<gltf::image::Data>,
-    ) -> MaterialDescriptor {
+    fn parse_materials(material: &Material, textures: &[gltf::image::Data]) -> MaterialDescriptor {
         let normal = if let Some(normal_info) = material.normal_texture() {
             Self::parse_texture_linear(&textures[normal_info.texture().source().index()])
         } else {
@@ -755,8 +756,8 @@ impl GltfImporter {
     fn parse_models(
         node: &Node,
         mesh: &Mesh,
-        buffers: &Vec<gltf::buffer::Data>,
-        textures: &Vec<gltf::image::Data>,
+        buffers: &[gltf::buffer::Data],
+        textures: &[gltf::image::Data],
     ) -> Result<Vec<ModelDescriptor>, Box<dyn Error>> {
         let primitives = mesh.primitives();
         let mut results = Vec::new();
@@ -1002,7 +1003,7 @@ impl GltfImporter {
     fn parse_camera(
         node: &Node,
         camera: &Camera,
-        _buffers: &Vec<gltf::buffer::Data>,
+        _buffers: &[gltf::buffer::Data],
     ) -> Result<CameraDescriptor, Box<dyn Error>> {
         let perspective = match camera.projection() {
             Projection::Orthographic(_) => {
@@ -1078,7 +1079,7 @@ impl GltfImporter {
     fn parse_light(
         node: &Node,
         light: &khr_lights_punctual::Light,
-        _buffers: &Vec<gltf::buffer::Data>,
+        _buffers: &[gltf::buffer::Data],
     ) -> Result<LightDescriptor, Box<dyn Error>> {
         let transform = node.transform();
         let decomposed = transform.decomposed();

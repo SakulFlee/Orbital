@@ -10,3 +10,15 @@ target_sdk = 34
 targets = ["arm64-v8a", "armeabi-v7a"]
 apk_mode = "multiarch"
 ndk_version = "26.2.11394342"
+
+# Signing configuration for release APKs (optional)
+# If not specified, a debug keystore will be automatically generated
+# keystore_path = "keystore/release.keystore"
+# keystore_password = "your_keystore_password"
+# key_alias = "your_key_alias"
+# key_password = "your_key_password"
+
+[ios]
+bundle_id = "de.sakulflee.orbital"
+deployment_target = "16.0"
+app_name = "Orbital"

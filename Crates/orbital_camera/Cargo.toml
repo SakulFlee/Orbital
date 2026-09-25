@@ -1,0 +1,9 @@
+[package]
+name = "orbital_camera"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+orbital_math = { path = "../orbital_math" }
+cgmath = { workspace = true }
+wgpu = { workspace = true }

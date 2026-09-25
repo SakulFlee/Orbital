@@ -1,11 +1,11 @@
 use cgmath::{InnerSpace, Matrix4, Point3, SquareMatrix, Vector3, Vector4};
-use orbital_app::{Module, RenderOverlay, RenderOverlayContext, RenderOverlayResource};
+use orbital_app::{Module, RenderOverlay, RenderOverlayContext};
 use orbital_ecs::{IntoSystem, Res, ResMut, System, World};
 use orbital_ecs_bridge::{
     ActiveCamera, EcsCameraStore, InputSnapshot, LightDescriptorEcs, ModelInstances,
     ModelRealization, Position,
 };
-use orbital_resources::LightType;
+use orbital_light::LightType;
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState,
@@ -267,6 +267,7 @@ impl DebugRenderer {
     /// Default to `[1.0, 1.0, 0.0]` (yellow) for the live frustum,
     /// `[0.0, 1.0, 1.0]` (cyan) for the live frustum when a frozen
     /// frustum is also visible.
+    #[allow(clippy::too_many_arguments)]
     pub fn render(
         &mut self,
         render_pass: &mut RenderPass,
@@ -530,16 +531,7 @@ impl Default for DebugModule {
 }
 
 impl Module for DebugModule {
-    fn setup(&self, ecs: &mut World, device: &Device, _queue: &Queue) -> Vec<Box<dyn System>> {
-        // Surface format — needed for pipeline creation.
-        let format = ecs
-            .get_resource::<orbital_ecs_bridge::SurfaceFormatResource>()
-            .map(|f| f.0)
-            .unwrap_or(TextureFormat::Bgra8UnormSrgb);
-
-        let inner = DebugRenderer::new(device, format);
-        let overlay = DebugRenderOverlay { inner };
-
+    fn setup(&self, ecs: &mut World, _device: &Device, _queue: &Queue) -> Vec<Box<dyn System>> {
         ecs.insert_resource(orbital_app::FreezeKeyConfig(
             self.freeze_key.unwrap_or(KeyCode::F4),
         ));
@@ -548,14 +540,35 @@ impl Module for DebugModule {
             was_pressed: false,
             enabled: false,
         });
-        if ecs.get_resource::<RenderOverlayResource>().is_none() {
-            ecs.insert_resource(RenderOverlayResource::new());
-        }
-        if let Some(res) = ecs.get_resource_mut::<RenderOverlayResource>() {
-            res.add(Box::new(overlay));
-        }
 
         vec![sys_debug_toggle.into_system()]
+    }
+
+    fn register_overlays(
+        &self,
+        ecs: &mut World,
+        _layer_renderers: &mut Vec<Box<dyn orbital_app::LayerRenderer>>,
+        legacy_overlays: &mut Vec<Box<dyn RenderOverlay>>,
+    ) {
+        let format = ecs
+            .get_resource::<orbital_ecs_bridge::SurfaceFormatResource>()
+            .map(|f| f.0)
+            .unwrap_or(TextureFormat::Bgra8UnormSrgb);
+
+        // Get device from ECS resources.
+        let device = match ecs.get_resource::<orbital_ecs_bridge::DeviceResource>() {
+            Some(d) => d,
+            None => {
+                orbital_core::logging::warn!(
+                    "DebugModule: no DeviceResource, skipping overlay registration"
+                );
+                return;
+            }
+        };
+
+        let inner = DebugRenderer::new(&device.0, format);
+        let overlay = DebugRenderOverlay { inner };
+        legacy_overlays.push(Box::new(overlay));
     }
 }
 
@@ -565,7 +578,7 @@ impl Module for DebugModule {
 
 fn collect_spheres(
     ecs: &World,
-    frozen_frustum: Option<&orbital_resources::Frustum>,
+    frozen_frustum: Option<&orbital_camera::Frustum>,
 ) -> Vec<SphereInstance> {
     let mut spheres = Vec::new();
 
@@ -725,7 +738,7 @@ fn light_cone(
 ) -> Vec<[f32; 6]> {
     let dir = direction.normalize();
     let range = 2.0;
-    let half_angle = outer_angle.min(1.5).max(0.01);
+    let half_angle = outer_angle.clamp(0.01, 1.5);
 
     let tip = Point3::new(
         position.x + dir.x * range,

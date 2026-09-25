@@ -14,7 +14,7 @@ pub struct Res<'a, T: 'static>(&'a T);
 
 impl<T: 'static> Clone for Res<'_, T> {
     fn clone(&self) -> Self {
-        Res(self.0)
+        *self
     }
 }
 impl<T: 'static> Copy for Res<'_, T> {}
@@ -570,6 +570,171 @@ impl<
                 }
                 snap_c.merge_into(world);
                 snap_d.merge_into(world);
+            }),
+        ))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Arity 5 — Res<A> + Res<B> + Res<C> + &mut D + &mut E   (3 read resources + 2 write components)
+// ---------------------------------------------------------------------------
+
+impl<
+    A: 'static + Send + Sync,
+    B: 'static + Send + Sync,
+    C: 'static + Send + Sync,
+    D: Clone + Component,
+    E: Clone + Component,
+    F: for<'a, 'b, 'c> FnMut(Res<'a, A>, Res<'b, B>, Res<'c, C>, &mut D, &mut E) + Send + 'static,
+> IntoSystem<fn(Res<'_, A>, Res<'_, B>, Res<'_, C>, &mut D, &mut E)> for F
+{
+    type System = Box<dyn System>;
+    fn into_system(self) -> Self::System {
+        let mut f = self;
+        Box::new(FunctionSystem::new(
+            FunctionSystemMetadata {
+                name: std::any::type_name::<F>(),
+                access: ComponentAccess::new()
+                    .reads::<A>()
+                    .reads::<B>()
+                    .reads::<C>()
+                    .writes::<D>()
+                    .writes::<E>(),
+            },
+            Box::new(move |world, _commands| {
+                let ha = match world.get_resource::<A>() {
+                    Some(h) => h,
+                    None => return,
+                };
+                let hb = match world.get_resource::<B>() {
+                    Some(h) => h,
+                    None => return,
+                };
+                let hc = match world.get_resource::<C>() {
+                    Some(h) => h,
+                    None => return,
+                };
+                let (mut snap_d, mut snap_e) = {
+                    let Some(sd) = world.get_component_store::<D>() else {
+                        return;
+                    };
+                    let Some(se) = world.get_component_store::<E>() else {
+                        return;
+                    };
+                    (
+                        Snapshot::clone_from_store(&sd),
+                        Snapshot::clone_from_store(&se),
+                    )
+                };
+                let pivot = if snap_d.dense.len() <= snap_e.dense.len() {
+                    snap_d.dense.as_slice()
+                } else {
+                    snap_e.dense.as_slice()
+                };
+                let ra = Res(&*ha);
+                let rb = Res(&*hb);
+                let rc = Res(&*hc);
+                for &eid in pivot {
+                    if let (Some(id), Some(ie)) = (snap_d.sparse[eid], snap_e.sparse[eid]) {
+                        f(
+                            ra,
+                            rb,
+                            rc,
+                            &mut snap_d.components[id],
+                            &mut snap_e.components[ie],
+                        );
+                    }
+                }
+                snap_d.merge_into(world);
+                snap_e.merge_into(world);
+            }),
+        ))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Arity 6 — Res<A> + Res<B> + Res<C> + Res<D> + &mut E + &mut F
+//            (4 read resources + 2 write components)
+// ---------------------------------------------------------------------------
+
+impl<
+    A: 'static + Send + Sync,
+    B: 'static + Send + Sync,
+    C: 'static + Send + Sync,
+    D: 'static + Send + Sync,
+    E: Clone + Component,
+    F: Clone + Component,
+    G: for<'a, 'b, 'c, 'd> FnMut(Res<'a, A>, Res<'b, B>, Res<'c, C>, Res<'d, D>, &mut E, &mut F)
+        + Send
+        + 'static,
+> IntoSystem<fn(Res<'_, A>, Res<'_, B>, Res<'_, C>, Res<'_, D>, &mut E, &mut F)> for G
+{
+    type System = Box<dyn System>;
+    fn into_system(self) -> Self::System {
+        let mut f = self;
+        Box::new(FunctionSystem::new(
+            FunctionSystemMetadata {
+                name: std::any::type_name::<G>(),
+                access: ComponentAccess::new()
+                    .reads::<A>()
+                    .reads::<B>()
+                    .reads::<C>()
+                    .reads::<D>()
+                    .writes::<E>()
+                    .writes::<F>(),
+            },
+            Box::new(move |world, _commands| {
+                let ha = match world.get_resource::<A>() {
+                    Some(h) => h,
+                    None => return,
+                };
+                let hb = match world.get_resource::<B>() {
+                    Some(h) => h,
+                    None => return,
+                };
+                let hc = match world.get_resource::<C>() {
+                    Some(h) => h,
+                    None => return,
+                };
+                let hd = match world.get_resource::<D>() {
+                    Some(h) => h,
+                    None => return,
+                };
+                let (mut snap_e, mut snap_f) = {
+                    let Some(se) = world.get_component_store::<E>() else {
+                        return;
+                    };
+                    let Some(sf) = world.get_component_store::<F>() else {
+                        return;
+                    };
+                    (
+                        Snapshot::clone_from_store(&se),
+                        Snapshot::clone_from_store(&sf),
+                    )
+                };
+                let pivot = if snap_e.dense.len() <= snap_f.dense.len() {
+                    snap_e.dense.as_slice()
+                } else {
+                    snap_f.dense.as_slice()
+                };
+                let ra = Res(&*ha);
+                let rb = Res(&*hb);
+                let rc = Res(&*hc);
+                let rd = Res(&*hd);
+                for &eid in pivot {
+                    if let (Some(id), Some(ie)) = (snap_e.sparse[eid], snap_f.sparse[eid]) {
+                        f(
+                            ra,
+                            rb,
+                            rc,
+                            rd,
+                            &mut snap_e.components[id],
+                            &mut snap_f.components[ie],
+                        );
+                    }
+                }
+                snap_e.merge_into(world);
+                snap_f.merge_into(world);
             }),
         ))
     }
