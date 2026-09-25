@@ -323,7 +323,10 @@ mod tests {
         let counter = Arc::new(AtomicUsize::new(0));
         let mut world = world_with_pos();
         let mut schedule = Schedule::new();
-        schedule.add_system_with_interval(counting_system(Arc::clone(&counter)), Duration::from_secs(1));
+        schedule.add_system_with_interval(
+            counting_system(Arc::clone(&counter)),
+            Duration::from_secs(1),
+        );
 
         schedule.run_with_time(&mut world, 0.0);
         assert_eq!(counter.load(Ordering::Relaxed), 1, "first tick must run");
@@ -334,7 +337,10 @@ mod tests {
         let counter = Arc::new(AtomicUsize::new(0));
         let mut world = world_with_pos();
         let mut schedule = Schedule::new();
-        schedule.add_system_with_interval(counting_system(Arc::clone(&counter)), Duration::from_secs(1));
+        schedule.add_system_with_interval(
+            counting_system(Arc::clone(&counter)),
+            Duration::from_secs(1),
+        );
 
         schedule.run_with_time(&mut world, 0.0); // first tick: runs
         schedule.run_with_time(&mut world, 0.5); // 0.5s < 1s: skipped
@@ -348,7 +354,10 @@ mod tests {
         let counter = Arc::new(AtomicUsize::new(0));
         let mut world = world_with_pos();
         let mut schedule = Schedule::new();
-        schedule.add_system_with_interval(counting_system(Arc::clone(&counter)), Duration::from_secs(1));
+        schedule.add_system_with_interval(
+            counting_system(Arc::clone(&counter)),
+            Duration::from_secs(1),
+        );
 
         schedule.run_with_time(&mut world, 0.0); // runs
         schedule.run_with_time(&mut world, 5.0); // 5s stall: exactly one run
@@ -367,13 +376,22 @@ mod tests {
         let mut world = world_with_pos();
         let mut schedule = Schedule::new();
         schedule.add_system::<fn(&Pos), _>(counting_system(Arc::clone(&fast)));
-        schedule.add_system_with_interval(counting_system(Arc::clone(&slow)), Duration::from_secs(1));
+        schedule
+            .add_system_with_interval(counting_system(Arc::clone(&slow)), Duration::from_secs(1));
 
         for now in [0.0, 0.25, 0.5, 0.75, 1.0] {
             schedule.run_with_time(&mut world, now);
         }
-        assert_eq!(fast.load(Ordering::Relaxed), 5, "fast system runs every tick");
-        assert_eq!(slow.load(Ordering::Relaxed), 2, "slow system runs at 0.0 and 1.0");
+        assert_eq!(
+            fast.load(Ordering::Relaxed),
+            5,
+            "fast system runs every tick"
+        );
+        assert_eq!(
+            slow.load(Ordering::Relaxed),
+            2,
+            "slow system runs at 0.0 and 1.0"
+        );
     }
 
     #[test]
@@ -396,7 +414,10 @@ mod tests {
         let counter = Arc::new(AtomicUsize::new(0));
         let mut world = world_with_pos();
         let mut schedule = Schedule::new();
-        schedule.add_system_with_interval(counting_system(Arc::clone(&counter)), Duration::from_secs(60));
+        schedule.add_system_with_interval(
+            counting_system(Arc::clone(&counter)),
+            Duration::from_secs(60),
+        );
 
         schedule.run(&mut world);
         schedule.run(&mut world);
@@ -461,10 +482,7 @@ mod tests {
         let mut world = world_with_pos();
         let mut schedule = Schedule::new();
         schedule.add_system::<fn(&mut Pos), _>(|pos: &mut Pos| pos.0 += 100.0); // fast
-        schedule.add_system_with_interval(
-            |pos: &mut Pos| pos.0 += 1.0,
-            Duration::from_secs(1),
-        ); // throttled
+        schedule.add_system_with_interval(|pos: &mut Pos| pos.0 += 1.0, Duration::from_secs(1)); // throttled
 
         schedule.run_with_time(&mut world, 0.0); // both run: pos = 101
         schedule.run_with_time(&mut world, 0.5); // fast only: pos = 201

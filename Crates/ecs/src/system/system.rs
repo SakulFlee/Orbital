@@ -103,7 +103,10 @@ impl System for WithInterval {
 /// vec![with_interval(my_system, Duration::from_millis(250))]
 /// ```
 pub fn with_interval(system: Box<dyn System>, interval: Duration) -> Box<dyn System> {
-    Box::new(WithInterval { inner: system, interval })
+    Box::new(WithInterval {
+        inner: system,
+        interval,
+    })
 }
 
 /// Wrap a boxed system as low priority: runs once per second instead of

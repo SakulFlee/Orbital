@@ -16,8 +16,8 @@ pub use merge::Snapshot;
 pub use param_resource::{Res, ResMut};
 pub use schedule::Schedule;
 pub use system::{
-    FunctionSystem, FunctionSystemMetadata, IntoSystem, LOW_PRIORITY_INTERVAL, System, WithInterval,
-    low_priority, with_interval,
+    FunctionSystem, FunctionSystemMetadata, IntoSystem, LOW_PRIORITY_INTERVAL, System,
+    WithInterval, low_priority, with_interval,
 };
 
 #[cfg(test)]
