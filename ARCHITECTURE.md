@@ -72,6 +72,7 @@ Orbital/
 - **Entity / Component**: components stored in typed stores (`component/store.rs`, `world_store.rs`).
 - **Query system**: heavily macro-driven (`query/macros/…`) for compile-time-typed, zero-cost queries.
 - **Systems**: scheduled work (`system/{runner,schedule,executor,param,commands,merge}.rs`); systems can read/write resources and access the world.
+- **Interval scheduling (low priority)**: a system can declare `System::desired_interval()` — or be added via `Schedule::add_system_with_interval` / `add_low_priority_system` (1s) / `with_interval` — to run less often than the frame rate. The schedule owns the bookkeeping and throttles against the clock passed to `Schedule::run_with_time` (the runtime passes `TotalTime`); the first tick always runs, and missed ticks are dropped, never replayed. Plain `Schedule::run` ignores intervals and executes everything.
 - **World** ties entities + components + resources together; `IntoSystem` trait adapts closures to systems.
 - **Messaging**: elements communicate via a message-passing bus (tag-based fan-out), *not* shared memory — keeps coupling loose and scales well.
 
