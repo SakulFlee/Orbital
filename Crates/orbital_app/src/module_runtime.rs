@@ -1238,8 +1238,16 @@ impl ModuleRuntime {
         // Poll importer for completed glTF imports
         crate::systems::sys_poll_importer(&mut self.ecs_world);
 
-        // Run game schedule (user systems)
-        self.game_schedule.run(&mut self.ecs_world);
+        // Run game schedule (user systems). Pass the accumulated game time
+        // so systems marked with a desired interval (low priority) are
+        // throttled against TotalTime instead of running every frame.
+        let now_secs = self
+            .ecs_world
+            .get_resource::<TotalTime>()
+            .map(|t| t.0)
+            .unwrap_or(0.0);
+        self.game_schedule
+            .run_with_time(&mut self.ecs_world, now_secs);
 
         // Process engine events
         let exit_requested = self.process_engine_events();
