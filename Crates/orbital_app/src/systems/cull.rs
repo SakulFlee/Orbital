@@ -1,10 +1,11 @@
 use cgmath::{Point3, Vector4};
+use orbital_cull::CullResources;
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
     ActiveCamera, CullResource, DeviceResource, EcsCameraStore, FrozenFrustum, ModelInstances,
     ModelRealization, QueueResource,
 };
-use orbital_resources::{CullResources, Instance};
+use orbital_instance::Instance;
 
 /// Per-frame CPU frustum-culling system.
 ///

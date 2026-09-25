@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use orbital_ecs::World;
 use orbital_ecs_bridge::{LightSlotIndex, ShadowDirtyFlag, StaggerState, StaggeredLightConfig};
-use orbital_resources::ShadowCaster;
+use orbital_shadow::ShadowCaster;
 
 /// Build the set of light store indices whose shadow maps should be
 /// rendered this frame, respecting the per-frame update budget.

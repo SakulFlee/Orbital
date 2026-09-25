@@ -1,6 +1,4 @@
 use cgmath::{InnerSpace, Vector2, Zero};
-#[cfg(feature = "gamepad_input")]
-use gilrs::Axis;
 use hashbrown::HashMap;
 use log::warn;
 use winit::dpi::PhysicalSize;
@@ -58,6 +56,7 @@ impl InputState {
         self.touch_deltas.clear();
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn handle_event(&mut self, input_event: InputEvent) {
         let (input_id, input_button_state, input_axis_state): (
             InputId,
@@ -176,30 +175,8 @@ impl InputState {
             InputEvent::GamepadAxis {
                 gamepad_id,
                 axis,
-                value,
-            } => {
-                let (axis, vector) = match axis {
-                    Axis::LeftStickX => {
-                        (InputAxis::GamepadLeftStick, Vector2::new(value as f64, 0.0))
-                    }
-                    Axis::LeftStickY => {
-                        (InputAxis::GamepadLeftStick, Vector2::new(0.0, value as f64))
-                    }
-                    Axis::RightStickX => (
-                        InputAxis::GamepadRightStick,
-                        Vector2::new(value as f64, 0.0),
-                    ),
-                    Axis::RightStickY => (
-                        InputAxis::GamepadRightStick,
-                        Vector2::new(0.0, value as f64),
-                    ),
-                    Axis::LeftZ => (InputAxis::GamepadTrigger, Vector2::new(value as f64, 0.0)),
-                    Axis::RightZ => (InputAxis::GamepadTrigger, Vector2::new(0.0, value as f64)),
-                    _ => return,
-                };
-
-                (InputId::Gamepad(gamepad_id), None, Some((axis, vector)))
-            }
+                delta,
+            } => (InputId::Gamepad(gamepad_id), None, Some((axis, delta))),
             _ => return,
         };
 
@@ -235,6 +212,7 @@ impl InputState {
                 .entry(axis)
                 .and_modify(|x| match axis {
                     InputAxis::MouseMovement | InputAxis::MouseScrollWheel => *x += flipped_delta,
+                    #[cfg(feature = "gamepad_input")]
                     InputAxis::GamepadLeftStick
                     | InputAxis::GamepadRightStick
                     | InputAxis::GamepadTrigger => {

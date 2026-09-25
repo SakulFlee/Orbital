@@ -1,5 +1,5 @@
 use cgmath::{InnerSpace, Vector2, Vector3};
-use orbital_resources::{MeshDescriptor, Vertex};
+use orbital_mesh::{MeshDescriptor, Vertex};
 
 pub fn capsule(radius: f32, height: f32, segments: u32, rings: u32) -> MeshDescriptor {
     let segs = segments.max(3);

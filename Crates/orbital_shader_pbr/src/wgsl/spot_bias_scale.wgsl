@@ -1,0 +1,1 @@
+const SPOT_BIAS_SCALE: f32 = 50.0;

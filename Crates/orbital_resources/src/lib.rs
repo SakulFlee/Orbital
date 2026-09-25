@@ -1,209 +1,24 @@
-//! # Resources Module
+//! # Resources Module (Re-export Shim)
 //!
-//! The resources module contains all the core resource types used by the Orbital engine.
-//! These resources represent the fundamental building blocks for 3D scenes, including
-//! models, cameras, textures, materials, and lighting.
-//!
-//! ## Key Resource Types
-//!
-//! - **Model**: Represents 3D models with meshes, materials, and instances
-//! - **Camera**: Manages view and projection matrices for rendering
-//! - **Texture**: Handles image data for materials and environment mapping
-//! - **Light**: Represents different types of lighting in the scene
-//! - **Shader**: Manages shader programs and pipeline creation
-//! - **WorldEnvironment**: Handles environment mapping and IBL (Image-Based Lighting)
-//!
-//! ## Resource Lifecycle
-//!
-//! Resources follow a specific lifecycle involving creation, realization, caching,
-//! and cleanup. The engine manages resource lifecycles automatically through
-//! the various stores in the world module.
+//! This crate re-exports all resource types from their new fine-grained
+//! crates. It exists purely for backward compatibility — new code should
+//! import directly from the specific crate.
 
-pub mod buffer;
-pub mod camera;
-pub mod cull;
-pub mod ibl_brdf;
-pub mod instance;
-pub mod light;
-pub mod material_shader;
-pub mod mesh;
-pub mod model;
-pub mod pbr_material_shader;
-pub mod projection;
-pub mod shader;
-pub mod shadow;
-pub mod texture;
-pub mod transform;
-pub mod vertex;
-pub mod world_environment;
+// Flat re-exports for backward compatibility
+pub use orbital_camera::*;
+pub use orbital_cull::*;
+pub use orbital_ibl_brdf::*;
+pub use orbital_instance::*;
+pub use orbital_light::*;
+pub use orbital_material_shader::*;
+pub use orbital_math::{Mode, Transform, ortho_wgpu, perspective_wgpu};
+pub use orbital_mesh::*;
+pub use orbital_model::*;
+pub use orbital_shader_core::*;
+pub use orbital_shadow::*;
+pub use orbital_texture::*;
+pub use orbital_vertex::*;
+pub use orbital_world_environment::*;
 
-pub use buffer::*;
-pub use camera::*;
-pub use cull::*;
-pub use ibl_brdf::*;
-pub use instance::*;
-pub use light::*;
-pub use material_shader::*;
-pub use mesh::*;
-pub use model::*;
-pub use pbr_material_shader::*;
-pub use projection::*;
-pub use shader::*;
-pub use shadow::*;
-pub use texture::*;
-pub use transform::*;
-pub use vertex::*;
-pub use world_environment::*;
-
-use wgpu::{
-    BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
-    BufferBindingType, Device, SamplerBindingType, ShaderStages, TextureSampleType,
-    TextureViewDimension,
-};
-
-pub fn make_world_bind_group_layout(device: &Device) -> BindGroupLayout {
-    device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-        label: Some("World BindGroup Layout"),
-        entries: &[
-            BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::all(),
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            },
-            BindGroupLayoutEntry {
-                binding: 1,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Storage { read_only: true },
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            },
-            BindGroupLayoutEntry {
-                binding: 2,
-                visibility: ShaderStages::all(),
-                ty: BindingType::Texture {
-                    sample_type: TextureSampleType::Float { filterable: true },
-                    view_dimension: TextureViewDimension::Cube,
-                    multisampled: false,
-                },
-                count: None,
-            },
-            BindGroupLayoutEntry {
-                binding: 3,
-                visibility: ShaderStages::all(),
-                ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                count: None,
-            },
-            BindGroupLayoutEntry {
-                binding: 4,
-                visibility: ShaderStages::all(),
-                ty: BindingType::Texture {
-                    sample_type: TextureSampleType::Float { filterable: true },
-                    view_dimension: TextureViewDimension::Cube,
-                    multisampled: false,
-                },
-                count: None,
-            },
-            BindGroupLayoutEntry {
-                binding: 5,
-                visibility: ShaderStages::all(),
-                ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                count: None,
-            },
-            BindGroupLayoutEntry {
-                binding: 6,
-                visibility: ShaderStages::all(),
-                ty: BindingType::Texture {
-                    sample_type: TextureSampleType::Float { filterable: false },
-                    view_dimension: TextureViewDimension::D2,
-                    multisampled: false,
-                },
-                count: None,
-            },
-            BindGroupLayoutEntry {
-                binding: 7,
-                visibility: ShaderStages::all(),
-                ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
-                count: None,
-            },
-            // Shadow slot data uniform buffer (binding 8)
-            BindGroupLayoutEntry {
-                binding: 8,
-                visibility: ShaderStages::VERTEX_FRAGMENT,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            },
-            // Shadow depth texture 2D array (binding 9)
-            BindGroupLayoutEntry {
-                binding: 9,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Texture {
-                    sample_type: TextureSampleType::Depth,
-                    view_dimension: TextureViewDimension::D2Array,
-                    multisampled: false,
-                },
-                count: None,
-            },
-            // Shadow map sampler (binding 10) — comparison for hardware PCF
-            BindGroupLayoutEntry {
-                binding: 10,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Sampler(SamplerBindingType::Comparison),
-                count: None,
-            },
-            // Point light cube shadow array (binding 11)
-            BindGroupLayoutEntry {
-                binding: 11,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Texture {
-                    sample_type: TextureSampleType::Depth,
-                    view_dimension: TextureViewDimension::CubeArray,
-                    multisampled: false,
-                },
-                count: None,
-            },
-            // Point light cube sampler (binding 12) — comparison for hardware PCF
-            BindGroupLayoutEntry {
-                binding: 12,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Sampler(SamplerBindingType::Comparison),
-                count: None,
-            },
-            // Active light count (binding 13) — limits the light-store loop in the shader
-            BindGroupLayoutEntry {
-                binding: 13,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            },
-            // Sky parameters uniform (binding 14) — the analytic skybox fragment
-            // shader evaluates `sky_color` from these. Unused by texture-based
-            // material shaders, which is a valid subset of this layout.
-            BindGroupLayoutEntry {
-                binding: 14,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            },
-        ],
-    })
-}
+// Re-export PBR material shader types
+pub use orbital_shader_pbr::*;

@@ -1,6 +1,6 @@
 use crate::shapes::plane;
 use cgmath::Vector2;
-use orbital_resources::MeshDescriptor;
+use orbital_mesh::MeshDescriptor;
 
 pub fn grid(width: f32, depth: f32, cols: u32, rows: u32) -> MeshDescriptor {
     let subdivisions = cols.max(rows);

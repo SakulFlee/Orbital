@@ -9,7 +9,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use cgmath::{Quaternion, Vector3};
-use orbital_resources::{MaterialShaderDescriptor, MeshDescriptor, Transform};
+use orbital_material_shader::MaterialShaderDescriptor;
+use orbital_math::Transform;
+use orbital_mesh::MeshDescriptor;
 
 use crate::shapes;
 

@@ -1,7 +1,7 @@
 pub use log::*;
 #[cfg(not(target_os = "android"))]
 use std::sync::Once;
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 use std::{fs, path::Path, time::SystemTime};
 
 #[cfg(target_os = "android")]
@@ -13,7 +13,47 @@ pub fn init() {
     );
 }
 
-#[cfg(not(target_os = "android"))]
+/// iOS logging: stdout only (no file rotation — the sandbox restricts
+/// filesystem access to the bundle and Documents directories).
+#[cfg(target_os = "ios")]
+pub fn init() {
+    static ONCE: Once = Once::new();
+    ONCE.call_once(|| {
+        let default_log_level = if cfg!(debug_assertions) {
+            LevelFilter::Debug
+        } else {
+            LevelFilter::Info
+        };
+
+        if let Err(e) = fern::Dispatch::new()
+            .format(|out, message, record| {
+                out.finish(format_args!(
+                    "[{} {}] {}",
+                    record.level(),
+                    record.target(),
+                    message
+                ))
+            })
+            .chain(
+                fern::Dispatch::new()
+                    .level(default_log_level)
+                    .level_for("wgpu_core", LevelFilter::Warn)
+                    .level_for("wgpu_hal", LevelFilter::Warn)
+                    .level_for("naga", LevelFilter::Warn)
+                    .chain(std::io::stdout()),
+            )
+            .apply()
+        {
+            error!(
+                "Failure creating logger. This is commonly due to a logger already being initialized beforehand. Error: {e}"
+            );
+        }
+
+        info!("Logger initialized at max level set to {}", max_level());
+    });
+}
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub fn init() {
     static ONCE: Once = Once::new();
     ONCE.call_once(|| {
@@ -74,7 +114,7 @@ pub fn init() {
     });
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub fn test_init() {
     if let Err(e) = fern::Dispatch::new()
         .format(|out, message, record| {

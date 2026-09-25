@@ -24,6 +24,31 @@ use hashbrown::HashMap;
 #[derive(Debug, Clone, Copy)]
 pub struct FrameCounter(pub u64);
 
+/// Frame-rate statistics updated every second by the runtime.
+///
+/// Written by `ModuleRuntime::update()` alongside the `info!()` log line.
+/// Read by HUD overlays (e.g. the all-in-one template) to display live
+/// performance metrics on screen.
+#[derive(Debug, Clone, Copy)]
+pub struct FpsStats {
+    /// Frames rendered in the last complete one-second window.
+    pub fps: u64,
+    /// Cumulative delta time for the current one-second window (seconds).
+    pub total_delta_time: f64,
+    /// Delta time of the most recent frame (seconds).
+    pub cycle_delta_time: f64,
+}
+
+impl Default for FpsStats {
+    fn default() -> Self {
+        Self {
+            fps: 0,
+            total_delta_time: 0.0,
+            cycle_delta_time: 0.0,
+        }
+    }
+}
+
 /// Time elapsed since the previous frame, in seconds.
 ///
 /// Measured as wall-clock time between consecutive `tick()` calls in the
@@ -69,6 +94,11 @@ pub struct WindowSize(pub Vector2<u32>);
 #[derive(Debug, Clone, Copy)]
 pub struct CursorGrabConfig(pub bool);
 
+/// Live cursor grab state — updated by [`CursorToggle`](orbital_app::systems::CursorToggle)
+/// and read by the camera controller to skip mouse rotation when the cursor is free.
+#[derive(Debug, Clone, Copy)]
+pub struct CursorGrabState(pub bool);
+
 /// A snapshot of the engine's aggregated input state at the start of the
 /// current frame.
 ///
@@ -96,6 +126,164 @@ pub struct DeviceResource(pub Arc<wgpu::Device>);
 /// so shared access suffices for most use cases.
 #[derive(Debug, Clone)]
 pub struct QueueResource(pub Arc<wgpu::Queue>);
+
+/// Shared reference to the wgpu [`Adapter`].
+///
+/// Needed by iced's `Engine::new()` to construct its renderer.
+#[derive(Debug, Clone)]
+pub struct AdapterResource(pub Arc<wgpu::Adapter>);
+
+/// An owned window event relevant to iced UI processing.
+///
+/// Stored in [`IcedEventQueue`] so the iced overlay can consume events
+/// without lifetime issues from `winit::event::WindowEvent<'_>`.
+#[derive(Debug, Clone)]
+pub enum IcedWindowEvent {
+    CursorMoved {
+        position: winit::dpi::PhysicalPosition<f64>,
+    },
+    MouseInput {
+        state: winit::event::ElementState,
+        button: winit::event::MouseButton,
+    },
+    KeyboardInput {
+        event: winit::event::KeyEvent,
+        is_synthetic: bool,
+    },
+    ModifiersChanged(winit::keyboard::ModifiersState),
+    Resized(winit::dpi::PhysicalSize<u32>),
+    Focused(bool),
+    RedrawRequested,
+    /// A touch event. On Android (and other touch-only platforms) winit emits
+    /// *only* `WindowEvent::Touch` — no synthetic mouse events — so this is the
+    /// sole pointer input iced can consume there.
+    Touch(winit::event::Touch),
+}
+
+/// Queue of winit events to be forwarded to iced UI overlays.
+///
+/// Populated each frame by `module_runtime.rs` before overlay rendering.
+/// Consumed by `IcedLayerRenderer::render()` and drained.
+pub struct IcedEventQueue {
+    pub events: Vec<IcedWindowEvent>,
+    pub cursor_position: Option<winit::dpi::PhysicalPosition<f64>>,
+    pub modifiers: winit::keyboard::ModifiersState,
+    pub scale_factor: f64,
+}
+
+impl Default for IcedEventQueue {
+    fn default() -> Self {
+        Self {
+            events: Vec::new(),
+            cursor_position: None,
+            modifiers: winit::keyboard::ModifiersState::empty(),
+            scale_factor: 1.0,
+        }
+    }
+}
+
+impl IcedEventQueue {
+    pub fn push(&mut self, event: IcedWindowEvent) {
+        match &event {
+            IcedWindowEvent::CursorMoved { position } => {
+                self.cursor_position = Some(*position);
+            }
+            // Like `iced_winit::window::State::update`, a touch updates the
+            // cursor position too — otherwise the cursor stays `Unavailable`
+            // on touch-only platforms and *all* hit-testing fails.
+            IcedWindowEvent::Touch(touch) => {
+                self.cursor_position = Some(touch.location);
+            }
+            IcedWindowEvent::ModifiersChanged(mods) => {
+                self.modifiers = *mods;
+            }
+            _ => {}
+        }
+        self.events.push(event);
+    }
+
+    pub fn set_scale_factor(&mut self, scale: f64) {
+        self.scale_factor = scale;
+    }
+
+    pub fn drain(&mut self) -> Vec<IcedWindowEvent> {
+        std::mem::take(&mut self.events)
+    }
+}
+
+/// Winit touch ids currently **captured** by an iced UI overlay.
+///
+/// Populated by the iced overlay renderers (`orbital_iced`): whenever a
+/// `WindowEvent::Touch` is converted and handed to iced and the widget tree
+/// consumes it (`event::Status::Captured` — e.g. a button press, a
+/// `FloatingPanel` title-bar drag or a slider), the touch id is inserted
+/// here. Lifted/lost fingers are removed again so stale ids cannot
+/// accumulate.
+///
+/// `module_runtime.rs` consults this resource *before* feeding touch events
+/// into the engine's game-input path (`orbital_input::InputState`), so that
+/// touches interacting with UI panels don't also drive the virtual joystick
+/// or the drag-to-look camera. The iced event queue itself keeps receiving
+/// every touch event regardless — capture only masks the game-input path.
+///
+/// Mirrors [`IcedEventQueue`]: populated during the render pass (iced
+/// consumes events *while* rendering), which means capture information for a
+/// freshly pressed finger is one frame late. The consumer compensates by
+/// synthesizing a `TouchPhase::Cancelled` for the finger once, fully
+/// releasing it from the game-input state.
+#[derive(Debug, Clone, Default)]
+pub struct IcedCapturedTouches(pub hashbrown::HashSet<u64>);
+
+impl IcedCapturedTouches {
+    /// Whether the given winit touch id is currently captured by the UI.
+    pub fn contains(&self, touch_id: u64) -> bool {
+        self.0.contains(&touch_id)
+    }
+
+    /// Mark a touch id as captured by the UI. Returns `true` if the id was
+    /// newly inserted (i.e. it wasn't captured already).
+    pub fn capture(&mut self, touch_id: u64) -> bool {
+        self.0.insert(touch_id)
+    }
+
+    /// Release a touch id (finger lifted/lost/cancelled).
+    pub fn release(&mut self, touch_id: u64) {
+        self.0.remove(&touch_id);
+    }
+
+    /// Whether any finger is currently captured by the UI.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+/// Whether the current mouse-button drag is owned by the iced UI.
+///
+/// Set when iced reports `Status::Captured` for a primary-button press
+/// (the press started on a widget), cleared when the button is released
+/// or focus is lost. The mouse-event path itself is not masked — the
+/// camera controller reads this to keep drag-to-look from also firing
+/// while the user is dragging a UI element.
+///
+/// Mirrors [`IcedCapturedTouches`]: populated during
+/// `process_events()`. Unlike touch capture there is no need to defer
+/// game input — the camera system runs after `process_events()` within
+/// the same update, so the verdict is always current when look deltas
+/// are consumed.
+#[derive(Debug, Clone, Default)]
+pub struct IcedCapturedMouseDrag(pub bool);
+
+impl IcedCapturedMouseDrag {
+    /// Mark the current mouse drag as captured by the UI.
+    pub fn capture(&mut self) {
+        self.0 = true;
+    }
+
+    /// End capture (button released or focus lost).
+    pub fn release(&mut self) {
+        self.0 = false;
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Engine events (replace AppEvent)
@@ -177,6 +365,42 @@ mod tests {
         assert_eq!(drained.len(), 10);
         assert!(events.is_empty());
     }
+
+    #[test]
+    fn iced_captured_touches_lifecycle() {
+        let mut captured = IcedCapturedTouches::default();
+        assert!(captured.is_empty());
+        assert!(!captured.contains(42));
+
+        // A widget captures the finger...
+        captured.capture(42);
+        assert!(captured.contains(42));
+        assert!(!captured.is_empty());
+
+        // ...and the finger is eventually lifted.
+        captured.release(42);
+        assert!(!captured.contains(42));
+        assert!(captured.is_empty());
+    }
+
+    #[test]
+    fn iced_captured_touches_track_multiple_fingers() {
+        let mut captured = IcedCapturedTouches::default();
+
+        captured.capture(1);
+        captured.capture(2);
+        assert!(captured.contains(1) && captured.contains(2));
+
+        // Releasing one finger must not disturb the other (multi-touch:
+        // one finger on the UI while another drives the camera).
+        captured.release(1);
+        assert!(!captured.contains(1));
+        assert!(captured.contains(2));
+
+        // Capturing again is idempotent.
+        captured.capture(2);
+        assert!(captured.contains(2));
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -189,8 +413,8 @@ mod tests {
 pub type MeshCacheResource = Arc<
     std::sync::RwLock<
         orbital_core::cache::Cache<
-            std::sync::Arc<orbital_resources::MeshDescriptor>,
-            orbital_resources::Mesh,
+            std::sync::Arc<orbital_mesh::MeshDescriptor>,
+            orbital_mesh::Mesh,
         >,
     >,
 >;
@@ -201,8 +425,8 @@ pub type MeshCacheResource = Arc<
 pub type MaterialCacheResource = Arc<
     std::sync::RwLock<
         orbital_core::cache::Cache<
-            std::sync::Arc<orbital_resources::MaterialShaderDescriptor>,
-            orbital_resources::MaterialShader,
+            std::sync::Arc<orbital_material_shader::MaterialShaderDescriptor>,
+            orbital_material_shader::MaterialShader,
         >,
     >,
 >;
@@ -219,18 +443,20 @@ pub struct LightBufferResource(pub Option<Arc<wgpu::Buffer>>);
 /// Current world environment descriptor (singleton).
 /// Set by the environment system when the user changes the HDRI/skybox.
 #[derive(Debug, Clone)]
-pub struct EnvironmentDescriptorResource(pub Option<orbital_resources::WorldEnvironmentDescriptor>);
+pub struct EnvironmentDescriptorResource(
+    pub Option<orbital_world_environment::WorldEnvironmentDescriptor>,
+);
 
 /// Realized world environment GPU state (IBL textures, skybox).
 /// Created by `realize_environment` from the descriptor.
 #[derive(Debug, Clone)]
-pub struct EnvironmentGpuResource(pub Option<Arc<orbital_resources::WorldEnvironment>>);
+pub struct EnvironmentGpuResource(pub Option<Arc<orbital_world_environment::WorldEnvironment>>);
 
 /// GPU camera store — flat Vec indexed by entity.index.
 /// CameraRealization on entities holds the index into this store.
 /// This avoids the temporary-borrow problem with get_component_store.
 pub struct EcsCameraStore {
-    cameras: Vec<Option<Arc<std::sync::RwLock<orbital_resources::Camera>>>>,
+    cameras: Vec<Option<Arc<std::sync::RwLock<orbital_camera::Camera>>>>,
 }
 
 impl EcsCameraStore {
@@ -243,7 +469,7 @@ impl EcsCameraStore {
     pub fn insert(
         &mut self,
         entity_idx: usize,
-        camera: Arc<std::sync::RwLock<orbital_resources::Camera>>,
+        camera: Arc<std::sync::RwLock<orbital_camera::Camera>>,
     ) -> usize {
         if entity_idx >= self.cameras.len() {
             self.cameras.resize_with(entity_idx + 1, || None);
@@ -255,7 +481,7 @@ impl EcsCameraStore {
     pub fn get(
         &self,
         entity_idx: usize,
-    ) -> Option<&Arc<std::sync::RwLock<orbital_resources::Camera>>> {
+    ) -> Option<&Arc<std::sync::RwLock<orbital_camera::Camera>>> {
         self.cameras.get(entity_idx)?.as_ref()
     }
 
@@ -282,7 +508,7 @@ impl std::fmt::Debug for EcsCameraStore {
 
 /// IBL BRDF lookup texture — generated once, reused every frame.
 /// Stored as the IblBrdf generator itself so we can borrow the texture ref.
-pub struct IblBrdfResource(pub Option<orbital_resources::IblBrdf>);
+pub struct IblBrdfResource(pub Option<orbital_ibl_brdf::IblBrdf>);
 
 impl Clone for IblBrdfResource {
     fn clone(&self) -> Self {
@@ -305,7 +531,7 @@ impl std::fmt::Debug for IblBrdfResource {
 ///
 /// The renderer reads from this resource to issue indirect draws.
 #[derive(Debug)]
-pub struct CullResource(pub Option<orbital_resources::CullResources>);
+pub struct CullResource(pub Option<orbital_cull::CullResources>);
 
 /// Queue of pending import tasks (glTF files to load).
 #[derive(Debug, Default)]
@@ -346,7 +572,7 @@ impl std::fmt::Debug for ImporterResource {
 /// See [`FrozenFrustum`].
 #[derive(Debug, Clone)]
 pub struct FrozenFrustumData {
-    pub frustum: orbital_resources::Frustum,
+    pub frustum: orbital_camera::Frustum,
     /// Stored so the debug overlay can draw the frozen frustum wireframe
     /// without recomputing it from the planes.
     pub perspective_view_projection_matrix: cgmath::Matrix4<f32>,

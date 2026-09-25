@@ -4,6 +4,7 @@ use orbital::ecs::{System, World};
 use orbital::ecs_bridge::{LightDescriptorEcs, LightDirty, Position};
 use orbital::resources::ShadowCaster;
 
+#[allow(dead_code)]
 pub struct LightModule;
 
 impl Module for LightModule {

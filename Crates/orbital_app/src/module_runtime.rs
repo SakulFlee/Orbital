@@ -6,7 +6,10 @@
 
 use std::sync::{Arc, Mutex};
 
-#[cfg(all(feature = "gamepad_input", not(target_os = "android")))]
+#[cfg(all(
+    feature = "gamepad_gilrs",
+    not(any(target_os = "android", target_os = "ios"))
+))]
 use gilrs::Gilrs;
 use log::trace;
 use orbital_core::logging::{self, debug, error, info, warn};
@@ -17,22 +20,22 @@ use wgpu::TextureViewDescriptor;
 use winit::{
     application::ApplicationHandler,
     error::EventLoopError,
-    event::{DeviceEvent, DeviceId, ElementState, WindowEvent},
+    event::{DeviceEvent, DeviceId, ElementState, MouseButton, TouchPhase, WindowEvent},
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
     keyboard::{Key, NamedKey},
     window::{CursorGrabMode, WindowId},
 };
 
-use orbital_resources::{
-    GeneratedSkyParameters, LightType, ShadowCaster, ShadowLightInfo, WorldEnvironment,
-};
+use orbital_light::LightType;
+use orbital_shadow::{ShadowCaster, ShadowLightInfo};
+use orbital_world_environment::{GeneratedSkyParameters, WorldEnvironment};
 
-use crate::{
-    AppContext, AppSettings, AppState, Module, RenderOverlayResource, Timer, make_core_schedule,
-};
+use crate::{AppContext, AppSettings, AppState, Module, Timer, make_core_schedule};
 use orbital_ecs_bridge::{
-    CursorGrabConfig, CursorPosition, DeltaTime, DeviceResource, EcsCameraStore, EngineEvent,
-    EngineEvents, FrameCounter, InputSnapshot, LightDescriptorEcs, Position, QueueResource,
+    ActiveCamera, AdapterResource, CameraDescriptorEcs, CameraDirty, CursorGrabConfig,
+    CursorGrabState, CursorPosition, DeltaTime, DeviceResource, EcsCameraStore, EngineEvent,
+    EngineEvents, FpsStats, FrameCounter, IcedCapturedMouseDrag, IcedCapturedTouches,
+    IcedEventQueue, InputSnapshot, LightDescriptorEcs, Position, QueueResource,
     SurfaceFormatResource, TotalTime, WindowSize,
 };
 
@@ -40,6 +43,21 @@ macro_rules! ctx_lock {
     ($ctx:ident) => {
         $ctx.lock().expect("Mutex failure")
     };
+}
+
+/// Physically apply a cursor grab to a window.
+///
+/// "Not supported" is expected on platforms without pointer constraints
+/// (Android/iOS) and is downgraded to a debug log so routine focus
+/// transitions don't spam errors; genuine grab failures still log a warning.
+fn apply_cursor_grab(window: &winit::window::Window, mode: CursorGrabMode) {
+    match window.set_cursor_grab(mode) {
+        Ok(()) => {}
+        Err(e @ winit::error::ExternalError::NotSupported(_)) => {
+            debug!("Cursor grab ({mode:?}) is not supported on this platform: {e}");
+        }
+        Err(e) => warn!("Cursor grab ({mode:?}) failed: {e}"),
+    }
 }
 
 struct TimingAccumulator {
@@ -77,6 +95,7 @@ impl TimingAccumulator {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn push(
         &mut self,
         surface_acq: std::time::Duration,
@@ -145,8 +164,30 @@ pub struct ModuleRuntime {
     timing_accum: TimingAccumulator,
     back_press_count: u8,
     last_back_press: Option<std::time::Instant>,
-    #[cfg(all(feature = "gamepad_input", not(target_os = "android")))]
-    gil: Gilrs,
+    /// Touch events deferred for game-input processing.
+    ///
+    /// During `window_event`, touches are pushed to the iced event queue
+    /// immediately but game-input processing is deferred to `update()`.
+    /// This allows `IcedLayerRenderer::process_events()` to run first and
+    /// populate `IcedCapturedTouches`, so the game knows which touches the
+    /// UI consumed before deciding whether to forward them.
+    deferred_touches: Vec<winit::event::Touch>,
+    /// Overlay renderers, owned by the runtime (not the ECS world) so that
+    /// `update()` can call `process_events()` with `&mut World` without
+    /// borrow-checker conflicts.
+    overlay_renderers: std::sync::Mutex<Vec<Box<dyn crate::render_overlay::LayerRenderer>>>,
+    /// Legacy overlays (without layer ordering).
+    legacy_overlays: std::sync::Mutex<Vec<Box<dyn crate::render_overlay::RenderOverlay>>>,
+    #[cfg(all(
+        feature = "gamepad_gilrs",
+        not(any(target_os = "android", target_os = "ios"))
+    ))]
+    /// Gamepad event source. `None` when gilrs fails to initialize (e.g. no
+    /// input subsystem) — the app runs without gamepad support instead of
+    /// panicking at startup.
+    gil: Option<Gilrs>,
+    #[cfg(all(feature = "gamepad_input_poll", target_os = "ios"))]
+    ios_gamepad: crate::ios_gamepad::IosGamepad,
 }
 
 impl ModuleRuntime {
@@ -174,13 +215,28 @@ impl ModuleRuntime {
             timing_accum: TimingAccumulator::new(),
             back_press_count: 0,
             last_back_press: None,
-            #[cfg(all(feature = "gamepad_input", not(target_os = "android")))]
-            gil: Gilrs::new().expect("Gamepad input initialization failed!"),
+            deferred_touches: Vec::new(),
+            overlay_renderers: std::sync::Mutex::new(Vec::new()),
+            legacy_overlays: std::sync::Mutex::new(Vec::new()),
+            #[cfg(all(
+                feature = "gamepad_gilrs",
+                not(any(target_os = "android", target_os = "ios"))
+            ))]
+            gil: match Gilrs::new() {
+                Ok(gil) => Some(gil),
+                Err(e) => {
+                    warn!("Gamepad input unavailable, continuing without: {e}");
+                    None
+                }
+            },
+            #[cfg(all(feature = "gamepad_input_poll", target_os = "ios"))]
+            ios_gamepad: crate::ios_gamepad::IosGamepad::new(),
         };
 
         // Initialise built-in ECS resources
         runtime.ecs_world.insert_resource(FrameCounter(0));
         runtime.ecs_world.insert_resource(DeltaTime(0.0));
+        runtime.ecs_world.insert_resource(FpsStats::default());
         runtime.ecs_world.insert_resource(TotalTime(0.0));
         runtime
             .ecs_world
@@ -429,9 +485,9 @@ impl ModuleRuntime {
         let d_cull_extract = t_bind_start - t_cull_start;
 
         // IBL BRDF (static cache)
-        static BRDF_ONCE: std::sync::OnceLock<orbital_resources::IblBrdf> =
+        static BRDF_ONCE: std::sync::OnceLock<orbital_ibl_brdf::IblBrdf> =
             std::sync::OnceLock::new();
-        let brdf = BRDF_ONCE.get_or_init(|| orbital_resources::IblBrdf::generate(device, queue));
+        let brdf = BRDF_ONCE.get_or_init(|| orbital_ibl_brdf::IblBrdf::generate(device, queue));
         let brdf_tex = brdf.texture_ref();
 
         // Environment IBL textures (from owned Arc)
@@ -444,12 +500,12 @@ impl ModuleRuntime {
             ),
             None => {
                 static FALLBACK_ONCE: std::sync::OnceLock<(
-                    orbital_resources::Texture,
-                    orbital_resources::Texture,
+                    orbital_texture::Texture,
+                    orbital_texture::Texture,
                 )> = std::sync::OnceLock::new();
                 let (diff, spec) = FALLBACK_ONCE.get_or_init(|| {
                     (
-                        orbital_resources::Texture::create_empty_cube_texture(
+                        orbital_texture::Texture::create_empty_cube_texture(
                             Some("default IBL diffuse"),
                             cgmath::Vector2::new(1, 1),
                             wgpu::TextureFormat::R8Unorm,
@@ -457,7 +513,7 @@ impl ModuleRuntime {
                             1,
                             device,
                         ),
-                        orbital_resources::Texture::create_empty_cube_texture(
+                        orbital_texture::Texture::create_empty_cube_texture(
                             Some("default IBL specular"),
                             cgmath::Vector2::new(1, 1),
                             wgpu::TextureFormat::R8Unorm,
@@ -516,7 +572,7 @@ impl ModuleRuntime {
                 let fb = FALLBACK_SHADOW_BUF.get_or_init(|| {
                     device.create_buffer(&wgpu::BufferDescriptor {
                         label: Some("Fallback Shadow Buffer"),
-                        size: std::mem::size_of::<orbital_resources::ShadowGpuData>() as u64,
+                        size: std::mem::size_of::<orbital_shadow::ShadowGpuData>() as u64,
                         usage: wgpu::BufferUsages::UNIFORM,
                         mapped_at_creation: false,
                     })
@@ -582,7 +638,7 @@ impl ModuleRuntime {
             let fb = FALLBACK_SHADOW_BUF.get_or_init(|| {
                 device.create_buffer(&wgpu::BufferDescriptor {
                     label: Some("Fallback Shadow Buffer 2"),
-                    size: std::mem::size_of::<orbital_resources::ShadowGpuData>() as u64,
+                    size: std::mem::size_of::<orbital_shadow::ShadowGpuData>() as u64,
                     usage: wgpu::BufferUsages::UNIFORM,
                     mapped_at_creation: false,
                 })
@@ -665,8 +721,8 @@ impl ModuleRuntime {
         // Build bind group — cache the layout (expensive driver call)
         static WORLD_BG_LAYOUT: std::sync::OnceLock<wgpu::BindGroupLayout> =
             std::sync::OnceLock::new();
-        let bind_group_layout =
-            WORLD_BG_LAYOUT.get_or_init(|| orbital_resources::make_world_bind_group_layout(device));
+        let bind_group_layout = WORLD_BG_LAYOUT
+            .get_or_init(|| orbital_material_shader::make_world_bind_group_layout(device));
         let world_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("World Bind Group"),
             layout: bind_group_layout,
@@ -749,7 +805,7 @@ impl ModuleRuntime {
         });
 
         // Collect models (owned Vec of raw pointers)
-        let models: Vec<&orbital_resources::Model> = model_ptrs
+        let models: Vec<&orbital_model::Model> = model_ptrs
             .iter()
             .filter_map(|ptr| unsafe { ptr.as_ref() })
             .collect();
@@ -789,9 +845,18 @@ impl ModuleRuntime {
         let d_render = t_present_start - t_render_start;
 
         // Optional post‑main‑pass overlays (debug viz, HUD, gizmos, touch UI, …)
-        if let Some(overlay_res) = self.ecs_world.get_resource::<RenderOverlayResource>() {
+        {
             let camera_buffer = self.extract_camera_buffer(device, queue);
-            let mut overlays = overlay_res.0.lock().unwrap();
+
+            // Get screen size for overlay context
+            let screen_size = if let Some(size_res) = self.ecs_world.get_resource::<WindowSize>() {
+                (size_res.0.x as f32, size_res.0.y as f32)
+            } else {
+                (800.0, 600.0)
+            };
+
+            // Render legacy overlays (without layer ordering)
+            let mut overlays = self.legacy_overlays.lock().unwrap();
             for overlay in overlays.iter_mut() {
                 let ctx = crate::RenderOverlayContext {
                     target_view: &view,
@@ -799,8 +864,34 @@ impl ModuleRuntime {
                     device,
                     queue,
                     ecs: &self.ecs_world,
+                    screen_size,
                 };
                 overlay.render(ctx);
+            }
+            drop(overlays);
+
+            // Render layer-aware renderers (sorted by layer order)
+            let mut layer_renderers = self.overlay_renderers.lock().unwrap();
+            // Sort by layer order
+            layer_renderers.sort_by_key(|r| r.layer().index());
+
+            for renderer in layer_renderers.iter_mut() {
+                let ctx = crate::RenderOverlayContext {
+                    target_view: &view,
+                    camera_buffer: &camera_buffer,
+                    device,
+                    queue,
+                    ecs: &self.ecs_world,
+                    screen_size,
+                };
+                renderer.render(ctx);
+            }
+
+            // Drain iced events once after all layer renderers have processed.
+            // Each IcedLayerRenderer clones (not drains) the queue so that
+            // multiple panels all receive the same events.
+            if let Some(mut queue) = self.ecs_world.get_resource_mut::<IcedEventQueue>() {
+                queue.drain();
             }
         }
 
@@ -856,8 +947,8 @@ impl ModuleRuntime {
         static FALLBACK_ONCE: std::sync::OnceLock<wgpu::Buffer> = std::sync::OnceLock::new();
         FALLBACK_ONCE
             .get_or_init(|| {
-                let desc = orbital_resources::CameraDescriptor::default();
-                let cam = orbital_resources::Camera::from_descriptor(desc, device, queue);
+                let desc = orbital_camera::CameraDescriptor::default();
+                let cam = orbital_camera::Camera::from_descriptor(desc, device, queue);
                 cam.camera_buffer().clone()
             })
             .clone()
@@ -894,7 +985,7 @@ impl ModuleRuntime {
 
     /// Extract environment IBL textures.
     /// Returns owned Arc<WorldEnvironment> to keep references valid.
-    fn extract_env_ibl(&self) -> Option<Arc<orbital_resources::WorldEnvironment>> {
+    fn extract_env_ibl(&self) -> Option<Arc<orbital_world_environment::WorldEnvironment>> {
         self.ecs_world
             .get_resource::<orbital_ecs_bridge::EnvironmentGpuResource>()
             .and_then(|r| r.0.clone())
@@ -902,7 +993,7 @@ impl ModuleRuntime {
 
     /// Collect realized model pointers from ECS.
     /// Returns raw pointers — caller must ensure validity.
-    fn collect_model_ptrs(&self) -> Vec<*const orbital_resources::Model> {
+    fn collect_model_ptrs(&self) -> Vec<*const orbital_model::Model> {
         let store = match self
             .ecs_world
             .get_component_store::<orbital_ecs_bridge::ModelRealization>()
@@ -916,7 +1007,7 @@ impl ModuleRuntime {
             .filter_map(|&eid| {
                 store.sparse[eid].map(|idx| {
                     let realization = &store.components[idx];
-                    &*realization.0 as *const orbital_resources::Model
+                    &*realization.0 as *const orbital_model::Model
                 })
             })
             .collect()
@@ -1026,9 +1117,15 @@ impl ModuleRuntime {
         lights
     }
 
-    #[cfg(all(feature = "gamepad_input", not(target_os = "android")))]
+    #[cfg(all(
+        feature = "gamepad_gilrs",
+        not(any(target_os = "android", target_os = "ios"))
+    ))]
     fn receive_controller_inputs(&mut self) {
-        while let Some(gil_event) = self.gil.next_event() {
+        let Some(gil) = self.gil.as_mut() else {
+            return;
+        };
+        while let Some(gil_event) = gil.next_event() {
             if let Some(input_event) = InputEvent::convert_gil_event(gil_event) {
                 self.input_state.handle_event(input_event);
             }
@@ -1040,10 +1137,98 @@ impl ModuleRuntime {
 
         if let Some((total_delta, fps)) = cycle {
             info!("FPS: {fps} | TDT: {total_delta}s | CDT: {delta_time}s");
+            self.ecs_world.insert_resource(FpsStats {
+                fps,
+                total_delta_time: total_delta,
+                cycle_delta_time: delta_time,
+            });
+        } else {
+            // Update cycle_delta_time every frame so the HUD shows the
+            // latest per-frame delta even between one-second boundaries.
+            if let Some(mut stats) = self.ecs_world.get_resource_mut::<FpsStats>() {
+                stats.cycle_delta_time = delta_time;
+            }
         }
 
         // Write frame-computed engine state into the ECS world
         self.ecs_world.insert_resource(DeltaTime(delta_time));
+
+        // ── Process iced UI events BEFORE game systems ──────────────
+        // IcedLayerRenderer::process_events() clones the queued events,
+        // runs UserInterface::update(), and populates IcedCapturedTouches.
+        // This must happen before game touch input so the capture state
+        // is current when we decide which touches reach the game.
+        {
+            let mut layer_renderers = self.overlay_renderers.lock().unwrap();
+            for renderer in layer_renderers.iter_mut() {
+                renderer.process_events(&mut self.ecs_world);
+            }
+        }
+
+        // ── Process deferred game touch input ───────────────────────
+        // Touches were deferred in window_event() so that iced could
+        // declare captures first.  Now process them using the current
+        // IcedCapturedTouches state.
+        let deferred = std::mem::take(&mut self.deferred_touches);
+        for touch in deferred {
+            // If iced captured this touch, skip game-input processing.
+            if let Some(captured) = self.ecs_world.get_resource::<IcedCapturedTouches>()
+                && captured.contains(touch.id)
+            {
+                let game_phases =
+                    touch.phase == TouchPhase::Started || touch.phase == TouchPhase::Moved;
+                if game_phases && self.input_state.touch_position(touch.id).is_some() {
+                    // Touch leaked through before capture was known —
+                    // synthesise a Cancelled so the game releases the finger.
+                    info!(
+                        "iced: touch {} captured by UI — cancelling game input",
+                        touch.id
+                    );
+                    self.input_state.handle_event(InputEvent::Touch {
+                        device_id: touch.device_id,
+                        phase: TouchPhase::Cancelled,
+                        location: touch.location,
+                        id: touch.id,
+                        force: touch.force,
+                    });
+                }
+                if game_phases {
+                    // Drop this event for the game.  The iced queue already
+                    // has every touch so UI widgets keep working.
+                    continue;
+                }
+                // Ended/Cancelled forwarded to clear game-input state.
+            }
+
+            self.input_state.handle_event(InputEvent::Touch {
+                device_id: touch.device_id,
+                phase: touch.phase,
+                location: touch.location,
+                id: touch.id,
+                force: touch.force,
+            });
+        }
+
+        #[cfg(all(
+            feature = "gamepad_input_poll",
+            not(any(target_os = "android", target_os = "ios"))
+        ))]
+        // Poll gamepads BEFORE taking the input snapshot and running the
+        // schedules, so this frame's stick/button input is visible to the
+        // game systems instead of arriving one frame late.
+        self.receive_controller_inputs();
+
+        // iOS pads arrive through the GameController provider (winit has
+        // no gamepad path there); drain them BEFORE the snapshot so game
+        // systems see this frame's state, like desktop's gilrs poll.
+        #[cfg(all(feature = "gamepad_input_poll", target_os = "ios"))]
+        for input_event in self.ios_gamepad.poll() {
+            self.input_state.handle_event(input_event);
+        }
+
+        // Snapshot input state AFTER deferred touches are processed so game
+        // systems (camera controller, etc.) see the current frame's touch
+        // data — including right-side look deltas.
         self.ecs_world
             .insert_resource(InputSnapshot(self.input_state.clone()));
 
@@ -1055,9 +1240,6 @@ impl ModuleRuntime {
 
         // Run game schedule (user systems)
         self.game_schedule.run(&mut self.ecs_world);
-
-        #[cfg(all(feature = "gamepad_input_poll", not(target_os = "android")))]
-        self.receive_controller_inputs();
 
         // Process engine events
         let exit_requested = self.process_engine_events();
@@ -1089,15 +1271,12 @@ impl ModuleRuntime {
             match event {
                 EngineEvent::CursorGrabbed(grab) => {
                     let lock = ctx_lock!(ctx);
-                    if grab {
-                        if let Err(e) = lock.window().set_cursor_grab(CursorGrabMode::Confined) {
-                            error!(
-                                "Failed to set cursor grab! This might not be supported on your platform. Error: {e}"
-                            );
-                        }
-                    } else if let Err(e) = lock.window().set_cursor_grab(CursorGrabMode::None) {
-                        error!("Failed to unset cursor grab! Error: {e}");
-                    }
+                    let mode = if grab {
+                        CursorGrabMode::Confined
+                    } else {
+                        CursorGrabMode::None
+                    };
+                    apply_cursor_grab(lock.window(), mode);
                 }
                 EngineEvent::CursorVisible(visible) => {
                     ctx_lock!(ctx).window().set_cursor_visible(visible);
@@ -1179,7 +1358,14 @@ impl ApplicationHandler for ModuleRuntime {
             self.ecs_world
                 .insert_resource(QueueResource(Arc::new(ctx_guard.queue().clone())));
             self.ecs_world
+                .insert_resource(AdapterResource(Arc::new(ctx_guard.adapter().clone())));
+            self.ecs_world
                 .insert_resource(SurfaceFormatResource(config.format));
+            self.ecs_world.insert_resource(IcedEventQueue::default());
+            self.ecs_world
+                .insert_resource(IcedCapturedTouches::default());
+            self.ecs_world
+                .insert_resource(IcedCapturedMouseDrag::default());
 
             // Initialize import pipeline resources
             self.ecs_world
@@ -1211,11 +1397,38 @@ impl ApplicationHandler for ModuleRuntime {
 
             // Call Module::setup() and build game schedule
             if !self.module_setup_done {
+                // Register all shader node libraries with the global registry
+                // before any shader assembly occurs.
+                orbital_shader_preprocessor::register_global_library(
+                    &orbital_shader_math::math_library(),
+                )
+                .expect("failed to register math library");
+                orbital_shader_preprocessor::register_global_library(
+                    &orbital_shader_engine::engine_library(),
+                )
+                .expect("failed to register engine library");
+                orbital_shader_preprocessor::register_global_library(
+                    &orbital_shader_pbr::pbr_library(),
+                )
+                .expect("failed to register PBR library");
+                orbital_shader_preprocessor::register_global_library(
+                    &orbital_world_environment::world_environment_library(),
+                )
+                .expect("failed to register world-environment library");
+
                 let systems =
                     self.module
                         .setup(&mut self.ecs_world, ctx_guard.device(), ctx_guard.queue());
                 for system in systems {
                     self.game_schedule.add_system_boxed(system);
+                }
+
+                // Let the module register overlay renderers with the runtime.
+                {
+                    let mut lr = self.overlay_renderers.lock().unwrap();
+                    let mut lo = self.legacy_overlays.lock().unwrap();
+                    self.module
+                        .register_overlays(&mut self.ecs_world, &mut lr, &mut lo);
                 }
 
                 // Register engine-level systems
@@ -1232,18 +1445,52 @@ impl ApplicationHandler for ModuleRuntime {
                 self.module.restore_state(&mut self.ecs_world);
             }
 
-            // Auto-grab cursor if configured
+            // Auto-grab cursor if configured. May fail transiently when the
+            // window isn't focused yet (e.g. unfocused startup on Wayland) —
+            // `Focused(true)` re-applies the grab in that case.
             if let Some(config) = self.ecs_world.get_resource::<CursorGrabConfig>()
                 && config.0
             {
-                if let Err(e) = ctx_guard
-                    .window()
-                    .set_cursor_grab(winit::window::CursorGrabMode::Confined)
-                {
-                    log::error!("Failed to grab cursor: {e}");
-                }
+                apply_cursor_grab(ctx_guard.window(), CursorGrabMode::Confined);
                 ctx_guard.window().set_cursor_visible(false);
             }
+
+            // Seed the input surface size immediately: mouse-delta
+            // normalization (and touch-gesture zones) depend on
+            // `InputState::surface_size`, which otherwise is only set by a
+            // WindowEvent::Resized. If the platform never delivers an
+            // initial resize, mouse deltas would arrive as raw, unnormalized
+            // pixel counts (wildly wrong sensitivity).
+            if config.width > 0 && config.height > 0 {
+                self.input_state
+                    .surface_resize(winit::dpi::PhysicalSize::new(config.width, config.height));
+            }
+
+            // After a suspend→resume (e.g. Android rotation), the surface is
+            // recreated with the new native-window dimensions but the camera's
+            // aspect ratio still holds the old value.  Sync it now so the
+            // projection matches the fresh surface.
+            let new_aspect = config.width as f32 / config.height as f32;
+            if let Some(active_camera) = self.ecs_world.get_resource::<ActiveCamera>() {
+                let eid = active_camera.0.index;
+                if let Some(desc_store) = self
+                    .ecs_world
+                    .get_component_store_mut::<CameraDescriptorEcs>()
+                    && let Some(idx) = desc_store.sparse[eid]
+                {
+                    desc_store.get_mut_store().components[idx].aspect = new_aspect;
+                }
+                if let Some(dirty_store) = self.ecs_world.get_component_store_mut::<CameraDirty>()
+                    && let Some(idx) = dirty_store.sparse[eid]
+                {
+                    dirty_store.get_mut_store().components[idx].0 = true;
+                }
+            }
+            self.ecs_world
+                .insert_resource(WindowSize(cgmath::Vector2::new(
+                    config.width,
+                    config.height,
+                )));
         }
 
         info!("App resumed.");
@@ -1326,6 +1573,111 @@ impl ApplicationHandler for ModuleRuntime {
             }
         }
 
+        // Forward relevant events to iced UI overlays
+        if let Some(mut queue) = self.ecs_world.get_resource_mut::<IcedEventQueue>() {
+            use orbital_ecs_bridge::IcedWindowEvent;
+
+            // Update scale factor from window
+            let scale = ctx_lock!(ctx).window().scale_factor();
+            queue.set_scale_factor(scale);
+
+            match &event {
+                WindowEvent::CursorMoved { position, .. } => {
+                    queue.push(IcedWindowEvent::CursorMoved {
+                        position: *position,
+                    });
+                }
+                WindowEvent::MouseInput { state, button, .. } => {
+                    queue.push(IcedWindowEvent::MouseInput {
+                        state: *state,
+                        button: *button,
+                    });
+                }
+                WindowEvent::KeyboardInput {
+                    event,
+                    is_synthetic,
+                    ..
+                } => {
+                    queue.push(IcedWindowEvent::KeyboardInput {
+                        event: event.clone(),
+                        is_synthetic: *is_synthetic,
+                    });
+                }
+                WindowEvent::ModifiersChanged(mods) => {
+                    queue.push(IcedWindowEvent::ModifiersChanged(mods.state()));
+                }
+                WindowEvent::Resized(size) => {
+                    queue.push(IcedWindowEvent::Resized(*size));
+                }
+                WindowEvent::Focused(focused) => {
+                    queue.push(IcedWindowEvent::Focused(*focused));
+                }
+                WindowEvent::Touch(touch) => {
+                    // Touch-only platforms (Android) emit no synthetic mouse
+                    // events, so forward these for iced hit-testing.
+                    queue.push(IcedWindowEvent::Touch(*touch));
+                }
+                WindowEvent::RedrawRequested => {
+                    // Not forwarded: a winit-level signal, not iced input.
+                    // Forwarding it forces a useless interface.update() with a
+                    // Window(RedrawRequested) event on every frame per panel.
+                }
+                _ => {}
+            }
+        }
+
+        // A released primary button ends any UI-captured look-drag before
+        // the next process_events() run.
+        if let WindowEvent::MouseInput {
+            state: ElementState::Released,
+            button: MouseButton::Left,
+            ..
+        } = &event
+            && let Some(mut captured) = self.ecs_world.get_resource_mut::<IcedCapturedMouseDrag>()
+        {
+            captured.release();
+        }
+
+        // Keep the OS-level cursor grab in sync with focus, while treating
+        // `CursorGrabState` as the *desired* state (owned by CursorToggle/Alt)
+        // rather than a snapshot of the OS grab:
+        //   focus lost  -> release the grab + show the cursor so the
+        //                  compositor doesn't keep pointer constraints
+        //                  active (the Wayland "cursor visible but iced UI
+        //                  unresponsive" issue), but leave the desired state
+        //                  untouched;
+        //   focus gained -> re-apply the desired grab. Without this, mouse
+        //                  look stays dead after any alt-tab or an
+        //                  unfocused startup: on Wayland mouse-motion device
+        //                  events only flow while a pointer constraint is
+        //                  active, and nothing else re-acquired it.
+        match event {
+            WindowEvent::Focused(false) => {
+                let lock = ctx_lock!(ctx);
+                apply_cursor_grab(lock.window(), CursorGrabMode::None);
+                lock.window().set_cursor_visible(true);
+                // A missed button release must not leave look-drag
+                // suppressed forever.
+                if let Some(mut captured) =
+                    self.ecs_world.get_resource_mut::<IcedCapturedMouseDrag>()
+                {
+                    captured.release();
+                }
+            }
+            WindowEvent::Focused(true) => {
+                let grabbed = self
+                    .ecs_world
+                    .get_resource::<CursorGrabState>()
+                    .is_some_and(|state| state.0);
+                if grabbed {
+                    let lock = ctx_lock!(ctx);
+                    apply_cursor_grab(lock.window(), CursorGrabMode::Confined);
+                    lock.window().set_cursor_visible(false);
+                }
+            }
+            _ => {}
+        }
+
         let input_event = match event {
             WindowEvent::CloseRequested => {
                 info!("App shutdown requested!");
@@ -1372,13 +1724,15 @@ impl ApplicationHandler for ModuleRuntime {
                 delta,
                 phase,
             }),
-            WindowEvent::Touch(touch) => Some(InputEvent::Touch {
-                device_id: touch.device_id,
-                phase: touch.phase,
-                location: touch.location,
-                id: touch.id,
-                force: touch.force,
-            }),
+            WindowEvent::Touch(touch) => {
+                // Game-input processing is deferred to update() — see
+                // `deferred_touches`.  By the time those touches are
+                // processed, IcedLayerRenderer::process_events() will have
+                // populated IcedCapturedTouches so we know which touches
+                // the UI consumed.
+                self.deferred_touches.push(touch);
+                None
+            }
             WindowEvent::CursorMoved {
                 device_id,
                 position,
@@ -1392,6 +1746,10 @@ impl ApplicationHandler for ModuleRuntime {
                 })
             }
             WindowEvent::Resized(new_size) => {
+                if new_size.width == 0 || new_size.height == 0 {
+                    return;
+                }
+
                 let ctx_lock = ctx_lock!(ctx);
                 let configuration =
                     ctx_lock.make_surface_configuration(self.settings.vsync_enabled);
@@ -1403,6 +1761,31 @@ impl ApplicationHandler for ModuleRuntime {
                         new_size.width,
                         new_size.height,
                     )));
+
+                // Recreate the depth texture to match the new surface dimensions.
+                let resolution = cgmath::Vector2::new(new_size.width, new_size.height);
+                if let Some(renderer) = &mut self.renderer {
+                    renderer.change_resolution(resolution, ctx_lock.device(), ctx_lock.queue());
+                }
+
+                // Update camera aspect ratio so the projection isn't stretched.
+                let new_aspect = new_size.width as f32 / new_size.height as f32;
+                if let Some(active_camera) = self.ecs_world.get_resource::<ActiveCamera>() {
+                    let eid = active_camera.0.index;
+                    if let Some(desc_store) = self
+                        .ecs_world
+                        .get_component_store_mut::<CameraDescriptorEcs>()
+                        && let Some(idx) = desc_store.sparse[eid]
+                    {
+                        desc_store.get_mut_store().components[idx].aspect = new_aspect;
+                    }
+                    if let Some(dirty_store) =
+                        self.ecs_world.get_component_store_mut::<CameraDirty>()
+                        && let Some(idx) = dirty_store.sparse[eid]
+                    {
+                        dirty_store.get_mut_store().components[idx].0 = true;
+                    }
+                }
 
                 None
             }

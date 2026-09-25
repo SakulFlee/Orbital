@@ -162,8 +162,8 @@ use ulid::Ulid;
 #[derive(Debug, Clone)]
 pub struct ModelDescriptorEcs {
     pub label: String,
-    pub mesh: std::sync::Arc<orbital_resources::MeshDescriptor>,
-    pub materials: Vec<std::sync::Arc<orbital_resources::MaterialShaderDescriptor>>,
+    pub mesh: std::sync::Arc<orbital_mesh::MeshDescriptor>,
+    pub materials: Vec<std::sync::Arc<orbital_material_shader::MaterialShaderDescriptor>>,
 }
 
 impl ModelDescriptorEcs {
@@ -204,20 +204,20 @@ impl ModelDescriptorEcs {
 /// Instance transforms for a model (ULID → Transform mapping).
 /// Each entry represents one instance of the model at a different position/rotation/scale.
 #[derive(Debug, Clone, Default)]
-pub struct ModelInstances(pub hashbrown::HashMap<Ulid, orbital_resources::Transform>);
+pub struct ModelInstances(pub hashbrown::HashMap<Ulid, orbital_math::Transform>);
 
 impl ModelInstances {
     pub fn new() -> Self {
         Self(hashbrown::HashMap::new())
     }
 
-    pub fn add_instance(&mut self, transform: orbital_resources::Transform) -> Ulid {
+    pub fn add_instance(&mut self, transform: orbital_math::Transform) -> Ulid {
         let ulid = Ulid::new();
         self.0.insert(ulid, transform);
         ulid
     }
 
-    pub fn remove_instance(&mut self, ulid: &Ulid) -> Option<orbital_resources::Transform> {
+    pub fn remove_instance(&mut self, ulid: &Ulid) -> Option<orbital_math::Transform> {
         self.0.remove(ulid)
     }
 }
@@ -225,7 +225,7 @@ impl ModelInstances {
 /// GPU model state. Shared via `Arc`.
 /// This is the "realization" link component.
 #[derive(Debug, Clone)]
-pub struct ModelRealization(pub std::sync::Arc<orbital_resources::Model>);
+pub struct ModelRealization(pub std::sync::Arc<orbital_model::Model>);
 
 /// Dirty flag — set when model descriptor or instances change.
 #[derive(Debug, Clone, Copy, Default)]
@@ -253,7 +253,7 @@ impl ModelDirty {
 /// Position comes from the Position component on the entity.
 #[derive(Debug, Clone)]
 pub struct LightDescriptorEcs {
-    pub light_type: orbital_resources::LightType,
+    pub light_type: orbital_light::LightType,
     pub color: cgmath::Vector3<f32>,
     pub direction: cgmath::Vector3<f32>,
 }
@@ -261,7 +261,7 @@ pub struct LightDescriptorEcs {
 impl LightDescriptorEcs {
     pub fn new_point(color: cgmath::Vector3<f32>, intensity: f32) -> Self {
         Self {
-            light_type: orbital_resources::LightType::Point { intensity },
+            light_type: orbital_light::LightType::Point { intensity },
             color,
             direction: cgmath::Vector3::new(0.0, -1.0, 0.0),
         }
@@ -273,7 +273,7 @@ impl LightDescriptorEcs {
         intensity: f32,
     ) -> Self {
         Self {
-            light_type: orbital_resources::LightType::Directional { intensity },
+            light_type: orbital_light::LightType::Directional { intensity },
             color,
             direction,
         }
@@ -287,7 +287,7 @@ impl LightDescriptorEcs {
         outer_cone_angle: f32,
     ) -> Self {
         Self {
-            light_type: orbital_resources::LightType::Spot {
+            light_type: orbital_light::LightType::Spot {
                 intensity,
                 inner_cone_angle,
                 outer_cone_angle,
@@ -419,11 +419,11 @@ mod tests {
 
     #[test]
     fn instance_hash_deterministic() {
-        use orbital_resources::MeshDescriptor;
+        use orbital_mesh::MeshDescriptor;
         use std::sync::Arc;
 
         let mesh = Arc::new(MeshDescriptor::new(vec![], vec![]));
-        let mat = Arc::new(orbital_resources::MaterialShaderDescriptor::default());
+        let mat = Arc::new(orbital_material_shader::MaterialShaderDescriptor::default());
 
         let desc1 = ModelDescriptorEcs {
             label: "test".into(),
@@ -441,7 +441,7 @@ mod tests {
 
     #[test]
     fn instance_hash_different_inputs() {
-        use orbital_resources::MeshDescriptor;
+        use orbital_mesh::MeshDescriptor;
         use std::sync::Arc;
 
         let mesh1 = Arc::new(MeshDescriptor::new(vec![], vec![0]));

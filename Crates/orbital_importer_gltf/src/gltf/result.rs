@@ -1,4 +1,6 @@
-use orbital_resources::{CameraDescriptor, LightDescriptor, ModelDescriptor};
+use orbital_camera::CameraDescriptor;
+use orbital_light::LightDescriptor;
+use orbital_model::ModelDescriptor;
 use std::error::Error;
 
 #[derive(Debug, Default)]

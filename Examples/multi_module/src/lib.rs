@@ -1,6 +1,6 @@
 use orbital::app::{App, AppSettings};
 use orbital::debug_render::DebugModule;
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 use orbital::logging;
 use orbital::logging::{error, info};
 
@@ -17,15 +17,16 @@ pub fn entrypoint(
         orbital::winit::error::EventLoopError,
     >,
 ) {
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     logging::init();
 
     let event_loop = event_loop_result.expect("Event Loop failure");
 
-    let mut app_settings = AppSettings::default();
-    app_settings.vsync_enabled = true;
-    app_settings.name = NAME.to_string();
-    app_settings.back_presses_to_exit = 3;
+    let app_settings = AppSettings {
+        name: NAME.to_string(),
+        back_presses_to_exit: 3,
+        ..AppSettings::default()
+    };
 
     match App::new()
         .add_module(CameraModule)
