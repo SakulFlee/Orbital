@@ -46,7 +46,7 @@ impl ModelDescriptor {
     /// Adds a [Transform] to the [Model] with a new ULID.
     /// Effectively, instancing the [Model].
     pub fn add_transform(&mut self, transform: Transform) -> Ulid {
-        let ulid = Ulid::new();
+        let ulid = Ulid::generate();
         self.transforms.insert(ulid, transform);
         ulid
     }
