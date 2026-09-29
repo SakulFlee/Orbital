@@ -857,6 +857,15 @@ impl GltfImporter {
         let primitives = mesh.primitives();
         let mut results = Vec::new();
 
+        // Primitives of one mesh routinely share a material, and a material's
+        // descriptors are rebuilt from scratch for every primitive that uses
+        // it. `parse_texture` copies the whole pixel buffer, so an N-primitive
+        // mesh with a shared material re-converts and re-copies the same
+        // textures N times. Parsing each material once and cloning the result
+        // removes the repeated conversion; the remaining clone is a memcpy of
+        // an already-built buffer rather than a full re-parse.
+        let mut material_cache: HashMap<Option<usize>, MaterialDescriptor> = HashMap::new();
+
         // glTF Primitive == Orbital Model
         for primitive in primitives {
             let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
@@ -1050,7 +1059,20 @@ impl GltfImporter {
                 vertices,
                 indices: indices_flipped,
             };
-            let material = Self::parse_materials(&primitive.material(), textures);
+            // Primitives sharing a material reuse one parse of it. The material
+            // is identified by its index in the document, which is stable for
+            // the lifetime of the import. A primitive with no material gets the
+            // default one, whose index is `None`; that is still a single shared
+            // entry, so unmaterialized primitives dedup just the same.
+            let material_index = primitive.material().index();
+            let material = match material_cache.get(&material_index) {
+                Some(cached) => cached.clone(),
+                None => {
+                    let parsed = Self::parse_materials(&primitive.material(), textures);
+                    material_cache.insert(material_index, parsed.clone());
+                    parsed
+                }
+            };
 
             let decomposed = node.transform().decomposed();
             let transform = Transform {
