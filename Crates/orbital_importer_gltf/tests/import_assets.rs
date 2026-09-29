@@ -6,10 +6,12 @@
 //! `.glb` (the case the repo's examples use).
 
 use std::io::Cursor;
+use std::sync::Arc;
 
 use image::{ImageFormat, Rgba, RgbaImage};
 use orbital_file_manager::{DesktopAssetSource, DirStorage, FileManager};
 use orbital_importer_gltf::{GltfImport, GltfImportTask, GltfImporter};
+use orbital_material_shader::MaterialShaderDescriptor;
 use serde_json::json;
 
 /// Creates a throwaway directory with an `Assets/Models/` layout and returns it.
@@ -340,6 +342,133 @@ fn skips_unreferenced_images_in_glb() {
     );
     assert_eq!(result.models.len(), 1, "expected exactly one model");
     assert_eq!(result.models[0].mesh.indices.len(), 3);
+}
+
+/// Primitives that share a material must still each get a correct, complete
+/// material — the per-mesh material cache must not hand one primitive's
+/// material to another, nor let a later mutation leak between them.
+///
+/// Two primitives reference the same material, and a third references a
+/// *different* material built from different textures. Importing must produce
+/// three models whose materials match what each primitive's own material
+/// declares: the two sharing primitives identically, and the third differently.
+#[test]
+fn shared_material_primitives_each_get_correct_material() {
+    let root = temp_assets("shared_material");
+    let models_dir = root.join("Assets").join("Models");
+
+    let mut bin = mesh_bin();
+    while bin.len() % 4 != 0 {
+        bin.push(0);
+    }
+    std::fs::write(models_dir.join("triangle.bin"), &bin).expect("write bin");
+
+    // Four distinct textures: material 0 uses (albedo_a, mr_a), material 1 uses
+    // (albedo_b, mr_b).
+    for (name, rgba) in [
+        ("albedo_a.png", [200u8, 100, 50, 255]),
+        ("mr_a.png", [0u8, 128, 255, 255]),
+        ("albedo_b.png", [10u8, 220, 30, 255]),
+        ("mr_b.png", [255u8, 0, 64, 255]),
+    ] {
+        let mut image = RgbaImage::new(2, 2);
+        for pixel in image.pixels_mut() {
+            *pixel = Rgba(rgba);
+        }
+        image.save(models_dir.join(name)).expect("write png");
+    }
+
+    let mut json = base_json();
+    // Two primitives share material 0; the third uses material 1.
+    json["meshes"] = json!([{ "primitives": [
+        { "attributes": { "POSITION": 0, "NORMAL": 1, "TEXCOORD_0": 2 }, "indices": 3, "material": 0 },
+        { "attributes": { "POSITION": 0, "NORMAL": 1, "TEXCOORD_0": 2 }, "indices": 3, "material": 0 },
+        { "attributes": { "POSITION": 0, "NORMAL": 1, "TEXCOORD_0": 2 }, "indices": 3, "material": 1 }
+    ] }]);
+    json["materials"] = json!([
+        { "name": "A", "pbrMetallicRoughness": {
+            "baseColorTexture": { "index": 0 },
+            "metallicRoughnessTexture": { "index": 1 }
+        } },
+        { "name": "B", "pbrMetallicRoughness": {
+            "baseColorTexture": { "index": 2 },
+            "metallicRoughnessTexture": { "index": 3 }
+        } }
+    ]);
+    json["textures"] = json!([
+        { "source": 0 }, { "source": 1 }, { "source": 2 }, { "source": 3 }
+    ]);
+    json["images"] = json!([
+        { "uri": "albedo_a.png" }, { "uri": "mr_a.png" },
+        { "uri": "albedo_b.png" }, { "uri": "mr_b.png" }
+    ]);
+    json["buffers"] = json!([{ "uri": "triangle.bin", "byteLength": 102 }]);
+    std::fs::write(models_dir.join("triangle.bin"), &bin).expect("write bin");
+    std::fs::write(
+        models_dir.join("shared.gltf"),
+        serde_json::to_vec_pretty(&json).expect("serialize gltf"),
+    )
+    .expect("write gltf");
+
+    let file_manager = make_file_manager(&root);
+    let result = GltfImporter::import_with_file_manager(
+        &file_manager,
+        GltfImportTask {
+            file: "Models/shared.gltf".into(),
+            import: GltfImport::WholeFile,
+        },
+    );
+
+    let _ = std::fs::remove_dir_all(&root);
+
+    assert!(
+        result.errors.is_empty(),
+        "import errors: {:?}",
+        result.errors
+    );
+    assert_eq!(result.models.len(), 3, "expected one model per primitive");
+
+    // Each model carries its material in a list; take the single entry.
+    let material_of = |model: &orbital_model::ModelDescriptor| -> Arc<MaterialShaderDescriptor> {
+        assert_eq!(
+            model.materials.len(),
+            1,
+            "expected exactly one material per model"
+        );
+        Arc::clone(&model.materials[0])
+    };
+    let first = material_of(&result.models[0]);
+    let second = material_of(&result.models[1]);
+    let third = material_of(&result.models[2]);
+
+    // The two primitives sharing material 0 must be identical...
+    assert_eq!(
+        first, second,
+        "primitives sharing a material must receive the same material"
+    );
+
+    // ...and the third, which uses material 1 with different textures, must not
+    // have been handed material 0's textures.
+    assert_ne!(
+        first, third,
+        "a primitive with a different material must not receive a cached one"
+    );
+
+    // Sanity: the albedo texture's pixel data must be present, not silently
+    // empty. Textures reach the material through its shader variables, the
+    // first of which is the albedo (see `parse_materials`). Matched on the
+    // Debug rendering so the test needs no extra crate dependency.
+    for (label, material) in [("first", &first), ("second", &second), ("third", &third)] {
+        let rendered = format!("{:?}", material.variables.first());
+        assert!(
+            rendered.contains("Data { pixels: ["),
+            "{label}: expected a Data texture with pixel data, got {rendered}"
+        );
+        assert!(
+            !rendered.contains("pixels: []"),
+            "{label}: albedo pixels are empty: {rendered}"
+        );
+    }
 }
 
 /// Packs a glTF JSON document and a binary chunk into the GLB container format.
