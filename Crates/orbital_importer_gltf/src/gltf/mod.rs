@@ -14,9 +14,11 @@ use orbital_math::Transform;
 use orbital_mesh::{MeshDescriptor, Vertex};
 use orbital_model::ModelDescriptor;
 use orbital_texture::{FilterMode, TextureDescriptor, TextureSize};
+use rayon::prelude::*;
 
 type MaterialDescriptor = MaterialShaderDescriptor;
 type PBRMaterialDescriptor = orbital_shader_pbr::PBRMaterialShaderDescriptor;
+use std::borrow::Cow;
 use std::error::Error;
 use std::path::Path;
 use std::sync::Arc;
@@ -235,51 +237,74 @@ impl GltfImporter {
             buffers.push(gltf::buffer::Data(data));
         }
 
-        // Load and decode every image: either sliced out of a buffer view or
-        // read through the FileManager.
+        // Gather the encoded bytes of every image a material actually
+        // references: either sliced out of a buffer view, or read through the
+        // FileManager. Buffer-view images stay borrowed so no copy of the
+        // encoded payload is made; only the comparatively rare external/URI
+        // image is read into an owned buffer.
         //
-        // Only images a material actually references are decoded. Real-world
-        // glTF assets routinely ship images that no material points at, and
-        // decoding one costs both CPU time and a full pixel buffer held in RAM
-        // for the duration of the import. Referencing textures are read here,
-        // so the unreferenced ones are left as `None` rather than skipped
-        // entirely: `parse_texture` and friends index `images` by the image
-        // index from the document, so the slots must keep their positions.
+        // Unreferenced images are left as `None` rather than dropped entirely:
+        // `parse_texture` and friends index `images` by the image index from
+        // the document, so the slots must keep their positions. Decoding one
+        // would cost CPU time and a full pixel buffer held in RAM for data
+        // nothing reads, and real-world glTF assets routinely ship such images.
+        //
+        // This stage is I/O and bookkeeping, so it stays sequential. The actual
+        // decode below is the expensive part and is run in parallel.
         let referenced_images = Self::referenced_image_indices(&document);
-        let mut images = Vec::new();
-        for image in document.images() {
-            if !referenced_images.contains(&image.index()) {
-                // Keep the slot so later positional lookups stay correct.
-                images.push(None);
-                continue;
-            }
-
-            let decoded = match image.source() {
-                gltf::image::Source::Uri { uri, .. } => {
-                    let encoded = read_gltf_uri(file_manager, file_path, uri)?;
-                    image::load_from_memory(&encoded)?
+        let encoded_images = document
+            .images()
+            .map(|image| {
+                if !referenced_images.contains(&image.index()) {
+                    // Keep the slot so later positional lookups stay correct.
+                    return Ok(None);
                 }
-                gltf::image::Source::View { view, .. } => {
-                    let parent = &buffers[view.buffer().index()].0;
-                    let start = view.offset();
-                    let end = start + view.length();
-                    let encoded = &parent[start..end];
-                    image::load_from_memory(encoded)?
-                }
-            };
 
-            let format = gltf_image_format(&decoded)
-                .ok_or_else(|| gltf::Error::UnsupportedImageFormat(decoded.clone()))?;
-            let (width, height) = decoded.dimensions();
-            let pixels = decoded.into_bytes();
+                let bytes: Cow<'_, [u8]> = match image.source() {
+                    gltf::image::Source::Uri { uri, .. } => {
+                        Cow::Owned(read_gltf_uri(file_manager, file_path, uri)?)
+                    }
+                    gltf::image::Source::View { view, .. } => {
+                        let parent = &buffers[view.buffer().index()].0;
+                        let start = view.offset();
+                        let end = start + view.length();
+                        Cow::Borrowed(&parent[start..end])
+                    }
+                };
+                Ok(Some(bytes))
+            })
+            .collect::<Result<Vec<Option<Cow<'_, [u8]>>>, Box<dyn Error>>>()?;
 
-            images.push(Some(gltf::image::Data {
-                format,
-                width,
-                height,
-                pixels,
-            }));
-        }
+        // Decode in parallel. Image decoding dominates import time and each
+        // image is independent, so this needs no synchronization: every task
+        // reads only its own slot and returns a value.
+        //
+        // The `+ Send + Sync` bound on the collected error is required by rayon
+        // and is widened back to `Box<dyn Error>` on return.
+        let images = encoded_images
+            .par_iter()
+            .map(
+                |encoded| -> Result<Option<gltf::image::Data>, Box<dyn Error + Send + Sync>> {
+                    let Some(encoded) = encoded else {
+                        return Ok(None);
+                    };
+
+                    let decoded = image::load_from_memory(encoded)?;
+                    let format = gltf_image_format(&decoded)
+                        .ok_or_else(|| gltf::Error::UnsupportedImageFormat(decoded.clone()))?;
+                    let (width, height) = decoded.dimensions();
+                    let pixels = decoded.into_bytes();
+
+                    Ok(Some(gltf::image::Data {
+                        format,
+                        width,
+                        height,
+                        pixels,
+                    }))
+                },
+            )
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e as Box<dyn Error>)?;
 
         Ok((document, buffers, images))
     }
