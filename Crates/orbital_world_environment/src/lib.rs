@@ -544,12 +544,11 @@ impl WorldEnvironment {
         let width = img.dimensions().0;
         let height = img.dimensions().1;
 
-        let data = img
+        let data: Vec<u8> = img
             .into_rgba32f()
             .iter()
-            .map(|x| x.to_le_bytes())
-            .collect::<Vec<_>>()
-            .concat();
+            .flat_map(|x| x.to_le_bytes())
+            .collect();
 
         Self::radiance_hdr_vec(
             &data,
