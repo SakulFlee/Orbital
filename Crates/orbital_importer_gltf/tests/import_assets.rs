@@ -206,18 +206,162 @@ fn imports_glb_with_embedded_bin() {
     assert_eq!(result.models[0].mesh.indices.len(), 3);
 }
 
+/// Images that no material references must not be decoded, while the
+/// referenced ones still are.
+///
+/// Skipping is observable: an unreferenced image whose bytes are *not* valid
+/// image data would fail to decode. Pointing `images[1]` at a file containing
+/// garbage therefore asserts the importer never touched it, whereas the
+/// pre-optimization behavior (decode everything) reports an error. This also
+/// pins the positional invariant, since the referenced albedo stays at image
+/// index 0 while the skipped image sits at index 1.
+#[test]
+fn skips_images_that_no_material_references() {
+    let root = temp_assets("unused_images");
+    let models_dir = root.join("Assets").join("Models");
+
+    let mut bin = mesh_bin();
+    while bin.len() % 4 != 0 {
+        bin.push(0);
+    }
+    std::fs::write(models_dir.join("triangle.bin"), &bin).expect("write bin");
+
+    // Referenced by the material's baseColorTexture (image 0).
+    albedo_png()
+        .save(models_dir.join("albedo.png"))
+        .expect("write albedo");
+
+    // Referenced by metallicRoughnessTexture (image 1).
+    metallic_roughness_png()
+        .save(models_dir.join("mr.png"))
+        .expect("write mr");
+
+    // Image 2 exists in the document and is listed in `images`, but no
+    // material references it. Its contents are deliberately not a decodable
+    // image, so decoding it would fail the import.
+    std::fs::write(models_dir.join("unused.png"), b"not a png").expect("write unused");
+
+    let mut json = base_json();
+    json["images"] = json!([
+        { "uri": "albedo.png" },
+        { "uri": "mr.png" },
+        { "uri": "unused.png" }
+    ]);
+    json["buffers"] = json!([{ "uri": "triangle.bin", "byteLength": 102 }]);
+    std::fs::write(
+        models_dir.join("triangle.gltf"),
+        serde_json::to_vec_pretty(&json).expect("serialize gltf"),
+    )
+    .expect("write gltf");
+
+    let file_manager = make_file_manager(&root);
+    let result = GltfImporter::import_with_file_manager(
+        &file_manager,
+        GltfImportTask {
+            file: "Models/triangle.gltf".into(),
+            import: GltfImport::WholeFile,
+        },
+    );
+
+    let _ = std::fs::remove_dir_all(&root);
+
+    assert!(
+        result.errors.is_empty(),
+        "import errors (an unreferenced image was decoded?): {:?}",
+        result.errors
+    );
+    assert_eq!(result.models.len(), 1, "expected exactly one model");
+    assert_eq!(result.models[0].mesh.indices.len(), 3);
+}
+
+/// The same skip must hold for images embedded in a `.glb` binary chunk, where
+/// a skipped image costs a buffer-view slice rather than a file read.
+#[test]
+fn skips_unreferenced_images_in_glb() {
+    let root = temp_assets("unused_glb");
+    let models_dir = root.join("Assets").join("Models");
+
+    let mut bin = mesh_bin();
+    let png1_offset = bin.len();
+    let mut albedo = Vec::new();
+    albedo_png()
+        .write_to(&mut Cursor::new(&mut albedo), ImageFormat::Png)
+        .expect("encode albedo");
+    let png2_offset = png1_offset + albedo.len();
+    let mut mr = Vec::new();
+    metallic_roughness_png()
+        .write_to(&mut Cursor::new(&mut mr), ImageFormat::Png)
+        .expect("encode mr");
+    let unused_offset = png2_offset + mr.len();
+    // Not a decodable image: decoding this slice would fail the import.
+    let unused: Vec<u8> = b"not a png".to_vec();
+    let total = unused_offset + unused.len();
+    bin.extend_from_slice(&albedo);
+    bin.extend_from_slice(&mr);
+    bin.extend_from_slice(&unused);
+
+    let mut json = base_json();
+    json["images"] = json!([
+        { "bufferView": 4, "mimeType": "image/png" },
+        { "bufferView": 5, "mimeType": "image/png" },
+        { "bufferView": 6, "mimeType": "image/png" }
+    ]);
+    json["bufferViews"]
+        .as_array_mut()
+        .expect("bufferViews array")
+        .extend([
+            json!({ "buffer": 0, "byteOffset": png1_offset, "byteLength": albedo.len() }),
+            json!({ "buffer": 0, "byteOffset": png2_offset, "byteLength": mr.len() }),
+            json!({ "buffer": 0, "byteOffset": unused_offset, "byteLength": unused.len() }),
+        ]);
+    json["buffers"] = json!([{ "byteLength": total }]);
+
+    let glb = build_glb(
+        &serde_json::to_vec(&json).expect("serialize glb json"),
+        &bin,
+    );
+    std::fs::write(models_dir.join("triangle.glb"), &glb).expect("write glb");
+
+    let file_manager = make_file_manager(&root);
+    let result = GltfImporter::import_with_file_manager(
+        &file_manager,
+        GltfImportTask {
+            file: "Models/triangle.glb".into(),
+            import: GltfImport::WholeFile,
+        },
+    );
+
+    let _ = std::fs::remove_dir_all(&root);
+
+    assert!(
+        result.errors.is_empty(),
+        "import errors (an unreferenced image was decoded?): {:?}",
+        result.errors
+    );
+    assert_eq!(result.models.len(), 1, "expected exactly one model");
+    assert_eq!(result.models[0].mesh.indices.len(), 3);
+}
+
 /// Packs a glTF JSON document and a binary chunk into the GLB container format.
+///
+/// Both chunks are declared at their 4-byte-aligned length, matching what
+/// `gltf`'s own `Glb::to_writer` emits. The reader splits the JSON at exactly
+/// the declared length and hands it straight to `serde_json`, so the JSON
+/// padding has to be insignificant whitespace: NUL padding would be rejected as
+/// trailing characters, while spaces parse fine.
 fn build_glb(json: &[u8], bin: &[u8]) -> Vec<u8> {
-    fn pad4(bytes: &mut Vec<u8>) {
+    fn pad4(bytes: &mut Vec<u8>, fill: u8) {
         while bytes.len() % 4 != 0 {
-            bytes.push(0);
+            bytes.push(fill);
         }
     }
 
+    // Space is insignificant JSON whitespace; the BIN chunk is raw bytes, so
+    // its padding value is irrelevant.
     let mut json_padded = json.to_vec();
-    pad4(&mut json_padded);
+    pad4(&mut json_padded, b' ');
     let mut bin_padded = bin.to_vec();
-    pad4(&mut bin_padded);
+    pad4(&mut bin_padded, 0);
 
     let total = 12 + 8 + json_padded.len() + 8 + bin_padded.len();
 
@@ -225,10 +369,10 @@ fn build_glb(json: &[u8], bin: &[u8]) -> Vec<u8> {
     out.extend_from_slice(b"glTF");
     out.extend_from_slice(&2u32.to_le_bytes());
     out.extend_from_slice(&(total as u32).to_le_bytes());
-    out.extend_from_slice(&(json.len() as u32).to_le_bytes());
+    out.extend_from_slice(&(json_padded.len() as u32).to_le_bytes());
     out.extend_from_slice(&0x4E4F534Au32.to_le_bytes()); // "JSON"
     out.extend_from_slice(&json_padded);
-    out.extend_from_slice(&(bin.len() as u32).to_le_bytes());
+    out.extend_from_slice(&(bin_padded.len() as u32).to_le_bytes());
     out.extend_from_slice(&0x004E4942u32.to_le_bytes()); // "BIN\0"
     out.extend_from_slice(&bin_padded);
     out
