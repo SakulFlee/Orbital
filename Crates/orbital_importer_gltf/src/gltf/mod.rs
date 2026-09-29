@@ -980,7 +980,7 @@ impl GltfImporter {
             };
 
             let mut transforms = HashMap::new();
-            let ulid = Ulid::new();
+            let ulid = Ulid::generate();
             transforms.insert(ulid, transform);
 
             let model = ModelDescriptor {

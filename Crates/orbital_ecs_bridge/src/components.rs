@@ -212,7 +212,7 @@ impl ModelInstances {
     }
 
     pub fn add_instance(&mut self, transform: orbital_math::Transform) -> Ulid {
-        let ulid = Ulid::new();
+        let ulid = Ulid::generate();
         self.0.insert(ulid, transform);
         ulid
     }
