@@ -3,7 +3,7 @@ use gltf::camera::Projection;
 use gltf::image::Format;
 use gltf::khr_lights_punctual;
 use gltf::{Camera, Document, Material, Mesh, Node, Scene, Semantic};
-use hashbrown::HashMap;
+use hashbrown::{HashMap, HashSet};
 use image::GenericImageView;
 use log::{debug, trace, warn};
 use orbital_camera::CameraDescriptor;
@@ -45,7 +45,16 @@ use orbital_core::quaternion::quaternion_to_pitch_yaw;
 
 /// The result of parsing a glTF document: the document plus its decoded
 /// buffers and images.
-pub type GltfImportPayload = (Document, Vec<gltf::buffer::Data>, Vec<gltf::image::Data>);
+///
+/// `images` is indexed by the image index from the document, so entries are
+/// `Some` only for images a material actually references; unreferenced images
+/// are left as `None` because decoding them would cost time and a full pixel
+/// buffer in RAM for data nothing reads. The slots must keep their positions.
+pub type GltfImportPayload = (
+    Document,
+    Vec<gltf::buffer::Data>,
+    Vec<Option<gltf::image::Data>>,
+);
 
 /// Reads the bytes backing a glTF buffer/image URI.
 ///
@@ -228,8 +237,23 @@ impl GltfImporter {
 
         // Load and decode every image: either sliced out of a buffer view or
         // read through the FileManager.
+        //
+        // Only images a material actually references are decoded. Real-world
+        // glTF assets routinely ship images that no material points at, and
+        // decoding one costs both CPU time and a full pixel buffer held in RAM
+        // for the duration of the import. Referencing textures are read here,
+        // so the unreferenced ones are left as `None` rather than skipped
+        // entirely: `parse_texture` and friends index `images` by the image
+        // index from the document, so the slots must keep their positions.
+        let referenced_images = Self::referenced_image_indices(&document);
         let mut images = Vec::new();
         for image in document.images() {
+            if !referenced_images.contains(&image.index()) {
+                // Keep the slot so later positional lookups stay correct.
+                images.push(None);
+                continue;
+            }
+
             let decoded = match image.source() {
                 gltf::image::Source::Uri { uri, .. } => {
                     let encoded = read_gltf_uri(file_manager, file_path, uri)?;
@@ -249,15 +273,71 @@ impl GltfImporter {
             let (width, height) = decoded.dimensions();
             let pixels = decoded.into_bytes();
 
-            images.push(gltf::image::Data {
+            images.push(Some(gltf::image::Data {
                 format,
                 width,
                 height,
                 pixels,
-            });
+            }));
         }
 
         Ok((document, buffers, images))
+    }
+
+    /// Borrows the decoded image at a document image index.
+    ///
+    /// `None` here means the image was deliberately never decoded because no
+    /// material references it, so a lookup should only ever be made for an
+    /// index that came from a material's texture slot — which is exactly what
+    /// `referenced_image_indices` used to decide what to decode. Reaching
+    /// `None` would therefore mean the document and the reference scan
+    /// disagree, which is a bug rather than bad input, so it panics instead of
+    /// silently degrading.
+    fn decoded_image(textures: &[Option<gltf::image::Data>], index: usize) -> &gltf::image::Data {
+        textures
+            .get(index)
+            .and_then(Option::as_ref)
+            .unwrap_or_else(|| {
+                panic!(
+                    "glTF image {index} is referenced by a material but was not decoded; \
+                     `referenced_image_indices` and the texture slots disagree"
+                )
+            })
+    }
+
+    /// Collects the indices of every image referenced by a material's texture
+    /// slots.
+    ///
+    /// This is computed over the whole document rather than the subset a given
+    /// import will visit, because `GltfImport::Specific` is resolved only after
+    /// the document has been loaded and its images decoded. Being conservative
+    /// here (decoding an image nothing ends up using) is cheap; being
+    /// aggressive would mean decoding an image that a later stage still needs.
+    fn referenced_image_indices(document: &Document) -> HashSet<usize> {
+        let mut referenced = HashSet::new();
+
+        for material in document.materials() {
+            if let Some(info) = material.normal_texture() {
+                referenced.insert(info.texture().source().index());
+            }
+            if let Some(info) = material.pbr_metallic_roughness().base_color_texture() {
+                referenced.insert(info.texture().source().index());
+            }
+            if let Some(info) = material
+                .pbr_metallic_roughness()
+                .metallic_roughness_texture()
+            {
+                referenced.insert(info.texture().source().index());
+            }
+            if let Some(info) = material.occlusion_texture() {
+                referenced.insert(info.texture().source().index());
+            }
+            if let Some(info) = material.emissive_texture() {
+                referenced.insert(info.texture().source().index());
+            }
+        }
+
+        referenced
     }
 
     /// Handles importing from a glTF [`Document`] given a [`SpecificGltfImport`].
@@ -265,7 +345,7 @@ impl GltfImporter {
         specific_import: SpecificGltfImport,
         document: &Document,
         buffers: &[gltf::buffer::Data],
-        textures: &[gltf::image::Data],
+        textures: &[Option<gltf::image::Data>],
     ) -> GltfImportResult {
         let mut result = GltfImportResult::empty();
 
@@ -331,7 +411,7 @@ impl GltfImporter {
     fn import_whole_file(
         document: &Document,
         buffers: &[gltf::buffer::Data],
-        textures: &[gltf::image::Data],
+        textures: &[Option<gltf::image::Data>],
     ) -> GltfImportResult {
         let mut result = GltfImportResult::empty();
 
@@ -348,7 +428,7 @@ impl GltfImporter {
         scene: Scene,
         _document: &Document,
         buffers: &[gltf::buffer::Data],
-        textures: &[gltf::image::Data],
+        textures: &[Option<gltf::image::Data>],
     ) -> GltfImportResult {
         let nodes: Vec<_> = scene.nodes().collect();
 
@@ -359,7 +439,7 @@ impl GltfImporter {
     fn import_nodes(
         nodes: Vec<Node>,
         buffers: &[gltf::buffer::Data],
-        textures: &[gltf::image::Data],
+        textures: &[Option<gltf::image::Data>],
     ) -> GltfImportResult {
         let mut model_descriptors = Vec::new();
         let mut camera_descriptors = Vec::new();
@@ -634,9 +714,15 @@ impl GltfImporter {
     }
 
     /// Handles parsing a glTF [`Material`] into an Orbital [`MaterialDescriptor`].
-    fn parse_materials(material: &Material, textures: &[gltf::image::Data]) -> MaterialDescriptor {
+    fn parse_materials(
+        material: &Material,
+        textures: &[Option<gltf::image::Data>],
+    ) -> MaterialDescriptor {
         let normal = if let Some(normal_info) = material.normal_texture() {
-            Self::parse_texture_linear(&textures[normal_info.texture().source().index()])
+            Self::parse_texture_linear(Self::decoded_image(
+                textures,
+                normal_info.texture().source().index(),
+            ))
         } else {
             // Default normal map value: (0.5, 0.5, 1.0, 1.0) maps to (0, 0, 1) in tangent space after 2*x-1
             // Use linear format for normal maps (no sRGB conversion)
@@ -646,8 +732,10 @@ impl GltfImporter {
         // NOTE: 'W' (Opacity / Transparency) is skipped here!
         let (albedo, albedo_factor) =
             if let Some(albedo_info) = material.pbr_metallic_roughness().base_color_texture() {
-                let texture =
-                    Self::parse_texture_srgb(&textures[albedo_info.texture().source().index()]);
+                let texture = Self::parse_texture_srgb(Self::decoded_image(
+                    textures,
+                    albedo_info.texture().source().index(),
+                ));
                 let factor = material.pbr_metallic_roughness().base_color_factor();
                 (texture, Vector3::new(factor[0], factor[1], factor[2]))
             } else {
@@ -671,9 +759,10 @@ impl GltfImporter {
                 // If a metallic & roughness texture is set, the factors will be needed to multiplied with the texture.
 
                 let (texture_descriptor_metallic, texture_descriptor_roughness) =
-                    Self::parse_dual_texture(
-                        &textures[metallic_and_roughness_info.texture().source().index()],
-                    );
+                    Self::parse_dual_texture(Self::decoded_image(
+                        textures,
+                        metallic_and_roughness_info.texture().source().index(),
+                    ));
 
                 let factor_metallic = material.pbr_metallic_roughness().metallic_factor();
                 let factor_roughness = material.pbr_metallic_roughness().roughness_factor();
@@ -714,12 +803,18 @@ impl GltfImporter {
             };
 
         let occlusion = if let Some(occlusion_info) = material.occlusion_texture() {
-            Self::parse_texture_linear(&textures[occlusion_info.texture().source().index()])
+            Self::parse_texture_linear(Self::decoded_image(
+                textures,
+                occlusion_info.texture().source().index(),
+            ))
         } else {
             TextureDescriptor::uniform_rgba_white(false)
         };
         let emissive = if let Some(emissive_info) = material.emissive_texture() {
-            Self::parse_texture_srgb(&textures[emissive_info.texture().source().index()])
+            Self::parse_texture_srgb(Self::decoded_image(
+                textures,
+                emissive_info.texture().source().index(),
+            ))
         } else {
             let emissive_color = material.emissive_factor();
             TextureDescriptor::uniform_rgba_color(
@@ -757,7 +852,7 @@ impl GltfImporter {
         node: &Node,
         mesh: &Mesh,
         buffers: &[gltf::buffer::Data],
-        textures: &[gltf::image::Data],
+        textures: &[Option<gltf::image::Data>],
     ) -> Result<Vec<ModelDescriptor>, Box<dyn Error>> {
         let primitives = mesh.primitives();
         let mut results = Vec::new();
