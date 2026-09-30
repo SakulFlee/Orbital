@@ -1,5 +1,6 @@
 pub mod gltf;
 
+use std::collections::VecDeque;
 use std::sync::{Arc, Condvar, Mutex, mpsc};
 
 use orbital_camera::CameraDescriptor;
@@ -78,7 +79,7 @@ pub struct Importer {
     /// task the best chance to deliver its result. See [`InFlightTasks`] for
     /// why field order alone is not enough.
     pool: rayon::ThreadPool,
-    queued_tasks: Vec<ImportTask>,
+    queued_tasks: VecDeque<ImportTask>,
     result_sender: mpsc::Sender<ImportResult>,
     result_receiver: Mutex<mpsc::Receiver<ImportResult>>,
     in_flight: Arc<InFlightTasks>,
@@ -108,7 +109,7 @@ impl Importer {
 
         Self {
             pool,
-            queued_tasks: Vec::new(),
+            queued_tasks: VecDeque::new(),
             result_sender: sender,
             result_receiver: Mutex::new(receiver),
             in_flight: Arc::new(InFlightTasks::default()),
@@ -116,7 +117,7 @@ impl Importer {
     }
 
     pub fn register_task(&mut self, task: ImportTask) {
-        self.queued_tasks.push(task);
+        self.queued_tasks.push_back(task);
     }
 
     pub fn update(&mut self) -> Vec<ImportResult> {
@@ -126,8 +127,7 @@ impl Importer {
             results.push(result);
         }
 
-        while !self.queued_tasks.is_empty() {
-            let task_desc = self.queued_tasks.remove(0);
+        while let Some(task_desc) = self.queued_tasks.pop_front() {
             let sender = self.result_sender.clone();
             let in_flight = Arc::clone(&self.in_flight);
 
