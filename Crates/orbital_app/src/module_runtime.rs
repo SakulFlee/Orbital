@@ -34,9 +34,9 @@ use crate::{AppContext, AppSettings, AppState, Module, Timer, make_core_schedule
 use orbital_ecs_bridge::{
     ActiveCamera, AdapterResource, CameraDescriptorEcs, CameraDirty, CursorGrabConfig,
     CursorGrabState, CursorPosition, DeltaTime, DeviceResource, EcsCameraStore, EngineEvent,
-    EngineEvents, FpsStats, FrameCounter, IcedCapturedMouseDrag, IcedCapturedTouches,
+    EngineEvents, FpsStats, FrameCounter, FrameTimings, IcedCapturedMouseDrag, IcedCapturedTouches,
     IcedEventQueue, InputSnapshot, LightDescriptorEcs, Position, QueueResource,
-    SurfaceFormatResource, TotalTime, WindowSize,
+    SurfaceFormatResource, TIMING_STAGES, TotalTime, WindowSize,
 };
 
 macro_rules! ctx_lock {
@@ -60,93 +60,51 @@ fn apply_cursor_grab(window: &winit::window::Window, mode: CursorGrabMode) {
     }
 }
 
-struct TimingAccumulator {
-    count: u64,
-    surface_acq: f64,
-    realize: f64,
-    stagger: f64,
-    cull_extract: f64,
-    bind_group_models: f64,
-    render_ms: f64,
-    present_ms: f64,
-    total_ms: f64,
-    gpu_shadow_ns: f64,
-    gpu_main_ns: f64,
-    gpu_total_ns: f64,
-    last_print: std::time::Instant,
+/// Scratch buffer for the render frame's stage measurements.
+///
+/// Filled once per frame and handed to [`FrameTimings::record`], so recording
+/// does not allocate. The stage order must match [`TIMING_STAGES`].
+struct FrameStageScratch {
+    durations: Vec<f64>,
 }
 
-impl TimingAccumulator {
+impl FrameStageScratch {
     fn new() -> Self {
         Self {
-            count: 0,
-            surface_acq: 0.0,
-            realize: 0.0,
-            stagger: 0.0,
-            cull_extract: 0.0,
-            bind_group_models: 0.0,
-            render_ms: 0.0,
-            present_ms: 0.0,
-            total_ms: 0.0,
-            gpu_shadow_ns: 0.0,
-            gpu_main_ns: 0.0,
-            gpu_total_ns: 0.0,
-            last_print: std::time::Instant::now(),
+            durations: vec![0.0; TIMING_STAGES.len()],
         }
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn push(
+    fn fill(
         &mut self,
         surface_acq: std::time::Duration,
         realize: std::time::Duration,
         stagger: std::time::Duration,
         cull_extract: std::time::Duration,
         bind_group_models: std::time::Duration,
-        render_ms: std::time::Duration,
-        present_ms: std::time::Duration,
+        render: std::time::Duration,
+        present: std::time::Duration,
         total: std::time::Duration,
         gpu_ns: [f64; 3],
     ) {
-        self.count += 1;
-        self.surface_acq += surface_acq.as_secs_f64() * 1000.0;
-        self.realize += realize.as_secs_f64() * 1000.0;
-        self.stagger += stagger.as_secs_f64() * 1000.0;
-        self.cull_extract += cull_extract.as_secs_f64() * 1000.0;
-        self.bind_group_models += bind_group_models.as_secs_f64() * 1000.0;
-        self.render_ms += render_ms.as_secs_f64() * 1000.0;
-        self.present_ms += present_ms.as_secs_f64() * 1000.0;
-        self.total_ms += total.as_secs_f64() * 1000.0;
-        // gpu_ns: raw GPU timestamps at [shadow_start, skybox_start, main_end]
-        // Compute durations in ms (timestamps are in ns on Vulkan)
-        let ns_to_ms = 1.0 / 1_000_000.0;
-        self.gpu_shadow_ns += (gpu_ns[1] - gpu_ns[0]) * ns_to_ms;
-        self.gpu_main_ns += (gpu_ns[2] - gpu_ns[1]) * ns_to_ms;
-        self.gpu_total_ns += (gpu_ns[2] - gpu_ns[0]) * ns_to_ms;
-    }
+        let ms = |duration: std::time::Duration| duration.as_secs_f64() * 1000.0;
 
-    fn try_print(&mut self) {
-        let elapsed = self.last_print.elapsed();
-        if elapsed.as_secs_f64() < 1.0 || self.count == 0 {
-            return;
-        }
-        let n = self.count as f64;
-        info!(
-            "TIMING avg({} frames): surface_acq={:.2}ms realize={:.2}ms stagger={:.2}ms cull+extract={:.2}ms bind+models={:.2}ms render={:.2}ms present={:.2}ms TOTAL={:.2}ms | GPU shadow={:.2}ms skybox+models={:.2}ms GPU_TOTAL={:.2}ms",
-            self.count,
-            self.surface_acq / n,
-            self.realize / n,
-            self.stagger / n,
-            self.cull_extract / n,
-            self.bind_group_models / n,
-            self.render_ms / n,
-            self.present_ms / n,
-            self.total_ms / n,
-            self.gpu_shadow_ns / n,
-            self.gpu_main_ns / n,
-            self.gpu_total_ns / n,
-        );
-        *self = Self::new();
+        self.durations[0] = ms(surface_acq);
+        self.durations[1] = ms(realize);
+        self.durations[2] = ms(stagger);
+        self.durations[3] = ms(cull_extract);
+        self.durations[4] = ms(bind_group_models);
+        self.durations[5] = ms(render);
+        self.durations[6] = ms(present);
+        self.durations[7] = ms(total);
+
+        // gpu_ns: raw GPU timestamps at [shadow_start, skybox_start, main_end].
+        // Timestamps are in nanoseconds, so scale to milliseconds.
+        const NS_TO_MS: f64 = 1.0 / 1_000_000.0;
+        self.durations[8] = (gpu_ns[1] - gpu_ns[0]) * NS_TO_MS;
+        self.durations[9] = (gpu_ns[2] - gpu_ns[1]) * NS_TO_MS;
+        self.durations[10] = (gpu_ns[2] - gpu_ns[0]) * NS_TO_MS;
     }
 }
 
@@ -161,7 +119,7 @@ pub struct ModuleRuntime {
     game_schedule: Schedule,
     module_setup_done: bool,
     renderer: Option<orbital_renderer::Renderer>,
-    timing_accum: TimingAccumulator,
+    frame_timings: FrameStageScratch,
     back_press_count: u8,
     last_back_press: Option<std::time::Instant>,
     /// Touch events deferred for game-input processing.
@@ -212,7 +170,7 @@ impl ModuleRuntime {
             game_schedule: Schedule::new(),
             module_setup_done: false,
             renderer: None,
-            timing_accum: TimingAccumulator::new(),
+            frame_timings: FrameStageScratch::new(),
             back_press_count: 0,
             last_back_press: None,
             deferred_touches: Vec::new(),
@@ -237,6 +195,7 @@ impl ModuleRuntime {
         runtime.ecs_world.insert_resource(FrameCounter(0));
         runtime.ecs_world.insert_resource(DeltaTime(0.0));
         runtime.ecs_world.insert_resource(FpsStats::default());
+        runtime.ecs_world.insert_resource(FrameTimings::default());
         runtime.ecs_world.insert_resource(TotalTime(0.0));
         runtime
             .ecs_world
@@ -901,7 +860,7 @@ impl ModuleRuntime {
         let d_total = Instant::now() - t_realize_start;
         let d_surface_acq = t_realize_start - t_start;
 
-        self.timing_accum.push(
+        self.frame_timings.fill(
             d_surface_acq,
             d_realize,
             d_stagger,
@@ -912,7 +871,13 @@ impl ModuleRuntime {
             d_total,
             self.renderer.as_ref().map_or([0.0; 3], |r| r.prev_gpu_ns()),
         );
-        self.timing_accum.try_print();
+
+        // Publish the timings so debug overlays and systems can read them
+        // without going through the log.
+        if let Some(mut timings) = self.ecs_world.get_resource_mut::<FrameTimings>() {
+            timings.record(&self.frame_timings.durations);
+            timings.try_log();
+        }
     }
 
     /// Extract camera buffer as an owned Buffer (cheap Arc clone).
