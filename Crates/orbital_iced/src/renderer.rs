@@ -1,4 +1,5 @@
-use crate::state::IcedState;
+use crate::state::{IcedState, Message};
+use iced_winit::core::Theme;
 use orbital_app::RenderLayer;
 use orbital_app::render_overlay::{LayerRenderer as LayerRendererTrait, RenderOverlayContext};
 use orbital_ecs_bridge::{
@@ -8,23 +9,40 @@ use orbital_ecs_bridge::{
 use std::sync::Mutex;
 use winit::event::{ElementState, MouseButton, TouchPhase};
 
-pub struct IcedLayerRenderer {
-    state: IcedState,
-    inner: Mutex<Option<RendererInner>>,
+/// Drives one [`IcedState`] panel: builds its `UserInterface`, routes input to
+/// it, and draws it over the game render.
+///
+/// `M` defaults to [`Message`], so panels declared through
+/// [`IcedUiState`](crate::IcedUiState) are unaffected. A panel with its own
+/// message enum can be registered by pushing an `IcedLayerRenderer<M>` into
+/// `register_overlays` directly.
+pub struct IcedLayerRenderer<M: Clone + PartialEq + Send + Sync + 'static = Message> {
+    state: IcedState<M>,
+    inner: Mutex<Option<RendererInner<M>>>,
     device: Option<wgpu::Device>,
     queue: Option<wgpu::Queue>,
 }
 
-struct RendererInner {
+struct RendererInner<M: Clone + PartialEq + Send + Sync + 'static> {
     renderer: iced_wgpu::Renderer,
+    /// The panel's widget tree, retained between `process_events` and `render`.
+    interface:
+        Option<iced_runtime::user_interface::UserInterface<'static, M, Theme, iced_wgpu::Renderer>>,
+    /// Widget state that has to outlive a rebuild, taken from the previous
+    /// `UserInterface` via `into_cache`.
     cache: Option<iced_runtime::user_interface::Cache>,
+    /// The size `interface` was laid out for, so a resize forces a rebuild.
+    layout_size: Option<(u32, u32)>,
 }
 
-unsafe impl Send for IcedLayerRenderer {}
-unsafe impl Sync for IcedLayerRenderer {}
+// SAFETY: both phases run on the event-loop thread, within one frame, and
+// `inner` is behind a `Mutex`. `IcedLayerRenderer` is only ever reached
+// through the runtime's `Mutex<Vec<Box<dyn LayerRenderer>>>`.
+unsafe impl<M: Clone + PartialEq + Send + Sync + 'static> Send for IcedLayerRenderer<M> {}
+unsafe impl<M: Clone + PartialEq + Send + Sync + 'static> Sync for IcedLayerRenderer<M> {}
 
-impl IcedLayerRenderer {
-    pub fn new(state: IcedState) -> Self {
+impl<M: Clone + PartialEq + Send + Sync + 'static> IcedLayerRenderer<M> {
+    pub fn new(state: IcedState<M>) -> Self {
         Self {
             state,
             inner: Mutex::new(None),
@@ -33,25 +51,33 @@ impl IcedLayerRenderer {
         }
     }
 
-    pub fn state(&self) -> &IcedState {
+    pub fn state(&self) -> &IcedState<M> {
         &self.state
     }
 
-    pub fn state_mut(&mut self) -> &mut IcedState {
+    pub fn state_mut(&mut self) -> &mut IcedState<M> {
         &mut self.state
     }
 }
 
-impl LayerRendererTrait for IcedLayerRenderer {
+impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLayerRenderer<M> {
     fn layer(&self) -> RenderLayer {
         RenderLayer::UI
     }
 
-    /// Process input events and update `IcedCapturedTouches` **without**
-    /// GPU rendering.  Called from `ModuleRuntime::update()` before game
-    /// systems so touch-capture information is current when game touch
-    /// input is processed.
+    /// Builds the panel's `UserInterface`, routes this frame's input to it,
+    /// and keeps it for `render` to draw — **without** GPU rendering. Called
+    /// from `ModuleRuntime::update()` before game systems, so touch-capture
+    /// information is current when game touch input is processed.
     fn process_events(&mut self, ecs: &mut orbital_ecs::World) {
+        // A hidden panel is skipped outright: no view, no layout, no diff.
+        if !self.state.is_visible() {
+            if let Some(inner) = self.inner.lock().unwrap().as_mut() {
+                inner.interface = None;
+            }
+            return;
+        }
+
         // Ensure renderer is initialized (needed for text layout in hit-testing).
         let format = ecs
             .get_resource::<SurfaceFormatResource>()
@@ -100,13 +126,15 @@ impl LayerRendererTrait for IcedLayerRenderer {
                 let renderer = iced_wgpu::Renderer::new(engine, Default::default());
                 *guard = Some(RendererInner {
                     renderer,
+                    interface: None,
                     cache: Some(iced_runtime::user_interface::Cache::new()),
+                    layout_size: None,
                 });
             }
         }
 
-        // Clone events from the shared queue (don't drain — render() also
-        // clones, and the main runtime drains once after all renderers).
+        // Clone events from the shared queue (don't drain — every panel
+        // clones, and the main runtime drains once after all of them).
         let (iced_events, cursor_phys, modifiers, scale_factor) = {
             let queue = ecs.get_resource::<IcedEventQueue>();
             if let Some(ref q) = queue {
@@ -183,12 +211,15 @@ impl LayerRendererTrait for IcedLayerRenderer {
 
         // Build view and interface.
         let view = self.state.view(ecs);
+        let window_size = ecs
+            .get_resource::<WindowSize>()
+            .map(|size| (size.0.x, size.0.y));
         let logical_size = iced_core::Size::new(
-            ecs.get_resource::<WindowSize>()
-                .map(|s| s.0.x as f32 / scale_factor as f32)
+            window_size
+                .map(|(x, _)| x as f32 / scale_factor as f32)
                 .unwrap_or(800.0),
-            ecs.get_resource::<WindowSize>()
-                .map(|s| s.0.y as f32 / scale_factor as f32)
+            window_size
+                .map(|(_, y)| y as f32 / scale_factor as f32)
                 .unwrap_or(600.0),
         );
 
@@ -196,6 +227,15 @@ impl LayerRendererTrait for IcedLayerRenderer {
         let inner = guard.as_mut().unwrap();
         let renderer = &mut inner.renderer;
 
+        // Reclaim the widget state from the interface built last frame before
+        // dropping it. Without this the `Cache` would be empty on every build
+        // and scroll offsets, text cursors and hover state would reset each
+        // frame.
+        if let Some(previous) = inner.interface.take() {
+            inner.cache = Some(previous.into_cache());
+        }
+
+        // Rebuild the widget tree, diffing against the reclaimed cache.
         let mut interface = iced_runtime::user_interface::UserInterface::build(
             view,
             logical_size,
@@ -215,9 +255,10 @@ impl LayerRendererTrait for IcedLayerRenderer {
             &mut bus,
         );
 
-        // Process messages.
+        // Process messages. Done *after* `update` so a panel can react to a
+        // click, and so the state change lands in the next frame's view.
         for message in bus {
-            self.state.handle_message(message);
+            self.state.handle_message(message, ecs);
         }
 
         // Update IcedCapturedTouches based on per-event capture statuses.
@@ -263,11 +304,18 @@ impl LayerRendererTrait for IcedLayerRenderer {
             }
         }
 
-        // Save updated cache.
-        inner.cache = Some(interface.into_cache());
+        // Hand the built interface to `render` instead of dropping it. The
+        // cache is *not* taken back here: the retained interface owns the
+        // widget state until the next rebuild.
+        inner.interface = Some(interface);
+        inner.layout_size = window_size;
     }
 
     fn render(&mut self, ctx: RenderOverlayContext) {
+        if !self.state.is_visible() {
+            return;
+        }
+
         let format = ctx
             .ecs
             .get_resource::<SurfaceFormatResource>()
@@ -298,155 +346,60 @@ impl LayerRendererTrait for IcedLayerRenderer {
                 let renderer = iced_wgpu::Renderer::new(engine, Default::default());
                 *guard = Some(RendererInner {
                     renderer,
+                    interface: None,
                     cache: Some(iced_runtime::user_interface::Cache::new()),
+                    layout_size: None,
                 });
             }
         }
 
-        // Read events from the ECS queue (clone, don't drain — multiple
-        // IcedLayerRenderers share the same queue; the main runtime drains
-        // once after all renderers have processed).
-        //
-        // Coordinate spaces: winit reports cursor/events/window size in
-        // PHYSICAL pixels, while iced layout + hit-testing work in LOGICAL
-        // pixels (physical / scale_factor). Mirror the canonical iced
-        // `integration` example: convert cursor, CursorMoved events and the
-        // layout size to logical, and build the viewport with the real
-        // window scale so rendering matches. Skipping this makes the UI
-        // offset grow with distance from the top-left on HiDPI displays.
-        let (iced_events, cursor_phys, modifiers, scale_factor) = {
-            let queue = ctx.ecs.get_resource::<IcedEventQueue>();
-            if let Some(ref q) = queue {
-                let events = q.events.clone();
-                let cursor_pos = q.cursor_position;
-                let mods = q.modifiers;
-                let scale = q.scale_factor;
-                (events, cursor_pos, mods, scale)
-            } else {
-                (
-                    Vec::new(),
-                    None,
-                    winit::keyboard::ModifiersState::empty(),
-                    1.0,
-                )
-            }
-        };
+        // Only the scale factor is needed here: the layout, the widget tree and
+        // all input routing already happened in `process_events`, so this pass
+        // just draws that interface and composites it. Reading the event queue
+        // again would double-process every event.
+        let scale_factor = ctx
+            .ecs
+            .get_resource::<IcedEventQueue>()
+            .map(|queue| queue.scale_factor)
+            .filter(|scale| *scale > 0.0)
+            .unwrap_or(1.0);
 
-        // Guard against a bogus scale (queue default is 1.0; scale should
-        // never be <= 0 — fall back to 1.0 so we never divide by zero).
-        let scale_factor = if scale_factor > 0.0 {
-            scale_factor
-        } else {
-            1.0
-        };
-
-        // Physical → logical: iced layout + hit-testing expect logical
-        // coordinates (same conversion as `conversion::cursor_position`).
-        let cursor = match cursor_phys {
-            Some(pos) => iced_winit::core::mouse::Cursor::Available(iced_core::Point::new(
-                (pos.x / scale_factor) as f32,
-                (pos.y / scale_factor) as f32,
-            )),
+        let cursor = match ctx.ecs.get_resource::<IcedEventQueue>() {
+            Some(queue) => match queue.cursor_position {
+                Some(pos) => iced_winit::core::mouse::Cursor::Available(iced_core::Point::new(
+                    (pos.x / scale_factor) as f32,
+                    (pos.y / scale_factor) as f32,
+                )),
+                None => iced_winit::core::mouse::Cursor::Unavailable,
+            },
             None => iced_winit::core::mouse::Cursor::Unavailable,
         };
 
-        // Convert our owned events to iced events, remembering which winit
-        // touch id each converted event belongs to (None for non-touch
-        // events). Needed afterwards to map per-event capture statuses back
-        // to winit touch ids for `IcedCapturedTouches`.
-        let mut iced_core_events = Vec::new();
-        let mut event_touch_ids: Vec<Option<u64>> = Vec::new();
-        let mut touch_release_info: Vec<(u64, TouchPhase)> = Vec::new();
-        for evt in &iced_events {
-            if let Some(converted) = convert_event(evt, &modifiers, scale_factor) {
-                match evt {
-                    IcedWindowEvent::Touch(touch) => {
-                        event_touch_ids.push(Some(touch.id));
-                        if matches!(touch.phase, TouchPhase::Ended | TouchPhase::Cancelled) {
-                            touch_release_info.push((touch.id, touch.phase));
-                        }
-                    }
-                    _ => event_touch_ids.push(None),
-                }
-                iced_core_events.push(converted);
-            }
-        }
-
-        // Build the view (borrows self.state temporarily).
-        // `screen_size` is physical (winit `inner_size`); iced expects the
-        // logical size here (= viewport.logical_size()).
-        let view = self.state.view(ctx.ecs);
-        let logical_size = iced_core::Size::new(
-            ctx.screen_size.0 / scale_factor as f32,
-            ctx.screen_size.1 / scale_factor as f32,
-        );
-
         let mut guard = self.inner.lock().unwrap();
-        let inner = guard.as_mut().unwrap();
+        let Some(inner) = guard.as_mut() else {
+            return;
+        };
         let renderer = &mut inner.renderer;
 
-        let mut interface = iced_runtime::user_interface::UserInterface::build(
-            view,
-            logical_size,
-            inner.cache.take().unwrap_or_default(),
-            renderer,
-        );
+        // Safety net: the retained layout is only valid for the size it was
+        // built with. `process_events` and `render` both read the same
+        // `WindowSize` resource within a frame, so this should not trip — but
+        // drawing a stale layout would be silently wrong, so skip instead.
+        if inner.layout_size != Some((ctx.screen_size.0 as u32, ctx.screen_size.1 as u32)) {
+            return;
+        }
 
-        let waker = iced_winit::core::shell::Waker::noop();
-        let mut bus = iced_winit::core::shell::Bus::new();
-
-        let (_, event_statuses) = interface.update(
-            &NoopWindow,
-            &waker,
-            &iced_core_events,
-            cursor,
-            renderer,
-            &mut bus,
-        );
+        let Some(interface) = inner.interface.as_mut() else {
+            // `process_events` did not run this frame (no redraw yet).
+            return;
+        };
 
         interface.draw(
             renderer,
-            &iced_winit::core::Theme::Dark,
+            &Theme::Dark,
             &iced_winit::core::renderer::Style::default(),
             cursor,
         );
-
-        // Save the updated cache for next frame (into_cache consumes interface)
-        let updated_cache = interface.into_cache();
-
-        // Process messages
-        for message in bus {
-            self.state.handle_message(message);
-        }
-
-        // Track which fingers the UI consumed (`event::Status::Captured` —
-        // e.g. button presses, `FloatingPanel` title-bar drags, sliders).
-        // `module_runtime` consults this when feeding touch events into the
-        // game-input path so UI touches don't also drive the virtual
-        // joystick / drag-to-look camera.
-        //
-        // The release sweep runs even when this panel saw no lifted-touch
-        // event, so stale ids can never linger and permanently block game
-        // controls for that finger id.
-        for (status, touch_id) in event_statuses.iter().zip(event_touch_ids.iter()) {
-            let Some(touch_id) = touch_id else {
-                continue;
-            };
-            if *status == iced_winit::core::event::Status::Captured
-                && let Some(mut captured) = ctx.ecs.get_resource_mut::<IcedCapturedTouches>()
-                && captured.capture(*touch_id)
-            {
-                log::info!("iced: touch {touch_id} newly captured by the UI");
-            }
-        }
-        for (touch_id, _phase) in &touch_release_info {
-            if let Some(mut captured) = ctx.ecs.get_resource_mut::<IcedCapturedTouches>() {
-                captured.release(*touch_id);
-            }
-        }
-
-        // Write back the cache after releasing the borrow on self.state
-        inner.cache = Some(updated_cache);
 
         let physical_size =
             iced_core::Size::new(ctx.screen_size.0 as u32, ctx.screen_size.1 as u32);
@@ -459,9 +412,7 @@ impl LayerRendererTrait for IcedLayerRenderer {
             },
         );
 
-        inner
-            .renderer
-            .present(None, format, ctx.target_view, &viewport);
+        renderer.present(None, format, ctx.target_view, &viewport);
     }
 }
 
