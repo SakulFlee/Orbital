@@ -8,7 +8,7 @@
 //! [`InputEvent`]s every other backend produces, and no Objective-C
 //! object outlives the poll.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use cgmath::{InnerSpace, Vector2, Zero};
 use objc2_game_controller::{GCController, GCControllerButtonInput, GCControllerDirectionPad};
@@ -62,7 +62,7 @@ impl IosGamepad {
         let mut events = Vec::new();
         let controllers = unsafe { GCController::controllers() };
 
-        let mut alive = HashMap::new();
+        let mut alive = HashSet::new();
         for index in 0..controllers.count() {
             let controller = controllers.objectAtIndex(index);
             let key = std::ptr::from_ref(&*controller).addr();
@@ -82,7 +82,10 @@ impl IosGamepad {
                 // The diff below then reports the initial state: every
                 // currently-pressed button and any non-centered stick
             }
-            let pad = &mut self.pads[&key];
+            let pad = self
+                .pads
+                .get_mut(&key)
+                .expect("pad was inserted above for newly seen controllers");
             poll_profile(&profile, pad, &mut events);
             alive.insert(key);
         }
@@ -90,7 +93,7 @@ impl IosGamepad {
         let disconnected: Vec<usize> = self
             .pads
             .keys()
-            .filter(|key| !alive.contains_key(key))
+            .filter(|key| !alive.contains(key))
             .copied()
             .collect();
         for key in disconnected {
