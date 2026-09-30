@@ -3,7 +3,7 @@ use gltf::camera::Projection;
 use gltf::image::Format;
 use gltf::khr_lights_punctual;
 use gltf::{Camera, Document, Material, Mesh, Node, Scene, Semantic};
-use hashbrown::HashMap;
+use hashbrown::{HashMap, HashSet};
 use image::GenericImageView;
 use log::{debug, trace, warn};
 use orbital_camera::CameraDescriptor;
@@ -14,9 +14,11 @@ use orbital_math::Transform;
 use orbital_mesh::{MeshDescriptor, Vertex};
 use orbital_model::ModelDescriptor;
 use orbital_texture::{FilterMode, TextureDescriptor, TextureSize};
+use rayon::prelude::*;
 
 type MaterialDescriptor = MaterialShaderDescriptor;
 type PBRMaterialDescriptor = orbital_shader_pbr::PBRMaterialShaderDescriptor;
+use std::borrow::Cow;
 use std::error::Error;
 use std::path::Path;
 use std::sync::Arc;
@@ -43,9 +45,22 @@ mod error;
 pub use error::*;
 use orbital_core::quaternion::quaternion_to_pitch_yaw;
 
+/// Far plane used for glTF perspective cameras that omit the optional `zfar`,
+/// matching the default in [`CameraDescriptor::default`].
+const DEFAULT_FAR: f32 = 10_000.0;
+
 /// The result of parsing a glTF document: the document plus its decoded
 /// buffers and images.
-pub type GltfImportPayload = (Document, Vec<gltf::buffer::Data>, Vec<gltf::image::Data>);
+///
+/// `images` is indexed by the image index from the document, so entries are
+/// `Some` only for images a material actually references; unreferenced images
+/// are left as `None` because decoding them would cost time and a full pixel
+/// buffer in RAM for data nothing reads. The slots must keep their positions.
+pub type GltfImportPayload = (
+    Document,
+    Vec<gltf::buffer::Data>,
+    Vec<Option<gltf::image::Data>>,
+);
 
 /// Reads the bytes backing a glTF buffer/image URI.
 ///
@@ -226,38 +241,132 @@ impl GltfImporter {
             buffers.push(gltf::buffer::Data(data));
         }
 
-        // Load and decode every image: either sliced out of a buffer view or
-        // read through the FileManager.
-        let mut images = Vec::new();
-        for image in document.images() {
-            let decoded = match image.source() {
-                gltf::image::Source::Uri { uri, .. } => {
-                    let encoded = read_gltf_uri(file_manager, file_path, uri)?;
-                    image::load_from_memory(&encoded)?
+        // Gather the encoded bytes of every image a material actually
+        // references: either sliced out of a buffer view, or read through the
+        // FileManager. Buffer-view images stay borrowed so no copy of the
+        // encoded payload is made; only the comparatively rare external/URI
+        // image is read into an owned buffer.
+        //
+        // Unreferenced images are left as `None` rather than dropped entirely:
+        // `parse_texture` and friends index `images` by the image index from
+        // the document, so the slots must keep their positions. Decoding one
+        // would cost CPU time and a full pixel buffer held in RAM for data
+        // nothing reads, and real-world glTF assets routinely ship such images.
+        //
+        // This stage is I/O and bookkeeping, so it stays sequential. The actual
+        // decode below is the expensive part and is run in parallel.
+        let referenced_images = Self::referenced_image_indices(&document);
+        let encoded_images = document
+            .images()
+            .map(|image| {
+                if !referenced_images.contains(&image.index()) {
+                    // Keep the slot so later positional lookups stay correct.
+                    return Ok(None);
                 }
-                gltf::image::Source::View { view, .. } => {
-                    let parent = &buffers[view.buffer().index()].0;
-                    let start = view.offset();
-                    let end = start + view.length();
-                    let encoded = &parent[start..end];
-                    image::load_from_memory(encoded)?
-                }
-            };
 
-            let format = gltf_image_format(&decoded)
-                .ok_or_else(|| gltf::Error::UnsupportedImageFormat(decoded.clone()))?;
-            let (width, height) = decoded.dimensions();
-            let pixels = decoded.into_bytes();
+                let bytes: Cow<'_, [u8]> = match image.source() {
+                    gltf::image::Source::Uri { uri, .. } => {
+                        Cow::Owned(read_gltf_uri(file_manager, file_path, uri)?)
+                    }
+                    gltf::image::Source::View { view, .. } => {
+                        let parent = &buffers[view.buffer().index()].0;
+                        let start = view.offset();
+                        let end = start + view.length();
+                        Cow::Borrowed(&parent[start..end])
+                    }
+                };
+                Ok(Some(bytes))
+            })
+            .collect::<Result<Vec<Option<Cow<'_, [u8]>>>, Box<dyn Error>>>()?;
 
-            images.push(gltf::image::Data {
-                format,
-                width,
-                height,
-                pixels,
-            });
-        }
+        // Decode in parallel. Image decoding dominates import time and each
+        // image is independent, so this needs no synchronization: every task
+        // reads only its own slot and returns a value.
+        //
+        // The `+ Send + Sync` bound on the collected error is required by rayon
+        // and is widened back to `Box<dyn Error>` on return.
+        let images = encoded_images
+            .par_iter()
+            .map(
+                |encoded| -> Result<Option<gltf::image::Data>, Box<dyn Error + Send + Sync>> {
+                    let Some(encoded) = encoded else {
+                        return Ok(None);
+                    };
+
+                    let decoded = image::load_from_memory(encoded)?;
+                    let format = gltf_image_format(&decoded)
+                        .ok_or_else(|| gltf::Error::UnsupportedImageFormat(decoded.clone()))?;
+                    let (width, height) = decoded.dimensions();
+                    let pixels = decoded.into_bytes();
+
+                    Ok(Some(gltf::image::Data {
+                        format,
+                        width,
+                        height,
+                        pixels,
+                    }))
+                },
+            )
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e as Box<dyn Error>)?;
 
         Ok((document, buffers, images))
+    }
+
+    /// Borrows the decoded image at a document image index.
+    ///
+    /// `None` here means the image was deliberately never decoded because no
+    /// material references it, so a lookup should only ever be made for an
+    /// index that came from a material's texture slot — which is exactly what
+    /// `referenced_image_indices` used to decide what to decode. Reaching
+    /// `None` would therefore mean the document and the reference scan
+    /// disagree, which is a bug rather than bad input, so it panics instead of
+    /// silently degrading.
+    fn decoded_image(textures: &[Option<gltf::image::Data>], index: usize) -> &gltf::image::Data {
+        textures
+            .get(index)
+            .and_then(Option::as_ref)
+            .unwrap_or_else(|| {
+                panic!(
+                    "glTF image {index} is referenced by a material but was not decoded; \
+                     `referenced_image_indices` and the texture slots disagree"
+                )
+            })
+    }
+
+    /// Collects the indices of every image referenced by a material's texture
+    /// slots.
+    ///
+    /// This is computed over the whole document rather than the subset a given
+    /// import will visit, because `GltfImport::Specific` is resolved only after
+    /// the document has been loaded and its images decoded. Being conservative
+    /// here (decoding an image nothing ends up using) is cheap; being
+    /// aggressive would mean decoding an image that a later stage still needs.
+    fn referenced_image_indices(document: &Document) -> HashSet<usize> {
+        let mut referenced = HashSet::new();
+
+        for material in document.materials() {
+            if let Some(info) = material.normal_texture() {
+                referenced.insert(info.texture().source().index());
+            }
+            if let Some(info) = material.pbr_metallic_roughness().base_color_texture() {
+                referenced.insert(info.texture().source().index());
+            }
+            if let Some(info) = material
+                .pbr_metallic_roughness()
+                .metallic_roughness_texture()
+            {
+                referenced.insert(info.texture().source().index());
+            }
+            if let Some(info) = material.occlusion_texture() {
+                referenced.insert(info.texture().source().index());
+            }
+            if let Some(info) = material.emissive_texture() {
+                referenced.insert(info.texture().source().index());
+            }
+        }
+
+        referenced
     }
 
     /// Handles importing from a glTF [`Document`] given a [`SpecificGltfImport`].
@@ -265,7 +374,7 @@ impl GltfImporter {
         specific_import: SpecificGltfImport,
         document: &Document,
         buffers: &[gltf::buffer::Data],
-        textures: &[gltf::image::Data],
+        textures: &[Option<gltf::image::Data>],
     ) -> GltfImportResult {
         let mut result = GltfImportResult::empty();
 
@@ -331,7 +440,7 @@ impl GltfImporter {
     fn import_whole_file(
         document: &Document,
         buffers: &[gltf::buffer::Data],
-        textures: &[gltf::image::Data],
+        textures: &[Option<gltf::image::Data>],
     ) -> GltfImportResult {
         let mut result = GltfImportResult::empty();
 
@@ -348,7 +457,7 @@ impl GltfImporter {
         scene: Scene,
         _document: &Document,
         buffers: &[gltf::buffer::Data],
-        textures: &[gltf::image::Data],
+        textures: &[Option<gltf::image::Data>],
     ) -> GltfImportResult {
         let nodes: Vec<_> = scene.nodes().collect();
 
@@ -359,7 +468,7 @@ impl GltfImporter {
     fn import_nodes(
         nodes: Vec<Node>,
         buffers: &[gltf::buffer::Data],
-        textures: &[gltf::image::Data],
+        textures: &[Option<gltf::image::Data>],
     ) -> GltfImportResult {
         let mut model_descriptors = Vec::new();
         let mut camera_descriptors = Vec::new();
@@ -634,9 +743,15 @@ impl GltfImporter {
     }
 
     /// Handles parsing a glTF [`Material`] into an Orbital [`MaterialDescriptor`].
-    fn parse_materials(material: &Material, textures: &[gltf::image::Data]) -> MaterialDescriptor {
+    fn parse_materials(
+        material: &Material,
+        textures: &[Option<gltf::image::Data>],
+    ) -> MaterialDescriptor {
         let normal = if let Some(normal_info) = material.normal_texture() {
-            Self::parse_texture_linear(&textures[normal_info.texture().source().index()])
+            Self::parse_texture_linear(Self::decoded_image(
+                textures,
+                normal_info.texture().source().index(),
+            ))
         } else {
             // Default normal map value: (0.5, 0.5, 1.0, 1.0) maps to (0, 0, 1) in tangent space after 2*x-1
             // Use linear format for normal maps (no sRGB conversion)
@@ -646,8 +761,10 @@ impl GltfImporter {
         // NOTE: 'W' (Opacity / Transparency) is skipped here!
         let (albedo, albedo_factor) =
             if let Some(albedo_info) = material.pbr_metallic_roughness().base_color_texture() {
-                let texture =
-                    Self::parse_texture_srgb(&textures[albedo_info.texture().source().index()]);
+                let texture = Self::parse_texture_srgb(Self::decoded_image(
+                    textures,
+                    albedo_info.texture().source().index(),
+                ));
                 let factor = material.pbr_metallic_roughness().base_color_factor();
                 (texture, Vector3::new(factor[0], factor[1], factor[2]))
             } else {
@@ -671,9 +788,10 @@ impl GltfImporter {
                 // If a metallic & roughness texture is set, the factors will be needed to multiplied with the texture.
 
                 let (texture_descriptor_metallic, texture_descriptor_roughness) =
-                    Self::parse_dual_texture(
-                        &textures[metallic_and_roughness_info.texture().source().index()],
-                    );
+                    Self::parse_dual_texture(Self::decoded_image(
+                        textures,
+                        metallic_and_roughness_info.texture().source().index(),
+                    ));
 
                 let factor_metallic = material.pbr_metallic_roughness().metallic_factor();
                 let factor_roughness = material.pbr_metallic_roughness().roughness_factor();
@@ -714,12 +832,18 @@ impl GltfImporter {
             };
 
         let occlusion = if let Some(occlusion_info) = material.occlusion_texture() {
-            Self::parse_texture_linear(&textures[occlusion_info.texture().source().index()])
+            Self::parse_texture_linear(Self::decoded_image(
+                textures,
+                occlusion_info.texture().source().index(),
+            ))
         } else {
             TextureDescriptor::uniform_rgba_white(false)
         };
         let emissive = if let Some(emissive_info) = material.emissive_texture() {
-            Self::parse_texture_srgb(&textures[emissive_info.texture().source().index()])
+            Self::parse_texture_srgb(Self::decoded_image(
+                textures,
+                emissive_info.texture().source().index(),
+            ))
         } else {
             let emissive_color = material.emissive_factor();
             TextureDescriptor::uniform_rgba_color(
@@ -757,10 +881,19 @@ impl GltfImporter {
         node: &Node,
         mesh: &Mesh,
         buffers: &[gltf::buffer::Data],
-        textures: &[gltf::image::Data],
+        textures: &[Option<gltf::image::Data>],
     ) -> Result<Vec<ModelDescriptor>, Box<dyn Error>> {
         let primitives = mesh.primitives();
         let mut results = Vec::new();
+
+        // Primitives of one mesh routinely share a material, and a material's
+        // descriptors are rebuilt from scratch for every primitive that uses
+        // it. `parse_texture` copies the whole pixel buffer, so an N-primitive
+        // mesh with a shared material re-converts and re-copies the same
+        // textures N times. Parsing each material once and cloning the result
+        // removes the repeated conversion; the remaining clone is a memcpy of
+        // an already-built buffer rather than a full re-parse.
+        let mut material_cache: HashMap<Option<usize>, MaterialDescriptor> = HashMap::new();
 
         // glTF Primitive == Orbital Model
         for primitive in primitives {
@@ -770,10 +903,12 @@ impl GltfImporter {
                 warn!("Primitive has no positions. Skipping mesh primitive.");
                 continue;
             };
-            let Some(indices) = reader.read_indices().map(|x| x.into_u32()) else {
-                warn!("Primitive has no indices. Skipping mesh primitive.");
-                continue;
-            };
+            // A glTF primitive is allowed to omit its index accessor, in which
+            // case the spec defines its vertices as implicitly indexed 0..N in
+            // order. Keep the option open here rather than skipping the
+            // primitive, and resolve it to a sequential index list below once
+            // `positions_vec` says how many vertices there actually are.
+            let indices = reader.read_indices().map(|x| x.into_u32());
             let normals = reader.read_normals();
             let tangents = reader.read_tangents();
             let uvs = reader.read_tex_coords(0).map(|x| x.into_f32());
@@ -787,12 +922,23 @@ impl GltfImporter {
 
             // Collect all data into vectors first to avoid iterator issues
             let positions_vec: Vec<_> = positions.map(|p| Vector3::new(p[0], p[1], p[2])).collect();
-            // Collect indices early as they are needed for normal calculation if normals are missing
-            let indices_vec: Vec<u32> = reader
-                .read_indices()
-                .map(|x| x.into_u32())
-                .map(|indices| indices.collect())
-                .unwrap_or_default(); // Get indices_vec here
+            // Collected early: both the normal calculation below and the winding
+            // flip further down need them. A primitive that came without an
+            // index accessor is implicitly indexed 0..N, so synthesize that
+            // here rather than leaving the primitive unindexed.
+            let indices_vec: Vec<u32> = match indices {
+                Some(indices) => indices.collect(),
+                None => {
+                    let vertex_count = positions_vec.len();
+                    if vertex_count % 3 != 0 {
+                        warn!(
+                            "Primitive has no index accessor and {vertex_count} vertices, which is not a whole number of triangles; the trailing {} will be dropped.",
+                            vertex_count % 3
+                        );
+                    }
+                    (0..vertex_count as u32).collect()
+                }
+            };
 
             // --- Normal Calculation Logic Start ---
             let normals_vec = if let Some(normals_iter) = normals {
@@ -937,9 +1083,6 @@ impl GltfImporter {
                 vertices.push(vertex);
             }
 
-            // Collect indices into a vector first
-            let indices_vec: Vec<u32> = indices.collect();
-
             // Flip the winding order of indices to account for coordinate system handedness
             let mut indices_flipped = Vec::new();
             for i in (0..indices_vec.len()).step_by(3) {
@@ -955,7 +1098,20 @@ impl GltfImporter {
                 vertices,
                 indices: indices_flipped,
             };
-            let material = Self::parse_materials(&primitive.material(), textures);
+            // Primitives sharing a material reuse one parse of it. The material
+            // is identified by its index in the document, which is stable for
+            // the lifetime of the import. A primitive with no material gets the
+            // default one, whose index is `None`; that is still a single shared
+            // entry, so unmaterialized primitives dedup just the same.
+            let material_index = primitive.material().index();
+            let material = match material_cache.get(&material_index) {
+                Some(cached) => cached.clone(),
+                None => {
+                    let parsed = Self::parse_materials(&primitive.material(), textures);
+                    material_cache.insert(material_index, parsed.clone());
+                    parsed
+                }
+            };
 
             let decomposed = node.transform().decomposed();
             let transform = Transform {
@@ -980,7 +1136,7 @@ impl GltfImporter {
             };
 
             let mut transforms = HashMap::new();
-            let ulid = Ulid::new();
+            let ulid = Ulid::generate();
             transforms.insert(ulid, transform);
 
             let model = ModelDescriptor {
@@ -1035,7 +1191,14 @@ impl GltfImporter {
             aspect: perspective.aspect_ratio().unwrap_or(16.0 / 9.0),
             fovy: perspective.yfov(),
             near: perspective.znear(),
-            far: perspective.znear(),
+            // `zfar` is optional for perspective cameras in glTF, so fall back to the
+            // engine's default far plane when it is absent. Clamp to stay strictly
+            // beyond `near`, otherwise a malformed `zfar <= znear` trips the
+            // `assert!(far > near)` in `orbital_math::projection::perspective_wgpu`.
+            far: perspective
+                .zfar()
+                .unwrap_or(DEFAULT_FAR)
+                .max(perspective.znear() * 2.0),
             global_gamma: CameraDescriptor::DEFAULT_GAMMA,
         };
 
@@ -1154,5 +1317,66 @@ impl GltfImporter {
         };
 
         Ok(light_descriptor)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Minimal valid glTF holding a single perspective camera.
+    const PERSPECTIVE_CAMERA_GLTF: &str = r#"{
+        "asset": { "version": "2.0" },
+        "cameras": [
+            {
+                "type": "perspective",
+                "perspective": { "yfov": 0.8, "znear": 0.1, "zfar": 100.0 }
+            }
+        ],
+        "nodes": [{ "camera": 0 }],
+        "scenes": [{ "nodes": [0] }],
+        "scene": 0
+    }"#;
+
+    /// Parses the first camera of `json` and returns its descriptor.
+    fn parse_first_camera(json: &str) -> CameraDescriptor {
+        let gltf = gltf::Gltf::from_slice(json.as_bytes()).expect("fixture is valid glTF");
+        let node = gltf.nodes().next().expect("fixture has a node");
+        let camera = node.camera().expect("node references a camera");
+
+        GltfImporter::parse_camera(&node, &camera, &[]).expect("camera parses")
+    }
+
+    #[test]
+    fn parse_camera_uses_zfar_from_the_gltf() {
+        let descriptor = parse_first_camera(PERSPECTIVE_CAMERA_GLTF);
+
+        assert_eq!(descriptor.near, 0.1);
+        assert_eq!(descriptor.far, 100.0);
+    }
+
+    /// `zfar` is optional for perspective cameras; the far plane must then fall
+    /// back to the engine default instead of collapsing onto the near plane.
+    #[test]
+    fn parse_camera_falls_back_when_zfar_is_absent() {
+        let json = PERSPECTIVE_CAMERA_GLTF.replace(", \"zfar\": 100.0", "");
+
+        let descriptor = parse_first_camera(&json);
+
+        assert_eq!(descriptor.near, 0.1);
+        assert_eq!(descriptor.far, DEFAULT_FAR);
+        assert!(descriptor.far > descriptor.near);
+    }
+
+    /// A malformed `zfar` at or below `znear` would otherwise reach
+    /// `perspective_wgpu`, which asserts that the far plane is beyond the near
+    /// plane. Keep the descriptor renderable instead of panicking on import.
+    #[test]
+    fn parse_camera_keeps_far_beyond_near_for_malformed_zfar() {
+        let json = PERSPECTIVE_CAMERA_GLTF.replace("\"zfar\": 100.0", "\"zfar\": 0.05");
+
+        let descriptor = parse_first_camera(&json);
+
+        assert!(descriptor.far > descriptor.near);
     }
 }
