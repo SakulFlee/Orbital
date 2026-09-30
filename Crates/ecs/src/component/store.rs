@@ -84,6 +84,17 @@ impl<T> ComponentStore<T> {
         let component_index = self.sparse[entity_id]?;
         self.components.get(component_index)
     }
+
+    /// Mutable access to the value `entity_id` holds.
+    pub fn get_component_mut(&mut self, entity_id: usize) -> Option<&mut T> {
+        if entity_id >= self.sparse.len() {
+            // Cannot logically be present
+            return None;
+        }
+
+        let component_index = self.sparse[entity_id]?;
+        self.components.get_mut(component_index)
+    }
 }
 
 impl<T> Default for ComponentStore<T> {

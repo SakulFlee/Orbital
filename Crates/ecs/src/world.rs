@@ -250,6 +250,37 @@ impl World {
         Some(format!("{:?}", self.component_debug(type_id, entity)?))
     }
 
+    /// A mutable, type-erased view of the component of type `type_id` held by
+    /// `entity`.
+    ///
+    /// The in-place counterpart of
+    /// [`component_debug`](World::component_debug), for a caller that knows the
+    /// concrete component type and wants to edit it. Returns `None` if the type
+    /// has no store or the entity does not hold it.
+    ///
+    /// The returned handle holds the store's write lock, so do not call any
+    /// other `&self` accessor for the same component type while it is alive.
+    pub fn component_mut_any(
+        &self,
+        type_id: TypeId,
+        entity: &Entity,
+    ) -> Option<WriteComponentHandle<'_>> {
+        let store_idx = *self.component_ids.get(&type_id)?;
+        let mut guard = self.component_stores[store_idx]
+            .write()
+            .expect("RwLock poisoned");
+
+        guard.component_any(entity.index)?;
+
+        let store: *mut dyn WorldComponentStorage = &mut **guard;
+
+        Some(WriteComponentHandle {
+            _guard: guard,
+            store,
+            index: entity.index,
+        })
+    }
+
     /// Whether `entity` holds a component of type `type_id`.
     pub fn entity_has_component(&self, type_id: TypeId, entity: &Entity) -> bool {
         let Some(store_idx) = self.component_ids.get(&type_id) else {
@@ -418,6 +449,36 @@ impl<'a> Deref for ReadComponentHandle<'a> {
 impl std::fmt::Debug for ReadComponentHandle<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Debug::fmt(&**self, f)
+    }
+}
+
+/// A mutable, type-erased view of a single component value.
+///
+/// Returned by [`World::component_mut_any`]. The value is reachable as
+/// `&mut dyn Any`, so a caller that knows the concrete component type can
+/// `downcast_mut` and edit it in place. Holding one keeps the owning store
+/// write-locked.
+pub struct WriteComponentHandle<'a> {
+    _guard: RwLockWriteGuard<'a, Box<dyn WorldComponentStorage>>,
+    store: *mut dyn WorldComponentStorage,
+    index: usize,
+}
+
+impl WriteComponentHandle<'_> {
+    /// The value as a mutable type-erased [`Any`].
+    pub fn as_any_mut(&mut self) -> &mut dyn Any {
+        // SAFETY: `store` points at the `WorldComponentStorage` owned by
+        // `_guard`, which is held for the lifetime of this handle, so no other
+        // reference to the value can exist.
+        unsafe { &mut *self.store }
+            .component_any_mut(self.index)
+            .expect("component disappeared while its write lock was held")
+    }
+}
+
+impl std::fmt::Debug for WriteComponentHandle<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("WriteComponentHandle")
     }
 }
 
@@ -897,6 +958,60 @@ mod tests {
             world.set_component_any(position, &bare, Box::new(Position { x: 0.0, y: 0.0 })),
             Err(ECSError::InvalidEntity(_))
         ));
+    }
+
+    #[test]
+    fn component_mut_any_edits_in_place() {
+        let mut world = World::new();
+        let e = world.spawn_entity();
+
+        world
+            .attach_component(&e, Position { x: 1.0, y: 2.0 })
+            .expect("Attachment failure");
+
+        let type_id = TypeId::of::<Position>();
+        let mut handle = world.component_mut_any(type_id, &e).expect("handle");
+
+        handle
+            .as_any_mut()
+            .downcast_mut::<Position>()
+            .expect("Downcast failed")
+            .x = 42.0;
+
+        drop(handle);
+
+        assert_eq!(
+            world.component_debug_string(type_id, &e),
+            Some("Position { x: 42.0, y: 2.0 }".to_string())
+        );
+
+        // Wrong concrete type is refused rather than silently corrupting it.
+        let mut handle = world.component_mut_any(type_id, &e).expect("handle");
+        assert!(handle.as_any_mut().downcast_mut::<Health>().is_none());
+    }
+
+    #[test]
+    fn component_mut_any_is_none_for_a_missing_component() {
+        let mut world = World::new();
+        let e = world.spawn_entity();
+        let other = world.spawn_entity();
+
+        world
+            .attach_component(&e, Position { x: 1.0, y: 2.0 })
+            .expect("Attachment failure");
+
+        // No store registered at all.
+        assert!(
+            world
+                .component_mut_any(TypeId::of::<Health>(), &e)
+                .is_none()
+        );
+        // Store exists, entity does not hold it.
+        assert!(
+            world
+                .component_mut_any(TypeId::of::<Position>(), &other)
+                .is_none()
+        );
     }
 
     #[test]

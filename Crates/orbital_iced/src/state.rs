@@ -18,6 +18,8 @@ pub enum Message {
 
 type ViewFn<M> = Arc<dyn Fn(&World) -> Element<'static, M, Theme, Renderer> + Send + Sync>;
 
+type MessageHandler<M> = Arc<dyn Fn(&mut IcedState<M>, M, &mut World) + Send + Sync>;
+
 /// A single floating Iced panel.
 ///
 /// The view is a pure `Fn(&World) -> Element`, so all panel state lives in the
@@ -38,6 +40,7 @@ pub struct IcedState<M: Clone + PartialEq + Send + Sync + 'static = Message> {
     visible: bool,
     close_message: Option<M>,
     view_fn: Option<ViewFn<M>>,
+    message_handler: Option<MessageHandler<M>>,
 }
 
 impl<M: Clone + PartialEq + Send + Sync + 'static> Default for IcedState<M> {
@@ -50,6 +53,7 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> Default for IcedState<M> {
             visible: true,
             close_message: None,
             view_fn: None,
+            message_handler: None,
         }
     }
 }
@@ -90,6 +94,20 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> IcedState<M> {
     /// `M = Message` this is normally [`Message::ClosePanel`].
     pub fn with_close_message(mut self, message: M) -> Self {
         self.close_message = Some(message);
+        self
+    }
+
+    /// Handles this panel's messages, replacing the default behaviour.
+    ///
+    /// The default only hides the panel on its close message. A panel that
+    /// reacts to other messages — an inspector writing a value into the world,
+    /// say — supplies a handler here. It receives the panel itself, so it can
+    /// still call [`mark_dirty`](Self::mark_dirty) or read the title.
+    pub fn with_message_handler(
+        mut self,
+        handler: impl Fn(&mut Self, M, &mut World) + Send + Sync + 'static,
+    ) -> Self {
+        self.message_handler = Some(Arc::new(handler));
         self
     }
 

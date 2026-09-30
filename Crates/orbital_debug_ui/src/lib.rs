@@ -13,6 +13,7 @@
 //! The panels are pure functions of the ECS world, so they always reflect live
 //! data and there is no snapshot to keep in sync.
 
+pub mod editable;
 pub mod panels;
 pub mod state;
 
@@ -26,7 +27,7 @@ use orbital_ecs_bridge::InputSnapshot;
 use orbital_iced::{IcedLayerRenderer, IcedState};
 use winit::keyboard::{KeyCode, PhysicalKey};
 
-use crate::panels::{console_panel, ecs_panel, performance_panel};
+use crate::panels::{console_panel, ecs_panel, inspector, inspector_panel, performance_panel};
 use crate::state::{DebugMessage, DebugUiState};
 
 /// Shows or hides the whole overlay when the configured key is pressed.
@@ -131,22 +132,68 @@ impl Module for DebugUiModule {
         // toggle lives in the ECS world and the renderer has its own copy of
         // the state.
         // Staggered so the three windows do not overlap on a typical desktop.
-        let panels: [(&str, (f32, f32), PanelView); 3] = [
+        let panels: [(&str, (f32, f32), PanelView); 4] = [
             ("Performance", (60.0, 60.0), performance_panel as PanelView),
             ("ECS", (60.0, 380.0), ecs_panel as PanelView),
             ("Console", (480.0, 60.0), console_panel as PanelView),
+            ("Inspector", (900.0, 60.0), inspector_panel as PanelView),
         ];
 
         for (title, position, view) in panels {
             let panel = IcedState::<DebugMessage>::titled(title)
                 .with_position(position.0, position.1)
                 .with_close_message(DebugMessage::ClosePanel)
+                // `handle_message` is the only place holding both the world and
+                // the panel state, so it is where a component edit is written.
+                .with_message_handler(handle_debug_message)
                 .with_view(view);
 
             layer_renderers.push(Box::new(IcedLayerRenderer::new(panel)));
         }
 
-        orbital_core::logging::debug!("DebugUiModule: registered 3 debug panels");
+        orbital_core::logging::debug!("DebugUiModule: registered 4 debug panels");
+    }
+}
+
+/// Applies a debug panel's message to the world.
+///
+/// Everything a panel changes lives in the `DebugUiState` resource, so this
+/// routes the message there and performs any component write.
+fn handle_debug_message(
+    _panel: &mut IcedState<DebugMessage>,
+    message: DebugMessage,
+    world: &mut World,
+) {
+    if let DebugMessage::ApplyField(key) = message {
+        let input = world
+            .get_resource::<DebugUiState>()
+            .and_then(|state| state.field_buffers.get(&key.type_id).cloned())
+            .unwrap_or_default();
+
+        let result = inspector::apply_edit(world, key, &input);
+        let failure = result.as_ref().err().cloned();
+
+        if let Some(mut state) = world.get_resource_mut::<DebugUiState>() {
+            state.last_error = failure;
+            // Drop the buffer so the field falls back to the component's value.
+            state.field_buffers.remove(&key.type_id);
+            state.dirty = true;
+        }
+
+        match result {
+            Ok(()) => orbital_core::logging::debug!(
+                "debug UI: applied {:?} on entity {}",
+                key.type_id,
+                key.entity.index
+            ),
+            Err(error) => orbital_core::logging::warn!("debug UI edit failed: {error}"),
+        }
+
+        return;
+    }
+
+    if let Some(mut state) = world.get_resource_mut::<DebugUiState>() {
+        state.apply(&message);
     }
 }
 
