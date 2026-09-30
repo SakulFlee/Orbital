@@ -22,7 +22,23 @@ impl<T> ComponentStore<T> {
         }
     }
 
+    /// Attaches `component` to `entity_id`, replacing any value the entity
+    /// already had for this component type.
+    ///
+    /// Re-attaching does not grow the store: the existing slot is overwritten
+    /// in place, so `dense`/`components` never accumulate orphaned entries.
     pub fn attach(&mut self, entity_id: usize, component: T) {
+        if entity_id >= self.sparse.len() {
+            self.sparse.resize(entity_id + 1, None);
+        }
+
+        if let Some(component_index) = self.sparse[entity_id] {
+            // Entity already has this component: overwrite in place so the
+            // dense sets stay free of orphans.
+            self.components[component_index] = component;
+            return;
+        }
+
         // Aquire next index
         let next_index = self.components.len();
 
@@ -31,9 +47,6 @@ impl<T> ComponentStore<T> {
         self.dense.push(entity_id);
 
         // Update sparse map
-        if entity_id >= self.sparse.len() {
-            self.sparse.resize(entity_id + 1, None);
-        }
         self.sparse[entity_id] = Some(next_index);
     }
 
