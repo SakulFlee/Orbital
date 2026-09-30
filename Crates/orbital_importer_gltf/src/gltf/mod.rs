@@ -45,6 +45,10 @@ mod error;
 pub use error::*;
 use orbital_core::quaternion::quaternion_to_pitch_yaw;
 
+/// Far plane used for glTF perspective cameras that omit the optional `zfar`,
+/// matching the default in [`CameraDescriptor::default`].
+const DEFAULT_FAR: f32 = 10_000.0;
+
 /// The result of parsing a glTF document: the document plus its decoded
 /// buffers and images.
 ///
@@ -1187,7 +1191,14 @@ impl GltfImporter {
             aspect: perspective.aspect_ratio().unwrap_or(16.0 / 9.0),
             fovy: perspective.yfov(),
             near: perspective.znear(),
-            far: perspective.znear(),
+            // `zfar` is optional for perspective cameras in glTF, so fall back to the
+            // engine's default far plane when it is absent. Clamp to stay strictly
+            // beyond `near`, otherwise a malformed `zfar <= znear` trips the
+            // `assert!(far > near)` in `orbital_math::projection::perspective_wgpu`.
+            far: perspective
+                .zfar()
+                .unwrap_or(DEFAULT_FAR)
+                .max(perspective.znear() * 2.0),
             global_gamma: CameraDescriptor::DEFAULT_GAMMA,
         };
 
@@ -1306,5 +1317,66 @@ impl GltfImporter {
         };
 
         Ok(light_descriptor)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Minimal valid glTF holding a single perspective camera.
+    const PERSPECTIVE_CAMERA_GLTF: &str = r#"{
+        "asset": { "version": "2.0" },
+        "cameras": [
+            {
+                "type": "perspective",
+                "perspective": { "yfov": 0.8, "znear": 0.1, "zfar": 100.0 }
+            }
+        ],
+        "nodes": [{ "camera": 0 }],
+        "scenes": [{ "nodes": [0] }],
+        "scene": 0
+    }"#;
+
+    /// Parses the first camera of `json` and returns its descriptor.
+    fn parse_first_camera(json: &str) -> CameraDescriptor {
+        let gltf = gltf::Gltf::from_slice(json.as_bytes()).expect("fixture is valid glTF");
+        let node = gltf.nodes().next().expect("fixture has a node");
+        let camera = node.camera().expect("node references a camera");
+
+        GltfImporter::parse_camera(&node, &camera, &[]).expect("camera parses")
+    }
+
+    #[test]
+    fn parse_camera_uses_zfar_from_the_gltf() {
+        let descriptor = parse_first_camera(PERSPECTIVE_CAMERA_GLTF);
+
+        assert_eq!(descriptor.near, 0.1);
+        assert_eq!(descriptor.far, 100.0);
+    }
+
+    /// `zfar` is optional for perspective cameras; the far plane must then fall
+    /// back to the engine default instead of collapsing onto the near plane.
+    #[test]
+    fn parse_camera_falls_back_when_zfar_is_absent() {
+        let json = PERSPECTIVE_CAMERA_GLTF.replace(", \"zfar\": 100.0", "");
+
+        let descriptor = parse_first_camera(&json);
+
+        assert_eq!(descriptor.near, 0.1);
+        assert_eq!(descriptor.far, DEFAULT_FAR);
+        assert!(descriptor.far > descriptor.near);
+    }
+
+    /// A malformed `zfar` at or below `znear` would otherwise reach
+    /// `perspective_wgpu`, which asserts that the far plane is beyond the near
+    /// plane. Keep the descriptor renderable instead of panicking on import.
+    #[test]
+    fn parse_camera_keeps_far_beyond_near_for_malformed_zfar() {
+        let json = PERSPECTIVE_CAMERA_GLTF.replace("\"zfar\": 100.0", "\"zfar\": 0.05");
+
+        let descriptor = parse_first_camera(&json);
+
+        assert!(descriptor.far > descriptor.near);
     }
 }
