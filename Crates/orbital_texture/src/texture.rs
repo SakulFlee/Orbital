@@ -87,18 +87,24 @@ enum DataSizeCheck {
 }
 
 /// Compares the length of a pixel buffer against the number of bytes needed to
-/// cover mip level 0 of `size`.
+/// cover mip level 0 of the given extent.
 ///
 /// `write_texture` does not require 256-byte row alignment (unlike
 /// `copy_buffer_to_texture`), and it spans every array layer of the extent, so
 /// the requirement is exactly `width * bytes_per_pixel * height *
 /// depth_or_array_layers`. Computed in `usize` with `checked_mul` because the
 /// `u32` extents overflow for large textures.
-fn classify_data_size(size: &TextureSize, bytes_per_pixel: u32, actual: usize) -> DataSizeCheck {
-    let Some(required) = (size.width as usize)
+fn classify_data_size(
+    width: u32,
+    height: u32,
+    depth_or_array_layers: u32,
+    bytes_per_pixel: u32,
+    actual: usize,
+) -> DataSizeCheck {
+    let Some(required) = (width as usize)
         .checked_mul(bytes_per_pixel as usize)
-        .and_then(|bytes_per_row| bytes_per_row.checked_mul(size.height as usize))
-        .and_then(|layer| layer.checked_mul(size.depth_or_array_layers as usize))
+        .and_then(|bytes_per_row| bytes_per_row.checked_mul(height as usize))
+        .and_then(|layer| layer.checked_mul(depth_or_array_layers as usize))
     else {
         return DataSizeCheck::Unvalidatable;
     };
@@ -107,6 +113,51 @@ fn classify_data_size(size: &TextureSize, bytes_per_pixel: u32, actual: usize) -
         Ordering::Less => DataSizeCheck::Undersized { required },
         Ordering::Greater => DataSizeCheck::Surplus { required },
         Ordering::Equal => DataSizeCheck::Exact,
+    }
+}
+
+/// Rejects a pixel buffer that is too small for the extent it is uploaded to.
+///
+/// Surplus data is only warned about: uploading a whole mip chain, as the
+/// cube-map IBL descriptors do, legitimately carries more than a single layer.
+fn validate_data_size(
+    width: u32,
+    height: u32,
+    depth_or_array_layers: u32,
+    bytes_per_pixel: u32,
+    format: TextureFormat,
+    actual: usize,
+) -> Result<(), TextureError> {
+    match classify_data_size(
+        width,
+        height,
+        depth_or_array_layers,
+        bytes_per_pixel,
+        actual,
+    ) {
+        DataSizeCheck::Undersized { required } => Err(TextureError::DataSizeMismatch {
+            expected: required,
+            actual,
+            width,
+            height,
+            depth_or_array_layers,
+            bytes_per_pixel,
+        }),
+        DataSizeCheck::Surplus { required } => {
+            log::warn!(
+                "Texture data surplus: expected {} bytes ({}x{}x{} @ {} bytes/pixel), \
+                 got {} bytes. Format: {:?}",
+                required,
+                width,
+                height,
+                depth_or_array_layers,
+                bytes_per_pixel,
+                actual,
+                format
+            );
+            Ok(())
+        }
+        DataSizeCheck::Exact | DataSizeCheck::Unvalidatable => Ok(()),
     }
 }
 
@@ -146,14 +197,14 @@ impl Texture {
                 sampler_descriptor,
                 size,
                 data,
-            } => Ok(Self::from_descriptors_and_data(
+            } => Self::from_descriptors_and_data(
                 texture_descriptor,
                 view_descriptor,
                 sampler_descriptor,
                 Some((data, *size)),
                 device,
                 queue,
-            )),
+            ),
         }
     }
 
@@ -467,35 +518,15 @@ impl Texture {
         let calculated_bytes_per_row = size.width * bytes_per_pixel;
 
         // Too little data: `write_texture` would leave the tail of the texture
-        // undefined, so refuse the upload instead of corrupting it. Surplus data
-        // stays a warning, because uploading a full mip chain (as the cube-map
-        // IBL descriptors do) legitimately exceeds a single layer.
-        match classify_data_size(size, bytes_per_pixel, pixels.len()) {
-            DataSizeCheck::Undersized { required } => {
-                return Err(TextureError::DataSizeMismatch {
-                    expected: required,
-                    actual: pixels.len(),
-                    width: size.width,
-                    height: size.height,
-                    depth_or_array_layers: size.depth_or_array_layers,
-                    bytes_per_pixel,
-                });
-            }
-            DataSizeCheck::Surplus { required } => {
-                log::warn!(
-                    "Texture data surplus: expected {} bytes ({}x{}x{} @ {} bytes/pixel), \
-                     got {} bytes. Format: {:?}",
-                    required,
-                    size.width,
-                    size.height,
-                    size.depth_or_array_layers,
-                    bytes_per_pixel,
-                    pixels.len(),
-                    format
-                );
-            }
-            DataSizeCheck::Exact | DataSizeCheck::Unvalidatable => {}
-        }
+        // undefined, so refuse the upload instead of corrupting it.
+        validate_data_size(
+            size.width,
+            size.height,
+            size.depth_or_array_layers,
+            bytes_per_pixel,
+            format,
+            pixels.len(),
+        )?;
 
         // Write the data into the texture buffer
         queue.write_texture(
@@ -553,6 +584,9 @@ impl Texture {
             device,
             queue,
         )
+        // A depth texture is a pure render target: it is created without any
+        // pixel data, so the upload validation inside cannot fail.
+        .expect("depth textures carry no pixel data, so size validation cannot fail")
     }
 
     pub fn from_descriptors_and_data(
@@ -562,7 +596,7 @@ impl Texture {
         data_and_size: Option<(&[u8], Extent3d)>,
         device: &Device,
         queue: &Queue,
-    ) -> Self {
+    ) -> Result<Self, TextureError> {
         let texture_format = texture_descriptor.format;
 
         let texture = device.create_texture(texture_descriptor);
@@ -580,6 +614,21 @@ impl Texture {
         let self_texture = Self::from_existing(texture, view, sampler, view_dimension);
 
         if let Some((data, size)) = data_and_size {
+            let bytes_per_pixel = texture_format
+                .target_pixel_byte_cost()
+                .expect("Need to acquire target pixel byte cost for correct texture mapping!");
+
+            // Same guard as `from_data`: refuse an undersized upload rather
+            // than leaving the tail of the texture undefined.
+            validate_data_size(
+                size.width,
+                size.height,
+                size.depth_or_array_layers,
+                bytes_per_pixel,
+                texture_format,
+                data.len(),
+            )?;
+
             queue.write_texture(
                 TexelCopyTextureInfo {
                     texture: self_texture.texture(),
@@ -590,17 +639,14 @@ impl Texture {
                 data,
                 TexelCopyBufferLayout {
                     offset: 0,
-                    bytes_per_row: Some(
-                        size.width * texture_format.target_pixel_byte_cost().expect("Need to acquire target pixel byte cost for correct texture mapping!",
-                        ),
-                    ),
+                    bytes_per_row: Some(size.width * bytes_per_pixel),
                     rows_per_image: Some(size.height),
                 },
                 size,
             );
         }
 
-        self_texture
+        Ok(self_texture)
     }
 
     pub fn from_existing(
@@ -725,29 +771,26 @@ impl Texture {
 mod tests {
     use super::*;
 
-    fn size(width: u32, height: u32, depth_or_array_layers: u32) -> TextureSize {
-        TextureSize {
-            width,
-            height,
-            depth_or_array_layers,
-            base_mip: 0,
-            mip_levels: 1,
-        }
+    fn classify(
+        width: u32,
+        height: u32,
+        depth_or_array_layers: u32,
+        bpp: u32,
+        actual: usize,
+    ) -> DataSizeCheck {
+        classify_data_size(width, height, depth_or_array_layers, bpp, actual)
     }
 
     #[test]
     fn exact_match_is_accepted() {
         // 4x4 Rgba8Unorm => 4 * 4 * 4 = 64 bytes for one layer.
-        assert_eq!(
-            classify_data_size(&size(4, 4, 1), 4, 64),
-            DataSizeCheck::Exact
-        );
+        assert_eq!(classify(4, 4, 1, 4, 64), DataSizeCheck::Exact);
     }
 
     #[test]
     fn undersized_data_is_rejected() {
         assert_eq!(
-            classify_data_size(&size(4, 4, 1), 4, 63),
+            classify(4, 4, 1, 4, 63),
             DataSizeCheck::Undersized { required: 64 }
         );
     }
@@ -755,14 +798,11 @@ mod tests {
     #[test]
     fn array_layers_are_included_in_the_requirement() {
         // 2x2 Rgba8Unorm with 6 cube faces => 2 * 4 * 2 * 6 = 96 bytes.
-        assert_eq!(
-            classify_data_size(&size(2, 2, 6), 4, 96),
-            DataSizeCheck::Exact
-        );
+        assert_eq!(classify(2, 2, 6, 4, 96), DataSizeCheck::Exact);
         // The old check ignored depth_or_array_layers and would have wrongly
         // flagged this 96-byte upload as a mismatch against 16 bytes.
         assert_eq!(
-            classify_data_size(&size(2, 2, 6), 4, 95),
+            classify(2, 2, 6, 4, 95),
             DataSizeCheck::Undersized { required: 96 }
         );
     }
@@ -776,18 +816,41 @@ mod tests {
         let required = 2 * 4 * 2 * 6;
         let whole_chain = required * 3;
         assert_eq!(
-            classify_data_size(&size(2, 2, 6), 4, whole_chain),
+            classify(2, 2, 6, 4, whole_chain),
             DataSizeCheck::Surplus { required }
         );
+        assert!(validate_data_size(2, 2, 6, 4, TextureFormat::Rgba8Unorm, whole_chain).is_ok());
     }
 
     #[test]
     fn overflowing_extent_is_unvalidatable() {
         // u32::MAX squared overflows usize-independent of the real allocation.
         assert_eq!(
-            classify_data_size(&size(u32::MAX, u32::MAX, u32::MAX), 4, 0),
+            classify(u32::MAX, u32::MAX, u32::MAX, 4, 0),
             DataSizeCheck::Unvalidatable
         );
+    }
+
+    #[test]
+    fn validate_data_size_rejects_undersized_uploads() {
+        let err = validate_data_size(4, 4, 1, 4, TextureFormat::Rgba8Unorm, 16);
+        assert!(matches!(
+            err,
+            Err(TextureError::DataSizeMismatch {
+                expected: 64,
+                actual: 16,
+                width: 4,
+                height: 4,
+                depth_or_array_layers: 1,
+                bytes_per_pixel: 4,
+            })
+        ));
+    }
+
+    #[test]
+    fn validate_data_size_accepts_exact_and_surplus_uploads() {
+        assert!(validate_data_size(4, 4, 1, 4, TextureFormat::Rgba8Unorm, 64).is_ok());
+        assert!(validate_data_size(4, 4, 1, 4, TextureFormat::Rgba8Unorm, 4096).is_ok());
     }
 
     #[test]

@@ -612,7 +612,7 @@ impl WorldEnvironment {
             )),
             device,
             queue,
-        );
+        )?;
 
         let bind_group_layout =
             device.create_bind_group_layout(&Self::bind_group_layout_descriptor());
