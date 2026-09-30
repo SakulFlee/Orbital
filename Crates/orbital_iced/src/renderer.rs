@@ -33,6 +33,8 @@ struct RendererInner<M: Clone + PartialEq + Send + Sync + 'static> {
     cache: Option<iced_runtime::user_interface::Cache>,
     /// The size `interface` was laid out for, so a resize forces a rebuild.
     layout_size: Option<(u32, u32)>,
+    /// When `interface` was last rebuilt, for `refresh_interval`.
+    last_build: Option<std::time::Instant>,
 }
 
 // SAFETY: both phases run on the event-loop thread, within one frame, and
@@ -129,6 +131,7 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
                     interface: None,
                     cache: Some(iced_runtime::user_interface::Cache::new()),
                     layout_size: None,
+                    last_build: None,
                 });
             }
         }
@@ -209,8 +212,8 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
             }
         }
 
-        // Build view and interface.
-        let view = self.state.view(ecs);
+        // The view is built later, and only if the tree is actually being
+        // rebuilt; `window_size` is needed either way.
         let window_size = ecs
             .get_resource::<WindowSize>()
             .map(|size| (size.0.x, size.0.y));
@@ -225,35 +228,52 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
 
         let mut guard = self.inner.lock().unwrap();
         let inner = guard.as_mut().unwrap();
-        let renderer = &mut inner.renderer;
 
-        // Reclaim the widget state from the interface built last frame before
-        // dropping it. Without this the `Cache` would be empty on every build
-        // and scroll offsets, text cursors and hover state would reset each
-        // frame.
-        if let Some(previous) = inner.interface.take() {
-            inner.cache = Some(previous.into_cache());
-        }
+        // Decide whether to rebuild the widget tree. Rebuilding re-runs the
+        // widget-tree diff and layout, which is the expensive part; input is
+        // routed below either way, so throttling this never delays a click.
+        let resized = inner.layout_size != window_size;
+        let stale = inner
+            .last_build
+            .is_none_or(|last| last.elapsed() >= self.state.refresh_interval());
+        let reuse = inner.interface.is_some() && !resized && !self.state.is_dirty() && !stale;
 
-        // Rebuild the widget tree, diffing against the reclaimed cache.
-        let mut interface = iced_runtime::user_interface::UserInterface::build(
-            view,
-            logical_size,
-            inner.cache.take().unwrap_or_default(),
-            renderer,
-        );
+        let mut interface = if reuse {
+            inner.interface.take()
+        } else {
+            // Reclaim the widget state from the interface built last frame
+            // before dropping it. Without this the `Cache` would be empty on
+            // every build and scroll offsets, text cursors and hover state
+            // would reset each frame.
+            if let Some(previous) = inner.interface.take() {
+                inner.cache = Some(previous.into_cache());
+            }
+
+            let view = self.state.view(ecs);
+            let cache = inner.cache.take().unwrap_or_default();
+
+            Some(iced_runtime::user_interface::UserInterface::build(
+                view,
+                logical_size,
+                cache,
+                &mut inner.renderer,
+            ))
+        };
 
         let waker = iced_winit::core::shell::Waker::noop();
         let mut bus = iced_winit::core::shell::Bus::new();
 
-        let (_, event_statuses) = interface.update(
-            &NoopWindow,
-            &waker,
-            &iced_core_events,
-            cursor,
-            renderer,
-            &mut bus,
-        );
+        let (_, event_statuses) = interface
+            .as_mut()
+            .expect("interface was just built or reused")
+            .update(
+                &NoopWindow,
+                &waker,
+                &iced_core_events,
+                cursor,
+                &mut inner.renderer,
+                &mut bus,
+            );
 
         // Process messages. Done *after* `update` so a panel can react to a
         // click, and so the state change lands in the next frame's view.
@@ -304,11 +324,16 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
             }
         }
 
-        // Hand the built interface to `render` instead of dropping it. The
-        // cache is *not* taken back here: the retained interface owns the
-        // widget state until the next rebuild.
-        inner.interface = Some(interface);
+        // Hand the interface to `render` instead of dropping it. The cache is
+        // *not* taken back here: the retained interface owns the widget state
+        // until the next rebuild.
+        if !reuse {
+            inner.last_build = Some(std::time::Instant::now());
+        }
+
+        inner.interface = interface;
         inner.layout_size = window_size;
+        self.state.mark_built();
     }
 
     fn render(&mut self, ctx: RenderOverlayContext) {
@@ -349,6 +374,7 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
                     interface: None,
                     cache: Some(iced_runtime::user_interface::Cache::new()),
                     layout_size: None,
+                    last_build: None,
                 });
             }
         }

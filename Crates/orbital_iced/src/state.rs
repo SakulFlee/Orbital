@@ -38,6 +38,12 @@ pub struct IcedState<M: Clone + PartialEq + Send + Sync + 'static = Message> {
     visible: bool,
     close_message: Option<M>,
     view_fn: Option<ViewFn<M>>,
+    /// Set when the panel's content needs rebuilding. Cleared by the renderer
+    /// after each rebuild.
+    dirty: bool,
+    /// How long the renderer may reuse the previous widget tree before
+    /// rebuilding it anyway. Zero (the default) means every frame.
+    refresh_interval: std::time::Duration,
 }
 
 impl<M: Clone + PartialEq + Send + Sync + 'static> Default for IcedState<M> {
@@ -50,6 +56,8 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> Default for IcedState<M> {
             visible: true,
             close_message: None,
             view_fn: None,
+            dirty: true,
+            refresh_interval: std::time::Duration::ZERO,
         }
     }
 }
@@ -139,6 +147,49 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> IcedState<M> {
         self.visible
     }
 
+    /// Rebuild the widget tree at most this often.
+    ///
+    /// A panel whose content changes every frame does not need its view rebuilt
+    /// every frame, and the rebuild is the expensive part: it re-runs the
+    /// widget-tree diff and layout, and calls the view closure. With this set,
+    /// the tree is still rebuilt immediately whenever
+    /// [`mark_dirty`](Self::mark_dirty) has been called, and otherwise at most
+    /// once per interval.
+    ///
+    /// Note that input is *not* throttled: events are still routed to the
+    /// retained widget tree every frame, so a click is always hit-tested
+    /// against a live layout. Only the redraw of the tree is rate-limited, and
+    /// the consequence is that externally-driven changes — a component value
+    /// moving, say — can appear up to one interval late.
+    ///
+    /// The default is zero, i.e. rebuild every frame, which is what a panel
+    /// showing live game state normally wants.
+    pub fn with_refresh_interval(mut self, interval: std::time::Duration) -> Self {
+        self.refresh_interval = interval;
+        self
+    }
+
+    /// Requests a rebuild on the next frame, bypassing
+    /// [`refresh_interval`](Self::with_refresh_interval).
+    pub fn mark_dirty(&mut self) {
+        self.dirty = true;
+    }
+
+    /// Whether the widget tree is due for a rebuild.
+    pub fn is_dirty(&self) -> bool {
+        self.dirty
+    }
+
+    /// Records that the tree was just rebuilt.
+    pub fn mark_built(&mut self) {
+        self.dirty = false;
+    }
+
+    /// How long the renderer may reuse the previous tree.
+    pub fn refresh_interval(&self) -> std::time::Duration {
+        self.refresh_interval
+    }
+
     /// Handles a message published by one of this panel's widgets.
     ///
     /// `world` is the live ECS world, so a panel can apply whatever change its
@@ -149,6 +200,9 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> IcedState<M> {
     /// other messages should hold their own state and handle it in their view
     /// closure, or drive the world from a system.
     pub fn handle_message(&mut self, message: M, _world: &mut World) {
+        // A message means something changed, so the tree is stale.
+        self.dirty = true;
+
         if self.close_message.as_ref() == Some(&message) {
             log::info!("Panel '{}' closed", self.title);
             self.visible = false;
@@ -334,6 +388,46 @@ mod tests {
 
         let state = crate::bridge::apply_builtin_defaults(state);
         assert!(state.has_view());
+    }
+
+    #[test]
+    fn a_new_panel_is_dirty_so_it_builds_on_the_first_frame() {
+        let state: IcedState = IcedState::new();
+        assert!(state.is_dirty());
+    }
+
+    #[test]
+    fn marking_built_clears_dirty_and_mark_dirty_sets_it_again() {
+        let mut state: IcedState = IcedState::new();
+
+        state.mark_built();
+        assert!(!state.is_dirty());
+
+        state.mark_dirty();
+        assert!(state.is_dirty());
+    }
+
+    #[test]
+    fn handling_a_message_marks_the_panel_dirty() {
+        let mut state: IcedState = IcedState::titled("t")
+            .with_close_message(Message::ClosePanel)
+            .with_refresh_interval(std::time::Duration::from_secs(10));
+        let mut world = World::new();
+
+        // Even an unrelated message, and even with a long refresh interval:
+        // a message means something changed, so the tree must be rebuilt.
+        state.mark_built();
+        state.handle_message(Message::ButtonPressed("x".into()), &mut world);
+        assert!(state.is_dirty());
+    }
+
+    #[test]
+    fn the_default_refresh_interval_is_unthrottled() {
+        assert_eq!(
+            IcedState::<Message>::new().refresh_interval(),
+            std::time::Duration::ZERO,
+            "zero means rebuild every frame"
+        );
     }
 
     #[test]

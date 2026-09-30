@@ -14,6 +14,7 @@
 //! data and there is no snapshot to keep in sync.
 
 pub mod panels;
+pub mod sparkline;
 pub mod state;
 
 use iced_wgpu::Renderer as IcedRenderer;
@@ -141,6 +142,12 @@ impl Module for DebugUiModule {
             let panel = IcedState::<DebugMessage>::titled(title)
                 .with_position(position.0, position.1)
                 .with_close_message(DebugMessage::ClosePanel)
+                // Rebuilding the tree means re-running the widget diff and
+                // layout, and these panels re-read the whole world to do it.
+                // At 20 Hz the numbers stay perfectly readable, and
+                // `mark_dirty` — which `handle_message` does — bypasses the
+                // interval, so a click still shows up immediately.
+                .with_refresh_interval(std::time::Duration::from_millis(50))
                 .with_view(view);
 
             layer_renderers.push(Box::new(IcedLayerRenderer::new(panel)));
