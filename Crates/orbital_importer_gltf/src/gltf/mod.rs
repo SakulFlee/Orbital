@@ -899,10 +899,12 @@ impl GltfImporter {
                 warn!("Primitive has no positions. Skipping mesh primitive.");
                 continue;
             };
-            let Some(indices) = reader.read_indices().map(|x| x.into_u32()) else {
-                warn!("Primitive has no indices. Skipping mesh primitive.");
-                continue;
-            };
+            // A glTF primitive is allowed to omit its index accessor, in which
+            // case the spec defines its vertices as implicitly indexed 0..N in
+            // order. Keep the option open here rather than skipping the
+            // primitive, and resolve it to a sequential index list below once
+            // `positions_vec` says how many vertices there actually are.
+            let indices = reader.read_indices().map(|x| x.into_u32());
             let normals = reader.read_normals();
             let tangents = reader.read_tangents();
             let uvs = reader.read_tex_coords(0).map(|x| x.into_f32());
@@ -916,8 +918,23 @@ impl GltfImporter {
 
             // Collect all data into vectors first to avoid iterator issues
             let positions_vec: Vec<_> = positions.map(|p| Vector3::new(p[0], p[1], p[2])).collect();
-            // Collect indices early as they are needed for normal calculation if normals are missing
-            let indices_vec: Vec<u32> = indices.collect();
+            // Collected early: both the normal calculation below and the winding
+            // flip further down need them. A primitive that came without an
+            // index accessor is implicitly indexed 0..N, so synthesize that
+            // here rather than leaving the primitive unindexed.
+            let indices_vec: Vec<u32> = match indices {
+                Some(indices) => indices.collect(),
+                None => {
+                    let vertex_count = positions_vec.len();
+                    if vertex_count % 3 != 0 {
+                        warn!(
+                            "Primitive has no index accessor and {vertex_count} vertices, which is not a whole number of triangles; the trailing {} will be dropped.",
+                            vertex_count % 3
+                        );
+                    }
+                    (0..vertex_count as u32).collect()
+                }
+            };
 
             // --- Normal Calculation Logic Start ---
             let normals_vec = if let Some(normals_iter) = normals {
