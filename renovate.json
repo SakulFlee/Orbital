@@ -1,5 +1,24 @@
 {
   "extends": [
     "config:recommended"
+  ],
+  "git-submodules": {
+    "enabled": true
+  },
+  "packageRules": [
+    {
+      "description": "bincode 3.0.0 is a tombstone release: its entire lib.rs is a single compile_error!(). Upstream development has ceased and 3.0.0 was published only to signal that status, so no 3.x will ever build.",
+      "matchPackageNames": [
+        "bincode"
+      ],
+      "allowedVersions": "<3.0.0"
+    },
+    {
+      "description": "cosmic-text is pinned to a commit on hecrj's experimental `dev` branch rather than the default branch. The orbital-iced fork depends on unreleased APIs from that branch (cosmic_text::SpanPadding, LayoutGlyph::{ascender,descender}), so a digest \"update\" to the default branch is really a backwards downgrade that does not compile.",
+      "matchPackageNames": [
+        "cosmic-text"
+      ],
+      "enabled": false
+    }
   ]
 }

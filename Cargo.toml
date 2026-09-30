@@ -28,14 +28,14 @@ wgpu = { version = "30.0.0", features = [
   "wgsl",
 ] }
 cgmath = "0.18.0"
-dirs = "6.0.0"
+dirs = "7.0.0"
 gltf = { version = "1.4.1", features = ["KHR_lights_punctual"] }
 fern = "0.7.0"
 hashbrown = "0.17.0"
 humantime = "2.1.0"
 fontdue = "0.9.0"
 rand = "0.10.0"
-ulid = "1.0"
+ulid = "3.0"
 glob = "0.3.1"
 gilrs = "0.11.0"
 android_logger = "0.15.0"
@@ -81,11 +81,11 @@ futures = { version = "0.3", default-features = false, features = [
   "async-await",
 ] }
 glam = "0.33.2"
-guillotiere = "0.6"
+guillotiere = "0.7"
 half = "2.2"
 image = "0.25.0"
 kamadak-exif = "0.6"
-kurbo = "0.10"
+kurbo = "0.13"
 lilt = "0.8"
 log = "0.4.21"
 lyon = "1.0"
@@ -94,11 +94,11 @@ mundy = { version = "0.2", default-features = false }
 nom = "8"
 num-traits = "0.2"
 png = "0.18"
-pulldown-cmark = "0.12"
+pulldown-cmark = "0.13"
 qrcode = { version = "0.13", default-features = false }
 raw-window-handle = "0.6"
 resvg = { version = "0.45", default-features = false }
-rfd = "0.16"
+rfd = "0.17"
 rustc-hash = "2.0"
 semver = "1.0"
 serde = { version = "1.0.174", features = ["derive"] }
@@ -107,9 +107,9 @@ sipper = "0.2"
 smol = "2"
 smol_str = "0.2"
 softbuffer = { version = "0.4", default-features = false }
-sysinfo = "0.33"
+sysinfo = "0.39"
 thiserror = "2"
-tiny-skia = { version = "0.11", default-features = false, features = [
+tiny-skia = { version = "0.12", default-features = false, features = [
   "std",
   "simd",
 ] }

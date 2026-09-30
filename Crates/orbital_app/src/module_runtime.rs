@@ -830,7 +830,7 @@ impl ModuleRuntime {
                 &view,
                 &world_bind_group,
                 env_ibl.as_ref().map(|a| a.as_ref()),
-                models,
+                &models,
                 device,
                 queue,
                 cull,
@@ -1229,8 +1229,10 @@ impl ModuleRuntime {
         // Snapshot input state AFTER deferred touches are processed so game
         // systems (camera controller, etc.) see the current frame's touch
         // data — including right-side look deltas.
+        // `take_snapshot` moves the per-frame delta maps into the resource
+        // instead of deep-cloning the whole `InputState`.
         self.ecs_world
-            .insert_resource(InputSnapshot(self.input_state.clone()));
+            .insert_resource(InputSnapshot(self.input_state.take_snapshot()));
 
         // Run core schedule (timing, frame counter)
         self.core_schedule.run(&mut self.ecs_world);
