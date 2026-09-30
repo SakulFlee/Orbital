@@ -131,7 +131,7 @@ impl Renderer {
         target_view: &TextureView,
         world_bind_group: &BindGroup,
         world_environment_option: Option<&WorldEnvironment>,
-        models: Vec<&Model>,
+        models: &[&Model],
         device: &Device,
         queue: &Queue,
         cull: Option<&CullResources>,
@@ -156,7 +156,7 @@ impl Renderer {
         {
             sr.render(
                 &mut command_encoder,
-                &models,
+                models,
                 shadow_lights,
                 pvp,
                 camera_near,
@@ -287,7 +287,7 @@ impl Renderer {
 
     fn render_models(
         &self,
-        models: Vec<&Model>,
+        models: &[&Model],
         target_view: &TextureView,
         world_bind_group: &BindGroup,
         command_encoder: &mut CommandEncoder,
