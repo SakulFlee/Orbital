@@ -161,6 +161,199 @@ impl World {
             _marker: PhantomData,
         })
     }
+
+    /// The number of entities that are currently alive.
+    ///
+    /// This is `generations.len() - free_indices.len()`; it counts indices that
+    /// have been used, including any that were despawned and are awaiting reuse.
+    pub fn entity_count(&self) -> usize {
+        self.generations.len() - self.free_indices.len()
+    }
+
+    /// Iterates over every live entity.
+    ///
+    /// Despawned indices are skipped, and each yielded [`Entity`] carries the
+    /// current generation, so the result can be fed back into
+    /// [`is_valid`](World::is_valid) or component accessors.
+    pub fn entities(&self) -> impl Iterator<Item = Entity> + '_ {
+        self.generations
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| !self.free_indices.contains(index))
+            .map(|(index, generation)| Entity::new(index, *generation))
+    }
+
+    /// Iterates over every registered component store, paired with the
+    /// [`TypeId`] of the component type it holds.
+    ///
+    /// A store is registered lazily on the first
+    /// [`attach_component`](World::attach_component) for its component type, so
+    /// this only ever yields types that have actually been attached at least
+    /// once.
+    ///
+    /// The iteration order is unspecified and may differ between calls. Sort
+    /// by [`WorldComponentStorage::component_type_name`] if you need a stable
+    /// order.
+    pub fn component_stores(
+        &self,
+    ) -> impl Iterator<Item = (TypeId, &RwLock<Box<dyn WorldComponentStorage>>)> + '_ {
+        self.component_ids
+            .iter()
+            .map(|(type_id, index)| (*type_id, &self.component_stores[*index]))
+    }
+
+    /// Looks up the [`TypeId`] of a component type without attaching one.
+    pub fn type_id_of<C: 'static>(&self) -> Option<TypeId> {
+        let type_id = TypeId::of::<C>();
+        self.component_ids.contains_key(&type_id).then_some(type_id)
+    }
+
+    /// The value of the component of type `type_id` held by `entity`, as a
+    /// type-erased [`Debug`].
+    ///
+    /// Returns `None` if the type has no store, or the entity does not hold it.
+    /// This is the read path an inspector uses to display a component it has
+    /// no static knowledge of.
+    ///
+    /// The returned handle keeps the store's read lock alive, so do not call
+    /// [`set_component_any`](World::set_component_any) or
+    /// [`insert_component_any`](World::insert_component_any) on the same
+    /// component type while it is alive.
+    pub fn component_debug(
+        &self,
+        type_id: TypeId,
+        entity: &Entity,
+    ) -> Option<ReadComponentHandle<'_>> {
+        let store_idx = *self.component_ids.get(&type_id)?;
+        let guard = self.component_stores[store_idx]
+            .read()
+            .expect("RwLock poisoned");
+
+        guard.component_any(entity.index)?;
+
+        let store: *const dyn WorldComponentStorage = &**guard;
+
+        Some(ReadComponentHandle {
+            _guard: guard,
+            store,
+            index: entity.index,
+        })
+    }
+
+    /// [`component_debug`](World::component_debug) for `entity`, formatted
+    /// with [`Debug`].
+    ///
+    /// A convenience wrapper for callers that just want to show the value, such
+    /// as a debug inspector, and would rather not hold the read lock that
+    /// [`component_debug`](World::component_debug) keeps alive.
+    pub fn component_debug_string(&self, type_id: TypeId, entity: &Entity) -> Option<String> {
+        Some(format!("{:?}", self.component_debug(type_id, entity)?))
+    }
+
+    /// Whether `entity` holds a component of type `type_id`.
+    pub fn entity_has_component(&self, type_id: TypeId, entity: &Entity) -> bool {
+        let Some(store_idx) = self.component_ids.get(&type_id) else {
+            return false;
+        };
+
+        let Ok(store) = self.component_stores[*store_idx].read() else {
+            return false;
+        };
+
+        store.component_any(entity.index).is_some()
+    }
+
+    /// Every component type currently held by `entity`, paired with its Rust
+    /// type name.
+    ///
+    /// Sorted by type name, so the result is stable across calls. This is the
+    /// "expand an entity" step of an inspector: the caller still needs
+    /// [`component_debug`](World::component_debug) to read each value, but it
+    /// does not have to know `TypeId`s up front.
+    pub fn entity_components(&self, entity: &Entity) -> Vec<(TypeId, &'static str)> {
+        let mut components = self
+            .component_stores()
+            .filter_map(|(_, store)| {
+                let guard = store.read().ok()?;
+                guard
+                    .entity_indices()
+                    .contains(&entity.index)
+                    .then(|| (guard.component_type_id(), guard.component_type_name()))
+            })
+            .collect::<Vec<_>>();
+
+        components.sort_unstable_by(|(_, left), (_, right)| left.cmp(right));
+        components
+    }
+
+    /// Replaces the component of type `type_id` held by `entity` with
+    /// `component`.
+    ///
+    /// `component` is downcast to the type the store holds; a type mismatch
+    /// returns `Err(ECSError::ComponentTypeMismatch)` and leaves the world
+    /// untouched. Attaching a component the entity does not already have
+    /// returns `Err(ECSError::ComponentNotAttached)` — use
+    /// [`insert_component_any`](World::insert_component_any) to add one.
+    pub fn set_component_any(
+        &self,
+        type_id: TypeId,
+        entity: &Entity,
+        component: Box<dyn Any + Send + Sync>,
+    ) -> Result<(), ECSError> {
+        if !self.is_valid(entity) {
+            return Err(ECSError::InvalidEntity(*entity));
+        }
+
+        let store_idx = *self
+            .component_ids
+            .get(&type_id)
+            .ok_or(ECSError::ComponentStoreNotExisting)?;
+
+        let mut store = self.component_stores[store_idx]
+            .write()
+            .expect("RwLock poisoned");
+
+        if !store.entity_indices().contains(&entity.index) {
+            return Err(ECSError::ComponentNotAttached(*entity));
+        }
+
+        if store.set_component_any(entity.index, component) {
+            Ok(())
+        } else {
+            Err(ECSError::ComponentTypeMismatch(type_id))
+        }
+    }
+
+    /// Attaches a component of type `type_id` to `entity`, or replaces the
+    /// existing one.
+    ///
+    /// Behaves like [`set_component_any`](World::set_component_any) except that
+    /// it does not require the entity to already hold the component.
+    pub fn insert_component_any(
+        &self,
+        type_id: TypeId,
+        entity: &Entity,
+        component: Box<dyn Any + Send + Sync>,
+    ) -> Result<(), ECSError> {
+        if !self.is_valid(entity) {
+            return Err(ECSError::InvalidEntity(*entity));
+        }
+
+        let store_idx = *self
+            .component_ids
+            .get(&type_id)
+            .ok_or(ECSError::ComponentStoreNotExisting)?;
+
+        let mut store = self.component_stores[store_idx]
+            .write()
+            .expect("RwLock poisoned");
+
+        if store.set_or_insert_component_any(entity.index, component) {
+            Ok(())
+        } else {
+            Err(ECSError::ComponentTypeMismatch(type_id))
+        }
+    }
 }
 
 impl Debug for World {
@@ -181,12 +374,58 @@ impl Default for World {
     }
 }
 
+/// A type-erased, read-locked view of a single component value.
+///
+/// Returned by [`World::component_debug`]. Dereferences to `dyn Debug`, so the
+/// value can be formatted without knowing its concrete type. Holding one keeps
+/// the owning store read-locked for as long as the handle lives, which is what
+/// makes it sound to hand out a reference without a concrete lifetime.
+pub struct ReadComponentHandle<'a> {
+    _guard: RwLockReadGuard<'a, Box<dyn WorldComponentStorage>>,
+    store: *const dyn WorldComponentStorage,
+    index: usize,
+}
+
+impl<'a> ReadComponentHandle<'a> {
+    /// The value as a type-erased [`Any`], for callers that *do* know the
+    /// concrete component type and want to
+    /// [`downcast_ref`](Any::downcast_ref) it.
+    pub fn as_any(&self) -> &'a dyn Any {
+        // SAFETY: see the `Deref` impl; the guard keeps the value alive for `'a`.
+        unsafe {
+            (*self.store)
+                .component_any(self.index)
+                .expect("component disappeared while its read lock was held")
+        }
+    }
+}
+
+impl<'a> Deref for ReadComponentHandle<'a> {
+    type Target = dyn Debug + 'a;
+
+    fn deref(&self) -> &Self::Target {
+        // SAFETY: `store` points at the `WorldComponentStorage` owned by
+        // `_guard`, which is held for `'a`, so the value can neither be removed
+        // nor replaced while this handle is alive.
+        unsafe {
+            (*self.store)
+                .component_debug(self.index)
+                .expect("component disappeared while its read lock was held")
+        }
+    }
+}
+
+impl std::fmt::Debug for ReadComponentHandle<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(&**self, f)
+    }
+}
+
 pub struct ReadStoreHandle<'a, C: Component> {
     _guard: RwLockReadGuard<'a, Box<dyn WorldComponentStorage>>,
     ptr: *const ComponentStore<C>,
     _marker: PhantomData<&'a C>,
 }
-
 impl<C: Component> Deref for ReadStoreHandle<'_, C> {
     type Target = ComponentStore<C>;
     fn deref(&self) -> &ComponentStore<C> {
@@ -434,5 +673,262 @@ mod tests {
 
         let res_detach = world.detach_component::<String>(&e);
         assert!(res_detach.is_ok());
+    }
+
+    #[derive(Debug, PartialEq)]
+    struct Position {
+        x: f32,
+        y: f32,
+    }
+
+    #[derive(Debug, PartialEq)]
+    struct Health(u32);
+
+    #[test]
+    fn entity_enumeration_skips_despawned_and_reports_count() {
+        let mut world = World::new();
+
+        let e0 = world.spawn_entity();
+        let e1 = world.spawn_entity();
+        let e2 = world.spawn_entity();
+
+        assert_eq!(world.entity_count(), 3);
+        assert_eq!(world.entities().collect::<Vec<_>>(), vec![e0, e1, e2]);
+
+        world.despawn_entity(&e1);
+
+        assert_eq!(world.entity_count(), 2);
+        assert_eq!(world.entities().collect::<Vec<_>>(), vec![e0, e2]);
+
+        // The freed index is reused, with a bumped generation.
+        let e1_new = world.spawn_entity();
+        assert_eq!(e1_new.index, e1.index);
+        assert_eq!(e1_new.generation, 1);
+        assert_eq!(world.entities().collect::<Vec<_>>(), vec![e0, e1_new, e2]);
+    }
+
+    #[test]
+    fn component_store_enumeration_reports_types() {
+        let mut world = World::new();
+        let e = world.spawn_entity();
+
+        assert_eq!(world.component_stores().count(), 0);
+
+        world
+            .attach_component(&e, Position { x: 1.0, y: 2.0 })
+            .expect("Attachment failure");
+        world
+            .attach_component(&e, Health(7))
+            .expect("Attachment failure");
+
+        let mut stores = world
+            .component_stores()
+            .map(|(_, store)| {
+                let guard = store.read().expect("RwLock poisoned");
+                (
+                    guard.component_type_id(),
+                    guard.component_type_name(),
+                    guard.entity_indices().to_vec(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(stores.len(), 2);
+        stores.sort_unstable_by(|(_, left, _), (_, right, _)| left.cmp(right));
+
+        assert_eq!(stores[0].0, TypeId::of::<Health>());
+        assert_eq!(stores[0].1, "orbital_ecs::world::tests::Health");
+        assert_eq!(stores[0].2, vec![e.index]);
+        assert_eq!(stores[1].0, TypeId::of::<Position>());
+        assert_eq!(stores[1].1, "orbital_ecs::world::tests::Position");
+        assert_eq!(stores[1].2, vec![e.index]);
+
+        assert!(world.type_id_of::<Position>().is_some());
+        assert!(world.type_id_of::<u8>().is_none());
+    }
+
+    #[test]
+    fn entity_components_lists_only_held_types_sorted_by_name() {
+        let mut world = World::new();
+        let e0 = world.spawn_entity();
+        let e1 = world.spawn_entity();
+
+        world
+            .attach_component(&e0, Position { x: 1.0, y: 2.0 })
+            .expect("Attachment failure");
+        world
+            .attach_component(&e1, Position { x: 3.0, y: 4.0 })
+            .expect("Attachment failure");
+        world
+            .attach_component(&e1, Health(9))
+            .expect("Attachment failure");
+
+        assert_eq!(
+            world.entity_components(&e0),
+            vec![(
+                TypeId::of::<Position>(),
+                "orbital_ecs::world::tests::Position"
+            )]
+        );
+
+        // Sorted by name: "…::Health" before "…::Position".
+        assert_eq!(
+            world.entity_components(&e1),
+            vec![
+                (TypeId::of::<Health>(), "orbital_ecs::world::tests::Health"),
+                (
+                    TypeId::of::<Position>(),
+                    "orbital_ecs::world::tests::Position"
+                ),
+            ]
+        );
+
+        // Stable across repeated calls despite the HashMap-backed store index.
+        assert_eq!(world.entity_components(&e1), world.entity_components(&e1));
+    }
+
+    #[test]
+    fn dynamic_component_read() {
+        let mut world = World::new();
+        let e = world.spawn_entity();
+        let other = world.spawn_entity();
+
+        world
+            .attach_component(&e, Position { x: 1.5, y: -2.5 })
+            .expect("Attachment failure");
+
+        let position = TypeId::of::<Position>();
+
+        assert!(world.entity_has_component(position, &e));
+        assert!(!world.entity_has_component(position, &other));
+        assert!(!world.entity_has_component(TypeId::of::<Health>(), &e));
+
+        assert_eq!(
+            format!(
+                "{:?}",
+                world.component_debug(position, &e).expect("Missing")
+            ),
+            "Position { x: 1.5, y: -2.5 }"
+        );
+        assert_eq!(
+            world.component_debug_string(position, &e),
+            Some("Position { x: 1.5, y: -2.5 }".to_string())
+        );
+
+        // Missing entity, and a type that has no store at all.
+        assert!(world.component_debug(position, &other).is_none());
+        assert!(world.component_debug(TypeId::of::<Health>(), &e).is_none());
+
+        // The type-erased value can be downcast back to the concrete type.
+        let handle = world.component_debug(position, &e).expect("Missing");
+        assert_eq!(
+            handle
+                .as_any()
+                .downcast_ref::<Position>()
+                .expect("Downcast failed"),
+            &Position { x: 1.5, y: -2.5 }
+        );
+    }
+
+    #[test]
+    fn dynamic_component_write() {
+        let mut world = World::new();
+        let e = world.spawn_entity();
+        let bare = world.spawn_entity();
+
+        let position = TypeId::of::<Position>();
+        let health = TypeId::of::<Health>();
+
+        // No store registered for the type at all.
+        assert!(matches!(
+            world.set_component_any(position, &e, Box::new(Position { x: 0.0, y: 0.0 })),
+            Err(ECSError::ComponentStoreNotExisting)
+        ));
+
+        // Store exists, but this entity does not hold the component yet.
+        world
+            .attach_component(&e, Position { x: 1.0, y: 2.0 })
+            .expect("Attachment failure");
+        assert!(matches!(
+            world.set_component_any(position, &bare, Box::new(Position { x: 0.0, y: 0.0 })),
+            Err(ECSError::ComponentNotAttached(_))
+        ));
+
+        world
+            .set_component_any(position, &e, Box::new(Position { x: 9.0, y: 8.0 }))
+            .expect("Set failure");
+
+        assert_eq!(
+            world.component_debug_string(position, &e),
+            Some("Position { x: 9.0, y: 8.0 }".to_string())
+        );
+
+        // `insert_component_any` replaces rather than duplicating.
+        world
+            .insert_component_any(position, &e, Box::new(Position { x: 0.5, y: 0.5 }))
+            .expect("Insert failure");
+        assert_eq!(
+            world.component_debug_string(position, &e),
+            Some("Position { x: 0.5, y: 0.5 }".to_string())
+        );
+
+        // A type mismatch is rejected and leaves the value untouched.
+        assert!(matches!(
+            world.set_component_any(position, &e, Box::new(Health(1))),
+            Err(ECSError::ComponentTypeMismatch(_))
+        ));
+        assert!(matches!(
+            world.insert_component_any(position, &e, Box::new(Health(1))),
+            Err(ECSError::ComponentTypeMismatch(_))
+        ));
+        assert_eq!(
+            world.component_debug_string(position, &e),
+            Some("Position { x: 0.5, y: 0.5 }".to_string())
+        );
+
+        // No store registered for the type.
+        assert!(matches!(
+            world.set_component_any(health, &e, Box::new(Health(1))),
+            Err(ECSError::ComponentStoreNotExisting)
+        ));
+        // Stale entity.
+        world.despawn_entity(&bare);
+        assert!(matches!(
+            world.set_component_any(position, &bare, Box::new(Position { x: 0.0, y: 0.0 })),
+            Err(ECSError::InvalidEntity(_))
+        ));
+    }
+
+    #[test]
+    fn reattaching_a_component_replaces_it_in_place() {
+        let mut world = World::new();
+        let e0 = world.spawn_entity();
+        let e1 = world.spawn_entity();
+
+        world
+            .attach_component(&e0, Health(1))
+            .expect("Attachment failure");
+        world
+            .attach_component(&e1, Health(2))
+            .expect("Attachment failure");
+
+        world
+            .attach_component(&e0, Health(42))
+            .expect("Attachment failure");
+
+        // No orphaned entries: still one value per entity.
+        let store = world
+            .get_component_store::<Health>()
+            .expect("Store failure");
+        assert_eq!(store.dense.len(), 2);
+        assert_eq!(store.components.len(), 2);
+
+        assert_eq!(store.get_component(e0.index), Some(&Health(42)));
+        assert_eq!(store.get_component(e1.index), Some(&Health(2)));
+
+        // And the reverse lookup still maps both entities.
+        let mut indices = store.dense.clone();
+        indices.sort_unstable();
+        assert_eq!(indices, vec![e0.index, e1.index]);
     }
 }
