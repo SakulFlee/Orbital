@@ -81,68 +81,76 @@ impl LightDescriptor {
         &self.label
     }
 
-    pub fn to_buffer_data(&self) -> Vec<u8> {
-        let mut data = Vec::new();
+    pub fn to_buffer_data(&self) -> [u8; 64] {
+        let mut data = [0u8; 64];
+        let mut offset = 0;
 
         // Position (vec4) - 16 bytes
         // xyz: position, w: padding
-        data.extend_from_slice(&self.position.x.to_le_bytes());
-        data.extend_from_slice(&self.position.y.to_le_bytes());
-        data.extend_from_slice(&self.position.z.to_le_bytes());
-        data.extend_from_slice(&0f32.to_le_bytes()); // Padding
+        data[offset..offset + 4].copy_from_slice(&self.position.x.to_le_bytes());
+        offset += 4;
+        data[offset..offset + 4].copy_from_slice(&self.position.y.to_le_bytes());
+        offset += 4;
+        data[offset..offset + 4].copy_from_slice(&self.position.z.to_le_bytes());
+        offset += 4;
+        data[offset..offset + 4].copy_from_slice(&0f32.to_le_bytes()); // Padding
+        offset += 4;
 
         // Color (vec4) - 16 bytes
         // xyz: color, w: intensity
-        data.extend_from_slice(&self.color.x.to_le_bytes());
-        data.extend_from_slice(&self.color.y.to_le_bytes());
-        data.extend_from_slice(&self.color.z.to_le_bytes());
+        data[offset..offset + 4].copy_from_slice(&self.color.x.to_le_bytes());
+        offset += 4;
+        data[offset..offset + 4].copy_from_slice(&self.color.y.to_le_bytes());
+        offset += 4;
+        data[offset..offset + 4].copy_from_slice(&self.color.z.to_le_bytes());
+        offset += 4;
         let intensity = match &self.light_type {
             LightType::Point { intensity } => *intensity,
             LightType::Directional { intensity } => *intensity,
             LightType::Spot { intensity, .. } => *intensity,
         };
-        data.extend_from_slice(&intensity.to_le_bytes()); // Intensity
+        data[offset..offset + 4].copy_from_slice(&intensity.to_le_bytes());
+        offset += 4;
 
         // Direction (vec4) - 16 bytes
         // xyz: direction, w: type
-        data.extend_from_slice(&self.direction.x.to_le_bytes());
-        data.extend_from_slice(&self.direction.y.to_le_bytes());
-        data.extend_from_slice(&self.direction.z.to_le_bytes());
+        data[offset..offset + 4].copy_from_slice(&self.direction.x.to_le_bytes());
+        offset += 4;
+        data[offset..offset + 4].copy_from_slice(&self.direction.y.to_le_bytes());
+        offset += 4;
+        data[offset..offset + 4].copy_from_slice(&self.direction.z.to_le_bytes());
+        offset += 4;
         let light_type_value = match &self.light_type {
             LightType::Point { .. } => 0.0f32,       // LIGHT_TYPE_POINT
             LightType::Directional { .. } => 1.0f32, // LIGHT_TYPE_DIRECTIONAL
             LightType::Spot { .. } => 2.0f32,        // LIGHT_TYPE_SPOT
         };
-        data.extend_from_slice(&light_type_value.to_le_bytes()); // Light type
+        data[offset..offset + 4].copy_from_slice(&light_type_value.to_le_bytes());
+        offset += 4;
 
         // Params (vec4) - 16 bytes
-        // x/y = spot angular attenuation scale/offset (or 0)
+        // x/y = spot angular attenuation scale/offset (0 for non-spot lights)
         // z = range² for distance culling (0 for directional = infinite range)
         // w = padding
-        let range_sq = match &self.light_type {
-            LightType::Directional { .. } => 0.0f32,
-            LightType::Point { intensity } | LightType::Spot { intensity, .. } => intensity / 0.01,
-        };
-        match &self.light_type {
+        let (attn_scale, attn_offset, range_sq) = match &self.light_type {
+            LightType::Directional { .. } => (0.0f32, 0.0f32, 0.0f32),
+            LightType::Point { intensity } => (0.0f32, 0.0f32, intensity / 0.01),
             LightType::Spot {
+                intensity,
                 inner_cone_angle,
                 outer_cone_angle,
-                ..
             } => {
-                let (scale, offset) =
-                    spot_angular_attenuation(*inner_cone_angle, *outer_cone_angle);
-                data.extend_from_slice(&scale.to_le_bytes()); // Attenuation scale
-                data.extend_from_slice(&offset.to_le_bytes()); // Attenuation offset
-                data.extend_from_slice(&range_sq.to_le_bytes()); // Range²
-                data.extend_from_slice(&0f32.to_le_bytes()); // Padding
+                let (scale, attn) = spot_angular_attenuation(*inner_cone_angle, *outer_cone_angle);
+                (scale, attn, intensity / 0.01)
             }
-            _ => {
-                data.extend_from_slice(&0f32.to_le_bytes()); // Padding
-                data.extend_from_slice(&0f32.to_le_bytes()); // Padding
-                data.extend_from_slice(&range_sq.to_le_bytes()); // Range²
-                data.extend_from_slice(&0f32.to_le_bytes()); // Padding
-            }
-        }
+        };
+        data[offset..offset + 4].copy_from_slice(&attn_scale.to_le_bytes()); // Attenuation scale
+        offset += 4;
+        data[offset..offset + 4].copy_from_slice(&attn_offset.to_le_bytes()); // Attenuation offset
+        offset += 4;
+        data[offset..offset + 4].copy_from_slice(&range_sq.to_le_bytes()); // Range²
+        offset += 4;
+        data[offset..offset + 4].copy_from_slice(&0f32.to_le_bytes()); // Padding
 
         data
     }
@@ -245,5 +253,54 @@ mod tests {
         // range² stored in params.z for distance culling
         let range_sq = f32::from_le_bytes(data[56..60].try_into().unwrap());
         assert_eq!(range_sq, 10.0 / 0.01);
+    }
+
+    #[test]
+    fn point_buffer_packs_type_and_range_without_attenuation() {
+        let light = LightDescriptor::new_point(
+            "p".to_string(),
+            Vector3::new(0.0, 1.0, 0.0),
+            Vector3::new(1.0, 1.0, 1.0),
+            10.0,
+        );
+        let data = light.to_buffer_data();
+        assert_eq!(data.len(), 64, "one light must stay 64 bytes");
+
+        let type_id = f32::from_le_bytes(data[44..48].try_into().unwrap());
+        assert_eq!(type_id, 0.0, "point light");
+
+        // Point lights have no cone, so params.x/y must stay zeroed
+        let scale = f32::from_le_bytes(data[48..52].try_into().unwrap());
+        let offset = f32::from_le_bytes(data[52..56].try_into().unwrap());
+        assert_eq!((scale, offset), (0.0, 0.0));
+
+        let range_sq = f32::from_le_bytes(data[56..60].try_into().unwrap());
+        assert_eq!(range_sq, 10.0 / 0.01);
+
+        // params.w padding
+        assert_eq!(data[60..64], [0u8; 4]);
+    }
+
+    #[test]
+    fn directional_buffer_has_infinite_range() {
+        let light = LightDescriptor::new_directional(
+            "d".to_string(),
+            Vector3::new(0.0, -1.0, 0.0),
+            Vector3::new(1.0, 1.0, 1.0),
+            10.0,
+        );
+        let data = light.to_buffer_data();
+        assert_eq!(data.len(), 64, "one light must stay 64 bytes");
+
+        let type_id = f32::from_le_bytes(data[44..48].try_into().unwrap());
+        assert_eq!(type_id, 1.0, "directional light");
+
+        let scale = f32::from_le_bytes(data[48..52].try_into().unwrap());
+        let offset = f32::from_le_bytes(data[52..56].try_into().unwrap());
+        assert_eq!((scale, offset), (0.0, 0.0));
+
+        // range² = 0 tells the shader the light is never distance-culled
+        let range_sq = f32::from_le_bytes(data[56..60].try_into().unwrap());
+        assert_eq!(range_sq, 0.0);
     }
 }
