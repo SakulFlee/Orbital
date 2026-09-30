@@ -81,7 +81,7 @@ futures = { version = "0.3", default-features = false, features = [
   "async-await",
 ] }
 glam = "0.33.2"
-guillotiere = "0.6"
+guillotiere = "0.7"
 half = "2.2"
 image = "0.25.0"
 kamadak-exif = "0.6"
