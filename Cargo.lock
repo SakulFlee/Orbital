@@ -3901,6 +3901,7 @@ dependencies = [
  "orbital_iced",
  "orbital_importer_gltf",
  "orbital_input",
+ "orbital_macros",
  "orbital_procgeo",
  "orbital_renderer",
  "orbital_resources",
@@ -4146,6 +4147,15 @@ name = "orbital_light"
 version = "0.1.0"
 dependencies = [
  "cgmath",
+]
+
+[[package]]
+name = "orbital_macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -5579,7 +5589,6 @@ name = "skybox"
 version = "0.1.0"
 dependencies = [
  "orbital",
- "winit",
 ]
 
 [[package]]
@@ -5913,7 +5922,6 @@ name = "test-roll-camera"
 version = "0.1.0"
 dependencies = [
  "orbital",
- "winit",
 ]
 
 [[package]]
@@ -6248,7 +6256,6 @@ name = "ui_demo"
 version = "0.1.0"
 dependencies = [
  "orbital",
- "winit",
 ]
 
 [[package]]

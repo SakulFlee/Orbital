@@ -34,6 +34,7 @@ struct Health(u32);
 #[derive(Clone)]
 struct Mana(u32);
 
+#[orbital::main]
 pub fn entrypoint(
     event_loop_result: Result<
         orbital::winit::event_loop::EventLoop<()>,
@@ -67,8 +68,6 @@ pub fn entrypoint(
         Err(e) => error!("Runtime failure: {e:?}"),
     }
 }
-
-orbital::make_main!(entrypoint);
 
 struct HelmetAdjuster {
     adjusted: AtomicBool,
