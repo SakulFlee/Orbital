@@ -471,6 +471,99 @@ fn shared_material_primitives_each_get_correct_material() {
     }
 }
 
+/// A primitive with no index accessor must still be imported, and its implicit
+/// `0..N` index list must be synthesized so that the winding flip and any
+/// index-driven normal calculation can use it.
+///
+/// glTF defines a primitive that omits its index accessor as having its
+/// vertices implicitly indexed in order. The importer used to `continue` on a
+/// missing accessor, which silently dropped every such primitive: a mesh
+/// exported without indices vanished from the scene, with only a log line to
+/// show for it.
+///
+/// Normals are deliberately left out of this fixture. With no `NORMAL`
+/// attribute the importer has to compute them from triangle geometry, which
+/// only works if the synthesized indices actually reach that code. A zero
+/// normal would mean the calculation was skipped and the geometry fell back to
+/// placeholder zeros.
+#[test]
+fn imports_primitive_without_index_accessor() {
+    let root = temp_assets("unindexed");
+    let models_dir = root.join("Assets").join("Models");
+
+    // One counter-clockwise triangle in the XY plane: 3×vec3f32 = 36 bytes.
+    let mut bin = Vec::new();
+    for point in [[0.0f32, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]] {
+        for component in point {
+            bin.extend_from_slice(&component.to_le_bytes());
+        }
+    }
+    while !bin.len().is_multiple_of(4) {
+        bin.push(0);
+    }
+    std::fs::write(models_dir.join("triangle.bin"), &bin).expect("write bin");
+
+    // No `indices` on the primitive, no `NORMAL`/`TEXCOORD_0` attributes and no
+    // material, so positions are the only thing that has to resolve.
+    let json = json!({
+        "asset": { "version": "2.0", "generator": "orbital_fm_test" },
+        "scene": 0,
+        "scenes": [ { "nodes": [0] } ],
+        "nodes": [ { "mesh": 0, "name": "Triangle" } ],
+        "meshes": [ { "primitives": [ { "attributes": { "POSITION": 0 } } ] } ],
+        "accessors": [
+            { "bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3",
+              "min": [0.0, 0.0, 0.0], "max": [1.0, 1.0, 0.0] }
+        ],
+        "bufferViews": [ { "buffer": 0, "byteOffset": 0, "byteLength": 36 } ],
+        "buffers": [ { "uri": "triangle.bin", "byteLength": bin.len() } ]
+    });
+    std::fs::write(
+        models_dir.join("triangle.gltf"),
+        serde_json::to_vec_pretty(&json).expect("serialize gltf"),
+    )
+    .expect("write gltf");
+
+    let file_manager = make_file_manager(&root);
+    let result = GltfImporter::import_with_file_manager(
+        &file_manager,
+        GltfImportTask {
+            file: "Models/triangle.gltf".into(),
+            import: GltfImport::WholeFile,
+        },
+    );
+
+    let _ = std::fs::remove_dir_all(&root);
+
+    assert!(
+        result.errors.is_empty(),
+        "import errors: {:?}",
+        result.errors
+    );
+    assert_eq!(result.models.len(), 1, "expected exactly one model");
+
+    let mesh = &result.models[0].mesh;
+    assert_eq!(mesh.vertices.len(), 3, "expected one vertex per position");
+    // The implicit index list 0..3, flipped to reverse winding for the
+    // Y-up-to-Z-up handedness change: [0, 1, 2] becomes [0, 2, 1].
+    assert_eq!(mesh.indices, vec![0, 2, 1]);
+
+    // The triangle's face normal is +Z in glTF space, which the importer maps
+    // to +Y when converting to Z-up. All three vertices share the face normal.
+    let expected = [0.0f32, 1.0, 0.0];
+    for (i, vertex) in mesh.vertices.iter().enumerate() {
+        let normal = [vertex.normal.x, vertex.normal.y, vertex.normal.z];
+        let matches = normal
+            .iter()
+            .zip(expected.iter())
+            .all(|(got, want)| (got - want).abs() < 1e-6);
+        assert!(
+            matches,
+            "vertex {i}: expected a calculated normal of {expected:?}, got {normal:?}"
+        );
+    }
+}
+
 /// Packs a glTF JSON document and a binary chunk into the GLB container format.
 ///
 /// Both chunks are declared at their 4-byte-aligned length, matching what
