@@ -29,6 +29,15 @@ pub enum DebugMessage {
     SetMinLevel(log::LevelFilter),
     /// Drop the captured log buffer.
     ClearLog,
+    /// The text of an editable field changed but has not been applied yet.
+    EditField(crate::panels::inspector::FieldKey, String),
+    /// Apply the field's buffered text.
+    ///
+    /// The text is not carried in the message: pressing Enter in a `text_input`
+    /// and pressing the `set` button both mean "apply what is in the buffer",
+    /// and `text_input::on_submit` takes a fixed message rather than a closure,
+    /// so one message serves both.
+    ApplyField(crate::panels::inspector::FieldKey),
     /// Flip a panel's visibility.
     TogglePanel(PanelId),
     /// Close a panel's window.
@@ -41,6 +50,8 @@ pub enum PanelId {
     Performance,
     Ecs,
     Console,
+    /// The property view for the selected entity.
+    Inspector,
 }
 
 /// How many characters of a component's `Debug` output to show before
@@ -66,7 +77,7 @@ pub struct DebugUiState {
     /// Whether any debug panel is being shown at all.
     pub visible: bool,
     /// Per-panel visibility, for panels the user has dismissed.
-    pub panels: [bool; 3],
+    pub panels: [bool; 4],
     /// Which bottom-panel tab is showing.
     pub active_tab: usize,
     /// The entity whose components are listed in the ECS panel.
@@ -77,6 +88,13 @@ pub struct DebugUiState {
     pub filter: String,
     /// Log-level filter for the console.
     pub min_level: log::LevelFilter,
+    /// Uncommitted text for each editable field, keyed by component type.
+    ///
+    /// Kept in the resource rather than in a widget so the field survives the
+    /// panel's rebuild throttling.
+    pub field_buffers: std::collections::HashMap<std::any::TypeId, String>,
+    /// The message from the last failed edit, shown under the components.
+    pub last_error: Option<String>,
     /// Set whenever something changed that the panels should redraw for.
     ///
     /// Not yet used for gating the rebuild — see
@@ -101,12 +119,14 @@ impl DebugUiState {
     pub fn new(toggle_key: winit::keyboard::KeyCode) -> Self {
         Self {
             visible: false,
-            panels: [true; 3],
+            panels: [true; 4],
             active_tab: 0,
             selected: None,
             expanded: HashSet::new(),
             filter: String::new(),
             min_level: log::LevelFilter::Info,
+            field_buffers: std::collections::HashMap::new(),
+            last_error: None,
             dirty: true,
             // Fast enough that a value changed by a click shows up immediately,
             // slow enough that holding a slider or typing in the filter does not
@@ -115,6 +135,18 @@ impl DebugUiState {
             toggle_key,
             toggle_was_pressed: false,
         }
+    }
+
+    /// The uncommitted text for an editable field.
+    ///
+    /// `current` is the component's present value, used until the user types
+    /// something, so the field is pre-filled rather than blank. Kept in the
+    /// resource so the text survives the panel's rebuild throttling.
+    pub fn field_buffer(&self, type_id: std::any::TypeId, current: &str) -> String {
+        self.field_buffers
+            .get(&type_id)
+            .cloned()
+            .unwrap_or_else(|| current.to_string())
     }
 
     /// Whether `panel` should be drawn.
@@ -127,6 +159,7 @@ impl DebugUiState {
             PanelId::Performance => 0,
             PanelId::Ecs => 1,
             PanelId::Console => 2,
+            PanelId::Inspector => 3,
         };
 
         self.panels[index]
@@ -137,6 +170,7 @@ impl DebugUiState {
             PanelId::Performance => 0,
             PanelId::Ecs => 1,
             PanelId::Console => 2,
+            PanelId::Inspector => 3,
         };
 
         self.panels[index] = enabled;
@@ -196,6 +230,15 @@ impl DebugUiState {
                 self.dirty = true;
             }
             DebugMessage::ClearLog => {
+                self.dirty = true;
+            }
+            DebugMessage::EditField(key, text) => {
+                self.field_buffers.insert(key.type_id, text.clone());
+                self.dirty = true;
+            }
+            DebugMessage::ApplyField(_) => {
+                // The apply itself happens in `IcedState::handle_message`, which
+                // is the only place with both the world and the panel state.
                 self.dirty = true;
             }
             DebugMessage::TogglePanel(panel) => {
