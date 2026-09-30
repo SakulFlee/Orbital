@@ -8,10 +8,12 @@
 //! All types implement `Component` via the blanket impl in `orbital_ecs`:
 //! `impl<T: Any + Debug + Send + Sync> Component for T {}`
 
+use std::collections::VecDeque;
 use std::sync::Arc;
 
 use cgmath::Vector2;
 use hashbrown::HashMap;
+use orbital_core::logging::info;
 
 // ---------------------------------------------------------------------------
 // Frame timing
@@ -66,6 +68,243 @@ pub struct DeltaTime(pub f64);
 /// is overwritten each frame, this accumulates frame-over-frame.
 #[derive(Debug, Clone, Copy)]
 pub struct TotalTime(pub f64);
+
+/// One measured stage of the render frame.
+///
+/// The runtime measures a fixed set of stages between surface acquisition and
+/// present; each becomes one `TimingSample` in [`FrameTimings`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TimingSample {
+    /// Stable identifier for the stage, e.g. `"render"`.
+    pub name: &'static str,
+    /// The most recent frame's duration, in milliseconds.
+    pub last_ms: f64,
+    /// Mean duration over the accumulation window, in milliseconds.
+    pub avg_ms: f64,
+    /// Smallest duration seen in the current window, in milliseconds.
+    pub min_ms: f64,
+    /// Largest duration seen in the current window, in milliseconds.
+    pub max_ms: f64,
+}
+
+/// The stage identifiers the runtime measures, in the order they occur in a
+/// frame. The GPU stages are derived from three timestamp query results read
+/// back from the renderer, and are only meaningful on backends that support
+/// timestamp queries; elsewhere they stay at zero.
+pub const TIMING_STAGES: [&str; 11] = [
+    "surface_acq",
+    "realize",
+    "stagger",
+    "cull+extract",
+    "bind+models",
+    "render",
+    "present",
+    "total",
+    "gpu shadow",
+    "gpu skybox+models",
+    "gpu total",
+];
+
+/// The index of the `total` stage, which is the whole-frame duration and the
+/// series a frame-time graph should plot.
+pub const TOTAL_STAGE_INDEX: usize = 7;
+
+impl TimingSample {
+    /// A zeroed sample for `index` into [`TIMING_STAGES`].
+    ///
+    /// # Panics
+    /// If `index` is out of bounds.
+    pub fn empty(index: usize) -> Self {
+        Self {
+            name: TIMING_STAGES[index],
+            last_ms: 0.0,
+            avg_ms: 0.0,
+            min_ms: 0.0,
+            max_ms: 0.0,
+        }
+    }
+}
+
+/// Per-stage frame timings plus a rolling history, for debug overlays.
+///
+/// The runtime writes this resource at the end of every redraw, right after
+/// present. Unlike the `info!` timing line it replaces, the statistics are
+/// *not* reset on print: `avg_ms`/`min_ms`/`max_ms` keep accumulating until
+/// [`Self::clear`] is called, and a bounded history is retained so a graph can
+/// plot recent frames.
+#[derive(Debug, Clone)]
+pub struct FrameTimings {
+    samples: Vec<TimingSample>,
+    /// Running totals backing `avg_ms`, reset by [`Self::clear`].
+    totals: Vec<f64>,
+    count: u64,
+    /// Whole-frame duration per frame, oldest first.
+    frame_ms: VecDeque<f32>,
+    /// Per-stage durations over time, oldest first. One entry per frame, each
+    /// holding one value per stage in [`TIMING_STAGES`] order.
+    history: VecDeque<Vec<f64>>,
+    /// Totals for the current one-second log window only. Independent of
+    /// `totals`, so emitting the summary never disturbs the overlay.
+    window_totals: Vec<f64>,
+    window_count: u64,
+    last_print: std::time::Instant,
+}
+
+impl FrameTimings {
+    /// How many frames of history to keep.
+    pub const HISTORY_LEN: usize = 240;
+
+    /// How often the `info!` timing summary is emitted, in seconds.
+    const LOG_INTERVAL_SECS: f64 = 1.0;
+
+    /// A fresh, empty set of timings.
+    pub fn new() -> Self {
+        let stages = TIMING_STAGES.len();
+
+        Self {
+            samples: (0..stages).map(TimingSample::empty).collect(),
+            totals: vec![0.0; stages],
+            count: 0,
+            frame_ms: VecDeque::with_capacity(Self::HISTORY_LEN),
+            history: VecDeque::with_capacity(Self::HISTORY_LEN),
+            window_totals: vec![0.0; stages],
+            window_count: 0,
+            last_print: std::time::Instant::now(),
+        }
+    }
+
+    /// The per-stage samples, in frame order.
+    pub fn samples(&self) -> &[TimingSample] {
+        &self.samples
+    }
+
+    /// The number of frames accumulated since the last [`Self::clear`].
+    pub fn frame_count(&self) -> u64 {
+        self.count
+    }
+
+    /// Whole-frame duration per frame, oldest first.
+    pub fn frame_ms(&self) -> &VecDeque<f32> {
+        &self.frame_ms
+    }
+
+    /// Per-stage durations over time, oldest first.
+    pub fn history(&self) -> &VecDeque<Vec<f64>> {
+        &self.history
+    }
+
+    /// Records one frame's worth of stage durations, in [`TIMING_STAGES`]
+    /// order.
+    ///
+    /// `durations` must have exactly [`TIMING_STAGES`] entries; anything else
+    /// is ignored, so a mismatch in the runtime can't corrupt the history.
+    pub fn record(&mut self, durations: &[f64]) {
+        if durations.len() != self.samples.len() {
+            return;
+        }
+
+        self.count += 1;
+        self.window_count += 1;
+
+        // Seed min/max from the first sample of the window. Starting them at
+        // 0.0 would pin `min_ms` at 0 forever, since durations are never
+        // negative.
+        let first_in_window = self.count == 1;
+
+        for (index, &duration) in durations.iter().enumerate() {
+            self.totals[index] += duration;
+            self.window_totals[index] += duration;
+
+            let sample = &mut self.samples[index];
+            sample.last_ms = duration;
+
+            if first_in_window {
+                sample.min_ms = duration;
+                sample.max_ms = duration;
+            } else {
+                sample.min_ms = sample.min_ms.min(duration);
+                sample.max_ms = sample.max_ms.max(duration);
+            }
+        }
+
+        let n = self.count as f64;
+        for (index, sample) in self.samples.iter_mut().enumerate() {
+            sample.avg_ms = self.totals[index] / n;
+        }
+
+        if self.frame_ms.len() == Self::HISTORY_LEN {
+            self.frame_ms.pop_front();
+        }
+        self.frame_ms.push_back(durations[TOTAL_STAGE_INDEX] as f32);
+
+        if self.history.len() == Self::HISTORY_LEN {
+            self.history.pop_front();
+        }
+        self.history.push_back(durations.to_vec());
+    }
+
+    /// Resets the accumulating statistics, keeping the history and `last_ms`.
+    ///
+    /// `avg_ms`/`min_ms`/`max_ms` are re-derived from the first frame recorded
+    /// after this call, so they read as zero in the meantime.
+    pub fn clear(&mut self) {
+        self.totals.iter_mut().for_each(|total| *total = 0.0);
+        self.count = 0;
+        self.samples.iter_mut().for_each(|sample| {
+            sample.avg_ms = 0.0;
+            sample.min_ms = 0.0;
+            sample.max_ms = 0.0;
+        });
+    }
+
+    /// Emits the `info!` timing summary at most once per second, returning the
+    /// per-stage averages over that window.
+    ///
+    /// The accumulating statistics are untouched, so the summary and a debug
+    /// overlay reading [`Self::samples`] never interfere.
+    pub fn try_log(&mut self) -> Option<Vec<f64>> {
+        if self.window_count == 0
+            || self.last_print.elapsed().as_secs_f64() < Self::LOG_INTERVAL_SECS
+        {
+            return None;
+        }
+
+        let n = self.window_count as f64;
+        let averages = self
+            .window_totals
+            .iter()
+            .map(|total| total / n)
+            .collect::<Vec<_>>();
+
+        info!(
+            "TIMING avg({} frames): surface_acq={:.2}ms realize={:.2}ms stagger={:.2}ms cull+extract={:.2}ms bind+models={:.2}ms render={:.2}ms present={:.2}ms TOTAL={:.2}ms | GPU shadow={:.2}ms skybox+models={:.2}ms GPU_TOTAL={:.2}ms",
+            self.window_count,
+            averages[0],
+            averages[1],
+            averages[2],
+            averages[3],
+            averages[4],
+            averages[5],
+            averages[6],
+            averages[7],
+            averages[8],
+            averages[9],
+            averages[10],
+        );
+
+        self.window_totals.iter_mut().for_each(|total| *total = 0.0);
+        self.window_count = 0;
+        self.last_print = std::time::Instant::now();
+
+        Some(averages)
+    }
+}
+
+impl Default for FrameTimings {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Input & window
@@ -331,6 +570,154 @@ impl EngineEvents {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A frame whose CPU stages each took `cpu_total`, with no GPU timestamps.
+    fn frame(cpu_total: f64) -> Vec<f64> {
+        let mut durations = vec![cpu_total; 8];
+        durations.resize(TIMING_STAGES.len(), 0.0);
+        durations[TOTAL_STAGE_INDEX] = cpu_total;
+        durations
+    }
+
+    #[test]
+    fn frame_timings_starts_zeroed_with_named_stages() {
+        let timings = FrameTimings::new();
+
+        assert_eq!(timings.samples().len(), TIMING_STAGES.len());
+        assert_eq!(timings.frame_count(), 0);
+        assert!(timings.frame_ms().is_empty());
+        assert!(timings.history().is_empty());
+
+        for (index, sample) in timings.samples().iter().enumerate() {
+            assert_eq!(sample.name, TIMING_STAGES[index]);
+            assert_eq!(sample.last_ms, 0.0);
+            assert_eq!(sample.avg_ms, 0.0);
+        }
+    }
+
+    #[test]
+    fn frame_timings_tracks_last_avg_min_max() {
+        let mut timings = FrameTimings::new();
+
+        for value in [2.0, 4.0, 6.0] {
+            timings.record(&frame(value));
+        }
+
+        assert_eq!(timings.frame_count(), 3);
+
+        for index in 0..7 {
+            let sample = timings.samples()[index];
+            assert_eq!(sample.last_ms, 6.0, "stage {index}");
+            assert_eq!(sample.avg_ms, 4.0, "stage {index}");
+            assert_eq!(sample.min_ms, 2.0, "stage {index}");
+            assert_eq!(sample.max_ms, 6.0, "stage {index}");
+        }
+
+        // The GPU stages were left at zero because no timestamps were supplied.
+        for index in 8..TIMING_STAGES.len() {
+            let sample = timings.samples()[index];
+            assert_eq!(sample.last_ms, 0.0, "stage {index}");
+            assert_eq!(sample.max_ms, 0.0, "stage {index}");
+        }
+    }
+
+    #[test]
+    fn frame_timings_ignores_malformed_frames() {
+        let mut timings = FrameTimings::new();
+
+        timings.record(&[1.0, 2.0]);
+        timings.record(&vec![1.0; TIMING_STAGES.len() + 1]);
+        timings.record(&[]);
+
+        assert_eq!(timings.frame_count(), 0);
+        assert!(timings.history().is_empty());
+    }
+
+    #[test]
+    fn frame_timings_history_is_capped_and_oldest_first() {
+        let mut timings = FrameTimings::new();
+
+        let total = FrameTimings::HISTORY_LEN + 10;
+        for index in 0..total {
+            timings.record(&frame(index as f64));
+        }
+
+        assert_eq!(timings.frame_count(), total as u64);
+        assert_eq!(timings.frame_ms().len(), FrameTimings::HISTORY_LEN);
+        assert_eq!(timings.history().len(), FrameTimings::HISTORY_LEN);
+
+        // Oldest retained sample is 10 frames back, newest is the last one.
+        let frame_ms = timings.frame_ms();
+        assert_eq!(*frame_ms.front().expect("non-empty"), 10.0);
+        assert_eq!(*frame_ms.back().expect("non-empty"), (total - 1) as f32);
+
+        let history = timings.history();
+        assert_eq!(history[0][0], 10.0);
+        assert_eq!(history[0].len(), TIMING_STAGES.len());
+    }
+
+    #[test]
+    fn frame_timings_clear_resets_stats_but_keeps_history() {
+        let mut timings = FrameTimings::new();
+
+        timings.record(&frame(2.0));
+        timings.record(&frame(4.0));
+        assert_eq!(timings.frame_ms().len(), 2);
+
+        timings.clear();
+
+        assert_eq!(timings.frame_count(), 0);
+        assert_eq!(timings.frame_ms().len(), 2, "history should survive clear");
+        assert_eq!(timings.samples()[0].avg_ms, 0.0);
+        assert_eq!(timings.samples()[0].min_ms, 0.0);
+        assert_eq!(timings.samples()[0].max_ms, 0.0);
+        assert_eq!(timings.samples()[0].last_ms, 4.0, "last is untouched");
+
+        // A fresh window restarts min/max from the first frame in it, rather
+        // than carrying the previous window's extremes forward.
+        timings.record(&frame(1.0));
+        let sample = timings.samples()[0];
+        assert_eq!(sample.avg_ms, 1.0);
+        assert_eq!(sample.min_ms, 1.0);
+        assert_eq!(sample.max_ms, 1.0);
+
+        timings.record(&frame(3.0));
+        let sample = timings.samples()[0];
+        assert_eq!(sample.avg_ms, 2.0);
+        assert_eq!(sample.min_ms, 1.0);
+        assert_eq!(sample.max_ms, 3.0);
+    }
+
+    #[test]
+    fn frame_timings_log_window_is_independent_of_accumulated_stats() {
+        let mut timings = FrameTimings::new();
+
+        // Not enough wall-clock time has passed, so nothing is logged yet.
+        timings.record(&frame(2.0));
+        assert!(timings.try_log().is_none());
+        assert_eq!(timings.frame_count(), 1, "logging must not reset the stats");
+
+        // Backdate the window so the next call logs.
+        timings.last_print = std::time::Instant::now() - std::time::Duration::from_secs(2);
+        let logged = timings.try_log().expect("should log after the interval");
+
+        assert_eq!(logged.len(), TIMING_STAGES.len());
+        // The CPU stages were recorded; the GPU ones had no timestamps.
+        for value in &logged[..8] {
+            assert!(*value > 0.0);
+        }
+        for value in &logged[8..] {
+            assert_eq!(*value, 0.0);
+        }
+
+        // Window resets, accumulated statistics do not.
+        assert_eq!(timings.window_count, 0);
+        assert_eq!(timings.frame_count(), 1);
+        assert_eq!(timings.samples()[0].avg_ms, 2.0);
+
+        // And it won't log again until another second has passed.
+        assert!(timings.try_log().is_none());
+    }
 
     #[test]
     fn engine_events_push_drain() {
