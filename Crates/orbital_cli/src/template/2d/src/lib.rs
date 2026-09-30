@@ -8,6 +8,7 @@ use orbital::renderer::{Camera2DUniform, Renderer2D};
 
 pub const NAME: &str = "{{PROJECT_NAME}}";
 
+#[orbital::main]
 pub fn entrypoint(
     event_loop_result: Result<
         orbital::winit::event_loop::EventLoop<()>,
@@ -36,8 +37,6 @@ pub fn entrypoint(
         Err(e) => error!("Runtime failure: {e:?}"),
     }
 }
-
-orbital::make_main!(entrypoint);
 
 /// Overlay that renders 2D shapes.
 struct ShapeOverlay {

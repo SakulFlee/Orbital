@@ -14,4 +14,3 @@ path = "src/main.rs"
 
 [dependencies]
 orbital = { path = "../../Crates/orbital" }
-winit = { workspace = true }
