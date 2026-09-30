@@ -34,7 +34,7 @@ The engine was rewritten several times; knowing this explains naming and structu
 Orbital/
 ├── Crates/          # Engine library crates (the core product)
 │   ├── orbital/            # Facade crate — re-exports everything + build.rs (Blender export)
-│   ├── orbital_core/       # Math, cache, logging, macros, mip-leveling, wgpu_util
+│   ├── orbital_core/       # Math, cache, logging, mip-leveling, wgpu_util
 │   ├── orbital_app/        # App builder + module runtime + system scheduling + touch UI
 │   ├── orbital_resources/  # Resource management (mesh/model/camera/light/shader/texture/…)
 │   ├── orbital_ecs/        # The ECS core (entity/component/query/system/world) — name is "orbital_ecs"
@@ -66,7 +66,8 @@ Orbital/
 - `App::new().add_module(MyModule).liftoff(event_loop, settings)` — the entry point for every app.
 - Modules are plugins: each contributes **ECS entities, resources, and systems**.
 - All module systems are merged into a single game schedule (see `core_schedule.rs`).
-- Examples use `make_desktop_main!(entrypoint);` + an `entrypoint(event_loop)` fn.
+- Examples use `#[orbital::main]` on an `entrypoint(event_loop_result)` fn; the attribute
+  generates the desktop (`run()`), Android (`android_main`) and iOS (`ios_main`) entry points.
 
 ### 3.2 ECS core (`orbital_ecs`) — the heart of the world
 - **Entity / Component**: components stored in typed stores (`component/store.rs`, `world_store.rs`).

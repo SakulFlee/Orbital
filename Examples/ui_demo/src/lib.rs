@@ -8,6 +8,7 @@ use orbital::renderer::UiRenderer;
 use orbital::text::{FontData, SdfAtlas, TextConfig, generate_text_mesh};
 use orbital::twod::Vertex2D;
 
+#[orbital::main]
 pub fn entrypoint(
     event_loop_result: Result<
         orbital::winit::event_loop::EventLoop<()>,
@@ -34,8 +35,6 @@ pub fn entrypoint(
         Err(e) => error!("Runtime failure: {e:?}"),
     }
 }
-
-orbital::make_main!(entrypoint);
 
 /// Overlay that renders UI backgrounds (rounded rectangles).
 struct UiBackgroundOverlay {
