@@ -282,7 +282,7 @@ impl World {
             })
             .collect::<Vec<_>>();
 
-        components.sort_unstable_by(|(_, left), (_, right)| left.cmp(right));
+        components.sort_unstable_by_key(|(_, name)| *name);
         components
     }
 

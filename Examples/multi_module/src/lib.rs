@@ -38,6 +38,8 @@ pub fn entrypoint(
                 .with_toggle_key(KeyCode::F3)
                 .with_freeze_key(KeyCode::F4),
         )
+        // Performance / ECS inspector / log console, toggled with F1.
+        .add_module(orbital::debug_ui::DebugUiModule::new())
         .add_module(orbital::touch_ui::TouchUiModule)
         .liftoff(event_loop, app_settings)
     {

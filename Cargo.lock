@@ -3738,6 +3738,7 @@ dependencies = [
  "orbital_app",
  "orbital_core",
  "orbital_debug_render",
+ "orbital_debug_ui",
  "orbital_ecs",
  "orbital_ecs_bridge",
  "orbital_file_manager",
@@ -3862,6 +3863,24 @@ dependencies = [
  "orbital_ecs_bridge",
  "orbital_light",
  "wgpu",
+ "winit",
+]
+
+[[package]]
+name = "orbital_debug_ui"
+version = "0.1.0"
+dependencies = [
+ "cgmath",
+ "iced_core",
+ "iced_wgpu",
+ "iced_widget",
+ "iced_winit",
+ "log",
+ "orbital_app",
+ "orbital_core",
+ "orbital_ecs",
+ "orbital_ecs_bridge",
+ "orbital_iced",
  "winit",
 ]
 
