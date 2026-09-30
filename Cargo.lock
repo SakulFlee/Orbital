@@ -1361,7 +1361,7 @@ checksum = "75b325c5dbd37f80359721ad39aca5a29fb04c89279657cffdda8736d0c0b9d2"
 [[package]]
 name = "dpi"
 version = "0.1.1"
-source = "git+https://forgejo.sakul-flee.de/SakulFlee/Orbital-Winit.git?rev=13ed4eaa580bd91b5030fe8beef655d482f74a6d#13ed4eaa580bd91b5030fe8beef655d482f74a6d"
+source = "git+https://forgejo.sakul-flee.de/SakulFlee/Orbital-Winit.git?rev=a926fe1562d5996171fb0e79bb6b79e51f83bc28#a926fe1562d5996171fb0e79bb6b79e51f83bc28"
 
 [[package]]
 name = "dtor"
@@ -7035,7 +7035,7 @@ checksum = "d6bbff5f0aada427a1e5a6da5f1f98158182f26556f345ac9e04d36d0ebed650"
 [[package]]
 name = "winit"
 version = "0.30.8"
-source = "git+https://forgejo.sakul-flee.de/SakulFlee/Orbital-Winit.git?rev=13ed4eaa580bd91b5030fe8beef655d482f74a6d#13ed4eaa580bd91b5030fe8beef655d482f74a6d"
+source = "git+https://forgejo.sakul-flee.de/SakulFlee/Orbital-Winit.git?rev=a926fe1562d5996171fb0e79bb6b79e51f83bc28#a926fe1562d5996171fb0e79bb6b79e51f83bc28"
 dependencies = [
  "ahash",
  "android-activity",
