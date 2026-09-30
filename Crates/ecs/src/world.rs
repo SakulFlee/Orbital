@@ -282,7 +282,7 @@ impl World {
             })
             .collect::<Vec<_>>();
 
-        components.sort_unstable_by(|(_, left), (_, right)| left.cmp(right));
+        components.sort_unstable_by_key(|(_, name)| *name);
         components
     }
 
@@ -734,7 +734,7 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(stores.len(), 2);
-        stores.sort_unstable_by(|(_, left, _), (_, right, _)| left.cmp(right));
+        stores.sort_unstable_by_key(|(_, name, _)| *name);
 
         assert_eq!(stores[0].0, TypeId::of::<Health>());
         assert_eq!(stores[0].1, "orbital_ecs::world::tests::Health");
