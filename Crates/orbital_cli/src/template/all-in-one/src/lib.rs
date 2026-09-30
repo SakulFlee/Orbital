@@ -61,6 +61,7 @@ pub fn entrypoint(
                 .with_toggle_key(KeyCode::F3)
                 .with_freeze_key(KeyCode::F4),
         )
+        .add_module(orbital::debug_ui::DebugUiModule::new())
         .add_module(orbital::touch_ui::TouchUiModule)
         .liftoff(event_loop, app_settings)
     {
@@ -510,23 +511,14 @@ impl Module for ProcgeoSceneModule {
         // Iced UI panels
         let mut ui = IcedUiState::new();
 
-        // HUD: static overlay, reads game state from ECS directly
+        // HUD: game state only. Frame-rate and stage timings come from
+        // `DebugUiModule`, which shows them with history.
         ui.push(
             "hud",
             IcedState::titled("HUD")
                 .with_hud()
                 .with_view(|ecs: &orbital::ecs::World| {
                     use orbital::iced::iced_widget::{column, text};
-
-                    let fps_text = ecs
-                        .get_resource::<orbital::ecs_bridge::FpsStats>()
-                        .map(|s| {
-                            format!(
-                                "FPS: {} | TDT: {:.2}s | CDT: {:.4}s",
-                                s.fps, s.total_delta_time, s.cycle_delta_time
-                            )
-                        })
-                        .unwrap_or_else(|| "FPS: --".to_string());
 
                     let health_text = ecs
                         .get_resource::<Health>()
@@ -538,13 +530,9 @@ impl Module for ProcgeoSceneModule {
                         .map(|m| format!("Mana: {}", m.0))
                         .unwrap_or_else(|| "Mana: --".to_string());
 
-                    column![
-                        text(fps_text).size(16),
-                        text(health_text).size(16),
-                        text(mana_text).size(16),
-                    ]
-                    .spacing(4)
-                    .into()
+                    column![text(health_text).size(16), text(mana_text).size(16)]
+                        .spacing(4)
+                        .into()
                 }),
         );
 
