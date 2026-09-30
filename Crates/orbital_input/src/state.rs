@@ -44,6 +44,32 @@ impl InputState {
         }
     }
 
+    /// Build the per-frame snapshot handed to the ECS as `InputSnapshot`.
+    ///
+    /// The two delta maps are cleared at the end of every frame anyway, so
+    /// they are *moved* out rather than deep-cloned; the persistent maps and
+    /// scalars are cloned. That keeps the per-frame cost of publishing input
+    /// to systems down to a handful of small map clones instead of cloning
+    /// every map in [`InputState`].
+    ///
+    /// Built as a struct literal on purpose: adding a field to `InputState`
+    /// is a compile error here (E0063) rather than a silently dropped value.
+    /// A `from_parts`-style constructor would have silently dropped the
+    /// touch fields when they were added, breaking touch camera control and
+    /// the on-screen joystick with no compile or test failure.
+    pub fn take_snapshot(&mut self) -> Self {
+        Self {
+            button_states: self.button_states.clone(),
+            delta_states: std::mem::take(&mut self.delta_states),
+            mouse_cursor_position_state: self.mouse_cursor_position_state,
+            touch_positions: self.touch_positions.clone(),
+            touch_origins: self.touch_origins.clone(),
+            touch_deltas: std::mem::take(&mut self.touch_deltas),
+            seen_touch: self.seen_touch,
+            surface_size: self.surface_size,
+        }
+    }
+
     pub fn reset_deltas(&mut self) {
         self.delta_states.iter_mut().for_each(|(_, state)| {
             state
@@ -566,7 +592,7 @@ impl Default for TouchGesture {
 mod tests {
     use super::*;
     use winit::dpi::PhysicalPosition;
-    use winit::event::DeviceId;
+    use winit::event::{DeviceId, MouseButton};
 
     fn touch_event(phase: TouchPhase, location: (f64, f64), id: u64) -> InputEvent {
         InputEvent::Touch {
@@ -704,5 +730,100 @@ mod tests {
         // Remains true after the finger lifts.
         state.handle_event(touch_event(TouchPhase::Ended, (200.0, 400.0), 1));
         assert!(state.has_seen_touch());
+    }
+
+    #[test]
+    fn take_snapshot_moves_axis_deltas_and_clones_buttons() {
+        let mut state = setup_state();
+        let device_id = DeviceId::dummy();
+        let kb_mouse = InputId::KeyboardOrMouse(device_id);
+        state.handle_event(InputEvent::MouseMovedDelta {
+            device_id,
+            delta: (5.0, 3.0),
+        });
+        state.handle_event(InputEvent::MouseButton {
+            device_id,
+            state: ElementState::Pressed,
+            button: MouseButton::Left,
+        });
+        let before = state.delta_state_specific(&InputAxis::MouseMovement, kb_mouse);
+        assert!(before.is_some());
+
+        let snapshot = state.take_snapshot();
+
+        // The axis delta is *moved* into the snapshot…
+        assert_eq!(
+            snapshot.delta_state_specific(&InputAxis::MouseMovement, kb_mouse),
+            before
+        );
+        // …so the live state no longer carries it and cannot read it stale next frame.
+        assert!(
+            state
+                .delta_state_specific(&InputAxis::MouseMovement, kb_mouse)
+                .is_none()
+        );
+        // Button states persist (cloned, not moved) for the next frame.
+        let left = InputButton::Mouse(MouseButton::Left);
+        assert!(state.button_state_specific(&left, kb_mouse).unwrap());
+        assert!(snapshot.button_state_specific(&left, kb_mouse).unwrap());
+    }
+
+    #[test]
+    fn take_snapshot_preserves_touch_state() {
+        let mut state = setup_state();
+        state.handle_event(touch_event(TouchPhase::Started, (200.0, 400.0), 1));
+        state.handle_event(touch_event(TouchPhase::Moved, (230.0, 430.0), 1));
+        state.handle_event(touch_event(TouchPhase::Started, (700.0, 400.0), 2));
+        state.handle_event(touch_event(TouchPhase::Moved, (730.0, 400.0), 2));
+        assert!(state.touch_delta(1).is_some());
+        assert!(state.touch_delta(2).is_some());
+
+        let before = state.touch_gesture();
+        let snapshot = state.take_snapshot();
+
+        // Touch gesture state must survive into the snapshot — the camera
+        // controller and the on-screen joystick both read it from InputSnapshot.
+        assert!(snapshot.has_active_touches());
+        assert!(snapshot.has_seen_touch());
+        assert_eq!(snapshot.active_touch_count(), 2);
+        assert_eq!(snapshot.touch_position(1), Some(Vector2::new(230.0, 430.0)));
+        assert_eq!(snapshot.touch_origin(1), Some(Vector2::new(200.0, 400.0)));
+
+        // The whole gesture resolves identically — the 30px diagonal drag of
+        // the left-half finger is a real joystick deflection, and the 30px
+        // right-half drag is the look delta.
+        let gesture = snapshot.touch_gesture();
+        assert!(gesture.active);
+        assert_eq!(gesture.joystick_origin, before.joystick_origin);
+        assert_eq!(gesture.joystick_position, before.joystick_position);
+        assert_eq!(gesture.move_vector, before.move_vector);
+        assert_eq!(gesture.move_vector, Vector2::new(3.0 / 7.0, -3.0 / 7.0));
+        assert_eq!(gesture.look_delta, Vector2::new(30.0, 0.0));
+
+        // Per-frame touch deltas are moved, so the live state starts clean…
+        assert!(state.touch_delta(1).is_none());
+        assert!(state.touch_delta(2).is_none());
+        // …but the persistent touch positions/origins survive for the next frame.
+        assert!(state.has_active_touches());
+        assert_eq!(state.touch_position(1), Some(Vector2::new(230.0, 430.0)));
+        assert_eq!(state.touch_position(2), Some(Vector2::new(730.0, 400.0)));
+    }
+
+    #[test]
+    fn take_snapshot_preserves_cursor_and_surface_size() {
+        let mut state = setup_state();
+        let device_id = DeviceId::dummy();
+        state.handle_event(InputEvent::MouseMovedPosition {
+            device_id,
+            position: PhysicalPosition::new(123.0, 456.0),
+        });
+
+        let snapshot = state.take_snapshot();
+
+        assert_eq!(
+            snapshot.mouse_cursor_position_state(),
+            state.mouse_cursor_position_state()
+        );
+        assert_eq!(snapshot.surface_size(), state.surface_size());
     }
 }
