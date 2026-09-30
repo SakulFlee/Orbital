@@ -11,6 +11,7 @@ use orbital::logging::{error, info};
 
 pub const NAME: &str = "Orbital-Demo-Project: RollCamera";
 
+#[orbital::main]
 pub fn entrypoint(
     event_loop_result: Result<
         orbital::winit::event_loop::EventLoop<()>,
@@ -37,8 +38,6 @@ pub fn entrypoint(
         Err(e) => error!("Runtime failure: {e:?}"),
     }
 }
-
-orbital::make_main!(entrypoint);
 
 // ---------------------------------------------------------------------------
 // Module

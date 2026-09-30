@@ -22,8 +22,11 @@ pub use orbital_ui as ui;
 #[cfg(test)]
 pub mod wgpu_test_adapter;
 
-pub use orbital_core::{cache, logging, macros, mip_level, or, quaternion};
-pub use orbital_core::{make_android_main, make_desktop_main, make_main};
+pub use orbital_core::{cache, logging, mip_level, or, quaternion};
+
+// Bootstrapping: `#[orbital::main]` on an app's entrypoint generates the
+// desktop, Android, and iOS entrypoints.
+pub use orbital_macros::main;
 
 // Re-exports
 pub use cgmath;
