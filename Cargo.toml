@@ -49,7 +49,7 @@ wasm-bindgen-rayon = "1.2"
 # Procedural macros (orbital_macros)
 proc-macro2 = "1.0"
 quote = "1.0"
-syn = { version = "2.0", features = ["full"] }
+syn = { version = "3.0", features = ["full"] }
 
 criterion = { version = "0.8", features = ["html_reports"] }
 
