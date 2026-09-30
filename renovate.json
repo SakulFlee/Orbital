@@ -19,6 +19,13 @@
         "cosmic-text"
       ],
       "enabled": false
+    },
+    {
+      "description": "iced_core re-exports SmolStr and iced_winit forwards winit::keyboard::Key straight into it. The pinned Orbital-Winit fork hard-codes smol_str = \"0.2.0\", so bumping the workspace to 0.3 makes the two SmolStr types distinct and iced_winit fails to compile (E0308 at winit/src/conversion.rs). 0.3.x is unbuildable until the winit pin is moved to a 0.3 revision.",
+      "matchPackageNames": [
+        "smol_str"
+      ],
+      "allowedVersions": "<0.3.0"
     }
   ]
 }
