@@ -196,13 +196,12 @@ crate-type = ["cdylib", "lib"]
 [dependencies]
 {orbital_dep}
 
-# orbital_iced depends on cryoglyph (git), which pulls cosmic-text 0.19.0
-# from crates.io. The iced fork uses a patched cosmic-text from hecrj.
-# Without this, cargo builds two incompatible cosmic-text versions and
-# iced_wgpu fails to compile. This patch forces cryoglyph to use the
-# same cosmic-text as the rest of the engine.
+# The engine and cryoglyph both use the same patched cosmic-text fork.
+# This patch pins any crates.io consumer of cosmic-text to that revision,
+# so cargo cannot resolve two incompatible cosmic-text versions (which
+# makes iced_wgpu fail to compile).
 [patch.crates-io]
-cosmic-text = {{ git = "https://github.com/hecrj/cosmic-text.git", rev = "6e10ac2ce889f48c9eeb1f19c1340a37d6afae31" }}
+cosmic-text = {{ git = "https://github.com/hecrj/cosmic-text.git", rev = "19cca2bd90e73e20614964f06d44240e71e503b3" }}
 "#,
         name = config.project_name,
         lib_name = lib_name,
