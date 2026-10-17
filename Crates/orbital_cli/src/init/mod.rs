@@ -94,12 +94,15 @@ pub fn run(
 
     println!("\nNext steps:");
     println!("  cd {}", project_dir.display());
+    println!("  direnv allow            # loads the dev shell and installs the orbital CLI");
 
     if config.generate_android {
         println!("  orbital build android");
     } else {
         println!("  orbital build");
     }
+
+    println!("\nTo update the orbital CLI later, run `orbital-update` inside the project.");
 
     Ok(())
 }
