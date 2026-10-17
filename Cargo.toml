@@ -86,7 +86,7 @@ futures = { version = "0.3", default-features = false, features = [
   "std",
   "async-await",
 ] }
-glam = "0.33.2"
+glam = "0.34.0"
 guillotiere = "0.7"
 half = "2.2"
 image = "0.25.0"
