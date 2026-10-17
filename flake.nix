@@ -34,6 +34,7 @@
           pkgs.gcc
           pkgs.binutils
           pkgs.gnumake
+          pkgs.git
           pkgs.cargo-flamegraph
           pkgs.cargo-criterion
           pkgs.pkg-config
@@ -74,6 +75,41 @@
             ln -sf "$(which gcc)" .cargo/bin/x86_64-linux-gnu-gcc
             export PATH="$PWD/.cargo/bin:$PATH"
             export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER="$(which gcc)"
+
+            # Keep a project-local `orbital` CLI on PATH. It is installed into
+            # .cargo/bin (already prepended to PATH above) so it survives direnv
+            # reloads and never requires a flake rebuild.
+            #
+            # Source of truth, in order of preference:
+            #   1. ORBITAL_CLI_PATH            (generated project, local engine)
+            #   2. Crates/orbital_cli in $PWD  (this engine checkout)
+            #   3. Forgejo git repository       (generated project, remote engine)
+            _orbital_install_cli() {
+              if [ -n "''${ORBITAL_CLI_PATH:-}" ]; then
+                cargo install --path "$ORBITAL_CLI_PATH" --root "$PWD/.cargo" --debug --locked --force
+              elif [ -f "$PWD/Crates/orbital_cli/Cargo.toml" ]; then
+                cargo install --path "$PWD/Crates/orbital_cli" --root "$PWD/.cargo" --debug --locked --force
+              else
+                cargo install --git "''${ORBITAL_CLI_REPO:-https://forgejo.sakul-flee.de/SakulFlee/Orbital.git}" \
+                  --branch "''${ORBITAL_CLI_BRANCH:-main}" \
+                  --root "$PWD/.cargo" --debug --force orbital-cli
+              fi
+            }
+            orbital-update() { _orbital_install_cli; }
+
+            if [ -f "$PWD/Crates/orbital_cli/Cargo.toml" ]; then
+              # Engine checkout: rebuild only when the CLI sources or the
+              # workspace lockfile are newer than the installed binary.
+              if [ ! -x "$PWD/.cargo/bin/orbital" ] || \
+                 [ -n "$(find "$PWD/Crates/orbital_cli/src" "$PWD/Crates/orbital_cli/Cargo.toml" "$PWD/Cargo.lock" -newer "$PWD/.cargo/bin/orbital" -print -quit 2>/dev/null)" ]; then
+                echo "[direnv] Building orbital CLI..."
+                _orbital_install_cli
+              fi
+            elif [ ! -x "$PWD/.cargo/bin/orbital" ]; then
+              # Generated project: install once, refresh with `orbital-update`.
+              echo "[direnv] Installing orbital CLI..."
+              _orbital_install_cli
+            fi
           '';
         };
 
