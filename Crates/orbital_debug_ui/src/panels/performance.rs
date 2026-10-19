@@ -1,11 +1,12 @@
 //! Panel showing frame rate and per-stage render timings.
 
-use iced_widget::{container, row, text};
+use iced_widget::{canvas, container, row, text};
 use iced_winit::core::{Color, Element, Length, Theme};
 
 use orbital_ecs::World;
 use orbital_ecs_bridge::{FpsStats, FrameTimings, TOTAL_STAGE_INDEX};
 
+use crate::sparkline::Sparkline;
 use crate::state::Renderer as IcedRenderer;
 use crate::state::{DebugMessage, DebugUiState, PanelId};
 
@@ -46,6 +47,24 @@ pub fn performance_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Ic
 
     match ecs.get_resource::<FrameTimings>() {
         Some(timings) => {
+            // One graph: whole-frame time over the retained history. The
+            // per-stage breakdown below stays numeric on purpose — stacking 11
+            // series would be unreadable at this size, and the table answers
+            // "which stage" more directly.
+            sections.push(crate::panels::caption(
+                "frame time (ms, last 240 frames)",
+                Color::from_rgb(0.5, 0.9, 0.6),
+            ));
+            sections.push(
+                canvas::Canvas::new(Sparkline::auto_scaled(
+                    timings.frame_ms().iter().copied().collect(),
+                    Color::from_rgb(0.5, 0.9, 0.6),
+                ))
+                .width(Length::Fill)
+                .height(56)
+                .into(),
+            );
+
             sections.push(
                 row![
                     text("stage").size(11).color(Color::from_rgb(0.6, 0.6, 0.6)),
