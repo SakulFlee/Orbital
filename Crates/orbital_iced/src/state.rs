@@ -213,13 +213,23 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> IcedState<M> {
     /// `world` is the live ECS world, so a panel can apply whatever change its
     /// message describes.
     ///
-    /// The default implementation hides the panel when it receives its own
-    /// close message, and otherwise does nothing. Panels that want to react to
-    /// other messages should hold their own state and handle it in their view
-    /// closure, or drive the world from a system.
-    pub fn handle_message(&mut self, message: M, _world: &mut World) {
+    /// A panel that installed a [`with_message_handler`](Self::with_message_handler)
+    /// owns all of its message handling: the handler is called with the panel
+    /// and the world, and the default behaviour below is skipped. Otherwise the
+    /// default hides the panel when it receives its own close message, and does
+    /// nothing for any other message.
+    pub fn handle_message(&mut self, message: M, world: &mut World) {
         // A message means something changed, so the tree is stale.
         self.dirty = true;
+
+        // Cloning the `Arc` ends the borrow of `self` so the handler can take
+        // `&mut self`. A panel with a handler is responsible for its own close
+        // behaviour (it can still call `set_visible`), which is what lets a
+        // debug panel route messages into the ECS world.
+        if let Some(handler) = self.message_handler.clone() {
+            handler(self, message, world);
+            return;
+        }
 
         if self.close_message.as_ref() == Some(&message) {
             log::info!("Panel '{}' closed", self.title);
