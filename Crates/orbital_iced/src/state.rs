@@ -20,6 +20,8 @@ type ViewFn<M> = Arc<dyn Fn(&World) -> Element<'static, M, Theme, Renderer> + Se
 
 type MessageHandler<M> = Arc<dyn Fn(&mut IcedState<M>, M, &mut World) + Send + Sync>;
 
+type VisibilityFn = Arc<dyn Fn(&World) -> bool + Send + Sync>;
+
 /// A single floating Iced panel.
 ///
 /// The view is a pure `Fn(&World) -> Element`, so all panel state lives in the
@@ -41,6 +43,13 @@ pub struct IcedState<M: Clone + PartialEq + Send + Sync + 'static = Message> {
     close_message: Option<M>,
     view_fn: Option<ViewFn<M>>,
     message_handler: Option<MessageHandler<M>>,
+    /// Extra condition, beyond [`visible`](Self::is_visible), deciding whether
+    /// the panel is drawn. Lets panel state that lives in the ECS world (the
+    /// debug overlay, for instance) hide the panel without the renderer having
+    /// to keep a copy of that state in sync.
+    visibility: Option<VisibilityFn>,
+    /// Caps the panel at this fraction of the window height.
+    height_fraction: Option<f32>,
     /// Set when the panel's content needs rebuilding. Cleared by the renderer
     /// after each rebuild.
     dirty: bool,
@@ -60,6 +69,8 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> Default for IcedState<M> {
             close_message: None,
             view_fn: None,
             message_handler: None,
+            visibility: None,
+            height_fraction: None,
             dirty: true,
             refresh_interval: std::time::Duration::ZERO,
         }
@@ -124,6 +135,31 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> IcedState<M> {
         f: impl Fn(&World) -> Element<'static, M, Theme, Renderer> + Send + Sync + 'static,
     ) -> Self {
         self.view_fn = Some(Arc::new(f));
+        self
+    }
+
+    /// Hides the panel when `predicate` returns `false`.
+    ///
+    /// Unlike [`set_visible`](Self::set_visible), the condition is evaluated
+    /// against the live ECS world each time the view is built, so state that
+    /// lives in a resource — the debug overlay's on/off flag, for example — can
+    /// hide the whole panel, title bar included, without the renderer holding a
+    /// stale copy of it.
+    pub fn with_visibility(
+        mut self,
+        predicate: impl Fn(&World) -> bool + Send + Sync + 'static,
+    ) -> Self {
+        self.visibility = Some(Arc::new(predicate));
+        self
+    }
+
+    /// Caps the panel's height at `fraction` of the window height.
+    ///
+    /// The panel still sizes its content against the window, but a
+    /// `Length::Fill` body stops at this fraction instead of stretching to the
+    /// bottom edge.
+    pub fn with_height_fraction(mut self, fraction: f32) -> Self {
+        self.height_fraction = Some(fraction.max(0.0));
         self
     }
 
@@ -242,6 +278,15 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> IcedState<M> {
             return hidden_view();
         }
 
+        // Checked before the view is built, so a hidden panel draws no title
+        // bar either — that is what used to leave bare titles on screen while
+        // the overlay was off.
+        if let Some(visibility) = &self.visibility
+            && !visibility(ecs)
+        {
+            return hidden_view();
+        }
+
         let inner = match &self.view_fn {
             Some(f) => f(ecs),
             None => self.placeholder_view(),
@@ -255,8 +300,12 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> IcedState<M> {
             .size(14)
             .color(iced_winit::core::Color::WHITE);
 
-        let panel =
+        let mut panel =
             FloatingPanel::new(title_bar, inner).initial_position(self.position.0, self.position.1);
+
+        if let Some(fraction) = self.height_fraction {
+            panel = panel.max_height_fraction(fraction);
+        }
 
         match &self.close_message {
             Some(close) => panel.on_close(close.clone()).into(),
@@ -472,5 +521,34 @@ mod tests {
         let mut hidden: IcedState = IcedState::titled("t");
         hidden.set_visible(false);
         let _ = hidden.view(&world);
+    }
+
+    #[test]
+    fn visibility_predicate_can_hide_a_window() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        let visible = Arc::new(AtomicBool::new(false));
+        let flag = visible.clone();
+
+        let state: IcedState = IcedState::titled("t")
+            .with_visibility(move |_: &World| flag.load(Ordering::Relaxed));
+
+        let world = World::new();
+
+        // The view must build in both cases without panicking; the predicate is
+        // what decides whether a `FloatingPanel` is constructed at all.
+        let _ = state.view(&world);
+        visible.store(true, Ordering::Relaxed);
+        let _ = state.view(&world);
+    }
+
+    #[test]
+    fn height_fraction_is_forwarded_to_the_panel() {
+        let state: IcedState = IcedState::titled("t").with_height_fraction(0.7);
+        assert_eq!(state.height_fraction, Some(0.7));
+
+        // Negative fractions are clamped rather than producing a negative size.
+        let state: IcedState = IcedState::titled("t").with_height_fraction(-1.0);
+        assert_eq!(state.height_fraction, Some(0.0));
     }
 }
