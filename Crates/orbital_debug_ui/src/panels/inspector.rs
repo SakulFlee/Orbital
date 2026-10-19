@@ -37,8 +37,7 @@ pub fn inspector_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
             .spacing(4)
             .padding(10),
         )
-        .width(Length::Fill)
-        .height(Length::Fill)
+        .width(PANEL_WIDTH)
         .into();
     };
 

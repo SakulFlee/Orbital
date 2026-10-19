@@ -29,7 +29,7 @@ use orbital_iced::{IcedLayerRenderer, IcedState};
 use winit::keyboard::{KeyCode, PhysicalKey};
 
 use crate::panels::{console_panel, ecs_panel, inspector, inspector_panel, performance_panel};
-use crate::state::{DebugMessage, DebugUiState};
+use crate::state::{DebugMessage, DebugUiState, PanelId};
 
 /// Shows or hides the whole overlay when the configured key is pressed.
 ///
@@ -127,20 +127,38 @@ impl Module for DebugUiModule {
         // keeps these messages out of the application's own panel messages, and
         // avoids the module-ordering constraint `IcedUiState` implies.
         //
-        // The panels are always registered as visible: their own views check
-        // `DebugUiState` each frame and render blank when the overlay is
-        // hidden. `IcedState::set_visible` cannot be used here, because the
-        // toggle lives in the ECS world and the renderer has its own copy of
-        // the state.
-        // Staggered so the three windows do not overlap on a typical desktop.
-        let panels: [(&str, (f32, f32), PanelView); 4] = [
-            ("Performance", (60.0, 60.0), performance_panel as PanelView),
-            ("ECS", (60.0, 380.0), ecs_panel as PanelView),
-            ("Console", (480.0, 60.0), console_panel as PanelView),
-            ("Inspector", (900.0, 60.0), inspector_panel as PanelView),
+        // The toggle lives in the ECS world, so visibility is supplied as a
+        // predicate evaluated against the world when the view is built. That
+        // hides the whole panel — title bar included — instead of blanking only
+        // its content, which used to leave the titles on screen while the
+        // overlay was off.
+        //
+        // Tall list panels are capped at 70% of the window so they stay usable
+        // next to each other; the windows are draggable, so overlapping
+        // defaults are only a starting point.
+        let panels: [(&str, (f32, f32), PanelId, PanelView); 4] = [
+            (
+                "Performance",
+                (60.0, 60.0),
+                PanelId::Performance,
+                performance_panel as PanelView,
+            ),
+            ("ECS", (60.0, 360.0), PanelId::Ecs, ecs_panel as PanelView),
+            (
+                "Console",
+                (470.0, 60.0),
+                PanelId::Console,
+                console_panel as PanelView,
+            ),
+            (
+                "Inspector",
+                (470.0, 360.0),
+                PanelId::Inspector,
+                inspector_panel as PanelView,
+            ),
         ];
 
-        for (title, position, view) in panels {
+        for (title, position, id, view) in panels {
             let panel = IcedState::<DebugMessage>::titled(title)
                 .with_position(position.0, position.1)
                 .with_close_message(DebugMessage::ClosePanel)
@@ -153,6 +171,12 @@ impl Module for DebugUiModule {
                 // `mark_dirty` — which `handle_message` does — bypasses the
                 // interval, so a click still shows up immediately.
                 .with_refresh_interval(std::time::Duration::from_millis(50))
+                .with_height_fraction(0.7)
+                .with_visibility(move |world: &World| {
+                    world
+                        .get_resource::<DebugUiState>()
+                        .is_some_and(|state| state.is_panel_visible(id))
+                })
                 .with_view(view);
 
             layer_renderers.push(Box::new(IcedLayerRenderer::new(panel)));
