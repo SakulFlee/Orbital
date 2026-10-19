@@ -81,7 +81,7 @@ bytemuck = { version = "1.0", features = ["derive"] }
 bytes = "1.6"
 cargo-hot = { version = "0.1", package = "cargo-hot-protocol" }
 cosmic-text = { git = "https://github.com/hecrj/cosmic-text.git", rev = "19cca2bd90e73e20614964f06d44240e71e503b3" }
-cryoglyph = { git = "https://github.com/sertonix/cryoglyph.git", rev = "ff0b3be60dbf97ac75b8fbc58c004cd6dcbdd31b" }
+cryoglyph = { git = "https://github.com/sertonix/cryoglyph.git", rev = "6b341f2ea339abaf86b8add2cff317e7d8607ce9" }
 futures = { version = "0.3", default-features = false, features = [
   "std",
   "async-await",
