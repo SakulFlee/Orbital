@@ -15,6 +15,7 @@
 
 pub mod editable;
 pub mod panels;
+pub mod sparkline;
 pub mod state;
 
 use iced_wgpu::Renderer as IcedRenderer;
@@ -146,6 +147,12 @@ impl Module for DebugUiModule {
                 // `handle_message` is the only place holding both the world and
                 // the panel state, so it is where a component edit is written.
                 .with_message_handler(handle_debug_message)
+                // Rebuilding the tree means re-running the widget diff and
+                // layout, and these panels re-read the whole world to do it.
+                // At 20 Hz the numbers stay perfectly readable, and
+                // `mark_dirty` — which `handle_message` does — bypasses the
+                // interval, so a click still shows up immediately.
+                .with_refresh_interval(std::time::Duration::from_millis(50))
                 .with_view(view);
 
             layer_renderers.push(Box::new(IcedLayerRenderer::new(panel)));
