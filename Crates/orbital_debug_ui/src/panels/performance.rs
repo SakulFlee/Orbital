@@ -109,8 +109,7 @@ pub fn performance_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Ic
     container(
         crate::panels::column_of(sections, 2.0)
             .padding(10)
-            .width(Length::Fill)
-            .height(Length::Fill),
+            .width(Length::Fill),
     )
     .width(PANEL_WIDTH)
     .into()
