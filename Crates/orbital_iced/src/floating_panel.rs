@@ -42,6 +42,7 @@ where
     on_close: Option<Message>,
     width: Length,
     height: Length,
+    max_height_fraction: Option<f32>,
     initial_position: Option<Point>,
 }
 
@@ -61,6 +62,7 @@ where
             on_close: None,
             width: Length::Shrink,
             height: Length::Shrink,
+            max_height_fraction: None,
             initial_position: None,
         }
     }
@@ -77,6 +79,16 @@ where
 
     pub fn height(mut self, height: Length) -> Self {
         self.height = height;
+        self
+    }
+
+    /// Caps the panel content at a fraction of the window height.
+    ///
+    /// The content is still laid out against the real window, but a `Length::Fill`
+    /// body is bounded to `fraction * window.height` (or the space left below the
+    /// panel, whichever is smaller) instead of stretching to the window edge.
+    pub fn max_height_fraction(mut self, fraction: f32) -> Self {
+        self.max_height_fraction = Some(fraction.max(0.0));
         self
     }
 
@@ -109,7 +121,7 @@ where
         widget::tree::State::new(s)
     }
 
-    fn layout(&mut self, tree: &mut Tree, renderer: &Renderer, _limits: &layout::Limits) -> Node {
+    fn layout(&mut self, tree: &mut Tree, renderer: &Renderer, limits: &layout::Limits) -> Node {
         // Tree::new() doesn't call diff(), so on first frame children may be empty
         if tree.children.len() < 2 {
             self.diff(tree);
@@ -117,25 +129,59 @@ where
 
         let state = tree.state.downcast_mut::<State>();
 
+        // A floating panel lives inside the window, so its children must be
+        // constrained by the space actually left below and to the right of it.
+        // Laying them out with `Limits::NONE` makes every `Length::Fill` child
+        // resolve to infinity; the panel then gets an infinite node and its
+        // background/border/title-bar quads are degenerate, so nothing but the
+        // finite title text is drawn.
+        let window = limits.max();
+        let position = state.position;
+
+        let available_width = (window.width - position.x).max(0.0);
+        let available_height = (window.height - position.y - TITLE_BAR_HEIGHT).max(0.0);
+
+        let content_width = match self.width {
+            Length::Fixed(width) => width.min(available_width),
+            _ => available_width,
+        };
+
+        let mut content_height = match self.height {
+            Length::Fixed(height) => (height - TITLE_BAR_HEIGHT).max(0.0),
+            _ => available_height,
+        };
+
+        if let Some(fraction) = self.max_height_fraction {
+            content_height = content_height.min((window.height * fraction).max(0.0));
+        }
+
+        let title_limits = layout::Limits::new(
+            Size::ZERO,
+            Size::new(available_width, TITLE_BAR_HEIGHT),
+        );
+        let content_limits =
+            layout::Limits::new(Size::ZERO, Size::new(content_width, content_height));
+
         let title_widget = self.title.as_widget_mut();
         let title_size = title_widget.layout(
             tree.children.get_mut(0).unwrap_or(&mut Tree::empty()),
             renderer,
-            &layout::Limits::NONE,
+            &title_limits,
         );
 
         let content_widget = self.content.as_widget_mut();
         let content_size = content_widget.layout(
             tree.children.get_mut(1).unwrap_or(&mut Tree::empty()),
             renderer,
-            &layout::Limits::NONE,
+            &content_limits,
         );
 
         let panel_width = title_size
             .size()
             .width
             .max(content_size.size().width)
-            .max(200.0);
+            .max(200.0)
+            .min(available_width);
         let panel_height = TITLE_BAR_HEIGHT + content_size.size().height;
 
         Node::with_children(
