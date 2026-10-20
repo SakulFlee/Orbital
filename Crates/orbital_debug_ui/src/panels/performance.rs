@@ -1,6 +1,6 @@
 //! Panel showing frame rate and per-stage render timings.
 
-use iced_widget::{canvas, container, row, text};
+use iced_widget::{canvas, row, text};
 use iced_winit::core::{Color, Element, Length, Theme};
 
 use orbital_ecs::World;
@@ -9,8 +9,6 @@ use orbital_ecs_bridge::{FpsStats, FrameTimings, TOTAL_STAGE_INDEX};
 use crate::sparkline::Sparkline;
 use crate::state::Renderer as IcedRenderer;
 use crate::state::{DebugMessage, DebugUiState, PanelId};
-
-const PANEL_WIDTH: f32 = 380.0;
 
 /// Builds the performance panel.
 ///
@@ -61,7 +59,7 @@ pub fn performance_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Ic
                     Color::from_rgb(0.5, 0.9, 0.6),
                 ))
                 .width(Length::Fill)
-                .height(56)
+                .height(72)
                 .into(),
             );
 
@@ -106,13 +104,7 @@ pub fn performance_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Ic
         None => sections.push(row![text("no timings recorded yet").size(12)].into()),
     }
 
-    container(
-        crate::panels::column_of(sections, 2.0)
-            .padding(10)
-            .width(Length::Fill),
-    )
-    .width(PANEL_WIDTH)
-    .into()
+    crate::panels::scrolling(crate::panels::column_of(sections, 2.0).padding(10).width(Length::Fill))
 }
 
 /// Formats a duration in milliseconds, using more precision as it gets small.

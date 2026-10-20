@@ -10,8 +10,6 @@ use orbital_ecs::{Entity, World};
 use crate::state::Renderer as IcedRenderer;
 use crate::state::{DebugMessage, DebugUiState, MAX_ROWS, PanelId};
 
-const PANEL_WIDTH: f32 = 380.0;
-
 /// Builds the ECS entity/component tree.
 ///
 /// Entity-first: the roots are live entities, and expanding one lists the
@@ -91,7 +89,8 @@ pub fn ecs_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, IcedRender
         .width(Length::Fill)
         .height(Length::Fill),
     )
-    .width(PANEL_WIDTH)
+    .width(Length::Fill)
+    .height(Length::Fill)
     .into()
 }
 

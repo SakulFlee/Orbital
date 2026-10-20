@@ -133,34 +133,45 @@ impl Module for DebugUiModule {
         // its content, which used to leave the titles on screen while the
         // overlay was off.
         //
-        // Tall list panels are capped at 70% of the window so they stay usable
-        // next to each other; the windows are draggable, so overlapping
-        // defaults are only a starting point.
-        let panels: [(&str, (f32, f32), PanelId, PanelView); 4] = [
+        // Tall list panels get an explicit size so they stay usable next to
+        // each other; the windows are draggable and resizable, so this is only
+        // a starting point. The console is deliberately wide and short, since
+        // log lines are long.
+        let panels: [PanelSpec; 4] = [
             (
                 "Performance",
-                (60.0, 60.0),
+                (40.0, 40.0),
+                (440.0, 340.0),
                 PanelId::Performance,
                 performance_panel as PanelView,
             ),
-            ("ECS", (60.0, 360.0), PanelId::Ecs, ecs_panel as PanelView),
+            (
+                "ECS",
+                (40.0, 420.0),
+                (440.0, 280.0),
+                PanelId::Ecs,
+                ecs_panel as PanelView,
+            ),
             (
                 "Console",
-                (470.0, 60.0),
+                (500.0, 40.0),
+                (760.0, 260.0),
                 PanelId::Console,
                 console_panel as PanelView,
             ),
             (
                 "Inspector",
-                (470.0, 360.0),
+                (500.0, 360.0),
+                (340.0, 320.0),
                 PanelId::Inspector,
                 inspector_panel as PanelView,
             ),
         ];
 
-        for (title, position, id, view) in panels {
+        for (title, position, size, id, view) in panels {
             let panel = IcedState::<DebugMessage>::titled(title)
                 .with_position(position.0, position.1)
+                .with_size(size.0, size.1)
                 .with_close_message(DebugMessage::ClosePanel)
                 // `handle_message` is the only place holding both the world and
                 // the panel state, so it is where a component edit is written.
@@ -171,7 +182,6 @@ impl Module for DebugUiModule {
                 // `mark_dirty` — which `handle_message` does — bypasses the
                 // interval, so a click still shows up immediately.
                 .with_refresh_interval(std::time::Duration::from_millis(50))
-                .with_height_fraction(0.7)
                 .with_visibility(move |world: &World| {
                     world
                         .get_resource::<DebugUiState>()
@@ -231,3 +241,12 @@ fn handle_debug_message(
 /// A panel view: a pure function from the world to a widget tree.
 type PanelView =
     fn(&World) -> Element<'static, DebugMessage, iced_winit::core::Theme, IcedRenderer>;
+
+/// A panel's title, initial position, initial size, identity and view.
+type PanelSpec = (
+    &'static str,
+    (f32, f32),
+    (f32, f32),
+    crate::state::PanelId,
+    PanelView,
+);

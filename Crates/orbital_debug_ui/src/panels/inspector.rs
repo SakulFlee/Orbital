@@ -11,8 +11,6 @@ use crate::editable::{apply_to, display_for, editable_label, editable_ops};
 use crate::state::Renderer as IcedRenderer;
 use crate::state::{DebugMessage, DebugUiState, PanelId};
 
-const PANEL_WIDTH: f32 = 320.0;
-
 /// Builds the inspector for the selected entity.
 ///
 /// Each editable component gets a text field seeded with its current value;
@@ -37,7 +35,8 @@ pub fn inspector_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
             .spacing(4)
             .padding(10),
         )
-        .width(PANEL_WIDTH)
+        .width(Length::Fill)
+        .height(Length::Fill)
         .into();
     };
 
@@ -85,7 +84,8 @@ pub fn inspector_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
         .width(Length::Fill)
         .height(Length::Fill),
     )
-    .width(PANEL_WIDTH)
+    .width(Length::Fill)
+    .height(Length::Fill)
     .into()
 }
 
