@@ -1,6 +1,6 @@
 use crate::floating_panel::FloatingPanel;
 use iced_wgpu::Renderer;
-use iced_winit::core::{Element, Theme};
+use iced_winit::core::{Element, Length, Theme};
 use orbital_ecs::World;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -48,8 +48,12 @@ pub struct IcedState<M: Clone + PartialEq + Send + Sync + 'static = Message> {
     /// debug overlay, for instance) hide the panel without the renderer having
     /// to keep a copy of that state in sync.
     visibility: Option<VisibilityFn>,
-    /// Caps the panel at this fraction of the window height.
-    height_fraction: Option<f32>,
+    /// Declared width/height of the window. `Shrink` (the default) sizes it to
+    /// the content.
+    width: Length,
+    height: Length,
+    /// Whether the window can be resized with its bottom-right grip.
+    resizable: bool,
     /// Set when the panel's content needs rebuilding. Cleared by the renderer
     /// after each rebuild.
     dirty: bool,
@@ -70,7 +74,9 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> Default for IcedState<M> {
             view_fn: None,
             message_handler: None,
             visibility: None,
-            height_fraction: None,
+            width: Length::Shrink,
+            height: Length::Shrink,
+            resizable: true,
             dirty: true,
             refresh_interval: std::time::Duration::ZERO,
         }
@@ -153,13 +159,19 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> IcedState<M> {
         self
     }
 
-    /// Caps the panel's height at `fraction` of the window height.
+    /// Sets the panel's declared width and height.
     ///
-    /// The panel still sizes its content against the window, but a
-    /// `Length::Fill` body stops at this fraction instead of stretching to the
-    /// bottom edge.
-    pub fn with_height_fraction(mut self, fraction: f32) -> Self {
-        self.height_fraction = Some(fraction.max(0.0));
+    /// `Shrink` sizes the panel to its content; a fixed length caps it (and a
+    /// `Length::Fill` body fills it). The user can still resize the window.
+    pub fn with_size(mut self, width: impl Into<Length>, height: impl Into<Length>) -> Self {
+        self.width = width.into();
+        self.height = height.into();
+        self
+    }
+
+    /// Whether the bottom-right grip resizes this window. On by default.
+    pub fn with_resizable(mut self, resizable: bool) -> Self {
+        self.resizable = resizable;
         self
     }
 
@@ -300,12 +312,11 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> IcedState<M> {
             .size(14)
             .color(iced_winit::core::Color::WHITE);
 
-        let mut panel =
-            FloatingPanel::new(title_bar, inner).initial_position(self.position.0, self.position.1);
-
-        if let Some(fraction) = self.height_fraction {
-            panel = panel.max_height_fraction(fraction);
-        }
+        let panel = FloatingPanel::new(title_bar, inner)
+            .width(self.width)
+            .height(self.height)
+            .resizable(self.resizable)
+            .initial_position(self.position.0, self.position.1);
 
         match &self.close_message {
             Some(close) => panel.on_close(close.clone()).into(),
@@ -543,12 +554,16 @@ mod tests {
     }
 
     #[test]
-    fn height_fraction_is_forwarded_to_the_panel() {
-        let state: IcedState = IcedState::titled("t").with_height_fraction(0.7);
-        assert_eq!(state.height_fraction, Some(0.7));
+    fn declared_size_and_resizability_are_stored() {
+        let state: IcedState =
+            IcedState::titled("t").with_size(420.0, Length::Shrink).with_resizable(false);
 
-        // Negative fractions are clamped rather than producing a negative size.
-        let state: IcedState = IcedState::titled("t").with_height_fraction(-1.0);
-        assert_eq!(state.height_fraction, Some(0.0));
+        assert_eq!(state.width, Length::Fixed(420.0));
+        assert_eq!(state.height, Length::Shrink);
+        assert!(!state.resizable);
+
+        let state: IcedState = IcedState::titled("t");
+        assert_eq!(state.width, Length::Shrink, "defaults to content sized");
+        assert!(state.resizable, "windows are resizable by default");
     }
 }
