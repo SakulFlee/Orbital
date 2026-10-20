@@ -9,8 +9,6 @@ use orbital_ecs::World;
 use crate::state::Renderer as IcedRenderer;
 use crate::state::{DebugMessage, DebugUiState, MAX_ROWS, PanelId};
 
-const PANEL_WIDTH: f32 = 520.0;
-
 const LEVELS: [LevelFilter; 5] = [
     LevelFilter::Off,
     LevelFilter::Error,
@@ -109,7 +107,8 @@ pub fn console_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, IcedRe
         .width(Length::Fill)
         .height(Length::Fill),
     )
-    .width(PANEL_WIDTH)
+    .width(Length::Fill)
+    .height(Length::Fill)
     .into()
 }
 
