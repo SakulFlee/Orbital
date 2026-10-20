@@ -13,6 +13,9 @@ use iced_core::{Color, Element, Font, Length, Pixels, Point, Rectangle, Size, Ve
 
 const TITLE_BAR_HEIGHT: f32 = 28.0;
 const DRAG_DEADBAND: f32 = 3.0;
+const RESIZE_GRIP: f32 = 16.0;
+const MIN_PANEL_WIDTH: f32 = 200.0;
+const MIN_CONTENT_HEIGHT: f32 = 60.0;
 
 #[derive(Debug, Clone)]
 pub struct State {
@@ -20,6 +23,12 @@ pub struct State {
     is_dragging: bool,
     drag_origin: Point,
     drag_offset: Vector,
+    /// Content size chosen by dragging the resize grip. `None` until the panel
+    /// is resized, so the declared size keeps working as the default.
+    size: Option<Size>,
+    is_resizing: bool,
+    resize_origin: Point,
+    resize_start: Size,
 }
 
 impl Default for State {
@@ -29,6 +38,10 @@ impl Default for State {
             is_dragging: false,
             drag_origin: Point::ORIGIN,
             drag_offset: Vector::new(0.0, 0.0),
+            size: None,
+            is_resizing: false,
+            resize_origin: Point::ORIGIN,
+            resize_start: Size::ZERO,
         }
     }
 }
@@ -43,6 +56,7 @@ where
     width: Length,
     height: Length,
     max_height_fraction: Option<f32>,
+    resizable: bool,
     initial_position: Option<Point>,
 }
 
@@ -63,6 +77,7 @@ where
             width: Length::Shrink,
             height: Length::Shrink,
             max_height_fraction: None,
+            resizable: true,
             initial_position: None,
         }
     }
@@ -89,6 +104,12 @@ where
     /// panel, whichever is smaller) instead of stretching to the window edge.
     pub fn max_height_fraction(mut self, fraction: f32) -> Self {
         self.max_height_fraction = Some(fraction.max(0.0));
+        self
+    }
+
+    /// Whether a bottom-right grip lets the user resize the panel.
+    pub fn resizable(mut self, resizable: bool) -> Self {
+        self.resizable = resizable;
         self
     }
 
@@ -141,19 +162,31 @@ where
         let available_width = (window.width - position.x).max(0.0);
         let available_height = (window.height - position.y - TITLE_BAR_HEIGHT).max(0.0);
 
-        let content_width = match self.width {
-            Length::Fixed(width) => width.min(available_width),
-            _ => available_width,
-        };
+        let (content_width, content_height) = match state.size {
+            // A size chosen by dragging the grip wins over the declared one, but
+            // is still clamped to the space actually available in the window.
+            Some(size) => (
+                size.width.clamp(0.0, available_width),
+                size.height.clamp(0.0, available_height),
+            ),
+            None => {
+                let content_width = match self.width {
+                    Length::Fixed(width) => width.min(available_width),
+                    _ => available_width,
+                };
 
-        let mut content_height = match self.height {
-            Length::Fixed(height) => (height - TITLE_BAR_HEIGHT).max(0.0),
-            _ => available_height,
-        };
+                let mut content_height = match self.height {
+                    Length::Fixed(height) => (height - TITLE_BAR_HEIGHT).max(0.0),
+                    _ => available_height,
+                };
 
-        if let Some(fraction) = self.max_height_fraction {
-            content_height = content_height.min((window.height * fraction).max(0.0));
-        }
+                if let Some(fraction) = self.max_height_fraction {
+                    content_height = content_height.min((window.height * fraction).max(0.0));
+                }
+
+                (content_width, content_height)
+            }
+        };
 
         let title_limits = layout::Limits::new(
             Size::ZERO,
@@ -180,7 +213,7 @@ where
             .size()
             .width
             .max(content_size.size().width)
-            .max(200.0)
+            .max(MIN_PANEL_WIDTH)
             .min(available_width);
         let panel_height = TITLE_BAR_HEIGHT + content_size.size().height;
 
@@ -233,6 +266,13 @@ where
             height: TITLE_BAR_HEIGHT,
         };
 
+        let grip_bounds = Rectangle {
+            x: bounds.x + (bounds.width - RESIZE_GRIP).max(0.0),
+            y: bounds.y + (bounds.height - RESIZE_GRIP).max(0.0),
+            width: RESIZE_GRIP.min(bounds.width),
+            height: RESIZE_GRIP.min(bounds.height),
+        };
+
         // Pointer input: mouse *and* touch. On touch-only platforms (Android)
         // winit emits no synthetic mouse events, so without the touch arms a
         // panel could neither be dragged nor closed with a finger.
@@ -255,7 +295,12 @@ where
         };
 
         if let Some(cursor_pos) = pressed_at {
-            if title_bounds.contains(cursor_pos) && !close_bounds.contains(cursor_pos) {
+            if self.resizable && grip_bounds.contains(cursor_pos) {
+                state.is_resizing = true;
+                state.resize_origin = cursor_pos;
+                state.resize_start = Size::new(bounds.width, bounds.height);
+                shell.capture_event();
+            } else if title_bounds.contains(cursor_pos) && !close_bounds.contains(cursor_pos) {
                 state.is_dragging = true;
                 state.drag_origin = cursor_pos;
                 state.drag_offset = cursor_pos - state.position;
@@ -270,6 +315,11 @@ where
 
         if released && state.is_dragging {
             state.is_dragging = false;
+            shell.capture_event();
+        }
+
+        if released && state.is_resizing {
+            state.is_resizing = false;
             shell.capture_event();
         }
 
@@ -288,6 +338,19 @@ where
             }
         }
 
+        if let Some(position) = moved_to
+            && state.is_resizing
+        {
+            let delta = position - state.resize_origin;
+            let width = (state.resize_start.width + delta.x).max(MIN_PANEL_WIDTH);
+            let height =
+                (state.resize_start.height + delta.y).max(TITLE_BAR_HEIGHT + MIN_CONTENT_HEIGHT);
+
+            state.size = Some(Size::new(width, height - TITLE_BAR_HEIGHT));
+            shell.request_redraw();
+            shell.capture_event();
+        }
+
         // Forward events to title bar child
         let title_layout = layout.child(0);
         self.title.as_widget_mut().update(
@@ -300,17 +363,21 @@ where
             _viewport,
         );
 
-        // Forward events to content child
-        let content_layout = layout.child(1);
-        self.content.as_widget_mut().update(
-            tree.children.get_mut(1).unwrap(),
-            event,
-            content_layout,
-            cursor,
-            _renderer,
-            shell,
-            _viewport,
-        );
+        // Forward events to content child, unless the resize grip owns this
+        // gesture: the grip sits over the content's scrollbar, and forwarding
+        // would start a scroll while the panel is being resized.
+        if !state.is_resizing {
+            let content_layout = layout.child(1);
+            self.content.as_widget_mut().update(
+                tree.children.get_mut(1).unwrap(),
+                event,
+                content_layout,
+                cursor,
+                _renderer,
+                shell,
+                _viewport,
+            );
+        }
 
         // Whole-panel capture: any touch press/move inside the panel bounds
         // marks the panel as owning that finger — even when no interactive
@@ -455,6 +522,42 @@ where
             cursor,
             viewport,
         );
+
+        // Resize grip: three diagonal dots in the bottom-right corner. Drawn
+        // last so content cannot cover it.
+        if self.resizable {
+            let grip_hover = !state.is_resizing
+                && cursor.position().is_some_and(|p| {
+                    Rectangle {
+                        x: bounds.x + (bounds.width - RESIZE_GRIP).max(0.0),
+                        y: bounds.y + (bounds.height - RESIZE_GRIP).max(0.0),
+                        width: RESIZE_GRIP.min(bounds.width),
+                        height: RESIZE_GRIP.min(bounds.height),
+                    }
+                    .contains(p)
+                });
+            let color = if state.is_resizing || grip_hover {
+                Color::from_rgba(0.85, 0.85, 0.95, 0.9)
+            } else {
+                Color::from_rgba(0.65, 0.65, 0.75, 0.5)
+            };
+
+            for step in 0..3 {
+                let offset = step as f32 * 4.0;
+                renderer.fill_quad(
+                    Quad {
+                        bounds: Rectangle {
+                            x: bounds.x + bounds.width - 4.0 - offset,
+                            y: bounds.y + bounds.height - 4.0 - offset,
+                            width: 2.0,
+                            height: 2.0,
+                        },
+                        ..Default::default()
+                    },
+                    color,
+                );
+            }
+        }
     }
 
     fn mouse_interaction(
@@ -475,14 +578,29 @@ where
             height: TITLE_BAR_HEIGHT,
         };
 
+        let grip_bounds = Rectangle {
+            x: bounds.x + (bounds.width - RESIZE_GRIP).max(0.0),
+            y: bounds.y + (bounds.height - RESIZE_GRIP).max(0.0),
+            width: RESIZE_GRIP.min(bounds.width),
+            height: RESIZE_GRIP.min(bounds.height),
+        };
+
+        if state.is_resizing {
+            return mouse::Interaction::ResizingDiagonallyDown;
+        }
+
         if state.is_dragging {
             return mouse::Interaction::Grabbing;
         }
 
-        if let Some(cursor_pos) = cursor.position()
-            && title_bounds.contains(cursor_pos)
-        {
-            return mouse::Interaction::Grab;
+        if let Some(cursor_pos) = cursor.position() {
+            if self.resizable && grip_bounds.contains(cursor_pos) {
+                return mouse::Interaction::ResizingDiagonallyDown;
+            }
+
+            if title_bounds.contains(cursor_pos) {
+                return mouse::Interaction::Grab;
+            }
         }
 
         mouse::Interaction::None
