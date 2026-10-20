@@ -41,6 +41,11 @@ impl Sparkline {
 
     /// The points of the plotted polyline, in the given bounds.
     ///
+    /// The coordinates are relative to the canvas origin, not the window: the
+    /// canvas widget already translates the geometry by `bounds` position
+    /// before drawing, so adding `bounds.x`/`bounds.y` here would offset the
+    /// graph out of its viewport.
+    ///
     /// Separated out so the mapping can be tested without a GPU.
     fn points(&self, bounds: Rectangle) -> Vec<Point> {
         if self.values.is_empty() {
@@ -61,9 +66,9 @@ impl Sparkline {
                 let ratio = (value / max).clamp(0.0, 1.0);
 
                 Point::new(
-                    bounds.x + step * index as f32,
+                    step * index as f32,
                     // Canvas y grows downward, so the ratio is inverted.
-                    bounds.y + bounds.height * (1.0 - ratio),
+                    bounds.height * (1.0 - ratio),
                 )
             })
             .collect()
@@ -89,7 +94,7 @@ impl Program<DebugMessage, iced_winit::core::Theme, IcedRenderer> for Sparkline 
 
         let first = points[0];
         let last = points[points.len() - 1];
-        let floor = bounds.y + bounds.height;
+        let floor = bounds.height;
 
         let mut frame = canvas::Frame::new(renderer, bounds.size());
 
@@ -158,6 +163,21 @@ mod tests {
         assert_eq!(points[0], Point::new(0.0, 50.0), "zero sits on the floor");
         assert_eq!(points[1], Point::new(50.0, 25.0), "half is half way up");
         assert_eq!(points[2], Point::new(100.0, 0.0), "max is the ceiling");
+    }
+
+    #[test]
+    fn points_are_relative_to_the_canvas_origin() {
+        // The canvas translates the geometry by its bounds position itself, so
+        // a non-zero origin must not leak into the points.
+        let shifted = Rectangle {
+            x: 120.0,
+            y: 40.0,
+            ..bounds()
+        };
+
+        let points = Sparkline::new(vec![0.0, 1.0], 1.0, Color::WHITE).points(shifted);
+
+        assert_eq!(points, vec![Point::new(0.0, 50.0), Point::new(100.0, 0.0)]);
     }
 
     #[test]
