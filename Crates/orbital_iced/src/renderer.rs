@@ -281,6 +281,14 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
             self.state.handle_message(message, ecs);
         }
 
+        // A captured event means a widget is actively responding — dragging or
+        // resizing a panel, for instance. Those change the layout without
+        // publishing a message, so rebuild promptly instead of waiting for the
+        // refresh interval; otherwise a resize is only applied at 20 Hz.
+        if event_statuses.contains(&iced_winit::core::event::Status::Captured) {
+            self.state.mark_dirty();
+        }
+
         // Update IcedCapturedTouches based on per-event capture statuses.
         for (status, touch_id) in event_statuses.iter().zip(event_touch_ids.iter()) {
             let Some(touch_id) = touch_id else {
@@ -420,12 +428,15 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
             return;
         };
 
-        interface.draw(
-            renderer,
-            &Theme::Dark,
-            &iced_winit::core::renderer::Style::default(),
-            cursor,
-        );
+        // The default `Style` has black text, which is unreadable on the dark
+        // panel backgrounds. Derive it from the theme instead, so every widget
+        // that does not set an explicit color matches the dark palette.
+        let theme = Theme::Dark;
+        let style = iced_winit::core::renderer::Style {
+            text_color: theme.palette().background.base.text,
+        };
+
+        interface.draw(renderer, &theme, &style, cursor);
 
         let physical_size =
             iced_core::Size::new(ctx.screen_size.0 as u32, ctx.screen_size.1 as u32);
