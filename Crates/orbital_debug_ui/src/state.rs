@@ -1,8 +1,9 @@
 //! Shared UI state and message type for the debug panels.
 
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 
 use orbital_ecs::Entity;
+use orbital_ecs_bridge::{TIMING_STAGES, TOTAL_STAGE_INDEX};
 
 /// The Iced renderer type the panels draw with.
 ///
@@ -23,8 +24,12 @@ pub enum DebugMessage {
     SelectEntity(Option<Entity>),
     /// Expand or collapse the component list of an entity.
     ToggleEntity(Entity),
-    /// Show only entities whose index or component names match.
+    /// Show only entities whose index, label or component names match.
     SetFilter(String),
+    /// Add or remove a timing stage from the performance graph list.
+    ToggleGraphStage(usize),
+    /// Choose which statistic the performance graphs plot.
+    SetGraphMetric(GraphMetric),
     /// Show only log records at or above this level.
     SetMinLevel(log::LevelFilter),
     /// Drop the captured log buffer.
@@ -42,6 +47,22 @@ pub enum DebugMessage {
     TogglePanel(PanelId),
     /// Close a panel's window.
     ClosePanel,
+}
+
+/// Which statistic of a timing stage the performance graphs plot.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum GraphMetric {
+    /// The most recent frame's duration.
+    #[default]
+    Last,
+    /// The mean over a short rolling window.
+    Avg,
+    /// The smallest value in a short rolling window.
+    Min,
+    /// The largest value in a short rolling window.
+    Max,
+    /// Last, rolling average and the rolling min/max band together.
+    All,
 }
 
 /// Identifies one of the debug panels, for show/hide and focus.
@@ -84,8 +105,14 @@ pub struct DebugUiState {
     pub selected: Option<Entity>,
     /// Entities whose component list is expanded.
     pub expanded: HashSet<Entity>,
-    /// Entity-tree filter; matches the entity index or a component type name.
+    /// Entity-tree filter; matches the entity index, label or component type
+    /// name.
     pub filter: String,
+    /// The timing stages whose graphs are shown, as indices into
+    /// [`TIMING_STAGES`]. Empty means no graph is pinned.
+    pub graph_stages: BTreeSet<usize>,
+    /// Which statistic those graphs plot.
+    pub graph_metric: GraphMetric,
     /// Log-level filter for the console.
     pub min_level: log::LevelFilter,
     /// Uncommitted text for each editable field, keyed by component type.
@@ -124,6 +151,8 @@ impl DebugUiState {
             selected: None,
             expanded: HashSet::new(),
             filter: String::new(),
+            graph_stages: BTreeSet::from([TOTAL_STAGE_INDEX]),
+            graph_metric: GraphMetric::Last,
             min_level: log::LevelFilter::Info,
             field_buffers: std::collections::HashMap::new(),
             last_error: None,
@@ -208,6 +237,14 @@ impl DebugUiState {
                 self.dirty = true;
             }
             DebugMessage::SelectEntity(entity) => {
+                // Clicking the selected entity again clears the selection; also
+                // collapse it, since the first click expanded it automatically.
+                if entity.is_none()
+                    && let Some(previous) = self.selected
+                {
+                    self.expanded.remove(&previous);
+                }
+
                 self.selected = *entity;
                 // Expand on select so the components are immediately visible.
                 if let Some(entity) = *entity {
@@ -223,6 +260,18 @@ impl DebugUiState {
             }
             DebugMessage::SetFilter(filter) => {
                 self.filter = filter.clone();
+                self.dirty = true;
+            }
+            DebugMessage::ToggleGraphStage(stage) => {
+                if *stage < TIMING_STAGES.len() {
+                    if !self.graph_stages.remove(stage) {
+                        self.graph_stages.insert(*stage);
+                    }
+                    self.dirty = true;
+                }
+            }
+            DebugMessage::SetGraphMetric(metric) => {
+                self.graph_metric = *metric;
                 self.dirty = true;
             }
             DebugMessage::SetMinLevel(level) => {
@@ -306,6 +355,41 @@ mod tests {
 
         state.apply(&DebugMessage::ToggleEntity(entity));
         assert!(!state.is_expanded(entity));
+
+        // The ECS panel sends `None` when the selected row is clicked again.
+        state.apply(&DebugMessage::SelectEntity(None));
+        assert_eq!(state.selected, None);
+        assert!(
+            !state.is_expanded(entity),
+            "deselecting collapses the entry it expanded"
+        );
+    }
+
+    #[test]
+    fn graph_stages_toggle_and_ignore_out_of_range_indices() {
+        let mut state = DebugUiState::new(winit::keyboard::KeyCode::F1);
+        assert!(state.graph_stages.contains(&TOTAL_STAGE_INDEX));
+
+        state.apply(&DebugMessage::ToggleGraphStage(2));
+        assert!(state.graph_stages.contains(&2));
+
+        state.apply(&DebugMessage::ToggleGraphStage(2));
+        assert!(!state.graph_stages.contains(&2));
+
+        state.apply(&DebugMessage::ToggleGraphStage(TIMING_STAGES.len()));
+        assert!(
+            !state.graph_stages.contains(&TIMING_STAGES.len()),
+            "out-of-range stages are ignored"
+        );
+    }
+
+    #[test]
+    fn graph_metric_defaults_to_last_and_can_change() {
+        let mut state = DebugUiState::new(winit::keyboard::KeyCode::F1);
+        assert_eq!(state.graph_metric, GraphMetric::Last);
+
+        state.apply(&DebugMessage::SetGraphMetric(GraphMetric::All));
+        assert_eq!(state.graph_metric, GraphMetric::All);
     }
 
     #[test]

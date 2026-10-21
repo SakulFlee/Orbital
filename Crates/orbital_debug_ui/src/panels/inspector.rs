@@ -3,13 +3,19 @@
 use std::any::TypeId;
 
 use iced_widget::{button, column, container, row, text, text_input};
-use iced_winit::core::{Color, Element, Length, Theme};
+use iced_winit::core::text::Wrapping;
+use iced_winit::core::{Color, Element, Font, Length, Theme};
 
 use orbital_ecs::{Entity, World};
 
 use crate::editable::{apply_to, display_for, editable_label, editable_ops};
 use crate::state::Renderer as IcedRenderer;
 use crate::state::{DebugMessage, DebugUiState, PanelId};
+
+/// Read-only components are pretty-printed with a larger budget than the
+/// compact ECS tree rows, because the inspector has room and the value is the
+/// point of the panel.
+const INSPECTOR_PREVIEW_CHARS: usize = 1500;
 
 /// Builds the inspector for the selected entity.
 ///
@@ -50,11 +56,13 @@ pub fn inspector_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
         .into();
     }
 
+    let title = match crate::panels::entity_label(ecs, &entity) {
+        Some(label) => format!("{label}  ·  Entity {{ {} }}", entity.index),
+        None => format!("Entity {{ {} }}", entity.index),
+    };
+
     let mut rows = vec![
-        crate::panels::caption(
-            &format!("Entity {{ {} }}", entity.index),
-            Color::from_rgb(0.7, 0.85, 1.0),
-        ),
+        crate::panels::caption(&title, Color::from_rgb(0.7, 0.85, 1.0)),
         crate::panels::divider(),
     ];
 
@@ -100,8 +108,7 @@ fn component_editor(
     // Everything needed is taken as owned strings, so the resource guard is
     // released before the element tree is built.
     let debug_value = ecs
-        .component_debug_string(type_id, entity)
-        .map(|value| DebugUiState::preview(&value))
+        .component_debug_pretty_preview(type_id, entity, INSPECTOR_PREVIEW_CHARS)
         .unwrap_or_else(|| "<unavailable>".to_string());
 
     // The editable text form, which is not the same as the `Debug` form:
@@ -115,12 +122,21 @@ fn component_editor(
     let Some(edit_value) = edit_value else {
         return column![
             text(label).size(12).color(Color::from_rgb(0.7, 0.85, 1.0)),
-            text(debug_value).size(12),
+            container(
+                text(debug_value)
+                    .size(11)
+                    .font(Font::MONOSPACE)
+                    .width(Length::Fill)
+                    .wrapping(Wrapping::WordOrGlyph),
+            )
+            .padding(4)
+            .width(Length::Fill)
+            .style(iced_widget::container::bordered_box),
             text("read-only")
                 .size(10)
                 .color(Color::from_rgb(0.55, 0.55, 0.6)),
         ]
-        .spacing(0)
+        .spacing(1)
         .padding(2)
         .width(Length::Fill)
         .into();

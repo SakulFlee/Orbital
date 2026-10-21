@@ -3,8 +3,9 @@ use iced_winit::core::Theme;
 use orbital_app::RenderLayer;
 use orbital_app::render_overlay::{LayerRenderer as LayerRendererTrait, RenderOverlayContext};
 use orbital_ecs_bridge::{
-    AdapterResource, DeviceResource, IcedCapturedMouseDrag, IcedCapturedTouches, IcedEventQueue,
-    IcedWindowEvent, QueueResource, SurfaceFormatResource, WindowSize,
+    AdapterResource, DeviceResource, IcedCapturedMouseDrag, IcedCapturedMouseWheel,
+    IcedCapturedTouches, IcedEventQueue, IcedWindowEvent, QueueResource, SurfaceFormatResource,
+    WindowSize,
 };
 use std::sync::Mutex;
 use winit::event::{ElementState, MouseButton, TouchPhase};
@@ -332,6 +333,21 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
             }
         }
 
+        // Wheel capture is per-event. The runtime clears this before the
+        // renderer pass and uses it to drop the wheel events it deferred, so
+        // scrolling a panel does not also drive the game's camera.
+        for (status, event) in event_statuses.iter().zip(iced_core_events.iter()) {
+            if *status == iced_winit::core::event::Status::Captured
+                && matches!(
+                    event,
+                    iced_core::Event::Mouse(iced_core::mouse::Event::WheelScrolled { .. })
+                )
+                && let Some(mut captured) = ecs.get_resource_mut::<IcedCapturedMouseWheel>()
+            {
+                captured.0 = true;
+            }
+        }
+
         // Hand the interface to `render` instead of dropping it. The cache is
         // *not* taken back here: the retained interface owns the widget state
         // until the next rebuild.
@@ -485,6 +501,21 @@ fn convert_event(
                 winit::event::ElementState::Released => mouse::Event::ButtonReleased(iced_button),
             };
             Some(Event::Mouse(iced_state))
+        }
+        IcedWindowEvent::MouseWheel { delta } => {
+            let delta = match *delta {
+                winit::event::MouseScrollDelta::LineDelta(x, y) => {
+                    mouse::ScrollDelta::Lines { x, y }
+                }
+                winit::event::MouseScrollDelta::PixelDelta(position) => {
+                    mouse::ScrollDelta::Pixels {
+                        x: (position.x / scale_factor) as f32,
+                        y: (position.y / scale_factor) as f32,
+                    }
+                }
+            };
+
+            Some(Event::Mouse(mouse::Event::WheelScrolled { delta }))
         }
         IcedWindowEvent::KeyboardInput {
             event,
@@ -760,5 +791,48 @@ impl raw_window_handle::HasDisplayHandle for NoopWindow {
 impl std::fmt::Debug for NoopWindow {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("NoopWindow").finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use iced_core::event::Event;
+
+    fn convert(delta: winit::event::MouseScrollDelta, scale_factor: f64) -> Option<Event> {
+        convert_event(
+            &IcedWindowEvent::MouseWheel { delta },
+            &winit::keyboard::ModifiersState::empty(),
+            scale_factor,
+        )
+    }
+
+    #[test]
+    fn line_wheel_deltas_are_forwarded_unchanged() {
+        let event = convert(winit::event::MouseScrollDelta::LineDelta(1.0, -2.0), 1.0);
+
+        assert!(matches!(
+            event,
+            Some(Event::Mouse(iced_core::mouse::Event::WheelScrolled {
+                delta: iced_core::mouse::ScrollDelta::Lines { x: 1.0, y: -2.0 }
+            }))
+        ));
+    }
+
+    #[test]
+    fn pixel_wheel_deltas_are_converted_to_logical_pixels() {
+        let event = convert(
+            winit::event::MouseScrollDelta::PixelDelta(winit::dpi::PhysicalPosition::new(
+                20.0, -40.0,
+            )),
+            2.0,
+        );
+
+        assert!(matches!(
+            event,
+            Some(Event::Mouse(iced_core::mouse::Event::WheelScrolled {
+                delta: iced_core::mouse::ScrollDelta::Pixels { x: 10.0, y: -20.0 }
+            }))
+        ));
     }
 }

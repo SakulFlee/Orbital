@@ -14,6 +14,18 @@ use iced_core::{Color, Element, Font, Length, Pixels, Point, Rectangle, Size, Ve
 const TITLE_BAR_HEIGHT: f32 = 28.0;
 const DRAG_DEADBAND: f32 = 3.0;
 const RESIZE_GRIP: f32 = 16.0;
+/// Keeps the grip clear of the content's scrollbar, which overlays the right
+/// edge and would otherwise swallow the dots visually.
+const GRIP_RIGHT_INSET: f32 = 12.0;
+
+fn grip_bounds(bounds: Rectangle) -> Rectangle {
+    Rectangle {
+        x: bounds.x + (bounds.width - RESIZE_GRIP - GRIP_RIGHT_INSET).max(0.0),
+        y: bounds.y + (bounds.height - RESIZE_GRIP).max(0.0),
+        width: RESIZE_GRIP.min(bounds.width),
+        height: RESIZE_GRIP.min(bounds.height),
+    }
+}
 const MIN_PANEL_WIDTH: f32 = 200.0;
 const MIN_CONTENT_HEIGHT: f32 = 60.0;
 
@@ -188,10 +200,8 @@ where
             }
         };
 
-        let title_limits = layout::Limits::new(
-            Size::ZERO,
-            Size::new(available_width, TITLE_BAR_HEIGHT),
-        );
+        let title_limits =
+            layout::Limits::new(Size::ZERO, Size::new(available_width, TITLE_BAR_HEIGHT));
         let content_limits =
             layout::Limits::new(Size::ZERO, Size::new(content_width, content_height));
 
@@ -266,12 +276,7 @@ where
             height: TITLE_BAR_HEIGHT,
         };
 
-        let grip_bounds = Rectangle {
-            x: bounds.x + (bounds.width - RESIZE_GRIP).max(0.0),
-            y: bounds.y + (bounds.height - RESIZE_GRIP).max(0.0),
-            width: RESIZE_GRIP.min(bounds.width),
-            height: RESIZE_GRIP.min(bounds.height),
-        };
+        let grip_bounds = grip_bounds(bounds);
 
         // Pointer input: mouse *and* touch. On touch-only platforms (Android)
         // winit emits no synthetic mouse events, so without the touch arms a
@@ -390,10 +395,23 @@ where
         // Touch-only by design: desktop mouse *hover* (CursorMoved) must keep
         // its previous sibling-overlap semantics, and mouse clicks are
         // handled by the dedicated arms above.
-        if matches!(event, iced_winit::core::event::Event::Touch(_))
+        if matches!(event, iced_core::event::Event::Touch(_))
             && !shell.is_event_captured()
             && let Some(position) = pressed_at.or(moved_to)
             && bounds.contains(position)
+        {
+            shell.capture_event();
+        }
+
+        // A wheel over a panel belongs to the panel even when the cursor is
+        // not over a scrollable (or the scrollable is already at its end).
+        // Without this, scrolling past the end of a list would leak into the
+        // game's camera zoom.
+        if matches!(
+            event,
+            iced_core::event::Event::Mouse(mouse::Event::WheelScrolled { .. })
+        ) && !shell.is_event_captured()
+            && cursor.position().is_some_and(|p| bounds.contains(p))
         {
             shell.capture_event();
         }
@@ -523,34 +541,37 @@ where
             viewport,
         );
 
-        // Resize grip: three diagonal dots in the bottom-right corner. Drawn
-        // last so content cannot cover it.
+        // Resize grip: a chip with three diagonal dots, inset from the right
+        // edge so the content's scrollbar does not sit on top of it. Drawn last
+        // so neither the content nor the scrollbar can cover it.
         if self.resizable {
-            let grip_hover = !state.is_resizing
-                && cursor.position().is_some_and(|p| {
-                    Rectangle {
-                        x: bounds.x + (bounds.width - RESIZE_GRIP).max(0.0),
-                        y: bounds.y + (bounds.height - RESIZE_GRIP).max(0.0),
-                        width: RESIZE_GRIP.min(bounds.width),
-                        height: RESIZE_GRIP.min(bounds.height),
-                    }
-                    .contains(p)
-                });
+            let grip_bounds = grip_bounds(bounds);
+            let grip_hover =
+                !state.is_resizing && cursor.position().is_some_and(|p| grip_bounds.contains(p));
             let color = if state.is_resizing || grip_hover {
-                Color::from_rgba(0.85, 0.85, 0.95, 0.9)
+                Color::from_rgba(0.9, 0.9, 1.0, 1.0)
             } else {
-                Color::from_rgba(0.65, 0.65, 0.75, 0.5)
+                Color::from_rgba(0.7, 0.7, 0.82, 0.8)
             };
+
+            renderer.fill_quad(
+                Quad {
+                    bounds: grip_bounds,
+                    border: border::rounded(3.0),
+                    ..Default::default()
+                },
+                Color::from_rgba(0.08, 0.08, 0.14, 0.95),
+            );
 
             for step in 0..3 {
                 let offset = step as f32 * 4.0;
                 renderer.fill_quad(
                     Quad {
                         bounds: Rectangle {
-                            x: bounds.x + bounds.width - 4.0 - offset,
-                            y: bounds.y + bounds.height - 4.0 - offset,
-                            width: 2.0,
-                            height: 2.0,
+                            x: grip_bounds.x + grip_bounds.width - 4.0 - offset,
+                            y: grip_bounds.y + grip_bounds.height - 4.0 - offset,
+                            width: 2.5,
+                            height: 2.5,
                         },
                         ..Default::default()
                     },
@@ -578,12 +599,7 @@ where
             height: TITLE_BAR_HEIGHT,
         };
 
-        let grip_bounds = Rectangle {
-            x: bounds.x + (bounds.width - RESIZE_GRIP).max(0.0),
-            y: bounds.y + (bounds.height - RESIZE_GRIP).max(0.0),
-            width: RESIZE_GRIP.min(bounds.width),
-            height: RESIZE_GRIP.min(bounds.height),
-        };
+        let grip_bounds = grip_bounds(bounds);
 
         if state.is_resizing {
             return mouse::Interaction::ResizingDiagonallyDown;

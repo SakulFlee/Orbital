@@ -385,6 +385,9 @@ pub enum IcedWindowEvent {
         state: winit::event::ElementState,
         button: winit::event::MouseButton,
     },
+    MouseWheel {
+        delta: winit::event::MouseScrollDelta,
+    },
     KeyboardInput {
         event: winit::event::KeyEvent,
         is_synthetic: bool,
@@ -523,6 +526,15 @@ impl IcedCapturedMouseDrag {
         self.0 = false;
     }
 }
+
+/// Whether an iced overlay captured the mouse wheel during the current update.
+///
+/// A wheel is an instantaneous event rather than a gesture, so the runtime
+/// clears this before `process_events()` and each renderer sets it when the
+/// wheel's event status is `Status::Captured`. The runtime then decides whether
+/// the wheel events it deferred in `window_event` reach the game's input state.
+#[derive(Debug, Clone, Default)]
+pub struct IcedCapturedMouseWheel(pub bool);
 
 // ---------------------------------------------------------------------------
 // Engine events (replace AppEvent)

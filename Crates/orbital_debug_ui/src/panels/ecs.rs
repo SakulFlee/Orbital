@@ -8,7 +8,7 @@ use iced_winit::core::{Color, Element, Length, Theme};
 use orbital_ecs::{Entity, World};
 
 use crate::state::Renderer as IcedRenderer;
-use crate::state::{DebugMessage, DebugUiState, MAX_ROWS, PanelId};
+use crate::state::{DebugMessage, DebugUiState, MAX_ROWS, PanelId, VALUE_PREVIEW_CHARS};
 
 /// Builds the ECS entity/component tree.
 ///
@@ -43,8 +43,9 @@ pub fn ecs_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, IcedRender
 
     for entity in ecs.entities() {
         let components = ecs.entity_components(&entity);
+        let label = crate::panels::entity_label(ecs, &entity);
 
-        if !needle.is_empty() && !entity_matches(&entity, &components, &needle) {
+        if !needle.is_empty() && !entity_matches(&entity, &components, label.as_deref(), &needle) {
             continue;
         }
 
@@ -54,7 +55,12 @@ pub fn ecs_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, IcedRender
             continue;
         }
         budget -= 1;
-        rows.push(entity_row(&state, &entity, components.len()));
+        rows.push(entity_row(
+            &state,
+            &entity,
+            components.len(),
+            label.as_deref(),
+        ));
 
         if !state.is_expanded(entity) {
             continue;
@@ -94,9 +100,18 @@ pub fn ecs_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, IcedRender
     .into()
 }
 
-/// Whether an entity matches the filter, by index or by component type name.
-fn entity_matches(entity: &Entity, components: &[(TypeId, &'static str)], needle: &str) -> bool {
+/// Whether an entity matches the filter, by index, label or component type name.
+fn entity_matches(
+    entity: &Entity,
+    components: &[(TypeId, &'static str)],
+    label: Option<&str>,
+    needle: &str,
+) -> bool {
     if entity.index.to_string().contains(needle) {
+        return true;
+    }
+
+    if label.is_some_and(|label| label.to_lowercase().contains(needle)) {
         return true;
     }
 
@@ -109,6 +124,7 @@ fn entity_row(
     state: &DebugUiState,
     entity: &Entity,
     component_count: usize,
+    label: Option<&str>,
 ) -> Element<'static, DebugMessage, Theme, IcedRenderer> {
     let expanded = state.is_expanded(*entity);
     let selected = state.selected == Some(*entity);
@@ -120,17 +136,22 @@ fn entity_row(
     // The selected entity is marked in its label: `Container` has no
     // background colour, and restyling the row would mean reaching into iced's
     // style closures.
-    let mut label = if selected {
-        format!("● Entity {{ {} }}", entity.index)
-    } else {
-        format!("Entity {{ {} }}", entity.index)
+    let mut label = match label {
+        Some(name) => format!("{name}  ·  Entity {{ {} }}", entity.index),
+        None => format!("Entity {{ {} }}", entity.index),
     };
+    if selected {
+        label.insert_str(0, "● ");
+    }
     if component_count > 0 {
         label.push_str(&format!("  · {component_count} components"));
     }
 
+    // Clicking the selected row again clears the selection, so a large entity
+    // can be parked without leaving the inspector formatting it forever.
+    let target = if selected { None } else { Some(*entity) };
     let select = button(text(label).size(13))
-        .on_press(DebugMessage::SelectEntity(Some(*entity)))
+        .on_press(DebugMessage::SelectEntity(target))
         .width(Length::Fill);
 
     container(row![toggle, select].spacing(4).width(Length::Fill))
@@ -145,8 +166,7 @@ fn component_row(
     name: &'static str,
 ) -> Element<'static, DebugMessage, Theme, IcedRenderer> {
     let value = ecs
-        .component_debug_string(type_id, &entity)
-        .map(|value| DebugUiState::preview(&value))
+        .component_debug_preview(type_id, &entity, VALUE_PREVIEW_CHARS)
         .unwrap_or_else(|| "<unavailable>".to_string());
 
     column![
@@ -180,11 +200,20 @@ mod tests {
     }
 
     #[test]
-    fn filter_matches_index_and_component_name() {
+    fn filter_matches_index_label_and_component_name() {
         let entity = Entity::new(12, 0);
         let components: Vec<(TypeId, &'static str)> = Vec::new();
 
-        assert!(entity_matches(&entity, &components, "12"));
-        assert!(!entity_matches(&entity, &components, "13"));
+        assert!(entity_matches(&entity, &components, None, "12"));
+        assert!(!entity_matches(&entity, &components, None, "13"));
+        assert!(entity_matches(
+            &entity,
+            &components,
+            Some("Damaged Helmet"),
+            "helmet"
+        ));
+
+        let components = vec![(TypeId::of::<String>(), "orbital_ecs_bridge::Position")];
+        assert!(entity_matches(&entity, &components, None, "position"));
     }
 }
