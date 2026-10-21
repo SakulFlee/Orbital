@@ -1,7 +1,7 @@
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
-    fmt::Debug,
+    fmt::{Debug, Write},
     marker::PhantomData,
     ops::{Deref, DerefMut},
     sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
@@ -248,6 +248,58 @@ impl World {
     /// [`component_debug`](World::component_debug) keeps alive.
     pub fn component_debug_string(&self, type_id: TypeId, entity: &Entity) -> Option<String> {
         Some(format!("{:?}", self.component_debug(type_id, entity)?))
+    }
+
+    /// A bounded preview of a component's `Debug` output.
+    ///
+    /// The full `Debug` form of large components (meshes, materials) can be
+    /// enormous, and debug panels ask for it every rebuild. This stops
+    /// formatting after `max_chars` characters instead of building the whole
+    /// string and truncating it afterwards, so the cost stays proportional to
+    /// the output that is actually shown. A `…` marks a truncated preview.
+    pub fn component_debug_preview(
+        &self,
+        type_id: TypeId,
+        entity: &Entity,
+        max_chars: usize,
+    ) -> Option<String> {
+        self.component_debug_preview_with(type_id, entity, max_chars, false)
+    }
+
+    /// A bounded, indented preview of a component's `Debug` output.
+    ///
+    /// Uses the pretty `{:#?}` formatter so nested structs and maps read as a
+    /// tree instead of one long line. The same character budget applies.
+    pub fn component_debug_pretty_preview(
+        &self,
+        type_id: TypeId,
+        entity: &Entity,
+        max_chars: usize,
+    ) -> Option<String> {
+        self.component_debug_preview_with(type_id, entity, max_chars, true)
+    }
+
+    fn component_debug_preview_with(
+        &self,
+        type_id: TypeId,
+        entity: &Entity,
+        max_chars: usize,
+        pretty: bool,
+    ) -> Option<String> {
+        let handle = self.component_debug(type_id, entity)?;
+
+        let mut writer = TruncatingWriter::new(max_chars);
+        // Derived `Debug` implementations propagate writer errors, so nested
+        // values are abandoned once the budget is exhausted. The partial output
+        // is exactly the preview we want.
+        let result = if pretty {
+            write!(&mut writer, "{handle:#?}")
+        } else {
+            write!(&mut writer, "{handle:?}")
+        };
+        let _ = result;
+
+        Some(writer.finish())
     }
 
     /// A mutable, type-erased view of the component of type `type_id` held by
@@ -581,6 +633,51 @@ impl<T: 'static + std::fmt::Debug> std::fmt::Debug for ResourceMutHandle<'_, T> 
         f.debug_struct("ResourceMutHandle")
             .field("value", unsafe { &*self.ptr })
             .finish()
+    }
+}
+
+/// A [`std::fmt::Write`] sink that stops after a character budget.
+///
+/// Returning an error once the budget is exhausted is the point: `Debug`
+/// implementations propagate it, so a huge slice is abandoned after the budget
+/// instead of being rendered in full and truncated afterwards.
+struct TruncatingWriter {
+    buffer: String,
+    remaining: usize,
+    truncated: bool,
+}
+
+impl TruncatingWriter {
+    fn new(max_chars: usize) -> Self {
+        Self {
+            buffer: String::new(),
+            remaining: max_chars,
+            truncated: false,
+        }
+    }
+
+    fn finish(mut self) -> String {
+        if self.truncated {
+            self.buffer.push('…');
+        }
+
+        self.buffer
+    }
+}
+
+impl Write for TruncatingWriter {
+    fn write_str(&mut self, text: &str) -> std::fmt::Result {
+        for ch in text.chars() {
+            if self.remaining == 0 {
+                self.truncated = true;
+                return Err(std::fmt::Error);
+            }
+
+            self.buffer.push(ch);
+            self.remaining -= 1;
+        }
+
+        Ok(())
     }
 }
 
@@ -1045,5 +1142,63 @@ mod tests {
         let mut indices = store.dense.clone();
         indices.sort_unstable();
         assert_eq!(indices, vec![e0.index, e1.index]);
+    }
+
+    #[test]
+    fn component_debug_preview_truncates_large_values_early() {
+        let mut world = World::new();
+        let entity = world.spawn_entity();
+
+        world
+            .attach_component(&entity, "a".repeat(10_000))
+            .expect("Attachment failure");
+
+        let type_id = TypeId::of::<String>();
+        let preview = world
+            .component_debug_preview(type_id, &entity, 16)
+            .expect("preview");
+
+        // Sixteen characters plus the ellipsis, regardless of how much more the
+        // component's `Debug` output would have produced.
+        assert_eq!(preview.chars().count(), 17);
+        assert!(preview.ends_with('…'));
+
+        // The unbounded helper still returns the whole value.
+        let full = world
+            .component_debug_string(type_id, &entity)
+            .expect("full debug");
+        assert_eq!(full.chars().count(), 10_002);
+    }
+
+    #[test]
+    fn component_debug_preview_leaves_short_values_intact() {
+        let mut world = World::new();
+        let entity = world.spawn_entity();
+
+        world
+            .attach_component(&entity, Position { x: 1.5, y: -2.5 })
+            .expect("Attachment failure");
+
+        assert_eq!(
+            world.component_debug_preview(TypeId::of::<Position>(), &entity, 64),
+            Some("Position { x: 1.5, y: -2.5 }".to_string())
+        );
+    }
+
+    #[test]
+    fn component_debug_pretty_preview_is_indented() {
+        let mut world = World::new();
+        let entity = world.spawn_entity();
+
+        world
+            .attach_component(&entity, Position { x: 1.5, y: -2.5 })
+            .expect("Attachment failure");
+
+        let preview = world
+            .component_debug_pretty_preview(TypeId::of::<Position>(), &entity, 64)
+            .expect("preview");
+
+        assert!(preview.contains('\n'));
+        assert!(preview.contains("    x: 1.5"), "unexpected: {preview}");
     }
 }

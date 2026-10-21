@@ -13,8 +13,13 @@ pub use ecs::ecs_panel;
 pub use inspector::inspector_panel;
 pub use performance::performance_panel;
 
+use std::any::TypeId;
+
 use iced_widget::Column;
 use iced_winit::core::{Color, Element, Length, Theme};
+
+use orbital_ecs::{Entity, World};
+use orbital_ecs_bridge::{CameraDescriptorEcs, ModelDescriptorEcs};
 
 use crate::state::DebugMessage;
 use crate::state::Renderer as IcedRenderer;
@@ -67,4 +72,66 @@ pub(crate) fn scrolling<'a>(
         .width(Length::Fill)
         .height(Length::Fill)
         .into()
+}
+
+/// A human-readable label for `entity`, if the engine knows one.
+///
+/// Models and cameras carry their own labels; every other entity falls back to
+/// its index alone. An empty label is treated as absent.
+pub(crate) fn entity_label(world: &World, entity: &Entity) -> Option<String> {
+    let model = world
+        .component_debug(TypeId::of::<ModelDescriptorEcs>(), entity)
+        .and_then(|handle| {
+            handle
+                .as_any()
+                .downcast_ref::<ModelDescriptorEcs>()
+                .map(|descriptor| descriptor.label.clone())
+        });
+
+    let camera = world
+        .component_debug(TypeId::of::<CameraDescriptorEcs>(), entity)
+        .and_then(|handle| {
+            handle
+                .as_any()
+                .downcast_ref::<CameraDescriptorEcs>()
+                .map(|descriptor| descriptor.label.clone())
+        });
+
+    model
+        .into_iter()
+        .chain(camera)
+        .find(|label| !label.trim().is_empty())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn entity_label_uses_a_camera_descriptor_label() {
+        let mut world = World::new();
+        let entity = world.spawn_entity();
+        world
+            .attach_component(
+                &entity,
+                CameraDescriptorEcs {
+                    label: "Main camera".to_string(),
+                    ..CameraDescriptorEcs::default()
+                },
+            )
+            .expect("attachment failed");
+
+        assert_eq!(
+            entity_label(&world, &entity).as_deref(),
+            Some("Main camera")
+        );
+    }
+
+    #[test]
+    fn entity_label_is_none_without_a_labelled_descriptor() {
+        let mut world = World::new();
+        let entity = world.spawn_entity();
+
+        assert_eq!(entity_label(&world, &entity), None);
+    }
 }
