@@ -28,7 +28,7 @@ use orbital_ecs_bridge::InputSnapshot;
 use orbital_iced::{IcedLayerRenderer, IcedState};
 use winit::keyboard::{KeyCode, PhysicalKey};
 
-use crate::panels::{console_panel, ecs_panel, inspector, inspector_panel, performance_panel};
+use crate::panels::{console_panel, ecs_panel, edit, performance_panel};
 use crate::state::{DebugMessage, DebugUiState, PanelId};
 
 /// Shows or hides the whole overlay when the configured key is pressed.
@@ -122,6 +122,8 @@ impl Module for DebugUiModule {
             return;
         }
 
+        crate::editable::register_builtin_editable_fields();
+
         // Each panel is an `IcedLayerRenderer<DebugMessage>` pushed straight
         // into `layer_renderers` rather than going through `IcedUiState`. That
         // keeps these messages out of the application's own panel messages, and
@@ -137,7 +139,7 @@ impl Module for DebugUiModule {
         // each other; the windows are draggable and resizable, so this is only
         // a starting point. The console is deliberately wide and short, since
         // log lines are long.
-        let panels: [PanelSpec; 4] = [
+        let panels: [PanelSpec; 3] = [
             (
                 "Performance",
                 (40.0, 40.0),
@@ -148,7 +150,7 @@ impl Module for DebugUiModule {
             (
                 "ECS",
                 (40.0, 420.0),
-                (440.0, 280.0),
+                (600.0, 460.0),
                 PanelId::Ecs,
                 ecs_panel as PanelView,
             ),
@@ -159,20 +161,13 @@ impl Module for DebugUiModule {
                 PanelId::Console,
                 console_panel as PanelView,
             ),
-            (
-                "Inspector",
-                (500.0, 360.0),
-                (340.0, 320.0),
-                PanelId::Inspector,
-                inspector_panel as PanelView,
-            ),
         ];
 
         for (title, position, size, id, view) in panels {
             let panel = IcedState::<DebugMessage>::titled(title)
                 .with_position(position.0, position.1)
                 .with_size(size.0, size.1)
-                .with_close_message(DebugMessage::ClosePanel)
+                .with_close_message(DebugMessage::HidePanel(id))
                 // `handle_message` is the only place holding both the world and
                 // the panel state, so it is where a component edit is written.
                 .with_message_handler(handle_debug_message)
@@ -192,7 +187,7 @@ impl Module for DebugUiModule {
             layer_renderers.push(Box::new(IcedLayerRenderer::new(panel)));
         }
 
-        orbital_core::logging::debug!("DebugUiModule: registered 4 debug panels");
+        orbital_core::logging::debug!("DebugUiModule: registered 3 debug panels");
     }
 }
 
@@ -205,32 +200,49 @@ fn handle_debug_message(
     message: DebugMessage,
     world: &mut World,
 ) {
-    if let DebugMessage::ApplyField(key) = message {
+    if let DebugMessage::ApplyField(ref key) = message {
         let input = world
             .get_resource::<DebugUiState>()
-            .and_then(|state| state.field_buffers.get(&key.type_id).cloned())
+            .and_then(|state| state.field_buffers.get(key).cloned())
             .unwrap_or_default();
 
-        let result = inspector::apply_edit(world, key, &input);
+        let result = edit::apply_edit(world, key, &input);
         let failure = result.as_ref().err().cloned();
 
         if let Some(mut state) = world.get_resource_mut::<DebugUiState>() {
             state.last_error = failure;
             // Drop the buffer so the field falls back to the component's value.
-            state.field_buffers.remove(&key.type_id);
+            state.field_buffers.remove(key);
             state.dirty = true;
         }
 
         match result {
             Ok(()) => orbital_core::logging::debug!(
-                "debug UI: applied {:?} on entity {}",
-                key.type_id,
+                "debug UI: applied field on entity {}",
                 key.entity.index
             ),
             Err(error) => orbital_core::logging::warn!("debug UI edit failed: {error}"),
         }
 
         return;
+    }
+
+    match message {
+        DebugMessage::AddModelInstance(entity) => {
+            edit::add_model_instance(world, entity);
+            if let Some(mut state) = world.get_resource_mut::<DebugUiState>() {
+                state.dirty = true;
+            }
+            return;
+        }
+        DebugMessage::RemoveModelInstance { entity, ulid } => {
+            edit::remove_model_instance(world, entity, ulid);
+            if let Some(mut state) = world.get_resource_mut::<DebugUiState>() {
+                state.dirty = true;
+            }
+            return;
+        }
+        _ => {}
     }
 
     if let Some(mut state) = world.get_resource_mut::<DebugUiState>() {

@@ -35,18 +35,22 @@ pub enum DebugMessage {
     /// Drop the captured log buffer.
     ClearLog,
     /// The text of an editable field changed but has not been applied yet.
-    EditField(crate::panels::inspector::FieldKey, String),
+    EditField(crate::panels::edit::FieldKey, String),
     /// Apply the field's buffered text.
     ///
     /// The text is not carried in the message: pressing Enter in a `text_input`
     /// and pressing the `set` button both mean "apply what is in the buffer",
     /// and `text_input::on_submit` takes a fixed message rather than a closure,
     /// so one message serves both.
-    ApplyField(crate::panels::inspector::FieldKey),
+    ApplyField(crate::panels::edit::FieldKey),
+    /// Add an instance to the selected entity's `ModelInstances`.
+    AddModelInstance(Entity),
+    /// Remove one model instance by its ULID's integer representation.
+    RemoveModelInstance { entity: Entity, ulid: u128 },
     /// Flip a panel's visibility.
     TogglePanel(PanelId),
-    /// Close a panel's window.
-    ClosePanel,
+    /// Close one panel's window.
+    HidePanel(PanelId),
 }
 
 /// Which statistic of a timing stage the performance graphs plot.
@@ -71,8 +75,6 @@ pub enum PanelId {
     Performance,
     Ecs,
     Console,
-    /// The property view for the selected entity.
-    Inspector,
 }
 
 /// How many characters of a component's `Debug` output to show before
@@ -98,7 +100,7 @@ pub struct DebugUiState {
     /// Whether any debug panel is being shown at all.
     pub visible: bool,
     /// Per-panel visibility, for panels the user has dismissed.
-    pub panels: [bool; 4],
+    pub panels: [bool; 3],
     /// Which bottom-panel tab is showing.
     pub active_tab: usize,
     /// The entity whose components are listed in the ECS panel.
@@ -115,11 +117,12 @@ pub struct DebugUiState {
     pub graph_metric: GraphMetric,
     /// Log-level filter for the console.
     pub min_level: log::LevelFilter,
-    /// Uncommitted text for each editable field, keyed by component type.
+    /// Uncommitted text for each editable field, keyed by entity, type and
+    /// field id.
     ///
     /// Kept in the resource rather than in a widget so the field survives the
     /// panel's rebuild throttling.
-    pub field_buffers: std::collections::HashMap<std::any::TypeId, String>,
+    pub field_buffers: std::collections::HashMap<crate::panels::edit::FieldKey, String>,
     /// The message from the last failed edit, shown under the components.
     pub last_error: Option<String>,
     /// Set whenever something changed that the panels should redraw for.
@@ -146,7 +149,7 @@ impl DebugUiState {
     pub fn new(toggle_key: winit::keyboard::KeyCode) -> Self {
         Self {
             visible: false,
-            panels: [true; 4],
+            panels: [true; 3],
             active_tab: 0,
             selected: None,
             expanded: HashSet::new(),
@@ -171,9 +174,9 @@ impl DebugUiState {
     /// `current` is the component's present value, used until the user types
     /// something, so the field is pre-filled rather than blank. Kept in the
     /// resource so the text survives the panel's rebuild throttling.
-    pub fn field_buffer(&self, type_id: std::any::TypeId, current: &str) -> String {
+    pub fn field_buffer(&self, key: &crate::panels::edit::FieldKey, current: &str) -> String {
         self.field_buffers
-            .get(&type_id)
+            .get(key)
             .cloned()
             .unwrap_or_else(|| current.to_string())
     }
@@ -188,7 +191,6 @@ impl DebugUiState {
             PanelId::Performance => 0,
             PanelId::Ecs => 1,
             PanelId::Console => 2,
-            PanelId::Inspector => 3,
         };
 
         self.panels[index]
@@ -199,7 +201,6 @@ impl DebugUiState {
             PanelId::Performance => 0,
             PanelId::Ecs => 1,
             PanelId::Console => 2,
-            PanelId::Inspector => 3,
         };
 
         self.panels[index] = enabled;
@@ -223,6 +224,13 @@ impl DebugUiState {
     /// Flips the overlay's visibility, logging the new state.
     pub fn toggle_visibility(&mut self) {
         self.visible = !self.visible;
+
+        // Turning the overlay back on is also the recovery path for panels the
+        // user closed with their X buttons.
+        if self.visible {
+            self.panels = [true; 3];
+        }
+
         self.dirty = true;
     }
 
@@ -282,7 +290,7 @@ impl DebugUiState {
                 self.dirty = true;
             }
             DebugMessage::EditField(key, text) => {
-                self.field_buffers.insert(key.type_id, text.clone());
+                self.field_buffers.insert(key.clone(), text.clone());
                 self.dirty = true;
             }
             DebugMessage::ApplyField(_) => {
@@ -290,13 +298,17 @@ impl DebugUiState {
                 // is the only place with both the world and the panel state.
                 self.dirty = true;
             }
+            DebugMessage::AddModelInstance(_) | DebugMessage::RemoveModelInstance { .. } => {
+                // Applied in `handle_debug_message`, which has the world.
+                self.dirty = true;
+            }
             DebugMessage::TogglePanel(panel) => {
                 let enabled = self.panel_enabled(*panel);
                 self.set_panel_enabled(*panel, !enabled);
                 self.dirty = true;
             }
-            DebugMessage::ClosePanel => {
-                self.visible = false;
+            DebugMessage::HidePanel(panel) => {
+                self.set_panel_enabled(*panel, false);
                 self.dirty = true;
             }
         }
@@ -393,11 +405,23 @@ mod tests {
     }
 
     #[test]
-    fn close_hides_everything() {
+    fn hiding_a_panel_only_hides_that_panel() {
         let mut state = DebugUiState::new(winit::keyboard::KeyCode::F1);
         state.visible = true;
-        state.apply(&DebugMessage::ClosePanel);
-        assert!(!state.visible);
+        state.apply(&DebugMessage::HidePanel(PanelId::Ecs));
+
+        assert!(state.visible, "the overlay itself stays open");
+        assert!(!state.is_panel_visible(PanelId::Ecs));
+        assert!(state.is_panel_visible(PanelId::Performance));
+    }
+
+    #[test]
+    fn showing_the_overlay_again_restores_closed_panels() {
+        let mut state = DebugUiState::new(winit::keyboard::KeyCode::F1);
+        state.apply(&DebugMessage::HidePanel(PanelId::Console));
+
+        state.toggle_visibility();
+        assert!(state.is_panel_visible(PanelId::Console));
     }
 
     #[test]

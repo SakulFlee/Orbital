@@ -13,18 +13,35 @@ use iced_winit::core::Color;
 use crate::state::DebugMessage;
 use crate::state::Renderer as IcedRenderer;
 
-/// Draws a series as a filled-area line graph, optionally layered with a
-/// rolling average and a min/max band, scaled to `max`.
+/// A secondary line drawn over a sparkline.
+pub struct Line {
+    values: Vec<f32>,
+    color: Color,
+    width: f32,
+}
+
+impl Line {
+    pub fn new(values: Vec<f32>, color: Color, width: f32) -> Self {
+        Self {
+            values,
+            color,
+            width,
+        }
+    }
+}
+
+/// Draws a series as a line graph, optionally filled underneath and optionally
+/// layered with extra lines.
 ///
 /// An empty or all-zero series draws a flat baseline rather than nothing, so
 /// the panel does not appear broken before the first frame is recorded.
 pub struct Sparkline {
-    /// The primary series, oldest first. Drawn with a filled area underneath.
+    /// The primary series, oldest first.
     primary: Vec<f32>,
-    /// An optional secondary line, e.g. the rolling average.
-    average: Option<Vec<f32>>,
-    /// An optional `(min, max)` envelope, drawn as a translucent band.
-    band: Option<(Vec<f32>, Vec<f32>)>,
+    /// Draw a filled area under the primary curve.
+    fill_primary: bool,
+    /// Additional lines, e.g. rolling average and min/max.
+    extras: Vec<Line>,
     /// The value that maps to the top of the plot. Values above it are clamped.
     max: f32,
     color: Color,
@@ -34,8 +51,8 @@ impl Sparkline {
     pub fn new(values: Vec<f32>, max: f32, color: Color) -> Self {
         Self {
             primary: values,
-            average: None,
-            band: None,
+            fill_primary: true,
+            extras: Vec::new(),
             max,
             color,
         }
@@ -49,28 +66,18 @@ impl Sparkline {
         Self::new(values, max, color)
     }
 
-    /// A sparkline with a primary series, an optional rolling average and an
-    /// optional `(min, max)` band. The ceiling is derived from every series.
-    pub fn layered(
-        primary: Vec<f32>,
-        average: Option<Vec<f32>>,
-        band: Option<(Vec<f32>, Vec<f32>)>,
-        color: Color,
-    ) -> Self {
+    /// A primary series plus extra lines, auto-scaled across all of them.
+    pub fn layered(primary: Vec<f32>, extras: Vec<Line>, fill_primary: bool, color: Color) -> Self {
         let peak = primary
             .iter()
             .copied()
-            .chain(average.iter().flatten().copied())
-            .chain(
-                band.iter()
-                    .flat_map(|(min, max)| min.iter().chain(max.iter()).copied()),
-            )
+            .chain(extras.iter().flat_map(|line| line.values.iter().copied()))
             .fold(0.0f32, f32::max);
 
         Self {
             primary,
-            average,
-            band,
+            fill_primary,
+            extras,
             max: ceiling(std::iter::once(peak)),
             color,
         }
@@ -131,19 +138,6 @@ fn area_polygon(points: &[Point], floor: f32) -> Vec<Point> {
     polygon
 }
 
-/// The polygon between two equally long curves: upper left-to-right, then
-/// lower right-to-left.
-fn band_polygon(lower: &[Point], upper: &[Point]) -> Vec<Point> {
-    if lower.len() < 2 || lower.len() != upper.len() {
-        return Vec::new();
-    }
-
-    let mut polygon = Vec::with_capacity(lower.len() + upper.len());
-    polygon.extend_from_slice(upper);
-    polygon.extend(lower.iter().rev().copied());
-    polygon
-}
-
 fn ceiling(values: impl IntoIterator<Item = f32>) -> f32 {
     let peak = values.into_iter().fold(0.0f32, f32::max);
     if peak > 0.0 { peak * 1.1 } else { 1.0 }
@@ -194,47 +188,27 @@ impl Program<DebugMessage, iced_winit::core::Theme, IcedRenderer> for Sparkline 
         }
 
         let mut frame = canvas::Frame::new(renderer, bounds.size());
-        let floor = bounds.height;
 
-        // Min/max envelope first, so both lines sit on top of it.
-        if let Some((min, max)) = &self.band {
-            let lower = points(min, bounds, self.max);
-            let upper = points(max, bounds, self.max);
-            let polygon = band_polygon(&lower, &upper);
-
-            if !polygon.is_empty() {
-                frame.fill(
-                    &polygon_path(&polygon),
-                    Color {
-                        a: 0.10,
-                        ..self.color
-                    },
-                );
-            }
+        // Filled area under the primary curve, when requested.
+        if self.fill_primary {
+            frame.fill(
+                &polygon_path(&area_polygon(&primary, bounds.height)),
+                Color {
+                    a: 0.18,
+                    ..self.color
+                },
+            );
         }
 
-        // Filled area under the primary curve, then the curve itself.
-        frame.fill(
-            &polygon_path(&area_polygon(&primary, floor)),
-            Color {
-                a: 0.18,
-                ..self.color
-            },
-        );
+        for line in &self.extras {
+            let points = points(&line.values, bounds, self.max);
 
-        if let Some(average) = &self.average {
-            let average = points(average, bounds, self.max);
-
-            if average.len() >= 2 {
+            if points.len() >= 2 {
                 frame.stroke(
-                    &line_path(&average),
+                    &line_path(&points),
                     Stroke {
-                        style: Color {
-                            a: 0.65,
-                            ..self.color
-                        }
-                        .into(),
-                        width: 1.0,
+                        style: line.color.into(),
+                        width: line.width,
                         ..Default::default()
                     },
                 );
@@ -333,18 +307,20 @@ mod tests {
     fn layered_scaling_considers_every_series() {
         let sparkline = Sparkline::layered(
             vec![1.0],
-            Some(vec![2.0]),
-            Some((vec![0.5], vec![8.0])),
+            vec![
+                Line::new(vec![2.0], Color::WHITE, 1.0),
+                Line::new(vec![8.0], Color::WHITE, 1.0),
+            ],
+            false,
             Color::WHITE,
         );
 
         assert!(sparkline.max > 8.0);
+        assert!(!sparkline.fill_primary);
     }
 
     #[test]
     fn the_area_polygon_follows_the_curve() {
-        // The old fill was a trapezoid from the first point to the last one,
-        // which ignored the peak in the middle.
         let points = points(&[0.2, 1.0, 0.2], bounds(), 1.0);
         let polygon = area_polygon(&points, bounds().height);
 
@@ -358,18 +334,5 @@ mod tests {
                 Point::new(100.0, 50.0),
             ]
         );
-    }
-
-    #[test]
-    fn the_band_polygon_wraps_upper_then_lower() {
-        let lower = points(&[0.2, 0.2], bounds(), 1.0);
-        let upper = points(&[0.8, 0.8], bounds(), 1.0);
-        let polygon = band_polygon(&lower, &upper);
-
-        assert_eq!(polygon.len(), 4);
-        assert_eq!(polygon[0], upper[0]);
-        assert_eq!(polygon[1], upper[1]);
-        assert_eq!(polygon[2], lower[1]);
-        assert_eq!(polygon[3], lower[0]);
     }
 }
