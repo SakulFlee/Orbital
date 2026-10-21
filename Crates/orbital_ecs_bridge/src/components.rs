@@ -1,3 +1,5 @@
+use orbital_macros::EditableFields;
+
 use cgmath::{InnerSpace, Point3, Quaternion, Rad, Rotation as _, Rotation3, Vector3};
 use orbital_ecs::Entity;
 
@@ -100,7 +102,7 @@ impl Default for Rotation {
 
 /// Camera-only properties (FOV, aspect ratio, clip planes, gamma).
 /// Position and rotation come from separate `Position`/`Rotation` components.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, EditableFields)]
 pub struct CameraDescriptorEcs {
     pub label: String,
     pub aspect: f32,
@@ -159,10 +161,12 @@ impl CameraDirty {
 use ulid::Ulid;
 
 /// Model-only properties (mesh, materials). Instances are in a separate component.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, EditableFields)]
 pub struct ModelDescriptorEcs {
     pub label: String,
+    #[editable(skip)]
     pub mesh: std::sync::Arc<orbital_mesh::MeshDescriptor>,
+    #[editable(skip)]
     pub materials: Vec<std::sync::Arc<orbital_material_shader::MaterialShaderDescriptor>>,
 }
 
@@ -251,8 +255,9 @@ impl ModelDirty {
 
 /// Light-only properties (type, color, direction).
 /// Position comes from the Position component on the entity.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, EditableFields)]
 pub struct LightDescriptorEcs {
+    #[editable(skip)]
     pub light_type: orbital_light::LightType,
     pub color: cgmath::Vector3<f32>,
     pub direction: cgmath::Vector3<f32>,

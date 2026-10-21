@@ -6,7 +6,7 @@ use iced_winit::core::{Alignment, Color, Element, Font, Length, Theme};
 use orbital_ecs::World;
 use orbital_ecs_bridge::{FpsStats, FrameTimings, TIMING_STAGES, TOTAL_STAGE_INDEX};
 
-use crate::sparkline::Sparkline;
+use crate::sparkline::{Line, Sparkline};
 use crate::state::Renderer as IcedRenderer;
 use crate::state::{DebugMessage, DebugUiState, GraphMetric, PanelId};
 
@@ -15,7 +15,11 @@ const GRAPH_WINDOW: usize = 30;
 const GRAPH_HEIGHT: f32 = 72.0;
 const STAGE_COLUMN_WIDTH: f32 = 130.0;
 const VALUE_COLUMN_WIDTH: f32 = 58.0;
-const GRAPH_COLOR: Color = Color::from_rgb(0.5, 0.9, 0.6);
+const LAST_COLOR: Color = Color::from_rgb(0.5, 0.9, 0.6);
+const GRAPH_COLOR: Color = LAST_COLOR;
+const AVG_COLOR: Color = Color::from_rgb(0.4, 0.8, 1.0);
+const MIN_COLOR: Color = Color::from_rgb(0.45, 0.6, 1.0);
+const MAX_COLOR: Color = Color::from_rgb(1.0, 0.8, 0.4);
 
 /// Builds the performance panel.
 ///
@@ -192,12 +196,13 @@ fn graph<'a>(
         }
         GraphMetric::All => Sparkline::layered(
             last,
-            Some(rolling(&raw, GRAPH_WINDOW, mean)),
-            Some((
-                rolling(&raw, GRAPH_WINDOW, minimum),
-                rolling(&raw, GRAPH_WINDOW, maximum),
-            )),
-            GRAPH_COLOR,
+            vec![
+                Line::new(rolling(&raw, GRAPH_WINDOW, mean), AVG_COLOR, 1.0),
+                Line::new(rolling(&raw, GRAPH_WINDOW, minimum), MIN_COLOR, 0.9),
+                Line::new(rolling(&raw, GRAPH_WINDOW, maximum), MAX_COLOR, 0.9),
+            ],
+            false,
+            LAST_COLOR,
         ),
     };
 
@@ -213,14 +218,34 @@ fn graph<'a>(
         raw.len()
     );
 
-    column![
+    let mut content = column![
         crate::panels::caption(&caption, GRAPH_COLOR),
         canvas::Canvas::new(sparkline)
             .width(Length::Fill)
             .height(GRAPH_HEIGHT)
     ]
-    .spacing(1)
-    .into()
+    .spacing(1);
+
+    if metric == GraphMetric::All {
+        content = content.push(
+            row![
+                legend_item("last", LAST_COLOR),
+                legend_item("avg", AVG_COLOR),
+                legend_item("min", MIN_COLOR),
+                legend_item("max", MAX_COLOR),
+            ]
+            .spacing(10),
+        );
+    }
+
+    content.into()
+}
+
+fn legend_item(
+    label: &'static str,
+    color: Color,
+) -> Element<'static, DebugMessage, Theme, IcedRenderer> {
+    text(label).size(10).color(color).into()
 }
 
 fn timing_header<'a>() -> Element<'a, DebugMessage, Theme, IcedRenderer> {

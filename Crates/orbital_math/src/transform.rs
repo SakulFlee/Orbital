@@ -16,6 +16,15 @@ impl Transform {
         }
     }
 
+    /// The neutral transform: no translation, no rotation, unit scale.
+    pub fn identity() -> Self {
+        Self {
+            position: Vector3::zero(),
+            rotation: Quaternion::new(1.0, 0.0, 0.0, 0.0),
+            scale: Vector3::new(1.0, 1.0, 1.0),
+        }
+    }
+
     pub fn only_position(position: Vector3<f32>) -> Self {
         Self {
             position,

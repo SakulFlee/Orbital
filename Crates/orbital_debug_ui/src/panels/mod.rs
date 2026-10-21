@@ -5,12 +5,12 @@
 
 pub mod console;
 pub mod ecs;
-pub mod inspector;
+pub mod edit;
 pub mod performance;
 
 pub use console::console_panel;
 pub use ecs::ecs_panel;
-pub use inspector::inspector_panel;
+
 pub use performance::performance_panel;
 
 use std::any::TypeId;

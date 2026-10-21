@@ -3872,6 +3872,7 @@ dependencies = [
  "orbital_importer_gltf",
  "orbital_input",
  "orbital_light",
+ "orbital_macros",
  "orbital_material_shader",
  "orbital_math",
  "orbital_mesh",
@@ -3979,6 +3980,7 @@ dependencies = [
 name = "orbital_macros"
 version = "0.1.0"
 dependencies = [
+ "proc-macro-crate",
  "proc-macro2",
  "quote",
  "syn 3.0.9",
