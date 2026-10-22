@@ -33,15 +33,13 @@ Publishing code you did not inspect, test, and take responsibility for is not.
 From the repository root:
 
 ```bash
-git submodule update --init --recursive
-
 export SKIP_GLTF_EXPORT=1
 cargo fmt --all -- --check
 cargo clippy -- -D warnings
 cargo test --no-fail-fast
 ```
 
-- `Crates/orbital-iced` is a git submodule and is required for the workspace to resolve. Initialize it before building.
+- The forked iced crates are fetched automatically by Cargo from the `orbital-iced` git dependency; no submodule initialization is required.
 - `SKIP_GLTF_EXPORT` is checked by **presence**, not value. It skips Blender-based asset export. Examples that need generated models (`pbr_grid`, `multi_module`) require the export to run once, or the generated `.glb` files to already exist.
 - Forgejo CI runs `cargo fmt --all -- --check` and `cargo clippy -- -D warnings`. GitHub and TeamCity are looser. Use the strict Forgejo commands locally.
 - Run the affected example(s) from the table in section 6.
@@ -115,7 +113,7 @@ Workspace members are `Examples/*` and `Crates/*` (see `Cargo.toml`).
 | `Crates/orbital_touch_ui`, `orbital_debug_render` | Touch controls and debug overlays. |
 | `Crates/orbital_importer_gltf` | glTF 2.0 importer with `KHR_lights_punctual`, async rayon tasks. |
 | `Crates/orbital_cli` | `orbital-cli` package with the `orbital` binary. Project scaffolding (`init`, `init-android`), templates, desktop/Android/iOS build and run, and `Orbital.toml` handling. |
-| `Crates/orbital-iced` | Git submodule with the forked iced sub-crates (`iced`, `iced_core`, `iced_widget`, `iced_wgpu`, `iced_winit`, …). Not the same as `orbital_iced`. |
+| `orbital-iced` (external) | Forked iced sub-crates (`iced`, `iced_core`, `iced_widget`, `iced_wgpu`, `iced_winit`, …), consumed as Cargo `git` dependencies from `SakulFlee/orbital-iced`. Not the same as `orbital_iced`. |
 | `Examples/` | Runnable demo apps. |
 | `Assets/` | Blender sources, exported glTF, HDR environments, RON scenes, loose shaders. |
 | `CTestMod/` | C and committed WASM test, outside the Cargo workspace. |
@@ -284,8 +282,7 @@ Treat the current WASM status as unverified: `Crates/ecs/src/system/runner.rs` u
 
 ## 8. Gotchas
 
-- **Initialize the submodule.** `Crates/orbital-iced` is required for workspace resolution.
-- **Two similarly named crates.** `Crates/orbital_iced` is the Orbital integration crate; `Crates/orbital-iced` is the forked iced submodule.
+- **Two similarly named projects.** `Crates/orbital_iced` is the in-repo Orbital integration crate; `orbital-iced` is the external forked iced repo consumed as a Cargo `git` dependency.
 - **`orbital_resources` is a shim.** It only re-exports types from the fine-grained resource crates.
 - **There is no `orbital_shaders` crate.** Use the `orbital_shader_*` family.
 - **`orbital_ecs` lives in `Crates/ecs`**, not `Crates/orbital_ecs`.
