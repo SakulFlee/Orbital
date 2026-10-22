@@ -587,14 +587,6 @@ function buildMarkdown({
     lines.push('');
   }
 
-  if (totals.tests > 0) {
-    lines.push(
-      `**Nextest:** ${totals.tests} tests, ${totals.passed} passed, ${totals.failed} failed, ${totals.skipped} skipped`,
-    );
-  } else {
-    lines.push('**Nextest:** no tests reported');
-  }
-
   let doctestTests = 0;
   let doctestPassed = 0;
   let doctestFailed = 0;
@@ -607,13 +599,31 @@ function buildMarkdown({
     doctestSkipped += entry.skipped;
   }
 
+  const overallTests = totals.tests + doctestTests;
+  const overallPassed = totals.passed + doctestPassed;
+  const overallFailed = totals.failed + doctestFailed;
+  const overallSkipped = totals.skipped + doctestSkipped;
+
+  lines.push(
+    `**Overall:** ${overallTests} tests, ${overallPassed} passed, ${overallFailed} failed, ${overallSkipped} skipped`,
+  );
+  lines.push('');
+
+  if (totals.tests > 0) {
+    lines.push(
+      `**Nextest:** ${totals.tests} tests, ${totals.passed} passed, ${totals.failed} failed, ${totals.skipped} skipped`,
+    );
+  } else {
+    lines.push('**Nextest:** no tests reported');
+  }
+
   lines.push(
     `**Doctests:** ${doctestTests} tests, ${doctestPassed} passed, ${doctestFailed} failed, ${doctestSkipped} skipped`,
   );
   lines.push('');
 
   if (doctestTests > 0) {
-    lines.push('_Doctests are listed separately and are not included in the nextest charts._');
+    lines.push('_Outcome charts are split between nextest and doctests. The timing chart covers nextest only._');
     lines.push('');
   }
 
@@ -640,7 +650,7 @@ function buildMarkdown({
       };
       const doctestEntry = doctests.get(name);
       const doctestCell = doctestEntry && doctestEntry.tests > 0
-        ? `${doctestEntry.passed}/${doctestEntry.tests}`
+        ? `${doctestEntry.passed}/${doctestEntry.tests}${doctestEntry.failed > 0 ? ` (${doctestEntry.failed} failed)` : ''}`
         : '-';
 
       lines.push(
@@ -663,6 +673,25 @@ function buildMarkdown({
     lines.push('    title Nextest outcomes');
 
     for (const [label, value] of slices) {
+      lines.push(`    "${label}" : ${value}`);
+    }
+
+    lines.push('```');
+    lines.push('');
+  }
+
+  const doctestSlices = [
+    ['Passed', doctestPassed],
+    ['Failed', doctestFailed],
+    ['Skipped', doctestSkipped],
+  ].filter(([, value]) => value > 0);
+
+  if (doctestSlices.length > 0) {
+    lines.push('```mermaid');
+    lines.push('pie showData');
+    lines.push('    title Doctest outcomes');
+
+    for (const [label, value] of doctestSlices) {
       lines.push(`    "${label}" : ${value}`);
     }
 
