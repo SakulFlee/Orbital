@@ -45,6 +45,7 @@ cargo test --no-fail-fast
 - `SKIP_GLTF_EXPORT` is checked by **presence**, not value. It skips Blender-based asset export. Examples that need generated models (`pbr_grid`, `multi_module`) require the export to run once, or the generated `.glb` files to already exist.
 - Forgejo CI runs `cargo fmt --all -- --check` and `cargo clippy -- -D warnings`. GitHub and TeamCity are looser. Use the strict Forgejo commands locally.
 - Run the affected example(s) from the table in section 6.
+- For changes to `Crates/orbital_cli` or its templates, test the CLI end to end: build it, scaffold a throwaway project, and exercise the affected `orbital build`/`orbital run` path.
 - Review `git diff` yourself: no debug leftovers, secrets, generated assets, or unrelated files.
 - Commit messages, pull-request metadata, and code must not contain AI/model attribution.
 
@@ -67,6 +68,7 @@ It renders PBR scenes (glTF import, image-based lighting, shadows) with **WGPU**
 
 - Canonical repository: [Forgejo](https://forgejo.sakul-flee.de/SakulFlee/Orbital).
 - GitHub is a mirror. Open pull requests on Forgejo; if you can only use GitHub, treat a GitHub PR as a proposal to be ported to Forgejo before merge.
+- New projects and platform builds go through the `orbital` CLI (`Crates/orbital_cli`); it is a primary user-facing part of the project.
 - Edition: 2024. Workspace resolver: v2.
 - License: see `LICENSE`. Do not rely on older documentation for licensing terms.
 
@@ -112,7 +114,7 @@ Workspace members are `Examples/*` and `Crates/*` (see `Cargo.toml`).
 | `Crates/orbital_iced` | Integration crate for iced panels (`IcedBridgeModule`, `IcedLayerRenderer`, `IcedState`). |
 | `Crates/orbital_touch_ui`, `orbital_debug_render` | Touch controls and debug overlays. |
 | `Crates/orbital_importer_gltf` | glTF 2.0 importer with `KHR_lights_punctual`, async rayon tasks. |
-| `Crates/orbital_cli` | `orbital` CLI: project init, Android/iOS scaffolding, build/run. |
+| `Crates/orbital_cli` | `orbital-cli` package with the `orbital` binary. Project scaffolding (`init`, `init-android`), templates, desktop/Android/iOS build and run, and `Orbital.toml` handling. |
 | `Crates/orbital-iced` | Git submodule with the forked iced sub-crates (`iced`, `iced_core`, `iced_widget`, `iced_wgpu`, `iced_winit`, …). Not the same as `orbital_iced`. |
 | `Examples/` | Runnable demo apps. |
 | `Assets/` | Blender sources, exported glTF, HDR environments, RON scenes, loose shaders. |
@@ -225,6 +227,32 @@ Run once without `SKIP_GLTF_EXPORT` (with Blender available) or provide the mode
 
 ## 7. Tooling and CI
 
+### Orbital CLI (`orbital`)
+
+`Crates/orbital_cli` builds the `orbital` binary and is the main entry point for creating and building Orbital projects.
+
+```bash
+cargo build -p orbital-cli
+cargo run -p orbital-cli -- --help
+
+# Scaffold a project
+orbital init my-game --template all-in-one
+
+# Add Android support to an existing project
+orbital init-android
+
+# Build and run (desktop is the default)
+orbital build
+orbital build android --release
+orbital run ios --device "<device>"
+```
+
+- `init` supports the `minimal` and `all-in-one` templates, and can point at the engine via `--engine-repo`, `--engine-branch`, or `--engine-path`.
+- The CLI writes `Orbital.toml`, which configures the engine repository/branch plus Android and iOS packaging/deployment settings.
+- Templates live in `Crates/orbital_cli/src/template/`; the generators live in `Crates/orbital_cli/src/init/`.
+- The Nix shell installs a project-local `orbital` into `.cargo/bin` and provides `orbital-update` to refresh it.
+- When changing CLI behavior or templates, test the generated project end to end, not only the CLI crate.
+
 ### Nix
 
 `flake.nix` provides the primary dev environment: Fenix nightly Rust (`cargo`, `clippy`, `rust-src`, `rustc`, `rustfmt`, `rust-analyzer`), Linux graphics/input libraries, cross-compilation shells, `cargo-flamegraph`, `cargo-criterion`, `pkg-config`, and Blender.
@@ -277,6 +305,10 @@ Treat the current WASM status as unverified: `Crates/ecs/src/system/runner.rs` u
 | `.cargo/config.toml` | Cross-compilation linkers. |
 | `Crates/orbital/src/lib.rs` | Facade re-exports. |
 | `Crates/orbital/build.rs` | Blender → glTF export (`SKIP_GLTF_EXPORT`). |
+| `Crates/orbital_cli/src/main.rs` | CLI commands and desktop/Android/iOS dispatch. |
+| `Crates/orbital_cli/src/init/mod.rs` | Project scaffolding flow. |
+| `Crates/orbital_cli/src/init/template.rs` | Generated project files (Cargo, devshell, env). |
+| `Orbital.toml` | Engine, Android, and iOS project configuration for the CLI. |
 | `Crates/orbital_app/src/module.rs` | `Module` lifecycle. |
 | `Crates/orbital_app/src/module_runtime.rs` | Frame loop, schedules, realization, overlays. |
 | `Crates/orbital_app/src/systems/realize.rs` | GPU realization for cameras, models, lights, environments. |
