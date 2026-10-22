@@ -411,7 +411,10 @@ fn extract_cmdline_tools(zip_path: &Path, sdk_dir: &Path) -> Result<()> {
             .map_err(|e| anyhow::anyhow!("Failed to read zip entry: {}", e))?;
 
         // Get the entry name and strip the leading "cmdline-tools/" component
-        let name = file.name().to_string();
+        let name = file
+            .name()
+            .map_err(|e| anyhow::anyhow!("Failed to read zip entry name: {}", e))?
+            .to_string();
         let stripped = strip_top_level(&name);
 
         // Skip the top-level directory entry itself
