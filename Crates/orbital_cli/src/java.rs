@@ -302,7 +302,10 @@ fn extract_zip(archive: &Path, dest: &Path) -> Result<()> {
         let mut entry = zip
             .by_index(i)
             .map_err(|e| anyhow::anyhow!("Failed to read zip entry: {}", e))?;
-        let outpath = dest.join(entry.mangled_name());
+        let entry_name = entry
+            .mangled_name()
+            .map_err(|e| anyhow::anyhow!("Failed to read zip entry name: {}", e))?;
+        let outpath = dest.join(entry_name);
 
         if entry.is_dir() {
             std::fs::create_dir_all(&outpath)
