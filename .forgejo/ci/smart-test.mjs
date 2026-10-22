@@ -31,6 +31,7 @@ const FULL_PATHS = new Set([
 
 const FULL_PREFIXES = [
   '.cargo/',
+  '.config/',
   '.forgejo/',
   '.github/',
   'Assets/',
@@ -38,6 +39,8 @@ const FULL_PREFIXES = [
   'CTestMod/',
   'target/',
 ];
+
+const PUBLIC_SERVER_URL = process.env.PUBLIC_SERVER_URL || 'https://forgejo.sakul-flee.de';
 
 function parseArgs(argv) {
   const options = {
@@ -400,6 +403,44 @@ function parseDoctests(logText) {
   return packages;
 }
 
+function parseDoctestOutputs(logText) {
+  const outputs = new Map();
+  let current = null;
+  let buffer = [];
+
+  const commit = () => {
+    if (current) {
+      outputs.set(current, buffer.join('\n').trim());
+    }
+
+    current = null;
+    buffer = [];
+  };
+
+  for (const line of logText.split(/\r?\n/)) {
+    const headerMatch = line.match(/^---- (.+) stdout ----$/);
+
+    if (headerMatch) {
+      commit();
+      current = headerMatch[1].trim();
+      continue;
+    }
+
+    if (current) {
+      if (line === 'failures:' || line.startsWith('test result:')) {
+        commit();
+        continue;
+      }
+
+      buffer.push(line);
+    }
+  }
+
+  commit();
+
+  return outputs;
+}
+
 function aggregate(cases) {
   const packages = new Map();
   const totals = { tests: 0, passed: 0, failed: 0, skipped: 0, time: 0 };
@@ -512,13 +553,21 @@ function failureGraph(failures) {
   return lines.join('\n');
 }
 
-function buildMarkdown({ selection, cases, doctests, nextestCode, doctestCode, elapsedMs, logText }) {
+function buildMarkdown({
+  selection,
+  cases,
+  doctests,
+  doctestOutputs = new Map(),
+  nextestCode,
+  doctestCode,
+  elapsedMs,
+  logText,
+}) {
   const { packages, totals } = aggregate(cases);
   const failedRun = nextestCode !== 0 || doctestCode !== 0;
   const verdict = failedRun ? 'FAIL' : 'PASS';
   const runNumber = process.env.GITHUB_RUN_NUMBER;
-  const serverUrl = process.env.GITHUB_SERVER_URL || 'https://forgejo.sakul-flee.de';
-  const runUrl = runNumber && REPOSITORY ? `${serverUrl}/${REPOSITORY}/actions/runs/${runNumber}` : null;
+  const runUrl = runNumber && REPOSITORY ? `${PUBLIC_SERVER_URL}/${REPOSITORY}/actions/runs/${runNumber}` : null;
   const lines = [];
 
   lines.push(MARKER);
@@ -568,13 +617,20 @@ function buildMarkdown({ selection, cases, doctests, nextestCode, doctestCode, e
     lines.push('');
   }
 
-  const packageNames = new Set([...packages.keys(), ...doctests.keys()]);
+  const packageNames = [...new Set([...packages.keys(), ...doctests.keys()])]
+    .sort()
+    .filter((name) => {
+      const nextestEntry = packages.get(name);
+      const doctestEntry = doctests.get(name);
 
-  if (packageNames.size > 0) {
+      return (nextestEntry && nextestEntry.tests > 0) || (doctestEntry && doctestEntry.tests > 0);
+    });
+
+  if (packageNames.length > 0) {
     lines.push('| Crate | Nextest | Passed | Failed | Skipped | Doctests | Time |');
     lines.push('| --- | ---: | ---: | ---: | ---: | ---: | ---: |');
 
-    for (const name of [...packageNames].sort()) {
+    for (const name of packageNames) {
       const nextestEntry = packages.get(name) || {
         tests: 0,
         passed: 0,
@@ -583,7 +639,9 @@ function buildMarkdown({ selection, cases, doctests, nextestCode, doctestCode, e
         time: 0,
       };
       const doctestEntry = doctests.get(name);
-      const doctestCell = doctestEntry ? `${doctestEntry.passed}/${doctestEntry.tests}` : '-';
+      const doctestCell = doctestEntry && doctestEntry.tests > 0
+        ? `${doctestEntry.passed}/${doctestEntry.tests}`
+        : '-';
 
       lines.push(
         `| ${markdownCell(name)} | ${nextestEntry.tests} | ${nextestEntry.passed} | ${nextestEntry.failed} | ${nextestEntry.skipped} | ${doctestCell} | ${formatNumber(nextestEntry.time)}s |`,
@@ -652,7 +710,7 @@ function buildMarkdown({ selection, cases, doctests, nextestCode, doctestCode, e
         package: packageName,
         suite: `${packageName} (doctests)`,
         name,
-        message: '',
+        message: doctestOutputs.get(name) || '',
       });
     }
   }
@@ -889,10 +947,12 @@ async function main() {
   const junitXml = fs.existsSync(JUNIT_PATH) ? fs.readFileSync(JUNIT_PATH, 'utf8') : '';
   const cases = parseJUnit(junitXml);
   const doctests = parseDoctests(logText);
+  const doctestOutputs = parseDoctestOutputs(logText);
   const markdown = buildMarkdown({
     selection,
     cases,
     doctests,
+    doctestOutputs,
     nextestCode: nextest.code,
     doctestCode: doctest.code,
     elapsedMs,
@@ -928,6 +988,7 @@ if (isMain) {
 
 export {
   buildMarkdown,
+  parseDoctestOutputs,
   parseDoctests,
   parseJUnit,
   selectTests,
