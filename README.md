@@ -106,6 +106,21 @@ The Orbital engine has a rich history spanning multiple iterations and rewrites.
 
 Each version learned from the previous ones, with the current implementation built in Rust leveraging the WGPU graphics API abstraction layer for cross-platform support.
 
+## Contributing
+
+[Forgejo](https://forgejo.sakul-flee.de/SakulFlee/Orbital) is the canonical repository; GitHub is a mirror.
+Please open pull requests on Forgejo.
+If you can only use GitHub, treat a GitHub pull request as a proposal that will be ported to Forgejo before merge.
+
+AI tools are welcome, but the contributor owns the result:
+
+- Inspect and understand every line you submit.
+- Verify that it builds and that relevant tests, lints, and examples pass.
+- Do not add AI/model attribution to code, commits, documentation, or pull-request metadata. AI tools are not authors, co-authors, owners, or contributors.
+- The person opening the pull request is responsible for correctness, licensing, security, and follow-up maintenance.
+
+See [AGENTS.md](AGENTS.md) for the full contribution contract, architecture map, tooling, and pre-PR checklist.
+
 ## License
 
 This project is dual licensed in Rust's fashion:
