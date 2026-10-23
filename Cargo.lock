@@ -1077,7 +1077,7 @@ checksum = "75b325c5dbd37f80359721ad39aca5a29fb04c89279657cffdda8736d0c0b9d2"
 [[package]]
 name = "dpi"
 version = "0.1.1"
-source = "git+https://forgejo.sakul-flee.de/SakulFlee/Orbital-Winit.git?branch=main#a926fe1562d5996171fb0e79bb6b79e51f83bc28"
+source = "git+https://forgejo.sakul-flee.de/SakulFlee/Orbital-Winit.git?branch=main#a9d045d688f7867b500544ad5d52eba546655866"
 
 [[package]]
 name = "dyn-clone"
@@ -5835,7 +5835,7 @@ checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
 [[package]]
 name = "winit"
 version = "0.30.8"
-source = "git+https://forgejo.sakul-flee.de/SakulFlee/Orbital-Winit.git?branch=main#a926fe1562d5996171fb0e79bb6b79e51f83bc28"
+source = "git+https://forgejo.sakul-flee.de/SakulFlee/Orbital-Winit.git?branch=main#a9d045d688f7867b500544ad5d52eba546655866"
 dependencies = [
  "ahash",
  "android-activity",
