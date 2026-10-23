@@ -61,18 +61,25 @@ The goal of this project is to bridge well established industry-standard techniq
 
 ## Getting Started
 
-To explore the capabilities of the Orbital Engine, check out the examples in the `Examples/` directory. These examples demonstrate various features of the engine including:
+The official project templates live in the `Examples/` directory. They are
+workspace members and mirror the templates used by `orbital init`:
 
-- **GLTF PBR Damaged Helmet**: Example showcasing PBR rendering with a damaged helmet model
-- **Instancing**: Example demonstrating instanced rendering
-- **PBR Grid**: Example showing the PBR material system
-- **Roll Camera**: Example with camera controls
-- **Skybox**: Example showing environment mapping
+- **minimal**: A small procedural scene with a camera and a spotlight
+- **all-in-one**: Procedural scene, glTF import, lighting, shadows, UI, and overlays
+- **2d**: A minimal 2D shape rendering example
 
-To run an example, use:
+Run them from the repository root:
 
 ```shell
-cargo run --bin <example_name>
+cargo run -p template_minimal
+cargo run -p template_all_in_one
+cargo run -p template_2d
+```
+
+To create a standalone project from one of these templates, use the Orbital CLI:
+
+```shell
+orbital init my-game --template all-in-one
 ```
 
 To use the engine in your own project, add the following to your `Cargo.toml`:
