@@ -571,7 +571,11 @@ impl Module for ProcgeoSceneModule {
         let scene = match SceneBuilder::load("Scenes/procgeo_demo.ron") {
             Ok(s) => s,
             Err(e) => {
-                error!("Failed to load scene: {}", e);
+                let asset_root = std::env::current_dir().unwrap_or_default().join("Assets");
+                error!(
+                    "Failed to load scene: {e} (assets are resolved from {})",
+                    asset_root.display()
+                );
                 return vec![
                     sys_camera_controller.into_system(),
                     Box::new(CursorToggle::new(true)),
