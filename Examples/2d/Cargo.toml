@@ -1,17 +1,16 @@
 [package]
-name = "pbr_grid"
+name = "template_2d"
 version = "0.1.0"
 edition = "2024"
 
 [[bin]]
-name = "test_pbr_grid_desktop"
+name = "template_2d"
 path = "src/main.rs"
 
 [lib]
-name = "test_pbr_grid"
+name = "template_2d"
 path = "src/lib.rs"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
 orbital = { path = "../../Crates/orbital" }
-winit = { workspace = true }

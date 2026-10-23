@@ -1,12 +1,12 @@
 use orbital::app::{App, AppSettings, Module};
+use orbital::app::{LayerRenderer, RenderOverlay, RenderOverlayContext};
 use orbital::ecs::{System, World};
 use orbital::ecs_bridge::SurfaceFormatResource;
 use orbital::logging::{self, error, info};
-use orbital::twod::{ShapeDescriptor, Vertex2D, Batch2D};
-use orbital::app::{RenderOverlay, RenderOverlayContext, LayerRenderer};
 use orbital::renderer::{Camera2DUniform, Renderer2D};
+use orbital::twod::{Batch2D, ShapeDescriptor, Vertex2D};
 
-pub const NAME: &str = "{{PROJECT_NAME}}";
+pub const NAME: &str = env!("CARGO_PKG_NAME");
 
 #[orbital::main]
 pub fn entrypoint(
@@ -99,27 +99,30 @@ impl RenderOverlay for ShapeOverlay {
         ctx.queue
             .write_buffer(&self.camera_buffer, 0, uniform_bytes);
 
-        let mut command_encoder = ctx.device.create_command_encoder(&orbital::wgpu::CommandEncoderDescriptor {
-            label: Some("2D Scene Encoder"),
-        });
+        let mut command_encoder =
+            ctx.device
+                .create_command_encoder(&orbital::wgpu::CommandEncoderDescriptor {
+                    label: Some("2D Scene Encoder"),
+                });
 
         {
-            let mut render_pass = command_encoder.begin_render_pass(&orbital::wgpu::RenderPassDescriptor {
-                label: Some("2D Scene Pass"),
-                color_attachments: &[Some(orbital::wgpu::RenderPassColorAttachment {
-                    view: ctx.target_view,
-                    resolve_target: None,
-                    ops: orbital::wgpu::Operations {
-                        load: orbital::wgpu::LoadOp::Load,
-                        store: orbital::wgpu::StoreOp::Store,
-                    },
-                    depth_slice: None,
-                })],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-                multiview_mask: None,
-            });
+            let mut render_pass =
+                command_encoder.begin_render_pass(&orbital::wgpu::RenderPassDescriptor {
+                    label: Some("2D Scene Pass"),
+                    color_attachments: &[Some(orbital::wgpu::RenderPassColorAttachment {
+                        view: ctx.target_view,
+                        resolve_target: None,
+                        ops: orbital::wgpu::Operations {
+                            load: orbital::wgpu::LoadOp::Load,
+                            store: orbital::wgpu::StoreOp::Store,
+                        },
+                        depth_slice: None,
+                    })],
+                    depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
+                    multiview_mask: None,
+                });
 
             let byte_data = unsafe {
                 std::slice::from_raw_parts(
@@ -127,7 +130,8 @@ impl RenderOverlay for ShapeOverlay {
                     self.vertices.len() * std::mem::size_of::<Vertex2D>(),
                 )
             };
-            ctx.queue.write_buffer(self.renderer.vertex_buffer(), 0, byte_data);
+            ctx.queue
+                .write_buffer(self.renderer.vertex_buffer(), 0, byte_data);
 
             render_pass.set_pipeline(self.renderer.pipeline());
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
@@ -146,20 +150,19 @@ struct Scene2DModule {
 impl Module for Scene2DModule {
     fn setup(
         &self,
-        ecs: &mut World,
-        device: &orbital::wgpu::Device,
+        _ecs: &mut World,
+        _device: &orbital::wgpu::Device,
         _queue: &orbital::wgpu::Queue,
     ) -> Vec<Box<dyn System>> {
-        let format = ecs
-            .get_resource::<SurfaceFormatResource>()
-            .map(|f| f.0)
-            .unwrap_or(orbital::wgpu::TextureFormat::Bgra8UnormSrgb);
-
         let mut batch = Batch2D::new();
 
         // Red square at (100, 100) with size 100x100
         batch.push_shape(&orbital::twod::shape::generate_rect(
-            100.0, 100.0, 100.0, 100.0, [0.9, 0.3, 0.2, 1.0],
+            100.0,
+            100.0,
+            100.0,
+            100.0,
+            [0.9, 0.3, 0.2, 1.0],
         ));
 
         // Green circle at (300, 200) with radius 50
@@ -181,7 +184,11 @@ impl Module for Scene2DModule {
 
         // Yellow quad at (200, 350) with size 150x80
         batch.push_shape(&orbital::twod::shape::generate_rect(
-            200.0, 350.0, 150.0, 80.0, [1.0, 1.0, 0.2, 1.0],
+            200.0,
+            350.0,
+            150.0,
+            80.0,
+            [1.0, 1.0, 0.2, 1.0],
         ));
 
         // Cyan polygon (hexagon) at (600, 300)
@@ -215,7 +222,9 @@ impl Module for Scene2DModule {
         let device = match ecs.get_resource::<orbital::ecs_bridge::DeviceResource>() {
             Some(d) => d,
             None => {
-                orbital::logging::warn!("Scene2DModule: no DeviceResource, skipping overlay registration");
+                orbital::logging::warn!(
+                    "Scene2DModule: no DeviceResource, skipping overlay registration"
+                );
                 return;
             }
         };
