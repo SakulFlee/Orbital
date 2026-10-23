@@ -15,8 +15,6 @@ jobs:
       SCCACHE_CACHE_SIZE: 10G
     steps:
       - uses: https://code.forgejo.org/actions/checkout@v7
-        with:
-          submodules: true
       - name: Cache cargo registry
         uses: https://code.forgejo.org/actions/cache@v6
         continue-on-error: true
@@ -56,8 +54,6 @@ jobs:
       SCCACHE_CACHE_SIZE: 10G
     steps:
       - uses: https://code.forgejo.org/actions/checkout@v7
-        with:
-          submodules: true
       - name: Cache sccache
         uses: https://code.forgejo.org/actions/cache@v6
         continue-on-error: true
@@ -92,8 +88,6 @@ jobs:
       AR_x86_64_pc_windows_gnu: x86_64-w64-mingw32-ar
     steps:
       - uses: https://code.forgejo.org/actions/checkout@v7
-        with:
-          submodules: true
       - name: Cache cargo registry
         uses: https://code.forgejo.org/actions/cache@v6
         continue-on-error: true
@@ -135,8 +129,6 @@ jobs:
     needs: build
     steps:
       - uses: https://code.forgejo.org/actions/checkout@v7
-        with:
-          submodules: true
       - name: Download artifacts
         uses: https://code.forgejo.org/forgejo/download-artifact@v7
         with:

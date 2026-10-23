@@ -18,7 +18,6 @@ const TOKEN = process.env.FORGEJO_TOKEN || process.env.GITHUB_TOKEN || '';
 const FULL_PATHS = new Set([
   'Cargo.toml',
   'Cargo.lock',
-  '.gitmodules',
   'flake.nix',
   'flake.lock',
   'shell.nix',
@@ -117,18 +116,6 @@ function isDocumentation(file) {
   return ['.gitignore', '.gitattributes', '.editorconfig', '.opencodeignore'].includes(file);
 }
 
-function readSubmodules() {
-  const file = path.join(ROOT, '.gitmodules');
-
-  if (!fs.existsSync(file)) {
-    return [];
-  }
-
-  return [...fs.readFileSync(file, 'utf8').matchAll(/^\s*path\s*=\s*(.+)$/gm)]
-    .map((match) => match[1].trim())
-    .filter(Boolean);
-}
-
 function loadWorkspace() {
   const result = spawnSync('cargo', ['metadata', '--no-deps', '--format-version', '1'], {
     cwd: ROOT,
@@ -185,15 +172,10 @@ function selectTests({ forceFull, changedFiles, event, packages }) {
     return { mode: 'skip', reason: 'documentation-only changes' };
   }
 
-  const submodules = readSubmodules();
   const crates = new Set();
   let examplesOnly = true;
 
   for (const file of effectiveFiles) {
-    if (submodules.some((submodule) => file === submodule || file.startsWith(`${submodule}/`))) {
-      return { mode: 'full', reason: `submodule change: ${file}` };
-    }
-
     if (FULL_PATHS.has(file) || FULL_PREFIXES.some((prefix) => file.startsWith(prefix))) {
       return { mode: 'full', reason: `workspace-level change: ${file}` };
     }
