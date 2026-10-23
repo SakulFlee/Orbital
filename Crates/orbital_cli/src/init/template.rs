@@ -5,168 +5,18 @@ use std::path::Path;
 use super::prompt::ProjectConfig;
 
 pub fn generate_project(project_dir: &Path, config: &ProjectConfig) -> Result<()> {
-    match config.template.as_str() {
-        "minimal" => generate_project_minimal(project_dir, config),
-        "all-in-one" => generate_project_all_in_one(project_dir, config),
-        "2d" => generate_project_2d(project_dir, config),
-        other => bail!("Unknown template '{other}'. Available templates: minimal, all-in-one, 2d"),
-    }
-}
-
-fn generate_project_minimal(project_dir: &Path, config: &ProjectConfig) -> Result<()> {
-    // Create directory structure
     fs::create_dir_all(project_dir.join("src"))?;
 
-    // Generate Cargo.toml
-    generate_cargo_toml(project_dir, config)?;
-
-    // Generate Orbital.toml
-    generate_orbital_toml(project_dir, config)?;
-
-    // Generate the direnv/flake dev environment
-    generate_devenv(project_dir, config)?;
-
-    // Generate src/lib.rs from template
     generate_lib_rs(project_dir, config)?;
-
-    // Generate src/main.rs for desktop
+    generate_cargo_toml(project_dir, config)?;
+    generate_orbital_toml(project_dir, config)?;
+    generate_devenv(project_dir, config)?;
     generate_main_rs(project_dir, config)?;
 
     // Create the Assets/ directory. Assets referenced by engine shaders
     // (e.g. "Shaders/pbr.wgsl") resolve against this directory on desktop
-    // (<cwd>/Assets) and are bundled into the APK on Android.
-    fs::create_dir_all(project_dir.join("Assets"))?;
-    fs::write(project_dir.join("Assets").join(".gitkeep"), "")
-        .context("Failed to write Assets/.gitkeep")?;
-
-    Ok(())
-}
-
-fn generate_project_all_in_one(project_dir: &Path, config: &ProjectConfig) -> Result<()> {
-    // Get the template directory path (relative to the executable)
-    let template_dir = std::env::current_exe()
-        .context("Failed to get executable path")?
-        .parent()
-        .context("Failed to get executable parent")?
-        .join("templates")
-        .join("all-in-one");
-
-    // If the template directory doesn't exist next to the executable,
-    // fall back to looking in the source tree
-    let template_dir = if template_dir.exists() {
-        template_dir
-    } else {
-        // Try to find it relative to the source file
-        Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("src")
-            .join("template")
-            .join("all-in-one")
-    };
-
-    if !template_dir.exists() {
-        bail!("Template directory not found: {}", template_dir.display());
-    }
-
-    // Copy the entire template directory (no Cargo.toml in template dirs)
-    copy_dir_all(&template_dir, project_dir).context("Failed to copy template directory")?;
-
-    // Generate Cargo.toml from code (avoids template files with {name}
-    // being parsed by cargo during workspace resolution from git deps)
-    generate_cargo_toml(project_dir, config)?;
-
-    // Generate Orbital.toml
-    generate_orbital_toml(project_dir, config)?;
-    // Generate the direnv/flake dev environment
-    generate_devenv(project_dir, config)?;
-    // Replace placeholders in lib.rs
-    let lib_rs_path = project_dir.join("src").join("lib.rs");
-    if lib_rs_path.exists() {
-        let content = fs::read_to_string(&lib_rs_path).context("Failed to read lib.rs")?;
-        let content = content.replace("{{PROJECT_NAME}}", &config.project_name);
-        fs::write(&lib_rs_path, content).context("Failed to write lib.rs")?;
-    }
-
-    // Replace placeholders in main.rs
-    let main_rs_path = project_dir.join("src").join("main.rs");
-    if main_rs_path.exists() {
-        let content = fs::read_to_string(&main_rs_path).context("Failed to read main.rs")?;
-        let lib_name = config.project_name.replace('-', "_").to_lowercase();
-        let content = content.replace("{lib_name}", &lib_name);
-        fs::write(&main_rs_path, content).context("Failed to write main.rs")?;
-    }
-
-    Ok(())
-}
-
-fn copy_dir_all(src: &Path, dst: &Path) -> Result<()> {
-    fs::create_dir_all(dst)?;
-    for entry in fs::read_dir(src).context("Failed to read template directory")? {
-        let entry = entry.context("Failed to read directory entry")?;
-        let ty = entry.file_type().context("Failed to get file type")?;
-        if ty.is_dir() {
-            copy_dir_all(&entry.path(), &dst.join(entry.file_name()))?;
-        } else {
-            fs::copy(entry.path(), dst.join(entry.file_name()))
-                .context(format!("Failed to copy {}", entry.path().display()))?;
-        }
-    }
-    Ok(())
-}
-
-fn generate_project_2d(project_dir: &Path, config: &ProjectConfig) -> Result<()> {
-    // Get the template directory path (relative to the executable)
-    let template_dir = std::env::current_exe()
-        .context("Failed to get executable path")?
-        .parent()
-        .context("Failed to get executable parent")?
-        .join("templates")
-        .join("2d");
-
-    // If the template directory doesn't exist next to the executable,
-    // fall back to looking in the source tree
-    let template_dir = if template_dir.exists() {
-        template_dir
-    } else {
-        Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("src")
-            .join("template")
-            .join("2d")
-    };
-
-    if !template_dir.exists() {
-        bail!("Template directory not found: {}", template_dir.display());
-    }
-
-    // Copy the entire template directory (no Cargo.toml in template dirs)
-    copy_dir_all(&template_dir, project_dir).context("Failed to copy template directory")?;
-
-    // Generate Cargo.toml from code
-    generate_cargo_toml(project_dir, config)?;
-
-    // Generate Orbital.toml
-    generate_orbital_toml(project_dir, config)?;
-
-    // Generate the direnv/flake dev environment
-    generate_devenv(project_dir, config)?;
-
-    // Replace placeholders in lib.rs
-    let lib_rs_path = project_dir.join("src").join("lib.rs");
-    if lib_rs_path.exists() {
-        let content = fs::read_to_string(&lib_rs_path).context("Failed to read lib.rs")?;
-        let content = content.replace("{{PROJECT_NAME}}", &config.project_name);
-        fs::write(&lib_rs_path, content).context("Failed to write lib.rs")?;
-    }
-
-    // Replace placeholders in main.rs
-    let main_rs_path = project_dir.join("src").join("main.rs");
-    if main_rs_path.exists() {
-        let content = fs::read_to_string(&main_rs_path).context("Failed to read main.rs")?;
-        let lib_name = config.project_name.replace('-', "_").to_lowercase();
-        let content = content.replace("{lib_name}", &lib_name);
-        fs::write(&main_rs_path, content).context("Failed to write main.rs")?;
-    }
-
-    // Create the Assets directory
+    // (<cwd>/Assets) and are bundled into the APK on Android. Engine assets
+    // are synced into this directory by `orbital build`/`orbital run`.
     fs::create_dir_all(project_dir.join("Assets"))?;
     fs::write(project_dir.join("Assets").join(".gitkeep"), "")
         .context("Failed to write Assets/.gitkeep")?;
@@ -321,26 +171,22 @@ fn devenv_flake(orbital_url: &str) -> String {
 }
 
 fn generate_lib_rs(project_dir: &Path, config: &ProjectConfig) -> Result<()> {
-    // Only the minimal template exists for now. To add a new template:
-    //   1. Add a `const FOO_TEMPLATE: &str = r#"..."#;` below.
-    //   2. Add a `"foo" => FOO_TEMPLATE` arm to this match.
-    //   3. Add "foo" to the prompt list in `init/prompt.rs`.
-    let template = match config.template.as_str() {
-        "minimal" => MINIMAL_TEMPLATE,
-        "all-in-one" => {
-            // all-in-one is handled by generate_project_all_in_one
-            // This function should not be called for all-in-one template
-            bail!("all-in-one template should be handled by generate_project_all_in_one");
-        }
-        other => bail!("Unknown template '{other}'. Available templates: minimal, all-in-one"),
-    };
-
-    let content = template.replace("{{PROJECT_NAME}}", &config.project_name);
+    let content = template_lib_source(&config.template)?;
 
     fs::write(project_dir.join("src").join("lib.rs"), content)
         .context("Failed to write src/lib.rs")?;
 
     Ok(())
+}
+
+/// Returns the embedded application source for a template.
+fn template_lib_source(template: &str) -> Result<&'static str> {
+    match template {
+        "minimal" => Ok(MINIMAL_TEMPLATE),
+        "all-in-one" => Ok(ALL_IN_ONE_TEMPLATE),
+        "2d" => Ok(TWO_D_TEMPLATE),
+        other => bail!("Unknown template '{other}'. Available templates: minimal, all-in-one, 2d"),
+    }
 }
 
 fn generate_main_rs(project_dir: &Path, config: &ProjectConfig) -> Result<()> {
@@ -361,186 +207,19 @@ fn generate_main_rs(project_dir: &Path, config: &ProjectConfig) -> Result<()> {
     Ok(())
 }
 
-const MINIMAL_TEMPLATE: &str = r#"use std::sync::Arc;
+// The canonical template sources are workspace examples. Embedding them keeps
+// `orbital init` self-contained when the CLI is installed from git or a path.
+const MINIMAL_TEMPLATE: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../Examples/minimal/src/lib.rs"
+));
 
-use orbital::app::{App, AppSettings, Module, sys_camera_controller};
-use orbital::cgmath::{InnerSpace, Point3, Rad, Vector3};
-use orbital::ecs::{IntoSystem, System, World};
-use orbital::ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, EnvironmentDescriptorResource,
-    LightDescriptorEcs, LightDirty, ModelDescriptorEcs, ModelDirty, ModelInstances, Position,
-    Rotation,
-};
-use orbital::logging::{self, error, info};
-use orbital::procgeo::scene::{
-    EntityDescriptor, SceneBuilder, SceneMaterial, SceneShape, TransformDef,
-};
-use orbital::resources::{
-    GeneratedSkyParameters, SamplingType, ShadowCaster, WorldEnvironmentDescriptor,
-};
+const ALL_IN_ONE_TEMPLATE: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../Examples/all-in-one/src/lib.rs"
+));
 
-pub const NAME: &str = "{{PROJECT_NAME}}";
-
-#[orbital::main]
-pub fn entrypoint(
-    event_loop_result: Result<
-        orbital::winit::event_loop::EventLoop<()>,
-        orbital::winit::error::EventLoopError,
-    >,
-) {
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    logging::init();
-
-    let event_loop = event_loop_result.expect("Event Loop failure");
-
-    let mut app_settings = AppSettings::default();
-    app_settings.vsync_enabled = true;
-    app_settings.name = NAME.to_string();
-    app_settings.back_presses_to_exit = 3;
-
-    match App::new()
-        .add_module(GameModule)
-        .add_module(orbital::touch_ui::TouchUiModule)
-        .liftoff(event_loop, app_settings)
-    {
-        Ok(()) => info!("Cleanly exited!"),
-        Err(e) => error!("Runtime failure: {e:?}"),
-    }
-}
-
-struct GameModule;
-
-impl Module for GameModule {
-    fn setup(
-        &self,
-        ecs: &mut World,
-        _device: &orbital::wgpu::Device,
-        _queue: &orbital::wgpu::Queue,
-    ) -> Vec<Box<dyn System>> {
-        // Spawn camera looking at the scene
-        let camera = ecs.spawn_entity();
-        ecs.attach_component(
-            &camera,
-            CameraDescriptorEcs {
-                label: "Default".into(),
-                aspect: 16.0 / 9.0,
-                fovy: Rad(std::f32::consts::FRAC_PI_4),
-                near: 0.1,
-                far: 10000.0,
-                global_gamma: 2.2,
-            },
-        )
-        .unwrap();
-        ecs.attach_component(&camera, Position(Point3::new(0.0, 3.0, 5.0)))
-            .unwrap();
-        let mut rot = Rotation::identity();
-        rot.rotate_yaw(Rad(std::f32::consts::FRAC_PI_2));
-        rot.rotate_pitch(Rad(-0.3));
-        ecs.attach_component(&camera, rot).unwrap();
-        ecs.insert_resource(ActiveCamera(camera));
-        ecs.insert_resource(CursorGrabConfig(true));
-
-        // Dynamic procedural sky for ambient lighting
-        ecs.insert_resource(EnvironmentDescriptorResource(Some(
-            WorldEnvironmentDescriptor::Generated {
-                cube_face_size: 256,
-                sampling_type: SamplingType::GaussianBlur,
-                custom_specular_mip_level_count: Some(3),
-                parameters: Some(GeneratedSkyParameters::default()),
-                dynamic: true,
-            },
-        )));
-
-        // Build a minimal scene: a cube sitting on a plane
-        let mut scene = SceneBuilder::new();
-        scene.add_material(
-            "floor",
-            SceneMaterial::Color {
-                albedo: [0.2, 0.2, 0.25, 1.0],
-                metallic: 0.0,
-                roughness: 0.95,
-            },
-        );
-        scene.add_material(
-            "cube",
-            SceneMaterial::Color {
-                albedo: [0.9, 0.3, 0.2, 1.0],
-                metallic: 0.0,
-                roughness: 0.5,
-            },
-        );
-        scene.add_entity(EntityDescriptor {
-            label: Some("Floor".into()),
-            shape: SceneShape::Plane {
-                size: [10.0, 10.0],
-                subdivisions: 2,
-            },
-            material: "floor".into(),
-            transform: TransformDef::default(),
-        });
-        scene.add_entity(EntityDescriptor {
-            label: Some("Cube".into()),
-            shape: SceneShape::Box {
-                size: [1.0, 1.0, 1.0],
-            },
-            material: "cube".into(),
-            transform: TransformDef {
-                position: [0.0, 0.5, 0.0],
-                ..Default::default()
-            },
-        });
-
-        // Spawn the generated meshes as renderable entities
-        for (mesh, material, transform) in scene.build() {
-            let entity = ecs.spawn_entity();
-            ecs.attach_component(
-                &entity,
-                ModelDescriptorEcs {
-                    label: "procgeo".into(),
-                    mesh: Arc::new(mesh),
-                    materials: vec![material],
-                },
-            )
-            .unwrap();
-
-            let mut instances = ModelInstances::new();
-            instances.add_instance(transform);
-            ecs.attach_component(&entity, instances).unwrap();
-            ecs.attach_component(&entity, ModelDirty(true)).unwrap();
-        }
-
-        // Spotlight aimed at the cube
-        let spot_pos = Point3::new(3.0, 5.0, 3.0);
-        let cube_target = Point3::new(0.0, 0.5, 0.0);
-        let dir = (cube_target - spot_pos).normalize();
-        let spot_light = ecs.spawn_entity();
-        ecs.attach_component(
-            &spot_light,
-            LightDescriptorEcs::new_spot(
-                Vector3::new(1.0, 1.0, 1.0),
-                30.0,
-                Vector3::new(dir.x, dir.y, dir.z),
-                0.1,
-                0.44,
-            ),
-        )
-        .unwrap();
-        ecs.attach_component(&spot_light, Position(spot_pos))
-            .unwrap();
-        ecs.attach_component(&spot_light, LightDirty(true)).unwrap();
-        ecs.attach_component(
-            &spot_light,
-            ShadowCaster {
-                cascade_count: 0,
-                bias: 0.0002,
-                ..Default::default()
-            },
-        )
-        .unwrap();
-
-        vec![sys_camera_controller.into_system()]
-    }
-}
-
-const SAVE_PATH: &str = "savegame.bin";
-"#;
+const TWO_D_TEMPLATE: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../Examples/2d/src/lib.rs"
+));

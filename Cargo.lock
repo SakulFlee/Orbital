@@ -1591,14 +1591,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gltf_pbr_damaged_helmet"
-version = "0.1.0"
-dependencies = [
- "orbital",
- "winit",
-]
-
-[[package]]
 name = "glutin_wgl_sys"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1987,14 +1979,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "instancing"
-version = "0.1.0"
-dependencies = [
- "orbital",
- "winit",
-]
-
-[[package]]
 name = "interpolate_name"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2367,14 +2351,6 @@ checksum = "bb85c154ba489f01b25c0d36ae69a87e4a1c73a72631fc6c0eb6dde34a73e44b"
 dependencies = [
  "num-traits",
  "pxfm",
-]
-
-[[package]]
-name = "multi_module"
-version = "0.1.0"
-dependencies = [
- "orbital",
- "winit",
 ]
 
 [[package]]
@@ -3586,14 +3562,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pbr_grid"
-version = "0.1.0"
-dependencies = [
- "orbital",
- "winit",
-]
-
-[[package]]
 name = "percent-encoding"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3782,14 +3750,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "985e7ec9bb745e6ce6535b544d84d6cd6f7ad8bd711c398938ae983b91a766d9"
 dependencies = [
  "unicode-ident",
-]
-
-[[package]]
-name = "procgeo_scene"
-version = "0.1.0"
-dependencies = [
- "orbital",
- "winit",
 ]
 
 [[package]]
@@ -4458,13 +4418,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "skybox"
-version = "0.1.0"
-dependencies = [
- "orbital",
-]
-
-[[package]]
 name = "slab"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4627,19 +4580,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "template_2d"
+version = "0.1.0"
+dependencies = [
+ "orbital",
+]
+
+[[package]]
+name = "template_all_in_one"
+version = "0.1.0"
+dependencies = [
+ "orbital",
+]
+
+[[package]]
+name = "template_minimal"
+version = "0.1.0"
+dependencies = [
+ "orbital",
+]
+
+[[package]]
 name = "termcolor"
 version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06794f8f6c5c898b3275aebefa6b8a1cb24cd2c6c79397ab15774837a0bc5755"
 dependencies = [
  "winapi-util",
-]
-
-[[package]]
-name = "test-roll-camera"
-version = "0.1.0"
-dependencies = [
- "orbital",
 ]
 
 [[package]]
@@ -4894,13 +4861,6 @@ name = "typenum"
 version = "1.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
-
-[[package]]
-name = "ui_demo"
-version = "0.1.0"
-dependencies = [
- "orbital",
-]
 
 [[package]]
 name = "ulid"
