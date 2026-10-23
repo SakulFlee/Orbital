@@ -148,6 +148,20 @@ pub struct ModuleRuntime {
     /// game-input handling waits for `update()`, so `process_events()` can
     /// decide whether a panel captured it first.
     deferred_wheels: Vec<DeferredWheel>,
+    /// Whether the mouse pointer is currently over the window surface.
+    ///
+    /// Used to defer `set_cursor_grab` calls: on Wayland, requesting a grab
+    /// with no pointer over the surface leaves winit's grab bookkeeping out
+    /// of sync and can make it issue a second `confine_pointer` without
+    /// releasing the previous one — a fatal `already_constrained` protocol
+    /// error. The grab is applied on the next `CursorEntered` instead.
+    pointer_over_window: bool,
+    /// Whether the window currently has keyboard focus.
+    window_focused: bool,
+    /// Desired grab state for apps that set [`CursorGrabConfig`] without a
+    /// [`CursorGrabState`] resource. When the resource exists it takes
+    /// precedence, so direct writes to it are still honoured.
+    cursor_grab_desired: bool,
     /// Overlay renderers, owned by the runtime (not the ECS world) so that
     /// `update()` can call `process_events()` with `&mut World` without
     /// borrow-checker conflicts.
@@ -193,6 +207,9 @@ impl ModuleRuntime {
             last_back_press: None,
             deferred_touches: Vec::new(),
             deferred_wheels: Vec::new(),
+            pointer_over_window: false,
+            window_focused: false,
+            cursor_grab_desired: false,
             overlay_renderers: std::sync::Mutex::new(Vec::new()),
             legacy_overlays: std::sync::Mutex::new(Vec::new()),
             #[cfg(all(
@@ -1268,6 +1285,38 @@ impl ModuleRuntime {
         exit_requested
     }
 
+    /// Desired grab state, preferring the ECS resource when present so direct
+    /// writes to [`CursorGrabState`] are honoured.
+    fn desired_cursor_grab(&self) -> bool {
+        self.ecs_world
+            .get_resource::<CursorGrabState>()
+            .map(|state| state.0)
+            .unwrap_or(self.cursor_grab_desired)
+    }
+
+    /// Apply the desired cursor grab if the pointer is over the window.
+    ///
+    /// Wayland's pointer-constraints protocol allows only one constraint per
+    /// surface, and winit's Wayland backend can desynchronise its grab
+    /// bookkeeping when a grab is requested while no pointer is over the
+    /// surface. Defer until `CursorEntered` in that case.
+    fn sync_cursor_grab(&mut self, ctx: &Arc<Mutex<AppContext>>) {
+        if !self.pointer_over_window || !self.window_focused {
+            return;
+        }
+
+        let grabbed = self.desired_cursor_grab();
+        let mode = if grabbed {
+            CursorGrabMode::Confined
+        } else {
+            CursorGrabMode::None
+        };
+
+        let lock = ctx_lock!(ctx);
+        apply_cursor_grab(lock.window(), mode);
+        lock.window().set_cursor_visible(!grabbed);
+    }
+
     fn process_engine_events(&mut self) -> bool {
         let ctx = match &self.state {
             AppState::Ready(ctx) => ctx.clone(),
@@ -1289,13 +1338,8 @@ impl ModuleRuntime {
         for event in events {
             match event {
                 EngineEvent::CursorGrabbed(grab) => {
-                    let lock = ctx_lock!(ctx);
-                    let mode = if grab {
-                        CursorGrabMode::Confined
-                    } else {
-                        CursorGrabMode::None
-                    };
-                    apply_cursor_grab(lock.window(), mode);
+                    self.cursor_grab_desired = grab;
+                    self.sync_cursor_grab(&ctx);
                 }
                 EngineEvent::CursorVisible(visible) => {
                     ctx_lock!(ctx).window().set_cursor_visible(visible);
@@ -1466,14 +1510,18 @@ impl ApplicationHandler for ModuleRuntime {
                 self.module.restore_state(&mut self.ecs_world);
             }
 
-            // Auto-grab cursor if configured. May fail transiently when the
-            // window isn't focused yet (e.g. unfocused startup on Wayland) —
-            // `Focused(true)` re-applies the grab in that case.
+            // Auto-grab cursor if configured. Only apply it when the pointer
+            // is already over the surface; otherwise `CursorEntered` /
+            // `Focused(true)` re-applies it once winit can create a valid
+            // pointer constraint (see `sync_cursor_grab`).
             if let Some(config) = self.ecs_world.get_resource::<CursorGrabConfig>()
                 && config.0
             {
-                apply_cursor_grab(ctx_guard.window(), CursorGrabMode::Confined);
-                ctx_guard.window().set_cursor_visible(false);
+                self.cursor_grab_desired = true;
+                if self.pointer_over_window {
+                    apply_cursor_grab(ctx_guard.window(), CursorGrabMode::Confined);
+                    ctx_guard.window().set_cursor_visible(false);
+                }
             }
 
             // Seed the input surface size immediately: mouse-delta
@@ -1675,8 +1723,12 @@ impl ApplicationHandler for ModuleRuntime {
         //                  unfocused startup: on Wayland mouse-motion device
         //                  events only flow while a pointer constraint is
         //                  active, and nothing else re-acquired it.
+        //
+        // Re-application is deferred until the pointer is over the surface
+        // (`CursorEntered`) if it left while the window was unfocused.
         match event {
             WindowEvent::Focused(false) => {
+                self.window_focused = false;
                 let lock = ctx_lock!(ctx);
                 apply_cursor_grab(lock.window(), CursorGrabMode::None);
                 lock.window().set_cursor_visible(true);
@@ -1689,14 +1741,9 @@ impl ApplicationHandler for ModuleRuntime {
                 }
             }
             WindowEvent::Focused(true) => {
-                let grabbed = self
-                    .ecs_world
-                    .get_resource::<CursorGrabState>()
-                    .is_some_and(|state| state.0);
-                if grabbed {
-                    let lock = ctx_lock!(ctx);
-                    apply_cursor_grab(lock.window(), CursorGrabMode::Confined);
-                    lock.window().set_cursor_visible(false);
+                self.window_focused = true;
+                if self.desired_cursor_grab() {
+                    self.sync_cursor_grab(&ctx);
                 }
             }
             _ => {}
@@ -1759,6 +1806,16 @@ impl ApplicationHandler for ModuleRuntime {
                 // populated IcedCapturedTouches so we know which touches
                 // the UI consumed.
                 self.deferred_touches.push(touch);
+                None
+            }
+            WindowEvent::CursorEntered { .. } => {
+                self.pointer_over_window = true;
+                self.sync_cursor_grab(&ctx);
+                None
+            }
+            WindowEvent::CursorLeft { .. } => {
+                // Keep the desired grab state; re-apply on the next enter.
+                self.pointer_over_window = false;
                 None
             }
             WindowEvent::CursorMoved {
