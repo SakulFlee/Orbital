@@ -543,10 +543,13 @@ function buildMarkdown({
   nextestCode,
   doctestCode,
   elapsedMs,
-  logText,
+  nextestLog = '',
+  doctestLog = '',
 }) {
   const { packages, totals } = aggregate(cases);
-  const failedRun = nextestCode !== 0 || doctestCode !== 0;
+  const nextestCommandFailed = nextestCode !== 0;
+  const doctestCommandFailed = doctestCode !== 0;
+  const failedRun = nextestCommandFailed || doctestCommandFailed;
   const verdict = failedRun ? 'FAIL' : 'PASS';
   const runNumber = process.env.GITHUB_RUN_NUMBER;
   const runUrl = runNumber && REPOSITORY ? `${PUBLIC_SERVER_URL}/${REPOSITORY}/actions/runs/${runNumber}` : null;
@@ -557,6 +560,17 @@ function buildMarkdown({
   lines.push('');
   lines.push(`**Result:** ${verdict}`);
   lines.push('');
+
+  if (failedRun) {
+    const failingCommands = [
+      nextestCommandFailed ? 'nextest' : null,
+      doctestCommandFailed ? 'doctest' : null,
+    ].filter(Boolean);
+
+    lines.push(`**Failure:** ${failingCommands.join(' and ')} command failed`);
+    lines.push('');
+  }
+
   lines.push(`**Scope:** ${selection.mode === 'full' ? 'full workspace' : selection.packages.join(', ')}`);
   lines.push('');
   lines.push(`**Reason:** ${selection.reason}`);
@@ -595,13 +609,22 @@ function buildMarkdown({
     lines.push(
       `**Nextest:** ${totals.tests} tests, ${totals.passed} passed, ${totals.failed} failed, ${totals.skipped} skipped`,
     );
+  } else if (nextestCommandFailed) {
+    lines.push('**Nextest:** build failed (no test report)');
   } else {
     lines.push('**Nextest:** no tests reported');
   }
 
-  lines.push(
-    `**Doctests:** ${doctestTests} tests, ${doctestPassed} passed, ${doctestFailed} failed, ${doctestSkipped} skipped`,
-  );
+  if (doctestTests > 0) {
+    lines.push(
+      `**Doctests:** ${doctestTests} tests, ${doctestPassed} passed, ${doctestFailed} failed, ${doctestSkipped} skipped`,
+    );
+  } else if (doctestCommandFailed) {
+    lines.push('**Doctests:** command failed (no test report)');
+  } else {
+    lines.push('**Doctests:** no tests reported');
+  }
+
   lines.push('');
 
   if (doctestTests > 0) {
@@ -759,17 +782,31 @@ function buildMarkdown({
     lines.push('');
   }
 
-  if (failedRun && failures.length === 0) {
+  if (nextestCommandFailed && totals.failed === 0) {
     lines.push('<details>');
-    lines.push('<summary>Test log tail</summary>');
+    lines.push('<summary>Nextest output tail</summary>');
     lines.push('');
-    lines.push(`<pre><code>${escapeHtml(logText.split(/\r?\n/).slice(-120).join('\n'))}</code></pre>`);
+    lines.push(`<pre><code>${escapeHtml(tailLines(nextestLog))}</code></pre>`);
+    lines.push('');
+    lines.push('</details>');
+    lines.push('');
+  }
+
+  if (doctestCommandFailed && doctestFailed === 0) {
+    lines.push('<details>');
+    lines.push('<summary>Doctest output tail</summary>');
+    lines.push('');
+    lines.push(`<pre><code>${escapeHtml(tailLines(doctestLog))}</code></pre>`);
     lines.push('');
     lines.push('</details>');
     lines.push('');
   }
 
   return lines.join('\n');
+}
+
+function tailLines(text, count = 120) {
+  return text.split(/\r?\n/).slice(-count).join('\n');
 }
 
 function writeStepSummary(markdown) {
@@ -941,6 +978,7 @@ async function main() {
   ];
 
   const nextest = await runStreaming('cargo', nextestArgs, append);
+  const nextestLog = nextest.output;
 
   const doctestArgs = [
     'test',
@@ -951,14 +989,15 @@ async function main() {
   ];
 
   const doctest = await runStreaming('cargo', doctestArgs, append);
+  const doctestLog = doctest.output;
   const elapsedMs = Date.now() - startedAt;
 
   fs.writeFileSync(LOG_PATH, logText);
 
   const junitXml = fs.existsSync(JUNIT_PATH) ? fs.readFileSync(JUNIT_PATH, 'utf8') : '';
   const cases = parseJUnit(junitXml);
-  const doctests = parseDoctests(logText);
-  const doctestOutputs = parseDoctestOutputs(logText);
+  const doctests = parseDoctests(doctestLog);
+  const doctestOutputs = parseDoctestOutputs(doctestLog);
   const markdown = buildMarkdown({
     selection,
     cases,
@@ -967,7 +1006,8 @@ async function main() {
     nextestCode: nextest.code,
     doctestCode: doctest.code,
     elapsedMs,
-    logText,
+    nextestLog,
+    doctestLog,
   });
 
   fs.writeFileSync(path.join(REPORT_DIR, 'summary.md'), markdown);
