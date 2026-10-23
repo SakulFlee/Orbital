@@ -270,7 +270,7 @@ Enter with `nix-shell`, `nix develop`, or `direnv allow` (`.envrc` uses `use fla
 
 | System | Files | Lint/test behavior |
 |--------|-------|--------------------|
-| Forgejo | `.forgejo/workflows/` | `cargo fmt --all -- --check`, `cargo clippy -- -D warnings`; may auto-fix and push a `[ci]` commit. Tests run for all PRs: directly changed crates only, with the full suite for PRs targeting `release/**`, manual runs, and release tags. |
+| Forgejo | `.forgejo/workflows/` | `cargo fmt --all -- --check`, `cargo clippy -- -D warnings`; may auto-fix and push a `[ci]` commit. Tests run for all PRs: directly changed crates only, with the full suite for pushes to `main`, PRs targeting `release/**`, manual runs, and release tags. Forgejo write-isolates `pull_request` caches, so the full `main` run seeds the shared cache that PRs restore. |
 | GitHub | `.github/workflows/main.yml` | `cargo clippy`, `cargo fmt --all --check`, `cargo test --no-fail-fast`. Tests are skipped for normal PRs. |
 | TeamCity | `.teamcity/settings.kts` | `cargo fmt --all --check`, `cargo clippy`, `cargo test --no-fail-fast`. |
 
