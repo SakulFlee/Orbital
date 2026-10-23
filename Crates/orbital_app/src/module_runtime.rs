@@ -38,7 +38,8 @@ use orbital_ecs_bridge::{
     CursorGrabState, CursorPosition, DeltaTime, DeviceResource, EcsCameraStore, EngineEvent,
     EngineEvents, FpsStats, FrameCounter, FrameTimings, IcedCapturedMouseDrag,
     IcedCapturedMouseWheel, IcedCapturedTouches, IcedEventQueue, InputSnapshot, LightDescriptorEcs,
-    Position, QueueResource, SurfaceFormatResource, TIMING_STAGES, TotalTime, WindowSize,
+    Position, QueueResource, SurfaceFormatResource, TIMING_STAGES, TimingsHistoryConfig, TotalTime,
+    WindowSize,
 };
 
 macro_rules! ctx_lock {
@@ -893,8 +894,24 @@ impl ModuleRuntime {
 
         // Publish the timings so debug overlays and systems can read them
         // without going through the log.
+        let history = self
+            .ecs_world
+            .get_resource::<TimingsHistoryConfig>()
+            .map(|config| *config)
+            .unwrap_or_default();
+        let elapsed = self
+            .ecs_world
+            .get_resource::<TotalTime>()
+            .map(|time| time.0)
+            .unwrap_or(0.0);
+        let cdt_ms = self
+            .ecs_world
+            .get_resource::<DeltaTime>()
+            .map(|delta| delta.0 * 1000.0)
+            .unwrap_or(0.0);
+
         if let Some(mut timings) = self.ecs_world.get_resource_mut::<FrameTimings>() {
-            timings.record(&self.frame_timings.durations);
+            timings.record_at(&self.frame_timings.durations, elapsed, cdt_ms, history);
             timings.try_log();
         }
     }
