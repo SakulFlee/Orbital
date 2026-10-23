@@ -3,8 +3,9 @@ use iced_winit::core::Theme;
 use orbital_app::RenderLayer;
 use orbital_app::render_overlay::{LayerRenderer as LayerRendererTrait, RenderOverlayContext};
 use orbital_ecs_bridge::{
-    AdapterResource, DeviceResource, IcedCapturedMouseDrag, IcedCapturedTouches, IcedEventQueue,
-    IcedWindowEvent, QueueResource, SurfaceFormatResource, WindowSize,
+    AdapterResource, DeviceResource, IcedCapturedMouseDrag, IcedCapturedMouseWheel,
+    IcedCapturedTouches, IcedEventQueue, IcedWindowEvent, QueueResource, SurfaceFormatResource,
+    WindowSize,
 };
 use std::sync::Mutex;
 use winit::event::{ElementState, MouseButton, TouchPhase};
@@ -33,6 +34,8 @@ struct RendererInner<M: Clone + PartialEq + Send + Sync + 'static> {
     cache: Option<iced_runtime::user_interface::Cache>,
     /// The size `interface` was laid out for, so a resize forces a rebuild.
     layout_size: Option<(u32, u32)>,
+    /// When `interface` was last rebuilt, for `refresh_interval`.
+    last_build: Option<std::time::Instant>,
 }
 
 // SAFETY: both phases run on the event-loop thread, within one frame, and
@@ -129,6 +132,7 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
                     interface: None,
                     cache: Some(iced_runtime::user_interface::Cache::new()),
                     layout_size: None,
+                    last_build: None,
                 });
             }
         }
@@ -209,8 +213,8 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
             }
         }
 
-        // Build view and interface.
-        let view = self.state.view(ecs);
+        // The view is built later, and only if the tree is actually being
+        // rebuilt; `window_size` is needed either way.
         let window_size = ecs
             .get_resource::<WindowSize>()
             .map(|size| (size.0.x, size.0.y));
@@ -225,40 +229,65 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
 
         let mut guard = self.inner.lock().unwrap();
         let inner = guard.as_mut().unwrap();
-        let renderer = &mut inner.renderer;
 
-        // Reclaim the widget state from the interface built last frame before
-        // dropping it. Without this the `Cache` would be empty on every build
-        // and scroll offsets, text cursors and hover state would reset each
-        // frame.
-        if let Some(previous) = inner.interface.take() {
-            inner.cache = Some(previous.into_cache());
-        }
+        // Decide whether to rebuild the widget tree. Rebuilding re-runs the
+        // widget-tree diff and layout, which is the expensive part; input is
+        // routed below either way, so throttling this never delays a click.
+        let resized = inner.layout_size != window_size;
+        let stale = inner
+            .last_build
+            .is_none_or(|last| last.elapsed() >= self.state.refresh_interval());
+        let reuse = inner.interface.is_some() && !resized && !self.state.is_dirty() && !stale;
 
-        // Rebuild the widget tree, diffing against the reclaimed cache.
-        let mut interface = iced_runtime::user_interface::UserInterface::build(
-            view,
-            logical_size,
-            inner.cache.take().unwrap_or_default(),
-            renderer,
-        );
+        let mut interface = if reuse {
+            inner.interface.take()
+        } else {
+            // Reclaim the widget state from the interface built last frame
+            // before dropping it. Without this the `Cache` would be empty on
+            // every build and scroll offsets, text cursors and hover state
+            // would reset each frame.
+            if let Some(previous) = inner.interface.take() {
+                inner.cache = Some(previous.into_cache());
+            }
+
+            let view = self.state.view(ecs);
+            let cache = inner.cache.take().unwrap_or_default();
+
+            Some(iced_runtime::user_interface::UserInterface::build(
+                view,
+                logical_size,
+                cache,
+                &mut inner.renderer,
+            ))
+        };
 
         let waker = iced_winit::core::shell::Waker::noop();
         let mut bus = iced_winit::core::shell::Bus::new();
 
-        let (_, event_statuses) = interface.update(
-            &NoopWindow,
-            &waker,
-            &iced_core_events,
-            cursor,
-            renderer,
-            &mut bus,
-        );
+        let (_, event_statuses) = interface
+            .as_mut()
+            .expect("interface was just built or reused")
+            .update(
+                &NoopWindow,
+                &waker,
+                &iced_core_events,
+                cursor,
+                &mut inner.renderer,
+                &mut bus,
+            );
 
         // Process messages. Done *after* `update` so a panel can react to a
         // click, and so the state change lands in the next frame's view.
         for message in bus {
             self.state.handle_message(message, ecs);
+        }
+
+        // A captured event means a widget is actively responding — dragging or
+        // resizing a panel, for instance. Those change the layout without
+        // publishing a message, so rebuild promptly instead of waiting for the
+        // refresh interval; otherwise a resize is only applied at 20 Hz.
+        if event_statuses.contains(&iced_winit::core::event::Status::Captured) {
+            self.state.mark_dirty();
         }
 
         // Update IcedCapturedTouches based on per-event capture statuses.
@@ -304,11 +333,31 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
             }
         }
 
-        // Hand the built interface to `render` instead of dropping it. The
-        // cache is *not* taken back here: the retained interface owns the
-        // widget state until the next rebuild.
-        inner.interface = Some(interface);
+        // Wheel capture is per-event. The runtime clears this before the
+        // renderer pass and uses it to drop the wheel events it deferred, so
+        // scrolling a panel does not also drive the game's camera.
+        for (status, event) in event_statuses.iter().zip(iced_core_events.iter()) {
+            if *status == iced_winit::core::event::Status::Captured
+                && matches!(
+                    event,
+                    iced_core::Event::Mouse(iced_core::mouse::Event::WheelScrolled { .. })
+                )
+                && let Some(mut captured) = ecs.get_resource_mut::<IcedCapturedMouseWheel>()
+            {
+                captured.0 = true;
+            }
+        }
+
+        // Hand the interface to `render` instead of dropping it. The cache is
+        // *not* taken back here: the retained interface owns the widget state
+        // until the next rebuild.
+        if !reuse {
+            inner.last_build = Some(std::time::Instant::now());
+        }
+
+        inner.interface = interface;
         inner.layout_size = window_size;
+        self.state.mark_built();
     }
 
     fn render(&mut self, ctx: RenderOverlayContext) {
@@ -349,6 +398,7 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
                     interface: None,
                     cache: Some(iced_runtime::user_interface::Cache::new()),
                     layout_size: None,
+                    last_build: None,
                 });
             }
         }
@@ -394,12 +444,15 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
             return;
         };
 
-        interface.draw(
-            renderer,
-            &Theme::Dark,
-            &iced_winit::core::renderer::Style::default(),
-            cursor,
-        );
+        // The default `Style` has black text, which is unreadable on the dark
+        // panel backgrounds. Derive it from the theme instead, so every widget
+        // that does not set an explicit color matches the dark palette.
+        let theme = Theme::Dark;
+        let style = iced_winit::core::renderer::Style {
+            text_color: theme.palette().background.base.text,
+        };
+
+        interface.draw(renderer, &theme, &style, cursor);
 
         let physical_size =
             iced_core::Size::new(ctx.screen_size.0 as u32, ctx.screen_size.1 as u32);
@@ -448,6 +501,21 @@ fn convert_event(
                 winit::event::ElementState::Released => mouse::Event::ButtonReleased(iced_button),
             };
             Some(Event::Mouse(iced_state))
+        }
+        IcedWindowEvent::MouseWheel { delta } => {
+            let delta = match *delta {
+                winit::event::MouseScrollDelta::LineDelta(x, y) => {
+                    mouse::ScrollDelta::Lines { x, y }
+                }
+                winit::event::MouseScrollDelta::PixelDelta(position) => {
+                    mouse::ScrollDelta::Pixels {
+                        x: (position.x / scale_factor) as f32,
+                        y: (position.y / scale_factor) as f32,
+                    }
+                }
+            };
+
+            Some(Event::Mouse(mouse::Event::WheelScrolled { delta }))
         }
         IcedWindowEvent::KeyboardInput {
             event,
@@ -723,5 +791,48 @@ impl raw_window_handle::HasDisplayHandle for NoopWindow {
 impl std::fmt::Debug for NoopWindow {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("NoopWindow").finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use iced_core::event::Event;
+
+    fn convert(delta: winit::event::MouseScrollDelta, scale_factor: f64) -> Option<Event> {
+        convert_event(
+            &IcedWindowEvent::MouseWheel { delta },
+            &winit::keyboard::ModifiersState::empty(),
+            scale_factor,
+        )
+    }
+
+    #[test]
+    fn line_wheel_deltas_are_forwarded_unchanged() {
+        let event = convert(winit::event::MouseScrollDelta::LineDelta(1.0, -2.0), 1.0);
+
+        assert!(matches!(
+            event,
+            Some(Event::Mouse(iced_core::mouse::Event::WheelScrolled {
+                delta: iced_core::mouse::ScrollDelta::Lines { x: 1.0, y: -2.0 }
+            }))
+        ));
+    }
+
+    #[test]
+    fn pixel_wheel_deltas_are_converted_to_logical_pixels() {
+        let event = convert(
+            winit::event::MouseScrollDelta::PixelDelta(winit::dpi::PhysicalPosition::new(
+                20.0, -40.0,
+            )),
+            2.0,
+        );
+
+        assert!(matches!(
+            event,
+            Some(Event::Mouse(iced_core::mouse::Event::WheelScrolled {
+                delta: iced_core::mouse::ScrollDelta::Pixels { x: 10.0, y: -20.0 }
+            }))
+        ));
     }
 }

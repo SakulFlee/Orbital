@@ -1,7 +1,7 @@
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
-    fmt::Debug,
+    fmt::{Debug, Write},
     marker::PhantomData,
     ops::{Deref, DerefMut},
     sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
@@ -250,6 +250,89 @@ impl World {
         Some(format!("{:?}", self.component_debug(type_id, entity)?))
     }
 
+    /// A bounded preview of a component's `Debug` output.
+    ///
+    /// The full `Debug` form of large components (meshes, materials) can be
+    /// enormous, and debug panels ask for it every rebuild. This stops
+    /// formatting after `max_chars` characters instead of building the whole
+    /// string and truncating it afterwards, so the cost stays proportional to
+    /// the output that is actually shown. A `…` marks a truncated preview.
+    pub fn component_debug_preview(
+        &self,
+        type_id: TypeId,
+        entity: &Entity,
+        max_chars: usize,
+    ) -> Option<String> {
+        self.component_debug_preview_with(type_id, entity, max_chars, false)
+    }
+
+    /// A bounded, indented preview of a component's `Debug` output.
+    ///
+    /// Uses the pretty `{:#?}` formatter so nested structs and maps read as a
+    /// tree instead of one long line. The same character budget applies.
+    pub fn component_debug_pretty_preview(
+        &self,
+        type_id: TypeId,
+        entity: &Entity,
+        max_chars: usize,
+    ) -> Option<String> {
+        self.component_debug_preview_with(type_id, entity, max_chars, true)
+    }
+
+    fn component_debug_preview_with(
+        &self,
+        type_id: TypeId,
+        entity: &Entity,
+        max_chars: usize,
+        pretty: bool,
+    ) -> Option<String> {
+        let handle = self.component_debug(type_id, entity)?;
+
+        let mut writer = TruncatingWriter::new(max_chars);
+        // Derived `Debug` implementations propagate writer errors, so nested
+        // values are abandoned once the budget is exhausted. The partial output
+        // is exactly the preview we want.
+        let result = if pretty {
+            write!(&mut writer, "{handle:#?}")
+        } else {
+            write!(&mut writer, "{handle:?}")
+        };
+        let _ = result;
+
+        Some(writer.finish())
+    }
+
+    /// A mutable, type-erased view of the component of type `type_id` held by
+    /// `entity`.
+    ///
+    /// The in-place counterpart of
+    /// [`component_debug`](World::component_debug), for a caller that knows the
+    /// concrete component type and wants to edit it. Returns `None` if the type
+    /// has no store or the entity does not hold it.
+    ///
+    /// The returned handle holds the store's write lock, so do not call any
+    /// other `&self` accessor for the same component type while it is alive.
+    pub fn component_mut_any(
+        &self,
+        type_id: TypeId,
+        entity: &Entity,
+    ) -> Option<WriteComponentHandle<'_>> {
+        let store_idx = *self.component_ids.get(&type_id)?;
+        let mut guard = self.component_stores[store_idx]
+            .write()
+            .expect("RwLock poisoned");
+
+        guard.component_any(entity.index)?;
+
+        let store: *mut dyn WorldComponentStorage = &mut **guard;
+
+        Some(WriteComponentHandle {
+            _guard: guard,
+            store,
+            index: entity.index,
+        })
+    }
+
     /// Whether `entity` holds a component of type `type_id`.
     pub fn entity_has_component(&self, type_id: TypeId, entity: &Entity) -> bool {
         let Some(store_idx) = self.component_ids.get(&type_id) else {
@@ -421,6 +504,36 @@ impl std::fmt::Debug for ReadComponentHandle<'_> {
     }
 }
 
+/// A mutable, type-erased view of a single component value.
+///
+/// Returned by [`World::component_mut_any`]. The value is reachable as
+/// `&mut dyn Any`, so a caller that knows the concrete component type can
+/// `downcast_mut` and edit it in place. Holding one keeps the owning store
+/// write-locked.
+pub struct WriteComponentHandle<'a> {
+    _guard: RwLockWriteGuard<'a, Box<dyn WorldComponentStorage>>,
+    store: *mut dyn WorldComponentStorage,
+    index: usize,
+}
+
+impl WriteComponentHandle<'_> {
+    /// The value as a mutable type-erased [`Any`].
+    pub fn as_any_mut(&mut self) -> &mut dyn Any {
+        // SAFETY: `store` points at the `WorldComponentStorage` owned by
+        // `_guard`, which is held for the lifetime of this handle, so no other
+        // reference to the value can exist.
+        unsafe { &mut *self.store }
+            .component_any_mut(self.index)
+            .expect("component disappeared while its write lock was held")
+    }
+}
+
+impl std::fmt::Debug for WriteComponentHandle<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("WriteComponentHandle")
+    }
+}
+
 pub struct ReadStoreHandle<'a, C: Component> {
     _guard: RwLockReadGuard<'a, Box<dyn WorldComponentStorage>>,
     ptr: *const ComponentStore<C>,
@@ -520,6 +633,51 @@ impl<T: 'static + std::fmt::Debug> std::fmt::Debug for ResourceMutHandle<'_, T> 
         f.debug_struct("ResourceMutHandle")
             .field("value", unsafe { &*self.ptr })
             .finish()
+    }
+}
+
+/// A [`std::fmt::Write`] sink that stops after a character budget.
+///
+/// Returning an error once the budget is exhausted is the point: `Debug`
+/// implementations propagate it, so a huge slice is abandoned after the budget
+/// instead of being rendered in full and truncated afterwards.
+struct TruncatingWriter {
+    buffer: String,
+    remaining: usize,
+    truncated: bool,
+}
+
+impl TruncatingWriter {
+    fn new(max_chars: usize) -> Self {
+        Self {
+            buffer: String::new(),
+            remaining: max_chars,
+            truncated: false,
+        }
+    }
+
+    fn finish(mut self) -> String {
+        if self.truncated {
+            self.buffer.push('…');
+        }
+
+        self.buffer
+    }
+}
+
+impl Write for TruncatingWriter {
+    fn write_str(&mut self, text: &str) -> std::fmt::Result {
+        for ch in text.chars() {
+            if self.remaining == 0 {
+                self.truncated = true;
+                return Err(std::fmt::Error);
+            }
+
+            self.buffer.push(ch);
+            self.remaining -= 1;
+        }
+
+        Ok(())
     }
 }
 
@@ -900,6 +1058,60 @@ mod tests {
     }
 
     #[test]
+    fn component_mut_any_edits_in_place() {
+        let mut world = World::new();
+        let e = world.spawn_entity();
+
+        world
+            .attach_component(&e, Position { x: 1.0, y: 2.0 })
+            .expect("Attachment failure");
+
+        let type_id = TypeId::of::<Position>();
+        let mut handle = world.component_mut_any(type_id, &e).expect("handle");
+
+        handle
+            .as_any_mut()
+            .downcast_mut::<Position>()
+            .expect("Downcast failed")
+            .x = 42.0;
+
+        drop(handle);
+
+        assert_eq!(
+            world.component_debug_string(type_id, &e),
+            Some("Position { x: 42.0, y: 2.0 }".to_string())
+        );
+
+        // Wrong concrete type is refused rather than silently corrupting it.
+        let mut handle = world.component_mut_any(type_id, &e).expect("handle");
+        assert!(handle.as_any_mut().downcast_mut::<Health>().is_none());
+    }
+
+    #[test]
+    fn component_mut_any_is_none_for_a_missing_component() {
+        let mut world = World::new();
+        let e = world.spawn_entity();
+        let other = world.spawn_entity();
+
+        world
+            .attach_component(&e, Position { x: 1.0, y: 2.0 })
+            .expect("Attachment failure");
+
+        // No store registered at all.
+        assert!(
+            world
+                .component_mut_any(TypeId::of::<Health>(), &e)
+                .is_none()
+        );
+        // Store exists, entity does not hold it.
+        assert!(
+            world
+                .component_mut_any(TypeId::of::<Position>(), &other)
+                .is_none()
+        );
+    }
+
+    #[test]
     fn reattaching_a_component_replaces_it_in_place() {
         let mut world = World::new();
         let e0 = world.spawn_entity();
@@ -930,5 +1142,63 @@ mod tests {
         let mut indices = store.dense.clone();
         indices.sort_unstable();
         assert_eq!(indices, vec![e0.index, e1.index]);
+    }
+
+    #[test]
+    fn component_debug_preview_truncates_large_values_early() {
+        let mut world = World::new();
+        let entity = world.spawn_entity();
+
+        world
+            .attach_component(&entity, "a".repeat(10_000))
+            .expect("Attachment failure");
+
+        let type_id = TypeId::of::<String>();
+        let preview = world
+            .component_debug_preview(type_id, &entity, 16)
+            .expect("preview");
+
+        // Sixteen characters plus the ellipsis, regardless of how much more the
+        // component's `Debug` output would have produced.
+        assert_eq!(preview.chars().count(), 17);
+        assert!(preview.ends_with('…'));
+
+        // The unbounded helper still returns the whole value.
+        let full = world
+            .component_debug_string(type_id, &entity)
+            .expect("full debug");
+        assert_eq!(full.chars().count(), 10_002);
+    }
+
+    #[test]
+    fn component_debug_preview_leaves_short_values_intact() {
+        let mut world = World::new();
+        let entity = world.spawn_entity();
+
+        world
+            .attach_component(&entity, Position { x: 1.5, y: -2.5 })
+            .expect("Attachment failure");
+
+        assert_eq!(
+            world.component_debug_preview(TypeId::of::<Position>(), &entity, 64),
+            Some("Position { x: 1.5, y: -2.5 }".to_string())
+        );
+    }
+
+    #[test]
+    fn component_debug_pretty_preview_is_indented() {
+        let mut world = World::new();
+        let entity = world.spawn_entity();
+
+        world
+            .attach_component(&entity, Position { x: 1.5, y: -2.5 })
+            .expect("Attachment failure");
+
+        let preview = world
+            .component_debug_pretty_preview(TypeId::of::<Position>(), &entity, 64)
+            .expect("preview");
+
+        assert!(preview.contains('\n'));
+        assert!(preview.contains("    x: 1.5"), "unexpected: {preview}");
     }
 }

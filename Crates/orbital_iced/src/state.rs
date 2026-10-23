@@ -1,6 +1,6 @@
 use crate::floating_panel::FloatingPanel;
 use iced_wgpu::Renderer;
-use iced_winit::core::{Element, Theme};
+use iced_winit::core::{Element, Length, Theme};
 use orbital_ecs::World;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -17,6 +17,10 @@ pub enum Message {
 }
 
 type ViewFn<M> = Arc<dyn Fn(&World) -> Element<'static, M, Theme, Renderer> + Send + Sync>;
+
+type MessageHandler<M> = Arc<dyn Fn(&mut IcedState<M>, M, &mut World) + Send + Sync>;
+
+type VisibilityFn = Arc<dyn Fn(&World) -> bool + Send + Sync>;
 
 /// A single floating Iced panel.
 ///
@@ -38,6 +42,24 @@ pub struct IcedState<M: Clone + PartialEq + Send + Sync + 'static = Message> {
     visible: bool,
     close_message: Option<M>,
     view_fn: Option<ViewFn<M>>,
+    message_handler: Option<MessageHandler<M>>,
+    /// Extra condition, beyond [`visible`](Self::is_visible), deciding whether
+    /// the panel is drawn. Lets panel state that lives in the ECS world (the
+    /// debug overlay, for instance) hide the panel without the renderer having
+    /// to keep a copy of that state in sync.
+    visibility: Option<VisibilityFn>,
+    /// Declared width/height of the window. `Shrink` (the default) sizes it to
+    /// the content.
+    width: Length,
+    height: Length,
+    /// Whether the window can be resized with its bottom-right grip.
+    resizable: bool,
+    /// Set when the panel's content needs rebuilding. Cleared by the renderer
+    /// after each rebuild.
+    dirty: bool,
+    /// How long the renderer may reuse the previous widget tree before
+    /// rebuilding it anyway. Zero (the default) means every frame.
+    refresh_interval: std::time::Duration,
 }
 
 impl<M: Clone + PartialEq + Send + Sync + 'static> Default for IcedState<M> {
@@ -50,6 +72,13 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> Default for IcedState<M> {
             visible: true,
             close_message: None,
             view_fn: None,
+            message_handler: None,
+            visibility: None,
+            width: Length::Shrink,
+            height: Length::Shrink,
+            resizable: true,
+            dirty: true,
+            refresh_interval: std::time::Duration::ZERO,
         }
     }
 }
@@ -93,11 +122,56 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> IcedState<M> {
         self
     }
 
+    /// Handles this panel's messages, replacing the default behaviour.
+    ///
+    /// The default only hides the panel on its close message. A panel that
+    /// reacts to other messages — an inspector writing a value into the world,
+    /// say — supplies a handler here. It receives the panel itself, so it can
+    /// still call [`mark_dirty`](Self::mark_dirty) or read the title.
+    pub fn with_message_handler(
+        mut self,
+        handler: impl Fn(&mut Self, M, &mut World) + Send + Sync + 'static,
+    ) -> Self {
+        self.message_handler = Some(Arc::new(handler));
+        self
+    }
+
     pub fn with_view(
         mut self,
         f: impl Fn(&World) -> Element<'static, M, Theme, Renderer> + Send + Sync + 'static,
     ) -> Self {
         self.view_fn = Some(Arc::new(f));
+        self
+    }
+
+    /// Hides the panel when `predicate` returns `false`.
+    ///
+    /// Unlike [`set_visible`](Self::set_visible), the condition is evaluated
+    /// against the live ECS world each time the view is built, so state that
+    /// lives in a resource — the debug overlay's on/off flag, for example — can
+    /// hide the whole panel, title bar included, without the renderer holding a
+    /// stale copy of it.
+    pub fn with_visibility(
+        mut self,
+        predicate: impl Fn(&World) -> bool + Send + Sync + 'static,
+    ) -> Self {
+        self.visibility = Some(Arc::new(predicate));
+        self
+    }
+
+    /// Sets the panel's declared width and height.
+    ///
+    /// `Shrink` sizes the panel to its content; a fixed length caps it (and a
+    /// `Length::Fill` body fills it). The user can still resize the window.
+    pub fn with_size(mut self, width: impl Into<Length>, height: impl Into<Length>) -> Self {
+        self.width = width.into();
+        self.height = height.into();
+        self
+    }
+
+    /// Whether the bottom-right grip resizes this window. On by default.
+    pub fn with_resizable(mut self, resizable: bool) -> Self {
+        self.resizable = resizable;
         self
     }
 
@@ -139,16 +213,72 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> IcedState<M> {
         self.visible
     }
 
+    /// Rebuild the widget tree at most this often.
+    ///
+    /// A panel whose content changes every frame does not need its view rebuilt
+    /// every frame, and the rebuild is the expensive part: it re-runs the
+    /// widget-tree diff and layout, and calls the view closure. With this set,
+    /// the tree is still rebuilt immediately whenever
+    /// [`mark_dirty`](Self::mark_dirty) has been called, and otherwise at most
+    /// once per interval.
+    ///
+    /// Note that input is *not* throttled: events are still routed to the
+    /// retained widget tree every frame, so a click is always hit-tested
+    /// against a live layout. Only the redraw of the tree is rate-limited, and
+    /// the consequence is that externally-driven changes — a component value
+    /// moving, say — can appear up to one interval late.
+    ///
+    /// The default is zero, i.e. rebuild every frame, which is what a panel
+    /// showing live game state normally wants.
+    pub fn with_refresh_interval(mut self, interval: std::time::Duration) -> Self {
+        self.refresh_interval = interval;
+        self
+    }
+
+    /// Requests a rebuild on the next frame, bypassing
+    /// [`refresh_interval`](Self::with_refresh_interval).
+    pub fn mark_dirty(&mut self) {
+        self.dirty = true;
+    }
+
+    /// Whether the widget tree is due for a rebuild.
+    pub fn is_dirty(&self) -> bool {
+        self.dirty
+    }
+
+    /// Records that the tree was just rebuilt.
+    pub fn mark_built(&mut self) {
+        self.dirty = false;
+    }
+
+    /// How long the renderer may reuse the previous tree.
+    pub fn refresh_interval(&self) -> std::time::Duration {
+        self.refresh_interval
+    }
+
     /// Handles a message published by one of this panel's widgets.
     ///
     /// `world` is the live ECS world, so a panel can apply whatever change its
     /// message describes.
     ///
-    /// The default implementation hides the panel when it receives its own
-    /// close message, and otherwise does nothing. Panels that want to react to
-    /// other messages should hold their own state and handle it in their view
-    /// closure, or drive the world from a system.
-    pub fn handle_message(&mut self, message: M, _world: &mut World) {
+    /// A panel that installed a [`with_message_handler`](Self::with_message_handler)
+    /// owns all of its message handling: the handler is called with the panel
+    /// and the world, and the default behaviour below is skipped. Otherwise the
+    /// default hides the panel when it receives its own close message, and does
+    /// nothing for any other message.
+    pub fn handle_message(&mut self, message: M, world: &mut World) {
+        // A message means something changed, so the tree is stale.
+        self.dirty = true;
+
+        // Cloning the `Arc` ends the borrow of `self` so the handler can take
+        // `&mut self`. A panel with a handler is responsible for its own close
+        // behaviour (it can still call `set_visible`), which is what lets a
+        // debug panel route messages into the ECS world.
+        if let Some(handler) = self.message_handler.clone() {
+            handler(self, message, world);
+            return;
+        }
+
         if self.close_message.as_ref() == Some(&message) {
             log::info!("Panel '{}' closed", self.title);
             self.visible = false;
@@ -157,6 +287,15 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> IcedState<M> {
 
     pub fn view(&self, ecs: &World) -> Element<'static, M, Theme, Renderer> {
         if !self.visible {
+            return hidden_view();
+        }
+
+        // Checked before the view is built, so a hidden panel draws no title
+        // bar either — that is what used to leave bare titles on screen while
+        // the overlay was off.
+        if let Some(visibility) = &self.visibility
+            && !visibility(ecs)
+        {
             return hidden_view();
         }
 
@@ -173,8 +312,11 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> IcedState<M> {
             .size(14)
             .color(iced_winit::core::Color::WHITE);
 
-        let panel =
-            FloatingPanel::new(title_bar, inner).initial_position(self.position.0, self.position.1);
+        let panel = FloatingPanel::new(title_bar, inner)
+            .width(self.width)
+            .height(self.height)
+            .resizable(self.resizable)
+            .initial_position(self.position.0, self.position.1);
 
         match &self.close_message {
             Some(close) => panel.on_close(close.clone()).into(),
@@ -337,6 +479,46 @@ mod tests {
     }
 
     #[test]
+    fn a_new_panel_is_dirty_so_it_builds_on_the_first_frame() {
+        let state: IcedState = IcedState::new();
+        assert!(state.is_dirty());
+    }
+
+    #[test]
+    fn marking_built_clears_dirty_and_mark_dirty_sets_it_again() {
+        let mut state: IcedState = IcedState::new();
+
+        state.mark_built();
+        assert!(!state.is_dirty());
+
+        state.mark_dirty();
+        assert!(state.is_dirty());
+    }
+
+    #[test]
+    fn handling_a_message_marks_the_panel_dirty() {
+        let mut state: IcedState = IcedState::titled("t")
+            .with_close_message(Message::ClosePanel)
+            .with_refresh_interval(std::time::Duration::from_secs(10));
+        let mut world = World::new();
+
+        // Even an unrelated message, and even with a long refresh interval:
+        // a message means something changed, so the tree must be rebuilt.
+        state.mark_built();
+        state.handle_message(Message::ButtonPressed("x".into()), &mut world);
+        assert!(state.is_dirty());
+    }
+
+    #[test]
+    fn the_default_refresh_interval_is_unthrottled() {
+        assert_eq!(
+            IcedState::<Message>::new().refresh_interval(),
+            std::time::Duration::ZERO,
+            "zero means rebuild every frame"
+        );
+    }
+
+    #[test]
     fn hidden_and_visible_views_build_without_a_gpu() {
         let world = World::new();
         let state: IcedState = IcedState::titled("t");
@@ -350,5 +532,39 @@ mod tests {
         let mut hidden: IcedState = IcedState::titled("t");
         hidden.set_visible(false);
         let _ = hidden.view(&world);
+    }
+
+    #[test]
+    fn visibility_predicate_can_hide_a_window() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        let visible = Arc::new(AtomicBool::new(false));
+        let flag = visible.clone();
+
+        let state: IcedState =
+            IcedState::titled("t").with_visibility(move |_: &World| flag.load(Ordering::Relaxed));
+
+        let world = World::new();
+
+        // The view must build in both cases without panicking; the predicate is
+        // what decides whether a `FloatingPanel` is constructed at all.
+        let _ = state.view(&world);
+        visible.store(true, Ordering::Relaxed);
+        let _ = state.view(&world);
+    }
+
+    #[test]
+    fn declared_size_and_resizability_are_stored() {
+        let state: IcedState = IcedState::titled("t")
+            .with_size(420.0, Length::Shrink)
+            .with_resizable(false);
+
+        assert_eq!(state.width, Length::Fixed(420.0));
+        assert_eq!(state.height, Length::Shrink);
+        assert!(!state.resizable);
+
+        let state: IcedState = IcedState::titled("t");
+        assert_eq!(state.width, Length::Shrink, "defaults to content sized");
+        assert!(state.resizable, "windows are resizable by default");
     }
 }

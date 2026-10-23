@@ -1,8 +1,9 @@
 //! Shared UI state and message type for the debug panels.
 
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 
 use orbital_ecs::Entity;
+use orbital_ecs_bridge::{TIMING_STAGES, TOTAL_STAGE_INDEX};
 
 /// The Iced renderer type the panels draw with.
 ///
@@ -23,16 +24,49 @@ pub enum DebugMessage {
     SelectEntity(Option<Entity>),
     /// Expand or collapse the component list of an entity.
     ToggleEntity(Entity),
-    /// Show only entities whose index or component names match.
+    /// Show only entities whose index, label or component names match.
     SetFilter(String),
+    /// Add or remove a timing stage from the performance graph list.
+    ToggleGraphStage(usize),
+    /// Choose which statistic the performance graphs plot.
+    SetGraphMetric(GraphMetric),
     /// Show only log records at or above this level.
     SetMinLevel(log::LevelFilter),
     /// Drop the captured log buffer.
     ClearLog,
+    /// The text of an editable field changed but has not been applied yet.
+    EditField(crate::panels::edit::FieldKey, String),
+    /// Apply the field's buffered text.
+    ///
+    /// The text is not carried in the message: pressing Enter in a `text_input`
+    /// and pressing the `set` button both mean "apply what is in the buffer",
+    /// and `text_input::on_submit` takes a fixed message rather than a closure,
+    /// so one message serves both.
+    ApplyField(crate::panels::edit::FieldKey),
+    /// Add an instance to the selected entity's `ModelInstances`.
+    AddModelInstance(Entity),
+    /// Remove one model instance by its ULID's integer representation.
+    RemoveModelInstance { entity: Entity, ulid: u128 },
     /// Flip a panel's visibility.
     TogglePanel(PanelId),
-    /// Close a panel's window.
-    ClosePanel,
+    /// Close one panel's window.
+    HidePanel(PanelId),
+}
+
+/// Which statistic of a timing stage the performance graphs plot.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum GraphMetric {
+    /// The most recent frame's duration.
+    #[default]
+    Last,
+    /// The mean over a short rolling window.
+    Avg,
+    /// The smallest value in a short rolling window.
+    Min,
+    /// The largest value in a short rolling window.
+    Max,
+    /// Last, rolling average and the rolling min/max band together.
+    All,
 }
 
 /// Identifies one of the debug panels, for show/hide and focus.
@@ -73,10 +107,24 @@ pub struct DebugUiState {
     pub selected: Option<Entity>,
     /// Entities whose component list is expanded.
     pub expanded: HashSet<Entity>,
-    /// Entity-tree filter; matches the entity index or a component type name.
+    /// Entity-tree filter; matches the entity index, label or component type
+    /// name.
     pub filter: String,
+    /// The timing stages whose graphs are shown, as indices into
+    /// [`TIMING_STAGES`]. Empty means no graph is pinned.
+    pub graph_stages: BTreeSet<usize>,
+    /// Which statistic those graphs plot.
+    pub graph_metric: GraphMetric,
     /// Log-level filter for the console.
     pub min_level: log::LevelFilter,
+    /// Uncommitted text for each editable field, keyed by entity, type and
+    /// field id.
+    ///
+    /// Kept in the resource rather than in a widget so the field survives the
+    /// panel's rebuild throttling.
+    pub field_buffers: std::collections::HashMap<crate::panels::edit::FieldKey, String>,
+    /// The message from the last failed edit, shown under the components.
+    pub last_error: Option<String>,
     /// Set whenever something changed that the panels should redraw for.
     ///
     /// Not yet used for gating the rebuild — see
@@ -106,7 +154,11 @@ impl DebugUiState {
             selected: None,
             expanded: HashSet::new(),
             filter: String::new(),
+            graph_stages: BTreeSet::from([TOTAL_STAGE_INDEX]),
+            graph_metric: GraphMetric::Last,
             min_level: log::LevelFilter::Info,
+            field_buffers: std::collections::HashMap::new(),
+            last_error: None,
             dirty: true,
             // Fast enough that a value changed by a click shows up immediately,
             // slow enough that holding a slider or typing in the filter does not
@@ -115,6 +167,18 @@ impl DebugUiState {
             toggle_key,
             toggle_was_pressed: false,
         }
+    }
+
+    /// The uncommitted text for an editable field.
+    ///
+    /// `current` is the component's present value, used until the user types
+    /// something, so the field is pre-filled rather than blank. Kept in the
+    /// resource so the text survives the panel's rebuild throttling.
+    pub fn field_buffer(&self, key: &crate::panels::edit::FieldKey, current: &str) -> String {
+        self.field_buffers
+            .get(key)
+            .cloned()
+            .unwrap_or_else(|| current.to_string())
     }
 
     /// Whether `panel` should be drawn.
@@ -160,6 +224,13 @@ impl DebugUiState {
     /// Flips the overlay's visibility, logging the new state.
     pub fn toggle_visibility(&mut self) {
         self.visible = !self.visible;
+
+        // Turning the overlay back on is also the recovery path for panels the
+        // user closed with their X buttons.
+        if self.visible {
+            self.panels = [true; 3];
+        }
+
         self.dirty = true;
     }
 
@@ -174,6 +245,14 @@ impl DebugUiState {
                 self.dirty = true;
             }
             DebugMessage::SelectEntity(entity) => {
+                // Clicking the selected entity again clears the selection; also
+                // collapse it, since the first click expanded it automatically.
+                if entity.is_none()
+                    && let Some(previous) = self.selected
+                {
+                    self.expanded.remove(&previous);
+                }
+
                 self.selected = *entity;
                 // Expand on select so the components are immediately visible.
                 if let Some(entity) = *entity {
@@ -191,6 +270,18 @@ impl DebugUiState {
                 self.filter = filter.clone();
                 self.dirty = true;
             }
+            DebugMessage::ToggleGraphStage(stage) => {
+                if *stage < TIMING_STAGES.len() {
+                    if !self.graph_stages.remove(stage) {
+                        self.graph_stages.insert(*stage);
+                    }
+                    self.dirty = true;
+                }
+            }
+            DebugMessage::SetGraphMetric(metric) => {
+                self.graph_metric = *metric;
+                self.dirty = true;
+            }
             DebugMessage::SetMinLevel(level) => {
                 self.min_level = *level;
                 self.dirty = true;
@@ -198,13 +289,26 @@ impl DebugUiState {
             DebugMessage::ClearLog => {
                 self.dirty = true;
             }
+            DebugMessage::EditField(key, text) => {
+                self.field_buffers.insert(key.clone(), text.clone());
+                self.dirty = true;
+            }
+            DebugMessage::ApplyField(_) => {
+                // The apply itself happens in `IcedState::handle_message`, which
+                // is the only place with both the world and the panel state.
+                self.dirty = true;
+            }
+            DebugMessage::AddModelInstance(_) | DebugMessage::RemoveModelInstance { .. } => {
+                // Applied in `handle_debug_message`, which has the world.
+                self.dirty = true;
+            }
             DebugMessage::TogglePanel(panel) => {
                 let enabled = self.panel_enabled(*panel);
                 self.set_panel_enabled(*panel, !enabled);
                 self.dirty = true;
             }
-            DebugMessage::ClosePanel => {
-                self.visible = false;
+            DebugMessage::HidePanel(panel) => {
+                self.set_panel_enabled(*panel, false);
                 self.dirty = true;
             }
         }
@@ -263,14 +367,61 @@ mod tests {
 
         state.apply(&DebugMessage::ToggleEntity(entity));
         assert!(!state.is_expanded(entity));
+
+        // The ECS panel sends `None` when the selected row is clicked again.
+        state.apply(&DebugMessage::SelectEntity(None));
+        assert_eq!(state.selected, None);
+        assert!(
+            !state.is_expanded(entity),
+            "deselecting collapses the entry it expanded"
+        );
     }
 
     #[test]
-    fn close_hides_everything() {
+    fn graph_stages_toggle_and_ignore_out_of_range_indices() {
+        let mut state = DebugUiState::new(winit::keyboard::KeyCode::F1);
+        assert!(state.graph_stages.contains(&TOTAL_STAGE_INDEX));
+
+        state.apply(&DebugMessage::ToggleGraphStage(2));
+        assert!(state.graph_stages.contains(&2));
+
+        state.apply(&DebugMessage::ToggleGraphStage(2));
+        assert!(!state.graph_stages.contains(&2));
+
+        state.apply(&DebugMessage::ToggleGraphStage(TIMING_STAGES.len()));
+        assert!(
+            !state.graph_stages.contains(&TIMING_STAGES.len()),
+            "out-of-range stages are ignored"
+        );
+    }
+
+    #[test]
+    fn graph_metric_defaults_to_last_and_can_change() {
+        let mut state = DebugUiState::new(winit::keyboard::KeyCode::F1);
+        assert_eq!(state.graph_metric, GraphMetric::Last);
+
+        state.apply(&DebugMessage::SetGraphMetric(GraphMetric::All));
+        assert_eq!(state.graph_metric, GraphMetric::All);
+    }
+
+    #[test]
+    fn hiding_a_panel_only_hides_that_panel() {
         let mut state = DebugUiState::new(winit::keyboard::KeyCode::F1);
         state.visible = true;
-        state.apply(&DebugMessage::ClosePanel);
-        assert!(!state.visible);
+        state.apply(&DebugMessage::HidePanel(PanelId::Ecs));
+
+        assert!(state.visible, "the overlay itself stays open");
+        assert!(!state.is_panel_visible(PanelId::Ecs));
+        assert!(state.is_panel_visible(PanelId::Performance));
+    }
+
+    #[test]
+    fn showing_the_overlay_again_restores_closed_panels() {
+        let mut state = DebugUiState::new(winit::keyboard::KeyCode::F1);
+        state.apply(&DebugMessage::HidePanel(PanelId::Console));
+
+        state.toggle_visibility();
+        assert!(state.is_panel_visible(PanelId::Console));
     }
 
     #[test]
