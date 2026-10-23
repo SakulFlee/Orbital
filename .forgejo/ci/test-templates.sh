@@ -42,6 +42,15 @@ for template in minimal all-in-one 2d; do
         fi
     done
 
+    if [[ "$template" == "all-in-one" ]]; then
+        for file in Assets/Scenes/procgeo_demo.ron Assets/Models/DamagedHelmet.glb; do
+            if [[ ! -s "$project/$file" ]]; then
+                echo "Missing generated all-in-one asset: $project/$file" >&2
+                exit 1
+            fi
+        done
+    fi
+
     if grep -Rq "{{PROJECT_NAME}}" "$project/src"; then
         echo "Unreplaced {{PROJECT_NAME}} placeholder in $project/src" >&2
         exit 1
