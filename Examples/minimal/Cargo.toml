@@ -1,0 +1,16 @@
+[package]
+name = "template_minimal"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "template_minimal"
+path = "src/main.rs"
+
+[lib]
+name = "template_minimal"
+path = "src/lib.rs"
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+orbital = { path = "../../Crates/orbital" }

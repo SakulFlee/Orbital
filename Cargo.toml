@@ -54,28 +54,15 @@ syn = { version = "3.0", features = ["full"] }
 criterion = { version = "0.8", features = ["html_reports"] }
 
 # Iced sub-crates (wgpu 30 fork)
-iced = { version = "0.15.0-dev", path = "Crates/orbital-iced", default-features = false }
-iced_beacon = { version = "0.15.0-dev", path = "Crates/orbital-iced/beacon" }
-iced_core = { version = "0.15.0-dev", path = "Crates/orbital-iced/core" }
-iced_debug = { version = "0.15.0-dev", path = "Crates/orbital-iced/debug" }
-iced_devtools = { version = "0.15.0-dev", path = "Crates/orbital-iced/devtools" }
-iced_futures = { version = "0.15.0-dev", path = "Crates/orbital-iced/futures" }
-iced_graphics = { version = "0.15.0-dev", path = "Crates/orbital-iced/graphics" }
-iced_highlighter = { version = "0.15.0-dev", path = "Crates/orbital-iced/highlighter" }
-iced_program = { version = "0.15.0-dev", path = "Crates/orbital-iced/program" }
-iced_renderer = { version = "0.15.0-dev", path = "Crates/orbital-iced/renderer" }
-iced_runtime = { version = "0.15.0-dev", path = "Crates/orbital-iced/runtime" }
-iced_selector = { version = "0.15.0-dev", path = "Crates/orbital-iced/selector" }
-iced_test = { version = "0.15.0-dev", path = "Crates/orbital-iced/test" }
-iced_tester = { version = "0.15.0-dev", path = "Crates/orbital-iced/tester" }
-iced_tiny_skia = { version = "0.15.0-dev", path = "Crates/orbital-iced/tiny_skia", default-features = false }
-iced_wgpu = { version = "0.15.0-dev", path = "Crates/orbital-iced/wgpu", default-features = false }
-iced_widget = { version = "0.15.0-dev", path = "Crates/orbital-iced/widget" }
-iced_winit = { version = "0.15.0-dev", path = "Crates/orbital-iced/winit", default-features = false }
+iced_core = { git = "https://forgejo.sakul-flee.de/SakulFlee/orbital-iced.git", branch = "master" }
+iced_widget = { git = "https://forgejo.sakul-flee.de/SakulFlee/orbital-iced.git", branch = "master" }
+iced_runtime = { git = "https://forgejo.sakul-flee.de/SakulFlee/orbital-iced.git", branch = "master" }
+iced_graphics = { git = "https://forgejo.sakul-flee.de/SakulFlee/orbital-iced.git", branch = "master" }
+iced_wgpu = { git = "https://forgejo.sakul-flee.de/SakulFlee/orbital-iced.git", branch = "master", default-features = false }
+iced_winit = { git = "https://forgejo.sakul-flee.de/SakulFlee/orbital-iced.git", branch = "master", default-features = false }
 
 # Iced third-party deps
 arboard = { version = "3.6", default-features = false }
-bincode = { version = "2.0", features = ["serde"] }
 bitflags = "2.0"
 bytemuck = { version = "1.0", features = ["derive"] }
 bytes = "1.6"
@@ -108,6 +95,7 @@ rfd = "0.17"
 rustc-hash = "2.0"
 semver = "1.0"
 serde = { version = "1.0.174", features = ["derive"] }
+serde-wincode = "0.1"
 sha2 = "0.11"
 sipper = "0.2"
 smol = "2"
@@ -128,9 +116,10 @@ unicode-segmentation = "1.0"
 url = "2.5"
 wasm-bindgen-futures = "0.4"
 wasmtimer = "0.4.2"
+wincode = "0.6"
 web-sys = "0.3"
 web-time = "1.1"
-winit = { git = "https://forgejo.sakul-flee.de/SakulFlee/Orbital-Winit.git", rev = "a926fe1562d5996171fb0e79bb6b79e51f83bc28", default-features = false, features = [
+winit = { git = "https://forgejo.sakul-flee.de/SakulFlee/Orbital-Winit.git", branch = "main", default-features = false, features = [
   "rwh_06",
 ] }
 

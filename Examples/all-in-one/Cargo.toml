@@ -1,0 +1,16 @@
+[package]
+name = "template_all_in_one"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "template_all_in_one"
+path = "src/main.rs"
+
+[lib]
+name = "template_all_in_one"
+path = "src/lib.rs"
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+orbital = { path = "../../Crates/orbital" }
