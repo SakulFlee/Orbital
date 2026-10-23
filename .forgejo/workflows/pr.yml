@@ -1,6 +1,8 @@
 name: PR
 on:
   pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
 jobs:
   test:
@@ -16,6 +18,7 @@ jobs:
     steps:
       - uses: https://code.forgejo.org/actions/checkout@v7
       - name: Cache cargo registry
+        id: cargo-cache
         uses: https://code.forgejo.org/actions/cache@v6
         continue-on-error: true
         with:
@@ -27,6 +30,7 @@ jobs:
           restore-keys: |
             cargo-test-
       - name: Cache sccache
+        id: sccache-cache
         uses: https://code.forgejo.org/actions/cache@v6
         continue-on-error: true
         with:
@@ -41,6 +45,23 @@ jobs:
           fi
       - name: Smart test
         run: node .forgejo/ci/smart-test.mjs
+      - name: Save cargo registry after failed run
+        if: failure() && steps.cargo-cache.outputs.cache-hit != 'true'
+        uses: https://code.forgejo.org/actions/cache/save@v6
+        continue-on-error: true
+        with:
+          path: |
+            /usr/local/cargo/registry/index
+            /usr/local/cargo/registry/cache
+            /usr/local/cargo/git/db
+          key: cargo-test-${{ hashFiles('**/Cargo.lock') }}
+      - name: Save sccache after failed run
+        if: failure() && steps.sccache-cache.outputs.cache-hit != 'true'
+        uses: https://code.forgejo.org/actions/cache/save@v6
+        continue-on-error: true
+        with:
+          path: /root/.cache/sccache
+          key: sccache-test-${{ hashFiles('**/Cargo.lock') }}
       - name: sccache stats
         if: always()
         run: sccache --show-stats
