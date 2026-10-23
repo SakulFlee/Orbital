@@ -61,18 +61,36 @@ The goal of this project is to bridge well established industry-standard techniq
 
 ## Getting Started
 
-To explore the capabilities of the Orbital Engine, check out the examples in the `Examples/` directory. These examples demonstrate various features of the engine including:
+The official project templates live in the `Examples/` directory. They are
+workspace members and mirror the templates used by `orbital init`:
 
-- **GLTF PBR Damaged Helmet**: Example showcasing PBR rendering with a damaged helmet model
-- **Instancing**: Example demonstrating instanced rendering
-- **PBR Grid**: Example showing the PBR material system
-- **Roll Camera**: Example with camera controls
-- **Skybox**: Example showing environment mapping
+- **minimal**: A small procedural scene with a camera and a spotlight
+- **all-in-one**: Procedural scene, glTF import, lighting, shadows, UI, and overlays
+- **2d**: A minimal 2D shape rendering example
 
-To run an example, use:
+The examples are self-contained and can be run from their own directories:
 
 ```shell
-cargo run --bin <example_name>
+(cd Examples/minimal && cargo run)
+(cd Examples/all-in-one && cargo run)
+(cd Examples/2d && cargo run)
+```
+
+They can also be run from the repository root:
+
+```shell
+cargo run -p template_minimal
+cargo run -p template_all_in_one
+cargo run -p template_2d
+```
+
+`minimal` and `2d` need no asset files. `all-in-one` ships the scene and helmet
+model it uses in `Examples/all-in-one/Assets/`.
+
+To create a standalone project from one of these templates, use the Orbital CLI:
+
+```shell
+orbital init my-game --template all-in-one
 ```
 
 To use the engine in your own project, add the following to your `Cargo.toml`:
@@ -105,6 +123,21 @@ The Orbital engine has a rich history spanning multiple iterations and rewrites.
 - **Orbital (Rust/WGPU/WGSL)**: The current iteration using Rust with WGPU and WGSL, moving away from GLSL to a more modern shader language
 
 Each version learned from the previous ones, with the current implementation built in Rust leveraging the WGPU graphics API abstraction layer for cross-platform support.
+
+## Contributing
+
+[Forgejo](https://forgejo.sakul-flee.de/SakulFlee/Orbital) is the canonical repository; GitHub is a mirror.
+Please open pull requests on Forgejo.
+If you can only use GitHub, treat a GitHub pull request as a proposal that will be ported to Forgejo before merge.
+
+AI tools are welcome, but the contributor owns the result:
+
+- Inspect and understand every line you submit.
+- Verify that it builds and that relevant tests, lints, and examples pass.
+- Do not add AI/model attribution to code, commits, documentation, or pull-request metadata. AI tools are not authors, co-authors, owners, or contributors.
+- The person opening the pull request is responsible for correctness, licensing, security, and follow-up maintenance.
+
+See [AGENTS.md](AGENTS.md) for the full contribution contract, architecture map, tooling, and pre-PR checklist.
 
 ## License
 
