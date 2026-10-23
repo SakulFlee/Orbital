@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use std::collections::HashMap;
-use std::io::Write;
+use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -8,7 +8,7 @@ use crate::config;
 
 /// Returns true if stdin is a terminal (interactive mode).
 fn is_terminal() -> bool {
-    unsafe { libc::isatty(libc::STDIN_FILENO) != 0 }
+    std::io::stdin().is_terminal()
 }
 
 pub fn build(package_name: Option<&str>, release: bool) -> Result<()> {
