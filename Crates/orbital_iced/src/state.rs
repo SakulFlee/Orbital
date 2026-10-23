@@ -541,8 +541,8 @@ mod tests {
         let visible = Arc::new(AtomicBool::new(false));
         let flag = visible.clone();
 
-        let state: IcedState = IcedState::titled("t")
-            .with_visibility(move |_: &World| flag.load(Ordering::Relaxed));
+        let state: IcedState =
+            IcedState::titled("t").with_visibility(move |_: &World| flag.load(Ordering::Relaxed));
 
         let world = World::new();
 
@@ -555,8 +555,9 @@ mod tests {
 
     #[test]
     fn declared_size_and_resizability_are_stored() {
-        let state: IcedState =
-            IcedState::titled("t").with_size(420.0, Length::Shrink).with_resizable(false);
+        let state: IcedState = IcedState::titled("t")
+            .with_size(420.0, Length::Shrink)
+            .with_resizable(false);
 
         assert_eq!(state.width, Length::Fixed(420.0));
         assert_eq!(state.height, Length::Shrink);
