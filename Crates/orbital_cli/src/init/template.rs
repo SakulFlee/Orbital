@@ -21,6 +21,33 @@ pub fn generate_project(project_dir: &Path, config: &ProjectConfig) -> Result<()
     fs::write(project_dir.join("Assets").join(".gitkeep"), "")
         .context("Failed to write Assets/.gitkeep")?;
 
+    // The all-in-one template ships its own scene and helmet model. Embedding
+    // them keeps generated projects runnable when the CLI was installed from a
+    // git checkout, where no Examples/ directory exists on disk.
+    if config.template == "all-in-one" {
+        write_all_in_one_assets(project_dir)?;
+    }
+
+    Ok(())
+}
+
+fn write_all_in_one_assets(project_dir: &Path) -> Result<()> {
+    let assets = project_dir.join("Assets");
+
+    fs::create_dir_all(assets.join("Scenes")).context("Failed to create Assets/Scenes")?;
+    fs::write(
+        assets.join("Scenes").join("procgeo_demo.ron"),
+        ALL_IN_ONE_SCENE,
+    )
+    .context("Failed to write Assets/Scenes/procgeo_demo.ron")?;
+
+    fs::create_dir_all(assets.join("Models")).context("Failed to create Assets/Models")?;
+    fs::write(
+        assets.join("Models").join("DamagedHelmet.glb"),
+        ALL_IN_ONE_HELMET,
+    )
+    .context("Failed to write Assets/Models/DamagedHelmet.glb")?;
+
     Ok(())
 }
 
@@ -217,6 +244,16 @@ const MINIMAL_TEMPLATE: &str = include_str!(concat!(
 const ALL_IN_ONE_TEMPLATE: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../Examples/all-in-one/src/lib.rs"
+));
+
+const ALL_IN_ONE_SCENE: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../Examples/all-in-one/Assets/Scenes/procgeo_demo.ron"
+));
+
+const ALL_IN_ONE_HELMET: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../Examples/all-in-one/Assets/Models/DamagedHelmet.glb"
 ));
 
 const TWO_D_TEMPLATE: &str = include_str!(concat!(
