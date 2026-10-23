@@ -9,8 +9,21 @@
 //! This crate exists to keep `orbital_ecs` engine-agnostic while providing
 //! the glue layer that Orbital's runtime, renderer, and game code depend on.
 
+extern crate self as orbital_ecs_bridge;
+
 pub mod resources;
 pub use resources::*;
 
 pub mod components;
 pub use components::*;
+
+pub mod editable;
+pub mod fields;
+pub use editable::*;
+pub use fields::*;
+
+/// Derive the per-field editing metadata for a component.
+///
+/// Named fields whose types implement [`EditableValue`] are included. Mark
+/// unsupported fields with `#[editable(skip)]`.
+pub use orbital_macros::EditableFields;

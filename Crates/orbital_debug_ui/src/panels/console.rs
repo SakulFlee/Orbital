@@ -1,6 +1,6 @@
 //! Panel showing the tail of the in-memory log buffer.
 
-use iced_widget::{button, column, container, row, text};
+use iced_widget::{button, column, container, row, scrollable, text};
 use iced_winit::core::{Color, Element, Length, Theme};
 use log::LevelFilter;
 
@@ -8,8 +8,6 @@ use orbital_ecs::World;
 
 use crate::state::Renderer as IcedRenderer;
 use crate::state::{DebugMessage, DebugUiState, MAX_ROWS, PanelId};
-
-const PANEL_WIDTH: f32 = 520.0;
 
 const LEVELS: [LevelFilter; 5] = [
     LevelFilter::Off,
@@ -100,16 +98,24 @@ pub fn console_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, IcedRe
         })
         .collect::<Vec<_>>();
 
+    // The body is anchored to the bottom, so the newest record stays visible as
+    // the buffer rolls over. Scrolling up moves the stored offset away from the
+    // anchor, which leaves the view where the user put it instead of snapping
+    // back on the next rebuild.
     container(
         column![
             header,
-            crate::panels::scrolling(crate::panels::column_of(rows, 2.0))
+            scrollable(crate::panels::column_of(rows, 2.0))
+                .anchor_bottom()
+                .width(Length::Fill)
+                .height(Length::Fill)
         ]
         .spacing(6)
         .width(Length::Fill)
         .height(Length::Fill),
     )
-    .width(PANEL_WIDTH)
+    .width(Length::Fill)
+    .height(Length::Fill)
     .into()
 }
 

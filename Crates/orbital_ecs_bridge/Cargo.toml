@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+orbital_macros = { path = "../orbital_macros" }
 orbital_core = { path = "../orbital_core" }
 orbital_ecs = { path = "../ecs" }
 orbital_importer_gltf = { path = "../orbital_importer_gltf" }

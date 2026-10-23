@@ -20,7 +20,9 @@ use wgpu::TextureViewDescriptor;
 use winit::{
     application::ApplicationHandler,
     error::EventLoopError,
-    event::{DeviceEvent, DeviceId, ElementState, MouseButton, TouchPhase, WindowEvent},
+    event::{
+        DeviceEvent, DeviceId, ElementState, MouseButton, MouseScrollDelta, TouchPhase, WindowEvent,
+    },
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
     keyboard::{Key, NamedKey},
     window::{CursorGrabMode, WindowId},
@@ -34,9 +36,9 @@ use crate::{AppContext, AppSettings, AppState, Module, Timer, make_core_schedule
 use orbital_ecs_bridge::{
     ActiveCamera, AdapterResource, CameraDescriptorEcs, CameraDirty, CursorGrabConfig,
     CursorGrabState, CursorPosition, DeltaTime, DeviceResource, EcsCameraStore, EngineEvent,
-    EngineEvents, FpsStats, FrameCounter, FrameTimings, IcedCapturedMouseDrag, IcedCapturedTouches,
-    IcedEventQueue, InputSnapshot, LightDescriptorEcs, Position, QueueResource,
-    SurfaceFormatResource, TIMING_STAGES, TotalTime, WindowSize,
+    EngineEvents, FpsStats, FrameCounter, FrameTimings, IcedCapturedMouseDrag,
+    IcedCapturedMouseWheel, IcedCapturedTouches, IcedEventQueue, InputSnapshot, LightDescriptorEcs,
+    Position, QueueResource, SurfaceFormatResource, TIMING_STAGES, TotalTime, WindowSize,
 };
 
 macro_rules! ctx_lock {
@@ -108,6 +110,16 @@ impl FrameStageScratch {
     }
 }
 
+/// A wheel event held back from game input until iced has processed it.
+///
+/// Winit reports wheel deltas as Copy values, so this keeps the event alive
+/// without borrowing the original `WindowEvent`.
+struct DeferredWheel {
+    device_id: DeviceId,
+    delta: MouseScrollDelta,
+    phase: TouchPhase,
+}
+
 pub struct ModuleRuntime {
     module: Box<dyn Module>,
     settings: AppSettings,
@@ -130,6 +142,12 @@ pub struct ModuleRuntime {
     /// populate `IcedCapturedTouches`, so the game knows which touches the
     /// UI consumed before deciding whether to forward them.
     deferred_touches: Vec<winit::event::Touch>,
+    /// Wheel events deferred for game-input processing.
+    ///
+    /// Like touches, a wheel is pushed to the iced queue immediately but its
+    /// game-input handling waits for `update()`, so `process_events()` can
+    /// decide whether a panel captured it first.
+    deferred_wheels: Vec<DeferredWheel>,
     /// Overlay renderers, owned by the runtime (not the ECS world) so that
     /// `update()` can call `process_events()` with `&mut World` without
     /// borrow-checker conflicts.
@@ -174,6 +192,7 @@ impl ModuleRuntime {
             back_press_count: 0,
             last_back_press: None,
             deferred_touches: Vec::new(),
+            deferred_wheels: Vec::new(),
             overlay_renderers: std::sync::Mutex::new(Vec::new()),
             legacy_overlays: std::sync::Mutex::new(Vec::new()),
             #[cfg(all(
@@ -1123,6 +1142,11 @@ impl ModuleRuntime {
         // runs UserInterface::update(), and populates IcedCapturedTouches.
         // This must happen before game touch input so the capture state
         // is current when we decide which touches reach the game.
+        if let Some(mut captured) = self.ecs_world.get_resource_mut::<IcedCapturedMouseWheel>() {
+            // Wheel capture is per-event, not a persistent gesture.
+            captured.0 = false;
+        }
+
         {
             let mut layer_renderers = self.overlay_renderers.lock().unwrap();
             for renderer in layer_renderers.iter_mut() {
@@ -1172,6 +1196,26 @@ impl ModuleRuntime {
                 id: touch.id,
                 force: touch.force,
             });
+        }
+
+        // ── Process deferred game wheel input ───────────────────────
+        // Like touches, wheels were deferred so iced could claim them first.
+        // The flag is a union across panels: if any panel captured a wheel
+        // this update, none of the deferred wheels reach the game.
+        let wheel_captured = self
+            .ecs_world
+            .get_resource::<IcedCapturedMouseWheel>()
+            .is_some_and(|captured| captured.0);
+        let deferred_wheels = std::mem::take(&mut self.deferred_wheels);
+
+        if !wheel_captured {
+            for wheel in deferred_wheels {
+                self.input_state.handle_event(InputEvent::MouseWheel {
+                    device_id: wheel.device_id,
+                    delta: wheel.delta,
+                    phase: wheel.phase,
+                });
+            }
         }
 
         #[cfg(all(
@@ -1341,6 +1385,8 @@ impl ApplicationHandler for ModuleRuntime {
                 .insert_resource(IcedCapturedTouches::default());
             self.ecs_world
                 .insert_resource(IcedCapturedMouseDrag::default());
+            self.ecs_world
+                .insert_resource(IcedCapturedMouseWheel::default());
 
             // Initialize import pipeline resources
             self.ecs_world
@@ -1568,6 +1614,9 @@ impl ApplicationHandler for ModuleRuntime {
                         button: *button,
                     });
                 }
+                WindowEvent::MouseWheel { delta, .. } => {
+                    queue.push(IcedWindowEvent::MouseWheel { delta: *delta });
+                }
                 WindowEvent::KeyboardInput {
                     event,
                     is_synthetic,
@@ -1694,11 +1743,15 @@ impl ApplicationHandler for ModuleRuntime {
                 device_id,
                 delta,
                 phase,
-            } => Some(InputEvent::MouseWheel {
-                device_id,
-                delta,
-                phase,
-            }),
+            } => {
+                // Deferred until iced has decided whether a panel captured it.
+                self.deferred_wheels.push(DeferredWheel {
+                    device_id,
+                    delta,
+                    phase,
+                });
+                None
+            }
             WindowEvent::Touch(touch) => {
                 // Game-input processing is deferred to update() — see
                 // `deferred_touches`.  By the time those touches are

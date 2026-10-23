@@ -41,6 +41,13 @@ pub trait WorldComponentStorage: Debug + Send + Sync {
     /// [`downcast_ref`](Any::downcast_ref) to a concrete type when they know it.
     fn component_any(&self, entity_id: usize) -> Option<&dyn Any>;
 
+    /// The stored value for `entity_id`, as a mutable type-erased [`Any`].
+    ///
+    /// The in-place counterpart of
+    /// [`component_any`](WorldComponentStorage::component_any), for a caller
+    /// that can downcast to the concrete type and edit it.
+    fn component_any_mut(&mut self, entity_id: usize) -> Option<&mut dyn Any>;
+
     /// Replaces the stored value for `entity_id` with `component`.
     ///
     /// `component` is downcast to the stored type; if it does not match, the
@@ -89,6 +96,10 @@ impl<T: Any + Debug + Send + Sync> WorldComponentStorage for ComponentStore<T> {
 
     fn component_any(&self, entity_id: usize) -> Option<&dyn Any> {
         self.get_component(entity_id).map(|c| c as &dyn Any)
+    }
+
+    fn component_any_mut(&mut self, entity_id: usize) -> Option<&mut dyn Any> {
+        self.get_component_mut(entity_id).map(|c| c as &mut dyn Any)
     }
 
     fn set_component_any(&mut self, entity_id: usize, component: Box<dyn Any>) -> bool {
