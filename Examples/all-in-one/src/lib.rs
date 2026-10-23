@@ -1,19 +1,20 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use orbital::app::{App, AppSettings, CursorToggle, Module, RenderOverlay, RenderOverlayContext,
-    LayerRenderer, sys_camera_controller};
+use orbital::app::{
+    App, AppSettings, CursorToggle, LayerRenderer, Module, RenderOverlay, RenderOverlayContext,
+    sys_camera_controller,
+};
 use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector3};
 use orbital::debug_render::DebugModule;
 use orbital::ecs::{Commands, ComponentAccess, IntoSystem, Res, ResMut, System, World};
 use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, CursorGrabState, DeltaTime,
-    EnvironmentDescriptorResource,
-    ImportQueueResource, LightDescriptorEcs, LightDirty, ModelDescriptorEcs, ModelDirty,
-    ModelInstances, Position, Rotation,
+    EnvironmentDescriptorResource, ImportQueueResource, LightDescriptorEcs, LightDirty,
+    ModelDescriptorEcs, ModelDirty, ModelInstances, Position, Rotation,
 };
+use orbital::iced::{IcedState, IcedUiState, OrbitalUI};
 use orbital::importer::{ImportTask, gltf::GltfImport};
-use orbital::iced::{OrbitalUI, IcedState, IcedUiState};
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 use orbital::logging;
 use orbital::logging::{error, info};
@@ -26,7 +27,7 @@ use orbital::resources::{
 use orbital::twod::Vertex2D;
 use orbital::winit::keyboard::KeyCode;
 
-pub const NAME: &str = "{{PROJECT_NAME}}";
+pub const NAME: &str = env!("CARGO_PKG_NAME");
 
 #[derive(Clone)]
 struct Health(u32);
@@ -326,14 +327,13 @@ impl ShapeOverlay {
         let top = 15.0;
 
         // Green circle — left
-        self.vertices.extend_from_slice(
-            &orbital::twod::shape::generate_circle(
+        self.vertices
+            .extend_from_slice(&orbital::twod::shape::generate_circle(
                 [cx - 60.0, top + 15.0],
                 20.0,
                 24,
                 [0.2, 0.8, 0.3, 0.85],
-            ),
-        );
+            ));
 
         // Blue triangle — center
         let tri = orbital::twod::shape::ShapeDescriptor::solid_triangle([0.3, 0.4, 0.9, 0.85]);
@@ -399,27 +399,30 @@ impl RenderOverlay for ShapeOverlay {
         ctx.queue
             .write_buffer(&self.camera_buffer, 0, uniform_bytes);
 
-        let mut command_encoder = ctx.device.create_command_encoder(&orbital::wgpu::CommandEncoderDescriptor {
-            label: Some("2D Overlay Encoder"),
-        });
+        let mut command_encoder =
+            ctx.device
+                .create_command_encoder(&orbital::wgpu::CommandEncoderDescriptor {
+                    label: Some("2D Overlay Encoder"),
+                });
 
         {
-            let mut render_pass = command_encoder.begin_render_pass(&orbital::wgpu::RenderPassDescriptor {
-                label: Some("2D Overlay Pass"),
-                color_attachments: &[Some(orbital::wgpu::RenderPassColorAttachment {
-                    view: ctx.target_view,
-                    resolve_target: None,
-                    ops: orbital::wgpu::Operations {
-                        load: orbital::wgpu::LoadOp::Load,
-                        store: orbital::wgpu::StoreOp::Store,
-                    },
-                    depth_slice: None,
-                })],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-                multiview_mask: None,
-            });
+            let mut render_pass =
+                command_encoder.begin_render_pass(&orbital::wgpu::RenderPassDescriptor {
+                    label: Some("2D Overlay Pass"),
+                    color_attachments: &[Some(orbital::wgpu::RenderPassColorAttachment {
+                        view: ctx.target_view,
+                        resolve_target: None,
+                        ops: orbital::wgpu::Operations {
+                            load: orbital::wgpu::LoadOp::Load,
+                            store: orbital::wgpu::StoreOp::Store,
+                        },
+                        depth_slice: None,
+                    })],
+                    depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
+                    multiview_mask: None,
+                });
 
             let byte_data = unsafe {
                 std::slice::from_raw_parts(
@@ -427,7 +430,8 @@ impl RenderOverlay for ShapeOverlay {
                     self.vertices.len() * std::mem::size_of::<Vertex2D>(),
                 )
             };
-            ctx.queue.write_buffer(self.renderer.vertex_buffer(), 0, byte_data);
+            ctx.queue
+                .write_buffer(self.renderer.vertex_buffer(), 0, byte_data);
 
             render_pass.set_pipeline(self.renderer.pipeline());
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
@@ -746,7 +750,9 @@ impl Module for ProcgeoSceneModule {
         let device = match ecs.get_resource::<orbital::ecs_bridge::DeviceResource>() {
             Some(d) => d,
             None => {
-                orbital::logging::warn!("ProcgeoSceneModule: no DeviceResource, skipping overlay registration");
+                orbital::logging::warn!(
+                    "ProcgeoSceneModule: no DeviceResource, skipping overlay registration"
+                );
                 return;
             }
         };
