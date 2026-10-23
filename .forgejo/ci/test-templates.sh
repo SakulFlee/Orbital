@@ -10,6 +10,18 @@ trap 'rm -rf "$TMP"' EXIT
 
 export SKIP_GLTF_EXPORT=1
 
+required_example_assets=(
+    "Examples/all-in-one/Assets/Models/DamagedHelmet.glb"
+    "Examples/all-in-one/Assets/Scenes/procgeo_demo.ron"
+)
+
+for asset in "${required_example_assets[@]}"; do
+    if [[ ! -f "$ROOT/$asset" ]]; then
+        echo "Missing example asset: $asset" >&2
+        exit 1
+    fi
+done
+
 echo "Building the orbital CLI..."
 cargo build --manifest-path "$ROOT/Cargo.toml" -p orbital-cli
 

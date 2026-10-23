@@ -114,7 +114,7 @@ Workspace members are `Examples/*` and `Crates/*` (see `Cargo.toml`).
 | `Crates/orbital_importer_gltf` | glTF 2.0 importer with `KHR_lights_punctual`, async rayon tasks. |
 | `Crates/orbital_cli` | `orbital-cli` package with the `orbital` binary. Project scaffolding (`init`, `init-android`), templates, desktop/Android/iOS build and run, and `Orbital.toml` handling. |
 | `orbital-iced` (external) | Forked iced sub-crates (`iced`, `iced_core`, `iced_widget`, `iced_wgpu`, `iced_winit`, …), consumed as Cargo `git` dependencies from `SakulFlee/orbital-iced`. Not the same as `orbital_iced`. |
-| `Examples/` | Runnable demo apps. |
+| `Examples/` | Official templates as runnable workspace example crates. |
 | `Assets/` | Blender sources, exported glTF, HDR environments, RON scenes, loose shaders. |
 | `CTestMod/` | C and committed WASM test, outside the Cargo workspace. |
 | `wit/` | WebAssembly interface types. |
@@ -188,6 +188,7 @@ Mesh, material, and descriptor caches are keyed by descriptor and use `orbital_c
 | `Assets/WorldEnvironments/*.hdr` | Committed HDR environment maps. |
 | `Assets/Scenes/procgeo_demo.ron` | Procedural scene description. |
 | `Assets/Shaders/shadow_depth.wgsl` | Loose shader asset. |
+| `Examples/all-in-one/Assets/` | Minimal asset set used when running the all-in-one example from its directory. |
 
 ### `build.rs` and Blender
 
@@ -201,25 +202,27 @@ Set the variable locally to skip export; unset it when you need to regenerate mo
 
 ### Examples
 
-Run with:
+Run from the example directory or from the repository root:
 
 ```bash
-SKIP_GLTF_EXPORT=1 cargo run -p <package> --bin <binary>
+cd Examples/minimal && SKIP_GLTF_EXPORT=1 cargo run
+cd Examples/all-in-one && SKIP_GLTF_EXPORT=1 cargo run
+cd Examples/2d && SKIP_GLTF_EXPORT=1 cargo run
+
+SKIP_GLTF_EXPORT=1 cargo run -p template_minimal
+SKIP_GLTF_EXPORT=1 cargo run -p template_all_in_one
+SKIP_GLTF_EXPORT=1 cargo run -p template_2d
 ```
 
-| Directory | Package | Binary | Notes |
-|-----------|---------|--------|-------|
-| `gltf_pbr_damaged_helmet` | `gltf_pbr_damaged_helmet` | `test_gltf_pbr_damaged_helmet_desktop` | Uses committed `DamagedHelmet.glb`. |
-| `instancing` | `instancing` | `test_instancing_desktop` | Uses committed `InstancingTest.glb`. |
-| `multi_module` | `multi_module` | `multi_module` | Needs generated `Cubes.glb`. |
-| `pbr_grid` | `pbr_grid` | `test_pbr_grid_desktop` | Needs generated `PBR_Grid.glb`. |
-| `procgeo_scene` | `procgeo_scene` | `test_procgeo_scene_desktop` | Loads `Scenes/procgeo_demo.ron` and `DamagedHelmet.glb`. |
-| `roll_camera` | `test-roll-camera` | `test-roll-camera` | No assets. |
-| `skybox` | `skybox` | `test_skybox_desktop` | Analytic sky; no asset files. |
-| `ui_demo` | `ui_demo` | `ui_demo` | 2D/UI/text overlay demo; no assets. |
+| Directory | Package | Notes |
+|-----------|---------|-------|
+| `Examples/minimal` | `template_minimal` | Procedural scene; no asset files. |
+| `Examples/all-in-one` | `template_all_in_one` | Scene, glTF, lighting, shadows, UI, and overlays. Ships its own minimal `Assets/`. |
+| `Examples/2d` | `template_2d` | 2D shape rendering; no asset files. |
 
-`pbr_grid` and `multi_module` fail at runtime under `SKIP_GLTF_EXPORT=1` unless their generated models already exist.
-Run once without `SKIP_GLTF_EXPORT` (with Blender available) or provide the models.
+The template app sources are canonical in `Examples/`; the CLI embeds them
+during generation. `Crates/orbital_cli/src/template/` only contains platform
+scaffolding such as Gradle and Xcode files.
 
 ---
 
@@ -245,9 +248,9 @@ orbital build android --release
 orbital run ios --device "<device>"
 ```
 
-- `init` supports the `minimal` and `all-in-one` templates, and can point at the engine via `--engine-repo`, `--engine-branch`, or `--engine-path`.
+- `init` supports the `minimal`, `all-in-one`, and `2d` templates, and can point at the engine via `--engine-repo`, `--engine-branch`, or `--engine-path`.
 - The CLI writes `Orbital.toml`, which configures the engine repository/branch plus Android and iOS packaging/deployment settings.
-- Templates live in `Crates/orbital_cli/src/template/`; the generators live in `Crates/orbital_cli/src/init/`.
+- Template app sources live in `Examples/`; the generators live in `Crates/orbital_cli/src/init/`. Platform scaffolding lives in `Crates/orbital_cli/src/template/`.
 - The Nix shell installs a project-local `orbital` into `.cargo/bin` and provides `orbital-update` to refresh it.
 - When changing CLI behavior or templates, test the generated project end to end, not only the CLI crate.
 
