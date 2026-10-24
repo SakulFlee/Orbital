@@ -82,6 +82,9 @@ enum Commands {
         /// Device serial or AVD name to run on
         #[arg(short, long)]
         device: Option<String>,
+        /// Run in release mode
+        #[arg(long)]
+        release: bool,
         /// Skip rebuilding and install the existing APK
         #[arg(long)]
         skip_build: bool,
@@ -139,14 +142,21 @@ fn main() -> Result<()> {
             platform,
             package,
             device,
+            release,
             skip_build,
             no_logcat,
         } => match platform.unwrap_or(Platform::Desktop) {
-            Platform::Desktop => desktop::run(),
-            Platform::Android => {
-                android::run::run(package.as_deref(), device.as_deref(), skip_build, no_logcat)
+            Platform::Desktop => desktop::run(release),
+            Platform::Android => android::run::run(
+                package.as_deref(),
+                device.as_deref(),
+                skip_build,
+                no_logcat,
+                release,
+            ),
+            Platform::Ios => {
+                ios::run::run(package.as_deref(), device.as_deref(), skip_build, release)
             }
-            Platform::Ios => ios::run::run(package.as_deref(), device.as_deref(), skip_build),
         },
     }
 }

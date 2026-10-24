@@ -4,7 +4,12 @@ use std::process::Command;
 
 use crate::config;
 
-pub fn run(package_name: Option<&str>, device_id: Option<&str>, skip_build: bool) -> Result<()> {
+pub fn run(
+    package_name: Option<&str>,
+    device_id: Option<&str>,
+    skip_build: bool,
+    release: bool,
+) -> Result<()> {
     // Check that we're on macOS
     if cfg!(not(target_os = "macos")) {
         anyhow::bail!(
@@ -15,7 +20,7 @@ pub fn run(package_name: Option<&str>, device_id: Option<&str>, skip_build: bool
 
     // First build (unless skipped)
     if !skip_build {
-        super::build::build(package_name, false)?;
+        super::build::build(package_name, release)?;
     }
 
     let ios_config = config::load_ios_config()?;
@@ -31,10 +36,11 @@ pub fn run(package_name: Option<&str>, device_id: Option<&str>, skip_build: bool
 
     // xcodebuild output is typically in DerivedData, but we can also look
     // in the build directory
+    let configuration = if release { "Release" } else { "Debug" };
     let build_dir = project_root
         .join("Build")
         .join("Products")
-        .join("Debug-iphonesimulator")
+        .join(format!("{}-iphonesimulator", configuration))
         .join(format!("{}.app", app_name));
 
     // Also check the derived data path
@@ -52,7 +58,7 @@ pub fn run(package_name: Option<&str>, device_id: Option<&str>, skip_build: bool
         build_dir
     } else if let Some(dd) = derived_data {
         // Search DerivedData for our .app
-        find_app_in_derived_data(&dd, app_name)?.unwrap_or_else(|| {
+        find_app_in_derived_data(&dd, app_name, release)?.unwrap_or_else(|| {
             println!("Warning: Could not find .app bundle. Using default path.");
             build_dir
         })
@@ -61,10 +67,16 @@ pub fn run(package_name: Option<&str>, device_id: Option<&str>, skip_build: bool
     };
 
     if !app_path.exists() {
+        let build_command = if release {
+            "orbital build ios --release"
+        } else {
+            "orbital build ios"
+        };
         anyhow::bail!(
             "App bundle not found at: {}\n\
-             Run 'orbital build ios' first.",
-            app_path.display()
+             Run '{}' first.",
+            app_path.display(),
+            build_command
         );
     }
 
@@ -119,8 +131,14 @@ pub fn run(package_name: Option<&str>, device_id: Option<&str>, skip_build: bool
 fn find_app_in_derived_data(
     derived_data: &Path,
     app_name: &str,
+    release: bool,
 ) -> Result<Option<std::path::PathBuf>> {
     let suffix = format!("{}.app", app_name);
+    let configurations = if release {
+        ["Release", "Debug"]
+    } else {
+        ["Debug", "Release"]
+    };
 
     if !derived_data.exists() {
         return Ok(None);
@@ -132,28 +150,17 @@ fn find_app_in_derived_data(
             continue;
         }
 
-        // Check Build/Products/Debug-iphonesimulator/
-        let candidate = entry
-            .path()
-            .join("Build")
-            .join("Products")
-            .join("Debug-iphonesimulator")
-            .join(&suffix);
+        for configuration in configurations {
+            let candidate = entry
+                .path()
+                .join("Build")
+                .join("Products")
+                .join(format!("{}-iphonesimulator", configuration))
+                .join(&suffix);
 
-        if candidate.exists() {
-            return Ok(Some(candidate));
-        }
-
-        // Also check Release-iphonesimulator
-        let candidate = entry
-            .path()
-            .join("Build")
-            .join("Products")
-            .join("Release-iphonesimulator")
-            .join(&suffix);
-
-        if candidate.exists() {
-            return Ok(Some(candidate));
+            if candidate.exists() {
+                return Ok(Some(candidate));
+            }
         }
     }
 

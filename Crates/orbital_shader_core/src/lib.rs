@@ -13,6 +13,9 @@ use orbital_texture::Texture;
 mod error;
 pub use error::*;
 
+mod stats;
+pub use stats::*;
+
 mod variable;
 pub use variable::*;
 
@@ -64,6 +67,7 @@ pub trait ShaderDescriptor {
         }
 
         let source = builder.build();
+        stats::record_source(&source);
 
         Ok(device.create_shader_module(ShaderModuleDescriptor {
             label: self.name().as_deref(),

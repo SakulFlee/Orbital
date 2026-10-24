@@ -12,10 +12,11 @@ pub fn run(
     device_serial: Option<&str>,
     skip_build: bool,
     no_logcat: bool,
+    release: bool,
 ) -> Result<()> {
     // First build (unless skipped)
     if !skip_build {
-        super::build::build(package_name, false)?;
+        super::build::build(package_name, release)?;
     }
 
     let project_root = config::find_project_root()?;
@@ -33,6 +34,7 @@ pub fn run(
     let apk_path = find_apk(
         &android_dir,
         device::device_abi(&adb, &serial).ok().as_deref(),
+        release,
     )?;
 
     println!("\nInstalling on {}...", serial);
@@ -311,8 +313,15 @@ fn setup_new_avd() -> Result<String> {
 
 /// Locate the APK to install. If several exist (e.g. per-ABI single APKs),
 /// prefer the one matching the device ABI, then the multiarch one.
-fn find_apk(android_dir: &Path, device_abi: Option<&str>) -> Result<PathBuf> {
-    for sub in ["debug", "release"] {
+fn find_apk(android_dir: &Path, device_abi: Option<&str>, release: bool) -> Result<PathBuf> {
+    let modes = if release {
+        ["release", "debug"]
+    } else {
+        ["debug", "release"]
+    };
+
+    for sub in modes {
+        let multiarch_prefix = format!("app-{}", sub);
         let dir = android_dir
             .join("app")
             .join("build")
@@ -350,7 +359,7 @@ fn find_apk(android_dir: &Path, device_abi: Option<&str>) -> Result<PathBuf> {
         // Prefer the multiarch APK
         if let Some(p) = apks.iter().find(|p| {
             p.file_name()
-                .map(|n| n.to_string_lossy().starts_with("app-debug"))
+                .map(|n| n.to_string_lossy().starts_with(&multiarch_prefix))
                 .unwrap_or(false)
         }) {
             return Ok(p.clone());

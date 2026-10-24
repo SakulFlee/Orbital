@@ -128,12 +128,23 @@ function loadWorkspace() {
   }
 
   const metadata = JSON.parse(result.stdout);
+  const doctestTargetKinds = new Set([
+    'lib',
+    'rlib',
+    'dylib',
+    'cdylib',
+    'staticlib',
+    'proc-macro',
+  ]);
   const packages = metadata.packages.map((entry) => {
     const dir = path.dirname(entry.manifest_path);
 
     return {
       name: entry.name,
       dirRel: path.relative(ROOT, dir).split(path.sep).join('/'),
+      hasDoctests: entry.targets.some((target) =>
+        target.kind.some((kind) => doctestTargetKinds.has(kind)),
+      ),
     };
   });
 
@@ -980,15 +991,30 @@ async function main() {
   const nextest = await runStreaming('cargo', nextestArgs, append);
   const nextestLog = nextest.output;
 
-  const doctestArgs = [
-    'test',
-    ...(selection.mode === 'full' ? ['--workspace'] : []),
-    '--doc',
-    '--no-fail-fast',
-    ...packageArgs,
-  ];
+  // `cargo test --doc -p <package>` fails for packages without a library
+  // target. Only pass scoped packages that actually expose doctests.
+  const doctestPackageArgs = selection.mode === 'scoped'
+    ? selection.packages
+        .filter((name) => packages.some((entry) => entry.name === name && entry.hasDoctests))
+        .flatMap((name) => ['-p', name])
+    : packageArgs;
 
-  const doctest = await runStreaming('cargo', doctestArgs, append);
+  let doctest;
+  if (selection.mode === 'scoped' && doctestPackageArgs.length === 0) {
+    const text = 'Skipping doctests: no changed crates have library targets.\n';
+    append(text);
+    doctest = { code: 0, output: text };
+  } else {
+    const doctestArgs = [
+      'test',
+      ...(selection.mode === 'full' ? ['--workspace'] : []),
+      '--doc',
+      '--no-fail-fast',
+      ...doctestPackageArgs,
+    ];
+
+    doctest = await runStreaming('cargo', doctestArgs, append);
+  }
   const doctestLog = doctest.output;
   const elapsedMs = Date.now() - startedAt;
 
