@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use cgmath::{Matrix4, Vector2};
 use wgpu::{
     BindGroup, Color, CommandEncoder, CommandEncoderDescriptor, Device, IndexFormat, LoadOp,
@@ -12,6 +14,26 @@ use orbital_shadow::{ShadowLightInfo, ShadowRenderer};
 use orbital_texture::Texture;
 use orbital_world_environment::WorldEnvironment;
 
+/// CPU time spent recording and submitting the scene.
+///
+/// The values are updated by [`Renderer::render`] and read by the runtime's
+/// frame timing instrumentation.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct RendererCpuTimings {
+    /// Recording the shadow pass.
+    pub shadow_ms: f64,
+    /// Recording the skybox pass.
+    pub skybox_ms: f64,
+    /// Recording the model pass.
+    pub models_ms: f64,
+    /// Total command recording before submission.
+    pub encode_ms: f64,
+    /// `queue.submit` for the scene command buffer.
+    pub submit_ms: f64,
+    /// Timestamp resolve/copy/readback work.
+    pub timestamp_readback_ms: f64,
+}
+
 pub struct Renderer {
     surface_texture_format: TextureFormat,
     depth_texture: Texture,
@@ -20,7 +42,8 @@ pub struct Renderer {
     timestamp_resolve_buffer: wgpu::Buffer,
     timestamp_staging_bufs: [wgpu::Buffer; 2],
     timestamp_read_frame: usize,
-    prev_gpu_ns: [f64; 3],
+    prev_gpu_ns: [f64; 4],
+    prev_cpu_timings: RendererCpuTimings,
     prev_resolve_sub: Option<wgpu::SubmissionIndex>,
 }
 
@@ -29,13 +52,17 @@ impl Renderer {
         &self.surface_texture_format
     }
 
-    pub fn prev_gpu_ns(&self) -> [f64; 3] {
+    pub fn prev_gpu_ns(&self) -> [f64; 4] {
         self.prev_gpu_ns
+    }
+
+    pub fn prev_cpu_timings(&self) -> RendererCpuTimings {
+        self.prev_cpu_timings
     }
 }
 
-const TS_COUNT: u32 = 3; // 0=shadow_start, 1=skybox, 2=main_end
-const TS_BUF_SIZE: u64 = TS_COUNT as u64 * 8; // 24 bytes
+const TS_COUNT: u32 = 4; // 0=shadow_start, 1=skybox_start, 2=models_start, 3=main_end
+const TS_BUF_SIZE: u64 = TS_COUNT as u64 * 8; // 32 bytes
 
 impl Renderer {
     pub fn new(
@@ -89,7 +116,8 @@ impl Renderer {
             timestamp_resolve_buffer,
             timestamp_staging_bufs,
             timestamp_read_frame: 0,
-            prev_gpu_ns: [0.0; 3],
+            prev_gpu_ns: [0.0; 4],
+            prev_cpu_timings: RendererCpuTimings::default(),
             prev_resolve_sub: None,
         }
     }
@@ -141,6 +169,9 @@ impl Renderer {
         camera_far: f32,
         dirty_set: &std::collections::HashSet<u32>,
     ) {
+        let ms = |duration: std::time::Duration| duration.as_secs_f64() * 1000.0;
+        let render_start = Instant::now();
+
         let mut command_encoder = device.create_command_encoder(&CommandEncoderDescriptor {
             label: Some("Orbital::Render::Encoder"),
         });
@@ -166,6 +197,7 @@ impl Renderer {
                 dirty_set,
             );
         }
+        let shadow_end = Instant::now();
 
         // Write timestamp 1: shadow done, skybox start
         if let Some(qs) = &self.timestamp_query_set {
@@ -181,6 +213,12 @@ impl Renderer {
                 &mut command_encoder,
             );
         }
+        let skybox_end = Instant::now();
+
+        // Write timestamp 2: skybox done, models start
+        if let Some(qs) = &self.timestamp_query_set {
+            command_encoder.write_timestamp(qs, 2);
+        }
 
         self.render_models(
             models,
@@ -189,13 +227,17 @@ impl Renderer {
             &mut command_encoder,
             cull,
         );
+        let models_end = Instant::now();
 
-        // Write timestamp 2: main pass done
+        // Write timestamp 3: main pass done
         if let Some(qs) = &self.timestamp_query_set {
-            command_encoder.write_timestamp(qs, 2);
+            command_encoder.write_timestamp(qs, 3);
         }
 
+        let submit_start = Instant::now();
         queue.submit(vec![command_encoder.finish()]);
+        let submit_ms = ms(submit_start.elapsed());
+        let timestamp_readback_start = Instant::now();
 
         // Resolve timestamps into the resolve buffer, then copy into the current staging buffer.
         // Read the OTHER staging buffer from the previous frame (double-buffered to avoid stalls).
@@ -241,10 +283,11 @@ impl Renderer {
                 if done.load(std::sync::atomic::Ordering::Relaxed)
                     && let Ok(data) = prev_slice.get_mapped_range()
                 {
-                    let mut ns = [0.0f64; 3];
-                    for i in 0..3 {
-                        let bytes: [u8; 8] = data[i * 8..(i + 1) * 8].try_into().unwrap();
-                        ns[i] = u64::from_ne_bytes(bytes) as f64;
+                    let mut ns = [0.0f64; TS_COUNT as usize];
+                    for (index, value) in ns.iter_mut().enumerate() {
+                        let start = index * 8;
+                        let bytes: [u8; 8] = data[start..start + 8].try_into().unwrap();
+                        *value = u64::from_ne_bytes(bytes) as f64;
                     }
                     self.prev_gpu_ns = ns;
                 }
@@ -254,6 +297,15 @@ impl Renderer {
             self.prev_resolve_sub = Some(resolve_sub);
             self.timestamp_read_frame += 1;
         }
+
+        self.prev_cpu_timings = RendererCpuTimings {
+            shadow_ms: ms(shadow_end - render_start),
+            skybox_ms: ms(skybox_end - shadow_end),
+            models_ms: ms(models_end - skybox_end),
+            encode_ms: ms(submit_start - render_start),
+            submit_ms,
+            timestamp_readback_ms: ms(timestamp_readback_start.elapsed()),
+        };
     }
 
     fn render_sky_box(
