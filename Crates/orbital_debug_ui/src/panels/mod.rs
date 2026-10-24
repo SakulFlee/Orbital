@@ -20,7 +20,7 @@ use iced_winit::core::{Color, Element, Length, Theme};
 
 use orbital_ecs::{Entity, World};
 use orbital_ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, LightDescriptorEcs, ModelDescriptorEcs, ModelInstances,
+    ActiveCamera, CameraDescriptor, LightDescriptor, ModelDescriptor, ModelInstances,
 };
 
 use crate::state::DebugMessage;
@@ -86,29 +86,29 @@ pub(crate) fn entity_label(world: &World, entity: &Entity) -> Option<String> {
     let active_camera = world.get_resource::<ActiveCamera>().map(|active| active.0);
 
     let camera = world
-        .component_debug(TypeId::of::<CameraDescriptorEcs>(), entity)
+        .component_debug(TypeId::of::<CameraDescriptor>(), entity)
         .and_then(|handle| {
             handle
                 .as_any()
-                .downcast_ref::<CameraDescriptorEcs>()
+                .downcast_ref::<CameraDescriptor>()
                 .map(|descriptor| descriptor.label.clone())
         });
 
     let light = world
-        .component_debug(TypeId::of::<LightDescriptorEcs>(), entity)
+        .component_debug(TypeId::of::<LightDescriptor>(), entity)
         .and_then(|handle| {
             handle
                 .as_any()
-                .downcast_ref::<LightDescriptorEcs>()
-                .map(LightDescriptorEcs::kind_label)
+                .downcast_ref::<LightDescriptor>()
+                .map(LightDescriptor::kind_label)
         });
 
     let model = world
-        .component_debug(TypeId::of::<ModelDescriptorEcs>(), entity)
+        .component_debug(TypeId::of::<ModelDescriptor>(), entity)
         .and_then(|handle| {
             handle
                 .as_any()
-                .downcast_ref::<ModelDescriptorEcs>()
+                .downcast_ref::<ModelDescriptor>()
                 .map(|descriptor| {
                     let instances = world
                         .component_debug(TypeId::of::<ModelInstances>(), entity)
@@ -244,9 +244,9 @@ mod tests {
         world
             .attach_component(
                 &entity,
-                CameraDescriptorEcs {
+                CameraDescriptor {
                     label: "Main camera".to_string(),
-                    ..CameraDescriptorEcs::default()
+                    ..CameraDescriptor::default()
                 },
             )
             .expect("attachment failed");
@@ -262,7 +262,7 @@ mod tests {
         let mut world = World::new();
         let entity = world.spawn_entity();
         world
-            .attach_component(&entity, CameraDescriptorEcs::default())
+            .attach_component(&entity, CameraDescriptor::default())
             .expect("attachment failed");
         world.insert_resource(ActiveCamera(entity));
 
@@ -279,7 +279,7 @@ mod tests {
         world
             .attach_component(
                 &entity,
-                LightDescriptorEcs::new_spot(
+                LightDescriptor::new_spot(
                     Vector3::new(1.0, 1.0, 1.0),
                     1.0,
                     Vector3::new(0.0, -1.0, 0.0),
@@ -302,7 +302,7 @@ mod tests {
         world
             .attach_component(
                 &entity,
-                ModelDescriptorEcs {
+                ModelDescriptor {
                     label: "procgeo".to_string(),
                     mesh: Arc::new(MeshDescriptor::new(Vec::new(), Vec::new())),
                     materials: Vec::new(),

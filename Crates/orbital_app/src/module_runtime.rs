@@ -34,12 +34,12 @@ use orbital_world_environment::{GeneratedSkyParameters, WorldEnvironment};
 
 use crate::{AppContext, AppSettings, AppState, Module, Timer, make_core_schedule};
 use orbital_ecs_bridge::{
-    ActiveCamera, AdapterResource, CameraDescriptorEcs, CameraDirty, CursorGrabConfig,
-    CursorGrabState, CursorPosition, DeltaTime, DeviceResource, EcsCameraStore, EngineEvent,
-    EngineEvents, FpsStats, FrameCounter, FrameTimings, IcedCapturedMouseDrag,
-    IcedCapturedMouseWheel, IcedCapturedTouches, IcedEventQueue, IcedTextInputFocus, InputSnapshot,
-    LightDescriptorEcs, Position, QueueResource, SurfaceFormatResource, TIMING_STAGES,
-    TimingsHistoryConfig, TotalTime, WindowSize,
+    ActiveCamera, AdapterResource, CameraDescriptor, CameraDirty, CameraStore, CursorGrabConfig,
+    CursorGrabState, CursorPosition, DeltaTime, DeviceResource, EngineEvent, EngineEvents,
+    FpsStats, FrameCounter, FrameTimings, IcedCapturedMouseDrag, IcedCapturedMouseWheel,
+    IcedCapturedTouches, IcedEventQueue, IcedTextInputFocus, InputSnapshot, LightDescriptor,
+    Position, QueueResource, SurfaceFormatResource, TIMING_STAGES, TimingsHistoryConfig, TotalTime,
+    WindowSize,
 };
 
 macro_rules! ctx_lock {
@@ -244,7 +244,7 @@ impl ModuleRuntime {
             .ecs_world
             .insert_resource(WindowSize(cgmath::Vector2::new(0, 0)));
         runtime.ecs_world.insert_resource(EngineEvents::default());
-        runtime.ecs_world.insert_resource(EcsCameraStore::new());
+        runtime.ecs_world.insert_resource(CameraStore::new());
 
         event_loop.run_app(&mut runtime)
     }
@@ -371,7 +371,7 @@ impl ModuleRuntime {
         // Count active lights for the shader's light-store loop bound
         let active_light_count = self
             .ecs_world
-            .get_component_store::<orbital_ecs_bridge::LightDescriptorEcs>()
+            .get_component_store::<orbital_ecs_bridge::LightDescriptor>()
             .map(|s| s.dense.len() as u32)
             .unwrap_or(0u32);
         let t_cull_start = Instant::now();
@@ -419,7 +419,7 @@ impl ModuleRuntime {
                         .get_resource::<orbital_ecs_bridge::ActiveCamera>();
                     let store = self
                         .ecs_world
-                        .get_resource::<orbital_ecs_bridge::EcsCameraStore>();
+                        .get_resource::<orbital_ecs_bridge::CameraStore>();
                     active_cam.and_then(|active| {
                         store.and_then(|s| {
                             s.get(active.0.index).map(|arc_cam| {
@@ -944,7 +944,7 @@ impl ModuleRuntime {
             Some(entity) => {
                 let store = self
                     .ecs_world
-                    .get_resource::<orbital_ecs_bridge::EcsCameraStore>();
+                    .get_resource::<orbital_ecs_bridge::CameraStore>();
                 match store {
                     Some(s) => match s.get(entity.index) {
                         Some(arc_camera) => {
@@ -1042,7 +1042,7 @@ impl ModuleRuntime {
             Some(entity) => {
                 let store = self
                     .ecs_world
-                    .get_resource::<orbital_ecs_bridge::EcsCameraStore>();
+                    .get_resource::<orbital_ecs_bridge::CameraStore>();
                 match store {
                     Some(s) => match s.get(entity.index) {
                         Some(arc_camera) => {
@@ -1063,7 +1063,7 @@ impl ModuleRuntime {
     }
     /// Collect shadow-casting light info from ECS.
     fn collect_shadow_lights(&self) -> Vec<ShadowLightInfo> {
-        let descs = match self.ecs_world.get_component_store::<LightDescriptorEcs>() {
+        let descs = match self.ecs_world.get_component_store::<LightDescriptor>() {
             Some(s) => s,
             None => return Vec::new(),
         };
@@ -1576,9 +1576,8 @@ impl ApplicationHandler for ModuleRuntime {
             let new_aspect = config.width as f32 / config.height as f32;
             if let Some(active_camera) = self.ecs_world.get_resource::<ActiveCamera>() {
                 let eid = active_camera.0.index;
-                if let Some(desc_store) = self
-                    .ecs_world
-                    .get_component_store_mut::<CameraDescriptorEcs>()
+                if let Some(desc_store) =
+                    self.ecs_world.get_component_store_mut::<CameraDescriptor>()
                     && let Some(idx) = desc_store.sparse[eid]
                 {
                     desc_store.get_mut_store().components[idx].aspect = new_aspect;
@@ -1891,9 +1890,8 @@ impl ApplicationHandler for ModuleRuntime {
                 let new_aspect = new_size.width as f32 / new_size.height as f32;
                 if let Some(active_camera) = self.ecs_world.get_resource::<ActiveCamera>() {
                     let eid = active_camera.0.index;
-                    if let Some(desc_store) = self
-                        .ecs_world
-                        .get_component_store_mut::<CameraDescriptorEcs>()
+                    if let Some(desc_store) =
+                        self.ecs_world.get_component_store_mut::<CameraDescriptor>()
                         && let Some(idx) = desc_store.sparse[eid]
                     {
                         desc_store.get_mut_store().components[idx].aspect = new_aspect;

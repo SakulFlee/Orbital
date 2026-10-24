@@ -50,7 +50,7 @@ pub fn sys_stagger_shadow_updates(
     let mut shadow_entities: Vec<(usize, u32)> = Vec::new();
     {
         let mut seq_counter = 0u32;
-        let descs = ecs.get_component_store::<orbital_ecs_bridge::LightDescriptorEcs>();
+        let descs = ecs.get_component_store::<orbital_ecs_bridge::LightDescriptor>();
         if has_slot_store {
             // Use LightSlotIndex components
             if let Some(ref ss) = slot_store {
@@ -66,7 +66,7 @@ pub fn sys_stagger_shadow_updates(
                 }
             }
         } else {
-            // Fallback: sequential counter from LightDescriptorEcs iteration order
+            // Fallback: sequential counter from LightDescriptor iteration order
             if let Some(ref ds) = descs {
                 for &eid in ds.dense.as_slice() {
                     let has_desc = ds.sparse.get(eid).copied().flatten().is_some();

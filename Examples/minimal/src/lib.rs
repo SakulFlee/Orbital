@@ -4,9 +4,8 @@ use orbital::app::{App, AppSettings, Module, sys_camera_controller};
 use orbital::cgmath::{InnerSpace, Point3, Rad, Vector3};
 use orbital::ecs::{IntoSystem, System, World};
 use orbital::ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, EnvironmentDescriptorResource,
-    LightDescriptorEcs, LightDirty, ModelDescriptorEcs, ModelDirty, ModelInstances, Position,
-    Rotation,
+    ActiveCamera, CameraDescriptor, CursorGrabConfig, EnvironmentDescriptorResource,
+    LightDescriptor, LightDirty, ModelDescriptor, ModelDirty, ModelInstances, Position, Rotation,
 };
 use orbital::logging::{self, error, info};
 use orbital::procgeo::scene::{
@@ -60,7 +59,7 @@ impl Module for GameModule {
         let camera = ecs.spawn_entity();
         ecs.attach_component(
             &camera,
-            CameraDescriptorEcs {
+            CameraDescriptor {
                 label: "Default".into(),
                 aspect: 16.0 / 9.0,
                 fovy: Rad(std::f32::consts::FRAC_PI_4),
@@ -134,7 +133,7 @@ impl Module for GameModule {
             let entity = ecs.spawn_entity();
             ecs.attach_component(
                 &entity,
-                ModelDescriptorEcs {
+                ModelDescriptor {
                     label: "procgeo".into(),
                     mesh: Arc::new(mesh),
                     materials: vec![material],
@@ -155,7 +154,7 @@ impl Module for GameModule {
         let spot_light = ecs.spawn_entity();
         ecs.attach_component(
             &spot_light,
-            LightDescriptorEcs::new_spot(
+            LightDescriptor::new_spot(
                 Vector3::new(1.0, 1.0, 1.0),
                 30.0,
                 Vector3::new(dir.x, dir.y, dir.z),

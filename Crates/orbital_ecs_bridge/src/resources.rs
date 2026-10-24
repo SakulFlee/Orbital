@@ -1051,11 +1051,11 @@ pub struct EnvironmentGpuResource(pub Option<Arc<orbital_world_environment::Worl
 /// GPU camera store — flat Vec indexed by entity.index.
 /// CameraRealization on entities holds the index into this store.
 /// This avoids the temporary-borrow problem with get_component_store.
-pub struct EcsCameraStore {
+pub struct CameraStore {
     cameras: Vec<Option<Arc<std::sync::RwLock<orbital_camera::Camera>>>>,
 }
 
-impl EcsCameraStore {
+impl CameraStore {
     pub fn new() -> Self {
         Self {
             cameras: Vec::new(),
@@ -1088,15 +1088,15 @@ impl EcsCameraStore {
     }
 }
 
-impl Default for EcsCameraStore {
+impl Default for CameraStore {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl std::fmt::Debug for EcsCameraStore {
+impl std::fmt::Debug for CameraStore {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("EcsCameraStore")
+        f.debug_struct("CameraStore")
             .field("len", &self.cameras.len())
             .finish()
     }

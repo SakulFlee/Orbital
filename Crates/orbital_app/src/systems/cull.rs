@@ -2,7 +2,7 @@ use cgmath::{Point3, Vector4};
 use orbital_cull::CullResources;
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
-    ActiveCamera, CullResource, DeviceResource, EcsCameraStore, FrozenFrustum, ModelInstances,
+    ActiveCamera, CameraStore, CullResource, DeviceResource, FrozenFrustum, ModelInstances,
     ModelRealization, QueueResource,
 };
 use orbital_instance::Instance;
@@ -40,7 +40,7 @@ pub fn sys_frustum_cull(ecs: &mut World) {
                 Some(a) => a.0,
                 None => return,
             };
-            let store = match ecs.get_resource::<EcsCameraStore>() {
+            let store = match ecs.get_resource::<CameraStore>() {
                 Some(s) => s,
                 None => return,
             };

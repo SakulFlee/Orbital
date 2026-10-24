@@ -9,9 +9,9 @@ use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector3};
 use orbital::debug_render::DebugModule;
 use orbital::ecs::{Commands, ComponentAccess, IntoSystem, Res, ResMut, System, World};
 use orbital::ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CursorGrabConfig, CursorGrabState, DeltaTime,
-    EnvironmentDescriptorResource, ImportQueueResource, LightDescriptorEcs, LightDirty,
-    ModelDescriptorEcs, ModelDirty, ModelInstances, Position, Rotation,
+    ActiveCamera, CameraDescriptor, CursorGrabConfig, CursorGrabState, DeltaTime,
+    EnvironmentDescriptorResource, ImportQueueResource, LightDescriptor, LightDirty,
+    ModelDescriptor, ModelDirty, ModelInstances, Position, Rotation,
 };
 use orbital::iced::{IcedState, IcedUiState, OrbitalUI};
 use orbital::importer::{ImportTask, gltf::GltfImport};
@@ -81,7 +81,7 @@ impl HelmetAdjuster {
         Self {
             adjusted: AtomicBool::new(false),
             access: ComponentAccess::new()
-                .reads::<ModelDescriptorEcs>()
+                .reads::<ModelDescriptor>()
                 .reads::<ModelInstances>()
                 .writes::<ModelInstances>()
                 .writes::<ModelDirty>(),
@@ -103,7 +103,7 @@ impl System for HelmetAdjuster {
             return;
         }
 
-        let descs = match world.get_component_store::<ModelDescriptorEcs>() {
+        let descs = match world.get_component_store::<ModelDescriptor>() {
             Some(s) => s,
             None => return,
         };
@@ -484,7 +484,7 @@ impl Module for ProcgeoSceneModule {
         let camera = ecs.spawn_entity();
         ecs.attach_component(
             &camera,
-            CameraDescriptorEcs {
+            CameraDescriptor {
                 label: "Default".into(),
                 aspect: 16.0 / 9.0,
                 fovy: Rad(std::f32::consts::FRAC_PI_4),
@@ -588,7 +588,7 @@ impl Module for ProcgeoSceneModule {
             let entity = ecs.spawn_entity();
             ecs.attach_component(
                 &entity,
-                ModelDescriptorEcs {
+                ModelDescriptor {
                     label: "procgeo".into(),
                     mesh: Arc::new(mesh),
                     materials: vec![material],
@@ -624,7 +624,7 @@ impl Module for ProcgeoSceneModule {
         let dir = (target - spot_pos).normalize();
         ecs.attach_component(
             &spot_light,
-            LightDescriptorEcs::new_spot(
+            LightDescriptor::new_spot(
                 Vector3::new(1.0, 1.0, 1.0),
                 50.0,
                 Vector3::new(dir.x, dir.y, dir.z),
@@ -651,7 +651,7 @@ impl Module for ProcgeoSceneModule {
             let pl = ecs.spawn_entity();
             ecs.attach_component(
                 &pl,
-                LightDescriptorEcs::new_point(Vector3::new(1.0, 1.0, 1.0), 50.0),
+                LightDescriptor::new_point(Vector3::new(1.0, 1.0, 1.0), 50.0),
             )
             .unwrap();
             ecs.attach_component(&pl, Position(Point3::new(room_x, 5.0, 0.0)))
@@ -669,7 +669,7 @@ impl Module for ProcgeoSceneModule {
             let hl = ecs.spawn_entity();
             ecs.attach_component(
                 &hl,
-                LightDescriptorEcs::new_spot(
+                LightDescriptor::new_spot(
                     Vector3::new(1.0, 0.9, 0.8),
                     30.0,
                     Vector3::new(d.x, d.y, d.z),
@@ -708,7 +708,7 @@ impl Module for ProcgeoSceneModule {
             let (s, c) = angle.sin_cos();
             let lpos = Point3::new(helmet_20.x + c * 3.0, 4.0, helmet_20.z + s * 3.0);
             let pl = ecs.spawn_entity();
-            ecs.attach_component(&pl, LightDescriptorEcs::new_point(colors[i as usize], 30.0))
+            ecs.attach_component(&pl, LightDescriptor::new_point(colors[i as usize], 30.0))
                 .unwrap();
             ecs.attach_component(&pl, Position(lpos)).unwrap();
             ecs.attach_component(&pl, LightDirty(true)).unwrap();
@@ -719,7 +719,7 @@ impl Module for ProcgeoSceneModule {
         let fill = ecs.spawn_entity();
         ecs.attach_component(
             &fill,
-            LightDescriptorEcs::new_directional(
+            LightDescriptor::new_directional(
                 Vector3::new(0.0, -0.6, -0.8), // emission direction (shader negates -> light from above)
                 Vector3::new(1.0, 0.88, 0.65), // subtle warm white
                 0.25,
