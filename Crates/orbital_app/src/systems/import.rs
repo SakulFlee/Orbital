@@ -10,9 +10,9 @@ use log::warn;
 use orbital_camera::Camera;
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CameraDirty, CameraRealization, DeviceResource,
-    EcsCameraStore, ImportQueueResource, ImporterResource, LightDescriptorEcs, LightDirty,
-    ModelDescriptorEcs, ModelDirty, ModelInstances, Position, QueueResource, Rotation,
+    ActiveCamera, CameraDescriptor, CameraDirty, CameraRealization, CameraStore, DeviceResource,
+    ImportQueueResource, ImporterResource, LightDescriptor, LightDirty, ModelDescriptor,
+    ModelDirty, ModelInstances, Position, QueueResource, Rotation,
 };
 use orbital_shadow::ShadowCaster;
 
@@ -72,13 +72,13 @@ pub fn sys_poll_importer(ecs: &mut World) {
         for model_desc in result.models {
             let entity = ecs.spawn_entity();
 
-            let desc = ModelDescriptorEcs {
+            let desc = ModelDescriptor {
                 label: model_desc.label.clone(),
                 mesh: model_desc.mesh.clone(),
                 materials: model_desc.materials.clone(),
             };
             if let Err(e) = ecs.attach_component(&entity, desc) {
-                warn!("Failed to attach ModelDescriptorEcs: {:?}", e);
+                warn!("Failed to attach ModelDescriptor: {:?}", e);
                 continue;
             }
 
@@ -131,7 +131,7 @@ pub fn sys_poll_importer(ecs: &mut World) {
                 continue;
             }
 
-            let desc = CameraDescriptorEcs {
+            let desc = CameraDescriptor {
                 label: cam_desc.label.clone(),
                 aspect: cam_desc.aspect,
                 fovy: cgmath::Rad(cam_desc.fovy),
@@ -140,7 +140,7 @@ pub fn sys_poll_importer(ecs: &mut World) {
                 global_gamma: cam_desc.global_gamma,
             };
             if let Err(e) = ecs.attach_component(&entity, desc) {
-                warn!("Failed to attach CameraDescriptorEcs: {:?}", e);
+                warn!("Failed to attach CameraDescriptor: {:?}", e);
                 continue;
             }
 
@@ -161,8 +161,8 @@ pub fn sys_poll_importer(ecs: &mut World) {
                 continue;
             }
 
-            // Store GPU camera in EcsCameraStore
-            if let Some(mut store) = ecs.get_resource_mut::<EcsCameraStore>() {
+            // Store GPU camera in CameraStore
+            if let Some(mut store) = ecs.get_resource_mut::<CameraStore>() {
                 store.insert(entity.index, Arc::new(std::sync::RwLock::new(gpu_camera)));
             }
 
@@ -184,13 +184,13 @@ pub fn sys_poll_importer(ecs: &mut World) {
         for light_desc in result.lights {
             let entity = ecs.spawn_entity();
 
-            let desc = LightDescriptorEcs {
+            let desc = LightDescriptor {
                 light_type: light_desc.light_type.clone(),
                 color: light_desc.color,
                 direction: light_desc.direction,
             };
             if let Err(e) = ecs.attach_component(&entity, desc) {
-                warn!("Failed to attach LightDescriptorEcs: {:?}", e);
+                warn!("Failed to attach LightDescriptor: {:?}", e);
                 continue;
             }
 

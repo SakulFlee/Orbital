@@ -9,12 +9,11 @@ use log::warn;
 use orbital_camera::Camera;
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
-    ActiveCamera, CameraDescriptorEcs, CameraDirty, CameraRealization, DeviceResource,
-    EcsCameraStore, EnvironmentDescriptorResource, EnvironmentGpuResource, LightBufferResource,
-    LightDescriptorEcs, LightDirty, LightSlotIndex, LightSlotTracker, MAX_LIGHTS,
-    MaterialCacheResource, MeshCacheResource, ModelDescriptorEcs, ModelDirty, ModelInstances,
-    ModelRealization, Position, PrevPosition, QueueResource, Rotation, ShadowDirtyFlag,
-    SurfaceFormatResource,
+    ActiveCamera, CameraDescriptor, CameraDirty, CameraRealization, CameraStore, DeviceResource,
+    EnvironmentDescriptorResource, EnvironmentGpuResource, LightBufferResource, LightDescriptor,
+    LightDirty, LightSlotIndex, LightSlotTracker, MAX_LIGHTS, MaterialCacheResource,
+    MeshCacheResource, ModelDescriptor, ModelDirty, ModelInstances, ModelRealization, Position,
+    PrevPosition, QueueResource, Rotation, ShadowDirtyFlag, SurfaceFormatResource,
 };
 use orbital_model::Model;
 use orbital_world_environment::WorldEnvironmentDescriptor;
@@ -22,7 +21,7 @@ use orbital_world_environment::WorldEnvironmentDescriptor;
 /// Realize (create or update) GPU camera state for all dirty camera entities.
 ///
 /// Call this each frame before building the bind group. It:
-/// 1. Iterates entities with CameraDescriptorEcs + Position + Rotation
+/// 1. Iterates entities with CameraDescriptor + Position + Rotation
 /// 2. Creates/updates `CameraRealization` for dirty or newly-added cameras
 /// 3. Clears dirty flags
 pub fn realize_cameras(ecs: &mut World) {
@@ -47,8 +46,8 @@ pub fn realize_cameras(ecs: &mut World) {
         .map(|active| active.0.index);
 
     // Collect entities that need realization
-    let entities_to_realize: Vec<(usize, CameraDescriptorEcs, Position, Rotation, bool)> = {
-        let descs = ecs.get_component_store::<CameraDescriptorEcs>();
+    let entities_to_realize: Vec<(usize, CameraDescriptor, Position, Rotation, bool)> = {
+        let descs = ecs.get_component_store::<CameraDescriptor>();
         let positions = ecs.get_component_store::<Position>();
         let rotations = ecs.get_component_store::<Rotation>();
 
@@ -101,7 +100,7 @@ pub fn realize_cameras(ecs: &mut World) {
         result
     };
 
-    // Realize each camera — write to EcsCameraStore and mark entity
+    // Realize each camera — write to CameraStore and mark entity
     for (eid, desc, pos, rot, needs_new) in entities_to_realize {
         if needs_new {
             // Create new GPU camera
@@ -118,8 +117,8 @@ pub fn realize_cameras(ecs: &mut World) {
             );
             let arc_camera = Arc::new(RwLock::new(gpu_camera));
 
-            // Store in EcsCameraStore
-            if let Some(mut store) = ecs.get_resource_mut::<EcsCameraStore>() {
+            // Store in CameraStore
+            if let Some(mut store) = ecs.get_resource_mut::<CameraStore>() {
                 store.insert(eid, arc_camera);
             }
 
@@ -133,8 +132,8 @@ pub fn realize_cameras(ecs: &mut World) {
                 );
             }
         } else {
-            // Update existing GPU camera via EcsCameraStore
-            if let Some(store) = ecs.get_resource::<EcsCameraStore>()
+            // Update existing GPU camera via CameraStore
+            if let Some(store) = ecs.get_resource::<CameraStore>()
                 && let Some(arc_camera) = store.get(eid)
             {
                 let mut gpu_camera = arc_camera.write().unwrap();
@@ -163,7 +162,7 @@ pub fn realize_cameras(ecs: &mut World) {
 /// Realize (create or update) GPU model state for all dirty model entities.
 ///
 /// Call this each frame before rendering. It:
-/// 1. Iterates entities with ModelDescriptorEcs + ModelInstances + ModelDirty
+/// 1. Iterates entities with ModelDescriptor + ModelInstances + ModelDirty
 /// 2. Creates/updates `ModelRealization` for dirty or newly-added models
 /// 3. Clears dirty flags
 pub fn realize_models(ecs: &mut World) {
@@ -198,8 +197,8 @@ pub fn realize_models(ecs: &mut World) {
     };
 
     // Collect entities that need realization
-    let entities_to_realize: Vec<(usize, ModelDescriptorEcs, ModelInstances, bool)> = {
-        let descs = match ecs.get_component_store::<ModelDescriptorEcs>() {
+    let entities_to_realize: Vec<(usize, ModelDescriptor, ModelInstances, bool)> = {
+        let descs = match ecs.get_component_store::<ModelDescriptor>() {
             Some(s) => s,
             None => return,
         };
@@ -349,7 +348,7 @@ pub fn realize_lights(ecs: &mut World) {
     // Scans for dirty lights, new lights (lacking LightSlotIndex), moved lights,
     // and removed entities without building full LightDescriptor objects.
     let (has_work, needs_full_pass) = {
-        let descs_store = match ecs.get_component_store::<LightDescriptorEcs>() {
+        let descs_store = match ecs.get_component_store::<LightDescriptor>() {
             Some(s) => s,
             None => return,
         };
@@ -437,7 +436,7 @@ pub fn realize_lights(ecs: &mut World) {
 
     // --- Phase 1: Collect full data ---
 
-    let descs_store = match ecs.get_component_store::<LightDescriptorEcs>() {
+    let descs_store = match ecs.get_component_store::<LightDescriptor>() {
         Some(s) => s,
         None => return,
     };
