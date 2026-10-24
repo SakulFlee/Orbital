@@ -938,6 +938,12 @@ impl ModuleRuntime {
         let d_total = Instant::now() - t_realize_start;
         let d_surface_acq = t_realize_start - t_start;
 
+        #[cfg(target_os = "android")]
+        {
+            let cpu_work = d_total.saturating_sub(d_present);
+            crate::android_performance::report_frame(cpu_work);
+        }
+
         self.frame_timings.set(STAGE_SURFACE_ACQ, d_surface_acq);
         self.frame_timings
             .set_ms(STAGE_UPDATE, self.update_timings.total_ms);

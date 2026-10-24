@@ -41,6 +41,8 @@ orbital_shadow = { path = "../orbital_shadow" }
 orbital_texture = { path = "../orbital_texture" }
 orbital_world_environment = { path = "../orbital_world_environment" }
 cgmath = { workspace = true }
+libc = "0.2"
+libloading = "0.8"
 log = { workspace = true }
 wgpu = { workspace = true }
 winit = { workspace = true }
@@ -49,6 +51,7 @@ gilrs = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = { workspace = true }
+jni = "0.22"
 winit = { workspace = true, features = ["android-native-activity"] }
 
 [target.'cfg(target_os = "ios")'.dependencies]
