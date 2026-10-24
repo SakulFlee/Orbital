@@ -256,7 +256,7 @@ orbital run ios --device "<device>"
 
 ### Nix
 
-`flake.nix` provides the primary dev environment: the Rust toolchain pinned by `rust-toolchain.toml` (1.99.0 with `cargo`, `clippy`, `rust-src`, `rustc`, `rustfmt`), `rust-analyzer`, Linux graphics/input libraries, cross-compilation shells, `cargo-flamegraph`, `cargo-criterion`, `pkg-config`, and Blender.
+`flake.nix` provides the primary dev environment: the Rust toolchain pinned by `rust-toolchain.toml` (1.99.1 with `cargo`, `clippy`, `rust-src`, `rustc`, `rustfmt`), `rust-analyzer`, Linux graphics/input libraries, cross-compilation shells, `cargo-flamegraph`, `cargo-criterion`, `pkg-config`, and Blender.
 Enter with `nix-shell`, `nix develop`, or `direnv allow` (`.envrc` uses `use flake`).
 When changing the channel in `rust-toolchain.toml`, update the manifest `sha256` passed to `fromToolchainFile` in `flake.nix`.
 
