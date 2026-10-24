@@ -69,11 +69,29 @@ impl Rotation {
         (forward.normalize(), right.normalize(), up.normalize())
     }
 
+    /// Elevation of the forward axis in radians, in `[-π/2, π/2]`.
+    pub fn pitch(&self) -> f32 {
+        self.forward_right_up().0.y.clamp(-1.0, 1.0).asin()
+    }
+
     /// Apply pitch rotation (around the local right axis).
     pub fn rotate_pitch(&mut self, delta: Rad<f32>) {
         let (_, right, _) = self.forward_right_up();
         let rotation = Quaternion::from_axis_angle(right, delta);
         self.0 = (rotation * self.0).normalize();
+    }
+
+    /// Apply pitch rotation while keeping the resulting elevation within
+    /// `±limit`.
+    ///
+    /// Unlike [`Self::rotate_pitch`], this prevents the forward axis from
+    /// crossing straight up or down, which would flip the up vector and make
+    /// the view appear to roll/revolve around itself.
+    pub fn rotate_pitch_clamped(&mut self, delta: Rad<f32>, limit: Rad<f32>) {
+        let limit = limit.0.abs().min(std::f32::consts::FRAC_PI_2);
+        let current_pitch = self.pitch();
+        let clamped_delta = (current_pitch + delta.0).clamp(-limit, limit) - current_pitch;
+        self.rotate_pitch(Rad(clamped_delta));
     }
 
     /// Apply yaw rotation (around the world Y axis).
@@ -405,6 +423,39 @@ mod tests {
         assert!(f.x.abs() < 0.01, "forward.x should be near 0, got {}", f.x);
         // Right (+Z) is unchanged by rotation around Z
         assert!(r.z.abs() > 0.9, "right.z should be near ±1, got {}", r.z);
+    }
+
+    #[test]
+    fn clamped_pitch_stops_before_vertical() {
+        let limit = Rad(1.0);
+        let mut rot = Rotation::identity();
+
+        for _ in 0..10 {
+            rot.rotate_pitch_clamped(Rad(1.0), limit);
+            assert!(rot.pitch() <= limit.0 + 1e-5);
+        }
+        assert!((rot.pitch() - limit.0).abs() < 1e-4);
+
+        let mut rot = Rotation::identity();
+        for _ in 0..10 {
+            rot.rotate_pitch_clamped(Rad(-1.0), limit);
+            assert!(rot.pitch() >= -limit.0 - 1e-5);
+        }
+        assert!((rot.pitch() + limit.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn clamped_pitch_preserves_heading() {
+        let mut rot = Rotation::identity();
+        rot.rotate_yaw(Rad(FRAC_PI_2));
+        let (before, _, _) = rot.forward_right_up();
+
+        rot.rotate_pitch_clamped(Rad(5.0), Rad(1.0));
+
+        let (after, _, _) = rot.forward_right_up();
+        let before_heading = Vector3::new(before.x, 0.0, before.z).normalize();
+        let after_heading = Vector3::new(after.x, 0.0, after.z).normalize();
+        assert!((before_heading - after_heading).magnitude() < 1e-4);
     }
 
     #[test]
