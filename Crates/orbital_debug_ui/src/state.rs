@@ -26,10 +26,16 @@ pub enum DebugMessage {
     ToggleEntity(Entity),
     /// Show only entities whose index, label or component names match.
     SetFilter(String),
-    /// Add or remove a timing stage from the performance graph list.
-    ToggleGraphStage(usize),
+    /// Add or remove a series from the performance graph list.
+    ToggleGraphSeries(GraphSeries),
     /// Choose which statistic the performance graphs plot.
     SetGraphMetric(GraphMetric),
+    /// Set the graph history window from the slider.
+    SetGraphWindow(f32),
+    /// Update the exact graph window text without applying it yet.
+    EditGraphWindow(String),
+    /// Apply the graph window text field.
+    ApplyGraphWindow,
     /// Show only log records at or above this level.
     SetMinLevel(log::LevelFilter),
     /// Drop the captured log buffer.
@@ -51,6 +57,38 @@ pub enum DebugMessage {
     TogglePanel(PanelId),
     /// Close one panel's window.
     HidePanel(PanelId),
+}
+
+/// The shortest selectable graph history window, in seconds.
+pub const MIN_GRAPH_WINDOW_SECS: f32 = 0.5;
+/// The longest selectable graph history window, in seconds.
+pub const MAX_GRAPH_WINDOW_SECS: f32 = 60.0;
+/// The default graph history window, in seconds.
+pub const DEFAULT_GRAPH_WINDOW_SECS: f32 = 10.0;
+
+/// Formats seconds for the slider label / numeric input.
+pub fn format_seconds(value: f32) -> String {
+    let mut text = format!("{value:.2}");
+
+    while text.ends_with('0') {
+        text.pop();
+    }
+    if text.ends_with('.') {
+        text.pop();
+    }
+
+    text
+}
+
+/// A series that can be plotted in the performance panel.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum GraphSeries {
+    /// One of the per-stage timings.
+    Stage(usize),
+    /// Instantaneous frames per second, derived from frame time.
+    Fps,
+    /// Wall-clock frame delta in milliseconds.
+    Cdt,
 }
 
 /// Which statistic of a timing stage the performance graphs plot.
@@ -110,11 +148,16 @@ pub struct DebugUiState {
     /// Entity-tree filter; matches the entity index, label or component type
     /// name.
     pub filter: String,
-    /// The timing stages whose graphs are shown, as indices into
-    /// [`TIMING_STAGES`]. Empty means no graph is pinned.
-    pub graph_stages: BTreeSet<usize>,
+    /// The series whose graphs are shown. Empty means no graph is pinned.
+    pub graph_series: BTreeSet<GraphSeries>,
     /// Which statistic those graphs plot.
     pub graph_metric: GraphMetric,
+    /// How many seconds of graph history to retain, in seconds.
+    pub graph_window_secs: f32,
+    /// Uncommitted exact text for the graph window.
+    pub graph_window_input: String,
+    /// Invalid graph window input, if any.
+    pub graph_window_error: Option<String>,
     /// Log-level filter for the console.
     pub min_level: log::LevelFilter,
     /// Uncommitted text for each editable field, keyed by entity, type and
@@ -154,8 +197,11 @@ impl DebugUiState {
             selected: None,
             expanded: HashSet::new(),
             filter: String::new(),
-            graph_stages: BTreeSet::from([TOTAL_STAGE_INDEX]),
+            graph_series: BTreeSet::from([GraphSeries::Stage(TOTAL_STAGE_INDEX)]),
             graph_metric: GraphMetric::Last,
+            graph_window_secs: DEFAULT_GRAPH_WINDOW_SECS,
+            graph_window_input: format_seconds(DEFAULT_GRAPH_WINDOW_SECS),
+            graph_window_error: None,
             min_level: log::LevelFilter::Info,
             field_buffers: std::collections::HashMap::new(),
             last_error: None,
@@ -167,6 +213,14 @@ impl DebugUiState {
             toggle_key,
             toggle_was_pressed: false,
         }
+    }
+
+    fn set_graph_window(&mut self, seconds: f32) {
+        let seconds = seconds.clamp(MIN_GRAPH_WINDOW_SECS, MAX_GRAPH_WINDOW_SECS);
+        self.graph_window_secs = seconds;
+        self.graph_window_input = format_seconds(seconds);
+        self.graph_window_error = None;
+        self.dirty = true;
     }
 
     /// The uncommitted text for an editable field.
@@ -245,12 +299,14 @@ impl DebugUiState {
                 self.dirty = true;
             }
             DebugMessage::SelectEntity(entity) => {
-                // Clicking the selected entity again clears the selection; also
-                // collapse it, since the first click expanded it automatically.
-                if entity.is_none()
+                // Moving the selection collapses the entity that was selected
+                // before, since its fields are no longer shown. Clicking the
+                // selected row again sends `None`, which also collapses it.
+                if self.selected != *entity
                     && let Some(previous) = self.selected
                 {
                     self.expanded.remove(&previous);
+                    self.last_error = None;
                 }
 
                 self.selected = *entity;
@@ -270,10 +326,15 @@ impl DebugUiState {
                 self.filter = filter.clone();
                 self.dirty = true;
             }
-            DebugMessage::ToggleGraphStage(stage) => {
-                if *stage < TIMING_STAGES.len() {
-                    if !self.graph_stages.remove(stage) {
-                        self.graph_stages.insert(*stage);
+            DebugMessage::ToggleGraphSeries(series) => {
+                let valid = match series {
+                    GraphSeries::Stage(stage) => *stage < TIMING_STAGES.len(),
+                    GraphSeries::Fps | GraphSeries::Cdt => true,
+                };
+
+                if valid {
+                    if !self.graph_series.remove(series) {
+                        self.graph_series.insert(*series);
                     }
                     self.dirty = true;
                 }
@@ -282,6 +343,33 @@ impl DebugUiState {
                 self.graph_metric = *metric;
                 self.dirty = true;
             }
+            DebugMessage::SetGraphWindow(seconds) => {
+                self.set_graph_window(*seconds);
+                self.dirty = true;
+            }
+            DebugMessage::EditGraphWindow(text) => {
+                self.graph_window_input = text.clone();
+                self.graph_window_error = None;
+                self.dirty = true;
+            }
+            DebugMessage::ApplyGraphWindow => match self.graph_window_input.trim().parse::<f32>() {
+                Ok(seconds)
+                    if seconds.is_finite()
+                        && (MIN_GRAPH_WINDOW_SECS..=MAX_GRAPH_WINDOW_SECS).contains(&seconds) =>
+                {
+                    self.set_graph_window(seconds);
+                }
+                Ok(_) => {
+                    self.graph_window_error = Some(format!(
+                        "window must be between {MIN_GRAPH_WINDOW_SECS} and {MAX_GRAPH_WINDOW_SECS}s"
+                    ));
+                    self.dirty = true;
+                }
+                Err(_) => {
+                    self.graph_window_error = Some("window must be a number".to_string());
+                    self.dirty = true;
+                }
+            },
             DebugMessage::SetMinLevel(level) => {
                 self.min_level = *level;
                 self.dirty = true;
@@ -378,21 +466,80 @@ mod tests {
     }
 
     #[test]
-    fn graph_stages_toggle_and_ignore_out_of_range_indices() {
+    fn moving_the_selection_collapses_the_previous_entity() {
         let mut state = DebugUiState::new(winit::keyboard::KeyCode::F1);
-        assert!(state.graph_stages.contains(&TOTAL_STAGE_INDEX));
+        let first = Entity::new(1, 0);
+        let second = Entity::new(2, 0);
 
-        state.apply(&DebugMessage::ToggleGraphStage(2));
-        assert!(state.graph_stages.contains(&2));
+        state.apply(&DebugMessage::SelectEntity(Some(first)));
+        state.last_error = Some("stale error".to_string());
 
-        state.apply(&DebugMessage::ToggleGraphStage(2));
-        assert!(!state.graph_stages.contains(&2));
+        state.apply(&DebugMessage::SelectEntity(Some(second)));
 
-        state.apply(&DebugMessage::ToggleGraphStage(TIMING_STAGES.len()));
+        assert_eq!(state.selected, Some(second));
+        assert!(!state.is_expanded(first), "the old selection collapses");
+        assert!(state.is_expanded(second), "the new selection expands");
+        assert_eq!(state.last_error, None, "errors belong to the old entity");
+    }
+
+    #[test]
+    fn graph_series_toggle_and_ignore_out_of_range_stages() {
+        let mut state = DebugUiState::new(winit::keyboard::KeyCode::F1);
         assert!(
-            !state.graph_stages.contains(&TIMING_STAGES.len()),
+            state
+                .graph_series
+                .contains(&GraphSeries::Stage(TOTAL_STAGE_INDEX))
+        );
+
+        state.apply(&DebugMessage::ToggleGraphSeries(GraphSeries::Stage(2)));
+        assert!(state.graph_series.contains(&GraphSeries::Stage(2)));
+
+        state.apply(&DebugMessage::ToggleGraphSeries(GraphSeries::Stage(2)));
+        assert!(!state.graph_series.contains(&GraphSeries::Stage(2)));
+
+        state.apply(&DebugMessage::ToggleGraphSeries(GraphSeries::Fps));
+        assert!(state.graph_series.contains(&GraphSeries::Fps));
+
+        state.apply(&DebugMessage::ToggleGraphSeries(GraphSeries::Stage(
+            TIMING_STAGES.len(),
+        )));
+        assert!(
+            !state
+                .graph_series
+                .contains(&GraphSeries::Stage(TIMING_STAGES.len())),
             "out-of-range stages are ignored"
         );
+    }
+
+    #[test]
+    fn graph_window_accepts_a_valid_number_and_rejects_bad_input() {
+        let mut state = DebugUiState::new(winit::keyboard::KeyCode::F1);
+        assert_eq!(state.graph_window_secs, DEFAULT_GRAPH_WINDOW_SECS);
+
+        state.apply(&DebugMessage::EditGraphWindow("25.5".to_string()));
+        state.apply(&DebugMessage::ApplyGraphWindow);
+        assert_eq!(state.graph_window_secs, 25.5);
+        assert!(state.graph_window_error.is_none());
+
+        state.apply(&DebugMessage::EditGraphWindow("100".to_string()));
+        state.apply(&DebugMessage::ApplyGraphWindow);
+        assert_eq!(state.graph_window_secs, 25.5, "last valid value stays");
+        assert!(state.graph_window_error.is_some());
+
+        state.apply(&DebugMessage::EditGraphWindow("nope".to_string()));
+        state.apply(&DebugMessage::ApplyGraphWindow);
+        assert!(state.graph_window_error.is_some());
+    }
+
+    #[test]
+    fn slider_window_values_are_clamped() {
+        let mut state = DebugUiState::new(winit::keyboard::KeyCode::F1);
+
+        state.apply(&DebugMessage::SetGraphWindow(0.1));
+        assert_eq!(state.graph_window_secs, MIN_GRAPH_WINDOW_SECS);
+
+        state.apply(&DebugMessage::SetGraphWindow(1000.0));
+        assert_eq!(state.graph_window_secs, MAX_GRAPH_WINDOW_SECS);
     }
 
     #[test]

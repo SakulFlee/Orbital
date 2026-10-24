@@ -24,7 +24,7 @@ use iced_winit::core::Element;
 use orbital_app::input::InputButton;
 use orbital_app::{LayerRenderer, Module};
 use orbital_ecs::{IntoSystem, Res, ResMut, System, World};
-use orbital_ecs_bridge::InputSnapshot;
+use orbital_ecs_bridge::{InputSnapshot, TimingsHistoryConfig};
 use orbital_iced::{IcedLayerRenderer, IcedState};
 use winit::keyboard::{KeyCode, PhysicalKey};
 
@@ -49,6 +49,18 @@ pub fn sys_debug_ui_toggle(input: Res<InputSnapshot>, mut ui: ResMut<DebugUiStat
     }
 
     ui.set_toggle_was_pressed(pressed);
+}
+
+/// Keeps the frame-timing history config in sync with the Performance panel.
+///
+/// Only the visible Performance window needs graph/table history; when it is
+/// hidden, `FrameTimings` clears the retained samples.
+pub fn sys_sync_timings_history(
+    state: Res<DebugUiState>,
+    mut config: ResMut<TimingsHistoryConfig>,
+) {
+    config.enabled = state.is_panel_visible(PanelId::Performance);
+    config.window_secs = state.graph_window_secs as f64;
 }
 
 /// Registers the debug panels with the runtime.
@@ -102,7 +114,14 @@ impl Module for DebugUiModule {
 
         ecs.insert_resource(DebugUiState::new(self.toggle_key));
 
-        vec![sys_debug_ui_toggle.into_system()]
+        if ecs.get_resource::<TimingsHistoryConfig>().is_none() {
+            ecs.insert_resource(TimingsHistoryConfig::default());
+        }
+
+        vec![
+            sys_debug_ui_toggle.into_system(),
+            sys_sync_timings_history.into_system(),
+        ]
     }
 
     fn register_overlays(

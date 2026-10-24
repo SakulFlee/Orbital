@@ -19,7 +19,9 @@ use iced_widget::Column;
 use iced_winit::core::{Color, Element, Length, Theme};
 
 use orbital_ecs::{Entity, World};
-use orbital_ecs_bridge::{CameraDescriptorEcs, ModelDescriptorEcs};
+use orbital_ecs_bridge::{
+    ActiveCamera, CameraDescriptorEcs, LightDescriptorEcs, ModelDescriptorEcs, ModelInstances,
+};
 
 use crate::state::DebugMessage;
 use crate::state::Renderer as IcedRenderer;
@@ -75,18 +77,13 @@ pub(crate) fn scrolling<'a>(
 }
 
 /// A human-readable label for `entity`, if the engine knows one.
+/// A human-readable role/label summary for `entity`, if the engine knows one.
 ///
-/// Models and cameras carry their own labels; every other entity falls back to
-/// its index alone. An empty label is treated as absent.
+/// The ECS row prepends `#{index}:`; this function only returns the role,
+/// label and useful details such as `Camera - Default (active)` or
+/// `Model - procgeo (1 inst, 15.0k v/30.0k i)`.
 pub(crate) fn entity_label(world: &World, entity: &Entity) -> Option<String> {
-    let model = world
-        .component_debug(TypeId::of::<ModelDescriptorEcs>(), entity)
-        .and_then(|handle| {
-            handle
-                .as_any()
-                .downcast_ref::<ModelDescriptorEcs>()
-                .map(|descriptor| descriptor.label.clone())
-        });
+    let active_camera = world.get_resource::<ActiveCamera>().map(|active| active.0);
 
     let camera = world
         .component_debug(TypeId::of::<CameraDescriptorEcs>(), entity)
@@ -97,18 +94,151 @@ pub(crate) fn entity_label(world: &World, entity: &Entity) -> Option<String> {
                 .map(|descriptor| descriptor.label.clone())
         });
 
-    model
-        .into_iter()
-        .chain(camera)
-        .find(|label| !label.trim().is_empty())
+    let light = world
+        .component_debug(TypeId::of::<LightDescriptorEcs>(), entity)
+        .and_then(|handle| {
+            handle
+                .as_any()
+                .downcast_ref::<LightDescriptorEcs>()
+                .map(LightDescriptorEcs::kind_label)
+        });
+
+    let model = world
+        .component_debug(TypeId::of::<ModelDescriptorEcs>(), entity)
+        .and_then(|handle| {
+            handle
+                .as_any()
+                .downcast_ref::<ModelDescriptorEcs>()
+                .map(|descriptor| {
+                    let instances = world
+                        .component_debug(TypeId::of::<ModelInstances>(), entity)
+                        .and_then(|instances| {
+                            instances
+                                .as_any()
+                                .downcast_ref::<ModelInstances>()
+                                .map(|instances| instances.0.len())
+                        })
+                        .unwrap_or(0);
+
+                    (
+                        descriptor.label.clone(),
+                        instances,
+                        descriptor.mesh.vertices.len(),
+                        descriptor.mesh.indices.len(),
+                    )
+                })
+        });
+
+    let mut roles = Vec::new();
+    let mut label = None;
+    let mut details = Vec::new();
+
+    if let Some(camera) = camera {
+        roles.push("Camera");
+        if !camera.trim().is_empty() {
+            label = Some(camera);
+        }
+        if active_camera == Some(*entity) {
+            details.push("active".to_string());
+        }
+    }
+
+    if let Some(light) = light {
+        roles.push("Light");
+        if label.is_none() {
+            label = Some(light.to_string());
+        } else {
+            details.push(light.to_string());
+        }
+    }
+
+    if let Some((model_label, instances, vertices, indices)) = model {
+        roles.push("Model");
+        if label.is_none() && !model_label.trim().is_empty() {
+            label = Some(model_label);
+        } else if !model_label.trim().is_empty() {
+            details.push(model_label);
+        }
+
+        if instances > 0 {
+            details.push(format!("{instances} inst"));
+        }
+
+        if vertices > 0 || indices > 0 {
+            details.push(format!(
+                "{}v/{}i",
+                format_count(vertices),
+                format_count(indices)
+            ));
+        }
+    }
+
+    if roles.is_empty() {
+        return None;
+    }
+
+    let mut summary = roles.join("/");
+    if let Some(label) = label {
+        summary.push_str(" - ");
+        summary.push_str(&label);
+    }
+    if !details.is_empty() {
+        summary.push_str(" (");
+        summary.push_str(&details.join(", "));
+        summary.push(')');
+    }
+
+    Some(summary)
 }
 
+fn format_count(value: usize) -> String {
+    if value >= 1_000 {
+        format!("{:.1}k", value as f64 / 1_000.0)
+    } else {
+        value.to_string()
+    }
+}
+
+/// A high-contrast text-field style for the debug panels.
+///
+/// The default iced input is a mid-gray box that reads as disabled against the
+/// debug windows' darker background. This keeps the value bright and gives the
+/// field a deliberate border, with an accent when focused.
+pub(crate) fn input_style(
+    theme: &Theme,
+    status: iced_widget::text_input::Status,
+) -> iced_widget::text_input::Style {
+    let mut style = iced_widget::text_input::default(theme, status);
+
+    style.value = Color::from_rgb(0.93, 0.95, 0.98);
+    style.placeholder = Color::from_rgb(0.52, 0.56, 0.64);
+    style.background =
+        iced_widget::core::Background::Color(Color::from_rgba(0.10, 0.10, 0.16, 0.95));
+    style.border = iced_widget::core::border::Border {
+        color: Color::from_rgba(0.45, 0.5, 0.65, 0.65),
+        width: 1.0,
+        radius: 3.0.into(),
+    };
+
+    if matches!(status, iced_widget::text_input::Status::Focused { .. }) {
+        style.border.color = Color::from_rgb(0.45, 0.7, 1.0);
+    } else if matches!(status, iced_widget::text_input::Status::Hovered) {
+        style.border.color = Color::from_rgba(0.65, 0.7, 0.85, 0.8);
+    }
+
+    style
+}
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
+    use cgmath::Vector3;
+    use orbital_mesh::MeshDescriptor;
+
     use super::*;
 
     #[test]
-    fn entity_label_uses_a_camera_descriptor_label() {
+    fn entity_label_includes_the_camera_role_and_label() {
         let mut world = World::new();
         let entity = world.spawn_entity();
         world
@@ -123,15 +253,85 @@ mod tests {
 
         assert_eq!(
             entity_label(&world, &entity).as_deref(),
-            Some("Main camera")
+            Some("Camera - Main camera")
         );
     }
 
     #[test]
-    fn entity_label_is_none_without_a_labelled_descriptor() {
+    fn the_active_camera_is_marked() {
+        let mut world = World::new();
+        let entity = world.spawn_entity();
+        world
+            .attach_component(&entity, CameraDescriptorEcs::default())
+            .expect("attachment failed");
+        world.insert_resource(ActiveCamera(entity));
+
+        assert_eq!(
+            entity_label(&world, &entity).as_deref(),
+            Some("Camera - Default (active)")
+        );
+    }
+
+    #[test]
+    fn lights_show_their_subtype() {
+        let mut world = World::new();
+        let entity = world.spawn_entity();
+        world
+            .attach_component(
+                &entity,
+                LightDescriptorEcs::new_spot(
+                    Vector3::new(1.0, 1.0, 1.0),
+                    1.0,
+                    Vector3::new(0.0, -1.0, 0.0),
+                    0.1,
+                    0.5,
+                ),
+            )
+            .expect("attachment failed");
+
+        assert_eq!(
+            entity_label(&world, &entity).as_deref(),
+            Some("Light - Spot")
+        );
+    }
+
+    #[test]
+    fn models_show_their_instance_count() {
+        let mut world = World::new();
+        let entity = world.spawn_entity();
+        world
+            .attach_component(
+                &entity,
+                ModelDescriptorEcs {
+                    label: "procgeo".to_string(),
+                    mesh: Arc::new(MeshDescriptor::new(Vec::new(), Vec::new())),
+                    materials: Vec::new(),
+                },
+            )
+            .expect("descriptor attach failed");
+        let mut instances = ModelInstances::new();
+        instances.add_identity_instance();
+        world
+            .attach_component(&entity, instances)
+            .expect("instances attach failed");
+
+        assert_eq!(
+            entity_label(&world, &entity).as_deref(),
+            Some("Model - procgeo (1 inst)")
+        );
+    }
+
+    #[test]
+    fn entity_label_is_none_without_a_recognised_descriptor() {
         let mut world = World::new();
         let entity = world.spawn_entity();
 
         assert_eq!(entity_label(&world, &entity), None);
+    }
+
+    #[test]
+    fn large_counts_are_abbreviated() {
+        assert_eq!(format_count(999), "999");
+        assert_eq!(format_count(1_500), "1.5k");
     }
 }

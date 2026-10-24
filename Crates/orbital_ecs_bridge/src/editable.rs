@@ -341,11 +341,11 @@ impl EditableValue for orbital_ecs_bridge::Position {
 
 impl EditableValue for orbital_ecs_bridge::Rotation {
     fn to_edit_string(&self) -> String {
-        self.0.to_edit_string()
+        crate::fields::euler_degrees_text(&self.0)
     }
 
     fn set_from_str(&mut self, input: &str) -> Result<(), String> {
-        self.0.set_from_str(input)
+        crate::fields::set_euler_degrees_from_str(&mut self.0, input)
     }
 }
 
@@ -455,7 +455,10 @@ pub fn editable_label(type_id: TypeId) -> Option<&'static str> {
         ("Vector3<f32>", TypeId::of::<cgmath::Vector3<f32>>()),
         ("Quaternion<f32>", TypeId::of::<cgmath::Quaternion<f32>>()),
         ("Position", TypeId::of::<orbital_ecs_bridge::Position>()),
-        ("Rotation", TypeId::of::<orbital_ecs_bridge::Rotation>()),
+        (
+            "Rotation (deg)",
+            TypeId::of::<orbital_ecs_bridge::Rotation>(),
+        ),
     ];
 
     labels
@@ -597,6 +600,25 @@ mod tests {
     }
 
     #[test]
+    fn rotation_edits_as_euler_degrees() {
+        let mut rotation =
+            orbital_ecs_bridge::Rotation(cgmath::Quaternion::new(1.0, 0.0, 0.0, 0.0));
+
+        assert_eq!(rotation.to_edit_string(), "0.000 0.000 0.000");
+
+        rotation
+            .set_from_str("0 0 90")
+            .expect("three Euler angles should parse");
+        let euler = cgmath::Euler::<cgmath::Rad<f32>>::from(rotation.0);
+        assert!((euler.z.0.to_degrees() - 90.0).abs() < 1e-3);
+
+        assert!(
+            rotation.set_from_str("0 0").is_err(),
+            "an incomplete Euler value is rejected"
+        );
+    }
+
+    #[test]
     fn the_registry_knows_which_types_are_editable() {
         assert!(is_editable(TypeId::of::<f32>()));
         assert!(is_editable(TypeId::of::<cgmath::Vector3<f32>>()));
@@ -621,7 +643,10 @@ mod tests {
             ("Vector3<f32>", TypeId::of::<cgmath::Vector3<f32>>()),
             ("Quaternion<f32>", TypeId::of::<cgmath::Quaternion<f32>>()),
             ("Position", TypeId::of::<orbital_ecs_bridge::Position>()),
-            ("Rotation", TypeId::of::<orbital_ecs_bridge::Rotation>()),
+            (
+                "Rotation (deg)",
+                TypeId::of::<orbital_ecs_bridge::Rotation>(),
+            ),
         ] {
             assert_eq!(editable_label(type_id), Some(name));
             assert!(is_editable(type_id), "{name} is labelled but not editable");
