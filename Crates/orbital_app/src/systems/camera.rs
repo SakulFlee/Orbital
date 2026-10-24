@@ -6,6 +6,7 @@
 //! `Rotation` components on entities with a camera.
 
 use cgmath::Rad;
+use orbital_camera::CameraDescriptor;
 use orbital_ecs::Res;
 use orbital_ecs_bridge::{
     CursorGrabState, DeltaTime, IcedCapturedMouseDrag, InputSnapshot, Position, Rotation,
@@ -17,6 +18,9 @@ use crate::touch_controls;
 
 const MOVE_SPEED: f32 = 5.0;
 const LOOK_SENSITIVITY: f32 = 1.5;
+/// Maximum absolute pitch (radians) for mouse and gamepad look. Keeps the
+/// camera just shy of straight up/down so the up vector cannot flip.
+const PITCH_LIMIT: f32 = CameraDescriptor::SAFE_FRAC_PI_2;
 /// Angular speed (rad/s) at full right-stick deflection. Unlike mouse deltas
 /// (impulses, already frame-sized), a stick reports its position, so it is
 /// scaled by `dt` into an angular velocity.
@@ -84,11 +88,7 @@ fn apply_touch_controls(dt: f32, input: &InputState, pos: &mut Position, rot: &m
     let look = gesture.look_delta;
 
     let pitch_delta = -look.y as f32 * cfg.look_sensitivity;
-    let (forward, _, _) = rot.forward_right_up();
-    let current_pitch = forward.y.asin();
-    let clamped_pitch_delta =
-        (current_pitch + pitch_delta).clamp(-cfg.pitch_limit, cfg.pitch_limit) - current_pitch;
-    rot.rotate_pitch(Rad(clamped_pitch_delta));
+    rot.rotate_pitch_clamped(Rad(pitch_delta), Rad(cfg.pitch_limit));
 
     rot.rotate_yaw(Rad(-look.x as f32 * cfg.look_sensitivity));
 }
@@ -135,7 +135,7 @@ fn apply_keyboard_mouse_controls(
 
     // Mouse rotation — only when cursor is grabbed (hidden)
     if cursor_grabbed && let Some((_, delta)) = input.delta_state_any(&InputAxis::MouseMovement) {
-        rot.rotate_pitch(Rad(delta.x as f32 * LOOK_SENSITIVITY));
+        rot.rotate_pitch_clamped(Rad(delta.x as f32 * LOOK_SENSITIVITY), Rad(PITCH_LIMIT));
         rot.rotate_yaw(Rad(-delta.y as f32 * LOOK_SENSITIVITY));
     }
 
@@ -145,7 +145,48 @@ fn apply_keyboard_mouse_controls(
     // a gamepad doesn't drive the UI cursor.
     let (gamepad_look, look) = input.view_vector(Some(&InputAxis::GamepadRightStick));
     if gamepad_look {
-        rot.rotate_pitch(Rad(look.x as f32 * STICK_LOOK_SPEED * dt));
+        rot.rotate_pitch_clamped(Rad(look.x as f32 * STICK_LOOK_SPEED * dt), Rad(PITCH_LIMIT));
         rot.rotate_yaw(Rad(-look.y as f32 * STICK_LOOK_SPEED * dt));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cgmath::Point3;
+    use orbital_input::InputEvent;
+    use winit::dpi::PhysicalSize;
+    use winit::event::DeviceId;
+
+    fn mouse_look(vertical_delta: f64) -> InputState {
+        let mut input = InputState::new();
+        input.surface_resize(PhysicalSize::new(1000, 800));
+        input.handle_event(InputEvent::MouseMovedDelta {
+            device_id: DeviceId::dummy(),
+            delta: (0.0, vertical_delta),
+        });
+        input
+    }
+
+    #[test]
+    fn mouse_pitch_cannot_cross_vertical() {
+        for (input, direction) in [
+            (mouse_look(-1_000_000.0), 1.0_f32),
+            (mouse_look(1_000_000.0), -1.0_f32),
+        ] {
+            let mut pos = Position(Point3::new(0.0, 0.0, 0.0));
+            let mut rot = Rotation::identity();
+
+            for _ in 0..10 {
+                apply_keyboard_mouse_controls(1.0 / 60.0, &input, true, &mut pos, &mut rot);
+            }
+
+            let (forward, _, _) = rot.forward_right_up();
+            assert!(
+                forward.y * direction <= PITCH_LIMIT.sin() + 1e-4,
+                "pitch crossed the limit: forward.y={}, direction={direction}",
+                forward.y,
+            );
+        }
     }
 }
