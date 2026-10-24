@@ -17,7 +17,7 @@
 
         rustToolchain = fenix.packages.${system}.fromToolchainFile {
           file = ./rust-toolchain.toml;
-          sha256 = "sha256-zm3dyIY2T414ZRR3EhLOvptzG6gta4WZUcawzMUWtqI=";
+          sha256 = "sha256-+xUr6Al1wZSqX8aEsq7DpuFOK4Ve/i+qTl+K5uWQ9GM=";
         };
 
         rustToolchainCross = rustToolchain;
@@ -56,7 +56,7 @@
       in
       {
         devShells.default = pkgs.mkShell {
-          nativeBuildInputs = [ rustToolchain fenix.packages.${system}.rust-analyzer ] ++ commonTools;
+          nativeBuildInputs = [ rustToolchain fenix.packages.${system}.stable.rust-analyzer-preview ] ++ commonTools;
 
           buildInputs = commonLinuxBuildInputs;
 
