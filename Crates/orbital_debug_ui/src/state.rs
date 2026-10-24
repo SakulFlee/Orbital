@@ -170,12 +170,10 @@ pub struct DebugUiState {
     pub last_error: Option<String>,
     /// Set whenever something changed that the panels should redraw for.
     ///
-    /// Not yet used for gating the rebuild — see
-    /// [`Self::refresh_interval`] — but kept as the single place a future
-    /// dirty-flag implementation can hook into.
+    /// The per-panel rebuild cadence lives in `orbital_iced::IcedState`; this
+    /// flag is the debug state's single place to record that an interaction
+    /// changed something.
     pub dirty: bool,
-    /// How long a panel may reuse its previous view before rebuilding.
-    pub refresh_interval: std::time::Duration,
     /// The toggle key.
     pub toggle_key: winit::keyboard::KeyCode,
     /// Whether the toggle key was down on the previous frame, for edge
@@ -206,10 +204,6 @@ impl DebugUiState {
             field_buffers: std::collections::HashMap::new(),
             last_error: None,
             dirty: true,
-            // Fast enough that a value changed by a click shows up immediately,
-            // slow enough that holding a slider or typing in the filter does not
-            // rebuild every frame.
-            refresh_interval: std::time::Duration::from_millis(50),
             toggle_key,
             toggle_was_pressed: false,
         }
