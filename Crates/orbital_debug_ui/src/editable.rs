@@ -14,9 +14,7 @@ use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::sync::{OnceLock, RwLock};
 
-use orbital_ecs_bridge::{
-    CameraDescriptorEcs, LightDescriptorEcs, ModelDescriptorEcs, ModelInstances,
-};
+use orbital_ecs_bridge::{CameraDescriptor, LightDescriptor, ModelDescriptor, ModelInstances};
 
 /// Type-erased operations for one [`EditableFields`] implementation.
 #[derive(Clone, Copy)]
@@ -66,9 +64,9 @@ pub fn register_builtin_editable_fields() {
     static BUILTINS: OnceLock<()> = OnceLock::new();
 
     BUILTINS.get_or_init(|| {
-        register_editable_fields::<CameraDescriptorEcs>();
-        register_editable_fields::<ModelDescriptorEcs>();
-        register_editable_fields::<LightDescriptorEcs>();
+        register_editable_fields::<CameraDescriptor>();
+        register_editable_fields::<ModelDescriptor>();
+        register_editable_fields::<LightDescriptor>();
         register_editable_fields::<ModelInstances>();
     });
 }

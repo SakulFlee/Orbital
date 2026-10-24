@@ -121,7 +121,7 @@ impl Default for Rotation {
 /// Camera-only properties (FOV, aspect ratio, clip planes, gamma).
 /// Position and rotation come from separate `Position`/`Rotation` components.
 #[derive(Debug, Clone, EditableFields)]
-pub struct CameraDescriptorEcs {
+pub struct CameraDescriptor {
     pub label: String,
     pub aspect: f32,
     pub fovy: Rad<f32>,
@@ -130,7 +130,7 @@ pub struct CameraDescriptorEcs {
     pub global_gamma: f32,
 }
 
-impl Default for CameraDescriptorEcs {
+impl Default for CameraDescriptor {
     fn default() -> Self {
         Self {
             label: "Default".into(),
@@ -144,7 +144,7 @@ impl Default for CameraDescriptorEcs {
 }
 
 /// GPU camera marker — indicates this entity has a realized camera.
-/// Actual GPU state is stored in `EcsCameraStore` (indexed by entity.index).
+/// Actual GPU state is stored in `CameraStore` (indexed by entity.index).
 /// This avoids temporary-borrow issues with `get_component_store`.
 #[derive(Debug, Clone, Copy)]
 pub struct CameraRealization;
@@ -180,7 +180,7 @@ use ulid::Ulid;
 
 /// Model-only properties (mesh, materials). Instances are in a separate component.
 #[derive(Debug, Clone, EditableFields)]
-pub struct ModelDescriptorEcs {
+pub struct ModelDescriptor {
     pub label: String,
     #[editable(skip)]
     pub mesh: std::sync::Arc<orbital_mesh::MeshDescriptor>,
@@ -188,7 +188,7 @@ pub struct ModelDescriptorEcs {
     pub materials: Vec<std::sync::Arc<orbital_material_shader::MaterialShaderDescriptor>>,
 }
 
-impl ModelDescriptorEcs {
+impl ModelDescriptor {
     /// Compute a deterministic hash for GPU instancing deduplication.
     pub fn instance_hash(&self) -> Ulid {
         use std::collections::hash_map::DefaultHasher;
@@ -274,14 +274,14 @@ impl ModelDirty {
 /// Light-only properties (type, color, direction).
 /// Position comes from the Position component on the entity.
 #[derive(Debug, Clone, EditableFields)]
-pub struct LightDescriptorEcs {
+pub struct LightDescriptor {
     #[editable(skip)]
     pub light_type: orbital_light::LightType,
     pub color: cgmath::Vector3<f32>,
     pub direction: cgmath::Vector3<f32>,
 }
 
-impl LightDescriptorEcs {
+impl LightDescriptor {
     /// Human-readable light subtype for debug overlays.
     pub fn kind_label(&self) -> &'static str {
         match &self.light_type {
@@ -490,12 +490,12 @@ mod tests {
         let mesh = Arc::new(MeshDescriptor::new(vec![], vec![]));
         let mat = Arc::new(orbital_material_shader::MaterialShaderDescriptor::default());
 
-        let desc1 = ModelDescriptorEcs {
+        let desc1 = ModelDescriptor {
             label: "test".into(),
             mesh: mesh.clone(),
             materials: vec![mat.clone()],
         };
-        let desc2 = ModelDescriptorEcs {
+        let desc2 = ModelDescriptor {
             label: "test".into(),
             mesh: mesh.clone(),
             materials: vec![mat.clone()],
@@ -512,12 +512,12 @@ mod tests {
         let mesh1 = Arc::new(MeshDescriptor::new(vec![], vec![0]));
         let mesh2 = Arc::new(MeshDescriptor::new(vec![], vec![1]));
 
-        let desc1 = ModelDescriptorEcs {
+        let desc1 = ModelDescriptor {
             label: "test".into(),
             mesh: mesh1,
             materials: vec![],
         };
-        let desc2 = ModelDescriptorEcs {
+        let desc2 = ModelDescriptor {
             label: "test".into(),
             mesh: mesh2,
             materials: vec![],

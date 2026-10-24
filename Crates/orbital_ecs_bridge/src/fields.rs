@@ -1,7 +1,7 @@
 //! Per-field editing metadata for components.
 //!
 //! The whole-component editor in [`crate::editable`] is fine for small
-//! newtypes, but engine components such as `CameraDescriptorEcs` have several
+//! newtypes, but engine components such as `CameraDescriptor` have several
 //! useful primitives. [`EditableFields`] exposes those fields individually so
 //! the debug UI can render one text box per value.
 
@@ -150,11 +150,11 @@ mod tests {
     use orbital_mesh::MeshDescriptor;
 
     use super::*;
-    use crate::{CameraDescriptorEcs, ModelDescriptorEcs};
+    use crate::{CameraDescriptor, ModelDescriptor};
 
     #[test]
     fn the_camera_derive_exposes_every_primitive_field() {
-        let camera = CameraDescriptorEcs::default();
+        let camera = CameraDescriptor::default();
         let ids = camera
             .editable_fields()
             .into_iter()
@@ -169,7 +169,7 @@ mod tests {
 
     #[test]
     fn skipped_descriptor_fields_are_not_editable() {
-        let descriptor = ModelDescriptorEcs {
+        let descriptor = ModelDescriptor {
             label: "helmet".to_string(),
             mesh: Arc::new(MeshDescriptor::new(Vec::new(), Vec::new())),
             materials: Vec::new(),
