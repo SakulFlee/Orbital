@@ -11,7 +11,7 @@ use orbital_file_manager::FileManager;
 use std::error::Error;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::Cursor;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::time::Duration;
 use wgpu::MipmapFilterMode;
 use wgpu::{
@@ -45,6 +45,13 @@ pub use descriptor::*;
 
 mod shader_lib;
 pub use shader_lib::*;
+
+static DYNAMIC_SKY_UPDATES: AtomicU64 = AtomicU64::new(0);
+
+/// Returns the cumulative number of in-place dynamic sky updates.
+pub fn dynamic_sky_updates() -> u64 {
+    DYNAMIC_SKY_UPDATES.load(Ordering::Relaxed)
+}
 
 use orbital_material_shader::MaterialShaderDescriptor;
 use orbital_texture::TextureDescriptor;
@@ -921,6 +928,8 @@ impl WorldEnvironment {
             warn!("update_sky_parameters called on a non-dynamic WorldEnvironment");
             return;
         };
+
+        DYNAMIC_SKY_UPDATES.fetch_add(1, Ordering::Relaxed);
 
         queue.write_buffer(
             &state.params_buffer,

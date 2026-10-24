@@ -1,7 +1,9 @@
 use crate::state::{IcedState, Message};
 use iced_winit::core::Theme;
 use orbital_app::RenderLayer;
-use orbital_app::render_overlay::{LayerRenderer as LayerRendererTrait, RenderOverlayContext};
+use orbital_app::render_overlay::{
+    LayerRenderer as LayerRendererTrait, OverlayRenderTimings, RenderOverlayContext,
+};
 use orbital_ecs_bridge::{
     AdapterResource, DeviceResource, IcedCapturedMouseDrag, IcedCapturedMouseWheel,
     IcedCapturedTouches, IcedEventQueue, IcedTextInputFocus, IcedWindowEvent, QueueResource,
@@ -95,6 +97,7 @@ pub struct IcedLayerRenderer<M: Clone + PartialEq + Send + Sync + 'static = Mess
     inner: Mutex<Option<RendererInner<M>>>,
     device: Option<wgpu::Device>,
     queue: Option<wgpu::Queue>,
+    last_timings: OverlayRenderTimings,
 }
 
 struct RendererInner<M: Clone + PartialEq + Send + Sync + 'static> {
@@ -124,6 +127,7 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> IcedLayerRenderer<M> {
             inner: Mutex::new(None),
             device: None,
             queue: None,
+            last_timings: OverlayRenderTimings::default(),
         }
     }
 
@@ -147,9 +151,13 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
     /// information is current when game touch input is processed.
     fn process_events(&mut self, ecs: &mut orbital_ecs::World) {
         // A hidden panel is skipped outright: no view, no layout, no diff.
-        if !self.state.is_visible() {
+        if !self.state.is_visible_in(ecs) {
             if let Some(inner) = self.inner.lock().unwrap().as_mut() {
-                inner.interface = None;
+                // Keep the widget state so reopening the panel restores scroll
+                // offsets and text cursors, but drop the tree itself.
+                if let Some(previous) = inner.interface.take() {
+                    inner.cache = Some(previous.into_cache());
+                }
             }
             return;
         }
@@ -307,14 +315,15 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
         // widget-tree diff and layout, which is the expensive part; input is
         // routed below either way, so throttling this never delays a click.
         let resized = inner.layout_size != window_size;
-        let stale = inner
-            .last_build
-            .is_none_or(|last| last.elapsed() >= self.state.refresh_interval());
-        let reuse = inner.interface.is_some() && !resized && !self.state.is_dirty() && !stale;
+        let rebuild = should_rebuild(
+            inner.interface.is_some(),
+            self.state.is_dirty(),
+            resized,
+            inner.last_build.map(|last| last.elapsed()),
+            self.state.refresh_interval(),
+        );
 
-        let mut interface = if reuse {
-            inner.interface.take()
-        } else {
+        let mut interface = if rebuild {
             // Reclaim the widget state from the interface built last frame
             // before dropping it. Without this the `Cache` would be empty on
             // every build and scroll offsets, text cursors and hover state
@@ -326,12 +335,22 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
             let view = self.state.view(ecs);
             let cache = inner.cache.take().unwrap_or_default();
 
-            Some(iced_runtime::user_interface::UserInterface::build(
+            let interface = iced_runtime::user_interface::UserInterface::build(
                 view,
                 logical_size,
                 cache,
                 &mut inner.renderer,
-            ))
+            );
+
+            // Clear the dirty flag before routing events below: a message or a
+            // captured interaction raised during this frame must survive so
+            // the next frame rebuilds with its result.
+            self.state.mark_built();
+            inner.last_build = Some(std::time::Instant::now());
+
+            Some(interface)
+        } else {
+            inner.interface.take()
         };
 
         let waker = iced_winit::core::shell::Waker::noop();
@@ -464,17 +483,14 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
         // Hand the interface to `render` instead of dropping it. The cache is
         // *not* taken back here: the retained interface owns the widget state
         // until the next rebuild.
-        if !reuse {
-            inner.last_build = Some(std::time::Instant::now());
-        }
-
         inner.interface = interface;
         inner.layout_size = window_size;
-        self.state.mark_built();
     }
 
     fn render(&mut self, ctx: RenderOverlayContext) {
-        if !self.state.is_visible() {
+        self.last_timings = OverlayRenderTimings::default();
+
+        if !self.state.is_visible_in(ctx.ecs) {
             return;
         }
 
@@ -565,7 +581,9 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
             text_color: theme.palette().background.base.text,
         };
 
+        let draw_start = std::time::Instant::now();
         interface.draw(renderer, &theme, &style, cursor);
+        let draw = draw_start.elapsed();
 
         let physical_size =
             iced_core::Size::new(ctx.screen_size.0 as u32, ctx.screen_size.1 as u32);
@@ -578,7 +596,15 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
             },
         );
 
+        let submit_start = std::time::Instant::now();
         renderer.present(None, format, ctx.target_view, &viewport);
+        let submit = submit_start.elapsed();
+
+        self.last_timings = OverlayRenderTimings { draw, submit };
+    }
+
+    fn take_render_timings(&mut self) -> OverlayRenderTimings {
+        std::mem::take(&mut self.last_timings)
     }
 }
 
@@ -907,6 +933,24 @@ impl std::fmt::Debug for NoopWindow {
     }
 }
 
+/// Whether a panel's widget tree is due for a rebuild.
+///
+/// A rebuild is forced when there is no tree yet, when the panel was resized,
+/// when something marked it dirty, or when the previous tree is older than its
+/// refresh interval.
+fn should_rebuild(
+    has_interface: bool,
+    dirty: bool,
+    resized: bool,
+    last_build_elapsed: Option<std::time::Duration>,
+    refresh_interval: std::time::Duration,
+) -> bool {
+    !has_interface
+        || resized
+        || dirty
+        || last_build_elapsed.is_none_or(|elapsed| elapsed >= refresh_interval)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -992,5 +1036,69 @@ mod tests {
 
         assert!(!first.focused);
         assert!(second.focused);
+    }
+
+    /// A 250 ms refresh interval, matching the panel default.
+    const INTERVAL: std::time::Duration = std::time::Duration::from_millis(250);
+
+    #[test]
+    fn a_panel_without_an_interface_rebuilds_immediately() {
+        assert!(should_rebuild(false, false, false, None, INTERVAL));
+    }
+
+    #[test]
+    fn a_resize_forces_a_rebuild() {
+        assert!(should_rebuild(
+            true,
+            false,
+            true,
+            Some(std::time::Duration::ZERO),
+            INTERVAL
+        ));
+    }
+
+    #[test]
+    fn a_dirty_panel_rebuilds_even_within_the_interval() {
+        assert!(should_rebuild(
+            true,
+            true,
+            false,
+            Some(std::time::Duration::ZERO),
+            INTERVAL
+        ));
+    }
+
+    #[test]
+    fn a_clean_panel_reuses_its_tree_within_the_interval() {
+        assert!(!should_rebuild(
+            true,
+            false,
+            false,
+            Some(std::time::Duration::from_millis(100)),
+            INTERVAL
+        ));
+    }
+
+    #[test]
+    fn a_panel_rebuilds_once_the_interval_has_elapsed() {
+        assert!(should_rebuild(true, false, false, Some(INTERVAL), INTERVAL));
+        assert!(should_rebuild(
+            true,
+            false,
+            false,
+            Some(std::time::Duration::from_secs(1)),
+            INTERVAL
+        ));
+    }
+
+    #[test]
+    fn a_zero_interval_rebuilds_every_frame() {
+        assert!(should_rebuild(
+            true,
+            false,
+            false,
+            Some(std::time::Duration::ZERO),
+            std::time::Duration::ZERO
+        ));
     }
 }

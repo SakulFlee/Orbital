@@ -22,6 +22,14 @@ type MessageHandler<M> = Arc<dyn Fn(&mut IcedState<M>, M, &mut World) + Send + S
 
 type VisibilityFn = Arc<dyn Fn(&World) -> bool + Send + Sync>;
 
+/// Default maximum time between widget-tree rebuilds.
+///
+/// Four updates per second is enough for panels showing live game state while
+/// keeping the cost of re-running the view, widget diff and layout low. Panels
+/// that need smoother output can opt into a smaller interval, and interactions
+/// are rebuilt immediately regardless of this interval.
+pub const DEFAULT_REFRESH_INTERVAL: std::time::Duration = std::time::Duration::from_millis(250);
+
 /// A single floating Iced panel.
 ///
 /// The view is a pure `Fn(&World) -> Element`, so all panel state lives in the
@@ -58,7 +66,8 @@ pub struct IcedState<M: Clone + PartialEq + Send + Sync + 'static = Message> {
     /// after each rebuild.
     dirty: bool,
     /// How long the renderer may reuse the previous widget tree before
-    /// rebuilding it anyway. Zero (the default) means every frame.
+    /// rebuilding it anyway. Defaults to [`DEFAULT_REFRESH_INTERVAL`]; zero
+    /// means rebuild every frame.
     refresh_interval: std::time::Duration,
 }
 
@@ -78,7 +87,7 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> Default for IcedState<M> {
             height: Length::Shrink,
             resizable: true,
             dirty: true,
-            refresh_interval: std::time::Duration::ZERO,
+            refresh_interval: DEFAULT_REFRESH_INTERVAL,
         }
     }
 }
@@ -213,6 +222,20 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> IcedState<M> {
         self.visible
     }
 
+    /// Whether this panel should currently be built and drawn, taking the
+    /// world-driven [`visibility`](Self::with_visibility) predicate into
+    /// account.
+    ///
+    /// Checked before building the view as well as by the renderer, so a panel
+    /// hidden by the predicate does no update, layout or draw work at all.
+    pub fn is_visible_in(&self, ecs: &World) -> bool {
+        self.visible
+            && self
+                .visibility
+                .as_ref()
+                .is_none_or(|visibility| visibility(ecs))
+    }
+
     /// Rebuild the widget tree at most this often.
     ///
     /// A panel whose content changes every frame does not need its view rebuilt
@@ -228,8 +251,8 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> IcedState<M> {
     /// the consequence is that externally-driven changes — a component value
     /// moving, say — can appear up to one interval late.
     ///
-    /// The default is zero, i.e. rebuild every frame, which is what a panel
-    /// showing live game state normally wants.
+    /// The default is [`DEFAULT_REFRESH_INTERVAL`] (250 ms, or 4 Hz). Use
+    /// [`Duration::ZERO`](std::time::Duration::ZERO) to rebuild every frame.
     pub fn with_refresh_interval(mut self, interval: std::time::Duration) -> Self {
         self.refresh_interval = interval;
         self
@@ -286,16 +309,10 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> IcedState<M> {
     }
 
     pub fn view(&self, ecs: &World) -> Element<'static, M, Theme, Renderer> {
-        if !self.visible {
-            return hidden_view();
-        }
-
         // Checked before the view is built, so a hidden panel draws no title
         // bar either — that is what used to leave bare titles on screen while
         // the overlay was off.
-        if let Some(visibility) = &self.visibility
-            && !visibility(ecs)
-        {
+        if !self.is_visible_in(ecs) {
             return hidden_view();
         }
 
@@ -510,9 +527,20 @@ mod tests {
     }
 
     #[test]
-    fn the_default_refresh_interval_is_unthrottled() {
+    fn the_default_refresh_interval_is_four_hz() {
         assert_eq!(
             IcedState::<Message>::new().refresh_interval(),
+            DEFAULT_REFRESH_INTERVAL
+        );
+        assert_eq!(DEFAULT_REFRESH_INTERVAL.as_millis(), 250);
+    }
+
+    #[test]
+    fn zero_refresh_interval_opts_into_every_frame() {
+        assert_eq!(
+            IcedState::<Message>::new()
+                .with_refresh_interval(std::time::Duration::ZERO)
+                .refresh_interval(),
             std::time::Duration::ZERO,
             "zero means rebuild every frame"
         );
@@ -546,11 +574,22 @@ mod tests {
 
         let world = World::new();
 
+        assert!(!state.is_visible_in(&world));
+
         // The view must build in both cases without panicking; the predicate is
         // what decides whether a `FloatingPanel` is constructed at all.
         let _ = state.view(&world);
         visible.store(true, Ordering::Relaxed);
+        assert!(state.is_visible_in(&world));
         let _ = state.view(&world);
+    }
+
+    #[test]
+    fn the_static_visible_flag_overrides_the_visibility_predicate() {
+        let mut state: IcedState = IcedState::titled("t").with_visibility(|_: &World| true);
+        state.set_visible(false);
+
+        assert!(!state.is_visible_in(&World::new()));
     }
 
     #[test]

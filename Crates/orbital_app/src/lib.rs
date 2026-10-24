@@ -1,6 +1,9 @@
 mod settings;
 pub use settings::*;
 
+#[allow(dead_code)]
+pub mod android_performance;
+
 mod core_schedule;
 pub use core_schedule::*;
 
@@ -29,7 +32,7 @@ pub use render_layer::{LayerConfig, RenderLayer};
 
 pub mod render_overlay;
 pub use render_overlay::{
-    LayerRenderer, RenderOverlay, RenderOverlayContext, RenderOverlayResource,
+    LayerRenderer, OverlayRenderTimings, RenderOverlay, RenderOverlayContext, RenderOverlayResource,
 };
 
 mod touch_controls;
