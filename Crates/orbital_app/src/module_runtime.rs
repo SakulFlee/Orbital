@@ -38,8 +38,13 @@ use orbital_ecs_bridge::{
     CursorGrabState, CursorPosition, DeltaTime, DeviceResource, EcsCameraStore, EngineEvent,
     EngineEvents, FpsStats, FrameCounter, FrameTimings, IcedCapturedMouseDrag,
     IcedCapturedMouseWheel, IcedCapturedTouches, IcedEventQueue, IcedTextInputFocus, InputSnapshot,
-    LightDescriptorEcs, Position, QueueResource, SurfaceFormatResource, TIMING_STAGES,
-    TimingsHistoryConfig, TotalTime, WindowSize,
+    LightDescriptorEcs, Position, QueueResource, STAGE_BIND_MODELS, STAGE_CULL_EXTRACT,
+    STAGE_GAME_SCHEDULE, STAGE_GPU_MODELS, STAGE_GPU_SCENE_TOTAL, STAGE_GPU_SHADOW,
+    STAGE_GPU_SKYBOX, STAGE_ICED_DRAW, STAGE_ICED_SUBMIT, STAGE_OVERLAY_LAYERS,
+    STAGE_OVERLAY_LEGACY, STAGE_PRESENT, STAGE_REALIZE, STAGE_REALIZE_ENV, STAGE_REALIZE_MODELS,
+    STAGE_SCENE_ENCODE, STAGE_SCENE_SUBMIT, STAGE_STAGGER, STAGE_SURFACE_ACQ,
+    STAGE_TIMESTAMP_READBACK, STAGE_TOTAL, STAGE_UI_EVENTS, STAGE_UPDATE, SurfaceFormatResource,
+    TIMING_STAGES, TimingsHistoryConfig, TotalTime, WindowSize,
 };
 
 macro_rules! ctx_lock {
@@ -78,37 +83,43 @@ impl FrameStageScratch {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
-    fn fill(
-        &mut self,
-        surface_acq: std::time::Duration,
-        realize: std::time::Duration,
-        stagger: std::time::Duration,
-        cull_extract: std::time::Duration,
-        bind_group_models: std::time::Duration,
-        render: std::time::Duration,
-        present: std::time::Duration,
-        total: std::time::Duration,
-        gpu_ns: [f64; 3],
-    ) {
-        let ms = |duration: std::time::Duration| duration.as_secs_f64() * 1000.0;
-
-        self.durations[0] = ms(surface_acq);
-        self.durations[1] = ms(realize);
-        self.durations[2] = ms(stagger);
-        self.durations[3] = ms(cull_extract);
-        self.durations[4] = ms(bind_group_models);
-        self.durations[5] = ms(render);
-        self.durations[6] = ms(present);
-        self.durations[7] = ms(total);
-
-        // gpu_ns: raw GPU timestamps at [shadow_start, skybox_start, main_end].
-        // Timestamps are in nanoseconds, so scale to milliseconds.
-        const NS_TO_MS: f64 = 1.0 / 1_000_000.0;
-        self.durations[8] = (gpu_ns[1] - gpu_ns[0]) * NS_TO_MS;
-        self.durations[9] = (gpu_ns[2] - gpu_ns[1]) * NS_TO_MS;
-        self.durations[10] = (gpu_ns[2] - gpu_ns[0]) * NS_TO_MS;
+    fn set(&mut self, stage: usize, duration: std::time::Duration) {
+        self.durations[stage] = duration.as_secs_f64() * 1000.0;
     }
+
+    fn set_ms(&mut self, stage: usize, milliseconds: f64) {
+        self.durations[stage] = milliseconds;
+    }
+
+    fn set_gpu(&mut self, gpu_ns: [f64; 4]) {
+        // gpu_ns: [shadow_start, skybox_start, models_start, main_end].
+        const NS_TO_MS: f64 = 1.0 / 1_000_000.0;
+
+        self.durations[STAGE_GPU_SHADOW] = (gpu_ns[1] - gpu_ns[0]) * NS_TO_MS;
+        self.durations[STAGE_GPU_SKYBOX] = (gpu_ns[2] - gpu_ns[1]) * NS_TO_MS;
+        self.durations[STAGE_GPU_MODELS] = (gpu_ns[3] - gpu_ns[2]) * NS_TO_MS;
+        self.durations[STAGE_GPU_SCENE_TOTAL] = (gpu_ns[3] - gpu_ns[0]) * NS_TO_MS;
+    }
+}
+
+/// CPU timings captured during `update()`, before the redraw that records
+/// them. `update()` runs immediately before `redraw()` in the same event.
+#[derive(Debug, Clone, Copy, Default)]
+struct UpdateTimings {
+    total_ms: f64,
+    ui_events_ms: f64,
+    game_schedule_ms: f64,
+}
+
+/// Cumulative creation counters sampled once per timing-log window.
+#[derive(Debug, Clone, Copy, Default)]
+struct PerfCounterSnapshot {
+    shader_modules: u64,
+    unique_wgsl: u64,
+    pipelines: u64,
+    material_hits: u64,
+    material_misses: u64,
+    sky_updates: u64,
 }
 
 /// A wheel event held back from game input until iced has processed it.
@@ -133,6 +144,8 @@ pub struct ModuleRuntime {
     module_setup_done: bool,
     renderer: Option<orbital_renderer::Renderer>,
     frame_timings: FrameStageScratch,
+    update_timings: UpdateTimings,
+    perf_counters: PerfCounterSnapshot,
     back_press_count: u8,
     last_back_press: Option<std::time::Instant>,
     /// Touch events deferred for game-input processing.
@@ -204,6 +217,8 @@ impl ModuleRuntime {
             module_setup_done: false,
             renderer: None,
             frame_timings: FrameStageScratch::new(),
+            update_timings: UpdateTimings::default(),
+            perf_counters: PerfCounterSnapshot::default(),
             back_press_count: 0,
             last_back_press: None,
             deferred_touches: Vec::new(),
@@ -332,10 +347,14 @@ impl ModuleRuntime {
         // Realize all ECS state (needs &mut self.ecs_world)
         crate::systems::realize::realize_cameras(&mut self.ecs_world);
         crate::systems::realize::realize_lights(&mut self.ecs_world);
+        let t_env_start = Instant::now();
         crate::systems::realize::realize_environment(&mut self.ecs_world);
+        let t_models_start = Instant::now();
         crate::systems::realize::realize_models(&mut self.ecs_world);
         let t_stagger_start = Instant::now();
         let d_realize = t_stagger_start - t_realize_start;
+        let d_realize_env = t_models_start - t_env_start;
+        let d_realize_models = t_stagger_start - t_models_start;
 
         // Check if new lights were added this frame (forces full bootstrap)
         let new_light_bootstrap = self
@@ -837,10 +856,23 @@ impl ModuleRuntime {
                 &dirty_set,
             );
         }
-        let t_present_start = Instant::now();
-        let d_render = t_present_start - t_render_start;
+        drop(cull_res);
+
+        let renderer_cpu = self
+            .renderer
+            .as_ref()
+            .map(|renderer| renderer.prev_cpu_timings())
+            .unwrap_or_default();
+        let gpu_ns = self
+            .renderer
+            .as_ref()
+            .map_or([0.0; 4], |renderer| renderer.prev_gpu_ns());
 
         // Optional post‑main‑pass overlays (debug viz, HUD, gizmos, touch UI, …)
+        let d_overlay_legacy;
+        let d_overlay_layers;
+        let mut d_iced_draw = std::time::Duration::ZERO;
+        let mut d_iced_submit = std::time::Duration::ZERO;
         {
             let camera_buffer = self.extract_camera_buffer(device, queue);
 
@@ -852,6 +884,7 @@ impl ModuleRuntime {
             };
 
             // Render legacy overlays (without layer ordering)
+            let t_legacy_start = Instant::now();
             let mut overlays = self.legacy_overlays.lock().unwrap();
             for overlay in overlays.iter_mut() {
                 let ctx = crate::RenderOverlayContext {
@@ -864,9 +897,11 @@ impl ModuleRuntime {
                 };
                 overlay.render(ctx);
             }
+            d_overlay_legacy = t_legacy_start.elapsed();
             drop(overlays);
 
             // Render layer-aware renderers (sorted by layer order)
+            let t_layers_start = Instant::now();
             let mut layer_renderers = self.overlay_renderers.lock().unwrap();
             // Sort by layer order
             layer_renderers.sort_by_key(|r| r.layer().index());
@@ -881,7 +916,11 @@ impl ModuleRuntime {
                     screen_size,
                 };
                 renderer.render(ctx);
+                let timings = renderer.take_render_timings();
+                d_iced_draw += timings.draw;
+                d_iced_submit += timings.submit;
             }
+            d_overlay_layers = t_layers_start.elapsed();
 
             // Drain iced events once after all layer renderers have processed.
             // Each IcedLayerRenderer clones (not drains) the queue so that
@@ -891,9 +930,11 @@ impl ModuleRuntime {
             }
         }
 
+        let t_present_start = Instant::now();
         lock.queue().present(frame);
+        let d_present = t_present_start.elapsed();
+        drop(lock);
 
-        let d_present = Instant::now() - t_present_start;
         let d_total = Instant::now() - t_realize_start;
         let d_surface_acq = t_realize_start - t_start;
 
@@ -903,17 +944,36 @@ impl ModuleRuntime {
             crate::android_performance::report_frame(cpu_work);
         }
 
-        self.frame_timings.fill(
-            d_surface_acq,
-            d_realize,
-            d_stagger,
-            d_cull_extract,
-            d_bind_group_models,
-            d_render,
-            d_present,
-            d_total,
-            self.renderer.as_ref().map_or([0.0; 3], |r| r.prev_gpu_ns()),
-        );
+        self.frame_timings.set(STAGE_SURFACE_ACQ, d_surface_acq);
+        self.frame_timings
+            .set_ms(STAGE_UPDATE, self.update_timings.total_ms);
+        self.frame_timings
+            .set_ms(STAGE_UI_EVENTS, self.update_timings.ui_events_ms);
+        self.frame_timings
+            .set_ms(STAGE_GAME_SCHEDULE, self.update_timings.game_schedule_ms);
+        self.frame_timings.set(STAGE_REALIZE, d_realize);
+        self.frame_timings
+            .set(STAGE_REALIZE_MODELS, d_realize_models);
+        self.frame_timings.set(STAGE_REALIZE_ENV, d_realize_env);
+        self.frame_timings.set(STAGE_STAGGER, d_stagger);
+        self.frame_timings.set(STAGE_CULL_EXTRACT, d_cull_extract);
+        self.frame_timings
+            .set(STAGE_BIND_MODELS, d_bind_group_models);
+        self.frame_timings
+            .set_ms(STAGE_SCENE_ENCODE, renderer_cpu.encode_ms);
+        self.frame_timings
+            .set_ms(STAGE_SCENE_SUBMIT, renderer_cpu.submit_ms);
+        self.frame_timings
+            .set_ms(STAGE_TIMESTAMP_READBACK, renderer_cpu.timestamp_readback_ms);
+        self.frame_timings
+            .set(STAGE_OVERLAY_LEGACY, d_overlay_legacy);
+        self.frame_timings
+            .set(STAGE_OVERLAY_LAYERS, d_overlay_layers);
+        self.frame_timings.set(STAGE_ICED_DRAW, d_iced_draw);
+        self.frame_timings.set(STAGE_ICED_SUBMIT, d_iced_submit);
+        self.frame_timings.set(STAGE_PRESENT, d_present);
+        self.frame_timings.set(STAGE_TOTAL, d_total);
+        self.frame_timings.set_gpu(gpu_ns);
 
         // Publish the timings so debug overlays and systems can read them
         // without going through the log.
@@ -933,10 +993,53 @@ impl ModuleRuntime {
             .map(|delta| delta.0 * 1000.0)
             .unwrap_or(0.0);
 
-        if let Some(mut timings) = self.ecs_world.get_resource_mut::<FrameTimings>() {
+        let logged = if let Some(mut timings) = self.ecs_world.get_resource_mut::<FrameTimings>() {
             timings.record_at(&self.frame_timings.durations, elapsed, cdt_ms, history);
-            timings.try_log();
+            timings.try_log().is_some()
+        } else {
+            false
+        };
+
+        if logged {
+            self.log_perf_counters();
         }
+    }
+
+    /// Logs creation/cache counters for the same one-second window as
+    /// [`FrameTimings::try_log`].
+    fn log_perf_counters(&mut self) {
+        let shader = orbital_shader_core::stats();
+        let (material_hits, material_misses) = orbital_model::material_cache_stats();
+        let current = PerfCounterSnapshot {
+            shader_modules: shader.modules_created,
+            unique_wgsl: shader.unique_sources,
+            pipelines: orbital_material_shader::pipelines_created(),
+            material_hits,
+            material_misses,
+            sky_updates: orbital_world_environment::dynamic_sky_updates(),
+        };
+
+        info!(
+            "PERF window: shader_modules=+{} pipelines=+{} unique_wgsl={} material_cache hits=+{} misses=+{} sky_updates=+{}",
+            current
+                .shader_modules
+                .saturating_sub(self.perf_counters.shader_modules),
+            current
+                .pipelines
+                .saturating_sub(self.perf_counters.pipelines),
+            current.unique_wgsl,
+            current
+                .material_hits
+                .saturating_sub(self.perf_counters.material_hits),
+            current
+                .material_misses
+                .saturating_sub(self.perf_counters.material_misses),
+            current
+                .sky_updates
+                .saturating_sub(self.perf_counters.sky_updates),
+        );
+
+        self.perf_counters = current;
     }
 
     /// Extract camera buffer as an owned Buffer (cheap Arc clone).
@@ -1157,6 +1260,7 @@ impl ModuleRuntime {
     }
 
     fn update(&mut self) -> bool {
+        let update_start = std::time::Instant::now();
         let (delta_time, cycle) = self.timer.as_mut().expect("Timer went missing").tick();
 
         if let Some((total_delta, fps)) = cycle {
@@ -1191,12 +1295,14 @@ impl ModuleRuntime {
             focus.0 = false;
         }
 
+        let t_ui_events_start = std::time::Instant::now();
         {
             let mut layer_renderers = self.overlay_renderers.lock().unwrap();
             for renderer in layer_renderers.iter_mut() {
                 renderer.process_events(&mut self.ecs_world);
             }
         }
+        self.update_timings.ui_events_ms = t_ui_events_start.elapsed().as_secs_f64() * 1000.0;
 
         // ── Process deferred game touch input ───────────────────────
         // Touches were deferred in window_event() so that iced could
@@ -1312,13 +1418,17 @@ impl ModuleRuntime {
             .get_resource::<TotalTime>()
             .map(|t| t.0)
             .unwrap_or(0.0);
+        let t_game_schedule_start = std::time::Instant::now();
         self.game_schedule
             .run_with_time(&mut self.ecs_world, now_secs);
+        self.update_timings.game_schedule_ms =
+            t_game_schedule_start.elapsed().as_secs_f64() * 1000.0;
 
         // Process engine events
         let exit_requested = self.process_engine_events();
 
         self.input_state.reset_deltas();
+        self.update_timings.total_ms = update_start.elapsed().as_secs_f64() * 1000.0;
 
         exit_requested
     }

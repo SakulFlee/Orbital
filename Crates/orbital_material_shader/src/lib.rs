@@ -1,5 +1,8 @@
 use std::error::Error;
-use std::sync::OnceLock;
+use std::sync::{
+    OnceLock,
+    atomic::{AtomicU64, Ordering},
+};
 
 pub use orbital_shader_core::{ShaderDescriptor, ShaderError, Variables};
 use wgpu::{
@@ -16,6 +19,13 @@ pub use descriptor::*;
 
 mod cache;
 pub use cache::*;
+
+static PIPELINES_CREATED: AtomicU64 = AtomicU64::new(0);
+
+/// Returns the cumulative number of material render pipelines created.
+pub fn pipelines_created() -> u64 {
+    PIPELINES_CREATED.load(Ordering::Relaxed)
+}
 
 mod vertex_stage_layout;
 pub use vertex_stage_layout::*;
@@ -128,6 +138,7 @@ impl MaterialShader {
         };
 
         let pipeline = device.create_render_pipeline(&pipeline_desc);
+        PIPELINES_CREATED.fetch_add(1, Ordering::Relaxed);
         Ok(Self {
             pipeline,
             bind_group,
