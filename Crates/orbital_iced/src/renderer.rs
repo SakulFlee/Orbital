@@ -4,12 +4,85 @@ use orbital_app::RenderLayer;
 use orbital_app::render_overlay::{LayerRenderer as LayerRendererTrait, RenderOverlayContext};
 use orbital_ecs_bridge::{
     AdapterResource, DeviceResource, IcedCapturedMouseDrag, IcedCapturedMouseWheel,
-    IcedCapturedTouches, IcedEventQueue, IcedWindowEvent, QueueResource, SurfaceFormatResource,
-    WindowSize,
+    IcedCapturedTouches, IcedEventQueue, IcedTextInputFocus, IcedWindowEvent, QueueResource,
+    SurfaceFormatResource, WindowSize,
 };
 use std::sync::Mutex;
 use winit::event::{ElementState, MouseButton, TouchPhase};
 
+/// Finds the focused focusable widget (only text inputs in this fork) and the
+/// total focusable count in an interface.
+#[derive(Default)]
+struct TextInputFocusProbe {
+    focused: Option<usize>,
+    total: usize,
+}
+
+impl iced_core::widget::Operation for TextInputFocusProbe {
+    fn traverse(&mut self, operate: &mut dyn FnMut(&mut dyn iced_core::widget::Operation)) {
+        operate(self);
+    }
+
+    fn focusable(
+        &mut self,
+        _id: Option<&iced_core::widget::Id>,
+        _bounds: iced_core::Rectangle,
+        state: &mut dyn iced_core::widget::operation::Focusable,
+    ) {
+        if state.is_focused() {
+            self.focused = Some(self.total);
+        }
+        self.total += 1;
+    }
+}
+
+/// Moves focus from one focusable index to another (or unfocuses it).
+///
+/// The fork's `focus_next`/`focus_previous` helpers rely on `Operation::finish`
+/// chaining, which `UserInterface::operate` does not process. This performs
+/// the move in a single direct pass instead.
+struct FocusMover {
+    current: usize,
+    focused: usize,
+    target: Option<usize>,
+}
+
+impl iced_core::widget::Operation for FocusMover {
+    fn traverse(&mut self, operate: &mut dyn FnMut(&mut dyn iced_core::widget::Operation)) {
+        operate(self);
+    }
+
+    fn focusable(
+        &mut self,
+        _id: Option<&iced_core::widget::Id>,
+        _bounds: iced_core::Rectangle,
+        state: &mut dyn iced_core::widget::operation::Focusable,
+    ) {
+        if self.current == self.focused {
+            state.unfocus();
+        }
+        if self.target == Some(self.current) {
+            state.focus();
+        }
+        self.current += 1;
+    }
+}
+
+/// Returns `Some(shift)` if the event batch contains a Tab key press.
+fn tab_shift(events: &[iced_core::Event]) -> Option<bool> {
+    events.iter().find_map(|event| {
+        if let iced_core::Event::Keyboard(iced_core::keyboard::Event::KeyPressed {
+            key: iced_core::keyboard::Key::Named(iced_core::keyboard::key::Named::Tab),
+            modifiers,
+            ..
+        }) = event
+        {
+            Some(modifiers.shift())
+        } else {
+            None
+        }
+    })
+}
 /// Drives one [`IcedState`] panel: builds its `UserInterface`, routes input to
 /// it, and draws it over the game render.
 ///
@@ -275,6 +348,46 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
                 &mut inner.renderer,
                 &mut bus,
             );
+
+        // Probe focus after `update` so a click that focused a text input is
+        // visible to the runtime in this same frame. The runtime resets the
+        // flag before the renderer pass and unions it across panels.
+        let mut focus_probe = TextInputFocusProbe::default();
+        if let Some(interface) = interface.as_mut() {
+            interface.operate(&inner.renderer, &mut focus_probe);
+
+            // Tab / Shift+Tab move between focused text inputs. Only intercept
+            // when a field already has focus, so Tab remains a game key when
+            // the overlay is not being edited.
+            if let Some(focused) = focus_probe.focused
+                && let Some(shift) = tab_shift(&iced_core_events)
+            {
+                let target = if shift {
+                    focused.checked_sub(1)
+                } else {
+                    (focused + 1 < focus_probe.total).then_some(focused + 1)
+                };
+
+                let mut mover = FocusMover {
+                    current: 0,
+                    focused,
+                    target,
+                };
+                interface.operate(&inner.renderer, &mut mover);
+
+                // Re-probe so tabbing past the last field releases input in
+                // this same frame.
+                let mut after = TextInputFocusProbe::default();
+                interface.operate(&inner.renderer, &mut after);
+                focus_probe = after;
+                self.state.mark_dirty();
+            }
+        }
+        if focus_probe.focused.is_some()
+            && let Some(mut focus) = ecs.get_resource_mut::<IcedTextInputFocus>()
+        {
+            focus.0 = true;
+        }
 
         // Process messages. Done *after* `update` so a panel can react to a
         // click, and so the state change lands in the next frame's view.
@@ -834,5 +947,50 @@ mod tests {
                 delta: iced_core::mouse::ScrollDelta::Pixels { x: 10.0, y: -20.0 }
             }))
         ));
+    }
+
+    struct DummyFocusable {
+        focused: bool,
+    }
+
+    impl iced_core::widget::operation::Focusable for DummyFocusable {
+        fn is_focused(&self) -> bool {
+            self.focused
+        }
+
+        fn focus(&mut self) {
+            self.focused = true;
+        }
+
+        fn unfocus(&mut self) {
+            self.focused = false;
+        }
+    }
+
+    #[test]
+    fn the_focus_probe_and_mover_use_focusable_order() {
+        use iced_core::widget::Operation;
+
+        let bounds = iced_core::Rectangle::new(iced_core::Point::ORIGIN, iced_core::Size::ZERO);
+
+        let mut probe = TextInputFocusProbe::default();
+        let mut first = DummyFocusable { focused: true };
+        let mut second = DummyFocusable { focused: false };
+        probe.focusable(None, bounds, &mut first);
+        probe.focusable(None, bounds, &mut second);
+
+        assert_eq!(probe.focused, Some(0));
+        assert_eq!(probe.total, 2);
+
+        let mut mover = FocusMover {
+            current: 0,
+            focused: 0,
+            target: Some(1),
+        };
+        mover.focusable(None, bounds, &mut first);
+        mover.focusable(None, bounds, &mut second);
+
+        assert!(!first.focused);
+        assert!(second.focused);
     }
 }

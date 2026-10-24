@@ -417,6 +417,30 @@ where
         }
     }
 
+    fn operate(
+        &mut self,
+        tree: &mut Tree,
+        layout: Layout<'_>,
+        renderer: &Renderer,
+        operation: &mut dyn widget::Operation,
+    ) {
+        operation.container(None, layout.bounds());
+        operation.traverse(&mut |operation| {
+            self.title.as_widget_mut().operate(
+                tree.children.get_mut(0).unwrap(),
+                layout.child(0),
+                renderer,
+                operation,
+            );
+            self.content.as_widget_mut().operate(
+                tree.children.get_mut(1).unwrap(),
+                layout.child(1),
+                renderer,
+                operation,
+            );
+        });
+    }
+
     fn draw(
         &self,
         tree: &Tree,

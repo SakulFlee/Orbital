@@ -82,6 +82,19 @@ impl InputState {
         self.touch_deltas.clear();
     }
 
+    /// Drops all game input state.
+    ///
+    /// Used while a debug text field has keyboard focus, so typing cannot also
+    /// drive the player or camera. The cursor position and surface metadata are
+    /// kept because they are not input gestures.
+    pub fn clear(&mut self) {
+        self.button_states.clear();
+        self.delta_states.clear();
+        self.touch_positions.clear();
+        self.touch_origins.clear();
+        self.touch_deltas.clear();
+    }
+
     #[allow(clippy::type_complexity)]
     pub fn handle_event(&mut self, input_event: InputEvent) {
         let (input_id, input_button_state, input_axis_state): (
@@ -730,6 +743,51 @@ mod tests {
         // Remains true after the finger lifts.
         state.handle_event(touch_event(TouchPhase::Ended, (200.0, 400.0), 1));
         assert!(state.has_seen_touch());
+    }
+
+    #[test]
+    fn clear_drops_all_game_input_state() {
+        let mut state = setup_state();
+        let device_id = DeviceId::dummy();
+        let kb_mouse = InputId::KeyboardOrMouse(device_id);
+
+        state.handle_event(InputEvent::MouseMovedDelta {
+            device_id,
+            delta: (5.0, 3.0),
+        });
+        state.handle_event(InputEvent::MouseButton {
+            device_id,
+            state: ElementState::Pressed,
+            button: MouseButton::Left,
+        });
+        state.handle_event(touch_event(TouchPhase::Started, (10.0, 10.0), 1));
+
+        assert!(
+            state
+                .button_state_specific(&InputButton::Mouse(MouseButton::Left), kb_mouse)
+                .unwrap()
+        );
+        assert!(
+            state
+                .delta_state_specific(&InputAxis::MouseMovement, kb_mouse)
+                .is_some()
+        );
+        assert!(state.touch_position(1).is_some());
+
+        state.clear();
+
+        assert!(
+            state
+                .button_state_specific(&InputButton::Mouse(MouseButton::Left), kb_mouse)
+                .is_none()
+        );
+        assert!(
+            state
+                .delta_state_specific(&InputAxis::MouseMovement, kb_mouse)
+                .is_none()
+        );
+        assert_eq!(state.touch_position(1), None);
+        assert!(state.has_seen_touch(), "platform capability stays known");
     }
 
     #[test]

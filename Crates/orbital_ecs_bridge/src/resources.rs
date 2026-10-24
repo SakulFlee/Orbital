@@ -125,6 +125,28 @@ impl TimingSample {
     }
 }
 
+/// Controls whether [`FrameTimings`] retains graph history, and for how long.
+///
+/// The debug overlay updates this resource while its Performance window is
+/// visible. When disabled, the next recorded frame clears the retained graph
+/// history instead of growing it.
+#[derive(Debug, Clone, Copy)]
+pub struct TimingsHistoryConfig {
+    /// Whether graph history should be retained.
+    pub enabled: bool,
+    /// How many seconds of history to keep.
+    pub window_secs: f64,
+}
+
+impl Default for TimingsHistoryConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            window_secs: 10.0,
+        }
+    }
+}
+
 /// Per-stage frame timings plus a rolling history, for debug overlays.
 ///
 /// The runtime writes this resource at the end of every redraw, right after
@@ -143,6 +165,11 @@ pub struct FrameTimings {
     /// Per-stage durations over time, oldest first. One entry per frame, each
     /// holding one value per stage in [`TIMING_STAGES`] order.
     history: VecDeque<Vec<f64>>,
+    /// Time of each retained graph frame, oldest first. Parallel to `history`
+    /// and `frame_ms`.
+    history_times: VecDeque<f64>,
+    /// Wall-clock frame delta per retained graph frame, in milliseconds.
+    cdt_history: VecDeque<f32>,
     /// Totals for the current one-second log window only. Independent of
     /// `totals`, so emitting the summary never disturbs the overlay.
     window_totals: Vec<f64>,
@@ -151,8 +178,11 @@ pub struct FrameTimings {
 }
 
 impl FrameTimings {
-    /// How many frames of history to keep.
-    pub const HISTORY_LEN: usize = 240;
+    /// Hard cap on retained graph frames.
+    ///
+    /// The selected time window normally evicts much earlier; this bounds
+    /// memory if the renderer runs at an extreme frame rate.
+    pub const HISTORY_LEN: usize = 16_384;
 
     /// How often the `info!` timing summary is emitted, in seconds.
     const LOG_INTERVAL_SECS: f64 = 1.0;
@@ -165,8 +195,10 @@ impl FrameTimings {
             samples: (0..stages).map(TimingSample::empty).collect(),
             totals: vec![0.0; stages],
             count: 0,
-            frame_ms: VecDeque::with_capacity(Self::HISTORY_LEN),
-            history: VecDeque::with_capacity(Self::HISTORY_LEN),
+            frame_ms: VecDeque::with_capacity(256),
+            history: VecDeque::with_capacity(256),
+            history_times: VecDeque::with_capacity(256),
+            cdt_history: VecDeque::with_capacity(256),
             window_totals: vec![0.0; stages],
             window_count: 0,
             last_print: std::time::Instant::now(),
@@ -193,12 +225,71 @@ impl FrameTimings {
         &self.history
     }
 
+    /// Timestamps of the retained graph frames, oldest first.
+    pub fn history_times(&self) -> &VecDeque<f64> {
+        &self.history_times
+    }
+
+    /// Wall-clock frame delta per retained graph frame, in milliseconds.
+    pub fn cdt_history(&self) -> &VecDeque<f32> {
+        &self.cdt_history
+    }
+
+    /// The first index of the retained frames that fall within the last
+    /// `seconds` seconds.
+    pub fn window_start(&self, seconds: f64) -> usize {
+        let Some(latest) = self.history_times.back().copied() else {
+            return 0;
+        };
+
+        if !seconds.is_finite() {
+            return 0;
+        }
+
+        let cutoff = latest - seconds.max(0.0);
+
+        self.history_times
+            .iter()
+            .position(|time| *time >= cutoff)
+            .unwrap_or(self.history_times.len())
+    }
+
     /// Records one frame's worth of stage durations, in [`TIMING_STAGES`]
     /// order.
+    ///
+    /// This keeps graph history enabled indefinitely and is primarily useful
+    /// for tests and simple callers. The runtime uses
+    /// [`Self::record_at`] with a [`TimingsHistoryConfig`].
     ///
     /// `durations` must have exactly [`TIMING_STAGES`] entries; anything else
     /// is ignored, so a mismatch in the runtime can't corrupt the history.
     pub fn record(&mut self, durations: &[f64]) {
+        let elapsed = self.count as f64 / 60.0;
+
+        self.record_at(
+            durations,
+            elapsed,
+            0.0,
+            TimingsHistoryConfig {
+                enabled: true,
+                window_secs: f64::INFINITY,
+            },
+        );
+    }
+
+    /// Records one frame's stage durations and graph metrics.
+    ///
+    /// The cumulative statistics always update. Graph history only grows while
+    /// `config.enabled` is set; otherwise any retained graph history is
+    /// cleared. When enabled, frames older than `config.window_secs` are
+    /// evicted.
+    pub fn record_at(
+        &mut self,
+        durations: &[f64],
+        elapsed: f64,
+        cdt_ms: f64,
+        config: TimingsHistoryConfig,
+    ) {
         if durations.len() != self.samples.len() {
             return;
         }
@@ -232,15 +323,43 @@ impl FrameTimings {
             sample.avg_ms = self.totals[index] / n;
         }
 
-        if self.frame_ms.len() == Self::HISTORY_LEN {
-            self.frame_ms.pop_front();
-        }
-        self.frame_ms.push_back(durations[TOTAL_STAGE_INDEX] as f32);
+        if !config.enabled {
+            if !self.history.is_empty() {
+                self.history.clear();
+                self.frame_ms.clear();
+                self.history_times.clear();
+                self.cdt_history.clear();
+            }
 
-        if self.history.len() == Self::HISTORY_LEN {
-            self.history.pop_front();
+            return;
         }
+
+        self.history_times.push_back(elapsed);
+        self.frame_ms.push_back(durations[TOTAL_STAGE_INDEX] as f32);
+        self.cdt_history.push_back(cdt_ms as f32);
         self.history.push_back(durations.to_vec());
+
+        while self.history.len() > Self::HISTORY_LEN {
+            self.history.pop_front();
+            self.frame_ms.pop_front();
+            self.history_times.pop_front();
+            self.cdt_history.pop_front();
+        }
+
+        if config.window_secs.is_finite() {
+            let cutoff = elapsed - config.window_secs.max(0.0);
+
+            while self
+                .history_times
+                .front()
+                .is_some_and(|time| *time < cutoff)
+            {
+                self.history.pop_front();
+                self.frame_ms.pop_front();
+                self.history_times.pop_front();
+                self.cdt_history.pop_front();
+            }
+        }
     }
 
     /// Resets the accumulating statistics, keeping the history and `last_ms`.
@@ -536,6 +655,14 @@ impl IcedCapturedMouseDrag {
 #[derive(Debug, Clone, Default)]
 pub struct IcedCapturedMouseWheel(pub bool);
 
+/// Whether a text input in an iced overlay currently has keyboard focus.
+///
+/// The overlay renderers set this each update by probing the widget tree. The
+/// runtime suppresses game input while it is set, so typing into a debug field
+/// cannot also move the player or rotate the camera.
+#[derive(Debug, Clone, Default)]
+pub struct IcedTextInputFocus(pub bool);
+
 // ---------------------------------------------------------------------------
 // Engine events (replace AppEvent)
 // ---------------------------------------------------------------------------
@@ -666,6 +793,76 @@ mod tests {
         let history = timings.history();
         assert_eq!(history[0][0], 10.0);
         assert_eq!(history[0].len(), TIMING_STAGES.len());
+    }
+
+    #[test]
+    fn graph_history_respects_the_selected_window() {
+        let mut timings = FrameTimings::new();
+        let config = TimingsHistoryConfig {
+            enabled: true,
+            window_secs: 1.0,
+        };
+
+        for index in 0..10 {
+            timings.record_at(&frame(index as f64), index as f64 * 0.5, 16.0, config);
+        }
+
+        // Times are 0.0, 0.5, ... 4.5. A 1s window keeps 3.5, 4.0 and 4.5.
+        assert_eq!(timings.history().len(), 3);
+        assert_eq!(timings.frame_ms().len(), 3);
+        assert_eq!(timings.cdt_history().len(), 3);
+        assert_eq!(
+            timings.history_times().front().copied(),
+            Some(3.5),
+            "older frames are evicted"
+        );
+        assert_eq!(timings.cdt_history().back().copied(), Some(16.0));
+    }
+
+    #[test]
+    fn disabling_graph_history_clears_it() {
+        let mut timings = FrameTimings::new();
+        let config = TimingsHistoryConfig {
+            enabled: true,
+            window_secs: 10.0,
+        };
+
+        timings.record_at(&frame(1.0), 0.0, 16.0, config);
+        assert_eq!(timings.history().len(), 1);
+
+        timings.record_at(
+            &frame(2.0),
+            1.0,
+            16.0,
+            TimingsHistoryConfig {
+                enabled: false,
+                window_secs: 10.0,
+            },
+        );
+
+        assert!(timings.history().is_empty());
+        assert!(timings.frame_ms().is_empty());
+        assert!(timings.history_times().is_empty());
+        assert!(timings.cdt_history().is_empty());
+        assert_eq!(timings.frame_count(), 2, "cumulative stats still update");
+    }
+
+    #[test]
+    fn window_start_returns_the_first_frame_inside_the_window() {
+        let mut timings = FrameTimings::new();
+        let config = TimingsHistoryConfig {
+            enabled: true,
+            window_secs: 10.0,
+        };
+
+        for index in 0..4 {
+            timings.record_at(&frame(index as f64), index as f64 * 0.5, 0.0, config);
+        }
+
+        // Latest time is 1.5.
+        assert_eq!(timings.window_start(10.0), 0);
+        assert_eq!(timings.window_start(1.0), 1, "0.5 is the first >= 0.5");
+        assert_eq!(timings.window_start(0.25), 3, "1.5 is the first >= 1.25");
     }
 
     #[test]

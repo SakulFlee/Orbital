@@ -9,11 +9,12 @@ use log::warn;
 use orbital_camera::Camera;
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
-    CameraDescriptorEcs, CameraDirty, CameraRealization, DeviceResource, EcsCameraStore,
-    EnvironmentDescriptorResource, EnvironmentGpuResource, LightBufferResource, LightDescriptorEcs,
-    LightDirty, LightSlotIndex, LightSlotTracker, MAX_LIGHTS, MaterialCacheResource,
-    MeshCacheResource, ModelDescriptorEcs, ModelDirty, ModelInstances, ModelRealization, Position,
-    PrevPosition, QueueResource, Rotation, ShadowDirtyFlag, SurfaceFormatResource,
+    ActiveCamera, CameraDescriptorEcs, CameraDirty, CameraRealization, DeviceResource,
+    EcsCameraStore, EnvironmentDescriptorResource, EnvironmentGpuResource, LightBufferResource,
+    LightDescriptorEcs, LightDirty, LightSlotIndex, LightSlotTracker, MAX_LIGHTS,
+    MaterialCacheResource, MeshCacheResource, ModelDescriptorEcs, ModelDirty, ModelInstances,
+    ModelRealization, Position, PrevPosition, QueueResource, Rotation, ShadowDirtyFlag,
+    SurfaceFormatResource,
 };
 use orbital_model::Model;
 use orbital_world_environment::WorldEnvironmentDescriptor;
@@ -37,6 +38,13 @@ pub fn realize_cameras(ecs: &mut World) {
         };
         (d, q)
     };
+
+    // The active camera is driven by the camera controller every frame. Its
+    // dirty flag may be absent (manual cameras) or may have been cleared by an
+    // earlier realization, so always include it.
+    let active_camera = ecs
+        .get_resource::<ActiveCamera>()
+        .map(|active| active.0.index);
 
     // Collect entities that need realization
     let entities_to_realize: Vec<(usize, CameraDescriptorEcs, Position, Rotation, bool)> = {
@@ -64,13 +72,14 @@ pub fn realize_cameras(ecs: &mut World) {
                 None => continue,
             };
 
-            let is_dirty = match ecs.get_component_store::<CameraDirty>() {
-                Some(store) => match store.sparse[eid] {
-                    Some(idx) => store.components[idx].0,
-                    None => true,
-                },
-                None => true, // No dirty flag = needs initial realization
-            };
+            let is_dirty = active_camera == Some(eid)
+                || match ecs.get_component_store::<CameraDirty>() {
+                    Some(store) => match store.sparse[eid] {
+                        Some(idx) => store.components[idx].0,
+                        None => true,
+                    },
+                    None => true, // No dirty flag = needs initial realization
+                };
 
             let has_realization = ecs
                 .get_component_store::<CameraRealization>()

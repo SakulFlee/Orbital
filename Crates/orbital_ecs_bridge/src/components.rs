@@ -264,6 +264,15 @@ pub struct LightDescriptorEcs {
 }
 
 impl LightDescriptorEcs {
+    /// Human-readable light subtype for debug overlays.
+    pub fn kind_label(&self) -> &'static str {
+        match &self.light_type {
+            orbital_light::LightType::Point { .. } => "Point",
+            orbital_light::LightType::Directional { .. } => "Directional",
+            orbital_light::LightType::Spot { .. } => "Spot",
+        }
+    }
+
     pub fn new_point(color: cgmath::Vector3<f32>, intensity: f32) -> Self {
         Self {
             light_type: orbital_light::LightType::Point { intensity },
