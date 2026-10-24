@@ -42,7 +42,7 @@ orbital_texture = { path = "../orbital_texture" }
 orbital_world_environment = { path = "../orbital_world_environment" }
 cgmath = { workspace = true }
 libc = "0.2"
-libloading = "0.8"
+libloading = "0.9"
 log = { workspace = true }
 wgpu = { workspace = true }
 winit = { workspace = true }
