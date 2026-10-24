@@ -69,6 +69,8 @@ pub fn main(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 app.internal_data_path(),
             );
 
+            ::orbital::app::android_performance::init(&app);
+
             use ::orbital::winit::platform::android::EventLoopBuilderExtAndroid;
 
             let event_loop = match ::orbital::winit::event_loop::EventLoop::builder()
