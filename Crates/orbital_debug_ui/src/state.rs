@@ -299,12 +299,14 @@ impl DebugUiState {
                 self.dirty = true;
             }
             DebugMessage::SelectEntity(entity) => {
-                // Clicking the selected entity again clears the selection; also
-                // collapse it, since the first click expanded it automatically.
-                if entity.is_none()
+                // Moving the selection collapses the entity that was selected
+                // before, since its fields are no longer shown. Clicking the
+                // selected row again sends `None`, which also collapses it.
+                if self.selected != *entity
                     && let Some(previous) = self.selected
                 {
                     self.expanded.remove(&previous);
+                    self.last_error = None;
                 }
 
                 self.selected = *entity;
@@ -461,6 +463,23 @@ mod tests {
             !state.is_expanded(entity),
             "deselecting collapses the entry it expanded"
         );
+    }
+
+    #[test]
+    fn moving_the_selection_collapses_the_previous_entity() {
+        let mut state = DebugUiState::new(winit::keyboard::KeyCode::F1);
+        let first = Entity::new(1, 0);
+        let second = Entity::new(2, 0);
+
+        state.apply(&DebugMessage::SelectEntity(Some(first)));
+        state.last_error = Some("stale error".to_string());
+
+        state.apply(&DebugMessage::SelectEntity(Some(second)));
+
+        assert_eq!(state.selected, Some(second));
+        assert!(!state.is_expanded(first), "the old selection collapses");
+        assert!(state.is_expanded(second), "the new selection expands");
+        assert_eq!(state.last_error, None, "errors belong to the old entity");
     }
 
     #[test]

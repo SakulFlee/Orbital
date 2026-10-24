@@ -34,6 +34,21 @@ impl iced_core::widget::Operation for TextInputFocusProbe {
     }
 }
 
+/// Returns `Some(shift)` if the event batch contains a Tab key press.
+fn tab_shift(events: &[iced_core::Event]) -> Option<bool> {
+    events.iter().find_map(|event| {
+        if let iced_core::Event::Keyboard(iced_core::keyboard::Event::KeyPressed {
+            key: iced_core::keyboard::Key::Named(iced_core::keyboard::key::Named::Tab),
+            modifiers,
+            ..
+        }) = event
+        {
+            Some(modifiers.shift())
+        } else {
+            None
+        }
+    })
+}
 /// Drives one [`IcedState`] panel: builds its `UserInterface`, routes input to
 /// it, and draws it over the game render.
 ///
@@ -306,6 +321,28 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
         let mut focus_probe = TextInputFocusProbe::default();
         if let Some(interface) = interface.as_mut() {
             interface.operate(&inner.renderer, &mut focus_probe);
+
+            // Tab / Shift+Tab move between focused text inputs. Only intercept
+            // when a field already has focus, so Tab remains a game key when
+            // the overlay is not being edited.
+            if focus_probe.focused
+                && let Some(shift) = tab_shift(&iced_core_events)
+            {
+                if shift {
+                    let mut focus = iced_core::widget::operation::focusable::focus_previous::<()>();
+                    interface.operate(&inner.renderer, &mut focus);
+                } else {
+                    let mut focus = iced_core::widget::operation::focusable::focus_next::<()>();
+                    interface.operate(&inner.renderer, &mut focus);
+                }
+
+                // Re-probe so tabbing past the last field releases input in
+                // this same frame.
+                let mut after = TextInputFocusProbe::default();
+                interface.operate(&inner.renderer, &mut after);
+                focus_probe = after;
+                self.state.mark_dirty();
+            }
         }
         if focus_probe.focused
             && let Some(mut focus) = ecs.get_resource_mut::<IcedTextInputFocus>()
