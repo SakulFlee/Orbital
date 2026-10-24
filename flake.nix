@@ -1,5 +1,5 @@
 {
-  description = "Simple Rust development environment with Fenix Nightly";
+  description = "Rust development environment pinned by rust-toolchain.toml";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/8edc0c72e3a38faf5434e40d1f19431125fe4b30";
@@ -15,20 +15,12 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
 
-        rustToolchain = fenix.packages.${system}.latest.withComponents [
-          "cargo"
-          "clippy"
-          "rust-src"
-          "rustc"
-          "rustfmt"
-          "rust-analyzer"
-        ];
+        rustToolchain = fenix.packages.${system}.fromToolchainFile {
+          file = ./rust-toolchain.toml;
+          sha256 = "sha256-zm3dyIY2T414ZRR3EhLOvptzG6gta4WZUcawzMUWtqI=";
+        };
 
-        rustToolchainCross = fenix.packages.${system}.combine [
-          rustToolchain
-          fenix.packages.${system}.targets."aarch64-unknown-linux-gnu".latest.rust-std
-          fenix.packages.${system}.targets."x86_64-pc-windows-gnu".latest.rust-std
-        ];
+        rustToolchainCross = rustToolchain;
 
         commonTools = with pkgs; [
           pkgs.gcc
@@ -64,7 +56,7 @@
       in
       {
         devShells.default = pkgs.mkShell {
-          nativeBuildInputs = [ rustToolchain ] ++ commonTools;
+          nativeBuildInputs = [ rustToolchain fenix.packages.${system}.rust-analyzer ] ++ commonTools;
 
           buildInputs = commonLinuxBuildInputs;
 

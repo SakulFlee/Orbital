@@ -15,7 +15,10 @@ RUN dpkg --add-architecture arm64 \
 RUN cargo install cargo-binstall --locked \
  && cargo binstall sccache --locked
 
-RUN rustup component add rustfmt clippy \
+COPY rust-toolchain.toml /tmp/rust-toolchain.toml
+RUN cd /tmp \
+ && rustup toolchain install \
+ && rustup component add rustfmt clippy \
  && rustup target add x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu x86_64-pc-windows-gnu
 
 ENV PKG_CONFIG_ALLOW_CROSS=1 \
