@@ -37,9 +37,9 @@ use orbital_ecs_bridge::{
     ActiveCamera, AdapterResource, CameraDescriptorEcs, CameraDirty, CursorGrabConfig,
     CursorGrabState, CursorPosition, DeltaTime, DeviceResource, EcsCameraStore, EngineEvent,
     EngineEvents, FpsStats, FrameCounter, FrameTimings, IcedCapturedMouseDrag,
-    IcedCapturedMouseWheel, IcedCapturedTouches, IcedEventQueue, InputSnapshot, LightDescriptorEcs,
-    Position, QueueResource, SurfaceFormatResource, TIMING_STAGES, TimingsHistoryConfig, TotalTime,
-    WindowSize,
+    IcedCapturedMouseWheel, IcedCapturedTouches, IcedEventQueue, IcedTextInputFocus, InputSnapshot,
+    LightDescriptorEcs, Position, QueueResource, SurfaceFormatResource, TIMING_STAGES,
+    TimingsHistoryConfig, TotalTime, WindowSize,
 };
 
 macro_rules! ctx_lock {
@@ -1163,6 +1163,10 @@ impl ModuleRuntime {
             // Wheel capture is per-event, not a persistent gesture.
             captured.0 = false;
         }
+        if let Some(mut focus) = self.ecs_world.get_resource_mut::<IcedTextInputFocus>() {
+            // Focus is re-probed from every panel below.
+            focus.0 = false;
+        }
 
         {
             let mut layer_renderers = self.overlay_renderers.lock().unwrap();
@@ -1250,6 +1254,17 @@ impl ModuleRuntime {
         #[cfg(all(feature = "gamepad_input_poll", target_os = "ios"))]
         for input_event in self.ios_gamepad.poll() {
             self.input_state.handle_event(input_event);
+        }
+
+        // A focused debug text field owns all game input. Clear the live input
+        // state after all event sources have been polled so typing cannot also
+        // move the player or camera.
+        let text_focus = self
+            .ecs_world
+            .get_resource::<IcedTextInputFocus>()
+            .is_some_and(|focus| focus.0);
+        if text_focus {
+            self.input_state.clear();
         }
 
         // Snapshot input state AFTER deferred touches are processed so game
@@ -1404,6 +1419,8 @@ impl ApplicationHandler for ModuleRuntime {
                 .insert_resource(IcedCapturedMouseDrag::default());
             self.ecs_world
                 .insert_resource(IcedCapturedMouseWheel::default());
+            self.ecs_world
+                .insert_resource(IcedTextInputFocus::default());
 
             // Initialize import pipeline resources
             self.ecs_world

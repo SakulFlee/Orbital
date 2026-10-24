@@ -655,6 +655,14 @@ impl IcedCapturedMouseDrag {
 #[derive(Debug, Clone, Default)]
 pub struct IcedCapturedMouseWheel(pub bool);
 
+/// Whether a text input in an iced overlay currently has keyboard focus.
+///
+/// The overlay renderers set this each update by probing the widget tree. The
+/// runtime suppresses game input while it is set, so typing into a debug field
+/// cannot also move the player or rotate the camera.
+#[derive(Debug, Clone, Default)]
+pub struct IcedTextInputFocus(pub bool);
+
 // ---------------------------------------------------------------------------
 // Engine events (replace AppEvent)
 // ---------------------------------------------------------------------------

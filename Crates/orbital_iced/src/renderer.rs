@@ -4,11 +4,35 @@ use orbital_app::RenderLayer;
 use orbital_app::render_overlay::{LayerRenderer as LayerRendererTrait, RenderOverlayContext};
 use orbital_ecs_bridge::{
     AdapterResource, DeviceResource, IcedCapturedMouseDrag, IcedCapturedMouseWheel,
-    IcedCapturedTouches, IcedEventQueue, IcedWindowEvent, QueueResource, SurfaceFormatResource,
-    WindowSize,
+    IcedCapturedTouches, IcedEventQueue, IcedTextInputFocus, IcedWindowEvent, QueueResource,
+    SurfaceFormatResource, WindowSize,
 };
 use std::sync::Mutex;
 use winit::event::{ElementState, MouseButton, TouchPhase};
+
+/// Finds whether any focusable widget (only text inputs in this fork) is
+/// focused in an interface.
+#[derive(Default)]
+struct TextInputFocusProbe {
+    focused: bool,
+}
+
+impl iced_core::widget::Operation for TextInputFocusProbe {
+    fn traverse(&mut self, operate: &mut dyn FnMut(&mut dyn iced_core::widget::Operation)) {
+        operate(self);
+    }
+
+    fn focusable(
+        &mut self,
+        _id: Option<&iced_core::widget::Id>,
+        _bounds: iced_core::Rectangle,
+        state: &mut dyn iced_core::widget::operation::Focusable,
+    ) {
+        if state.is_focused() {
+            self.focused = true;
+        }
+    }
+}
 
 /// Drives one [`IcedState`] panel: builds its `UserInterface`, routes input to
 /// it, and draws it over the game render.
@@ -275,6 +299,19 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
                 &mut inner.renderer,
                 &mut bus,
             );
+
+        // Probe focus after `update` so a click that focused a text input is
+        // visible to the runtime in this same frame. The runtime resets the
+        // flag before the renderer pass and unions it across panels.
+        let mut focus_probe = TextInputFocusProbe::default();
+        if let Some(interface) = interface.as_mut() {
+            interface.operate(&inner.renderer, &mut focus_probe);
+        }
+        if focus_probe.focused
+            && let Some(mut focus) = ecs.get_resource_mut::<IcedTextInputFocus>()
+        {
+            focus.0 = true;
+        }
 
         // Process messages. Done *after* `update` so a panel can react to a
         // click, and so the state change lands in the next frame's view.

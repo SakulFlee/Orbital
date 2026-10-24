@@ -204,7 +204,8 @@ fn range_control<'a>(state: &DebugUiState) -> Element<'a, DebugMessage, Theme, I
                 .on_input(DebugMessage::EditGraphWindow)
                 .on_submit(DebugMessage::ApplyGraphWindow)
                 .width(Length::Fixed(72.0))
-                .size(12),
+                .size(12)
+                .style(crate::panels::input_style),
             text("s").size(11),
             button(text("set").size(11)).on_press(DebugMessage::ApplyGraphWindow),
         ]

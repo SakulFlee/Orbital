@@ -3161,6 +3161,7 @@ dependencies = [
  "orbital_ecs",
  "orbital_ecs_bridge",
  "orbital_iced",
+ "orbital_mesh",
  "winit",
 ]
 
