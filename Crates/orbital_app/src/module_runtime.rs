@@ -368,13 +368,6 @@ impl ModuleRuntime {
         }
 
         // Schedule shadow updates respecting the per-frame budget
-        // Set ORBITAL_STAGGER_ALL=1 env-var to render all shadows each frame (for perf comparison).
-        if std::env::var("ORBITAL_STAGGER_ALL").is_ok() {
-            self.ecs_world
-                .insert_resource(orbital_ecs_bridge::StaggeredLightConfig {
-                    max_updates_per_frame: 6,
-                });
-        }
         let dirty_set = crate::systems::stagger::sys_stagger_shadow_updates(
             &mut self.ecs_world,
             global_model_dirty,
@@ -830,17 +823,7 @@ impl ModuleRuntime {
 
         // Render
         if let Some(renderer) = &mut self.renderer {
-            // Debug overrides (env vars, or Android storage marker files —
-            // see `orbital_core::debug_flags`):
-            //   `ORBITAL_DISABLE_CULL=1` — skip CPU frustum culling entirely;
-            //                              draws all instances from the
-            //                              original instance buffer.
-            let disable_cull = orbital_core::debug_flags::disable_cull();
-            let cull = if disable_cull {
-                None
-            } else {
-                cull_res.as_ref().and_then(|r| r.0.as_ref())
-            };
+            let cull = cull_res.as_ref().and_then(|r| r.0.as_ref());
             renderer.render(
                 &view,
                 &world_bind_group,
