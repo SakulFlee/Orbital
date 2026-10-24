@@ -21,3 +21,6 @@ iced_core = { workspace = true }
 iced_widget = { workspace = true, features = ["wgpu"] }
 iced_wgpu = { workspace = true }
 iced_winit = { workspace = true }
+
+[dev-dependencies]
+orbital_mesh = { path = "../orbital_mesh" }

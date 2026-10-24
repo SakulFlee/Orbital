@@ -22,6 +22,13 @@ const DETAIL_PREVIEW_CHARS: usize = 1500;
 /// How many component sections the selected entity may render.
 const MAX_DETAIL_ROWS: usize = 64;
 
+/// Field id + display label for one ModelInstances transform component.
+const MODEL_INSTANCE_FIELD_DEFS: [(&str, &str); 3] = [
+    ("position", "position"),
+    ("rotation", "rotation (deg)"),
+    ("scale", "scale"),
+];
+
 /// Builds the ECS entity/component tree and the selected entity's editors.
 ///
 /// Entity-first: the roots are live entities, and expanding one lists the
@@ -41,10 +48,11 @@ pub fn ecs_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, IcedRender
     // returned element can be `'static` as `IcedState::with_view` requires.
     let filter = state.filter.clone();
     let mut rows = vec![
-        text_input("filter (entity index, label or component name)", filter)
+        text_input("filter (ID, role, label or component)", filter)
             .on_input(DebugMessage::SetFilter)
             .width(Length::Fill)
             .size(13)
+            .style(crate::panels::input_style)
             .into(),
     ];
 
@@ -141,7 +149,8 @@ fn entity_matches(
     label: Option<&str>,
     needle: &str,
 ) -> bool {
-    if entity.index.to_string().contains(needle) {
+    let index_needle = needle.trim_start_matches('#');
+    if !index_needle.is_empty() && entity.index.to_string().contains(index_needle) {
         return true;
     }
 
@@ -171,14 +180,14 @@ fn entity_row(
     // background colour, and restyling the row would mean reaching into iced's
     // style closures.
     let mut label = match label {
-        Some(name) => format!("{name}  ·  Entity {{ {} }}", entity.index),
-        None => format!("Entity {{ {} }}", entity.index),
+        Some(summary) => format!("#{}: {summary}", entity.index),
+        None => format!("#{}: Entity", entity.index),
     };
     if selected {
         label.insert_str(0, "● ");
     }
     if component_count > 0 {
-        label.push_str(&format!("  · {component_count} components"));
+        label.push_str(&format!("  ·  {component_count} components"));
     }
 
     // Clicking the selected row again clears the selection and collapses it.
@@ -278,7 +287,8 @@ fn field_input_row(
         .on_input(move |text| DebugMessage::EditField(input_key.clone(), text))
         .on_submit(DebugMessage::ApplyField(submit_key))
         .width(Length::Fill)
-        .size(12);
+        .size(12)
+        .style(crate::panels::input_style);
 
     let apply = button(text("set").size(11))
         .on_press(DebugMessage::ApplyField(key))
@@ -393,19 +403,16 @@ fn model_instances_editor(
             .into(),
         );
 
-        let fields = [
-            (
-                "position",
-                EditableValue::to_edit_string(&transform.position),
-            ),
-            ("rotation (deg)", euler_degrees_text(&transform.rotation)),
-            ("scale", EditableValue::to_edit_string(&transform.scale)),
+        let values = [
+            EditableValue::to_edit_string(&transform.position),
+            euler_degrees_text(&transform.rotation),
+            EditableValue::to_edit_string(&transform.scale),
         ];
 
-        for (field, value) in fields {
+        for ((field, label), value) in MODEL_INSTANCE_FIELD_DEFS.iter().zip(values) {
             let key = model_instance_field_id(ulid, field);
             let key = FieldKey::new(entity, type_id, key);
-            rows.push(field_input_row(state, key, field, &value));
+            rows.push(field_input_row(state, key, label, &value));
         }
     }
 
@@ -434,6 +441,7 @@ mod tests {
         let components: Vec<(TypeId, &'static str)> = Vec::new();
 
         assert!(entity_matches(&entity, &components, None, "12"));
+        assert!(entity_matches(&entity, &components, None, "#12"));
         assert!(!entity_matches(&entity, &components, None, "13"));
         assert!(entity_matches(
             &entity,
@@ -444,5 +452,11 @@ mod tests {
 
         let components = vec![(TypeId::of::<String>(), "orbital_ecs_bridge::Position")];
         assert!(entity_matches(&entity, &components, None, "position"));
+    }
+
+    #[test]
+    fn model_instance_fields_use_bridge_ids_not_display_labels() {
+        let ids = MODEL_INSTANCE_FIELD_DEFS.map(|(id, _)| id);
+        assert_eq!(ids, ["position", "rotation", "scale"]);
     }
 }
