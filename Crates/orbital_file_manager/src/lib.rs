@@ -38,7 +38,6 @@ pub use error::FsError;
 
 use std::{
     io::{Read, Write},
-    path::{Path, PathBuf},
     sync::OnceLock,
 };
 
@@ -88,10 +87,6 @@ pub trait Storage: Send + Sync {
 pub struct FileManager {
     assets: Box<dyn AssetSource>,
     storage: Box<dyn Storage>,
-    /// Root directory used for the storage namespace (the app's files dir on
-    /// Android, the working directory on desktop). Used for diagnostics so
-    /// callers can verify where marker files / stored data actually resolve.
-    storage_root: PathBuf,
 }
 
 static GLOBAL: OnceLock<FileManager> = OnceLock::new();
@@ -102,11 +97,7 @@ impl FileManager {
     /// Useful for embedding with a custom asset root or for tests. The
     /// process-wide instance used by [`FileManager::global`] is unaffected.
     pub fn new(assets: Box<dyn AssetSource>, storage: Box<dyn Storage>) -> Self {
-        Self {
-            assets,
-            storage,
-            storage_root: PathBuf::new(),
-        }
+        Self { assets, storage }
     }
 
     /// Returns the process-wide [`FileManager`].
@@ -128,11 +119,9 @@ impl FileManager {
 
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
         {
-            let cwd = std::env::current_dir().unwrap_or_default();
             Ok(GLOBAL.get_or_init(|| FileManager {
                 assets: Box::new(DesktopAssetSource::new()),
                 storage: Box::new(DesktopStorage::new()),
-                storage_root: cwd,
             }))
         }
     }
@@ -148,8 +137,7 @@ impl FileManager {
         let data_dir = data_dir.unwrap_or_default();
         let _ = GLOBAL.set(FileManager {
             assets: Box::new(AndroidAssetSource::new(asset_manager)),
-            storage: Box::new(AndroidStorage::new(data_dir.clone())),
-            storage_root: data_dir,
+            storage: Box::new(AndroidStorage::new(data_dir)),
         });
         Ok(())
     }
@@ -160,20 +148,11 @@ impl FileManager {
     #[cfg(target_os = "ios")]
     pub fn init_ios_global() -> Result<(), FsError> {
         let storage = IosStorage::new();
-        let storage_root = std::path::PathBuf::new(); // resolved by IosStorage internally
         let _ = GLOBAL.set(FileManager {
             assets: Box::new(IosAssetSource::new()),
             storage: Box::new(storage),
-            storage_root,
         });
         Ok(())
-    }
-
-    /// The absolute path of the storage namespace root (where `storage_path_exists`
-    /// and friends resolve relative paths against). May be empty if constructed via
-    /// [`FileManager::new`] with custom backends.
-    pub fn storage_root(&self) -> &Path {
-        &self.storage_root
     }
 
     /// Reads an asset as bytes.
