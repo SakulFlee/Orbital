@@ -3089,6 +3089,7 @@ dependencies = [
  "orbital_material_shader",
  "orbital_model",
  "orbital_renderer",
+ "orbital_shader_core",
  "orbital_shader_engine",
  "orbital_shader_math",
  "orbital_shader_pbr",

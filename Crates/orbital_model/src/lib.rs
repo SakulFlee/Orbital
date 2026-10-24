@@ -1,6 +1,9 @@
 use std::{
     error::Error,
-    sync::{Arc, RwLock},
+    sync::{
+        Arc, RwLock,
+        atomic::{AtomicU64, Ordering},
+    },
 };
 
 use wgpu::{
@@ -15,6 +18,17 @@ pub use orbital_mesh::{Mesh, MeshDescriptor};
 
 mod descriptor;
 pub use descriptor::*;
+
+static MATERIAL_CACHE_HITS: AtomicU64 = AtomicU64::new(0);
+static MATERIAL_CACHE_MISSES: AtomicU64 = AtomicU64::new(0);
+
+/// Returns cumulative material cache hits and misses.
+pub fn material_cache_stats() -> (u64, u64) {
+    (
+        MATERIAL_CACHE_HITS.load(Ordering::Relaxed),
+        MATERIAL_CACHE_MISSES.load(Ordering::Relaxed),
+    )
+}
 
 #[derive(Debug)]
 pub struct Model {
@@ -50,15 +64,22 @@ impl Model {
         let mut materials = Vec::new();
         for material_descriptor in &descriptor.materials {
             materials.push(match material_cache.write() {
-                Ok(mut lock) => lock
-                    .entry(material_descriptor.clone())
-                    .or_insert(CacheEntry::new(MaterialShader::from_descriptor(
-                        material_descriptor,
-                        Some(*surface_format),
-                        device,
-                        queue,
-                    )?))
-                    .clone_inner(),
+                Ok(mut lock) => {
+                    if lock.contains_key(material_descriptor) {
+                        MATERIAL_CACHE_HITS.fetch_add(1, Ordering::Relaxed);
+                    } else {
+                        MATERIAL_CACHE_MISSES.fetch_add(1, Ordering::Relaxed);
+                    }
+
+                    lock.entry(material_descriptor.clone())
+                        .or_insert(CacheEntry::new(MaterialShader::from_descriptor(
+                            material_descriptor,
+                            Some(*surface_format),
+                            device,
+                            queue,
+                        )?))
+                        .clone_inner()
+                }
                 Err(e) => return Err(Box::new(e)),
             });
         }

@@ -1,7 +1,21 @@
 //! Generic render-overlay hook — lets modules inject post‑main‑pass drawing
 //! (e.g. debug wireframes, gizmos, HUD) without modifying the engine runtime.
 
+use std::time::Duration;
+
 use crate::render_layer::RenderLayer;
+
+/// Optional CPU timings reported by a layer renderer.
+///
+/// The runtime aggregates these into the `iced draw` / `iced submit` frame
+/// stages. Renderers that do not report timings leave both values at zero.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct OverlayRenderTimings {
+    /// Time spent preparing/drawing the overlay (before submission).
+    pub draw: Duration,
+    /// Time spent submitting the overlay's command buffer.
+    pub submit: Duration,
+}
 
 /// Context passed to [`RenderOverlay::render`] and [`LayerRenderer::render`].
 pub struct RenderOverlayContext<'a> {
@@ -46,6 +60,12 @@ pub trait LayerRenderer: Send + Sync {
     /// no-op — only renderers that need per-frame event processing (like
     /// iced UI panels) should override this.
     fn process_events(&mut self, _ecs: &mut orbital_ecs::World) {}
+
+    /// Returns and clears the CPU timings from the last [`render`](Self::render)
+    /// call. Renderers that do not measure themselves return zeroes.
+    fn take_render_timings(&mut self) -> OverlayRenderTimings {
+        OverlayRenderTimings::default()
+    }
 }
 
 /// ECS resource — insert this into the world to activate render overlays.
