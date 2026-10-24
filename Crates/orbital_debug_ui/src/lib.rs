@@ -191,11 +191,10 @@ impl Module for DebugUiModule {
                 // the panel state, so it is where a component edit is written.
                 .with_message_handler(handle_debug_message)
                 // Rebuilding the tree means re-running the widget diff and
-                // layout, and these panels re-read the whole world to do it.
-                // At 20 Hz the numbers stay perfectly readable, and
-                // `mark_dirty` — which `handle_message` does — bypasses the
-                // interval, so a click still shows up immediately.
-                .with_refresh_interval(std::time::Duration::from_millis(50))
+                // layout, and these panels re-read the whole world to do it, so
+                // they use the shared 4 Hz default. Interactions still rebuild
+                // immediately: `handle_message` marks the panel dirty and the
+                // renderer forces the next frame to rebuild.
                 .with_visibility(move |world: &World| {
                     world
                         .get_resource::<DebugUiState>()
