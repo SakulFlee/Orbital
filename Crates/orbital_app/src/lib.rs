@@ -1,6 +1,9 @@
 mod settings;
 pub use settings::*;
 
+#[allow(dead_code)]
+pub mod android_performance;
+
 mod core_schedule;
 pub use core_schedule::*;
 
