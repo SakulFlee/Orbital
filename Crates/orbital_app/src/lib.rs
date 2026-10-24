@@ -32,7 +32,7 @@ pub use render_layer::{LayerConfig, RenderLayer};
 
 pub mod render_overlay;
 pub use render_overlay::{
-    LayerRenderer, RenderOverlay, RenderOverlayContext, RenderOverlayResource,
+    LayerRenderer, OverlayRenderTimings, RenderOverlay, RenderOverlayContext, RenderOverlayResource,
 };
 
 mod touch_controls;

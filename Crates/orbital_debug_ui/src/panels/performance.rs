@@ -6,7 +6,9 @@ use iced_widget::{button, canvas, column, row, slider, text, text_input};
 use iced_winit::core::{Alignment, Color, Element, Font, Length, Theme};
 
 use orbital_ecs::World;
-use orbital_ecs_bridge::{FpsStats, FrameTimings, TIMING_STAGES, TOTAL_STAGE_INDEX};
+use orbital_ecs_bridge::{
+    FpsStats, FrameTimings, STAGE_GPU_SCENE_TOTAL, TIMING_STAGES, TOTAL_STAGE_INDEX,
+};
 
 use crate::sparkline::{Line, Sparkline};
 use crate::state::Renderer as IcedRenderer;
@@ -158,7 +160,7 @@ pub fn performance_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Ic
 
             // GPU timings only exist where the backend supports timestamp
             // queries; say so rather than showing a column of zeros.
-            if timings.frame_count() > 0 && timings.samples()[TOTAL_STAGE_INDEX].max_ms == 0.0 {
+            if timings.frame_count() > 0 && timings.samples()[STAGE_GPU_SCENE_TOTAL].max_ms == 0.0 {
                 sections
                     .push(row![text("gpu timings unavailable on this backend").size(11)].into());
             }
