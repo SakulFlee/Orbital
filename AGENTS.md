@@ -245,6 +245,7 @@ orbital init-android
 # Build and run (desktop is the default)
 orbital build
 orbital build android --release
+orbital run --release
 orbital run ios --device "<device>"
 ```
 

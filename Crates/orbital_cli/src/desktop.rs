@@ -32,16 +32,22 @@ pub fn build(release: bool) -> Result<()> {
 }
 
 /// Runs the desktop binary of the current project.
-pub fn run() -> Result<()> {
+pub fn run(release: bool) -> Result<()> {
     let project_root = crate::config::find_project_root()?;
 
     // Sync engine assets so runtime path loads resolve on desktop.
     crate::assets::sync_assets(&project_root)?;
 
     println!("Running Desktop app...");
+    println!("  Mode: {}", if release { "release" } else { "debug" });
+
+    let mut args = vec!["run"];
+    if release {
+        args.push("--release");
+    }
 
     let status = Command::new("cargo")
-        .arg("run")
+        .args(&args)
         .current_dir(&project_root)
         .status()
         .context("Failed to run cargo run")?;
