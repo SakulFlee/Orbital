@@ -4,8 +4,8 @@ use std::any::TypeId;
 
 use orbital_ecs::{Entity, World};
 use orbital_ecs_bridge::{
-    CameraDescriptorEcs, CameraDirty, LightDescriptorEcs, LightDirty, ModelDescriptorEcs,
-    ModelDirty, ModelInstances,
+    CameraDescriptor, CameraDirty, LightDescriptor, LightDirty, ModelDescriptor, ModelDirty,
+    ModelInstances,
 };
 
 use crate::editable::{apply_to, editable_fields_ops, editable_ops};
@@ -84,17 +84,17 @@ pub fn apply_edit(world: &mut World, key: &FieldKey, input: &str) -> Result<(), 
 /// model's transform should make the model realize. Deriving the flags from
 /// the components the entity actually has avoids attaching unrelated ones.
 pub fn mark_related_dirty(world: &mut World, entity: Entity) {
-    if world.entity_has_component(TypeId::of::<CameraDescriptorEcs>(), &entity) {
+    if world.entity_has_component(TypeId::of::<CameraDescriptor>(), &entity) {
         let _ = world.attach_component(&entity, CameraDirty(true));
     }
 
-    if world.entity_has_component(TypeId::of::<ModelDescriptorEcs>(), &entity)
+    if world.entity_has_component(TypeId::of::<ModelDescriptor>(), &entity)
         || world.entity_has_component(TypeId::of::<ModelInstances>(), &entity)
     {
         let _ = world.attach_component(&entity, ModelDirty(true));
     }
 
-    if world.entity_has_component(TypeId::of::<LightDescriptorEcs>(), &entity) {
+    if world.entity_has_component(TypeId::of::<LightDescriptor>(), &entity) {
         let _ = world.attach_component(&entity, LightDirty(true));
     }
 }
@@ -129,7 +129,7 @@ mod tests {
         let mut world = World::new();
         let entity = world.spawn_entity();
         world
-            .attach_component(&entity, CameraDescriptorEcs::default())
+            .attach_component(&entity, CameraDescriptor::default())
             .expect("camera attach failed");
         (world, entity)
     }
@@ -137,16 +137,16 @@ mod tests {
     #[test]
     fn a_derived_field_edit_writes_and_marks_the_camera_dirty() {
         let (mut world, entity) = marked_world();
-        let key = FieldKey::new(entity, TypeId::of::<CameraDescriptorEcs>(), "aspect");
+        let key = FieldKey::new(entity, TypeId::of::<CameraDescriptor>(), "aspect");
 
         apply_edit(&mut world, &key, "1.5").expect("edit failed");
 
         let value = world
-            .component_debug(TypeId::of::<CameraDescriptorEcs>(), &entity)
+            .component_debug(TypeId::of::<CameraDescriptor>(), &entity)
             .and_then(|handle| {
                 handle
                     .as_any()
-                    .downcast_ref::<CameraDescriptorEcs>()
+                    .downcast_ref::<CameraDescriptor>()
                     .map(|camera| camera.aspect)
             });
 
@@ -168,19 +168,19 @@ mod tests {
     #[test]
     fn a_failed_field_edit_leaves_the_value_untouched() {
         let (mut world, entity) = marked_world();
-        let key = FieldKey::new(entity, TypeId::of::<CameraDescriptorEcs>(), "aspect");
+        let key = FieldKey::new(entity, TypeId::of::<CameraDescriptor>(), "aspect");
 
         assert!(apply_edit(&mut world, &key, "not a number").is_err());
 
         let aspect = world
-            .component_debug(TypeId::of::<CameraDescriptorEcs>(), &entity)
+            .component_debug(TypeId::of::<CameraDescriptor>(), &entity)
             .and_then(|handle| {
                 handle
                     .as_any()
-                    .downcast_ref::<CameraDescriptorEcs>()
+                    .downcast_ref::<CameraDescriptor>()
                     .map(|camera| camera.aspect)
             });
 
-        assert_eq!(aspect, Some(CameraDescriptorEcs::default().aspect));
+        assert_eq!(aspect, Some(CameraDescriptor::default().aspect));
     }
 }

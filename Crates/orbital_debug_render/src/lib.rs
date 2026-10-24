@@ -2,8 +2,8 @@ use cgmath::{InnerSpace, Matrix4, Point3, SquareMatrix, Vector3, Vector4};
 use orbital_app::{Module, RenderOverlay, RenderOverlayContext};
 use orbital_ecs::{IntoSystem, Res, ResMut, System, World};
 use orbital_ecs_bridge::{
-    ActiveCamera, EcsCameraStore, InputSnapshot, LightDescriptorEcs, ModelInstances,
-    ModelRealization, Position,
+    ActiveCamera, CameraStore, InputSnapshot, LightDescriptor, ModelInstances, ModelRealization,
+    Position,
 };
 use orbital_light::LightType;
 use wgpu::{
@@ -643,7 +643,7 @@ fn collect_spheres(
 
 fn camera_frustum_corners(ecs: &World) -> Option<[Point3<f32>; 8]> {
     let active = ecs.get_resource::<ActiveCamera>()?;
-    let store = ecs.get_resource::<EcsCameraStore>()?;
+    let store = ecs.get_resource::<CameraStore>()?;
     let arc_camera = store.get(active.0.index)?;
     let camera = arc_camera.read().ok()?;
     let matrix = camera.perspective_view_projection_matrix();
@@ -794,7 +794,7 @@ fn light_cone(
 
 /// Read lights from ECS and return corresponding line vertex data.
 fn collect_light_lines(ecs: &World) -> Vec<[f32; 6]> {
-    let descs = match ecs.get_component_store::<LightDescriptorEcs>() {
+    let descs = match ecs.get_component_store::<LightDescriptor>() {
         Some(s) => s,
         None => return Vec::new(),
     };
