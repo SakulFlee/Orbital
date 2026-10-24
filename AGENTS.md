@@ -256,8 +256,9 @@ orbital run ios --device "<device>"
 
 ### Nix
 
-`flake.nix` provides the primary dev environment: Fenix nightly Rust (`cargo`, `clippy`, `rust-src`, `rustc`, `rustfmt`, `rust-analyzer`), Linux graphics/input libraries, cross-compilation shells, `cargo-flamegraph`, `cargo-criterion`, `pkg-config`, and Blender.
+`flake.nix` provides the primary dev environment: the Rust toolchain pinned by `rust-toolchain.toml` (1.99.0 with `cargo`, `clippy`, `rust-src`, `rustc`, `rustfmt`), `rust-analyzer`, Linux graphics/input libraries, cross-compilation shells, `cargo-flamegraph`, `cargo-criterion`, `pkg-config`, and Blender.
 Enter with `nix-shell`, `nix develop`, or `direnv allow` (`.envrc` uses `use flake`).
+When changing the channel in `rust-toolchain.toml`, update the manifest `sha256` passed to `fromToolchainFile` in `flake.nix`.
 
 ### Cargo configuration
 
@@ -270,9 +271,11 @@ Enter with `nix-shell`, `nix develop`, or `direnv allow` (`.envrc` uses `use fla
 
 | System | Files | Lint/test behavior |
 |--------|-------|--------------------|
-| Forgejo | `.forgejo/workflows/` | `cargo fmt --all -- --check`, `cargo clippy -- -D warnings`; may auto-fix and push a `[ci]` commit. Tests run for all PRs: directly changed crates only, with the full suite for pushes to `main`, PRs targeting `release/**`, manual runs, and release tags. Forgejo write-isolates `pull_request` caches, so the full `main` run seeds the shared cache that PRs restore. |
-| GitHub | `.github/workflows/main.yml` | `cargo clippy`, `cargo fmt --all --check`, `cargo test --no-fail-fast`. Tests are skipped for normal PRs. |
-| TeamCity | `.teamcity/settings.kts` | `cargo fmt --all --check`, `cargo clippy`, `cargo test --no-fail-fast`. |
+| Forgejo | `.forgejo/workflows/` | `cargo fmt --all -- --check`, `cargo clippy -- -D warnings` on PRs and pushes to `main`; PRs may auto-fix and push a `[ci]` commit. Tests run for all PRs: directly changed crates only, with the full suite for pushes to `main`, PRs targeting `release/**`, manual runs, and release tags. Forgejo write-isolates `pull_request` caches, so the full `main` run seeds the shared cache that PRs restore. |
+| GitHub | `.github/workflows/main.yml` | `cargo fmt --all -- --check`, `cargo clippy -- -D warnings`, `cargo test --no-fail-fast`. Tests are skipped for normal PRs. |
+| TeamCity | `.teamcity/settings.kts` | `cargo fmt --all -- --check`, `cargo clippy -- -D warnings`, `cargo test --no-fail-fast`. |
+
+All CI systems and the Nix devshell use the toolchain pinned in `rust-toolchain.toml`.
 
 Dependencies are auto-updated by Renovate (`renovate.json`).
 
@@ -301,6 +304,7 @@ Treat the current WASM status as unverified: `Crates/ecs/src/system/runner.rs` u
 | File | Purpose |
 |------|---------|
 | `Cargo.toml` | Workspace members, dependencies, profiles, lints. |
+| `rust-toolchain.toml` | Pinned Rust toolchain shared by local and CI. |
 | `flake.nix` / `shell.nix` | Nix devshells and toolchain. |
 | `.cargo/config.toml` | Cross-compilation linkers. |
 | `Crates/orbital/src/lib.rs` | Facade re-exports. |

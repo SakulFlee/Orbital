@@ -1,6 +1,8 @@
 name: Lint
 on:
   pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
 jobs:
   lint:
@@ -42,13 +44,13 @@ jobs:
         run: cargo clippy -- -D warnings
         continue-on-error: true
       - name: Auto-fix formatting
-        if: steps.fmt.outcome == 'failure' && !startsWith(github.event.head_commit.message, '[ci]')
+        if: steps.fmt.outcome == 'failure' && github.event_name == 'pull_request' && !startsWith(github.event.head_commit.message, '[ci]')
         run: cargo fmt --all
       - name: Auto-fix clippy
-        if: steps.clippy.outcome == 'failure' && !startsWith(github.event.head_commit.message, '[ci]')
+        if: steps.clippy.outcome == 'failure' && github.event_name == 'pull_request' && !startsWith(github.event.head_commit.message, '[ci]')
         run: cargo clippy --fix --allow-dirty --allow-staged -- -D warnings
       - name: Commit and push fixes
-        if: (steps.fmt.outcome == 'failure' || steps.clippy.outcome == 'failure') && !startsWith(github.event.head_commit.message, '[ci]')
+        if: (steps.fmt.outcome == 'failure' || steps.clippy.outcome == 'failure') && github.event_name == 'pull_request' && !startsWith(github.event.head_commit.message, '[ci]')
         run: |
           git config --global user.name "Orbital-CI"
           git config --global user.email "orbital-ci@sakul-flee.de"

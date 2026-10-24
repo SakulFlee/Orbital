@@ -2,13 +2,15 @@ name: Build CI Image
 on:
   push:
     branches: [main, ci-caching]
-    paths: ['.forgejo/ci/Dockerfile', 'Containerfile']
+    paths: ['.forgejo/ci/Dockerfile', 'Containerfile', 'rust-toolchain.toml']
   workflow_dispatch:
     inputs:
       rebuild:
         description: Force rebuild and push the CI image
         type: boolean
         default: true
+  schedule:
+    - cron: '0 4 1 * *'
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
