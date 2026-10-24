@@ -1,7 +1,9 @@
 use crate::state::{IcedState, Message};
 use iced_winit::core::Theme;
 use orbital_app::RenderLayer;
-use orbital_app::render_overlay::{LayerRenderer as LayerRendererTrait, RenderOverlayContext};
+use orbital_app::render_overlay::{
+    LayerRenderer as LayerRendererTrait, OverlayRenderTimings, RenderOverlayContext,
+};
 use orbital_ecs_bridge::{
     AdapterResource, DeviceResource, IcedCapturedMouseDrag, IcedCapturedMouseWheel,
     IcedCapturedTouches, IcedEventQueue, IcedTextInputFocus, IcedWindowEvent, QueueResource,
@@ -95,6 +97,7 @@ pub struct IcedLayerRenderer<M: Clone + PartialEq + Send + Sync + 'static = Mess
     inner: Mutex<Option<RendererInner<M>>>,
     device: Option<wgpu::Device>,
     queue: Option<wgpu::Queue>,
+    last_timings: OverlayRenderTimings,
 }
 
 struct RendererInner<M: Clone + PartialEq + Send + Sync + 'static> {
@@ -124,6 +127,7 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> IcedLayerRenderer<M> {
             inner: Mutex::new(None),
             device: None,
             queue: None,
+            last_timings: OverlayRenderTimings::default(),
         }
     }
 
@@ -474,6 +478,8 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
     }
 
     fn render(&mut self, ctx: RenderOverlayContext) {
+        self.last_timings = OverlayRenderTimings::default();
+
         if !self.state.is_visible() {
             return;
         }
@@ -565,7 +571,9 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
             text_color: theme.palette().background.base.text,
         };
 
+        let draw_start = std::time::Instant::now();
         interface.draw(renderer, &theme, &style, cursor);
+        let draw = draw_start.elapsed();
 
         let physical_size =
             iced_core::Size::new(ctx.screen_size.0 as u32, ctx.screen_size.1 as u32);
@@ -578,7 +586,15 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
             },
         );
 
+        let submit_start = std::time::Instant::now();
         renderer.present(None, format, ctx.target_view, &viewport);
+        let submit = submit_start.elapsed();
+
+        self.last_timings = OverlayRenderTimings { draw, submit };
+    }
+
+    fn take_render_timings(&mut self) -> OverlayRenderTimings {
+        std::mem::take(&mut self.last_timings)
     }
 }
 

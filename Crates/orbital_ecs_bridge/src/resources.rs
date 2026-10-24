@@ -88,26 +88,68 @@ pub struct TimingSample {
 }
 
 /// The stage identifiers the runtime measures, in the order they occur in a
-/// frame. The GPU stages are derived from three timestamp query results read
-/// back from the renderer, and are only meaningful on backends that support
+/// frame. The GPU stages are derived from timestamp query results read back
+/// from the renderer, and are only meaningful on backends that support
 /// timestamp queries; elsewhere they stay at zero.
-pub const TIMING_STAGES: [&str; 11] = [
+pub const TIMING_STAGES: [&str; 23] = [
     "surface_acq",
+    "update",
+    "ui_events",
+    "game_schedule",
     "realize",
+    "realize models",
+    "realize env",
     "stagger",
     "cull+extract",
     "bind+models",
-    "render",
+    "scene encode",
+    "scene submit",
+    "timestamp readback",
+    "overlay legacy",
+    "overlay layers",
+    "iced draw",
+    "iced submit",
     "present",
     "total",
     "gpu shadow",
-    "gpu skybox+models",
-    "gpu total",
+    "gpu skybox",
+    "gpu models",
+    "gpu scene total",
 ];
+
+/// Stage indices, named so the runtime cannot silently drift from
+/// [`TIMING_STAGES`].
+pub const STAGE_SURFACE_ACQ: usize = 0;
+pub const STAGE_UPDATE: usize = 1;
+pub const STAGE_UI_EVENTS: usize = 2;
+pub const STAGE_GAME_SCHEDULE: usize = 3;
+pub const STAGE_REALIZE: usize = 4;
+pub const STAGE_REALIZE_MODELS: usize = 5;
+pub const STAGE_REALIZE_ENV: usize = 6;
+pub const STAGE_STAGGER: usize = 7;
+pub const STAGE_CULL_EXTRACT: usize = 8;
+pub const STAGE_BIND_MODELS: usize = 9;
+pub const STAGE_SCENE_ENCODE: usize = 10;
+pub const STAGE_SCENE_SUBMIT: usize = 11;
+pub const STAGE_TIMESTAMP_READBACK: usize = 12;
+pub const STAGE_OVERLAY_LEGACY: usize = 13;
+pub const STAGE_OVERLAY_LAYERS: usize = 14;
+pub const STAGE_ICED_DRAW: usize = 15;
+pub const STAGE_ICED_SUBMIT: usize = 16;
+pub const STAGE_PRESENT: usize = 17;
+pub const STAGE_TOTAL: usize = 18;
+pub const STAGE_GPU_SHADOW: usize = 19;
+pub const STAGE_GPU_SKYBOX: usize = 20;
+pub const STAGE_GPU_MODELS: usize = 21;
+pub const STAGE_GPU_SCENE_TOTAL: usize = 22;
 
 /// The index of the `total` stage, which is the whole-frame duration and the
 /// series a frame-time graph should plot.
-pub const TOTAL_STAGE_INDEX: usize = 7;
+pub const TOTAL_STAGE_INDEX: usize = STAGE_TOTAL;
+
+/// The first GPU stage. Stages at or after this index are invalid when the
+/// backend does not support timestamp queries.
+pub const GPU_STAGE_START: usize = STAGE_GPU_SHADOW;
 
 impl TimingSample {
     /// A zeroed sample for `index` into [`TIMING_STAGES`].
@@ -395,21 +437,14 @@ impl FrameTimings {
             .map(|total| total / n)
             .collect::<Vec<_>>();
 
-        info!(
-            "TIMING avg({} frames): surface_acq={:.2}ms realize={:.2}ms stagger={:.2}ms cull+extract={:.2}ms bind+models={:.2}ms render={:.2}ms present={:.2}ms TOTAL={:.2}ms | GPU shadow={:.2}ms skybox+models={:.2}ms GPU_TOTAL={:.2}ms",
-            self.window_count,
-            averages[0],
-            averages[1],
-            averages[2],
-            averages[3],
-            averages[4],
-            averages[5],
-            averages[6],
-            averages[7],
-            averages[8],
-            averages[9],
-            averages[10],
-        );
+        let mut line = format!("TIMING avg({} frames):", self.window_count);
+        for (index, name) in TIMING_STAGES.iter().enumerate() {
+            if index == GPU_STAGE_START {
+                line.push_str(" |");
+            }
+            line.push_str(&format!(" {name}={:.2}ms", averages[index]));
+        }
+        info!("{line}");
 
         self.window_totals.iter_mut().for_each(|total| *total = 0.0);
         self.window_count = 0;
@@ -712,7 +747,7 @@ mod tests {
 
     /// A frame whose CPU stages each took `cpu_total`, with no GPU timestamps.
     fn frame(cpu_total: f64) -> Vec<f64> {
-        let mut durations = vec![cpu_total; 8];
+        let mut durations = vec![cpu_total; STAGE_TOTAL];
         durations.resize(TIMING_STAGES.len(), 0.0);
         durations[TOTAL_STAGE_INDEX] = cpu_total;
         durations
@@ -744,7 +779,7 @@ mod tests {
 
         assert_eq!(timings.frame_count(), 3);
 
-        for index in 0..7 {
+        for index in 0..STAGE_TOTAL {
             let sample = timings.samples()[index];
             assert_eq!(sample.last_ms, 6.0, "stage {index}");
             assert_eq!(sample.avg_ms, 4.0, "stage {index}");
@@ -753,7 +788,7 @@ mod tests {
         }
 
         // The GPU stages were left at zero because no timestamps were supplied.
-        for index in 8..TIMING_STAGES.len() {
+        for index in GPU_STAGE_START..TIMING_STAGES.len() {
             let sample = timings.samples()[index];
             assert_eq!(sample.last_ms, 0.0, "stage {index}");
             assert_eq!(sample.max_ms, 0.0, "stage {index}");
@@ -912,10 +947,10 @@ mod tests {
 
         assert_eq!(logged.len(), TIMING_STAGES.len());
         // The CPU stages were recorded; the GPU ones had no timestamps.
-        for value in &logged[..8] {
+        for value in &logged[..STAGE_TOTAL] {
             assert!(*value > 0.0);
         }
-        for value in &logged[8..] {
+        for value in &logged[GPU_STAGE_START..] {
             assert_eq!(*value, 0.0);
         }
 
