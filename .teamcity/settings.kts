@@ -65,7 +65,7 @@ object Lint : BuildType({
                 docker run --rm -e SKIP_GLTF_EXPORT -v "${'$'}PWD:/work" -w /work rust:latest bash -c '
                   apt-get update && apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev mesa-vulkan-drivers &&
                   rustup component add rustfmt &&
-                  cargo fmt --all --check
+                  cargo fmt --all -- --check
                 '
             """.trimIndent()
 
@@ -76,7 +76,7 @@ object Lint : BuildType({
                 docker run --rm -e SKIP_GLTF_EXPORT -v "${'$'}PWD:/work" -w /work rust:latest bash -c '
                   apt-get update && apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev mesa-vulkan-drivers &&
                   rustup component add clippy &&
-                  cargo clippy
+                  cargo clippy -- -D warnings
                 '
             """.trimIndent()
 
