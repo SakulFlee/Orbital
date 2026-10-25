@@ -5,6 +5,7 @@ members = ["Examples/*", "Crates/*"]
 [workspace.package]
 version = "1.5.0"
 authors = ["Lukas Weber <dev@sakul-flee.de>"]
+edition = "2024"
 license = "MIT OR Apache-2.0"
 # Mirror: https://github.com/SakulFlee/Orbital
 repository = "https://forgejo.sakul-flee.de/SakulFlee/Orbital"

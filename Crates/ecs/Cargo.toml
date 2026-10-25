@@ -2,7 +2,7 @@
 name = "orbital_ecs"
 version.workspace = true
 authors.workspace = true
-edition = "2024"
+edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
