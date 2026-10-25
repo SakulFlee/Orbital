@@ -9,6 +9,7 @@ orbital_mesh = { path = "../orbital_mesh" }
 orbital_instance = { path = "../orbital_instance" }
 orbital_math = { path = "../orbital_math" }
 orbital_material_shader = { path = "../orbital_material_shader" }
+cgmath = { workspace = true }
 hashbrown = { workspace = true }
 ulid = { workspace = true }
 wgpu = { workspace = true }

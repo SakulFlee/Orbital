@@ -254,6 +254,31 @@ pub fn realize_models(ecs: &mut World) {
             materials: desc.materials.clone(),
             transforms: instances.0.clone(),
         };
+        // Transform-only changes can update the existing instance buffer in
+        // place. Animation will take this path every frame.
+        let mut updated_in_place = false;
+        if !needs_new
+            && let Some(store) = ecs.get_component_store_mut::<ModelRealization>()
+            && let Some(index) = store.sparse.get(eid).copied().flatten()
+        {
+            let realization = &mut store.get_mut_store().components[index].0;
+            if realization.source_hash() == model_desc.instance_hash() {
+                Arc::make_mut(realization).update_instances(
+                    &model_desc.transforms,
+                    &device,
+                    &queue,
+                );
+                updated_in_place = true;
+            }
+        }
+        if updated_in_place {
+            if let Some(mut dirty_store) = ecs.get_component_store_mut::<ModelDirty>()
+                && let Some(index) = dirty_store.sparse.get(eid).copied().flatten()
+            {
+                dirty_store.components[index].0 = false;
+            }
+            continue;
+        }
 
         match Model::from_descriptor(
             &model_desc,
