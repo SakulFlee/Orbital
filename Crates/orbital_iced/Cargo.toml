@@ -1,10 +1,12 @@
 [package]
 name = "orbital_iced"
 version.workspace = true
-repository.workspace = true
+authors.workspace = true
 edition = "2024"
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
 description = "Iced UI integration for the Orbital game engine"
-license = "MIT"
 
 [dependencies]
 orbital_app = { path = "../orbital_app" }
