@@ -28,22 +28,18 @@ use winit::{
     window::{CursorGrabMode, WindowId},
 };
 
-use orbital_light::LightType;
-use orbital_shadow::{ShadowCaster, ShadowLightInfo};
-use orbital_world_environment::{GeneratedSkyParameters, WorldEnvironment};
-
 use crate::{AppContext, AppSettings, AppState, Module, Timer, make_core_schedule};
 use orbital_ecs_bridge::{
     ActiveCamera, AdapterResource, CameraDescriptor, CameraDirty, CameraStore, CursorGrabConfig,
     CursorGrabState, CursorPosition, DeltaTime, DeviceResource, EngineEvent, EngineEvents,
     FpsStats, FrameCounter, FrameTimings, IcedCapturedMouseDrag, IcedCapturedMouseWheel,
-    IcedCapturedTouches, IcedEventQueue, IcedTextInputFocus, InputSnapshot, LightDescriptor,
-    Position, QueueResource, STAGE_BIND_MODELS, STAGE_CULL_EXTRACT, STAGE_GAME_SCHEDULE,
-    STAGE_GPU_MODELS, STAGE_GPU_SCENE_TOTAL, STAGE_GPU_SHADOW, STAGE_GPU_SKYBOX, STAGE_ICED_DRAW,
-    STAGE_ICED_SUBMIT, STAGE_OVERLAY_LAYERS, STAGE_OVERLAY_LEGACY, STAGE_PRESENT, STAGE_REALIZE,
-    STAGE_REALIZE_ENV, STAGE_REALIZE_MODELS, STAGE_SCENE_ENCODE, STAGE_SCENE_SUBMIT, STAGE_STAGGER,
-    STAGE_SURFACE_ACQ, STAGE_TIMESTAMP_READBACK, STAGE_TOTAL, STAGE_UI_EVENTS, STAGE_UPDATE,
-    SurfaceFormatResource, TIMING_STAGES, TimingsHistoryConfig, TotalTime, WindowSize,
+    IcedCapturedTouches, IcedEventQueue, IcedTextInputFocus, InputSnapshot, QueueResource,
+    STAGE_BIND_MODELS, STAGE_CULL_EXTRACT, STAGE_GAME_SCHEDULE, STAGE_GPU_MODELS,
+    STAGE_GPU_SCENE_TOTAL, STAGE_GPU_SHADOW, STAGE_GPU_SKYBOX, STAGE_ICED_DRAW, STAGE_ICED_SUBMIT,
+    STAGE_OVERLAY_LAYERS, STAGE_OVERLAY_LEGACY, STAGE_PRESENT, STAGE_REALIZE, STAGE_REALIZE_ENV,
+    STAGE_REALIZE_MODELS, STAGE_SCENE_ENCODE, STAGE_SCENE_SUBMIT, STAGE_STAGGER, STAGE_SURFACE_ACQ,
+    STAGE_TIMESTAMP_READBACK, STAGE_TOTAL, STAGE_UI_EVENTS, STAGE_UPDATE, SurfaceFormatResource,
+    TIMING_STAGES, TimingsHistoryConfig, TotalTime, WindowSize,
 };
 
 macro_rules! ctx_lock {
@@ -379,12 +375,6 @@ impl ModuleRuntime {
             new_light_bootstrap,
             dirty_set.len(),
         );
-        // Count active lights for the shader's light-store loop bound
-        let active_light_count = self
-            .ecs_world
-            .get_component_store::<orbital_ecs_bridge::LightDescriptor>()
-            .map(|s| s.dense.len() as u32)
-            .unwrap_or(0u32);
         let t_cull_start = Instant::now();
         let d_stagger = t_cull_start - t_stagger_start;
 
@@ -469,374 +459,18 @@ impl ModuleRuntime {
             .ecs_world
             .get_resource::<orbital_ecs_bridge::CullResource>();
 
-        // Extract all rendering data while ecs_world is not mutably borrowed
-        let (
-            camera_buffer,
-            light_buffer,
-            env_ibl,
-            model_ptrs,
-            shadow_lights,
-            camera_pvp,
-            camera_near,
-            camera_far,
-        ) = {
-            let cb = self.extract_camera_buffer(device, queue);
-            let (pvp, near, far) = self.extract_camera_projection_data();
-            let lb = self.extract_light_buffer(device);
-            let ei = self.extract_env_ibl();
-            let mp = self.collect_model_ptrs();
-            let sl = self.collect_shadow_lights();
-            (cb, lb, ei, mp, sl, pvp, near, far)
-        };
+        // Snapshot all renderer-facing ECS state. `RenderScene` owns cheap
+        // `Arc`/wgpu clones, so the ECS is no longer borrowed during render.
         let t_bind_start = Instant::now();
-        let d_cull_extract = t_bind_start - t_cull_start;
-
-        // IBL BRDF (static cache)
-        static BRDF_ONCE: std::sync::OnceLock<orbital_ibl_brdf::IblBrdf> =
-            std::sync::OnceLock::new();
-        let brdf = BRDF_ONCE.get_or_init(|| orbital_ibl_brdf::IblBrdf::generate(device, queue));
-        let brdf_tex = brdf.texture_ref();
-
-        // Environment IBL textures (from owned Arc)
-        let (env_diff_view, env_diff_sampler, env_spec_view, env_spec_sampler) = match &env_ibl {
-            Some(env) => (
-                env.ibl_diffuse().view(),
-                env.ibl_diffuse().sampler(),
-                env.ibl_specular().view(),
-                env.ibl_specular().sampler(),
-            ),
-            None => {
-                static FALLBACK_ONCE: std::sync::OnceLock<(
-                    orbital_texture::Texture,
-                    orbital_texture::Texture,
-                )> = std::sync::OnceLock::new();
-                let (diff, spec) = FALLBACK_ONCE.get_or_init(|| {
-                    (
-                        orbital_texture::Texture::create_empty_cube_texture(
-                            Some("default IBL diffuse"),
-                            cgmath::Vector2::new(1, 1),
-                            wgpu::TextureFormat::R8Unorm,
-                            wgpu::TextureUsages::TEXTURE_BINDING,
-                            1,
-                            device,
-                        ),
-                        orbital_texture::Texture::create_empty_cube_texture(
-                            Some("default IBL specular"),
-                            cgmath::Vector2::new(1, 1),
-                            wgpu::TextureFormat::R8Unorm,
-                            wgpu::TextureUsages::TEXTURE_BINDING,
-                            1,
-                            device,
-                        ),
-                    )
-                });
-                (diff.view(), diff.sampler(), spec.view(), spec.sampler())
-            }
-        };
-
-        // Sky parameters uniform for the analytic skybox (binding 14). Generated
-        // skies expose a live buffer; file/data environments use a static
-        // default that the texture-based skybox shader never reads.
-        static FALLBACK_SKY_PARAMS_BUF: std::sync::OnceLock<wgpu::Buffer> =
-            std::sync::OnceLock::new();
-        let sky_params_buf: &wgpu::Buffer = env_ibl
-            .as_ref()
-            .and_then(|env: &Arc<WorldEnvironment>| env.sky_parameters_buffer())
-            .unwrap_or_else(|| {
-                FALLBACK_SKY_PARAMS_BUF.get_or_init(|| {
-                    WorldEnvironment::make_sky_parameters_buffer(
-                        &GeneratedSkyParameters::default(),
-                        device,
-                    )
-                })
-            });
-
-        // Extract shadow resources from renderer's shadow renderer (with static fallbacks)
-        static FALLBACK_SHADOW_BUF: std::sync::OnceLock<wgpu::Buffer> = std::sync::OnceLock::new();
-        static FALLBACK_SHADOW_TEX: std::sync::OnceLock<(wgpu::Texture, wgpu::TextureView)> =
-            std::sync::OnceLock::new();
-        static FALLBACK_SHADOW_SAMPLER: std::sync::OnceLock<wgpu::Sampler> =
-            std::sync::OnceLock::new();
-        static FALLBACK_CUBE_TEX: std::sync::OnceLock<(wgpu::Texture, wgpu::TextureView)> =
-            std::sync::OnceLock::new();
-        static FALLBACK_CUBE_SAMPLER: std::sync::OnceLock<wgpu::Sampler> =
-            std::sync::OnceLock::new();
-
-        let shadow_slot_buffer: &wgpu::Buffer;
-        let shadow_depth_view: &wgpu::TextureView;
-        let shadow_sampler: &wgpu::Sampler;
-        let cube_shadow_depth_view: &wgpu::TextureView;
-        let cube_shadow_sampler: &wgpu::Sampler;
-
-        if let Some(renderer) = &self.renderer {
-            if let Some(sr) = renderer.shadow_renderer() {
-                shadow_slot_buffer = sr.slot_data_buffer();
-                shadow_depth_view = sr.depth_texture().view();
-                shadow_sampler = sr.sampler();
-                cube_shadow_depth_view = sr.cube_depth_texture().view();
-                cube_shadow_sampler = sr.cube_sampler();
-            } else {
-                let fb = FALLBACK_SHADOW_BUF.get_or_init(|| {
-                    device.create_buffer(&wgpu::BufferDescriptor {
-                        label: Some("Fallback Shadow Buffer"),
-                        size: std::mem::size_of::<orbital_shadow::ShadowGpuData>() as u64,
-                        usage: wgpu::BufferUsages::UNIFORM,
-                        mapped_at_creation: false,
-                    })
-                });
-                let (_, fbv) = FALLBACK_SHADOW_TEX.get_or_init(|| {
-                    let t = device.create_texture(&wgpu::TextureDescriptor {
-                        label: Some("Fallback Shadow Tex"),
-                        size: wgpu::Extent3d {
-                            width: 1,
-                            height: 1,
-                            depth_or_array_layers: 1,
-                        },
-                        mip_level_count: 1,
-                        sample_count: 1,
-                        dimension: wgpu::TextureDimension::D2,
-                        format: wgpu::TextureFormat::Depth32Float,
-                        usage: wgpu::TextureUsages::TEXTURE_BINDING,
-                        view_formats: &[],
-                    });
-                    let v = t.create_view(&Default::default());
-                    (t, v)
-                });
-                let fs = FALLBACK_SHADOW_SAMPLER.get_or_init(|| {
-                    device.create_sampler(&wgpu::SamplerDescriptor {
-                        label: Some("Fallback Shadow Sampler"),
-                        ..Default::default()
-                    })
-                });
-                let (_, cbv) = FALLBACK_CUBE_TEX.get_or_init(|| {
-                    let t = device.create_texture(&wgpu::TextureDescriptor {
-                        label: Some("Fallback Cube Shadow Tex"),
-                        size: wgpu::Extent3d {
-                            width: 1,
-                            height: 1,
-                            depth_or_array_layers: 6,
-                        },
-                        mip_level_count: 1,
-                        sample_count: 1,
-                        dimension: wgpu::TextureDimension::D2,
-                        format: wgpu::TextureFormat::Depth32Float,
-                        usage: wgpu::TextureUsages::TEXTURE_BINDING,
-                        view_formats: &[],
-                    });
-                    let v = t.create_view(&wgpu::TextureViewDescriptor {
-                        dimension: Some(wgpu::TextureViewDimension::CubeArray),
-                        ..Default::default()
-                    });
-                    (t, v)
-                });
-                let cs = FALLBACK_CUBE_SAMPLER.get_or_init(|| {
-                    device.create_sampler(&wgpu::SamplerDescriptor {
-                        label: Some("Fallback Cube Shadow Sampler"),
-                        ..Default::default()
-                    })
-                });
-                shadow_slot_buffer = fb;
-                shadow_depth_view = fbv;
-                shadow_sampler = fs;
-                cube_shadow_depth_view = cbv;
-                cube_shadow_sampler = cs;
-            }
-        } else {
-            let fb = FALLBACK_SHADOW_BUF.get_or_init(|| {
-                device.create_buffer(&wgpu::BufferDescriptor {
-                    label: Some("Fallback Shadow Buffer 2"),
-                    size: std::mem::size_of::<orbital_shadow::ShadowGpuData>() as u64,
-                    usage: wgpu::BufferUsages::UNIFORM,
-                    mapped_at_creation: false,
-                })
-            });
-            let (_, fbv) = FALLBACK_SHADOW_TEX.get_or_init(|| {
-                let t = device.create_texture(&wgpu::TextureDescriptor {
-                    label: Some("Fallback Shadow Tex 2"),
-                    size: wgpu::Extent3d {
-                        width: 1,
-                        height: 1,
-                        depth_or_array_layers: 1,
-                    },
-                    mip_level_count: 1,
-                    sample_count: 1,
-                    dimension: wgpu::TextureDimension::D2,
-                    format: wgpu::TextureFormat::Depth32Float,
-                    usage: wgpu::TextureUsages::TEXTURE_BINDING,
-                    view_formats: &[],
-                });
-                let v = t.create_view(&Default::default());
-                (t, v)
-            });
-            let fs = FALLBACK_SHADOW_SAMPLER.get_or_init(|| {
-                device.create_sampler(&wgpu::SamplerDescriptor {
-                    label: Some("Fallback Shadow Sampler 2"),
-                    ..Default::default()
-                })
-            });
-            let (_, cbv) = FALLBACK_CUBE_TEX.get_or_init(|| {
-                let t2 = device.create_texture(&wgpu::TextureDescriptor {
-                    label: Some("Fallback Cube Shadow Tex 2"),
-                    size: wgpu::Extent3d {
-                        width: 1,
-                        height: 1,
-                        depth_or_array_layers: 6,
-                    },
-                    mip_level_count: 1,
-                    sample_count: 1,
-                    dimension: wgpu::TextureDimension::D2,
-                    format: wgpu::TextureFormat::Depth32Float,
-                    usage: wgpu::TextureUsages::TEXTURE_BINDING,
-                    view_formats: &[],
-                });
-                let v2 = t2.create_view(&wgpu::TextureViewDescriptor {
-                    dimension: Some(wgpu::TextureViewDimension::CubeArray),
-                    ..Default::default()
-                });
-                (t2, v2)
-            });
-            let cs = FALLBACK_CUBE_SAMPLER.get_or_init(|| {
-                device.create_sampler(&wgpu::SamplerDescriptor {
-                    label: Some("Fallback Cube Shadow Sampler 2"),
-                    ..Default::default()
-                })
-            });
-            shadow_slot_buffer = fb;
-            shadow_depth_view = fbv;
-            shadow_sampler = fs;
-            cube_shadow_depth_view = cbv;
-            cube_shadow_sampler = cs;
-        };
-
-        // Active light count uniform — limits the light-store loop in the shader
-        static LIGHT_COUNT_BUF: std::sync::OnceLock<wgpu::Buffer> = std::sync::OnceLock::new();
-        let light_count_buf = LIGHT_COUNT_BUF.get_or_init(|| {
-            device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("Light Count Uniform"),
-                size: 16,
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            })
-        });
-        let light_count_bytes: [u8; 16] = {
-            let mut d = [0u8; 16];
-            d[..4].copy_from_slice(&active_light_count.to_le_bytes());
-            d
-        };
-        queue.write_buffer(light_count_buf, 0, &light_count_bytes);
-
-        // Build bind group — cache the layout (expensive driver call)
-        static WORLD_BG_LAYOUT: std::sync::OnceLock<wgpu::BindGroupLayout> =
-            std::sync::OnceLock::new();
-        let bind_group_layout = WORLD_BG_LAYOUT
-            .get_or_init(|| orbital_material_shader::make_world_bind_group_layout(device));
-        let world_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("World Bind Group"),
-            layout: bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer(
-                        camera_buffer.as_entire_buffer_binding(),
-                    ),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Buffer(
-                        light_buffer.as_entire_buffer_binding(),
-                    ),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::TextureView(env_diff_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: wgpu::BindingResource::Sampler(env_diff_sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 4,
-                    resource: wgpu::BindingResource::TextureView(env_spec_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 5,
-                    resource: wgpu::BindingResource::Sampler(env_spec_sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 6,
-                    resource: wgpu::BindingResource::TextureView(brdf_tex.view()),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 7,
-                    resource: wgpu::BindingResource::Sampler(brdf_tex.sampler()),
-                },
-                // Shadow bindings (optional — use fallback empty resources if no shadow renderer)
-                wgpu::BindGroupEntry {
-                    binding: 8,
-                    resource: wgpu::BindingResource::Buffer(
-                        shadow_slot_buffer.as_entire_buffer_binding(),
-                    ),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 9,
-                    resource: wgpu::BindingResource::TextureView(shadow_depth_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 10,
-                    resource: wgpu::BindingResource::Sampler(shadow_sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 11,
-                    resource: wgpu::BindingResource::TextureView(cube_shadow_depth_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 12,
-                    resource: wgpu::BindingResource::Sampler(cube_shadow_sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 13,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: light_count_buf,
-                        offset: 0,
-                        size: None,
-                    }),
-                },
-                // Sky parameters uniform (analytic skybox)
-                wgpu::BindGroupEntry {
-                    binding: 14,
-                    resource: wgpu::BindingResource::Buffer(
-                        sky_params_buf.as_entire_buffer_binding(),
-                    ),
-                },
-            ],
-        });
-
-        // Collect models (owned Vec of raw pointers)
-        let models: Vec<&orbital_model::Model> = model_ptrs
-            .iter()
-            .filter_map(|ptr| unsafe { ptr.as_ref() })
-            .collect();
-
+        let scene = orbital_renderer::RenderScene::from_world(&self.ecs_world);
         let t_render_start = Instant::now();
+        let d_cull_extract = t_bind_start - t_cull_start;
         let d_bind_group_models = t_render_start - t_bind_start;
 
         // Render
         if let Some(renderer) = &mut self.renderer {
             let cull = cull_res.as_ref().and_then(|r| r.0.as_ref());
-            renderer.render(
-                &view,
-                &world_bind_group,
-                env_ibl.as_ref().map(|a| a.as_ref()),
-                &models,
-                device,
-                queue,
-                cull,
-                &shadow_lights,
-                camera_pvp.as_ref(),
-                camera_near,
-                camera_far,
-                &dirty_set,
-            );
+            renderer.render(&view, &scene, device, queue, cull, &dirty_set);
         }
         drop(cull_res);
 
@@ -851,13 +485,15 @@ impl ModuleRuntime {
             .map_or([0.0; 4], |renderer| renderer.prev_gpu_ns());
 
         // Optional post‑main‑pass overlays (debug viz, HUD, gizmos, touch UI, …)
-        let d_overlay_legacy;
-        let d_overlay_layers;
+        let mut d_overlay_legacy = std::time::Duration::ZERO;
+        let mut d_overlay_layers = std::time::Duration::ZERO;
         let mut d_iced_draw = std::time::Duration::ZERO;
         let mut d_iced_submit = std::time::Duration::ZERO;
+        if let Some(camera_buffer) = self
+            .renderer
+            .as_ref()
+            .map(|renderer| renderer.camera_buffer(&scene))
         {
-            let camera_buffer = self.extract_camera_buffer(device, queue);
-
             // Get screen size for overlay context
             let screen_size = if let Some(size_res) = self.ecs_world.get_resource::<WindowSize>() {
                 (size_res.0.x as f32, size_res.0.y as f32)
@@ -871,7 +507,7 @@ impl ModuleRuntime {
             for overlay in overlays.iter_mut() {
                 let ctx = crate::RenderOverlayContext {
                     target_view: &view,
-                    camera_buffer: &camera_buffer,
+                    camera_buffer,
                     device,
                     queue,
                     ecs: &self.ecs_world,
@@ -891,7 +527,7 @@ impl ModuleRuntime {
             for renderer in layer_renderers.iter_mut() {
                 let ctx = crate::RenderOverlayContext {
                     target_view: &view,
-                    camera_buffer: &camera_buffer,
+                    camera_buffer,
                     device,
                     queue,
                     ecs: &self.ecs_world,
@@ -1022,208 +658,6 @@ impl ModuleRuntime {
         );
 
         self.perf_counters = current;
-    }
-
-    /// Extract camera buffer as an owned Buffer (cheap Arc clone).
-    fn extract_camera_buffer(&self, device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::Buffer {
-        let active_entity = self
-            .ecs_world
-            .get_resource::<orbital_ecs_bridge::ActiveCamera>()
-            .map(|a| a.0);
-
-        match active_entity {
-            Some(entity) => {
-                let store = self
-                    .ecs_world
-                    .get_resource::<orbital_ecs_bridge::CameraStore>();
-                match store {
-                    Some(s) => match s.get(entity.index) {
-                        Some(arc_camera) => {
-                            let guard = arc_camera.read().unwrap();
-                            guard.camera_buffer().clone()
-                        }
-                        None => self.fallback_camera(device, queue),
-                    },
-                    None => self.fallback_camera(device, queue),
-                }
-            }
-            None => self.fallback_camera(device, queue),
-        }
-    }
-
-    /// Fallback camera when no ECS camera exists.
-    fn fallback_camera(&self, device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::Buffer {
-        static FALLBACK_ONCE: std::sync::OnceLock<wgpu::Buffer> = std::sync::OnceLock::new();
-        FALLBACK_ONCE
-            .get_or_init(|| {
-                let desc = orbital_camera::CameraDescriptor::default();
-                let cam = orbital_camera::Camera::from_descriptor(desc, device, queue);
-                cam.camera_buffer().clone()
-            })
-            .clone()
-    }
-
-    /// Extract light buffer — returns owned Buffer.
-    fn extract_light_buffer(&self, device: &wgpu::Device) -> wgpu::Buffer {
-        let light_buf = self
-            .ecs_world
-            .get_resource::<orbital_ecs_bridge::LightBufferResource>();
-        match light_buf {
-            Some(r) => match &r.0 {
-                Some(buf) => buf.as_ref().clone(),
-                None => self.fallback_light(device),
-            },
-            None => self.fallback_light(device),
-        }
-    }
-
-    /// Fallback light buffer.
-    fn fallback_light(&self, device: &wgpu::Device) -> wgpu::Buffer {
-        static FALLBACK_ONCE: std::sync::OnceLock<wgpu::Buffer> = std::sync::OnceLock::new();
-        FALLBACK_ONCE
-            .get_or_init(|| {
-                device.create_buffer(&wgpu::BufferDescriptor {
-                    label: Some("Fallback Light Buffer"),
-                    size: 64,
-                    usage: wgpu::BufferUsages::STORAGE,
-                    mapped_at_creation: false,
-                })
-            })
-            .clone()
-    }
-
-    /// Extract environment IBL textures.
-    /// Returns owned Arc<WorldEnvironment> to keep references valid.
-    fn extract_env_ibl(&self) -> Option<Arc<orbital_world_environment::WorldEnvironment>> {
-        self.ecs_world
-            .get_resource::<orbital_ecs_bridge::EnvironmentGpuResource>()
-            .and_then(|r| r.0.clone())
-    }
-
-    /// Collect realized model pointers from ECS.
-    /// Returns raw pointers — caller must ensure validity.
-    fn collect_model_ptrs(&self) -> Vec<*const orbital_model::Model> {
-        let store = match self
-            .ecs_world
-            .get_component_store::<orbital_ecs_bridge::ModelRealization>()
-        {
-            Some(s) => s,
-            None => return Vec::new(),
-        };
-        store
-            .dense
-            .iter()
-            .filter_map(|&eid| {
-                store.sparse[eid].map(|idx| {
-                    let realization = &store.components[idx];
-                    &*realization.0 as *const orbital_model::Model
-                })
-            })
-            .collect()
-    }
-
-    /// Extract camera perspective view-projection matrix, near, and far from the active camera.
-    fn extract_camera_projection_data(&self) -> (Option<cgmath::Matrix4<f32>>, f32, f32) {
-        let active_entity = self
-            .ecs_world
-            .get_resource::<orbital_ecs_bridge::ActiveCamera>()
-            .map(|a| a.0);
-
-        match active_entity {
-            Some(entity) => {
-                let store = self
-                    .ecs_world
-                    .get_resource::<orbital_ecs_bridge::CameraStore>();
-                match store {
-                    Some(s) => match s.get(entity.index) {
-                        Some(arc_camera) => {
-                            let guard = arc_camera.read().unwrap();
-                            (
-                                Some(*guard.perspective_view_projection_matrix()),
-                                guard.near(),
-                                guard.far(),
-                            )
-                        }
-                        None => (None, 0.1, 1000.0),
-                    },
-                    None => (None, 0.1, 1000.0),
-                }
-            }
-            None => (None, 0.1, 1000.0),
-        }
-    }
-    /// Collect shadow-casting light info from ECS.
-    fn collect_shadow_lights(&self) -> Vec<ShadowLightInfo> {
-        let descs = match self.ecs_world.get_component_store::<LightDescriptor>() {
-            Some(s) => s,
-            None => return Vec::new(),
-        };
-        let positions = match self.ecs_world.get_component_store::<Position>() {
-            Some(s) => s,
-            None => return Vec::new(),
-        };
-        let casters = match self.ecs_world.get_component_store::<ShadowCaster>() {
-            Some(s) => s,
-            None => return Vec::new(),
-        };
-        let slot_idx_store = self
-            .ecs_world
-            .get_component_store::<orbital_ecs_bridge::LightSlotIndex>();
-        let has_slot_store = slot_idx_store.is_some();
-
-        let mut lights = Vec::new();
-        let mut fallback_counter = 0u32;
-        for &eid in descs.dense.as_slice() {
-            let desc_idx = match descs.sparse.get(eid).copied().flatten() {
-                Some(i) => i,
-                None => continue,
-            };
-            let desc = &descs.components[desc_idx];
-
-            // Check if this light has a shadow caster
-            let has_shadow = match casters.sparse.get(eid).copied().flatten() {
-                Some(idx) => casters.components[idx].enabled,
-                None => false,
-            };
-
-            if has_shadow {
-                let pos_idx = match positions.sparse.get(eid).copied().flatten() {
-                    Some(i) => i,
-                    None => continue,
-                };
-                let caster = &casters.components[casters.sparse[eid].unwrap()];
-                let pos = &positions.components[pos_idx];
-                let (light_type, outer_cone_angle) = match desc.light_type {
-                    LightType::Point { .. } => (0, 0.0),
-                    LightType::Directional { .. } => (1, 0.0),
-                    LightType::Spot {
-                        outer_cone_angle, ..
-                    } => (2, outer_cone_angle),
-                };
-                let light_store_index = if has_slot_store {
-                    slot_idx_store
-                        .as_ref()
-                        .and_then(|s| s.get_component(eid))
-                        .map(|si| si.0)
-                        .unwrap_or(fallback_counter)
-                } else {
-                    fallback_counter
-                };
-                if !has_slot_store {
-                    fallback_counter += 1;
-                }
-                lights.push(ShadowLightInfo {
-                    light_type,
-                    direction: desc.direction,
-                    position: cgmath::Vector3::new(pos.0.x, pos.0.y, pos.0.z),
-                    caster: caster.clone(),
-                    outer_cone_angle,
-                    light_store_index,
-                });
-            }
-        }
-
-        lights
     }
 
     #[cfg(all(

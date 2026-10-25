@@ -1,18 +1,24 @@
+use std::sync::Arc;
 use std::time::Instant;
 
-use cgmath::{Matrix4, Vector2};
+use cgmath::Vector2;
 use wgpu::{
-    BindGroup, Color, CommandEncoder, CommandEncoderDescriptor, Device, IndexFormat, LoadOp,
-    Operations, Queue, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
-    RenderPassDescriptor, StoreOp, TextureFormat, TextureView,
+    BindGroup, BindGroupEntry, Color, CommandEncoder, CommandEncoderDescriptor, CompareFunction,
+    Device, FilterMode, IndexFormat, LoadOp, Operations, Queue, RenderPassColorAttachment,
+    RenderPassDepthStencilAttachment, RenderPassDescriptor, SamplerDescriptor, StoreOp,
+    TextureFormat, TextureView, TextureViewDimension,
 };
 
+use orbital_camera::{Camera, CameraDescriptor};
 use orbital_cull::CullResources;
+use orbital_ibl_brdf::IblBrdf;
 use orbital_material_shader::MaterialShader;
 use orbital_model::Model;
-use orbital_shadow::{ShadowLightInfo, ShadowRenderer};
+use orbital_shadow::{ShadowGpuData, ShadowRenderer};
 use orbital_texture::Texture;
-use orbital_world_environment::WorldEnvironment;
+use orbital_world_environment::{GeneratedSkyParameters, WorldEnvironment};
+
+use crate::scene::RenderScene;
 
 /// CPU time spent recording and submitting the scene.
 ///
@@ -34,10 +40,163 @@ pub struct RendererCpuTimings {
     pub timestamp_readback_ms: f64,
 }
 
+/// Empty resources bound when a frame has no shadows.
+///
+/// The bind-group layout always includes the shadow slots, depth array, cube
+/// array and comparison samplers, so they must point at valid GPU objects even
+/// when shadow rendering is disabled.
+struct ShadowFallbacks {
+    slot_data_buffer: wgpu::Buffer,
+    depth_view: TextureView,
+    depth_sampler: wgpu::Sampler,
+    cube_view: TextureView,
+    cube_sampler: wgpu::Sampler,
+    _depth_texture: wgpu::Texture,
+    _cube_texture: wgpu::Texture,
+}
+
+impl ShadowFallbacks {
+    fn new(device: &Device, queue: &Queue) -> Self {
+        let slot_data_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Orbital::ShadowFallback::SlotData"),
+            size: std::mem::size_of::<ShadowGpuData>() as u64,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        queue.write_buffer(&slot_data_buffer, 0, ShadowGpuData::new().as_bytes());
+
+        let depth_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Orbital::ShadowFallback::Depth"),
+            size: wgpu::Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: TextureFormat::Depth32Float,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        });
+        let depth_view = depth_texture.create_view(&Default::default());
+
+        let cube_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Orbital::ShadowFallback::CubeDepth"),
+            size: wgpu::Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 6,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: TextureFormat::Depth32Float,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        });
+        let cube_view = cube_texture.create_view(&wgpu::TextureViewDescriptor {
+            dimension: Some(TextureViewDimension::CubeArray),
+            ..Default::default()
+        });
+
+        let make_comparison_sampler = |label| {
+            device.create_sampler(&SamplerDescriptor {
+                label: Some(label),
+                address_mode_u: wgpu::AddressMode::ClampToEdge,
+                address_mode_v: wgpu::AddressMode::ClampToEdge,
+                address_mode_w: wgpu::AddressMode::ClampToEdge,
+                mag_filter: FilterMode::Linear,
+                min_filter: FilterMode::Linear,
+                compare: Some(CompareFunction::LessEqual),
+                ..Default::default()
+            })
+        };
+
+        Self {
+            slot_data_buffer,
+            depth_view,
+            depth_sampler: make_comparison_sampler("Orbital::ShadowFallback::Sampler"),
+            cube_view,
+            cube_sampler: make_comparison_sampler("Orbital::ShadowFallback::CubeSampler"),
+            _depth_texture: depth_texture,
+            _cube_texture: cube_texture,
+        }
+    }
+}
+
+/// Resources that keep the world bind group valid before the ECS has produced
+/// a camera, light buffer or environment.
+struct RendererFallbacks {
+    camera: Camera,
+    light_buffer: wgpu::Buffer,
+    brdf: IblBrdf,
+    env_diffuse: Texture,
+    env_specular: Texture,
+    sky_params: wgpu::Buffer,
+    light_count: wgpu::Buffer,
+    shadow: ShadowFallbacks,
+    world_bind_group_layout: wgpu::BindGroupLayout,
+}
+
+impl RendererFallbacks {
+    fn new(device: &Device, queue: &Queue) -> Self {
+        let camera = Camera::from_descriptor(CameraDescriptor::default(), device, queue);
+        let light_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Orbital::Fallback::LightBuffer"),
+            size: 64,
+            usage: wgpu::BufferUsages::STORAGE,
+            mapped_at_creation: false,
+        });
+        let brdf = IblBrdf::generate(device, queue);
+        let env_diffuse = Texture::create_empty_cube_texture(
+            Some("Orbital::Fallback::IBL Diffuse"),
+            Vector2::new(1, 1),
+            TextureFormat::R8Unorm,
+            wgpu::TextureUsages::TEXTURE_BINDING,
+            1,
+            device,
+        );
+        let env_specular = Texture::create_empty_cube_texture(
+            Some("Orbital::Fallback::IBL Specular"),
+            Vector2::new(1, 1),
+            TextureFormat::R8Unorm,
+            wgpu::TextureUsages::TEXTURE_BINDING,
+            1,
+            device,
+        );
+        let sky_params = WorldEnvironment::make_sky_parameters_buffer(
+            &GeneratedSkyParameters::default(),
+            device,
+        );
+        let light_count = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Orbital::Fallback::LightCount"),
+            size: 16,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let shadow = ShadowFallbacks::new(device, queue);
+        let world_bind_group_layout = orbital_material_shader::make_world_bind_group_layout(device);
+
+        Self {
+            camera,
+            light_buffer,
+            brdf,
+            env_diffuse,
+            env_specular,
+            sky_params,
+            light_count,
+            shadow,
+            world_bind_group_layout,
+        }
+    }
+}
+
 pub struct Renderer {
     surface_texture_format: TextureFormat,
     depth_texture: Texture,
     shadow_renderer: Option<ShadowRenderer>,
+    fallbacks: RendererFallbacks,
     timestamp_query_set: Option<wgpu::QuerySet>,
     timestamp_resolve_buffer: wgpu::Buffer,
     timestamp_staging_bufs: [wgpu::Buffer; 2],
@@ -112,6 +271,7 @@ impl Renderer {
             surface_texture_format,
             depth_texture,
             shadow_renderer: None,
+            fallbacks: RendererFallbacks::new(device, queue),
             timestamp_query_set,
             timestamp_resolve_buffer,
             timestamp_staging_bufs,
@@ -153,24 +313,177 @@ impl Renderer {
         self.depth_texture = Texture::depth_texture(&resolution, device, queue);
     }
 
-    #[allow(clippy::too_many_arguments)]
+    /// Returns the camera uniform buffer for this frame.
+    ///
+    /// Falls back to the renderer's default camera when no ECS camera has been
+    /// realized yet, so overlays and the scene always have a valid binding.
+    pub fn camera_buffer<'a>(&'a self, scene: &'a RenderScene) -> &'a wgpu::Buffer {
+        scene
+            .camera
+            .as_ref()
+            .map(|camera| camera.buffer())
+            .unwrap_or_else(|| self.fallbacks.camera.camera_buffer())
+    }
+
+    fn build_world_bind_group<'a>(
+        &'a self,
+        scene: &'a RenderScene,
+        device: &Device,
+        queue: &Queue,
+    ) -> BindGroup {
+        let light_count_bytes: [u8; 16] = {
+            let mut data = [0u8; 16];
+            data[..4].copy_from_slice(&scene.light_count.to_le_bytes());
+            data
+        };
+        queue.write_buffer(&self.fallbacks.light_count, 0, &light_count_bytes);
+
+        let camera_buffer = self.camera_buffer(scene);
+        let light_buffer = scene
+            .light_buffer
+            .as_deref()
+            .unwrap_or(&self.fallbacks.light_buffer);
+
+        let (
+            diffuse_env_view,
+            diffuse_env_sampler,
+            specular_env_view,
+            specular_env_sampler,
+            sky_params,
+        ) = match &scene.environment {
+            Some(environment) => (
+                environment.ibl_diffuse().view(),
+                environment.ibl_diffuse().sampler(),
+                environment.ibl_specular().view(),
+                environment.ibl_specular().sampler(),
+                environment
+                    .sky_parameters_buffer()
+                    .unwrap_or(&self.fallbacks.sky_params),
+            ),
+            None => (
+                self.fallbacks.env_diffuse.view(),
+                self.fallbacks.env_diffuse.sampler(),
+                self.fallbacks.env_specular.view(),
+                self.fallbacks.env_specular.sampler(),
+                &self.fallbacks.sky_params,
+            ),
+        };
+
+        let brdf_texture = self.fallbacks.brdf.texture_ref();
+
+        let (
+            shadow_slot_buffer,
+            shadow_depth_view,
+            shadow_sampler,
+            cube_shadow_view,
+            cube_shadow_sampler,
+        ) = match &self.shadow_renderer {
+            Some(shadow_renderer) => (
+                shadow_renderer.slot_data_buffer(),
+                shadow_renderer.depth_texture().view(),
+                shadow_renderer.sampler(),
+                shadow_renderer.cube_depth_texture().view(),
+                shadow_renderer.cube_sampler(),
+            ),
+            None => (
+                &self.fallbacks.shadow.slot_data_buffer,
+                &self.fallbacks.shadow.depth_view,
+                &self.fallbacks.shadow.depth_sampler,
+                &self.fallbacks.shadow.cube_view,
+                &self.fallbacks.shadow.cube_sampler,
+            ),
+        };
+
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("World Bind Group"),
+            layout: &self.fallbacks.world_bind_group_layout,
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(
+                        camera_buffer.as_entire_buffer_binding(),
+                    ),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Buffer(
+                        light_buffer.as_entire_buffer_binding(),
+                    ),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(diffuse_env_view),
+                },
+                BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::Sampler(diffuse_env_sampler),
+                },
+                BindGroupEntry {
+                    binding: 4,
+                    resource: wgpu::BindingResource::TextureView(specular_env_view),
+                },
+                BindGroupEntry {
+                    binding: 5,
+                    resource: wgpu::BindingResource::Sampler(specular_env_sampler),
+                },
+                BindGroupEntry {
+                    binding: 6,
+                    resource: wgpu::BindingResource::TextureView(brdf_texture.view()),
+                },
+                BindGroupEntry {
+                    binding: 7,
+                    resource: wgpu::BindingResource::Sampler(brdf_texture.sampler()),
+                },
+                BindGroupEntry {
+                    binding: 8,
+                    resource: wgpu::BindingResource::Buffer(
+                        shadow_slot_buffer.as_entire_buffer_binding(),
+                    ),
+                },
+                BindGroupEntry {
+                    binding: 9,
+                    resource: wgpu::BindingResource::TextureView(shadow_depth_view),
+                },
+                BindGroupEntry {
+                    binding: 10,
+                    resource: wgpu::BindingResource::Sampler(shadow_sampler),
+                },
+                BindGroupEntry {
+                    binding: 11,
+                    resource: wgpu::BindingResource::TextureView(cube_shadow_view),
+                },
+                BindGroupEntry {
+                    binding: 12,
+                    resource: wgpu::BindingResource::Sampler(cube_shadow_sampler),
+                },
+                BindGroupEntry {
+                    binding: 13,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &self.fallbacks.light_count,
+                        offset: 0,
+                        size: None,
+                    }),
+                },
+                BindGroupEntry {
+                    binding: 14,
+                    resource: wgpu::BindingResource::Buffer(sky_params.as_entire_buffer_binding()),
+                },
+            ],
+        })
+    }
+
     pub fn render(
         &mut self,
         target_view: &TextureView,
-        world_bind_group: &BindGroup,
-        world_environment_option: Option<&WorldEnvironment>,
-        models: &[&Model],
+        scene: &RenderScene,
         device: &Device,
         queue: &Queue,
         cull: Option<&CullResources>,
-        shadow_lights: &[ShadowLightInfo],
-        camera_perspective_view_proj: Option<&Matrix4<f32>>,
-        camera_near: f32,
-        camera_far: f32,
         dirty_set: &std::collections::HashSet<u32>,
     ) {
         let ms = |duration: std::time::Duration| duration.as_secs_f64() * 1000.0;
         let render_start = Instant::now();
+        let world_bind_group = self.build_world_bind_group(scene, device, queue);
 
         let mut command_encoder = device.create_command_encoder(&CommandEncoderDescriptor {
             label: Some("Orbital::Render::Encoder"),
@@ -183,15 +496,15 @@ impl Renderer {
 
         // Shadow pass (before main passes)
         if let Some(sr) = self.shadow_renderer.as_mut()
-            && let Some(pvp) = camera_perspective_view_proj
+            && let Some(camera) = &scene.camera
         {
             sr.render(
                 &mut command_encoder,
-                models,
-                shadow_lights,
-                pvp,
-                camera_near,
-                camera_far,
+                &scene.models,
+                &scene.shadow_lights,
+                &camera.perspective_view_projection,
+                camera.near,
+                camera.far,
                 device,
                 queue,
                 dirty_set,
@@ -204,12 +517,11 @@ impl Renderer {
             command_encoder.write_timestamp(qs, 1);
         }
 
-        if let Some(world_environment) = world_environment_option {
-            let sky_box_shader = world_environment.material_shader();
+        if let Some(world_environment) = scene.environment.as_deref() {
             self.render_sky_box(
                 target_view,
-                sky_box_shader,
-                world_bind_group,
+                world_environment.material_shader(),
+                &world_bind_group,
                 &mut command_encoder,
             );
         }
@@ -221,9 +533,9 @@ impl Renderer {
         }
 
         self.render_models(
-            models,
+            &scene.models,
             target_view,
-            world_bind_group,
+            &world_bind_group,
             &mut command_encoder,
             cull,
         );
@@ -339,7 +651,7 @@ impl Renderer {
 
     fn render_models(
         &self,
-        models: &[&Model],
+        models: &[Arc<Model>],
         target_view: &TextureView,
         world_bind_group: &BindGroup,
         command_encoder: &mut CommandEncoder,
