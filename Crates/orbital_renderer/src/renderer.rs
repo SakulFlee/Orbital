@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
 use cgmath::Vector2;
@@ -192,11 +192,35 @@ impl RendererFallbacks {
     }
 }
 
+/// Identity of the resources referenced by the world bind group.
+///
+/// Buffer and texture contents can change every frame without invalidating the
+/// binding; only replacing a resource (or reallocating shadow textures) does.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct WorldBindGroupKey {
+    camera: usize,
+    light_buffer: usize,
+    environment: usize,
+    sky_params: usize,
+    shadow_generation: Option<u64>,
+}
+
+struct CachedWorldBindGroup {
+    key: WorldBindGroupKey,
+    bind_group: BindGroup,
+    // Keep the identities used by the key alive so allocator address reuse
+    // cannot produce a false cache hit.
+    _camera_source: Option<Arc<RwLock<Camera>>>,
+    _light_buffer: Option<Arc<wgpu::Buffer>>,
+    _environment: Option<Arc<WorldEnvironment>>,
+}
+
 pub struct Renderer {
     surface_texture_format: TextureFormat,
     depth_texture: Texture,
     shadow_renderer: Option<ShadowRenderer>,
     fallbacks: RendererFallbacks,
+    world_bind_group_cache: Option<CachedWorldBindGroup>,
     timestamp_query_set: Option<wgpu::QuerySet>,
     timestamp_resolve_buffer: wgpu::Buffer,
     timestamp_staging_bufs: [wgpu::Buffer; 2],
@@ -272,6 +296,7 @@ impl Renderer {
             depth_texture,
             shadow_renderer: None,
             fallbacks: RendererFallbacks::new(device, queue),
+            world_bind_group_cache: None,
             timestamp_query_set,
             timestamp_resolve_buffer,
             timestamp_staging_bufs,
@@ -290,6 +315,7 @@ impl Renderer {
         resolution: u32,
     ) {
         self.shadow_renderer = Some(ShadowRenderer::new(device, queue, max_slots, resolution));
+        self.world_bind_group_cache = None;
     }
 
     pub fn shadow_renderer(&self) -> Option<&ShadowRenderer> {
@@ -325,12 +351,51 @@ impl Renderer {
             .unwrap_or_else(|| self.fallbacks.camera.camera_buffer())
     }
 
-    fn build_world_bind_group<'a>(
-        &'a self,
-        scene: &'a RenderScene,
+    fn world_bind_group_key(&self, scene: &RenderScene) -> WorldBindGroupKey {
+        let camera = scene
+            .camera
+            .as_ref()
+            .map(|camera| camera.source_id())
+            .unwrap_or_else(|| {
+                self.fallbacks.camera.camera_buffer() as *const wgpu::Buffer as usize
+            });
+        let light_buffer = scene
+            .light_buffer
+            .as_ref()
+            .map(|buffer| Arc::as_ptr(buffer) as usize)
+            .unwrap_or_else(|| &self.fallbacks.light_buffer as *const wgpu::Buffer as usize);
+        let environment = scene
+            .environment
+            .as_ref()
+            .map(|environment| Arc::as_ptr(environment) as usize)
+            .unwrap_or(0);
+        let sky_params = scene
+            .environment
+            .as_ref()
+            .and_then(|environment| environment.sky_parameters_buffer())
+            .map(|buffer| buffer as *const wgpu::Buffer as usize)
+            .unwrap_or_else(|| &self.fallbacks.sky_params as *const wgpu::Buffer as usize);
+        let shadow_generation = self
+            .shadow_renderer
+            .as_ref()
+            .map(|shadow_renderer| shadow_renderer.generation());
+
+        WorldBindGroupKey {
+            camera,
+            light_buffer,
+            environment,
+            sky_params,
+            shadow_generation,
+        }
+    }
+
+    fn world_bind_group(
+        &mut self,
+        scene: &RenderScene,
         device: &Device,
         queue: &Queue,
     ) -> BindGroup {
+        // The light count changes independently of the light buffer identity.
         let light_count_bytes: [u8; 16] = {
             let mut data = [0u8; 16];
             data[..4].copy_from_slice(&scene.light_count.to_le_bytes());
@@ -338,6 +403,25 @@ impl Renderer {
         };
         queue.write_buffer(&self.fallbacks.light_count, 0, &light_count_bytes);
 
+        let key = self.world_bind_group_key(scene);
+        if let Some(cached) = &self.world_bind_group_cache
+            && cached.key == key
+        {
+            return cached.bind_group.clone();
+        }
+
+        let bind_group = self.create_world_bind_group(scene, device);
+        self.world_bind_group_cache = Some(CachedWorldBindGroup {
+            key,
+            bind_group: bind_group.clone(),
+            _camera_source: scene.camera.as_ref().map(|camera| camera.source()),
+            _light_buffer: scene.light_buffer.clone(),
+            _environment: scene.environment.clone(),
+        });
+        bind_group
+    }
+
+    fn create_world_bind_group(&self, scene: &RenderScene, device: &Device) -> BindGroup {
         let camera_buffer = self.camera_buffer(scene);
         let light_buffer = scene
             .light_buffer
@@ -483,7 +567,6 @@ impl Renderer {
     ) {
         let ms = |duration: std::time::Duration| duration.as_secs_f64() * 1000.0;
         let render_start = Instant::now();
-        let world_bind_group = self.build_world_bind_group(scene, device, queue);
 
         let mut command_encoder = device.create_command_encoder(&CommandEncoderDescriptor {
             label: Some("Orbital::Render::Encoder"),
@@ -516,6 +599,10 @@ impl Renderer {
         if let Some(qs) = &self.timestamp_query_set {
             command_encoder.write_timestamp(qs, 1);
         }
+
+        // Build (or reuse) the bind group after the shadow pass: shadow
+        // texture reallocation during that pass can change its resource views.
+        let world_bind_group = self.world_bind_group(scene, device, queue);
 
         if let Some(world_environment) = scene.environment.as_deref() {
             self.render_sky_box(

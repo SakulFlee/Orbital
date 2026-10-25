@@ -9,9 +9,10 @@
 //! matrices and previous-frame transforms. Keeping those additions here means
 //! the render passes can stay animation-agnostic.
 
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use cgmath::Matrix4;
+use orbital_camera::Camera;
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
     ActiveCamera, CameraStore, EnvironmentGpuResource, LightBufferResource, LightDescriptor,
@@ -30,6 +31,9 @@ use wgpu::Buffer;
 /// hold the camera lock while recording a frame.
 #[derive(Debug)]
 pub struct RenderCamera {
+    /// The realized camera. Kept alive so `source_id` stays unique for the
+    /// lifetime of the bind-group cache.
+    source: Arc<RwLock<Camera>>,
     /// GPU uniform buffer with the current camera data.
     pub buffer: Buffer,
     /// Perspective view-projection matrix, used for shadow cascades.
@@ -43,6 +47,16 @@ pub struct RenderCamera {
 impl RenderCamera {
     pub fn buffer(&self) -> &Buffer {
         &self.buffer
+    }
+
+    /// Stable identity of the realized camera, used to cache bind groups.
+    pub fn source_id(&self) -> usize {
+        Arc::as_ptr(&self.source) as usize
+    }
+
+    /// Keeps the camera alive while a cached bind group references its buffer.
+    pub(crate) fn source(&self) -> Arc<RwLock<Camera>> {
+        Arc::clone(&self.source)
     }
 }
 
@@ -92,13 +106,14 @@ fn extract_camera(world: &World) -> Option<RenderCamera> {
     let active_camera = world.get_resource::<ActiveCamera>()?;
     let camera_store = world.get_resource::<CameraStore>()?;
     let camera = camera_store.get(active_camera.0.index)?;
-    let camera = camera.read().ok()?;
+    let camera_guard = camera.read().ok()?;
 
     Some(RenderCamera {
-        buffer: camera.camera_buffer().clone(),
-        perspective_view_projection: *camera.perspective_view_projection_matrix(),
-        near: camera.near(),
-        far: camera.far(),
+        source: Arc::clone(camera),
+        buffer: camera_guard.camera_buffer().clone(),
+        perspective_view_projection: *camera_guard.perspective_view_projection_matrix(),
+        near: camera_guard.near(),
+        far: camera_guard.far(),
     })
 }
 
