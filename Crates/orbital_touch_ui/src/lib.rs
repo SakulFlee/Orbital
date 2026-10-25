@@ -6,7 +6,7 @@
 //! to register it in an application.
 
 use cgmath::{InnerSpace, Vector2};
-use orbital_app::{touch_controls, Module, RenderOverlay, RenderOverlayContext};
+use orbital_app::{Module, RenderOverlay, RenderOverlayContext, touch_controls};
 use orbital_ecs::{System, World};
 use orbital_ecs_bridge::{InputSnapshot, SurfaceFormatResource};
 use wgpu::{
