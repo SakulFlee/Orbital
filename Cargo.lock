@@ -3384,7 +3384,12 @@ version = "0.1.0"
 dependencies = [
  "cgmath",
  "orbital_2d",
+ "orbital_camera",
  "orbital_cull",
+ "orbital_ecs",
+ "orbital_ecs_bridge",
+ "orbital_ibl_brdf",
+ "orbital_light",
  "orbital_material_shader",
  "orbital_model",
  "orbital_shadow",
