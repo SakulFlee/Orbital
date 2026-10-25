@@ -1,17 +1,19 @@
-use cgmath::{Point3, Vector4};
+use std::sync::Arc;
+
+use cgmath::Point3;
 use orbital_cull::CullResources;
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
-    ActiveCamera, CameraStore, CullResource, DeviceResource, FrozenFrustum, ModelInstances,
-    ModelRealization, QueueResource,
+    ActiveCamera, CameraStore, CullResource, DeviceResource, FrozenFrustum, ModelRealization,
+    QueueResource,
 };
-use orbital_instance::Instance;
 
 /// Per-frame CPU frustum-culling system.
 ///
-/// Tests each instance's bounding sphere against the camera frustum on the
-/// CPU.  Visible instance matrices are compacted into a vertex buffer that
-/// the renderer consumes via direct `draw_indexed` calls.
+/// Tests each instance's cached bounding sphere against the camera frustum and
+/// compacts visible instance matrices into the persistent cull buffer. Models
+/// already own their instance data and bounds, so this no longer re-encodes
+/// transforms or allocates per-model byte vectors every frame.
 ///
 /// Call **after** `realize_models()` and **before** extraction.
 pub fn sys_frustum_cull(ecs: &mut World) {
@@ -53,134 +55,79 @@ pub fn sys_frustum_cull(ecs: &mut World) {
         }
     };
 
-    // ── Build entries (all immutable borrows scoped here) ─────────────
-    #[derive(Default)]
-    struct Entry {
-        instance_count: u32,
-        instance_bytes: Vec<u8>,
-        bounds_bytes: Vec<u8>,
-    }
-
-    let entries: Vec<Entry> = {
-        let realizations = match ecs.get_component_store::<ModelRealization>() {
-            Some(s) => s,
-            None => return,
-        };
-        let instances_store = match ecs.get_component_store::<ModelInstances>() {
-            Some(s) => s,
-            None => return,
+    // ── Snapshot realized models in renderer order ────────────────────
+    let models: Vec<Arc<orbital_model::Model>> = {
+        let Some(realizations) = ecs.get_component_store::<ModelRealization>() else {
+            return;
         };
 
-        let mut entries: Vec<Entry> = Vec::new();
-
-        for &eid in realizations.dense.as_slice() {
-            let Some(real_idx) = realizations.sparse[eid] else {
-                continue;
-            };
-            let Some(inst_idx) = instances_store.sparse[eid] else {
-                continue;
-            };
-
-            let model = &realizations.components[real_idx].0;
-            let model_instances = &instances_store.components[inst_idx];
-            let mesh = model.mesh();
-            let count = model.instance_count();
-            let Some(bsphere) = mesh.bounding_sphere() else {
-                continue;
-            };
-
-            let mut inst_bytes = Vec::with_capacity(count as usize * 64);
-            let mut bounds_bytes = Vec::with_capacity(count as usize * 16);
-
-            for transform in model_instances.0.values() {
-                let instance = Instance::from(transform);
-                inst_bytes.extend(instance.to_buffer_data_flattened());
-
-                let m = transform.to_matrix();
-                let h = m * Vector4::new(bsphere.center.x, bsphere.center.y, bsphere.center.z, 1.0);
-                let max_scale = transform
-                    .scale
-                    .x
-                    .max(transform.scale.y)
-                    .max(transform.scale.z);
-                bounds_bytes.extend_from_slice(&h.x.to_le_bytes());
-                bounds_bytes.extend_from_slice(&h.y.to_le_bytes());
-                bounds_bytes.extend_from_slice(&h.z.to_le_bytes());
-                bounds_bytes.extend_from_slice(&(bsphere.radius * max_scale).to_le_bytes());
-            }
-
-            entries.push(Entry {
-                instance_count: count,
-                instance_bytes: inst_bytes,
-                bounds_bytes,
-            });
-        }
-        entries
+        realizations
+            .dense
+            .iter()
+            .filter_map(|&entity_id| {
+                let index = realizations.sparse.get(entity_id).copied().flatten()?;
+                Some(Arc::clone(&realizations.components[index].0))
+            })
+            .collect()
     };
 
-    if entries.is_empty() {
+    if models.is_empty() {
         ecs.insert_resource(CullResource(None));
         return;
     }
 
-    let num_models = entries.len() as u32;
-    let total_instances: u32 = entries.iter().map(|e| e.instance_count).sum();
+    let num_models = models.len() as u32;
+    let total_instances: u32 = models.iter().map(|model| model.instance_count()).sum();
+    let required_capacity = total_instances.max(1);
 
     // ── Ensure CullResources exists with sufficient capacity ──────────
-    // Always recreate to ensure buffer is large enough.
-    // A more optimal approach would cache and only reallocate when capacity is exceeded.
-    ecs.insert_resource(CullResource(Some(CullResources::new(
-        &device,
-        total_instances,
-        num_models,
-    ))));
+    let needs_reallocation = ecs.get_resource::<CullResource>().is_none_or(|resource| {
+        resource.0.as_ref().is_none_or(|cull| {
+            cull.capacity() < required_capacity || cull.model_capacity() < num_models
+        })
+    });
+    if needs_reallocation {
+        ecs.insert_resource(CullResource(Some(CullResources::new(
+            &device,
+            required_capacity.next_power_of_two(),
+            num_models,
+        ))));
+    }
 
     // ── CPU frustum cull + upload ─────────────────────────────────────
     let Some(mut guard) = ecs.get_resource_mut::<CullResource>() else {
         return;
     };
-    let Some(ref mut cr) = guard.0 else {
+    let Some(ref mut cull) = guard.0 else {
         return;
     };
 
-    let mut all_visible = Vec::new();
-    let mut offsets = Vec::new();
-    let mut counts = Vec::new();
+    cull.begin_frame();
     let mut offset = 0u32;
 
-    for entry in &entries {
-        offsets.push(offset);
-        let mut model_visible = 0u32;
+    for model in &models {
+        let bounds = model.instance_bounds();
+        let instance_data = model.instance_data();
+        let instance_count = model.instance_count() as usize;
+        let mut visible = 0u32;
 
-        let instance_count = entry.instance_count as usize;
-        for inst_idx in 0..instance_count {
-            // Extract pre-computed world-space bounds: [center_x, center_y, center_z, radius]
-            let base = inst_idx * 16;
-            if base + 16 > entry.bounds_bytes.len() {
+        for (index, bound) in bounds.iter().take(instance_count).enumerate() {
+            let center = Point3::new(bound[0], bound[1], bound[2]);
+            if !frustum.intersects_sphere(&center, bound[3]) {
                 continue;
             }
-            let cx = f32::from_le_bytes(entry.bounds_bytes[base..base + 4].try_into().unwrap());
-            let cy = f32::from_le_bytes(entry.bounds_bytes[base + 4..base + 8].try_into().unwrap());
-            let cz =
-                f32::from_le_bytes(entry.bounds_bytes[base + 8..base + 12].try_into().unwrap());
-            let radius =
-                f32::from_le_bytes(entry.bounds_bytes[base + 12..base + 16].try_into().unwrap());
 
-            let center = Point3::new(cx, cy, cz);
-            if frustum.intersects_sphere(&center, radius) {
-                // Copy this instance's 64-byte matrix to the visible list
-                let mat_base = inst_idx * 64;
-                let mat_end = mat_base + 64;
-                if mat_end <= entry.instance_bytes.len() {
-                    all_visible.extend_from_slice(&entry.instance_bytes[mat_base..mat_end]);
-                    model_visible += 1;
-                }
+            let start = index * 64;
+            let end = start + 64;
+            if end <= instance_data.len() {
+                cull.push_instance(&instance_data[start..end]);
+                visible += 1;
             }
         }
 
-        offset += model_visible;
-        counts.push(model_visible);
+        cull.push_model(offset, visible);
+        offset += visible;
     }
 
-    cr.write_visible_instances(&queue, &all_visible, offsets, counts);
+    cull.upload(&queue);
 }
