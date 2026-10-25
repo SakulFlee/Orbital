@@ -1,8 +1,11 @@
 [package]
 name = "orbital_shader_preprocessor"
 version.workspace = true
-repository.workspace = true
+authors.workspace = true
 edition = "2024"
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 orbital_file_manager = { path = "../orbital_file_manager" }
