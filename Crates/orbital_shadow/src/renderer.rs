@@ -66,6 +66,9 @@ pub struct ShadowRenderer {
     /// Stride per slot in the matrix buffer (aligned to min_uniform_buffer_offset_alignment).
     slot_stride: u64,
     gpu_data: ShadowGpuData,
+    /// Bumped whenever the shadow textures are reallocated, invalidating
+    /// bind groups that reference them.
+    generation: u64,
 }
 
 impl ShadowRenderer {
@@ -159,6 +162,7 @@ impl ShadowRenderer {
             matrix_bind_group,
             slot_stride,
             gpu_data: ShadowGpuData::new(),
+            generation: 0,
         }
     }
 
@@ -343,6 +347,9 @@ impl ShadowRenderer {
         let grew_cubes = needed_cubes > self.cube_count;
         let grew_layers = needed_layers > self.layer_count;
         let force_all_dirty = grew_cubes || grew_layers;
+        if force_all_dirty {
+            self.generation = self.generation.wrapping_add(1);
+        }
 
         if needed_cubes > 0 {
             self.ensure_cubes(device, needed_cubes);
@@ -677,6 +684,11 @@ impl ShadowRenderer {
 
     pub fn slot_data_buffer(&self) -> &wgpu::Buffer {
         &self.slot_data_buffer
+    }
+
+    /// Resource generation, bumped when the shadow textures are reallocated.
+    pub fn generation(&self) -> u64 {
+        self.generation
     }
 
     pub fn sampler(&self) -> &wgpu::Sampler {
