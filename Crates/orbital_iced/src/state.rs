@@ -26,9 +26,16 @@ type VisibilityFn = Arc<dyn Fn(&World) -> bool + Send + Sync>;
 ///
 /// Four updates per second is enough for panels showing live game state while
 /// keeping the cost of re-running the view, widget diff and layout low. Panels
-/// that need smoother output can opt into a smaller interval, and interactions
-/// are rebuilt immediately regardless of this interval.
+/// that need smoother output can opt into [`SMOOTH_REFRESH_INTERVAL`], and
+/// interactions are rebuilt immediately regardless of this interval.
 pub const DEFAULT_REFRESH_INTERVAL: std::time::Duration = std::time::Duration::from_millis(250);
+
+/// Maximum time between rebuilds for a panel that needs smooth output.
+///
+/// About 30 updates per second: visibly smoother than the lazy default while
+/// still rebuilding less often than a full-frame refresh, which matters when
+/// the view closure walks a large ECS world.
+pub const SMOOTH_REFRESH_INTERVAL: std::time::Duration = std::time::Duration::from_millis(33);
 
 /// A single floating Iced panel.
 ///
@@ -533,6 +540,15 @@ mod tests {
             DEFAULT_REFRESH_INTERVAL
         );
         assert_eq!(DEFAULT_REFRESH_INTERVAL.as_millis(), 250);
+    }
+
+    #[test]
+    fn the_smooth_refresh_interval_is_thirty_hz() {
+        assert_eq!(SMOOTH_REFRESH_INTERVAL.as_millis(), 33);
+        assert!(
+            SMOOTH_REFRESH_INTERVAL < DEFAULT_REFRESH_INTERVAL,
+            "smooth mode must rebuild more often than the lazy default"
+        );
     }
 
     #[test]
