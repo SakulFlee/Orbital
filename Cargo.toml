@@ -3,15 +3,9 @@ resolver = "2"
 members = ["Examples/*", "Crates/*"]
 
 [workspace.package]
-version = "0.15.0-dev"
-authors = ["Héctor Ramón Jiménez <hector@hecrj.dev>"]
-edition = "2024"
-license = "MIT"
-repository = "https://github.com/iced-rs/iced"
-homepage = "https://iced.rs"
-categories = ["gui"]
-keywords = ["gui", "ui", "graphics", "interface", "widgets"]
-rust-version = "1.94"
+version = "1.5.0"
+# Mirror: https://github.com/SakulFlee/Orbital
+repository = "https://forgejo.sakul-flee.de/SakulFlee/Orbital"
 
 [workspace.dependencies]
 # Orbital crates
