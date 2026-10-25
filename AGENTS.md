@@ -266,7 +266,7 @@ When changing the channel in `rust-toolchain.toml`, update the manifest `sha256`
 - `.cargo/config.toml` defines linkers for x86_64/aarch64/arm Linux cross targets.
 - Release: LTO, `opt-level=3`, one codegen unit, no debug/incremental.
 - Dev: `opt-level=1`, thin LTO, 16 codegen units; `wgpu`, `winit`, `hashbrown`, and `cgmath` are bumped to `opt-level=3`.
-- `[workspace.lints.*]` exists, but members currently do not opt in with `[lints] workspace = true`. Do not assume those lints are active.
+- There is no `[workspace.lints]` policy; the standard `clippy::all` set is enforced by CI's `cargo clippy -- -D warnings`.
 
 ### CI
 
