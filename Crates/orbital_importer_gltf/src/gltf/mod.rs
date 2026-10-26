@@ -6,7 +6,7 @@ use gltf::{Camera, Document, Material, Mesh, Node, Scene, Semantic};
 use hashbrown::{HashMap, HashSet};
 use image::GenericImageView;
 use log::{debug, trace, warn};
-use orbital_camera::CameraDescriptor;
+use orbital_camera::{CameraDescriptor, ProjectionMode};
 use orbital_file_manager::FileManager;
 use orbital_light::LightDescriptor;
 use orbital_material_shader::{AlphaMode, MaterialShaderDescriptor};
@@ -1172,11 +1172,31 @@ impl GltfImporter {
         camera: &Camera,
         _buffers: &[gltf::buffer::Data],
     ) -> Result<CameraDescriptor, Box<dyn Error>> {
-        let perspective = match camera.projection() {
-            Projection::Orthographic(_) => {
-                return Err(Box::new(GltfError::Unsupported));
+        let (projection_mode, aspect, fovy, ortho_height, near, far) = match camera.projection() {
+            Projection::Perspective(perspective) => {
+                let near = perspective.znear();
+                (
+                    ProjectionMode::Perspective,
+                    perspective.aspect_ratio().unwrap_or(16.0 / 9.0),
+                    perspective.yfov().to_degrees(),
+                    10.0,
+                    near,
+                    perspective.zfar().unwrap_or(DEFAULT_FAR).max(near * 2.0),
+                )
             }
-            Projection::Perspective(perspective) => perspective,
+            Projection::Orthographic(orthographic) => {
+                let near = orthographic.znear();
+                let vertical = orthographic.ymag().max(0.0001);
+                let horizontal = orthographic.xmag().max(0.0001);
+                (
+                    ProjectionMode::Orthographic,
+                    horizontal / vertical,
+                    std::f32::consts::FRAC_PI_4,
+                    vertical * 2.0,
+                    near,
+                    orthographic.zfar().max(near * 2.0),
+                )
+            }
         };
 
         let transform = node.transform();
@@ -1199,17 +1219,12 @@ impl GltfImporter {
             yaw,
             pitch,
             roll: 0.0,
-            aspect: perspective.aspect_ratio().unwrap_or(16.0 / 9.0),
-            fovy: perspective.yfov(),
-            near: perspective.znear(),
-            // `zfar` is optional for perspective cameras in glTF, so fall back to the
-            // engine's default far plane when it is absent. Clamp to stay strictly
-            // beyond `near`, otherwise a malformed `zfar <= znear` trips the
-            // `assert!(far > near)` in `orbital_math::projection::perspective_wgpu`.
-            far: perspective
-                .zfar()
-                .unwrap_or(DEFAULT_FAR)
-                .max(perspective.znear() * 2.0),
+            aspect,
+            fovy,
+            projection_mode,
+            ortho_height,
+            near,
+            far,
             global_gamma: CameraDescriptor::DEFAULT_GAMMA,
         };
 
@@ -1349,6 +1364,25 @@ mod tests {
         "scene": 0
     }"#;
 
+    /// Minimal valid glTF holding a single orthographic camera.
+    const ORTHOGRAPHIC_CAMERA_GLTF: &str = r#"{
+        "asset": { "version": "2.0" },
+        "cameras": [
+            {
+                "type": "orthographic",
+                "orthographic": {
+                    "xmag": 4.0,
+                    "ymag": 3.0,
+                    "znear": 0.5,
+                    "zfar": 50.0
+                }
+            }
+        ],
+        "nodes": [{ "camera": 0 }],
+        "scenes": [{ "nodes": [0] }],
+        "scene": 0
+    }"#;
+
     /// Parses the first camera of `json` and returns its descriptor.
     fn parse_first_camera(json: &str) -> CameraDescriptor {
         let gltf = gltf::Gltf::from_slice(json.as_bytes()).expect("fixture is valid glTF");
@@ -1389,5 +1423,19 @@ mod tests {
         let descriptor = parse_first_camera(&json);
 
         assert!(descriptor.far > descriptor.near);
+    }
+
+    #[test]
+    fn parse_camera_supports_orthographic_projection() {
+        let descriptor = parse_first_camera(ORTHOGRAPHIC_CAMERA_GLTF);
+
+        assert_eq!(
+            descriptor.projection_mode,
+            orbital_camera::ProjectionMode::Orthographic
+        );
+        assert_eq!(descriptor.ortho_height, 6.0);
+        assert!((descriptor.aspect - 4.0 / 3.0).abs() < 1e-6);
+        assert_eq!(descriptor.near, 0.5);
+        assert_eq!(descriptor.far, 50.0);
     }
 }

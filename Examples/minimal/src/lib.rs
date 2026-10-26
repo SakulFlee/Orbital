@@ -63,6 +63,8 @@ impl Module for GameModule {
                 label: "Default".into(),
                 aspect: 16.0 / 9.0,
                 fovy: Rad(std::f32::consts::FRAC_PI_4),
+                projection_mode: Default::default(),
+                ortho_height: 10.0,
                 near: 0.1,
                 far: 10000.0,
                 global_gamma: 2.2,

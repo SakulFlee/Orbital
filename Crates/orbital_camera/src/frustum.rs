@@ -101,6 +101,22 @@ mod tests {
         perspective_wgpu(Rad::from(fovy), aspect, near, far, false)
     }
 
+    #[test]
+    fn orthographic_frustum_culls_outside_spheres() {
+        let view = Matrix4::look_to_rh(
+            Point3::new(0.0, 0.0, 0.0),
+            Vector3::new(0.0, 0.0, -1.0),
+            Vector3::new(0.0, 1.0, 0.0),
+        );
+        let projection = orbital_math::ortho_wgpu(-5.0, 5.0, -5.0, 5.0, 0.1, 100.0, false);
+        let frustum = Frustum::from_view_projection_matrix(&(projection * view));
+
+        assert!(frustum.intersects_sphere(&Point3::new(0.0, 0.0, -50.0), 1.0));
+        assert!(frustum.intersects_sphere(&Point3::new(4.0, 4.0, -50.0), 0.5));
+        assert!(!frustum.intersects_sphere(&Point3::new(10.0, 0.0, -50.0), 1.0));
+        assert!(!frustum.intersects_sphere(&Point3::new(0.0, 0.0, -150.0), 1.0));
+    }
+
     /// Verify that points known to be inside/outside a frustum
     /// are correctly classified by `intersects_sphere`.
     ///

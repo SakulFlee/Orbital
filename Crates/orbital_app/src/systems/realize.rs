@@ -6,7 +6,7 @@
 use std::sync::{Arc, RwLock};
 
 use log::warn;
-use orbital_camera::Camera;
+use orbital_camera::{Camera, CameraProjection};
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
     ActiveCamera, CameraDescriptor, CameraDirty, CameraRealization, CameraStore, DeviceResource,
@@ -17,6 +17,19 @@ use orbital_ecs_bridge::{
 };
 use orbital_model::Model;
 use orbital_world_environment::WorldEnvironmentDescriptor;
+
+fn camera_projection(desc: &CameraDescriptor) -> CameraProjection {
+    match desc.projection_mode {
+        orbital_camera::ProjectionMode::Perspective => CameraProjection::Perspective {
+            fovy: desc.fovy.0.to_degrees(),
+            aspect: desc.aspect,
+        },
+        orbital_camera::ProjectionMode::Orthographic => CameraProjection::Orthographic {
+            height: desc.ortho_height,
+            aspect: desc.aspect,
+        },
+    }
+}
 
 /// Realize (create or update) GPU camera state for all dirty camera entities.
 ///
@@ -104,11 +117,10 @@ pub fn realize_cameras(ecs: &mut World) {
     for (eid, desc, pos, rot, needs_new) in entities_to_realize {
         if needs_new {
             // Create new GPU camera
-            let gpu_camera = Camera::new(
+            let gpu_camera = Camera::new_with_projection(
                 pos.0,
                 rot.0,
-                desc.fovy.0.to_degrees(),
-                desc.aspect,
+                camera_projection(&desc),
                 desc.near,
                 desc.far,
                 desc.global_gamma,
@@ -137,11 +149,10 @@ pub fn realize_cameras(ecs: &mut World) {
                 && let Some(arc_camera) = store.get(eid)
             {
                 let mut gpu_camera = arc_camera.write().unwrap();
-                gpu_camera.update_from_parts(
+                gpu_camera.update_from_parts_with_projection(
                     pos.0,
                     rot.0,
-                    desc.fovy.0.to_degrees(),
-                    desc.aspect,
+                    camera_projection(&desc),
                     desc.near,
                     desc.far,
                     desc.global_gamma,

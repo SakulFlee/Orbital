@@ -1,9 +1,7 @@
 use std::mem;
 
-use cgmath::{Deg, InnerSpace, Matrix, Matrix4, Point3, Quaternion, Rad, SquareMatrix, Vector3};
+use cgmath::{InnerSpace, Matrix, Matrix4, Point3, Quaternion, SquareMatrix, Vector3};
 use wgpu::{Buffer, BufferDescriptor, BufferUsages, Device, Queue};
-
-use orbital_math::perspective_wgpu;
 
 mod change;
 pub use change::*;
@@ -12,6 +10,9 @@ pub use orbital_math::Mode;
 
 mod descriptor;
 pub use descriptor::*;
+
+mod projection;
+pub use projection::*;
 
 mod frustum;
 pub use frustum::*;
@@ -65,28 +66,62 @@ impl Camera {
 
     pub fn update_buffer(&mut self, descriptor: &CameraDescriptor, queue: &Queue) {
         self.position = descriptor.position;
-        let view_projection_matrix = self.calculate_view_projection_matrix(descriptor);
-        let perspective_projection_matrix =
-            self.calculate_perspective_projection_matrix(descriptor);
+        self.near = descriptor.near;
+        self.far = descriptor.far;
+        let view_matrix = self.calculate_view_projection_matrix(descriptor);
+        let projection_matrix = descriptor
+            .projection()
+            .projection_matrix(descriptor.near, descriptor.far);
+        self.write_buffer(
+            descriptor.position,
+            view_matrix,
+            projection_matrix,
+            descriptor.global_gamma,
+            queue,
+        );
+    }
 
-        let perspective_view_projection_matrix =
-            perspective_projection_matrix * view_projection_matrix;
-        self.perspective_view_projection_matrix = perspective_view_projection_matrix;
+    fn write_buffer(
+        &mut self,
+        position: Point3<f32>,
+        view_matrix: Matrix4<f32>,
+        projection_matrix: Matrix4<f32>,
+        global_gamma: f32,
+        queue: &Queue,
+    ) {
+        let view_projection_matrix = projection_matrix * view_matrix;
+        self.perspective_view_projection_matrix = view_projection_matrix;
 
-        let view_projection_transposed = view_projection_matrix.transpose();
-        let perspective_projection_invert = perspective_projection_matrix
-            .invert()
-            .unwrap_or(Matrix4::identity());
+        let view_projection_transposed = view_matrix.transpose();
+        let projection_invert = projection_matrix.invert().unwrap_or(Matrix4::identity());
 
+        self.position = position;
         queue.write_buffer(
             &self.camera_buffer,
             0,
             &[
                 // Position (+ offset to make vec4)
-                descriptor.position.x.to_le_bytes(),
-                descriptor.position.y.to_le_bytes(),
-                descriptor.position.z.to_le_bytes(),
+                position.x.to_le_bytes(),
+                position.y.to_le_bytes(),
+                position.z.to_le_bytes(),
                 [0u8; 4],
+                // View Matrix
+                view_matrix.x.x.to_le_bytes(),
+                view_matrix.x.y.to_le_bytes(),
+                view_matrix.x.z.to_le_bytes(),
+                view_matrix.x.w.to_le_bytes(),
+                view_matrix.y.x.to_le_bytes(),
+                view_matrix.y.y.to_le_bytes(),
+                view_matrix.y.z.to_le_bytes(),
+                view_matrix.y.w.to_le_bytes(),
+                view_matrix.z.x.to_le_bytes(),
+                view_matrix.z.y.to_le_bytes(),
+                view_matrix.z.z.to_le_bytes(),
+                view_matrix.z.w.to_le_bytes(),
+                view_matrix.w.x.to_le_bytes(),
+                view_matrix.w.y.to_le_bytes(),
+                view_matrix.w.z.to_le_bytes(),
+                view_matrix.w.w.to_le_bytes(),
                 // View Projection Matrix
                 view_projection_matrix.x.x.to_le_bytes(),
                 view_projection_matrix.x.y.to_le_bytes(),
@@ -104,24 +139,7 @@ impl Camera {
                 view_projection_matrix.w.y.to_le_bytes(),
                 view_projection_matrix.w.z.to_le_bytes(),
                 view_projection_matrix.w.w.to_le_bytes(),
-                // Perspective View Projection Matrix
-                perspective_view_projection_matrix.x.x.to_le_bytes(),
-                perspective_view_projection_matrix.x.y.to_le_bytes(),
-                perspective_view_projection_matrix.x.z.to_le_bytes(),
-                perspective_view_projection_matrix.x.w.to_le_bytes(),
-                perspective_view_projection_matrix.y.x.to_le_bytes(),
-                perspective_view_projection_matrix.y.y.to_le_bytes(),
-                perspective_view_projection_matrix.y.z.to_le_bytes(),
-                perspective_view_projection_matrix.y.w.to_le_bytes(),
-                perspective_view_projection_matrix.z.x.to_le_bytes(),
-                perspective_view_projection_matrix.z.y.to_le_bytes(),
-                perspective_view_projection_matrix.z.z.to_le_bytes(),
-                perspective_view_projection_matrix.z.w.to_le_bytes(),
-                perspective_view_projection_matrix.w.x.to_le_bytes(),
-                perspective_view_projection_matrix.w.y.to_le_bytes(),
-                perspective_view_projection_matrix.w.z.to_le_bytes(),
-                perspective_view_projection_matrix.w.w.to_le_bytes(),
-                // Transposed View Projection Matrix
+                // Transposed View Matrix
                 view_projection_transposed.x.x.to_le_bytes(),
                 view_projection_transposed.x.y.to_le_bytes(),
                 view_projection_transposed.x.z.to_le_bytes(),
@@ -138,25 +156,25 @@ impl Camera {
                 view_projection_transposed.w.y.to_le_bytes(),
                 view_projection_transposed.w.z.to_le_bytes(),
                 view_projection_transposed.w.w.to_le_bytes(),
-                // Inverted Perspective Projection Matrix
-                perspective_projection_invert.x.x.to_le_bytes(),
-                perspective_projection_invert.x.y.to_le_bytes(),
-                perspective_projection_invert.x.z.to_le_bytes(),
-                perspective_projection_invert.x.w.to_le_bytes(),
-                perspective_projection_invert.y.x.to_le_bytes(),
-                perspective_projection_invert.y.y.to_le_bytes(),
-                perspective_projection_invert.y.z.to_le_bytes(),
-                perspective_projection_invert.y.w.to_le_bytes(),
-                perspective_projection_invert.z.x.to_le_bytes(),
-                perspective_projection_invert.z.y.to_le_bytes(),
-                perspective_projection_invert.z.z.to_le_bytes(),
-                perspective_projection_invert.z.w.to_le_bytes(),
-                perspective_projection_invert.w.x.to_le_bytes(),
-                perspective_projection_invert.w.y.to_le_bytes(),
-                perspective_projection_invert.w.z.to_le_bytes(),
-                perspective_projection_invert.w.w.to_le_bytes(),
+                // Inverted Projection Matrix
+                projection_invert.x.x.to_le_bytes(),
+                projection_invert.x.y.to_le_bytes(),
+                projection_invert.x.z.to_le_bytes(),
+                projection_invert.x.w.to_le_bytes(),
+                projection_invert.y.x.to_le_bytes(),
+                projection_invert.y.y.to_le_bytes(),
+                projection_invert.y.z.to_le_bytes(),
+                projection_invert.y.w.to_le_bytes(),
+                projection_invert.z.x.to_le_bytes(),
+                projection_invert.z.y.to_le_bytes(),
+                projection_invert.z.z.to_le_bytes(),
+                projection_invert.z.w.to_le_bytes(),
+                projection_invert.w.x.to_le_bytes(),
+                projection_invert.w.y.to_le_bytes(),
+                projection_invert.w.z.to_le_bytes(),
+                projection_invert.w.w.to_le_bytes(),
                 // Global Gamma
-                descriptor.global_gamma.to_le_bytes(),
+                global_gamma.to_le_bytes(),
             ]
             .concat(),
         );
@@ -181,18 +199,10 @@ impl Camera {
         Matrix4::look_to_rh(descriptor.position, forward, rotated_up)
     }
 
-    pub fn calculate_perspective_projection_matrix(
-        &self,
-        descriptor: &CameraDescriptor,
-    ) -> Matrix4<f32> {
-        // wgpu clip convention (NDC z ∈ [0, 1]); no Y flip needed for on-screen rendering.
-        perspective_wgpu(
-            Rad::from(Deg(descriptor.fovy)),
-            descriptor.aspect,
-            descriptor.near,
-            descriptor.far,
-            false,
-        )
+    pub fn calculate_projection_matrix(&self, descriptor: &CameraDescriptor) -> Matrix4<f32> {
+        descriptor
+            .projection()
+            .projection_matrix(descriptor.near, descriptor.far)
     }
 
     pub fn camera_buffer(&self) -> &Buffer {
@@ -240,6 +250,29 @@ impl Camera {
         device: &Device,
         queue: &Queue,
     ) -> Self {
+        Self::new_with_projection(
+            position,
+            rotation,
+            CameraProjection::Perspective { fovy, aspect },
+            near,
+            far,
+            global_gamma,
+            device,
+            queue,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_with_projection(
+        position: Point3<f32>,
+        rotation: Quaternion<f32>,
+        projection: CameraProjection,
+        near: f32,
+        far: f32,
+        global_gamma: f32,
+        device: &Device,
+        queue: &Queue,
+    ) -> Self {
         let camera_buffer = device.create_buffer(&BufferDescriptor {
             label: Some("Camera Buffer"),
             size: (
@@ -264,11 +297,10 @@ impl Camera {
             near,
             far,
         };
-        camera.update_from_parts(
+        camera.update_from_parts_with_projection(
             position,
             rotation,
-            fovy,
-            aspect,
+            projection,
             near,
             far,
             global_gamma,
@@ -295,96 +327,38 @@ impl Camera {
         global_gamma: f32,
         queue: &Queue,
     ) {
-        self.position = position;
-        let view_projection_matrix =
-            Self::compute_view_projection_matrix_from_rotation(position, rotation);
-        // wgpu clip convention (NDC z ∈ [0, 1]); no Y flip needed for on-screen rendering.
-        let perspective_projection_matrix =
-            perspective_wgpu(Rad::from(Deg(fovy)), aspect, near, far, false);
+        self.update_from_parts_with_projection(
+            position,
+            rotation,
+            CameraProjection::Perspective { fovy, aspect },
+            near,
+            far,
+            global_gamma,
+            queue,
+        );
+    }
 
-        let perspective_view_projection_matrix =
-            perspective_projection_matrix * view_projection_matrix;
-        self.perspective_view_projection_matrix = perspective_view_projection_matrix;
-        let view_projection_transposed = view_projection_matrix.transpose();
-        let perspective_projection_invert = perspective_projection_matrix
-            .invert()
-            .unwrap_or(Matrix4::identity());
-
-        queue.write_buffer(
-            &self.camera_buffer,
-            0,
-            &[
-                position.x.to_le_bytes(),
-                position.y.to_le_bytes(),
-                position.z.to_le_bytes(),
-                [0u8; 4],
-                view_projection_matrix.x.x.to_le_bytes(),
-                view_projection_matrix.x.y.to_le_bytes(),
-                view_projection_matrix.x.z.to_le_bytes(),
-                view_projection_matrix.x.w.to_le_bytes(),
-                view_projection_matrix.y.x.to_le_bytes(),
-                view_projection_matrix.y.y.to_le_bytes(),
-                view_projection_matrix.y.z.to_le_bytes(),
-                view_projection_matrix.y.w.to_le_bytes(),
-                view_projection_matrix.z.x.to_le_bytes(),
-                view_projection_matrix.z.y.to_le_bytes(),
-                view_projection_matrix.z.z.to_le_bytes(),
-                view_projection_matrix.z.w.to_le_bytes(),
-                view_projection_matrix.w.x.to_le_bytes(),
-                view_projection_matrix.w.y.to_le_bytes(),
-                view_projection_matrix.w.z.to_le_bytes(),
-                view_projection_matrix.w.w.to_le_bytes(),
-                perspective_view_projection_matrix.x.x.to_le_bytes(),
-                perspective_view_projection_matrix.x.y.to_le_bytes(),
-                perspective_view_projection_matrix.x.z.to_le_bytes(),
-                perspective_view_projection_matrix.x.w.to_le_bytes(),
-                perspective_view_projection_matrix.y.x.to_le_bytes(),
-                perspective_view_projection_matrix.y.y.to_le_bytes(),
-                perspective_view_projection_matrix.y.z.to_le_bytes(),
-                perspective_view_projection_matrix.y.w.to_le_bytes(),
-                perspective_view_projection_matrix.z.x.to_le_bytes(),
-                perspective_view_projection_matrix.z.y.to_le_bytes(),
-                perspective_view_projection_matrix.z.z.to_le_bytes(),
-                perspective_view_projection_matrix.z.w.to_le_bytes(),
-                perspective_view_projection_matrix.w.x.to_le_bytes(),
-                perspective_view_projection_matrix.w.y.to_le_bytes(),
-                perspective_view_projection_matrix.w.z.to_le_bytes(),
-                perspective_view_projection_matrix.w.w.to_le_bytes(),
-                view_projection_transposed.x.x.to_le_bytes(),
-                view_projection_transposed.x.y.to_le_bytes(),
-                view_projection_transposed.x.z.to_le_bytes(),
-                view_projection_transposed.x.w.to_le_bytes(),
-                view_projection_transposed.y.x.to_le_bytes(),
-                view_projection_transposed.y.y.to_le_bytes(),
-                view_projection_transposed.y.z.to_le_bytes(),
-                view_projection_transposed.y.w.to_le_bytes(),
-                view_projection_transposed.z.x.to_le_bytes(),
-                view_projection_transposed.z.y.to_le_bytes(),
-                view_projection_transposed.z.z.to_le_bytes(),
-                view_projection_transposed.z.w.to_le_bytes(),
-                view_projection_transposed.w.x.to_le_bytes(),
-                view_projection_transposed.w.y.to_le_bytes(),
-                view_projection_transposed.w.z.to_le_bytes(),
-                view_projection_transposed.w.w.to_le_bytes(),
-                perspective_projection_invert.x.x.to_le_bytes(),
-                perspective_projection_invert.x.y.to_le_bytes(),
-                perspective_projection_invert.x.z.to_le_bytes(),
-                perspective_projection_invert.x.w.to_le_bytes(),
-                perspective_projection_invert.y.x.to_le_bytes(),
-                perspective_projection_invert.y.y.to_le_bytes(),
-                perspective_projection_invert.y.z.to_le_bytes(),
-                perspective_projection_invert.y.w.to_le_bytes(),
-                perspective_projection_invert.z.x.to_le_bytes(),
-                perspective_projection_invert.z.y.to_le_bytes(),
-                perspective_projection_invert.z.z.to_le_bytes(),
-                perspective_projection_invert.z.w.to_le_bytes(),
-                perspective_projection_invert.w.x.to_le_bytes(),
-                perspective_projection_invert.w.y.to_le_bytes(),
-                perspective_projection_invert.w.z.to_le_bytes(),
-                perspective_projection_invert.w.w.to_le_bytes(),
-                global_gamma.to_le_bytes(),
-            ]
-            .concat(),
+    #[allow(clippy::too_many_arguments)]
+    pub fn update_from_parts_with_projection(
+        &mut self,
+        position: Point3<f32>,
+        rotation: Quaternion<f32>,
+        projection: CameraProjection,
+        near: f32,
+        far: f32,
+        global_gamma: f32,
+        queue: &Queue,
+    ) {
+        self.near = near;
+        self.far = far;
+        let view_matrix = Self::compute_view_projection_matrix_from_rotation(position, rotation);
+        let projection_matrix = projection.projection_matrix(near, far);
+        self.write_buffer(
+            position,
+            view_matrix,
+            projection_matrix,
+            global_gamma,
+            queue,
         );
     }
 

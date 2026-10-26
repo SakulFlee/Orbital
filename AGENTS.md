@@ -212,6 +212,7 @@ cd Examples/2d && SKIP_GLTF_EXPORT=1 cargo run
 SKIP_GLTF_EXPORT=1 cargo run -p template_minimal
 SKIP_GLTF_EXPORT=1 cargo run -p template_all_in_one
 SKIP_GLTF_EXPORT=1 cargo run -p template_2d
+SKIP_GLTF_EXPORT=1 cargo run -p template_orthographic
 ```
 
 | Directory | Package | Notes |
@@ -219,6 +220,7 @@ SKIP_GLTF_EXPORT=1 cargo run -p template_2d
 | `Examples/minimal` | `template_minimal` | Procedural scene; no asset files. |
 | `Examples/all-in-one` | `template_all_in_one` | Scene, glTF, lighting, shadows, UI, and overlays. Ships its own minimal `Assets/`. |
 | `Examples/2d` | `template_2d` | 2D shape rendering; no asset files. |
+| `Examples/orthographic` | `template_orthographic` | Orthographic camera rendering; no asset files. |
 
 The template app sources are canonical in `Examples/`; the CLI embeds them
 during generation. `Crates/orbital_cli/src/template/` only contains platform

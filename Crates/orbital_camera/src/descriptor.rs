@@ -9,7 +9,7 @@
 
 use std::f32::consts::FRAC_PI_2;
 
-use super::{CameraTransform, Mode};
+use super::{CameraProjection, CameraTransform, Mode, ProjectionMode};
 use cgmath::{InnerSpace, Point3, Vector3};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -20,7 +20,13 @@ pub struct CameraDescriptor {
     pub pitch: f32,
     pub roll: f32,
     pub aspect: f32,
+    /// Vertical field of view in degrees for perspective cameras.
     pub fovy: f32,
+    /// Perspective by default. Orthographic cameras use `aspect` and
+    /// `ortho_height`; `fovy` is ignored.
+    pub projection_mode: ProjectionMode,
+    /// Vertical view height in world units for orthographic cameras.
+    pub ortho_height: f32,
     pub near: f32,
     pub far: f32,
     pub global_gamma: f32,
@@ -30,6 +36,19 @@ impl CameraDescriptor {
     pub const DEFAULT_NAME: &'static str = "Default";
     pub const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
     pub const DEFAULT_GAMMA: f32 = 2.2;
+
+    pub fn projection(&self) -> CameraProjection {
+        match self.projection_mode {
+            ProjectionMode::Perspective => CameraProjection::Perspective {
+                fovy: self.fovy,
+                aspect: self.aspect,
+            },
+            ProjectionMode::Orthographic => CameraProjection::Orthographic {
+                height: self.ortho_height,
+                aspect: self.aspect,
+            },
+        }
+    }
 
     pub fn apply_change(&mut self, change: CameraTransform) {
         if let Some(mode) = change.pitch {
@@ -118,9 +137,38 @@ impl Default for CameraDescriptor {
             roll: 0f32,
             aspect: 16.0 / 9.0,
             fovy: 45.0,
+            projection_mode: ProjectionMode::Perspective,
+            ortho_height: 10.0,
             near: 0.1,
             far: 10000.0,
             global_gamma: Self::DEFAULT_GAMMA,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn descriptor_maps_projection_mode_to_parameters() {
+        let mut descriptor = CameraDescriptor::default();
+        assert_eq!(
+            descriptor.projection(),
+            CameraProjection::Perspective {
+                fovy: 45.0,
+                aspect: 16.0 / 9.0
+            }
+        );
+
+        descriptor.projection_mode = ProjectionMode::Orthographic;
+        descriptor.ortho_height = 12.0;
+        assert_eq!(
+            descriptor.projection(),
+            CameraProjection::Orthographic {
+                height: 12.0,
+                aspect: 16.0 / 9.0
+            }
+        );
     }
 }

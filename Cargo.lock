@@ -3026,6 +3026,7 @@ dependencies = [
  "log",
  "orbital_2d",
  "orbital_app",
+ "orbital_camera",
  "orbital_core",
  "orbital_debug_render",
  "orbital_debug_ui",
@@ -4749,6 +4750,13 @@ dependencies = [
 
 [[package]]
 name = "template_minimal"
+version = "1.6.0"
+dependencies = [
+ "orbital",
+]
+
+[[package]]
+name = "template_orthographic"
 version = "1.6.0"
 dependencies = [
  "orbital",

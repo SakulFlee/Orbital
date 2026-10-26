@@ -134,7 +134,9 @@ pub fn sys_poll_importer(ecs: &mut World) {
             let desc = CameraDescriptor {
                 label: cam_desc.label.clone(),
                 aspect: cam_desc.aspect,
-                fovy: cgmath::Rad(cam_desc.fovy),
+                fovy: cgmath::Rad::from(cgmath::Deg(cam_desc.fovy)),
+                projection_mode: cam_desc.projection_mode,
+                ortho_height: cam_desc.ortho_height,
                 near: cam_desc.near,
                 far: cam_desc.far,
                 global_gamma: cam_desc.global_gamma,
@@ -145,11 +147,10 @@ pub fn sys_poll_importer(ecs: &mut World) {
             }
 
             // Realize GPU camera immediately
-            let gpu_camera = Camera::new(
+            let gpu_camera = Camera::new_with_projection(
                 pos.0,
                 rotation.0,
-                cam_desc.fovy,
-                cam_desc.aspect,
+                cam_desc.projection(),
                 cam_desc.near,
                 cam_desc.far,
                 cam_desc.global_gamma,
