@@ -111,6 +111,11 @@ fn ibl_brdf_shader_is_valid_wgsl() {
     validate_single("Crates/orbital_ibl_brdf/src/shaders/ibl_brdf.wgsl");
 }
 
+#[test]
+fn tonemap_shader_is_valid_wgsl() {
+    validate_single("Crates/orbital_renderer/src/tonemap.wgsl");
+}
+
 // --- Node-graph shader validation -----------------------------------------
 //
 // The new node system assembles shaders from named, reusable WGSL nodes. These

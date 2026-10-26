@@ -13,7 +13,7 @@ use orbital_ecs_bridge::{
     EnvironmentDescriptorResource, EnvironmentGpuResource, LightBufferResource, LightDescriptor,
     LightDirty, LightSlotIndex, LightSlotTracker, MAX_LIGHTS, MaterialCacheResource,
     MeshCacheResource, ModelDescriptor, ModelDirty, ModelInstances, ModelRealization, Position,
-    PrevPosition, QueueResource, Rotation, ShadowDirtyFlag, SurfaceFormatResource,
+    PrevPosition, QueueResource, Rotation, ShadowDirtyFlag,
 };
 use orbital_model::Model;
 use orbital_world_environment::WorldEnvironmentDescriptor;
@@ -166,8 +166,8 @@ pub fn realize_cameras(ecs: &mut World) {
 /// 2. Creates/updates `ModelRealization` for dirty or newly-added models
 /// 3. Clears dirty flags
 pub fn realize_models(ecs: &mut World) {
-    // Collect device/queue/surface_format
-    let (device, queue, surface_format) = {
+    // Collect device/queue/color_format
+    let (device, queue, color_format) = {
         let d = match ecs.get_resource::<DeviceResource>() {
             Some(d) => d.0.clone(),
             None => return,
@@ -176,11 +176,7 @@ pub fn realize_models(ecs: &mut World) {
             Some(q) => q.0.clone(),
             None => return,
         };
-        let sf = match ecs.get_resource::<SurfaceFormatResource>() {
-            Some(f) => f.0,
-            None => return,
-        };
-        (d, q, sf)
+        (d, q, orbital_renderer::SCENE_COLOR_FORMAT)
     };
 
     // Get cache references (Arc-wrapped RwLocks, cheap to clone)
@@ -282,7 +278,7 @@ pub fn realize_models(ecs: &mut World) {
 
         match Model::from_descriptor(
             &model_desc,
-            &surface_format,
+            &color_format,
             &device,
             &queue,
             &mesh_cache,
@@ -687,7 +683,7 @@ pub fn realize_lights(ecs: &mut World) {
 /// procedural atmospheric-scattering sky.  Use `WorldEnvironmentDescriptor::None`
 /// to explicitly opt out of IBL / skybox.
 pub fn realize_environment(ecs: &mut World) {
-    let (device, queue, surface_format) = {
+    let (device, queue, color_format) = {
         let d = match ecs.get_resource::<DeviceResource>() {
             Some(d) => d.0.clone(),
             None => return,
@@ -696,11 +692,7 @@ pub fn realize_environment(ecs: &mut World) {
             Some(q) => q.0.clone(),
             None => return,
         };
-        let sf = match ecs.get_resource::<SurfaceFormatResource>() {
-            Some(f) => f.0,
-            None => return,
-        };
-        (d, q, sf)
+        (d, q, orbital_renderer::SCENE_COLOR_FORMAT)
     };
 
     // If the environment is already realized AND no new descriptor is
@@ -759,7 +751,7 @@ pub fn realize_environment(ecs: &mut World) {
 
     match orbital_world_environment::WorldEnvironment::from_descriptor(
         &descriptor,
-        Some(surface_format),
+        Some(color_format),
         &device,
         &queue,
     ) {

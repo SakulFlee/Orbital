@@ -51,7 +51,7 @@ pub struct Model {
 impl Model {
     pub fn from_descriptor<'cache>(
         descriptor: &ModelDescriptor,
-        surface_format: &TextureFormat,
+        color_format: &TextureFormat,
         device: &Device,
         queue: &Queue,
         mesh_cache: &'cache RwLock<Cache<Arc<MeshDescriptor>, Mesh>>,
@@ -84,7 +84,7 @@ impl Model {
                     lock.entry(material_descriptor.clone())
                         .or_insert(CacheEntry::new(MaterialShader::from_descriptor(
                             material_descriptor,
-                            Some(*surface_format),
+                            Some(*color_format),
                             device,
                             queue,
                         )?))
