@@ -1,11 +1,43 @@
 use std::sync::Arc;
 
 use orbital_shader_core::{ShaderDescriptor, VariableType};
-use wgpu::{Face, FrontFace, PolygonMode, PrimitiveTopology, ShaderStages};
+use wgpu::{
+    BlendState, CompareFunction, Face, FrontFace, PolygonMode, PrimitiveTopology, ShaderStages,
+};
 
 use crate::VertexStageLayout;
 
 pub type MaterialDescriptor = MaterialShaderDescriptor;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum AlphaMode {
+    #[default]
+    Opaque,
+    /// Alpha-tested material. Stores the cutoff as `f32` bits so the descriptor
+    /// remains `Eq + Hash` for the material cache.
+    Mask(u32),
+    Blend,
+}
+
+impl AlphaMode {
+    pub fn mask(cutoff: f32) -> Self {
+        Self::Mask(cutoff.to_bits())
+    }
+
+    pub fn cutoff(self) -> Option<f32> {
+        match self {
+            Self::Mask(bits) => Some(f32::from_bits(bits)),
+            Self::Opaque | Self::Blend => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum RenderQueue {
+    #[default]
+    Opaque,
+    Transparent,
+}
 
 /// Describes a full material shader in terms of the node-graph shader system.
 ///
@@ -31,6 +63,13 @@ pub struct MaterialShaderDescriptor {
     pub cull_mode: Option<Face>,
     pub polygon_mode: PolygonMode,
     pub depth_stencil: bool,
+    pub alpha_mode: AlphaMode,
+    pub blend: BlendState,
+    pub depth_write: bool,
+    pub depth_compare: CompareFunction,
+    pub render_queue: RenderQueue,
+    pub cast_shadows: bool,
+    pub receive_shadows: bool,
 }
 
 impl ShaderDescriptor for MaterialShaderDescriptor {
@@ -73,6 +112,38 @@ impl Default for MaterialShaderDescriptor {
             cull_mode: Some(Face::Front),
             polygon_mode: PolygonMode::Fill,
             depth_stencil: true,
+            alpha_mode: AlphaMode::Opaque,
+            blend: BlendState::REPLACE,
+            depth_write: true,
+            depth_compare: CompareFunction::Less,
+            render_queue: RenderQueue::Opaque,
+            cast_shadows: true,
+            receive_shadows: true,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn defaults_are_opaque_and_depth_tested() {
+        let descriptor = MaterialShaderDescriptor::default();
+
+        assert_eq!(descriptor.alpha_mode, AlphaMode::Opaque);
+        assert_eq!(descriptor.render_queue, RenderQueue::Opaque);
+        assert_eq!(descriptor.blend, BlendState::REPLACE);
+        assert!(descriptor.depth_write);
+        assert_eq!(descriptor.depth_compare, CompareFunction::Less);
+        assert!(descriptor.cast_shadows);
+        assert!(descriptor.receive_shadows);
+    }
+
+    #[test]
+    fn alpha_mask_stores_cutoff_as_bits() {
+        let mode = AlphaMode::mask(0.25);
+
+        assert_eq!(mode.cutoff(), Some(0.25));
     }
 }
