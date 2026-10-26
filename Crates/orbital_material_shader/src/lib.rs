@@ -99,6 +99,22 @@ impl MaterialShader {
         &self.program
     }
 
+    pub fn alpha_mode(&self) -> AlphaMode {
+        self.program.alpha_mode()
+    }
+
+    pub fn render_queue(&self) -> RenderQueue {
+        self.program.render_queue()
+    }
+
+    pub fn cast_shadows(&self) -> bool {
+        self.program.cast_shadows()
+    }
+
+    pub fn receive_shadows(&self) -> bool {
+        self.program.receive_shadows()
+    }
+
     pub fn bind_group(&self) -> Option<&BindGroup> {
         self.bind_group.as_ref()
     }

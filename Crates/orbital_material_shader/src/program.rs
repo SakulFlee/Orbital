@@ -16,7 +16,7 @@ use wgpu::{
 
 use orbital_shader_core::ShaderDescriptor;
 
-use crate::{MaterialShaderDescriptor, make_world_bind_group_layout};
+use crate::{AlphaMode, MaterialShaderDescriptor, RenderQueue, make_world_bind_group_layout};
 
 static NEXT_PROGRAM_ID: AtomicU64 = AtomicU64::new(1);
 
@@ -35,6 +35,13 @@ pub struct ShaderProgram {
     cull_mode: Option<Face>,
     polygon_mode: PolygonMode,
     depth_stencil: bool,
+    alpha_mode: AlphaMode,
+    blend: BlendState,
+    depth_write: bool,
+    depth_compare: CompareFunction,
+    render_queue: RenderQueue,
+    cast_shadows: bool,
+    receive_shadows: bool,
 }
 
 impl ShaderProgram {
@@ -83,6 +90,13 @@ impl ShaderProgram {
             cull_mode: descriptor.cull_mode,
             polygon_mode: descriptor.polygon_mode,
             depth_stencil: descriptor.depth_stencil,
+            alpha_mode: descriptor.alpha_mode,
+            blend: descriptor.blend,
+            depth_write: descriptor.depth_write,
+            depth_compare: descriptor.depth_compare,
+            render_queue: descriptor.render_queue,
+            cast_shadows: descriptor.cast_shadows,
+            receive_shadows: descriptor.receive_shadows,
         })
     }
 
@@ -98,6 +112,22 @@ impl ShaderProgram {
         self.depth_stencil.then_some(TextureFormat::Depth32Float)
     }
 
+    pub fn alpha_mode(&self) -> AlphaMode {
+        self.alpha_mode
+    }
+
+    pub fn render_queue(&self) -> RenderQueue {
+        self.render_queue
+    }
+
+    pub fn cast_shadows(&self) -> bool {
+        self.cast_shadows
+    }
+
+    pub fn receive_shadows(&self) -> bool {
+        self.receive_shadows
+    }
+
     pub fn create_forward_pipeline(
         &self,
         color_format: TextureFormat,
@@ -105,15 +135,15 @@ impl ShaderProgram {
     ) -> RenderPipeline {
         let depth_stencil = self.depth_format().map(|format| DepthStencilState {
             format,
-            depth_write_enabled: Some(true),
-            depth_compare: Some(CompareFunction::Less),
+            depth_write_enabled: Some(self.depth_write),
+            depth_compare: Some(self.depth_compare),
             stencil: Default::default(),
             bias: Default::default(),
         });
 
         let targets = [Some(ColorTargetState {
             format: color_format,
-            blend: Some(BlendState::REPLACE),
+            blend: Some(self.blend),
             write_mask: ColorWrites::ALL,
         })];
 
