@@ -20,6 +20,7 @@ pub use frustum::*;
 pub struct Camera {
     camera_buffer: Buffer,
     perspective_view_projection_matrix: Matrix4<f32>,
+    position: Point3<f32>,
     near: f32,
     far: f32,
 }
@@ -54,6 +55,7 @@ impl Camera {
         let mut camera = Self {
             camera_buffer,
             perspective_view_projection_matrix: Matrix4::identity(),
+            position: descriptor.position,
             near: descriptor.near,
             far: descriptor.far,
         };
@@ -62,6 +64,7 @@ impl Camera {
     }
 
     pub fn update_buffer(&mut self, descriptor: &CameraDescriptor, queue: &Queue) {
+        self.position = descriptor.position;
         let view_projection_matrix = self.calculate_view_projection_matrix(descriptor);
         let perspective_projection_matrix =
             self.calculate_perspective_projection_matrix(descriptor);
@@ -204,6 +207,10 @@ impl Camera {
         &self.perspective_view_projection_matrix
     }
 
+    pub fn position(&self) -> Point3<f32> {
+        self.position
+    }
+
     pub fn near(&self) -> f32 {
         self.near
     }
@@ -253,6 +260,7 @@ impl Camera {
         let mut camera = Self {
             camera_buffer,
             perspective_view_projection_matrix: Matrix4::identity(),
+            position,
             near,
             far,
         };
@@ -287,6 +295,7 @@ impl Camera {
         global_gamma: f32,
         queue: &Queue,
     ) {
+        self.position = position;
         let view_projection_matrix =
             Self::compute_view_projection_matrix_from_rotation(position, rotation);
         // wgpu clip convention (NDC z ∈ [0, 1]); no Y flip needed for on-screen rendering.

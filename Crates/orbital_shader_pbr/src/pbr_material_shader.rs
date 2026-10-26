@@ -1,10 +1,12 @@
 use cgmath::Vector3;
-use orbital_material_shader::{MaterialShaderDescriptor, VertexStageLayout};
+use orbital_material_shader::{
+    AlphaMode, MaterialShaderDescriptor, RenderQueue, VertexStageLayout,
+};
 use orbital_shader_core::VariableType;
 use orbital_texture::{BufferDescriptor, FilterMode, TextureDescriptor, TextureSize};
 use wgpu::{
-    Face, SamplerBindingType, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
-    TextureViewDimension,
+    BlendState, Face, SamplerBindingType, TextureDimension, TextureFormat, TextureSampleType,
+    TextureUsages, TextureViewDimension,
 };
 
 pub type PBRMaterial = PBRMaterialDescriptor;
@@ -61,6 +63,8 @@ pub struct PBRMaterialShaderDescriptor {
     pub roughness_factor: f32,
     pub occlusion: TextureDescriptor,
     pub emissive: TextureDescriptor,
+    pub alpha_mode: AlphaMode,
+    pub alpha_factor: f32,
     // --- Material specific ---
     /// Configuration base for creating a `MaterialShaderDescriptor`.
     /// If `Some(...)`, its contents are used as the base configuration.
@@ -157,6 +161,8 @@ impl Default for PBRMaterialShaderDescriptor {
                 texture_view_dimension: TextureViewDimension::D2,
                 filter_mode: FilterMode::default(),
             },
+            alpha_mode: AlphaMode::Opaque,
+            alpha_factor: 1.0,
             custom_material_shader: Default::default(),
         }
     }
@@ -179,6 +185,20 @@ impl From<PBRMaterialShaderDescriptor> for MaterialShaderDescriptor {
         };
 
         base.name = val.name;
+        base.alpha_mode = val.alpha_mode;
+        base.render_queue = if val.alpha_mode == AlphaMode::Blend {
+            RenderQueue::Transparent
+        } else {
+            RenderQueue::Opaque
+        };
+        base.blend = if val.alpha_mode == AlphaMode::Blend {
+            BlendState::ALPHA_BLENDING
+        } else {
+            BlendState::REPLACE
+        };
+        base.depth_write = val.alpha_mode != AlphaMode::Blend;
+        base.cast_shadows = val.alpha_mode != AlphaMode::Blend;
+        let alpha_cutoff = val.alpha_mode.cutoff().unwrap_or(0.0);
         base.variables = vec![
             // Normal
             VariableType::Texture {
@@ -224,8 +244,8 @@ impl From<PBRMaterialShaderDescriptor> for MaterialShaderDescriptor {
                     val.albedo_factor.z.to_le_bytes(),
                     val.metallic_factor.to_le_bytes(),
                     val.roughness_factor.to_le_bytes(),
-                    [0; 4],
-                    [0; 4],
+                    val.alpha_factor.to_le_bytes(),
+                    alpha_cutoff.to_le_bytes(),
                     [0; 4],
                 ]
                 .as_flattened()
@@ -235,5 +255,57 @@ impl From<PBRMaterialShaderDescriptor> for MaterialShaderDescriptor {
         ];
 
         base
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn factors(descriptor: PBRMaterialShaderDescriptor) -> MaterialShaderDescriptor {
+        descriptor.into()
+    }
+
+    fn factor_bytes(descriptor: &MaterialShaderDescriptor) -> &[u8] {
+        match descriptor.variables.last().unwrap() {
+            VariableType::Buffer(buffer) => &buffer.data,
+            other => panic!("expected PBR factor buffer, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn pbr_factor_buffer_contains_alpha_and_cutoff() {
+        let descriptor = factors(PBRMaterialShaderDescriptor::default());
+        let bytes = factor_bytes(&descriptor);
+
+        assert_eq!(bytes.len(), 32);
+        assert_eq!(f32::from_le_bytes(bytes[20..24].try_into().unwrap()), 1.0);
+        assert_eq!(f32::from_le_bytes(bytes[24..28].try_into().unwrap()), 0.0);
+    }
+
+    #[test]
+    fn blend_mode_selects_transparent_queue() {
+        let descriptor = factors(PBRMaterialShaderDescriptor {
+            alpha_mode: AlphaMode::Blend,
+            ..PBRMaterialShaderDescriptor::default()
+        });
+
+        assert_eq!(descriptor.render_queue, RenderQueue::Transparent);
+        assert_eq!(descriptor.blend, BlendState::ALPHA_BLENDING);
+        assert!(!descriptor.depth_write);
+        assert!(!descriptor.cast_shadows);
+    }
+
+    #[test]
+    fn mask_mode_keeps_opaque_queue_and_cutoff() {
+        let descriptor = factors(PBRMaterialShaderDescriptor {
+            alpha_mode: AlphaMode::mask(0.25),
+            ..PBRMaterialShaderDescriptor::default()
+        });
+        let bytes = factor_bytes(&descriptor);
+
+        assert_eq!(descriptor.render_queue, RenderQueue::Opaque);
+        assert!(descriptor.depth_write);
+        assert_eq!(f32::from_le_bytes(bytes[24..28].try_into().unwrap()), 0.25);
     }
 }

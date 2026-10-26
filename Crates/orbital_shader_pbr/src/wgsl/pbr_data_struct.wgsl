@@ -1,5 +1,6 @@
 struct PBRData {
     albedo: vec3<f32>,
+    alpha: f32,
     metallic: f32,
     roughness: f32,
     occlusion: f32,

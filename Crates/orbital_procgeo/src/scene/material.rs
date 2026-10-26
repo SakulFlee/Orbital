@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use cgmath::Vector3;
-use orbital_material_shader::{MaterialShaderDescriptor, VertexStageLayout};
+use orbital_material_shader::{AlphaMode, MaterialShaderDescriptor, VertexStageLayout};
 use orbital_shader_debug::wireframe_descriptor;
 use orbital_shader_pbr::PBRMaterialShaderDescriptor;
 use orbital_texture::{FilterMode, TextureDescriptor, TextureSize};
@@ -134,6 +134,8 @@ impl SceneMaterial {
                     roughness_factor: 1.0,
                     occlusion: occlusion_tex,
                     emissive: emissive_tex,
+                    alpha_mode: AlphaMode::Opaque,
+                    alpha_factor: 1.0,
                     custom_material_shader: None,
                 };
 

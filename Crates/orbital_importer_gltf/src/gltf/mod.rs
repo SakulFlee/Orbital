@@ -9,7 +9,7 @@ use log::{debug, trace, warn};
 use orbital_camera::CameraDescriptor;
 use orbital_file_manager::FileManager;
 use orbital_light::LightDescriptor;
-use orbital_material_shader::MaterialShaderDescriptor;
+use orbital_material_shader::{AlphaMode, MaterialShaderDescriptor};
 use orbital_math::Transform;
 use orbital_mesh::{MeshDescriptor, Vertex};
 use orbital_model::ModelDescriptor;
@@ -857,6 +857,15 @@ impl GltfImporter {
             )
         };
 
+        let alpha_mode = match material.alpha_mode() {
+            gltf::material::AlphaMode::Opaque => AlphaMode::Opaque,
+            gltf::material::AlphaMode::Mask => {
+                AlphaMode::mask(material.alpha_cutoff().unwrap_or(0.5))
+            }
+            gltf::material::AlphaMode::Blend => AlphaMode::Blend,
+        };
+        let alpha_factor = material.pbr_metallic_roughness().base_color_factor()[3];
+
         let pbr_material = PBRMaterialDescriptor {
             name: material.name().map(|x| x.to_string()),
             normal,
@@ -868,6 +877,8 @@ impl GltfImporter {
             roughness_factor,
             occlusion,
             emissive,
+            alpha_mode,
+            alpha_factor,
             custom_material_shader: None,
         };
 
