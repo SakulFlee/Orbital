@@ -61,7 +61,10 @@ enum ScenePass {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ModelDraw {
+    /// Opaque materials that cannot be deferred. Used in hybrid mode.
     ForwardOpaque,
+    /// All opaque materials. Used when deferred rendering is disabled.
+    ForwardOpaqueAll,
     Transparent,
 }
 
@@ -420,6 +423,7 @@ pub struct Renderer {
     fxaa: Fxaa,
     deferred_lighting: DeferredLighting,
     light_culling: LightCulling,
+    deferred_enabled: bool,
     shadow_renderer: Option<ShadowRenderer>,
     fallbacks: RendererFallbacks,
     world_bind_group_cache: Option<CachedWorldBindGroup>,
@@ -450,6 +454,20 @@ impl Renderer {
 
     pub fn anti_aliasing(&self) -> AntiAliasing {
         self.anti_aliasing
+    }
+
+    /// Enable or disable the deferred path.
+    ///
+    /// Deferred rendering is the default for opaque PBR materials. Disabling
+    /// it routes every opaque material through the forward path, which is
+    /// useful for debugging and for scenes where a forward pass is a better
+    /// fit.
+    pub fn set_deferred_enabled(&mut self, enabled: bool) {
+        self.deferred_enabled = enabled;
+    }
+
+    pub fn deferred_enabled(&self) -> bool {
+        self.deferred_enabled
     }
 
     /// Human-readable frame-graph dump for debug overlays and logs.
@@ -532,6 +550,7 @@ impl Renderer {
             fxaa: Fxaa::new(device, queue, surface_texture_format, resolution),
             deferred_lighting,
             light_culling,
+            deferred_enabled: true,
             shadow_renderer: None,
             fallbacks,
             world_bind_group_cache: None,
@@ -872,7 +891,7 @@ impl Renderer {
             for material in model.materials() {
                 match material.render_queue() {
                     RenderQueue::Opaque => {
-                        if material.gbuffer_pipeline().is_some() {
+                        if self.deferred_enabled && material.gbuffer_pipeline().is_some() {
                             has_deferred = true;
                         } else {
                             has_forward_opaque = true;
@@ -881,6 +900,11 @@ impl Renderer {
                     RenderQueue::Transparent => has_transparent = true,
                 }
             }
+        }
+
+        if !has_deferred {
+            self.deferred_lighting.clear_cache();
+            self.light_culling.clear_cache();
         }
 
         let shadow_models: Vec<Arc<Model>> = scene
@@ -1045,6 +1069,11 @@ impl Renderer {
                     }
                     ScenePass::Models => {
                         if let Some(bind_group) = world_bind_group.as_ref() {
+                            let draw = if has_deferred {
+                                ModelDraw::ForwardOpaque
+                            } else {
+                                ModelDraw::ForwardOpaqueAll
+                            };
                             self.render_models(
                                 &scene.models,
                                 &scene_color.view,
@@ -1052,7 +1081,7 @@ impl Renderer {
                                 context.encoder,
                                 cull,
                                 &depth.view,
-                                ModelDraw::ForwardOpaque,
+                                draw,
                                 camera_position,
                             );
                         }
@@ -1247,6 +1276,7 @@ impl Renderer {
                         material.render_queue() == RenderQueue::Opaque
                             && material.gbuffer_pipeline().is_none()
                     }
+                    ModelDraw::ForwardOpaqueAll => material.render_queue() == RenderQueue::Opaque,
                     ModelDraw::Transparent => material.render_queue() == RenderQueue::Transparent,
                 };
                 if include {
@@ -1266,7 +1296,9 @@ impl Renderer {
 
         let mut render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
             label: Some(match draw {
-                ModelDraw::ForwardOpaque => "Forward Model RenderPass",
+                ModelDraw::ForwardOpaque | ModelDraw::ForwardOpaqueAll => {
+                    "Forward Model RenderPass"
+                }
                 ModelDraw::Transparent => "Transparent RenderPass",
             }),
             color_attachments: &[Some(RenderPassColorAttachment {

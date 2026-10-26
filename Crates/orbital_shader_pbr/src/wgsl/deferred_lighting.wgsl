@@ -108,9 +108,10 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let view_pos = camera.view_projection_matrix * vec4<f32>(world_position, 1.0);
     let view_depth = -view_pos.z;
 
+    let tile_size = max(tile_params.tile_size, 1u);
     let tile = vec2<u32>(
-        u32(in.position.x) / tile_params.tile_size,
-        u32(in.position.y) / tile_params.tile_size,
+        u32(in.position.x) / tile_size,
+        u32(in.position.y) / tile_size,
     );
     let tile_index = tile.y * tile_params.tiles_x + tile.x;
     let stored_light_count = tile_light_counts[tile_index];

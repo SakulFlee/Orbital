@@ -54,7 +54,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     tile_light_counts[tile_index] = 0u;
 
     let dimensions = textureDimensions(depth_texture);
-    let tile_size = tile_params.tile_size;
+    let tile_size = max(tile_params.tile_size, 1u);
     let x0 = tile.x * tile_size;
     let y0 = tile.y * tile_size;
     let x1 = min(x0 + tile_size, dimensions.x);

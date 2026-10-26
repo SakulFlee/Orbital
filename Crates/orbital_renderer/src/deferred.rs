@@ -176,6 +176,12 @@ impl DeferredLighting {
         }
     }
 
+    /// Drop cached bind groups. Call when the deferred path is not in use so
+    /// pooled render targets are not kept alive by the cache.
+    pub fn clear_cache(&mut self) {
+        self.bind_group_cache = None;
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn record(
         &mut self,
