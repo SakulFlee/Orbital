@@ -3380,6 +3380,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "orbital_render_graph"
+version = "0.1.0"
+dependencies = [
+ "wgpu",
+]
+
+[[package]]
 name = "orbital_renderer"
 version = "0.1.0"
 dependencies = [
@@ -3393,6 +3400,7 @@ dependencies = [
  "orbital_light",
  "orbital_material_shader",
  "orbital_model",
+ "orbital_render_graph",
  "orbital_shadow",
  "orbital_text",
  "orbital_texture",
