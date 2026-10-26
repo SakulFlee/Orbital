@@ -36,7 +36,6 @@ fn entrypoint_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 
     var world_environment_sample = textureSampleLevel(specular_env_map, specular_env_sampler, ray_direction, 0.0).rgb;
 
-    let aces_tone_mapped = aces_tone_map(world_environment_sample);
-
-    return vec4<f32>(aces_tone_mapped, 1.0);
+    // Linear HDR. Tonemapping and gamma are applied by the post pass.
+    return vec4<f32>(world_environment_sample, 1.0);
 }

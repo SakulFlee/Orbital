@@ -20,6 +20,10 @@ use orbital_texture::Texture;
 use orbital_world_environment::{GeneratedSkyParameters, WorldEnvironment};
 
 use crate::scene::RenderScene;
+use crate::tonemap::Tonemap;
+
+/// Scene color format for the HDR intermediate target.
+pub const SCENE_COLOR_FORMAT: TextureFormat = TextureFormat::Rgba16Float;
 
 /// Renderer passes scheduled by the frame graph.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -28,6 +32,7 @@ enum ScenePass {
     PrepareWorld,
     Sky,
     Models,
+    Tonemap,
 }
 
 const RES_SHADOW_MAPS: ResourceId = ResourceId::new(1);
@@ -35,6 +40,7 @@ const RES_SCENE_COLOR: ResourceId = ResourceId::new(2);
 const RES_DEPTH: ResourceId = ResourceId::new(3);
 const RES_ENVIRONMENT: ResourceId = ResourceId::new(4);
 const RES_WORLD: ResourceId = ResourceId::new(5);
+const RES_SURFACE: ResourceId = ResourceId::new(6);
 
 fn add_scene_passes(graph: &mut RenderGraph<ScenePass>) {
     graph.add_pass(ScenePass::Shadow, "shadow", &[], &[RES_SHADOW_MAPS]);
@@ -55,6 +61,12 @@ fn add_scene_passes(graph: &mut RenderGraph<ScenePass>) {
         "models",
         &[RES_SHADOW_MAPS, RES_ENVIRONMENT, RES_WORLD],
         &[RES_SCENE_COLOR, RES_DEPTH],
+    );
+    graph.add_pass(
+        ScenePass::Tonemap,
+        "tonemap",
+        &[RES_SCENE_COLOR],
+        &[RES_SURFACE],
     );
 }
 
@@ -259,6 +271,7 @@ pub struct Renderer {
     render_graph: RenderGraph<ScenePass>,
     texture_pool: TexturePool,
     frame_index: u64,
+    tonemap: Tonemap,
     shadow_renderer: Option<ShadowRenderer>,
     fallbacks: RendererFallbacks,
     world_bind_group_cache: Option<CachedWorldBindGroup>,
@@ -345,6 +358,7 @@ impl Renderer {
             render_graph: RenderGraph::default(),
             texture_pool: TexturePool::new(3),
             frame_index: 0,
+            tonemap: Tonemap::new(device, surface_texture_format),
             shadow_renderer: None,
             fallbacks: RendererFallbacks::new(device, queue),
             world_bind_group_cache: None,
@@ -379,10 +393,11 @@ impl Renderer {
     pub fn set_surface_texture_format(
         &mut self,
         surface_texture_format: TextureFormat,
-        _device: &Device,
+        device: &Device,
         _queue: &Queue,
     ) {
         self.surface_texture_format = surface_texture_format;
+        self.tonemap = Tonemap::new(device, surface_texture_format);
     }
 
     pub fn change_resolution(
@@ -642,6 +657,22 @@ impl Renderer {
         };
         let depth = self.texture_pool.acquire(device, &depth_descriptor);
 
+        let scene_color_descriptor = wgpu::TextureDescriptor {
+            label: Some("Orbital::SceneColor"),
+            size: wgpu::Extent3d {
+                width: self.resolution.x.max(1),
+                height: self.resolution.y.max(1),
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: SCENE_COLOR_FORMAT,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        };
+        let scene_color = self.texture_pool.acquire(device, &scene_color_descriptor);
+
         let mut graph = std::mem::take(&mut self.render_graph);
         graph.begin_frame();
         add_scene_passes(&mut graph);
@@ -691,16 +722,15 @@ impl Renderer {
                         world_bind_group = Some(self.world_bind_group(scene, device, queue));
                     }
                     ScenePass::Sky => {
-                        if let (Some(world_environment), Some(bind_group)) =
-                            (scene.environment.as_deref(), world_bind_group.as_ref())
-                        {
-                            self.render_sky_box(
-                                target_view,
-                                world_environment.material_shader(),
-                                bind_group,
-                                context.encoder,
-                            );
-                        }
+                        self.render_sky_box(
+                            &scene_color.view,
+                            scene
+                                .environment
+                                .as_deref()
+                                .map(|environment| environment.material_shader()),
+                            world_bind_group.as_ref(),
+                            context.encoder,
+                        );
                         if let Some(qs) = &self.timestamp_query_set {
                             context.encoder.write_timestamp(qs, 2);
                         }
@@ -709,7 +739,7 @@ impl Renderer {
                         if let Some(bind_group) = world_bind_group.as_ref() {
                             self.render_models(
                                 &scene.models,
-                                target_view,
+                                &scene_color.view,
                                 bind_group,
                                 context.encoder,
                                 cull,
@@ -719,6 +749,14 @@ impl Renderer {
                         if let Some(qs) = &self.timestamp_query_set {
                             context.encoder.write_timestamp(qs, 3);
                         }
+                    }
+                    ScenePass::Tonemap => {
+                        self.tonemap.record(
+                            context.device,
+                            context.encoder,
+                            &scene_color.view,
+                            target_view,
+                        );
                     }
                 },
             )
@@ -730,6 +768,7 @@ impl Renderer {
                 ScenePass::Sky => skybox_ms = ms(timing.cpu),
                 ScenePass::Models => models_ms = ms(timing.cpu),
                 ScenePass::PrepareWorld => skybox_ms += ms(timing.cpu),
+                ScenePass::Tonemap => {}
             }
         }
         self.render_graph = graph;
@@ -806,8 +845,8 @@ impl Renderer {
     fn render_sky_box(
         &self,
         target_view: &TextureView,
-        sky_box_shader: &MaterialShader,
-        world_bind_group: &BindGroup,
+        sky_box_shader: Option<&MaterialShader>,
+        world_bind_group: Option<&BindGroup>,
         command_encoder: &mut CommandEncoder,
     ) {
         let mut render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
@@ -827,9 +866,11 @@ impl Renderer {
             multiview_mask: None,
         });
 
-        render_pass.set_pipeline(sky_box_shader.pipeline());
-        render_pass.set_bind_group(0, world_bind_group, &[]);
-        render_pass.draw(0..3, 0..1);
+        if let (Some(shader), Some(bind_group)) = (sky_box_shader, world_bind_group) {
+            render_pass.set_pipeline(shader.pipeline());
+            render_pass.set_bind_group(0, bind_group, &[]);
+            render_pass.draw(0..3, 0..1);
+        }
     }
 
     fn render_models(
@@ -1087,6 +1128,9 @@ mod tests {
             .ordered_passes()
             .map(|(_, name)| name)
             .collect::<Vec<_>>();
-        assert_eq!(order, ["shadow", "prepare-world", "sky", "models"]);
+        assert_eq!(
+            order,
+            ["shadow", "prepare-world", "sky", "models", "tonemap"]
+        );
     }
 }
