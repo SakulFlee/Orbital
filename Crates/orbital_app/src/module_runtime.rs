@@ -1007,6 +1007,8 @@ impl ApplicationHandler for ModuleRuntime {
                 .insert_resource(orbital_ecs_bridge::MeshCacheResource::default());
             self.ecs_world
                 .insert_resource(orbital_ecs_bridge::MaterialCacheResource::default());
+            self.ecs_world
+                .insert_resource(orbital_ecs_bridge::PipelineCacheResource::default());
 
             // Create renderer
             self.renderer = Some(orbital_renderer::Renderer::new(

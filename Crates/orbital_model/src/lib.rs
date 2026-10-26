@@ -1,7 +1,7 @@
 use std::{
     error::Error,
     sync::{
-        Arc, RwLock,
+        Arc, Mutex, RwLock,
         atomic::{AtomicU64, Ordering},
     },
 };
@@ -12,7 +12,7 @@ use wgpu::{Buffer, BufferDescriptor, BufferUsages, Device, Queue, TextureFormat}
 
 use orbital_core::cache::{Cache, CacheEntry};
 use orbital_instance::Instance;
-use orbital_material_shader::{MaterialShader, MaterialShaderDescriptor};
+use orbital_material_shader::{MaterialShader, MaterialShaderDescriptor, PipelineCache};
 use orbital_math::Transform;
 pub use orbital_mesh::{Mesh, MeshDescriptor};
 use ulid::Ulid;
@@ -56,6 +56,7 @@ impl Model {
         queue: &Queue,
         mesh_cache: &'cache RwLock<Cache<Arc<MeshDescriptor>, Mesh>>,
         material_cache: &'cache RwLock<Cache<Arc<MaterialShaderDescriptor>, MaterialShader>>,
+        pipeline_cache: &Mutex<PipelineCache>,
     ) -> Result<Self, Box<dyn Error + 'cache>> {
         // --- Mesh ---
         let mesh = match mesh_cache.write() {
@@ -73,25 +74,31 @@ impl Model {
         // --- Material ---
         let mut materials = Vec::new();
         for material_descriptor in &descriptor.materials {
-            materials.push(match material_cache.write() {
+            let material = match material_cache.write() {
                 Ok(mut lock) => {
-                    if lock.contains_key(material_descriptor) {
+                    if let Some(entry) = lock.get(material_descriptor) {
                         MATERIAL_CACHE_HITS.fetch_add(1, Ordering::Relaxed);
+                        entry.clone_inner()
                     } else {
                         MATERIAL_CACHE_MISSES.fetch_add(1, Ordering::Relaxed);
-                    }
 
-                    lock.entry(material_descriptor.clone())
-                        .or_insert(CacheEntry::new(MaterialShader::from_descriptor(
+                        let mut pipeline_cache = pipeline_cache.lock().unwrap();
+                        let material = MaterialShader::from_descriptor_with_cache(
                             material_descriptor,
                             Some(*color_format),
                             device,
                             queue,
-                        )?))
-                        .clone_inner()
+                            &mut pipeline_cache,
+                        )?;
+                        let entry = CacheEntry::new(material);
+                        let material = entry.clone_inner();
+                        lock.insert(material_descriptor.clone(), entry);
+                        material
+                    }
                 }
                 Err(e) => return Err(Box::new(e)),
-            });
+            };
+            materials.push(material);
         }
 
         let instance_capacity = (descriptor.transforms.len() as u32).max(1);
