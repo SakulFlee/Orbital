@@ -10,11 +10,12 @@ fn pbr_data(fragment_data: FragmentData) -> PBRData {
         albedo_texture,
         albedo_sampler,
         fragment_data.uv
-    ).rgb;
-    let albedo_factored = albedo_sample * pbr_factors.albedo_factor.rgb;
+    );
+    let albedo_factored = albedo_sample.rgb * pbr_factors.albedo_factor.rgb;
     let albedo_clamped = clamp(albedo_factored, vec3(0.0), vec3(1.0));
     let albedo_gamma_applied = pow(albedo_clamped, vec3(camera.global_gamma));
     out.albedo = albedo_gamma_applied;
+    out.alpha = clamp(albedo_sample.a * pbr_factors.alpha_factor, 0.0, 1.0);
 
     let metallic_sample = textureSample(
         metallic_texture,

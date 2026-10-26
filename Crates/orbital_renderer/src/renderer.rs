@@ -1,7 +1,7 @@
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
-use cgmath::Vector2;
+use cgmath::{InnerSpace, Point3, Vector2};
 use wgpu::{
     BindGroup, BindGroupEntry, Color, CommandEncoder, CommandEncoderDescriptor, CompareFunction,
     Device, FilterMode, IndexFormat, LoadOp, Operations, Queue, RenderPassColorAttachment,
@@ -12,7 +12,7 @@ use wgpu::{
 use orbital_camera::{Camera, CameraDescriptor};
 use orbital_cull::CullResources;
 use orbital_ibl_brdf::IblBrdf;
-use orbital_material_shader::MaterialShader;
+use orbital_material_shader::{MaterialShader, RenderQueue};
 use orbital_model::Model;
 use orbital_render_graph::{RenderGraph, ResourceId, TexturePool};
 use orbital_shadow::{ShadowGpuData, ShadowRenderer};
@@ -41,6 +41,7 @@ enum ScenePass {
     PrepareWorld,
     Sky,
     Models,
+    Transparent,
     Tonemap,
     Fxaa,
 }
@@ -53,7 +54,11 @@ const RES_WORLD: ResourceId = ResourceId::new(5);
 const RES_SURFACE: ResourceId = ResourceId::new(6);
 const RES_POST_LDR: ResourceId = ResourceId::new(7);
 
-fn add_scene_passes(graph: &mut RenderGraph<ScenePass>, anti_aliasing: AntiAliasing) {
+fn add_scene_passes(
+    graph: &mut RenderGraph<ScenePass>,
+    anti_aliasing: AntiAliasing,
+    has_transparent: bool,
+) {
     graph.add_pass(ScenePass::Shadow, "shadow", &[], &[RES_SHADOW_MAPS]);
     graph.add_pass(
         ScenePass::PrepareWorld,
@@ -73,6 +78,20 @@ fn add_scene_passes(graph: &mut RenderGraph<ScenePass>, anti_aliasing: AntiAlias
         &[RES_SHADOW_MAPS, RES_ENVIRONMENT, RES_WORLD],
         &[RES_SCENE_COLOR, RES_DEPTH],
     );
+    if has_transparent {
+        graph.add_pass(
+            ScenePass::Transparent,
+            "transparent",
+            &[
+                RES_SCENE_COLOR,
+                RES_DEPTH,
+                RES_SHADOW_MAPS,
+                RES_ENVIRONMENT,
+                RES_WORLD,
+            ],
+            &[RES_SCENE_COLOR],
+        );
+    }
     let tonemap_target = if anti_aliasing == AntiAliasing::Off {
         RES_SURFACE
     } else {
@@ -722,9 +741,22 @@ impl Renderer {
             )
         });
 
+        let has_transparent = scene.models.iter().any(|model| {
+            model
+                .materials()
+                .iter()
+                .any(|material| material.render_queue() == RenderQueue::Transparent)
+        });
+        let shadow_models: Vec<Arc<Model>> = scene
+            .models
+            .iter()
+            .filter(|model| model.casts_shadows())
+            .cloned()
+            .collect();
+
         let mut graph = std::mem::take(&mut self.render_graph);
         graph.begin_frame();
-        add_scene_passes(&mut graph, self.anti_aliasing);
+        add_scene_passes(&mut graph, self.anti_aliasing, has_transparent);
         graph.compile().expect("render graph must be acyclic");
 
         let mut command_encoder = device.create_command_encoder(&CommandEncoderDescriptor {
@@ -737,6 +769,7 @@ impl Renderer {
         }
 
         let mut world_bind_group: Option<BindGroup> = None;
+        let camera_position = scene.camera.as_ref().map(|camera| camera.position);
         let mut shadow_ms = 0.0;
         let mut skybox_ms = 0.0;
         let mut models_ms = 0.0;
@@ -753,7 +786,7 @@ impl Renderer {
                         {
                             shadow_renderer.render(
                                 context.encoder,
-                                &scene.models,
+                                &shadow_models,
                                 &scene.shadow_lights,
                                 &camera.perspective_view_projection,
                                 camera.near,
@@ -793,10 +826,26 @@ impl Renderer {
                                 context.encoder,
                                 cull,
                                 &depth.view,
+                                RenderQueue::Opaque,
+                                camera_position,
                             );
                         }
                         if let Some(qs) = &self.timestamp_query_set {
                             context.encoder.write_timestamp(qs, 3);
+                        }
+                    }
+                    ScenePass::Transparent => {
+                        if let Some(bind_group) = world_bind_group.as_ref() {
+                            self.render_models(
+                                &scene.models,
+                                &scene_color.view,
+                                bind_group,
+                                context.encoder,
+                                cull,
+                                &depth.view,
+                                RenderQueue::Transparent,
+                                camera_position,
+                            );
                         }
                     }
                     ScenePass::Tonemap => {
@@ -830,6 +879,7 @@ impl Renderer {
                 ScenePass::Shadow => shadow_ms = ms(timing.cpu),
                 ScenePass::Sky => skybox_ms = ms(timing.cpu),
                 ScenePass::Models => models_ms = ms(timing.cpu),
+                ScenePass::Transparent => models_ms += ms(timing.cpu),
                 ScenePass::PrepareWorld => skybox_ms += ms(timing.cpu),
                 ScenePass::Tonemap | ScenePass::Fxaa => {}
             }
@@ -936,6 +986,7 @@ impl Renderer {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn render_models(
         &self,
         models: &[Arc<Model>],
@@ -944,9 +995,47 @@ impl Renderer {
         command_encoder: &mut CommandEncoder,
         cull: Option<&CullResources>,
         depth_view: &TextureView,
+        queue: RenderQueue,
+        camera_position: Option<Point3<f32>>,
     ) {
+        let mut draws: Vec<(usize, usize, f32)> = Vec::new();
+
+        for (model_index, model) in models.iter().enumerate() {
+            let distance = if queue == RenderQueue::Transparent {
+                match (model.instance_center(), camera_position) {
+                    (Some(center), Some(camera)) => (center - camera).magnitude2(),
+                    _ => 0.0,
+                }
+            } else {
+                0.0
+            };
+
+            for (material_index, material) in model.materials().iter().enumerate() {
+                if material.render_queue() == queue {
+                    draws.push((model_index, material_index, distance));
+                }
+            }
+        }
+
+        if queue == RenderQueue::Transparent {
+            if draws.is_empty() {
+                return;
+            }
+            // Back-to-front for alpha blending.
+            draws.sort_by(|a, b| b.2.total_cmp(&a.2));
+        }
+
+        let depth_load = if queue == RenderQueue::Opaque {
+            LoadOp::Clear(1.0)
+        } else {
+            LoadOp::Load
+        };
+
         let mut render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
-            label: Some("Model RenderPass"),
+            label: Some(match queue {
+                RenderQueue::Opaque => "Model RenderPass",
+                RenderQueue::Transparent => "Transparent RenderPass",
+            }),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: target_view,
                 resolve_target: None,
@@ -959,7 +1048,7 @@ impl Renderer {
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: depth_view,
                 depth_ops: Some(Operations {
-                    load: LoadOp::Clear(1.0),
+                    load: depth_load,
                     store: StoreOp::Store,
                 }),
                 stencil_ops: None,
@@ -969,44 +1058,37 @@ impl Renderer {
             multiview_mask: None,
         });
 
-        for (i, model) in models.iter().enumerate() {
-            for material in model.materials() {
-                render_pass.set_pipeline(material.pipeline());
-                render_pass.set_bind_group(0, world_bind_group, &[]);
-                render_pass.set_bind_group(1, material.bind_group(), &[]);
-                render_pass.set_vertex_buffer(0, model.mesh().vertex_buffer().slice(..));
+        for (model_index, material_index, _) in draws {
+            let model = &models[model_index];
+            let material = &model.materials()[material_index];
 
-                if let Some(cr) = cull {
-                    // CPU-culled: read from filtered output at model offset
-                    let byte_off = cr.model_first_instance(i) as u64 * 64;
-                    render_pass
-                        .set_vertex_buffer(1, cr.filtered_instance_buffer().slice(byte_off..));
-                    render_pass.set_index_buffer(
-                        model.mesh().index_buffer().slice(..),
-                        IndexFormat::Uint32,
-                    );
-                    render_pass.draw_indexed(
-                        0..model.mesh().index_count(),
-                        0,
-                        0..cr.visible_count(i),
-                    );
-                } else {
-                    // No culling data: draw all instances from the original buffer
-                    render_pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
-                    render_pass.set_index_buffer(
-                        model.mesh().index_buffer().slice(..),
-                        IndexFormat::Uint32,
-                    );
-                    render_pass.draw_indexed(
-                        0..model.mesh().index_count(),
-                        0,
-                        0..model.instance_count(),
-                    );
-                }
+            render_pass.set_pipeline(material.pipeline());
+            render_pass.set_bind_group(0, world_bind_group, &[]);
+            render_pass.set_bind_group(1, material.bind_group(), &[]);
+            render_pass.set_vertex_buffer(0, model.mesh().vertex_buffer().slice(..));
+
+            if let Some(cr) = cull {
+                let byte_off = cr.model_first_instance(model_index) as u64 * 64;
+                render_pass.set_vertex_buffer(1, cr.filtered_instance_buffer().slice(byte_off..));
+                render_pass
+                    .set_index_buffer(model.mesh().index_buffer().slice(..), IndexFormat::Uint32);
+                render_pass.draw_indexed(
+                    0..model.mesh().index_count(),
+                    0,
+                    0..cr.visible_count(model_index),
+                );
+            } else {
+                render_pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
+                render_pass
+                    .set_index_buffer(model.mesh().index_buffer().slice(..), IndexFormat::Uint32);
+                render_pass.draw_indexed(
+                    0..model.mesh().index_count(),
+                    0,
+                    0..model.instance_count(),
+                );
             }
         }
     }
-
     /// Renders 2D geometry (solid-color shapes) on top of the existing scene.
     ///
     /// Call this after `render()` to add 2D overlays.
@@ -1181,9 +1263,9 @@ impl Renderer {
 mod tests {
     use super::*;
 
-    fn graph_order(anti_aliasing: AntiAliasing) -> Vec<&'static str> {
+    fn graph_order(anti_aliasing: AntiAliasing, has_transparent: bool) -> Vec<&'static str> {
         let mut graph = RenderGraph::new();
-        add_scene_passes(&mut graph, anti_aliasing);
+        add_scene_passes(&mut graph, anti_aliasing, has_transparent);
         graph.compile().unwrap();
         graph
             .ordered_passes()
@@ -1194,7 +1276,7 @@ mod tests {
     #[test]
     fn scene_graph_without_aa_ends_at_tonemap() {
         assert_eq!(
-            graph_order(AntiAliasing::Off),
+            graph_order(AntiAliasing::Off, false),
             ["shadow", "prepare-world", "sky", "models", "tonemap"]
         );
     }
@@ -1202,7 +1284,7 @@ mod tests {
     #[test]
     fn scene_graph_with_fxaa_adds_post_pass() {
         assert_eq!(
-            graph_order(AntiAliasing::Fxaa),
+            graph_order(AntiAliasing::Fxaa, false),
             [
                 "shadow",
                 "prepare-world",
@@ -1210,6 +1292,21 @@ mod tests {
                 "models",
                 "tonemap",
                 "fxaa"
+            ]
+        );
+    }
+
+    #[test]
+    fn scene_graph_with_transparency_adds_sorted_pass() {
+        assert_eq!(
+            graph_order(AntiAliasing::Off, true),
+            [
+                "shadow",
+                "prepare-world",
+                "sky",
+                "models",
+                "transparent",
+                "tonemap"
             ]
         );
     }

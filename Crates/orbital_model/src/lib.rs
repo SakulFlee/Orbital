@@ -6,7 +6,7 @@ use std::{
     },
 };
 
-use cgmath::Vector4;
+use cgmath::{EuclideanSpace, Point3, Vector3, Vector4};
 use hashbrown::HashMap;
 use wgpu::{Buffer, BufferDescriptor, BufferUsages, Device, Queue, TextureFormat};
 
@@ -190,6 +190,13 @@ impl Model {
         &self.materials
     }
 
+    /// Whether any material on this model casts shadows.
+    pub fn casts_shadows(&self) -> bool {
+        self.materials
+            .iter()
+            .any(|material| material.cast_shadows())
+    }
+
     pub fn instance_count(&self) -> u32 {
         self.instance_count
     }
@@ -206,6 +213,19 @@ impl Model {
     /// World-space bounding sphere per instance: `[center.x, center.y, center.z, radius]`.
     pub fn instance_bounds(&self) -> &[[f32; 4]] {
         &self.instance_bounds
+    }
+
+    /// Average world-space center of all instances.
+    pub fn instance_center(&self) -> Option<Point3<f32>> {
+        if self.instance_bounds.is_empty() {
+            return None;
+        }
+
+        let mut center = Vector3::new(0.0, 0.0, 0.0);
+        for bound in &self.instance_bounds {
+            center += Vector3::new(bound[0], bound[1], bound[2]);
+        }
+        Some(Point3::from_vec(center / self.instance_bounds.len() as f32))
     }
 
     /// Hash of the mesh and materials, used to decide whether a model can
