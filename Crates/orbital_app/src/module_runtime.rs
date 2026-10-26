@@ -1016,6 +1016,11 @@ impl ApplicationHandler for ModuleRuntime {
                 ctx_guard.queue(),
             ));
 
+            // Apply the app's scene anti-aliasing mode.
+            if let Some(renderer) = &mut self.renderer {
+                renderer.set_anti_aliasing(self.settings.anti_aliasing);
+            }
+
             // Enable shadows with default settings
             if let Some(renderer) = &mut self.renderer {
                 renderer.enable_shadows(

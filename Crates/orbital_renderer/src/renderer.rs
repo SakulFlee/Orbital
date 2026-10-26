@@ -19,8 +19,17 @@ use orbital_shadow::{ShadowGpuData, ShadowRenderer};
 use orbital_texture::Texture;
 use orbital_world_environment::{GeneratedSkyParameters, WorldEnvironment};
 
+use crate::fxaa::Fxaa;
 use crate::scene::RenderScene;
 use crate::tonemap::Tonemap;
+
+/// Anti-aliasing mode for the 3D scene.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum AntiAliasing {
+    Off,
+    #[default]
+    Fxaa,
+}
 
 /// Scene color format for the HDR intermediate target.
 pub const SCENE_COLOR_FORMAT: TextureFormat = TextureFormat::Rgba16Float;
@@ -33,6 +42,7 @@ enum ScenePass {
     Sky,
     Models,
     Tonemap,
+    Fxaa,
 }
 
 const RES_SHADOW_MAPS: ResourceId = ResourceId::new(1);
@@ -41,8 +51,9 @@ const RES_DEPTH: ResourceId = ResourceId::new(3);
 const RES_ENVIRONMENT: ResourceId = ResourceId::new(4);
 const RES_WORLD: ResourceId = ResourceId::new(5);
 const RES_SURFACE: ResourceId = ResourceId::new(6);
+const RES_POST_LDR: ResourceId = ResourceId::new(7);
 
-fn add_scene_passes(graph: &mut RenderGraph<ScenePass>) {
+fn add_scene_passes(graph: &mut RenderGraph<ScenePass>, anti_aliasing: AntiAliasing) {
     graph.add_pass(ScenePass::Shadow, "shadow", &[], &[RES_SHADOW_MAPS]);
     graph.add_pass(
         ScenePass::PrepareWorld,
@@ -62,12 +73,20 @@ fn add_scene_passes(graph: &mut RenderGraph<ScenePass>) {
         &[RES_SHADOW_MAPS, RES_ENVIRONMENT, RES_WORLD],
         &[RES_SCENE_COLOR, RES_DEPTH],
     );
+    let tonemap_target = if anti_aliasing == AntiAliasing::Off {
+        RES_SURFACE
+    } else {
+        RES_POST_LDR
+    };
     graph.add_pass(
         ScenePass::Tonemap,
         "tonemap",
         &[RES_SCENE_COLOR],
-        &[RES_SURFACE],
+        &[tonemap_target],
     );
+    if anti_aliasing != AntiAliasing::Off {
+        graph.add_pass(ScenePass::Fxaa, "fxaa", &[RES_POST_LDR], &[RES_SURFACE]);
+    }
 }
 
 /// CPU time spent recording and submitting the scene.
@@ -271,7 +290,9 @@ pub struct Renderer {
     render_graph: RenderGraph<ScenePass>,
     texture_pool: TexturePool,
     frame_index: u64,
+    anti_aliasing: AntiAliasing,
     tonemap: Tonemap,
+    fxaa: Fxaa,
     shadow_renderer: Option<ShadowRenderer>,
     fallbacks: RendererFallbacks,
     world_bind_group_cache: Option<CachedWorldBindGroup>,
@@ -294,6 +315,14 @@ impl Renderer {
 
     pub fn prev_cpu_timings(&self) -> RendererCpuTimings {
         self.prev_cpu_timings
+    }
+
+    pub fn set_anti_aliasing(&mut self, anti_aliasing: AntiAliasing) {
+        self.anti_aliasing = anti_aliasing;
+    }
+
+    pub fn anti_aliasing(&self) -> AntiAliasing {
+        self.anti_aliasing
     }
 
     /// Human-readable frame-graph dump for debug overlays and logs.
@@ -358,7 +387,9 @@ impl Renderer {
             render_graph: RenderGraph::default(),
             texture_pool: TexturePool::new(3),
             frame_index: 0,
+            anti_aliasing: AntiAliasing::default(),
             tonemap: Tonemap::new(device, surface_texture_format),
+            fxaa: Fxaa::new(device, queue, surface_texture_format, resolution),
             shadow_renderer: None,
             fallbacks: RendererFallbacks::new(device, queue),
             world_bind_group_cache: None,
@@ -394,19 +425,16 @@ impl Renderer {
         &mut self,
         surface_texture_format: TextureFormat,
         device: &Device,
-        _queue: &Queue,
+        queue: &Queue,
     ) {
         self.surface_texture_format = surface_texture_format;
         self.tonemap = Tonemap::new(device, surface_texture_format);
+        self.fxaa = Fxaa::new(device, queue, surface_texture_format, self.resolution);
     }
 
-    pub fn change_resolution(
-        &mut self,
-        resolution: Vector2<u32>,
-        _device: &Device,
-        _queue: &Queue,
-    ) {
+    pub fn change_resolution(&mut self, resolution: Vector2<u32>, _device: &Device, queue: &Queue) {
         self.resolution = resolution;
+        self.fxaa.set_resolution(queue, resolution);
     }
 
     /// Returns the camera uniform buffer for this frame.
@@ -673,9 +701,30 @@ impl Renderer {
         };
         let scene_color = self.texture_pool.acquire(device, &scene_color_descriptor);
 
+        let post_ldr = (self.anti_aliasing != AntiAliasing::Off).then(|| {
+            self.texture_pool.acquire(
+                device,
+                &wgpu::TextureDescriptor {
+                    label: Some("Orbital::PostLdr"),
+                    size: wgpu::Extent3d {
+                        width: self.resolution.x.max(1),
+                        height: self.resolution.y.max(1),
+                        depth_or_array_layers: 1,
+                    },
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format: self.surface_texture_format,
+                    usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                        | wgpu::TextureUsages::TEXTURE_BINDING,
+                    view_formats: &[],
+                },
+            )
+        });
+
         let mut graph = std::mem::take(&mut self.render_graph);
         graph.begin_frame();
-        add_scene_passes(&mut graph);
+        add_scene_passes(&mut graph, self.anti_aliasing);
         graph.compile().expect("render graph must be acyclic");
 
         let mut command_encoder = device.create_command_encoder(&CommandEncoderDescriptor {
@@ -751,12 +800,26 @@ impl Renderer {
                         }
                     }
                     ScenePass::Tonemap => {
+                        let tonemap_target = post_ldr
+                            .as_ref()
+                            .map(|post_ldr| &post_ldr.view)
+                            .unwrap_or(target_view);
                         self.tonemap.record(
                             context.device,
                             context.encoder,
                             &scene_color.view,
-                            target_view,
+                            tonemap_target,
                         );
+                    }
+                    ScenePass::Fxaa => {
+                        if let Some(post_ldr) = &post_ldr {
+                            self.fxaa.record(
+                                context.device,
+                                context.encoder,
+                                &post_ldr.view,
+                                target_view,
+                            );
+                        }
                     }
                 },
             )
@@ -768,7 +831,7 @@ impl Renderer {
                 ScenePass::Sky => skybox_ms = ms(timing.cpu),
                 ScenePass::Models => models_ms = ms(timing.cpu),
                 ScenePass::PrepareWorld => skybox_ms += ms(timing.cpu),
-                ScenePass::Tonemap => {}
+                ScenePass::Tonemap | ScenePass::Fxaa => {}
             }
         }
         self.render_graph = graph;
@@ -1118,19 +1181,36 @@ impl Renderer {
 mod tests {
     use super::*;
 
-    #[test]
-    fn scene_graph_orders_shadow_prepare_sky_models() {
+    fn graph_order(anti_aliasing: AntiAliasing) -> Vec<&'static str> {
         let mut graph = RenderGraph::new();
-        add_scene_passes(&mut graph);
+        add_scene_passes(&mut graph, anti_aliasing);
         graph.compile().unwrap();
-
-        let order = graph
+        graph
             .ordered_passes()
             .map(|(_, name)| name)
-            .collect::<Vec<_>>();
+            .collect::<Vec<_>>()
+    }
+
+    #[test]
+    fn scene_graph_without_aa_ends_at_tonemap() {
         assert_eq!(
-            order,
+            graph_order(AntiAliasing::Off),
             ["shadow", "prepare-world", "sky", "models", "tonemap"]
+        );
+    }
+
+    #[test]
+    fn scene_graph_with_fxaa_adds_post_pass() {
+        assert_eq!(
+            graph_order(AntiAliasing::Fxaa),
+            [
+                "shadow",
+                "prepare-world",
+                "sky",
+                "models",
+                "tonemap",
+                "fxaa"
+            ]
         );
     }
 }

@@ -116,6 +116,11 @@ fn tonemap_shader_is_valid_wgsl() {
     validate_single("Crates/orbital_renderer/src/tonemap.wgsl");
 }
 
+#[test]
+fn fxaa_shader_is_valid_wgsl() {
+    validate_single("Crates/orbital_renderer/src/fxaa.wgsl");
+}
+
 // --- Node-graph shader validation -----------------------------------------
 //
 // The new node system assembles shaders from named, reusable WGSL nodes. These
