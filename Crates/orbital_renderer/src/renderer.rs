@@ -14,11 +14,49 @@ use orbital_cull::CullResources;
 use orbital_ibl_brdf::IblBrdf;
 use orbital_material_shader::MaterialShader;
 use orbital_model::Model;
+use orbital_render_graph::{RenderGraph, ResourceId, TexturePool};
 use orbital_shadow::{ShadowGpuData, ShadowRenderer};
 use orbital_texture::Texture;
 use orbital_world_environment::{GeneratedSkyParameters, WorldEnvironment};
 
 use crate::scene::RenderScene;
+
+/// Renderer passes scheduled by the frame graph.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+enum ScenePass {
+    Shadow,
+    PrepareWorld,
+    Sky,
+    Models,
+}
+
+const RES_SHADOW_MAPS: ResourceId = ResourceId::new(1);
+const RES_SCENE_COLOR: ResourceId = ResourceId::new(2);
+const RES_DEPTH: ResourceId = ResourceId::new(3);
+const RES_ENVIRONMENT: ResourceId = ResourceId::new(4);
+const RES_WORLD: ResourceId = ResourceId::new(5);
+
+fn add_scene_passes(graph: &mut RenderGraph<ScenePass>) {
+    graph.add_pass(ScenePass::Shadow, "shadow", &[], &[RES_SHADOW_MAPS]);
+    graph.add_pass(
+        ScenePass::PrepareWorld,
+        "prepare-world",
+        &[RES_SHADOW_MAPS],
+        &[RES_WORLD],
+    );
+    graph.add_pass(
+        ScenePass::Sky,
+        "sky",
+        &[RES_ENVIRONMENT, RES_WORLD],
+        &[RES_SCENE_COLOR],
+    );
+    graph.add_pass(
+        ScenePass::Models,
+        "models",
+        &[RES_SHADOW_MAPS, RES_ENVIRONMENT, RES_WORLD],
+        &[RES_SCENE_COLOR, RES_DEPTH],
+    );
+}
 
 /// CPU time spent recording and submitting the scene.
 ///
@@ -217,7 +255,10 @@ struct CachedWorldBindGroup {
 
 pub struct Renderer {
     surface_texture_format: TextureFormat,
-    depth_texture: Texture,
+    resolution: Vector2<u32>,
+    render_graph: RenderGraph<ScenePass>,
+    texture_pool: TexturePool,
+    frame_index: u64,
     shadow_renderer: Option<ShadowRenderer>,
     fallbacks: RendererFallbacks,
     world_bind_group_cache: Option<CachedWorldBindGroup>,
@@ -241,6 +282,16 @@ impl Renderer {
     pub fn prev_cpu_timings(&self) -> RendererCpuTimings {
         self.prev_cpu_timings
     }
+
+    /// Human-readable frame-graph dump for debug overlays and logs.
+    pub fn render_graph_debug_dump(&self) -> String {
+        self.render_graph.debug_dump()
+    }
+
+    /// Graphviz representation of the frame graph.
+    pub fn render_graph_dot(&self) -> String {
+        self.render_graph.to_dot()
+    }
 }
 
 const TS_COUNT: u32 = 4; // 0=shadow_start, 1=skybox_start, 2=models_start, 3=main_end
@@ -253,8 +304,6 @@ impl Renderer {
         device: &Device,
         queue: &Queue,
     ) -> Self {
-        let depth_texture = Texture::depth_texture(&resolution, device, queue);
-
         let has_timestamps = device
             .features()
             .contains(wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS);
@@ -292,7 +341,10 @@ impl Renderer {
 
         Self {
             surface_texture_format,
-            depth_texture,
+            resolution,
+            render_graph: RenderGraph::default(),
+            texture_pool: TexturePool::new(3),
+            frame_index: 0,
             shadow_renderer: None,
             fallbacks: RendererFallbacks::new(device, queue),
             world_bind_group_cache: None,
@@ -333,8 +385,13 @@ impl Renderer {
         self.surface_texture_format = surface_texture_format;
     }
 
-    pub fn change_resolution(&mut self, resolution: Vector2<u32>, device: &Device, queue: &Queue) {
-        self.depth_texture = Texture::depth_texture(&resolution, device, queue);
+    pub fn change_resolution(
+        &mut self,
+        resolution: Vector2<u32>,
+        _device: &Device,
+        _queue: &Queue,
+    ) {
+        self.resolution = resolution;
     }
 
     /// Returns the camera uniform buffer for this frame.
@@ -566,6 +623,30 @@ impl Renderer {
         let ms = |duration: std::time::Duration| duration.as_secs_f64() * 1000.0;
         let render_start = Instant::now();
 
+        self.frame_index = self.frame_index.wrapping_add(1);
+        self.texture_pool.begin_frame(self.frame_index);
+
+        let depth_descriptor = wgpu::TextureDescriptor {
+            label: Some("Orbital::Depth"),
+            size: wgpu::Extent3d {
+                width: self.resolution.x.max(1),
+                height: self.resolution.y.max(1),
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: TextureFormat::Depth32Float,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        };
+        let depth = self.texture_pool.acquire(device, &depth_descriptor);
+
+        let mut graph = std::mem::take(&mut self.render_graph);
+        graph.begin_frame();
+        add_scene_passes(&mut graph);
+        graph.compile().expect("render graph must be acyclic");
+
         let mut command_encoder = device.create_command_encoder(&CommandEncoderDescriptor {
             label: Some("Orbital::Render::Encoder"),
         });
@@ -575,61 +656,83 @@ impl Renderer {
             command_encoder.write_timestamp(qs, 0);
         }
 
-        // Shadow pass (before main passes)
-        if let Some(sr) = self.shadow_renderer.as_mut()
-            && let Some(camera) = &scene.camera
-        {
-            sr.render(
+        let mut world_bind_group: Option<BindGroup> = None;
+        let mut shadow_ms = 0.0;
+        let mut skybox_ms = 0.0;
+        let mut models_ms = 0.0;
+
+        graph
+            .execute(
                 &mut command_encoder,
-                &scene.models,
-                &scene.shadow_lights,
-                &camera.perspective_view_projection,
-                camera.near,
-                camera.far,
                 device,
                 queue,
-                dirty_set,
-            );
+                |pass, context| match pass {
+                    ScenePass::Shadow => {
+                        if let Some(shadow_renderer) = self.shadow_renderer.as_mut()
+                            && let Some(camera) = &scene.camera
+                        {
+                            shadow_renderer.render(
+                                context.encoder,
+                                &scene.models,
+                                &scene.shadow_lights,
+                                &camera.perspective_view_projection,
+                                camera.near,
+                                camera.far,
+                                context.device,
+                                context.queue,
+                                dirty_set,
+                            );
+                        }
+                        if let Some(qs) = &self.timestamp_query_set {
+                            context.encoder.write_timestamp(qs, 1);
+                        }
+                    }
+                    ScenePass::PrepareWorld => {
+                        world_bind_group = Some(self.world_bind_group(scene, device, queue));
+                    }
+                    ScenePass::Sky => {
+                        if let (Some(world_environment), Some(bind_group)) =
+                            (scene.environment.as_deref(), world_bind_group.as_ref())
+                        {
+                            self.render_sky_box(
+                                target_view,
+                                world_environment.material_shader(),
+                                bind_group,
+                                context.encoder,
+                            );
+                        }
+                        if let Some(qs) = &self.timestamp_query_set {
+                            context.encoder.write_timestamp(qs, 2);
+                        }
+                    }
+                    ScenePass::Models => {
+                        if let Some(bind_group) = world_bind_group.as_ref() {
+                            self.render_models(
+                                &scene.models,
+                                target_view,
+                                bind_group,
+                                context.encoder,
+                                cull,
+                                &depth.view,
+                            );
+                        }
+                        if let Some(qs) = &self.timestamp_query_set {
+                            context.encoder.write_timestamp(qs, 3);
+                        }
+                    }
+                },
+            )
+            .expect("render graph must be compiled before execution");
+
+        for timing in graph.timings() {
+            match timing.pass {
+                ScenePass::Shadow => shadow_ms = ms(timing.cpu),
+                ScenePass::Sky => skybox_ms = ms(timing.cpu),
+                ScenePass::Models => models_ms = ms(timing.cpu),
+                ScenePass::PrepareWorld => skybox_ms += ms(timing.cpu),
+            }
         }
-        let shadow_end = Instant::now();
-
-        // Write timestamp 1: shadow done, skybox start
-        if let Some(qs) = &self.timestamp_query_set {
-            command_encoder.write_timestamp(qs, 1);
-        }
-
-        // Build (or reuse) the bind group after the shadow pass: shadow
-        // texture reallocation during that pass can change its resource views.
-        let world_bind_group = self.world_bind_group(scene, device, queue);
-
-        if let Some(world_environment) = scene.environment.as_deref() {
-            self.render_sky_box(
-                target_view,
-                world_environment.material_shader(),
-                &world_bind_group,
-                &mut command_encoder,
-            );
-        }
-        let skybox_end = Instant::now();
-
-        // Write timestamp 2: skybox done, models start
-        if let Some(qs) = &self.timestamp_query_set {
-            command_encoder.write_timestamp(qs, 2);
-        }
-
-        self.render_models(
-            &scene.models,
-            target_view,
-            &world_bind_group,
-            &mut command_encoder,
-            cull,
-        );
-        let models_end = Instant::now();
-
-        // Write timestamp 3: main pass done
-        if let Some(qs) = &self.timestamp_query_set {
-            command_encoder.write_timestamp(qs, 3);
-        }
+        self.render_graph = graph;
 
         // Resolve this frame's timestamps into the current staging buffer in the
         // same command encoder as the scene. This keeps the frame to one submit.
@@ -654,6 +757,7 @@ impl Renderer {
         queue.submit(vec![command_encoder.finish()]);
         let submit_ms = ms(submit_start.elapsed());
         let timestamp_readback_start = Instant::now();
+        self.texture_pool.end_frame();
 
         // Read the previous frame's staging buffer. It was submitted at least one
         // frame ago, so a non-blocking poll usually has the data ready without
@@ -690,9 +794,9 @@ impl Renderer {
         }
 
         self.prev_cpu_timings = RendererCpuTimings {
-            shadow_ms: ms(shadow_end - render_start),
-            skybox_ms: ms(skybox_end - shadow_end),
-            models_ms: ms(models_end - skybox_end),
+            shadow_ms,
+            skybox_ms,
+            models_ms,
             encode_ms: ms(submit_start - render_start),
             submit_ms,
             timestamp_readback_ms: ms(timestamp_readback_start.elapsed()),
@@ -735,6 +839,7 @@ impl Renderer {
         world_bind_group: &BindGroup,
         command_encoder: &mut CommandEncoder,
         cull: Option<&CullResources>,
+        depth_view: &TextureView,
     ) {
         let mut render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
             label: Some("Model RenderPass"),
@@ -748,7 +853,7 @@ impl Renderer {
                 depth_slice: None,
             })],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                view: self.depth_texture.view(),
+                view: depth_view,
                 depth_ops: Some(Operations {
                     load: LoadOp::Clear(1.0),
                     store: StoreOp::Store,
@@ -965,5 +1070,23 @@ impl Renderer {
         }
 
         queue.submit(std::iter::once(command_encoder.finish()));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn scene_graph_orders_shadow_prepare_sky_models() {
+        let mut graph = RenderGraph::new();
+        add_scene_passes(&mut graph);
+        graph.compile().unwrap();
+
+        let order = graph
+            .ordered_passes()
+            .map(|(_, name)| name)
+            .collect::<Vec<_>>();
+        assert_eq!(order, ["shadow", "prepare-world", "sky", "models"]);
     }
 }
