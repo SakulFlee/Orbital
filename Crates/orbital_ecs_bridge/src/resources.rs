@@ -1062,6 +1062,10 @@ pub type MaterialCacheResource = Arc<
     >,
 >;
 
+/// Device-wide render pipeline cache shared by realized materials.
+#[derive(Debug, Clone, Default)]
+pub struct PipelineCacheResource(pub Arc<std::sync::Mutex<orbital_material_shader::PipelineCache>>);
+
 /// Current surface texture format (set on resume/resize).
 #[derive(Debug, Clone, Copy)]
 pub struct SurfaceFormatResource(pub wgpu::TextureFormat);

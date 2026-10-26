@@ -75,93 +75,205 @@ pub trait ShaderDescriptor {
         }))
     }
 
+    /// Bind-group layout entries derived from the variable types.
+    ///
+    /// This does not realize textures or buffers, so a shader program can own
+    /// its layout before material data exists.
+    fn bind_group_layout_entries(&self) -> Vec<BindGroupLayoutEntry> {
+        let Some(variable_types) = self.variables() else {
+            return Vec::new();
+        };
+
+        let mut entries = Vec::new();
+        let mut binding = 0u32;
+
+        for variable_type in variable_types {
+            match variable_type {
+                VariableType::Buffer(buffer_descriptor) => {
+                    entries.push(BindGroupLayoutEntry {
+                        binding,
+                        visibility: self.stages(),
+                        ty: BindingType::Buffer {
+                            ty: buffer_descriptor.ty,
+                            has_dynamic_offset: buffer_descriptor.has_dynamic_offset,
+                            min_binding_size: buffer_descriptor.min_binding_size,
+                        },
+                        count: buffer_descriptor.count,
+                    });
+                    binding += 1;
+                }
+                VariableType::Texture {
+                    descriptor,
+                    sample_type,
+                    sampler_binding_type,
+                } => {
+                    // A texture variable occupies a texture binding plus a
+                    // sampler binding. `Variables` stores the texture under the
+                    // first index and the sampler is read from the texture.
+                    entries.push(BindGroupLayoutEntry {
+                        binding,
+                        visibility: self.stages(),
+                        ty: BindingType::Texture {
+                            sample_type: *sample_type,
+                            view_dimension: descriptor.view_dimension(),
+                            multisampled: false,
+                        },
+                        count: None,
+                    });
+                    binding += 1;
+
+                    entries.push(BindGroupLayoutEntry {
+                        binding,
+                        visibility: self.stages(),
+                        ty: BindingType::Sampler(*sampler_binding_type),
+                        count: None,
+                    });
+                    binding += 1;
+                }
+            }
+        }
+
+        entries
+    }
+
+    /// Create only the bind-group layout, without realizing material data.
+    fn bind_group_layout_only(&self, device: &Device) -> Option<BindGroupLayout> {
+        let entries = self.bind_group_layout_entries();
+        if entries.is_empty() {
+            return None;
+        }
+
+        Some(device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            label: self.name().as_deref(),
+            entries: &entries,
+        }))
+    }
+
+    /// Realize texture/buffer variables without creating a bind group.
+    fn realize_variables(
+        &self,
+        device: &Device,
+        queue: &Queue,
+    ) -> Result<Option<Variables>, ShaderError> {
+        let Some(variable_types) = self.variables() else {
+            return Ok(None);
+        };
+        if variable_types.is_empty() {
+            return Ok(None);
+        }
+
+        let mut variables = Variables::new();
+        let mut binding = 0u32;
+
+        for variable_type in variable_types {
+            match variable_type {
+                VariableType::Buffer(buffer_descriptor) => {
+                    let buffer = device.create_buffer_init(&BufferInitDescriptor {
+                        label: None,
+                        usage: buffer_descriptor.usage,
+                        contents: &buffer_descriptor.data,
+                    });
+                    variables.insert(binding, Variable::Buffer(buffer));
+                    binding += 1;
+                }
+                VariableType::Texture { descriptor, .. } => {
+                    let texture = Texture::from_descriptor(descriptor, device, queue)
+                        .map_err(ShaderError::Texture)?;
+                    variables.insert(binding, Variable::Texture(texture));
+                    binding += 2;
+                }
+            }
+        }
+
+        Ok(Some(variables))
+    }
+
+    /// Create a bind group from an already-created layout and variables.
+    fn bind_group_with_layout(
+        &self,
+        layout: &BindGroupLayout,
+        variables: &Variables,
+        device: &Device,
+    ) -> Result<Option<BindGroup>, ShaderError> {
+        let Some(variable_types) = self.variables() else {
+            return Ok(None);
+        };
+        if variable_types.is_empty() {
+            return Ok(None);
+        }
+
+        let mut binds = Vec::new();
+        let mut binding = 0u32;
+
+        for variable_type in variable_types {
+            match variable_type {
+                VariableType::Buffer(_) => {
+                    let variable = variables
+                        .get(&binding)
+                        .ok_or(ShaderError::MissingVariable { binding })?;
+                    let buffer = if let Variable::Buffer(buffer) = variable {
+                        buffer
+                    } else {
+                        return Err(ShaderError::VariableTypeMismatch {
+                            binding,
+                            expected: "Buffer",
+                        });
+                    };
+
+                    binds.push(BindGroupEntry {
+                        binding,
+                        resource: BindingResource::Buffer(buffer.as_entire_buffer_binding()),
+                    });
+                    binding += 1;
+                }
+                VariableType::Texture { .. } => {
+                    let variable = variables
+                        .get(&binding)
+                        .ok_or(ShaderError::MissingVariable { binding })?;
+                    let texture = if let Variable::Texture(texture) = variable {
+                        texture
+                    } else {
+                        return Err(ShaderError::VariableTypeMismatch {
+                            binding,
+                            expected: "Texture",
+                        });
+                    };
+
+                    binds.push(BindGroupEntry {
+                        binding,
+                        resource: BindingResource::TextureView(texture.view()),
+                    });
+                    binding += 1;
+
+                    binds.push(BindGroupEntry {
+                        binding,
+                        resource: BindingResource::Sampler(texture.sampler()),
+                    });
+                    binding += 1;
+                }
+            }
+        }
+
+        Ok(Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: self.name().as_deref(),
+            layout,
+            entries: &binds,
+        })))
+    }
+
     fn bind_group_layout(
         &self,
         device: &Device,
         queue: &Queue,
     ) -> Result<Option<(BindGroupLayout, Variables)>, ShaderError> {
-        if self.variables().is_none() || self.variables().as_ref().unwrap().is_empty() {
+        let Some(layout) = self.bind_group_layout_only(device) else {
             return Ok(None);
-        }
+        };
+        let Some(variables) = self.realize_variables(device, queue)? else {
+            return Ok(None);
+        };
 
-        let mut entries = Vec::new();
-        let mut variables: Variables = Variables::new();
-
-        let mut binding_count = 0;
-        if let Some(variable_types) = self.variables() {
-            for variable_type in variable_types {
-                match variable_type {
-                    VariableType::Buffer(buffer_descriptor) => {
-                        let buffer = device.create_buffer_init(&BufferInitDescriptor {
-                            label: None,
-                            usage: buffer_descriptor.usage,
-                            contents: &buffer_descriptor.data,
-                        });
-                        variables.insert(binding_count, Variable::Buffer(buffer));
-
-                        let entry = BindGroupLayoutEntry {
-                            binding: binding_count,
-                            visibility: self.stages(),
-                            ty: BindingType::Buffer {
-                                ty: buffer_descriptor.ty,
-                                has_dynamic_offset: buffer_descriptor.has_dynamic_offset,
-                                min_binding_size: buffer_descriptor.min_binding_size,
-                            },
-                            count: buffer_descriptor.count,
-                        };
-                        entries.push(entry);
-
-                        binding_count += 1;
-                    }
-                    VariableType::Texture {
-                        descriptor,
-                        sample_type,
-                        sampler_binding_type,
-                    } => {
-                        // Note:
-                        // We are skipping over the sampler binding as it is already contained inside the `Texture` realization!
-                        // WGPU handles them as two separate resources (thus two binding indices), but we are treating it as **one**.
-                        // Regardless, we still need to skip over the binding index of the sampler, as later we will do the same in reverse: 1x `Texture` == 1x Texture binding + 1x Sampler binding.
-
-                        let insert_index = binding_count;
-                        let texture = Texture::from_descriptor(descriptor, device, queue)
-                            .map_err(ShaderError::Texture)?;
-
-                        let texture_binding = BindGroupLayoutEntry {
-                            binding: binding_count,
-                            visibility: self.stages(),
-                            ty: BindingType::Texture {
-                                sample_type: *sample_type,
-                                view_dimension: *texture.view_dimension(),
-                                multisampled: false,
-                            },
-                            count: None,
-                        };
-                        entries.push(texture_binding);
-                        binding_count += 1;
-
-                        let sampler_binding = BindGroupLayoutEntry {
-                            binding: binding_count,
-                            visibility: self.stages(),
-                            ty: BindingType::Sampler(*sampler_binding_type),
-                            count: None,
-                        };
-                        entries.push(sampler_binding);
-                        binding_count += 1;
-
-                        variables.insert(insert_index, Variable::Texture(texture));
-                    }
-                }
-            }
-        }
-
-        Ok(Some((
-            device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: self.name().as_deref(),
-                entries: &entries,
-            }),
-            variables,
-        )))
+        Ok(Some((layout, variables)))
     }
 
     fn bind_group(
@@ -169,86 +281,13 @@ pub trait ShaderDescriptor {
         device: &Device,
         queue: &Queue,
     ) -> Result<Option<(BindGroup, BindGroupLayout, Variables)>, ShaderError> {
-        let (layout, variables) = match self.bind_group_layout(device, queue)? {
-            Some((x, y)) => (x, y),
-            None => return Ok(None),
+        let Some((layout, variables)) = self.bind_group_layout(device, queue)? else {
+            return Ok(None);
+        };
+        let Some(bind_group) = self.bind_group_with_layout(&layout, &variables, device)? else {
+            return Ok(None);
         };
 
-        let mut binds = Vec::new();
-        let mut binding_index = 0u32;
-
-        if let Some(variable_types) = self.variables() {
-            for var in variable_types {
-                match var {
-                    VariableType::Buffer(_) => {
-                        let variable =
-                            variables
-                                .get(&binding_index)
-                                .ok_or(ShaderError::MissingVariable {
-                                    binding: binding_index,
-                                })?;
-                        let buffer = if let Variable::Buffer(buffer) = variable {
-                            buffer
-                        } else {
-                            return Err(ShaderError::VariableTypeMismatch {
-                                binding: binding_index,
-                                expected: "Buffer",
-                            });
-                        };
-
-                        binds.push(BindGroupEntry {
-                            binding: binding_index,
-                            resource: BindingResource::Buffer(buffer.as_entire_buffer_binding()),
-                        });
-                        binding_index += 1;
-                    }
-                    VariableType::Texture {
-                        descriptor: _,
-                        sample_type: _,
-                        sampler_binding_type: _,
-                    } => {
-                        // Note:
-                        // Check `bind_group_layout` above for information on why the binding index is skipped here.
-
-                        let variable =
-                            variables
-                                .get(&binding_index)
-                                .ok_or(ShaderError::MissingVariable {
-                                    binding: binding_index,
-                                })?;
-                        let texture = if let Variable::Texture(texture) = variable {
-                            texture
-                        } else {
-                            return Err(ShaderError::VariableTypeMismatch {
-                                binding: binding_index,
-                                expected: "Texture",
-                            });
-                        };
-
-                        binds.push(BindGroupEntry {
-                            binding: binding_index,
-                            resource: BindingResource::TextureView(texture.view()),
-                        });
-                        binding_index += 1;
-
-                        binds.push(BindGroupEntry {
-                            binding: binding_index,
-                            resource: BindingResource::Sampler(texture.sampler()),
-                        });
-                        binding_index += 1;
-                    }
-                }
-            }
-        }
-
-        Ok(Some((
-            device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: self.name().as_deref(),
-                layout: &layout,
-                entries: &binds,
-            }),
-            layout,
-            variables,
-        )))
+        Ok(Some((bind_group, layout, variables)))
     }
 }

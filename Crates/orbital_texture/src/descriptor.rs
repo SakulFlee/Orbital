@@ -46,6 +46,25 @@ pub enum TextureDescriptor {
 }
 
 impl TextureDescriptor {
+    /// View dimension this descriptor will produce.
+    ///
+    /// This is available without creating the texture, so shader bind-group
+    /// layouts can be built before material texture data is realized.
+    pub fn view_dimension(&self) -> TextureViewDimension {
+        match self {
+            Self::Data {
+                texture_view_dimension,
+                ..
+            } => *texture_view_dimension,
+            Self::File { .. } => TextureViewDimension::D2,
+            Self::Custom {
+                view_descriptor, ..
+            } => view_descriptor
+                .dimension
+                .unwrap_or(TextureViewDimension::D2),
+        }
+    }
+
     pub fn uniform_rgba_white(srgb: bool) -> Self {
         Self::uniform_rgba_color(
             Color {
@@ -238,5 +257,35 @@ impl Hash for TextureDescriptor {
                 size.hash(state);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn data_descriptor_reports_its_view_dimension() {
+        let descriptor = TextureDescriptor::Data {
+            pixels: Vec::new(),
+            size: TextureSize::default(),
+            usages: TextureUsages::empty(),
+            format: TextureFormat::Rgba8Unorm,
+            texture_dimension: TextureDimension::D2,
+            texture_view_dimension: TextureViewDimension::Cube,
+            filter_mode: FilterMode::nearest(),
+        };
+
+        assert_eq!(descriptor.view_dimension(), TextureViewDimension::Cube);
+    }
+
+    #[test]
+    fn file_descriptor_defaults_to_2d() {
+        let descriptor = TextureDescriptor::File {
+            path: OsString::from("test.png"),
+            usages: TextureUsages::TEXTURE_BINDING,
+        };
+
+        assert_eq!(descriptor.view_dimension(), TextureViewDimension::D2);
     }
 }
