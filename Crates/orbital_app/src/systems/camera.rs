@@ -6,10 +6,11 @@
 //! `Rotation` components on entities with a camera.
 
 use cgmath::Rad;
-use orbital_camera::CameraDescriptor;
+use orbital_camera::{CameraDescriptor as CameraLimits, ProjectionMode};
 use orbital_ecs::Res;
 use orbital_ecs_bridge::{
-    CursorGrabState, DeltaTime, IcedCapturedMouseDrag, InputSnapshot, Position, Rotation,
+    CameraDescriptor, CursorGrabState, DeltaTime, IcedCapturedMouseDrag, InputSnapshot, Position,
+    Rotation,
 };
 use orbital_input::{InputAxis, InputButton, InputState};
 use winit::keyboard::{KeyCode, PhysicalKey};
@@ -20,7 +21,10 @@ const MOVE_SPEED: f32 = 5.0;
 const LOOK_SENSITIVITY: f32 = 1.5;
 /// Maximum absolute pitch (radians) for mouse and gamepad look. Keeps the
 /// camera just shy of straight up/down so the up vector cannot flip.
-const PITCH_LIMIT: f32 = CameraDescriptor::SAFE_FRAC_PI_2;
+const PITCH_LIMIT: f32 = CameraLimits::SAFE_FRAC_PI_2;
+const ORTHO_ZOOM_SPEED: f32 = 2.5;
+const ORTHO_MIN_HEIGHT: f32 = 0.1;
+const ORTHO_MAX_HEIGHT: f32 = 10000.0;
 /// Angular speed (rad/s) at full right-stick deflection. Unlike mouse deltas
 /// (impulses, already frame-sized), a stick reports its position, so it is
 /// scaled by `dt` into an angular velocity.
@@ -50,6 +54,52 @@ pub fn sys_camera_controller(
         apply_touch_controls(dt.0 as f32, &input.0, pos, rot);
     } else {
         apply_keyboard_mouse_controls(dt.0 as f32, &input.0, grab.0 && !ui_drag.0, pos, rot);
+    }
+}
+
+/// Orthographic zoom controller. Adjusts `ortho_height` with Q/E and no-ops
+/// on perspective cameras. Pair with [`sys_ortho_pan`] for a complete
+/// orthographic controller.
+pub fn sys_ortho_zoom(
+    dt: Res<DeltaTime>,
+    input: Res<InputSnapshot>,
+    camera: &mut CameraDescriptor,
+) {
+    if camera.projection_mode != ProjectionMode::Orthographic {
+        return;
+    }
+
+    let zoom_in = input
+        .0
+        .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyQ)))
+        .map(|(_, state)| state)
+        .unwrap_or(false);
+    let zoom_out = input
+        .0
+        .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyE)))
+        .map(|(_, state)| state)
+        .unwrap_or(false);
+    let zoom = f32::from(zoom_out) - f32::from(zoom_in);
+    if zoom != 0.0 {
+        let factor = (1.0 + zoom * ORTHO_ZOOM_SPEED * dt.0 as f32).clamp(0.25, 4.0);
+        camera.ortho_height =
+            (camera.ortho_height * factor).clamp(ORTHO_MIN_HEIGHT, ORTHO_MAX_HEIGHT);
+    }
+}
+
+/// Orthographic pan/look controller. Use this instead of
+/// [`sys_camera_controller`] for an orthographic camera.
+pub fn sys_ortho_pan(
+    dt: Res<DeltaTime>,
+    input: Res<InputSnapshot>,
+    grab: Res<CursorGrabState>,
+    pos: &mut Position,
+    rot: &mut Rotation,
+) {
+    if input.0.has_active_touches() {
+        apply_touch_ortho_controls(dt.0 as f32, &input.0, pos, rot);
+    } else {
+        apply_ortho_pan(dt.0 as f32, &input.0, grab.0, pos, rot);
     }
 }
 
@@ -91,6 +141,55 @@ fn apply_touch_controls(dt: f32, input: &InputState, pos: &mut Position, rot: &m
     rot.rotate_pitch_clamped(Rad(pitch_delta), Rad(cfg.pitch_limit));
 
     rot.rotate_yaw(Rad(-look.x as f32 * cfg.look_sensitivity));
+}
+
+fn apply_touch_ortho_controls(dt: f32, input: &InputState, pos: &mut Position, rot: &mut Rotation) {
+    let cfg = touch_controls();
+    let gesture = input.touch_gesture_with_config(cfg.joystick_radius, cfg.joystick_deadzone);
+    if !gesture.active {
+        return;
+    }
+
+    let (_, right, up) = rot.forward_right_up();
+    pos.0 += right * (gesture.move_vector.x as f32 * cfg.move_speed * dt);
+    pos.0 += up * (gesture.move_vector.y as f32 * cfg.move_speed * dt);
+
+    let look = gesture.look_delta;
+    let pitch_delta = -look.y as f32 * cfg.look_sensitivity;
+    rot.rotate_pitch_clamped(Rad(pitch_delta), Rad(cfg.pitch_limit));
+    rot.rotate_yaw(Rad(-look.x as f32 * cfg.look_sensitivity));
+}
+
+fn apply_ortho_pan(
+    dt: f32,
+    input: &InputState,
+    cursor_grabbed: bool,
+    pos: &mut Position,
+    rot: &mut Rotation,
+) {
+    let (_, right, up) = rot.forward_right_up();
+    let (_, move_vec) = input.movement_vector(
+        Some(&InputAxis::GamepadLeftStick),
+        &InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyW)),
+        &InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyS)),
+        &InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyA)),
+        &InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyD)),
+    );
+
+    // Pan in the view plane instead of moving along the view direction.
+    pos.0 += right * (move_vec.y as f32 * MOVE_SPEED * dt);
+    pos.0 += up * (move_vec.x as f32 * MOVE_SPEED * dt);
+
+    if cursor_grabbed && let Some((_, delta)) = input.delta_state_any(&InputAxis::MouseMovement) {
+        rot.rotate_pitch_clamped(Rad(delta.x as f32 * LOOK_SENSITIVITY), Rad(PITCH_LIMIT));
+        rot.rotate_yaw(Rad(-delta.y as f32 * LOOK_SENSITIVITY));
+    }
+
+    let (gamepad_look, look) = input.view_vector(Some(&InputAxis::GamepadRightStick));
+    if gamepad_look {
+        rot.rotate_pitch_clamped(Rad(look.x as f32 * STICK_LOOK_SPEED * dt), Rad(PITCH_LIMIT));
+        rot.rotate_yaw(Rad(-look.y as f32 * STICK_LOOK_SPEED * dt));
+    }
 }
 
 fn apply_keyboard_mouse_controls(
