@@ -12,6 +12,12 @@
 //!
 //! The panels are pure functions of the ECS world, so they always reflect live
 //! data and there is no snapshot to keep in sync.
+//!
+//! By default the panels rebuild at [`SMOOTH_REFRESH_INTERVAL`] (~30 Hz) so
+//! live values and the performance graph stay readable. Ordinary iced panels
+//! use the lazy 4 Hz default; call
+//! [`DebugUiModule::with_smooth_refresh`] with `false` to make the overlay
+//! that cheap as well.
 
 pub mod editable;
 pub mod panels;
@@ -25,7 +31,9 @@ use orbital_app::input::InputButton;
 use orbital_app::{LayerRenderer, Module};
 use orbital_ecs::{IntoSystem, Res, ResMut, System, World};
 use orbital_ecs_bridge::{InputSnapshot, TimingsHistoryConfig};
-use orbital_iced::{IcedLayerRenderer, IcedState};
+use orbital_iced::{
+    DEFAULT_REFRESH_INTERVAL, IcedLayerRenderer, IcedState, SMOOTH_REFRESH_INTERVAL,
+};
 use winit::keyboard::{KeyCode, PhysicalKey};
 
 use crate::panels::{console_panel, ecs_panel, edit, performance_panel};
@@ -72,6 +80,9 @@ pub struct DebugUiModule {
     /// Keeps the panels available in a release build instead of compiling them
     /// out. Off by default; this is a debug tool.
     allow_in_release: bool,
+    /// Rebuild the panels at the smooth cadence instead of the lazy default.
+    /// On by default, because the overlay is only shown on demand.
+    smooth: bool,
 }
 
 impl Default for DebugUiModule {
@@ -86,11 +97,22 @@ impl DebugUiModule {
             // F1: F3 and F4 are already used by `orbital_debug_render`.
             toggle_key: KeyCode::F1,
             allow_in_release: false,
+            smooth: true,
         }
     }
 
     pub fn with_toggle_key(mut self, key: KeyCode) -> Self {
         self.toggle_key = key;
+        self
+    }
+
+    /// Rebuild the panels at ~30 Hz instead of the shared 4 Hz default.
+    ///
+    /// Smooth refresh is on by default. Turn it off when the overlay's own
+    /// rebuild cost would distort the measurements shown in the Performance
+    /// panel; interactions still rebuild immediately either way.
+    pub fn with_smooth_refresh(mut self, smooth: bool) -> Self {
+        self.smooth = smooth;
         self
     }
 
@@ -103,6 +125,15 @@ impl DebugUiModule {
 
     fn is_enabled(&self) -> bool {
         self.allow_in_release || cfg!(debug_assertions)
+    }
+
+    /// How often the debug panels may rebuild their widget trees.
+    fn refresh_interval(&self) -> std::time::Duration {
+        if self.smooth {
+            SMOOTH_REFRESH_INTERVAL
+        } else {
+            DEFAULT_REFRESH_INTERVAL
+        }
     }
 }
 
@@ -158,6 +189,7 @@ impl Module for DebugUiModule {
         // each other; the windows are draggable and resizable, so this is only
         // a starting point. The console is deliberately wide and short, since
         // log lines are long.
+        let refresh_interval = self.refresh_interval();
         let panels: [PanelSpec; 3] = [
             (
                 "Performance",
@@ -191,10 +223,12 @@ impl Module for DebugUiModule {
                 // the panel state, so it is where a component edit is written.
                 .with_message_handler(handle_debug_message)
                 // Rebuilding the tree means re-running the widget diff and
-                // layout, and these panels re-read the whole world to do it, so
-                // they use the shared 4 Hz default. Interactions still rebuild
-                // immediately: `handle_message` marks the panel dirty and the
-                // renderer forces the next frame to rebuild.
+                // layout, and these panels re-read the whole world to do it.
+                // The overlay is shown on demand, so it defaults to the smooth
+                // cadence; `with_smooth_refresh(false)` restores the lazy one.
+                // Interactions still rebuild immediately either way:
+                // `handle_message` marks the panel dirty.
+                .with_refresh_interval(refresh_interval)
                 .with_visibility(move |world: &World| {
                     world
                         .get_resource::<DebugUiState>()
@@ -280,3 +314,26 @@ type PanelSpec = (
     crate::state::PanelId,
     PanelView,
 );
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn smooth_refresh_is_the_default() {
+        assert_eq!(
+            DebugUiModule::new().refresh_interval(),
+            SMOOTH_REFRESH_INTERVAL
+        );
+    }
+
+    #[test]
+    fn smooth_refresh_can_be_disabled() {
+        assert_eq!(
+            DebugUiModule::new()
+                .with_smooth_refresh(false)
+                .refresh_interval(),
+            DEFAULT_REFRESH_INTERVAL
+        );
+    }
+}

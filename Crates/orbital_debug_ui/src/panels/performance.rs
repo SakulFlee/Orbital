@@ -7,7 +7,8 @@ use iced_winit::core::{Alignment, Color, Element, Font, Length, Theme};
 
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
-    FpsStats, FrameTimings, STAGE_GPU_SCENE_TOTAL, TIMING_STAGES, TOTAL_STAGE_INDEX,
+    FpsStats, FrameTimings, GPU_STAGE_START, STAGE_GPU_SCENE_TOTAL, STAGE_PRESENT,
+    STAGE_SURFACE_ACQ, TIMING_STAGES, TOTAL_STAGE_INDEX,
 };
 
 use crate::sparkline::{Line, Sparkline};
@@ -28,6 +29,137 @@ const LAST_COLOR: Color = Color::from_rgb(0.5, 0.9, 0.6);
 const AVG_COLOR: Color = Color::from_rgb(0.4, 0.8, 1.0);
 const MIN_COLOR: Color = Color::from_rgb(0.45, 0.6, 1.0);
 const MAX_COLOR: Color = Color::from_rgb(1.0, 0.8, 0.4);
+
+/// Healthy, marginal and slow value colours.
+const GOOD_COLOR: Color = Color::from_rgb(0.5, 0.9, 0.6);
+const WARN_COLOR: Color = Color::from_rgb(1.0, 0.8, 0.4);
+const BAD_COLOR: Color = Color::from_rgb(1.0, 0.5, 0.45);
+
+/// Instantaneous frame rate at or above this is healthy.
+const FPS_GOOD: f32 = 60.0;
+/// Frame rate at or above this is a warning.
+const FPS_WARN: f32 = 30.0;
+
+/// Whole-frame budget at 60 FPS, in milliseconds.
+const FRAME_GOOD_MS: f32 = 1000.0 / 60.0;
+/// Whole-frame budget at 30 FPS, in milliseconds.
+const FRAME_WARN_MS: f32 = 1000.0 / 30.0;
+
+/// CPU stage budget that is healthy, in milliseconds.
+const CPU_STAGE_GOOD_MS: f32 = 1.0;
+/// CPU stage budget that is still a warning, in milliseconds.
+const CPU_STAGE_WARN_MS: f32 = 2.0;
+
+/// Individual GPU pass budget that is healthy, in milliseconds.
+const GPU_STAGE_GOOD_MS: f32 = 2.0;
+/// Individual GPU pass budget that is still a warning, in milliseconds.
+const GPU_STAGE_WARN_MS: f32 = 4.0;
+
+/// How healthy a timing value is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Health {
+    Good,
+    Warn,
+    Bad,
+}
+
+impl Health {
+    fn color(self) -> Color {
+        match self {
+            Self::Good => GOOD_COLOR,
+            Self::Warn => WARN_COLOR,
+            Self::Bad => BAD_COLOR,
+        }
+    }
+}
+
+/// Good/warning limits for one kind of value.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Thresholds {
+    good: f32,
+    warn: f32,
+    higher_is_better: bool,
+}
+
+impl Thresholds {
+    const fn lower_is_better(good: f32, warn: f32) -> Self {
+        Self {
+            good,
+            warn,
+            higher_is_better: false,
+        }
+    }
+
+    const fn higher_is_better(good: f32, warn: f32) -> Self {
+        Self {
+            good,
+            warn,
+            higher_is_better: true,
+        }
+    }
+
+    /// Classifies `value`, or returns `None` if it is not a finite number.
+    fn classify(self, value: f32) -> Option<Health> {
+        if !value.is_finite() {
+            return None;
+        }
+
+        if self.higher_is_better {
+            if value >= self.good {
+                Some(Health::Good)
+            } else if value >= self.warn {
+                Some(Health::Warn)
+            } else {
+                Some(Health::Bad)
+            }
+        } else if value <= self.good {
+            Some(Health::Good)
+        } else if value <= self.warn {
+            Some(Health::Warn)
+        } else {
+            Some(Health::Bad)
+        }
+    }
+}
+
+const FPS_THRESHOLDS: Thresholds = Thresholds::higher_is_better(FPS_GOOD, FPS_WARN);
+const FRAME_THRESHOLDS: Thresholds = Thresholds::lower_is_better(FRAME_GOOD_MS, FRAME_WARN_MS);
+const CPU_STAGE_THRESHOLDS: Thresholds =
+    Thresholds::lower_is_better(CPU_STAGE_GOOD_MS, CPU_STAGE_WARN_MS);
+const GPU_STAGE_THRESHOLDS: Thresholds =
+    Thresholds::lower_is_better(GPU_STAGE_GOOD_MS, GPU_STAGE_WARN_MS);
+
+/// Picks the thresholds for one table row.
+fn thresholds_for(series: GraphSeries) -> Thresholds {
+    match series {
+        GraphSeries::Fps => FPS_THRESHOLDS,
+        GraphSeries::Cdt => FRAME_THRESHOLDS,
+        GraphSeries::Stage(index) if index >= GPU_STAGE_START => {
+            if index == STAGE_GPU_SCENE_TOTAL {
+                FRAME_THRESHOLDS
+            } else {
+                GPU_STAGE_THRESHOLDS
+            }
+        }
+        GraphSeries::Stage(index)
+            if index == TOTAL_STAGE_INDEX
+                || index == STAGE_PRESENT
+                || index == STAGE_SURFACE_ACQ =>
+        {
+            FRAME_THRESHOLDS
+        }
+        GraphSeries::Stage(_) => CPU_STAGE_THRESHOLDS,
+    }
+}
+
+/// The health of a row value, unless the row has no data to colour.
+fn health_for(series: GraphSeries, value: f32, available: bool) -> Option<Health> {
+    if !available {
+        return None;
+    }
+
+    thresholds_for(series).classify(value)
+}
 
 /// Builds the performance panel.
 ///
@@ -53,18 +185,23 @@ pub fn performance_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Ic
 
     match ecs.get_resource::<FpsStats>() {
         Some(stats) => {
-            sections.push(row![text(format!("FPS (1s)   {}", stats.fps)).size(13)].into());
+            sections.push(
+                row![summary_text(
+                    format!("FPS (1s)   {}", stats.fps),
+                    stats.fps as f32,
+                    FPS_THRESHOLDS,
+                )]
+                .into(),
+            );
             sections.push(
                 row![text(format!("TDT        {:.3}s", stats.total_delta_time)).size(13)].into(),
             );
             sections.push(
-                row![
-                    text(format!(
-                        "CDT        {:.2}ms",
-                        stats.cycle_delta_time * 1000.0
-                    ))
-                    .size(13)
-                ]
+                row![summary_text(
+                    format!("CDT        {:.2}ms", stats.cycle_delta_time * 1000.0),
+                    (stats.cycle_delta_time * 1000.0) as f32,
+                    FRAME_THRESHOLDS,
+                )]
                 .into(),
             );
         }
@@ -79,6 +216,8 @@ pub fn performance_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Ic
         Some(timings) => {
             let start = timings.window_start(window_secs as f64);
             let window_frames = timings.history().len().saturating_sub(start);
+            let gpu_available =
+                timings.frame_count() > 0 && timings.samples()[STAGE_GPU_SCENE_TOTAL].max_ms > 0.0;
 
             if state.graph_series.is_empty() {
                 sections.push(
@@ -113,6 +252,7 @@ pub fn performance_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Ic
                 ),
                 Color::from_rgb(0.6, 0.6, 0.6),
             ));
+            sections.push(health_legend());
             sections.push(timing_header());
 
             let fps_values = fps_values(&timings, start);
@@ -122,6 +262,7 @@ pub fn performance_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Ic
                 "FPS (inst)",
                 stats(&fps_values),
                 format_fps,
+                true,
             ));
 
             let cdt_values = cdt_values(&timings, start);
@@ -131,6 +272,7 @@ pub fn performance_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Ic
                 "CDT (ms)",
                 stats(&cdt_values),
                 format_ms_f32,
+                true,
             ));
 
             for (index, sample) in timings.samples().iter().enumerate() {
@@ -141,6 +283,7 @@ pub fn performance_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Ic
                     sample.name,
                     stats(&values),
                     format_ms_f32,
+                    index < GPU_STAGE_START || gpu_available,
                 ));
             }
 
@@ -160,7 +303,7 @@ pub fn performance_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Ic
 
             // GPU timings only exist where the backend supports timestamp
             // queries; say so rather than showing a column of zeros.
-            if timings.frame_count() > 0 && timings.samples()[STAGE_GPU_SCENE_TOTAL].max_ms == 0.0 {
+            if !gpu_available && timings.frame_count() > 0 {
                 sections
                     .push(row![text("gpu timings unavailable on this backend").size(11)].into());
             }
@@ -342,6 +485,35 @@ fn legend_item(
     text(label).size(10).color(color).into()
 }
 
+/// Colours a summary value by its health.
+fn summary_text(
+    content: String,
+    value: f32,
+    thresholds: Thresholds,
+) -> Element<'static, DebugMessage, Theme, IcedRenderer> {
+    let widget = text(content).size(13);
+
+    match thresholds.classify(value) {
+        Some(health) => widget.color(health.color()).into(),
+        None => widget.into(),
+    }
+}
+
+/// Legend explaining the health colours used in the table.
+fn health_legend() -> Element<'static, DebugMessage, Theme, IcedRenderer> {
+    row![
+        text("health:")
+            .size(10)
+            .color(Color::from_rgb(0.6, 0.6, 0.6)),
+        legend_item("good", GOOD_COLOR),
+        legend_item("watch", WARN_COLOR),
+        legend_item("slow", BAD_COLOR),
+    ]
+    .spacing(8)
+    .align_y(Alignment::Center)
+    .into()
+}
+
 fn timing_header<'a>() -> Element<'a, DebugMessage, Theme, IcedRenderer> {
     row![
         header_cell("series", STAGE_COLUMN_WIDTH, Alignment::Start),
@@ -373,18 +545,23 @@ fn table_row(
     label: &'static str,
     stats: Option<Stats>,
     format: fn(f32) -> String,
+    available: bool,
 ) -> Element<'static, DebugMessage, Theme, IcedRenderer> {
-    let value = |value: Option<f32>| value.map(format).unwrap_or_else(|| "--".to_string());
+    let cell = |value: Option<f32>| {
+        value
+            .map(|value| value_cell(format(value), health_for(series, value, available)))
+            .unwrap_or_else(|| value_cell("--".to_string(), None))
+    };
 
     let content = row![
         text(label)
             .size(12)
             .font(Font::MONOSPACE)
             .width(Length::Fixed(STAGE_COLUMN_WIDTH)),
-        value_cell(value(stats.map(|stats| stats.last))),
-        value_cell(value(stats.map(|stats| stats.avg))),
-        value_cell(value(stats.map(|stats| stats.min))),
-        value_cell(value(stats.map(|stats| stats.max))),
+        cell(stats.map(|stats| stats.last)),
+        cell(stats.map(|stats| stats.avg)),
+        cell(stats.map(|stats| stats.min)),
+        cell(stats.map(|stats| stats.max)),
     ]
     .spacing(4)
     .align_y(Alignment::Center);
@@ -405,13 +582,20 @@ fn table_row(
         .into()
 }
 
-fn value_cell(value: String) -> Element<'static, DebugMessage, Theme, IcedRenderer> {
-    text(value)
+fn value_cell(
+    value: String,
+    health: Option<Health>,
+) -> Element<'static, DebugMessage, Theme, IcedRenderer> {
+    let cell = text(value)
         .size(12)
         .font(Font::MONOSPACE)
         .width(Length::Fixed(VALUE_COLUMN_WIDTH))
-        .align_x(Alignment::End)
-        .into()
+        .align_x(Alignment::End);
+
+    match health {
+        Some(health) => cell.color(health.color()).into(),
+        None => cell.into(),
+    }
 }
 
 fn stage_values(timings: &FrameTimings, start: usize, index: usize) -> Vec<f32> {
@@ -682,5 +866,79 @@ mod tests {
         assert_eq!(stats.min, 2.0);
         assert_eq!(stats.max, 8.0);
         assert!((stats.avg - 14.0 / 3.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn fps_thresholds_treat_higher_as_better() {
+        assert_eq!(FPS_THRESHOLDS.classify(60.0), Some(Health::Good));
+        assert_eq!(FPS_THRESHOLDS.classify(59.9), Some(Health::Warn));
+        assert_eq!(FPS_THRESHOLDS.classify(30.0), Some(Health::Warn));
+        assert_eq!(FPS_THRESHOLDS.classify(29.9), Some(Health::Bad));
+    }
+
+    #[test]
+    fn timing_thresholds_treat_lower_as_better() {
+        assert_eq!(CPU_STAGE_THRESHOLDS.classify(1.0), Some(Health::Good));
+        assert_eq!(CPU_STAGE_THRESHOLDS.classify(1.5), Some(Health::Warn));
+        assert_eq!(CPU_STAGE_THRESHOLDS.classify(2.0), Some(Health::Warn));
+        assert_eq!(CPU_STAGE_THRESHOLDS.classify(2.1), Some(Health::Bad));
+
+        assert_eq!(FRAME_THRESHOLDS.classify(FRAME_GOOD_MS), Some(Health::Good));
+        assert_eq!(FRAME_THRESHOLDS.classify(FRAME_WARN_MS), Some(Health::Warn));
+        assert_eq!(FRAME_THRESHOLDS.classify(34.0), Some(Health::Bad));
+    }
+
+    #[test]
+    fn non_finite_values_are_not_coloured() {
+        for value in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+            assert_eq!(FPS_THRESHOLDS.classify(value), None);
+            assert_eq!(FRAME_THRESHOLDS.classify(value), None);
+        }
+    }
+
+    #[test]
+    fn rows_pick_the_right_threshold_group() {
+        use orbital_ecs_bridge::{STAGE_GPU_SHADOW, STAGE_UPDATE};
+
+        assert_eq!(thresholds_for(GraphSeries::Fps), FPS_THRESHOLDS);
+        assert_eq!(thresholds_for(GraphSeries::Cdt), FRAME_THRESHOLDS);
+        assert_eq!(
+            thresholds_for(GraphSeries::Stage(TOTAL_STAGE_INDEX)),
+            FRAME_THRESHOLDS
+        );
+        assert_eq!(
+            thresholds_for(GraphSeries::Stage(STAGE_SURFACE_ACQ)),
+            FRAME_THRESHOLDS
+        );
+        assert_eq!(
+            thresholds_for(GraphSeries::Stage(STAGE_PRESENT)),
+            FRAME_THRESHOLDS
+        );
+        assert_eq!(
+            thresholds_for(GraphSeries::Stage(STAGE_GPU_SCENE_TOTAL)),
+            FRAME_THRESHOLDS
+        );
+        assert_eq!(
+            thresholds_for(GraphSeries::Stage(STAGE_GPU_SHADOW)),
+            GPU_STAGE_THRESHOLDS
+        );
+        assert_eq!(
+            thresholds_for(GraphSeries::Stage(STAGE_UPDATE)),
+            CPU_STAGE_THRESHOLDS
+        );
+    }
+
+    #[test]
+    fn unavailable_rows_are_not_coloured() {
+        use orbital_ecs_bridge::STAGE_GPU_SHADOW;
+
+        assert_eq!(
+            health_for(GraphSeries::Stage(STAGE_GPU_SHADOW), 0.0, false),
+            None
+        );
+        assert_eq!(
+            health_for(GraphSeries::Stage(STAGE_GPU_SHADOW), 0.0, true),
+            Some(Health::Good)
+        );
     }
 }
