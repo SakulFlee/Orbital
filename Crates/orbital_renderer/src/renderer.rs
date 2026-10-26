@@ -203,7 +203,6 @@ pub struct Renderer {
     timestamp_read_frame: usize,
     prev_gpu_ns: [f64; 4],
     prev_cpu_timings: RendererCpuTimings,
-    prev_resolve_sub: Option<wgpu::SubmissionIndex>,
 }
 
 impl Renderer {
@@ -278,7 +277,6 @@ impl Renderer {
             timestamp_read_frame: 0,
             prev_gpu_ns: [0.0; 4],
             prev_cpu_timings: RendererCpuTimings::default(),
-            prev_resolve_sub: None,
         }
     }
 
@@ -546,54 +544,49 @@ impl Renderer {
             command_encoder.write_timestamp(qs, 3);
         }
 
-        let submit_start = Instant::now();
-        queue.submit(vec![command_encoder.finish()]);
-        let submit_ms = ms(submit_start.elapsed());
-        let timestamp_readback_start = Instant::now();
-
-        // Resolve timestamps into the resolve buffer, then copy into the current staging buffer.
-        // Read the OTHER staging buffer from the previous frame (double-buffered to avoid stalls).
-        // We wait only on the PREVIOUS frame's resolve submission (not the current frame's render),
-        // so CPU/GPU overlap is preserved and the harness doesn't distort FPS measurements.
+        // Resolve this frame's timestamps into the current staging buffer in the
+        // same command encoder as the scene. This keeps the frame to one submit.
         if let Some(timestamp_query_set) = &self.timestamp_query_set {
-            let cur = self.timestamp_read_frame & 1;
-            let prev = 1 - cur;
-
-            // Resolve this frame's queries into resolve buffer, then copy to staging[cur]
-            let mut resolve_encoder = device.create_command_encoder(&CommandEncoderDescriptor {
-                label: Some("Orbital::TS_Resolve"),
-            });
-            resolve_encoder.resolve_query_set(
+            let current = self.timestamp_read_frame & 1;
+            command_encoder.resolve_query_set(
                 timestamp_query_set,
                 0..TS_COUNT,
                 &self.timestamp_resolve_buffer,
                 0,
             );
-            resolve_encoder.copy_buffer_to_buffer(
+            command_encoder.copy_buffer_to_buffer(
                 &self.timestamp_resolve_buffer,
                 0,
-                &self.timestamp_staging_bufs[cur],
+                &self.timestamp_staging_bufs[current],
                 0,
                 TS_BUF_SIZE,
             );
-            let resolve_sub = queue.submit(vec![resolve_encoder.finish()]);
+        }
 
-            // Read the PREVIOUS frame's staging buffer (double-buffered: it's from 2 frames ago, so done).
-            if let Some(prev_sub) = self.prev_resolve_sub.take() {
-                let _ = prev_sub; // unused without blocking poll
+        let submit_start = Instant::now();
+        queue.submit(vec![command_encoder.finish()]);
+        let submit_ms = ms(submit_start.elapsed());
+        let timestamp_readback_start = Instant::now();
 
-                // Map the PREVIOUS frame's staging buffer to read back its results
-                let prev_buf = &self.timestamp_staging_bufs[prev];
-                let prev_slice = prev_buf.slice(..);
+        // Read the previous frame's staging buffer. It was submitted at least one
+        // frame ago, so a non-blocking poll usually has the data ready without
+        // stalling the CPU/GPU overlap.
+        if self.timestamp_query_set.is_some() {
+            let current = self.timestamp_read_frame & 1;
+            let previous = 1 - current;
+
+            if self.timestamp_read_frame > 0 {
+                let previous_buffer = &self.timestamp_staging_bufs[previous];
+                let previous_slice = previous_buffer.slice(..);
                 let done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
                 let done2 = done.clone();
-                prev_slice.map_async(wgpu::MapMode::Read, move |_| {
+                previous_slice.map_async(wgpu::MapMode::Read, move |_| {
                     done2.store(true, std::sync::atomic::Ordering::Relaxed);
                 });
                 let _ = device.poll(wgpu::PollType::Poll);
 
                 if done.load(std::sync::atomic::Ordering::Relaxed)
-                    && let Ok(data) = prev_slice.get_mapped_range()
+                    && let Ok(data) = previous_slice.get_mapped_range()
                 {
                     let mut ns = [0.0f64; TS_COUNT as usize];
                     for (index, value) in ns.iter_mut().enumerate() {
@@ -603,10 +596,9 @@ impl Renderer {
                     }
                     self.prev_gpu_ns = ns;
                 }
-                prev_buf.unmap();
+                previous_buffer.unmap();
             }
 
-            self.prev_resolve_sub = Some(resolve_sub);
             self.timestamp_read_frame += 1;
         }
 
