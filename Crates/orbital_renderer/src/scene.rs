@@ -11,7 +11,7 @@
 
 use std::sync::{Arc, RwLock};
 
-use cgmath::Matrix4;
+use cgmath::{Matrix4, Point3};
 use orbital_camera::Camera;
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
@@ -38,6 +38,8 @@ pub struct RenderCamera {
     pub buffer: Buffer,
     /// Perspective view-projection matrix, used for shadow cascades.
     pub perspective_view_projection: Matrix4<f32>,
+    /// World-space camera position, used to sort transparent draws.
+    pub position: Point3<f32>,
     /// Camera near plane.
     pub near: f32,
     /// Camera far plane.
@@ -112,6 +114,7 @@ fn extract_camera(world: &World) -> Option<RenderCamera> {
         source: Arc::clone(camera),
         buffer: camera_guard.camera_buffer().clone(),
         perspective_view_projection: *camera_guard.perspective_view_projection_matrix(),
+        position: camera_guard.position(),
         near: camera_guard.near(),
         far: camera_guard.far(),
     })
