@@ -166,6 +166,12 @@ impl LightCulling {
         self.bind_group_cache = None;
     }
 
+    /// Drop the cached tile bind group. Call when the deferred path is not in
+    /// use so the depth texture is not kept alive by the cache.
+    pub fn clear_cache(&mut self) {
+        self.bind_group_cache = None;
+    }
+
     pub fn record(
         &mut self,
         device: &Device,
