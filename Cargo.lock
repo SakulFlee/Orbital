@@ -3350,6 +3350,7 @@ dependencies = [
 name = "orbital_model"
 version = "0.1.0"
 dependencies = [
+ "cgmath",
  "hashbrown 0.17.1",
  "orbital_core",
  "orbital_instance",
