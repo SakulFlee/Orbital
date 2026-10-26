@@ -3513,6 +3513,7 @@ version = "1.6.0"
 dependencies = [
  "cgmath",
  "log",
+ "orbital_camera",
  "orbital_instance",
  "orbital_material_shader",
  "orbital_math",

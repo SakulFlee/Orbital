@@ -109,6 +109,23 @@ impl MaterialShader {
         &self.program
     }
 
+    pub fn program_arc(&self) -> &Arc<ShaderProgram> {
+        &self.program
+    }
+
+    pub fn has_shadow_variant(&self) -> bool {
+        self.program.has_shadow_variant()
+    }
+
+    pub fn create_shadow_pipeline(
+        &self,
+        light_matrix_layout: &wgpu::BindGroupLayout,
+        device: &Device,
+    ) -> Option<RenderPipeline> {
+        self.program
+            .create_shadow_pipeline(light_matrix_layout, device)
+    }
+
     pub fn alpha_mode(&self) -> AlphaMode {
         self.program.alpha_mode()
     }

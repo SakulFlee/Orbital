@@ -1,14 +1,19 @@
+use std::collections::HashMap;
 use std::num::NonZero;
+use std::sync::{Arc, Weak};
 
 use cgmath::{Deg, InnerSpace, Matrix4, Point3, Rad, SquareMatrix, Vector3, Vector4};
 use wgpu::{
     BindGroup, BindGroupLayout, CompareFunction, DepthStencilState, Device, MultisampleState,
     PipelineLayoutDescriptor, PolygonMode, PrimitiveState, Queue, RenderPipeline,
-    RenderPipelineDescriptor, SamplerDescriptor, ShaderStages, TextureFormat, TextureViewDimension,
-    VertexState,
+    RenderPipelineDescriptor, SamplerDescriptor, ShaderStages, TextureFormat, TextureView,
+    TextureViewDimension, VertexState,
 };
 
+use orbital_camera::Frustum;
+use orbital_material_shader::{AlphaMode, ShaderProgram};
 use orbital_math::{ortho_wgpu, perspective_wgpu};
+use orbital_model::Model;
 use orbital_texture::Texture;
 use orbital_vertex::Vertex;
 
@@ -23,6 +28,11 @@ const SHADOW_DEPTH_SHADER: &str = include_str!("../../../Assets/Shaders/shadow_d
 struct CascadeInfo {
     vp: Matrix4<f32>,
     split_depth: f32,
+}
+
+struct ShadowPipelineEntry {
+    program: Weak<ShaderProgram>,
+    pipeline: Arc<RenderPipeline>,
 }
 
 const POINT_LIGHT_FAR: f32 = 20.0;
@@ -48,17 +58,21 @@ const CUBE_FACE_DIRECTIONS: [(Vector3<f32>, Vector3<f32>); 6] = [
 pub struct ShadowRenderer {
     depth_texture: Texture,
     layer_count: u32,
+    layer_views: Vec<TextureView>,
     max_slots: u32,
     resolution: u32,
     /// Cube depth texture array for point light shadows.
     cube_depth_texture: Texture,
     cube_count: u32,
+    cube_face_views: Vec<TextureView>,
     slot_data_buffer: wgpu::Buffer,
     sampler: wgpu::Sampler,
     /// Comparison sampler for point light cube shadows.
     cube_sampler: wgpu::Sampler,
     depth_pipeline: RenderPipeline,
     depth_bind_group_layout: BindGroupLayout,
+    /// Material shadow pipelines keyed by shader-program identity.
+    shadow_pipelines: HashMap<u64, ShadowPipelineEntry>,
     /// Per-slot matrix buffer (dynamic offset), reused every frame.
     matrix_buffer: wgpu::Buffer,
     /// Bind group for per-slot matrix (dynamic offset).
@@ -76,6 +90,7 @@ impl ShadowRenderer {
         let initial_layers = 1u32; // min 1 layer (wgpu req.), grows on demand
 
         let depth_texture = Self::create_depth_array_texture(device, resolution, initial_layers);
+        let layer_views = Self::create_layer_views(&depth_texture, initial_layers);
 
         let initial_gpu = ShadowGpuData::new();
         let slot_data_buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -105,6 +120,7 @@ impl ShadowRenderer {
 
         // Point light cube shadow array (initially 1 cube = 6 layers)
         let cube_depth_texture = Self::create_cube_depth_texture(device, resolution, 1);
+        let cube_face_views = Self::create_cube_face_views(&cube_depth_texture, 1);
         let cube_sampler = device.create_sampler(&SamplerDescriptor {
             label: Some("Shadow Cube Sampler"),
             address_mode_u: wgpu::AddressMode::ClampToEdge,
@@ -149,15 +165,18 @@ impl ShadowRenderer {
         Self {
             depth_texture,
             layer_count: initial_layers,
+            layer_views,
             max_slots,
             resolution,
             cube_depth_texture,
             cube_count: 1,
+            cube_face_views,
             slot_data_buffer,
             sampler,
             cube_sampler,
             depth_pipeline,
             depth_bind_group_layout,
+            shadow_pipelines: HashMap::new(),
             matrix_buffer,
             matrix_bind_group,
             slot_stride,
@@ -197,6 +216,34 @@ impl ShadowRenderer {
         });
 
         Texture::from_existing(texture, view, dummy_sampler, TextureViewDimension::D2Array)
+    }
+
+    fn create_layer_views(texture: &Texture, layers: u32) -> Vec<TextureView> {
+        (0..layers)
+            .map(|layer| {
+                texture.texture().create_view(&wgpu::TextureViewDescriptor {
+                    label: Some("Shadow Layer View"),
+                    dimension: Some(TextureViewDimension::D2),
+                    base_array_layer: layer,
+                    array_layer_count: Some(1),
+                    ..Default::default()
+                })
+            })
+            .collect()
+    }
+
+    fn create_cube_face_views(texture: &Texture, cubes: u32) -> Vec<TextureView> {
+        (0..cubes * 6)
+            .map(|face_layer| {
+                texture.texture().create_view(&wgpu::TextureViewDescriptor {
+                    label: Some("Shadow Cube Face View"),
+                    dimension: Some(TextureViewDimension::D2),
+                    base_array_layer: face_layer,
+                    array_layer_count: Some(1),
+                    ..Default::default()
+                })
+            })
+            .collect()
     }
 
     fn create_cube_depth_texture(device: &Device, resolution: u32, cubes: u32) -> Texture {
@@ -316,7 +363,7 @@ impl ShadowRenderer {
     pub fn render(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
-        models: &[std::sync::Arc<orbital_model::Model>],
+        models: &[Arc<Model>],
         shadow_lights: &[ShadowLightInfo],
         camera_perspective_view_proj: &Matrix4<f32>,
         camera_near: f32,
@@ -357,6 +404,8 @@ impl ShadowRenderer {
         if needed_layers > 0 {
             self.ensure_layers(device, needed_layers);
         }
+
+        self.ensure_shadow_pipelines(models, device);
 
         let mut slot_index = 0u32;
         let mut layer_index = 0u32;
@@ -435,22 +484,14 @@ impl ShadowRenderer {
 
                     for face in 0..6 {
                         let face_layer = my_cube * 6 + face;
-                        let face_view = self.cube_depth_texture.texture().create_view(
-                            &wgpu::TextureViewDescriptor {
-                                label: Some("Shadow Cube Face View"),
-                                dimension: Some(TextureViewDimension::D2),
-                                base_array_layer: face_layer,
-                                array_layer_count: Some(1),
-                                ..Default::default()
-                            },
-                        );
+                        let face_view = &self.cube_face_views[face_layer as usize];
 
                         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                             label: Some("Shadow Cube Face Render Pass"),
                             color_attachments: &[],
                             depth_stencil_attachment: Some(
                                 wgpu::RenderPassDepthStencilAttachment {
-                                    view: &face_view,
+                                    view: face_view,
                                     depth_ops: Some(wgpu::Operations {
                                         load: wgpu::LoadOp::Clear(1.0),
                                         store: wgpu::StoreOp::Store,
@@ -463,29 +504,11 @@ impl ShadowRenderer {
                             multiview_mask: None,
                         });
 
-                        pass.set_pipeline(&self.depth_pipeline);
-                        pass.set_bind_group(
-                            0,
-                            &self.matrix_bind_group,
-                            &[
-                                ((matrix_index as usize + face as usize) as u64 * self.slot_stride)
-                                    as u32,
-                            ],
-                        );
-
-                        for model in models {
-                            pass.set_vertex_buffer(0, model.mesh().vertex_buffer().slice(..));
-                            pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
-                            pass.set_index_buffer(
-                                model.mesh().index_buffer().slice(..),
-                                wgpu::IndexFormat::Uint32,
-                            );
-                            pass.draw_indexed(
-                                0..model.mesh().index_count(),
-                                0,
-                                0..model.instance_count(),
-                            );
-                        }
+                        let matrix_offset = ((matrix_index as usize + face as usize) as u64
+                            * self.slot_stride) as u32;
+                        let frustum =
+                            Frustum::from_view_projection_matrix(&face_mats[face as usize]);
+                        self.draw_shadow_models(&mut pass, models, matrix_offset, Some(&frustum));
                     }
 
                     slot_index += 1;
@@ -630,22 +653,15 @@ impl ShadowRenderer {
                 models.len(),
             );
 
-            let layer_view =
-                self.depth_texture
-                    .texture()
-                    .create_view(&wgpu::TextureViewDescriptor {
-                        label: Some("Shadow Layer View"),
-                        dimension: Some(TextureViewDimension::D2Array),
-                        base_array_layer: slot.layer_index,
-                        array_layer_count: Some(1),
-                        ..Default::default()
-                    });
+            let layer_view = &self.layer_views[slot.layer_index as usize];
+            let light_view_proj = Matrix4::from(slot.light_view_proj);
+            let frustum = Frustum::from_view_projection_matrix(&light_view_proj);
 
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Shadow Map Render Pass"),
                 color_attachments: &[],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &layer_view,
+                    view: layer_view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.0),
                         store: wgpu::StoreOp::Store,
@@ -657,20 +673,98 @@ impl ShadowRenderer {
                 multiview_mask: None,
             });
 
-            pass.set_pipeline(&self.depth_pipeline);
-            pass.set_bind_group(
-                0,
-                &self.matrix_bind_group,
-                &[(slot_matrix_offsets[i as usize] as u64 * self.slot_stride) as u32],
+            let matrix_offset = (slot_matrix_offsets[i as usize] as u64 * self.slot_stride) as u32;
+            self.draw_shadow_models(&mut pass, models, matrix_offset, Some(&frustum));
+        }
+    }
+
+    fn ensure_shadow_pipelines(&mut self, models: &[Arc<Model>], device: &Device) {
+        let depth_layout = self.depth_bind_group_layout.clone();
+        self.shadow_pipelines
+            .retain(|_, entry| entry.program.strong_count() > 0);
+
+        for model in models {
+            for material in model.materials() {
+                if !material.cast_shadows()
+                    || material.alpha_mode() == AlphaMode::Opaque
+                    || !material.has_shadow_variant()
+                    || material.bind_group().is_none()
+                {
+                    continue;
+                }
+
+                let program_id = material.program().id();
+                if self.shadow_pipelines.contains_key(&program_id) {
+                    continue;
+                }
+                if let Some(pipeline) = material.create_shadow_pipeline(&depth_layout, device) {
+                    self.shadow_pipelines.insert(
+                        program_id,
+                        ShadowPipelineEntry {
+                            program: Arc::downgrade(material.program_arc()),
+                            pipeline: Arc::new(pipeline),
+                        },
+                    );
+                }
+            }
+        }
+    }
+
+    fn draw_shadow_models(
+        &self,
+        pass: &mut wgpu::RenderPass<'_>,
+        models: &[Arc<Model>],
+        matrix_offset: u32,
+        frustum: Option<&Frustum>,
+    ) {
+        for model in models {
+            if let Some(frustum) = frustum {
+                let bounds = model.instance_bounds();
+                if !bounds.is_empty()
+                    && !bounds.iter().any(|bound| {
+                        frustum.intersects_sphere(
+                            &Point3::new(bound[0], bound[1], bound[2]),
+                            bound[3].max(0.0),
+                        )
+                    })
+                {
+                    continue;
+                }
+            }
+
+            pass.set_vertex_buffer(0, model.mesh().vertex_buffer().slice(..));
+            pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
+            pass.set_index_buffer(
+                model.mesh().index_buffer().slice(..),
+                wgpu::IndexFormat::Uint32,
             );
 
-            for model in models {
-                pass.set_vertex_buffer(0, model.mesh().vertex_buffer().slice(..));
-                pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
-                pass.set_index_buffer(
-                    model.mesh().index_buffer().slice(..),
-                    wgpu::IndexFormat::Uint32,
-                );
+            for material in model.materials() {
+                if !material.cast_shadows() {
+                    continue;
+                }
+
+                let shadow_pipeline = if material.alpha_mode() != AlphaMode::Opaque
+                    && material.bind_group().is_some()
+                {
+                    self.shadow_pipelines
+                        .get(&material.program().id())
+                        .map(|entry| entry.pipeline.clone())
+                } else {
+                    None
+                };
+
+                if let Some(pipeline) = shadow_pipeline {
+                    pass.set_pipeline(pipeline.as_ref());
+                    if let Some(bind_group) = material.bind_group() {
+                        pass.set_bind_group(0, bind_group, &[]);
+                        pass.set_bind_group(1, &self.matrix_bind_group, &[matrix_offset]);
+                    }
+                } else {
+                    pass.set_pipeline(&self.depth_pipeline);
+                    pass.set_bind_group(0, &self.matrix_bind_group, &[matrix_offset]);
+                }
+
                 pass.draw_indexed(0..model.mesh().index_count(), 0, 0..model.instance_count());
             }
         }
@@ -722,6 +816,7 @@ impl ShadowRenderer {
         }
         let new_layers = needed.max(self.layer_count * 2).min(self.max_slots);
         self.depth_texture = Self::create_depth_array_texture(device, self.resolution, new_layers);
+        self.layer_views = Self::create_layer_views(&self.depth_texture, new_layers);
         self.layer_count = new_layers;
     }
 
@@ -733,6 +828,7 @@ impl ShadowRenderer {
         let new_cubes = needed.max(self.cube_count * 2).min(self.max_slots);
         self.cube_depth_texture =
             Self::create_cube_depth_texture(device, self.resolution, new_cubes);
+        self.cube_face_views = Self::create_cube_face_views(&self.cube_depth_texture, new_cubes);
         self.cube_count = new_cubes;
     }
 
