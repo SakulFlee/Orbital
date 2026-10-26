@@ -1,5 +1,6 @@
 mod deferred;
 mod fxaa;
+mod light_culling;
 mod renderer;
 mod renderer_2d;
 mod renderer_text;

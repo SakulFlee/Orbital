@@ -21,6 +21,16 @@
 @group(1) @binding(1) var gbuffer_normal: texture_2d<f32>;
 @group(1) @binding(2) var gbuffer_metallic: texture_2d<f32>;
 @group(1) @binding(3) var depth_texture: texture_depth_2d;
+@group(1) @binding(4) var<storage, read> tile_light_counts: array<u32>;
+@group(1) @binding(5) var<storage, read> tile_light_indices: array<u32>;
+@group(1) @binding(6) var<uniform> tile_params: TileParams;
+
+struct TileParams {
+    tiles_x: u32,
+    tiles_y: u32,
+    max_lights_per_tile: u32,
+    tile_size: u32,
+}
 
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
@@ -98,9 +108,34 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let view_pos = camera.view_projection_matrix * vec4<f32>(world_position, 1.0);
     let view_depth = -view_pos.z;
 
+    let tile = vec2<u32>(
+        u32(in.position.x) / tile_params.tile_size,
+        u32(in.position.y) / tile_params.tile_size,
+    );
+    let tile_index = tile.y * tile_params.tiles_x + tile.x;
+    let stored_light_count = tile_light_counts[tile_index];
+
+    var direct_light = vec3(0.0);
+    if (stored_light_count == 0xFFFFFFFFu) {
+        // The tile had more overlapping lights than fit in the fixed list.
+        direct_light = calculate_light_contribution(pbr, world_position, view_depth);
+    } else {
+        let tile_light_count = min(stored_light_count, tile_params.max_lights_per_tile);
+        let tile_light_base = tile_index * tile_params.max_lights_per_tile;
+        for (var i = 0u; i < tile_light_count; i += 1u) {
+            let light_index = tile_light_indices[tile_light_base + i];
+            direct_light += calculate_light_index_contribution(
+                pbr,
+                world_position,
+                view_depth,
+                light_index,
+            );
+        }
+    }
+
     var output = calculate_ambient_ibl(pbr);
     output = max(output, vec3<f32>(0.005));
-    output += calculate_light_contribution(pbr, world_position, view_depth);
+    output += direct_light;
     output += pbr.emissive;
 
     return vec4<f32>(output, 1.0);

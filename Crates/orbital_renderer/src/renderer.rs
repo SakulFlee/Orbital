@@ -21,6 +21,7 @@ use orbital_world_environment::{GeneratedSkyParameters, WorldEnvironment};
 
 use crate::deferred::DeferredLighting;
 use crate::fxaa::Fxaa;
+use crate::light_culling::LightCulling;
 use crate::scene::RenderScene;
 use crate::tonemap::Tonemap;
 
@@ -49,6 +50,7 @@ enum ScenePass {
     PrepareWorld,
     Sky,
     Gbuffer,
+    LightCulling,
     DeferredLighting,
     ClearDepth,
     Models,
@@ -99,6 +101,7 @@ const RES_WORLD: ResourceId = ResourceId::new(5);
 const RES_SURFACE: ResourceId = ResourceId::new(6);
 const RES_POST_LDR: ResourceId = ResourceId::new(7);
 const RES_GBUFFER: ResourceId = ResourceId::new(8);
+const RES_LIGHT_GRID: ResourceId = ResourceId::new(9);
 
 fn gbuffer_texture_descriptor(
     resolution: Vector2<u32>,
@@ -150,9 +153,21 @@ fn add_scene_passes(
             &[RES_GBUFFER, RES_DEPTH],
         );
         graph.add_pass(
+            ScenePass::LightCulling,
+            "light-culling",
+            &[RES_DEPTH, RES_WORLD],
+            &[RES_LIGHT_GRID],
+        );
+        graph.add_pass(
             ScenePass::DeferredLighting,
             "deferred-lighting",
-            &[RES_GBUFFER, RES_DEPTH, RES_SCENE_COLOR, RES_WORLD],
+            &[
+                RES_GBUFFER,
+                RES_DEPTH,
+                RES_SCENE_COLOR,
+                RES_WORLD,
+                RES_LIGHT_GRID,
+            ],
             &[RES_SCENE_COLOR],
         );
     } else {
@@ -404,6 +419,7 @@ pub struct Renderer {
     tonemap: Tonemap,
     fxaa: Fxaa,
     deferred_lighting: DeferredLighting,
+    light_culling: LightCulling,
     shadow_renderer: Option<ShadowRenderer>,
     fallbacks: RendererFallbacks,
     world_bind_group_cache: Option<CachedWorldBindGroup>,
@@ -498,6 +514,12 @@ impl Renderer {
             SCENE_COLOR_FORMAT,
             &fallbacks.world_bind_group_layout,
         );
+        let light_culling = LightCulling::new(
+            device,
+            queue,
+            resolution,
+            &fallbacks.world_bind_group_layout,
+        );
 
         Self {
             surface_texture_format,
@@ -509,6 +531,7 @@ impl Renderer {
             tonemap: Tonemap::new(device, surface_texture_format),
             fxaa: Fxaa::new(device, queue, surface_texture_format, resolution),
             deferred_lighting,
+            light_culling,
             shadow_renderer: None,
             fallbacks,
             world_bind_group_cache: None,
@@ -551,9 +574,10 @@ impl Renderer {
         self.fxaa = Fxaa::new(device, queue, surface_texture_format, self.resolution);
     }
 
-    pub fn change_resolution(&mut self, resolution: Vector2<u32>, _device: &Device, queue: &Queue) {
+    pub fn change_resolution(&mut self, resolution: Vector2<u32>, device: &Device, queue: &Queue) {
         self.resolution = resolution;
         self.fxaa.set_resolution(queue, resolution);
+        self.light_culling.ensure(device, queue, resolution);
     }
 
     /// Returns the camera uniform buffer for this frame.
@@ -897,6 +921,10 @@ impl Renderer {
             None
         };
 
+        if has_deferred {
+            self.light_culling.ensure(device, queue, self.resolution);
+        }
+
         let mut graph = std::mem::take(&mut self.render_graph);
         graph.begin_frame();
         add_scene_passes(
@@ -980,10 +1008,23 @@ impl Renderer {
                             );
                         }
                     }
+                    ScenePass::LightCulling => {
+                        if let Some(bind_group) = world_bind_group.as_ref() {
+                            self.light_culling.record(
+                                context.device,
+                                context.encoder,
+                                bind_group,
+                                &depth.view,
+                            );
+                        }
+                    }
                     ScenePass::DeferredLighting => {
                         if let (Some(bind_group), Some(gbuffer)) =
                             (world_bind_group.as_ref(), gbuffer.as_ref())
                         {
+                            let tile_counts = self.light_culling.counts().clone();
+                            let tile_indices = self.light_culling.indices().clone();
+                            let tile_params = self.light_culling.params().clone();
                             self.deferred_lighting.record(
                                 context.device,
                                 context.encoder,
@@ -992,6 +1033,9 @@ impl Renderer {
                                 &gbuffer[1].view,
                                 &gbuffer[2].view,
                                 &depth.view,
+                                &tile_counts,
+                                &tile_indices,
+                                &tile_params,
                                 &scene_color.view,
                             );
                         }
@@ -1060,7 +1104,10 @@ impl Renderer {
             match timing.pass {
                 ScenePass::Shadow => shadow_ms = ms(timing.cpu),
                 ScenePass::Sky => skybox_ms = ms(timing.cpu),
-                ScenePass::Gbuffer | ScenePass::DeferredLighting | ScenePass::Models => {
+                ScenePass::Gbuffer
+                | ScenePass::LightCulling
+                | ScenePass::DeferredLighting
+                | ScenePass::Models => {
                     models_ms += ms(timing.cpu);
                 }
                 ScenePass::Transparent => models_ms += ms(timing.cpu),
@@ -1571,6 +1618,7 @@ mod tests {
                 "prepare-world",
                 "sky",
                 "gbuffer",
+                "light-culling",
                 "deferred-lighting",
                 "tonemap"
             ]
@@ -1586,6 +1634,7 @@ mod tests {
                 "prepare-world",
                 "sky",
                 "gbuffer",
+                "light-culling",
                 "deferred-lighting",
                 "tonemap",
                 "fxaa"
@@ -1602,6 +1651,7 @@ mod tests {
                 "prepare-world",
                 "sky",
                 "gbuffer",
+                "light-culling",
                 "deferred-lighting",
                 "models",
                 "transparent",
