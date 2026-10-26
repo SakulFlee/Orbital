@@ -71,6 +71,6 @@ fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
     output += light_reflectance;
     output += pbr.emissive;
 
-    let tone_mapped_color = aces_tone_map(output);
-    return vec4<f32>(tone_mapped_color, 1.0);
+    // Linear HDR. Tonemapping and gamma are applied by the post pass.
+    return vec4<f32>(output, 1.0);
 }

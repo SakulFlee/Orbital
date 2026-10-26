@@ -3,6 +3,7 @@ mod renderer_2d;
 mod renderer_text;
 mod renderer_ui;
 mod scene;
+mod tonemap;
 
 pub use renderer::*;
 pub use renderer_2d::{Camera2DUniform, Renderer2D};
