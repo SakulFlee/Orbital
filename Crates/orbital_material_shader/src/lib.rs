@@ -1,15 +1,9 @@
 use std::error::Error;
-use std::sync::{
-    OnceLock,
-    atomic::{AtomicU64, Ordering},
-};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 pub use orbital_shader_core::{ShaderDescriptor, ShaderError, Variables};
-use wgpu::{
-    BindGroup, BindGroupLayout, BlendState, ColorTargetState, ColorWrites, CompareFunction,
-    DepthStencilState, Device, FragmentState, PipelineLayoutDescriptor, PrimitiveState, Queue,
-    RenderPipeline, RenderPipelineDescriptor, TextureFormat, VertexState,
-};
+use wgpu::{BindGroup, Device, Queue, RenderPipeline, TextureFormat};
 
 mod world_bind_group;
 pub use world_bind_group::make_world_bind_group_layout;
@@ -19,6 +13,12 @@ pub use descriptor::*;
 
 mod cache;
 pub use cache::*;
+
+mod program;
+pub use program::*;
+
+mod pipeline_cache;
+pub use pipeline_cache::*;
 
 static PIPELINES_CREATED: AtomicU64 = AtomicU64::new(0);
 
@@ -30,116 +30,61 @@ pub fn pipelines_created() -> u64 {
 mod vertex_stage_layout;
 pub use vertex_stage_layout::*;
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+/// A realized material instance: a compiled shader program plus its bind group
+/// and a cached forward pipeline.
+#[derive(Debug)]
 pub struct MaterialShader {
-    pipeline: RenderPipeline,
+    program: Arc<ShaderProgram>,
+    pipeline: Arc<RenderPipeline>,
     bind_group: Option<BindGroup>,
     variables: Option<Variables>,
 }
 
 impl MaterialShader {
-    /// Creates a realized `MaterialShader` from a given `MaterialShaderDescriptor`.
-    /// If `surface_format` is set to `None`, the default value `TextureFormat::Rgba8UnormSrgb` will be used.
-    /// All other arguments have to be supplied.
+    /// Creates a realized material without sharing a pipeline cache.
     ///
-    /// `MaterialShaderDescriptor` supports `Default`!
+    /// Prefer [`MaterialShader::from_descriptor_with_cache`] when a
+    /// device-wide cache is available.
     pub fn from_descriptor(
         descriptor: &MaterialShaderDescriptor,
         surface_format: Option<TextureFormat>,
         device: &Device,
         queue: &Queue,
     ) -> Result<Self, Box<dyn Error>> {
-        let shader_module = descriptor.shader_module(device)?;
+        let mut pipeline_cache = PipelineCache::default();
+        Self::from_descriptor_with_cache(
+            descriptor,
+            surface_format,
+            device,
+            queue,
+            &mut pipeline_cache,
+        )
+    }
 
-        let engine_bind_group_layout_once = OnceLock::new();
-        let engine_bind_group_layout =
-            engine_bind_group_layout_once.get_or_init(|| make_world_bind_group_layout(device));
+    /// Creates a realized material using a shared pipeline cache.
+    pub fn from_descriptor_with_cache(
+        descriptor: &MaterialShaderDescriptor,
+        surface_format: Option<TextureFormat>,
+        device: &Device,
+        queue: &Queue,
+        pipeline_cache: &mut PipelineCache,
+    ) -> Result<Self, Box<dyn Error>> {
+        let color_format = surface_format.unwrap_or(TextureFormat::Rgba8UnormSrgb);
+        let program = Arc::new(ShaderProgram::from_descriptor(descriptor, device)?);
+        let variables = descriptor.realize_variables(device, queue)?;
 
-        // Create a pipeline layout and bind group
-        let bind_group_option = descriptor.bind_group(device, queue)?;
-
-        let mut bind_group_layouts: Vec<Option<&BindGroupLayout>> =
-            vec![Some(engine_bind_group_layout)];
-        if let Some((_, layout, _)) = bind_group_option.as_ref() {
-            bind_group_layouts.push(Some(layout));
-        }
-
-        let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
-            label: descriptor.name.as_deref(),
-            bind_group_layouts: &bind_group_layouts,
-            immediate_size: 0,
-        });
-
-        let vertex_buffer_layouts = descriptor
-            .vertex_stage_layouts
-            .clone()
-            .map(|vertex_stage_layouts| {
-                vertex_stage_layouts
-                    .clone()
-                    .into_iter()
-                    .map(|x| Some(x.vertex_buffer_layout()))
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-
-        let depth_stencil = if descriptor.depth_stencil {
-            Some(DepthStencilState {
-                format: TextureFormat::Depth32Float,
-                depth_write_enabled: Some(true),
-                depth_compare: Some(CompareFunction::Less),
-                stencil: Default::default(),
-                bias: Default::default(),
-            })
+        let bind_group = if let (Some(layout), Some(variables)) =
+            (program.material_bind_group_layout(), variables.as_ref())
+        {
+            descriptor.bind_group_with_layout(layout, variables, device)?
         } else {
             None
         };
 
-        let targets = [Some(ColorTargetState {
-            format: surface_format.unwrap_or(TextureFormat::Rgba8UnormSrgb),
-            blend: Some(BlendState::REPLACE),
-            write_mask: ColorWrites::ALL,
-        })];
+        let pipeline = pipeline_cache.forward_pipeline(&program, color_format, device);
 
-        // Create the actual render pipeline
-        let label = descriptor.name();
-        let pipeline_desc = RenderPipelineDescriptor {
-            label: label.as_deref(),
-            layout: Some(&pipeline_layout),
-            vertex: VertexState {
-                module: &shader_module,
-                entry_point: Some(descriptor.entrypoint_vertex),
-                buffers: &vertex_buffer_layouts,
-                compilation_options: Default::default(),
-            },
-            fragment: Some(FragmentState {
-                module: &shader_module,
-                entry_point: Some(descriptor.entrypoint_fragment),
-                targets: &targets,
-                compilation_options: Default::default(),
-            }),
-            depth_stencil,
-            primitive: PrimitiveState {
-                topology: descriptor.primitive_topology,
-                strip_index_format: None,
-                front_face: descriptor.front_face_order,
-                cull_mode: descriptor.cull_mode,
-                unclipped_depth: false,
-                polygon_mode: descriptor.polygon_mode,
-                conservative: false,
-            },
-            cache: None,
-            multisample: Default::default(),
-            multiview_mask: None,
-        };
-
-        let (bind_group, variables) = match bind_group_option {
-            Some((x, _, y)) => (Some(x), Some(y)),
-            None => (None, None),
-        };
-
-        let pipeline = device.create_render_pipeline(&pipeline_desc);
-        PIPELINES_CREATED.fetch_add(1, Ordering::Relaxed);
         Ok(Self {
+            program,
             pipeline,
             bind_group,
             variables,
@@ -148,6 +93,10 @@ impl MaterialShader {
 
     pub fn pipeline(&self) -> &RenderPipeline {
         &self.pipeline
+    }
+
+    pub fn program(&self) -> &ShaderProgram {
+        &self.program
     }
 
     pub fn bind_group(&self) -> Option<&BindGroup> {
