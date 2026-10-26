@@ -1,3 +1,4 @@
+mod fxaa;
 mod renderer;
 mod renderer_2d;
 mod renderer_text;
