@@ -238,6 +238,10 @@ impl From<PBRMaterialShaderDescriptor> for MaterialShaderDescriptor {
         };
         base.depth_write = val.alpha_mode != AlphaMode::Blend;
         base.cast_shadows = val.alpha_mode != AlphaMode::Blend;
+        if val.alpha_mode == AlphaMode::Blend {
+            // Blended materials stay on the sorted forward path.
+            base.entrypoint_fragment_gbuffer = None;
+        }
         let alpha_cutoff = val.alpha_mode.cutoff().unwrap_or(0.0);
         base.variables = vec![
             // Normal
@@ -334,6 +338,7 @@ mod tests {
         assert_eq!(descriptor.blend, BlendState::ALPHA_BLENDING);
         assert!(!descriptor.depth_write);
         assert!(!descriptor.cast_shadows);
+        assert!(descriptor.entrypoint_fragment_gbuffer.is_none());
     }
 
     #[test]

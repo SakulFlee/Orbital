@@ -141,10 +141,13 @@ impl ShaderProgram {
     ) -> Option<RenderPipeline> {
         let entrypoint = self.entrypoint_fragment_gbuffer?;
 
-        let depth_stencil = self.depth_format().map(|format| DepthStencilState {
-            format,
-            depth_write_enabled: Some(self.depth_write),
-            depth_compare: Some(self.depth_compare),
+        // The deferred path always uses the renderer's depth target. Force a
+        // depth-writing state so a material cannot opt out of the depth needed
+        // for world-position reconstruction and later forward passes.
+        let depth_stencil = Some(DepthStencilState {
+            format: TextureFormat::Depth32Float,
+            depth_write_enabled: Some(true),
+            depth_compare: Some(CompareFunction::Less),
             stencil: Default::default(),
             bias: Default::default(),
         });
