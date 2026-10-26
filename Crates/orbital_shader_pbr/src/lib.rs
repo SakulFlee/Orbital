@@ -51,10 +51,33 @@ pub fn pbr_library() -> NodeLibrary {
         .with_deps(["fragment_data"]),
     );
     lib.add(
-        ShaderNode::new("pbr_data", include_str!("wgsl/pbr_data.wgsl")).with_deps([
-            "pbr_data_struct",
+        ShaderNode::new("pbr_bindings", include_str!("wgsl/pbr_bindings.wgsl")).with_deps([
+            "camera_uniform",
+            "light_struct",
+            "shadow_types",
+            "pbr_factors",
+        ]),
+    );
+    lib.add(
+        ShaderNode::new("pbr_vertex", include_str!("wgsl/pbr_vertex.wgsl")).with_deps([
+            "camera_uniform",
+            "vertex_data_complex",
+            "instance_data",
+            "fragment_data",
+        ]),
+    );
+    lib.add(
+        ShaderNode::new("pbr_surface", include_str!("wgsl/pbr_surface.wgsl")).with_deps([
             "pbr_factors",
             "sample_normal_from_map",
+            "camera_uniform",
+            "fragment_data",
+        ]),
+    );
+    lib.add(
+        ShaderNode::new("pbr_data", include_str!("wgsl/pbr_data.wgsl")).with_deps([
+            "pbr_data_struct",
+            "pbr_surface",
             "camera_uniform",
             "fragment_data",
         ]),
