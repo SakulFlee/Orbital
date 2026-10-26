@@ -17,6 +17,7 @@ orbital_ibl_brdf = { path = "../orbital_ibl_brdf" }
 orbital_light = { path = "../orbital_light" }
 orbital_material_shader = { path = "../orbital_material_shader" }
 orbital_model = { path = "../orbital_model" }
+orbital_render_graph = { path = "../orbital_render_graph" }
 orbital_shadow = { path = "../orbital_shadow" }
 orbital_text = { path = "../orbital_text" }
 orbital_texture = { path = "../orbital_texture" }
