@@ -49,6 +49,7 @@ pub struct Model {
 }
 
 impl Model {
+    #[allow(clippy::too_many_arguments)]
     pub fn from_descriptor<'cache>(
         descriptor: &ModelDescriptor,
         color_format: &TextureFormat,
@@ -57,6 +58,7 @@ impl Model {
         mesh_cache: &'cache RwLock<Cache<Arc<MeshDescriptor>, Mesh>>,
         material_cache: &'cache RwLock<Cache<Arc<MaterialShaderDescriptor>, MaterialShader>>,
         pipeline_cache: &Mutex<PipelineCache>,
+        gbuffer_color_formats: Option<&[TextureFormat]>,
     ) -> Result<Self, Box<dyn Error + 'cache>> {
         // --- Mesh ---
         let mesh = match mesh_cache.write() {
@@ -89,6 +91,7 @@ impl Model {
                             device,
                             queue,
                             &mut pipeline_cache,
+                            gbuffer_color_formats,
                         )?;
                         let entry = CacheEntry::new(material);
                         let material = entry.clone_inner();

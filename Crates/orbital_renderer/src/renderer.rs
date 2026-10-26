@@ -19,6 +19,7 @@ use orbital_shadow::{ShadowGpuData, ShadowRenderer};
 use orbital_texture::Texture;
 use orbital_world_environment::{GeneratedSkyParameters, WorldEnvironment};
 
+use crate::deferred::DeferredLighting;
 use crate::fxaa::Fxaa;
 use crate::scene::RenderScene;
 use crate::tonemap::Tonemap;
@@ -34,16 +35,60 @@ pub enum AntiAliasing {
 /// Scene color format for the HDR intermediate target.
 pub const SCENE_COLOR_FORMAT: TextureFormat = TextureFormat::Rgba16Float;
 
+/// G-buffer target formats: albedo+AO, normal+roughness, metallic+emissive.
+pub const GBUFFER_COLOR_FORMATS: [TextureFormat; 3] = [
+    TextureFormat::Rgba8Unorm,
+    TextureFormat::Rgba16Float,
+    TextureFormat::Rgba16Float,
+];
+
 /// Renderer passes scheduled by the frame graph.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum ScenePass {
     Shadow,
     PrepareWorld,
     Sky,
+    Gbuffer,
+    DeferredLighting,
+    ClearDepth,
     Models,
     Transparent,
     Tonemap,
     Fxaa,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ModelDraw {
+    ForwardOpaque,
+    Transparent,
+}
+
+fn bind_and_draw_model(
+    pass: &mut wgpu::RenderPass<'_>,
+    model: &Model,
+    material: &MaterialShader,
+    world_bind_group: &BindGroup,
+    cull: Option<&CullResources>,
+    model_index: usize,
+) {
+    pass.set_bind_group(0, world_bind_group, &[]);
+    pass.set_bind_group(1, material.bind_group(), &[]);
+    pass.set_vertex_buffer(0, model.mesh().vertex_buffer().slice(..));
+
+    if let Some(cr) = cull {
+        let byte_off = cr.model_first_instance(model_index) as u64 * 64;
+        pass.set_vertex_buffer(1, cr.filtered_instance_buffer().slice(byte_off..));
+        pass.set_index_buffer(model.mesh().index_buffer().slice(..), IndexFormat::Uint32);
+        pass.draw_indexed(
+            0..model.mesh().index_count(),
+            0,
+            0..cr.visible_count(model_index),
+        );
+    } else {
+        pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
+        pass.set_index_buffer(model.mesh().index_buffer().slice(..), IndexFormat::Uint32);
+        pass.draw_indexed(0..model.mesh().index_count(), 0, 0..model.instance_count());
+    }
 }
 
 const RES_SHADOW_MAPS: ResourceId = ResourceId::new(1);
@@ -53,10 +98,34 @@ const RES_ENVIRONMENT: ResourceId = ResourceId::new(4);
 const RES_WORLD: ResourceId = ResourceId::new(5);
 const RES_SURFACE: ResourceId = ResourceId::new(6);
 const RES_POST_LDR: ResourceId = ResourceId::new(7);
+const RES_GBUFFER: ResourceId = ResourceId::new(8);
+
+fn gbuffer_texture_descriptor(
+    resolution: Vector2<u32>,
+    format: TextureFormat,
+    label: &'static str,
+) -> wgpu::TextureDescriptor<'static> {
+    wgpu::TextureDescriptor {
+        label: Some(label),
+        size: wgpu::Extent3d {
+            width: resolution.x.max(1),
+            height: resolution.y.max(1),
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+        view_formats: &[],
+    }
+}
 
 fn add_scene_passes(
     graph: &mut RenderGraph<ScenePass>,
     anti_aliasing: AntiAliasing,
+    has_deferred: bool,
+    has_forward_opaque: bool,
     has_transparent: bool,
 ) {
     graph.add_pass(ScenePass::Shadow, "shadow", &[], &[RES_SHADOW_MAPS]);
@@ -72,12 +141,33 @@ fn add_scene_passes(
         &[RES_ENVIRONMENT, RES_WORLD],
         &[RES_SCENE_COLOR],
     );
-    graph.add_pass(
-        ScenePass::Models,
-        "models",
-        &[RES_SHADOW_MAPS, RES_ENVIRONMENT, RES_WORLD],
-        &[RES_SCENE_COLOR, RES_DEPTH],
-    );
+
+    if has_deferred {
+        graph.add_pass(
+            ScenePass::Gbuffer,
+            "gbuffer",
+            &[RES_WORLD],
+            &[RES_GBUFFER, RES_DEPTH],
+        );
+        graph.add_pass(
+            ScenePass::DeferredLighting,
+            "deferred-lighting",
+            &[RES_GBUFFER, RES_DEPTH, RES_SCENE_COLOR, RES_WORLD],
+            &[RES_SCENE_COLOR],
+        );
+    } else {
+        graph.add_pass(ScenePass::ClearDepth, "clear-depth", &[], &[RES_DEPTH]);
+    }
+
+    if has_forward_opaque {
+        graph.add_pass(
+            ScenePass::Models,
+            "models",
+            &[RES_DEPTH, RES_SHADOW_MAPS, RES_ENVIRONMENT, RES_WORLD],
+            &[RES_SCENE_COLOR, RES_DEPTH],
+        );
+    }
+
     if has_transparent {
         graph.add_pass(
             ScenePass::Transparent,
@@ -92,6 +182,7 @@ fn add_scene_passes(
             &[RES_SCENE_COLOR],
         );
     }
+
     let tonemap_target = if anti_aliasing == AntiAliasing::Off {
         RES_SURFACE
     } else {
@@ -312,6 +403,7 @@ pub struct Renderer {
     anti_aliasing: AntiAliasing,
     tonemap: Tonemap,
     fxaa: Fxaa,
+    deferred_lighting: DeferredLighting,
     shadow_renderer: Option<ShadowRenderer>,
     fallbacks: RendererFallbacks,
     world_bind_group_cache: Option<CachedWorldBindGroup>,
@@ -400,6 +492,13 @@ impl Renderer {
             make_staging("Orbital::TS_Staging1"),
         ];
 
+        let fallbacks = RendererFallbacks::new(device, queue);
+        let deferred_lighting = DeferredLighting::new(
+            device,
+            SCENE_COLOR_FORMAT,
+            &fallbacks.world_bind_group_layout,
+        );
+
         Self {
             surface_texture_format,
             resolution,
@@ -409,8 +508,9 @@ impl Renderer {
             anti_aliasing: AntiAliasing::default(),
             tonemap: Tonemap::new(device, surface_texture_format),
             fxaa: Fxaa::new(device, queue, surface_texture_format, resolution),
+            deferred_lighting,
             shadow_renderer: None,
-            fallbacks: RendererFallbacks::new(device, queue),
+            fallbacks,
             world_bind_group_cache: None,
             timestamp_query_set,
             timestamp_resolve_buffer,
@@ -741,12 +841,24 @@ impl Renderer {
             )
         });
 
-        let has_transparent = scene.models.iter().any(|model| {
-            model
-                .materials()
-                .iter()
-                .any(|material| material.render_queue() == RenderQueue::Transparent)
-        });
+        let mut has_deferred = false;
+        let mut has_forward_opaque = false;
+        let mut has_transparent = false;
+        for model in &scene.models {
+            for material in model.materials() {
+                match material.render_queue() {
+                    RenderQueue::Opaque => {
+                        if material.gbuffer_pipeline().is_some() {
+                            has_deferred = true;
+                        } else {
+                            has_forward_opaque = true;
+                        }
+                    }
+                    RenderQueue::Transparent => has_transparent = true,
+                }
+            }
+        }
+
         let shadow_models: Vec<Arc<Model>> = scene
             .models
             .iter()
@@ -754,9 +866,46 @@ impl Renderer {
             .cloned()
             .collect();
 
+        let gbuffer = if has_deferred {
+            Some([
+                self.texture_pool.acquire(
+                    device,
+                    &gbuffer_texture_descriptor(
+                        self.resolution,
+                        GBUFFER_COLOR_FORMATS[0],
+                        "Orbital::Gbuffer0",
+                    ),
+                ),
+                self.texture_pool.acquire(
+                    device,
+                    &gbuffer_texture_descriptor(
+                        self.resolution,
+                        GBUFFER_COLOR_FORMATS[1],
+                        "Orbital::Gbuffer1",
+                    ),
+                ),
+                self.texture_pool.acquire(
+                    device,
+                    &gbuffer_texture_descriptor(
+                        self.resolution,
+                        GBUFFER_COLOR_FORMATS[2],
+                        "Orbital::Gbuffer2",
+                    ),
+                ),
+            ])
+        } else {
+            None
+        };
+
         let mut graph = std::mem::take(&mut self.render_graph);
         graph.begin_frame();
-        add_scene_passes(&mut graph, self.anti_aliasing, has_transparent);
+        add_scene_passes(
+            &mut graph,
+            self.anti_aliasing,
+            has_deferred,
+            has_forward_opaque,
+            has_transparent,
+        );
         graph.compile().expect("render graph must be acyclic");
 
         let mut command_encoder = device.create_command_encoder(&CommandEncoderDescriptor {
@@ -817,6 +966,39 @@ impl Renderer {
                             context.encoder.write_timestamp(qs, 2);
                         }
                     }
+                    ScenePass::Gbuffer => {
+                        if let (Some(bind_group), Some(gbuffer)) =
+                            (world_bind_group.as_ref(), gbuffer.as_ref())
+                        {
+                            self.render_gbuffer_models(
+                                &scene.models,
+                                gbuffer,
+                                bind_group,
+                                context.encoder,
+                                cull,
+                                &depth.view,
+                            );
+                        }
+                    }
+                    ScenePass::DeferredLighting => {
+                        if let (Some(bind_group), Some(gbuffer)) =
+                            (world_bind_group.as_ref(), gbuffer.as_ref())
+                        {
+                            self.deferred_lighting.record(
+                                context.device,
+                                context.encoder,
+                                bind_group,
+                                &gbuffer[0].view,
+                                &gbuffer[1].view,
+                                &gbuffer[2].view,
+                                &depth.view,
+                                &scene_color.view,
+                            );
+                        }
+                    }
+                    ScenePass::ClearDepth => {
+                        self.clear_depth(context.encoder, &depth.view);
+                    }
                     ScenePass::Models => {
                         if let Some(bind_group) = world_bind_group.as_ref() {
                             self.render_models(
@@ -826,12 +1008,9 @@ impl Renderer {
                                 context.encoder,
                                 cull,
                                 &depth.view,
-                                RenderQueue::Opaque,
+                                ModelDraw::ForwardOpaque,
                                 camera_position,
                             );
-                        }
-                        if let Some(qs) = &self.timestamp_query_set {
-                            context.encoder.write_timestamp(qs, 3);
                         }
                     }
                     ScenePass::Transparent => {
@@ -843,12 +1022,15 @@ impl Renderer {
                                 context.encoder,
                                 cull,
                                 &depth.view,
-                                RenderQueue::Transparent,
+                                ModelDraw::Transparent,
                                 camera_position,
                             );
                         }
                     }
                     ScenePass::Tonemap => {
+                        if let Some(qs) = &self.timestamp_query_set {
+                            context.encoder.write_timestamp(qs, 3);
+                        }
                         let tonemap_target = post_ldr
                             .as_ref()
                             .map(|post_ldr| &post_ldr.view)
@@ -878,10 +1060,12 @@ impl Renderer {
             match timing.pass {
                 ScenePass::Shadow => shadow_ms = ms(timing.cpu),
                 ScenePass::Sky => skybox_ms = ms(timing.cpu),
-                ScenePass::Models => models_ms = ms(timing.cpu),
+                ScenePass::Gbuffer | ScenePass::DeferredLighting | ScenePass::Models => {
+                    models_ms += ms(timing.cpu);
+                }
                 ScenePass::Transparent => models_ms += ms(timing.cpu),
                 ScenePass::PrepareWorld => skybox_ms += ms(timing.cpu),
-                ScenePass::Tonemap | ScenePass::Fxaa => {}
+                ScenePass::ClearDepth | ScenePass::Tonemap | ScenePass::Fxaa => {}
             }
         }
         self.render_graph = graph;
@@ -995,13 +1179,13 @@ impl Renderer {
         command_encoder: &mut CommandEncoder,
         cull: Option<&CullResources>,
         depth_view: &TextureView,
-        queue: RenderQueue,
+        draw: ModelDraw,
         camera_position: Option<Point3<f32>>,
     ) {
         let mut draws: Vec<(usize, usize, f32)> = Vec::new();
 
         for (model_index, model) in models.iter().enumerate() {
-            let distance = if queue == RenderQueue::Transparent {
+            let distance = if draw == ModelDraw::Transparent {
                 match (model.instance_center(), camera_position) {
                     (Some(center), Some(camera)) => (center - camera).magnitude2(),
                     _ => 0.0,
@@ -1011,30 +1195,32 @@ impl Renderer {
             };
 
             for (material_index, material) in model.materials().iter().enumerate() {
-                if material.render_queue() == queue {
+                let include = match draw {
+                    ModelDraw::ForwardOpaque => {
+                        material.render_queue() == RenderQueue::Opaque
+                            && material.gbuffer_pipeline().is_none()
+                    }
+                    ModelDraw::Transparent => material.render_queue() == RenderQueue::Transparent,
+                };
+                if include {
                     draws.push((model_index, material_index, distance));
                 }
             }
         }
 
-        if queue == RenderQueue::Transparent {
-            if draws.is_empty() {
-                return;
-            }
+        if draws.is_empty() {
+            return;
+        }
+
+        if draw == ModelDraw::Transparent {
             // Back-to-front for alpha blending.
             draws.sort_by(|a, b| b.2.total_cmp(&a.2));
         }
 
-        let depth_load = if queue == RenderQueue::Opaque {
-            LoadOp::Clear(1.0)
-        } else {
-            LoadOp::Load
-        };
-
         let mut render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
-            label: Some(match queue {
-                RenderQueue::Opaque => "Model RenderPass",
-                RenderQueue::Transparent => "Transparent RenderPass",
+            label: Some(match draw {
+                ModelDraw::ForwardOpaque => "Forward Model RenderPass",
+                ModelDraw::Transparent => "Transparent RenderPass",
             }),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: target_view,
@@ -1048,7 +1234,7 @@ impl Renderer {
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: depth_view,
                 depth_ops: Some(Operations {
-                    load: depth_load,
+                    load: LoadOp::Load,
                     store: StoreOp::Store,
                 }),
                 stencil_ops: None,
@@ -1063,31 +1249,108 @@ impl Renderer {
             let material = &model.materials()[material_index];
 
             render_pass.set_pipeline(material.pipeline());
-            render_pass.set_bind_group(0, world_bind_group, &[]);
-            render_pass.set_bind_group(1, material.bind_group(), &[]);
-            render_pass.set_vertex_buffer(0, model.mesh().vertex_buffer().slice(..));
+            bind_and_draw_model(
+                &mut render_pass,
+                model,
+                material,
+                world_bind_group,
+                cull,
+                model_index,
+            );
+        }
+    }
 
-            if let Some(cr) = cull {
-                let byte_off = cr.model_first_instance(model_index) as u64 * 64;
-                render_pass.set_vertex_buffer(1, cr.filtered_instance_buffer().slice(byte_off..));
-                render_pass
-                    .set_index_buffer(model.mesh().index_buffer().slice(..), IndexFormat::Uint32);
-                render_pass.draw_indexed(
-                    0..model.mesh().index_count(),
-                    0,
-                    0..cr.visible_count(model_index),
-                );
-            } else {
-                render_pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
-                render_pass
-                    .set_index_buffer(model.mesh().index_buffer().slice(..), IndexFormat::Uint32);
-                render_pass.draw_indexed(
-                    0..model.mesh().index_count(),
-                    0,
-                    0..model.instance_count(),
+    fn render_gbuffer_models(
+        &self,
+        models: &[Arc<Model>],
+        gbuffer: &[orbital_render_graph::PooledTexture; 3],
+        world_bind_group: &BindGroup,
+        command_encoder: &mut CommandEncoder,
+        cull: Option<&CullResources>,
+        depth_view: &TextureView,
+    ) {
+        let mut render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
+            label: Some("G-buffer RenderPass"),
+            color_attachments: &[
+                Some(RenderPassColorAttachment {
+                    view: &gbuffer[0].view,
+                    resolve_target: None,
+                    ops: Operations {
+                        load: LoadOp::Clear(Color::BLACK),
+                        store: StoreOp::Store,
+                    },
+                    depth_slice: None,
+                }),
+                Some(RenderPassColorAttachment {
+                    view: &gbuffer[1].view,
+                    resolve_target: None,
+                    ops: Operations {
+                        load: LoadOp::Clear(Color::BLACK),
+                        store: StoreOp::Store,
+                    },
+                    depth_slice: None,
+                }),
+                Some(RenderPassColorAttachment {
+                    view: &gbuffer[2].view,
+                    resolve_target: None,
+                    ops: Operations {
+                        load: LoadOp::Clear(Color::BLACK),
+                        store: StoreOp::Store,
+                    },
+                    depth_slice: None,
+                }),
+            ],
+            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                view: depth_view,
+                depth_ops: Some(Operations {
+                    load: LoadOp::Clear(1.0),
+                    store: StoreOp::Store,
+                }),
+                stencil_ops: None,
+            }),
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+
+        for (model_index, model) in models.iter().enumerate() {
+            for material in model.materials() {
+                if material.render_queue() != RenderQueue::Opaque {
+                    continue;
+                }
+                let Some(pipeline) = material.gbuffer_pipeline() else {
+                    continue;
+                };
+
+                render_pass.set_pipeline(pipeline);
+                bind_and_draw_model(
+                    &mut render_pass,
+                    model,
+                    material,
+                    world_bind_group,
+                    cull,
+                    model_index,
                 );
             }
         }
+    }
+
+    fn clear_depth(&self, command_encoder: &mut CommandEncoder, depth_view: &TextureView) {
+        let _ = command_encoder.begin_render_pass(&RenderPassDescriptor {
+            label: Some("ClearDepth RenderPass"),
+            color_attachments: &[],
+            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                view: depth_view,
+                depth_ops: Some(Operations {
+                    load: LoadOp::Clear(1.0),
+                    store: StoreOp::Store,
+                }),
+                stencil_ops: None,
+            }),
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
     }
     /// Renders 2D geometry (solid-color shapes) on top of the existing scene.
     ///
@@ -1263,9 +1526,20 @@ impl Renderer {
 mod tests {
     use super::*;
 
-    fn graph_order(anti_aliasing: AntiAliasing, has_transparent: bool) -> Vec<&'static str> {
+    fn graph_order(
+        anti_aliasing: AntiAliasing,
+        has_deferred: bool,
+        has_forward_opaque: bool,
+        has_transparent: bool,
+    ) -> Vec<&'static str> {
         let mut graph = RenderGraph::new();
-        add_scene_passes(&mut graph, anti_aliasing, has_transparent);
+        add_scene_passes(
+            &mut graph,
+            anti_aliasing,
+            has_deferred,
+            has_forward_opaque,
+            has_transparent,
+        );
         graph.compile().unwrap();
         graph
             .ordered_passes()
@@ -1274,22 +1548,45 @@ mod tests {
     }
 
     #[test]
-    fn scene_graph_without_aa_ends_at_tonemap() {
+    fn scene_graph_with_forward_opaque_clears_depth_first() {
         assert_eq!(
-            graph_order(AntiAliasing::Off, false),
-            ["shadow", "prepare-world", "sky", "models", "tonemap"]
+            graph_order(AntiAliasing::Off, false, true, false),
+            [
+                "shadow",
+                "prepare-world",
+                "sky",
+                "clear-depth",
+                "models",
+                "tonemap"
+            ]
+        );
+    }
+
+    #[test]
+    fn scene_graph_with_deferred_opaque_skips_forward_models() {
+        assert_eq!(
+            graph_order(AntiAliasing::Off, true, false, false),
+            [
+                "shadow",
+                "prepare-world",
+                "sky",
+                "gbuffer",
+                "deferred-lighting",
+                "tonemap"
+            ]
         );
     }
 
     #[test]
     fn scene_graph_with_fxaa_adds_post_pass() {
         assert_eq!(
-            graph_order(AntiAliasing::Fxaa, false),
+            graph_order(AntiAliasing::Fxaa, true, false, false),
             [
                 "shadow",
                 "prepare-world",
                 "sky",
-                "models",
+                "gbuffer",
+                "deferred-lighting",
                 "tonemap",
                 "fxaa"
             ]
@@ -1297,14 +1594,31 @@ mod tests {
     }
 
     #[test]
-    fn scene_graph_with_transparency_adds_sorted_pass() {
+    fn scene_graph_hybrid_runs_deferred_then_forward_and_transparent() {
         assert_eq!(
-            graph_order(AntiAliasing::Off, true),
+            graph_order(AntiAliasing::Off, true, true, true),
             [
                 "shadow",
                 "prepare-world",
                 "sky",
+                "gbuffer",
+                "deferred-lighting",
                 "models",
+                "transparent",
+                "tonemap"
+            ]
+        );
+    }
+
+    #[test]
+    fn scene_graph_with_only_transparency_clears_depth_first() {
+        assert_eq!(
+            graph_order(AntiAliasing::Off, false, false, true),
+            [
+                "shadow",
+                "prepare-world",
+                "sky",
+                "clear-depth",
                 "transparent",
                 "tonemap"
             ]

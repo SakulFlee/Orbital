@@ -289,6 +289,7 @@ pub fn realize_models(ecs: &mut World) {
             &mesh_cache,
             &material_cache,
             &pipeline_cache,
+            Some(&orbital_renderer::GBUFFER_COLOR_FORMATS),
         ) {
             Ok(gpu_model) => {
                 if needs_new {
