@@ -1,9 +1,12 @@
 [package]
 name = "orbital_debug_ui"
-version = "0.1.0"
-edition = "2024"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
 description = "Debug overlay UI for the Orbital game engine (performance, ECS inspector, console)"
-license = "MIT"
 
 [dependencies]
 cgmath = { workspace = true }

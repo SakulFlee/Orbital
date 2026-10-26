@@ -16,6 +16,7 @@ use clap::{Parser, Subcommand};
 #[command(
     name = "orbital",
     bin_name = "orbital",
+    version,
     about = "Build tool for the Orbital game engine"
 )]
 struct Cli {
