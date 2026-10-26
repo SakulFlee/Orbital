@@ -31,6 +31,9 @@ pub struct ShaderProgram {
     entrypoint_vertex: &'static str,
     entrypoint_fragment: &'static str,
     entrypoint_fragment_gbuffer: Option<&'static str>,
+    shadow_module: Option<wgpu::ShaderModule>,
+    entrypoint_vertex_shadow: Option<&'static str>,
+    entrypoint_fragment_shadow: Option<&'static str>,
     primitive_topology: PrimitiveTopology,
     front_face_order: FrontFace,
     cull_mode: Option<Face>,
@@ -51,6 +54,18 @@ impl ShaderProgram {
         device: &Device,
     ) -> Result<Self, Box<dyn Error>> {
         let module = descriptor.shader_module(device)?;
+        let shadow_source = if descriptor.cast_shadows && descriptor.alpha_mode != AlphaMode::Opaque
+        {
+            descriptor.shadow_source.as_ref()
+        } else {
+            None
+        };
+        let shadow_module = shadow_source.map(|source| {
+            device.create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: descriptor.name.as_deref(),
+                source: wgpu::ShaderSource::Wgsl(source.to_string().into()),
+            })
+        });
         let material_bind_group_layout = descriptor.bind_group_layout_only(device);
         let world_bind_group_layout = make_world_bind_group_layout(device);
 
@@ -87,6 +102,9 @@ impl ShaderProgram {
             entrypoint_vertex: descriptor.entrypoint_vertex,
             entrypoint_fragment: descriptor.entrypoint_fragment,
             entrypoint_fragment_gbuffer: descriptor.entrypoint_fragment_gbuffer,
+            shadow_module,
+            entrypoint_vertex_shadow: descriptor.entrypoint_vertex_shadow,
+            entrypoint_fragment_shadow: descriptor.entrypoint_fragment_shadow,
             primitive_topology: descriptor.primitive_topology,
             front_face_order: descriptor.front_face_order,
             cull_mode: descriptor.cull_mode,
@@ -132,6 +150,71 @@ impl ShaderProgram {
 
     pub fn entrypoint_fragment_gbuffer(&self) -> Option<&'static str> {
         self.entrypoint_fragment_gbuffer
+    }
+
+    pub fn has_shadow_variant(&self) -> bool {
+        self.shadow_module.is_some()
+            && self.entrypoint_vertex_shadow.is_some()
+            && self.entrypoint_fragment_shadow.is_some()
+            && self.material_bind_group_layout.is_some()
+    }
+
+    /// Build a depth-only shadow pipeline.
+    ///
+    /// Group 0 is the material bind group and group 1 is the per-light matrix.
+    /// This is separate from the forward/G-buffer layout so shadow casters can
+    /// reuse material bindings without a world bind group.
+    pub fn create_shadow_pipeline(
+        &self,
+        light_matrix_layout: &BindGroupLayout,
+        device: &Device,
+    ) -> Option<RenderPipeline> {
+        let module = self.shadow_module.as_ref()?;
+        let vertex_entry = self.entrypoint_vertex_shadow?;
+        let fragment_entry = self.entrypoint_fragment_shadow?;
+        let material_layout = self.material_bind_group_layout.as_ref()?;
+
+        let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
+            label: self.name.as_deref(),
+            bind_group_layouts: &[Some(material_layout), Some(light_matrix_layout)],
+            immediate_size: 0,
+        });
+
+        Some(device.create_render_pipeline(&RenderPipelineDescriptor {
+            label: self.name.as_deref(),
+            layout: Some(&pipeline_layout),
+            vertex: VertexState {
+                module,
+                entry_point: Some(vertex_entry),
+                buffers: &self.vertex_buffer_layouts,
+                compilation_options: Default::default(),
+            },
+            fragment: Some(FragmentState {
+                module,
+                entry_point: Some(fragment_entry),
+                targets: &[],
+                compilation_options: Default::default(),
+            }),
+            depth_stencil: Some(DepthStencilState {
+                format: TextureFormat::Depth32Float,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(CompareFunction::LessEqual),
+                stencil: Default::default(),
+                bias: Default::default(),
+            }),
+            primitive: PrimitiveState {
+                topology: self.primitive_topology,
+                strip_index_format: None,
+                front_face: self.front_face_order,
+                cull_mode: None,
+                unclipped_depth: false,
+                polygon_mode: self.polygon_mode,
+                conservative: false,
+            },
+            cache: None,
+            multisample: Default::default(),
+            multiview_mask: None,
+        }))
     }
 
     pub fn create_gbuffer_pipeline(

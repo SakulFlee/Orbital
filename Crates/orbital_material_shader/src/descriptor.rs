@@ -60,6 +60,11 @@ pub struct MaterialShaderDescriptor {
     /// Optional G-buffer fragment entrypoint. Materials without it stay on the
     /// forward path.
     pub entrypoint_fragment_gbuffer: Option<&'static str>,
+    /// Optional source for a dedicated shadow module. Shadow pipelines bind
+    /// the material layout at group 0 and the light matrix at group 1.
+    pub shadow_source: Option<Arc<str>>,
+    pub entrypoint_vertex_shadow: Option<&'static str>,
+    pub entrypoint_fragment_shadow: Option<&'static str>,
     pub vertex_stage_layouts: Option<Vec<VertexStageLayout>>,
     pub primitive_topology: PrimitiveTopology,
     pub front_face_order: FrontFace,
@@ -107,6 +112,9 @@ impl Default for MaterialShaderDescriptor {
             entrypoint_vertex: "entrypoint_vertex",
             entrypoint_fragment: "entrypoint_fragment",
             entrypoint_fragment_gbuffer: None,
+            shadow_source: None,
+            entrypoint_vertex_shadow: None,
+            entrypoint_fragment_shadow: None,
             vertex_stage_layouts: Some(vec![
                 VertexStageLayout::SimpleVertexData,
                 VertexStageLayout::InstanceData,

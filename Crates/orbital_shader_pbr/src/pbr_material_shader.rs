@@ -215,6 +215,9 @@ impl From<PBRMaterialShaderDescriptor> for MaterialShaderDescriptor {
                     .into(),
                 ),
                 entrypoint_fragment_gbuffer: Some("entrypoint_fragment_gbuffer"),
+                shadow_source: Some(include_str!("wgsl/pbr_shadow.wgsl").into()),
+                entrypoint_vertex_shadow: Some("entrypoint_vertex_shadow"),
+                entrypoint_fragment_shadow: Some("entrypoint_fragment_shadow"),
                 vertex_stage_layouts: Some(vec![
                     VertexStageLayout::ComplexVertexData,
                     VertexStageLayout::InstanceData,
@@ -352,6 +355,15 @@ mod tests {
         );
         assert!(source.contains("entrypoint_fragment"));
         assert!(source.contains("entrypoint_fragment_gbuffer"));
+        assert_eq!(
+            descriptor.entrypoint_vertex_shadow,
+            Some("entrypoint_vertex_shadow")
+        );
+        assert_eq!(
+            descriptor.entrypoint_fragment_shadow,
+            Some("entrypoint_fragment_shadow")
+        );
+        assert!(descriptor.shadow_source.is_some());
     }
 
     #[test]
@@ -364,6 +376,8 @@ mod tests {
 
         assert_eq!(descriptor.render_queue, RenderQueue::Opaque);
         assert!(descriptor.depth_write);
+        assert!(descriptor.cast_shadows);
+        assert!(descriptor.shadow_source.is_some());
         assert_eq!(f32::from_le_bytes(bytes[24..28].try_into().unwrap()), 0.25);
     }
 }
