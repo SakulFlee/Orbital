@@ -273,7 +273,7 @@ fn every_pbr_node_is_valid_with_its_dependencies() {
 
 // --- Full assembled PBR shader ---------------------------------------------
 
-fn validate_assembled_pbr_shader_with_source(label: &str, raw_source: &str) {
+fn validate_assembled_pbr_shader_with_nodes(label: &str, nodes: &[&str], raw_source: &str) {
     use orbital_shader_preprocessor::{NodeRegistry, ShaderBuilder};
     use std::sync::Arc;
 
@@ -286,12 +286,16 @@ fn validate_assembled_pbr_shader_with_source(label: &str, raw_source: &str) {
     registry.register_library(&pbr).unwrap();
 
     let mut builder = ShaderBuilder::new(Arc::new(registry));
-    for node_name in orbital_shader_pbr::PBR_NODES {
+    for node_name in nodes {
         builder.add_node(node_name).unwrap();
     }
     builder.add_source(raw_source);
     let source = builder.build();
     validate(label, &source);
+}
+
+fn validate_assembled_pbr_shader_with_source(label: &str, raw_source: &str) {
+    validate_assembled_pbr_shader_with_nodes(label, orbital_shader_pbr::PBR_NODES, raw_source);
 }
 
 fn validate_assembled_pbr_shader(label: &str) {
@@ -311,6 +315,15 @@ fn node_assembled_pbr_gbuffer_shader_is_valid_wgsl() {
     validate_assembled_pbr_shader_with_source(
         "assembled PBR G-buffer shader",
         include_str!("../../../Crates/orbital_shader_pbr/src/wgsl/pbr_gbuffer_entrypoints.wgsl"),
+    );
+}
+
+#[test]
+fn node_assembled_pbr_deferred_lighting_is_valid_wgsl() {
+    validate_assembled_pbr_shader_with_nodes(
+        "assembled deferred lighting shader",
+        orbital_shader_pbr::DEFERRED_LIGHTING_NODES,
+        orbital_shader_pbr::DEFERRED_LIGHTING_WGSL,
     );
 }
 

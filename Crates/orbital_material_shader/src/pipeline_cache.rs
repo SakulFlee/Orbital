@@ -15,13 +15,14 @@ use crate::ShaderProgram;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum PassKind {
     Forward,
+    Gbuffer,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct PipelineKey {
     program: u64,
     pass: PassKind,
-    color_format: TextureFormat,
+    color_formats: Vec<TextureFormat>,
     depth_format: Option<TextureFormat>,
 }
 
@@ -44,7 +45,7 @@ impl PipelineCache {
         let key = PipelineKey {
             program: program.id(),
             pass: PassKind::Forward,
-            color_format,
+            color_formats: vec![color_format],
             depth_format: program.depth_format(),
         };
 
@@ -55,6 +56,39 @@ impl PipelineCache {
                 Arc::new(program.create_forward_pipeline(color_format, device))
             })
             .clone()
+    }
+
+    pub fn gbuffer_pipeline(
+        &mut self,
+        program: &Arc<ShaderProgram>,
+        color_formats: &[TextureFormat],
+        device: &Device,
+    ) -> Option<Arc<RenderPipeline>> {
+        program.entrypoint_fragment_gbuffer()?;
+
+        self.programs.insert(program.id(), Arc::downgrade(program));
+        self.prune();
+
+        let key = PipelineKey {
+            program: program.id(),
+            pass: PassKind::Gbuffer,
+            color_formats: color_formats.to_vec(),
+            depth_format: program.depth_format(),
+        };
+
+        Some(
+            self.pipelines
+                .entry(key)
+                .or_insert_with(|| {
+                    crate::PIPELINES_CREATED.fetch_add(1, Ordering::Relaxed);
+                    Arc::new(
+                        program
+                            .create_gbuffer_pipeline(color_formats, device)
+                            .expect("G-buffer entrypoint checked above"),
+                    )
+                })
+                .clone(),
+        )
     }
 
     /// Drop programs that no material references and their pipelines.

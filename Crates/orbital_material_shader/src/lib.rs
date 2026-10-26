@@ -36,6 +36,7 @@ pub use vertex_stage_layout::*;
 pub struct MaterialShader {
     program: Arc<ShaderProgram>,
     pipeline: Arc<RenderPipeline>,
+    gbuffer_pipeline: Option<Arc<RenderPipeline>>,
     bind_group: Option<BindGroup>,
     variables: Option<Variables>,
 }
@@ -58,6 +59,7 @@ impl MaterialShader {
             device,
             queue,
             &mut pipeline_cache,
+            None,
         )
     }
 
@@ -68,6 +70,7 @@ impl MaterialShader {
         device: &Device,
         queue: &Queue,
         pipeline_cache: &mut PipelineCache,
+        gbuffer_color_formats: Option<&[TextureFormat]>,
     ) -> Result<Self, Box<dyn Error>> {
         let color_format = surface_format.unwrap_or(TextureFormat::Rgba8UnormSrgb);
         let program = Arc::new(ShaderProgram::from_descriptor(descriptor, device)?);
@@ -82,10 +85,13 @@ impl MaterialShader {
         };
 
         let pipeline = pipeline_cache.forward_pipeline(&program, color_format, device);
+        let gbuffer_pipeline = gbuffer_color_formats
+            .and_then(|formats| pipeline_cache.gbuffer_pipeline(&program, formats, device));
 
         Ok(Self {
             program,
             pipeline,
+            gbuffer_pipeline,
             bind_group,
             variables,
         })
@@ -93,6 +99,10 @@ impl MaterialShader {
 
     pub fn pipeline(&self) -> &RenderPipeline {
         &self.pipeline
+    }
+
+    pub fn gbuffer_pipeline(&self) -> Option<&RenderPipeline> {
+        self.gbuffer_pipeline.as_deref()
     }
 
     pub fn program(&self) -> &ShaderProgram {

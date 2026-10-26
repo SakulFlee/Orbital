@@ -57,6 +57,9 @@ pub struct MaterialShaderDescriptor {
     pub variables: Vec<VariableType>,
     pub entrypoint_vertex: &'static str,
     pub entrypoint_fragment: &'static str,
+    /// Optional G-buffer fragment entrypoint. Materials without it stay on the
+    /// forward path.
+    pub entrypoint_fragment_gbuffer: Option<&'static str>,
     pub vertex_stage_layouts: Option<Vec<VertexStageLayout>>,
     pub primitive_topology: PrimitiveTopology,
     pub front_face_order: FrontFace,
@@ -103,6 +106,7 @@ impl Default for MaterialShaderDescriptor {
             variables: Vec::new(),
             entrypoint_vertex: "entrypoint_vertex",
             entrypoint_fragment: "entrypoint_fragment",
+            entrypoint_fragment_gbuffer: None,
             vertex_stage_layouts: Some(vec![
                 VertexStageLayout::SimpleVertexData,
                 VertexStageLayout::InstanceData,

@@ -1,3 +1,4 @@
+mod deferred;
 mod fxaa;
 mod renderer;
 mod renderer_2d;

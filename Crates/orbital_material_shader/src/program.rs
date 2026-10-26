@@ -30,6 +30,7 @@ pub struct ShaderProgram {
     vertex_buffer_layouts: Vec<Option<VertexBufferLayout<'static>>>,
     entrypoint_vertex: &'static str,
     entrypoint_fragment: &'static str,
+    entrypoint_fragment_gbuffer: Option<&'static str>,
     primitive_topology: PrimitiveTopology,
     front_face_order: FrontFace,
     cull_mode: Option<Face>,
@@ -85,6 +86,7 @@ impl ShaderProgram {
             vertex_buffer_layouts,
             entrypoint_vertex: descriptor.entrypoint_vertex,
             entrypoint_fragment: descriptor.entrypoint_fragment,
+            entrypoint_fragment_gbuffer: descriptor.entrypoint_fragment_gbuffer,
             primitive_topology: descriptor.primitive_topology,
             front_face_order: descriptor.front_face_order,
             cull_mode: descriptor.cull_mode,
@@ -126,6 +128,67 @@ impl ShaderProgram {
 
     pub fn receive_shadows(&self) -> bool {
         self.receive_shadows
+    }
+
+    pub fn entrypoint_fragment_gbuffer(&self) -> Option<&'static str> {
+        self.entrypoint_fragment_gbuffer
+    }
+
+    pub fn create_gbuffer_pipeline(
+        &self,
+        color_formats: &[TextureFormat],
+        device: &Device,
+    ) -> Option<RenderPipeline> {
+        let entrypoint = self.entrypoint_fragment_gbuffer?;
+
+        let depth_stencil = self.depth_format().map(|format| DepthStencilState {
+            format,
+            depth_write_enabled: Some(self.depth_write),
+            depth_compare: Some(self.depth_compare),
+            stencil: Default::default(),
+            bias: Default::default(),
+        });
+
+        let targets = color_formats
+            .iter()
+            .map(|format| {
+                Some(ColorTargetState {
+                    format: *format,
+                    blend: Some(BlendState::REPLACE),
+                    write_mask: ColorWrites::ALL,
+                })
+            })
+            .collect::<Vec<_>>();
+
+        Some(device.create_render_pipeline(&RenderPipelineDescriptor {
+            label: self.name.as_deref(),
+            layout: Some(&self.pipeline_layout),
+            vertex: VertexState {
+                module: &self.module,
+                entry_point: Some(self.entrypoint_vertex),
+                buffers: &self.vertex_buffer_layouts,
+                compilation_options: Default::default(),
+            },
+            fragment: Some(FragmentState {
+                module: &self.module,
+                entry_point: Some(entrypoint),
+                targets: &targets,
+                compilation_options: Default::default(),
+            }),
+            depth_stencil,
+            primitive: PrimitiveState {
+                topology: self.primitive_topology,
+                strip_index_format: None,
+                front_face: self.front_face_order,
+                cull_mode: self.cull_mode,
+                unclipped_depth: false,
+                polygon_mode: self.polygon_mode,
+                conservative: false,
+            },
+            cache: None,
+            multisample: Default::default(),
+            multiview_mask: None,
+        }))
     }
 
     pub fn create_forward_pipeline(

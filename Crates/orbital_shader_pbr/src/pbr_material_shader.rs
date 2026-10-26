@@ -12,6 +12,35 @@ use wgpu::{
 pub type PBRMaterial = PBRMaterialDescriptor;
 pub type PBRMaterialDescriptor = PBRMaterialShaderDescriptor;
 
+/// Deferred lighting fullscreen source, assembled with
+/// [`DEFERRED_LIGHTING_NODES`].
+pub const DEFERRED_LIGHTING_WGSL: &str = include_str!("wgsl/deferred_lighting.wgsl");
+
+/// Nodes used by the deferred lighting fullscreen pass.
+pub const DEFERRED_LIGHTING_NODES: &[&str] = &[
+    "camera_uniform",
+    "light_struct",
+    "light_types",
+    "shadow_types",
+    "shadow_slot",
+    "pbr_data_struct",
+    "light_contribution",
+    "pi",
+    "f0_default",
+    "ambient_intensity",
+    "fresnel_schlick",
+    "fresnel_schlick_roughness",
+    "distribution_ggx",
+    "schlick_smith_ggx",
+    "slope_scaled_bias",
+    "spot_bias_scale",
+    "sample_shadow_2d_pcf",
+    "compute_shadow_for_light",
+    "calculate_light_brdf",
+    "calculate_ambient_ibl",
+    "calculate_light_contribution",
+];
+
 /// The root node names (from the math/engine/PBR libraries) that assemble the
 /// full PBR material shader.
 pub const PBR_NODES: &[&str] = &[
@@ -177,7 +206,15 @@ impl From<PBRMaterialShaderDescriptor> for MaterialShaderDescriptor {
             Some(base) => base,
             None => MaterialShaderDescriptor {
                 nodes: PBR_NODES,
-                raw_source: Some(include_str!("wgsl/pbr_entrypoints.wgsl").into()),
+                raw_source: Some(
+                    concat!(
+                        include_str!("wgsl/pbr_entrypoints.wgsl"),
+                        "\n",
+                        include_str!("wgsl/pbr_gbuffer_entrypoints.wgsl"),
+                    )
+                    .into(),
+                ),
+                entrypoint_fragment_gbuffer: Some("entrypoint_fragment_gbuffer"),
                 vertex_stage_layouts: Some(vec![
                     VertexStageLayout::ComplexVertexData,
                     VertexStageLayout::InstanceData,
@@ -297,6 +334,19 @@ mod tests {
         assert_eq!(descriptor.blend, BlendState::ALPHA_BLENDING);
         assert!(!descriptor.depth_write);
         assert!(!descriptor.cast_shadows);
+    }
+
+    #[test]
+    fn default_pbr_descriptor_has_forward_and_gbuffer_entrypoints() {
+        let descriptor = factors(PBRMaterialShaderDescriptor::default());
+        let source = descriptor.raw_source.as_deref().unwrap();
+
+        assert_eq!(
+            descriptor.entrypoint_fragment_gbuffer,
+            Some("entrypoint_fragment_gbuffer")
+        );
+        assert!(source.contains("entrypoint_fragment"));
+        assert!(source.contains("entrypoint_fragment_gbuffer"));
     }
 
     #[test]
