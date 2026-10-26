@@ -312,7 +312,7 @@ impl ShadowRenderer {
     pub fn render(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
-        models: &[&orbital_model::Model],
+        models: &[std::sync::Arc<orbital_model::Model>],
         shadow_lights: &[ShadowLightInfo],
         camera_perspective_view_proj: &Matrix4<f32>,
         camera_near: f32,
