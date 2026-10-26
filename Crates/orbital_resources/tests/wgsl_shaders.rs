@@ -327,6 +327,28 @@ fn node_assembled_pbr_deferred_lighting_is_valid_wgsl() {
     );
 }
 
+#[test]
+fn node_assembled_light_culling_is_valid_wgsl() {
+    use orbital_shader_preprocessor::{NodeRegistry, ShaderBuilder};
+    use std::sync::Arc;
+
+    let mut registry = NodeRegistry::new();
+    let math = orbital_shader_math::math_library();
+    registry.register_library(&math).unwrap();
+    let engine = orbital_shader_engine::engine_library();
+    registry.register_library(&engine).unwrap();
+
+    let mut builder = ShaderBuilder::new(Arc::new(registry));
+    builder
+        .add_nodes(&["camera_uniform", "light_struct", "light_types"])
+        .unwrap();
+    builder.add_source(include_str!(
+        "../../../Crates/orbital_renderer/src/light_culling.wgsl"
+    ));
+    let source = builder.build();
+    validate("assembled light culling shader", &source);
+}
+
 // --- Full assembled world-environment shaders ------------------------------
 
 fn validate_assembled_world_env(label: &str, node_names: &[&str], entrypoint_path: &str) {
