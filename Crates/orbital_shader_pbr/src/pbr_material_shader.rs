@@ -19,6 +19,9 @@ pub const PBR_NODES: &[&str] = &[
     "pbr_factors",
     "light_contribution",
     "pbr_data_struct",
+    "pbr_bindings",
+    "pbr_vertex",
+    "pbr_surface",
     "shadow_slot",
     // Math
     "pi",

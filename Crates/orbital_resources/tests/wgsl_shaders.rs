@@ -253,6 +253,9 @@ fn every_pbr_node_is_valid_with_its_dependencies() {
     let needs_bindings: &[&str] = &[
         "hdr_tone_map_gamma_correction",
         "sample_normal_from_map",
+        "pbr_bindings",
+        "pbr_vertex",
+        "pbr_surface",
         "pbr_data",
         "sample_shadow_2d_pcf",
         "compute_shadow_for_light",
@@ -270,7 +273,7 @@ fn every_pbr_node_is_valid_with_its_dependencies() {
 
 // --- Full assembled PBR shader ---------------------------------------------
 
-fn validate_assembled_pbr_shader(label: &str) {
+fn validate_assembled_pbr_shader_with_source(label: &str, raw_source: &str) {
     use orbital_shader_preprocessor::{NodeRegistry, ShaderBuilder};
     use std::sync::Arc;
 
@@ -286,16 +289,29 @@ fn validate_assembled_pbr_shader(label: &str) {
     for node_name in orbital_shader_pbr::PBR_NODES {
         builder.add_node(node_name).unwrap();
     }
-    builder.add_source(include_str!(
-        "../../../Crates/orbital_shader_pbr/src/wgsl/pbr_entrypoints.wgsl"
-    ));
+    builder.add_source(raw_source);
     let source = builder.build();
     validate(label, &source);
+}
+
+fn validate_assembled_pbr_shader(label: &str) {
+    validate_assembled_pbr_shader_with_source(
+        label,
+        include_str!("../../../Crates/orbital_shader_pbr/src/wgsl/pbr_entrypoints.wgsl"),
+    );
 }
 
 #[test]
 fn node_assembled_pbr_shader_is_valid_wgsl() {
     validate_assembled_pbr_shader("assembled PBR shader");
+}
+
+#[test]
+fn node_assembled_pbr_gbuffer_shader_is_valid_wgsl() {
+    validate_assembled_pbr_shader_with_source(
+        "assembled PBR G-buffer shader",
+        include_str!("../../../Crates/orbital_shader_pbr/src/wgsl/pbr_gbuffer_entrypoints.wgsl"),
+    );
 }
 
 // --- Full assembled world-environment shaders ------------------------------
