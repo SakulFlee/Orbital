@@ -12,8 +12,8 @@ use orbital_ecs_bridge::{
     ActiveCamera, CameraDescriptor, CameraDirty, CameraRealization, CameraStore, DeviceResource,
     EnvironmentDescriptorResource, EnvironmentGpuResource, LightBufferResource, LightDescriptor,
     LightDirty, LightSlotIndex, LightSlotTracker, MAX_LIGHTS, MaterialCacheResource,
-    MeshCacheResource, ModelDescriptor, ModelDirty, ModelInstances, ModelRealization, Position,
-    PrevPosition, QueueResource, Rotation, ShadowDirtyFlag,
+    MeshCacheResource, ModelDescriptor, ModelDirty, ModelInstances, ModelRealization,
+    PipelineCacheResource, Position, PrevPosition, QueueResource, Rotation, ShadowDirtyFlag,
 };
 use orbital_model::Model;
 use orbital_world_environment::WorldEnvironmentDescriptor;
@@ -192,6 +192,11 @@ pub fn realize_models(ecs: &mut World) {
         (mc, mtc)
     };
 
+    let pipeline_cache = match ecs.get_resource::<PipelineCacheResource>() {
+        Some(cache) => Arc::clone(&cache.0),
+        None => return,
+    };
+
     // Collect entities that need realization
     let entities_to_realize: Vec<(usize, ModelDescriptor, ModelInstances, bool)> = {
         let descs = match ecs.get_component_store::<ModelDescriptor>() {
@@ -283,6 +288,7 @@ pub fn realize_models(ecs: &mut World) {
             &queue,
             &mesh_cache,
             &material_cache,
+            &pipeline_cache,
         ) {
             Ok(gpu_model) => {
                 if needs_new {
