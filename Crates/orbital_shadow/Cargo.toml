@@ -8,6 +8,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+orbital_camera = { path = "../orbital_camera" }
 orbital_math = { path = "../orbital_math" }
 orbital_texture = { path = "../orbital_texture" }
 orbital_vertex = { path = "../orbital_vertex" }

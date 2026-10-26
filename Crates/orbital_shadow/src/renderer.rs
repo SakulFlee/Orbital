@@ -10,6 +10,7 @@ use wgpu::{
     TextureViewDimension, VertexState,
 };
 
+use orbital_camera::Frustum;
 use orbital_material_shader::{AlphaMode, ShaderProgram};
 use orbital_math::{ortho_wgpu, perspective_wgpu};
 use orbital_model::Model;
@@ -505,7 +506,9 @@ impl ShadowRenderer {
 
                         let matrix_offset = ((matrix_index as usize + face as usize) as u64
                             * self.slot_stride) as u32;
-                        self.draw_shadow_models(&mut pass, models, matrix_offset);
+                        let frustum =
+                            Frustum::from_view_projection_matrix(&face_mats[face as usize]);
+                        self.draw_shadow_models(&mut pass, models, matrix_offset, Some(&frustum));
                     }
 
                     slot_index += 1;
@@ -651,6 +654,8 @@ impl ShadowRenderer {
             );
 
             let layer_view = &self.layer_views[slot.layer_index as usize];
+            let light_view_proj = Matrix4::from(slot.light_view_proj);
+            let frustum = Frustum::from_view_projection_matrix(&light_view_proj);
 
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Shadow Map Render Pass"),
@@ -669,7 +674,7 @@ impl ShadowRenderer {
             });
 
             let matrix_offset = (slot_matrix_offsets[i as usize] as u64 * self.slot_stride) as u32;
-            self.draw_shadow_models(&mut pass, models, matrix_offset);
+            self.draw_shadow_models(&mut pass, models, matrix_offset, Some(&frustum));
         }
     }
 
@@ -710,8 +715,23 @@ impl ShadowRenderer {
         pass: &mut wgpu::RenderPass<'_>,
         models: &[Arc<Model>],
         matrix_offset: u32,
+        frustum: Option<&Frustum>,
     ) {
         for model in models {
+            if let Some(frustum) = frustum {
+                let bounds = model.instance_bounds();
+                if !bounds.is_empty()
+                    && !bounds.iter().any(|bound| {
+                        frustum.intersects_sphere(
+                            &Point3::new(bound[0], bound[1], bound[2]),
+                            bound[3].max(0.0),
+                        )
+                    })
+                {
+                    continue;
+                }
+            }
+
             pass.set_vertex_buffer(0, model.mesh().vertex_buffer().slice(..));
             pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
             pass.set_index_buffer(
