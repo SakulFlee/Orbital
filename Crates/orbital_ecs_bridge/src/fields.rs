@@ -163,7 +163,16 @@ mod tests {
 
         assert_eq!(
             ids,
-            vec!["label", "aspect", "fovy", "near", "far", "global_gamma"]
+            vec![
+                "label",
+                "aspect",
+                "fovy",
+                "projection_mode",
+                "ortho_height",
+                "near",
+                "far",
+                "global_gamma"
+            ]
         );
     }
 

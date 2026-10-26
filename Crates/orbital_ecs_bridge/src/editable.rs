@@ -107,6 +107,24 @@ impl EditableValue for bool {
     }
 }
 
+impl EditableValue for orbital_camera::ProjectionMode {
+    fn to_edit_string(&self) -> String {
+        match self {
+            Self::Perspective => "perspective".to_string(),
+            Self::Orthographic => "orthographic".to_string(),
+        }
+    }
+
+    fn set_from_str(&mut self, input: &str) -> Result<(), String> {
+        match input.trim().to_ascii_lowercase().as_str() {
+            "perspective" | "persp" => *self = Self::Perspective,
+            "orthographic" | "ortho" => *self = Self::Orthographic,
+            _ => return Err("expected perspective or orthographic".to_string()),
+        }
+        Ok(())
+    }
+}
+
 impl EditableValue for String {
     fn to_edit_string(&self) -> String {
         self.clone()

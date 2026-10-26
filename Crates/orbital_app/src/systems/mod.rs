@@ -4,7 +4,9 @@ pub mod cursor;
 pub mod import;
 pub mod realize;
 pub mod stagger;
-pub use camera::{sys_camera_controller, sys_touch_camera_controller};
+pub use camera::{
+    sys_camera_controller, sys_ortho_pan, sys_ortho_zoom, sys_touch_camera_controller,
+};
 pub use cull::sys_frustum_cull;
 pub use cursor::CursorToggle;
 pub use import::sys_poll_importer;

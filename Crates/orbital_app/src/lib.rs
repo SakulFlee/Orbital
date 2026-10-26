@@ -51,7 +51,8 @@ pub struct FreezeKeyConfig(pub winit::keyboard::KeyCode);
 pub mod systems;
 pub use systems::{
     CursorToggle, realize_cameras, realize_environment, realize_lights, realize_models,
-    sys_camera_controller, sys_frustum_cull, sys_touch_camera_controller,
+    sys_camera_controller, sys_frustum_cull, sys_ortho_pan, sys_ortho_zoom,
+    sys_touch_camera_controller,
 };
 
 pub use orbital_input as input;
