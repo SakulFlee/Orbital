@@ -417,7 +417,8 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
         // A captured event means a widget is actively responding — dragging or
         // resizing a panel, for instance. Those change the layout without
         // publishing a message, so rebuild promptly instead of waiting for the
-        // refresh interval; otherwise a resize is only applied at 20 Hz.
+        // refresh interval; otherwise a resize is only applied at the panel's
+        // configured cadence.
         if event_statuses.contains(&iced_winit::core::event::Status::Captured) {
             self.state.mark_dirty();
         }
