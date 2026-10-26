@@ -8,7 +8,9 @@ pub use bridge::IcedBridgeModule;
 pub use events::{IcedEvent, IcedEventBridge};
 pub use floating_panel::FloatingPanel;
 pub use renderer::IcedLayerRenderer;
-pub use state::{DEFAULT_REFRESH_INTERVAL, IcedState, IcedUiState, Message};
+pub use state::{
+    DEFAULT_REFRESH_INTERVAL, IcedState, IcedUiState, Message, SMOOTH_REFRESH_INTERVAL,
+};
 
 pub use bridge::IcedBridgeModule as IcedBridge;
 pub use bridge::IcedBridgeModule as OrbitalUI;
