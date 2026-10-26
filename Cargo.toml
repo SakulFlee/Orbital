@@ -3,7 +3,7 @@ resolver = "2"
 members = ["Examples/*", "Crates/*"]
 
 [workspace.package]
-version = "1.5.0"
+version = "1.6.0"
 authors = ["Lukas Weber <dev@sakul-flee.de>"]
 edition = "2024"
 license = "MIT OR Apache-2.0"
