@@ -6,6 +6,7 @@ mod renderer_2d;
 mod renderer_text;
 mod renderer_ui;
 mod scene;
+mod smaa;
 mod tonemap;
 mod volumetric;
 
