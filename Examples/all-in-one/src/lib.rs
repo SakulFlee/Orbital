@@ -5,14 +5,16 @@ use orbital::app::{
     App, AppSettings, CursorToggle, InputButton, LayerRenderer, Module, RenderOverlay,
     RenderOverlayContext, sys_camera_controller,
 };
+use orbital::billboard::{Billboard, BillboardMode, BillboardModule};
 use orbital::camera::ProjectionMode;
-use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector3};
+use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector2, Vector3};
 use orbital::debug_render::DebugModule;
 use orbital::ecs::{Commands, ComponentAccess, IntoSystem, Res, ResMut, System, World};
 use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptor, CursorGrabConfig, CursorGrabState, DeltaTime,
     EnvironmentDescriptorResource, ImportQueueResource, InputSnapshot, LightDescriptor, LightDirty,
-    ModelDescriptor, ModelDirty, ModelInstances, Position, Rotation,
+    ModelDescriptor, ModelDirty, ModelInstances, Position, Rotation, VolumetricQuality,
+    VolumetricSettings,
 };
 use orbital::iced::{IcedState, IcedUiState, OrbitalUI};
 use orbital::importer::{ImportTask, gltf::GltfImport};
@@ -23,9 +25,11 @@ use orbital::procgeo::scene::SceneBuilder;
 use orbital::renderer::{Camera2DUniform, Renderer2D};
 use orbital::resources::WorldEnvironmentDescriptor;
 use orbital::resources::{
-    GeneratedSkyParameters, SamplingType, ShadowCaster, SunPosition, Transform,
+    AlphaMode, FilterMode, GeneratedSkyParameters, SamplingType, ShadowCaster, SunPosition,
+    TextureDescriptor, TextureSize, Transform,
 };
 use orbital::twod::Vertex2D;
+use orbital::wgpu::{TextureDimension, TextureFormat, TextureUsages, TextureViewDimension};
 use orbital::winit::keyboard::{KeyCode, PhysicalKey};
 
 pub const NAME: &str = env!("CARGO_PKG_NAME");
@@ -64,6 +68,7 @@ pub fn entrypoint(
 
     match App::new()
         .add_module(ProcgeoSceneModule)
+        .add_module(BillboardModule)
         .add_module(OrbitalUI)
         .add_module(
             DebugModule::new()
@@ -554,6 +559,23 @@ impl Module for ProcgeoSceneModule {
         ecs.insert_resource(CursorGrabConfig(true));
         ecs.insert_resource(CursorGrabState(true));
 
+        // Low-cost volumetrics showcase. The room spotlights and point lights
+        // inject visible fog scattering while keeping the froxel grid at the
+        // Low tier for the already busy all-in-one scene.
+        ecs.insert_resource(VolumetricSettings {
+            enabled: true,
+            density: 0.003,
+            scattering: 1.3,
+            extinction: 1.1,
+            anisotropy: 0.35,
+            height_base: 0.0,
+            height_falloff: 0.25,
+            height_density: 0.012,
+            ambient_color: [0.08, 0.1, 0.16],
+            max_distance: 90.0,
+            quality: VolumetricQuality::Low,
+        });
+
         // Game state resources (driven by StatsAnimator)
         ecs.insert_resource(Health(100));
         ecs.insert_resource(Mana(100));
@@ -593,10 +615,22 @@ impl Module for ProcgeoSceneModule {
                         })
                         .unwrap_or("Projection: --");
 
+                    let volumetrics_text = ecs
+                        .get_resource::<VolumetricSettings>()
+                        .map(|settings| {
+                            if settings.enabled {
+                                "Volumetrics: Low froxel fog"
+                            } else {
+                                "Volumetrics: disabled"
+                            }
+                        })
+                        .unwrap_or("Volumetrics: disabled");
+
                     column![
                         text(health_text).size(16),
                         text(mana_text).size(16),
                         text(projection_text).size(16),
+                        text(volumetrics_text).size(16),
                     ]
                     .spacing(4)
                     .into()
@@ -668,6 +702,32 @@ impl Module for ProcgeoSceneModule {
         }
 
         info!("Scene loaded with {} entities", scene.entities.len());
+
+        // Billboard showcase: a full-mode camera-facing sign plus a blended
+        // Y-axis sign, both using the same procedural checker texture.
+        let checker = checker_texture();
+        let sign = Billboard::unlit_textured(
+            Vector2::new(2.5, 1.25),
+            checker.clone(),
+            [1.0, 0.85, 0.65, 1.0],
+            AlphaMode::Opaque,
+        )
+        .with_position(Point3::new(-5.0, 5.5, 8.0))
+        .with_mode(BillboardMode::Full);
+        let sign_entity = ecs.spawn_entity();
+        ecs.attach_component(&sign_entity, sign).unwrap();
+
+        let blend_sign = Billboard::unlit_textured(
+            Vector2::new(2.5, 1.25),
+            checker,
+            [0.55, 0.75, 1.0, 0.45],
+            AlphaMode::Blend,
+        )
+        .with_position(Point3::new(5.0, 5.5, 8.0))
+        .with_mode(BillboardMode::YAxis);
+        let blend_sign_entity = ecs.spawn_entity();
+        ecs.attach_component(&blend_sign_entity, blend_sign)
+            .unwrap();
 
         // Import the DamagedHelmet into Room 2
         if let Some(mut queue) = ecs.get_resource_mut::<ImportQueueResource>() {
@@ -830,5 +890,33 @@ impl Module for ProcgeoSceneModule {
 
         let overlay = ShapeOverlay::new(&device.0, format);
         legacy_overlays.push(Box::new(overlay));
+    }
+}
+
+fn checker_texture() -> TextureDescriptor {
+    let mut pixels = Vec::with_capacity(8 * 8 * 4);
+    for y in 0..8 {
+        for x in 0..8 {
+            let color = if (x + y) % 2 == 0 {
+                [255, 255, 255, 255]
+            } else {
+                [255, 150, 80, 255]
+            };
+            pixels.extend_from_slice(&color);
+        }
+    }
+
+    TextureDescriptor::Data {
+        pixels,
+        size: TextureSize {
+            width: 8,
+            height: 8,
+            ..Default::default()
+        },
+        usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+        format: TextureFormat::Rgba8UnormSrgb,
+        texture_dimension: TextureDimension::D2,
+        texture_view_dimension: TextureViewDimension::D2,
+        filter_mode: FilterMode::linear(),
     }
 }
