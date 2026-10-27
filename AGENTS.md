@@ -222,7 +222,7 @@ SKIP_GLTF_EXPORT=1 cargo run -p template_billboards
 | Directory | Package | Notes |
 |-----------|---------|-------|
 | `Examples/minimal` | `template_minimal` | Procedural scene; no asset files. |
-| `Examples/all-in-one` | `template_all_in_one` | Scene, glTF, lighting, shadows, UI, and overlays. Ships its own minimal `Assets/`. |
+| `Examples/all-in-one` | `template_all_in_one` | Scene, glTF, lighting, shadows, billboards, volumetric fog, UI, and overlays. Ships its own minimal `Assets/`. |
 | `Examples/2d` | `template_2d` | 2D shape rendering; no asset files. |
 | `Examples/volumetrics` | `template_volumetrics` | Froxel volumetric lighting and height fog with two shadow-casting spotlights; no asset files. |
 | `Examples/orthographic` | `template_orthographic` | Orthographic camera rendering; no asset files. |
