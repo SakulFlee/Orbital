@@ -67,7 +67,7 @@ fn compute_shadow_for_light(world_pos: vec3<f32>, view_depth: f32, light_idx: u3
 
             let depth = far_plane / (far_plane - near_plane) - far_plane * near_plane / (view_z * (far_plane - near_plane));
 
-            factor = textureSampleCompare(
+            factor = textureSampleCompareLevel(
                 point_shadow_maps, point_shadow_sampler,
                 direction, i32(slot.layer_index), depth - bias
             );

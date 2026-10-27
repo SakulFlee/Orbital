@@ -24,6 +24,7 @@ use crate::fxaa::Fxaa;
 use crate::light_culling::LightCulling;
 use crate::scene::RenderScene;
 use crate::tonemap::Tonemap;
+use crate::volumetric::VolumetricRenderer;
 
 /// Anti-aliasing mode for the 3D scene.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -55,6 +56,8 @@ enum ScenePass {
     ClearDepth,
     Models,
     Transparent,
+    VolumetricInject,
+    VolumetricComposite,
     Tonemap,
     Fxaa,
 }
@@ -105,6 +108,8 @@ const RES_SURFACE: ResourceId = ResourceId::new(6);
 const RES_POST_LDR: ResourceId = ResourceId::new(7);
 const RES_GBUFFER: ResourceId = ResourceId::new(8);
 const RES_LIGHT_GRID: ResourceId = ResourceId::new(9);
+const RES_VOLUMETRIC: ResourceId = ResourceId::new(10);
+const RES_SCENE_COLOR_FINAL: ResourceId = ResourceId::new(11);
 
 fn gbuffer_texture_descriptor(
     resolution: Vector2<u32>,
@@ -133,6 +138,7 @@ fn add_scene_passes(
     has_deferred: bool,
     has_forward_opaque: bool,
     has_transparent: bool,
+    has_volumetrics: bool,
 ) {
     graph.add_pass(ScenePass::Shadow, "shadow", &[], &[RES_SHADOW_MAPS]);
     graph.add_pass(
@@ -201,6 +207,26 @@ fn add_scene_passes(
         );
     }
 
+    if has_volumetrics {
+        graph.add_pass(
+            ScenePass::VolumetricInject,
+            "volumetric-inject",
+            &[RES_WORLD],
+            &[RES_VOLUMETRIC],
+        );
+        graph.add_pass(
+            ScenePass::VolumetricComposite,
+            "volumetric-composite",
+            &[RES_SCENE_COLOR, RES_DEPTH, RES_VOLUMETRIC],
+            &[RES_SCENE_COLOR_FINAL],
+        );
+    }
+
+    let tonemap_source = if has_volumetrics {
+        RES_SCENE_COLOR_FINAL
+    } else {
+        RES_SCENE_COLOR
+    };
     let tonemap_target = if anti_aliasing == AntiAliasing::Off {
         RES_SURFACE
     } else {
@@ -209,7 +235,7 @@ fn add_scene_passes(
     graph.add_pass(
         ScenePass::Tonemap,
         "tonemap",
-        &[RES_SCENE_COLOR],
+        &[tonemap_source],
         &[tonemap_target],
     );
     if anti_aliasing != AntiAliasing::Off {
@@ -423,6 +449,7 @@ pub struct Renderer {
     fxaa: Fxaa,
     deferred_lighting: DeferredLighting,
     light_culling: LightCulling,
+    volumetric: VolumetricRenderer,
     deferred_enabled: bool,
     shadow_renderer: Option<ShadowRenderer>,
     fallbacks: RendererFallbacks,
@@ -538,6 +565,12 @@ impl Renderer {
             resolution,
             &fallbacks.world_bind_group_layout,
         );
+        let volumetric = VolumetricRenderer::new(
+            device,
+            queue,
+            SCENE_COLOR_FORMAT,
+            &fallbacks.world_bind_group_layout,
+        );
 
         Self {
             surface_texture_format,
@@ -550,6 +583,7 @@ impl Renderer {
             fxaa: Fxaa::new(device, queue, surface_texture_format, resolution),
             deferred_lighting,
             light_culling,
+            volumetric,
             deferred_enabled: true,
             shadow_renderer: None,
             fallbacks,
@@ -949,6 +983,42 @@ impl Renderer {
             self.light_culling.ensure(device, queue, self.resolution);
         }
 
+        let volumetrics = scene.volumetrics.filter(|settings| settings.enabled);
+        let has_volumetrics = volumetrics.is_some();
+        let volumetric_targets = if let Some(settings) = volumetrics {
+            self.volumetric.prepare(queue, &settings, self.resolution);
+            let grid = self.volumetric.grid();
+            let froxel = self.texture_pool.acquire(
+                device,
+                &wgpu::TextureDescriptor {
+                    label: Some("Orbital::VolumetricFroxels"),
+                    size: wgpu::Extent3d {
+                        width: grid[0],
+                        height: grid[1],
+                        depth_or_array_layers: grid[2],
+                    },
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D3,
+                    format: SCENE_COLOR_FORMAT,
+                    usage: wgpu::TextureUsages::STORAGE_BINDING
+                        | wgpu::TextureUsages::TEXTURE_BINDING,
+                    view_formats: &[],
+                },
+            );
+            let final_color = self.texture_pool.acquire(
+                device,
+                &gbuffer_texture_descriptor(
+                    self.resolution,
+                    SCENE_COLOR_FORMAT,
+                    "Orbital::VolumetricSceneColor",
+                ),
+            );
+            Some((froxel, final_color))
+        } else {
+            None
+        };
+
         let mut graph = std::mem::take(&mut self.render_graph);
         graph.begin_frame();
         add_scene_passes(
@@ -957,6 +1027,7 @@ impl Renderer {
             has_deferred,
             has_forward_opaque,
             has_transparent,
+            has_volumetrics,
         );
         graph.compile().expect("render graph must be acyclic");
 
@@ -1100,6 +1171,33 @@ impl Renderer {
                             );
                         }
                     }
+                    ScenePass::VolumetricInject => {
+                        if let (Some(bind_group), Some(targets)) =
+                            (world_bind_group.as_ref(), volumetric_targets.as_ref())
+                        {
+                            self.volumetric.record_inject(
+                                context.device,
+                                context.encoder,
+                                bind_group,
+                                &targets.0.view,
+                            );
+                        }
+                    }
+                    ScenePass::VolumetricComposite => {
+                        if let (Some(bind_group), Some(targets)) =
+                            (world_bind_group.as_ref(), volumetric_targets.as_ref())
+                        {
+                            self.volumetric.record_composite(
+                                context.device,
+                                context.encoder,
+                                bind_group,
+                                &scene_color.view,
+                                &depth.view,
+                                &targets.0.view,
+                                &targets.1.view,
+                            );
+                        }
+                    }
                     ScenePass::Tonemap => {
                         if let Some(qs) = &self.timestamp_query_set {
                             context.encoder.write_timestamp(qs, 3);
@@ -1108,10 +1206,14 @@ impl Renderer {
                             .as_ref()
                             .map(|post_ldr| &post_ldr.view)
                             .unwrap_or(target_view);
+                        let tonemap_source = volumetric_targets
+                            .as_ref()
+                            .map(|targets| &targets.1.view)
+                            .unwrap_or(&scene_color.view);
                         self.tonemap.record(
                             context.device,
                             context.encoder,
-                            &scene_color.view,
+                            tonemap_source,
                             tonemap_target,
                         );
                     }
@@ -1136,7 +1238,9 @@ impl Renderer {
                 ScenePass::Gbuffer
                 | ScenePass::LightCulling
                 | ScenePass::DeferredLighting
-                | ScenePass::Models => {
+                | ScenePass::Models
+                | ScenePass::VolumetricInject
+                | ScenePass::VolumetricComposite => {
                     models_ms += ms(timing.cpu);
                 }
                 ScenePass::Transparent => models_ms += ms(timing.cpu),
@@ -1610,6 +1714,7 @@ mod tests {
         has_deferred: bool,
         has_forward_opaque: bool,
         has_transparent: bool,
+        has_volumetrics: bool,
     ) -> Vec<&'static str> {
         let mut graph = RenderGraph::new();
         add_scene_passes(
@@ -1618,6 +1723,7 @@ mod tests {
             has_deferred,
             has_forward_opaque,
             has_transparent,
+            has_volumetrics,
         );
         graph.compile().unwrap();
         graph
@@ -1629,7 +1735,7 @@ mod tests {
     #[test]
     fn scene_graph_with_forward_opaque_clears_depth_first() {
         assert_eq!(
-            graph_order(AntiAliasing::Off, false, true, false),
+            graph_order(AntiAliasing::Off, false, true, false, false),
             [
                 "shadow",
                 "prepare-world",
@@ -1644,7 +1750,7 @@ mod tests {
     #[test]
     fn scene_graph_with_deferred_opaque_skips_forward_models() {
         assert_eq!(
-            graph_order(AntiAliasing::Off, true, false, false),
+            graph_order(AntiAliasing::Off, true, false, false, false),
             [
                 "shadow",
                 "prepare-world",
@@ -1660,7 +1766,7 @@ mod tests {
     #[test]
     fn scene_graph_with_fxaa_adds_post_pass() {
         assert_eq!(
-            graph_order(AntiAliasing::Fxaa, true, false, false),
+            graph_order(AntiAliasing::Fxaa, true, false, false, false),
             [
                 "shadow",
                 "prepare-world",
@@ -1677,7 +1783,7 @@ mod tests {
     #[test]
     fn scene_graph_hybrid_runs_deferred_then_forward_and_transparent() {
         assert_eq!(
-            graph_order(AntiAliasing::Off, true, true, true),
+            graph_order(AntiAliasing::Off, true, true, true, false),
             [
                 "shadow",
                 "prepare-world",
@@ -1695,13 +1801,32 @@ mod tests {
     #[test]
     fn scene_graph_with_only_transparency_clears_depth_first() {
         assert_eq!(
-            graph_order(AntiAliasing::Off, false, false, true),
+            graph_order(AntiAliasing::Off, false, false, true, false),
             [
                 "shadow",
                 "prepare-world",
                 "sky",
                 "clear-depth",
                 "transparent",
+                "tonemap"
+            ]
+        );
+    }
+
+    #[test]
+    fn scene_graph_runs_volumetrics_before_tonemap() {
+        assert_eq!(
+            graph_order(AntiAliasing::Off, true, false, true, true),
+            [
+                "shadow",
+                "prepare-world",
+                "sky",
+                "gbuffer",
+                "light-culling",
+                "deferred-lighting",
+                "transparent",
+                "volumetric-inject",
+                "volumetric-composite",
                 "tonemap"
             ]
         );

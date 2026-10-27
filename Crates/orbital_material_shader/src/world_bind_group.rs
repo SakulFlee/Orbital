@@ -83,7 +83,7 @@ pub fn make_world_bind_group_layout(device: &Device) -> BindGroupLayout {
             },
             BindGroupLayoutEntry {
                 binding: 8,
-                visibility: ShaderStages::VERTEX_FRAGMENT,
+                visibility: ShaderStages::VERTEX_FRAGMENT | ShaderStages::COMPUTE,
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: false,
@@ -93,7 +93,7 @@ pub fn make_world_bind_group_layout(device: &Device) -> BindGroupLayout {
             },
             BindGroupLayoutEntry {
                 binding: 9,
-                visibility: ShaderStages::FRAGMENT,
+                visibility: ShaderStages::FRAGMENT | ShaderStages::COMPUTE,
                 ty: BindingType::Texture {
                     sample_type: TextureSampleType::Depth,
                     view_dimension: TextureViewDimension::D2Array,
@@ -103,13 +103,13 @@ pub fn make_world_bind_group_layout(device: &Device) -> BindGroupLayout {
             },
             BindGroupLayoutEntry {
                 binding: 10,
-                visibility: ShaderStages::FRAGMENT,
+                visibility: ShaderStages::FRAGMENT | ShaderStages::COMPUTE,
                 ty: BindingType::Sampler(SamplerBindingType::Comparison),
                 count: None,
             },
             BindGroupLayoutEntry {
                 binding: 11,
-                visibility: ShaderStages::FRAGMENT,
+                visibility: ShaderStages::FRAGMENT | ShaderStages::COMPUTE,
                 ty: BindingType::Texture {
                     sample_type: TextureSampleType::Depth,
                     view_dimension: TextureViewDimension::CubeArray,
@@ -119,7 +119,7 @@ pub fn make_world_bind_group_layout(device: &Device) -> BindGroupLayout {
             },
             BindGroupLayoutEntry {
                 binding: 12,
-                visibility: ShaderStages::FRAGMENT,
+                visibility: ShaderStages::FRAGMENT | ShaderStages::COMPUTE,
                 ty: BindingType::Sampler(SamplerBindingType::Comparison),
                 count: None,
             },
