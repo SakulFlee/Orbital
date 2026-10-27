@@ -4,6 +4,7 @@
 struct TextParams {
     color: vec4<f32>,
     outline_color: vec4<f32>,
+    background_color: vec4<f32>,
     params: vec4<f32>, // x = outline width, y = smoothing, z = alpha cutoff
 }
 
@@ -14,6 +15,11 @@ struct TextParams {
 
 @fragment
 fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
+    // Background vertices use UVs above 1.5.
+    if (in.uv.x > 1.5) {
+        return text_params.background_color;
+    }
+
     let distance = textureSample(font_atlas, font_sampler, in.uv).r;
     let smoothing = max(text_params.params.y, 0.0001);
     let outline_width = max(text_params.params.x, 0.0);

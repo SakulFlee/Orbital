@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use orbital::app::{App, AppSettings, Module, sys_camera_controller};
-use orbital::billboard::{Billboard, BillboardMode, BillboardModule, text_billboard};
+use orbital::billboard::{
+    Billboard, BillboardMode, BillboardModule, text_billboard_with_background,
+};
 use orbital::cgmath::{InnerSpace, Point3, Rad, Vector2, Vector3};
 use orbital::ecs::{IntoSystem, System, World};
 use orbital::ecs_bridge::{
@@ -236,7 +238,7 @@ impl Module for GameModule {
         }
 
         let mut font = DefaultFont::load();
-        let label = text_billboard(
+        let label = text_billboard_with_background(
             "Orbital",
             &mut font,
             &TextConfig {
@@ -246,6 +248,7 @@ impl Module for GameModule {
             },
             0.008,
             Some(([0.0, 0.0, 0.0, 0.9], 0.12)),
+            Some([0.05, 0.08, 0.15, 0.55]),
             AlphaMode::Blend,
         )
         .with_position(Point3::new(0.0, 4.2, -2.0))

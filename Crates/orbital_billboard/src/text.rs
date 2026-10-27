@@ -33,6 +33,19 @@ pub fn text_billboard(
     outline: Option<([f32; 4], f32)>,
     alpha_mode: AlphaMode,
 ) -> Billboard {
+    text_billboard_with_background(text, font, config, world_scale, outline, None, alpha_mode)
+}
+
+/// Like [`text_billboard`], with an optional background color.
+pub fn text_billboard_with_background(
+    text: &str,
+    font: &mut FontData,
+    config: &TextConfig,
+    world_scale: f32,
+    outline: Option<([f32; 4], f32)>,
+    background: Option<[f32; 4]>,
+    alpha_mode: AlphaMode,
+) -> Billboard {
     let characters = if text.is_empty() {
         " ".to_string()
     } else {
@@ -61,7 +74,55 @@ pub fn text_billboard(
     let normal = Vector3::unit_z();
     let tangent = Vector3::unit_x();
     let bitangent = Vector3::unit_y();
-    let mut vertices = Vec::with_capacity(vertices_2d.len());
+    let background_vertices = if background.is_some() && !vertices_2d.is_empty() {
+        4
+    } else {
+        0
+    };
+    let mut vertices = Vec::with_capacity(vertices_2d.len() + background_vertices);
+    let mut indices = Vec::with_capacity(vertices_2d.len() + background_vertices);
+
+    if background.is_some() && !vertices_2d.is_empty() {
+        let padding = config.font_size * 0.2;
+        let x0 = min.x - padding - center.x;
+        let x1 = max.x + padding - center.x;
+        let y0 = -(max.y + padding - center.y);
+        let y1 = -(min.y - padding - center.y);
+
+        vertices.extend([
+            Vertex::new_with_bitangent(
+                Vector3::new(x0, y0, 0.0),
+                normal,
+                tangent,
+                bitangent,
+                Vector2::new(2.0, 2.0),
+            ),
+            Vertex::new_with_bitangent(
+                Vector3::new(x1, y0, 0.0),
+                normal,
+                tangent,
+                bitangent,
+                Vector2::new(2.0, 2.0),
+            ),
+            Vertex::new_with_bitangent(
+                Vector3::new(x1, y1, 0.0),
+                normal,
+                tangent,
+                bitangent,
+                Vector2::new(2.0, 2.0),
+            ),
+            Vertex::new_with_bitangent(
+                Vector3::new(x0, y1, 0.0),
+                normal,
+                tangent,
+                bitangent,
+                Vector2::new(2.0, 2.0),
+            ),
+        ]);
+        indices.extend([0, 1, 2, 0, 2, 3]);
+    }
+
+    let glyph_start = vertices.len() as u32;
     for vertex in &vertices_2d {
         vertices.push(Vertex::new_with_bitangent(
             Vector3::new(
@@ -75,7 +136,7 @@ pub fn text_billboard(
             Vector2::new(vertex.texcoord[0], vertex.texcoord[1]),
         ));
     }
-    let indices = (0..vertices.len() as u32).collect();
+    indices.extend(glyph_start..glyph_start + vertices_2d.len() as u32);
 
     let texture = TextureDescriptor::Data {
         pixels: atlas.data,
@@ -91,7 +152,7 @@ pub fn text_billboard(
         filter_mode: FilterMode::linear(),
     };
 
-    let material = text_material(texture, config.color, outline, alpha_mode);
+    let material = text_material(texture, config.color, outline, background, alpha_mode);
     Billboard::from_material(
         Vector2::new(world_scale.max(0.0001), world_scale.max(0.0001)),
         material,
@@ -103,17 +164,20 @@ fn text_material(
     texture: TextureDescriptor,
     color: [f32; 4],
     outline: Option<([f32; 4], f32)>,
+    background: Option<[f32; 4]>,
     alpha_mode: AlphaMode,
 ) -> Arc<MaterialShaderDescriptor> {
     let (outline_color, outline_width) = outline.unwrap_or(([0.0, 0.0, 0.0, 0.0], 0.0));
+    let background_color = background.unwrap_or([0.0, 0.0, 0.0, 0.0]);
     let cutoff = alpha_mode.cutoff().unwrap_or(0.0);
 
-    let mut params = [0u8; 48];
+    let mut params = [0u8; 64];
     write_color(&mut params[0..16], color);
     write_color(&mut params[16..32], outline_color);
-    params[32..36].copy_from_slice(&outline_width.to_le_bytes());
-    params[36..40].copy_from_slice(&0.02f32.to_le_bytes()); // smoothing
-    params[40..44].copy_from_slice(&cutoff.to_le_bytes());
+    write_color(&mut params[32..48], background_color);
+    params[48..52].copy_from_slice(&outline_width.to_le_bytes());
+    params[52..56].copy_from_slice(&0.02f32.to_le_bytes()); // smoothing
+    params[56..60].copy_from_slice(&cutoff.to_le_bytes());
 
     let (blend, depth_write, render_queue) = if alpha_mode == AlphaMode::Blend {
         (BlendState::ALPHA_BLENDING, false, RenderQueue::Transparent)
