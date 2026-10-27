@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use orbital::app::{
     App, AppSettings, CursorToggle, InputButton, LayerRenderer, Module, RenderOverlay,
-    RenderOverlayContext, sys_camera_controller, sys_ortho_zoom,
+    RenderOverlayContext, sys_camera_controller,
 };
 use orbital::camera::ProjectionMode;
 use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector3};
@@ -643,7 +643,6 @@ impl Module for ProcgeoSceneModule {
                     sys_camera_controller.into_system(),
                     sys_projection_toggle_input.into_system(),
                     sys_apply_projection_toggle.into_system(),
-                    sys_ortho_zoom.into_system(),
                     Box::new(CursorToggle::new(true)),
                 ];
             }
@@ -800,7 +799,6 @@ impl Module for ProcgeoSceneModule {
             sys_camera_controller.into_system(),
             sys_projection_toggle_input.into_system(),
             sys_apply_projection_toggle.into_system(),
-            sys_ortho_zoom.into_system(),
             Box::new(CursorToggle::new(true)),
             Box::new(HelmetAdjuster::new()),
             Box::new(StatsAnimator::new()),
