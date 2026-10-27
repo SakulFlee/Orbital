@@ -2,15 +2,16 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use orbital::app::{
-    App, AppSettings, CursorToggle, LayerRenderer, Module, RenderOverlay, RenderOverlayContext,
-    sys_camera_controller,
+    App, AppSettings, CursorToggle, InputButton, LayerRenderer, Module, RenderOverlay,
+    RenderOverlayContext, sys_camera_controller,
 };
+use orbital::camera::ProjectionMode;
 use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector3};
 use orbital::debug_render::DebugModule;
 use orbital::ecs::{Commands, ComponentAccess, IntoSystem, Res, ResMut, System, World};
 use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptor, CursorGrabConfig, CursorGrabState, DeltaTime,
-    EnvironmentDescriptorResource, ImportQueueResource, LightDescriptor, LightDirty,
+    EnvironmentDescriptorResource, ImportQueueResource, InputSnapshot, LightDescriptor, LightDirty,
     ModelDescriptor, ModelDirty, ModelInstances, Position, Rotation,
 };
 use orbital::iced::{IcedState, IcedUiState, OrbitalUI};
@@ -25,7 +26,7 @@ use orbital::resources::{
     GeneratedSkyParameters, SamplingType, ShadowCaster, SunPosition, Transform,
 };
 use orbital::twod::Vertex2D;
-use orbital::winit::keyboard::KeyCode;
+use orbital::winit::keyboard::{KeyCode, PhysicalKey};
 
 pub const NAME: &str = env!("CARGO_PKG_NAME");
 
@@ -34,6 +35,13 @@ struct Health(u32);
 
 #[derive(Clone)]
 struct Mana(u32);
+
+#[derive(Clone, Copy)]
+struct ProjectionToggleState {
+    was_pressed: bool,
+    pending_toggle: bool,
+    mode: ProjectionMode,
+}
 
 #[orbital::main]
 pub fn entrypoint(
@@ -451,6 +459,42 @@ impl RenderOverlay for ShapeOverlay {
 const DYNAMIC_SKY_CUBE_SIZE: u32 = 256;
 const DYNAMIC_SKY_MIP_LEVELS: u32 = 3;
 
+fn sys_projection_toggle_input(
+    input: Res<InputSnapshot>,
+    mut state: ResMut<ProjectionToggleState>,
+) {
+    let pressed = input
+        .0
+        .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyO)))
+        .map(|(_, pressed)| pressed)
+        .unwrap_or(false);
+
+    if pressed && !state.was_pressed {
+        state.pending_toggle = true;
+    }
+    state.was_pressed = pressed;
+}
+
+fn sys_apply_projection_toggle(
+    mut state: ResMut<ProjectionToggleState>,
+    camera: &mut CameraDescriptor,
+) {
+    if !state.pending_toggle {
+        return;
+    }
+    state.pending_toggle = false;
+
+    camera.projection_mode = match camera.projection_mode {
+        ProjectionMode::Perspective => {
+            camera.ortho_height = 20.0;
+            ProjectionMode::Orthographic
+        }
+        ProjectionMode::Orthographic => ProjectionMode::Perspective,
+    };
+    state.mode = camera.projection_mode;
+    info!("Camera projection switched to {:?}", camera.projection_mode);
+}
+
 fn sys_animate_dynamic_sky(
     initial_hours: f32,
 ) -> impl FnMut(Res<DeltaTime>, ResMut<EnvironmentDescriptorResource>) {
@@ -513,6 +557,11 @@ impl Module for ProcgeoSceneModule {
         // Game state resources (driven by StatsAnimator)
         ecs.insert_resource(Health(100));
         ecs.insert_resource(Mana(100));
+        ecs.insert_resource(ProjectionToggleState {
+            was_pressed: false,
+            pending_toggle: false,
+            mode: ProjectionMode::Perspective,
+        });
 
         // Iced UI panels
         let mut ui = IcedUiState::new();
@@ -536,9 +585,21 @@ impl Module for ProcgeoSceneModule {
                         .map(|m| format!("Mana: {}", m.0))
                         .unwrap_or_else(|| "Mana: --".to_string());
 
-                    column![text(health_text).size(16), text(mana_text).size(16)]
-                        .spacing(4)
-                        .into()
+                    let projection_text = ecs
+                        .get_resource::<ProjectionToggleState>()
+                        .map(|state| match state.mode {
+                            ProjectionMode::Perspective => "Projection: Perspective (O)",
+                            ProjectionMode::Orthographic => "Projection: Orthographic (O)",
+                        })
+                        .unwrap_or("Projection: --");
+
+                    column![
+                        text(health_text).size(16),
+                        text(mana_text).size(16),
+                        text(projection_text).size(16),
+                    ]
+                    .spacing(4)
+                    .into()
                 }),
         );
 
@@ -580,6 +641,8 @@ impl Module for ProcgeoSceneModule {
                 );
                 return vec![
                     sys_camera_controller.into_system(),
+                    sys_projection_toggle_input.into_system(),
+                    sys_apply_projection_toggle.into_system(),
                     Box::new(CursorToggle::new(true)),
                 ];
             }
@@ -734,6 +797,8 @@ impl Module for ProcgeoSceneModule {
 
         vec![
             sys_camera_controller.into_system(),
+            sys_projection_toggle_input.into_system(),
+            sys_apply_projection_toggle.into_system(),
             Box::new(CursorToggle::new(true)),
             Box::new(HelmetAdjuster::new()),
             Box::new(StatsAnimator::new()),

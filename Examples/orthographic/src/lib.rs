@@ -65,18 +65,18 @@ impl Module for GameModule {
                 aspect: 16.0 / 9.0,
                 fovy: Rad(std::f32::consts::FRAC_PI_4),
                 projection_mode: ProjectionMode::Orthographic,
-                ortho_height: 8.0,
+                ortho_height: 14.0,
                 near: 0.1,
-                far: 100.0,
+                far: 200.0,
                 global_gamma: 2.2,
             },
         )
         .unwrap();
-        ecs.attach_component(&camera, Position(Point3::new(0.0, 3.0, 5.0)))
+        ecs.attach_component(&camera, Position(Point3::new(0.0, 6.0, 12.0)))
             .unwrap();
         let mut rot = Rotation::identity();
         rot.rotate_yaw(Rad(std::f32::consts::FRAC_PI_2));
-        rot.rotate_pitch(Rad(-0.3));
+        rot.rotate_pitch(Rad(-0.35));
         ecs.attach_component(&camera, rot).unwrap();
         ecs.insert_resource(ActiveCamera(camera));
         ecs.insert_resource(CursorGrabConfig(true));
@@ -92,7 +92,8 @@ impl Module for GameModule {
             },
         )));
 
-        // Build a minimal scene: a cube sitting on a plane
+        // Three equal cubes at different depths make orthographic scale
+        // (lack of perspective foreshortening) easy to verify.
         let mut scene = SceneBuilder::new();
         scene.add_material(
             "floor",
@@ -113,23 +114,29 @@ impl Module for GameModule {
         scene.add_entity(EntityDescriptor {
             label: Some("Floor".into()),
             shape: SceneShape::Plane {
-                size: [10.0, 10.0],
+                size: [24.0, 24.0],
                 subdivisions: 2,
             },
             material: "floor".into(),
             transform: TransformDef::default(),
         });
-        scene.add_entity(EntityDescriptor {
-            label: Some("Cube".into()),
-            shape: SceneShape::Box {
-                size: [1.0, 1.0, 1.0],
-            },
-            material: "cube".into(),
-            transform: TransformDef {
-                position: [0.0, 0.5, 0.0],
-                ..Default::default()
-            },
-        });
+        for (label, position) in [
+            ("Cube Near", [-3.0, 0.5, 0.0]),
+            ("Cube Mid", [0.0, 0.5, -3.0]),
+            ("Cube Far", [3.0, 0.5, -6.0]),
+        ] {
+            scene.add_entity(EntityDescriptor {
+                label: Some(label.into()),
+                shape: SceneShape::Box {
+                    size: [1.0, 1.0, 1.0],
+                },
+                material: "cube".into(),
+                transform: TransformDef {
+                    position,
+                    ..Default::default()
+                },
+            });
+        }
 
         // Spawn the generated meshes as renderable entities
         for (mesh, material, transform) in scene.build() {
@@ -178,6 +185,20 @@ impl Module for GameModule {
             },
         )
         .unwrap();
+
+        let fill = ecs.spawn_entity();
+        ecs.attach_component(
+            &fill,
+            LightDescriptor::new_directional(
+                Vector3::new(0.0, -0.6, -0.8),
+                Vector3::new(1.0, 0.95, 0.85),
+                0.35,
+            ),
+        )
+        .unwrap();
+        ecs.attach_component(&fill, Position(Point3::new(0.0, 0.0, 0.0)))
+            .unwrap();
+        ecs.attach_component(&fill, LightDirty(true)).unwrap();
 
         vec![sys_ortho_pan.into_system(), sys_ortho_zoom.into_system()]
     }
