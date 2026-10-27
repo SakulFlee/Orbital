@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use orbital::app::{App, AppSettings, Module, sys_camera_controller};
-use orbital::billboard::{Billboard, BillboardMode, BillboardModule};
+use orbital::billboard::{
+    Billboard, BillboardMode, BillboardModule, text_billboard_with_background,
+};
 use orbital::cgmath::{InnerSpace, Point3, Rad, Vector2, Vector3};
 use orbital::ecs::{IntoSystem, System, World};
 use orbital::ecs_bridge::{
@@ -16,6 +18,7 @@ use orbital::resources::{
     AlphaMode, FilterMode, GeneratedSkyParameters, SamplingType, ShadowCaster, TextureDescriptor,
     TextureSize, WorldEnvironmentDescriptor,
 };
+use orbital::text::{DefaultFont, TextConfig};
 use orbital::wgpu::{TextureDimension, TextureFormat, TextureUsages, TextureViewDimension};
 
 pub const NAME: &str = env!("CARGO_PKG_NAME");
@@ -233,6 +236,25 @@ impl Module for GameModule {
             let entity = ecs.spawn_entity();
             ecs.attach_component(&entity, billboard).unwrap();
         }
+
+        let mut font = DefaultFont::load();
+        let label = text_billboard_with_background(
+            "Orbital",
+            &mut font,
+            &TextConfig {
+                font_size: 48.0,
+                color: [1.0, 1.0, 1.0, 1.0],
+                ..Default::default()
+            },
+            0.008,
+            Some(([0.0, 0.0, 0.0, 0.9], 0.12)),
+            Some([0.05, 0.08, 0.15, 0.55]),
+            AlphaMode::Blend,
+        )
+        .with_position(Point3::new(0.0, 4.2, -2.0))
+        .with_mode(BillboardMode::YAxis);
+        let label_entity = ecs.spawn_entity();
+        ecs.attach_component(&label_entity, label).unwrap();
 
         vec![sys_camera_controller.into_system()]
     }

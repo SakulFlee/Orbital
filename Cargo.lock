@@ -3129,6 +3129,7 @@ dependencies = [
  "orbital_mesh",
  "orbital_shader_core",
  "orbital_shader_pbr",
+ "orbital_text",
  "orbital_texture",
  "orbital_vertex",
  "wgpu",

@@ -226,7 +226,7 @@ SKIP_GLTF_EXPORT=1 cargo run -p template_billboards
 | `Examples/2d` | `template_2d` | 2D shape rendering; no asset files. |
 | `Examples/volumetrics` | `template_volumetrics` | Froxel volumetric lighting and height fog with two shadow-casting spotlights; no asset files. |
 | `Examples/orthographic` | `template_orthographic` | Orthographic camera rendering; no asset files. |
-| `Examples/billboards` | `template_billboards` | Full/Y-axis/fixed billboards, lit/unlit and blended sorting; no asset files. |
+| `Examples/billboards` | `template_billboards` | Full/Y-axis/fixed billboards, lit/unlit, SDF text and blended sorting; no asset files. |
 
 The template app sources are canonical in `Examples/`; the CLI embeds them
 during generation. `Crates/orbital_cli/src/template/` only contains platform
