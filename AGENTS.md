@@ -159,7 +159,8 @@ Mesh, material, and descriptor caches are keyed by descriptor and use `orbital_c
 - Material shaders are assembled from named WGSL nodes declared by `ShaderDescriptor::nodes`, optional raw source, and variables.
 - The preprocessor resolves dependencies and builds the `MaterialShader` pipeline.
 - The global registry receives `math`, `engine`, `pbr`, and `world_environment` libraries before module setup.
-- Main pass order: shadow → skybox → models. Models use CPU-culled compacted instance buffers when available.
+- Main pass order: shadow → skybox → models → transparent → volumetrics → tonemap. Models use CPU-culled compacted instance buffers when available.
+- Volumetrics are opt-in through a `VolumetricSettings` ECS resource. When enabled, a compute pass injects height fog and shadowed light scattering into a froxel grid, and a fullscreen pass composites it after forward transparency and before tonemapping.
 - 2D, text, and UI have separate renderer paths. Most WGSL is embedded in crates with `include_str!`; only `Assets/Shaders/shadow_depth.wgsl` is a loose shader asset.
 
 ### Import pipeline
@@ -213,6 +214,7 @@ cd Examples/2d && SKIP_GLTF_EXPORT=1 cargo run
 SKIP_GLTF_EXPORT=1 cargo run -p template_minimal
 SKIP_GLTF_EXPORT=1 cargo run -p template_all_in_one
 SKIP_GLTF_EXPORT=1 cargo run -p template_2d
+SKIP_GLTF_EXPORT=1 cargo run -p template_volumetrics
 SKIP_GLTF_EXPORT=1 cargo run -p template_orthographic
 SKIP_GLTF_EXPORT=1 cargo run -p template_billboards
 ```
@@ -222,6 +224,7 @@ SKIP_GLTF_EXPORT=1 cargo run -p template_billboards
 | `Examples/minimal` | `template_minimal` | Procedural scene; no asset files. |
 | `Examples/all-in-one` | `template_all_in_one` | Scene, glTF, lighting, shadows, UI, and overlays. Ships its own minimal `Assets/`. |
 | `Examples/2d` | `template_2d` | 2D shape rendering; no asset files. |
+| `Examples/volumetrics` | `template_volumetrics` | Froxel volumetric lighting and height fog with two shadow-casting spotlights; no asset files. |
 | `Examples/orthographic` | `template_orthographic` | Orthographic camera rendering; no asset files. |
 | `Examples/billboards` | `template_billboards` | Full/Y-axis/fixed billboards, lit/unlit and blended sorting; no asset files. |
 
@@ -331,6 +334,7 @@ Treat the current WASM status as unverified: `Crates/ecs/src/system/runner.rs` u
 | `Crates/orbital_shader_preprocessor/src/registry.rs` | WGSL node registry. |
 | `Crates/orbital_shader_core/src/lib.rs` | `ShaderDescriptor` and pipeline plumbing. |
 | `Crates/orbital_renderer/src/renderer.rs` | Pass ordering, models, overlays, 2D/UI/text. |
+| `Crates/orbital_renderer/src/volumetric.rs` | Froxel injection/composite pipelines for volumetric lighting and height fog. |
 | `Crates/orbital_importer_gltf/src/lib.rs` | Async glTF importer. |
 | `Crates/orbital_iced/src/bridge.rs` | Iced panel/module bridge. |
 | `.forgejo/workflows/lint.yml` | Strict Forgejo fmt/clippy. |

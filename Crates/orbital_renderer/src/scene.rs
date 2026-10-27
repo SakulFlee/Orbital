@@ -16,7 +16,7 @@ use orbital_camera::Camera;
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
     ActiveCamera, CameraStore, EnvironmentGpuResource, LightBufferResource, LightDescriptor,
-    LightSlotIndex, ModelRealization, Position,
+    LightSlotIndex, ModelRealization, Position, VolumetricSettings,
 };
 use orbital_light::LightType;
 use orbital_model::Model;
@@ -81,6 +81,8 @@ pub struct RenderScene {
     pub shadow_lights: Vec<ShadowLightInfo>,
     /// Number of active lights in `light_buffer`.
     pub light_count: u32,
+    /// Optional volumetric lighting/fog settings.
+    pub volumetrics: Option<VolumetricSettings>,
 }
 
 impl RenderScene {
@@ -100,6 +102,7 @@ impl RenderScene {
                 .get_component_store::<LightDescriptor>()
                 .map(|store| store.dense.len() as u32)
                 .unwrap_or(0),
+            volumetrics: world.get_resource::<VolumetricSettings>().map(|s| *s),
         }
     }
 }

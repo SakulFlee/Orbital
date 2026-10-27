@@ -413,3 +413,33 @@ fn node_assembled_world_env_analytic_is_valid_wgsl() {
         "Crates/orbital_world_environment/src/wgsl_nodes/world_env_analytic_entrypoints.wgsl",
     );
 }
+
+// --- Volumetric assembed shaders --------------------------------------------
+
+#[test]
+fn node_assembled_volumetric_inject_is_valid_wgsl() {
+    validate_assembled_pbr_shader_with_nodes(
+        "assembled volumetric inject shader",
+        &[
+            "camera_uniform",
+            "light_struct",
+            "light_types",
+            "shadow_types",
+            "shadow_slot",
+            "slope_scaled_bias",
+            "spot_bias_scale",
+            "sample_shadow_2d_pcf",
+            "compute_shadow_for_light",
+        ],
+        include_str!("../../../Crates/orbital_renderer/src/volumetric_inject.wgsl"),
+    );
+}
+
+#[test]
+fn volumetric_composite_shader_is_valid_wgsl() {
+    validate_assembled_pbr_shader_with_nodes(
+        "assembled volumetric composite shader",
+        &["camera_uniform"],
+        include_str!("../../../Crates/orbital_renderer/src/volumetric_composite.wgsl"),
+    );
+}

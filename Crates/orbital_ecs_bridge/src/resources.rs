@@ -1380,3 +1380,127 @@ pub struct StaggerState {
 /// perform a full bootstrap pass (all shadows dirty) that frame.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NewLightBootstrap(pub bool);
+
+// ---------------------------------------------------------------------------
+// Volumetrics
+// ---------------------------------------------------------------------------
+
+/// Froxel grid quality tier.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum VolumetricQuality {
+    Low,
+    #[default]
+    Medium,
+    High,
+    /// Explicit grid dimensions and composite step count.
+    Custom {
+        grid_x: u32,
+        grid_y: u32,
+        grid_z: u32,
+        composite_steps: u32,
+    },
+}
+
+impl VolumetricQuality {
+    /// Grid dimensions for a render resolution.
+    pub fn grid(self, width: u32, height: u32) -> [u32; 3] {
+        match self {
+            Self::Low => [(width / 12).max(16), (height / 12).max(9), 32],
+            Self::Medium => [(width / 8).max(24), (height / 8).max(14), 48],
+            Self::High => [(width / 4).max(48), (height / 4).max(27), 64],
+            Self::Custom {
+                grid_x,
+                grid_y,
+                grid_z,
+                ..
+            } => [grid_x.max(1), grid_y.max(1), grid_z.max(1)],
+        }
+    }
+
+    pub fn composite_steps(self) -> u32 {
+        match self {
+            Self::Low => 16,
+            Self::Medium => 32,
+            Self::High => 48,
+            Self::Custom {
+                composite_steps, ..
+            } => composite_steps.max(1),
+        }
+    }
+}
+
+/// Height fog plus froxel volumetric lighting settings.
+///
+/// Insert this resource into the ECS world to enable volumetrics. It is
+/// disabled unless present and `enabled` is true.
+#[derive(Debug, Clone, Copy)]
+pub struct VolumetricSettings {
+    pub enabled: bool,
+    /// Uniform base density.
+    pub density: f32,
+    /// Inscattering coefficient.
+    pub scattering: f32,
+    /// Extinction coefficient.
+    pub extinction: f32,
+    /// Henyey-Greenstein anisotropy in `[-0.95, 0.95]`.
+    pub anisotropy: f32,
+    /// Height where the exponential fog layer starts.
+    pub height_base: f32,
+    /// Exponential falloff with height.
+    pub height_falloff: f32,
+    /// Additional density at `height_base`.
+    pub height_density: f32,
+    /// Ambient fog color.
+    pub ambient_color: [f32; 3],
+    /// Stop integrating after this distance.
+    pub max_distance: f32,
+    pub quality: VolumetricQuality,
+}
+
+impl Default for VolumetricSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            density: 0.015,
+            scattering: 1.0,
+            extinction: 1.0,
+            anisotropy: 0.4,
+            height_base: 0.0,
+            height_falloff: 0.15,
+            height_density: 0.03,
+            ambient_color: [0.6, 0.7, 0.9],
+            max_distance: 200.0,
+            quality: VolumetricQuality::Medium,
+        }
+    }
+}
+
+#[cfg(test)]
+mod volumetric_tests {
+    use super::*;
+
+    #[test]
+    fn quality_tiers_scale_with_resolution() {
+        assert_eq!(VolumetricQuality::Low.grid(1920, 1080), [160, 90, 32]);
+        assert_eq!(VolumetricQuality::Medium.grid(1920, 1080), [240, 135, 48]);
+        assert_eq!(VolumetricQuality::High.grid(1920, 1080), [480, 270, 64]);
+        assert_eq!(VolumetricQuality::Medium.composite_steps(), 32);
+    }
+
+    #[test]
+    fn custom_quality_uses_explicit_grid_and_steps() {
+        let quality = VolumetricQuality::Custom {
+            grid_x: 0,
+            grid_y: 12,
+            grid_z: 7,
+            composite_steps: 0,
+        };
+        assert_eq!(quality.grid(1920, 1080), [1, 12, 7]);
+        assert_eq!(quality.composite_steps(), 1);
+    }
+
+    #[test]
+    fn settings_are_disabled_by_default() {
+        assert!(!VolumetricSettings::default().enabled);
+    }
+}

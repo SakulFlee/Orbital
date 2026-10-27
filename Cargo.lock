@@ -4790,6 +4790,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "template_volumetrics"
+version = "1.6.0"
+dependencies = [
+ "orbital",
+]
+
+[[package]]
 name = "termcolor"
 version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
