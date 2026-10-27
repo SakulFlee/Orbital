@@ -319,6 +319,15 @@ fn node_assembled_pbr_gbuffer_shader_is_valid_wgsl() {
 }
 
 #[test]
+fn billboard_unlit_shader_is_valid_wgsl() {
+    validate_assembled_pbr_shader_with_nodes(
+        "assembled unlit billboard shader",
+        &["pbr_vertex"],
+        include_str!("../../../Crates/orbital_billboard/src/billboard_unlit.wgsl"),
+    );
+}
+
+#[test]
 fn pbr_shadow_shader_is_valid_wgsl() {
     validate(
         "PBR shadow shader",

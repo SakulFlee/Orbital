@@ -3026,6 +3026,7 @@ dependencies = [
  "log",
  "orbital_2d",
  "orbital_app",
+ "orbital_billboard",
  "orbital_camera",
  "orbital_core",
  "orbital_debug_render",
@@ -3113,6 +3114,24 @@ dependencies = [
  "orbital_world_environment",
  "wgpu",
  "winit",
+]
+
+[[package]]
+name = "orbital_billboard"
+version = "1.6.0"
+dependencies = [
+ "cgmath",
+ "orbital_app",
+ "orbital_ecs",
+ "orbital_ecs_bridge",
+ "orbital_material_shader",
+ "orbital_math",
+ "orbital_mesh",
+ "orbital_shader_core",
+ "orbital_shader_pbr",
+ "orbital_texture",
+ "orbital_vertex",
+ "wgpu",
 ]
 
 [[package]]
@@ -4744,6 +4763,13 @@ dependencies = [
 
 [[package]]
 name = "template_all_in_one"
+version = "1.6.0"
+dependencies = [
+ "orbital",
+]
+
+[[package]]
+name = "template_billboards"
 version = "1.6.0"
 dependencies = [
  "orbital",

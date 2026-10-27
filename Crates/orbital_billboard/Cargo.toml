@@ -1,0 +1,22 @@
+[package]
+name = "orbital_billboard"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+orbital_app = { path = "../orbital_app" }
+orbital_ecs = { path = "../ecs" }
+orbital_ecs_bridge = { path = "../orbital_ecs_bridge" }
+orbital_material_shader = { path = "../orbital_material_shader" }
+orbital_mesh = { path = "../orbital_mesh" }
+orbital_shader_core = { path = "../orbital_shader_core" }
+orbital_shader_pbr = { path = "../orbital_shader_pbr" }
+orbital_texture = { path = "../orbital_texture" }
+orbital_math = { path = "../orbital_math" }
+orbital_vertex = { path = "../orbital_vertex" }
+cgmath = { workspace = true }
+wgpu = { workspace = true }

@@ -5,6 +5,7 @@
 pub use orbital_2d as twod;
 pub use orbital_app as app;
 pub use orbital_app::{TouchControlsConfig, set_touch_controls, touch_controls};
+pub use orbital_billboard as billboard;
 pub use orbital_camera as camera;
 pub use orbital_debug_render as debug_render;
 pub use orbital_debug_ui as debug_ui;
