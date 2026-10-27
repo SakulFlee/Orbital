@@ -328,6 +328,15 @@ fn billboard_unlit_shader_is_valid_wgsl() {
 }
 
 #[test]
+fn billboard_text_shader_is_valid_wgsl() {
+    validate_assembled_pbr_shader_with_nodes(
+        "assembled text billboard shader",
+        &["pbr_vertex"],
+        include_str!("../../../Crates/orbital_billboard/src/billboard_text.wgsl"),
+    );
+}
+
+#[test]
 fn pbr_shadow_shader_is_valid_wgsl() {
     validate(
         "PBR shadow shader",

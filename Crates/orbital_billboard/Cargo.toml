@@ -16,6 +16,7 @@ orbital_mesh = { path = "../orbital_mesh" }
 orbital_shader_core = { path = "../orbital_shader_core" }
 orbital_shader_pbr = { path = "../orbital_shader_pbr" }
 orbital_texture = { path = "../orbital_texture" }
+orbital_text = { path = "../orbital_text" }
 orbital_math = { path = "../orbital_math" }
 orbital_vertex = { path = "../orbital_vertex" }
 cgmath = { workspace = true }
