@@ -101,6 +101,7 @@ Workspace members are `Examples/*` and `Crates/*` (see `Cargo.toml`).
 | `Crates/orbital_camera`, `orbital_instance`, `orbital_vertex`, `orbital_mesh`, `orbital_model`, `orbital_light`, `orbital_cull`, `orbital_shadow`, `orbital_texture`, `orbital_material_shader` | Geometry, scene, and GPU resource crates. |
 | `Crates/orbital_ibl_brdf`, `orbital_world_environment` | BRDF LUT and HDR/IBL environment handling. |
 | `Crates/orbital_procgeo` | Procedural shapes and RON scene descriptions (`SceneBuilder`). |
+| `Crates/orbital_billboard` | Camera-facing textured billboards realized as normal models. |
 | `Crates/orbital_resources` | Compatibility re-export shim only; real types live in the fine-grained crates. |
 | `Crates/orbital_shader_preprocessor` | Named WGSL `ShaderNode` registry and `ShaderBuilder`. |
 | `Crates/orbital_shader_core` | `ShaderDescriptor`, variables, bind-group and pipeline plumbing. |
@@ -213,6 +214,7 @@ SKIP_GLTF_EXPORT=1 cargo run -p template_minimal
 SKIP_GLTF_EXPORT=1 cargo run -p template_all_in_one
 SKIP_GLTF_EXPORT=1 cargo run -p template_2d
 SKIP_GLTF_EXPORT=1 cargo run -p template_orthographic
+SKIP_GLTF_EXPORT=1 cargo run -p template_billboards
 ```
 
 | Directory | Package | Notes |
@@ -221,6 +223,7 @@ SKIP_GLTF_EXPORT=1 cargo run -p template_orthographic
 | `Examples/all-in-one` | `template_all_in_one` | Scene, glTF, lighting, shadows, UI, and overlays. Ships its own minimal `Assets/`. |
 | `Examples/2d` | `template_2d` | 2D shape rendering; no asset files. |
 | `Examples/orthographic` | `template_orthographic` | Orthographic camera rendering; no asset files. |
+| `Examples/billboards` | `template_billboards` | Full/Y-axis/fixed billboards, lit/unlit and blended sorting; no asset files. |
 
 The template app sources are canonical in `Examples/`; the CLI embeds them
 during generation. `Crates/orbital_cli/src/template/` only contains platform
