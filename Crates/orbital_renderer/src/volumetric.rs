@@ -42,6 +42,14 @@ pub struct VolumetricRenderer {
     grid: [u32; 3],
     steps: u32,
     inject_bind_group: Option<(TextureView, BindGroup)>,
+    composite_bind_group: Option<CompositeBindGroupCache>,
+}
+
+struct CompositeBindGroupCache {
+    scene_color: TextureView,
+    depth: TextureView,
+    froxel: TextureView,
+    bind_group: BindGroup,
 }
 
 impl VolumetricRenderer {
@@ -255,6 +263,7 @@ impl VolumetricRenderer {
             grid: [1, 1, 1],
             steps: 1,
             inject_bind_group: None,
+            composite_bind_group: None,
         };
         renderer.prepare(queue, &VolumetricSettings::default(), Vector2::new(1, 1));
         renderer
@@ -366,7 +375,7 @@ impl VolumetricRenderer {
 
     #[allow(clippy::too_many_arguments)]
     pub fn record_composite(
-        &self,
+        &mut self,
         device: &Device,
         encoder: &mut wgpu::CommandEncoder,
         world_bind_group: &BindGroup,
@@ -375,32 +384,48 @@ impl VolumetricRenderer {
         froxel: &TextureView,
         target: &TextureView,
     ) {
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Orbital::VolumetricCompositeBindGroup"),
-            layout: &self.composite_layout,
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureView(scene_color),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::TextureView(depth),
-                },
-                BindGroupEntry {
-                    binding: 2,
-                    resource: BindingResource::TextureView(froxel),
-                },
-                BindGroupEntry {
-                    binding: 3,
-                    resource: BindingResource::Sampler(&self.froxel_sampler),
-                },
-                BindGroupEntry {
-                    binding: 4,
-                    resource: self.composite_params.as_entire_binding(),
-                },
-            ],
+        let cache_hit = self.composite_bind_group.as_ref().is_some_and(|cache| {
+            cache.scene_color == *scene_color && cache.depth == *depth && cache.froxel == *froxel
         });
+        if !cache_hit {
+            let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Orbital::VolumetricCompositeBindGroup"),
+                layout: &self.composite_layout,
+                entries: &[
+                    BindGroupEntry {
+                        binding: 0,
+                        resource: BindingResource::TextureView(scene_color),
+                    },
+                    BindGroupEntry {
+                        binding: 1,
+                        resource: BindingResource::TextureView(depth),
+                    },
+                    BindGroupEntry {
+                        binding: 2,
+                        resource: BindingResource::TextureView(froxel),
+                    },
+                    BindGroupEntry {
+                        binding: 3,
+                        resource: BindingResource::Sampler(&self.froxel_sampler),
+                    },
+                    BindGroupEntry {
+                        binding: 4,
+                        resource: self.composite_params.as_entire_binding(),
+                    },
+                ],
+            });
+            self.composite_bind_group = Some(CompositeBindGroupCache {
+                scene_color: scene_color.clone(),
+                depth: depth.clone(),
+                froxel: froxel.clone(),
+                bind_group,
+            });
+        }
+        let bind_group = &self
+            .composite_bind_group
+            .as_ref()
+            .expect("volumetric composite bind group cache")
+            .bind_group;
 
         let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
             label: Some("RenderPass::VolumetricComposite"),
@@ -420,7 +445,7 @@ impl VolumetricRenderer {
         });
         pass.set_pipeline(&self.composite_pipeline);
         pass.set_bind_group(0, world_bind_group, &[]);
-        pass.set_bind_group(1, &bind_group, &[]);
+        pass.set_bind_group(1, bind_group, &[]);
         pass.draw(0..3, 0..1);
     }
 }
