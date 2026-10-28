@@ -4784,6 +4784,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "template_many_lights"
+version = "1.6.0"
+dependencies = [
+ "orbital",
+]
+
+[[package]]
 name = "template_minimal"
 version = "1.6.0"
 dependencies = [

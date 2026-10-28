@@ -216,6 +216,7 @@ SKIP_GLTF_EXPORT=1 cargo run -p template_minimal
 SKIP_GLTF_EXPORT=1 cargo run -p template_all_in_one
 SKIP_GLTF_EXPORT=1 cargo run -p template_2d
 SKIP_GLTF_EXPORT=1 cargo run -p template_volumetrics
+SKIP_GLTF_EXPORT=1 cargo run -p template_many_lights
 SKIP_GLTF_EXPORT=1 cargo run -p template_custom_shader
 SKIP_GLTF_EXPORT=1 cargo run -p template_orthographic
 SKIP_GLTF_EXPORT=1 cargo run -p template_billboards
@@ -227,6 +228,7 @@ SKIP_GLTF_EXPORT=1 cargo run -p template_billboards
 | `Examples/all-in-one` | `template_all_in_one` | Scene, glTF, lighting, shadows, billboards, volumetric fog, SMAA, UI, and overlays. Ships its own minimal `Assets/`. |
 | `Examples/2d` | `template_2d` | 2D shape rendering; no asset files. |
 | `Examples/volumetrics` | `template_volumetrics` | Froxel volumetric lighting and height fog with two shadow-casting spotlights; no asset files. |
+| `Examples/many_lights` | `template_many_lights` | 96 unshadowed point lights plus a shadowed spotlight for tiled light-list stress; no asset files. |
 | `Examples/custom_shader` | `template_custom_shader` | Custom `MaterialShaderDescriptor` with assembled engine nodes and raw WGSL entrypoints; no asset files. |
 | `Examples/orthographic` | `template_orthographic` | Orthographic camera rendering; no asset files. |
 | `Examples/billboards` | `template_billboards` | Full/Y-axis/fixed billboards, lit/unlit, SDF text and blended sorting; no asset files. |
