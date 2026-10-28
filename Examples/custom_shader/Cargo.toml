@@ -1,0 +1,20 @@
+[package]
+name = "template_custom_shader"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "template_custom_shader"
+path = "src/main.rs"
+
+[lib]
+name = "template_custom_shader"
+path = "src/lib.rs"
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+orbital = { path = "../../Crates/orbital" }
