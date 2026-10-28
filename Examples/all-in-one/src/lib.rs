@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use orbital::app::{
-    App, AppSettings, CursorToggle, InputButton, LayerRenderer, Module, RenderOverlay,
+    App, AppSettings, CursorToggle, InputButton, LayerRenderer, Module, RenderLayer,
     RenderOverlayContext, sys_camera_controller,
 };
 use orbital::billboard::{Billboard, BillboardMode, BillboardModule};
@@ -372,7 +372,11 @@ impl ShapeOverlay {
     }
 }
 
-impl RenderOverlay for ShapeOverlay {
+impl LayerRenderer for ShapeOverlay {
+    fn layer(&self) -> RenderLayer {
+        RenderLayer::World2D
+    }
+
     fn render(&mut self, ctx: RenderOverlayContext) {
         let (screen_w, screen_h) = ctx.screen_size;
 
@@ -869,8 +873,7 @@ impl Module for ProcgeoSceneModule {
     fn register_overlays(
         &self,
         ecs: &mut World,
-        _layer_renderers: &mut Vec<Box<dyn LayerRenderer>>,
-        legacy_overlays: &mut Vec<Box<dyn RenderOverlay>>,
+        layer_renderers: &mut Vec<Box<dyn LayerRenderer>>,
     ) {
         let format = ecs
             .get_resource::<orbital::ecs_bridge::SurfaceFormatResource>()
@@ -888,7 +891,7 @@ impl Module for ProcgeoSceneModule {
         };
 
         let overlay = ShapeOverlay::new(&device.0, format);
-        legacy_overlays.push(Box::new(overlay));
+        layer_renderers.push(Box::new(overlay));
     }
 }
 

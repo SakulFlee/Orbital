@@ -1,7 +1,7 @@
 use crate::renderer::IcedLayerRenderer;
 use crate::state::{IcedState, IcedUiState, Message};
 use orbital_app::Module;
-use orbital_app::render_overlay::{LayerRenderer, RenderOverlay};
+use orbital_app::render_overlay::LayerRenderer;
 use orbital_ecs::{System, World};
 use wgpu::{Device, Queue};
 
@@ -22,7 +22,6 @@ impl Module for IcedBridgeModule {
         &self,
         ecs: &mut World,
         layer_renderers: &mut Vec<Box<dyn LayerRenderer>>,
-        _legacy_overlays: &mut Vec<Box<dyn RenderOverlay>>,
     ) {
         let panels = ecs
             .get_resource::<IcedUiState>()

@@ -36,7 +36,7 @@ use orbital_ecs_bridge::{
     IcedCapturedTouches, IcedEventQueue, IcedTextInputFocus, InputSnapshot, QueueResource,
     STAGE_BIND_MODELS, STAGE_CULL_EXTRACT, STAGE_GAME_SCHEDULE, STAGE_GPU_MODELS,
     STAGE_GPU_SCENE_TOTAL, STAGE_GPU_SHADOW, STAGE_GPU_SKYBOX, STAGE_ICED_DRAW, STAGE_ICED_SUBMIT,
-    STAGE_OVERLAY_LAYERS, STAGE_OVERLAY_LEGACY, STAGE_PRESENT, STAGE_REALIZE, STAGE_REALIZE_ENV,
+    STAGE_OVERLAY_LAYERS, STAGE_OVERLAY_MAIN, STAGE_PRESENT, STAGE_REALIZE, STAGE_REALIZE_ENV,
     STAGE_REALIZE_MODELS, STAGE_SCENE_ENCODE, STAGE_SCENE_SUBMIT, STAGE_STAGGER, STAGE_SURFACE_ACQ,
     STAGE_TIMESTAMP_READBACK, STAGE_TOTAL, STAGE_UI_EVENTS, STAGE_UPDATE, SurfaceFormatResource,
     TIMING_STAGES, TimingsHistoryConfig, TotalTime, WindowSize,
@@ -175,8 +175,6 @@ pub struct ModuleRuntime {
     /// `update()` can call `process_events()` with `&mut World` without
     /// borrow-checker conflicts.
     overlay_renderers: std::sync::Mutex<Vec<Box<dyn crate::render_overlay::LayerRenderer>>>,
-    /// Legacy overlays (without layer ordering).
-    legacy_overlays: std::sync::Mutex<Vec<Box<dyn crate::render_overlay::RenderOverlay>>>,
     #[cfg(all(
         feature = "gamepad_gilrs",
         not(any(target_os = "android", target_os = "ios"))
@@ -222,7 +220,6 @@ impl ModuleRuntime {
             window_focused: false,
             cursor_grab_desired: false,
             overlay_renderers: std::sync::Mutex::new(Vec::new()),
-            legacy_overlays: std::sync::Mutex::new(Vec::new()),
             #[cfg(all(
                 feature = "gamepad_gilrs",
                 not(any(target_os = "android", target_os = "ios"))
@@ -467,9 +464,8 @@ impl ModuleRuntime {
         let d_cull_extract = t_bind_start - t_cull_start;
         let d_bind_group_models = t_render_start - t_bind_start;
 
-        // The camera buffer is needed while recording legacy overlays into the
-        // main encoder, so clone the cheap handle before borrowing the renderer
-        // mutably.
+        // The camera buffer is needed while recording main-encoder layers, so
+        // clone the cheap handle before borrowing the renderer mutably.
         let camera_buffer = self
             .renderer
             .as_ref()
@@ -480,16 +476,20 @@ impl ModuleRuntime {
             (800.0, 600.0)
         };
 
-        let d_overlay_legacy = std::cell::Cell::new(std::time::Duration::ZERO);
+        let mut layer_renderers = self.overlay_renderers.lock().unwrap();
+        layer_renderers.sort_by_key(|r| r.layer().index());
+
+        let d_overlay_main = std::cell::Cell::new(std::time::Duration::ZERO);
         if let (Some(renderer), Some(camera_buffer)) = (&mut self.renderer, camera_buffer.as_ref())
         {
             let cull = cull_res.as_ref().and_then(|r| r.0.as_ref());
             let ecs = &self.ecs_world;
-            let legacy_overlays = &self.legacy_overlays;
             let mut overlay_callback = |encoder: &mut wgpu::CommandEncoder| {
                 let start = Instant::now();
-                let mut overlays = legacy_overlays.lock().unwrap();
-                for overlay in overlays.iter_mut() {
+                for layer in layer_renderers.iter_mut() {
+                    if layer.submission() != crate::OverlaySubmission::MainEncoder {
+                        continue;
+                    }
                     let ctx = crate::RenderOverlayContext {
                         target_view: &view,
                         camera_buffer,
@@ -499,9 +499,9 @@ impl ModuleRuntime {
                         ecs,
                         screen_size,
                     };
-                    overlay.render(ctx);
+                    layer.render(ctx);
                 }
-                d_overlay_legacy.set(start.elapsed());
+                d_overlay_main.set(start.elapsed());
             };
 
             renderer.render(
@@ -513,9 +513,10 @@ impl ModuleRuntime {
                 &dirty_set,
                 Some(&mut overlay_callback),
             );
+            drop(overlay_callback);
         }
         drop(cull_res);
-        let d_overlay_legacy = d_overlay_legacy.get();
+        let d_overlay_main = d_overlay_main.get();
 
         let renderer_cpu = self
             .renderer
@@ -527,18 +528,16 @@ impl ModuleRuntime {
             .as_ref()
             .map_or([0.0; 4], |renderer| renderer.prev_gpu_ns());
 
-        // Optional post-main-pass layer renderers (iced UI and future layers).
-        // These own their submission; iced may remain one extra submit.
+        // Owned-submission layers (iced) always run after the main submission.
         let mut d_overlay_layers = std::time::Duration::ZERO;
         let mut d_iced_draw = std::time::Duration::ZERO;
         let mut d_iced_submit = std::time::Duration::ZERO;
         if let Some(camera_buffer) = camera_buffer.as_ref() {
             let t_layers_start = Instant::now();
-            let mut layer_renderers = self.overlay_renderers.lock().unwrap();
-            // Sort by layer order
-            layer_renderers.sort_by_key(|r| r.layer().index());
-
-            for renderer in layer_renderers.iter_mut() {
+            for layer in layer_renderers.iter_mut() {
+                if layer.submission() != crate::OverlaySubmission::Owned {
+                    continue;
+                }
                 let ctx = crate::RenderOverlayContext {
                     target_view: &view,
                     camera_buffer,
@@ -548,8 +547,8 @@ impl ModuleRuntime {
                     ecs: &self.ecs_world,
                     screen_size,
                 };
-                renderer.render(ctx);
-                let timings = renderer.take_render_timings();
+                layer.render(ctx);
+                let timings = layer.take_render_timings();
                 d_iced_draw += timings.draw;
                 d_iced_submit += timings.submit;
             }
@@ -562,6 +561,7 @@ impl ModuleRuntime {
                 queue.drain();
             }
         }
+        drop(layer_renderers);
 
         let t_present_start = Instant::now();
         lock.queue().present(frame);
@@ -598,8 +598,7 @@ impl ModuleRuntime {
             .set_ms(STAGE_SCENE_SUBMIT, renderer_cpu.submit_ms);
         self.frame_timings
             .set_ms(STAGE_TIMESTAMP_READBACK, renderer_cpu.timestamp_readback_ms);
-        self.frame_timings
-            .set(STAGE_OVERLAY_LEGACY, d_overlay_legacy);
+        self.frame_timings.set(STAGE_OVERLAY_MAIN, d_overlay_main);
         self.frame_timings
             .set(STAGE_OVERLAY_LAYERS, d_overlay_layers);
         self.frame_timings.set(STAGE_ICED_DRAW, d_iced_draw);
@@ -1078,10 +1077,9 @@ impl ApplicationHandler for ModuleRuntime {
 
                 // Let the module register overlay renderers with the runtime.
                 {
-                    let mut lr = self.overlay_renderers.lock().unwrap();
-                    let mut lo = self.legacy_overlays.lock().unwrap();
+                    let mut layer_renderers = self.overlay_renderers.lock().unwrap();
                     self.module
-                        .register_overlays(&mut self.ecs_world, &mut lr, &mut lo);
+                        .register_overlays(&mut self.ecs_world, &mut layer_renderers);
                 }
 
                 // Register engine-level systems

@@ -8,6 +8,8 @@ use std::fmt;
 /// Defines the rendering order for different types of content.
 ///
 /// Layers are rendered in the order they are defined (lower index = rendered first).
+/// Owned-submission overlay renderers run after all main-encoder layers, so
+/// their relative order with main-encoder layers is not interleaved.
 /// The default order is:
 /// 1. Skybox
 /// 2. 3D Scene (opaque)
