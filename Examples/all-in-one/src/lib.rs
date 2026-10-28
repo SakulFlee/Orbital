@@ -22,7 +22,7 @@ use orbital::importer::{ImportTask, gltf::GltfImport};
 use orbital::logging;
 use orbital::logging::{error, info};
 use orbital::procgeo::scene::SceneBuilder;
-use orbital::renderer::{Camera2DUniform, Renderer2D};
+use orbital::renderer::{AntiAliasing, Camera2DUniform, Renderer2D};
 use orbital::resources::WorldEnvironmentDescriptor;
 use orbital::resources::{
     AlphaMode, FilterMode, GeneratedSkyParameters, SamplingType, ShadowCaster, SunPosition,
@@ -62,6 +62,8 @@ pub fn entrypoint(
     let app_settings = AppSettings {
         vsync_enabled: false,
         name: NAME.to_string(),
+        // Showcase the higher-quality LUT-based SMAA path in the flagship example.
+        anti_aliasing: AntiAliasing::Smaa,
         back_presses_to_exit: 3,
         ..AppSettings::default()
     };
@@ -631,6 +633,7 @@ impl Module for ProcgeoSceneModule {
                         text(mana_text).size(16),
                         text(projection_text).size(16),
                         text(volumetrics_text).size(16),
+                        text("Anti-aliasing: SMAA").size(16),
                     ]
                     .spacing(4)
                     .into()

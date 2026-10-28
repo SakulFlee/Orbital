@@ -23,6 +23,7 @@ use crate::deferred::DeferredLighting;
 use crate::fxaa::Fxaa;
 use crate::light_culling::LightCulling;
 use crate::scene::RenderScene;
+use crate::smaa::SmaaTarget;
 use crate::tonemap::Tonemap;
 use crate::volumetric::VolumetricRenderer;
 
@@ -32,6 +33,8 @@ pub enum AntiAliasing {
     Off,
     #[default]
     Fxaa,
+    /// LUT-based SMAA 1x.
+    Smaa,
 }
 
 /// Scene color format for the HDR intermediate target.
@@ -60,6 +63,7 @@ enum ScenePass {
     VolumetricComposite,
     Tonemap,
     Fxaa,
+    Smaa,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -227,10 +231,9 @@ fn add_scene_passes(
     } else {
         RES_SCENE_COLOR
     };
-    let tonemap_target = if anti_aliasing == AntiAliasing::Off {
-        RES_SURFACE
-    } else {
-        RES_POST_LDR
+    let tonemap_target = match anti_aliasing {
+        AntiAliasing::Off => RES_SURFACE,
+        AntiAliasing::Fxaa | AntiAliasing::Smaa => RES_POST_LDR,
     };
     graph.add_pass(
         ScenePass::Tonemap,
@@ -238,8 +241,14 @@ fn add_scene_passes(
         &[tonemap_source],
         &[tonemap_target],
     );
-    if anti_aliasing != AntiAliasing::Off {
-        graph.add_pass(ScenePass::Fxaa, "fxaa", &[RES_POST_LDR], &[RES_SURFACE]);
+    match anti_aliasing {
+        AntiAliasing::Off => {}
+        AntiAliasing::Fxaa => {
+            graph.add_pass(ScenePass::Fxaa, "fxaa", &[RES_POST_LDR], &[RES_SURFACE]);
+        }
+        AntiAliasing::Smaa => {
+            graph.add_pass(ScenePass::Smaa, "smaa", &[RES_POST_LDR], &[RES_SURFACE]);
+        }
     }
 }
 
@@ -447,6 +456,7 @@ pub struct Renderer {
     anti_aliasing: AntiAliasing,
     tonemap: Tonemap,
     fxaa: Fxaa,
+    smaa: Option<SmaaTarget>,
     deferred_lighting: DeferredLighting,
     light_culling: LightCulling,
     volumetric: VolumetricRenderer,
@@ -477,6 +487,9 @@ impl Renderer {
 
     pub fn set_anti_aliasing(&mut self, anti_aliasing: AntiAliasing) {
         self.anti_aliasing = anti_aliasing;
+        if anti_aliasing != AntiAliasing::Smaa {
+            self.smaa = None;
+        }
     }
 
     pub fn anti_aliasing(&self) -> AntiAliasing {
@@ -581,6 +594,7 @@ impl Renderer {
             anti_aliasing: AntiAliasing::default(),
             tonemap: Tonemap::new(device, surface_texture_format),
             fxaa: Fxaa::new(device, queue, surface_texture_format, resolution),
+            smaa: None,
             deferred_lighting,
             light_culling,
             volumetric,
@@ -625,11 +639,15 @@ impl Renderer {
         self.surface_texture_format = surface_texture_format;
         self.tonemap = Tonemap::new(device, surface_texture_format);
         self.fxaa = Fxaa::new(device, queue, surface_texture_format, self.resolution);
+        self.smaa = None;
     }
 
     pub fn change_resolution(&mut self, resolution: Vector2<u32>, device: &Device, queue: &Queue) {
         self.resolution = resolution;
         self.fxaa.set_resolution(queue, resolution);
+        if let Some(smaa) = &mut self.smaa {
+            smaa.resize(device, resolution.x.max(1), resolution.y.max(1));
+        }
         self.light_culling.ensure(device, queue, resolution);
     }
 
@@ -865,6 +883,20 @@ impl Renderer {
         self.frame_index = self.frame_index.wrapping_add(1);
         self.texture_pool.begin_frame(self.frame_index);
 
+        // SMAA owns the LDR color target. Create it lazily so Fxaa/Off users do
+        // not pay for the extra targets.
+        if self.anti_aliasing == AntiAliasing::Smaa && self.smaa.is_none() {
+            self.smaa = Some(SmaaTarget::new(
+                device,
+                queue,
+                self.resolution.x.max(1),
+                self.resolution.y.max(1),
+                self.surface_texture_format,
+            ));
+        }
+        let smaa = self.smaa.take();
+        let smaa_view = smaa.as_ref().map(|smaa| smaa.color_target().clone());
+
         let depth_descriptor = wgpu::TextureDescriptor {
             label: Some("Orbital::Depth"),
             size: wgpu::Extent3d {
@@ -897,7 +929,7 @@ impl Renderer {
         };
         let scene_color = self.texture_pool.acquire(device, &scene_color_descriptor);
 
-        let post_ldr = (self.anti_aliasing != AntiAliasing::Off).then(|| {
+        let post_ldr = (self.anti_aliasing == AntiAliasing::Fxaa).then(|| {
             self.texture_pool.acquire(
                 device,
                 &wgpu::TextureDescriptor {
@@ -1202,10 +1234,14 @@ impl Renderer {
                         if let Some(qs) = &self.timestamp_query_set {
                             context.encoder.write_timestamp(qs, 3);
                         }
-                        let tonemap_target = post_ldr
-                            .as_ref()
-                            .map(|post_ldr| &post_ldr.view)
-                            .unwrap_or(target_view);
+                        let tonemap_target = match self.anti_aliasing {
+                            AntiAliasing::Off => target_view,
+                            AntiAliasing::Fxaa => post_ldr
+                                .as_ref()
+                                .map(|post_ldr| &post_ldr.view)
+                                .unwrap_or(target_view),
+                            AntiAliasing::Smaa => smaa_view.as_ref().expect("SMAA target view"),
+                        };
                         let tonemap_source = volumetric_targets
                             .as_ref()
                             .map(|targets| &targets.1.view)
@@ -1227,9 +1263,15 @@ impl Renderer {
                             );
                         }
                     }
+                    ScenePass::Smaa => {
+                        if let Some(smaa) = smaa.as_ref() {
+                            smaa.record(context.encoder, target_view);
+                        }
+                    }
                 },
             )
             .expect("render graph must be compiled before execution");
+        self.smaa = smaa;
 
         for timing in graph.timings() {
             match timing.pass {
@@ -1245,7 +1287,7 @@ impl Renderer {
                 }
                 ScenePass::Transparent => models_ms += ms(timing.cpu),
                 ScenePass::PrepareWorld => skybox_ms += ms(timing.cpu),
-                ScenePass::ClearDepth | ScenePass::Tonemap | ScenePass::Fxaa => {}
+                ScenePass::ClearDepth | ScenePass::Tonemap | ScenePass::Fxaa | ScenePass::Smaa => {}
             }
         }
         self.render_graph = graph;
@@ -1776,6 +1818,43 @@ mod tests {
                 "deferred-lighting",
                 "tonemap",
                 "fxaa"
+            ]
+        );
+    }
+
+    #[test]
+    fn scene_graph_with_smaa_adds_post_pass() {
+        assert_eq!(
+            graph_order(AntiAliasing::Smaa, true, false, false, false),
+            [
+                "shadow",
+                "prepare-world",
+                "sky",
+                "gbuffer",
+                "light-culling",
+                "deferred-lighting",
+                "tonemap",
+                "smaa"
+            ]
+        );
+    }
+
+    #[test]
+    fn scene_graph_with_smaa_and_volumetrics_orders_post_chain() {
+        assert_eq!(
+            graph_order(AntiAliasing::Smaa, true, false, true, true),
+            [
+                "shadow",
+                "prepare-world",
+                "sky",
+                "gbuffer",
+                "light-culling",
+                "deferred-lighting",
+                "transparent",
+                "volumetric-inject",
+                "volumetric-composite",
+                "tonemap",
+                "smaa"
             ]
         );
     }
