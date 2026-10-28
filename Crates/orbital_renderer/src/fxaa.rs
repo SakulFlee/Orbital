@@ -17,6 +17,7 @@ pub struct Fxaa {
     sampler: wgpu::Sampler,
     params_buffer: wgpu::Buffer,
     resolution: cgmath::Vector2<u32>,
+    bind_group_cache: Option<(TextureView, wgpu::BindGroup)>,
 }
 
 impl Fxaa {
@@ -120,6 +121,7 @@ impl Fxaa {
             sampler,
             params_buffer,
             resolution,
+            bind_group_cache: None,
         };
         fxaa.write_params(queue);
         fxaa
@@ -130,6 +132,7 @@ impl Fxaa {
             return;
         }
         self.resolution = resolution;
+        self.bind_group_cache = None;
         self.write_params(queue);
     }
 
@@ -149,32 +152,44 @@ impl Fxaa {
     }
 
     pub fn record(
-        &self,
+        &mut self,
         device: &Device,
         encoder: &mut wgpu::CommandEncoder,
         source_view: &TextureView,
         target_view: &TextureView,
     ) {
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Orbital::FxaaBindGroup"),
-            layout: &self.bind_group_layout,
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(source_view),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&self.sampler),
-                },
-                BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::Buffer(
-                        self.params_buffer.as_entire_buffer_binding(),
-                    ),
-                },
-            ],
-        });
+        let cache_hit = self
+            .bind_group_cache
+            .as_ref()
+            .is_some_and(|(view, _)| view == source_view);
+        if !cache_hit {
+            let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Orbital::FxaaBindGroup"),
+                layout: &self.bind_group_layout,
+                entries: &[
+                    BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(source_view),
+                    },
+                    BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(&self.sampler),
+                    },
+                    BindGroupEntry {
+                        binding: 2,
+                        resource: wgpu::BindingResource::Buffer(
+                            self.params_buffer.as_entire_buffer_binding(),
+                        ),
+                    },
+                ],
+            });
+            self.bind_group_cache = Some((source_view.clone(), bind_group));
+        }
+        let bind_group = &self
+            .bind_group_cache
+            .as_ref()
+            .expect("FXAA bind group cache")
+            .1;
 
         let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
             label: Some("RenderPass::Fxaa"),
@@ -194,7 +209,7 @@ impl Fxaa {
         });
 
         pass.set_pipeline(&self.pipeline);
-        pass.set_bind_group(0, &bind_group, &[]);
+        pass.set_bind_group(0, bind_group, &[]);
         pass.draw(0..3, 0..1);
     }
 }
