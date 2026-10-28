@@ -1,5 +1,5 @@
 use cgmath::{InnerSpace, Matrix4, Point3, SquareMatrix, Vector3, Vector4};
-use orbital_app::{Module, RenderOverlay, RenderOverlayContext};
+use orbital_app::{LayerRenderer, Module, RenderLayer, RenderOverlayContext};
 use orbital_ecs::{IntoSystem, Res, ResMut, System, World};
 use orbital_ecs_bridge::{
     ActiveCamera, CameraStore, InputSnapshot, LightDescriptor, ModelInstances, ModelRealization,
@@ -396,12 +396,16 @@ pub fn sys_debug_toggle(input: Res<InputSnapshot>, mut state: ResMut<DebugToggle
     state.was_pressed = pressed;
 }
 
-/// [`RenderOverlay`] implementation that draws bounding spheres and frustum.
+/// [`LayerRenderer`] implementation that draws bounding spheres and frustum.
 struct DebugRenderOverlay {
     inner: DebugRenderer,
 }
 
-impl RenderOverlay for DebugRenderOverlay {
+impl LayerRenderer for DebugRenderOverlay {
+    fn layer(&self) -> RenderLayer {
+        RenderLayer::Debug
+    }
+
     fn render(&mut self, ctx: RenderOverlayContext) {
         let enabled = ctx
             .ecs
@@ -544,8 +548,7 @@ impl Module for DebugModule {
     fn register_overlays(
         &self,
         ecs: &mut World,
-        _layer_renderers: &mut Vec<Box<dyn orbital_app::LayerRenderer>>,
-        legacy_overlays: &mut Vec<Box<dyn RenderOverlay>>,
+        layer_renderers: &mut Vec<Box<dyn LayerRenderer>>,
     ) {
         let format = ecs
             .get_resource::<orbital_ecs_bridge::SurfaceFormatResource>()
@@ -565,7 +568,7 @@ impl Module for DebugModule {
 
         let inner = DebugRenderer::new(&device.0, format);
         let overlay = DebugRenderOverlay { inner };
-        legacy_overlays.push(Box::new(overlay));
+        layer_renderers.push(Box::new(overlay));
     }
 }
 

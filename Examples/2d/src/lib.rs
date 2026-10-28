@@ -1,5 +1,5 @@
 use orbital::app::{App, AppSettings, Module};
-use orbital::app::{LayerRenderer, RenderOverlay, RenderOverlayContext};
+use orbital::app::{LayerRenderer, RenderLayer, RenderOverlayContext};
 use orbital::ecs::{System, World};
 use orbital::ecs_bridge::SurfaceFormatResource;
 use orbital::logging::{self, error, info};
@@ -68,7 +68,11 @@ impl ShapeOverlay {
     }
 }
 
-impl RenderOverlay for ShapeOverlay {
+impl LayerRenderer for ShapeOverlay {
+    fn layer(&self) -> RenderLayer {
+        RenderLayer::World2D
+    }
+
     fn render(&mut self, ctx: RenderOverlayContext) {
         if self.vertices.is_empty() {
             return;
@@ -207,8 +211,7 @@ impl Module for Scene2DModule {
     fn register_overlays(
         &self,
         ecs: &mut World,
-        _layer_renderers: &mut Vec<Box<dyn LayerRenderer>>,
-        legacy_overlays: &mut Vec<Box<dyn RenderOverlay>>,
+        layer_renderers: &mut Vec<Box<dyn LayerRenderer>>,
     ) {
         let format = ecs
             .get_resource::<SurfaceFormatResource>()
@@ -227,6 +230,6 @@ impl Module for Scene2DModule {
 
         let mut overlay = ShapeOverlay::new(&device.0, format);
         overlay.vertices = std::mem::take(&mut *self.vertices.lock().unwrap());
-        legacy_overlays.push(Box::new(overlay));
+        layer_renderers.push(Box::new(overlay));
     }
 }

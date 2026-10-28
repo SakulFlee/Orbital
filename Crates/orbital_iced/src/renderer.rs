@@ -2,7 +2,8 @@ use crate::state::{IcedState, Message};
 use iced_winit::core::Theme;
 use orbital_app::RenderLayer;
 use orbital_app::render_overlay::{
-    LayerRenderer as LayerRendererTrait, OverlayRenderTimings, RenderOverlayContext,
+    LayerRenderer as LayerRendererTrait, OverlayRenderTimings, OverlaySubmission,
+    RenderOverlayContext,
 };
 use orbital_ecs_bridge::{
     AdapterResource, DeviceResource, IcedCapturedMouseDrag, IcedCapturedMouseWheel,
@@ -143,6 +144,10 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> IcedLayerRenderer<M> {
 impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLayerRenderer<M> {
     fn layer(&self) -> RenderLayer {
         RenderLayer::UI
+    }
+
+    fn submission(&self) -> OverlaySubmission {
+        OverlaySubmission::Owned
     }
 
     /// Builds the panel's `UserInterface`, routes this frame's input to it,

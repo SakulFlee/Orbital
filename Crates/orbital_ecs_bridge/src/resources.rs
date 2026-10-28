@@ -105,7 +105,7 @@ pub const TIMING_STAGES: [&str; 23] = [
     "scene encode",
     "scene submit",
     "timestamp readback",
-    "overlay legacy",
+    "overlay main",
     "overlay layers",
     "iced draw",
     "iced submit",
@@ -132,7 +132,7 @@ pub const STAGE_BIND_MODELS: usize = 9;
 pub const STAGE_SCENE_ENCODE: usize = 10;
 pub const STAGE_SCENE_SUBMIT: usize = 11;
 pub const STAGE_TIMESTAMP_READBACK: usize = 12;
-pub const STAGE_OVERLAY_LEGACY: usize = 13;
+pub const STAGE_OVERLAY_MAIN: usize = 13;
 pub const STAGE_OVERLAY_LAYERS: usize = 14;
 pub const STAGE_ICED_DRAW: usize = 15;
 pub const STAGE_ICED_SUBMIT: usize = 16;

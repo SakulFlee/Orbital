@@ -130,13 +130,14 @@ Workspace members are `Examples/*` and `Crates/*` (see `Cargo.toml`).
 - Entry point: `App::new().add_module(MyModule).liftoff(event_loop, AppSettings)`.
 - A `Module` is a plugin: it receives `&mut World`, `&Device`, `&Queue` in `setup` and returns systems. It can also register render overlays and save/restore/clear state.
 - `App` combines modules in registration order; `ModuleRuntime` owns the ECS `World`, schedules, renderer, and overlay renderers.
+- Overlays use the unified `LayerRenderer` API. `OverlaySubmission::MainEncoder` records into the scene submission; `OverlaySubmission::Owned` runs after it (currently iced, until its fork exposes an encoder).
 - Examples use `#[orbital::main]` on an `entrypoint(Result<EventLoop, EventLoopError>)`; the macro generates desktop, Android, and iOS entry points.
 
 ### Frame order
 
 Per update: tick timers → process iced events → process deferred touch input → poll gamepads → snapshot input → run core schedule → poll importer → run game schedule with `TotalTime` → process engine events.
 
-Per redraw: realize cameras → lights → environment → models → shadow stagger and CPU frustum cull → build bind groups and extract scene data → shadow pass → skybox → models → legacy overlays recorded into the main submission → submit → layer renderers (iced remains a separate submit) → present.
+Per redraw: realize cameras → lights → environment → models → shadow stagger and CPU frustum cull → build bind groups and extract scene data → shadow pass → skybox → models → main-encoder layer renderers → submit → owned-submission layer renderers (iced) → present.
 
 ### ECS
 

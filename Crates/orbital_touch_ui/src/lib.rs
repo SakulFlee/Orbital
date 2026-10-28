@@ -1,12 +1,12 @@
 //! On-screen touch controls for the Orbital engine.
 //!
-//! Provides a [`RenderOverlay`] that draws a virtual joystick in screen space
+//! Provides a [`LayerRenderer`] that draws a virtual joystick in screen space
 //! whenever the engine's default touch scheme has an active movement finger
 //! (see [`orbital_input::InputState::touch_gesture`]), plus a [`TouchUiModule`]
 //! to register it in an application.
 
 use cgmath::{InnerSpace, Vector2};
-use orbital_app::{Module, RenderOverlay, RenderOverlayContext, touch_controls};
+use orbital_app::{LayerRenderer, Module, RenderLayer, RenderOverlayContext, touch_controls};
 use orbital_ecs::{System, World};
 use orbital_ecs_bridge::{InputSnapshot, SurfaceFormatResource};
 use wgpu::{
@@ -181,7 +181,11 @@ impl JoystickOverlay {
     }
 }
 
-impl RenderOverlay for JoystickOverlay {
+impl LayerRenderer for JoystickOverlay {
+    fn layer(&self) -> RenderLayer {
+        RenderLayer::UI
+    }
+
     fn render(&mut self, ctx: RenderOverlayContext) {
         let Some(input) = ctx.ecs.get_resource::<InputSnapshot>() else {
             return;
@@ -379,8 +383,7 @@ impl Module for TouchUiModule {
     fn register_overlays(
         &self,
         ecs: &mut World,
-        _layer_renderers: &mut Vec<Box<dyn orbital_app::LayerRenderer>>,
-        legacy_overlays: &mut Vec<Box<dyn RenderOverlay>>,
+        layer_renderers: &mut Vec<Box<dyn LayerRenderer>>,
     ) {
         let format = ecs
             .get_resource::<SurfaceFormatResource>()
@@ -398,7 +401,7 @@ impl Module for TouchUiModule {
         };
 
         let overlay = JoystickOverlay::new(&device.0, format);
-        legacy_overlays.push(Box::new(overlay));
+        layer_renderers.push(Box::new(overlay));
     }
 }
 

@@ -17,7 +17,7 @@ pub struct OverlayRenderTimings {
     pub submit: Duration,
 }
 
-/// Context passed to [`RenderOverlay::render`] and [`LayerRenderer::render`].
+/// Context passed to [`LayerRenderer::render`].
 pub struct RenderOverlayContext<'a> {
     /// Colour attachment to draw over.
     pub target_view: &'a wgpu::TextureView,
@@ -36,22 +36,34 @@ pub struct RenderOverlayContext<'a> {
     pub screen_size: (f32, f32),
 }
 
-/// A render‑overlay that draws after the main scene pass.
-///
-/// Implementations record into `ctx.encoder` with `LoadOp::Load` (preserving
-/// the rendered frame) and do not submit the command buffer themselves.
-pub trait RenderOverlay: Send + Sync {
-    fn render(&mut self, ctx: RenderOverlayContext);
+/// How a layer renderer submits its work.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OverlaySubmission {
+    /// Record into the main scene encoder; no extra submit.
+    MainEncoder,
+    /// Own a command buffer and submit it after the main scene submission.
+    ///
+    /// The iced integration currently uses this until its fork exposes an
+    /// encoder. Owned-submission layers always run after all main-encoder
+    /// layers, regardless of `RenderLayer` order.
+    Owned,
 }
 
 /// A layer-aware render overlay that draws at a specific layer.
 ///
-/// Layer renderers receive `encoder: None` and own their submission. The iced
-/// integration uses this to remain one extra submit until the fork exposes an
-/// encoder. The runtime sorts layer renderers by layer order before rendering.
+/// The runtime sorts layer renderers by layer order. Renderers that use
+/// [`OverlaySubmission::MainEncoder`] receive the shared encoder in
+/// [`RenderOverlayContext::encoder`]; renderers that own their submission
+/// receive `None`.
 pub trait LayerRenderer: Send + Sync {
     /// Returns the layer this renderer should be rendered in.
     fn layer(&self) -> RenderLayer;
+
+    /// Selects whether this layer records into the main encoder or owns a
+    /// separate submission.
+    fn submission(&self) -> OverlaySubmission {
+        OverlaySubmission::MainEncoder
+    }
 
     /// Renders the overlay.
     fn render(&mut self, ctx: RenderOverlayContext);
@@ -74,12 +86,10 @@ pub trait LayerRenderer: Send + Sync {
 
 /// ECS resource — insert this into the world to activate render overlays.
 ///
-/// `ModuleRuntime::redraw()` checks for this resource after the main scene
-/// passes and calls [`RenderOverlay::render`] on each registered overlay, in
-/// insertion order, before the scene command buffer is submitted.
+/// `ModuleRuntime::redraw()` checks for this resource and renders registered
+/// layers in `RenderLayer` order. Main-encoder layers are recorded before the
+/// scene submission; owned-submission layers run afterwards.
 pub struct RenderOverlayResource {
-    /// Overlays without layer ordering (recorded into the main submission).
-    pub overlays: std::sync::Mutex<Vec<Box<dyn RenderOverlay>>>,
     /// Layer-aware renderers (sorted by layer order before rendering).
     pub layer_renderers: std::sync::Mutex<Vec<Box<dyn LayerRenderer>>>,
 }
@@ -87,17 +97,8 @@ pub struct RenderOverlayResource {
 impl RenderOverlayResource {
     pub fn new() -> Self {
         Self {
-            overlays: std::sync::Mutex::new(Vec::new()),
             layer_renderers: std::sync::Mutex::new(Vec::new()),
         }
-    }
-
-    /// Register an overlay to be recorded into the main scene submission.
-    ///
-    /// Multiple modules can call this on the same resource; overlays render in
-    /// the order they were added.
-    pub fn add(&self, overlay: Box<dyn RenderOverlay>) {
-        self.overlays.lock().unwrap().push(overlay);
     }
 
     /// Register a layer-aware renderer.

@@ -159,7 +159,6 @@ impl Module for DebugUiModule {
         &self,
         ecs: &mut World,
         layer_renderers: &mut Vec<Box<dyn LayerRenderer>>,
-        _legacy_overlays: &mut Vec<Box<dyn orbital_app::RenderOverlay>>,
     ) {
         if !self.is_enabled() {
             return;
