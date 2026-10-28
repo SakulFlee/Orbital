@@ -4777,6 +4777,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "template_custom_shader"
+version = "1.6.0"
+dependencies = [
+ "orbital",
+]
+
+[[package]]
 name = "template_minimal"
 version = "1.6.0"
 dependencies = [

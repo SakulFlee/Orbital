@@ -337,6 +337,20 @@ fn billboard_text_shader_is_valid_wgsl() {
 }
 
 #[test]
+fn custom_shader_example_is_valid_wgsl() {
+    validate_assembled_pbr_shader_with_nodes(
+        "custom shader example",
+        &[
+            "camera_uniform",
+            "vertex_data_simple",
+            "instance_data",
+            "fragment_data",
+        ],
+        include_str!("../../../Examples/custom_shader/src/custom_shader.wgsl"),
+    );
+}
+
+#[test]
 fn pbr_shadow_shader_is_valid_wgsl() {
     validate(
         "PBR shadow shader",
