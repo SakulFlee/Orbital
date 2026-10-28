@@ -136,7 +136,7 @@ Workspace members are `Examples/*` and `Crates/*` (see `Cargo.toml`).
 
 Per update: tick timers → process iced events → process deferred touch input → poll gamepads → snapshot input → run core schedule → poll importer → run game schedule with `TotalTime` → process engine events.
 
-Per redraw: realize cameras → lights → environment → models → shadow stagger and CPU frustum cull → build bind groups and extract scene data → shadow pass → skybox → models → overlays sorted by `RenderLayer` → present.
+Per redraw: realize cameras → lights → environment → models → shadow stagger and CPU frustum cull → build bind groups and extract scene data → shadow pass → skybox → models → legacy overlays recorded into the main submission → submit → layer renderers (iced remains a separate submit) → present.
 
 ### ECS
 

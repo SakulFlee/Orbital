@@ -25,6 +25,10 @@ pub struct RenderOverlayContext<'a> {
     pub camera_buffer: &'a wgpu::Buffer,
     pub device: &'a wgpu::Device,
     pub queue: &'a wgpu::Queue,
+    /// Shared encoder for overlays that record into the main scene submission.
+    /// Layer renderers that own their submission (for example iced) receive
+    /// `None`.
+    pub encoder: Option<&'a mut wgpu::CommandEncoder>,
     /// Read‑only access to the ECS world so the overlay can query
     /// camera, models, instances, etc.
     pub ecs: &'a orbital_ecs::World,
@@ -34,17 +38,17 @@ pub struct RenderOverlayContext<'a> {
 
 /// A render‑overlay that draws after the main scene pass.
 ///
-/// Implementations create their own command encoder, begin a separate render
-/// pass with `LoadOp::Load` (preserving the rendered frame), issue draw calls,
-/// and submit the encoder.
+/// Implementations record into `ctx.encoder` with `LoadOp::Load` (preserving
+/// the rendered frame) and do not submit the command buffer themselves.
 pub trait RenderOverlay: Send + Sync {
     fn render(&mut self, ctx: RenderOverlayContext);
 }
 
 /// A layer-aware render overlay that draws at a specific layer.
 ///
-/// This trait extends the concept of `RenderOverlay` by adding layer awareness.
-/// The render runtime sorts layer renderers by their layer order before rendering.
+/// Layer renderers receive `encoder: None` and own their submission. The iced
+/// integration uses this to remain one extra submit until the fork exposes an
+/// encoder. The runtime sorts layer renderers by layer order before rendering.
 pub trait LayerRenderer: Send + Sync {
     /// Returns the layer this renderer should be rendered in.
     fn layer(&self) -> RenderLayer;
@@ -70,11 +74,11 @@ pub trait LayerRenderer: Send + Sync {
 
 /// ECS resource — insert this into the world to activate render overlays.
 ///
-/// `ModuleRuntime::redraw()` checks for this resource after the main render
-/// pass and calls [`RenderOverlay::render`] on each registered overlay, in
-/// insertion order.
+/// `ModuleRuntime::redraw()` checks for this resource after the main scene
+/// passes and calls [`RenderOverlay::render`] on each registered overlay, in
+/// insertion order, before the scene command buffer is submitted.
 pub struct RenderOverlayResource {
-    /// Overlays without layer ordering (rendered after main pass, before layers).
+    /// Overlays without layer ordering (recorded into the main submission).
     pub overlays: std::sync::Mutex<Vec<Box<dyn RenderOverlay>>>,
     /// Layer-aware renderers (sorted by layer order before rendering).
     pub layer_renderers: std::sync::Mutex<Vec<Box<dyn LayerRenderer>>>,
@@ -88,7 +92,7 @@ impl RenderOverlayResource {
         }
     }
 
-    /// Register an overlay to be drawn after the main scene pass.
+    /// Register an overlay to be recorded into the main scene submission.
     ///
     /// Multiple modules can call this on the same resource; overlays render in
     /// the order they were added.
