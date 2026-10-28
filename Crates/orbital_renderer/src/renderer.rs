@@ -868,6 +868,7 @@ impl Renderer {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn render(
         &mut self,
         target_view: &TextureView,
@@ -876,6 +877,7 @@ impl Renderer {
         queue: &Queue,
         cull: Option<&CullResources>,
         dirty_set: &std::collections::HashSet<u32>,
+        overlay: Option<&mut dyn FnMut(&mut wgpu::CommandEncoder)>,
     ) {
         let ms = |duration: std::time::Duration| duration.as_secs_f64() * 1000.0;
         let render_start = Instant::now();
@@ -1272,6 +1274,10 @@ impl Renderer {
             )
             .expect("render graph must be compiled before execution");
         self.smaa = smaa;
+
+        if let Some(overlay) = overlay {
+            overlay(&mut command_encoder);
+        }
 
         for timing in graph.timings() {
             match timing.pass {

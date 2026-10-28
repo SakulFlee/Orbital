@@ -99,11 +99,9 @@ impl RenderOverlay for ShapeOverlay {
         ctx.queue
             .write_buffer(&self.camera_buffer, 0, uniform_bytes);
 
-        let mut command_encoder =
-            ctx.device
-                .create_command_encoder(&orbital::wgpu::CommandEncoderDescriptor {
-                    label: Some("2D Scene Encoder"),
-                });
+        let Some(command_encoder) = ctx.encoder else {
+            return;
+        };
 
         {
             let mut render_pass =
@@ -138,8 +136,6 @@ impl RenderOverlay for ShapeOverlay {
             render_pass.set_vertex_buffer(0, self.renderer.vertex_buffer().slice(..));
             render_pass.draw(0..self.vertices.len() as u32, 0..1);
         }
-
-        ctx.queue.submit(std::iter::once(command_encoder.finish()));
     }
 }
 

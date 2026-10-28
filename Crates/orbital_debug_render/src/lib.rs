@@ -422,11 +422,9 @@ impl RenderOverlay for DebugRenderOverlay {
 
         let live_corners = camera_frustum_corners(ctx.ecs);
 
-        let mut enc = ctx
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Debug Overlay Encoder"),
-            });
+        let Some(enc) = ctx.encoder else {
+            return;
+        };
         {
             let mut pass = enc.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Debug Overlay RenderPass"),
@@ -483,7 +481,6 @@ impl RenderOverlay for DebugRenderOverlay {
                 );
             }
         }
-        ctx.queue.submit(vec![enc.finish()]);
     }
 }
 

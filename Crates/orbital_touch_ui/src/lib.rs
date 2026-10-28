@@ -11,11 +11,11 @@ use orbital_ecs::{System, World};
 use orbital_ecs_bridge::{InputSnapshot, SurfaceFormatResource};
 use wgpu::{
     BlendComponent, BlendFactor, BlendOperation, BlendState, Buffer, BufferDescriptor,
-    BufferUsages, ColorTargetState, ColorWrites, CommandEncoderDescriptor, Device, FragmentState,
-    MultisampleState, PipelineLayoutDescriptor, PrimitiveState, PrimitiveTopology, Queue,
-    RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
-    ShaderModuleDescriptor, ShaderSource, TextureFormat, VertexAttribute, VertexBufferLayout,
-    VertexFormat, VertexState, VertexStepMode,
+    BufferUsages, ColorTargetState, ColorWrites, Device, FragmentState, MultisampleState,
+    PipelineLayoutDescriptor, PrimitiveState, PrimitiveTopology, Queue, RenderPassColorAttachment,
+    RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor, ShaderModuleDescriptor,
+    ShaderSource, TextureFormat, VertexAttribute, VertexBufferLayout, VertexFormat, VertexState,
+    VertexStepMode,
 };
 
 // ---------------------------------------------------------------------------
@@ -272,11 +272,9 @@ impl RenderOverlay for JoystickOverlay {
         ctx.queue.write_buffer(&self.vertex_buffer, 0, bytes);
         let num_verts = verts.len() as u32 / 6;
 
-        let mut enc = ctx
-            .device
-            .create_command_encoder(&CommandEncoderDescriptor {
-                label: Some("Touch UI Encoder"),
-            });
+        let Some(enc) = ctx.encoder else {
+            return;
+        };
         {
             let mut pass = enc.begin_render_pass(&RenderPassDescriptor {
                 label: Some("Touch UI RenderPass"),
@@ -299,7 +297,6 @@ impl RenderOverlay for JoystickOverlay {
             pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             pass.draw(0..num_verts, 0..1);
         }
-        ctx.queue.submit(vec![enc.finish()]);
     }
 }
 

@@ -467,12 +467,55 @@ impl ModuleRuntime {
         let d_cull_extract = t_bind_start - t_cull_start;
         let d_bind_group_models = t_render_start - t_bind_start;
 
-        // Render
-        if let Some(renderer) = &mut self.renderer {
+        // The camera buffer is needed while recording legacy overlays into the
+        // main encoder, so clone the cheap handle before borrowing the renderer
+        // mutably.
+        let camera_buffer = self
+            .renderer
+            .as_ref()
+            .map(|renderer| renderer.camera_buffer(&scene).clone());
+        let screen_size = if let Some(size_res) = self.ecs_world.get_resource::<WindowSize>() {
+            (size_res.0.x as f32, size_res.0.y as f32)
+        } else {
+            (800.0, 600.0)
+        };
+
+        let d_overlay_legacy = std::cell::Cell::new(std::time::Duration::ZERO);
+        if let (Some(renderer), Some(camera_buffer)) = (&mut self.renderer, camera_buffer.as_ref())
+        {
             let cull = cull_res.as_ref().and_then(|r| r.0.as_ref());
-            renderer.render(&view, &scene, device, queue, cull, &dirty_set);
+            let ecs = &self.ecs_world;
+            let legacy_overlays = &self.legacy_overlays;
+            let mut overlay_callback = |encoder: &mut wgpu::CommandEncoder| {
+                let start = Instant::now();
+                let mut overlays = legacy_overlays.lock().unwrap();
+                for overlay in overlays.iter_mut() {
+                    let ctx = crate::RenderOverlayContext {
+                        target_view: &view,
+                        camera_buffer,
+                        device,
+                        queue,
+                        encoder: Some(encoder),
+                        ecs,
+                        screen_size,
+                    };
+                    overlay.render(ctx);
+                }
+                d_overlay_legacy.set(start.elapsed());
+            };
+
+            renderer.render(
+                &view,
+                &scene,
+                device,
+                queue,
+                cull,
+                &dirty_set,
+                Some(&mut overlay_callback),
+            );
         }
         drop(cull_res);
+        let d_overlay_legacy = d_overlay_legacy.get();
 
         let renderer_cpu = self
             .renderer
@@ -484,41 +527,12 @@ impl ModuleRuntime {
             .as_ref()
             .map_or([0.0; 4], |renderer| renderer.prev_gpu_ns());
 
-        // Optional post‑main‑pass overlays (debug viz, HUD, gizmos, touch UI, …)
-        let mut d_overlay_legacy = std::time::Duration::ZERO;
+        // Optional post-main-pass layer renderers (iced UI and future layers).
+        // These own their submission; iced may remain one extra submit.
         let mut d_overlay_layers = std::time::Duration::ZERO;
         let mut d_iced_draw = std::time::Duration::ZERO;
         let mut d_iced_submit = std::time::Duration::ZERO;
-        if let Some(camera_buffer) = self
-            .renderer
-            .as_ref()
-            .map(|renderer| renderer.camera_buffer(&scene))
-        {
-            // Get screen size for overlay context
-            let screen_size = if let Some(size_res) = self.ecs_world.get_resource::<WindowSize>() {
-                (size_res.0.x as f32, size_res.0.y as f32)
-            } else {
-                (800.0, 600.0)
-            };
-
-            // Render legacy overlays (without layer ordering)
-            let t_legacy_start = Instant::now();
-            let mut overlays = self.legacy_overlays.lock().unwrap();
-            for overlay in overlays.iter_mut() {
-                let ctx = crate::RenderOverlayContext {
-                    target_view: &view,
-                    camera_buffer,
-                    device,
-                    queue,
-                    ecs: &self.ecs_world,
-                    screen_size,
-                };
-                overlay.render(ctx);
-            }
-            d_overlay_legacy = t_legacy_start.elapsed();
-            drop(overlays);
-
-            // Render layer-aware renderers (sorted by layer order)
+        if let Some(camera_buffer) = camera_buffer.as_ref() {
             let t_layers_start = Instant::now();
             let mut layer_renderers = self.overlay_renderers.lock().unwrap();
             // Sort by layer order
@@ -530,6 +544,7 @@ impl ModuleRuntime {
                     camera_buffer,
                     device,
                     queue,
+                    encoder: None,
                     ecs: &self.ecs_world,
                     screen_size,
                 };
