@@ -1405,8 +1405,8 @@ impl VolumetricQuality {
     /// Grid dimensions for a render resolution.
     pub fn grid(self, width: u32, height: u32) -> [u32; 3] {
         match self {
-            Self::Low => [(width / 12).max(16), (height / 12).max(9), 32],
-            Self::Medium => [(width / 8).max(24), (height / 8).max(14), 48],
+            Self::Low => [(width / 12).max(16), (height / 12).max(9), 64],
+            Self::Medium => [(width / 8).max(24), (height / 8).max(14), 64],
             Self::High => [(width / 4).max(48), (height / 4).max(27), 64],
             Self::Custom {
                 grid_x,
@@ -1419,9 +1419,9 @@ impl VolumetricQuality {
 
     pub fn composite_steps(self) -> u32 {
         match self {
-            Self::Low => 16,
-            Self::Medium => 32,
-            Self::High => 48,
+            Self::Low => 32,
+            Self::Medium => 48,
+            Self::High => 64,
             Self::Custom {
                 composite_steps, ..
             } => composite_steps.max(1),
@@ -1485,10 +1485,10 @@ mod volumetric_tests {
 
     #[test]
     fn quality_tiers_scale_with_resolution() {
-        assert_eq!(VolumetricQuality::Low.grid(1920, 1080), [160, 90, 32]);
-        assert_eq!(VolumetricQuality::Medium.grid(1920, 1080), [240, 135, 48]);
+        assert_eq!(VolumetricQuality::Low.grid(1920, 1080), [160, 90, 64]);
+        assert_eq!(VolumetricQuality::Medium.grid(1920, 1080), [240, 135, 64]);
         assert_eq!(VolumetricQuality::High.grid(1920, 1080), [480, 270, 64]);
-        assert_eq!(VolumetricQuality::Medium.composite_steps(), 32);
+        assert_eq!(VolumetricQuality::Medium.composite_steps(), 48);
     }
 
     #[test]

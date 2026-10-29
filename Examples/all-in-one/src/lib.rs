@@ -614,7 +614,7 @@ impl Module for ProcgeoSceneModule {
             height_density: 0.012,
             ambient_color: [0.08, 0.1, 0.16],
             environment_intensity: 0.5,
-            max_distance: 90.0,
+            max_distance: 60.0,
             quality: VolumetricQuality::Low,
         });
 
