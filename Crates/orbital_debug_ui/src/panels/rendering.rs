@@ -205,6 +205,12 @@ pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
         volumetrics.anisotropy,
         DebugMessage::SetVolumetricAnisotropy,
     ));
+    rows.push(
+        text("0 = isotropic, >0 forward-scattering, <0 back-scattering.")
+            .size(10)
+            .color(MUTED)
+            .into(),
+    );
     rows.push(slider_row(
         "Max distance",
         10.0..=500.0,
