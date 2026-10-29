@@ -614,7 +614,9 @@ impl Module for ProcgeoSceneModule {
             height_density: 0.012,
             ambient_color: [0.08, 0.1, 0.16],
             environment_intensity: 0.5,
-            max_distance: 60.0,
+            // Keep the indoor grid concentrated on the hallway and rooms;
+            // a shorter range also reduces depth-slice flicker at Low quality.
+            max_distance: 30.0,
             quality: VolumetricQuality::Low,
         });
 
