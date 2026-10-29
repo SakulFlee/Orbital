@@ -79,6 +79,8 @@ pub enum DebugMessage {
     SetVolumetricScattering(f32),
     /// Set the volumetric extinction coefficient.
     SetVolumetricExtinction(f32),
+    /// Set the diffuse sky/IBL contribution to fog.
+    SetVolumetricEnvironmentIntensity(f32),
     /// Set the Henyey-Greenstein anisotropy.
     SetVolumetricAnisotropy(f32),
     /// Stop integrating fog after this distance.
@@ -437,6 +439,7 @@ impl DebugUiState {
             | DebugMessage::SetVolumetricHeightFalloff(_)
             | DebugMessage::SetVolumetricScattering(_)
             | DebugMessage::SetVolumetricExtinction(_)
+            | DebugMessage::SetVolumetricEnvironmentIntensity(_)
             | DebugMessage::SetVolumetricAnisotropy(_)
             | DebugMessage::SetVolumetricMaxDistance(_)
             | DebugMessage::SetVolumetricQuality(_) => {

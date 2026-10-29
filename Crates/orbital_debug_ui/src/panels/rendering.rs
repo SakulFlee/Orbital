@@ -134,7 +134,25 @@ pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
     );
 
     rows.push(
-        text("Base density is uniform. Height fog adds density at the base height (world Y) and fades above it.")
+        text("Base density: uniform fog.")
+            .size(10)
+            .color(MUTED)
+            .into(),
+    );
+    rows.push(
+        text("Height fog: extra density at/under")
+            .size(10)
+            .color(MUTED)
+            .into(),
+    );
+    rows.push(
+        text("Base height (world Y), fading above.")
+            .size(10)
+            .color(MUTED)
+            .into(),
+    );
+    rows.push(
+        text("IBL ambient: sky/HDRI radiance added to fog.")
             .size(10)
             .color(MUTED)
             .into(),
@@ -176,6 +194,12 @@ pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
         DebugMessage::SetVolumetricExtinction,
     ));
     rows.push(slider_row(
+        "IBL ambient",
+        0.0..=3.0,
+        volumetrics.environment_intensity,
+        DebugMessage::SetVolumetricEnvironmentIntensity,
+    ));
+    rows.push(slider_row(
         "Anisotropy",
         -0.95..=0.95,
         volumetrics.anisotropy,
@@ -190,7 +214,13 @@ pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
 
     rows.push(crate::panels::caption("Froxel quality", MUTED));
     rows.push(
-        text("Froxels are view-frustum voxels. Higher quality resolves smaller light shafts and finer fog detail.")
+        text("Froxels are view-frustum voxels.")
+            .size(10)
+            .color(MUTED)
+            .into(),
+    );
+    rows.push(
+        text("Higher quality resolves finer light shafts.")
             .size(10)
             .color(MUTED)
             .into(),

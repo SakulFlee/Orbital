@@ -1453,6 +1453,8 @@ pub struct VolumetricSettings {
     pub height_density: f32,
     /// Ambient fog color.
     pub ambient_color: [f32; 3],
+    /// Multiplier for diffuse sky/IBL radiance added to the ambient fog term.
+    pub environment_intensity: f32,
     /// Stop integrating after this distance.
     pub max_distance: f32,
     pub quality: VolumetricQuality,
@@ -1470,6 +1472,7 @@ impl Default for VolumetricSettings {
             height_falloff: 0.15,
             height_density: 0.03,
             ambient_color: [0.6, 0.7, 0.9],
+            environment_intensity: 1.0,
             max_distance: 200.0,
             quality: VolumetricQuality::Medium,
         }
