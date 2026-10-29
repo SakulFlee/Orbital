@@ -161,7 +161,7 @@ Mesh, material, and descriptor caches are keyed by descriptor and use `orbital_c
 - The preprocessor resolves dependencies and builds the `MaterialShader` pipeline.
 - The global registry receives `math`, `engine`, `pbr`, and `world_environment` libraries before module setup.
 - Main pass order: shadow → skybox → models → transparent → volumetrics → tonemap → AA. Models use CPU-culled compacted instance buffers when available.
-- Volumetrics are opt-in through a `VolumetricSettings` ECS resource. When enabled, a compute pass injects height fog, diffuse environment/sky radiance, and shadowed light scattering into a froxel grid, and a fullscreen pass composites it after forward transparency and before tonemapping.
+- Volumetrics are opt-in through a `VolumetricSettings` ECS resource. When enabled, a compute pass injects height fog, diffuse environment/sky radiance, and shadowed light scattering into a froxel grid, and a fullscreen pass composites it after forward transparency and before tonemapping. Froxel slices are distributed linearly in view-space distance rather than NDC depth.
 - Anti-aliasing is selected with `AppSettings::anti_aliasing`: `Off`, `Fxaa`, or LUT-based `Smaa` (SMAA 1x). SMAA quality is selected with `AppSettings::smaa_quality` (`Low`/`Medium`/`High`/`Ultra`); it runs on the LDR post-chain output, and 2D, UI, and text render afterward and stay sharp. At runtime, `RenderSettings` is the live AA/quality resource; `ModuleRuntime` applies it each redraw.
 - 2D, text, and UI have separate renderer paths. Most WGSL is embedded in crates with `include_str!`; only `Assets/Shaders/shadow_depth.wgsl` is a loose shader asset.
 
