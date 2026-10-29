@@ -24,19 +24,25 @@ pub mod panels;
 pub mod sparkline;
 pub mod state;
 
+use std::any::TypeId;
+
 use iced_wgpu::Renderer as IcedRenderer;
 use iced_wgpu::wgpu::{Device, Queue};
 use iced_winit::core::Element;
 use orbital_app::input::InputButton;
-use orbital_app::{LayerRenderer, Module};
+use orbital_app::{LayerRenderer, Module, RenderSettings};
+use orbital_camera::ProjectionMode;
 use orbital_ecs::{IntoSystem, Res, ResMut, System, World};
-use orbital_ecs_bridge::{InputSnapshot, TimingsHistoryConfig};
+use orbital_ecs_bridge::{
+    ActiveCamera, CameraDescriptor, CameraDirty, InputSnapshot, TimingsHistoryConfig,
+    VolumetricSettings,
+};
 use orbital_iced::{
     DEFAULT_REFRESH_INTERVAL, IcedLayerRenderer, IcedState, SMOOTH_REFRESH_INTERVAL,
 };
 use winit::keyboard::{KeyCode, PhysicalKey};
 
-use crate::panels::{console_panel, ecs_panel, edit, performance_panel};
+use crate::panels::{console_panel, ecs_panel, edit, performance_panel, rendering_panel};
 use crate::state::{DebugMessage, DebugUiState, PanelId};
 
 /// Shows or hides the whole overlay when the configured key is pressed.
@@ -189,7 +195,7 @@ impl Module for DebugUiModule {
         // a starting point. The console is deliberately wide and short, since
         // log lines are long.
         let refresh_interval = self.refresh_interval();
-        let panels: [PanelSpec; 3] = [
+        let panels: [PanelSpec; 4] = [
             (
                 "Performance",
                 (40.0, 40.0),
@@ -210,6 +216,13 @@ impl Module for DebugUiModule {
                 (760.0, 260.0),
                 PanelId::Console,
                 console_panel as PanelView,
+            ),
+            (
+                "Rendering",
+                (960.0, 320.0),
+                (300.0, 360.0),
+                PanelId::Rendering,
+                rendering_panel as PanelView,
             ),
         ];
 
@@ -238,7 +251,7 @@ impl Module for DebugUiModule {
             layer_renderers.push(Box::new(IcedLayerRenderer::new(panel)));
         }
 
-        orbital_core::logging::debug!("DebugUiModule: registered 3 debug panels");
+        orbital_core::logging::debug!("DebugUiModule: registered 4 debug panels");
     }
 }
 
@@ -293,11 +306,117 @@ fn handle_debug_message(
             }
             return;
         }
+        DebugMessage::SetAntiAliasing(mode) => {
+            let mut settings = world
+                .get_resource::<RenderSettings>()
+                .map(|settings| *settings)
+                .unwrap_or_default();
+            settings.anti_aliasing = mode;
+            world.insert_resource(settings);
+            mark_debug_dirty(world);
+            return;
+        }
+        DebugMessage::SetSmaaQuality(quality) => {
+            let mut settings = world
+                .get_resource::<RenderSettings>()
+                .map(|settings| *settings)
+                .unwrap_or_default();
+            settings.smaa_quality = quality;
+            world.insert_resource(settings);
+            mark_debug_dirty(world);
+            return;
+        }
+        DebugMessage::SetProjection(projection) => {
+            apply_projection(world, projection);
+            mark_debug_dirty(world);
+            return;
+        }
+        DebugMessage::SetVolumetricsEnabled(enabled) => {
+            update_volumetrics(world, |settings| settings.enabled = enabled);
+            return;
+        }
+        DebugMessage::SetVolumetricDensity(density) => {
+            update_volumetrics(world, |settings| settings.density = density.max(0.0));
+            return;
+        }
+        DebugMessage::SetVolumetricHeightDensity(density) => {
+            update_volumetrics(world, |settings| {
+                settings.height_density = density.max(0.0);
+            });
+            return;
+        }
+        DebugMessage::SetVolumetricScattering(scattering) => {
+            update_volumetrics(world, |settings| {
+                settings.scattering = scattering.max(0.0);
+            });
+            return;
+        }
+        DebugMessage::SetVolumetricAnisotropy(anisotropy) => {
+            update_volumetrics(world, |settings| {
+                settings.anisotropy = anisotropy.clamp(-0.95, 0.95);
+            });
+            return;
+        }
+        DebugMessage::SetVolumetricQuality(quality) => {
+            update_volumetrics(world, |settings| settings.quality = quality);
+            return;
+        }
         _ => {}
     }
 
     if let Some(mut state) = world.get_resource_mut::<DebugUiState>() {
         state.apply(&message);
+    }
+}
+
+/// Marks the debug panels dirty after a world-side control change.
+fn mark_debug_dirty(world: &mut World) {
+    if let Some(mut state) = world.get_resource_mut::<DebugUiState>() {
+        state.dirty = true;
+    }
+}
+
+/// Mutates the volumetric settings, creating defaults if the app had not
+/// inserted the resource yet.
+fn update_volumetrics(world: &mut World, update: impl FnOnce(&mut VolumetricSettings)) {
+    let mut settings = world
+        .get_resource::<VolumetricSettings>()
+        .map(|settings| *settings)
+        .unwrap_or_default();
+    update(&mut settings);
+    world.insert_resource(settings);
+    mark_debug_dirty(world);
+}
+
+/// Switches the active camera's projection and marks it for realization.
+fn apply_projection(world: &mut World, projection: ProjectionMode) {
+    let Some(active) = world.get_resource::<ActiveCamera>().map(|active| active.0) else {
+        return;
+    };
+
+    let changed = world
+        .component_mut_any(TypeId::of::<CameraDescriptor>(), &active)
+        .and_then(|mut handle| {
+            handle
+                .as_any_mut()
+                .downcast_mut::<CameraDescriptor>()
+                .map(|camera| {
+                    if camera.projection_mode == projection {
+                        false
+                    } else {
+                        camera.projection_mode = projection;
+                        true
+                    }
+                })
+        })
+        .unwrap_or(false);
+
+    if changed {
+        let _ = world.attach_component(&active, CameraDirty(true));
+        orbital_core::logging::debug!(
+            "debug UI: camera {} projection set to {projection}",
+            active.index
+        );
     }
 }
 
@@ -334,5 +453,49 @@ mod tests {
                 .refresh_interval(),
             DEFAULT_REFRESH_INTERVAL
         );
+    }
+
+    #[test]
+    fn projection_control_updates_the_active_camera() {
+        let mut world = World::new();
+        let camera = world.spawn_entity();
+        world
+            .attach_component(&camera, CameraDescriptor::default())
+            .expect("camera attach failed");
+        world.insert_resource(ActiveCamera(camera));
+
+        apply_projection(&mut world, ProjectionMode::Orthographic);
+
+        let projection = world
+            .component_debug(TypeId::of::<CameraDescriptor>(), &camera)
+            .and_then(|handle| {
+                handle
+                    .as_any()
+                    .downcast_ref::<CameraDescriptor>()
+                    .map(|camera| camera.projection_mode)
+            });
+        assert_eq!(projection, Some(ProjectionMode::Orthographic));
+
+        let dirty = world
+            .component_debug(TypeId::of::<CameraDirty>(), &camera)
+            .and_then(|handle| {
+                handle
+                    .as_any()
+                    .downcast_ref::<CameraDirty>()
+                    .map(|dirty| dirty.0)
+            });
+        assert_eq!(dirty, Some(true));
+    }
+
+    #[test]
+    fn volumetric_control_creates_the_resource_with_defaults() {
+        let mut world = World::new();
+
+        update_volumetrics(&mut world, |settings| settings.density = 0.02);
+
+        let density = world
+            .get_resource::<VolumetricSettings>()
+            .map(|settings| settings.density);
+        assert_eq!(density, Some(0.02));
     }
 }

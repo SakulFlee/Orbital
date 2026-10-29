@@ -2,8 +2,10 @@
 
 use std::collections::{BTreeSet, HashSet};
 
+use orbital_camera::ProjectionMode;
 use orbital_ecs::Entity;
-use orbital_ecs_bridge::{TIMING_STAGES, TOTAL_STAGE_INDEX};
+use orbital_ecs_bridge::{TIMING_STAGES, TOTAL_STAGE_INDEX, VolumetricQuality};
+use orbital_renderer::{AntiAliasing, SmaaQuality};
 
 /// The Iced renderer type the panels draw with.
 ///
@@ -57,6 +59,24 @@ pub enum DebugMessage {
     TogglePanel(PanelId),
     /// Close one panel's window.
     HidePanel(PanelId),
+    /// Select the 3D scene anti-aliasing mode.
+    SetAntiAliasing(AntiAliasing),
+    /// Select the SMAA quality preset.
+    SetSmaaQuality(SmaaQuality),
+    /// Switch the active camera between perspective and orthographic.
+    SetProjection(ProjectionMode),
+    /// Enable or disable volumetric lighting and height fog.
+    SetVolumetricsEnabled(bool),
+    /// Set the uniform fog density.
+    SetVolumetricDensity(f32),
+    /// Set the additional height-fog density.
+    SetVolumetricHeightDensity(f32),
+    /// Set the volumetric scattering coefficient.
+    SetVolumetricScattering(f32),
+    /// Set the Henyey-Greenstein anisotropy.
+    SetVolumetricAnisotropy(f32),
+    /// Select the froxel grid quality tier.
+    SetVolumetricQuality(VolumetricQuality),
 }
 
 /// The shortest selectable graph history window, in seconds.
@@ -113,7 +133,11 @@ pub enum PanelId {
     Performance,
     Ecs,
     Console,
+    Rendering,
 }
+
+/// Number of registered debug panels.
+pub const PANEL_COUNT: usize = 4;
 
 /// How many characters of a component's `Debug` output to show before
 /// truncating.
@@ -138,7 +162,7 @@ pub struct DebugUiState {
     /// Whether any debug panel is being shown at all.
     pub visible: bool,
     /// Per-panel visibility, for panels the user has dismissed.
-    pub panels: [bool; 3],
+    pub panels: [bool; PANEL_COUNT],
     /// Which bottom-panel tab is showing.
     pub active_tab: usize,
     /// The entity whose components are listed in the ECS panel.
@@ -190,7 +214,7 @@ impl DebugUiState {
     pub fn new(toggle_key: winit::keyboard::KeyCode) -> Self {
         Self {
             visible: false,
-            panels: [true; 3],
+            panels: [true; PANEL_COUNT],
             active_tab: 0,
             selected: None,
             expanded: HashSet::new(),
@@ -239,6 +263,7 @@ impl DebugUiState {
             PanelId::Performance => 0,
             PanelId::Ecs => 1,
             PanelId::Console => 2,
+            PanelId::Rendering => 3,
         };
 
         self.panels[index]
@@ -249,6 +274,7 @@ impl DebugUiState {
             PanelId::Performance => 0,
             PanelId::Ecs => 1,
             PanelId::Console => 2,
+            PanelId::Rendering => 3,
         };
 
         self.panels[index] = enabled;
@@ -276,7 +302,7 @@ impl DebugUiState {
         // Turning the overlay back on is also the recovery path for panels the
         // user closed with their X buttons.
         if self.visible {
-            self.panels = [true; 3];
+            self.panels = [true; PANEL_COUNT];
         }
 
         self.dirty = true;
@@ -393,6 +419,18 @@ impl DebugUiState {
                 self.set_panel_enabled(*panel, false);
                 self.dirty = true;
             }
+            DebugMessage::SetAntiAliasing(_)
+            | DebugMessage::SetSmaaQuality(_)
+            | DebugMessage::SetProjection(_)
+            | DebugMessage::SetVolumetricsEnabled(_)
+            | DebugMessage::SetVolumetricDensity(_)
+            | DebugMessage::SetVolumetricHeightDensity(_)
+            | DebugMessage::SetVolumetricScattering(_)
+            | DebugMessage::SetVolumetricAnisotropy(_)
+            | DebugMessage::SetVolumetricQuality(_) => {
+                // Applied in `handle_debug_message`, which has the world.
+                self.dirty = true;
+            }
         }
     }
 
@@ -420,6 +458,22 @@ mod tests {
         assert!(!state.visible);
         assert!(!state.is_panel_visible(PanelId::Performance));
         assert!(state.panels[1], "ECS panel enabled");
+        assert_eq!(state.panels.len(), PANEL_COUNT);
+    }
+
+    #[test]
+    fn rendering_panel_can_be_hidden_and_restored() {
+        let mut state = DebugUiState::new(winit::keyboard::KeyCode::F1);
+        state.visible = true;
+
+        assert!(state.is_panel_visible(PanelId::Rendering));
+
+        state.apply(&DebugMessage::HidePanel(PanelId::Rendering));
+        assert!(!state.is_panel_visible(PanelId::Rendering));
+
+        state.toggle_visibility();
+        state.toggle_visibility();
+        assert!(state.is_panel_visible(PanelId::Rendering));
     }
 
     #[test]

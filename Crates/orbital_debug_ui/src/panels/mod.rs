@@ -7,11 +7,13 @@ pub mod console;
 pub mod ecs;
 pub mod edit;
 pub mod performance;
+pub mod rendering;
 
 pub use console::console_panel;
 pub use ecs::ecs_panel;
 
 pub use performance::performance_panel;
+pub use rendering::rendering_panel;
 
 use std::any::TypeId;
 

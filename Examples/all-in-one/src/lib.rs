@@ -44,7 +44,6 @@ struct Mana(u32);
 struct ProjectionToggleState {
     was_pressed: bool,
     pending_toggle: bool,
-    mode: ProjectionMode,
 }
 
 #[orbital::main]
@@ -498,7 +497,6 @@ fn sys_apply_projection_toggle(
         }
         ProjectionMode::Orthographic => ProjectionMode::Perspective,
     };
-    state.mode = camera.projection_mode;
     info!("Camera projection switched to {:?}", camera.projection_mode);
 }
 
@@ -584,7 +582,6 @@ impl Module for ProcgeoSceneModule {
         ecs.insert_resource(ProjectionToggleState {
             was_pressed: false,
             pending_toggle: false,
-            mode: ProjectionMode::Perspective,
         });
 
         // Iced UI panels
@@ -610,30 +607,56 @@ impl Module for ProcgeoSceneModule {
                         .unwrap_or_else(|| "Mana: --".to_string());
 
                     let projection_text = ecs
-                        .get_resource::<ProjectionToggleState>()
-                        .map(|state| match state.mode {
-                            ProjectionMode::Perspective => "Projection: Perspective (O)",
-                            ProjectionMode::Orthographic => "Projection: Orthographic (O)",
+                        .get_resource::<ActiveCamera>()
+                        .and_then(|active| {
+                            ecs.component_debug(
+                                std::any::TypeId::of::<CameraDescriptor>(),
+                                &active.0,
+                            )
                         })
-                        .unwrap_or("Projection: --");
+                        .and_then(|handle| {
+                            handle
+                                .as_any()
+                                .downcast_ref::<CameraDescriptor>()
+                                .map(|camera| camera.projection_mode)
+                        })
+                        .map(|mode| format!("Projection: {mode} (O)"))
+                        .unwrap_or_else(|| "Projection: --".to_string());
 
                     let volumetrics_text = ecs
                         .get_resource::<VolumetricSettings>()
                         .map(|settings| {
                             if settings.enabled {
-                                "Volumetrics: Low froxel fog"
+                                let quality = match settings.quality {
+                                    VolumetricQuality::Low => "Low",
+                                    VolumetricQuality::Medium => "Medium",
+                                    VolumetricQuality::High => "High",
+                                    VolumetricQuality::Custom { .. } => "Custom",
+                                };
+                                format!("Volumetrics: {quality} froxel fog")
                             } else {
-                                "Volumetrics: disabled"
+                                "Volumetrics: disabled".to_string()
                             }
                         })
-                        .unwrap_or("Volumetrics: disabled");
+                        .unwrap_or_else(|| "Volumetrics: disabled".to_string());
+
+                    let aa_text = ecs
+                        .get_resource::<orbital::app::RenderSettings>()
+                        .map(|settings| match settings.anti_aliasing {
+                            AntiAliasing::Off => "Anti-aliasing: Off".to_string(),
+                            AntiAliasing::Fxaa => "Anti-aliasing: FXAA".to_string(),
+                            AntiAliasing::Smaa => {
+                                format!("Anti-aliasing: SMAA {:?}", settings.smaa_quality)
+                            }
+                        })
+                        .unwrap_or_else(|| "Anti-aliasing: --".to_string());
 
                     column![
                         text(health_text).size(16),
                         text(mana_text).size(16),
                         text(projection_text).size(16),
                         text(volumetrics_text).size(16),
-                        text("Anti-aliasing: SMAA").size(16),
+                        text(aa_text).size(16),
                     ]
                     .spacing(4)
                     .into()
