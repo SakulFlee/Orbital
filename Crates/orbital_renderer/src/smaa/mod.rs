@@ -28,6 +28,65 @@ const SEARCHTEX_BYTES: &[u8] = include_bytes!("SearchTex.bin");
 const EDGES_FORMAT: TextureFormat = TextureFormat::Rg8Unorm;
 const BLEND_FORMAT: TextureFormat = TextureFormat::Rgba8Unorm;
 
+/// SMAA quality preset. Controls edge threshold, search distance and whether
+/// diagonal/corner handling is enabled.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SmaaQuality {
+    Low,
+    Medium,
+    #[default]
+    High,
+    Ultra,
+}
+
+impl SmaaQuality {
+    fn threshold(self) -> f64 {
+        match self {
+            Self::Low => 0.15,
+            Self::Medium | Self::High => 0.1,
+            Self::Ultra => 0.05,
+        }
+    }
+
+    fn max_search_steps(self) -> f64 {
+        match self {
+            Self::Low => 4.0,
+            Self::Medium => 8.0,
+            Self::High => 16.0,
+            Self::Ultra => 32.0,
+        }
+    }
+
+    fn max_diagonal_steps(self) -> f64 {
+        match self {
+            Self::Low | Self::Medium => 0.0,
+            Self::High => 8.0,
+            Self::Ultra => 16.0,
+        }
+    }
+
+    fn corner_rounding(self) -> f64 {
+        match self {
+            Self::Low | Self::Medium => 0.0,
+            Self::High | Self::Ultra => 25.0,
+        }
+    }
+
+    fn disable_diagonal(self) -> f64 {
+        match self {
+            Self::Low | Self::Medium => 1.0,
+            Self::High | Self::Ultra => 0.0,
+        }
+    }
+
+    fn disable_corner(self) -> f64 {
+        match self {
+            Self::Low | Self::Medium => 1.0,
+            Self::High | Self::Ultra => 0.0,
+        }
+    }
+}
+
 struct BindGroupLayouts {
     edge: BindGroupLayout,
     weights: BindGroupLayout,
@@ -143,7 +202,12 @@ impl BindGroupLayouts {
 }
 
 impl Pipelines {
-    fn new(device: &Device, format: TextureFormat, layouts: &BindGroupLayouts) -> Self {
+    fn new(
+        device: &Device,
+        format: TextureFormat,
+        layouts: &BindGroupLayouts,
+        quality: SmaaQuality,
+    ) -> Self {
         let edge_shader = device.create_shader_module(ShaderModuleDescriptor {
             label: Some("Orbital::SmaaEdgeShader"),
             source: ShaderSource::Wgsl(include_str!("edges.wgsl").into()),
@@ -173,9 +237,23 @@ impl Pipelines {
             immediate_size: 0,
         });
 
-        let edge_constants = [("SMAA_SRGB_INPUT", if format.is_srgb() { 1.0 } else { 0.0 })];
+        let edge_constants = [
+            ("SMAA_SRGB_INPUT", if format.is_srgb() { 1.0 } else { 0.0 }),
+            ("SMAA_THRESHOLD", quality.threshold()),
+        ];
         let edge_compilation = PipelineCompilationOptions {
             constants: &edge_constants,
+            ..Default::default()
+        };
+        let weights_constants = [
+            ("SMAA_MAX_SEARCH_STEPS", quality.max_search_steps()),
+            ("SMAA_MAX_SEARCH_STEPS_DIAG", quality.max_diagonal_steps()),
+            ("SMAA_CORNER_ROUNDING", quality.corner_rounding()),
+            ("SMAA_DISABLE_DIAG_DETECTION", quality.disable_diagonal()),
+            ("SMAA_DISABLE_CORNER_DETECTION", quality.disable_corner()),
+        ];
+        let weights_compilation = PipelineCompilationOptions {
+            constants: &weights_constants,
             ..Default::default()
         };
 
@@ -225,7 +303,7 @@ impl Pipelines {
                 &weights_layout,
                 &weights_shader,
                 BLEND_FORMAT,
-                Default::default(),
+                weights_compilation,
             ),
             blend: pipeline(
                 "Orbital::SmaaBlendPipeline",
@@ -442,9 +520,10 @@ impl SmaaTarget {
         width: u32,
         height: u32,
         format: TextureFormat,
+        quality: SmaaQuality,
     ) -> Self {
         let layouts = BindGroupLayouts::new(device);
-        let pipelines = Pipelines::new(device, format, &layouts);
+        let pipelines = Pipelines::new(device, format, &layouts, quality);
         let resources = Resources::new(device, queue);
         let targets = Targets::new(device, width, height, format);
         let bind_groups = BindGroups::new(device, &layouts, &resources, &targets);
@@ -569,13 +648,6 @@ mod tests {
     #[test]
     fn smaa_pipelines_create_and_validate_on_noop_backend() {
         let (device, queue) = wgpu::Device::noop(&wgpu::DeviceDescriptor::default());
-        let target = super::SmaaTarget::new(
-            &device,
-            &queue,
-            320,
-            180,
-            wgpu::TextureFormat::Bgra8UnormSrgb,
-        );
         let output = device
             .create_texture(&wgpu::TextureDescriptor {
                 label: Some("Smaa test output"),
@@ -593,10 +665,25 @@ mod tests {
             })
             .create_view(&Default::default());
 
-        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Smaa test encoder"),
-        });
-        target.record(&mut encoder, &output);
-        queue.submit([encoder.finish()]);
+        for quality in [
+            super::SmaaQuality::Low,
+            super::SmaaQuality::Medium,
+            super::SmaaQuality::High,
+            super::SmaaQuality::Ultra,
+        ] {
+            let target = super::SmaaTarget::new(
+                &device,
+                &queue,
+                320,
+                180,
+                wgpu::TextureFormat::Bgra8UnormSrgb,
+                quality,
+            );
+            let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Smaa test encoder"),
+            });
+            target.record(&mut encoder, &output);
+            queue.submit([encoder.finish()]);
+        }
     }
 }

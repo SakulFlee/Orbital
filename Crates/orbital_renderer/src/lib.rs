@@ -15,3 +15,4 @@ pub use renderer_2d::{Camera2DUniform, Renderer2D};
 pub use renderer_text::{SdfParamsUniform, TextRenderer};
 pub use renderer_ui::UiRenderer;
 pub use scene::{RenderCamera, RenderScene};
+pub use smaa::SmaaQuality;

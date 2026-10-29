@@ -23,7 +23,7 @@ use crate::deferred::DeferredLighting;
 use crate::fxaa::Fxaa;
 use crate::light_culling::LightCulling;
 use crate::scene::RenderScene;
-use crate::smaa::SmaaTarget;
+use crate::smaa::{SmaaQuality, SmaaTarget};
 use crate::tonemap::Tonemap;
 use crate::volumetric::VolumetricRenderer;
 
@@ -457,6 +457,7 @@ pub struct Renderer {
     texture_pool: TexturePool,
     frame_index: u64,
     anti_aliasing: AntiAliasing,
+    smaa_quality: SmaaQuality,
     tonemap: Tonemap,
     fxaa: Fxaa,
     smaa: Option<SmaaTarget>,
@@ -497,6 +498,17 @@ impl Renderer {
 
     pub fn anti_aliasing(&self) -> AntiAliasing {
         self.anti_aliasing
+    }
+
+    pub fn set_smaa_quality(&mut self, quality: SmaaQuality) {
+        if self.smaa_quality != quality {
+            self.smaa_quality = quality;
+            self.smaa = None;
+        }
+    }
+
+    pub fn smaa_quality(&self) -> SmaaQuality {
+        self.smaa_quality
     }
 
     /// Enable or disable the deferred path.
@@ -595,6 +607,7 @@ impl Renderer {
             texture_pool: TexturePool::new(3),
             frame_index: 0,
             anti_aliasing: AntiAliasing::default(),
+            smaa_quality: SmaaQuality::default(),
             tonemap: Tonemap::new(device, surface_texture_format),
             fxaa: Fxaa::new(device, queue, surface_texture_format, resolution),
             smaa: None,
@@ -897,6 +910,7 @@ impl Renderer {
                 self.resolution.x.max(1),
                 self.resolution.y.max(1),
                 self.surface_texture_format,
+                self.smaa_quality,
             ));
         }
         let smaa = self.smaa.take();
