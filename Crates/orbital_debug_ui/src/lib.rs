@@ -367,6 +367,12 @@ fn handle_debug_message(
             });
             return;
         }
+        DebugMessage::SetVolumetricEnvironmentIntensity(intensity) => {
+            update_volumetrics(world, |settings| {
+                settings.environment_intensity = intensity.max(0.0);
+            });
+            return;
+        }
         DebugMessage::SetVolumetricAnisotropy(anisotropy) => {
             update_volumetrics(world, |settings| {
                 settings.anisotropy = anisotropy.clamp(-0.95, 0.95);

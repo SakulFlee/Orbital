@@ -8,11 +8,13 @@ struct VolumetricParams {
     grid: vec4<u32>,     // x, y, z, unused
     media: vec4<f32>,    // density, scattering, extinction, anisotropy
     height: vec4<f32>,   // base height, falloff, density, max distance
-    ambient: vec4<f32>,  // ambient fog color, unused
+    ambient: vec4<f32>,  // ambient fog color, IBL contribution multiplier
 }
 
 @group(0) @binding(0) var<uniform> camera: CameraUniform;
 @group(0) @binding(1) var<storage> light_store: array<Light>;
+@group(0) @binding(2) var diffuse_env_map: texture_cube<f32>;
+@group(0) @binding(3) var diffuse_env_sampler: sampler;
 @group(0) @binding(8) var<uniform> shadow_data: ShadowData;
 @group(0) @binding(9) var shadow_map_array: texture_depth_2d_array;
 @group(0) @binding(10) var shadow_sampler: sampler_comparison;
@@ -53,8 +55,16 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     }
 
     let extinction = density * params.media.z;
-    var scattering = params.ambient.rgb * density * params.media.y;
     let view_direction = normalize(world_position - camera.position.xyz);
+    let environment = textureSampleLevel(
+        diffuse_env_map,
+        diffuse_env_sampler,
+        view_direction,
+        0.0,
+    ).rgb;
+    var scattering = (params.ambient.rgb + environment * params.ambient.w)
+        * density
+        * params.media.y;
     let g = clamp(params.media.w, -0.95, 0.95);
 
     for (var i = 0u; i < light_count; i += 1u) {

@@ -95,6 +95,7 @@ impl Module for GameModule {
             height_falloff: 0.3,
             height_density: 0.06,
             ambient_color: [0.25, 0.32, 0.45],
+            environment_intensity: 0.75,
             max_distance: 80.0,
             quality: VolumetricQuality::Medium,
         });

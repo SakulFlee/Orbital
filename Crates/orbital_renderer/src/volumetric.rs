@@ -311,6 +311,8 @@ impl VolumetricRenderer {
             let offset = 48 + index * 4;
             inject[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
         }
+        // `ambient.w` carries the environment/IBL contribution multiplier.
+        inject[60..64].copy_from_slice(&settings.environment_intensity.to_le_bytes());
         queue.write_buffer(&self.inject_params, 0, &inject);
 
         let mut composite = [0u8; COMPOSITE_PARAMS_SIZE as usize];
