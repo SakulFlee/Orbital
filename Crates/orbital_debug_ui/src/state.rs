@@ -69,12 +69,20 @@ pub enum DebugMessage {
     SetVolumetricsEnabled(bool),
     /// Set the uniform fog density.
     SetVolumetricDensity(f32),
+    /// Set the world-space Y height where the height-fog layer starts.
+    SetVolumetricHeightBase(f32),
     /// Set the additional height-fog density.
     SetVolumetricHeightDensity(f32),
+    /// Set how quickly height fog falls off with altitude.
+    SetVolumetricHeightFalloff(f32),
     /// Set the volumetric scattering coefficient.
     SetVolumetricScattering(f32),
+    /// Set the volumetric extinction coefficient.
+    SetVolumetricExtinction(f32),
     /// Set the Henyey-Greenstein anisotropy.
     SetVolumetricAnisotropy(f32),
+    /// Stop integrating fog after this distance.
+    SetVolumetricMaxDistance(f32),
     /// Select the froxel grid quality tier.
     SetVolumetricQuality(VolumetricQuality),
 }
@@ -424,9 +432,13 @@ impl DebugUiState {
             | DebugMessage::SetProjection(_)
             | DebugMessage::SetVolumetricsEnabled(_)
             | DebugMessage::SetVolumetricDensity(_)
+            | DebugMessage::SetVolumetricHeightBase(_)
             | DebugMessage::SetVolumetricHeightDensity(_)
+            | DebugMessage::SetVolumetricHeightFalloff(_)
             | DebugMessage::SetVolumetricScattering(_)
+            | DebugMessage::SetVolumetricExtinction(_)
             | DebugMessage::SetVolumetricAnisotropy(_)
+            | DebugMessage::SetVolumetricMaxDistance(_)
             | DebugMessage::SetVolumetricQuality(_) => {
                 // Applied in `handle_debug_message`, which has the world.
                 self.dirty = true;

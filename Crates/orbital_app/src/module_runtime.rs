@@ -316,9 +316,19 @@ impl ModuleRuntime {
                 .map(|settings| *settings),
         ) {
             if renderer.anti_aliasing() != settings.anti_aliasing {
+                info!(
+                    "Renderer anti-aliasing changed to {:?}",
+                    settings.anti_aliasing
+                );
                 renderer.set_anti_aliasing(settings.anti_aliasing);
             }
-            renderer.set_smaa_quality(settings.smaa_quality);
+            if renderer.smaa_quality() != settings.smaa_quality {
+                info!(
+                    "Renderer SMAA quality changed to {:?}",
+                    settings.smaa_quality
+                );
+                renderer.set_smaa_quality(settings.smaa_quality);
+            }
         }
 
         let _t_ecs_start = std::time::Instant::now();
