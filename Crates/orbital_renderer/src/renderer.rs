@@ -311,7 +311,10 @@ impl ShadowFallbacks {
             usage: wgpu::TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
         });
-        let depth_view = depth_texture.create_view(&Default::default());
+        let depth_view = depth_texture.create_view(&wgpu::TextureViewDescriptor {
+            dimension: Some(TextureViewDimension::D2Array),
+            ..Default::default()
+        });
 
         let cube_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Orbital::ShadowFallback::CubeDepth"),
@@ -1914,6 +1917,147 @@ mod tests {
                 "volumetric-composite",
                 "tonemap"
             ]
+        );
+    }
+
+    #[test]
+    fn renderer_creates_pipelines_on_noop_backend() {
+        let (device, queue) = wgpu::Device::noop(&wgpu::DeviceDescriptor::default());
+        let mut renderer = Renderer::new(
+            TextureFormat::Bgra8UnormSrgb,
+            Vector2::new(320, 180),
+            &device,
+            &queue,
+        );
+        renderer.enable_shadows(&device, &queue, 4, 256);
+    }
+
+    #[test]
+    fn renderer_renders_smaa_and_volumetrics_on_noop_backend() {
+        let (device, queue) = wgpu::Device::noop(&wgpu::DeviceDescriptor::default());
+        let mut renderer = Renderer::new(
+            TextureFormat::Bgra8UnormSrgb,
+            Vector2::new(320, 180),
+            &device,
+            &queue,
+        );
+        renderer.set_anti_aliasing(AntiAliasing::Smaa);
+        let target = device
+            .create_texture(&wgpu::TextureDescriptor {
+                label: Some("Renderer noop target"),
+                size: wgpu::Extent3d {
+                    width: 320,
+                    height: 180,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: TextureFormat::Bgra8UnormSrgb,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                view_formats: &[],
+            })
+            .create_view(&Default::default());
+
+        let mut world = orbital_ecs::World::new();
+        world.insert_resource(orbital_ecs_bridge::VolumetricSettings {
+            enabled: true,
+            quality: orbital_ecs_bridge::VolumetricQuality::Low,
+            ..Default::default()
+        });
+        let scene = RenderScene::from_world(&world);
+        renderer.render(
+            &target,
+            &scene,
+            &device,
+            &queue,
+            None,
+            &std::collections::HashSet::new(),
+            None,
+        );
+    }
+
+    #[test]
+    fn renderer_renders_volumetrics_on_noop_backend() {
+        let (device, queue) = wgpu::Device::noop(&wgpu::DeviceDescriptor::default());
+        let mut renderer = Renderer::new(
+            TextureFormat::Bgra8UnormSrgb,
+            Vector2::new(320, 180),
+            &device,
+            &queue,
+        );
+        let target = device
+            .create_texture(&wgpu::TextureDescriptor {
+                label: Some("Renderer noop target"),
+                size: wgpu::Extent3d {
+                    width: 320,
+                    height: 180,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: TextureFormat::Bgra8UnormSrgb,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                view_formats: &[],
+            })
+            .create_view(&Default::default());
+
+        let mut world = orbital_ecs::World::new();
+        world.insert_resource(orbital_ecs_bridge::VolumetricSettings {
+            enabled: true,
+            ..Default::default()
+        });
+        let scene = RenderScene::from_world(&world);
+        renderer.render(
+            &target,
+            &scene,
+            &device,
+            &queue,
+            None,
+            &std::collections::HashSet::new(),
+            None,
+        );
+    }
+
+    #[test]
+    fn renderer_renders_with_smaa_on_noop_backend() {
+        let (device, queue) = wgpu::Device::noop(&wgpu::DeviceDescriptor::default());
+        let mut renderer = Renderer::new(
+            TextureFormat::Bgra8UnormSrgb,
+            Vector2::new(320, 180),
+            &device,
+            &queue,
+        );
+        renderer.set_anti_aliasing(AntiAliasing::Smaa);
+
+        let target = device
+            .create_texture(&wgpu::TextureDescriptor {
+                label: Some("Renderer noop target"),
+                size: wgpu::Extent3d {
+                    width: 320,
+                    height: 180,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: TextureFormat::Bgra8UnormSrgb,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                view_formats: &[],
+            })
+            .create_view(&Default::default());
+
+        let world = orbital_ecs::World::new();
+        let scene = RenderScene::from_world(&world);
+        renderer.render(
+            &target,
+            &scene,
+            &device,
+            &queue,
+            None,
+            &std::collections::HashSet::new(),
+            None,
         );
     }
 }

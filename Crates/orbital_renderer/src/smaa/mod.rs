@@ -565,4 +565,38 @@ mod tests {
                 .unwrap_or_else(|error| panic!("SMAA {label} shader failed validation: {error:?}"));
         }
     }
+
+    #[test]
+    fn smaa_pipelines_create_and_validate_on_noop_backend() {
+        let (device, queue) = wgpu::Device::noop(&wgpu::DeviceDescriptor::default());
+        let target = super::SmaaTarget::new(
+            &device,
+            &queue,
+            320,
+            180,
+            wgpu::TextureFormat::Bgra8UnormSrgb,
+        );
+        let output = device
+            .create_texture(&wgpu::TextureDescriptor {
+                label: Some("Smaa test output"),
+                size: wgpu::Extent3d {
+                    width: 320,
+                    height: 180,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Bgra8UnormSrgb,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                view_formats: &[],
+            })
+            .create_view(&Default::default());
+
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Smaa test encoder"),
+        });
+        target.record(&mut encoder, &output);
+        queue.submit([encoder.finish()]);
+    }
 }

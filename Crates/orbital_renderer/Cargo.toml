@@ -28,3 +28,6 @@ orbital_texture = { path = "../orbital_texture" }
 orbital_world_environment = { path = "../orbital_world_environment" }
 wgpu = { workspace = true }
 cgmath = { workspace = true }
+
+[dev-dependencies]
+wgpu = { workspace = true, features = ["noop"] }
