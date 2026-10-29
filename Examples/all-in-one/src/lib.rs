@@ -46,6 +46,38 @@ struct ProjectionToggleState {
     pending_toggle: bool,
 }
 
+/// The room row faces this central hallway. Mirrored rooms are placed at
+/// `2 * HALLWAY_MIRROR_Z - z`, leaving the corridor between the two rows.
+const HALLWAY_MIRROR_Z: f32 = 10.0;
+
+fn mirror_z(point: Point3<f32>) -> Point3<f32> {
+    Point3::new(point.x, point.y, 2.0 * HALLWAY_MIRROR_Z - point.z)
+}
+
+fn spawn_scene_model(
+    ecs: &mut World,
+    label: &str,
+    mesh: orbital::resources::MeshDescriptor,
+    material: Arc<orbital::resources::MaterialShaderDescriptor>,
+    transform: Transform,
+) {
+    let entity = ecs.spawn_entity();
+    ecs.attach_component(
+        &entity,
+        ModelDescriptor {
+            label: label.to_string(),
+            mesh: Arc::new(mesh),
+            materials: vec![material],
+        },
+    )
+    .unwrap();
+
+    let mut instances = ModelInstances::new();
+    instances.add_instance(transform);
+    ecs.attach_component(&entity, instances).unwrap();
+    ecs.attach_component(&entity, ModelDirty(true)).unwrap();
+}
+
 #[orbital::main]
 pub fn entrypoint(
     event_loop_result: Result<
@@ -170,25 +202,33 @@ impl System for HelmetAdjuster {
                 0.0,
             );
             let final_rot = correction * original_transform.rotation;
+            let mirror_rot = Quaternion::new(
+                std::f32::consts::FRAC_1_SQRT_2,
+                0.0,
+                -std::f32::consts::FRAC_1_SQRT_2,
+                0.0,
+            ) * original_transform.rotation;
 
             let mut new_instances = ModelInstances::new();
-            new_instances.add_instance(Transform::new(
-                Vector3::new(10.0, 2.2, 0.0),
-                final_rot,
-                original_transform.scale,
-            ));
-            new_instances.add_instance(Transform::new(
-                Vector3::new(20.0, 2.2, 0.0),
-                final_rot,
-                original_transform.scale,
-            ));
+            for (x, z, rotation) in [
+                (10.0, 0.0, final_rot),
+                (20.0, 0.0, final_rot),
+                (10.0, 2.0 * HALLWAY_MIRROR_Z, mirror_rot),
+                (20.0, 2.0 * HALLWAY_MIRROR_Z, mirror_rot),
+            ] {
+                new_instances.add_instance(Transform::new(
+                    Vector3::new(x, 2.2, z),
+                    rotation,
+                    original_transform.scale,
+                ));
+            }
             commands.detach_component::<ModelInstances>(&entity);
             commands.attach_component(&entity, new_instances);
             commands.detach_component::<ModelDirty>(&entity);
             commands.attach_component(&entity, ModelDirty(true));
 
             self.adjusted.store(true, Ordering::Relaxed);
-            info!("Adjusted helmet: pos (10, 2.0, 0), rotated +90° Y toward camera");
+            info!("Adjusted helmet instances in both room rows, facing the central hallway");
             break;
         }
     }
@@ -529,7 +569,8 @@ impl Module for ProcgeoSceneModule {
         _device: &orbital::wgpu::Device,
         _queue: &orbital::wgpu::Queue,
     ) -> Vec<Box<dyn System>> {
-        // Spawn camera at the front, looking toward the rooms
+        // Spawn the camera in the central hallway, looking toward the
+        // original room row. Turning around reveals the mirrored row.
         let camera = ecs.spawn_entity();
         ecs.attach_component(
             &camera,
@@ -552,7 +593,7 @@ impl Module for ProcgeoSceneModule {
             std::f32::consts::FRAC_1_SQRT_2,
             0.0,
         );
-        ecs.attach_component(&camera, Position(Point3::new(0.0, 7.0, 14.0)))
+        ecs.attach_component(&camera, Position(Point3::new(0.0, 7.0, 10.0)))
             .unwrap();
         ecs.attach_component(&camera, Rotation(rot)).unwrap();
         ecs.insert_resource(ActiveCamera(camera));
@@ -708,23 +749,25 @@ impl Module for ProcgeoSceneModule {
             }
         };
 
-        // Build and spawn RON entities
-        for (mesh, material, transform) in scene.build() {
-            let entity = ecs.spawn_entity();
-            ecs.attach_component(
-                &entity,
-                ModelDescriptor {
-                    label: "procgeo".into(),
-                    mesh: Arc::new(mesh),
-                    materials: vec![material],
-                },
-            )
-            .unwrap();
+        // Build and spawn RON entities. The original row opens onto the
+        // hallway from one side; mirroring every non-hall entity across
+        // `HALLWAY_MIRROR_Z` creates the second row of rooms. Stairs are kept
+        // out of the original row and appear only in the mirrored room row.
+        let built = scene.build();
+        for (descriptor, (mesh, material, transform)) in scene.entities.iter().zip(built) {
+            let label = descriptor.label.as_deref().unwrap_or("procgeo");
+            let is_stair = label.starts_with("Stair ");
+            let is_hall = label.starts_with("Hall");
 
-            let mut instances = ModelInstances::new();
-            instances.add_instance(transform);
-            ecs.attach_component(&entity, instances).unwrap();
-            ecs.attach_component(&entity, ModelDirty(true)).unwrap();
+            if !is_stair {
+                spawn_scene_model(ecs, label, mesh.clone(), material.clone(), transform);
+            }
+
+            if !is_hall {
+                let mut mirrored = transform;
+                mirrored.position.z = 2.0 * HALLWAY_MIRROR_Z - mirrored.position.z;
+                spawn_scene_model(ecs, &format!("{label} (mirror)"), mesh, material, mirrored);
+            }
         }
 
         info!("Scene loaded with {} entities", scene.entities.len());
@@ -797,6 +840,36 @@ impl Module for ProcgeoSceneModule {
         )
         .unwrap();
 
+        // Mirrored spot for the new room row.
+        let mirror_spot_light = ecs.spawn_entity();
+        let mirror_spot_pos = mirror_z(spot_pos);
+        let mirror_target = mirror_z(target);
+        let mirror_dir = (mirror_target - mirror_spot_pos).normalize();
+        ecs.attach_component(
+            &mirror_spot_light,
+            LightDescriptor::new_spot(
+                Vector3::new(1.0, 1.0, 1.0),
+                50.0,
+                Vector3::new(mirror_dir.x, mirror_dir.y, mirror_dir.z),
+                0.1,
+                0.44,
+            ),
+        )
+        .unwrap();
+        ecs.attach_component(&mirror_spot_light, Position(mirror_spot_pos))
+            .unwrap();
+        ecs.attach_component(&mirror_spot_light, LightDirty(true))
+            .unwrap();
+        ecs.attach_component(
+            &mirror_spot_light,
+            ShadowCaster {
+                cascade_count: 0,
+                bias: 0.0002,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
         // ── Point lights for Rooms 1 & 2 (x=-20, x=-10) ───────────
         for room_x in [-20.0, -10.0f32] {
             let pl = ecs.spawn_entity();
@@ -809,6 +882,21 @@ impl Module for ProcgeoSceneModule {
                 .unwrap();
             ecs.attach_component(&pl, LightDirty(true)).unwrap();
             ecs.attach_component(&pl, ShadowCaster::default()).unwrap();
+
+            let mirror_pl = ecs.spawn_entity();
+            ecs.attach_component(
+                &mirror_pl,
+                LightDescriptor::new_point(Vector3::new(1.0, 1.0, 1.0), 50.0),
+            )
+            .unwrap();
+            ecs.attach_component(
+                &mirror_pl,
+                Position(Point3::new(room_x, 5.0, 2.0 * HALLWAY_MIRROR_Z)),
+            )
+            .unwrap();
+            ecs.attach_component(&mirror_pl, LightDirty(true)).unwrap();
+            ecs.attach_component(&mirror_pl, ShadowCaster::default())
+                .unwrap();
         }
 
         // ── Spot ring for Room 4 helmet (x=10) ──────────────────────
@@ -840,6 +928,34 @@ impl Module for ProcgeoSceneModule {
                 },
             )
             .unwrap();
+
+            let mirror_lpos = mirror_z(lpos);
+            let mirror_helmet = mirror_z(helmet_10);
+            let mirror_d = (mirror_helmet - mirror_lpos).normalize();
+            let mirror_hl = ecs.spawn_entity();
+            ecs.attach_component(
+                &mirror_hl,
+                LightDescriptor::new_spot(
+                    Vector3::new(1.0, 0.9, 0.8),
+                    30.0,
+                    Vector3::new(mirror_d.x, mirror_d.y, mirror_d.z),
+                    0.1,
+                    0.44,
+                ),
+            )
+            .unwrap();
+            ecs.attach_component(&mirror_hl, Position(mirror_lpos))
+                .unwrap();
+            ecs.attach_component(&mirror_hl, LightDirty(true)).unwrap();
+            ecs.attach_component(
+                &mirror_hl,
+                ShadowCaster {
+                    cascade_count: 0,
+                    bias: 0.0002,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
         }
 
         // ── Colorful point-light ring for Room 5 helmet (x=20) ───────
@@ -863,6 +979,16 @@ impl Module for ProcgeoSceneModule {
                 .unwrap();
             ecs.attach_component(&pl, Position(lpos)).unwrap();
             ecs.attach_component(&pl, LightDirty(true)).unwrap();
+
+            let mirror_pl = ecs.spawn_entity();
+            ecs.attach_component(
+                &mirror_pl,
+                LightDescriptor::new_point(colors[i as usize], 30.0),
+            )
+            .unwrap();
+            ecs.attach_component(&mirror_pl, Position(mirror_z(lpos)))
+                .unwrap();
+            ecs.attach_component(&mirror_pl, LightDirty(true)).unwrap();
         }
         let animator = LightAnimator::new(spot_light);
 
