@@ -63,42 +63,48 @@ pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
         ]
         .spacing(8)
         .into(),
-        crate::panels::caption("SMAA quality", ACCENT),
-        row![
-            radio(
-                "Low",
-                SmaaQuality::Low,
-                Some(render.smaa_quality),
-                DebugMessage::SetSmaaQuality,
-            )
-            .text_size(12),
-            radio(
-                "Medium",
-                SmaaQuality::Medium,
-                Some(render.smaa_quality),
-                DebugMessage::SetSmaaQuality,
-            )
-            .text_size(12),
-            radio(
-                "High",
-                SmaaQuality::High,
-                Some(render.smaa_quality),
-                DebugMessage::SetSmaaQuality,
-            )
-            .text_size(12),
-            radio(
-                "Ultra",
-                SmaaQuality::Ultra,
-                Some(render.smaa_quality),
-                DebugMessage::SetSmaaQuality,
-            )
-            .text_size(12),
-        ]
-        .spacing(6)
-        .into(),
-        crate::panels::divider(),
-        crate::panels::caption("Projection", ACCENT),
     ];
+
+    if render.anti_aliasing == AntiAliasing::Smaa {
+        rows.push(crate::panels::caption("SMAA quality", ACCENT));
+        rows.push(
+            row![
+                radio(
+                    "Low",
+                    SmaaQuality::Low,
+                    Some(render.smaa_quality),
+                    DebugMessage::SetSmaaQuality,
+                )
+                .text_size(12),
+                radio(
+                    "Medium",
+                    SmaaQuality::Medium,
+                    Some(render.smaa_quality),
+                    DebugMessage::SetSmaaQuality,
+                )
+                .text_size(12),
+                radio(
+                    "High",
+                    SmaaQuality::High,
+                    Some(render.smaa_quality),
+                    DebugMessage::SetSmaaQuality,
+                )
+                .text_size(12),
+                radio(
+                    "Ultra",
+                    SmaaQuality::Ultra,
+                    Some(render.smaa_quality),
+                    DebugMessage::SetSmaaQuality,
+                )
+                .text_size(12),
+            ]
+            .spacing(6)
+            .into(),
+        );
+    }
+
+    rows.push(crate::panels::divider());
+    rows.push(crate::panels::caption("Projection", ACCENT));
 
     let picker = pick_list(
         Some(projection.unwrap_or_default()),
@@ -127,11 +133,23 @@ pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
             .into(),
     );
 
+    rows.push(
+        text("Base density is uniform. Height fog adds density at the base height (world Y) and fades above it.")
+            .size(10)
+            .color(MUTED)
+            .into(),
+    );
     rows.push(slider_row(
-        "Density",
+        "Base density",
         0.0..=0.05,
         volumetrics.density,
         DebugMessage::SetVolumetricDensity,
+    ));
+    rows.push(slider_row(
+        "Base height (Y)",
+        -10.0..=20.0,
+        volumetrics.height_base,
+        DebugMessage::SetVolumetricHeightBase,
     ));
     rows.push(slider_row(
         "Height density",
@@ -140,10 +158,22 @@ pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
         DebugMessage::SetVolumetricHeightDensity,
     ));
     rows.push(slider_row(
+        "Height falloff",
+        0.01..=2.0,
+        volumetrics.height_falloff,
+        DebugMessage::SetVolumetricHeightFalloff,
+    ));
+    rows.push(slider_row(
         "Scattering",
         0.0..=3.0,
         volumetrics.scattering,
         DebugMessage::SetVolumetricScattering,
+    ));
+    rows.push(slider_row(
+        "Extinction",
+        0.0..=3.0,
+        volumetrics.extinction,
+        DebugMessage::SetVolumetricExtinction,
     ));
     rows.push(slider_row(
         "Anisotropy",
@@ -151,8 +181,20 @@ pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
         volumetrics.anisotropy,
         DebugMessage::SetVolumetricAnisotropy,
     ));
+    rows.push(slider_row(
+        "Max distance",
+        10.0..=500.0,
+        volumetrics.max_distance,
+        DebugMessage::SetVolumetricMaxDistance,
+    ));
 
     rows.push(crate::panels::caption("Froxel quality", MUTED));
+    rows.push(
+        text("Froxels are view-frustum voxels. Higher quality resolves smaller light shafts and finer fog detail.")
+            .size(10)
+            .color(MUTED)
+            .into(),
+    );
     rows.push(
         row![
             radio(

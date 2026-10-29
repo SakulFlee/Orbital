@@ -1444,9 +1444,10 @@ pub struct VolumetricSettings {
     pub extinction: f32,
     /// Henyey-Greenstein anisotropy in `[-0.95, 0.95]`.
     pub anisotropy: f32,
-    /// Height where the exponential fog layer starts.
+    /// World-space Y coordinate where the height fog layer starts. The layer
+    /// has `height_density` at and below this height and decays above it.
     pub height_base: f32,
-    /// Exponential falloff with height.
+    /// Exponential falloff with height, in inverse world units.
     pub height_falloff: f32,
     /// Additional density at `height_base`.
     pub height_density: f32,

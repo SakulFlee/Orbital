@@ -339,9 +339,19 @@ fn handle_debug_message(
             update_volumetrics(world, |settings| settings.density = density.max(0.0));
             return;
         }
+        DebugMessage::SetVolumetricHeightBase(height) => {
+            update_volumetrics(world, |settings| settings.height_base = height);
+            return;
+        }
         DebugMessage::SetVolumetricHeightDensity(density) => {
             update_volumetrics(world, |settings| {
                 settings.height_density = density.max(0.0);
+            });
+            return;
+        }
+        DebugMessage::SetVolumetricHeightFalloff(falloff) => {
+            update_volumetrics(world, |settings| {
+                settings.height_falloff = falloff.max(0.0);
             });
             return;
         }
@@ -351,9 +361,21 @@ fn handle_debug_message(
             });
             return;
         }
+        DebugMessage::SetVolumetricExtinction(extinction) => {
+            update_volumetrics(world, |settings| {
+                settings.extinction = extinction.max(0.0);
+            });
+            return;
+        }
         DebugMessage::SetVolumetricAnisotropy(anisotropy) => {
             update_volumetrics(world, |settings| {
                 settings.anisotropy = anisotropy.clamp(-0.95, 0.95);
+            });
+            return;
+        }
+        DebugMessage::SetVolumetricMaxDistance(distance) => {
+            update_volumetrics(world, |settings| {
+                settings.max_distance = distance.max(0.1);
             });
             return;
         }

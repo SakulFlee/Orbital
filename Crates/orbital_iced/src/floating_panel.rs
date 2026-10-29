@@ -648,13 +648,25 @@ where
 
     fn overlay<'b>(
         &'b mut self,
-        _tree: &'b mut Tree,
-        _layout: Layout<'b>,
-        _renderer: &Renderer,
-        _viewport: &Rectangle,
-        _translation: Vector,
+        tree: &'b mut Tree,
+        layout: Layout<'b>,
+        renderer: &Renderer,
+        viewport: &Rectangle,
+        translation: Vector,
     ) -> Vec<overlay::Element<'b, Message, Theme, Renderer>> {
-        Vec::new()
+        // Overlay widgets such as `pick_list` render their popup through the
+        // widget tree. Forward the content child's overlay so dropdowns inside
+        // a floating panel can actually open. The title bar is plain text and
+        // does not own any overlay of its own.
+        self.content.as_widget_mut().overlay(
+            tree.children
+                .get_mut(1)
+                .expect("floating panel content tree"),
+            layout.child(1),
+            renderer,
+            viewport,
+            translation,
+        )
     }
 }
 
