@@ -31,6 +31,7 @@ pub fn entrypoint(
         .add_module(Scene2DModule {
             vertices: std::sync::Mutex::new(Vec::new()),
         })
+        .add_module(orbital::debug_ui::DebugUiModule::new())
         .liftoff(event_loop, app_settings)
     {
         Ok(()) => info!("Cleanly exited!"),

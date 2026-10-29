@@ -40,6 +40,7 @@ pub fn entrypoint(
 
     match App::new()
         .add_module(GameModule)
+        .add_module(orbital::debug_ui::DebugUiModule::new())
         .add_module(orbital::touch_ui::TouchUiModule)
         .liftoff(event_loop, app_settings)
     {

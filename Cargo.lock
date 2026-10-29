@@ -3191,11 +3191,13 @@ dependencies = [
  "iced_winit",
  "log",
  "orbital_app",
+ "orbital_camera",
  "orbital_core",
  "orbital_ecs",
  "orbital_ecs_bridge",
  "orbital_iced",
  "orbital_mesh",
+ "orbital_renderer",
  "winit",
 ]
 

@@ -1,5 +1,7 @@
 //! Camera projection modes and matrix construction.
 
+use std::fmt;
+
 use cgmath::{Deg, Matrix4, Rad};
 
 use orbital_math::{ortho_wgpu, perspective_wgpu};
@@ -10,6 +12,15 @@ pub enum ProjectionMode {
     #[default]
     Perspective,
     Orthographic,
+}
+
+impl fmt::Display for ProjectionMode {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Perspective => formatter.write_str("Perspective"),
+            Self::Orthographic => formatter.write_str("Orthographic"),
+        }
+    }
 }
 
 /// Fully specified projection parameters.

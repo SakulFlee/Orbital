@@ -306,6 +306,21 @@ impl ModuleRuntime {
             ..TextureViewDescriptor::default()
         });
 
+        // Apply runtime renderer controls before recording the frame. This
+        // lets the debug UI and app systems change AA without recreating the
+        // renderer.
+        if let (Some(renderer), Some(settings)) = (
+            &mut self.renderer,
+            self.ecs_world
+                .get_resource::<crate::RenderSettings>()
+                .map(|settings| *settings),
+        ) {
+            if renderer.anti_aliasing() != settings.anti_aliasing {
+                renderer.set_anti_aliasing(settings.anti_aliasing);
+            }
+            renderer.set_smaa_quality(settings.smaa_quality);
+        }
+
         let _t_ecs_start = std::time::Instant::now();
 
         // ─── section timing ──────────────────────────────────────────
@@ -1023,6 +1038,19 @@ impl ApplicationHandler for ModuleRuntime {
                 .insert_resource(orbital_ecs_bridge::MaterialCacheResource::default());
             self.ecs_world
                 .insert_resource(orbital_ecs_bridge::PipelineCacheResource::default());
+
+            // Runtime renderer controls. Modules may replace this resource
+            // during setup to choose different startup values.
+            if self
+                .ecs_world
+                .get_resource::<crate::RenderSettings>()
+                .is_none()
+            {
+                self.ecs_world.insert_resource(crate::RenderSettings {
+                    anti_aliasing: self.settings.anti_aliasing,
+                    smaa_quality: self.settings.smaa_quality,
+                });
+            }
 
             // Create renderer
             self.renderer = Some(orbital_renderer::Renderer::new(

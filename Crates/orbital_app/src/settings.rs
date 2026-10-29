@@ -10,6 +10,9 @@ pub struct AppSettings {
     pub vsync_enabled: bool,
     /// 3D scene anti-aliasing. 2D/UI overlays are always rendered after the
     /// post chain and are not affected.
+    ///
+    /// This is the startup value; insert or change [`crate::RenderSettings`]
+    /// to change anti-aliasing at runtime.
     pub anti_aliasing: AntiAliasing,
     /// Quality preset used when `anti_aliasing` is [`AntiAliasing::Smaa`].
     pub smaa_quality: SmaaQuality,
