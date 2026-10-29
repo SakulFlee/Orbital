@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use cgmath::Vector2;
-use orbital_ecs_bridge::VolumetricSettings;
+use orbital_ecs_bridge::{VolumetricQuality, VolumetricSettings};
 use orbital_shader_preprocessor::{NodeRegistry, ShaderBuilder};
 use wgpu::{
     BindGroup, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
@@ -30,6 +30,13 @@ const INJECT_NODES: &[&str] = &[
 
 const INJECT_PARAMS_SIZE: u64 = 64;
 const COMPOSITE_PARAMS_SIZE: u64 = 16;
+
+/// Keep the world-space spacing between froxel depth slices small enough
+/// that short light cones do not pop between slices as the camera moves.
+const TARGET_DEPTH_SLICE_SPACING: f32 = 0.15;
+/// Upper bound for adaptive depth slices; the X/Y grid still follows the
+/// selected `VolumetricQuality`.
+const MAX_DEPTH_SLICES: u32 = 192;
 
 pub struct VolumetricRenderer {
     inject_pipeline: ComputePipeline,
@@ -275,11 +282,19 @@ impl VolumetricRenderer {
         settings: &VolumetricSettings,
         resolution: Vector2<u32>,
     ) {
-        let grid = settings.quality.grid(resolution.x, resolution.y);
+        let mut grid = settings.quality.grid(resolution.x, resolution.y);
+        if !matches!(settings.quality, VolumetricQuality::Custom { .. }) {
+            // Fixed slice counts make a longer max distance coarser in world
+            // space. Scale the depth resolution with the requested range so
+            // short spot cones keep the same sampling density.
+            let target =
+                (settings.max_distance.max(0.1) / TARGET_DEPTH_SLICE_SPACING).ceil() as u32;
+            grid[2] = grid[2].max(target);
+        }
         self.grid = [
             grid[0].clamp(1, 512),
             grid[1].clamp(1, 512),
-            grid[2].clamp(1, 256),
+            grid[2].clamp(1, MAX_DEPTH_SLICES),
         ];
         self.steps = settings.quality.composite_steps().max(1);
 
