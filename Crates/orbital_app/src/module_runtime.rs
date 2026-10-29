@@ -1035,6 +1035,7 @@ impl ApplicationHandler for ModuleRuntime {
             // Apply the app's scene anti-aliasing mode.
             if let Some(renderer) = &mut self.renderer {
                 renderer.set_anti_aliasing(self.settings.anti_aliasing);
+                renderer.set_smaa_quality(self.settings.smaa_quality);
             }
 
             // Enable shadows with default settings
