@@ -64,12 +64,12 @@ fn spawn_text_label(
         text,
         font,
         &TextConfig {
-            font_size: 48.0,
+            font_size: 96.0,
             color: [1.0, 1.0, 1.0, 1.0],
             ..Default::default()
         },
-        0.006,
-        Some(([0.0, 0.0, 0.0, 0.85], 0.12)),
+        0.003,
+        Some(([0.0, 0.0, 0.0, 0.85], 0.08)),
         Some([0.025, 0.035, 0.07, 0.55]),
         AlphaMode::Blend,
     )
@@ -829,15 +829,8 @@ impl Module for ProcgeoSceneModule {
         spawn_text_label(
             ecs,
             &mut font,
-            "Orbital",
-            Point3::new(-3.0, 7.6, 8.0),
-            BillboardMode::Full,
-        );
-        spawn_text_label(
-            ecs,
-            &mut font,
             "All-in-One",
-            Point3::new(3.0, 7.6, 8.0),
+            Point3::new(0.0, 7.6, 8.0),
             BillboardMode::Full,
         );
 

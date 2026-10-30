@@ -62,13 +62,17 @@ impl SdfAtlas {
         }
 
         let glyph = GlyphInfo {
+            // Inset by half a texel so linear filtering does not pull the
+            // transparent atlas padding into the first/last glyph column.
+            // Without this, glyph quads get a dark rectangular fringe at
+            // close range.
             uv_min: [
-                offset_x as f32 / self.width as f32,
-                offset_y as f32 / self.height as f32,
+                (offset_x as f32 + 0.5) / self.width as f32,
+                (offset_y as f32 + 0.5) / self.height as f32,
             ],
             uv_max: [
-                (offset_x + width as u32) as f32 / self.width as f32,
-                (offset_y + height as u32) as f32 / self.height as f32,
+                (offset_x as f32 + width as f32 - 0.5) / self.width as f32,
+                (offset_y as f32 + height as f32 - 0.5) / self.height as f32,
             ],
             size: [width as f32, height as f32],
             offset: [metrics.xmin as f32, metrics.ymin as f32],
