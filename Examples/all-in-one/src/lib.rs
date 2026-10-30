@@ -54,6 +54,16 @@ fn mirror_z(point: Point3<f32>) -> Point3<f32> {
     Point3::new(point.x, point.y, 2.0 * HALLWAY_MIRROR_Z - point.z)
 }
 
+/// Small unlit marker at a light position, used to verify that volumetric
+/// glows line up with the actual light source as the camera moves.
+fn spawn_light_marker(ecs: &mut World, position: Point3<f32>) {
+    let marker = Billboard::unlit(Vector2::new(0.18, 0.18), AlphaMode::Opaque)
+        .with_position(position)
+        .with_mode(BillboardMode::Full);
+    let entity = ecs.spawn_entity();
+    ecs.attach_component(&entity, marker).unwrap();
+}
+
 fn spawn_scene_model(
     ecs: &mut World,
     label: &str,
@@ -842,6 +852,7 @@ impl Module for ProcgeoSceneModule {
             },
         )
         .unwrap();
+        spawn_light_marker(ecs, spot_pos);
 
         // Mirrored spot for the new room row.
         let mirror_spot_light = ecs.spawn_entity();
@@ -872,6 +883,7 @@ impl Module for ProcgeoSceneModule {
             },
         )
         .unwrap();
+        spawn_light_marker(ecs, mirror_spot_pos);
 
         // ── Point lights for Rooms 1 & 2 (x=-20, x=-10) ───────────
         for room_x in [-20.0, -10.0f32] {
@@ -885,6 +897,7 @@ impl Module for ProcgeoSceneModule {
                 .unwrap();
             ecs.attach_component(&pl, LightDirty(true)).unwrap();
             ecs.attach_component(&pl, ShadowCaster::default()).unwrap();
+            spawn_light_marker(ecs, Point3::new(room_x, 5.0, 0.0));
 
             let mirror_pl = ecs.spawn_entity();
             ecs.attach_component(
@@ -900,6 +913,7 @@ impl Module for ProcgeoSceneModule {
             ecs.attach_component(&mirror_pl, LightDirty(true)).unwrap();
             ecs.attach_component(&mirror_pl, ShadowCaster::default())
                 .unwrap();
+            spawn_light_marker(ecs, Point3::new(room_x, 5.0, 2.0 * HALLWAY_MIRROR_Z));
         }
 
         // ── Spot ring for Room 4 helmet (x=10) ──────────────────────
@@ -931,6 +945,7 @@ impl Module for ProcgeoSceneModule {
                 },
             )
             .unwrap();
+            spawn_light_marker(ecs, lpos);
 
             let mirror_lpos = mirror_z(lpos);
             let mirror_helmet = mirror_z(helmet_10);
@@ -959,6 +974,7 @@ impl Module for ProcgeoSceneModule {
                 },
             )
             .unwrap();
+            spawn_light_marker(ecs, mirror_lpos);
         }
 
         // ── Colorful point-light ring for Room 5 helmet (x=20) ───────
@@ -982,6 +998,7 @@ impl Module for ProcgeoSceneModule {
                 .unwrap();
             ecs.attach_component(&pl, Position(lpos)).unwrap();
             ecs.attach_component(&pl, LightDirty(true)).unwrap();
+            spawn_light_marker(ecs, lpos);
 
             let mirror_pl = ecs.spawn_entity();
             ecs.attach_component(
@@ -992,6 +1009,7 @@ impl Module for ProcgeoSceneModule {
             ecs.attach_component(&mirror_pl, Position(mirror_z(lpos)))
                 .unwrap();
             ecs.attach_component(&mirror_pl, LightDirty(true)).unwrap();
+            spawn_light_marker(ecs, mirror_z(lpos));
         }
         let animator = LightAnimator::new(spot_light);
 
