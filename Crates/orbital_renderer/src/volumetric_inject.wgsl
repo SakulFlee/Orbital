@@ -5,7 +5,7 @@
 // and stores (inscattering RGB, extinction A).
 
 struct VolumetricParams {
-    grid: vec4<u32>,     // x, y, z, unused
+    grid: vec4<u32>,     // x, y, z, temporal jitter frame index
     media: vec4<f32>,    // density, scattering, extinction, anisotropy
     height: vec4<f32>,   // base height, falloff, density, max distance
     ambient: vec4<f32>,  // ambient fog color, IBL contribution multiplier
@@ -31,6 +31,15 @@ fn volumetric_view_position(uv: vec2<f32>, ndc_z: f32) -> vec3<f32> {
     return position_h.xyz / position_h.w;
 }
 
+fn froxel_jitter(seed: u32) -> vec3<f32> {
+    let s = f32(seed);
+    return fract(vec3<f32>(
+        s * 0.7548776662466927,
+        s * 0.5698402909980532,
+        s * 0.4385790885560784,
+    )) - vec3<f32>(0.5);
+}
+
 @compute @workgroup_size(4, 4, 4)
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let grid = params.grid.xyz;
@@ -38,11 +47,20 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         return;
     }
 
-    let uv = (vec2<f32>(id.xy) + 0.5) / vec2<f32>(grid.xy);
+    let jitter = froxel_jitter(params.grid.w);
+    let uv = clamp(
+        (vec2<f32>(id.xy) + 0.5 + jitter.xy) / vec2<f32>(grid.xy),
+        vec2<f32>(0.0),
+        vec2<f32>(1.0),
+    );
     // Froxel slices are distributed linearly in view-space distance. Using
     // NDC z directly packs almost every slice into the near field, which
     // makes room-distance fog and spot cones undersampled.
-    let slice = (f32(id.z) + 0.5) / f32(grid.z);
+    let slice = clamp(
+        (f32(id.z) + 0.5 + jitter.z) / f32(grid.z),
+        0.0,
+        1.0,
+    );
     let view_depth = slice * params.height.w;
 
     let near_position = volumetric_view_position(uv, 0.0);

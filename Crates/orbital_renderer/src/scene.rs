@@ -38,6 +38,8 @@ pub struct RenderCamera {
     pub buffer: Buffer,
     /// Perspective view-projection matrix, used for shadow cascades.
     pub perspective_view_projection: Matrix4<f32>,
+    /// World-to-view matrix, used for temporal reprojection.
+    pub view_matrix: Matrix4<f32>,
     /// World-space camera position, used to sort transparent draws.
     pub position: Point3<f32>,
     /// Camera near plane.
@@ -117,6 +119,7 @@ fn extract_camera(world: &World) -> Option<RenderCamera> {
         source: Arc::clone(camera),
         buffer: camera_guard.camera_buffer().clone(),
         perspective_view_projection: *camera_guard.perspective_view_projection_matrix(),
+        view_matrix: *camera_guard.view_matrix(),
         position: camera_guard.position(),
         near: camera_guard.near(),
         far: camera_guard.far(),
