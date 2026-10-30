@@ -85,6 +85,8 @@ pub enum DebugMessage {
     SetVolumetricAnisotropy(f32),
     /// Stop integrating fog after this distance.
     SetVolumetricMaxDistance(f32),
+    /// Enable or disable volumetric temporal history.
+    SetVolumetricTemporalHistory(bool),
     /// Select the froxel grid quality tier.
     SetVolumetricQuality(VolumetricQuality),
 }
@@ -442,6 +444,7 @@ impl DebugUiState {
             | DebugMessage::SetVolumetricEnvironmentIntensity(_)
             | DebugMessage::SetVolumetricAnisotropy(_)
             | DebugMessage::SetVolumetricMaxDistance(_)
+            | DebugMessage::SetVolumetricTemporalHistory(_)
             | DebugMessage::SetVolumetricQuality(_) => {
                 // Applied in `handle_debug_message`, which has the world.
                 self.dirty = true;

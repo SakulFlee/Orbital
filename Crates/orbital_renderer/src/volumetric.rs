@@ -72,6 +72,7 @@ pub struct VolumetricRenderer {
     frame_index: u32,
     current_max_distance: f32,
     previous_max_distance: f32,
+    temporal_enabled: bool,
 }
 
 struct HistoryTargets {
@@ -435,6 +436,7 @@ impl VolumetricRenderer {
             frame_index: 0,
             current_max_distance: 1.0,
             previous_max_distance: 0.0,
+            temporal_enabled: true,
         };
         renderer.prepare(
             queue,
@@ -488,12 +490,17 @@ impl VolumetricRenderer {
         self.frame_index = frame_index as u32;
         self.current_view = current_view;
         self.current_view_projection = current_view_projection;
+        self.temporal_enabled = settings.temporal_history;
+        if !self.temporal_enabled {
+            self.reset_history();
+        }
 
         let camera_cut = match (self.previous_view, current_view) {
             (Some(previous), Some(current)) => matrix_max_delta(&previous, &current) > 1.0,
             _ => false,
         };
-        let history_invalid = self.history_grid != Some(self.grid)
+        let history_invalid = !self.temporal_enabled
+            || self.history_grid != Some(self.grid)
             || self.history_resolution != Some(resolution)
             || (self.current_max_distance - self.previous_max_distance).abs() > 1.0e-3
             || current_view.is_none()
@@ -615,6 +622,9 @@ impl VolumetricRenderer {
         world_bind_group: &BindGroup,
         current_froxels: &TextureView,
     ) -> Option<TextureView> {
+        if !self.temporal_enabled {
+            return None;
+        }
         let current_view = self.current_view?;
         let current_view_projection = self.current_view_projection?;
 

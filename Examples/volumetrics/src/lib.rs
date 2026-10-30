@@ -96,6 +96,7 @@ impl Module for GameModule {
             height_density: 0.06,
             ambient_color: [0.25, 0.32, 0.45],
             environment_intensity: 0.75,
+            temporal_history: true,
             max_distance: 80.0,
             quality: VolumetricQuality::Medium,
         });
