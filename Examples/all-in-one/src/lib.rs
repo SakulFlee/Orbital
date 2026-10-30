@@ -5,9 +5,9 @@ use orbital::app::{
     App, AppSettings, CursorToggle, InputButton, LayerRenderer, Module, RenderLayer,
     RenderOverlayContext, sys_camera_controller,
 };
-use orbital::billboard::{Billboard, BillboardMode, BillboardModule};
+use orbital::billboard::{BillboardMode, BillboardModule, text_billboard_with_background};
 use orbital::camera::ProjectionMode;
-use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector2, Vector3};
+use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector3};
 use orbital::debug_render::DebugModule;
 use orbital::ecs::{Commands, ComponentAccess, IntoSystem, Res, ResMut, System, World};
 use orbital::ecs_bridge::{
@@ -25,11 +25,10 @@ use orbital::procgeo::scene::SceneBuilder;
 use orbital::renderer::{AntiAliasing, Camera2DUniform, Renderer2D};
 use orbital::resources::WorldEnvironmentDescriptor;
 use orbital::resources::{
-    AlphaMode, FilterMode, GeneratedSkyParameters, SamplingType, ShadowCaster, SunPosition,
-    TextureDescriptor, TextureSize, Transform,
+    AlphaMode, GeneratedSkyParameters, SamplingType, ShadowCaster, SunPosition, Transform,
 };
+use orbital::text::{DefaultFont, TextConfig};
 use orbital::twod::Vertex2D;
-use orbital::wgpu::{TextureDimension, TextureFormat, TextureUsages, TextureViewDimension};
 use orbital::winit::keyboard::{KeyCode, PhysicalKey};
 
 pub const NAME: &str = env!("CARGO_PKG_NAME");
@@ -52,6 +51,32 @@ const HALLWAY_MIRROR_Z: f32 = 10.0;
 
 fn mirror_z(point: Point3<f32>) -> Point3<f32> {
     Point3::new(point.x, point.y, 2.0 * HALLWAY_MIRROR_Z - point.z)
+}
+
+fn spawn_text_label(
+    ecs: &mut World,
+    font: &mut orbital::text::FontData,
+    text: &str,
+    position: Point3<f32>,
+    mode: BillboardMode,
+) {
+    let label = text_billboard_with_background(
+        text,
+        font,
+        &TextConfig {
+            font_size: 48.0,
+            color: [1.0, 1.0, 1.0, 1.0],
+            ..Default::default()
+        },
+        0.006,
+        Some(([0.0, 0.0, 0.0, 0.85], 0.12)),
+        Some([0.025, 0.035, 0.07, 0.55]),
+        AlphaMode::Blend,
+    )
+    .with_position(position)
+    .with_mode(mode);
+    let entity = ecs.spawn_entity();
+    ecs.attach_component(&entity, label).unwrap();
 }
 
 fn spawn_scene_model(
@@ -774,31 +799,47 @@ impl Module for ProcgeoSceneModule {
 
         info!("Scene loaded with {} entities", scene.entities.len());
 
-        // Billboard showcase: a full-mode camera-facing sign plus a blended
-        // Y-axis sign, both using the same procedural checker texture.
-        let checker = checker_texture();
-        let sign = Billboard::unlit_textured(
-            Vector2::new(2.5, 1.25),
-            checker.clone(),
-            [1.0, 0.85, 0.65, 1.0],
-            AlphaMode::Opaque,
-        )
-        .with_position(Point3::new(-5.0, 5.5, 8.0))
-        .with_mode(BillboardMode::Full);
-        let sign_entity = ecs.spawn_entity();
-        ecs.attach_component(&sign_entity, sign).unwrap();
+        // Floating SDF labels for the room row. The mirrored row gets the
+        // same signs, readable when facing it from the hallway.
+        let mut font = DefaultFont::load();
+        let room_labels = [
+            (-20.0, "Metallic Shapes"),
+            (-10.0, "Matte Shapes"),
+            (0.0, "Object Showcase"),
+            (10.0, "Helmet Gallery"),
+            (20.0, "Colored Helmet"),
+        ];
+        for (x, text) in room_labels {
+            spawn_text_label(
+                ecs,
+                &mut font,
+                text,
+                Point3::new(x, 6.4, 5.25),
+                BillboardMode::YAxis,
+            );
+            spawn_text_label(
+                ecs,
+                &mut font,
+                text,
+                Point3::new(x, 6.4, 14.75),
+                BillboardMode::YAxis,
+            );
+        }
 
-        let blend_sign = Billboard::unlit_textured(
-            Vector2::new(2.5, 1.25),
-            checker,
-            [0.55, 0.75, 1.0, 0.45],
-            AlphaMode::Blend,
-        )
-        .with_position(Point3::new(5.0, 5.5, 8.0))
-        .with_mode(BillboardMode::YAxis);
-        let blend_sign_entity = ecs.spawn_entity();
-        ecs.attach_component(&blend_sign_entity, blend_sign)
-            .unwrap();
+        spawn_text_label(
+            ecs,
+            &mut font,
+            "Orbital",
+            Point3::new(-3.0, 7.6, 8.0),
+            BillboardMode::Full,
+        );
+        spawn_text_label(
+            ecs,
+            &mut font,
+            "All-in-One",
+            Point3::new(3.0, 7.6, 8.0),
+            BillboardMode::Full,
+        );
 
         // Import the DamagedHelmet into Room 2
         if let Some(mut queue) = ecs.get_resource_mut::<ImportQueueResource>() {
@@ -1043,33 +1084,5 @@ impl Module for ProcgeoSceneModule {
 
         let overlay = ShapeOverlay::new(&device.0, format);
         layer_renderers.push(Box::new(overlay));
-    }
-}
-
-fn checker_texture() -> TextureDescriptor {
-    let mut pixels = Vec::with_capacity(8 * 8 * 4);
-    for y in 0..8 {
-        for x in 0..8 {
-            let color = if (x + y) % 2 == 0 {
-                [255, 255, 255, 255]
-            } else {
-                [255, 150, 80, 255]
-            };
-            pixels.extend_from_slice(&color);
-        }
-    }
-
-    TextureDescriptor::Data {
-        pixels,
-        size: TextureSize {
-            width: 8,
-            height: 8,
-            ..Default::default()
-        },
-        usages: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
-        format: TextureFormat::Rgba8UnormSrgb,
-        texture_dimension: TextureDimension::D2,
-        texture_view_dimension: TextureViewDimension::D2,
-        filter_mode: FilterMode::linear(),
     }
 }
