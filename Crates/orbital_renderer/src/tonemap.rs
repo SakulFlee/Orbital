@@ -20,13 +20,7 @@ impl TonemapParams {
     fn new(device: &Device, srgb_target: bool) -> Self {
         // An sRGB render target applies the transfer function in hardware.
         let gamma: f32 = if srgb_target { 1.0 } else { 1.0 / 2.2 };
-        let data = [
-            1.0f32.to_le_bytes(),
-            gamma.to_le_bytes(),
-            [0u8; 4],
-            [0u8; 4],
-        ]
-        .concat();
+        let data = tonemap_params_data(1.0, gamma, 1.0, 0.0);
         let buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Orbital::TonemapParams"),
             contents: &data,
@@ -36,12 +30,27 @@ impl TonemapParams {
     }
 }
 
+fn tonemap_params_data(
+    exposure: f32,
+    gamma: f32,
+    bloom_threshold: f32,
+    bloom_intensity: f32,
+) -> [u8; 32] {
+    let mut data = [0u8; 32];
+    data[0..4].copy_from_slice(&exposure.to_le_bytes());
+    data[4..8].copy_from_slice(&gamma.to_le_bytes());
+    data[8..12].copy_from_slice(&bloom_threshold.to_le_bytes());
+    data[12..16].copy_from_slice(&bloom_intensity.to_le_bytes());
+    data
+}
+
 /// Owns the fullscreen tonemap pipeline and its static resources.
 pub struct Tonemap {
     pipeline: RenderPipeline,
     bind_group_layout: BindGroupLayout,
     sampler: wgpu::Sampler,
     params: TonemapParams,
+    gamma: f32,
     bind_group_cache: Option<(TextureView, wgpu::BindGroup)>,
 }
 
@@ -128,6 +137,11 @@ impl Tonemap {
             ..Default::default()
         });
 
+        let gamma: f32 = if target_format.is_srgb() {
+            1.0
+        } else {
+            1.0 / 2.2
+        };
         let params = TonemapParams::new(device, target_format.is_srgb());
 
         Self {
@@ -135,8 +149,21 @@ impl Tonemap {
             bind_group_layout,
             sampler,
             params,
+            gamma,
             bind_group_cache: None,
         }
+    }
+
+    /// Update exposure and bloom parameters for the next tonemap.
+    pub fn set_params(
+        &self,
+        queue: &wgpu::Queue,
+        exposure: f32,
+        bloom_threshold: f32,
+        bloom_intensity: f32,
+    ) {
+        let data = tonemap_params_data(exposure, self.gamma, bloom_threshold, bloom_intensity);
+        queue.write_buffer(&self.params.buffer, 0, &data);
     }
 
     pub fn record(
@@ -199,5 +226,22 @@ impl Tonemap {
         pass.set_pipeline(&self.pipeline);
         pass.set_bind_group(0, bind_group, &[]);
         pass.draw(0..3, 0..1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tonemap_params_pack_exposure_and_bloom_in_uniform_layout() {
+        let data = tonemap_params_data(2.0, 0.5, 0.75, 1.5);
+
+        assert_eq!(data.len(), 32);
+        assert_eq!(f32::from_le_bytes(data[0..4].try_into().unwrap()), 2.0);
+        assert_eq!(f32::from_le_bytes(data[4..8].try_into().unwrap()), 0.5);
+        assert_eq!(f32::from_le_bytes(data[8..12].try_into().unwrap()), 0.75);
+        assert_eq!(f32::from_le_bytes(data[12..16].try_into().unwrap()), 1.5);
+        assert!(data[16..].iter().all(|byte| *byte == 0));
     }
 }

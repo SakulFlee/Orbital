@@ -63,6 +63,14 @@ pub enum DebugMessage {
     SetAntiAliasing(AntiAliasing),
     /// Select the SMAA quality preset.
     SetSmaaQuality(SmaaQuality),
+    /// Set the exposure used by the tonemap.
+    SetExposure(f32),
+    /// Enable or disable HDR bloom/glare.
+    SetBloomEnabled(bool),
+    /// Set the HDR brightness where bloom starts.
+    SetBloomThreshold(f32),
+    /// Set the bloom contribution strength.
+    SetBloomIntensity(f32),
     /// Switch the active camera between perspective and orthographic.
     SetProjection(ProjectionMode),
     /// Enable or disable volumetric lighting and height fog.
@@ -433,6 +441,10 @@ impl DebugUiState {
             }
             DebugMessage::SetAntiAliasing(_)
             | DebugMessage::SetSmaaQuality(_)
+            | DebugMessage::SetExposure(_)
+            | DebugMessage::SetBloomEnabled(_)
+            | DebugMessage::SetBloomThreshold(_)
+            | DebugMessage::SetBloomIntensity(_)
             | DebugMessage::SetProjection(_)
             | DebugMessage::SetVolumetricsEnabled(_)
             | DebugMessage::SetVolumetricDensity(_)

@@ -458,6 +458,10 @@ pub struct Renderer {
     frame_index: u64,
     anti_aliasing: AntiAliasing,
     smaa_quality: SmaaQuality,
+    exposure: f32,
+    bloom_enabled: bool,
+    bloom_threshold: f32,
+    bloom_intensity: f32,
     tonemap: Tonemap,
     fxaa: Fxaa,
     smaa: Option<SmaaTarget>,
@@ -509,6 +513,30 @@ impl Renderer {
 
     pub fn smaa_quality(&self) -> SmaaQuality {
         self.smaa_quality
+    }
+
+    /// Exposure multiplier applied before the tonemap curve.
+    pub fn set_exposure(&mut self, exposure: f32) {
+        self.exposure = exposure.max(0.0);
+    }
+
+    pub fn exposure(&self) -> f32 {
+        self.exposure
+    }
+
+    /// Configure the HDR glare sampled during tonemapping.
+    pub fn set_bloom(&mut self, enabled: bool, threshold: f32, intensity: f32) {
+        self.bloom_enabled = enabled;
+        self.bloom_threshold = threshold.max(0.0);
+        self.bloom_intensity = intensity.max(0.0);
+    }
+
+    pub fn bloom(&self) -> (bool, f32, f32) {
+        (
+            self.bloom_enabled,
+            self.bloom_threshold,
+            self.bloom_intensity,
+        )
     }
 
     /// Enable or disable the deferred path.
@@ -608,6 +636,10 @@ impl Renderer {
             frame_index: 0,
             anti_aliasing: AntiAliasing::default(),
             smaa_quality: SmaaQuality::default(),
+            exposure: 1.0,
+            bloom_enabled: false,
+            bloom_threshold: 1.0,
+            bloom_intensity: 0.65,
             tonemap: Tonemap::new(device, surface_texture_format),
             fxaa: Fxaa::new(device, queue, surface_texture_format, resolution),
             smaa: None,
@@ -900,6 +932,16 @@ impl Renderer {
 
         self.frame_index = self.frame_index.wrapping_add(1);
         self.texture_pool.begin_frame(self.frame_index);
+        self.tonemap.set_params(
+            queue,
+            self.exposure,
+            self.bloom_threshold,
+            if self.bloom_enabled {
+                self.bloom_intensity
+            } else {
+                0.0
+            },
+        );
 
         // SMAA owns the LDR color target. Create it lazily so Fxaa/Off users do
         // not pay for the extra targets.

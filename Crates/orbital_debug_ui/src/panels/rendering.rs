@@ -104,6 +104,40 @@ pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
     }
 
     rows.push(crate::panels::divider());
+    rows.push(crate::panels::caption("Exposure & bloom", ACCENT));
+    rows.push(slider_row(
+        "Exposure",
+        0.1..=4.0,
+        render.exposure,
+        DebugMessage::SetExposure,
+    ));
+    rows.push(
+        checkbox(render.bloom_enabled)
+            .label("Bloom / glare")
+            .text_size(12)
+            .on_toggle(DebugMessage::SetBloomEnabled)
+            .into(),
+    );
+    rows.push(slider_row(
+        "Threshold",
+        0.0..=8.0,
+        render.bloom_threshold,
+        DebugMessage::SetBloomThreshold,
+    ));
+    rows.push(slider_row(
+        "Intensity",
+        0.0..=2.0,
+        render.bloom_intensity,
+        DebugMessage::SetBloomIntensity,
+    ));
+    rows.push(
+        text("Samples HDR light sources before the tonemap curve.")
+            .size(10)
+            .color(MUTED)
+            .into(),
+    );
+
+    rows.push(crate::panels::divider());
     rows.push(crate::panels::caption("Projection", ACCENT));
 
     let picker = pick_list(
