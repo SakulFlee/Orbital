@@ -236,53 +236,6 @@ impl System for HelmetAdjuster {
 
 struct ProcgeoSceneModule;
 
-// ── TEMPORARY: light animation for shadow diagnosis ──────────────────
-
-struct LightAnimator {
-    t: f32,
-    access: ComponentAccess,
-    entity: orbital::ecs::Entity,
-}
-
-impl LightAnimator {
-    fn new(entity: orbital::ecs::Entity) -> Self {
-        Self {
-            t: 0.0,
-            entity,
-            access: ComponentAccess::new()
-                .reads::<Position>()
-                .writes::<Position>()
-                .writes::<LightDirty>(),
-        }
-    }
-}
-
-impl System for LightAnimator {
-    fn name(&self) -> &str {
-        "light_animator"
-    }
-    fn access(&self) -> &ComponentAccess {
-        &self.access
-    }
-
-    fn run(&mut self, world: &World, commands: &mut Commands) {
-        let dt = world
-            .get_resource::<orbital::ecs_bridge::DeltaTime>()
-            .map(|d| d.0)
-            .unwrap_or(0.016);
-        self.t += dt as f32;
-        let y = (self.t * 1.5).sin() * 3.0 + 8.0; // oscillate ±3 around y=8
-        let new_pos = Position(Point3::new(0.0, y, 6.0));
-        commands.detach_component::<Position>(&self.entity);
-        commands.attach_component(&self.entity, new_pos);
-
-        commands.detach_component::<LightDirty>(&self.entity);
-        commands.attach_component(&self.entity, LightDirty(true));
-    }
-}
-
-// ────────────────────────────────────────────────────────────────────
-
 // ── Stats animation: decrements Health/Mana, resets at 0 ──────────
 
 struct StatsAnimator {
@@ -993,7 +946,6 @@ impl Module for ProcgeoSceneModule {
                 .unwrap();
             ecs.attach_component(&mirror_pl, LightDirty(true)).unwrap();
         }
-        let animator = LightAnimator::new(spot_light);
 
         // Low-intensity directional fill light for scene-wide diffuse lighting
         let fill = ecs.spawn_entity();
@@ -1017,7 +969,6 @@ impl Module for ProcgeoSceneModule {
             Box::new(CursorToggle::new(true)),
             Box::new(HelmetAdjuster::new()),
             Box::new(StatsAnimator::new()),
-            Box::new(animator),
             sys_animate_dynamic_sky(14.0).into_system(),
         ]
     }
