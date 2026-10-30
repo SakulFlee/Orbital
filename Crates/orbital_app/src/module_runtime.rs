@@ -329,6 +329,12 @@ impl ModuleRuntime {
                 );
                 renderer.set_smaa_quality(settings.smaa_quality);
             }
+            renderer.set_exposure(settings.exposure);
+            renderer.set_bloom(
+                settings.bloom_enabled,
+                settings.bloom_threshold,
+                settings.bloom_intensity,
+            );
         }
 
         let _t_ecs_start = std::time::Instant::now();
@@ -1059,6 +1065,7 @@ impl ApplicationHandler for ModuleRuntime {
                 self.ecs_world.insert_resource(crate::RenderSettings {
                     anti_aliasing: self.settings.anti_aliasing,
                     smaa_quality: self.settings.smaa_quality,
+                    ..crate::RenderSettings::default()
                 });
             }
 

@@ -326,6 +326,26 @@ fn handle_debug_message(
             mark_debug_dirty(world);
             return;
         }
+        DebugMessage::SetExposure(exposure) => {
+            update_render_settings(world, |settings| settings.exposure = exposure.max(0.0));
+            return;
+        }
+        DebugMessage::SetBloomEnabled(enabled) => {
+            update_render_settings(world, |settings| settings.bloom_enabled = enabled);
+            return;
+        }
+        DebugMessage::SetBloomThreshold(threshold) => {
+            update_render_settings(world, |settings| {
+                settings.bloom_threshold = threshold.max(0.0)
+            });
+            return;
+        }
+        DebugMessage::SetBloomIntensity(intensity) => {
+            update_render_settings(world, |settings| {
+                settings.bloom_intensity = intensity.max(0.0)
+            });
+            return;
+        }
         DebugMessage::SetProjection(projection) => {
             apply_projection(world, projection);
             mark_debug_dirty(world);
@@ -406,6 +426,18 @@ fn mark_debug_dirty(world: &mut World) {
     if let Some(mut state) = world.get_resource_mut::<DebugUiState>() {
         state.dirty = true;
     }
+}
+
+/// Mutates the render settings, creating defaults if the app had not inserted
+/// the resource yet.
+fn update_render_settings(world: &mut World, update: impl FnOnce(&mut RenderSettings)) {
+    let mut settings = world
+        .get_resource::<RenderSettings>()
+        .map(|settings| *settings)
+        .unwrap_or_default();
+    update(&mut settings);
+    world.insert_resource(settings);
+    mark_debug_dirty(world);
 }
 
 /// Mutates the volumetric settings, creating defaults if the app had not

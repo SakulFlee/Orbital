@@ -1,7 +1,9 @@
 struct TonemapParams {
     exposure: f32,
     gamma: f32,
-    _padding: vec2<f32>,
+    bloom_threshold: f32,
+    bloom_intensity: f32,
+    _padding: vec4<f32>,
 };
 
 @group(0) @binding(0) var hdr_texture: texture_2d<f32>;
@@ -26,9 +28,45 @@ fn vs_main(@builtin(vertex_index) id: u32) -> VertexOutput {
     return out;
 }
 
+/// A compact cross-shaped glare kernel sampled from the HDR scene before
+/// tonemapping. The wider taps give light sources a visible halo without a
+/// separate blur pass and keep the cost bounded for every AA mode.
+fn sample_glare(uv: vec2<f32>, texel: vec2<f32>) -> vec3<f32> {
+    if (params.bloom_intensity <= 0.0) {
+        return vec3<f32>(0.0);
+    }
+
+    let offsets = array<vec2<f32>, 12>(
+        vec2<f32>(-3.0, 0.0),
+        vec2<f32>(3.0, 0.0),
+        vec2<f32>(0.0, -3.0),
+        vec2<f32>(0.0, 3.0),
+        vec2<f32>(-2.0, -2.0),
+        vec2<f32>(2.0, -2.0),
+        vec2<f32>(-2.0, 2.0),
+        vec2<f32>(2.0, 2.0),
+        vec2<f32>(-7.0, 0.0),
+        vec2<f32>(7.0, 0.0),
+        vec2<f32>(0.0, -7.0),
+        vec2<f32>(0.0, 7.0),
+    );
+
+    var glare = vec3<f32>(0.0);
+    for (var i = 0u; i < 12u; i = i + 1u) {
+        let sample_uv = clamp(uv + offsets[i] * texel, vec2<f32>(0.0), vec2<f32>(1.0));
+        let sample = textureSample(hdr_texture, hdr_sampler, sample_uv).rgb;
+        glare += max(sample - vec3<f32>(params.bloom_threshold), vec3<f32>(0.0));
+    }
+
+    return glare * (params.bloom_intensity / 12.0);
+}
+
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let color = textureSample(hdr_texture, hdr_sampler, in.uv).rgb * params.exposure;
+    let texel = 1.0 / vec2<f32>(textureDimensions(hdr_texture));
+    let base = textureSample(hdr_texture, hdr_sampler, in.uv).rgb;
+    let glare = sample_glare(in.uv, texel);
+    let color = (base + glare) * params.exposure;
 
     // ACES filmic curve.
     let mapped = clamp(
