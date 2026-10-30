@@ -64,12 +64,12 @@ fn spawn_text_label(
         text,
         font,
         &TextConfig {
-            font_size: 96.0,
+            font_size: 128.0,
             color: [1.0, 1.0, 1.0, 1.0],
             ..Default::default()
         },
-        0.003,
-        Some(([0.0, 0.0, 0.0, 0.85], 0.08)),
+        0.00225,
+        None,
         Some([0.025, 0.035, 0.07, 0.55]),
         AlphaMode::Blend,
     )
