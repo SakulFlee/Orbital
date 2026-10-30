@@ -1455,6 +1455,8 @@ pub struct VolumetricSettings {
     pub ambient_color: [f32; 3],
     /// Multiplier for diffuse sky/IBL radiance added to the ambient fog term.
     pub environment_intensity: f32,
+    /// Blend previous-frame froxel history to reduce temporal shimmer.
+    pub temporal_history: bool,
     /// Stop integrating after this distance.
     pub max_distance: f32,
     pub quality: VolumetricQuality,
@@ -1473,6 +1475,7 @@ impl Default for VolumetricSettings {
             height_density: 0.03,
             ambient_color: [0.6, 0.7, 0.9],
             environment_intensity: 1.0,
+            temporal_history: true,
             max_distance: 200.0,
             quality: VolumetricQuality::Medium,
         }

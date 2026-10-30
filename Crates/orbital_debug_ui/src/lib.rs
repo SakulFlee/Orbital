@@ -385,6 +385,10 @@ fn handle_debug_message(
             });
             return;
         }
+        DebugMessage::SetVolumetricTemporalHistory(enabled) => {
+            update_volumetrics(world, |settings| settings.temporal_history = enabled);
+            return;
+        }
         DebugMessage::SetVolumetricQuality(quality) => {
             update_volumetrics(world, |settings| settings.quality = quality);
             return;

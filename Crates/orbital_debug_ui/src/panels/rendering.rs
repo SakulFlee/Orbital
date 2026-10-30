@@ -132,6 +132,13 @@ pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
             .on_toggle(DebugMessage::SetVolumetricsEnabled)
             .into(),
     );
+    rows.push(
+        checkbox(volumetrics.temporal_history)
+            .label("Temporal history")
+            .text_size(12)
+            .on_toggle(DebugMessage::SetVolumetricTemporalHistory)
+            .into(),
+    );
 
     rows.push(
         text("Base density: uniform fog.")
