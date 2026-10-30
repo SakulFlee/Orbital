@@ -61,7 +61,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         0.0,
         1.0,
     );
-    let view_depth = slice * params.height.w;
+    // A jittered first slice can land exactly on the camera. `view_direction`
+    // would then normalize a zero vector and poison the froxel texture with
+    // NaNs, which appear as full-screen white flashes after tonemapping.
+    let view_depth = max(slice * params.height.w, 0.01);
 
     let near_position = volumetric_view_position(uv, 0.0);
     let far_position = volumetric_view_position(uv, 1.0);
@@ -91,7 +94,12 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     }
 
     let extinction = density * params.media.z;
-    let view_direction = normalize(world_position - camera.position.xyz);
+    let view_delta = world_position - camera.position.xyz;
+    let view_direction = select(
+        vec3<f32>(0.0, 0.0, -1.0),
+        normalize(view_delta),
+        length(view_delta) > 1.0e-6,
+    );
     let environment = textureSampleLevel(
         diffuse_env_map,
         diffuse_env_sampler,
