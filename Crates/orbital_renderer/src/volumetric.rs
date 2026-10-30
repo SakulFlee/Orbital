@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use cgmath::Vector2;
+use cgmath::{Matrix4, Vector2};
 use orbital_ecs_bridge::{VolumetricQuality, VolumetricSettings};
 use orbital_shader_preprocessor::{NodeRegistry, ShaderBuilder};
 use wgpu::{
@@ -13,7 +13,8 @@ use wgpu::{
     PrimitiveState, Queue, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
     RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor,
     ShaderModuleDescriptor, ShaderSource, ShaderStages, StorageTextureAccess, StoreOp,
-    TextureSampleType, TextureView, TextureViewDimension, VertexState,
+    TextureDescriptor, TextureDimension, TextureSampleType, TextureUsages, TextureView,
+    TextureViewDimension, VertexState,
 };
 
 const INJECT_NODES: &[&str] = &[
@@ -30,6 +31,12 @@ const INJECT_NODES: &[&str] = &[
 
 const INJECT_PARAMS_SIZE: u64 = 64;
 const COMPOSITE_PARAMS_SIZE: u64 = 16;
+const ACCUM_PARAMS_SIZE: u64 = 160;
+
+/// Temporal blend weight for valid history. Volumetric fog is low-frequency;
+/// a high history weight removes the per-frame froxel shimmer without needing
+/// a full-screen TAA pass.
+const HISTORY_BLEND: f32 = 0.9;
 
 /// Keep the world-space spacing between froxel depth slices small enough
 /// that short light cones do not pop between slices as the camera moves.
@@ -41,15 +48,64 @@ const MAX_DEPTH_SLICES: u32 = 192;
 pub struct VolumetricRenderer {
     inject_pipeline: ComputePipeline,
     inject_layout: BindGroupLayout,
+    accumulate_pipeline: ComputePipeline,
+    accumulate_layout: BindGroupLayout,
     composite_pipeline: RenderPipeline,
     composite_layout: BindGroupLayout,
     froxel_sampler: Sampler,
     inject_params: Buffer,
+    accum_params: Buffer,
     composite_params: Buffer,
     grid: [u32; 3],
     steps: u32,
     inject_bind_group: Option<(TextureView, BindGroup)>,
     composite_bind_group: Option<CompositeBindGroupCache>,
+    history: Option<HistoryTargets>,
+    history_index: usize,
+    history_valid: bool,
+    history_grid: Option<[u32; 3]>,
+    history_resolution: Option<Vector2<u32>>,
+    current_view: Option<Matrix4<f32>>,
+    current_view_projection: Option<Matrix4<f32>>,
+    previous_view: Option<Matrix4<f32>>,
+    previous_view_projection: Option<Matrix4<f32>>,
+    frame_index: u32,
+    current_max_distance: f32,
+    previous_max_distance: f32,
+}
+
+struct HistoryTargets {
+    _textures: [wgpu::Texture; 2],
+    views: [TextureView; 2],
+}
+
+impl HistoryTargets {
+    fn new(device: &Device, grid: [u32; 3]) -> Self {
+        let make = |label: &'static str| {
+            let texture = device.create_texture(&TextureDescriptor {
+                label: Some(label),
+                size: wgpu::Extent3d {
+                    width: grid[0],
+                    height: grid[1],
+                    depth_or_array_layers: grid[2],
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D3,
+                format: wgpu::TextureFormat::Rgba16Float,
+                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            });
+            let view = texture.create_view(&Default::default());
+            (texture, view)
+        };
+        let (texture0, view0) = make("Orbital::VolumetricHistory0");
+        let (texture1, view1) = make("Orbital::VolumetricHistory1");
+        Self {
+            _textures: [texture0, texture1],
+            views: [view0, view1],
+        }
+    }
 }
 
 struct CompositeBindGroupCache {
@@ -108,6 +164,26 @@ impl VolumetricRenderer {
             source: ShaderSource::Wgsl(composite_source.into()),
         });
 
+        let mut accumulate_builder = ShaderBuilder::new(Arc::new({
+            let mut registry = NodeRegistry::new();
+            registry
+                .register_library(&orbital_shader_math::math_library())
+                .expect("math node library");
+            registry
+                .register_library(&orbital_shader_engine::engine_library())
+                .expect("engine node library");
+            registry
+        }));
+        accumulate_builder
+            .add_nodes(&["camera_uniform"])
+            .expect("volumetric accumulate nodes");
+        accumulate_builder.add_source(include_str!("volumetric_accumulate.wgsl"));
+        let accumulate_source = accumulate_builder.build();
+        let accumulate_module = device.create_shader_module(ShaderModuleDescriptor {
+            label: Some("Orbital::VolumetricAccumulateShader"),
+            source: ShaderSource::Wgsl(accumulate_source.into()),
+        });
+
         let inject_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: Some("Orbital::VolumetricInjectLayout"),
             entries: &[
@@ -144,6 +220,73 @@ impl VolumetricRenderer {
             label: Some("Orbital::VolumetricInjectPipeline"),
             layout: Some(&inject_pipeline_layout),
             module: &inject_module,
+            entry_point: Some("main"),
+            compilation_options: Default::default(),
+            cache: None,
+        });
+
+        let accumulate_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            label: Some("Orbital::VolumetricAccumulateLayout"),
+            entries: &[
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::D3,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::D3,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::StorageTexture {
+                        access: StorageTextureAccess::WriteOnly,
+                        format: wgpu::TextureFormat::Rgba16Float,
+                        view_dimension: TextureViewDimension::D3,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 4,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+            ],
+        });
+
+        let accumulate_pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
+            label: Some("Orbital::VolumetricAccumulatePipelineLayout"),
+            bind_group_layouts: &[Some(world_layout), Some(&accumulate_layout)],
+            immediate_size: 0,
+        });
+
+        let accumulate_pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
+            label: Some("Orbital::VolumetricAccumulatePipeline"),
+            layout: Some(&accumulate_pipeline_layout),
+            module: &accumulate_module,
             entry_point: Some("main"),
             compilation_options: Default::default(),
             cache: None,
@@ -258,22 +401,63 @@ impl VolumetricRenderer {
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
+        let accum_params = device.create_buffer(&BufferDescriptor {
+            label: Some("Orbital::VolumetricAccumulateParams"),
+            size: ACCUM_PARAMS_SIZE,
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
 
         let mut renderer = Self {
             inject_pipeline,
             inject_layout,
+            accumulate_pipeline,
+            accumulate_layout,
             composite_pipeline,
             composite_layout,
             froxel_sampler,
             inject_params,
+            accum_params,
             composite_params,
             grid: [1, 1, 1],
             steps: 1,
             inject_bind_group: None,
             composite_bind_group: None,
+            history: None,
+            history_index: 0,
+            history_valid: false,
+            history_grid: None,
+            history_resolution: None,
+            current_view: None,
+            current_view_projection: None,
+            previous_view: None,
+            previous_view_projection: None,
+            frame_index: 0,
+            current_max_distance: 1.0,
+            previous_max_distance: 0.0,
         };
-        renderer.prepare(queue, &VolumetricSettings::default(), Vector2::new(1, 1));
+        renderer.prepare(
+            queue,
+            &VolumetricSettings::default(),
+            Vector2::new(1, 1),
+            0,
+            None,
+            None,
+        );
         renderer
+    }
+
+    /// Drop temporal history when volumetrics are disabled or invalidated by
+    /// an external event such as a camera cut.
+    pub fn reset_history(&mut self) {
+        self.history = None;
+        self.history_index = 0;
+        self.history_valid = false;
+        self.history_grid = None;
+        self.history_resolution = None;
+        self.previous_view = None;
+        self.previous_view_projection = None;
+        self.previous_max_distance = 0.0;
     }
 
     pub fn prepare(
@@ -281,6 +465,9 @@ impl VolumetricRenderer {
         queue: &Queue,
         settings: &VolumetricSettings,
         resolution: Vector2<u32>,
+        frame_index: u64,
+        current_view: Option<Matrix4<f32>>,
+        current_view_projection: Option<Matrix4<f32>>,
     ) {
         let mut grid = settings.quality.grid(resolution.x, resolution.y);
         if !matches!(settings.quality, VolumetricQuality::Custom { .. }) {
@@ -297,11 +484,36 @@ impl VolumetricRenderer {
             grid[2].clamp(1, MAX_DEPTH_SLICES),
         ];
         self.steps = settings.quality.composite_steps().max(1);
+        self.current_max_distance = settings.max_distance.max(0.1);
+        self.frame_index = frame_index as u32;
+        self.current_view = current_view;
+        self.current_view_projection = current_view_projection;
+
+        let camera_cut = match (self.previous_view, current_view) {
+            (Some(previous), Some(current)) => matrix_max_delta(&previous, &current) > 1.0,
+            _ => false,
+        };
+        let history_invalid = self.history_grid != Some(self.grid)
+            || self.history_resolution != Some(resolution)
+            || (self.current_max_distance - self.previous_max_distance).abs() > 1.0e-3
+            || current_view.is_none()
+            || current_view_projection.is_none()
+            || camera_cut;
+        if history_invalid {
+            self.history = None;
+            self.history_index = 0;
+            self.history_valid = false;
+            self.previous_view = None;
+            self.previous_view_projection = None;
+        }
+        self.history_grid = Some(self.grid);
+        self.history_resolution = Some(resolution);
 
         let mut inject = [0u8; INJECT_PARAMS_SIZE as usize];
         for (index, value) in self.grid.iter().enumerate() {
             inject[index * 4..index * 4 + 4].copy_from_slice(&value.to_le_bytes());
         }
+        inject[12..16].copy_from_slice(&self.frame_index.to_le_bytes());
         let media = [
             settings.density,
             settings.scattering,
@@ -390,6 +602,107 @@ impl VolumetricRenderer {
         );
     }
 
+    /// Accumulate the current froxel volume with reprojected history.
+    ///
+    /// Returns the newly accumulated texture view, or `None` when the current
+    /// camera is not available (in which case the caller should use the
+    /// current froxel volume directly).
+    pub fn record_accumulate(
+        &mut self,
+        device: &Device,
+        queue: &Queue,
+        encoder: &mut wgpu::CommandEncoder,
+        world_bind_group: &BindGroup,
+        current_froxels: &TextureView,
+    ) -> Option<TextureView> {
+        let current_view = self.current_view?;
+        let current_view_projection = self.current_view_projection?;
+
+        if self.history.is_none() {
+            self.history = Some(HistoryTargets::new(device, self.grid));
+            self.history_index = 0;
+            self.history_valid = false;
+        }
+
+        let write_index = self.history_index;
+        let read_index = 1 - write_index;
+        let history_views = &self.history.as_ref()?.views;
+        let history_view = &history_views[read_index];
+        let output_view = &history_views[write_index];
+
+        let history_valid = self.history_valid
+            && self.previous_view.is_some()
+            && self.previous_view_projection.is_some();
+        let previous_view = self.previous_view.unwrap_or(current_view);
+        let previous_view_projection = self
+            .previous_view_projection
+            .unwrap_or(current_view_projection);
+
+        let mut params = [0u8; ACCUM_PARAMS_SIZE as usize];
+        params[0..64].copy_from_slice(&matrix_to_bytes(&previous_view));
+        params[64..128].copy_from_slice(&matrix_to_bytes(&previous_view_projection));
+        for (index, value) in self.grid.iter().enumerate() {
+            let offset = 128 + index * 4;
+            params[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
+        }
+        params[144..148].copy_from_slice(&self.current_max_distance.to_le_bytes());
+        params[148..152].copy_from_slice(&self.previous_max_distance.to_le_bytes());
+        params[152..156].copy_from_slice(&HISTORY_BLEND.to_le_bytes());
+        params[156..160]
+            .copy_from_slice(&(if history_valid { 1.0f32 } else { 0.0f32 }).to_le_bytes());
+        queue.write_buffer(&self.accum_params, 0, &params);
+
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Orbital::VolumetricAccumulateBindGroup"),
+            layout: &self.accumulate_layout,
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::TextureView(current_froxels),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::TextureView(history_view),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: BindingResource::Sampler(&self.froxel_sampler),
+                },
+                BindGroupEntry {
+                    binding: 3,
+                    resource: BindingResource::TextureView(output_view),
+                },
+                BindGroupEntry {
+                    binding: 4,
+                    resource: self.accum_params.as_entire_binding(),
+                },
+            ],
+        });
+
+        let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor {
+            label: Some("Volumetric Accumulate"),
+            ..Default::default()
+        });
+        pass.set_pipeline(&self.accumulate_pipeline);
+        pass.set_bind_group(0, world_bind_group, &[]);
+        pass.set_bind_group(1, &bind_group, &[]);
+        pass.dispatch_workgroups(
+            self.grid[0].div_ceil(4),
+            self.grid[1].div_ceil(4),
+            self.grid[2].div_ceil(4),
+        );
+        drop(pass);
+
+        let output = output_view.clone();
+        self.history_index = read_index;
+        self.history_valid = true;
+        self.previous_view = Some(current_view);
+        self.previous_view_projection = Some(current_view_projection);
+        self.previous_max_distance = self.current_max_distance;
+
+        Some(output)
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn record_composite(
         &mut self,
@@ -465,4 +778,29 @@ impl VolumetricRenderer {
         pass.set_bind_group(1, bind_group, &[]);
         pass.draw(0..3, 0..1);
     }
+}
+
+fn matrix_max_delta(a: &Matrix4<f32>, b: &Matrix4<f32>) -> f32 {
+    let mut max_delta: f32 = 0.0;
+    for (left, right) in [a.x, a.y, a.z, a.w].into_iter().zip([b.x, b.y, b.z, b.w]) {
+        for (left, right) in [left.x, left.y, left.z, left.w]
+            .into_iter()
+            .zip([right.x, right.y, right.z, right.w])
+        {
+            max_delta = max_delta.max((left - right).abs());
+        }
+    }
+    max_delta
+}
+
+fn matrix_to_bytes(matrix: &Matrix4<f32>) -> [u8; 64] {
+    let mut bytes = [0u8; 64];
+    let columns = [matrix.x, matrix.y, matrix.z, matrix.w];
+    for (column_index, column) in columns.iter().enumerate() {
+        for (row_index, value) in [column.x, column.y, column.z, column.w].iter().enumerate() {
+            let offset = (column_index * 4 + row_index) * 4;
+            bytes[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
+        }
+    }
+    bytes
 }

@@ -21,6 +21,7 @@ pub use frustum::*;
 pub struct Camera {
     camera_buffer: Buffer,
     perspective_view_projection_matrix: Matrix4<f32>,
+    view_matrix: Matrix4<f32>,
     position: Point3<f32>,
     near: f32,
     far: f32,
@@ -56,6 +57,7 @@ impl Camera {
         let mut camera = Self {
             camera_buffer,
             perspective_view_projection_matrix: Matrix4::identity(),
+            view_matrix: Matrix4::identity(),
             position: descriptor.position,
             near: descriptor.near,
             far: descriptor.far,
@@ -95,6 +97,7 @@ impl Camera {
         let view_projection_transposed = view_matrix.transpose();
         let projection_invert = projection_matrix.invert().unwrap_or(Matrix4::identity());
 
+        self.view_matrix = view_matrix;
         self.position = position;
         queue.write_buffer(
             &self.camera_buffer,
@@ -217,6 +220,11 @@ impl Camera {
         &self.perspective_view_projection_matrix
     }
 
+    /// World-to-view matrix for this camera.
+    pub fn view_matrix(&self) -> &Matrix4<f32> {
+        &self.view_matrix
+    }
+
     pub fn position(&self) -> Point3<f32> {
         self.position
     }
@@ -293,6 +301,7 @@ impl Camera {
         let mut camera = Self {
             camera_buffer,
             perspective_view_projection_matrix: Matrix4::identity(),
+            view_matrix: Matrix4::identity(),
             position,
             near,
             far,

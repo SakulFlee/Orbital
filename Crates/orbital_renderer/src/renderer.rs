@@ -1036,8 +1036,21 @@ impl Renderer {
 
         let volumetrics = scene.volumetrics.filter(|settings| settings.enabled);
         let has_volumetrics = volumetrics.is_some();
+        if !has_volumetrics {
+            self.volumetric.reset_history();
+        }
         let volumetric_targets = if let Some(settings) = volumetrics {
-            self.volumetric.prepare(queue, &settings, self.resolution);
+            self.volumetric.prepare(
+                queue,
+                &settings,
+                self.resolution,
+                self.frame_index,
+                scene.camera.as_ref().map(|camera| camera.view_matrix),
+                scene
+                    .camera
+                    .as_ref()
+                    .map(|camera| camera.perspective_view_projection),
+            );
             let grid = self.volumetric.grid();
             let froxel = self.texture_pool.acquire(
                 device,
@@ -1070,6 +1083,7 @@ impl Renderer {
             None
         };
 
+        let mut volumetric_accumulated: Option<TextureView> = None;
         let mut graph = std::mem::take(&mut self.render_graph);
         graph.begin_frame();
         add_scene_passes(
@@ -1232,19 +1246,28 @@ impl Renderer {
                                 bind_group,
                                 &targets.0.view,
                             );
+                            volumetric_accumulated = self.volumetric.record_accumulate(
+                                context.device,
+                                context.queue,
+                                context.encoder,
+                                bind_group,
+                                &targets.0.view,
+                            );
                         }
                     }
                     ScenePass::VolumetricComposite => {
                         if let (Some(bind_group), Some(targets)) =
                             (world_bind_group.as_ref(), volumetric_targets.as_ref())
                         {
+                            let froxels =
+                                volumetric_accumulated.as_ref().unwrap_or(&targets.0.view);
                             self.volumetric.record_composite(
                                 context.device,
                                 context.encoder,
                                 bind_group,
                                 &scene_color.view,
                                 &depth.view,
-                                &targets.0.view,
+                                froxels,
                                 &targets.1.view,
                             );
                         }
@@ -2032,6 +2055,71 @@ mod tests {
             &std::collections::HashSet::new(),
             None,
         );
+    }
+
+    #[test]
+    fn renderer_accumulates_volumetric_history_on_noop_backend() {
+        use cgmath::Quaternion;
+        use orbital_ecs_bridge::{ActiveCamera, CameraStore};
+
+        let (device, queue) = wgpu::Device::noop(&wgpu::DeviceDescriptor::default());
+        let mut renderer = Renderer::new(
+            TextureFormat::Bgra8UnormSrgb,
+            Vector2::new(320, 180),
+            &device,
+            &queue,
+        );
+        let target = device
+            .create_texture(&wgpu::TextureDescriptor {
+                label: Some("Renderer temporal noop target"),
+                size: wgpu::Extent3d {
+                    width: 320,
+                    height: 180,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: TextureFormat::Bgra8UnormSrgb,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                view_formats: &[],
+            })
+            .create_view(&Default::default());
+
+        let mut world = orbital_ecs::World::new();
+        world.insert_resource(orbital_ecs_bridge::VolumetricSettings {
+            enabled: true,
+            ..Default::default()
+        });
+        let camera = Camera::new(
+            Point3::new(0.0, 1.0, 5.0),
+            Quaternion::new(1.0, 0.0, 0.0, 0.0),
+            45.0,
+            16.0 / 9.0,
+            0.1,
+            100.0,
+            2.2,
+            &device,
+            &queue,
+        );
+        let camera_entity = world.spawn_entity();
+        let mut cameras = CameraStore::new();
+        cameras.insert(camera_entity.index, Arc::new(RwLock::new(camera)));
+        world.insert_resource(cameras);
+        world.insert_resource(ActiveCamera(camera_entity));
+
+        let scene = RenderScene::from_world(&world);
+        for _ in 0..2 {
+            renderer.render(
+                &target,
+                &scene,
+                &device,
+                &queue,
+                None,
+                &std::collections::HashSet::new(),
+                None,
+            );
+        }
     }
 
     #[test]
