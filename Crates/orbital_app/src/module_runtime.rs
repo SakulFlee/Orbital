@@ -334,19 +334,22 @@ impl ModuleRuntime {
             let bloom_changed = bloom_enabled != settings.bloom_enabled
                 || (bloom_threshold - settings.bloom_threshold).abs() > 1.0e-5
                 || (bloom_intensity - settings.bloom_intensity).abs() > 1.0e-5;
+            let light_glare_changed = renderer.light_glare() != settings.light_glare;
             renderer.set_exposure(settings.exposure);
             renderer.set_bloom(
                 settings.bloom_enabled,
                 settings.bloom_threshold,
                 settings.bloom_intensity,
             );
-            if exposure_changed || bloom_changed {
+            renderer.set_light_glare(settings.light_glare);
+            if exposure_changed || bloom_changed || light_glare_changed {
                 info!(
-                    "Renderer exposure/glare changed: exposure={}, bloom={}, threshold={}, intensity={}",
+                    "Renderer exposure/glare changed: exposure={}, bloom={}, threshold={}, intensity={}, light_glare={}",
                     settings.exposure,
                     settings.bloom_enabled,
                     settings.bloom_threshold,
                     settings.bloom_intensity,
+                    settings.light_glare,
                 );
             }
         }
@@ -1083,6 +1086,7 @@ impl ApplicationHandler for ModuleRuntime {
                     bloom_enabled: self.settings.bloom_enabled,
                     bloom_threshold: self.settings.bloom_threshold,
                     bloom_intensity: self.settings.bloom_intensity,
+                    light_glare: self.settings.light_glare,
                 });
             }
 

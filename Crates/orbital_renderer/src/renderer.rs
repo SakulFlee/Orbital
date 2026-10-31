@@ -462,6 +462,7 @@ pub struct Renderer {
     bloom_enabled: bool,
     bloom_threshold: f32,
     bloom_intensity: f32,
+    light_glare: bool,
     tonemap: Tonemap,
     fxaa: Fxaa,
     smaa: Option<SmaaTarget>,
@@ -537,6 +538,15 @@ impl Renderer {
             self.bloom_threshold,
             self.bloom_intensity,
         )
+    }
+
+    /// Enable or disable screen-space glare around positional lights.
+    pub fn set_light_glare(&mut self, enabled: bool) {
+        self.light_glare = enabled;
+    }
+
+    pub fn light_glare(&self) -> bool {
+        self.light_glare
     }
 
     /// Enable or disable the deferred path.
@@ -640,6 +650,7 @@ impl Renderer {
             bloom_enabled: false,
             bloom_threshold: 4.0,
             bloom_intensity: 0.65,
+            light_glare: false,
             tonemap: Tonemap::new(device, surface_texture_format),
             fxaa: Fxaa::new(device, queue, surface_texture_format, resolution),
             smaa: None,
@@ -952,7 +963,11 @@ impl Renderer {
             glare_view_projection,
             glare_camera_position,
             self.resolution,
-            &scene.glare_lights,
+            if self.light_glare {
+                &scene.glare_lights
+            } else {
+                &[]
+            },
         );
 
         // SMAA owns the LDR color target. Create it lazily so Fxaa/Off users do

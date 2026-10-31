@@ -346,6 +346,10 @@ fn handle_debug_message(
             });
             return;
         }
+        DebugMessage::SetLightGlare(enabled) => {
+            update_render_settings(world, |settings| settings.light_glare = enabled);
+            return;
+        }
         DebugMessage::SetProjection(projection) => {
             apply_projection(world, projection);
             mark_debug_dirty(world);
