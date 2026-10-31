@@ -30,7 +30,7 @@ impl Default for RenderSettings {
             smaa_quality: SmaaQuality::default(),
             exposure: 1.0,
             bloom_enabled: false,
-            bloom_threshold: 1.0,
+            bloom_threshold: 4.0,
             bloom_intensity: 0.65,
         }
     }

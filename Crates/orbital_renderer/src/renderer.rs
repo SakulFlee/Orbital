@@ -1,7 +1,7 @@
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
-use cgmath::{InnerSpace, Point3, Vector2};
+use cgmath::{InnerSpace, Matrix4, Point3, Vector2};
 use wgpu::{
     BindGroup, BindGroupEntry, Color, CommandEncoder, CommandEncoderDescriptor, CompareFunction,
     Device, FilterMode, IndexFormat, LoadOp, Operations, Queue, RenderPassColorAttachment,
@@ -638,7 +638,7 @@ impl Renderer {
             smaa_quality: SmaaQuality::default(),
             exposure: 1.0,
             bloom_enabled: false,
-            bloom_threshold: 1.0,
+            bloom_threshold: 4.0,
             bloom_intensity: 0.65,
             tonemap: Tonemap::new(device, surface_texture_format),
             fxaa: Fxaa::new(device, queue, surface_texture_format, resolution),
@@ -941,6 +941,18 @@ impl Renderer {
             } else {
                 0.0
             },
+        );
+        let (glare_view_projection, glare_camera_position) = scene
+            .camera
+            .as_ref()
+            .map(|camera| (camera.perspective_view_projection, camera.position))
+            .unwrap_or_else(|| (Matrix4::from_scale(1.0), Point3::new(0.0, 0.0, 0.0)));
+        self.tonemap.set_glare(
+            queue,
+            glare_view_projection,
+            glare_camera_position,
+            self.resolution,
+            &scene.glare_lights,
         );
 
         // SMAA owns the LDR color target. Create it lazily so Fxaa/Off users do
@@ -1334,6 +1346,7 @@ impl Renderer {
                             context.device,
                             context.encoder,
                             tonemap_source,
+                            &depth.view,
                             tonemap_target,
                         );
                     }

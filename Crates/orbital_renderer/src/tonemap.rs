@@ -1,5 +1,6 @@
 //! Fullscreen HDR → LDR tonemap pass.
 
+use cgmath::{Matrix4, Point3, Vector2};
 use wgpu::{
     BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
     BlendState, BufferBindingType, ColorTargetState, ColorWrites, Device, FragmentState,
@@ -10,23 +11,39 @@ use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
 };
 
+use crate::scene::{GlareLight, MAX_GLARE_LIGHTS};
+
 const TONEMAP_WGSL: &str = include_str!("tonemap.wgsl");
+
+/// Matrix (16) + camera position (4) + viewport (4) + lights (8 each).
+const GLARE_PARAMS_FLOATS: usize = 16 + 4 + 4 + MAX_GLARE_LIGHTS * 8;
+const GLARE_PARAMS_BYTES: usize = GLARE_PARAMS_FLOATS * 4;
+const GLARE_RADIUS: f32 = 0.035;
 
 struct TonemapParams {
     buffer: wgpu::Buffer,
+    glare_buffer: wgpu::Buffer,
 }
 
 impl TonemapParams {
     fn new(device: &Device, srgb_target: bool) -> Self {
         // An sRGB render target applies the transfer function in hardware.
         let gamma: f32 = if srgb_target { 1.0 } else { 1.0 / 2.2 };
-        let data = tonemap_params_data(1.0, gamma, 1.0, 0.0);
+        let data = tonemap_params_data(1.0, gamma, 4.0, 0.0);
         let buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Orbital::TonemapParams"),
             contents: &data,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
-        Self { buffer }
+        let glare_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("Orbital::GlareParams"),
+            contents: &[0u8; GLARE_PARAMS_BYTES],
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+        Self {
+            buffer,
+            glare_buffer,
+        }
     }
 }
 
@@ -44,6 +61,10 @@ fn tonemap_params_data(
     data
 }
 
+fn write_f32(data: &mut [u8], offset: usize, value: f32) {
+    data[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
+}
+
 /// Owns the fullscreen tonemap pipeline and its static resources.
 pub struct Tonemap {
     pipeline: RenderPipeline,
@@ -51,7 +72,7 @@ pub struct Tonemap {
     sampler: wgpu::Sampler,
     params: TonemapParams,
     gamma: f32,
-    bind_group_cache: Option<(TextureView, wgpu::BindGroup)>,
+    bind_group_cache: Option<(TextureView, TextureView, wgpu::BindGroup)>,
 }
 
 impl Tonemap {
@@ -82,6 +103,26 @@ impl Tonemap {
                 },
                 BindGroupLayoutEntry {
                     binding: 2,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Depth,
+                        view_dimension: TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 4,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
@@ -166,17 +207,66 @@ impl Tonemap {
         queue.write_buffer(&self.params.buffer, 0, &data);
     }
 
+    /// Update the camera and positional-light data used for screen-space glare.
+    pub fn set_glare(
+        &self,
+        queue: &wgpu::Queue,
+        view_projection: Matrix4<f32>,
+        camera_position: Point3<f32>,
+        resolution: Vector2<u32>,
+        lights: &[GlareLight],
+    ) {
+        let mut data = [0u8; GLARE_PARAMS_BYTES];
+
+        for (column, vector) in [
+            view_projection.x,
+            view_projection.y,
+            view_projection.z,
+            view_projection.w,
+        ]
+        .iter()
+        .enumerate()
+        {
+            for (row, value) in [vector.x, vector.y, vector.z, vector.w].iter().enumerate() {
+                write_f32(&mut data, (column * 4 + row) * 4, *value);
+            }
+        }
+
+        write_f32(&mut data, 64, camera_position.x);
+        write_f32(&mut data, 68, camera_position.y);
+        write_f32(&mut data, 72, camera_position.z);
+
+        write_f32(&mut data, 80, resolution.x as f32);
+        write_f32(&mut data, 84, resolution.y as f32);
+        write_f32(&mut data, 88, lights.len().min(MAX_GLARE_LIGHTS) as f32);
+        write_f32(&mut data, 92, GLARE_RADIUS);
+
+        for (index, light) in lights.iter().take(MAX_GLARE_LIGHTS).enumerate() {
+            let offset = 96 + index * 32;
+            write_f32(&mut data, offset, light.position.x);
+            write_f32(&mut data, offset + 4, light.position.y);
+            write_f32(&mut data, offset + 8, light.position.z);
+            write_f32(&mut data, offset + 16, light.color.x);
+            write_f32(&mut data, offset + 20, light.color.y);
+            write_f32(&mut data, offset + 24, light.color.z);
+            write_f32(&mut data, offset + 28, light.intensity);
+        }
+
+        queue.write_buffer(&self.params.glare_buffer, 0, &data);
+    }
+
     pub fn record(
         &mut self,
         device: &Device,
         encoder: &mut wgpu::CommandEncoder,
         hdr_view: &TextureView,
+        depth_view: &TextureView,
         target_view: &TextureView,
     ) {
         let cache_hit = self
             .bind_group_cache
             .as_ref()
-            .is_some_and(|(view, _)| view == hdr_view);
+            .is_some_and(|(view, depth, _)| view == hdr_view && depth == depth_view);
         if !cache_hit {
             let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("Orbital::TonemapBindGroup"),
@@ -196,15 +286,25 @@ impl Tonemap {
                             self.params.buffer.as_entire_buffer_binding(),
                         ),
                     },
+                    BindGroupEntry {
+                        binding: 3,
+                        resource: wgpu::BindingResource::TextureView(depth_view),
+                    },
+                    BindGroupEntry {
+                        binding: 4,
+                        resource: wgpu::BindingResource::Buffer(
+                            self.params.glare_buffer.as_entire_buffer_binding(),
+                        ),
+                    },
                 ],
             });
-            self.bind_group_cache = Some((hdr_view.clone(), bind_group));
+            self.bind_group_cache = Some((hdr_view.clone(), depth_view.clone(), bind_group));
         }
         let bind_group = &self
             .bind_group_cache
             .as_ref()
             .expect("tonemap bind group cache")
-            .1;
+            .2;
 
         let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
             label: Some("RenderPass::Tonemap"),

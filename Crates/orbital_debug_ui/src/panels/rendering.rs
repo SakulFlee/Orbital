@@ -119,7 +119,7 @@ pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
             .into(),
     );
     rows.push(slider_row(
-        "Threshold",
+        "Scene threshold",
         0.0..=8.0,
         render.bloom_threshold,
         DebugMessage::SetBloomThreshold,
@@ -131,7 +131,7 @@ pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
         DebugMessage::SetBloomIntensity,
     ));
     rows.push(
-        text("Samples HDR light sources before the tonemap curve.")
+        text("Scene highlights above the threshold bloom; light glare uses Intensity.")
             .size(10)
             .color(MUTED)
             .into(),

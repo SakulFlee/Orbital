@@ -329,12 +329,26 @@ impl ModuleRuntime {
                 );
                 renderer.set_smaa_quality(settings.smaa_quality);
             }
+            let exposure_changed = (renderer.exposure() - settings.exposure).abs() > 1.0e-5;
+            let (bloom_enabled, bloom_threshold, bloom_intensity) = renderer.bloom();
+            let bloom_changed = bloom_enabled != settings.bloom_enabled
+                || (bloom_threshold - settings.bloom_threshold).abs() > 1.0e-5
+                || (bloom_intensity - settings.bloom_intensity).abs() > 1.0e-5;
             renderer.set_exposure(settings.exposure);
             renderer.set_bloom(
                 settings.bloom_enabled,
                 settings.bloom_threshold,
                 settings.bloom_intensity,
             );
+            if exposure_changed || bloom_changed {
+                info!(
+                    "Renderer exposure/glare changed: exposure={}, bloom={}, threshold={}, intensity={}",
+                    settings.exposure,
+                    settings.bloom_enabled,
+                    settings.bloom_threshold,
+                    settings.bloom_intensity,
+                );
+            }
         }
 
         let _t_ecs_start = std::time::Instant::now();
@@ -1065,7 +1079,10 @@ impl ApplicationHandler for ModuleRuntime {
                 self.ecs_world.insert_resource(crate::RenderSettings {
                     anti_aliasing: self.settings.anti_aliasing,
                     smaa_quality: self.settings.smaa_quality,
-                    ..crate::RenderSettings::default()
+                    exposure: self.settings.exposure,
+                    bloom_enabled: self.settings.bloom_enabled,
+                    bloom_threshold: self.settings.bloom_threshold,
+                    bloom_intensity: self.settings.bloom_intensity,
                 });
             }
 
