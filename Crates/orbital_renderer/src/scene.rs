@@ -11,7 +11,7 @@
 
 use std::sync::{Arc, RwLock};
 
-use cgmath::{Matrix4, Point3};
+use cgmath::{Matrix4, Point3, Vector3};
 use orbital_camera::Camera;
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
@@ -23,6 +23,20 @@ use orbital_model::Model;
 use orbital_shadow::{ShadowCaster, ShadowLightInfo};
 use orbital_world_environment::WorldEnvironment;
 use wgpu::Buffer;
+
+/// Maximum number of point/spot lights considered for screen-space glare.
+pub const MAX_GLARE_LIGHTS: usize = 32;
+
+/// A positional light used by the tonemap's screen-space glare.
+#[derive(Debug, Clone, Copy)]
+pub struct GlareLight {
+    /// World-space light position.
+    pub position: Vector3<f32>,
+    /// Linear light color.
+    pub color: Vector3<f32>,
+    /// Light intensity.
+    pub intensity: f32,
+}
 
 /// A camera snapshot for one view.
 ///
@@ -83,6 +97,8 @@ pub struct RenderScene {
     pub shadow_lights: Vec<ShadowLightInfo>,
     /// Number of active lights in `light_buffer`.
     pub light_count: u32,
+    /// Positional lights used for screen-space glare.
+    pub glare_lights: Vec<GlareLight>,
     /// Optional volumetric lighting/fog settings.
     pub volumetrics: Option<VolumetricSettings>,
 }
@@ -104,6 +120,7 @@ impl RenderScene {
                 .get_component_store::<LightDescriptor>()
                 .map(|store| store.dense.len() as u32)
                 .unwrap_or(0),
+            glare_lights: collect_glare_lights(world),
             volumetrics: world.get_resource::<VolumetricSettings>().map(|s| *s),
         }
     }
@@ -139,6 +156,48 @@ fn collect_models(world: &World) -> Vec<Arc<Model>> {
             Some(Arc::clone(&realizations.components[index].0))
         })
         .collect()
+}
+
+/// Collect point and spot lights for screen-space glare.
+fn collect_glare_lights(world: &World) -> Vec<GlareLight> {
+    let Some(descriptors) = world.get_component_store::<LightDescriptor>() else {
+        return Vec::new();
+    };
+    let Some(positions) = world.get_component_store::<Position>() else {
+        return Vec::new();
+    };
+
+    let mut lights = Vec::new();
+    for &entity_id in descriptors.dense.as_slice() {
+        let Some(descriptor_index) = descriptors.sparse.get(entity_id).copied().flatten() else {
+            continue;
+        };
+        let Some(position_index) = positions.sparse.get(entity_id).copied().flatten() else {
+            continue;
+        };
+
+        let descriptor = &descriptors.components[descriptor_index];
+        let intensity = match &descriptor.light_type {
+            LightType::Point { intensity } | LightType::Spot { intensity, .. } => *intensity,
+            LightType::Directional { .. } => continue,
+        };
+        if intensity <= 0.0 {
+            continue;
+        }
+
+        let position = positions.components[position_index].0;
+        lights.push(GlareLight {
+            position: Vector3::new(position.x, position.y, position.z),
+            color: descriptor.color,
+            intensity,
+        });
+
+        if lights.len() == MAX_GLARE_LIGHTS {
+            break;
+        }
+    }
+
+    lights
 }
 
 /// Collect shadow-casting light info from ECS.
@@ -277,5 +336,39 @@ mod tests {
 
         assert_eq!(scene.light_count, 2);
         assert!(scene.shadow_lights.is_empty());
+    }
+
+    #[test]
+    fn collects_only_positional_lights_for_glare() {
+        let mut world = World::new();
+
+        let point = world.spawn_entity();
+        world.attach_component(&point, point_light()).unwrap();
+        world
+            .attach_component(&point, Position::new(1.0, 2.0, 3.0))
+            .unwrap();
+
+        let directional = world.spawn_entity();
+        world
+            .attach_component(
+                &directional,
+                LightDescriptor::new_directional(
+                    cgmath::Vector3::new(0.0, -1.0, 0.0),
+                    cgmath::Vector3::new(1.0, 1.0, 1.0),
+                    1.0,
+                ),
+            )
+            .unwrap();
+        world
+            .attach_component(&directional, Position::default())
+            .unwrap();
+
+        let scene = RenderScene::from_world(&world);
+
+        assert_eq!(scene.glare_lights.len(), 1);
+        assert_eq!(
+            scene.glare_lights[0].position,
+            cgmath::Vector3::new(1.0, 2.0, 3.0)
+        );
     }
 }

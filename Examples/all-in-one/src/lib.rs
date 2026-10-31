@@ -3,13 +3,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use orbital::app::{
     App, AppSettings, CursorToggle, InputButton, LayerRenderer, Module, RenderLayer,
-    RenderOverlayContext, RenderSettings, sys_camera_controller,
+    RenderOverlayContext, sys_camera_controller,
 };
-use orbital::billboard::{
-    Billboard, BillboardMode, BillboardModule, text_billboard_with_background,
-};
+use orbital::billboard::{BillboardMode, BillboardModule, text_billboard_with_background};
 use orbital::camera::ProjectionMode;
-use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector2, Vector3};
+use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector3};
 use orbital::debug_render::DebugModule;
 use orbital::ecs::{Commands, ComponentAccess, IntoSystem, Res, ResMut, System, World};
 use orbital::ecs_bridge::{
@@ -27,8 +25,7 @@ use orbital::procgeo::scene::SceneBuilder;
 use orbital::renderer::{AntiAliasing, Camera2DUniform, Renderer2D};
 use orbital::resources::WorldEnvironmentDescriptor;
 use orbital::resources::{
-    AlphaMode, FilterMode, GeneratedSkyParameters, SamplingType, ShadowCaster, SunPosition,
-    TextureDescriptor, TextureSize, Transform,
+    AlphaMode, GeneratedSkyParameters, SamplingType, ShadowCaster, SunPosition, Transform,
 };
 use orbital::text::{DefaultFont, TextConfig};
 use orbital::twod::Vertex2D;
@@ -82,61 +79,6 @@ fn spawn_text_label(
     ecs.attach_component(&entity, label).unwrap();
 }
 
-/// Soft radial falloff used by the HDR light-source sprites.
-fn radial_glow_texture() -> TextureDescriptor {
-    const SIZE: u32 = 64;
-    let mut pixels = Vec::with_capacity((SIZE * SIZE * 4) as usize);
-
-    for y in 0..SIZE {
-        for x in 0..SIZE {
-            let nx = (x as f32 + 0.5) / SIZE as f32 * 2.0 - 1.0;
-            let ny = (y as f32 + 0.5) / SIZE as f32 * 2.0 - 1.0;
-            let radius = (nx * nx + ny * ny).sqrt().min(1.0);
-            let falloff = (1.0 - radius).powf(2.5);
-            pixels.extend_from_slice(&[255, 255, 255, (falloff * 255.0) as u8]);
-        }
-    }
-
-    TextureDescriptor::Data {
-        pixels,
-        size: TextureSize {
-            width: SIZE,
-            height: SIZE,
-            ..Default::default()
-        },
-        usages: orbital::wgpu::TextureUsages::TEXTURE_BINDING
-            | orbital::wgpu::TextureUsages::COPY_DST,
-        format: orbital::wgpu::TextureFormat::Rgba8UnormSrgb,
-        texture_dimension: orbital::wgpu::TextureDimension::D2,
-        texture_view_dimension: orbital::wgpu::TextureViewDimension::D2,
-        filter_mode: FilterMode::linear(),
-    }
-}
-
-/// Adds an HDR camera-facing glow at a light's world position.
-///
-/// The billboard is unrealistically brighter than 1.0 so the tonemap glare
-/// sees it as a light source rather than a flat white decal.
-fn spawn_light_source(
-    ecs: &mut World,
-    texture: &TextureDescriptor,
-    position: Point3<f32>,
-    color: [f32; 3],
-    size: f32,
-) -> (orbital::ecs::Entity, Billboard) {
-    let entity = ecs.spawn_entity();
-    let billboard = Billboard::unlit_textured(
-        Vector2::new(size, size),
-        texture.clone(),
-        [color[0], color[1], color[2], 1.0],
-        AlphaMode::Blend,
-    )
-    .with_position(position)
-    .with_mode(BillboardMode::Full);
-    ecs.attach_component(&entity, billboard.clone()).unwrap();
-    (entity, billboard)
-}
-
 fn spawn_scene_model(
     ecs: &mut World,
     label: &str,
@@ -178,6 +120,9 @@ pub fn entrypoint(
         name: NAME.to_string(),
         // Showcase the higher-quality LUT-based SMAA path in the flagship example.
         anti_aliasing: AntiAliasing::Smaa,
+        bloom_enabled: true,
+        bloom_threshold: 8.0,
+        bloom_intensity: 1.0,
         back_presses_to_exit: 3,
         ..AppSettings::default()
     };
@@ -325,26 +270,17 @@ struct LightAnimator {
     t: f32,
     access: ComponentAccess,
     entity: orbital::ecs::Entity,
-    source_entity: orbital::ecs::Entity,
-    source: Billboard,
 }
 
 impl LightAnimator {
-    fn new(
-        entity: orbital::ecs::Entity,
-        source_entity: orbital::ecs::Entity,
-        source: Billboard,
-    ) -> Self {
+    fn new(entity: orbital::ecs::Entity) -> Self {
         Self {
             t: 0.0,
             entity,
-            source_entity,
-            source,
             access: ComponentAccess::new()
                 .reads::<Position>()
                 .writes::<Position>()
-                .writes::<LightDirty>()
-                .writes::<Billboard>(),
+                .writes::<LightDirty>(),
         }
     }
 }
@@ -370,12 +306,6 @@ impl System for LightAnimator {
 
         commands.detach_component::<LightDirty>(&self.entity);
         commands.attach_component(&self.entity, LightDirty(true));
-
-        let mut source = self.source.clone();
-        source.position = Point3::new(0.0, y, 6.0);
-        commands.detach_component::<Billboard>(&self.source_entity);
-        commands.attach_component(&self.source_entity, source.clone());
-        self.source = source;
     }
 }
 
@@ -701,30 +631,20 @@ impl Module for ProcgeoSceneModule {
         // Low tier for the already busy all-in-one scene.
         ecs.insert_resource(VolumetricSettings {
             enabled: true,
-            density: 0.003,
-            scattering: 1.3,
-            extinction: 1.1,
+            density: 0.0018,
+            scattering: 1.0,
+            extinction: 0.85,
             anisotropy: 0.35,
             height_base: 0.0,
             height_falloff: 0.25,
-            height_density: 0.012,
+            height_density: 0.007,
             ambient_color: [0.08, 0.1, 0.16],
-            environment_intensity: 0.5,
+            environment_intensity: 0.35,
             temporal_history: true,
             // Keep the indoor grid concentrated on the hallway and rooms;
             // a shorter range also reduces depth-slice flicker at Low quality.
             max_distance: 30.0,
             quality: VolumetricQuality::Low,
-        });
-
-        // Match the app's startup AA choice and enable HDR glare around the
-        // bright room lights.
-        ecs.insert_resource(RenderSettings {
-            anti_aliasing: AntiAliasing::Smaa,
-            bloom_enabled: true,
-            bloom_threshold: 1.0,
-            bloom_intensity: 0.75,
-            ..RenderSettings::default()
         });
 
         // Game state resources (driven by StatsAnimator)
@@ -917,8 +837,6 @@ impl Module for ProcgeoSceneModule {
             BillboardMode::Full,
         );
 
-        let glow = radial_glow_texture();
-
         // Import the DamagedHelmet into Room 2
         if let Some(mut queue) = ecs.get_resource_mut::<ImportQueueResource>() {
             queue.push(ImportTask::Gltf {
@@ -960,8 +878,6 @@ impl Module for ProcgeoSceneModule {
             },
         )
         .unwrap();
-        let (spot_source, spot_source_billboard) =
-            spawn_light_source(ecs, &glow, spot_pos, [6.0, 6.0, 6.0], 0.55);
 
         // Mirrored spot for the new room row.
         let mirror_spot_light = ecs.spawn_entity();
@@ -992,7 +908,6 @@ impl Module for ProcgeoSceneModule {
             },
         )
         .unwrap();
-        let _source = spawn_light_source(ecs, &glow, mirror_spot_pos, [6.0, 6.0, 6.0], 0.55);
 
         // ── Point lights for Rooms 1 & 2 (x=-20, x=-10) ───────────
         for room_x in [-20.0, -10.0f32] {
@@ -1006,13 +921,6 @@ impl Module for ProcgeoSceneModule {
                 .unwrap();
             ecs.attach_component(&pl, LightDirty(true)).unwrap();
             ecs.attach_component(&pl, ShadowCaster::default()).unwrap();
-            let _source = spawn_light_source(
-                ecs,
-                &glow,
-                Point3::new(room_x, 5.0, 0.0),
-                [5.0, 5.0, 5.0],
-                0.45,
-            );
 
             let mirror_pl = ecs.spawn_entity();
             ecs.attach_component(
@@ -1028,13 +936,6 @@ impl Module for ProcgeoSceneModule {
             ecs.attach_component(&mirror_pl, LightDirty(true)).unwrap();
             ecs.attach_component(&mirror_pl, ShadowCaster::default())
                 .unwrap();
-            let _source = spawn_light_source(
-                ecs,
-                &glow,
-                Point3::new(room_x, 5.0, 2.0 * HALLWAY_MIRROR_Z),
-                [5.0, 5.0, 5.0],
-                0.45,
-            );
         }
 
         // ── Spot ring for Room 4 helmet (x=10) ──────────────────────
@@ -1066,7 +967,6 @@ impl Module for ProcgeoSceneModule {
                 },
             )
             .unwrap();
-            let _source = spawn_light_source(ecs, &glow, lpos, [5.0, 4.5, 4.0], 0.45);
 
             let mirror_lpos = mirror_z(lpos);
             let mirror_helmet = mirror_z(helmet_10);
@@ -1095,7 +995,6 @@ impl Module for ProcgeoSceneModule {
                 },
             )
             .unwrap();
-            let _source = spawn_light_source(ecs, &glow, mirror_lpos, [5.0, 4.5, 4.0], 0.45);
         }
 
         // ── Colorful point-light ring for Room 5 helmet (x=20) ───────
@@ -1119,8 +1018,6 @@ impl Module for ProcgeoSceneModule {
                 .unwrap();
             ecs.attach_component(&pl, Position(lpos)).unwrap();
             ecs.attach_component(&pl, LightDirty(true)).unwrap();
-            let c = colors[i as usize] * 6.0;
-            let _source = spawn_light_source(ecs, &glow, lpos, [c.x, c.y, c.z], 0.35);
 
             let mirror_pl = ecs.spawn_entity();
             ecs.attach_component(
@@ -1131,11 +1028,8 @@ impl Module for ProcgeoSceneModule {
             ecs.attach_component(&mirror_pl, Position(mirror_z(lpos)))
                 .unwrap();
             ecs.attach_component(&mirror_pl, LightDirty(true)).unwrap();
-            let mirror_lpos = mirror_z(lpos);
-            let c = colors[i as usize] * 6.0;
-            let _source = spawn_light_source(ecs, &glow, mirror_lpos, [c.x, c.y, c.z], 0.35);
         }
-        let animator = LightAnimator::new(spot_light, spot_source, spot_source_billboard);
+        let animator = LightAnimator::new(spot_light);
 
         // Low-intensity directional fill light for scene-wide diffuse lighting
         let fill = ecs.spawn_entity();

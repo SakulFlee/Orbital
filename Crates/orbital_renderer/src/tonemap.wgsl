@@ -9,6 +9,22 @@ struct TonemapParams {
 @group(0) @binding(0) var hdr_texture: texture_2d<f32>;
 @group(0) @binding(1) var hdr_sampler: sampler;
 @group(0) @binding(2) var<uniform> params: TonemapParams;
+@group(0) @binding(3) var scene_depth: texture_depth_2d;
+
+struct GlareLight {
+    position: vec4<f32>,
+    color: vec4<f32>,
+};
+
+struct GlareParams {
+    view_projection: mat4x4<f32>,
+    camera_position: vec4<f32>,
+    // xy = viewport size, z = active light count, w = glare radius.
+    viewport: vec4<f32>,
+    lights: array<GlareLight, 32>,
+};
+
+@group(0) @binding(4) var<uniform> glare: GlareParams;
 
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
@@ -61,12 +77,66 @@ fn sample_glare(uv: vec2<f32>, texel: vec2<f32>) -> vec3<f32> {
     return glare * (params.bloom_intensity / 12.0);
 }
 
+/// Screen-space glare around positional lights. The scene depth sample keeps
+/// lights behind opaque geometry from leaking through walls; this does not
+/// require a visible emissive mesh in the scene.
+fn sample_light_glare(uv: vec2<f32>) -> vec3<f32> {
+    let count = u32(glare.viewport.z);
+    if (params.bloom_intensity <= 0.0 || count == 0u) {
+        return vec3<f32>(0.0);
+    }
+
+    let viewport = glare.viewport.xy;
+    let aspect = viewport.x / max(viewport.y, 1.0);
+    let radius2 = glare.viewport.w * glare.viewport.w;
+    var light_glare = vec3<f32>(0.0);
+
+    for (var i = 0u; i < count; i = i + 1u) {
+        let light = glare.lights[i];
+        let clip = glare.view_projection * vec4<f32>(light.position.xyz, 1.0);
+        if (clip.w <= 0.0) {
+            continue;
+        }
+
+        let ndc = clip.xy / clip.w;
+        if (abs(ndc.x) > 1.1 || abs(ndc.y) > 1.1) {
+            continue;
+        }
+
+        let light_uv = vec2<f32>(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);
+        let pixel = vec2<i32>(
+            clamp(
+                light_uv * viewport,
+                vec2<f32>(0.0),
+                viewport - vec2<f32>(1.0),
+            ),
+        );
+        let scene_depth_value = textureLoad(scene_depth, pixel, 0);
+        let light_depth = clip.z / clip.w;
+        if (light_depth > scene_depth_value + 0.0005) {
+            continue;
+        }
+
+        let delta = (uv - light_uv) * vec2<f32>(aspect, 1.0);
+        let distance2 = dot(delta, delta);
+        let core = exp(-distance2 / (radius2 * 0.33));
+        let halo = exp(-distance2 / (radius2 * 3.0)) * 0.35;
+        let to_light = light.position.xyz - glare.camera_position.xyz;
+        let attenuation = 1.0 / (1.0 + dot(to_light, to_light) * 0.015);
+        let energy = light.color.w * 0.05 * attenuation * (core + halo);
+        light_glare += light.color.rgb * energy;
+    }
+
+    return light_glare * params.bloom_intensity;
+}
+
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let texel = 1.0 / vec2<f32>(textureDimensions(hdr_texture));
     let base = textureSample(hdr_texture, hdr_sampler, in.uv).rgb;
-    let glare = sample_glare(in.uv, texel);
-    let color = (base + glare) * params.exposure;
+    let scene_glare = sample_glare(in.uv, texel);
+    let light_glare = sample_light_glare(in.uv);
+    let color = (base + scene_glare + light_glare) * params.exposure;
 
     // ACES filmic curve.
     let mapped = clamp(
