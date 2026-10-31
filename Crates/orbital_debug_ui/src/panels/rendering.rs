@@ -131,6 +131,13 @@ pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
         DebugMessage::SetBloomIntensity,
     ));
     rows.push(
+        checkbox(render.light_glare)
+            .label("Light glare")
+            .text_size(12)
+            .on_toggle(DebugMessage::SetLightGlare)
+            .into(),
+    );
+    rows.push(
         text("Scene highlights above the threshold bloom; light glare uses Intensity.")
             .size(10)
             .color(MUTED)

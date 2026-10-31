@@ -71,6 +71,8 @@ pub enum DebugMessage {
     SetBloomThreshold(f32),
     /// Set the bloom contribution strength.
     SetBloomIntensity(f32),
+    /// Enable or disable positional-light screen-space glare.
+    SetLightGlare(bool),
     /// Switch the active camera between perspective and orthographic.
     SetProjection(ProjectionMode),
     /// Enable or disable volumetric lighting and height fog.
@@ -445,6 +447,7 @@ impl DebugUiState {
             | DebugMessage::SetBloomEnabled(_)
             | DebugMessage::SetBloomThreshold(_)
             | DebugMessage::SetBloomIntensity(_)
+            | DebugMessage::SetLightGlare(_)
             | DebugMessage::SetProjection(_)
             | DebugMessage::SetVolumetricsEnabled(_)
             | DebugMessage::SetVolumetricDensity(_)

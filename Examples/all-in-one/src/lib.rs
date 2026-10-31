@@ -123,6 +123,7 @@ pub fn entrypoint(
         bloom_enabled: true,
         bloom_threshold: 8.0,
         bloom_intensity: 1.0,
+        light_glare: false,
         back_presses_to_exit: 3,
         ..AppSettings::default()
     };

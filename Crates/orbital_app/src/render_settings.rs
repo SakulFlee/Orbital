@@ -21,6 +21,8 @@ pub struct RenderSettings {
     pub bloom_threshold: f32,
     /// Strength of the sampled glare.
     pub bloom_intensity: f32,
+    /// Whether positional lights contribute screen-space glare.
+    pub light_glare: bool,
 }
 
 impl Default for RenderSettings {
@@ -32,6 +34,7 @@ impl Default for RenderSettings {
             bloom_enabled: false,
             bloom_threshold: 4.0,
             bloom_intensity: 0.65,
+            light_glare: false,
         }
     }
 }
