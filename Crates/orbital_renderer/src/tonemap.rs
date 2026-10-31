@@ -15,10 +15,10 @@ use crate::scene::{GlareLight, MAX_GLARE_LIGHTS};
 
 const TONEMAP_WGSL: &str = include_str!("tonemap.wgsl");
 
-/// Matrix (16) + camera position (4) + viewport (4) + lights (16 each).
-const GLARE_PARAMS_FLOATS: usize = 16 + 4 + 4 + MAX_GLARE_LIGHTS * 16;
+/// Matrix (16) + camera position (4) + viewport (4) + camera params (4) + lights (16 each).
+const GLARE_PARAMS_FLOATS: usize = 16 + 4 + 4 + 4 + MAX_GLARE_LIGHTS * 16;
 const GLARE_PARAMS_BYTES: usize = GLARE_PARAMS_FLOATS * 4;
-const GLARE_RADIUS: f32 = 0.035;
+const GLARE_RADIUS: f32 = 0.028;
 
 struct TonemapParams {
     buffer: wgpu::Buffer,
@@ -208,12 +208,15 @@ impl Tonemap {
     }
 
     /// Update the camera and positional-light data used for screen-space glare.
+    #[allow(clippy::too_many_arguments)]
     pub fn set_glare(
         &self,
         queue: &wgpu::Queue,
         view_projection: Matrix4<f32>,
         camera_position: Point3<f32>,
         resolution: Vector2<u32>,
+        near: f32,
+        far: f32,
         lights: &[GlareLight],
     ) {
         let mut data = [0u8; GLARE_PARAMS_BYTES];
@@ -240,9 +243,11 @@ impl Tonemap {
         write_f32(&mut data, 84, resolution.y as f32);
         write_f32(&mut data, 88, lights.len().min(MAX_GLARE_LIGHTS) as f32);
         write_f32(&mut data, 92, GLARE_RADIUS);
+        write_f32(&mut data, 96, near);
+        write_f32(&mut data, 100, far);
 
         for (index, light) in lights.iter().take(MAX_GLARE_LIGHTS).enumerate() {
-            let offset = 96 + index * 64;
+            let offset = 112 + index * 64;
             write_f32(&mut data, offset, light.position.x);
             write_f32(&mut data, offset + 4, light.position.y);
             write_f32(&mut data, offset + 8, light.position.z);
