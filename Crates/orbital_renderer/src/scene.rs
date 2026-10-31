@@ -36,6 +36,12 @@ pub struct GlareLight {
     pub color: Vector3<f32>,
     /// Light intensity.
     pub intensity: f32,
+    /// Spot direction, unused for point lights.
+    pub direction: Vector3<f32>,
+    /// Whether this is a spot light.
+    pub is_spot: bool,
+    /// Spot outer cone half-angle in radians.
+    pub outer_cone_angle: f32,
 }
 
 /// A camera snapshot for one view.
@@ -177,8 +183,13 @@ fn collect_glare_lights(world: &World) -> Vec<GlareLight> {
         };
 
         let descriptor = &descriptors.components[descriptor_index];
-        let intensity = match &descriptor.light_type {
-            LightType::Point { intensity } | LightType::Spot { intensity, .. } => *intensity,
+        let (intensity, direction, is_spot, outer_cone_angle) = match &descriptor.light_type {
+            LightType::Point { intensity } => (*intensity, Vector3::new(0.0, 0.0, 0.0), false, 0.0),
+            LightType::Spot {
+                intensity,
+                outer_cone_angle,
+                ..
+            } => (*intensity, descriptor.direction, true, *outer_cone_angle),
             LightType::Directional { .. } => continue,
         };
         if intensity <= 0.0 {
@@ -190,6 +201,9 @@ fn collect_glare_lights(world: &World) -> Vec<GlareLight> {
             position: Vector3::new(position.x, position.y, position.z),
             color: descriptor.color,
             intensity,
+            direction,
+            is_spot,
+            outer_cone_angle,
         });
 
         if lights.len() == MAX_GLARE_LIGHTS {
@@ -370,5 +384,36 @@ mod tests {
             scene.glare_lights[0].position,
             cgmath::Vector3::new(1.0, 2.0, 3.0)
         );
+    }
+
+    #[test]
+    fn spot_glare_light_keeps_its_cone_data() {
+        let mut world = World::new();
+        let spot = world.spawn_entity();
+        let direction = cgmath::Vector3::new(0.0, -1.0, 0.0);
+
+        world
+            .attach_component(
+                &spot,
+                LightDescriptor::new_spot(
+                    cgmath::Vector3::new(1.0, 0.9, 0.8),
+                    30.0,
+                    direction,
+                    0.1,
+                    0.44,
+                ),
+            )
+            .unwrap();
+        world
+            .attach_component(&spot, Position::new(4.0, 5.0, 6.0))
+            .unwrap();
+
+        let scene = RenderScene::from_world(&world);
+
+        assert_eq!(scene.glare_lights.len(), 1);
+        let light = &scene.glare_lights[0];
+        assert!(light.is_spot);
+        assert_eq!(light.direction, direction);
+        assert_eq!(light.outer_cone_angle, 0.44);
     }
 }

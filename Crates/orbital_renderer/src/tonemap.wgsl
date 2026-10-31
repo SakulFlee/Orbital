@@ -14,6 +14,9 @@ struct TonemapParams {
 struct GlareLight {
     position: vec4<f32>,
     color: vec4<f32>,
+    direction: vec4<f32>,
+    // x = outer cone half-angle; yzw reserved.
+    params: vec4<f32>,
 };
 
 struct GlareParams {
@@ -103,6 +106,29 @@ fn sample_light_glare(uv: vec2<f32>) -> vec3<f32> {
             continue;
         }
 
+        let to_light = light.position.xyz - glare.camera_position.xyz;
+        let distance2 = dot(to_light, to_light);
+        if (distance2 < 1.0e-6) {
+            continue;
+        }
+
+        var cone_fade = 1.0;
+        if (light.direction.w > 0.5) {
+            let spot_dir = light.direction.xyz;
+            let spot_len2 = dot(spot_dir, spot_dir);
+            if (spot_len2 < 1.0e-6) {
+                continue;
+            }
+
+            let to_camera = normalize(-to_light);
+            let cos_angle = dot(normalize(spot_dir), to_camera);
+            let cone_cos = cos(light.params.x);
+            cone_fade = smoothstep(cone_cos - 0.05, cone_cos + 0.05, cos_angle);
+            if (cone_fade <= 0.0) {
+                continue;
+            }
+        }
+
         let light_uv = vec2<f32>(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);
         let pixel = vec2<i32>(
             clamp(
@@ -118,12 +144,11 @@ fn sample_light_glare(uv: vec2<f32>) -> vec3<f32> {
         }
 
         let delta = (uv - light_uv) * vec2<f32>(aspect, 1.0);
-        let distance2 = dot(delta, delta);
-        let core = exp(-distance2 / (radius2 * 0.33));
-        let halo = exp(-distance2 / (radius2 * 3.0)) * 0.35;
-        let to_light = light.position.xyz - glare.camera_position.xyz;
-        let attenuation = 1.0 / (1.0 + dot(to_light, to_light) * 0.015);
-        let energy = light.color.w * 0.05 * attenuation * (core + halo);
+        let distance2_screen = dot(delta, delta);
+        let core = exp(-distance2_screen / (radius2 * 0.33));
+        let halo = exp(-distance2_screen / (radius2 * 3.0)) * 0.35;
+        let attenuation = 1.0 / (1.0 + distance2 * 0.015);
+        let energy = light.color.w * 0.05 * attenuation * cone_fade * (core + halo);
         light_glare += light.color.rgb * energy;
     }
 
