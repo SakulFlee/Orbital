@@ -953,16 +953,32 @@ impl Renderer {
                 0.0
             },
         );
-        let (glare_view_projection, glare_camera_position) = scene
+        let (glare_view_projection, glare_camera_position, glare_near, glare_far) = scene
             .camera
             .as_ref()
-            .map(|camera| (camera.perspective_view_projection, camera.position))
-            .unwrap_or_else(|| (Matrix4::from_scale(1.0), Point3::new(0.0, 0.0, 0.0)));
+            .map(|camera| {
+                (
+                    camera.perspective_view_projection,
+                    camera.position,
+                    camera.near,
+                    camera.far,
+                )
+            })
+            .unwrap_or_else(|| {
+                (
+                    Matrix4::from_scale(1.0),
+                    Point3::new(0.0, 0.0, 0.0),
+                    0.1,
+                    10_000.0,
+                )
+            });
         self.tonemap.set_glare(
             queue,
             glare_view_projection,
             glare_camera_position,
             self.resolution,
+            glare_near,
+            glare_far,
             if self.light_glare {
                 &scene.glare_lights
             } else {
