@@ -15,8 +15,8 @@ use crate::scene::{GlareLight, MAX_GLARE_LIGHTS};
 
 const TONEMAP_WGSL: &str = include_str!("tonemap.wgsl");
 
-/// Matrix (16) + camera position (4) + viewport (4) + lights (8 each).
-const GLARE_PARAMS_FLOATS: usize = 16 + 4 + 4 + MAX_GLARE_LIGHTS * 8;
+/// Matrix (16) + camera position (4) + viewport (4) + lights (16 each).
+const GLARE_PARAMS_FLOATS: usize = 16 + 4 + 4 + MAX_GLARE_LIGHTS * 16;
 const GLARE_PARAMS_BYTES: usize = GLARE_PARAMS_FLOATS * 4;
 const GLARE_RADIUS: f32 = 0.035;
 
@@ -242,7 +242,7 @@ impl Tonemap {
         write_f32(&mut data, 92, GLARE_RADIUS);
 
         for (index, light) in lights.iter().take(MAX_GLARE_LIGHTS).enumerate() {
-            let offset = 96 + index * 32;
+            let offset = 96 + index * 64;
             write_f32(&mut data, offset, light.position.x);
             write_f32(&mut data, offset + 4, light.position.y);
             write_f32(&mut data, offset + 8, light.position.z);
@@ -250,6 +250,15 @@ impl Tonemap {
             write_f32(&mut data, offset + 20, light.color.y);
             write_f32(&mut data, offset + 24, light.color.z);
             write_f32(&mut data, offset + 28, light.intensity);
+            write_f32(&mut data, offset + 32, light.direction.x);
+            write_f32(&mut data, offset + 36, light.direction.y);
+            write_f32(&mut data, offset + 40, light.direction.z);
+            write_f32(
+                &mut data,
+                offset + 44,
+                if light.is_spot { 1.0 } else { 0.0 },
+            );
+            write_f32(&mut data, offset + 48, light.outer_cone_angle);
         }
 
         queue.write_buffer(&self.params.glare_buffer, 0, &data);
