@@ -94,11 +94,11 @@ fn star_spike(
 ) -> f32 {
     let along = dot(delta, axis);
     let across = dot(delta, vec2<f32>(-axis.y, axis.x));
-    let length = max(radius * 3.2 * length_scale, 1.0e-6);
+    let length = max(radius * 6.0 * length_scale, 1.0e-6);
     let t = clamp(abs(along) / length, 0.0, 1.0);
-    let width = radius * mix(0.18, 0.015, t);
+    let width = radius * mix(0.18, 0.012, t);
     let body = exp(-(across * across) / (2.0 * max(width * width, 1.0e-10)));
-    let fade = pow(1.0 - t, 1.8);
+    let fade = pow(1.0 - t, 1.5);
     return body * fade;
 }
 
@@ -188,7 +188,7 @@ fn sample_light_glare(uv: vec2<f32>, pixel: vec2<i32>) -> vec3<f32> {
             star_spike(delta, axis0, radius, 1.0)
             + star_spike(delta, axis1, radius, 0.78)
             + star_spike(delta, axis2, radius, 0.62)
-        ) * 0.08;
+        ) * 0.07;
 
         let attenuation = 1.0 / (1.0 + distance2 * 0.015);
         let energy = light.color.w * 0.04 * attenuation * cone_fade * (core + halo + star);
