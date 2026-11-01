@@ -4,7 +4,12 @@ struct TonemapParams {
     bloom_threshold: f32,
     bloom_intensity: f32,
     contrast: f32,
-    _padding: vec2<f32>,
+    glare_stars: u32,
+    glare_star_arms: u32,
+    glare_star_inner: f32,
+    glare_star_outer: f32,
+    glare_star_length: f32,
+    _padding: vec3<f32>,
 };
 
 @group(0) @binding(0) var hdr_texture: texture_2d<f32>;
@@ -91,15 +96,18 @@ fn star_spike(
     axis: vec2<f32>,
     radius: f32,
     length_scale: f32,
+    inner_intensity: f32,
+    outer_intensity: f32,
 ) -> f32 {
     let along = dot(delta, axis);
     let across = dot(delta, vec2<f32>(-axis.y, axis.x));
-    let length = max(radius * 5.0 * length_scale, 1.0e-6);
+    let length = max(radius * params.glare_star_length * length_scale, 1.0e-6);
     let t = clamp(abs(along) / length, 0.0, 1.0);
     let width = radius * mix(0.32, 0.03, t);
     let body = exp(-(across * across) / (2.0 * max(width * width, 1.0e-10)));
     let fade = pow(1.0 - t, 2.0);
-    return body * fade;
+    let intensity = mix(inner_intensity, outer_intensity, t);
+    return body * fade * intensity;
 }
 
 fn hash11(value: f32) -> f32 {
@@ -172,7 +180,13 @@ fn sample_light_glare(uv: vec2<f32>, pixel: vec2<i32>) -> vec3<f32> {
         // center. Looking directly at a light keeps the full flare; a light
         // in the corner of vision should not contribute a visible orb.
         let center_offset = (light_uv - vec2<f32>(0.5)) * vec2<f32>(aspect, 1.0);
-        let gaze = 1.0 - smoothstep(0.2, 0.55, length(center_offset));
+        // Keep a small amount of glare at the edges instead of popping to
+        // zero; looking directly at the light still gets the full flare.
+        let gaze = mix(
+            0.08,
+            1.0,
+            1.0 - smoothstep(0.2, 0.55, length(center_offset)),
+        );
         if (gaze <= 0.0) {
             continue;
         }
@@ -183,18 +197,26 @@ fn sample_light_glare(uv: vec2<f32>, pixel: vec2<i32>) -> vec3<f32> {
         let core = exp(-distance2_screen / (radius2 * 0.33));
         let halo = exp(-distance2_screen / (radius2 * 3.0)) * 0.35;
 
-        // A soft four-point cross reads as a lens flare without the rigid
-        // spokes of a symmetric starburst. The seed is the light entity id,
-        // so a moving spotlight does not make the flare spin every frame.
-        let angle = (hash11(light.params.y) - 0.5) * 0.5;
-        let c = cos(angle);
-        let s = sin(angle);
-        let axis0 = vec2<f32>(c, s);
-        let axis1 = vec2<f32>(-s, c);
-        let star = (
-            star_spike(delta, axis0, radius, 1.0)
-            + star_spike(delta, axis1, radius, 0.68)
-        ) * 0.045;
+        var star = 0.0;
+        if (params.glare_stars != 0u) {
+            let arms = clamp(params.glare_star_arms, 2u, 8u);
+            let axis_count = arms / 2u;
+            let base_angle = (hash11(light.params.y) - 0.5) * 0.5;
+            let step = 3.14159265 / f32(axis_count);
+            for (var a = 0u; a < axis_count; a = a + 1u) {
+                let angle = base_angle + f32(a) * step;
+                let axis = vec2<f32>(cos(angle), sin(angle));
+                let length_scale = 1.0 - f32(a % 3u) * 0.18;
+                star += star_spike(
+                    delta,
+                    axis,
+                    radius,
+                    length_scale,
+                    params.glare_star_inner,
+                    params.glare_star_outer,
+                );
+            }
+        }
 
         let attenuation = 1.0 / (1.0 + distance2 * 0.015);
         let energy =

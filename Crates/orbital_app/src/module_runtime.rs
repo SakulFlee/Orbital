@@ -339,6 +339,18 @@ impl ModuleRuntime {
                 || (bloom_intensity - settings.bloom_intensity).abs() > 1.0e-5;
             let light_glare_changed = renderer.light_glare() != settings.light_glare;
             let contrast_changed = (renderer.contrast() - settings.contrast).abs() > 1.0e-5;
+            let (
+                glare_stars,
+                glare_star_arms,
+                glare_star_inner,
+                glare_star_outer,
+                glare_star_length,
+            ) = renderer.glare_stars();
+            let glare_star_changed = glare_stars != settings.glare_stars
+                || glare_star_arms != settings.glare_star_arms
+                || (glare_star_inner - settings.glare_star_inner).abs() > 1.0e-5
+                || (glare_star_outer - settings.glare_star_outer).abs() > 1.0e-5
+                || (glare_star_length - settings.glare_star_length).abs() > 1.0e-5;
             renderer.set_exposure(settings.exposure);
             renderer.set_bloom(
                 settings.bloom_enabled,
@@ -347,15 +359,32 @@ impl ModuleRuntime {
             );
             renderer.set_light_glare(settings.light_glare);
             renderer.set_contrast(settings.contrast);
-            if exposure_changed || bloom_changed || light_glare_changed || contrast_changed {
+            renderer.set_glare_stars(
+                settings.glare_stars,
+                settings.glare_star_arms,
+                settings.glare_star_inner,
+                settings.glare_star_outer,
+                settings.glare_star_length,
+            );
+            if exposure_changed
+                || bloom_changed
+                || light_glare_changed
+                || contrast_changed
+                || glare_star_changed
+            {
                 info!(
-                    "Renderer exposure/glare changed: exposure={}, bloom={}, threshold={}, intensity={}, light_glare={}, contrast={}",
+                    "Renderer exposure/glare changed: exposure={}, bloom={}, threshold={}, intensity={}, light_glare={}, contrast={}, stars={}, arms={}, star_inner={}, star_outer={}, star_length={}",
                     settings.exposure,
                     settings.bloom_enabled,
                     settings.bloom_threshold,
                     settings.bloom_intensity,
                     settings.light_glare,
                     settings.contrast,
+                    settings.glare_stars,
+                    settings.glare_star_arms,
+                    settings.glare_star_inner,
+                    settings.glare_star_outer,
+                    settings.glare_star_length,
                 );
             }
         }
@@ -1094,6 +1123,11 @@ impl ApplicationHandler for ModuleRuntime {
                     bloom_intensity: self.settings.bloom_intensity,
                     light_glare: self.settings.light_glare,
                     contrast: self.settings.contrast,
+                    glare_stars: self.settings.glare_stars,
+                    glare_star_arms: self.settings.glare_star_arms,
+                    glare_star_inner: self.settings.glare_star_inner,
+                    glare_star_outer: self.settings.glare_star_outer,
+                    glare_star_length: self.settings.glare_star_length,
                 });
             }
 

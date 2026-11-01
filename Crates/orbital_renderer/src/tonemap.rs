@@ -15,10 +15,41 @@ use crate::scene::{GlareLight, MAX_GLARE_LIGHTS};
 
 const TONEMAP_WGSL: &str = include_str!("tonemap.wgsl");
 
+/// Per-frame values for the tonemap and light-glare pass.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TonemapSettings {
+    pub exposure: f32,
+    pub bloom_threshold: f32,
+    pub bloom_intensity: f32,
+    pub contrast: f32,
+    pub glare_stars: bool,
+    pub glare_star_arms: u32,
+    pub glare_star_inner: f32,
+    pub glare_star_outer: f32,
+    pub glare_star_length: f32,
+}
+
+impl Default for TonemapSettings {
+    fn default() -> Self {
+        Self {
+            exposure: 1.0,
+            bloom_threshold: 4.0,
+            bloom_intensity: 0.0,
+            contrast: 1.0,
+            glare_stars: true,
+            glare_star_arms: 4,
+            glare_star_inner: 0.05,
+            glare_star_outer: 0.02,
+            glare_star_length: 5.0,
+        }
+    }
+}
+
 /// Matrix (16) + camera position (4) + viewport (4) + camera params (4) + lights (16 each).
 const GLARE_PARAMS_FLOATS: usize = 16 + 4 + 4 + 4 + MAX_GLARE_LIGHTS * 16;
 const GLARE_PARAMS_BYTES: usize = GLARE_PARAMS_FLOATS * 4;
 const GLARE_RADIUS: f32 = 0.028;
+const TONEMAP_PARAMS_BYTES: usize = 64;
 
 struct TonemapParams {
     buffer: wgpu::Buffer,
@@ -29,7 +60,8 @@ impl TonemapParams {
     fn new(device: &Device, srgb_target: bool) -> Self {
         // An sRGB render target applies the transfer function in hardware.
         let gamma: f32 = if srgb_target { 1.0 } else { 1.0 / 2.2 };
-        let data = tonemap_params_data(1.0, gamma, 4.0, 0.0, 1.0);
+        let settings = TonemapSettings::default();
+        let data = tonemap_params_data(&settings, gamma);
         let buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Orbital::TonemapParams"),
             contents: &data,
@@ -47,19 +79,18 @@ impl TonemapParams {
     }
 }
 
-fn tonemap_params_data(
-    exposure: f32,
-    gamma: f32,
-    bloom_threshold: f32,
-    bloom_intensity: f32,
-    contrast: f32,
-) -> [u8; 32] {
-    let mut data = [0u8; 32];
-    data[0..4].copy_from_slice(&exposure.to_le_bytes());
+fn tonemap_params_data(settings: &TonemapSettings, gamma: f32) -> [u8; TONEMAP_PARAMS_BYTES] {
+    let mut data = [0u8; TONEMAP_PARAMS_BYTES];
+    data[0..4].copy_from_slice(&settings.exposure.to_le_bytes());
     data[4..8].copy_from_slice(&gamma.to_le_bytes());
-    data[8..12].copy_from_slice(&bloom_threshold.to_le_bytes());
-    data[12..16].copy_from_slice(&bloom_intensity.to_le_bytes());
-    data[16..20].copy_from_slice(&contrast.to_le_bytes());
+    data[8..12].copy_from_slice(&settings.bloom_threshold.to_le_bytes());
+    data[12..16].copy_from_slice(&settings.bloom_intensity.to_le_bytes());
+    data[16..20].copy_from_slice(&settings.contrast.to_le_bytes());
+    data[20..24].copy_from_slice(&u32::from(settings.glare_stars).to_le_bytes());
+    data[24..28].copy_from_slice(&settings.glare_star_arms.to_le_bytes());
+    data[28..32].copy_from_slice(&settings.glare_star_inner.to_le_bytes());
+    data[32..36].copy_from_slice(&settings.glare_star_outer.to_le_bytes());
+    data[36..40].copy_from_slice(&settings.glare_star_length.to_le_bytes());
     data
 }
 
@@ -197,22 +228,9 @@ impl Tonemap {
         }
     }
 
-    /// Update exposure and bloom parameters for the next tonemap.
-    pub fn set_params(
-        &self,
-        queue: &wgpu::Queue,
-        exposure: f32,
-        bloom_threshold: f32,
-        bloom_intensity: f32,
-        contrast: f32,
-    ) {
-        let data = tonemap_params_data(
-            exposure,
-            self.gamma,
-            bloom_threshold,
-            bloom_intensity,
-            contrast,
-        );
+    /// Update exposure, bloom, contrast, and glare-star parameters.
+    pub fn set_params(&self, queue: &wgpu::Queue, settings: &TonemapSettings) {
+        let data = tonemap_params_data(settings, self.gamma);
         queue.write_buffer(&self.params.buffer, 0, &data);
     }
 
@@ -358,15 +376,31 @@ mod tests {
     use super::*;
 
     #[test]
-    fn tonemap_params_pack_exposure_bloom_and_contrast_in_uniform_layout() {
-        let data = tonemap_params_data(2.0, 0.5, 0.75, 1.5, 1.25);
+    fn tonemap_params_pack_exposure_bloom_contrast_and_stars() {
+        let settings = TonemapSettings {
+            exposure: 2.0,
+            bloom_threshold: 0.75,
+            bloom_intensity: 1.5,
+            contrast: 1.25,
+            glare_stars: true,
+            glare_star_arms: 6,
+            glare_star_inner: 0.08,
+            glare_star_outer: 0.03,
+            glare_star_length: 7.5,
+        };
+        let data = tonemap_params_data(&settings, 0.5);
 
-        assert_eq!(data.len(), 32);
+        assert_eq!(data.len(), TONEMAP_PARAMS_BYTES);
         assert_eq!(f32::from_le_bytes(data[0..4].try_into().unwrap()), 2.0);
         assert_eq!(f32::from_le_bytes(data[4..8].try_into().unwrap()), 0.5);
         assert_eq!(f32::from_le_bytes(data[8..12].try_into().unwrap()), 0.75);
         assert_eq!(f32::from_le_bytes(data[12..16].try_into().unwrap()), 1.5);
         assert_eq!(f32::from_le_bytes(data[16..20].try_into().unwrap()), 1.25);
-        assert!(data[20..].iter().all(|byte| *byte == 0));
+        assert_eq!(u32::from_le_bytes(data[20..24].try_into().unwrap()), 1);
+        assert_eq!(u32::from_le_bytes(data[24..28].try_into().unwrap()), 6);
+        assert_eq!(f32::from_le_bytes(data[28..32].try_into().unwrap()), 0.08);
+        assert_eq!(f32::from_le_bytes(data[32..36].try_into().unwrap()), 0.03);
+        assert_eq!(f32::from_le_bytes(data[36..40].try_into().unwrap()), 7.5);
+        assert!(data[40..].iter().all(|byte| *byte == 0));
     }
 }

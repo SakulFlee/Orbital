@@ -24,7 +24,7 @@ use crate::fxaa::Fxaa;
 use crate::light_culling::LightCulling;
 use crate::scene::RenderScene;
 use crate::smaa::{SmaaQuality, SmaaTarget};
-use crate::tonemap::Tonemap;
+use crate::tonemap::{Tonemap, TonemapSettings};
 use crate::volumetric::VolumetricRenderer;
 
 /// Anti-aliasing mode for the 3D scene.
@@ -464,6 +464,11 @@ pub struct Renderer {
     bloom_intensity: f32,
     light_glare: bool,
     contrast: f32,
+    glare_stars: bool,
+    glare_star_arms: u32,
+    glare_star_inner: f32,
+    glare_star_outer: f32,
+    glare_star_length: f32,
     tonemap: Tonemap,
     fxaa: Fxaa,
     smaa: Option<SmaaTarget>,
@@ -557,6 +562,32 @@ impl Renderer {
 
     pub fn contrast(&self) -> f32 {
         self.contrast
+    }
+
+    /// Configure the diffraction stars inside positional-light glare.
+    pub fn set_glare_stars(
+        &mut self,
+        enabled: bool,
+        arms: u32,
+        inner: f32,
+        outer: f32,
+        length: f32,
+    ) {
+        self.glare_stars = enabled;
+        self.glare_star_arms = arms.clamp(2, 8);
+        self.glare_star_inner = inner.max(0.0);
+        self.glare_star_outer = outer.max(0.0);
+        self.glare_star_length = length.clamp(1.0, 12.0);
+    }
+
+    pub fn glare_stars(&self) -> (bool, u32, f32, f32, f32) {
+        (
+            self.glare_stars,
+            self.glare_star_arms,
+            self.glare_star_inner,
+            self.glare_star_outer,
+            self.glare_star_length,
+        )
     }
 
     /// Enable or disable the deferred path.
@@ -662,6 +693,11 @@ impl Renderer {
             bloom_intensity: 0.65,
             light_glare: false,
             contrast: 1.0,
+            glare_stars: true,
+            glare_star_arms: 4,
+            glare_star_inner: 0.05,
+            glare_star_outer: 0.02,
+            glare_star_length: 5.0,
             tonemap: Tonemap::new(device, surface_texture_format),
             fxaa: Fxaa::new(device, queue, surface_texture_format, resolution),
             smaa: None,
@@ -956,14 +992,21 @@ impl Renderer {
         self.texture_pool.begin_frame(self.frame_index);
         self.tonemap.set_params(
             queue,
-            self.exposure,
-            self.bloom_threshold,
-            if self.bloom_enabled {
-                self.bloom_intensity
-            } else {
-                0.0
+            &TonemapSettings {
+                exposure: self.exposure,
+                bloom_threshold: self.bloom_threshold,
+                bloom_intensity: if self.bloom_enabled {
+                    self.bloom_intensity
+                } else {
+                    0.0
+                },
+                contrast: self.contrast,
+                glare_stars: self.glare_stars,
+                glare_star_arms: self.glare_star_arms,
+                glare_star_inner: self.glare_star_inner,
+                glare_star_outer: self.glare_star_outer,
+                glare_star_length: self.glare_star_length,
             },
-            self.contrast,
         );
         let (glare_view_projection, glare_camera_position, glare_near, glare_far) = scene
             .camera

@@ -28,6 +28,16 @@ pub struct AppSettings {
     pub light_glare: bool,
     /// Contrast applied after the tonemap curve (1.0 is neutral).
     pub contrast: f32,
+    /// Whether positional light glare gets diffraction stars.
+    pub glare_stars: bool,
+    /// Number of points on the star (4, 6, or 8).
+    pub glare_star_arms: u32,
+    /// Star intensity near the light core.
+    pub glare_star_inner: f32,
+    /// Star intensity toward the arm tips.
+    pub glare_star_outer: f32,
+    /// Arm length as a multiple of the glare radius.
+    pub glare_star_length: f32,
     /// Number of consecutive back-presses (within `back_exit_window`) that
     /// quit the app. `0` disables the behavior entirely, leaving back input
     /// fully up to the app.
@@ -51,6 +61,11 @@ impl Default for AppSettings {
             bloom_intensity: 0.65,
             light_glare: false,
             contrast: 1.0,
+            glare_stars: true,
+            glare_star_arms: 4,
+            glare_star_inner: 0.05,
+            glare_star_outer: 0.02,
+            glare_star_length: 5.0,
             back_presses_to_exit: 0,
             back_exit_window: Duration::from_secs(2),
         }

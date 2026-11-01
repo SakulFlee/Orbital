@@ -76,6 +76,16 @@ pub enum DebugMessage {
     SetContrast(f32),
     /// Enable or disable positional-light screen-space glare.
     SetLightGlare(bool),
+    /// Enable or disable the star flare inside positional glare.
+    SetGlareStars(bool),
+    /// Set the number of star arms (4, 6, or 8).
+    SetGlareArms(u32),
+    /// Set the star intensity near the light core.
+    SetGlareStarInner(f32),
+    /// Set the star intensity toward the arm tips.
+    SetGlareStarOuter(f32),
+    /// Set the star arm length as a multiple of the glare radius.
+    SetGlareStarLength(f32),
     /// Switch the active camera between perspective and orthographic.
     SetProjection(ProjectionMode),
     /// Choose how W/S behaves for an orthographic camera.
@@ -454,6 +464,11 @@ impl DebugUiState {
             | DebugMessage::SetBloomIntensity(_)
             | DebugMessage::SetContrast(_)
             | DebugMessage::SetLightGlare(_)
+            | DebugMessage::SetGlareStars(_)
+            | DebugMessage::SetGlareArms(_)
+            | DebugMessage::SetGlareStarInner(_)
+            | DebugMessage::SetGlareStarOuter(_)
+            | DebugMessage::SetGlareStarLength(_)
             | DebugMessage::SetProjection(_)
             | DebugMessage::SetOrthoForwardMode(_)
             | DebugMessage::SetVolumetricsEnabled(_)
