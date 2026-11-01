@@ -83,14 +83,27 @@ fn sample_glare(uv: vec2<f32>, texel: vec2<f32>) -> vec3<f32> {
     return glare * (params.bloom_intensity / 12.0);
 }
 
-/// A thin diffraction spike along `axis`, used to turn the circular light
-/// glare into an astigmatism-like star.
-fn star_spike(delta: vec2<f32>, axis: vec2<f32>, radius2: f32) -> f32 {
+/// A soft, tapered diffraction spike. The spike is widest near the core and
+/// narrows to nothing at the tip; unequal axes and a per-light rotation keep
+/// it from looking like a perfectly symmetric starburst.
+fn star_spike(
+    delta: vec2<f32>,
+    axis: vec2<f32>,
+    radius: f32,
+    length_scale: f32,
+) -> f32 {
     let along = dot(delta, axis);
     let across = dot(delta, vec2<f32>(-axis.y, axis.x));
-    let thin = exp(-(across * across) / (radius2 * 0.0025));
-    let long = exp(-(along * along) / (radius2 * 8.0));
-    return thin * long;
+    let length = max(radius * 3.2 * length_scale, 1.0e-6);
+    let t = clamp(abs(along) / length, 0.0, 1.0);
+    let width = radius * mix(0.18, 0.015, t);
+    let body = exp(-(across * across) / (2.0 * max(width * width, 1.0e-10)));
+    let fade = pow(1.0 - t, 1.8);
+    return body * fade;
+}
+
+fn hash11(value: f32) -> f32 {
+    return fract(sin(value * 12.9898) * 43758.5453);
 }
 
 /// Screen-space glare around positional lights. Each pixel compares its own
@@ -156,19 +169,26 @@ fn sample_light_glare(uv: vec2<f32>, pixel: vec2<i32>) -> vec3<f32> {
         let light_uv = vec2<f32>(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);
         let delta = (uv - light_uv) * vec2<f32>(aspect, 1.0);
         let distance2_screen = dot(delta, delta);
+        let radius = glare.viewport.w;
         let core = exp(-distance2_screen / (radius2 * 0.33));
         let halo = exp(-distance2_screen / (radius2 * 3.0)) * 0.35;
 
-        // Three axes produce a six-point star. Keep it subtle so the light
-        // still reads as a hot core with a lens-like flare.
-        let axis0 = vec2<f32>(1.0, 0.0);
-        let axis1 = vec2<f32>(0.5, 0.8660254);
-        let axis2 = vec2<f32>(-0.5, 0.8660254);
+        // Six soft spikes with unequal lengths. Rotate them per light so every
+        // source does not produce the same perfectly upright starburst.
+        let seed = light.position.x * 12.9898
+            + light.position.y * 78.233
+            + light.position.z * 37.719;
+        let angle = (hash11(seed) - 0.5) * 0.7;
+        let c = cos(angle);
+        let s = sin(angle);
+        let axis0 = vec2<f32>(c, s);
+        let axis1 = vec2<f32>(c * 0.5 - s * 0.8660254, s * 0.5 + c * 0.8660254);
+        let axis2 = vec2<f32>(c * 0.5 + s * 0.8660254, s * 0.5 - c * 0.8660254);
         let star = (
-            star_spike(delta, axis0, radius2)
-            + star_spike(delta, axis1, radius2)
-            + star_spike(delta, axis2, radius2)
-        ) * 0.12;
+            star_spike(delta, axis0, radius, 1.0)
+            + star_spike(delta, axis1, radius, 0.78)
+            + star_spike(delta, axis2, radius, 0.62)
+        ) * 0.08;
 
         let attenuation = 1.0 / (1.0 + distance2 * 0.015);
         let energy = light.color.w * 0.04 * attenuation * cone_fade * (core + halo + star);
