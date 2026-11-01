@@ -117,7 +117,8 @@ pub fn entrypoint(
         bloom_threshold: 8.0,
         bloom_intensity: 1.0,
         light_glare: true,
-        contrast: 1.10,
+        exposure: 1.0,
+        contrast: 1.0,
         back_presses_to_exit: 3,
         ..AppSettings::default()
     };
