@@ -463,6 +463,7 @@ pub struct Renderer {
     bloom_threshold: f32,
     bloom_intensity: f32,
     light_glare: bool,
+    contrast: f32,
     tonemap: Tonemap,
     fxaa: Fxaa,
     smaa: Option<SmaaTarget>,
@@ -547,6 +548,15 @@ impl Renderer {
 
     pub fn light_glare(&self) -> bool {
         self.light_glare
+    }
+
+    /// Set the post-tonemap contrast multiplier.
+    pub fn set_contrast(&mut self, contrast: f32) {
+        self.contrast = contrast.max(0.0);
+    }
+
+    pub fn contrast(&self) -> f32 {
+        self.contrast
     }
 
     /// Enable or disable the deferred path.
@@ -651,6 +661,7 @@ impl Renderer {
             bloom_threshold: 4.0,
             bloom_intensity: 0.65,
             light_glare: false,
+            contrast: 1.0,
             tonemap: Tonemap::new(device, surface_texture_format),
             fxaa: Fxaa::new(device, queue, surface_texture_format, resolution),
             smaa: None,
@@ -952,6 +963,7 @@ impl Renderer {
             } else {
                 0.0
             },
+            self.contrast,
         );
         let (glare_view_projection, glare_camera_position, glare_near, glare_far) = scene
             .camera

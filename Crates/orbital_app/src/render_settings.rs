@@ -23,6 +23,8 @@ pub struct RenderSettings {
     pub bloom_intensity: f32,
     /// Whether positional lights contribute screen-space glare.
     pub light_glare: bool,
+    /// Contrast applied after the tonemap curve.
+    pub contrast: f32,
 }
 
 impl Default for RenderSettings {
@@ -35,6 +37,7 @@ impl Default for RenderSettings {
             bloom_threshold: 4.0,
             bloom_intensity: 0.65,
             light_glare: false,
+            contrast: 1.0,
         }
     }
 }

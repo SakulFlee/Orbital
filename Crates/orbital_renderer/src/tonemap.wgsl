@@ -3,7 +3,8 @@ struct TonemapParams {
     gamma: f32,
     bloom_threshold: f32,
     bloom_intensity: f32,
-    _padding: vec4<f32>,
+    contrast: f32,
+    _padding: vec2<f32>,
 };
 
 @group(0) @binding(0) var hdr_texture: texture_2d<f32>;
@@ -171,8 +172,16 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         vec3<f32>(1.0)
     );
 
+    // A post-tonemap contrast curve restores separation after fog and tone
+    // mapping compress the scene. 1.0 is neutral.
+    let contrasted = clamp(
+        (mapped - vec3<f32>(0.5)) * params.contrast + vec3<f32>(0.5),
+        vec3<f32>(0.0),
+        vec3<f32>(1.0),
+    );
+
     // Linear targets need the transfer function here; sRGB targets apply it
     // in hardware, so gamma is 1.0 in that case.
-    let corrected = pow(mapped, vec3<f32>(params.gamma));
+    let corrected = pow(contrasted, vec3<f32>(params.gamma));
     return vec4<f32>(corrected, 1.0);
 }

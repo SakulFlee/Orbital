@@ -26,6 +26,8 @@ pub struct AppSettings {
     pub bloom_intensity: f32,
     /// Whether positional lights contribute screen-space glare.
     pub light_glare: bool,
+    /// Contrast applied after the tonemap curve (1.0 is neutral).
+    pub contrast: f32,
     /// Number of consecutive back-presses (within `back_exit_window`) that
     /// quit the app. `0` disables the behavior entirely, leaving back input
     /// fully up to the app.
@@ -48,6 +50,7 @@ impl Default for AppSettings {
             bloom_threshold: 4.0,
             bloom_intensity: 0.65,
             light_glare: false,
+            contrast: 1.0,
             back_presses_to_exit: 0,
             back_exit_window: Duration::from_secs(2),
         }
