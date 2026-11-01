@@ -354,6 +354,30 @@ fn handle_debug_message(
             update_render_settings(world, |settings| settings.light_glare = enabled);
             return;
         }
+        DebugMessage::SetGlareStars(enabled) => {
+            update_render_settings(world, |settings| settings.glare_stars = enabled);
+            return;
+        }
+        DebugMessage::SetGlareArms(arms) => {
+            update_render_settings(world, |settings| {
+                settings.glare_star_arms = arms.clamp(2, 8)
+            });
+            return;
+        }
+        DebugMessage::SetGlareStarInner(value) => {
+            update_render_settings(world, |settings| settings.glare_star_inner = value.max(0.0));
+            return;
+        }
+        DebugMessage::SetGlareStarOuter(value) => {
+            update_render_settings(world, |settings| settings.glare_star_outer = value.max(0.0));
+            return;
+        }
+        DebugMessage::SetGlareStarLength(value) => {
+            update_render_settings(world, |settings| {
+                settings.glare_star_length = value.clamp(1.0, 12.0)
+            });
+            return;
+        }
         DebugMessage::SetProjection(projection) => {
             apply_projection(world, projection);
             mark_debug_dirty(world);

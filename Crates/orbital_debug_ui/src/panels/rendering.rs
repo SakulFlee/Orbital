@@ -147,6 +147,62 @@ pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
             .on_toggle(DebugMessage::SetLightGlare)
             .into(),
     );
+    if render.light_glare {
+        rows.push(
+            checkbox(render.glare_stars)
+                .label("Star flare")
+                .text_size(12)
+                .on_toggle(DebugMessage::SetGlareStars)
+                .into(),
+        );
+        if render.glare_stars {
+            rows.push(
+                row![
+                    radio(
+                        "4",
+                        4u32,
+                        Some(render.glare_star_arms),
+                        DebugMessage::SetGlareArms,
+                    )
+                    .text_size(12),
+                    radio(
+                        "6",
+                        6u32,
+                        Some(render.glare_star_arms),
+                        DebugMessage::SetGlareArms,
+                    )
+                    .text_size(12),
+                    radio(
+                        "8",
+                        8u32,
+                        Some(render.glare_star_arms),
+                        DebugMessage::SetGlareArms,
+                    )
+                    .text_size(12),
+                ]
+                .spacing(8)
+                .into(),
+            );
+            rows.push(slider_row(
+                "Inner",
+                0.0..=0.5,
+                render.glare_star_inner,
+                DebugMessage::SetGlareStarInner,
+            ));
+            rows.push(slider_row(
+                "Outer",
+                0.0..=0.5,
+                render.glare_star_outer,
+                DebugMessage::SetGlareStarOuter,
+            ));
+            rows.push(slider_row(
+                "Length",
+                1.0..=12.0,
+                render.glare_star_length,
+                DebugMessage::SetGlareStarLength,
+            ));
+        }
+    }
     rows.push(
         text("Scene highlights above the threshold bloom; light glare uses Intensity.")
             .size(10)
