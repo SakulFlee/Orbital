@@ -273,6 +273,7 @@ impl Tonemap {
                 if light.is_spot { 1.0 } else { 0.0 },
             );
             write_f32(&mut data, offset + 48, light.outer_cone_angle);
+            write_f32(&mut data, offset + 52, light.seed);
         }
 
         queue.write_buffer(&self.params.glare_buffer, 0, &data);
