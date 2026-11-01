@@ -876,7 +876,14 @@ impl Module for ProcgeoSceneModule {
             ecs.attach_component(&pl, Position(Point3::new(room_x, 5.0, 0.0)))
                 .unwrap();
             ecs.attach_component(&pl, LightDirty(true)).unwrap();
-            ecs.attach_component(&pl, ShadowCaster::default()).unwrap();
+            ecs.attach_component(
+                &pl,
+                ShadowCaster {
+                    bias: 0.0002,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
 
             let mirror_pl = ecs.spawn_entity();
             ecs.attach_component(
@@ -890,8 +897,14 @@ impl Module for ProcgeoSceneModule {
             )
             .unwrap();
             ecs.attach_component(&mirror_pl, LightDirty(true)).unwrap();
-            ecs.attach_component(&mirror_pl, ShadowCaster::default())
-                .unwrap();
+            ecs.attach_component(
+                &mirror_pl,
+                ShadowCaster {
+                    bias: 0.0002,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
         }
 
         // ── Spot ring for Room 4 helmet (x=10) ──────────────────────
