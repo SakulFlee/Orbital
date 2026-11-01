@@ -84,8 +84,8 @@ fn sample_glare(uv: vec2<f32>, texel: vec2<f32>) -> vec3<f32> {
 }
 
 /// A soft, tapered diffraction spike. The spike is widest near the core and
-/// narrows to nothing at the tip; unequal axes and a per-light rotation keep
-/// it from looking like a perfectly symmetric starburst.
+/// narrows to nothing at the tip, so it reads as a blurred lens flare rather
+/// than a hard geometric ray.
 fn star_spike(
     delta: vec2<f32>,
     axis: vec2<f32>,
@@ -94,11 +94,11 @@ fn star_spike(
 ) -> f32 {
     let along = dot(delta, axis);
     let across = dot(delta, vec2<f32>(-axis.y, axis.x));
-    let length = max(radius * 6.0 * length_scale, 1.0e-6);
+    let length = max(radius * 5.0 * length_scale, 1.0e-6);
     let t = clamp(abs(along) / length, 0.0, 1.0);
-    let width = radius * mix(0.18, 0.012, t);
+    let width = radius * mix(0.32, 0.03, t);
     let body = exp(-(across * across) / (2.0 * max(width * width, 1.0e-10)));
-    let fade = pow(1.0 - t, 1.5);
+    let fade = pow(1.0 - t, 2.0);
     return body * fade;
 }
 
@@ -167,31 +167,38 @@ fn sample_light_glare(uv: vec2<f32>, pixel: vec2<i32>) -> vec3<f32> {
         }
 
         let light_uv = vec2<f32>(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);
+
+        // Fade out light glare as the source moves away from the screen
+        // center. Looking directly at a light keeps the full flare; a light
+        // in the corner of vision should not contribute a visible orb.
+        let center_offset = (light_uv - vec2<f32>(0.5)) * vec2<f32>(aspect, 1.0);
+        let gaze = 1.0 - smoothstep(0.2, 0.55, length(center_offset));
+        if (gaze <= 0.0) {
+            continue;
+        }
+
         let delta = (uv - light_uv) * vec2<f32>(aspect, 1.0);
         let distance2_screen = dot(delta, delta);
         let radius = glare.viewport.w;
         let core = exp(-distance2_screen / (radius2 * 0.33));
         let halo = exp(-distance2_screen / (radius2 * 3.0)) * 0.35;
 
-        // Six soft spikes with unequal lengths. Rotate them per light so every
-        // source does not produce the same perfectly upright starburst.
-        let seed = light.position.x * 12.9898
-            + light.position.y * 78.233
-            + light.position.z * 37.719;
-        let angle = (hash11(seed) - 0.5) * 0.7;
+        // A soft four-point cross reads as a lens flare without the rigid
+        // spokes of a symmetric starburst. The seed is the light entity id,
+        // so a moving spotlight does not make the flare spin every frame.
+        let angle = (hash11(light.params.y) - 0.5) * 0.5;
         let c = cos(angle);
         let s = sin(angle);
         let axis0 = vec2<f32>(c, s);
-        let axis1 = vec2<f32>(c * 0.5 - s * 0.8660254, s * 0.5 + c * 0.8660254);
-        let axis2 = vec2<f32>(c * 0.5 + s * 0.8660254, s * 0.5 - c * 0.8660254);
+        let axis1 = vec2<f32>(-s, c);
         let star = (
             star_spike(delta, axis0, radius, 1.0)
-            + star_spike(delta, axis1, radius, 0.78)
-            + star_spike(delta, axis2, radius, 0.62)
-        ) * 0.07;
+            + star_spike(delta, axis1, radius, 0.68)
+        ) * 0.045;
 
         let attenuation = 1.0 / (1.0 + distance2 * 0.015);
-        let energy = light.color.w * 0.04 * attenuation * cone_fade * (core + halo + star);
+        let energy =
+            light.color.w * 0.04 * attenuation * cone_fade * gaze * (core + halo + star);
         light_glare += light.color.rgb * energy;
     }
 

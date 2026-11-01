@@ -42,6 +42,8 @@ pub struct GlareLight {
     pub is_spot: bool,
     /// Spot outer cone half-angle in radians.
     pub outer_cone_angle: f32,
+    /// Stable per-light seed for deterministic glare orientation.
+    pub seed: f32,
 }
 
 /// A camera snapshot for one view.
@@ -204,6 +206,7 @@ fn collect_glare_lights(world: &World) -> Vec<GlareLight> {
             direction,
             is_spot,
             outer_cone_angle,
+            seed: entity_id as f32,
         });
 
         if lights.len() == MAX_GLARE_LIGHTS {
