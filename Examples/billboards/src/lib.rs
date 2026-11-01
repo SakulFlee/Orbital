@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use orbital::app::{App, AppSettings, Module, sys_camera_controller};
+use orbital::app::{App, AppSettings, Module, sys_camera_controller, sys_ortho_dolly};
 use orbital::billboard::{
     Billboard, BillboardMode, BillboardModule, text_billboard_with_background,
 };
@@ -257,7 +257,7 @@ impl Module for GameModule {
         let label_entity = ecs.spawn_entity();
         ecs.attach_component(&label_entity, label).unwrap();
 
-        vec![sys_camera_controller.into_system()]
+        vec![sys_camera_controller.into_system(), sys_ortho_dolly()]
     }
 }
 

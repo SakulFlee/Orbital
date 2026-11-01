@@ -30,7 +30,7 @@ use iced_wgpu::Renderer as IcedRenderer;
 use iced_wgpu::wgpu::{Device, Queue};
 use iced_winit::core::Element;
 use orbital_app::input::InputButton;
-use orbital_app::{LayerRenderer, Module, RenderSettings};
+use orbital_app::{CameraControlSettings, LayerRenderer, Module, RenderSettings};
 use orbital_camera::ProjectionMode;
 use orbital_ecs::{IntoSystem, Res, ResMut, System, World};
 use orbital_ecs_bridge::{
@@ -346,12 +346,26 @@ fn handle_debug_message(
             });
             return;
         }
+        DebugMessage::SetContrast(contrast) => {
+            update_render_settings(world, |settings| settings.contrast = contrast.max(0.0));
+            return;
+        }
         DebugMessage::SetLightGlare(enabled) => {
             update_render_settings(world, |settings| settings.light_glare = enabled);
             return;
         }
         DebugMessage::SetProjection(projection) => {
             apply_projection(world, projection);
+            mark_debug_dirty(world);
+            return;
+        }
+        DebugMessage::SetOrthoForwardMode(mode) => {
+            let mut settings = world
+                .get_resource::<CameraControlSettings>()
+                .map(|settings| *settings)
+                .unwrap_or_default();
+            settings.orthographic_forward = mode;
+            world.insert_resource(settings);
             mark_debug_dirty(world);
             return;
         }

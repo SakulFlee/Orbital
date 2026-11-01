@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use orbital::app::{App, AppSettings, Module, sys_camera_controller};
+use orbital::app::{App, AppSettings, Module, sys_camera_controller, sys_ortho_dolly};
 use orbital::cgmath::{InnerSpace, Point3, Rad, Vector3};
 use orbital::ecs::{IntoSystem, System, World};
 use orbital::ecs_bridge::{
@@ -214,6 +214,6 @@ impl Module for GameModule {
         )
         .unwrap();
 
-        vec![sys_camera_controller.into_system()]
+        vec![sys_camera_controller.into_system(), sys_ortho_dolly()]
     }
 }

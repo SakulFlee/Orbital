@@ -2,17 +2,16 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use orbital::app::{
-    App, AppSettings, CursorToggle, InputButton, LayerRenderer, Module, RenderLayer,
-    RenderOverlayContext, sys_camera_controller,
+    App, AppSettings, CursorToggle, LayerRenderer, Module, RenderLayer, RenderOverlayContext,
+    sys_camera_controller, sys_ortho_dolly,
 };
 use orbital::billboard::{BillboardMode, BillboardModule, text_billboard_with_background};
-use orbital::camera::ProjectionMode;
 use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector3};
 use orbital::debug_render::DebugModule;
 use orbital::ecs::{Commands, ComponentAccess, IntoSystem, Res, ResMut, System, World};
 use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptor, CursorGrabConfig, CursorGrabState, DeltaTime,
-    EnvironmentDescriptorResource, ImportQueueResource, InputSnapshot, LightDescriptor, LightDirty,
+    EnvironmentDescriptorResource, ImportQueueResource, LightDescriptor, LightDirty,
     ModelDescriptor, ModelDirty, ModelInstances, Position, Rotation, VolumetricQuality,
     VolumetricSettings,
 };
@@ -29,7 +28,7 @@ use orbital::resources::{
 };
 use orbital::text::{DefaultFont, TextConfig};
 use orbital::twod::Vertex2D;
-use orbital::winit::keyboard::{KeyCode, PhysicalKey};
+use orbital::winit::keyboard::KeyCode;
 
 pub const NAME: &str = env!("CARGO_PKG_NAME");
 
@@ -38,12 +37,6 @@ struct Health(u32);
 
 #[derive(Clone)]
 struct Mana(u32);
-
-#[derive(Clone, Copy)]
-struct ProjectionToggleState {
-    was_pressed: bool,
-    pending_toggle: bool,
-}
 
 /// The room row faces this central hallway. Mirrored rooms are placed at
 /// `2 * HALLWAY_MIRROR_Z - z`, leaving the corridor between the two rows.
@@ -124,6 +117,7 @@ pub fn entrypoint(
         bloom_threshold: 8.0,
         bloom_intensity: 1.0,
         light_glare: true,
+        contrast: 1.10,
         back_presses_to_exit: 3,
         ..AppSettings::default()
     };
@@ -532,41 +526,6 @@ impl LayerRenderer for ShapeOverlay {
 const DYNAMIC_SKY_CUBE_SIZE: u32 = 256;
 const DYNAMIC_SKY_MIP_LEVELS: u32 = 3;
 
-fn sys_projection_toggle_input(
-    input: Res<InputSnapshot>,
-    mut state: ResMut<ProjectionToggleState>,
-) {
-    let pressed = input
-        .0
-        .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyO)))
-        .map(|(_, pressed)| pressed)
-        .unwrap_or(false);
-
-    if pressed && !state.was_pressed {
-        state.pending_toggle = true;
-    }
-    state.was_pressed = pressed;
-}
-
-fn sys_apply_projection_toggle(
-    mut state: ResMut<ProjectionToggleState>,
-    camera: &mut CameraDescriptor,
-) {
-    if !state.pending_toggle {
-        return;
-    }
-    state.pending_toggle = false;
-
-    camera.projection_mode = match camera.projection_mode {
-        ProjectionMode::Perspective => {
-            camera.ortho_height = 20.0;
-            ProjectionMode::Orthographic
-        }
-        ProjectionMode::Orthographic => ProjectionMode::Perspective,
-    };
-    info!("Camera projection switched to {:?}", camera.projection_mode);
-}
-
 fn sys_animate_dynamic_sky(
     initial_hours: f32,
 ) -> impl FnMut(Res<DeltaTime>, ResMut<EnvironmentDescriptorResource>) {
@@ -632,15 +591,15 @@ impl Module for ProcgeoSceneModule {
         // Low tier for the already busy all-in-one scene.
         ecs.insert_resource(VolumetricSettings {
             enabled: true,
-            density: 0.0018,
+            density: 0.0012,
             scattering: 1.0,
             extinction: 0.85,
             anisotropy: 0.35,
             height_base: 0.0,
             height_falloff: 0.25,
-            height_density: 0.007,
-            ambient_color: [0.08, 0.1, 0.16],
-            environment_intensity: 0.35,
+            height_density: 0.0035,
+            ambient_color: [0.02, 0.03, 0.05],
+            environment_intensity: 0.12,
             temporal_history: true,
             // Keep the indoor grid concentrated on the hallway and rooms;
             // a shorter range also reduces depth-slice flicker at Low quality.
@@ -651,10 +610,6 @@ impl Module for ProcgeoSceneModule {
         // Game state resources (driven by StatsAnimator)
         ecs.insert_resource(Health(100));
         ecs.insert_resource(Mana(100));
-        ecs.insert_resource(ProjectionToggleState {
-            was_pressed: false,
-            pending_toggle: false,
-        });
 
         // Iced UI panels
         let mut ui = IcedUiState::new();
@@ -692,7 +647,7 @@ impl Module for ProcgeoSceneModule {
                                 .downcast_ref::<CameraDescriptor>()
                                 .map(|camera| camera.projection_mode)
                         })
-                        .map(|mode| format!("Projection: {mode} (O)"))
+                        .map(|mode| format!("Projection: {mode}"))
                         .unwrap_or_else(|| "Projection: --".to_string());
 
                     let volumetrics_text = ecs
@@ -773,8 +728,7 @@ impl Module for ProcgeoSceneModule {
                 );
                 return vec![
                     sys_camera_controller.into_system(),
-                    sys_projection_toggle_input.into_system(),
-                    sys_apply_projection_toggle.into_system(),
+                    sys_ortho_dolly(),
                     Box::new(CursorToggle::new(true)),
                 ];
             }
@@ -1049,8 +1003,7 @@ impl Module for ProcgeoSceneModule {
 
         vec![
             sys_camera_controller.into_system(),
-            sys_projection_toggle_input.into_system(),
-            sys_apply_projection_toggle.into_system(),
+            sys_ortho_dolly(),
             Box::new(CursorToggle::new(true)),
             Box::new(HelmetAdjuster::new()),
             Box::new(StatsAnimator::new()),

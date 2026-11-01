@@ -7,7 +7,7 @@
 
 use cgmath::Rad;
 use orbital_camera::{CameraDescriptor as CameraLimits, ProjectionMode};
-use orbital_ecs::Res;
+use orbital_ecs::{ComponentAccess, Res, System, World};
 use orbital_ecs_bridge::{
     CameraDescriptor, CursorGrabState, DeltaTime, IcedCapturedMouseDrag, InputSnapshot, Position,
     Rotation,
@@ -16,6 +16,23 @@ use orbital_input::{InputAxis, InputButton, InputState};
 use winit::keyboard::{KeyCode, PhysicalKey};
 
 use crate::touch_controls;
+
+/// How the orthographic camera maps W/S.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum OrthographicForwardMode {
+    /// W/S zooms by changing `ortho_height`.
+    #[default]
+    Dolly,
+    /// W/S moves the camera along its view direction.
+    Depth,
+}
+
+/// Runtime camera-controller preferences.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct CameraControlSettings {
+    /// W/S behavior while the active camera is orthographic.
+    pub orthographic_forward: OrthographicForwardMode,
+}
 
 const MOVE_SPEED: f32 = 5.0;
 const LOOK_SENSITIVITY: f32 = 1.5;
@@ -57,7 +74,7 @@ pub fn sys_camera_controller(
     }
 }
 
-/// Orthographic zoom controller. Adjusts `ortho_height` with Q/E and no-ops
+/// Orthographic camera controller. Adjusts `ortho_height` with Q/E and no-ops
 /// on perspective cameras. Pair with [`sys_ortho_pan`] for a complete
 /// orthographic controller.
 pub fn sys_ortho_zoom(
@@ -84,6 +101,92 @@ pub fn sys_ortho_zoom(
         let factor = (1.0 + zoom * ORTHO_ZOOM_SPEED * dt.0 as f32).clamp(0.25, 4.0);
         camera.ortho_height =
             (camera.ortho_height * factor).clamp(ORTHO_MIN_HEIGHT, ORTHO_MAX_HEIGHT);
+    }
+}
+
+/// Orthographic W/S dolly controller.
+///
+/// When [`CameraControlSettings::orthographic_forward`] is
+/// [`OrthographicForwardMode::Dolly`], W and S change `ortho_height` instead
+/// of translating along the view axis. The latter has no visible effect in an
+/// orthographic projection, so this keeps forward/back movement responsive.
+pub fn sys_ortho_dolly() -> Box<dyn System> {
+    Box::new(OrthoDollySystem::new())
+}
+
+struct OrthoDollySystem {
+    access: ComponentAccess,
+}
+
+impl OrthoDollySystem {
+    fn new() -> Self {
+        Self {
+            access: ComponentAccess::new()
+                .reads::<CameraDescriptor>()
+                .writes::<CameraDescriptor>(),
+        }
+    }
+}
+
+impl System for OrthoDollySystem {
+    fn name(&self) -> &str {
+        "ortho_dolly"
+    }
+
+    fn access(&self) -> &ComponentAccess {
+        &self.access
+    }
+
+    fn run(&mut self, world: &World, _commands: &mut orbital_ecs::Commands) {
+        let Some(settings) = world.get_resource::<CameraControlSettings>() else {
+            return;
+        };
+        if settings.orthographic_forward != OrthographicForwardMode::Dolly {
+            return;
+        }
+
+        let dt = world
+            .get_resource::<DeltaTime>()
+            .map(|delta| delta.0 as f32)
+            .unwrap_or(0.0);
+        let Some(input) = world.get_resource::<InputSnapshot>() else {
+            return;
+        };
+
+        let zoom_in = input
+            .0
+            .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyW)))
+            .map(|(_, state)| state)
+            .unwrap_or(false);
+        let zoom_out = input
+            .0
+            .button_state_any(&InputButton::Keyboard(PhysicalKey::Code(KeyCode::KeyS)))
+            .map(|(_, state)| state)
+            .unwrap_or(false);
+        let zoom = f32::from(zoom_out) - f32::from(zoom_in);
+        if zoom == 0.0 || dt <= 0.0 {
+            return;
+        }
+
+        let Some(store) = world.get_component_store_mut::<CameraDescriptor>() else {
+            return;
+        };
+        let cameras: Vec<usize> = store
+            .dense
+            .as_slice()
+            .iter()
+            .filter_map(|&entity_id| store.sparse.get(entity_id).copied().flatten())
+            .collect();
+
+        let factor = (1.0 + zoom * ORTHO_ZOOM_SPEED * dt).clamp(0.25, 4.0);
+        for index in cameras {
+            let camera = &mut store.get_mut_store().components[index];
+            if camera.projection_mode != ProjectionMode::Orthographic {
+                continue;
+            }
+            camera.ortho_height =
+                (camera.ortho_height * factor).clamp(ORTHO_MIN_HEIGHT, ORTHO_MAX_HEIGHT);
+        }
     }
 }
 

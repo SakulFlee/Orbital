@@ -238,6 +238,9 @@ impl ModuleRuntime {
         // Initialise built-in ECS resources
         runtime.ecs_world.insert_resource(FrameCounter(0));
         runtime.ecs_world.insert_resource(DeltaTime(0.0));
+        runtime
+            .ecs_world
+            .insert_resource(crate::CameraControlSettings::default());
         runtime.ecs_world.insert_resource(FpsStats::default());
         runtime.ecs_world.insert_resource(FrameTimings::default());
         runtime.ecs_world.insert_resource(TotalTime(0.0));
@@ -335,6 +338,7 @@ impl ModuleRuntime {
                 || (bloom_threshold - settings.bloom_threshold).abs() > 1.0e-5
                 || (bloom_intensity - settings.bloom_intensity).abs() > 1.0e-5;
             let light_glare_changed = renderer.light_glare() != settings.light_glare;
+            let contrast_changed = (renderer.contrast() - settings.contrast).abs() > 1.0e-5;
             renderer.set_exposure(settings.exposure);
             renderer.set_bloom(
                 settings.bloom_enabled,
@@ -342,14 +346,16 @@ impl ModuleRuntime {
                 settings.bloom_intensity,
             );
             renderer.set_light_glare(settings.light_glare);
-            if exposure_changed || bloom_changed || light_glare_changed {
+            renderer.set_contrast(settings.contrast);
+            if exposure_changed || bloom_changed || light_glare_changed || contrast_changed {
                 info!(
-                    "Renderer exposure/glare changed: exposure={}, bloom={}, threshold={}, intensity={}, light_glare={}",
+                    "Renderer exposure/glare changed: exposure={}, bloom={}, threshold={}, intensity={}, light_glare={}, contrast={}",
                     settings.exposure,
                     settings.bloom_enabled,
                     settings.bloom_threshold,
                     settings.bloom_intensity,
                     settings.light_glare,
+                    settings.contrast,
                 );
             }
         }
@@ -1087,6 +1093,7 @@ impl ApplicationHandler for ModuleRuntime {
                     bloom_threshold: self.settings.bloom_threshold,
                     bloom_intensity: self.settings.bloom_intensity,
                     light_glare: self.settings.light_glare,
+                    contrast: self.settings.contrast,
                 });
             }
 

@@ -2,6 +2,7 @@
 
 use std::collections::{BTreeSet, HashSet};
 
+use orbital_app::OrthographicForwardMode;
 use orbital_camera::ProjectionMode;
 use orbital_ecs::Entity;
 use orbital_ecs_bridge::{TIMING_STAGES, TOTAL_STAGE_INDEX, VolumetricQuality};
@@ -71,10 +72,14 @@ pub enum DebugMessage {
     SetBloomThreshold(f32),
     /// Set the bloom contribution strength.
     SetBloomIntensity(f32),
+    /// Set the post-tonemap contrast multiplier.
+    SetContrast(f32),
     /// Enable or disable positional-light screen-space glare.
     SetLightGlare(bool),
     /// Switch the active camera between perspective and orthographic.
     SetProjection(ProjectionMode),
+    /// Choose how W/S behaves for an orthographic camera.
+    SetOrthoForwardMode(OrthographicForwardMode),
     /// Enable or disable volumetric lighting and height fog.
     SetVolumetricsEnabled(bool),
     /// Set the uniform fog density.
@@ -447,8 +452,10 @@ impl DebugUiState {
             | DebugMessage::SetBloomEnabled(_)
             | DebugMessage::SetBloomThreshold(_)
             | DebugMessage::SetBloomIntensity(_)
+            | DebugMessage::SetContrast(_)
             | DebugMessage::SetLightGlare(_)
             | DebugMessage::SetProjection(_)
+            | DebugMessage::SetOrthoForwardMode(_)
             | DebugMessage::SetVolumetricsEnabled(_)
             | DebugMessage::SetVolumetricDensity(_)
             | DebugMessage::SetVolumetricHeightBase(_)

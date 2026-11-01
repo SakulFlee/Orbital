@@ -5,7 +5,7 @@ use std::any::TypeId;
 use iced_widget::{checkbox, column, container, pick_list, radio, row, slider, text};
 use iced_winit::core::{Color, Element, Length, Theme};
 
-use orbital_app::RenderSettings;
+use orbital_app::{CameraControlSettings, OrthographicForwardMode, RenderSettings};
 use orbital_camera::ProjectionMode;
 use orbital_ecs::World;
 use orbital_ecs_bridge::{ActiveCamera, CameraDescriptor, VolumetricQuality, VolumetricSettings};
@@ -31,6 +31,10 @@ pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
 
     let render = ecs
         .get_resource::<RenderSettings>()
+        .map(|settings| *settings)
+        .unwrap_or_default();
+    let camera_controls = ecs
+        .get_resource::<CameraControlSettings>()
         .map(|settings| *settings)
         .unwrap_or_default();
     let volumetrics = ecs
@@ -111,6 +115,12 @@ pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
         render.exposure,
         DebugMessage::SetExposure,
     ));
+    rows.push(slider_row(
+        "Contrast",
+        0.5..=2.0,
+        render.contrast,
+        DebugMessage::SetContrast,
+    ));
     rows.push(
         checkbox(render.bloom_enabled)
             .label("Bloom / glare")
@@ -162,6 +172,37 @@ pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
     rows.push(picker.into());
     if projection.is_none() {
         rows.push(text("no active camera").size(11).color(MUTED).into());
+    }
+
+    if projection == Some(ProjectionMode::Orthographic) {
+        rows.push(crate::panels::divider());
+        rows.push(crate::panels::caption("Ortho W/S", ACCENT));
+        rows.push(
+            row![
+                radio(
+                    "Dolly",
+                    OrthographicForwardMode::Dolly,
+                    Some(camera_controls.orthographic_forward),
+                    DebugMessage::SetOrthoForwardMode,
+                )
+                .text_size(12),
+                radio(
+                    "Depth",
+                    OrthographicForwardMode::Depth,
+                    Some(camera_controls.orthographic_forward),
+                    DebugMessage::SetOrthoForwardMode,
+                )
+                .text_size(12),
+            ]
+            .spacing(6)
+            .into(),
+        );
+        rows.push(
+            text("Dolly turns W/S into orthographic zoom; Depth keeps view-axis movement.")
+                .size(10)
+                .color(MUTED)
+                .into(),
+        );
     }
 
     rows.push(crate::panels::divider());

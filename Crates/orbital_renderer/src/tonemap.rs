@@ -29,7 +29,7 @@ impl TonemapParams {
     fn new(device: &Device, srgb_target: bool) -> Self {
         // An sRGB render target applies the transfer function in hardware.
         let gamma: f32 = if srgb_target { 1.0 } else { 1.0 / 2.2 };
-        let data = tonemap_params_data(1.0, gamma, 4.0, 0.0);
+        let data = tonemap_params_data(1.0, gamma, 4.0, 0.0, 1.0);
         let buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Orbital::TonemapParams"),
             contents: &data,
@@ -52,12 +52,14 @@ fn tonemap_params_data(
     gamma: f32,
     bloom_threshold: f32,
     bloom_intensity: f32,
+    contrast: f32,
 ) -> [u8; 32] {
     let mut data = [0u8; 32];
     data[0..4].copy_from_slice(&exposure.to_le_bytes());
     data[4..8].copy_from_slice(&gamma.to_le_bytes());
     data[8..12].copy_from_slice(&bloom_threshold.to_le_bytes());
     data[12..16].copy_from_slice(&bloom_intensity.to_le_bytes());
+    data[16..20].copy_from_slice(&contrast.to_le_bytes());
     data
 }
 
@@ -202,8 +204,15 @@ impl Tonemap {
         exposure: f32,
         bloom_threshold: f32,
         bloom_intensity: f32,
+        contrast: f32,
     ) {
-        let data = tonemap_params_data(exposure, self.gamma, bloom_threshold, bloom_intensity);
+        let data = tonemap_params_data(
+            exposure,
+            self.gamma,
+            bloom_threshold,
+            bloom_intensity,
+            contrast,
+        );
         queue.write_buffer(&self.params.buffer, 0, &data);
     }
 
@@ -348,14 +357,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn tonemap_params_pack_exposure_and_bloom_in_uniform_layout() {
-        let data = tonemap_params_data(2.0, 0.5, 0.75, 1.5);
+    fn tonemap_params_pack_exposure_bloom_and_contrast_in_uniform_layout() {
+        let data = tonemap_params_data(2.0, 0.5, 0.75, 1.5, 1.25);
 
         assert_eq!(data.len(), 32);
         assert_eq!(f32::from_le_bytes(data[0..4].try_into().unwrap()), 2.0);
         assert_eq!(f32::from_le_bytes(data[4..8].try_into().unwrap()), 0.5);
         assert_eq!(f32::from_le_bytes(data[8..12].try_into().unwrap()), 0.75);
         assert_eq!(f32::from_le_bytes(data[12..16].try_into().unwrap()), 1.5);
-        assert!(data[16..].iter().all(|byte| *byte == 0));
+        assert_eq!(f32::from_le_bytes(data[16..20].try_into().unwrap()), 1.25);
+        assert!(data[20..].iter().all(|byte| *byte == 0));
     }
 }
