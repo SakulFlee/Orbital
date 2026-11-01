@@ -83,6 +83,16 @@ fn sample_glare(uv: vec2<f32>, texel: vec2<f32>) -> vec3<f32> {
     return glare * (params.bloom_intensity / 12.0);
 }
 
+/// A thin diffraction spike along `axis`, used to turn the circular light
+/// glare into an astigmatism-like star.
+fn star_spike(delta: vec2<f32>, axis: vec2<f32>, radius2: f32) -> f32 {
+    let along = dot(delta, axis);
+    let across = dot(delta, vec2<f32>(-axis.y, axis.x));
+    let thin = exp(-(across * across) / (radius2 * 0.0025));
+    let long = exp(-(along * along) / (radius2 * 8.0));
+    return thin * long;
+}
+
 /// Screen-space glare around positional lights. Each pixel compares its own
 /// linear view depth against the light depth, so a foreground wall masks the
 /// halo instead of letting it bleed through.
@@ -148,8 +158,20 @@ fn sample_light_glare(uv: vec2<f32>, pixel: vec2<i32>) -> vec3<f32> {
         let distance2_screen = dot(delta, delta);
         let core = exp(-distance2_screen / (radius2 * 0.33));
         let halo = exp(-distance2_screen / (radius2 * 3.0)) * 0.35;
+
+        // Three axes produce a six-point star. Keep it subtle so the light
+        // still reads as a hot core with a lens-like flare.
+        let axis0 = vec2<f32>(1.0, 0.0);
+        let axis1 = vec2<f32>(0.5, 0.8660254);
+        let axis2 = vec2<f32>(-0.5, 0.8660254);
+        let star = (
+            star_spike(delta, axis0, radius2)
+            + star_spike(delta, axis1, radius2)
+            + star_spike(delta, axis2, radius2)
+        ) * 0.12;
+
         let attenuation = 1.0 / (1.0 + distance2 * 0.015);
-        let energy = light.color.w * 0.04 * attenuation * cone_fade * (core + halo);
+        let energy = light.color.w * 0.04 * attenuation * cone_fade * (core + halo + star);
         light_glare += light.color.rgb * energy;
     }
 
