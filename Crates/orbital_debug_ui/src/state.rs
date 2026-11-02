@@ -54,6 +54,8 @@ pub enum DebugMessage {
     ApplyField(crate::panels::edit::FieldKey),
     /// Add an instance to the selected entity's `ModelInstances`.
     AddModelInstance(Entity),
+    /// Remove the selected entity from the world.
+    DespawnEntity(Entity),
     /// Remove one model instance by its ULID's integer representation.
     RemoveModelInstance { entity: Entity, ulid: u128 },
     /// Flip a panel's visibility.
@@ -444,6 +446,10 @@ impl DebugUiState {
                 self.dirty = true;
             }
             DebugMessage::AddModelInstance(_) | DebugMessage::RemoveModelInstance { .. } => {
+                // Applied in `handle_debug_message`, which has the world.
+                self.dirty = true;
+            }
+            DebugMessage::DespawnEntity(_) => {
                 // Applied in `handle_debug_message`, which has the world.
                 self.dirty = true;
             }

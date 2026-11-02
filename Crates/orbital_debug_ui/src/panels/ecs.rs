@@ -48,12 +48,19 @@ pub fn ecs_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, IcedRender
     // returned element can be `'static` as `IcedState::with_view` requires.
     let filter = state.filter.clone();
     let mut rows = vec![
-        text_input("filter (ID, role, label or component)", filter)
-            .on_input(DebugMessage::SetFilter)
-            .width(Length::Fill)
-            .size(13)
-            .style(crate::panels::input_style)
-            .into(),
+        row![
+            text_input("filter (ID, role, label or component)", filter)
+                .on_input(DebugMessage::SetFilter)
+                .width(Length::Fill)
+                .size(13)
+                .style(crate::panels::input_style),
+            button(text("clear").size(11))
+                .on_press(DebugMessage::SetFilter(String::new()))
+                .width(Length::Shrink),
+        ]
+        .spacing(4)
+        .width(Length::Fill)
+        .into(),
     ];
 
     let needle = state.filter.trim().to_lowercase();
@@ -85,6 +92,22 @@ pub fn ecs_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, IcedRender
             components.len(),
             label.as_deref(),
         ));
+
+        if selected {
+            rows.push(
+                row![
+                    text("selected entity")
+                        .size(10)
+                        .color(Color::from_rgb(0.6, 0.6, 0.66)),
+                    button(text("Delete entity").size(11))
+                        .on_press(DebugMessage::DespawnEntity(entity)),
+                ]
+                .spacing(6)
+                .align_y(iced_winit::core::Alignment::Center)
+                .padding([0.0, 12.0])
+                .into(),
+            );
+        }
 
         if !state.is_expanded(entity) {
             continue;
