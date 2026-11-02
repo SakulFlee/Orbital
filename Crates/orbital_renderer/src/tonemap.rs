@@ -37,10 +37,10 @@ impl Default for TonemapSettings {
             bloom_intensity: 0.0,
             contrast: 1.0,
             glare_stars: true,
-            glare_star_arms: 4,
+            glare_star_arms: 8,
             glare_star_inner: 0.05,
-            glare_star_outer: 0.02,
-            glare_star_length: 5.0,
+            glare_star_outer: 0.0,
+            glare_star_length: 10.0,
         }
     }
 }

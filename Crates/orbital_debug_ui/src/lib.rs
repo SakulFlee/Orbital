@@ -306,6 +306,26 @@ fn handle_debug_message(
             }
             return;
         }
+        DebugMessage::DespawnEntity(entity) => {
+            let result = edit::despawn_entity(world, entity);
+            if let Some(mut state) = world.get_resource_mut::<DebugUiState>() {
+                match &result {
+                    Ok(()) => {
+                        if state.selected == Some(entity) {
+                            state.selected = None;
+                        }
+                        state.expanded.remove(&entity);
+                        state.field_buffers.retain(|key, _| key.entity != entity);
+                        state.last_error = None;
+                    }
+                    Err(error) => {
+                        state.last_error = Some(error.clone());
+                    }
+                }
+                state.dirty = true;
+            }
+            return;
+        }
         DebugMessage::SetAntiAliasing(mode) => {
             let mut settings = world
                 .get_resource::<RenderSettings>()

@@ -4,8 +4,8 @@ use std::any::TypeId;
 
 use orbital_ecs::{Entity, World};
 use orbital_ecs_bridge::{
-    CameraDescriptor, CameraDirty, LightDescriptor, LightDirty, ModelDescriptor, ModelDirty,
-    ModelInstances,
+    ActiveCamera, CameraDescriptor, CameraDirty, CameraStore, LightDescriptor, LightDirty,
+    ModelDescriptor, ModelDirty, ModelInstances,
 };
 
 use crate::editable::{apply_to, editable_fields_ops, editable_ops};
@@ -121,6 +121,29 @@ pub fn remove_model_instance(world: &mut World, entity: Entity, ulid: u128) {
     mark_related_dirty(world, entity);
 }
 
+/// Removes an entity and its realized camera, if any.
+///
+/// The active camera is protected so the app cannot be left without a view.
+pub fn despawn_entity(world: &mut World, entity: Entity) -> Result<(), String> {
+    if !world.is_valid(&entity) {
+        return Err(format!("Entity {{ {} }} no longer exists", entity.index));
+    }
+
+    if world
+        .get_resource::<ActiveCamera>()
+        .is_some_and(|active| active.0 == entity)
+    {
+        return Err("Cannot delete the active camera".to_string());
+    }
+
+    if let Some(mut cameras) = world.get_resource_mut::<CameraStore>() {
+        cameras.remove(entity.index);
+    }
+
+    world.despawn_entity(&entity);
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -182,5 +205,14 @@ mod tests {
             });
 
         assert_eq!(aspect, Some(CameraDescriptor::default().aspect));
+    }
+
+    #[test]
+    fn the_active_camera_cannot_be_despawned() {
+        let (mut world, entity) = marked_world();
+        world.insert_resource(ActiveCamera(entity));
+
+        assert!(despawn_entity(&mut world, entity).is_err());
+        assert!(world.is_valid(&entity));
     }
 }
