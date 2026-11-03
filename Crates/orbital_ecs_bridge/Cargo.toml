@@ -20,6 +20,7 @@ orbital_material_shader = { path = "../orbital_material_shader" }
 orbital_math = { path = "../orbital_math" }
 orbital_mesh = { path = "../orbital_mesh" }
 orbital_model = { path = "../orbital_model" }
+orbital_shadow = { path = "../orbital_shadow" }
 orbital_world_environment = { path = "../orbital_world_environment" }
 cgmath = { workspace = true }
 hashbrown = { workspace = true }

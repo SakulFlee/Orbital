@@ -28,6 +28,7 @@ use winit::{
     window::{CursorGrabMode, WindowId},
 };
 
+use crate::performance_csv::{PERFORMANCE_CSV_PATH, PerformanceCsvRecorder};
 use crate::{AppContext, AppSettings, AppState, Module, Timer, make_core_schedule};
 use orbital_ecs_bridge::{
     ActiveCamera, AdapterResource, CameraDescriptor, CameraDirty, CameraStore, CursorGrabConfig,
@@ -39,7 +40,8 @@ use orbital_ecs_bridge::{
     STAGE_OVERLAY_LAYERS, STAGE_OVERLAY_MAIN, STAGE_PRESENT, STAGE_REALIZE, STAGE_REALIZE_ENV,
     STAGE_REALIZE_MODELS, STAGE_SCENE_ENCODE, STAGE_SCENE_SUBMIT, STAGE_STAGGER, STAGE_SURFACE_ACQ,
     STAGE_TIMESTAMP_READBACK, STAGE_TOTAL, STAGE_UI_EVENTS, STAGE_UPDATE, STAGE_VOLUMETRICS,
-    SurfaceFormatResource, TIMING_STAGES, TimingsHistoryConfig, TotalTime, WindowSize,
+    ShadowDebugData, SurfaceFormatResource, TIMING_STAGES, TimingsHistoryConfig, TotalTime,
+    WindowSize,
 };
 
 macro_rules! ctx_lock {
@@ -141,6 +143,7 @@ pub struct ModuleRuntime {
     frame_timings: FrameStageScratch,
     update_timings: UpdateTimings,
     perf_counters: PerfCounterSnapshot,
+    performance_csv: Option<PerformanceCsvRecorder>,
     back_press_count: u8,
     last_back_press: Option<std::time::Instant>,
     /// Touch events deferred for game-input processing.
@@ -212,6 +215,7 @@ impl ModuleRuntime {
             frame_timings: FrameStageScratch::new(),
             update_timings: UpdateTimings::default(),
             perf_counters: PerfCounterSnapshot::default(),
+            performance_csv: None,
             back_press_count: 0,
             last_back_press: None,
             deferred_touches: Vec::new(),
@@ -539,6 +543,19 @@ impl ModuleRuntime {
         // frustum and compacts visible instances into a vertex buffer.
         crate::systems::cull::sys_frustum_cull(&mut self.ecs_world);
 
+        // The debug overlay draws the shadow slots used by the previous
+        // shadow pass. Copying them here avoids threading renderer internals
+        // through `RenderOverlayContext`; a one-frame lag is fine for debug
+        // visualisation.
+        if let Some(shadow) = self
+            .renderer
+            .as_ref()
+            .and_then(|renderer| renderer.shadow_renderer())
+        {
+            self.ecs_world
+                .insert_resource(ShadowDebugData(*shadow.gpu_data()));
+        }
+
         // Keep a borrow of the cull resource for the render call below.
         // This borrows self.ecs_world immutably — OK because all subsequent
         // accesses of ecs_world are also immutable.
@@ -717,25 +734,77 @@ impl ModuleRuntime {
             .map(|delta| delta.0 * 1000.0)
             .unwrap_or(0.0);
 
-        let log_performance = self
+        let log_config = self
             .ecs_world
             .get_resource::<PerformanceLogConfig>()
-            .is_some_and(|config| config.enabled);
-        let logged = if let Some(mut timings) = self.ecs_world.get_resource_mut::<FrameTimings>() {
+            .map(|config| *config)
+            .unwrap_or_default();
+        self.sync_performance_csv();
+
+        let sample = if let Some(mut timings) = self.ecs_world.get_resource_mut::<FrameTimings>() {
             timings.record_at(&self.frame_timings.durations, elapsed, cdt_ms, history);
-            timings.try_log_if(log_performance).is_some()
+            timings.try_log_window(log_config.console)
         } else {
-            false
+            None
         };
 
-        if logged {
-            self.log_perf_counters();
+        let Some(averages) = sample else {
+            return;
+        };
+
+        let counters = if log_config.console || log_config.csv {
+            Some(self.take_perf_counter_deltas())
+        } else {
+            None
+        };
+
+        if log_config.console
+            && let Some(counters) = counters.as_ref()
+        {
+            self.log_perf_counters(counters);
+        }
+
+        if log_config.csv
+            && let Some(recorder) = self.performance_csv.as_mut()
+        {
+            let fps = self
+                .ecs_world
+                .get_resource::<FpsStats>()
+                .map_or(0, |stats| stats.fps);
+            let counters = counters.unwrap_or_default();
+            let write_error = recorder
+                .write_sample(
+                    elapsed,
+                    fps,
+                    cdt_ms,
+                    &averages,
+                    [
+                        counters.shader_modules,
+                        counters.pipelines,
+                        counters.unique_wgsl,
+                        counters.material_hits,
+                        counters.material_misses,
+                        counters.sky_updates,
+                    ],
+                )
+                .err();
+
+            if let Some(error) = write_error {
+                warn!("performance CSV: write failed: {error}");
+                if let Some(recorder) = self.performance_csv.take() {
+                    recorder.finish();
+                }
+                if let Some(mut config) = self.ecs_world.get_resource_mut::<PerformanceLogConfig>()
+                {
+                    config.csv = false;
+                }
+            }
         }
     }
 
-    /// Logs creation/cache counters for the same one-second window as
-    /// [`FrameTimings::try_log`].
-    fn log_perf_counters(&mut self) {
+    /// Samples creation/cache counters and returns the deltas since the
+    /// previous timing window.
+    fn take_perf_counter_deltas(&mut self) -> PerfCounterSnapshot {
         let shader = orbital_shader_core::stats();
         let (material_hits, material_misses) = orbital_model::material_cache_stats();
         let current = PerfCounterSnapshot {
@@ -746,28 +815,67 @@ impl ModuleRuntime {
             material_misses,
             sky_updates: orbital_world_environment::dynamic_sky_updates(),
         };
-
-        info!(
-            "PERF window: shader_modules=+{} pipelines=+{} unique_wgsl={} material_cache hits=+{} misses=+{} sky_updates=+{}",
-            current
+        let deltas = PerfCounterSnapshot {
+            shader_modules: current
                 .shader_modules
                 .saturating_sub(self.perf_counters.shader_modules),
-            current
+            unique_wgsl: current.unique_wgsl,
+            pipelines: current
                 .pipelines
                 .saturating_sub(self.perf_counters.pipelines),
-            current.unique_wgsl,
-            current
+            material_hits: current
                 .material_hits
                 .saturating_sub(self.perf_counters.material_hits),
-            current
+            material_misses: current
                 .material_misses
                 .saturating_sub(self.perf_counters.material_misses),
-            current
+            sky_updates: current
                 .sky_updates
                 .saturating_sub(self.perf_counters.sky_updates),
-        );
+        };
 
         self.perf_counters = current;
+        deltas
+    }
+
+    /// Logs creation/cache counter deltas for the current timing window.
+    fn log_perf_counters(&self, deltas: &PerfCounterSnapshot) {
+        info!(
+            "PERF window: shader_modules=+{} pipelines=+{} unique_wgsl={} material_cache hits=+{} misses=+{} sky_updates=+{}",
+            deltas.shader_modules,
+            deltas.pipelines,
+            deltas.unique_wgsl,
+            deltas.material_hits,
+            deltas.material_misses,
+            deltas.sky_updates,
+        );
+    }
+
+    /// Opens or closes the CSV capture when the Performance panel toggles it.
+    fn sync_performance_csv(&mut self) {
+        let csv_enabled = self
+            .ecs_world
+            .get_resource::<PerformanceLogConfig>()
+            .is_some_and(|config| config.csv);
+
+        if csv_enabled && self.performance_csv.is_none() {
+            match PerformanceCsvRecorder::start(PERFORMANCE_CSV_PATH) {
+                Ok(recorder) => {
+                    info!("performance CSV: writing {PERFORMANCE_CSV_PATH}");
+                    self.performance_csv = Some(recorder);
+                }
+                Err(error) => {
+                    warn!("performance CSV: failed to open {PERFORMANCE_CSV_PATH}: {error}");
+                    if let Some(mut config) =
+                        self.ecs_world.get_resource_mut::<PerformanceLogConfig>()
+                    {
+                        config.csv = false;
+                    }
+                }
+            }
+        } else if !csv_enabled && let Some(recorder) = self.performance_csv.take() {
+            recorder.finish();
+        }
     }
 
     #[cfg(all(
@@ -791,7 +899,7 @@ impl ModuleRuntime {
         let log_performance = self
             .ecs_world
             .get_resource::<PerformanceLogConfig>()
-            .is_some_and(|config| config.enabled);
+            .is_some_and(|config| config.console);
 
         if let Some((total_delta, fps)) = cycle {
             if log_performance {
@@ -1043,6 +1151,9 @@ impl ModuleRuntime {
 
     fn exit(&mut self, event_loop: &ActiveEventLoop) {
         // Clean exit: drop any persisted state so the next launch is fresh.
+        if let Some(recorder) = self.performance_csv.take() {
+            recorder.finish();
+        }
         self.module.clear_state(&mut self.ecs_world);
         event_loop.exit();
     }

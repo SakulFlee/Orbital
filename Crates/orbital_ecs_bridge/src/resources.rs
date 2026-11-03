@@ -191,7 +191,9 @@ pub struct TimingsHistoryConfig {
 #[derive(Debug, Clone, Copy, Default)]
 pub struct PerformanceLogConfig {
     /// Whether to write FPS, timing and cache summaries to the log.
-    pub enabled: bool,
+    pub console: bool,
+    /// Whether to append one CSV row per timing window.
+    pub csv: bool,
 }
 
 impl Default for TimingsHistoryConfig {
@@ -448,6 +450,17 @@ impl FrameTimings {
     /// with a fresh sample rather than a backlog accumulated while it was off.
     /// The return value is `Some` only when a line was emitted.
     pub fn try_log_if(&mut self, enabled: bool) -> Option<Vec<f64>> {
+        self.try_log_window(enabled)
+            .and_then(|averages| enabled.then_some(averages))
+    }
+
+    /// Takes the current one-second window, optionally emitting the console
+    /// summary.
+    ///
+    /// Unlike [`Self::try_log_if`], this returns the averages even when the
+    /// console line is suppressed. CSV capture uses it to record the same
+    /// window without forcing console logging on.
+    pub fn try_log_window(&mut self, console: bool) -> Option<Vec<f64>> {
         if self.window_count == 0
             || self.last_print.elapsed().as_secs_f64() < Self::LOG_INTERVAL_SECS
         {
@@ -461,7 +474,7 @@ impl FrameTimings {
             .map(|total| total / n)
             .collect::<Vec<_>>();
 
-        if enabled {
+        if console {
             let mut line = format!("TIMING avg({} frames):", self.window_count);
             for (index, name) in TIMING_STAGES.iter().enumerate() {
                 if index == GPU_STAGE_START {
@@ -476,7 +489,7 @@ impl FrameTimings {
         self.window_count = 0;
         self.last_print = std::time::Instant::now();
 
-        enabled.then_some(averages)
+        Some(averages)
     }
 }
 
@@ -990,6 +1003,20 @@ mod tests {
     }
 
     #[test]
+    fn frame_timings_window_is_available_without_console_logging() {
+        let mut timings = FrameTimings::new();
+
+        timings.record(&frame(2.0));
+        timings.last_print = std::time::Instant::now() - std::time::Duration::from_secs(2);
+
+        let averages = timings
+            .try_log_window(false)
+            .expect("CSV capture should receive the window");
+        assert_eq!(averages[0], 2.0);
+        assert_eq!(timings.window_count, 0);
+    }
+
+    #[test]
     fn frame_timings_disabled_log_resets_the_window_without_logging() {
         let mut timings = FrameTimings::new();
 
@@ -1271,6 +1298,18 @@ pub struct FrozenFrustumData {
 /// Press F4 (in the main loop) to toggle capture.
 #[derive(Debug, Clone)]
 pub struct FrozenFrustum(pub Option<FrozenFrustumData>);
+
+/// Entity currently selected in the ECS debug panel.
+///
+/// The debug renderer uses it for the optional selection highlight. It is a
+/// separate resource so `orbital_debug_render` does not need to depend on
+/// `orbital_debug_ui`.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct DebugSelectedEntity(pub Option<orbital_ecs::Entity>);
+
+/// Shadow slot data from the previous shadow pass, for debug visualisation.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ShadowDebugData(pub orbital_shadow::ShadowGpuData);
 
 // ---------------------------------------------------------------------------
 // Light scheduling & shadow caching

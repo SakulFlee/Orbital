@@ -6,6 +6,7 @@ target/
 
 # Logs
 *.log
+Logs/
 
 # VIM: Session
 Session.vim

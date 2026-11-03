@@ -5,6 +5,7 @@ use std::collections::VecDeque;
 use iced_widget::{button, canvas, checkbox, column, row, slider, text, text_input};
 use iced_winit::core::{Alignment, Color, Element, Font, Length, Theme};
 
+use orbital_app::PERFORMANCE_CSV_PATH;
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
     FpsStats, FrameTimings, GPU_STAGE_START, PerformanceLogConfig, STAGE_GPU_SCENE_TOTAL,
@@ -177,9 +178,10 @@ pub fn performance_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Ic
     let window_secs = state
         .graph_window_secs
         .clamp(MIN_GRAPH_WINDOW_SECS, MAX_GRAPH_WINDOW_SECS);
-    let log_performance = ecs
+    let log_config = ecs
         .get_resource::<PerformanceLogConfig>()
-        .is_some_and(|config| config.enabled);
+        .map(|config| *config)
+        .unwrap_or_default();
 
     let mut sections = vec![crate::panels::caption(
         "FPS / frame time",
@@ -217,7 +219,7 @@ pub fn performance_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Ic
         Color::from_rgb(0.6, 0.6, 0.6),
     ));
     sections.push(
-        checkbox(log_performance)
+        checkbox(log_config.console)
             .label("Log FPS, timings & cache counters")
             .text_size(12)
             .on_toggle(DebugMessage::SetPerformanceLogging)
@@ -226,6 +228,21 @@ pub fn performance_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Ic
     sections.push(
         row![
             text("writes ~3 lines per second")
+                .size(10)
+                .color(Color::from_rgb(0.55, 0.55, 0.6))
+        ]
+        .into(),
+    );
+    sections.push(
+        checkbox(log_config.csv)
+            .label("Write performance CSV")
+            .text_size(12)
+            .on_toggle(DebugMessage::SetPerformanceCsv)
+            .into(),
+    );
+    sections.push(
+        row![
+            text(format!("path: {PERFORMANCE_CSV_PATH}"))
                 .size(10)
                 .color(Color::from_rgb(0.55, 0.55, 0.6))
         ]

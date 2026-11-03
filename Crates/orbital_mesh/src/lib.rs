@@ -20,6 +20,7 @@ pub struct Mesh {
     index_buffer: Buffer,
     index_count: u32,
     bounding_sphere: Option<BoundingSphere>,
+    bounding_box: Option<BoundingBox>,
 }
 
 impl Mesh {
@@ -46,21 +47,25 @@ impl Mesh {
             usage: BufferUsages::INDEX,
         });
 
-        let bounding_sphere = {
-            let positions: Vec<_> = vertices.iter().map(|v| v.position).collect();
-            BoundingSphere::compute_from_positions(&positions)
-        };
+        let positions: Vec<_> = vertices.iter().map(|v| v.position).collect();
+        let bounding_sphere = BoundingSphere::compute_from_positions(&positions);
+        let bounding_box = BoundingBox::compute_from_positions(&positions);
 
         Self {
             vertex_buffer,
             index_buffer,
             index_count: indices.len() as u32,
             bounding_sphere,
+            bounding_box,
         }
     }
 
     pub fn bounding_sphere(&self) -> Option<&BoundingSphere> {
         self.bounding_sphere.as_ref()
+    }
+
+    pub fn bounding_box(&self) -> Option<&BoundingBox> {
+        self.bounding_box.as_ref()
     }
 
     pub fn vertex_buffer(&self) -> &Buffer {

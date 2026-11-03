@@ -7,7 +7,7 @@ use iced_winit::core::{Color, Element, Length, Theme};
 
 use orbital_app::{CameraControlSettings, OrthographicForwardMode, RenderSettings};
 use orbital_camera::ProjectionMode;
-use orbital_debug_render::DebugToggleState;
+use orbital_debug_render::{BoundsMode, DebugToggleState};
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
     ActiveCamera, CameraDescriptor, LightDescriptor, ModelDescriptor, VolumetricQuality,
@@ -470,15 +470,105 @@ pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
     rows.push(crate::panels::caption("Debug overlays", ACCENT));
     match ecs.get_resource::<DebugToggleState>() {
         Some(toggle) => {
+            let settings = toggle.settings;
             rows.push(
-                checkbox(toggle.enabled)
-                    .label("Bounding spheres, frustum & lights")
+                checkbox(settings.enabled)
+                    .label("Debug overlay")
                     .text_size(12)
                     .on_toggle(DebugMessage::SetDebugOverlay)
                     .into(),
             );
             rows.push(
-                text(format!("{:?} also toggles this overlay.", toggle.key))
+                text(format!("{:?} toggles the master switch.", toggle.key))
+                    .size(10)
+                    .color(MUTED)
+                    .into(),
+            );
+            rows.push(crate::panels::caption("Bounds", MUTED));
+            rows.push(
+                row![
+                    radio(
+                        "Off",
+                        BoundsMode::Off,
+                        Some(settings.bounds),
+                        DebugMessage::SetDebugBounds,
+                    )
+                    .text_size(11),
+                    radio(
+                        "Spheres",
+                        BoundsMode::Spheres,
+                        Some(settings.bounds),
+                        DebugMessage::SetDebugBounds,
+                    )
+                    .text_size(11),
+                ]
+                .spacing(6)
+                .into(),
+            );
+            rows.push(
+                row![
+                    radio(
+                        "Boxes",
+                        BoundsMode::Boxes,
+                        Some(settings.bounds),
+                        DebugMessage::SetDebugBounds,
+                    )
+                    .text_size(11),
+                    radio(
+                        "Both",
+                        BoundsMode::Both,
+                        Some(settings.bounds),
+                        DebugMessage::SetDebugBounds,
+                    )
+                    .text_size(11),
+                ]
+                .spacing(6)
+                .into(),
+            );
+            rows.push(
+                checkbox(settings.frustum)
+                    .label("Camera / culling frustum")
+                    .text_size(12)
+                    .on_toggle(DebugMessage::SetDebugFrustum)
+                    .into(),
+            );
+            rows.push(
+                checkbox(settings.lights)
+                    .label("Light indicators")
+                    .text_size(12)
+                    .on_toggle(DebugMessage::SetDebugLights)
+                    .into(),
+            );
+            rows.push(
+                checkbox(settings.wireframe)
+                    .label("Model wireframe")
+                    .text_size(12)
+                    .on_toggle(DebugMessage::SetDebugWireframe)
+                    .into(),
+            );
+            rows.push(
+                checkbox(settings.grid_axes)
+                    .label("World grid & axes")
+                    .text_size(12)
+                    .on_toggle(DebugMessage::SetDebugGridAxes)
+                    .into(),
+            );
+            rows.push(
+                checkbox(settings.shadow_frusta)
+                    .label("Shadow frusta")
+                    .text_size(12)
+                    .on_toggle(DebugMessage::SetDebugShadowFrusta)
+                    .into(),
+            );
+            rows.push(
+                checkbox(settings.selection)
+                    .label("Selected entity highlight")
+                    .text_size(12)
+                    .on_toggle(DebugMessage::SetDebugSelection)
+                    .into(),
+            );
+            rows.push(
+                text("Wireframe requires GPU line polygon mode.")
                     .size(10)
                     .color(MUTED)
                     .into(),
