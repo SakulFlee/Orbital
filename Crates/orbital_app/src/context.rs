@@ -1,4 +1,4 @@
-use std::{error::Error, mem::transmute, sync::Arc};
+use std::{error::Error, sync::Arc};
 
 use log::{debug, error, info, warn};
 use orbital_core::wgpu_util::block_on;
@@ -23,7 +23,9 @@ pub type AppCtx = AppContext;
 
 #[derive(Debug)]
 pub struct AppContext {
-    window: Window,
+    /// Shared with the surface, which keeps the native window alive for as
+    /// long as the surface exists.
+    window: Arc<Window>,
     instance: Instance,
     adapter: Adapter,
     device: Device,
@@ -38,14 +40,22 @@ impl AppContext {
         event_loop: &ActiveEventLoop,
         settings: &AppSettings,
     ) -> Result<Self, Box<dyn Error>> {
-        let window = Self::make_window(event_loop, settings.size, &settings.name)?;
+        let window = Arc::new(Self::make_window(
+            event_loop,
+            settings.size,
+            &settings.name,
+        )?);
         debug!("Window: {:?}", window);
 
         let owned_display_handle = event_loop.owned_display_handle();
         let instance = Self::make_instance(owned_display_handle);
         debug!("Instance: {:?}", instance);
 
-        let surface = Self::make_surface(&instance, &window)?;
+        // `create_surface` takes ownership of the window handle inside the
+        // surface. Passing a cloned `Arc<Window>` therefore produces a
+        // genuinely `'static` surface without a self-referential lifetime or
+        // an unsafe lifetime extension.
+        let surface = Self::make_surface(&instance, Arc::clone(&window))?;
         debug!("Surface: {:?}", surface);
 
         let adapter = Self::make_adapter(&instance, &surface)?;
@@ -127,9 +137,9 @@ impl AppContext {
 
     fn make_surface(
         instance: &Instance,
-        window: &Window,
+        window: Arc<Window>,
     ) -> Result<Surface<'static>, CreateSurfaceError> {
-        unsafe { transmute(instance.create_surface(window)) }
+        instance.create_surface(window)
     }
 
     fn make_adapter(
@@ -294,7 +304,7 @@ impl AppContext {
     /// reconfigures it, and returns the resulting surface configuration.
     /// Called on resume after [`AppContext::drop_surface`].
     pub fn recreate_surface(&mut self, vsync: bool) -> SurfaceConfiguration {
-        let surface = Self::make_surface(&self.instance, &self.window)
+        let surface = Self::make_surface(&self.instance, Arc::clone(&self.window))
             .expect("Failed to recreate surface on resume");
         self.surface = Some(surface);
         let config = self.make_surface_configuration(vsync);
@@ -348,9 +358,5 @@ impl AppContext {
 
     pub fn window(&self) -> &Window {
         &self.window
-    }
-
-    pub fn window_mut(&mut self) -> &mut Window {
-        &mut self.window
     }
 }
