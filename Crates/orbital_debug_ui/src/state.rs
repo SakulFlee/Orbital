@@ -70,6 +70,8 @@ pub enum DebugMessage {
     SetExposure(f32),
     /// Enable or disable HDR bloom/glare.
     SetBloomEnabled(bool),
+    /// Enable or disable deferred lighting for opaque models.
+    SetDeferredEnabled(bool),
     /// Set the HDR brightness where bloom starts.
     SetBloomThreshold(f32),
     /// Set the bloom contribution strength.
@@ -466,6 +468,7 @@ impl DebugUiState {
             | DebugMessage::SetSmaaQuality(_)
             | DebugMessage::SetExposure(_)
             | DebugMessage::SetBloomEnabled(_)
+            | DebugMessage::SetDeferredEnabled(_)
             | DebugMessage::SetBloomThreshold(_)
             | DebugMessage::SetBloomIntensity(_)
             | DebugMessage::SetContrast(_)

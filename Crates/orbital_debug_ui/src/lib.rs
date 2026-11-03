@@ -354,6 +354,10 @@ fn handle_debug_message(
             update_render_settings(world, |settings| settings.bloom_enabled = enabled);
             return;
         }
+        DebugMessage::SetDeferredEnabled(enabled) => {
+            update_render_settings(world, |settings| settings.deferred_enabled = enabled);
+            return;
+        }
         DebugMessage::SetBloomThreshold(threshold) => {
             update_render_settings(world, |settings| {
                 settings.bloom_threshold = threshold.max(0.0)

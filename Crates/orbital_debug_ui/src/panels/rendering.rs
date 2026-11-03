@@ -8,7 +8,10 @@ use iced_winit::core::{Color, Element, Length, Theme};
 use orbital_app::{CameraControlSettings, OrthographicForwardMode, RenderSettings};
 use orbital_camera::ProjectionMode;
 use orbital_ecs::World;
-use orbital_ecs_bridge::{ActiveCamera, CameraDescriptor, VolumetricQuality, VolumetricSettings};
+use orbital_ecs_bridge::{
+    ActiveCamera, CameraDescriptor, LightDescriptor, ModelDescriptor, VolumetricQuality,
+    VolumetricSettings,
+};
 use orbital_renderer::{AntiAliasing, SmaaQuality};
 
 use crate::state::Renderer as IcedRenderer;
@@ -106,6 +109,36 @@ pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
             .into(),
         );
     }
+
+    rows.push(crate::panels::divider());
+    rows.push(crate::panels::caption("Rendering path", ACCENT));
+    let model_count = ecs
+        .get_component_store::<ModelDescriptor>()
+        .map(|store| store.dense.len())
+        .unwrap_or(0);
+    let light_count = ecs
+        .get_component_store::<LightDescriptor>()
+        .map(|store| store.dense.len())
+        .unwrap_or(0);
+    rows.push(
+        text(format!("{model_count} models · {light_count} lights"))
+            .size(10)
+            .color(MUTED)
+            .into(),
+    );
+    rows.push(
+        checkbox(render.deferred_enabled)
+            .label("Deferred (hybrid)")
+            .text_size(12)
+            .on_toggle(DebugMessage::SetDeferredEnabled)
+            .into(),
+    );
+    rows.push(
+        text("Disable to force opaque PBR materials through forward rendering.")
+            .size(10)
+            .color(MUTED)
+            .into(),
+    );
 
     rows.push(crate::panels::divider());
     rows.push(crate::panels::caption("Exposure & bloom", ACCENT));

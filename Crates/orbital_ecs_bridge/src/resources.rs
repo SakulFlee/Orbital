@@ -91,7 +91,7 @@ pub struct TimingSample {
 /// frame. The GPU stages are derived from timestamp query results read back
 /// from the renderer, and are only meaningful on backends that support
 /// timestamp queries; elsewhere they stay at zero.
-pub const TIMING_STAGES: [&str; 23] = [
+pub const TIMING_STAGES: [&str; 24] = [
     "surface_acq",
     "update",
     "ui_events",
@@ -102,6 +102,7 @@ pub const TIMING_STAGES: [&str; 23] = [
     "stagger",
     "cull+extract",
     "bind+models",
+    "volumetrics",
     "scene encode",
     "scene submit",
     "timestamp readback",
@@ -129,19 +130,20 @@ pub const STAGE_REALIZE_ENV: usize = 6;
 pub const STAGE_STAGGER: usize = 7;
 pub const STAGE_CULL_EXTRACT: usize = 8;
 pub const STAGE_BIND_MODELS: usize = 9;
-pub const STAGE_SCENE_ENCODE: usize = 10;
-pub const STAGE_SCENE_SUBMIT: usize = 11;
-pub const STAGE_TIMESTAMP_READBACK: usize = 12;
-pub const STAGE_OVERLAY_MAIN: usize = 13;
-pub const STAGE_OVERLAY_LAYERS: usize = 14;
-pub const STAGE_ICED_DRAW: usize = 15;
-pub const STAGE_ICED_SUBMIT: usize = 16;
-pub const STAGE_PRESENT: usize = 17;
-pub const STAGE_TOTAL: usize = 18;
-pub const STAGE_GPU_SHADOW: usize = 19;
-pub const STAGE_GPU_SKYBOX: usize = 20;
-pub const STAGE_GPU_MODELS: usize = 21;
-pub const STAGE_GPU_SCENE_TOTAL: usize = 22;
+pub const STAGE_VOLUMETRICS: usize = 10;
+pub const STAGE_SCENE_ENCODE: usize = 11;
+pub const STAGE_SCENE_SUBMIT: usize = 12;
+pub const STAGE_TIMESTAMP_READBACK: usize = 13;
+pub const STAGE_OVERLAY_MAIN: usize = 14;
+pub const STAGE_OVERLAY_LAYERS: usize = 15;
+pub const STAGE_ICED_DRAW: usize = 16;
+pub const STAGE_ICED_SUBMIT: usize = 17;
+pub const STAGE_PRESENT: usize = 18;
+pub const STAGE_TOTAL: usize = 19;
+pub const STAGE_GPU_SHADOW: usize = 20;
+pub const STAGE_GPU_SKYBOX: usize = 21;
+pub const STAGE_GPU_MODELS: usize = 22;
+pub const STAGE_GPU_SCENE_TOTAL: usize = 23;
 
 /// The index of the `total` stage, which is the whole-frame duration and the
 /// series a frame-time graph should plot.

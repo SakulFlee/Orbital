@@ -28,6 +28,8 @@ pub struct AppSettings {
     pub light_glare: bool,
     /// Contrast applied after the tonemap curve (1.0 is neutral).
     pub contrast: f32,
+    /// Use deferred lighting for opaque PBR models.
+    pub deferred_enabled: bool,
     /// Whether positional light glare gets diffraction stars.
     pub glare_stars: bool,
     /// Number of points on the star (4, 6, or 8).
@@ -61,6 +63,7 @@ impl Default for AppSettings {
             bloom_intensity: 0.65,
             light_glare: false,
             contrast: 1.0,
+            deferred_enabled: true,
             glare_stars: true,
             glare_star_arms: 8,
             glare_star_inner: 0.05,
