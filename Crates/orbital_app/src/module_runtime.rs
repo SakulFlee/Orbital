@@ -38,8 +38,8 @@ use orbital_ecs_bridge::{
     STAGE_GPU_SCENE_TOTAL, STAGE_GPU_SHADOW, STAGE_GPU_SKYBOX, STAGE_ICED_DRAW, STAGE_ICED_SUBMIT,
     STAGE_OVERLAY_LAYERS, STAGE_OVERLAY_MAIN, STAGE_PRESENT, STAGE_REALIZE, STAGE_REALIZE_ENV,
     STAGE_REALIZE_MODELS, STAGE_SCENE_ENCODE, STAGE_SCENE_SUBMIT, STAGE_STAGGER, STAGE_SURFACE_ACQ,
-    STAGE_TIMESTAMP_READBACK, STAGE_TOTAL, STAGE_UI_EVENTS, STAGE_UPDATE, SurfaceFormatResource,
-    TIMING_STAGES, TimingsHistoryConfig, TotalTime, WindowSize,
+    STAGE_TIMESTAMP_READBACK, STAGE_TOTAL, STAGE_UI_EVENTS, STAGE_UPDATE, STAGE_VOLUMETRICS,
+    SurfaceFormatResource, TIMING_STAGES, TimingsHistoryConfig, TotalTime, WindowSize,
 };
 
 macro_rules! ctx_lock {
@@ -339,6 +339,7 @@ impl ModuleRuntime {
                 || (bloom_intensity - settings.bloom_intensity).abs() > 1.0e-5;
             let light_glare_changed = renderer.light_glare() != settings.light_glare;
             let contrast_changed = (renderer.contrast() - settings.contrast).abs() > 1.0e-5;
+            let deferred_changed = renderer.deferred_enabled() != settings.deferred_enabled;
             let (
                 glare_stars,
                 glare_star_arms,
@@ -359,6 +360,7 @@ impl ModuleRuntime {
             );
             renderer.set_light_glare(settings.light_glare);
             renderer.set_contrast(settings.contrast);
+            renderer.set_deferred_enabled(settings.deferred_enabled);
             renderer.set_glare_stars(
                 settings.glare_stars,
                 settings.glare_star_arms,
@@ -370,16 +372,18 @@ impl ModuleRuntime {
                 || bloom_changed
                 || light_glare_changed
                 || contrast_changed
+                || deferred_changed
                 || glare_star_changed
             {
                 info!(
-                    "Renderer exposure/glare changed: exposure={}, bloom={}, threshold={}, intensity={}, light_glare={}, contrast={}, stars={}, arms={}, star_inner={}, star_outer={}, star_length={}",
+                    "Renderer exposure/glare changed: exposure={}, bloom={}, threshold={}, intensity={}, light_glare={}, contrast={}, deferred={}, stars={}, arms={}, star_inner={}, star_outer={}, star_length={}",
                     settings.exposure,
                     settings.bloom_enabled,
                     settings.bloom_threshold,
                     settings.bloom_intensity,
                     settings.light_glare,
                     settings.contrast,
+                    settings.deferred_enabled,
                     settings.glare_stars,
                     settings.glare_star_arms,
                     settings.glare_star_inner,
@@ -675,6 +679,8 @@ impl ModuleRuntime {
         self.frame_timings.set(STAGE_CULL_EXTRACT, d_cull_extract);
         self.frame_timings
             .set(STAGE_BIND_MODELS, d_bind_group_models);
+        self.frame_timings
+            .set_ms(STAGE_VOLUMETRICS, renderer_cpu.volumetrics_ms);
         self.frame_timings
             .set_ms(STAGE_SCENE_ENCODE, renderer_cpu.encode_ms);
         self.frame_timings
@@ -1123,6 +1129,7 @@ impl ApplicationHandler for ModuleRuntime {
                     bloom_intensity: self.settings.bloom_intensity,
                     light_glare: self.settings.light_glare,
                     contrast: self.settings.contrast,
+                    deferred_enabled: self.settings.deferred_enabled,
                     glare_stars: self.settings.glare_stars,
                     glare_star_arms: self.settings.glare_star_arms,
                     glare_star_inner: self.settings.glare_star_inner,

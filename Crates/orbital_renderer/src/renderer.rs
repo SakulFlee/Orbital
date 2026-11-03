@@ -264,6 +264,8 @@ pub struct RendererCpuTimings {
     pub skybox_ms: f64,
     /// Recording the model pass.
     pub models_ms: f64,
+    /// Recording the volumetric inject/accumulate/composite passes.
+    pub volumetrics_ms: f64,
     /// Total command recording before submission.
     pub encode_ms: f64,
     /// `queue.submit` for the scene command buffer.
@@ -1250,6 +1252,7 @@ impl Renderer {
         let mut shadow_ms = 0.0;
         let mut skybox_ms = 0.0;
         let mut models_ms = 0.0;
+        let mut volumetrics_ms = 0.0;
 
         graph
             .execute(
@@ -1467,10 +1470,11 @@ impl Renderer {
                 ScenePass::Gbuffer
                 | ScenePass::LightCulling
                 | ScenePass::DeferredLighting
-                | ScenePass::Models
-                | ScenePass::VolumetricInject
-                | ScenePass::VolumetricComposite => {
+                | ScenePass::Models => {
                     models_ms += ms(timing.cpu);
+                }
+                ScenePass::VolumetricInject | ScenePass::VolumetricComposite => {
+                    volumetrics_ms += ms(timing.cpu);
                 }
                 ScenePass::Transparent => models_ms += ms(timing.cpu),
                 ScenePass::PrepareWorld => skybox_ms += ms(timing.cpu),
@@ -1542,6 +1546,7 @@ impl Renderer {
             shadow_ms,
             skybox_ms,
             models_ms,
+            volumetrics_ms,
             encode_ms: ms(submit_start - render_start),
             submit_ms,
             timestamp_readback_ms: ms(timestamp_readback_start.elapsed()),
