@@ -292,6 +292,22 @@ fn handle_debug_message(
     }
 
     match message {
+        DebugMessage::SetNumericField(key, value) => {
+            let input = format!("{value}");
+            let result = edit::apply_edit(world, &key, &input);
+            if let Some(mut state) = world.get_resource_mut::<DebugUiState>() {
+                if result.is_ok() {
+                    // Clear the text buffer so the field falls back to the
+                    // slider's current value.
+                    state.field_buffers.remove(&key);
+                    state.last_error = None;
+                } else {
+                    state.last_error = result.err();
+                }
+                state.dirty = true;
+            }
+            return;
+        }
         DebugMessage::AddModelInstance(entity) => {
             edit::add_model_instance(world, entity);
             if let Some(mut state) = world.get_resource_mut::<DebugUiState>() {

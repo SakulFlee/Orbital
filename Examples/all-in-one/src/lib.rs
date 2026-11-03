@@ -15,7 +15,6 @@ use orbital::ecs_bridge::{
     ModelDescriptor, ModelDirty, ModelInstances, Position, Rotation, VolumetricQuality,
     VolumetricSettings,
 };
-use orbital::iced::{IcedState, IcedUiState, OrbitalUI};
 use orbital::importer::{ImportTask, gltf::GltfImport};
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 use orbital::logging;
@@ -31,12 +30,6 @@ use orbital::twod::Vertex2D;
 use orbital::winit::keyboard::KeyCode;
 
 pub const NAME: &str = env!("CARGO_PKG_NAME");
-
-#[derive(Clone)]
-struct Health(u32);
-
-#[derive(Clone)]
-struct Mana(u32);
 
 /// The room row faces this central hallway. Mirrored rooms are placed at
 /// `2 * HALLWAY_MIRROR_Z - z`, leaving the corridor between the two rows.
@@ -126,7 +119,6 @@ pub fn entrypoint(
     match App::new()
         .add_module(ProcgeoSceneModule)
         .add_module(BillboardModule)
-        .add_module(OrbitalUI)
         .add_module(
             DebugModule::new()
                 .with_toggle_key(KeyCode::F3)
@@ -302,60 +294,6 @@ impl System for LightAnimator {
 
         commands.detach_component::<LightDirty>(&self.entity);
         commands.attach_component(&self.entity, LightDirty(true));
-    }
-}
-
-// ── Stats animation: decrements Health/Mana, resets at 0 ──────────
-
-struct StatsAnimator {
-    timer: f32,
-    access: ComponentAccess,
-}
-
-const STAT_TICK_INTERVAL: f32 = 0.5; // seconds between decrements
-
-impl StatsAnimator {
-    fn new() -> Self {
-        Self {
-            timer: 0.0,
-            access: ComponentAccess::new(),
-        }
-    }
-}
-
-impl System for StatsAnimator {
-    fn name(&self) -> &str {
-        "stats_animator"
-    }
-    fn access(&self) -> &ComponentAccess {
-        &self.access
-    }
-
-    fn run(&mut self, world: &World, _commands: &mut Commands) {
-        let dt = world
-            .get_resource::<DeltaTime>()
-            .map(|d| d.0)
-            .unwrap_or(0.016) as f32;
-        self.timer += dt;
-        if self.timer < STAT_TICK_INTERVAL {
-            return;
-        }
-        self.timer -= STAT_TICK_INTERVAL;
-
-        if let Some(mut health) = world.get_resource_mut::<Health>() {
-            if health.0 == 0 {
-                health.0 = 100;
-            } else {
-                health.0 -= 1;
-            }
-        }
-        if let Some(mut mana) = world.get_resource_mut::<Mana>() {
-            if mana.0 == 0 {
-                mana.0 = 100;
-            } else {
-                mana.0 -= 1;
-            }
-        }
     }
 }
 
@@ -608,101 +546,6 @@ impl Module for ProcgeoSceneModule {
             quality: VolumetricQuality::Low,
         });
 
-        // Game state resources (driven by StatsAnimator)
-        ecs.insert_resource(Health(100));
-        ecs.insert_resource(Mana(100));
-
-        // Iced UI panels
-        let mut ui = IcedUiState::new();
-
-        // HUD: game state only. Frame-rate and stage timings come from
-        // `DebugUiModule`, which shows them with history.
-        ui.push(
-            "hud",
-            IcedState::titled("HUD")
-                .with_hud()
-                .with_view(|ecs: &orbital::ecs::World| {
-                    use orbital::iced::iced_widget::{column, text};
-
-                    let health_text = ecs
-                        .get_resource::<Health>()
-                        .map(|h| format!("Health: {}", h.0))
-                        .unwrap_or_else(|| "Health: --".to_string());
-
-                    let mana_text = ecs
-                        .get_resource::<Mana>()
-                        .map(|m| format!("Mana: {}", m.0))
-                        .unwrap_or_else(|| "Mana: --".to_string());
-
-                    let projection_text = ecs
-                        .get_resource::<ActiveCamera>()
-                        .and_then(|active| {
-                            ecs.component_debug(
-                                std::any::TypeId::of::<CameraDescriptor>(),
-                                &active.0,
-                            )
-                        })
-                        .and_then(|handle| {
-                            handle
-                                .as_any()
-                                .downcast_ref::<CameraDescriptor>()
-                                .map(|camera| camera.projection_mode)
-                        })
-                        .map(|mode| format!("Projection: {mode}"))
-                        .unwrap_or_else(|| "Projection: --".to_string());
-
-                    let volumetrics_text = ecs
-                        .get_resource::<VolumetricSettings>()
-                        .map(|settings| {
-                            if settings.enabled {
-                                let quality = match settings.quality {
-                                    VolumetricQuality::Low => "Low",
-                                    VolumetricQuality::Medium => "Medium",
-                                    VolumetricQuality::High => "High",
-                                    VolumetricQuality::Custom { .. } => "Custom",
-                                };
-                                format!("Volumetrics: {quality} froxel fog")
-                            } else {
-                                "Volumetrics: disabled".to_string()
-                            }
-                        })
-                        .unwrap_or_else(|| "Volumetrics: disabled".to_string());
-
-                    let aa_text = ecs
-                        .get_resource::<orbital::app::RenderSettings>()
-                        .map(|settings| match settings.anti_aliasing {
-                            AntiAliasing::Off => "Anti-aliasing: Off".to_string(),
-                            AntiAliasing::Fxaa => "Anti-aliasing: FXAA".to_string(),
-                            AntiAliasing::Smaa => {
-                                format!("Anti-aliasing: SMAA {:?}", settings.smaa_quality)
-                            }
-                        })
-                        .unwrap_or_else(|| "Anti-aliasing: --".to_string());
-
-                    column![
-                        text(health_text).size(16),
-                        text(mana_text).size(16),
-                        text(projection_text).size(16),
-                        text(volumetrics_text).size(16),
-                        text(aa_text).size(16),
-                    ]
-                    .spacing(4)
-                    .into()
-                }),
-        );
-
-        // Windowed panel: draggable, title bar, close button
-        ui.push(
-            "inventory",
-            IcedState::titled("Inventory")
-                .with_position(100.0, 100.0)
-                .with_button_label("Open Chest"),
-        );
-
-        ecs.insert_resource(ui);
-
-        // 2D shape overlay (draws on top of 3D scene; layout is regenerated
-        // whenever the screen size changes, e.g. on screen rotation)
         // 2D shape overlay (draws on top of 3D scene; layout is regenerated
         // whenever the screen size changes, e.g. on screen rotation)
         // NOTE: ShapeOverlay is registered via register_overlays() below.
@@ -1020,7 +863,6 @@ impl Module for ProcgeoSceneModule {
             sys_ortho_dolly(),
             Box::new(CursorToggle::new(true)),
             Box::new(HelmetAdjuster::new()),
-            Box::new(StatsAnimator::new()),
             Box::new(animator),
             sys_animate_dynamic_sky(14.0).into_system(),
         ]

@@ -52,6 +52,8 @@ pub enum DebugMessage {
     /// and `text_input::on_submit` takes a fixed message rather than a closure,
     /// so one message serves both.
     ApplyField(crate::panels::edit::FieldKey),
+    /// Apply a numeric field from a slider.
+    SetNumericField(crate::panels::edit::FieldKey, f32),
     /// Add an instance to the selected entity's `ModelInstances`.
     AddModelInstance(Entity),
     /// Remove the selected entity from the world.
@@ -445,6 +447,10 @@ impl DebugUiState {
             DebugMessage::ApplyField(_) => {
                 // The apply itself happens in `IcedState::handle_message`, which
                 // is the only place with both the world and the panel state.
+                self.dirty = true;
+            }
+            DebugMessage::SetNumericField(_, _) => {
+                // Applied in `handle_debug_message`, which has the world.
                 self.dirty = true;
             }
             DebugMessage::AddModelInstance(_) | DebugMessage::RemoveModelInstance { .. } => {

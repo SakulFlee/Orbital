@@ -2,7 +2,7 @@
 
 use std::any::TypeId;
 
-use iced_widget::{button, column, container, row, text, text_input};
+use iced_widget::{button, column, container, row, slider, text, text_input};
 use iced_winit::core::text::Wrapping;
 use iced_winit::core::{Color, Element, Font, Length, Theme};
 
@@ -314,10 +314,10 @@ fn field_input_row(
         .style(crate::panels::input_style);
 
     let apply = button(text("set").size(11))
-        .on_press(DebugMessage::ApplyField(key))
+        .on_press(DebugMessage::ApplyField(key.clone()))
         .width(Length::Shrink);
 
-    column![
+    let mut content = column![
         text(label.to_string())
             .size(10)
             .color(Color::from_rgb(0.55, 0.55, 0.6)),
@@ -325,8 +325,58 @@ fn field_input_row(
             .spacing(4)
             .align_y(iced_winit::core::Alignment::Center),
     ]
-    .spacing(0)
-    .into()
+    .spacing(0);
+
+    if let Ok(value) = current.parse::<f32>()
+        && let Some(range) = slider_range(&key.field, value)
+    {
+        let step = slider_step(&key.field, &range);
+        let slider_key = key;
+        content = content.push(
+            slider(range, value, move |value| {
+                DebugMessage::SetNumericField(slider_key.clone(), value)
+            })
+            .step(step)
+            .width(Length::Fill),
+        );
+    }
+
+    content.into()
+}
+
+/// Picks a useful slider range for a scalar editable field.
+///
+/// The ECS field metadata is intentionally type-erased, so known engine
+/// fields get semantic ranges and unknown scalar fields fall back to a range
+/// around their current magnitude.
+fn slider_range(field: &str, value: f32) -> Option<std::ops::RangeInclusive<f32>> {
+    let id = field.rsplit('/').next().unwrap_or(field);
+    let range = match id {
+        "aspect" => 0.1..=10.0,
+        "fovy" => 1.0..=179.0,
+        "ortho_height" => 0.1..=1000.0,
+        "near" => 0.001..=10.0,
+        "far" => 1.0..=100000.0,
+        "global_gamma" => 0.1..=4.0,
+        "yaw" | "pitch" | "roll" => -(std::f32::consts::PI)..=std::f32::consts::PI,
+        "bias" => 0.0..=0.1,
+        "cascade_count" => 1.0..=8.0,
+        "cascade_split_lambda" => 0.0..=1.0,
+        _ => {
+            let bound = value.abs().max(1.0) * 2.0;
+            -bound..=bound
+        }
+    };
+
+    range.contains(&value).then_some(range)
+}
+
+fn slider_step(field: &str, range: &std::ops::RangeInclusive<f32>) -> f32 {
+    if field.ends_with("cascade_count") {
+        1.0
+    } else {
+        ((*range.end() - *range.start()) / 1000.0).max(0.001)
+    }
 }
 
 fn whole_component_row(

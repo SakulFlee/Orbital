@@ -3196,6 +3196,7 @@ dependencies = [
  "orbital_ecs",
  "orbital_ecs_bridge",
  "orbital_iced",
+ "orbital_material_shader",
  "orbital_mesh",
  "orbital_renderer",
  "winit",
