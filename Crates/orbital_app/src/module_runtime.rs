@@ -33,8 +33,8 @@ use orbital_ecs_bridge::{
     ActiveCamera, AdapterResource, CameraDescriptor, CameraDirty, CameraStore, CursorGrabConfig,
     CursorGrabState, CursorPosition, DeltaTime, DeviceResource, EngineEvent, EngineEvents,
     FpsStats, FrameCounter, FrameTimings, IcedCapturedMouseDrag, IcedCapturedMouseWheel,
-    IcedCapturedTouches, IcedEventQueue, IcedTextInputFocus, InputSnapshot, QueueResource,
-    STAGE_BIND_MODELS, STAGE_CULL_EXTRACT, STAGE_GAME_SCHEDULE, STAGE_GPU_MODELS,
+    IcedCapturedTouches, IcedEventQueue, IcedTextInputFocus, InputSnapshot, PerformanceLogConfig,
+    QueueResource, STAGE_BIND_MODELS, STAGE_CULL_EXTRACT, STAGE_GAME_SCHEDULE, STAGE_GPU_MODELS,
     STAGE_GPU_SCENE_TOTAL, STAGE_GPU_SHADOW, STAGE_GPU_SKYBOX, STAGE_ICED_DRAW, STAGE_ICED_SUBMIT,
     STAGE_OVERLAY_LAYERS, STAGE_OVERLAY_MAIN, STAGE_PRESENT, STAGE_REALIZE, STAGE_REALIZE_ENV,
     STAGE_REALIZE_MODELS, STAGE_SCENE_ENCODE, STAGE_SCENE_SUBMIT, STAGE_STAGGER, STAGE_SURFACE_ACQ,
@@ -243,6 +243,9 @@ impl ModuleRuntime {
             .insert_resource(crate::CameraControlSettings::default());
         runtime.ecs_world.insert_resource(FpsStats::default());
         runtime.ecs_world.insert_resource(FrameTimings::default());
+        runtime
+            .ecs_world
+            .insert_resource(PerformanceLogConfig::default());
         runtime.ecs_world.insert_resource(TotalTime(0.0));
         runtime
             .ecs_world
@@ -714,9 +717,13 @@ impl ModuleRuntime {
             .map(|delta| delta.0 * 1000.0)
             .unwrap_or(0.0);
 
+        let log_performance = self
+            .ecs_world
+            .get_resource::<PerformanceLogConfig>()
+            .is_some_and(|config| config.enabled);
         let logged = if let Some(mut timings) = self.ecs_world.get_resource_mut::<FrameTimings>() {
             timings.record_at(&self.frame_timings.durations, elapsed, cdt_ms, history);
-            timings.try_log().is_some()
+            timings.try_log_if(log_performance).is_some()
         } else {
             false
         };
@@ -781,9 +788,15 @@ impl ModuleRuntime {
     fn update(&mut self) -> bool {
         let update_start = std::time::Instant::now();
         let (delta_time, cycle) = self.timer.as_mut().expect("Timer went missing").tick();
+        let log_performance = self
+            .ecs_world
+            .get_resource::<PerformanceLogConfig>()
+            .is_some_and(|config| config.enabled);
 
         if let Some((total_delta, fps)) = cycle {
-            info!("FPS: {fps} | TDT: {total_delta}s | CDT: {delta_time}s");
+            if log_performance {
+                info!("FPS: {fps} | TDT: {total_delta}s | CDT: {delta_time}s");
+            }
             self.ecs_world.insert_resource(FpsStats {
                 fps,
                 total_delta_time: total_delta,
