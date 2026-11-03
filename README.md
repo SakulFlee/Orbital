@@ -99,6 +99,14 @@ To use the engine in your own project, add the following to your `Cargo.toml`:
 orbital = { path = "./Runtime" }
 ```
 
+## Performance Reporting
+
+The debug UI can write FPS, frame-stage timings and cache counters to
+`Logs/performance.csv`. See
+[PERFORMANCE_REPORTING.md](PERFORMANCE_REPORTING.md) for enabling capture and
+retrieving the file on desktop, Android and iOS, plus the bundled analysis
+script and notebook.
+
 ## Engine Concepts
 
 ### Elements
