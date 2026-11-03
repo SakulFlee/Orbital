@@ -28,9 +28,9 @@ pub struct FrameCounter(pub u64);
 
 /// Frame-rate statistics updated every second by the runtime.
 ///
-/// Written by `ModuleRuntime::update()` alongside the `info!()` log line.
-/// Read by HUD overlays (e.g. the all-in-one template) to display live
-/// performance metrics on screen.
+/// Written by `ModuleRuntime::update()` alongside the optional `info!()` log
+/// line controlled by [`PerformanceLogConfig`]. Read by HUD overlays (e.g. the
+/// all-in-one template) to display live performance metrics on screen.
 #[derive(Debug, Clone, Copy)]
 pub struct FpsStats {
     /// Frames rendered in the last complete one-second window.
@@ -180,6 +180,18 @@ pub struct TimingsHistoryConfig {
     pub enabled: bool,
     /// How many seconds of history to keep.
     pub window_secs: f64,
+}
+
+/// Controls periodic performance logging.
+///
+/// When enabled, the runtime emits one FPS line and one timing/cache summary
+/// per second. The debug UI exposes this as a toggle so the console can stay
+/// quiet during normal play. Programmatic users can override the resource
+/// after module setup, or insert it before the runtime starts.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct PerformanceLogConfig {
+    /// Whether to write FPS, timing and cache summaries to the log.
+    pub enabled: bool,
 }
 
 impl Default for TimingsHistoryConfig {
@@ -426,6 +438,16 @@ impl FrameTimings {
     /// The accumulating statistics are untouched, so the summary and a debug
     /// overlay reading [`Self::samples`] never interfere.
     pub fn try_log(&mut self) -> Option<Vec<f64>> {
+        self.try_log_if(true)
+    }
+
+    /// Like [`Self::try_log`], but only emits the summary when `enabled` is
+    /// set.
+    ///
+    /// The one-second window is reset either way, so enabling logging starts
+    /// with a fresh sample rather than a backlog accumulated while it was off.
+    /// The return value is `Some` only when a line was emitted.
+    pub fn try_log_if(&mut self, enabled: bool) -> Option<Vec<f64>> {
         if self.window_count == 0
             || self.last_print.elapsed().as_secs_f64() < Self::LOG_INTERVAL_SECS
         {
@@ -439,20 +461,22 @@ impl FrameTimings {
             .map(|total| total / n)
             .collect::<Vec<_>>();
 
-        let mut line = format!("TIMING avg({} frames):", self.window_count);
-        for (index, name) in TIMING_STAGES.iter().enumerate() {
-            if index == GPU_STAGE_START {
-                line.push_str(" |");
+        if enabled {
+            let mut line = format!("TIMING avg({} frames):", self.window_count);
+            for (index, name) in TIMING_STAGES.iter().enumerate() {
+                if index == GPU_STAGE_START {
+                    line.push_str(" |");
+                }
+                line.push_str(&format!(" {name}={:.2}ms", averages[index]));
             }
-            line.push_str(&format!(" {name}={:.2}ms", averages[index]));
+            info!("{line}");
         }
-        info!("{line}");
 
         self.window_totals.iter_mut().for_each(|total| *total = 0.0);
         self.window_count = 0;
         self.last_print = std::time::Instant::now();
 
-        Some(averages)
+        enabled.then_some(averages)
     }
 }
 
@@ -963,6 +987,29 @@ mod tests {
 
         // And it won't log again until another second has passed.
         assert!(timings.try_log().is_none());
+    }
+
+    #[test]
+    fn frame_timings_disabled_log_resets_the_window_without_logging() {
+        let mut timings = FrameTimings::new();
+
+        timings.record(&frame(2.0));
+        timings.last_print = std::time::Instant::now() - std::time::Duration::from_secs(2);
+
+        assert!(timings.try_log_if(false).is_none());
+        assert_eq!(timings.window_count, 0, "disabled logging still resets");
+        assert_eq!(timings.frame_count(), 1, "accumulated stats are untouched");
+
+        // Re-enabling starts a fresh one-second window rather than logging the
+        // sample collected while logging was disabled.
+        timings.record(&frame(4.0));
+        assert!(timings.try_log_if(true).is_none());
+
+        timings.last_print = std::time::Instant::now() - std::time::Duration::from_secs(2);
+        let logged = timings
+            .try_log_if(true)
+            .expect("should log after re-enabling");
+        assert_eq!(logged[0], 4.0);
     }
 
     #[test]

@@ -2,13 +2,13 @@
 
 use std::collections::VecDeque;
 
-use iced_widget::{button, canvas, column, row, slider, text, text_input};
+use iced_widget::{button, canvas, checkbox, column, row, slider, text, text_input};
 use iced_winit::core::{Alignment, Color, Element, Font, Length, Theme};
 
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
-    FpsStats, FrameTimings, GPU_STAGE_START, STAGE_GPU_SCENE_TOTAL, STAGE_PRESENT,
-    STAGE_SURFACE_ACQ, TIMING_STAGES, TOTAL_STAGE_INDEX,
+    FpsStats, FrameTimings, GPU_STAGE_START, PerformanceLogConfig, STAGE_GPU_SCENE_TOTAL,
+    STAGE_PRESENT, STAGE_SURFACE_ACQ, TIMING_STAGES, TOTAL_STAGE_INDEX,
 };
 
 use crate::sparkline::{Line, Sparkline};
@@ -177,6 +177,9 @@ pub fn performance_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Ic
     let window_secs = state
         .graph_window_secs
         .clamp(MIN_GRAPH_WINDOW_SECS, MAX_GRAPH_WINDOW_SECS);
+    let log_performance = ecs
+        .get_resource::<PerformanceLogConfig>()
+        .is_some_and(|config| config.enabled);
 
     let mut sections = vec![crate::panels::caption(
         "FPS / frame time",
@@ -207,6 +210,27 @@ pub fn performance_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Ic
         }
         None => sections.push(row![text("FPS (1s)   --").size(13)].into()),
     }
+
+    sections.push(crate::panels::divider());
+    sections.push(crate::panels::caption(
+        "Logging",
+        Color::from_rgb(0.6, 0.6, 0.6),
+    ));
+    sections.push(
+        checkbox(log_performance)
+            .label("Log FPS, timings & cache counters")
+            .text_size(12)
+            .on_toggle(DebugMessage::SetPerformanceLogging)
+            .into(),
+    );
+    sections.push(
+        row![
+            text("writes ~3 lines per second")
+                .size(10)
+                .color(Color::from_rgb(0.55, 0.55, 0.6))
+        ]
+        .into(),
+    );
 
     sections.push(crate::panels::divider());
     sections.push(range_control(&state));

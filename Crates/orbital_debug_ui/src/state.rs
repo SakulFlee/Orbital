@@ -74,6 +74,10 @@ pub enum DebugMessage {
     SetBloomEnabled(bool),
     /// Enable or disable deferred lighting for opaque models.
     SetDeferredEnabled(bool),
+    /// Enable or disable periodic FPS/timing/cache logging.
+    SetPerformanceLogging(bool),
+    /// Enable or disable the debug-render overlay.
+    SetDebugOverlay(bool),
     /// Set the HDR brightness where bloom starts.
     SetBloomThreshold(f32),
     /// Set the bloom contribution strength.
@@ -475,6 +479,8 @@ impl DebugUiState {
             | DebugMessage::SetExposure(_)
             | DebugMessage::SetBloomEnabled(_)
             | DebugMessage::SetDeferredEnabled(_)
+            | DebugMessage::SetPerformanceLogging(_)
+            | DebugMessage::SetDebugOverlay(_)
             | DebugMessage::SetBloomThreshold(_)
             | DebugMessage::SetBloomIntensity(_)
             | DebugMessage::SetContrast(_)

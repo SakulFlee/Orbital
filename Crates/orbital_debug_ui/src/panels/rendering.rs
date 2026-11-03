@@ -7,6 +7,7 @@ use iced_winit::core::{Color, Element, Length, Theme};
 
 use orbital_app::{CameraControlSettings, OrthographicForwardMode, RenderSettings};
 use orbital_camera::ProjectionMode;
+use orbital_debug_render::DebugToggleState;
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
     ActiveCamera, CameraDescriptor, LightDescriptor, ModelDescriptor, VolumetricQuality,
@@ -463,6 +464,34 @@ pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
                 .color(MUTED)
                 .into(),
         );
+    }
+
+    rows.push(crate::panels::divider());
+    rows.push(crate::panels::caption("Debug overlays", ACCENT));
+    match ecs.get_resource::<DebugToggleState>() {
+        Some(toggle) => {
+            rows.push(
+                checkbox(toggle.enabled)
+                    .label("Bounding spheres, frustum & lights")
+                    .text_size(12)
+                    .on_toggle(DebugMessage::SetDebugOverlay)
+                    .into(),
+            );
+            rows.push(
+                text(format!("{:?} also toggles this overlay.", toggle.key))
+                    .size(10)
+                    .color(MUTED)
+                    .into(),
+            );
+        }
+        None => {
+            rows.push(
+                text("DebugModule is not installed.")
+                    .size(11)
+                    .color(MUTED)
+                    .into(),
+            );
+        }
     }
 
     container(crate::panels::scrolling(crate::panels::column_of(

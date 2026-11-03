@@ -32,10 +32,11 @@ use iced_winit::core::Element;
 use orbital_app::input::InputButton;
 use orbital_app::{CameraControlSettings, LayerRenderer, Module, RenderSettings};
 use orbital_camera::ProjectionMode;
+use orbital_debug_render::DebugToggleState;
 use orbital_ecs::{IntoSystem, Res, ResMut, System, World};
 use orbital_ecs_bridge::{
-    ActiveCamera, CameraDescriptor, CameraDirty, InputSnapshot, TimingsHistoryConfig,
-    VolumetricSettings,
+    ActiveCamera, CameraDescriptor, CameraDirty, InputSnapshot, PerformanceLogConfig,
+    TimingsHistoryConfig, VolumetricSettings,
 };
 use orbital_iced::{
     DEFAULT_REFRESH_INTERVAL, IcedLayerRenderer, IcedState, SMOOTH_REFRESH_INTERVAL,
@@ -372,6 +373,23 @@ fn handle_debug_message(
         }
         DebugMessage::SetDeferredEnabled(enabled) => {
             update_render_settings(world, |settings| settings.deferred_enabled = enabled);
+            return;
+        }
+        DebugMessage::SetPerformanceLogging(enabled) => {
+            let mut config = world
+                .get_resource::<PerformanceLogConfig>()
+                .map(|config| *config)
+                .unwrap_or_default();
+            config.enabled = enabled;
+            world.insert_resource(config);
+            mark_debug_dirty(world);
+            return;
+        }
+        DebugMessage::SetDebugOverlay(enabled) => {
+            if let Some(mut toggle) = world.get_resource_mut::<DebugToggleState>() {
+                toggle.enabled = enabled;
+            }
+            mark_debug_dirty(world);
             return;
         }
         DebugMessage::SetBloomThreshold(threshold) => {
