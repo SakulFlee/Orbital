@@ -2,16 +2,19 @@ use cgmath::{InnerSpace, Matrix4, Point3, SquareMatrix, Vector3, Vector4};
 use orbital_app::{LayerRenderer, Module, RenderLayer, RenderOverlayContext};
 use orbital_ecs::{IntoSystem, Res, ResMut, System, World};
 use orbital_ecs_bridge::{
-    ActiveCamera, CameraStore, InputSnapshot, LightDescriptor, ModelInstances, ModelRealization,
-    Position,
+    ActiveCamera, CameraStore, DebugSelectedEntity, InputSnapshot, LightDescriptor, ModelInstances,
+    ModelRealization, Position, ShadowDebugData,
 };
+use orbital_instance::Instance;
 use orbital_light::LightType;
+use orbital_shadow::{SHADOW_TYPE_DIRECTIONAL_CASCADE, SHADOW_TYPE_POINT, SHADOW_TYPE_SPOT};
+use orbital_vertex::Vertex;
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState,
     Buffer, BufferBindingType, BufferDescriptor, BufferUsages, ColorTargetState, ColorWrites,
-    Device, FragmentState, MultisampleState, PipelineLayoutDescriptor, PrimitiveState,
-    PrimitiveTopology, Queue, RenderPass, RenderPipeline, RenderPipelineDescriptor,
+    Device, Features, FragmentState, IndexFormat, MultisampleState, PipelineLayoutDescriptor,
+    PrimitiveState, PrimitiveTopology, Queue, RenderPass, RenderPipeline, RenderPipelineDescriptor,
     ShaderModuleDescriptor, ShaderSource, ShaderStages, TextureFormat, VertexAttribute,
     VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
 };
@@ -26,8 +29,8 @@ const SPHERE_RINGS: u32 = 3;
 const VERTS_PER_SPHERE: u32 = SPHERE_RINGS * SPHERE_SEGMENTS * 2;
 const MAX_SPHERE_INSTANCES: u32 = 512;
 const FRUSTUM_VERTS: u32 = 24;
-const MAX_LIGHT_VERTS: u32 = 1024;
-const MAX_VERTS: u32 = MAX_SPHERE_INSTANCES * VERTS_PER_SPHERE + FRUSTUM_VERTS + MAX_LIGHT_VERTS;
+const MAX_EXTRA_VERTS: u32 = 16_384;
+const MAX_VERTS: u32 = MAX_SPHERE_INSTANCES * VERTS_PER_SPHERE + FRUSTUM_VERTS + MAX_EXTRA_VERTS;
 
 fn sphere_wireframe_unit() -> Vec<[f32; 3]> {
     let mut verts = Vec::with_capacity(VERTS_PER_SPHERE as usize);
@@ -66,6 +69,21 @@ const FRUSTUM_EDGES: [(usize, usize); 12] = [
     (5, 7),
     (7, 6),
     (6, 4),
+    (0, 4),
+    (1, 5),
+    (2, 6),
+    (3, 7),
+];
+
+const BOX_EDGE_INDICES: [(usize, usize); 12] = [
+    (0, 1),
+    (1, 2),
+    (2, 3),
+    (3, 0),
+    (4, 5),
+    (5, 6),
+    (6, 7),
+    (7, 4),
     (0, 4),
     (1, 5),
     (2, 6),
@@ -113,6 +131,47 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 }
 "#;
 
+const WIREFRAME_SHADER_SRC: &str = r#"
+struct CameraUniform {
+    position: vec3<f32>,
+    view_projection_matrix: mat4x4<f32>,
+    perspective_view_projection_matrix: mat4x4<f32>,
+    view_projection_transposed: mat4x4<f32>,
+    perspective_projection_invert: mat4x4<f32>,
+    global_gamma: f32,
+};
+
+@group(0) @binding(0) var<uniform> camera: CameraUniform;
+
+struct VertexInput {
+    @location(0) position: vec3<f32>,
+    @location(5) m0: vec4<f32>,
+    @location(6) m1: vec4<f32>,
+    @location(7) m2: vec4<f32>,
+    @location(8) m3: vec4<f32>,
+};
+
+struct VertexOutput {
+    @builtin(position) clip_position: vec4<f32>,
+};
+
+@vertex
+fn vs_main(input: VertexInput) -> VertexOutput {
+    let world = input.m0 * input.position.x
+        + input.m1 * input.position.y
+        + input.m2 * input.position.z
+        + input.m3;
+    var output: VertexOutput;
+    output.clip_position = camera.perspective_view_projection_matrix * world;
+    return output;
+}
+
+@fragment
+fn fs_main() -> @location(0) vec4<f32> {
+    return vec4<f32>(0.85, 0.9, 1.0, 1.0);
+}
+"#;
+
 // ---------------------------------------------------------------------------
 // Public types
 // ---------------------------------------------------------------------------
@@ -131,6 +190,7 @@ pub struct SphereInstance {
 /// GPU debug renderer for bounding spheres and camera frustum wireframes.
 pub struct DebugRenderer {
     pipeline: RenderPipeline,
+    wireframe_pipeline: Option<RenderPipeline>,
     bind_group_layout: BindGroupLayout,
     vertex_buffer: Buffer,
     device: Device,
@@ -236,8 +296,54 @@ impl DebugRenderer {
             mapped_at_creation: false,
         });
 
+        let wireframe_pipeline = if device.features().contains(Features::POLYGON_MODE_LINE) {
+            let wireframe_shader = device.create_shader_module(ShaderModuleDescriptor {
+                label: Some("Debug Wireframe Shader"),
+                source: ShaderSource::Wgsl(WIREFRAME_SHADER_SRC.into()),
+            });
+            Some(device.create_render_pipeline(&RenderPipelineDescriptor {
+                label: Some("Debug Wireframe Pipeline"),
+                layout: Some(&pipeline_layout),
+                vertex: VertexState {
+                    module: &wireframe_shader,
+                    entry_point: Some("vs_main"),
+                    compilation_options: Default::default(),
+                    buffers: &[
+                        Some(Vertex::complex_vertex_buffer_layout_descriptor()),
+                        Some(Instance::vertex_buffer_layout_descriptor()),
+                    ],
+                },
+                primitive: PrimitiveState {
+                    topology: PrimitiveTopology::TriangleList,
+                    strip_index_format: None,
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: None,
+                    unclipped_depth: false,
+                    polygon_mode: wgpu::PolygonMode::Line,
+                    conservative: false,
+                },
+                depth_stencil: None,
+                multisample: MultisampleState::default(),
+                fragment: Some(FragmentState {
+                    module: &wireframe_shader,
+                    entry_point: Some("fs_main"),
+                    compilation_options: Default::default(),
+                    targets: &[Some(ColorTargetState {
+                        format,
+                        blend: Some(BlendState::ALPHA_BLENDING),
+                        write_mask: ColorWrites::ALL,
+                    })],
+                }),
+                multiview_mask: None,
+                cache: None,
+            }))
+        } else {
+            None
+        };
+
         Self {
             pipeline,
+            wireframe_pipeline,
             bind_group_layout,
             vertex_buffer,
             device: device.clone(),
@@ -306,8 +412,8 @@ impl DebugRenderer {
             }
         }
 
-        // Extra lines (lights, etc.)
-        for line_vert in extra_lines {
+        // Extra lines (lights, bounds, grid, shadow frusta, selection).
+        for line_vert in extra_lines.iter().take(MAX_EXTRA_VERTS as usize) {
             verts.push(line_vert[0]);
             verts.push(line_vert[1]);
             verts.push(line_vert[2]);
@@ -324,6 +430,16 @@ impl DebugRenderer {
             unsafe { std::slice::from_raw_parts(verts.as_ptr() as *const u8, verts.len() * 4) };
         queue.write_buffer(&self.vertex_buffer, 0, bytes);
 
+        self.ensure_camera_bind_group(camera_buffer);
+
+        let num_verts = verts.len() as u32 / 6;
+        render_pass.set_pipeline(&self.pipeline);
+        render_pass.set_bind_group(0, self.bind_group.as_ref().unwrap(), &[]);
+        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        render_pass.draw(0..num_verts, 0..1);
+    }
+
+    fn ensure_camera_bind_group(&mut self, camera_buffer: &Buffer) {
         let cb_ptr = camera_buffer as *const Buffer as usize;
         if cb_ptr != self.last_camera_buffer_ptr {
             let bg = self.device.create_bind_group(&BindGroupDescriptor {
@@ -337,12 +453,46 @@ impl DebugRenderer {
             self.bind_group = Some(bg);
             self.last_camera_buffer_ptr = cb_ptr;
         }
+    }
 
-        let num_verts = verts.len() as u32 / 6;
-        render_pass.set_pipeline(&self.pipeline);
+    /// Draw every realized model's triangles as a wireframe.
+    ///
+    /// Uses the model's existing vertex, index, and instance buffers, so this
+    /// does not duplicate mesh data. Backends without line polygon mode simply
+    /// skip the pass.
+    pub fn render_wireframe(
+        &mut self,
+        render_pass: &mut RenderPass,
+        camera_buffer: &Buffer,
+        ecs: &World,
+    ) {
+        if !self.enabled || self.wireframe_pipeline.is_none() {
+            return;
+        }
+
+        self.ensure_camera_bind_group(camera_buffer);
+        let Some(pipeline) = self.wireframe_pipeline.as_ref() else {
+            return;
+        };
+        let Some(realizations) = ecs.get_component_store::<ModelRealization>() else {
+            return;
+        };
+
+        render_pass.set_pipeline(pipeline);
         render_pass.set_bind_group(0, self.bind_group.as_ref().unwrap(), &[]);
-        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        render_pass.draw(0..num_verts, 0..1);
+
+        for realization in realizations.components.iter() {
+            let model = &realization.0;
+            let mesh = model.mesh();
+            if mesh.index_count() == 0 || model.instance_count() == 0 {
+                continue;
+            }
+
+            render_pass.set_vertex_buffer(0, mesh.vertex_buffer().slice(..));
+            render_pass.set_vertex_buffer(1, model.instance_buffer().slice(..));
+            render_pass.set_index_buffer(mesh.index_buffer().slice(..), IndexFormat::Uint32);
+            render_pass.draw_indexed(0..mesh.index_count(), 0, 0..model.instance_count());
+        }
     }
 }
 
@@ -374,11 +524,62 @@ pub fn frustum_corners_from_matrix(matrix: &Matrix4<f32>) -> [Point3<f32>; 8] {
 // Integration into the module system
 // ---------------------------------------------------------------------------
 
-/// Toggle state — stores configured key, edge-detection state, and enabled flag.
+/// Which model bounds the debug overlay draws.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum BoundsMode {
+    Off,
+    #[default]
+    Spheres,
+    Boxes,
+    Both,
+}
+
+impl BoundsMode {
+    pub fn spheres(self) -> bool {
+        matches!(self, Self::Spheres | Self::Both)
+    }
+
+    pub fn boxes(self) -> bool {
+        matches!(self, Self::Boxes | Self::Both)
+    }
+}
+
+/// Per-category switches for the debug render overlay.
+#[derive(Debug, Clone, Copy)]
+pub struct DebugRenderSettings {
+    /// Master switch, toggled by F3 by default.
+    pub enabled: bool,
+    pub bounds: BoundsMode,
+    pub frustum: bool,
+    pub lights: bool,
+    pub wireframe: bool,
+    pub grid_axes: bool,
+    /// Shadow-map frusta from the previous shadow pass.
+    pub shadow_frusta: bool,
+    /// Highlight the entity selected in the ECS debug panel.
+    pub selection: bool,
+}
+
+impl Default for DebugRenderSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            bounds: BoundsMode::Spheres,
+            frustum: true,
+            lights: true,
+            wireframe: false,
+            grid_axes: false,
+            shadow_frusta: false,
+            selection: false,
+        }
+    }
+}
+
+/// Toggle state — stores configured key, edge-detection state, and settings.
 pub struct DebugToggleState {
     pub key: winit::keyboard::KeyCode,
     pub was_pressed: bool,
-    pub enabled: bool,
+    pub settings: DebugRenderSettings,
 }
 
 /// ECS system that toggles the debug overlay on keypress.
@@ -391,7 +592,7 @@ pub fn sys_debug_toggle(input: Res<InputSnapshot>, mut state: ResMut<DebugToggle
         .map(|(_, s)| s)
         .unwrap_or(false);
     if pressed && !state.was_pressed {
-        state.enabled = !state.enabled;
+        state.settings.enabled = !state.settings.enabled;
     }
     state.was_pressed = pressed;
 }
@@ -407,12 +608,12 @@ impl LayerRenderer for DebugRenderOverlay {
     }
 
     fn render(&mut self, ctx: RenderOverlayContext) {
-        let enabled = ctx
+        let settings = ctx
             .ecs
             .get_resource::<DebugToggleState>()
-            .map(|s| s.enabled)
-            .unwrap_or(false);
-        if !enabled {
+            .map(|state| state.settings)
+            .unwrap_or_default();
+        if !settings.enabled {
             return;
         }
 
@@ -420,11 +621,40 @@ impl LayerRenderer for DebugRenderOverlay {
             .ecs
             .get_resource::<orbital_ecs_bridge::FrozenFrustum>()
             .and_then(|f| f.0.clone());
+        let frozen_frustum = frozen_data.as_ref().map(|f| &f.frustum);
 
-        let spheres = collect_spheres(ctx.ecs, frozen_data.as_ref().map(|f| &f.frustum));
-        let light_lines = collect_light_lines(ctx.ecs);
+        let spheres = if settings.bounds.spheres() {
+            collect_spheres(ctx.ecs, frozen_frustum)
+        } else {
+            Vec::new()
+        };
 
-        let live_corners = camera_frustum_corners(ctx.ecs);
+        let mut extra_lines = Vec::new();
+        if settings.bounds.boxes() {
+            extra_lines.extend(collect_box_lines(ctx.ecs, frozen_frustum));
+        }
+        if settings.lights {
+            extra_lines.extend(collect_light_lines(ctx.ecs));
+        }
+        if settings.grid_axes {
+            extra_lines.extend(grid_axes_lines());
+        }
+        if settings.shadow_frusta {
+            extra_lines.extend(shadow_frustum_lines(ctx.ecs));
+        }
+        if settings.selection {
+            extra_lines.extend(selection_lines(ctx.ecs));
+        }
+
+        let live_corners = settings
+            .frustum
+            .then(|| camera_frustum_corners(ctx.ecs))
+            .flatten();
+        let frozen_corners = settings.frustum.then(|| {
+            frozen_data.as_ref().map(|frozen| {
+                frustum_corners_from_matrix(&frozen.perspective_view_projection_matrix)
+            })
+        });
 
         let Some(enc) = ctx.encoder else {
             return;
@@ -447,20 +677,16 @@ impl LayerRenderer for DebugRenderOverlay {
                 multiview_mask: None,
             });
 
-            if let Some(ref frozen) = frozen_data {
-                // Draw frozen frustum in yellow
-                let frozen_corners =
-                    frustum_corners_from_matrix(&frozen.perspective_view_projection_matrix);
+            if let Some(frozen_corners) = frozen_corners.flatten() {
                 self.inner.render(
                     &mut pass,
                     ctx.camera_buffer,
                     &spheres,
                     Some(&frozen_corners),
                     [1.0, 1.0, 0.0],
-                    &light_lines,
+                    &extra_lines,
                     ctx.queue,
                 );
-                // Draw live frustum in cyan for reference
                 if let Some(corners) = live_corners {
                     self.inner.render(
                         &mut pass,
@@ -473,16 +699,20 @@ impl LayerRenderer for DebugRenderOverlay {
                     );
                 }
             } else {
-                // Normal mode — draw spheres + single live frustum + lights
                 self.inner.render(
                     &mut pass,
                     ctx.camera_buffer,
                     &spheres,
                     live_corners.as_ref(),
                     [1.0, 1.0, 0.0],
-                    &light_lines,
+                    &extra_lines,
                     ctx.queue,
                 );
+            }
+
+            if settings.wireframe {
+                self.inner
+                    .render_wireframe(&mut pass, ctx.camera_buffer, ctx.ecs);
             }
         }
     }
@@ -539,7 +769,7 @@ impl Module for DebugModule {
         ecs.insert_resource(DebugToggleState {
             key: self.toggle_key.unwrap_or(KeyCode::F3),
             was_pressed: false,
-            enabled: false,
+            settings: DebugRenderSettings::default(),
         });
 
         vec![sys_debug_toggle.into_system()]
@@ -639,6 +869,210 @@ fn collect_spheres(
     }
 
     spheres
+}
+
+fn collect_box_lines(
+    ecs: &World,
+    frozen_frustum: Option<&orbital_camera::Frustum>,
+) -> Vec<[f32; 6]> {
+    let mut lines = Vec::new();
+
+    let Some(realizations) = ecs.get_component_store::<ModelRealization>() else {
+        return lines;
+    };
+    let Some(instances) = ecs.get_component_store::<ModelInstances>() else {
+        return lines;
+    };
+
+    for &eid in realizations.dense.as_slice() {
+        let Some(real_idx) = realizations.sparse[eid] else {
+            continue;
+        };
+        let Some(inst_idx) = instances.sparse[eid] else {
+            continue;
+        };
+
+        let model = &realizations.components[real_idx].0;
+        let Some(bounds) = model.mesh().bounding_box() else {
+            continue;
+        };
+
+        let model_instances = &instances.components[inst_idx];
+        for transform in model_instances.0.values() {
+            let matrix = transform.to_matrix();
+            let corners = bounds.corners();
+            let world = corners.map(|corner| {
+                let p = matrix * Vector4::new(corner.x, corner.y, corner.z, 1.0);
+                Point3::new(p.x, p.y, p.z)
+            });
+
+            let local_center = Point3::new(
+                (bounds.min.x + bounds.max.x) * 0.5,
+                (bounds.min.y + bounds.max.y) * 0.5,
+                (bounds.min.z + bounds.max.z) * 0.5,
+            );
+            let center = matrix * Vector4::new(local_center.x, local_center.y, local_center.z, 1.0);
+            let radius = (bounds.max - bounds.min).magnitude() * 0.5;
+            let max_scale = transform
+                .scale
+                .x
+                .max(transform.scale.y)
+                .max(transform.scale.z);
+            let color = match frozen_frustum {
+                Some(frustum) => {
+                    let center = Point3::new(center.x, center.y, center.z);
+                    if frustum.intersects_sphere(&center, radius * max_scale) {
+                        [0.0, 1.0, 0.0]
+                    } else {
+                        [1.0, 0.0, 0.0]
+                    }
+                }
+                None => [1.0, 0.55, 0.1],
+            };
+
+            for (a, b) in BOX_EDGE_INDICES {
+                lines.push([
+                    world[a].x, world[a].y, world[a].z, color[0], color[1], color[2],
+                ]);
+                lines.push([
+                    world[b].x, world[b].y, world[b].z, color[0], color[1], color[2],
+                ]);
+            }
+        }
+    }
+
+    lines
+}
+
+fn grid_axes_lines() -> Vec<[f32; 6]> {
+    let mut lines = Vec::new();
+    let extent = 10;
+    let grid_color = [0.28, 0.3, 0.34];
+    let axis_x = [0.85, 0.2, 0.2];
+    let axis_y = [0.2, 0.85, 0.2];
+    let axis_z = [0.2, 0.35, 0.9];
+
+    for i in -extent..=extent {
+        let f = i as f32;
+        let extent_f = extent as f32;
+        let color = if i == 0 { axis_z } else { grid_color };
+        lines.push([f, 0.0, -extent_f, color[0], color[1], color[2]]);
+        lines.push([f, 0.0, extent_f, color[0], color[1], color[2]]);
+
+        let color = if i == 0 { axis_x } else { grid_color };
+        lines.push([-extent_f, 0.0, f, color[0], color[1], color[2]]);
+        lines.push([extent_f, 0.0, f, color[0], color[1], color[2]]);
+    }
+
+    lines.push([0.0, 0.0, 0.0, axis_y[0], axis_y[1], axis_y[2]]);
+    lines.push([0.0, 2.0, 0.0, axis_y[0], axis_y[1], axis_y[2]]);
+
+    lines
+}
+
+fn shadow_frustum_lines(ecs: &World) -> Vec<[f32; 6]> {
+    let Some(data) = ecs.get_resource::<ShadowDebugData>() else {
+        return Vec::new();
+    };
+    let mut lines = Vec::new();
+
+    for slot in data
+        .0
+        .slots
+        .iter()
+        .take(data.0.active_slot_count() as usize)
+    {
+        let color = match slot.shadow_type {
+            SHADOW_TYPE_DIRECTIONAL_CASCADE => [1.0, 0.9, 0.2],
+            SHADOW_TYPE_SPOT => [1.0, 0.5, 0.1],
+            SHADOW_TYPE_POINT => [1.0, 0.2, 0.8],
+            _ => [0.8, 0.8, 0.8],
+        };
+
+        // Point shadows use a cube map; their slot matrix is only a
+        // translation, so a frustum would be meaningless. Mark the light
+        // position instead.
+        if slot.shadow_type == SHADOW_TYPE_POINT {
+            let position = Point3::new(
+                slot.light_view_proj[3][0],
+                slot.light_view_proj[3][1],
+                slot.light_view_proj[3][2],
+            );
+            lines.extend(light_crosshair(position, color));
+            continue;
+        }
+
+        let matrix = Matrix4::from(slot.light_view_proj);
+        let corners = frustum_corners_from_matrix(&matrix);
+
+        for (a, b) in FRUSTUM_EDGES {
+            lines.push([
+                corners[a].x,
+                corners[a].y,
+                corners[a].z,
+                color[0],
+                color[1],
+                color[2],
+            ]);
+            lines.push([
+                corners[b].x,
+                corners[b].y,
+                corners[b].z,
+                color[0],
+                color[1],
+                color[2],
+            ]);
+        }
+    }
+
+    lines
+}
+
+fn selection_lines(ecs: &World) -> Vec<[f32; 6]> {
+    let Some(selected) = ecs
+        .get_resource::<DebugSelectedEntity>()
+        .and_then(|selected| selected.0)
+    else {
+        return Vec::new();
+    };
+    let Some(realizations) = ecs.get_component_store::<ModelRealization>() else {
+        return Vec::new();
+    };
+    let Some(instances) = ecs.get_component_store::<ModelInstances>() else {
+        return Vec::new();
+    };
+    let Some(real_idx) = realizations.sparse.get(selected.index).copied().flatten() else {
+        return Vec::new();
+    };
+    let Some(inst_idx) = instances.sparse.get(selected.index).copied().flatten() else {
+        return Vec::new();
+    };
+
+    let model = &realizations.components[real_idx].0;
+    let Some(bounds) = model.mesh().bounding_box() else {
+        return Vec::new();
+    };
+    let color = [0.2, 1.0, 0.3];
+    let mut lines = Vec::new();
+
+    for transform in instances.components[inst_idx].0.values() {
+        let matrix = transform.to_matrix();
+        let world = bounds.corners().map(|corner| {
+            let p = matrix * Vector4::new(corner.x, corner.y, corner.z, 1.0);
+            Point3::new(p.x, p.y, p.z)
+        });
+
+        for (a, b) in BOX_EDGE_INDICES {
+            lines.push([
+                world[a].x, world[a].y, world[a].z, color[0], color[1], color[2],
+            ]);
+            lines.push([
+                world[b].x, world[b].y, world[b].z, color[0], color[1], color[2],
+            ]);
+        }
+    }
+
+    lines
 }
 
 fn camera_frustum_corners(ecs: &World) -> Option<[Point3<f32>; 8]> {
@@ -845,4 +1279,34 @@ fn collect_light_lines(ecs: &World) -> Vec<[f32; 6]> {
         }
     }
     lines
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bounds_mode_selects_each_shape_independently() {
+        assert!(!BoundsMode::Off.spheres());
+        assert!(!BoundsMode::Off.boxes());
+        assert!(BoundsMode::Spheres.spheres());
+        assert!(!BoundsMode::Spheres.boxes());
+        assert!(!BoundsMode::Boxes.spheres());
+        assert!(BoundsMode::Boxes.boxes());
+        assert!(BoundsMode::Both.spheres());
+        assert!(BoundsMode::Both.boxes());
+    }
+
+    #[test]
+    fn debug_overlay_defaults_preserve_existing_behavior() {
+        let settings = DebugRenderSettings::default();
+        assert!(!settings.enabled);
+        assert_eq!(settings.bounds, BoundsMode::Spheres);
+        assert!(settings.frustum);
+        assert!(settings.lights);
+        assert!(!settings.wireframe);
+        assert!(!settings.grid_axes);
+        assert!(!settings.shadow_frusta);
+        assert!(!settings.selection);
+    }
 }

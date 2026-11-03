@@ -4,6 +4,7 @@ use std::collections::{BTreeSet, HashSet};
 
 use orbital_app::OrthographicForwardMode;
 use orbital_camera::ProjectionMode;
+use orbital_debug_render::BoundsMode;
 use orbital_ecs::Entity;
 use orbital_ecs_bridge::{TIMING_STAGES, TOTAL_STAGE_INDEX, VolumetricQuality};
 use orbital_renderer::{AntiAliasing, SmaaQuality};
@@ -76,8 +77,24 @@ pub enum DebugMessage {
     SetDeferredEnabled(bool),
     /// Enable or disable periodic FPS/timing/cache logging.
     SetPerformanceLogging(bool),
+    /// Enable or disable CSV performance capture.
+    SetPerformanceCsv(bool),
     /// Enable or disable the debug-render overlay.
     SetDebugOverlay(bool),
+    /// Select which model bounds the debug overlay draws.
+    SetDebugBounds(BoundsMode),
+    /// Toggle camera/frozen frustum rendering.
+    SetDebugFrustum(bool),
+    /// Toggle light indicator rendering.
+    SetDebugLights(bool),
+    /// Toggle model wireframe rendering.
+    SetDebugWireframe(bool),
+    /// Toggle world grid/axes rendering.
+    SetDebugGridAxes(bool),
+    /// Toggle shadow-map frustum rendering.
+    SetDebugShadowFrusta(bool),
+    /// Toggle the selected-entity highlight.
+    SetDebugSelection(bool),
     /// Set the HDR brightness where bloom starts.
     SetBloomThreshold(f32),
     /// Set the bloom contribution strength.
@@ -480,7 +497,15 @@ impl DebugUiState {
             | DebugMessage::SetBloomEnabled(_)
             | DebugMessage::SetDeferredEnabled(_)
             | DebugMessage::SetPerformanceLogging(_)
+            | DebugMessage::SetPerformanceCsv(_)
             | DebugMessage::SetDebugOverlay(_)
+            | DebugMessage::SetDebugBounds(_)
+            | DebugMessage::SetDebugFrustum(_)
+            | DebugMessage::SetDebugLights(_)
+            | DebugMessage::SetDebugWireframe(_)
+            | DebugMessage::SetDebugGridAxes(_)
+            | DebugMessage::SetDebugShadowFrusta(_)
+            | DebugMessage::SetDebugSelection(_)
             | DebugMessage::SetBloomThreshold(_)
             | DebugMessage::SetBloomIntensity(_)
             | DebugMessage::SetContrast(_)

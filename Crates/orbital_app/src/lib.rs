@@ -15,6 +15,9 @@ pub use orbital_ecs::Schedule;
 mod timer;
 pub use timer::*;
 
+mod performance_csv;
+pub use performance_csv::PERFORMANCE_CSV_PATH;
+
 mod context;
 pub use context::*;
 

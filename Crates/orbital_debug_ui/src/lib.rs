@@ -35,8 +35,8 @@ use orbital_camera::ProjectionMode;
 use orbital_debug_render::DebugToggleState;
 use orbital_ecs::{IntoSystem, Res, ResMut, System, World};
 use orbital_ecs_bridge::{
-    ActiveCamera, CameraDescriptor, CameraDirty, InputSnapshot, PerformanceLogConfig,
-    TimingsHistoryConfig, VolumetricSettings,
+    ActiveCamera, CameraDescriptor, CameraDirty, DebugSelectedEntity, InputSnapshot,
+    PerformanceLogConfig, TimingsHistoryConfig, VolumetricSettings,
 };
 use orbital_iced::{
     DEFAULT_REFRESH_INTERVAL, IcedLayerRenderer, IcedState, SMOOTH_REFRESH_INTERVAL,
@@ -151,6 +151,7 @@ impl Module for DebugUiModule {
         }
 
         ecs.insert_resource(DebugUiState::new(self.toggle_key));
+        ecs.insert_resource(DebugSelectedEntity::default());
 
         if ecs.get_resource::<TimingsHistoryConfig>().is_none() {
             ecs.insert_resource(TimingsHistoryConfig::default());
@@ -292,6 +293,12 @@ fn handle_debug_message(
         return;
     }
 
+    if let DebugMessage::SelectEntity(entity) = &message
+        && let Some(mut selected) = world.get_resource_mut::<DebugSelectedEntity>()
+    {
+        selected.0 = *entity;
+    }
+
     match message {
         DebugMessage::SetNumericField(key, value) => {
             let input = format!("{value}");
@@ -325,6 +332,11 @@ fn handle_debug_message(
         }
         DebugMessage::DespawnEntity(entity) => {
             let result = edit::despawn_entity(world, entity);
+            if let Some(mut selected) = world.get_resource_mut::<DebugSelectedEntity>()
+                && selected.0 == Some(entity)
+            {
+                selected.0 = None;
+            }
             if let Some(mut state) = world.get_resource_mut::<DebugUiState>() {
                 match &result {
                     Ok(()) => {
@@ -380,16 +392,51 @@ fn handle_debug_message(
                 .get_resource::<PerformanceLogConfig>()
                 .map(|config| *config)
                 .unwrap_or_default();
-            config.enabled = enabled;
+            config.console = enabled;
+            world.insert_resource(config);
+            mark_debug_dirty(world);
+            return;
+        }
+        DebugMessage::SetPerformanceCsv(enabled) => {
+            let mut config = world
+                .get_resource::<PerformanceLogConfig>()
+                .map(|config| *config)
+                .unwrap_or_default();
+            config.csv = enabled;
             world.insert_resource(config);
             mark_debug_dirty(world);
             return;
         }
         DebugMessage::SetDebugOverlay(enabled) => {
-            if let Some(mut toggle) = world.get_resource_mut::<DebugToggleState>() {
-                toggle.enabled = enabled;
-            }
-            mark_debug_dirty(world);
+            update_debug_settings(world, |settings| settings.enabled = enabled);
+            return;
+        }
+        DebugMessage::SetDebugBounds(bounds) => {
+            update_debug_settings(world, |settings| settings.bounds = bounds);
+            return;
+        }
+        DebugMessage::SetDebugFrustum(enabled) => {
+            update_debug_settings(world, |settings| settings.frustum = enabled);
+            return;
+        }
+        DebugMessage::SetDebugLights(enabled) => {
+            update_debug_settings(world, |settings| settings.lights = enabled);
+            return;
+        }
+        DebugMessage::SetDebugWireframe(enabled) => {
+            update_debug_settings(world, |settings| settings.wireframe = enabled);
+            return;
+        }
+        DebugMessage::SetDebugGridAxes(enabled) => {
+            update_debug_settings(world, |settings| settings.grid_axes = enabled);
+            return;
+        }
+        DebugMessage::SetDebugShadowFrusta(enabled) => {
+            update_debug_settings(world, |settings| settings.shadow_frusta = enabled);
+            return;
+        }
+        DebugMessage::SetDebugSelection(enabled) => {
+            update_debug_settings(world, |settings| settings.selection = enabled);
             return;
         }
         DebugMessage::SetBloomThreshold(threshold) => {
@@ -525,6 +572,23 @@ fn handle_debug_message(
 fn mark_debug_dirty(world: &mut World) {
     if let Some(mut state) = world.get_resource_mut::<DebugUiState>() {
         state.dirty = true;
+    }
+}
+
+/// Mutates the debug-render settings when the debug-render module is present.
+fn update_debug_settings(
+    world: &mut World,
+    update: impl FnOnce(&mut orbital_debug_render::DebugRenderSettings),
+) {
+    let changed = if let Some(mut toggle) = world.get_resource_mut::<DebugToggleState>() {
+        update(&mut toggle.settings);
+        true
+    } else {
+        false
+    };
+
+    if changed {
+        mark_debug_dirty(world);
     }
 }
 
