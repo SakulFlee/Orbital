@@ -12,6 +12,7 @@ use orbital_ecs_bridge::{
     ActiveCamera, CameraDescriptor, LightDescriptor, ModelDescriptor, VolumetricQuality,
     VolumetricSettings,
 };
+use orbital_material_shader::RenderQueue;
 use orbital_renderer::{AntiAliasing, SmaaQuality};
 
 use crate::state::Renderer as IcedRenderer;
@@ -120,11 +121,29 @@ pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
         .get_component_store::<LightDescriptor>()
         .map(|store| store.dense.len())
         .unwrap_or(0);
+    let (opaque_draws, transparent_draws) = ecs
+        .get_component_store::<ModelDescriptor>()
+        .map(|models| {
+            models
+                .components
+                .iter()
+                .flat_map(|model| model.materials.iter())
+                .fold(
+                    (0usize, 0usize),
+                    |(opaque, transparent), material| match material.render_queue {
+                        RenderQueue::Opaque => (opaque + 1, transparent),
+                        RenderQueue::Transparent => (opaque, transparent + 1),
+                    },
+                )
+        })
+        .unwrap_or((0, 0));
     rows.push(
-        text(format!("{model_count} models · {light_count} lights"))
-            .size(10)
-            .color(MUTED)
-            .into(),
+        text(format!(
+            "{model_count} models · {light_count} lights · {opaque_draws} opaque / {transparent_draws} transparent draws"
+        ))
+        .size(10)
+        .color(MUTED)
+        .into(),
     );
     rows.push(
         checkbox(render.deferred_enabled)
