@@ -8,6 +8,11 @@ target/
 *.log
 Logs/
 
+# Python tooling
+__pycache__/
+.ipynb_checkpoints/
+.venv/
+
 # VIM: Session
 Session.vim
 
