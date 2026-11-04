@@ -28,6 +28,7 @@ use winit::{
     window::{CursorGrabMode, WindowId},
 };
 
+use crate::camera_commands::{CameraCommand, apply_camera_commands};
 use crate::performance_csv::{PERFORMANCE_CSV_PATH, PerformanceCsvRecorder};
 use crate::{AppContext, AppSettings, AppState, Module, Timer, make_core_schedule};
 use orbital_ecs_bridge::{
@@ -261,6 +262,9 @@ impl ModuleRuntime {
             .ecs_world
             .insert_resource(WindowSize(cgmath::Vector2::new(0, 0)));
         runtime.ecs_world.insert_resource(EngineEvents::default());
+        runtime
+            .ecs_world
+            .insert_resource(orbital_ecs::Events::<CameraCommand>::new());
         runtime.ecs_world.insert_resource(CameraStore::new());
 
         event_loop.run_app(&mut runtime)
@@ -429,6 +433,10 @@ impl ModuleRuntime {
                 false
             }
         };
+
+        // Apply camera commands before realization so changes take effect in
+        // this frame without recreating entities or GPU cameras.
+        apply_camera_commands(&mut self.ecs_world);
 
         // Realize all ECS state (needs &mut self.ecs_world)
         crate::systems::realize::realize_cameras(&mut self.ecs_world);

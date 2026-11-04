@@ -5,7 +5,7 @@ use orbital::billboard::{
     Billboard, BillboardMode, BillboardModule, text_billboard_with_background,
 };
 use orbital::cgmath::{InnerSpace, Point3, Rad, Vector2, Vector3};
-use orbital::ecs::{IntoSystem, System, World};
+use orbital::ecs::{System, World};
 use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptor, CursorGrabConfig, EnvironmentDescriptorResource,
     LightDescriptor, LightDirty, ModelDescriptor, ModelDirty, ModelInstances, Position, Rotation,
@@ -257,7 +257,7 @@ impl Module for GameModule {
         let label_entity = ecs.spawn_entity();
         ecs.attach_component(&label_entity, label).unwrap();
 
-        vec![sys_camera_controller.into_system(), sys_ortho_dolly()]
+        vec![sys_camera_controller(), sys_ortho_dolly()]
     }
 }
 

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use orbital::app::{App, AppSettings, Module, sys_camera_controller, sys_ortho_dolly};
 use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector2, Vector3};
-use orbital::ecs::{IntoSystem, System, World};
+use orbital::ecs::{System, World};
 use orbital::ecs_bridge::{
     ActiveCamera, CameraDescriptor, CursorGrabConfig, EnvironmentDescriptorResource,
     LightDescriptor, LightDirty, ModelDescriptor, ModelDirty, ModelInstances, Position, Rotation,
@@ -229,7 +229,7 @@ impl Module for GameModule {
             .unwrap();
         ecs.attach_component(&fill, LightDirty(true)).unwrap();
 
-        vec![sys_camera_controller.into_system(), sys_ortho_dolly()]
+        vec![sys_camera_controller(), sys_ortho_dolly()]
     }
 }
 

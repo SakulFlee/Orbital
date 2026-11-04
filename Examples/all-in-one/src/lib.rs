@@ -571,7 +571,7 @@ impl Module for ProcgeoSceneModule {
                     asset_root.display()
                 );
                 return vec![
-                    sys_camera_controller.into_system(),
+                    sys_camera_controller(),
                     sys_ortho_dolly(),
                     Box::new(CursorToggle::new(true)),
                 ];
@@ -859,7 +859,7 @@ impl Module for ProcgeoSceneModule {
         ecs.attach_component(&fill, LightDirty(true)).unwrap();
 
         vec![
-            sys_camera_controller.into_system(),
+            sys_camera_controller(),
             sys_ortho_dolly(),
             Box::new(CursorToggle::new(true)),
             Box::new(HelmetAdjuster::new()),
