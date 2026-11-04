@@ -30,6 +30,9 @@ pub use state::*;
 pub mod app;
 pub use app::App;
 
+mod camera_commands;
+pub use camera_commands::{CameraCommand, apply_camera_commands};
+
 pub mod module;
 pub use module::Module;
 
