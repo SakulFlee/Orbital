@@ -232,7 +232,9 @@ ORBITAL_PERF_CSV=~/orbital-performance.csv \
 
 The notebook plots FPS, frame time, CPU/GPU stages and cache counters, and
 prints automated observations such as frame-time percentiles, spike counts,
-the slowest stages, and the stage share of frame time.
+the slowest stages, and the stage share of frame time. Cache deltas, cumulative
+WGSL source count, and dynamic-sky updates are plotted on separate axes because
+they use different units and scales.
 
 ## Troubleshooting
 
