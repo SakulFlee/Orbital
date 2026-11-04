@@ -35,6 +35,10 @@ pub fn material_cache_stats() -> (u64, u64) {
 pub struct Model {
     mesh: Arc<Mesh>,
     materials: Vec<Arc<MaterialShader>>,
+    /// Source descriptors kept for cheap identity checks. A transform-only
+    /// update can compare these `Arc`s without re-hashing the whole mesh.
+    source_mesh: Arc<MeshDescriptor>,
+    source_materials: Vec<Arc<MaterialShaderDescriptor>>,
     instance_count: u32,
     instance_capacity: u32,
     instance_buffer: Buffer,
@@ -115,6 +119,8 @@ impl Model {
         let mut model = Self {
             mesh,
             materials,
+            source_mesh: descriptor.mesh.clone(),
+            source_materials: descriptor.materials.clone(),
             instance_count: 0,
             instance_capacity,
             instance_buffer,
@@ -235,5 +241,21 @@ impl Model {
     /// update its instances in place.
     pub fn source_hash(&self) -> Ulid {
         self.source_hash
+    }
+
+    /// Whether `descriptor` still refers to the same mesh and material
+    /// descriptors used to build this model.
+    ///
+    /// This is a pointer-identity check, not a content hash. Descriptors are
+    /// immutable values held in shared `Arc`s, so a changed source necessarily
+    /// produces a different `Arc`.
+    pub fn source_matches(&self, descriptor: &ModelDescriptor) -> bool {
+        Arc::ptr_eq(&self.source_mesh, &descriptor.mesh)
+            && self.source_materials.len() == descriptor.materials.len()
+            && self
+                .source_materials
+                .iter()
+                .zip(&descriptor.materials)
+                .all(|(a, b)| Arc::ptr_eq(a, b))
     }
 }
