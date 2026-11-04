@@ -48,8 +48,29 @@ pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
         .unwrap_or_default();
     let projection = active_projection(ecs);
 
-    let mut rows: Vec<Element<'static, DebugMessage, Theme, IcedRenderer>> = vec![
-        crate::panels::caption("Anti-aliasing", ACCENT),
+    let mut rows: Vec<Element<'static, DebugMessage, Theme, IcedRenderer>> = Vec::new();
+
+    // Keep the master switch at the top of the panel. It used to live at the
+    // bottom of the long debug section, below the fold on smaller panels.
+    if let Some(toggle) = ecs.get_resource::<DebugToggleState>() {
+        rows.push(
+            checkbox(toggle.settings.enabled)
+                .label("Debug overlay (F3)")
+                .text_size(12)
+                .on_toggle(DebugMessage::SetDebugOverlay)
+                .into(),
+        );
+        rows.push(
+            text(format!("{:?} also toggles this overlay.", toggle.key))
+                .size(10)
+                .color(MUTED)
+                .into(),
+        );
+        rows.push(crate::panels::divider());
+    }
+
+    rows.push(crate::panels::caption("Anti-aliasing", ACCENT));
+    rows.push(
         row![
             radio(
                 "Off",
@@ -72,7 +93,7 @@ pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
         ]
         .spacing(8)
         .into(),
-    ];
+    );
 
     if render.anti_aliasing == AntiAliasing::Smaa {
         rows.push(crate::panels::caption("SMAA quality", ACCENT));
@@ -467,23 +488,10 @@ pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
     }
 
     rows.push(crate::panels::divider());
-    rows.push(crate::panels::caption("Debug overlays", ACCENT));
+    rows.push(crate::panels::caption("Debug categories", ACCENT));
     match ecs.get_resource::<DebugToggleState>() {
         Some(toggle) => {
             let settings = toggle.settings;
-            rows.push(
-                checkbox(settings.enabled)
-                    .label("Debug overlay")
-                    .text_size(12)
-                    .on_toggle(DebugMessage::SetDebugOverlay)
-                    .into(),
-            );
-            rows.push(
-                text(format!("{:?} toggles the master switch.", toggle.key))
-                    .size(10)
-                    .color(MUTED)
-                    .into(),
-            );
             rows.push(crate::panels::caption("Bounds", MUTED));
             rows.push(
                 row![
