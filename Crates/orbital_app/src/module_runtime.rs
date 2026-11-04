@@ -40,9 +40,9 @@ use orbital_ecs_bridge::{
     STAGE_GPU_SCENE_TOTAL, STAGE_GPU_SHADOW, STAGE_GPU_SKYBOX, STAGE_ICED_DRAW, STAGE_ICED_SUBMIT,
     STAGE_OVERLAY_LAYERS, STAGE_OVERLAY_MAIN, STAGE_PRESENT, STAGE_REALIZE, STAGE_REALIZE_ENV,
     STAGE_REALIZE_MODELS, STAGE_SCENE_ENCODE, STAGE_SCENE_SUBMIT, STAGE_STAGGER, STAGE_SURFACE_ACQ,
-    STAGE_TIMESTAMP_READBACK, STAGE_TOTAL, STAGE_UI_EVENTS, STAGE_UPDATE, STAGE_VOLUMETRICS,
-    ShadowDebugData, SurfaceFormatResource, TIMING_STAGES, TimingsHistoryConfig, TotalTime,
-    WindowSize,
+    STAGE_SURFACE_ACQUIRE, STAGE_SURFACE_LOCK, STAGE_SURFACE_VIEW, STAGE_TIMESTAMP_READBACK,
+    STAGE_TOTAL, STAGE_UI_EVENTS, STAGE_UPDATE, STAGE_VOLUMETRICS, ShadowDebugData,
+    SurfaceFormatResource, TIMING_STAGES, TimingsHistoryConfig, TotalTime, WindowSize,
 };
 
 macro_rules! ctx_lock {
@@ -284,7 +284,9 @@ impl ModuleRuntime {
         };
 
         let lock = ctx_lock!(ctx);
+        let d_surface_lock = t_start.elapsed();
 
+        let t_surface_acquire_start = std::time::Instant::now();
         let frame = match lock.current_surface_texture() {
             CurrentSurfaceTexture::Success(surface_texture) => surface_texture,
             CurrentSurfaceTexture::Suboptimal(surface_texture) => {
@@ -313,14 +315,18 @@ impl ModuleRuntime {
             }
         };
 
+        let d_surface_acquire = t_surface_acquire_start.elapsed();
+
         let format = lock.get_first_view_format();
         let device = lock.device();
         let queue = lock.queue();
 
+        let t_surface_view_start = std::time::Instant::now();
         let view: wgpu::TextureView = frame.texture.create_view(&TextureViewDescriptor {
             format: Some(format),
             ..TextureViewDescriptor::default()
         });
+        let d_surface_view = t_surface_view_start.elapsed();
 
         // Apply runtime renderer controls before recording the frame. This
         // lets the debug UI and app systems change AA without recreating the
@@ -695,6 +701,10 @@ impl ModuleRuntime {
         }
 
         self.frame_timings.set(STAGE_SURFACE_ACQ, d_surface_acq);
+        self.frame_timings.set(STAGE_SURFACE_LOCK, d_surface_lock);
+        self.frame_timings
+            .set(STAGE_SURFACE_ACQUIRE, d_surface_acquire);
+        self.frame_timings.set(STAGE_SURFACE_VIEW, d_surface_view);
         self.frame_timings
             .set_ms(STAGE_UPDATE, self.update_timings.total_ms);
         self.frame_timings
