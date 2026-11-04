@@ -62,3 +62,7 @@ wasi-modules/*
 .direnv/
 
 cgg
+
+# Jupyter NVim generated files
+performance_report.py
+
