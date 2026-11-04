@@ -92,7 +92,7 @@ pub struct TimingSample {
 /// frame. The GPU stages are derived from timestamp query results read back
 /// from the renderer, and are only meaningful on backends that support
 /// timestamp queries; elsewhere they stay at zero.
-pub const TIMING_STAGES: [&str; 24] = [
+pub const TIMING_STAGES: [&str; 27] = [
     "surface_acq",
     "update",
     "ui_events",
@@ -113,6 +113,9 @@ pub const TIMING_STAGES: [&str; 24] = [
     "iced submit",
     "present",
     "total",
+    "surface lock",
+    "surface acquire",
+    "surface view",
     "gpu shadow",
     "gpu skybox",
     "gpu models",
@@ -141,10 +144,13 @@ pub const STAGE_ICED_DRAW: usize = 16;
 pub const STAGE_ICED_SUBMIT: usize = 17;
 pub const STAGE_PRESENT: usize = 18;
 pub const STAGE_TOTAL: usize = 19;
-pub const STAGE_GPU_SHADOW: usize = 20;
-pub const STAGE_GPU_SKYBOX: usize = 21;
-pub const STAGE_GPU_MODELS: usize = 22;
-pub const STAGE_GPU_SCENE_TOTAL: usize = 23;
+pub const STAGE_SURFACE_LOCK: usize = 20;
+pub const STAGE_SURFACE_ACQUIRE: usize = 21;
+pub const STAGE_SURFACE_VIEW: usize = 22;
+pub const STAGE_GPU_SHADOW: usize = 23;
+pub const STAGE_GPU_SKYBOX: usize = 24;
+pub const STAGE_GPU_MODELS: usize = 25;
+pub const STAGE_GPU_SCENE_TOTAL: usize = 26;
 
 /// The index of the `total` stage, which is the whole-frame duration and the
 /// series a frame-time graph should plot.
