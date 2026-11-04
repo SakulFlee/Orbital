@@ -33,11 +33,12 @@ pub struct FrameCounter(pub u64);
 /// all-in-one template) to display live performance metrics on screen.
 #[derive(Debug, Clone, Copy)]
 pub struct FpsStats {
-    /// Frames rendered in the last complete one-second window.
+    /// Frames rendered in the last complete FPS window.
     pub fps: u64,
-    /// Cumulative delta time for the current one-second window (seconds).
+    /// Elapsed time covered by that window (seconds). This can exceed one
+    /// second when a single frame or stall closes the window.
     pub total_delta_time: f64,
-    /// Delta time of the most recent frame (seconds).
+    /// Delta time of the most recent frame (seconds), clamped for gameplay.
     pub cycle_delta_time: f64,
 }
 
