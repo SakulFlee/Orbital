@@ -105,7 +105,7 @@ The debug UI can write FPS, frame-stage timings and cache counters to
 `Logs/performance.csv`. See
 [PERFORMANCE_REPORTING.md](PERFORMANCE_REPORTING.md) for enabling capture and
 retrieving the file on desktop, Android and iOS, plus the bundled analysis
-script and notebook.
+notebook.
 
 ## Engine Concepts
 

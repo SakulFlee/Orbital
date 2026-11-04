@@ -213,25 +213,11 @@ yet.
 
 ## Visualise the report
 
-A small script and a Jupyter notebook are in `Tools/performance/`.
-
-### Script
+The analysis notebook is in `Tools/performance/`.
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r Tools/performance/requirements.txt
-python Tools/performance/performance_report.py performance.csv
-```
-
-The script prints a summary and writes `performance_report.png` next to the
-CSV. Pass a different output path with `--output`.
-
-### Notebook
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
 pip install -r Tools/performance/requirements.txt
 jupyter lab Tools/performance/performance_report.ipynb
 ```
