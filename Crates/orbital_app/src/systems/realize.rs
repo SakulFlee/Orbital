@@ -230,18 +230,25 @@ pub fn realize_models(ecs: &mut World) {
                 None => continue,
             };
 
-            let is_dirty = match ecs.get_component_store::<ModelDirty>() {
-                Some(store) => match store.sparse.get(eid).and_then(|x| *x) {
-                    Some(idx) => store.components[idx].0,
-                    None => true,
-                },
-                None => true,
-            };
+            // A missing dirty component means "not dirty" for an already
+            // realized model. Treating it as dirty made every model without a
+            // flag re-enter the realization path on every frame.
+            let is_dirty = ecs
+                .get_component_store::<ModelDirty>()
+                .and_then(|store| {
+                    store
+                        .sparse
+                        .get(eid)
+                        .copied()
+                        .flatten()
+                        .map(|idx| store.components[idx].0)
+                })
+                .unwrap_or(false);
 
             let has_realization = ecs
                 .get_component_store::<ModelRealization>()
-                .map(|store| store.sparse.get(eid).is_some())
-                .unwrap_or(false);
+                .and_then(|store| store.sparse.get(eid).copied().flatten())
+                .is_some();
 
             if !is_dirty && has_realization {
                 continue;
@@ -274,7 +281,7 @@ pub fn realize_models(ecs: &mut World) {
             && let Some(index) = store.sparse.get(eid).copied().flatten()
         {
             let realization = &mut store.get_mut_store().components[index].0;
-            if realization.source_hash() == model_desc.instance_hash() {
+            if realization.source_matches(&model_desc) {
                 Arc::make_mut(realization).update_instances(
                     &model_desc.transforms,
                     &device,
