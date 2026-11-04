@@ -8,6 +8,9 @@ pub struct AppSettings {
     pub name: String,
     pub size: Size,
     pub vsync_enabled: bool,
+    /// Optional frame-rate cap when VSync is disabled. `None` is uncapped;
+    /// VSync takes precedence when enabled.
+    pub fps_limit: Option<u32>,
     /// 3D scene anti-aliasing. 2D/UI overlays are always rendered after the
     /// post chain and are not affected.
     ///
@@ -55,6 +58,7 @@ impl Default for AppSettings {
             name: "Orbital App".into(),
             size: PhysicalSize::new(1280, 720).into(),
             vsync_enabled: true,
+            fps_limit: None,
             anti_aliasing: AntiAliasing::Fxaa,
             smaa_quality: SmaaQuality::default(),
             exposure: 1.0,
