@@ -29,7 +29,7 @@ use winit::{
 };
 
 use crate::performance_csv::{PERFORMANCE_CSV_PATH, PerformanceCsvRecorder};
-use crate::{AppContext, AppSettings, AppState, Module, Timer, make_core_schedule};
+use crate::{AppContext, AppSettings, AppState, FrameLimiter, Module, Timer, make_core_schedule};
 use orbital_ecs_bridge::{
     ActiveCamera, AdapterResource, CameraDescriptor, CameraDirty, CameraStore, CursorGrabConfig,
     CursorGrabState, CursorPosition, DeltaTime, DeviceResource, EngineEvent, EngineEvents,
@@ -135,6 +135,7 @@ pub struct ModuleRuntime {
     state: AppState,
     input_state: InputState,
     timer: Option<Timer>,
+    frame_limiter: FrameLimiter,
     ecs_world: orbital_ecs::World,
     core_schedule: Schedule,
     game_schedule: Schedule,
@@ -207,6 +208,7 @@ impl ModuleRuntime {
             state: AppState::Starting,
             input_state: InputState::new(),
             timer: None,
+            frame_limiter: FrameLimiter::default(),
             ecs_world: orbital_ecs::World::new(),
             core_schedule: make_core_schedule(),
             game_schedule: Schedule::new(),
@@ -747,6 +749,16 @@ impl ModuleRuntime {
         } else {
             None
         };
+
+        // The deadline is based on the start of this redraw, so acquire,
+        // render, present, and this wait together count toward the target
+        // period. A frame that already ran long starts the next one
+        // immediately.
+        self.frame_limiter.wait(
+            t_start,
+            self.settings.fps_limit,
+            self.settings.vsync_enabled,
+        );
 
         let Some(averages) = sample else {
             return;
