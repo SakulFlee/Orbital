@@ -1154,6 +1154,14 @@ impl ModuleRuntime {
         if let Some(recorder) = self.performance_csv.take() {
             recorder.finish();
         }
+
+        // A queued redraw can still run after `exit()`. Clear the switch so
+        // `sync_performance_csv` does not reopen (and truncate) the file on the
+        // way out.
+        if let Some(mut config) = self.ecs_world.get_resource_mut::<PerformanceLogConfig>() {
+            config.csv = false;
+        }
+
         self.module.clear_state(&mut self.ecs_world);
         event_loop.exit();
     }
