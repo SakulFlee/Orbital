@@ -5,12 +5,19 @@ pub enum WorldEnvironmentError {
     IO(std::io::Error),
     Image(image::ImageError),
     Fs(orbital_file_manager::FsError),
+    Texture(orbital_texture::TextureError),
     Msg(String),
 }
 
 impl WorldEnvironmentError {
     pub fn msg(msg: impl Into<String>) -> Self {
         Self::Msg(msg.into())
+    }
+}
+
+impl From<orbital_texture::TextureError> for WorldEnvironmentError {
+    fn from(error: orbital_texture::TextureError) -> Self {
+        Self::Texture(error)
     }
 }
 
@@ -22,6 +29,7 @@ impl Display for WorldEnvironmentError {
             Self::IO(e) => write!(f, "IO error: {e}"),
             Self::Image(e) => write!(f, "Image error: {e}"),
             Self::Fs(e) => write!(f, "FileManager error: {e}"),
+            Self::Texture(e) => write!(f, "Texture error: {e}"),
             Self::Msg(m) => write!(f, "{m}"),
         }
     }

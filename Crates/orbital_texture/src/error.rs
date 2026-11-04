@@ -16,6 +16,8 @@ pub enum TextureError {
         depth_or_array_layers: u32,
         bytes_per_pixel: u32,
     },
+    /// A GPU texture readback failed, timed out, or could not be mapped.
+    Readback(String),
 }
 
 impl Display for TextureError {
@@ -37,6 +39,7 @@ impl Display for TextureError {
                  ({width}x{height}x{depth_or_array_layers} @ {bytes_per_pixel} bytes/pixel), \
                  got {actual} bytes"
             ),
+            Self::Readback(message) => write!(f, "Texture readback error: {message}"),
         }
     }
 }
@@ -47,7 +50,7 @@ impl std::error::Error for TextureError {
             Self::ImageError(e) => Some(e),
             Self::IOError(e) => Some(e),
             Self::FsError(e) => Some(e),
-            Self::DataSizeMismatch { .. } => None,
+            Self::DataSizeMismatch { .. } | Self::Readback(_) => None,
         }
     }
 }
