@@ -1475,8 +1475,8 @@ impl WorldEnvironment {
         pbr_ibl_specular: &Texture,
         device: &Device,
         queue: &Queue,
-    ) -> (TextureDescriptor, TextureDescriptor) {
-        let ibl_diffuse_data = pbr_ibl_diffuse.read_as_binary(device, queue);
+    ) -> Result<(TextureDescriptor, TextureDescriptor), WorldEnvironmentError> {
+        let ibl_diffuse_data = pbr_ibl_diffuse.read_as_binary(device, queue)?;
         let ibl_diffuse_size = pbr_ibl_diffuse.texture().size();
         let ibl_diffuse_descriptor = TextureDescriptor::Data {
             pixels: ibl_diffuse_data,
@@ -1494,7 +1494,7 @@ impl WorldEnvironment {
             filter_mode: FilterMode::nearest(),
         };
 
-        let ibl_specular_data = pbr_ibl_specular.read_as_binary(device, queue);
+        let ibl_specular_data = pbr_ibl_specular.read_as_binary(device, queue)?;
         let ibl_specular_size = pbr_ibl_specular.texture().size();
         let ibl_specular_descriptor = TextureDescriptor::Data {
             pixels: ibl_specular_data,
@@ -1513,7 +1513,7 @@ impl WorldEnvironment {
             filter_mode: FilterMode::nearest(),
         };
 
-        (ibl_diffuse_descriptor, ibl_specular_descriptor)
+        Ok((ibl_diffuse_descriptor, ibl_specular_descriptor))
     }
 
     pub fn make_material_shader_descriptor(generated: bool) -> MaterialShaderDescriptor {
@@ -1563,8 +1563,8 @@ impl WorldEnvironment {
         device: &Device,
         queue: &Queue,
     ) -> Result<(), WorldEnvironmentError> {
-        let ibl_diffuse_data = self.ibl_diffuse.read_as_binary(device, queue);
-        let ibl_specular_data = self.ibl_specular.read_as_binary(device, queue);
+        let ibl_diffuse_data = self.ibl_diffuse.read_as_binary(device, queue)?;
+        let ibl_specular_data = self.ibl_specular.read_as_binary(device, queue)?;
         // Store the actual number of mip levels generated for the specular texture.
         // This ensures that when loading from cache, the texture is created with
         // the correct number of mip levels, regardless of the descriptor used for loading.

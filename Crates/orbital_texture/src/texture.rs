@@ -1,11 +1,11 @@
 use std::cmp::Ordering;
 use std::ffi::OsString;
 use std::io::Cursor;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use cgmath::{Vector2, Vector4};
 use image::ImageReader;
-use log::warn;
 use orbital_file_manager::FileManager;
 use wgpu::wgt::PollType;
 use wgpu::{
@@ -28,34 +28,36 @@ const GPU_POLL_INTERVAL: Duration = Duration::from_millis(15);
 ///
 /// Uses `device.poll(Poll)` in a tight loop with `thread::sleep`, wrapped
 /// in `catch_unwind` to safely handle any panics from wgpu.
-fn poll_wait_texture(device: &Device, label: &str) {
+fn poll_wait_texture(device: &Device, label: &str) -> Result<(), TextureError> {
     let start = std::time::Instant::now();
     loop {
         if start.elapsed() > GPU_POLL_TIMEOUT {
-            warn!("[Texture] Poll wait for '{}' timed out", label);
-            return;
+            return Err(TextureError::Readback(format!(
+                "{label} timed out after {}s",
+                GPU_POLL_TIMEOUT.as_secs()
+            )));
         }
 
         match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| device.poll(PollType::Poll)))
         {
-            Ok(Ok(s)) => match s {
-                wgpu::PollStatus::QueueEmpty | wgpu::PollStatus::WaitSucceeded => return,
-                wgpu::PollStatus::Poll => {
-                    std::thread::sleep(GPU_POLL_INTERVAL);
-                    continue;
-                }
-            },
-            Ok(Err(e)) => {
-                warn!("[Texture] Poll wait for '{}' error: {:?}", label, e);
+            Ok(Ok(wgpu::PollStatus::QueueEmpty | wgpu::PollStatus::WaitSucceeded)) => return Ok(()),
+            Ok(Ok(wgpu::PollStatus::Poll)) => {
                 std::thread::sleep(GPU_POLL_INTERVAL);
-                continue;
+            }
+            Ok(Err(error)) => {
+                return Err(TextureError::Readback(format!(
+                    "{label} poll error: {error:?}"
+                )));
             }
             Err(panic_payload) => {
-                warn!(
-                    "[Texture] Poll wait for '{}' panicked: {:?}",
-                    label, panic_payload
-                );
-                return;
+                let message = panic_payload
+                    .downcast_ref::<&str>()
+                    .copied()
+                    .or_else(|| panic_payload.downcast_ref::<String>().map(String::as_str))
+                    .unwrap_or("unknown panic");
+                return Err(TextureError::Readback(format!(
+                    "{label} poll panicked: {message}"
+                )));
             }
         }
     }
@@ -663,7 +665,7 @@ impl Texture {
         }
     }
 
-    pub fn read_as_binary(&self, device: &Device, queue: &Queue) -> Vec<u8> {
+    pub fn read_as_binary(&self, device: &Device, queue: &Queue) -> Result<Vec<u8>, TextureError> {
         // 256MB, hard enforced by WGPU. A buffer cannot be bigger than this, thus we need to read in chunks.
         const MAX_BUFFER_SIZE: u64 = 268_435_456;
         // In WGPU a buffer has to be aligned with 2^8 bytes.
@@ -734,20 +736,37 @@ impl Texture {
 
                 // Submit the "copy texture to buffer" command and wait for it to finish
                 queue.submit([encoder.finish()]);
-                poll_wait_texture(device, "Texture readback (copy to buffer)");
+                poll_wait_texture(device, "Texture readback (copy to buffer)")?;
 
-                // Mark buffer as readable by mapping it and wait for it to finish
-                buffer.slice(..).map_async(wgpu::MapMode::Read, |_| {});
-                device
-                    .poll(PollType::Poll)
-                    .expect("Waiting for texture mapping failed!");
+                // Mark buffer as readable by mapping it and wait for it to finish.
+                // The callback result is captured because mapping can fail
+                // independently of the poll status.
+                let map_result = Arc::new(Mutex::new(None));
+                let map_result_callback = Arc::clone(&map_result);
+                buffer
+                    .slice(..)
+                    .map_async(wgpu::MapMode::Read, move |result| {
+                        *map_result_callback.lock().unwrap() = Some(result);
+                    });
+                poll_wait_texture(device, "Texture readback (map buffer)")?;
 
-                // Append our now readable data
-                final_data.extend_from_slice(&buffer.slice(..).get_mapped_range().unwrap());
+                let map_result = map_result.lock().unwrap().take().ok_or_else(|| {
+                    TextureError::Readback("buffer mapping callback did not run".into())
+                })?;
+                map_result.map_err(|error| {
+                    TextureError::Readback(format!("buffer mapping failed: {error:?}"))
+                })?;
+
+                let mapped = buffer.slice(..).get_mapped_range().map_err(|error| {
+                    TextureError::Readback(format!("failed to access mapped buffer: {error:?}"))
+                })?;
+                final_data.extend_from_slice(&mapped);
+                drop(mapped);
+                buffer.unmap();
             }
         }
 
-        final_data
+        Ok(final_data)
     }
 
     pub fn texture(&self) -> &WTexture {
