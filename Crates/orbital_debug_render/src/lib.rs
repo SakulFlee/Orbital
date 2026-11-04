@@ -637,7 +637,7 @@ impl LayerRenderer for DebugRenderOverlay {
             extra_lines.extend(collect_light_lines(ctx.ecs));
         }
         if settings.grid_axes {
-            extra_lines.extend(grid_axes_lines());
+            extra_lines.extend(grid_axes_lines(ctx.ecs));
         }
         if settings.shadow_frusta {
             extra_lines.extend(shadow_frustum_lines(ctx.ecs));
@@ -927,7 +927,7 @@ fn collect_box_lines(
                         [1.0, 0.0, 0.0]
                     }
                 }
-                None => [1.0, 0.55, 0.1],
+                None => [0.85, 0.25, 1.0],
             };
 
             for (a, b) in BOX_EDGE_INDICES {
@@ -944,28 +944,53 @@ fn collect_box_lines(
     lines
 }
 
-fn grid_axes_lines() -> Vec<[f32; 6]> {
+fn grid_axes_lines(ecs: &World) -> Vec<[f32; 6]> {
+    let center = ecs
+        .get_resource::<ActiveCamera>()
+        .and_then(|active| {
+            ecs.get_component_store::<Position>()
+                .and_then(|positions| positions.get_component(active.0.index).copied())
+        })
+        .map(|position| (position.0.x, position.0.z))
+        .unwrap_or((0.0, 0.0));
+
+    // Follow the camera so the grid does not visibly end under normal
+    // movement. Two-unit spacing keeps the line count bounded while still
+    // reading as a useful world scale.
+    const EXTENT: f32 = 200.0;
+    const STEP: f32 = 2.0;
+    let grid_color = [0.22, 0.25, 0.30];
+    let axis_x = [0.95, 0.2, 0.2];
+    let axis_y = [0.2, 0.95, 0.2];
+    let axis_z = [0.2, 0.35, 1.0];
+
+    let start_x = ((center.0 - EXTENT) / STEP).floor() * STEP;
+    let end_x = center.0 + EXTENT;
+    let start_z = ((center.1 - EXTENT) / STEP).floor() * STEP;
+    let end_z = center.1 + EXTENT;
+
     let mut lines = Vec::new();
-    let extent = 10;
-    let grid_color = [0.28, 0.3, 0.34];
-    let axis_x = [0.85, 0.2, 0.2];
-    let axis_y = [0.2, 0.85, 0.2];
-    let axis_z = [0.2, 0.35, 0.9];
-
-    for i in -extent..=extent {
-        let f = i as f32;
-        let extent_f = extent as f32;
-        let color = if i == 0 { axis_z } else { grid_color };
-        lines.push([f, 0.0, -extent_f, color[0], color[1], color[2]]);
-        lines.push([f, 0.0, extent_f, color[0], color[1], color[2]]);
-
-        let color = if i == 0 { axis_x } else { grid_color };
-        lines.push([-extent_f, 0.0, f, color[0], color[1], color[2]]);
-        lines.push([extent_f, 0.0, f, color[0], color[1], color[2]]);
+    let mut x = start_x;
+    while x <= end_x {
+        lines.push([x, 0.0, start_z, grid_color[0], grid_color[1], grid_color[2]]);
+        lines.push([x, 0.0, end_z, grid_color[0], grid_color[1], grid_color[2]]);
+        x += STEP;
     }
 
+    let mut z = start_z;
+    while z <= end_z {
+        lines.push([start_x, 0.0, z, grid_color[0], grid_color[1], grid_color[2]]);
+        lines.push([end_x, 0.0, z, grid_color[0], grid_color[1], grid_color[2]]);
+        z += STEP;
+    }
+
+    // World axes stay at the origin; the grid itself follows the camera.
+    lines.push([-EXTENT, 0.0, 0.0, axis_x[0], axis_x[1], axis_x[2]]);
+    lines.push([EXTENT, 0.0, 0.0, axis_x[0], axis_x[1], axis_x[2]]);
+    lines.push([0.0, 0.0, -EXTENT, axis_z[0], axis_z[1], axis_z[2]]);
+    lines.push([0.0, 0.0, EXTENT, axis_z[0], axis_z[1], axis_z[2]]);
     lines.push([0.0, 0.0, 0.0, axis_y[0], axis_y[1], axis_y[2]]);
-    lines.push([0.0, 2.0, 0.0, axis_y[0], axis_y[1], axis_y[2]]);
+    lines.push([0.0, 5.0, 0.0, axis_y[0], axis_y[1], axis_y[2]]);
 
     lines
 }
@@ -983,8 +1008,8 @@ fn shadow_frustum_lines(ecs: &World) -> Vec<[f32; 6]> {
         .take(data.0.active_slot_count() as usize)
     {
         let color = match slot.shadow_type {
-            SHADOW_TYPE_DIRECTIONAL_CASCADE => [1.0, 0.9, 0.2],
-            SHADOW_TYPE_SPOT => [1.0, 0.5, 0.1],
+            SHADOW_TYPE_DIRECTIONAL_CASCADE => [0.1, 0.6, 1.0],
+            SHADOW_TYPE_SPOT => [1.0, 0.3, 0.1],
             SHADOW_TYPE_POINT => [1.0, 0.2, 0.8],
             _ => [0.8, 0.8, 0.8],
         };
