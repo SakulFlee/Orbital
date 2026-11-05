@@ -485,7 +485,7 @@ pub struct Renderer {
     timestamp_resolve_buffer: wgpu::Buffer,
     timestamp_staging_bufs: [wgpu::Buffer; 2],
     timestamp_read_frame: usize,
-    prev_gpu_ns: [f64; 4],
+    prev_gpu_ns: [f64; TS_COUNT as usize],
     prev_cpu_timings: RendererCpuTimings,
 }
 
@@ -494,7 +494,7 @@ impl Renderer {
         &self.surface_texture_format
     }
 
-    pub fn prev_gpu_ns(&self) -> [f64; 4] {
+    pub fn prev_gpu_ns(&self) -> [f64; TS_COUNT as usize] {
         self.prev_gpu_ns
     }
 
@@ -617,8 +617,10 @@ impl Renderer {
     }
 }
 
-const TS_COUNT: u32 = 4; // 0=shadow_start, 1=skybox_start, 2=models_start, 3=main_end
-const TS_BUF_SIZE: u64 = TS_COUNT as u64 * 8; // 32 bytes
+// 0=shadow_start, 1=after shadow, 2=after sky, 3=after models/transparent,
+// 4=after volumetrics, 5=after tonemap, 6=after AA.
+const TS_COUNT: u32 = 7;
+const TS_BUF_SIZE: u64 = TS_COUNT as u64 * 8;
 
 impl Renderer {
     pub fn new(
@@ -714,7 +716,7 @@ impl Renderer {
             timestamp_resolve_buffer,
             timestamp_staging_bufs,
             timestamp_read_frame: 0,
-            prev_gpu_ns: [0.0; 4],
+            prev_gpu_ns: [0.0; TS_COUNT as usize],
             prev_cpu_timings: RendererCpuTimings::default(),
         }
     }
@@ -1380,6 +1382,9 @@ impl Renderer {
                         }
                     }
                     ScenePass::VolumetricInject => {
+                        if let Some(qs) = &self.timestamp_query_set {
+                            context.encoder.write_timestamp(qs, 3);
+                        }
                         if let (Some(bind_group), Some(targets)) =
                             (world_bind_group.as_ref(), volumetric_targets.as_ref())
                         {
@@ -1414,10 +1419,14 @@ impl Renderer {
                                 &targets.1.view,
                             );
                         }
+                        if let Some(qs) = &self.timestamp_query_set {
+                            context.encoder.write_timestamp(qs, 4);
+                        }
                     }
                     ScenePass::Tonemap => {
-                        if let Some(qs) = &self.timestamp_query_set {
+                        if !has_volumetrics && let Some(qs) = &self.timestamp_query_set {
                             context.encoder.write_timestamp(qs, 3);
+                            context.encoder.write_timestamp(qs, 4);
                         }
                         let tonemap_target = match self.anti_aliasing {
                             AntiAliasing::Off => target_view,
@@ -1438,6 +1447,12 @@ impl Renderer {
                             &depth.view,
                             tonemap_target,
                         );
+                        if let Some(qs) = &self.timestamp_query_set {
+                            context.encoder.write_timestamp(qs, 5);
+                            if self.anti_aliasing == AntiAliasing::Off {
+                                context.encoder.write_timestamp(qs, 6);
+                            }
+                        }
                     }
                     ScenePass::Fxaa => {
                         if let Some(post_ldr) = &post_ldr {
@@ -1448,10 +1463,16 @@ impl Renderer {
                                 target_view,
                             );
                         }
+                        if let Some(qs) = &self.timestamp_query_set {
+                            context.encoder.write_timestamp(qs, 6);
+                        }
                     }
                     ScenePass::Smaa => {
                         if let Some(smaa) = smaa.as_ref() {
                             smaa.record(context.encoder, target_view);
+                        }
+                        if let Some(qs) = &self.timestamp_query_set {
+                            context.encoder.write_timestamp(qs, 6);
                         }
                     }
                 },
