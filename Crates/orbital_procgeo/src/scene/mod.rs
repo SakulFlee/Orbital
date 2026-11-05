@@ -282,6 +282,31 @@ SceneBuilder(
     }
 
     #[test]
+    fn colour_alpha_selects_the_blended_path() {
+        let opaque = SceneMaterial::Color {
+            albedo: [1.0, 0.0, 0.0, 1.0],
+            metallic: 0.0,
+            roughness: 0.5,
+        }
+        .into_material_shader();
+        let transparent = SceneMaterial::Color {
+            albedo: [1.0, 0.0, 0.0, 0.35],
+            metallic: 0.0,
+            roughness: 0.5,
+        }
+        .into_material_shader();
+
+        assert_eq!(
+            opaque.alpha_mode,
+            orbital_material_shader::AlphaMode::Opaque
+        );
+        assert_eq!(
+            transparent.alpha_mode,
+            orbital_material_shader::AlphaMode::Blend
+        );
+    }
+
+    #[test]
     fn all_shapes_generate_mesh() {
         let shapes = vec![
             SceneShape::Box { size: [1.0; 3] },

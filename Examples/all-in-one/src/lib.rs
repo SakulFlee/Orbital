@@ -20,16 +20,55 @@ use orbital::importer::{ImportTask, gltf::GltfImport};
 use orbital::logging;
 use orbital::logging::{error, info};
 use orbital::procgeo::scene::SceneBuilder;
+use orbital::procgeo::shapes::box_;
 use orbital::renderer::{AntiAliasing, Camera2DUniform, Renderer2D};
 use orbital::resources::WorldEnvironmentDescriptor;
 use orbital::resources::{
-    AlphaMode, GeneratedSkyParameters, SamplingType, ShadowCaster, SunPosition, Transform,
+    AlphaMode, GeneratedSkyParameters, MaterialShaderDescriptor, SamplingType, ShadowCaster,
+    SunPosition, Transform, VertexStageLayout,
 };
 use orbital::text::{DefaultFont, TextConfig};
 use orbital::twod::Vertex2D;
 use orbital::winit::keyboard::KeyCode;
 
 pub const NAME: &str = env!("CARGO_PKG_NAME");
+
+/// Custom material shader merged into the showcase from the standalone
+/// `custom_shader` example. The engine supplies the camera, vertex, instance
+/// and fragment nodes; this only adds the entrypoints and colour pattern.
+const CUSTOM_SHADER_WGSL: &str = r#"
+@group(0) @binding(0) var<uniform> camera: CameraUniform;
+
+@vertex
+fn entrypoint_vertex(
+    vertex: VertexData,
+    instance: InstanceData
+) -> FragmentData {
+    let model_space_matrix = mat4x4<f32>(
+        instance.model_space_matrix_0,
+        instance.model_space_matrix_1,
+        instance.model_space_matrix_2,
+        instance.model_space_matrix_3,
+    );
+    let world_position = model_space_matrix * vec4<f32>(vertex.position, 1.0);
+
+    var out: FragmentData;
+    out.position = camera.view_projection_matrix * world_position;
+    out.world_position = world_position.xyz;
+    out.uv = vec2<f32>(0.0);
+    out.tangent = vec3<f32>(1.0, 0.0, 0.0);
+    out.bitangent = vec3<f32>(0.0, 1.0, 0.0);
+    out.normal = vec3<f32>(0.0, 1.0, 0.0);
+    return out;
+}
+
+@fragment
+fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
+    let bands = fract(in.world_position.x * 0.35 + in.world_position.y * 0.2);
+    let pulse = 0.5 + 0.5 * sin(in.world_position.z * 2.0);
+    return vec4<f32>(bands, 1.0 - bands, pulse, 1.0);
+}
+"#;
 
 #[cfg(test)]
 mod tests {
@@ -40,7 +79,7 @@ mod tests {
         let scene = SceneBuilder::from_ron(include_str!("../../../Assets/Scenes/procgeo_demo.ron"))
             .expect("all-in-one scene must parse");
 
-        for label in ["Moving Spot Cube", "Stair 01", "Pedestal"] {
+        for label in ["Moving Spot Cube", "R4 Pane Red", "Stair 01", "Pedestal"] {
             assert!(
                 scene
                     .entities
@@ -638,13 +677,49 @@ impl Module for ProcgeoSceneModule {
             }
         }
 
+        // Custom material shader from the standalone example, placed in the
+        // material gallery. Its shader is self-contained and does not use the
+        // PBR path, so it also demonstrates a non-PBR material alongside the
+        // metallic shapes and blended panes.
+        let custom_material = Arc::new(MaterialShaderDescriptor {
+            name: Some("AiO Custom Gradient".into()),
+            nodes: &[
+                "camera_uniform",
+                "vertex_data_simple",
+                "instance_data",
+                "fragment_data",
+            ],
+            raw_source: Some(CUSTOM_SHADER_WGSL.into()),
+            vertex_stage_layouts: Some(vec![
+                VertexStageLayout::SimpleVertexData,
+                VertexStageLayout::InstanceData,
+            ]),
+            cull_mode: None,
+            cast_shadows: false,
+            receive_shadows: false,
+            ..MaterialShaderDescriptor::default()
+        });
+        for z in [3.8, 2.0 * HALLWAY_MIRROR_Z - 3.8] {
+            spawn_scene_model(
+                ecs,
+                "Custom Shader",
+                box_(Vector3::new(1.0, 1.0, 1.0)),
+                Arc::clone(&custom_material),
+                Transform::new(
+                    Vector3::new(-16.8, 1.2, z),
+                    Quaternion::new(1.0, 0.0, 0.0, 0.0),
+                    Vector3::new(1.0, 1.0, 1.0),
+                ),
+            );
+        }
+
         info!("Scene loaded with {} entities", scene.entities.len());
 
         // Floating SDF labels for the room row. The mirrored row gets the
         // same signs, readable when facing it from the hallway.
         let mut font = DefaultFont::load();
         let room_labels = [
-            (-20.0, "Metallic Shapes"),
+            (-20.0, "Material Gallery"),
             (-10.0, "Moving Spot"),
             (0.0, "Object Showcase"),
             (10.0, "Helmet Gallery"),

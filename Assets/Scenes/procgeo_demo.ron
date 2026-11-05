@@ -5,7 +5,7 @@ SceneBuilder(
         Entity(label: Some("Hall End Left"), shape: Cube(size: (0.1, 10.0, 10.0)), material: "wall", transform: Transform(position: (-25.0, 5.0, 10.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
         Entity(label: Some("Hall End Right"), shape: Cube(size: (0.1, 10.0, 10.0)), material: "wall", transform: Transform(position: (25.0, 5.0, 10.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
 
-        // ── Room 4: Metallic Shape Gallery (x: -25 to -15) ──
+        // ── Room 4: Material Gallery (x: -25 to -15) ──
         Entity(label: Some("R4 Floor"), shape: Plane(size: (10.0, 10.0), subdivisions: 2), material: "wall", transform: Transform(position: (-20.0, 0.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
         Entity(label: Some("R4 Back"),  shape: Cube(size: (10.0, 10.0, 0.1)), material: "wall", transform: Transform(position: (-20.0, 5.0, -5.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
         Entity(label: Some("R4 Left"),  shape: Cube(size: (0.1, 10.0, 10.0)), material: "wall", transform: Transform(position: (-25.0, 5.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
@@ -21,6 +21,11 @@ SceneBuilder(
         Entity(label: Some("R4 Cone"),     shape: Cone(radius: 0.5, height: 0.9, segments: 16), material: "bronze", transform: Transform(position: (-20.9, 1.5, -2.9), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
         Entity(label: Some("R4 Disk"),     shape: Disk(radius: 0.5, segments: 16), material: "teal_metal", transform: Transform(position: (-19.1, 1.5, -2.9), rotation: (0.7071, 0.0, 0.7071, 0.0), scale: (1.0, 1.0, 1.0))),
         Entity(label: Some("R4 Plane"),    shape: Plane(size: (1.0, 1.0), subdivisions: 2), material: "platinum", transform: Transform(position: (-17.6, 1.5, -1.8), rotation: (0.7071, 0.7071, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
+
+        // Room 4 — blended panes showing transparency sorting and alpha.
+        Entity(label: Some("R4 Pane Red"),   shape: Cube(size: (2.2, 2.0, 0.06)), material: "pane_red",   transform: Transform(position: (-20.0, 1.2, 3.7), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
+        Entity(label: Some("R4 Pane Green"), shape: Cube(size: (2.2, 2.0, 0.06)), material: "pane_green", transform: Transform(position: (-20.0, 1.2, 3.4), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
+        Entity(label: Some("R4 Pane Blue"),  shape: Cube(size: (2.2, 2.0, 0.06)), material: "pane_blue",  transform: Transform(position: (-20.0, 1.2, 3.1), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
 
         // ── Room 3: Moving Spot Light (x: -15 to -5) ──
         Entity(label: Some("R3 Floor"), shape: Plane(size: (10.0, 10.0), subdivisions: 2), material: "wall", transform: Transform(position: (-10.0, 0.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
@@ -90,5 +95,8 @@ SceneBuilder(
         "bronze":    Color(albedo: (0.7, 0.5, 0.2, 1.0), metallic: 0.85, roughness: 0.35),
         "teal_metal": Color(albedo: (0.0, 0.7, 0.7, 1.0), metallic: 0.9, roughness: 0.2),
         "platinum":  Color(albedo: (0.85, 0.85, 0.9, 1.0), metallic: 1.0, roughness: 0.05),
+        "pane_red":   Color(albedo: (0.9, 0.12, 0.1, 0.35), metallic: 0.0, roughness: 0.35),
+        "pane_green": Color(albedo: (0.1, 0.8, 0.2, 0.35), metallic: 0.0, roughness: 0.35),
+        "pane_blue":  Color(albedo: (0.1, 0.3, 0.95, 0.35), metallic: 0.0, roughness: 0.35),
     },
 )
