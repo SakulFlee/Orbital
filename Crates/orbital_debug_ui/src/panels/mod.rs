@@ -49,12 +49,17 @@ pub(crate) fn divider<'a>() -> Element<'a, DebugMessage, Theme, IcedRenderer> {
         .into()
 }
 
-/// A small caption, e.g. a column heading.
+/// A section heading.
+///
+/// Slightly larger than body text and with breathing room above it so related
+/// controls group visually instead of reading as one long list.
 pub(crate) fn caption<'a>(
     label: &str,
     color: Color,
 ) -> Element<'a, DebugMessage, Theme, IcedRenderer> {
-    iced_widget::row![iced_widget::text(label.to_string()).size(12).color(color)].into()
+    iced_widget::container(iced_widget::text(label.to_string()).size(13).color(color))
+        .padding([4.0, 0.0])
+        .into()
 }
 
 /// Lays out already-collected rows.
