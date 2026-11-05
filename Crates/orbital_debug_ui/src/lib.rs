@@ -253,8 +253,55 @@ impl Module for DebugUiModule {
             layer_renderers.push(Box::new(IcedLayerRenderer::new(panel)));
         }
 
-        orbital_core::logging::debug!("DebugUiModule: registered 4 debug panels");
+        #[cfg(any(target_os = "android", target_os = "ios"))]
+        register_mobile_toggle(layer_renderers);
+
+        orbital_core::logging::debug!("DebugUiModule: registered debug panels");
     }
+}
+
+/// Registers the on-screen touch toggle used on platforms without a keyboard.
+///
+/// Kept as a normal function rather than inline under `cfg` so the desktop
+/// build type-checks the same registration path.
+#[allow(dead_code)]
+fn register_mobile_toggle(layer_renderers: &mut Vec<Box<dyn LayerRenderer>>) {
+    let mobile_toggle = IcedState::<DebugMessage>::new()
+        .with_hud()
+        .with_message_handler(handle_debug_message)
+        .with_visibility(mobile_debug_toggle_visible)
+        .with_view(mobile_debug_toggle);
+
+    layer_renderers.push(Box::new(IcedLayerRenderer::new(mobile_toggle)));
+}
+
+/// Shows the mobile touch toggle only when the overlay or every panel is
+/// hidden, so it does not cover the live panels while they are open.
+#[allow(dead_code)]
+fn mobile_debug_toggle_visible(world: &World) -> bool {
+    world
+        .get_resource::<DebugUiState>()
+        .is_some_and(|state| !state.visible || state.panels.iter().all(|visible| !visible))
+}
+
+/// A small always-available touch target that opens the debug overlay.
+///
+/// Desktop and laptop users have the configured toggle key; phones and tablets
+/// usually have no keyboard, so they need an on-screen way back into the
+/// panels after the overlay is hidden or every window was closed.
+#[allow(dead_code)]
+fn mobile_debug_toggle(
+    world: &World,
+) -> Element<'static, DebugMessage, iced_winit::core::Theme, IcedRenderer> {
+    if !mobile_debug_toggle_visible(world) {
+        return crate::panels::blank();
+    }
+
+    let button = iced_widget::button(iced_widget::text("Debug").size(18))
+        .on_press(DebugMessage::ShowDebugUi)
+        .padding([10, 18]);
+
+    iced_widget::container(button).padding(16).into()
 }
 
 /// Applies a debug panel's message to the world.
