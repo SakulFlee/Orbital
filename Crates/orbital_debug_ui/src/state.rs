@@ -65,6 +65,9 @@ pub enum DebugMessage {
     TogglePanel(PanelId),
     /// Close one panel's window.
     HidePanel(PanelId),
+    /// Show the overlay and restore every panel. Used by the mobile touch
+    /// toggle, where no keyboard is available to press the toggle key.
+    ShowDebugUi,
     /// Select the 3D scene anti-aliasing mode.
     SetAntiAliasing(AntiAliasing),
     /// Select the SMAA quality preset.
@@ -491,6 +494,11 @@ impl DebugUiState {
                 self.set_panel_enabled(*panel, false);
                 self.dirty = true;
             }
+            DebugMessage::ShowDebugUi => {
+                self.visible = true;
+                self.panels = [true; PANEL_COUNT];
+                self.dirty = true;
+            }
             DebugMessage::SetAntiAliasing(_)
             | DebugMessage::SetSmaaQuality(_)
             | DebugMessage::SetExposure(_)
@@ -718,6 +726,19 @@ mod tests {
 
         state.toggle_visibility();
         assert!(state.is_panel_visible(PanelId::Console));
+    }
+
+    #[test]
+    fn mobile_show_message_reopens_every_panel() {
+        let mut state = DebugUiState::new(winit::keyboard::KeyCode::F1);
+        state.visible = true;
+        state.panels = [false; PANEL_COUNT];
+
+        state.apply(&DebugMessage::ShowDebugUi);
+
+        assert!(state.visible);
+        assert!(state.panels.iter().all(|visible| *visible));
+        assert!(state.is_panel_visible(PanelId::Performance));
     }
 
     #[test]
