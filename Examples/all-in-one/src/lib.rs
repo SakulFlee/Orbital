@@ -122,11 +122,15 @@ fn is_room_shell(label: &str) -> bool {
 
 fn second_row_room_name(x: f32) -> &'static str {
     match x.round() as i32 {
-        -20 => "R6",
+        -25 | -20 => "R6",
+        -15 => "R6/R7",
         -10 => "R7",
+        -5 => "R7/R8",
         0 => "R8",
+        5 => "R8/R9",
         10 => "R9",
-        20 => "R10",
+        15 => "R9/R10",
+        20 | 25 => "R10",
         _ => "R?",
     }
 }
