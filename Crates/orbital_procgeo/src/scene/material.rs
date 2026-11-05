@@ -134,7 +134,14 @@ impl SceneMaterial {
                     roughness_factor: 1.0,
                     occlusion: occlusion_tex,
                     emissive: emissive_tex,
-                    alpha_mode: AlphaMode::Opaque,
+                    // An alpha below one in a scene colour means the author
+                    // wants a blended surface. Keep opaque colours on the
+                    // cheaper opaque path.
+                    alpha_mode: if a[3] < 1.0 {
+                        AlphaMode::Blend
+                    } else {
+                        AlphaMode::Opaque
+                    },
                     alpha_factor: 1.0,
                     custom_material_shader: None,
                 };
