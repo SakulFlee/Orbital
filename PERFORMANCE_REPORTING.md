@@ -203,10 +203,13 @@ elapsed_s,fps,cdt_ms,<timing stages>,<cache counters>
   `volumetrics`, `scene_encode`, `scene_submit`, `timestamp_readback`,
   `overlay_main`, `overlay_layers`, `iced_draw`, `iced_submit`, `present`,
   `total`, `surface_lock`, `surface_acquire`, `surface_view`, `gpu_shadow`,
-  `gpu_skybox`, `gpu_models`, `gpu_scene_total`.
+  `gpu_skybox`, `gpu_models`, `gpu_scene_total`, `gpu_volumetrics`,
+  `gpu_tonemap`, `gpu_aa`.
   `surface_lock`, `surface_acquire`, and `surface_view` break down the
   `surface_acq` stage; `surface_acquire` includes waiting for a swapchain
   image, so it can reflect GPU/present backpressure rather than pure CPU work.
+  `gpu_volumetrics`, `gpu_tonemap`, and `gpu_aa` cover the post/scene GPU work
+  that the older scene timestamps did not include.
 - Cache counters — `shader_modules_delta`, `pipelines_delta`, `unique_wgsl`,
   `material_hits_delta`, `material_misses_delta`, `sky_updates_delta`.
   `unique_wgsl` is cumulative; the others are deltas for the window.

@@ -92,7 +92,7 @@ pub struct TimingSample {
 /// frame. The GPU stages are derived from timestamp query results read back
 /// from the renderer, and are only meaningful on backends that support
 /// timestamp queries; elsewhere they stay at zero.
-pub const TIMING_STAGES: [&str; 27] = [
+pub const TIMING_STAGES: [&str; 30] = [
     "surface_acq",
     "update",
     "ui_events",
@@ -120,6 +120,9 @@ pub const TIMING_STAGES: [&str; 27] = [
     "gpu skybox",
     "gpu models",
     "gpu scene total",
+    "gpu volumetrics",
+    "gpu tonemap",
+    "gpu aa",
 ];
 
 /// Stage indices, named so the runtime cannot silently drift from
@@ -151,6 +154,9 @@ pub const STAGE_GPU_SHADOW: usize = 23;
 pub const STAGE_GPU_SKYBOX: usize = 24;
 pub const STAGE_GPU_MODELS: usize = 25;
 pub const STAGE_GPU_SCENE_TOTAL: usize = 26;
+pub const STAGE_GPU_VOLUMETRICS: usize = 27;
+pub const STAGE_GPU_TONEMAP: usize = 28;
+pub const STAGE_GPU_AA: usize = 29;
 
 /// The index of the `total` stage, which is the whole-frame duration and the
 /// series a frame-time graph should plot.

@@ -468,11 +468,21 @@ const DYNAMIC_SKY_MIP_LEVELS: u32 = 3;
 fn sys_animate_dynamic_sky(
     initial_hours: f32,
 ) -> impl FnMut(Res<DeltaTime>, ResMut<EnvironmentDescriptorResource>) {
+    // The sun moves smoothly enough at 30 Hz; regenerating the full sky at
+    // render rate is unnecessary and dominates the dynamic-sky update count.
+    const UPDATE_INTERVAL: f32 = 1.0 / 30.0;
+
     let mut clock = initial_hours;
+    let mut accumulator = UPDATE_INTERVAL;
 
     move |dt: Res<DeltaTime>, mut descriptor: ResMut<EnvironmentDescriptorResource>| {
         // Full day/night cycle every ~2 minutes of real time.
         clock = (clock + dt.0 as f32 / 5.0).rem_euclid(24.0);
+        accumulator += dt.0 as f32;
+        if accumulator < UPDATE_INTERVAL {
+            return;
+        }
+        accumulator %= UPDATE_INTERVAL;
 
         descriptor.0 = Some(WorldEnvironmentDescriptor::Generated {
             cube_face_size: DYNAMIC_SKY_CUBE_SIZE,
