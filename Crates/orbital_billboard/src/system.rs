@@ -107,6 +107,9 @@ impl System for TextSystem {
             if let Some(mut billboard) = existing {
                 billboard.mesh = rebuilt.mesh;
                 billboard.material = rebuilt.material;
+                // `world_scale` is part of the text source; keep the quad
+                // size in sync while preserving the authored transform.
+                billboard.size = rebuilt.size;
                 rebuilt = billboard;
             }
 
