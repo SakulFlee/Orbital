@@ -79,7 +79,7 @@ mod tests {
         let scene = SceneBuilder::from_ron(include_str!("../../../Assets/Scenes/procgeo_demo.ron"))
             .expect("all-in-one scene must parse");
 
-        for label in ["Moving Spot Cube", "R4 Pane Red", "Stair 01", "Pedestal"] {
+        for label in ["Red Sphere", "R6 Pane Red", "Stair 01", "Pedestal"] {
             assert!(
                 scene
                     .entities
@@ -89,14 +89,56 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn only_room_shells_are_mirrored() {
+        assert!(is_room_shell("R1 Floor"));
+        assert!(is_room_shell("R1 Right / R3 Left"));
+        assert!(!is_room_shell("R6 Pane Red"));
+        assert!(!is_room_shell("Stair 01"));
+        assert!(!is_room_shell("Pedestal"));
+
+        assert_eq!(second_row_room_name(-20.0), "R6");
+        assert_eq!(second_row_room_name(-10.0), "R7");
+        assert_eq!(second_row_room_name(0.0), "R8");
+        assert_eq!(second_row_room_name(10.0), "R9");
+        assert_eq!(second_row_room_name(20.0), "R10");
+    }
 }
 
-/// The room row faces this central hallway. Mirrored rooms are placed at
-/// `2 * HALLWAY_MIRROR_Z - z`, leaving the corridor between the two rows.
+/// The two room rows face this central hallway. The second row's shells are
+/// placed at `2 * HALLWAY_MIRROR_Z - z`, leaving the corridor between them.
 const HALLWAY_MIRROR_Z: f32 = 10.0;
 
-fn mirror_z(point: Point3<f32>) -> Point3<f32> {
-    Point3::new(point.x, point.y, 2.0 * HALLWAY_MIRROR_Z - point.z)
+/// Room shells are the floor, back wall and side walls; their contents are
+/// deliberately *not* mirrored. The first row has R1-R5, while the second row
+/// owns R6-R10 and therefore gets only fresh, empty shells.
+fn is_room_shell(label: &str) -> bool {
+    label.starts_with('R')
+        && [" Floor", " Back", " Left", " Right"]
+            .iter()
+            .any(|suffix| label.contains(suffix))
+}
+
+fn second_row_room_name(x: f32) -> &'static str {
+    match x.round() as i32 {
+        -20 => "R6",
+        -10 => "R7",
+        0 => "R8",
+        10 => "R9",
+        20 => "R10",
+        _ => "R?",
+    }
+}
+
+fn room_shell_kind(label: &str) -> &'static str {
+    if label.contains("Floor") {
+        "Floor"
+    } else if label.contains("Back") {
+        "Back"
+    } else {
+        "Wall"
+    }
 }
 
 fn spawn_text_label(
@@ -288,21 +330,12 @@ impl System for HelmetAdjuster {
                 0.0,
             );
             let final_rot = correction * original_transform.rotation;
-            let mirror_rot = Quaternion::new(
-                std::f32::consts::FRAC_1_SQRT_2,
-                0.0,
-                -std::f32::consts::FRAC_1_SQRT_2,
-                0.0,
-            ) * original_transform.rotation;
 
             let mut new_instances = ModelInstances::new();
-            for (x, z, rotation) in [
-                (10.0, 0.0, final_rot),
-                (10.0, 2.0 * HALLWAY_MIRROR_Z, mirror_rot),
-            ] {
+            for x in [10.0, 20.0] {
                 new_instances.add_instance(Transform::new(
-                    Vector3::new(x, 2.2, z),
-                    rotation,
+                    Vector3::new(x, 2.2, 0.0),
+                    final_rot,
                     original_transform.scale,
                 ));
             }
@@ -312,7 +345,7 @@ impl System for HelmetAdjuster {
             commands.attach_component(&entity, ModelDirty(true));
 
             self.adjusted.store(true, Ordering::Relaxed);
-            info!("Adjusted helmet instances in the helmet gallery rows");
+            info!("Adjusted helmet instances in R4 and R5");
             break;
         }
     }
@@ -600,8 +633,13 @@ impl Module for ProcgeoSceneModule {
             std::f32::consts::FRAC_1_SQRT_2,
             0.0,
         );
-        ecs.attach_component(&camera, Position(Point3::new(0.0, 7.0, 10.0)))
-            .unwrap();
+        // Start just behind the hallway centre so the centred sign below stays
+        // in front of the camera instead of sharing its near plane.
+        ecs.attach_component(
+            &camera,
+            Position(Point3::new(0.0, 7.0, HALLWAY_MIRROR_Z + 2.0)),
+        )
+        .unwrap();
         ecs.attach_component(&camera, Rotation(rot)).unwrap();
         ecs.insert_resource(ActiveCamera(camera));
         ecs.insert_resource(CursorGrabConfig(true));
@@ -660,27 +698,27 @@ impl Module for ProcgeoSceneModule {
             }
         };
 
-        // Build and spawn RON entities. The original row opens onto the
-        // hallway from one side; mirroring every non-hall entity across
-        // `HALLWAY_MIRROR_Z` creates the second row of rooms.
+        // Build and spawn the authored first row (R1-R5) and the two populated
+        // second-row rooms (R6-R7). Only the empty shells are mirrored, so the
+        // second row does not duplicate R1-R5's contents. R8-R10 end up as
+        // empty shells, ready for future exhibits.
         let built = scene.build();
         for (descriptor, (mesh, material, transform)) in scene.entities.iter().zip(built) {
             let label = descriptor.label.as_deref().unwrap_or("procgeo");
-            let is_hall = label.starts_with("Hall");
-
             spawn_scene_model(ecs, label, mesh.clone(), material.clone(), transform);
 
-            if !is_hall {
+            if is_room_shell(label) {
                 let mut mirrored = transform;
                 mirrored.position.z = 2.0 * HALLWAY_MIRROR_Z - mirrored.position.z;
-                spawn_scene_model(ecs, &format!("{label} (mirror)"), mesh, material, mirrored);
+                let room = second_row_room_name(transform.position.x);
+                let kind = room_shell_kind(label);
+                spawn_scene_model(ecs, &format!("{room} {kind}"), mesh, material, mirrored);
             }
         }
 
-        // Custom material shader from the standalone example, placed in the
-        // material gallery. Its shader is self-contained and does not use the
-        // PBR path, so it also demonstrates a non-PBR material alongside the
-        // metallic shapes and blended panes.
+        // Custom material shader from the standalone example. Place it behind
+        // R6's blended panes so the transparency room also has a clear object
+        // to look through, without taking over a room of its own.
         let custom_material = Arc::new(MaterialShaderDescriptor {
             name: Some("AiO Custom Gradient".into()),
             nodes: &[
@@ -699,33 +737,30 @@ impl Module for ProcgeoSceneModule {
             receive_shadows: false,
             ..MaterialShaderDescriptor::default()
         });
-        for z in [3.8, 2.0 * HALLWAY_MIRROR_Z - 3.8] {
-            spawn_scene_model(
-                ecs,
-                "Custom Shader",
-                box_(Vector3::new(1.0, 1.0, 1.0)),
-                Arc::clone(&custom_material),
-                Transform::new(
-                    Vector3::new(-16.8, 1.2, z),
-                    Quaternion::new(1.0, 0.0, 0.0, 0.0),
-                    Vector3::new(1.0, 1.0, 1.0),
-                ),
-            );
-        }
+        spawn_scene_model(
+            ecs,
+            "Custom Shader (R6)",
+            box_(Vector3::new(1.0, 1.0, 1.0)),
+            Arc::clone(&custom_material),
+            Transform::new(
+                Vector3::new(-20.0, 1.2, 22.0),
+                Quaternion::new(1.0, 0.0, 0.0, 0.0),
+                Vector3::new(1.0, 1.0, 1.0),
+            ),
+        );
 
         info!("Scene loaded with {} entities", scene.entities.len());
 
-        // Floating SDF labels for the room row. The mirrored row gets the
-        // same signs, readable when facing it from the hallway.
+        // Floating SDF labels for both room rows.
         let mut font = DefaultFont::load();
-        let room_labels = [
-            (-20.0, "Material Gallery"),
-            (-10.0, "Moving Spot"),
-            (0.0, "Object Showcase"),
+        let first_row_labels = [
+            (-20.0, "Metallic Materials"),
+            (-10.0, "Matte Materials"),
+            (0.0, "Moving Spot"),
             (10.0, "Helmet Gallery"),
-            (20.0, "Anti-Aliasing"),
+            (20.0, "Colored Helmet"),
         ];
-        for (x, text) in room_labels {
+        for (x, text) in first_row_labels {
             spawn_text_label(
                 ecs,
                 &mut font,
@@ -733,6 +768,10 @@ impl Module for ProcgeoSceneModule {
                 Point3::new(x, 6.4, 5.25),
                 BillboardMode::YAxis,
             );
+        }
+
+        let second_row_labels = [(-20.0, "Transparency"), (-10.0, "Anti-Aliasing")];
+        for (x, text) in second_row_labels {
             spawn_text_label(
                 ecs,
                 &mut font,
@@ -746,7 +785,7 @@ impl Module for ProcgeoSceneModule {
             ecs,
             &mut font,
             "All-in-One",
-            Point3::new(0.0, 7.6, 8.0),
+            Point3::new(0.0, 7.6, HALLWAY_MIRROR_Z),
             BillboardMode::Full,
         );
 
@@ -760,13 +799,13 @@ impl Module for ProcgeoSceneModule {
         }
 
         // ════════════════════════════════════════════════════════════
-        // Moving spot light in the Moving Spot room (x = -10).
-        // Front of room (camera side), pointing backward toward the
-        // object cluster so the shadows move across the floor and wall.
+        // R3 — moving spot light over the small object cluster.
+        // Front of room (camera side), pointing backward so the shadows
+        // travel across the floor and back wall.
         // ════════════════════════════════════════════════════════════
         let spot_light = ecs.spawn_entity();
-        let spot_pos = Point3::new(-10.0, 8.0, 6.0);
-        let target = Point3::new(-10.0, 0.0, -2.0);
+        let spot_pos = Point3::new(0.0, 8.0, 6.0);
+        let target = Point3::new(0.0, 0.0, -2.0);
         let dir = (target - spot_pos).normalize();
         ecs.attach_component(
             &spot_light,
@@ -792,67 +831,7 @@ impl Module for ProcgeoSceneModule {
         )
         .unwrap();
 
-        // Mirrored moving spot for the second room row.
-        let mirror_spot_light = ecs.spawn_entity();
-        let mirror_spot_pos = mirror_z(spot_pos);
-        let mirror_target = mirror_z(target);
-        let mirror_dir = (mirror_target - mirror_spot_pos).normalize();
-        ecs.attach_component(
-            &mirror_spot_light,
-            LightDescriptor::new_spot(
-                Vector3::new(1.0, 1.0, 1.0),
-                50.0,
-                Vector3::new(mirror_dir.x, mirror_dir.y, mirror_dir.z),
-                0.1,
-                0.44,
-            ),
-        )
-        .unwrap();
-        ecs.attach_component(&mirror_spot_light, Position(mirror_spot_pos))
-            .unwrap();
-        ecs.attach_component(&mirror_spot_light, LightDirty(true))
-            .unwrap();
-        ecs.attach_component(
-            &mirror_spot_light,
-            ShadowCaster {
-                cascade_count: 0,
-                bias: 0.0002,
-                ..Default::default()
-            },
-        )
-        .unwrap();
-
-        // ── Static spot for the Anti-Aliasing room (x = 20) ─────────
-        for (z, target_z) in [(6.0, -2.0), (2.0 * HALLWAY_MIRROR_Z - 6.0, 22.0)] {
-            let aa_spot = ecs.spawn_entity();
-            let aa_pos = Point3::new(20.0, 8.0, z);
-            let aa_target = Point3::new(20.0, 0.0, target_z);
-            let aa_dir = (aa_target - aa_pos).normalize();
-            ecs.attach_component(
-                &aa_spot,
-                LightDescriptor::new_spot(
-                    Vector3::new(1.0, 1.0, 1.0),
-                    50.0,
-                    Vector3::new(aa_dir.x, aa_dir.y, aa_dir.z),
-                    0.1,
-                    0.44,
-                ),
-            )
-            .unwrap();
-            ecs.attach_component(&aa_spot, Position(aa_pos)).unwrap();
-            ecs.attach_component(&aa_spot, LightDirty(true)).unwrap();
-            ecs.attach_component(
-                &aa_spot,
-                ShadowCaster {
-                    cascade_count: 0,
-                    bias: 0.0002,
-                    ..Default::default()
-                },
-            )
-            .unwrap();
-        }
-
-        // ── Point lights for the metallic and moving-spot rooms ────
+        // ── R1/R2 — one central omni light per material gallery ─────
         for room_x in [-20.0, -10.0f32] {
             let pl = ecs.spawn_entity();
             ecs.attach_component(
@@ -871,30 +850,9 @@ impl Module for ProcgeoSceneModule {
                 },
             )
             .unwrap();
-
-            let mirror_pl = ecs.spawn_entity();
-            ecs.attach_component(
-                &mirror_pl,
-                LightDescriptor::new_point(Vector3::new(1.0, 1.0, 1.0), 50.0),
-            )
-            .unwrap();
-            ecs.attach_component(
-                &mirror_pl,
-                Position(Point3::new(room_x, 5.0, 2.0 * HALLWAY_MIRROR_Z)),
-            )
-            .unwrap();
-            ecs.attach_component(&mirror_pl, LightDirty(true)).unwrap();
-            ecs.attach_component(
-                &mirror_pl,
-                ShadowCaster {
-                    bias: 0.0002,
-                    ..Default::default()
-                },
-            )
-            .unwrap();
         }
 
-        // ── Spot ring for Room 4 helmet (x=10) ──────────────────────
+        // ── R4 — static spot ring around the helmet ─────────────────
         let helmet_10 = Point3::new(10.0, 2.2, 0.0);
         for angle in [0.0, 2.1, 4.2f32] {
             let (s, c) = angle.sin_cos();
@@ -923,39 +881,79 @@ impl Module for ProcgeoSceneModule {
                 },
             )
             .unwrap();
-
-            let mirror_lpos = mirror_z(lpos);
-            let mirror_helmet = mirror_z(helmet_10);
-            let mirror_d = (mirror_helmet - mirror_lpos).normalize();
-            let mirror_hl = ecs.spawn_entity();
-            ecs.attach_component(
-                &mirror_hl,
-                LightDescriptor::new_spot(
-                    Vector3::new(1.0, 0.9, 0.8),
-                    30.0,
-                    Vector3::new(mirror_d.x, mirror_d.y, mirror_d.z),
-                    0.1,
-                    0.44,
-                ),
-            )
-            .unwrap();
-            ecs.attach_component(&mirror_hl, Position(mirror_lpos))
-                .unwrap();
-            ecs.attach_component(&mirror_hl, LightDirty(true)).unwrap();
-            ecs.attach_component(
-                &mirror_hl,
-                ShadowCaster {
-                    cascade_count: 0,
-                    bias: 0.0002,
-                    ..Default::default()
-                },
-            )
-            .unwrap();
         }
 
-        let moving_spot = LightAnimator::new(spot_light, -10.0, 6.0);
-        let moving_spot_mirror =
-            LightAnimator::new(mirror_spot_light, -10.0, 2.0 * HALLWAY_MIRROR_Z - 6.0);
+        // ── R5 — colourful omni ring around the second helmet ───────
+        let helmet_20 = Point3::new(20.0, 2.2, 0.0);
+        let colors: [Vector3<_>; 8] = [
+            Vector3::new(1.0, 0.2, 0.2),
+            Vector3::new(1.0, 0.6, 0.1),
+            Vector3::new(1.0, 1.0, 0.2),
+            Vector3::new(0.2, 1.0, 0.2),
+            Vector3::new(0.2, 0.6, 1.0),
+            Vector3::new(0.4, 0.2, 1.0),
+            Vector3::new(1.0, 0.2, 1.0),
+            Vector3::new(1.0, 0.9, 0.8),
+        ];
+        for (i, color) in colors.into_iter().enumerate() {
+            let angle = std::f32::consts::TAU * i as f32 / 8.0;
+            let (s, c) = angle.sin_cos();
+            let lpos = Point3::new(helmet_20.x + c * 3.0, 4.0, helmet_20.z + s * 3.0);
+            let pl = ecs.spawn_entity();
+            ecs.attach_component(&pl, LightDescriptor::new_point(color, 30.0))
+                .unwrap();
+            ecs.attach_component(&pl, Position(lpos)).unwrap();
+            ecs.attach_component(&pl, LightDirty(true)).unwrap();
+        }
+
+        // ── R6 — soft omni light behind the blended panes ───────────
+        let r6_light = ecs.spawn_entity();
+        ecs.attach_component(
+            &r6_light,
+            LightDescriptor::new_point(Vector3::new(1.0, 0.95, 0.9), 40.0),
+        )
+        .unwrap();
+        ecs.attach_component(&r6_light, Position(Point3::new(-20.0, 4.0, 20.0)))
+            .unwrap();
+        ecs.attach_component(&r6_light, LightDirty(true)).unwrap();
+        ecs.attach_component(
+            &r6_light,
+            ShadowCaster {
+                bias: 0.0002,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+        // ── R7 — shadow-casting spot across the AA staircase ────────
+        let r7_spot = ecs.spawn_entity();
+        let r7_pos = Point3::new(-10.0, 8.0, 16.0);
+        let r7_target = Point3::new(-10.0, 0.5, 22.0);
+        let r7_dir = (r7_target - r7_pos).normalize();
+        ecs.attach_component(
+            &r7_spot,
+            LightDescriptor::new_spot(
+                Vector3::new(1.0, 1.0, 1.0),
+                60.0,
+                Vector3::new(r7_dir.x, r7_dir.y, r7_dir.z),
+                0.1,
+                0.44,
+            ),
+        )
+        .unwrap();
+        ecs.attach_component(&r7_spot, Position(r7_pos)).unwrap();
+        ecs.attach_component(&r7_spot, LightDirty(true)).unwrap();
+        ecs.attach_component(
+            &r7_spot,
+            ShadowCaster {
+                cascade_count: 0,
+                bias: 0.0002,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+        let moving_spot = LightAnimator::new(spot_light, 0.0, 6.0);
 
         // Low-intensity directional fill light for scene-wide diffuse lighting
         let fill = ecs.spawn_entity();
@@ -978,7 +976,6 @@ impl Module for ProcgeoSceneModule {
             Box::new(CursorToggle::new(true)),
             Box::new(HelmetAdjuster::new()),
             Box::new(moving_spot),
-            Box::new(moving_spot_mirror),
             sys_animate_dynamic_sky(14.0).into_system(),
         ]
     }
