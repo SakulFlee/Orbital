@@ -4,6 +4,9 @@
 # Rust
 target/
 
+# Release packaging scratch output
+/dist/
+
 # Logs
 *.log
 Logs/
