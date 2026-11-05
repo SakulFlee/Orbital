@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use cgmath::{Point3, Vector2};
+use orbital_ecs_bridge::{EditableField, EditableFields, EditableValue};
 use orbital_material_shader::{AlphaMode, MaterialShaderDescriptor};
 use orbital_mesh::MeshDescriptor;
 use orbital_texture::TextureDescriptor;
@@ -136,5 +137,93 @@ impl Billboard {
 impl Default for Billboard {
     fn default() -> Self {
         Self::unlit(Vector2::new(1.0, 1.0), AlphaMode::Opaque)
+    }
+}
+
+impl EditableValue for BillboardMode {
+    fn to_edit_string(&self) -> String {
+        match self {
+            Self::Full => "full".to_string(),
+            Self::YAxis => "yaxis".to_string(),
+            Self::Fixed => "fixed".to_string(),
+        }
+    }
+
+    fn set_from_str(&mut self, input: &str) -> Result<(), String> {
+        *self = match input.trim().to_ascii_lowercase().as_str() {
+            "full" => Self::Full,
+            "yaxis" | "y-axis" | "y_axis" => Self::YAxis,
+            "fixed" => Self::Fixed,
+            _ => return Err("expected full, yaxis or fixed".to_string()),
+        };
+        Ok(())
+    }
+}
+
+impl EditableFields for Billboard {
+    fn editable_fields(&self) -> Vec<EditableField> {
+        vec![
+            EditableField {
+                id: "position".to_string(),
+                label: "position".to_string(),
+                value: self.position.to_edit_string(),
+            },
+            EditableField {
+                id: "size".to_string(),
+                label: "size".to_string(),
+                value: self.size.to_edit_string(),
+            },
+            EditableField {
+                id: "rotation".to_string(),
+                label: "rotation (rad)".to_string(),
+                value: self.rotation.to_edit_string(),
+            },
+            EditableField {
+                id: "pivot".to_string(),
+                label: "pivot".to_string(),
+                value: self.pivot.to_edit_string(),
+            },
+            EditableField {
+                id: "mode".to_string(),
+                label: "mode".to_string(),
+                value: self.mode.to_edit_string(),
+            },
+        ]
+    }
+
+    fn set_editable_field(&mut self, id: &str, input: &str) -> Result<(), String> {
+        match id {
+            "position" => self.position.set_from_str(input),
+            "size" => self.size.set_from_str(input),
+            "rotation" => self.rotation.set_from_str(input),
+            "pivot" => self.pivot.set_from_str(input),
+            "mode" => self.mode.set_from_str(input),
+            _ => Err(format!("unknown billboard field `{id}`")),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn billboard_transform_fields_are_editable() {
+        let mut billboard = Billboard::default();
+
+        billboard
+            .set_editable_field("position", "1 2 3")
+            .expect("position edit failed");
+        billboard
+            .set_editable_field("size", "4 5")
+            .expect("size edit failed");
+        billboard
+            .set_editable_field("mode", "yaxis")
+            .expect("mode edit failed");
+
+        assert_eq!(billboard.position, Point3::new(1.0, 2.0, 3.0));
+        assert_eq!(billboard.size, Vector2::new(4.0, 5.0));
+        assert_eq!(billboard.mode, BillboardMode::YAxis);
+        assert!(billboard.set_editable_field("mode", "sideways").is_err());
     }
 }

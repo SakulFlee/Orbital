@@ -3,12 +3,13 @@
 use std::sync::Arc;
 
 use cgmath::{Vector2, Vector3};
+use orbital_ecs_bridge::{EditableField, EditableFields, EditableValue};
 use orbital_material_shader::{
     AlphaMode, MaterialShaderDescriptor, RenderQueue, VertexStageLayout,
 };
 use orbital_mesh::MeshDescriptor;
 use orbital_shader_core::VariableType;
-use orbital_text::{FontData, SdfAtlas, TextConfig, generate_text_mesh};
+use orbital_text::{DefaultFont, FontData, SdfAtlas, TextConfig, generate_text_mesh};
 use orbital_texture::{BufferDescriptor, FilterMode, TextureDescriptor, TextureSize};
 use orbital_vertex::Vertex;
 use wgpu::{
@@ -20,6 +21,177 @@ use crate::Billboard;
 
 const TEXT_NODES: &[&str] = &["pbr_vertex"];
 const TEXT_WGSL: &str = include_str!("billboard_text.wgsl");
+
+/// Editable source data for a world-space text billboard.
+///
+/// The rendered [`Billboard`] contains the generated glyph mesh and atlas
+/// material; this component keeps the authoring values so the ECS inspector
+/// can edit the text without losing them. [`Text::dirty`] tells the billboard
+/// module when to rebuild the generated mesh.
+#[derive(Debug, Clone)]
+pub struct Text {
+    /// The text to render.
+    pub value: String,
+    /// Font size in atlas pixels.
+    pub font_size: f32,
+    /// Text colour.
+    pub color: [f32; 4],
+    /// Optional background colour.
+    pub background: Option<[f32; 4]>,
+    /// World size of one font pixel.
+    pub world_scale: f32,
+    /// Whether the text uses the opaque or blended render path.
+    pub alpha_mode: AlphaMode,
+    /// Set when the source values changed and the glyph mesh must rebuild.
+    dirty: bool,
+}
+
+impl Text {
+    pub fn new(value: impl Into<String>) -> Self {
+        Self {
+            value: value.into(),
+            font_size: 128.0,
+            color: [1.0, 1.0, 1.0, 1.0],
+            background: None,
+            world_scale: 0.00225,
+            alpha_mode: AlphaMode::Blend,
+            dirty: true,
+        }
+    }
+
+    pub fn with_font_size(mut self, font_size: f32) -> Self {
+        self.font_size = font_size;
+        self.mark_dirty();
+        self
+    }
+
+    pub fn with_color(mut self, color: [f32; 4]) -> Self {
+        self.color = color;
+        self.mark_dirty();
+        self
+    }
+
+    pub fn with_background(mut self, background: Option<[f32; 4]>) -> Self {
+        self.background = background;
+        self.mark_dirty();
+        self
+    }
+
+    pub fn with_world_scale(mut self, world_scale: f32) -> Self {
+        self.world_scale = world_scale;
+        self.mark_dirty();
+        self
+    }
+
+    pub fn with_alpha_mode(mut self, alpha_mode: AlphaMode) -> Self {
+        self.alpha_mode = alpha_mode;
+        self.mark_dirty();
+        self
+    }
+
+    pub(crate) fn is_dirty(&self) -> bool {
+        self.dirty
+    }
+
+    pub(crate) fn clear_dirty(&mut self) {
+        self.dirty = false;
+    }
+
+    fn mark_dirty(&mut self) {
+        self.dirty = true;
+    }
+
+    /// Builds the generated billboard content. Position, size and mode are
+    /// owned by the entity's [`Billboard`] and preserved by the rebuild system.
+    pub(crate) fn build_billboard(&self) -> Billboard {
+        let mut font = DefaultFont::load();
+        let mut billboard = text_billboard_with_background(
+            &self.value,
+            &mut font,
+            &TextConfig {
+                font_size: self.font_size.max(1.0),
+                color: self.color,
+                ..TextConfig::default()
+            },
+            self.world_scale.max(0.0001),
+            None,
+            self.background,
+            self.alpha_mode,
+        );
+        // The generated helper places the billboard at the origin; the
+        // existing Billboard supplies the transform.
+        billboard.position = cgmath::Point3::new(0.0, 0.0, 0.0);
+        billboard
+    }
+}
+
+impl EditableFields for Text {
+    fn editable_fields(&self) -> Vec<EditableField> {
+        vec![
+            EditableField {
+                id: "text".to_string(),
+                label: "text".to_string(),
+                value: self.value.clone(),
+            },
+            EditableField {
+                id: "font_size".to_string(),
+                label: "font_size".to_string(),
+                value: self.font_size.to_edit_string(),
+            },
+            EditableField {
+                id: "color".to_string(),
+                label: "color (RGBA)".to_string(),
+                value: color_text(self.color),
+            },
+            EditableField {
+                id: "world_scale".to_string(),
+                label: "world_scale".to_string(),
+                value: self.world_scale.to_edit_string(),
+            },
+        ]
+    }
+
+    fn set_editable_field(&mut self, id: &str, input: &str) -> Result<(), String> {
+        match id {
+            "text" => self.value = input.to_string(),
+            "font_size" => self.font_size.set_from_str(input)?,
+            "color" => self.color = parse_color(input)?,
+            "world_scale" => self.world_scale.set_from_str(input)?,
+            _ => return Err(format!("unknown text field `{id}`")),
+        }
+        self.mark_dirty();
+        Ok(())
+    }
+}
+
+fn color_text(color: [f32; 4]) -> String {
+    color
+        .iter()
+        .map(|component| format!("{component:?}"))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn parse_color(input: &str) -> Result<[f32; 4], String> {
+    let values = input
+        .split([' ', ','])
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .map(|part| {
+            part.parse::<f32>()
+                .map_err(|_| format!("`{part}` is not a number"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    if values.len() != 4 {
+        return Err(format!(
+            "expected 4 colour components, got {}",
+            values.len()
+        ));
+    }
+
+    Ok([values[0], values[1], values[2], values[3]])
+}
 
 /// Builds a world-space SDF text billboard.
 ///
@@ -250,6 +422,40 @@ mod tests {
         assert_eq!(mesh.vertices.len(), mesh.indices.len());
         assert_eq!(billboard.material.render_queue, RenderQueue::Transparent);
         assert!(!billboard.material.depth_write);
+        assert!(billboard.material.entrypoint_fragment_gbuffer.is_none());
+    }
+
+    #[test]
+    fn text_source_fields_are_editable_and_mark_the_mesh_dirty() {
+        let mut text = Text::new("Room 1")
+            .with_font_size(64.0)
+            .with_color([1.0, 0.5, 0.25, 1.0])
+            .with_world_scale(0.01);
+        text.clear_dirty();
+
+        let ids = text
+            .editable_fields()
+            .into_iter()
+            .map(|field| field.id)
+            .collect::<Vec<_>>();
+        assert_eq!(ids, ["text", "font_size", "color", "world_scale"]);
+
+        text.set_editable_field("text", "Metallic Materials")
+            .expect("text edit failed");
+        assert_eq!(text.value, "Metallic Materials");
+        assert!(text.is_dirty());
+
+        text.set_editable_field("color", "0.1 0.2 0.3 1.0")
+            .expect("colour edit failed");
+        assert_eq!(text.color, [0.1, 0.2, 0.3, 1.0]);
+        assert!(text.set_editable_field("color", "1 2 3").is_err());
+    }
+
+    #[test]
+    fn rebuilding_text_preserves_generated_content() {
+        let text = Text::new("Orbital").with_font_size(32.0);
+        let billboard = text.build_billboard();
+        assert!(billboard.mesh.is_some());
         assert!(billboard.material.entrypoint_fragment_gbuffer.is_none());
     }
 }

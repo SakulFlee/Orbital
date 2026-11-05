@@ -13,4 +13,4 @@ mod system;
 pub use system::BillboardModule;
 
 mod text;
-pub use text::{text_billboard, text_billboard_with_background};
+pub use text::{Text, text_billboard, text_billboard_with_background};

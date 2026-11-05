@@ -5,7 +5,7 @@ use orbital::app::{
     App, AppSettings, CursorToggle, LayerRenderer, Module, RenderLayer, RenderOverlayContext,
     sys_camera_controller, sys_ortho_dolly,
 };
-use orbital::billboard::{BillboardMode, BillboardModule, text_billboard_with_background};
+use orbital::billboard::{BillboardMode, BillboardModule, Text, text_billboard_with_background};
 use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector3};
 use orbital::debug_render::DebugModule;
 use orbital::ecs::{Commands, ComponentAccess, IntoSystem, Res, ResMut, System, World};
@@ -164,6 +164,16 @@ fn spawn_text_label(
     .with_position(position)
     .with_mode(mode);
     let entity = ecs.spawn_entity();
+    ecs.attach_component(
+        &entity,
+        Text::new(text)
+            .with_font_size(128.0)
+            .with_color([1.0, 1.0, 1.0, 1.0])
+            .with_background(Some([0.025, 0.035, 0.07, 0.55]))
+            .with_world_scale(0.00225)
+            .with_alpha_mode(AlphaMode::Blend),
+    )
+    .unwrap();
     ecs.attach_component(&entity, label).unwrap();
 }
 
