@@ -14,7 +14,7 @@ use winit::{
     dpi::Size,
     error::OsError,
     event_loop::{ActiveEventLoop, OwnedDisplayHandle},
-    window::Window,
+    window::{Fullscreen, Window},
 };
 
 use crate::AppSettings;
@@ -44,6 +44,7 @@ impl AppContext {
             event_loop,
             settings.size,
             &settings.name,
+            settings.fullscreen,
         )?);
         debug!("Window: {:?}", window);
 
@@ -99,7 +100,8 @@ impl AppContext {
             surface: Some(surface),
         };
 
-        let surface_configuration = ctx.make_surface_configuration(settings.vsync_enabled);
+        let surface_configuration =
+            ctx.make_surface_configuration(settings.vsync_enabled, settings.present_mode);
         ctx.reconfigure_surface(&surface_configuration);
 
         Ok(ctx)
@@ -109,13 +111,18 @@ impl AppContext {
         event_loop: &ActiveEventLoop,
         inner_size: Size,
         title: S,
+        fullscreen: bool,
     ) -> Result<Window, OsError> {
-        event_loop.create_window(
-            Window::default_attributes()
-                .with_active(true)
-                .with_inner_size(inner_size)
-                .with_title(title),
-        )
+        let attributes = Window::default_attributes()
+            .with_active(true)
+            .with_inner_size(inner_size)
+            .with_title(title);
+        let attributes = if fullscreen {
+            attributes.with_fullscreen(Some(Fullscreen::Borderless(None)))
+        } else {
+            attributes
+        };
+        event_loop.create_window(attributes)
     }
 
     fn make_instance(owned_display_handle: OwnedDisplayHandle) -> Instance {
@@ -212,20 +219,34 @@ impl AppContext {
             .format
     }
 
-    pub fn make_surface_configuration(&self, vsync: bool) -> SurfaceConfiguration {
+    pub fn make_surface_configuration(
+        &self,
+        vsync: bool,
+        requested_present_mode: Option<PresentMode>,
+    ) -> SurfaceConfiguration {
         let surface = self
             .surface
             .as_ref()
             .expect("Surface must be present (app not suspended)!");
         let capabilities = surface.get_capabilities(&self.adapter);
 
-        let present_mode = match vsync {
+        let fallback = match vsync {
             true => PresentMode::AutoVsync,
             // Note: `Auto*` modes gracefully fall back to a supported mode
             // inside wgpu (AutoNoVsync -> Immediate -> Mailbox -> Fifo),
             // while bare `Immediate`/`Mailbox`/`FifoRelaxed` fail validation
             // on surfaces that don't advertise them (e.g. Android).
             false => PresentMode::AutoNoVsync,
+        };
+        let present_mode = match requested_present_mode {
+            Some(mode) if capabilities.present_modes.contains(&mode) => mode,
+            Some(mode) => {
+                warn!(
+                    "[Surface] Requested present mode {mode:?} is unsupported; using {fallback:?}"
+                );
+                fallback
+            }
+            None => fallback,
         };
 
         info!(
@@ -303,11 +324,15 @@ impl AppContext {
     /// Recreates the GPU surface from the current (recreated) native window,
     /// reconfigures it, and returns the resulting surface configuration.
     /// Called on resume after [`AppContext::drop_surface`].
-    pub fn recreate_surface(&mut self, vsync: bool) -> SurfaceConfiguration {
+    pub fn recreate_surface(
+        &mut self,
+        vsync: bool,
+        requested_present_mode: Option<PresentMode>,
+    ) -> SurfaceConfiguration {
         let surface = Self::make_surface(&self.instance, Arc::clone(&self.window))
             .expect("Failed to recreate surface on resume");
         self.surface = Some(surface);
-        let config = self.make_surface_configuration(vsync);
+        let config = self.make_surface_configuration(vsync, requested_present_mode);
         self.reconfigure_surface(&config);
         config
     }

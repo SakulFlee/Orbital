@@ -101,8 +101,18 @@ pub fn entrypoint(
 
     let event_loop = event_loop_result.expect("Event Loop failure");
 
+    let present_mode = match std::env::var("ORBITAL_PRESENT_MODE").as_deref() {
+        Ok("immediate") => Some(orbital::wgpu::PresentMode::Immediate),
+        Ok("mailbox") => Some(orbital::wgpu::PresentMode::Mailbox),
+        Ok("fifo") => Some(orbital::wgpu::PresentMode::Fifo),
+        Ok("fiforelaxed") => Some(orbital::wgpu::PresentMode::FifoRelaxed),
+        _ => None,
+    };
+
     let app_settings = AppSettings {
         vsync_enabled: false,
+        fullscreen: std::env::var_os("ORBITAL_FULLSCREEN").is_some(),
+        present_mode,
         name: NAME.to_string(),
         // Showcase the higher-quality LUT-based SMAA path in the flagship example.
         anti_aliasing: AntiAliasing::Smaa,

@@ -1225,13 +1225,17 @@ impl ApplicationHandler for ModuleRuntime {
                 // this only happens here and not on first start.
                 let config = {
                     let mut ctx_guard = ctx_lock!(ctx);
-                    ctx_guard.recreate_surface(self.settings.vsync_enabled)
+                    ctx_guard
+                        .recreate_surface(self.settings.vsync_enabled, self.settings.present_mode)
                 };
                 (ctx, config)
             }
             _ => match AppContext::new(event_loop, &self.settings) {
                 Ok(ctx) => {
-                    let config = ctx.make_surface_configuration(self.settings.vsync_enabled);
+                    let config = ctx.make_surface_configuration(
+                        self.settings.vsync_enabled,
+                        self.settings.present_mode,
+                    );
                     (Arc::new(Mutex::new(ctx)), config)
                 }
                 Err(e) => {
@@ -1703,8 +1707,10 @@ impl ApplicationHandler for ModuleRuntime {
                 }
 
                 let ctx_lock = ctx_lock!(ctx);
-                let configuration =
-                    ctx_lock.make_surface_configuration(self.settings.vsync_enabled);
+                let configuration = ctx_lock.make_surface_configuration(
+                    self.settings.vsync_enabled,
+                    self.settings.present_mode,
+                );
                 ctx_lock.reconfigure_surface(&configuration);
 
                 self.input_state.surface_resize(new_size);

@@ -8,6 +8,12 @@ pub struct AppSettings {
     pub name: String,
     pub size: Size,
     pub vsync_enabled: bool,
+    /// Start the window in borderless fullscreen.
+    pub fullscreen: bool,
+    /// Optional explicit present mode. `None` uses `AutoVsync`/`AutoNoVsync`
+    /// according to `vsync_enabled`. Useful for testing compositor and
+    /// driver pacing.
+    pub present_mode: Option<wgpu::PresentMode>,
     /// Optional frame-rate cap when VSync is disabled. `None` is uncapped;
     /// VSync takes precedence when enabled.
     pub fps_limit: Option<u32>,
@@ -58,6 +64,8 @@ impl Default for AppSettings {
             name: "Orbital App".into(),
             size: PhysicalSize::new(1280, 720).into(),
             vsync_enabled: true,
+            fullscreen: false,
+            present_mode: None,
             fps_limit: None,
             anti_aliasing: AntiAliasing::Fxaa,
             smaa_quality: SmaaQuality::default(),
