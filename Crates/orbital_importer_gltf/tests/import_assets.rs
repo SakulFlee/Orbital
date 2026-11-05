@@ -564,6 +564,97 @@ fn imports_primitive_without_index_accessor() {
     }
 }
 
+/// Imports a single indexed quad primitive with the given glTF primitive mode
+/// and returns the resulting mesh indices.
+///
+/// The quad is laid out as a triangle strip, which is also a valid fan once the
+/// fan's centre vertex is first. Both modes must be expanded to a triangle list
+/// before the importer flips the winding for Orbital's Z-up coordinate system.
+fn import_quad_primitive_mode(mode: u32, tag: &str) -> Vec<u32> {
+    let root = temp_assets(tag);
+    let models_dir = root.join("Assets").join("Models");
+
+    // Four positions forming a quad, followed by four u16 indices.
+    let mut bin = Vec::new();
+    for point in [
+        [0.0f32, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [1.0, 1.0, 0.0],
+    ] {
+        for component in point {
+            bin.extend_from_slice(&component.to_le_bytes());
+        }
+    }
+    for index in [0u16, 1, 2, 3] {
+        bin.extend_from_slice(&index.to_le_bytes());
+    }
+    std::fs::write(models_dir.join("quad.bin"), &bin).expect("write bin");
+
+    let json = json!({
+        "asset": { "version": "2.0", "generator": "orbital_fm_test" },
+        "scene": 0,
+        "scenes": [ { "nodes": [0] } ],
+        "nodes": [ { "mesh": 0, "name": "Quad" } ],
+        "meshes": [ { "primitives": [
+            { "attributes": { "POSITION": 0 }, "indices": 1, "mode": mode }
+        ] } ],
+        "accessors": [
+            { "bufferView": 0, "componentType": 5126, "count": 4, "type": "VEC3",
+              "min": [0.0, 0.0, 0.0], "max": [1.0, 1.0, 0.0] },
+            { "bufferView": 1, "componentType": 5123, "count": 4, "type": "SCALAR" }
+        ],
+        "bufferViews": [
+            { "buffer": 0, "byteOffset": 0, "byteLength": 48 },
+            { "buffer": 0, "byteOffset": 48, "byteLength": 8 }
+        ],
+        "buffers": [ { "uri": "quad.bin", "byteLength": bin.len() } ]
+    });
+    std::fs::write(
+        models_dir.join("quad.gltf"),
+        serde_json::to_vec_pretty(&json).expect("serialize gltf"),
+    )
+    .expect("write gltf");
+
+    let file_manager = make_file_manager(&root);
+    let result = GltfImporter::import_with_file_manager(
+        &file_manager,
+        GltfImportTask {
+            file: "Models/quad.gltf".into(),
+            import: GltfImport::WholeFile,
+        },
+    );
+
+    let _ = std::fs::remove_dir_all(&root);
+
+    assert!(
+        result.errors.is_empty(),
+        "import errors: {:?}",
+        result.errors
+    );
+    assert_eq!(result.models.len(), 1, "expected exactly one model");
+    result.models[0].mesh.indices.clone()
+}
+
+#[test]
+fn expands_triangle_strip_to_triangle_list() {
+    // Strip triangles are (0, 1, 2) and (2, 1, 3), then the importer reverses
+    // each triangle for the coordinate-system winding flip.
+    assert_eq!(
+        import_quad_primitive_mode(5, "triangle_strip"),
+        vec![0, 2, 1, 2, 3, 1]
+    );
+}
+
+#[test]
+fn expands_triangle_fan_to_triangle_list() {
+    // Fan triangles are (0, 1, 2) and (0, 2, 3), then flipped.
+    assert_eq!(
+        import_quad_primitive_mode(6, "triangle_fan"),
+        vec![0, 2, 1, 0, 3, 2]
+    );
+}
+
 /// Packs a glTF JSON document and a binary chunk into the GLB container format.
 ///
 /// Both chunks are declared at their 4-byte-aligned length, matching what

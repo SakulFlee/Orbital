@@ -941,13 +941,62 @@ impl GltfImporter {
                 Some(indices) => indices.collect(),
                 None => {
                     let vertex_count = positions_vec.len();
-                    if vertex_count % 3 != 0 {
+                    (0..vertex_count as u32).collect()
+                }
+            };
+
+            // Orbital's mesh pipeline is triangle-list only. Expand strip/fan
+            // primitives here, before normal generation and the winding flip,
+            // so both those passes see real triangles. Other topologies cannot
+            // be represented without plumbing a topology through the whole
+            // mesh/material pipeline, so reject them instead of importing
+            // garbage geometry.
+            let indices_vec = match primitive.mode() {
+                gltf::mesh::Mode::Triangles => {
+                    if !indices_vec.len().is_multiple_of(3) {
                         warn!(
-                            "Primitive has no index accessor and {vertex_count} vertices, which is not a whole number of triangles; the trailing {} will be dropped.",
-                            vertex_count % 3
+                            "Primitive has {} triangle-list indices, which is not a whole number of triangles; the trailing {} will be dropped.",
+                            indices_vec.len(),
+                            indices_vec.len() % 3
                         );
                     }
-                    (0..vertex_count as u32).collect()
+                    indices_vec
+                }
+                gltf::mesh::Mode::TriangleStrip => {
+                    let mut expanded = Vec::with_capacity(indices_vec.len().saturating_sub(2) * 3);
+                    for i in 0..indices_vec.len().saturating_sub(2) {
+                        if i % 2 == 0 {
+                            expanded.extend_from_slice(&[
+                                indices_vec[i],
+                                indices_vec[i + 1],
+                                indices_vec[i + 2],
+                            ]);
+                        } else {
+                            expanded.extend_from_slice(&[
+                                indices_vec[i + 1],
+                                indices_vec[i],
+                                indices_vec[i + 2],
+                            ]);
+                        }
+                    }
+                    expanded
+                }
+                gltf::mesh::Mode::TriangleFan => {
+                    let mut expanded = Vec::with_capacity(indices_vec.len().saturating_sub(2) * 3);
+                    for i in 1..indices_vec.len().saturating_sub(1) {
+                        expanded.extend_from_slice(&[
+                            indices_vec[0],
+                            indices_vec[i],
+                            indices_vec[i + 1],
+                        ]);
+                    }
+                    expanded
+                }
+                mode => {
+                    warn!(
+                        "Primitive mode {mode:?} is not supported by Orbital's triangle-list renderer; skipping primitive."
+                    );
+                    continue;
                 }
             };
 
