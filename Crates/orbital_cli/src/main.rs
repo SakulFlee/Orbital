@@ -5,6 +5,7 @@ mod desktop;
 mod init;
 mod ios;
 mod java;
+mod nix_shell;
 mod tooling;
 
 use std::path::PathBuf;
@@ -104,6 +105,18 @@ enum Platform {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
+
+    let is_android_command = matches!(
+        &cli.command,
+        Commands::Build {
+            platform: Some(Platform::Android),
+            ..
+        } | Commands::Run {
+            platform: Some(Platform::Android),
+            ..
+        }
+    );
+    nix_shell::maybe_enter_android_shell(is_android_command)?;
 
     match cli.command {
         Commands::Init {
