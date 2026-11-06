@@ -165,11 +165,17 @@ impl AppContext {
         // Only request features the adapter actually reports. In particular
         // `POLYGON_MODE_LINE` is commonly missing on mobile GPUs (Android), and
         // requesting unsupported features makes `request_device` fail outright.
+        //
+        // iced's quad shader uses `unpack2x16float`, which needs
+        // `SHADER_F16` (its `SHADER_FLOAT16_IN_FLOAT32` capability). The iced
+        // compositor requests it itself, but an embedded renderer has to
+        // request it from the shared device.
         let mut features = Features::default();
         for feature in [
             Features::POLYGON_MODE_LINE,
             Features::TIMESTAMP_QUERY,
             Features::TIMESTAMP_QUERY_INSIDE_ENCODERS,
+            Features::SHADER_F16,
         ] {
             if adapter.features().contains(feature) {
                 features |= feature;
