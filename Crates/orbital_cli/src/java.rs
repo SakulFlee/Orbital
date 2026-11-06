@@ -32,25 +32,26 @@ fn is_jdk(home: &Path) -> bool {
     java_executable(home).exists() && javac_executable(home).exists()
 }
 
-/// Checks the Orbital-owned JDK first, then JAVA_HOME, then PATH.
+/// Checks JAVA_HOME first, then the Orbital-owned JDK, then PATH.
 /// Returns the JDK home directory if a working Java (with javac) is found.
 pub fn find_java() -> Option<PathBuf> {
-    // 1. Orbital-owned JDK in the cache dir (may be nested in a versioned subdir)
+    // 1. JAVA_HOME. Explicit environment variables must win over the Orbital
+    // cache so Nix dev shells and other patched JDK installations can be used.
+    if let Ok(java_home) = std::env::var("JAVA_HOME") {
+        let java_home = PathBuf::from(java_home);
+        let java = java_executable(&java_home);
+        if java.exists() && java_works(&java) && is_jdk(&java_home) {
+            return Some(java_home);
+        }
+    }
+
+    // 2. Orbital-owned JDK in the cache dir (may be nested in a versioned subdir)
     if let Ok(dir) = crate::tooling::java_dir(JDK_VERSION)
         && let Ok(jdk_home) = find_jre_home_in(&dir)
     {
         let java = java_executable(&jdk_home);
         if java.exists() && java_works(&java) && is_jdk(&jdk_home) {
             return Some(jdk_home);
-        }
-    }
-
-    // 2. JAVA_HOME
-    if let Ok(java_home) = std::env::var("JAVA_HOME") {
-        let java_home = PathBuf::from(java_home);
-        let java = java_executable(&java_home);
-        if java.exists() && java_works(&java) && is_jdk(&java_home) {
-            return Some(java_home);
         }
     }
 
@@ -82,6 +83,16 @@ pub fn ensure_java() -> Result<PathBuf> {
         "\nNo compatible Java runtime found (JDK {} required for Android builds).",
         JDK_VERSION
     );
+
+    if crate::tooling::is_nixos() {
+        println!(
+            "NixOS detected. The Orbital-managed Temurin JDK is a generic Linux build\n\
+             and does not run on NixOS without nix-ld or an FHS wrapper.\n\
+             Use the opt-in Android dev shell instead:\n  nix develop .#android\n\
+             or set JAVA_HOME to a Nix-provided JDK."
+        );
+        anyhow::bail!("Java runtime required but not installed.");
+    }
 
     if Confirm::new("Install an Orbital-managed Temurin JDK automatically?")
         .with_default(true)
