@@ -53,7 +53,9 @@ pub fn reexec_in_android_emulator_shell() -> Result<()> {
         );
     };
 
-    println!("Entering the Android emulator dev shell (`nix develop .#android-emulator`).");
+    println!(
+        "Entering the Android emulator dev shell (`nix develop .#android-emulator`); first setup downloads the emulator and system image (~2 GB)."
+    );
     reexec(
         &project_root,
         SHELL_ANDROID_EMULATOR,

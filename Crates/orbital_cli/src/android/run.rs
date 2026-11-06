@@ -291,14 +291,7 @@ fn setup_new_avd() -> Result<String> {
             && crate::android::sdk::is_nix_managed_sdk(&sdk_path)
         {
             if crate::nix_shell::can_enter_android_emulator_shell() {
-                let confirmed = Confirm::new(
-                    "Enter the Android emulator dev shell now? It downloads the emulator and system image (~2 GB).",
-                )
-                .with_default(true)
-                .prompt()?;
-                if confirmed {
-                    crate::nix_shell::reexec_in_android_emulator_shell()?;
-                }
+                crate::nix_shell::reexec_in_android_emulator_shell()?;
             }
 
             println!(
