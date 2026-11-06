@@ -99,6 +99,7 @@ pub fn run(
     if config.generate_android {
         if crate::tooling::is_nixos() {
             println!("  nix develop .#android  # opt-in Android SDK/JDK shell");
+            println!("  nix develop .#android-emulator  # adds emulator + system image");
         }
         println!("  orbital build android");
     } else {
