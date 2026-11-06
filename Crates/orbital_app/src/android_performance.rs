@@ -225,7 +225,7 @@ fn apply_jni_hints(app: &AndroidApp) -> Result<AndroidState, String> {
                 &window,
                 jni_str!("setSustainedPerformanceMode"),
                 jni_sig!("(Z)V"),
-                &[JValue::Bool(1)],
+                &[JValue::Bool(true)],
             )
             .is_ok();
 
