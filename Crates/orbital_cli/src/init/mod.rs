@@ -17,6 +17,7 @@ pub fn run(
     engine_branch: Option<String>,
     engine_path: Option<PathBuf>,
     yes: bool,
+    no_git: bool,
 ) -> Result<()> {
     if parent_path.is_some() && project_path.is_some() {
         anyhow::bail!("--parent-path and --project-path are mutually exclusive");
@@ -74,6 +75,12 @@ pub fn run(
 
     // Generate project files
     template::generate_project(&project_dir, &config)?;
+
+    if no_git {
+        println!("Skipping Git repository initialization (--no-git).");
+    } else {
+        template::init_git(&project_dir)?;
+    }
 
     println!("\nProject '{}' created successfully!", config.project_name);
 

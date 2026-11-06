@@ -58,6 +58,9 @@ enum Commands {
         /// Skip interactive prompts (use defaults)
         #[arg(long)]
         yes: bool,
+        /// Do not initialize a Git repository for the generated project
+        #[arg(long)]
+        no_git: bool,
     },
     /// Initialize Android project for existing Orbital project
     InitAndroid,
@@ -130,6 +133,7 @@ fn main() -> Result<()> {
             engine_branch,
             engine_path,
             yes,
+            no_git,
         } => init::run(
             name,
             parent_path,
@@ -141,6 +145,7 @@ fn main() -> Result<()> {
             engine_branch,
             engine_path,
             yes,
+            no_git,
         ),
         Commands::InitAndroid => android::project::init(),
         Commands::Build {
