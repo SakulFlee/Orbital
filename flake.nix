@@ -141,13 +141,12 @@
           orbital-update() { _orbital_install_cli; }
 
           # Automatic Android-shell re-exec already runs the current CLI, so
-          # avoid an unnecessary `cargo install` in that path.
+          # avoid an unnecessary `cargo install` in that path. Normal shell
+          # activation also installs only when the binary is missing; use
+          # `orbital-update` (or ORBITAL_AUTO_UPDATE_CLI=1) to refresh it.
           if [ -z "''${ORBITAL_SKIP_CLI_INSTALL:-}" ]; then
             if [ -f "$PWD/Crates/orbital_cli/Cargo.toml" ]; then
-              # Engine checkout: rebuild only when the CLI sources or the
-              # workspace lockfile are newer than the installed binary.
-              if [ ! -x "$PWD/.cargo/bin/orbital" ] || \
-                 [ -n "$(find "$PWD/Crates/orbital_cli/src" "$PWD/Crates/orbital_cli/Cargo.toml" "$PWD/Cargo.lock" -newer "$PWD/.cargo/bin/orbital" -print -quit 2>/dev/null)" ]; then
+              if [ ! -x "$PWD/.cargo/bin/orbital" ] || [ -n "''${ORBITAL_AUTO_UPDATE_CLI:-}" ]; then
                 echo "[direnv] Building orbital CLI..."
                 _orbital_install_cli
               fi

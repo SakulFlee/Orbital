@@ -61,6 +61,8 @@ exit 0
     for expected in [
         "ARG=develop",
         "ARG=.#android",
+        "ARG=--profile",
+        ".direnv/android-profile",
         "ARG=--command",
         "ARG=build",
         "ARG=android",

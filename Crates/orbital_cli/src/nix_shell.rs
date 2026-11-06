@@ -101,10 +101,16 @@ fn reexec(project_root: &Path, shell: &str, extra_env: &[(&str, &str)]) -> Resul
     let executable = std::env::current_exe().context("Failed to locate the orbital executable")?;
     let args: Vec<OsString> = std::env::args_os().skip(1).collect();
 
+    let profile_dir = project_root.join(".direnv");
+    let profile_path = profile_dir.join(format!("{shell}-profile"));
+    let use_profile = std::fs::create_dir_all(&profile_dir).is_ok();
+
     let mut command = Command::new("nix");
+    command.arg("develop").arg(format!(".#{shell}"));
+    if use_profile {
+        command.arg("--profile").arg(&profile_path);
+    }
     command
-        .arg("develop")
-        .arg(format!(".#{shell}"))
         .arg("--command")
         .arg(&executable)
         .args(&args)
