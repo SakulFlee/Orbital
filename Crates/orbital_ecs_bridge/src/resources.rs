@@ -209,6 +209,34 @@ pub struct PerformanceLogConfig {
     pub csv: bool,
 }
 
+impl PerformanceLogConfig {
+    /// The runtime's startup defaults: CSV capture is on in debug builds and
+    /// off in release builds.
+    ///
+    /// `ORBITAL_PERF_CSV=0` opts out in debug builds, while
+    /// `ORBITAL_PERF_CSV=1` opts a release build in. `ORBITAL_PERF_CONSOLE`
+    /// controls the corresponding console summaries independently.
+    pub fn for_current_build() -> Self {
+        Self {
+            console: env_flag("ORBITAL_PERF_CONSOLE").unwrap_or(false),
+            csv: env_flag("ORBITAL_PERF_CSV").unwrap_or(cfg!(debug_assertions)),
+        }
+    }
+}
+
+/// Parses an environment switch, treating common false spellings as disabled.
+fn env_flag(name: &str) -> Option<bool> {
+    let value = std::env::var_os(name)?;
+    Some(parse_env_flag(&value.to_string_lossy()))
+}
+
+fn parse_env_flag(value: &str) -> bool {
+    !matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "" | "0" | "false" | "no" | "off"
+    )
+}
+
 impl Default for TimingsHistoryConfig {
     fn default() -> Self {
         Self {
@@ -1579,6 +1607,21 @@ impl Default for VolumetricSettings {
             temporal_history: true,
             max_distance: 200.0,
             quality: VolumetricQuality::Medium,
+        }
+    }
+}
+
+#[cfg(test)]
+mod performance_config_tests {
+    use super::*;
+
+    #[test]
+    fn environment_switches_accept_common_spellings() {
+        for enabled in ["1", "true", "yes", "on", "anything"] {
+            assert!(parse_env_flag(enabled), "{enabled} should be enabled");
+        }
+        for disabled in ["", "0", "false", "no", "off", "  OFF  "] {
+            assert!(!parse_env_flag(disabled), "{disabled:?} should be disabled");
         }
     }
 }

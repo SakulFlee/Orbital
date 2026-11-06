@@ -257,7 +257,7 @@ impl ModuleRuntime {
         runtime.ecs_world.insert_resource(FrameTimings::default());
         runtime
             .ecs_world
-            .insert_resource(PerformanceLogConfig::default());
+            .insert_resource(PerformanceLogConfig::for_current_build());
         runtime.ecs_world.insert_resource(TotalTime(0.0));
         runtime
             .ecs_world
