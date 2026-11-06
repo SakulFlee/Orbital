@@ -140,22 +140,26 @@
           }
           orbital-update() { _orbital_install_cli; }
 
-          if [ -f "$PWD/Crates/orbital_cli/Cargo.toml" ]; then
-            # Engine checkout: rebuild only when the CLI sources or the
-            # workspace lockfile are newer than the installed binary.
-            if [ ! -x "$PWD/.cargo/bin/orbital" ] || \
-               [ -n "$(find "$PWD/Crates/orbital_cli/src" "$PWD/Crates/orbital_cli/Cargo.toml" "$PWD/Cargo.lock" -newer "$PWD/.cargo/bin/orbital" -print -quit 2>/dev/null)" ]; then
-              echo "[direnv] Building orbital CLI..."
+          # Automatic Android-shell re-exec already runs the current CLI, so
+          # avoid an unnecessary `cargo install` in that path.
+          if [ -z "''${ORBITAL_SKIP_CLI_INSTALL:-}" ]; then
+            if [ -f "$PWD/Crates/orbital_cli/Cargo.toml" ]; then
+              # Engine checkout: rebuild only when the CLI sources or the
+              # workspace lockfile are newer than the installed binary.
+              if [ ! -x "$PWD/.cargo/bin/orbital" ] || \
+                 [ -n "$(find "$PWD/Crates/orbital_cli/src" "$PWD/Crates/orbital_cli/Cargo.toml" "$PWD/Cargo.lock" -newer "$PWD/.cargo/bin/orbital" -print -quit 2>/dev/null)" ]; then
+                echo "[direnv] Building orbital CLI..."
+                _orbital_install_cli
+              fi
+            elif [ ! -x "$PWD/.cargo/bin/orbital" ]; then
+              # Generated project: install once, refresh with `orbital-update`.
+              echo "[direnv] Installing orbital CLI..."
               _orbital_install_cli
             fi
-          elif [ ! -x "$PWD/.cargo/bin/orbital" ]; then
-            # Generated project: install once, refresh with `orbital-update`.
-            echo "[direnv] Installing orbital CLI..."
-            _orbital_install_cli
           fi
         '';
 
-        mkAndroidShell = { sdk, sdkRoot }: pkgs.mkShell {
+        mkAndroidShell = { sdk, sdkRoot, shellName }: pkgs.mkShell {
           nativeBuildInputs = [
             rustToolchainAndroid
             pkgsAndroid.cargo-ndk
@@ -165,6 +169,7 @@
 
           buildInputs = commonLinuxBuildInputs;
 
+          ORBITAL_ANDROID_SHELL = shellName;
           ANDROID_HOME = sdkRoot;
           ANDROID_SDK_ROOT = sdkRoot;
           ANDROID_NDK_HOME = "${sdkRoot}/ndk/26.2.11394342";
@@ -205,6 +210,7 @@
         devShells.android = mkAndroidShell {
           sdk = androidSdk;
           sdkRoot = androidSdkRoot;
+          shellName = "android";
         };
 
         # Opt-in shell for `orbital run android` when no physical device is
@@ -213,6 +219,7 @@
         devShells.android-emulator = mkAndroidShell {
           sdk = androidEmulatorSdk;
           sdkRoot = androidEmulatorSdkRoot;
+          shellName = "android-emulator";
         };
 
         devShells.aarch64-cross = pkgs.mkShell {
