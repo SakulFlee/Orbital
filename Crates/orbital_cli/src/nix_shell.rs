@@ -6,10 +6,12 @@ use std::process::Command;
 use crate::config;
 
 pub const SHELL_ANDROID: &str = "android";
+pub const SHELL_ANDROID_EMULATOR: &str = "android-emulator";
 
 const ANDROID_SHELL_ENV: &str = "ORBITAL_ANDROID_SHELL";
 const DISABLE_ENV: &str = "ORBITAL_NO_NIX_ANDROID_SHELL";
 const SHELL_REEXEC_GUARD: &str = "ORBITAL_NIX_ANDROID_REEXEC";
+const EMULATOR_REEXEC_GUARD: &str = "ORBITAL_NIX_ANDROID_EMULATOR_REEXEC";
 const SKIP_CLI_INSTALL_ENV: &str = "ORBITAL_SKIP_CLI_INSTALL";
 
 /// Re-exec an Android command inside `nix develop .#android` when the project
@@ -32,6 +34,34 @@ pub fn maybe_enter_android_shell(is_android_command: bool) -> Result<()> {
         &project_root,
         SHELL_ANDROID,
         &[(SHELL_REEXEC_GUARD, "1"), (SKIP_CLI_INSTALL_ENV, "1")],
+    )
+}
+
+/// Whether the current process can retry inside the emulator-enabled shell.
+pub fn can_enter_android_emulator_shell() -> bool {
+    !is_disabled()
+        && std::env::var_os(EMULATOR_REEXEC_GUARD).is_none()
+        && active_android_shell().as_deref() == Some(SHELL_ANDROID)
+        && nix_project_root().is_some()
+}
+
+/// Re-exec the current command inside `nix develop .#android-emulator`.
+pub fn reexec_in_android_emulator_shell() -> Result<()> {
+    let Some(project_root) = nix_project_root() else {
+        anyhow::bail!(
+            "Cannot enter the Android emulator shell without an Orbital project containing flake.nix."
+        );
+    };
+
+    println!("Entering the Android emulator dev shell (`nix develop .#android-emulator`).");
+    reexec(
+        &project_root,
+        SHELL_ANDROID_EMULATOR,
+        &[
+            (SHELL_REEXEC_GUARD, "1"),
+            (EMULATOR_REEXEC_GUARD, "1"),
+            (SKIP_CLI_INSTALL_ENV, "1"),
+        ],
     )
 }
 
