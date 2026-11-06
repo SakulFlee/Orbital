@@ -35,8 +35,8 @@ use orbital_camera::ProjectionMode;
 use orbital_debug_render::DebugToggleState;
 use orbital_ecs::{IntoSystem, Res, ResMut, System, World};
 use orbital_ecs_bridge::{
-    ActiveCamera, CameraDescriptor, CameraDirty, DebugSelectedEntity, InputSnapshot,
-    PerformanceLogConfig, TimingsHistoryConfig, VolumetricSettings,
+    ActiveCamera, CameraDescriptor, CameraDirty, DebugSelectedEntity, DeviceResource,
+    InputSnapshot, PerformanceLogConfig, TimingsHistoryConfig, VolumetricSettings,
 };
 use orbital_iced::{
     DEFAULT_REFRESH_INTERVAL, IcedLayerRenderer, IcedState, SMOOTH_REFRESH_INTERVAL,
@@ -90,8 +90,8 @@ pub struct DebugUiModule {
     /// Rebuild the panels at the smooth cadence instead of the lazy default.
     /// On by default, because the overlay is only shown on demand.
     smooth: bool,
-    /// Register the on-screen touch toggle on mobile. Disabled on Android for
-    /// now because iced's Vulkan pipelines are not usable there yet.
+    /// Register the on-screen touch toggle on mobile. It is skipped when the
+    /// device cannot provide the shader capability iced requires.
     mobile_toggle: bool,
 }
 
@@ -108,7 +108,7 @@ impl DebugUiModule {
             toggle_key: KeyCode::F1,
             allow_in_release: false,
             smooth: true,
-            mobile_toggle: !cfg!(target_os = "android"),
+            mobile_toggle: true,
         }
     }
 
@@ -136,10 +136,8 @@ impl DebugUiModule {
 
     /// Enable or disable the on-screen mobile debug toggle.
     ///
-    /// It is enabled on iOS and disabled on Android by default: Android's
-    /// iced/Vulkan path currently cannot create the quad pipeline reliably.
-    /// Keep this off on Android until that is fixed, or opt in explicitly when
-    /// testing the iced backend.
+    /// It is skipped automatically on devices without the shader capability
+    /// iced needs. Use this to hide it explicitly on platforms with a keyboard.
     pub fn with_mobile_toggle(mut self, enabled: bool) -> Self {
         self.mobile_toggle = enabled;
         self
@@ -295,6 +293,18 @@ fn register_mobile_toggle(layer_renderers: &mut Vec<Box<dyn LayerRenderer>>) {
 /// hidden, so it does not cover the live panels while they are open.
 #[allow(dead_code)]
 fn mobile_debug_toggle_visible(world: &World) -> bool {
+    let supports_f16 = world
+        .get_resource::<DeviceResource>()
+        .is_some_and(|device| {
+            device
+                .0
+                .features()
+                .contains(iced_wgpu::wgpu::Features::SHADER_F16)
+        });
+    if !supports_f16 {
+        return false;
+    }
+
     world
         .get_resource::<DebugUiState>()
         .is_some_and(|state| !state.visible || state.panels.iter().all(|visible| !visible))
@@ -729,9 +739,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn mobile_toggle_defaults_off_on_android_and_can_be_chosen() {
-        let default = DebugUiModule::new();
-        assert_eq!(default.mobile_toggle, !cfg!(target_os = "android"));
+    fn mobile_toggle_is_enabled_by_default_and_can_be_opted_out() {
+        assert!(DebugUiModule::new().mobile_toggle);
         assert!(!DebugUiModule::new().with_mobile_toggle(false).mobile_toggle);
     }
 
