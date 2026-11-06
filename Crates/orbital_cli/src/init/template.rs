@@ -329,11 +329,10 @@ fn devenv_flake_with_project_android(orbital_url: &str) -> String {
   inputs = {{
     orbital.url = "{orbital_url}";
     nixpkgs.follows = "orbital/nixpkgs";
-    fenix.follows = "orbital/fenix";
     flake-utils.follows = "orbital/flake-utils";
   }};
 
-  outputs = {{ self, nixpkgs, fenix, flake-utils, orbital, ... }}:
+  outputs = {{ self, nixpkgs, flake-utils, orbital, ... }}:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${{system}};
@@ -345,7 +344,8 @@ fn devenv_flake_with_project_android(orbital_url: &str) -> String {
           }};
         }};
         androidShells = import ./nix/android.nix {{
-          inherit pkgs pkgsAndroid fenix system;
+          inherit pkgs pkgsAndroid;
+          rustToolchainAndroid = orbital.packages.${{system}}.rustToolchainAndroid;
         }};
       in
       {{

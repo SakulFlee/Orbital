@@ -201,6 +201,9 @@
         };
       in
       {
+        # Shared with generated projects that define their own Android shells.
+        packages.rustToolchainAndroid = rustToolchainAndroid;
+
         devShells.default = pkgs.mkShell {
           nativeBuildInputs = [ rustToolchain fenix.packages.${system}.stable.rust-analyzer-preview ] ++ commonTools;
 

@@ -1,4 +1,4 @@
-{ pkgs, pkgsAndroid, fenix, system }:
+{ pkgs, pkgsAndroid, rustToolchainAndroid }:
 let
   androidSystemImageAbi =
     if pkgs.stdenv.hostPlatform.isDarwin && pkgs.stdenv.hostPlatform.isAarch64 then
@@ -28,17 +28,6 @@ let
 
   androidSdkRoot = "${androidSdk}/libexec/android-sdk";
   androidEmulatorSdkRoot = "${androidEmulatorSdk}/libexec/android-sdk";
-
-  fenixPkgs = fenix.packages.${system};
-  rustToolchainAndroid = fenixPkgs.combine [
-    fenixPkgs.stable.rustc
-    fenixPkgs.stable.cargo
-    fenixPkgs.stable.rust-std
-    fenixPkgs.targets.aarch64-linux-android.stable.rust-std
-    fenixPkgs.targets.armv7-linux-androideabi.stable.rust-std
-    fenixPkgs.targets.x86_64-linux-android.stable.rust-std
-    fenixPkgs.targets.i686-linux-android.stable.rust-std
-  ];
 
   commonTools = with pkgs; [
     pkgs.gcc
