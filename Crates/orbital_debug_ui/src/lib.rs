@@ -90,6 +90,9 @@ pub struct DebugUiModule {
     /// Rebuild the panels at the smooth cadence instead of the lazy default.
     /// On by default, because the overlay is only shown on demand.
     smooth: bool,
+    /// Register the on-screen touch toggle on mobile. Disabled on Android for
+    /// now because iced's Vulkan pipelines are not usable there yet.
+    mobile_toggle: bool,
 }
 
 impl Default for DebugUiModule {
@@ -105,6 +108,7 @@ impl DebugUiModule {
             toggle_key: KeyCode::F1,
             allow_in_release: false,
             smooth: true,
+            mobile_toggle: !cfg!(target_os = "android"),
         }
     }
 
@@ -127,6 +131,17 @@ impl DebugUiModule {
     /// out. Off by default.
     pub fn allow_in_release(mut self, allow: bool) -> Self {
         self.allow_in_release = allow;
+        self
+    }
+
+    /// Enable or disable the on-screen mobile debug toggle.
+    ///
+    /// It is enabled on iOS and disabled on Android by default: Android's
+    /// iced/Vulkan path currently cannot create the quad pipeline reliably.
+    /// Keep this off on Android until that is fixed, or opt in explicitly when
+    /// testing the iced backend.
+    pub fn with_mobile_toggle(mut self, enabled: bool) -> Self {
+        self.mobile_toggle = enabled;
         self
     }
 
@@ -253,8 +268,9 @@ impl Module for DebugUiModule {
             layer_renderers.push(Box::new(IcedLayerRenderer::new(panel)));
         }
 
-        #[cfg(any(target_os = "android", target_os = "ios"))]
-        register_mobile_toggle(layer_renderers);
+        if self.mobile_toggle && cfg!(any(target_os = "android", target_os = "ios")) {
+            register_mobile_toggle(layer_renderers);
+        }
 
         orbital_core::logging::debug!("DebugUiModule: registered debug panels");
     }
@@ -711,6 +727,13 @@ type PanelSpec = (
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mobile_toggle_defaults_off_on_android_and_can_be_chosen() {
+        let default = DebugUiModule::new();
+        assert_eq!(default.mobile_toggle, !cfg!(target_os = "android"));
+        assert!(!DebugUiModule::new().with_mobile_toggle(false).mobile_toggle);
+    }
 
     #[test]
     fn smooth_refresh_is_the_default() {
