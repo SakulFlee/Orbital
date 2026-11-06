@@ -7,10 +7,10 @@ use std::process::{Command, Stdio};
 /// Check if Android SDK and NDK are properly configured
 pub fn ensure_android_sdk() -> Result<()> {
     // Detection chain:
-    // 1. Orbital-owned SDK in the cache dir
-    // 2. ANDROID_HOME
-    // 3. ANDROID_SDK_ROOT
-    // 4. ANDROID_SDK
+    // 1. ANDROID_HOME
+    // 2. ANDROID_SDK_ROOT
+    // 3. ANDROID_SDK
+    // 4. Orbital-owned SDK in the cache dir
     // 5. Android Studio default locations
     let sdk_path = detect_android_sdk();
 
@@ -19,13 +19,16 @@ pub fn ensure_android_sdk() -> Result<()> {
             if sdk_path.exists() {
                 println!("Android SDK found at: {}", sdk_path.display());
                 set_android_home(&sdk_path);
-                ensure_sdkmanager(&sdk_path)?;
+                ensure_ndk(&sdk_path)?;
                 return Ok(());
             }
             println!("Configured SDK path does not exist: {}", sdk_path.display());
         }
         None => {
             println!("Android SDK not found.");
+            if crate::tooling::is_nixos() {
+                print_nixos_sdk_hint();
+            }
         }
     }
 
@@ -51,12 +54,16 @@ pub fn ensure_android_sdk() -> Result<()> {
             }
 
             set_android_home(&sdk_path);
-
-            // Check for sdkmanager
-            ensure_sdkmanager(&sdk_path)?;
+            ensure_ndk(&sdk_path)?;
         }
         "2" => {
             // Install an Orbital-managed Android SDK
+            if crate::tooling::is_nixos() {
+                anyhow::bail!(
+                    "The Orbital-managed Android SDK is not supported on NixOS.\n\
+                     Use `nix develop .#android`, or point ANDROID_HOME at a Nix-provided SDK."
+                );
+            }
             download_sdk()?;
         }
         "3" => {
@@ -70,16 +77,21 @@ pub fn ensure_android_sdk() -> Result<()> {
     Ok(())
 }
 
-/// Detect an existing Android SDK via the standard env vars and default locations.
-fn detect_android_sdk() -> Option<PathBuf> {
-    // 1. Orbital-owned SDK in the cache dir
-    if let Ok(dir) = crate::tooling::android_sdk_dir()
-        && dir.join("cmdline-tools").join("latest").exists()
-    {
-        return Some(dir);
-    }
+fn print_nixos_sdk_hint() {
+    println!(
+        "\nNixOS detected. The Orbital-managed Android SDK and JDK are generic Linux\n\
+         builds and do not run on NixOS without nix-ld or an FHS wrapper.\n\
+         Use the opt-in Android dev shell instead:\n  nix develop .#android\n\
+         or point ANDROID_HOME/JAVA_HOME at a Nix-provided SDK/JDK."
+    );
+}
 
-    // 2-4. Env vars (note: ANDROID_SDK_HOME is the AVD/preferences home, NOT the SDK)
+/// Detect an existing Android SDK via the standard env vars, the Orbital-owned
+/// cache, and default locations.
+fn detect_android_sdk() -> Option<PathBuf> {
+    // 1-3. Env vars (note: ANDROID_SDK_HOME is the AVD/preferences home, NOT
+    // the SDK). Explicit environment variables must win over the Orbital cache
+    // so Nix dev shells and other patched SDK installations can be used.
     for var in ["ANDROID_HOME", "ANDROID_SDK_ROOT", "ANDROID_SDK"] {
         if let Ok(path) = std::env::var(var) {
             let path = PathBuf::from(path);
@@ -87,6 +99,13 @@ fn detect_android_sdk() -> Option<PathBuf> {
                 return Some(path);
             }
         }
+    }
+
+    // 4. Orbital-owned SDK in the cache dir
+    if let Ok(dir) = crate::tooling::android_sdk_dir()
+        && dir.join("cmdline-tools").join("latest").exists()
+    {
+        return Some(dir);
     }
 
     // 5. Android Studio default locations
@@ -119,31 +138,12 @@ fn detect_android_sdk() -> Option<PathBuf> {
 
 /// Sets ANDROID_HOME for this process so sdkmanager/gradle can find the SDK.
 fn set_android_home(sdk_path: &Path) {
-    // SAFETY: Setting an env var for the current process before spawning children.
-    unsafe { std::env::set_var("ANDROID_HOME", sdk_path) };
-    println!("ANDROID_HOME set to: {}", sdk_path.display());
-}
-/// Ensure sdkmanager is available and NDK is installed.
-/// Returns the path to the NDK directory.
-fn ensure_sdkmanager(sdk_path: &Path) -> Result<PathBuf> {
-    let sdkmanager = sdkmanager_path(sdk_path);
-
-    if !sdkmanager.exists() {
-        println!("\nsdkmanager not found at: {}", sdkmanager.display());
-        println!("You may need to install Android command-line tools.");
-
-        if Confirm::new("Install Android command-line tools now?")
-            .with_default(true)
-            .prompt()?
-        {
-            download_sdk()?;
-        } else {
-            println!("Please install Android SDK manually.");
-        }
+    // SAFETY: Setting env vars for the current process before spawning children.
+    unsafe {
+        std::env::set_var("ANDROID_HOME", sdk_path);
+        std::env::set_var("ANDROID_SDK_ROOT", sdk_path);
     }
-
-    // Ensure NDK is installed and return its path
-    ensure_ndk(sdk_path)
+    println!("ANDROID_HOME set to: {}", sdk_path.display());
 }
 
 /// Prints a warning that the following steps auto-accept the Android SDK licenses.
@@ -367,7 +367,7 @@ fn download_sdk() -> Result<()> {
     }
 
     // Now ensure NDK is installed
-    ensure_sdkmanager(&install_path)?;
+    ensure_ndk(&install_path)?;
 
     Ok(())
 }
@@ -502,18 +502,52 @@ pub fn ensure_ndk(sdk_path: &Path) -> Result<PathBuf> {
 
     println!("\nAndroid NDK not installed.");
 
+    if sdk_path.starts_with("/nix/store") {
+        anyhow::bail!(
+            "Android NDK {ndk_version} is not present in the Nix-managed SDK at {}.\n\
+             Add it to the Android dev shell with:\n  \
+             ndkVersions = [ \"{ndk_version}\" ];",
+            sdk_path.display()
+        );
+    }
+
+    let sdkmanager = if let Some(sdkmanager) = find_cmdline_tool(sdk_path, "sdkmanager") {
+        sdkmanager
+    } else {
+        if crate::tooling::is_nixos() {
+            anyhow::bail!(
+                "sdkmanager not found in {}.\n\
+                 Use `nix develop .#android`, or provide an SDK that includes command-line tools.",
+                sdk_path.display()
+            );
+        }
+
+        println!("sdkmanager not found in {}.", sdk_path.display());
+        if Confirm::new("Install Android command-line tools now?")
+            .with_default(true)
+            .prompt()?
+        {
+            download_sdk()?;
+            if let Some(downloaded_sdk) = current_sdk_path() {
+                let ndk = ndk_path(&downloaded_sdk, &ndk_version);
+                if ndk.exists() {
+                    return Ok(ndk);
+                }
+            }
+        } else {
+            println!("Please install Android SDK manually.");
+        }
+
+        anyhow::bail!(
+            "Android NDK is required for building, but sdkmanager is not available in {}.",
+            sdk_path.display()
+        );
+    };
+
     if Confirm::new("Install Android NDK now?")
         .with_default(true)
         .prompt()?
     {
-        let sdkmanager = sdkmanager_path(sdk_path);
-        if !sdkmanager.exists() {
-            anyhow::bail!(
-                "sdkmanager not found at {}. Cannot install NDK automatically.",
-                sdkmanager.display()
-            );
-        }
-
         let java_home = crate::java::ensure_java()?;
         let ndk_package = format!("ndk;{}", ndk_version);
 
@@ -541,7 +575,7 @@ pub fn ensure_ndk(sdk_path: &Path) -> Result<PathBuf> {
             "Android NDK is required for building.\n\
              Install it with:\n  \
              {} \"ndk;{}\"",
-            sdkmanager_path(sdk_path).display(),
+            sdkmanager.display(),
             ndk_version
         );
     }
@@ -568,13 +602,13 @@ pub fn current_sdk_path() -> Option<PathBuf> {
 pub fn candidate_sdk_paths() -> Vec<PathBuf> {
     let mut paths = Vec::new();
 
-    if let Ok(dir) = crate::tooling::android_sdk_dir() {
-        push_unique(&mut paths, dir);
-    }
     for var in ["ANDROID_HOME", "ANDROID_SDK_ROOT", "ANDROID_SDK"] {
         if let Ok(path) = std::env::var(var) {
             push_unique(&mut paths, PathBuf::from(path));
         }
+    }
+    if let Ok(dir) = crate::tooling::android_sdk_dir() {
+        push_unique(&mut paths, dir);
     }
 
     if cfg!(windows) {
@@ -604,36 +638,61 @@ fn push_unique(paths: &mut Vec<PathBuf>, p: PathBuf) {
     }
 }
 
-fn sdkmanager_path(sdk_path: &Path) -> PathBuf {
-    if cfg!(windows) {
-        sdk_path
-            .join("cmdline-tools")
-            .join("latest")
-            .join("bin")
-            .join("sdkmanager.bat")
+/// Locate an executable from the SDK's `cmdline-tools` directory.
+///
+/// The conventional layout is `cmdline-tools/latest/bin/<tool>`, but Nixpkgs
+/// (androidenv) installs versioned directories such as
+/// `cmdline-tools/22.0/bin/<tool>` without creating a `latest` symlink.
+fn find_cmdline_tool(sdk_path: &Path, tool: &str) -> Option<PathBuf> {
+    let executable = if cfg!(windows) {
+        format!("{tool}.bat")
     } else {
-        sdk_path
-            .join("cmdline-tools")
-            .join("latest")
-            .join("bin")
-            .join("sdkmanager")
+        tool.to_string()
+    };
+
+    let cmdline_tools = sdk_path.join("cmdline-tools");
+
+    let latest = cmdline_tools.join("latest").join("bin").join(&executable);
+    if latest.is_file() {
+        return Some(latest);
     }
+
+    let Ok(entries) = std::fs::read_dir(&cmdline_tools) else {
+        return find_on_path(&executable);
+    };
+
+    let mut candidates: Vec<PathBuf> = entries
+        .flatten()
+        .map(|entry| entry.path().join("bin").join(&executable))
+        .filter(|path| path.is_file())
+        .collect();
+
+    candidates.sort_by_key(|path| cmdline_tools_version_key(path));
+    candidates.pop().or_else(|| find_on_path(&executable))
 }
 
-fn avdmanager_path(sdk_path: &Path) -> PathBuf {
-    if cfg!(windows) {
-        sdk_path
-            .join("cmdline-tools")
-            .join("latest")
-            .join("bin")
-            .join("avdmanager.bat")
-    } else {
-        sdk_path
-            .join("cmdline-tools")
-            .join("latest")
-            .join("bin")
-            .join("avdmanager")
+fn cmdline_tools_version_key(path: &Path) -> Vec<u64> {
+    path.parent()
+        .and_then(Path::parent)
+        .and_then(Path::file_name)
+        .and_then(|name| name.to_str())
+        .map(|name| {
+            name.split(|c: char| !c.is_ascii_digit())
+                .filter_map(|part| part.parse::<u64>().ok())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn find_on_path(executable: &str) -> Option<PathBuf> {
+    let path = std::env::var_os("PATH")?;
+    for dir in std::env::split_paths(&path) {
+        let candidate = dir.join(executable);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
     }
+    None
 }
 
 /// The system image package to use for a new AVD: matches the project's
@@ -677,12 +736,20 @@ pub fn package_installed(package: &str) -> bool {
 /// Accepts the SDK licenses first (a warning is printed).
 pub fn sdkmanager_install(packages: &[String]) -> Result<()> {
     let sdk_path = current_sdk_path().context("Android SDK not found")?;
-    let java_home = crate::java::ensure_java()?;
-    let sdkmanager = sdkmanager_path(&sdk_path);
 
-    if !sdkmanager.exists() {
-        anyhow::bail!("sdkmanager not found at {}", sdkmanager.display());
+    if sdk_path.starts_with("/nix/store") {
+        anyhow::bail!(
+            "The Android SDK at {} is Nix-managed and read-only.\n\
+             Add the required packages to the Android dev shell instead of installing\n\
+             them with sdkmanager.",
+            sdk_path.display()
+        );
     }
+
+    let java_home = crate::java::ensure_java()?;
+    let Some(sdkmanager) = find_cmdline_tool(&sdk_path, "sdkmanager") else {
+        anyhow::bail!("sdkmanager not found in {}", sdk_path.display());
+    };
 
     warn_license_acceptance();
     accept_sdk_licenses(&sdk_path)?;
@@ -707,11 +774,9 @@ pub fn sdkmanager_install(packages: &[String]) -> Result<()> {
 pub fn create_avd(name: &str, system_image: &str) -> Result<()> {
     let sdk_path = current_sdk_path().context("Android SDK not found")?;
     let java_home = crate::java::ensure_java()?;
-    let avdmanager = avdmanager_path(&sdk_path);
-
-    if !avdmanager.exists() {
-        anyhow::bail!("avdmanager not found at {}", avdmanager.display());
-    }
+    let Some(avdmanager) = find_cmdline_tool(&sdk_path, "avdmanager") else {
+        anyhow::bail!("avdmanager not found in {}", sdk_path.display());
+    };
 
     println!("Creating AVD '{}'...", name);
     let mut child = Command::new(&avdmanager)
@@ -742,4 +807,74 @@ pub fn create_avd(name: &str, system_image: &str) -> Result<()> {
 
     println!("AVD '{}' created.", name);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_sdk() -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!(
+            "orbital-cli-sdk-test-{}-{unique}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn tool_name(tool: &str) -> String {
+        if cfg!(windows) {
+            format!("{tool}.bat")
+        } else {
+            tool.to_string()
+        }
+    }
+
+    fn write_tool(sdk: &Path, version: &str, tool: &str) {
+        let bin = sdk.join("cmdline-tools").join(version).join("bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        std::fs::write(bin.join(tool_name(tool)), "").unwrap();
+    }
+
+    #[test]
+    fn finds_latest_cmdline_tool() {
+        let sdk = temp_sdk();
+        write_tool(&sdk, "latest", "sdkmanager");
+
+        assert_eq!(
+            find_cmdline_tool(&sdk, "sdkmanager"),
+            Some(
+                sdk.join("cmdline-tools")
+                    .join("latest")
+                    .join("bin")
+                    .join(tool_name("sdkmanager"))
+            )
+        );
+
+        std::fs::remove_dir_all(sdk).unwrap();
+    }
+
+    #[test]
+    fn finds_highest_versioned_cmdline_tool() {
+        let sdk = temp_sdk();
+        write_tool(&sdk, "9.0", "sdkmanager");
+        write_tool(&sdk, "22.0", "sdkmanager");
+
+        assert_eq!(
+            find_cmdline_tool(&sdk, "sdkmanager"),
+            Some(
+                sdk.join("cmdline-tools")
+                    .join("22.0")
+                    .join("bin")
+                    .join(tool_name("sdkmanager"))
+            )
+        );
+
+        std::fs::remove_dir_all(sdk).unwrap();
+    }
 }

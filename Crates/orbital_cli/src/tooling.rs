@@ -25,6 +25,11 @@ pub fn java_dir(version: &str) -> Result<PathBuf> {
     Ok(orbital_cache_dir()?.join("jdk").join(version))
 }
 
+/// Whether the current host is NixOS.
+pub fn is_nixos() -> bool {
+    Path::new("/etc/NIXOS").exists()
+}
+
 /// Downloads a URL to `dest` with a progress bar.
 ///
 /// The download is written directly to `dest`. Callers that need atomicity

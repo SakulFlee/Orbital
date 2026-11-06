@@ -566,7 +566,11 @@ fn ensure_cargo_ndk() -> Result<()> {
     Ok(())
 }
 
-/// Ensure required Rust targets are installed, prompt user to install if missing
+/// Ensure required Rust targets are installed, prompt user to install if missing.
+///
+/// This checks the active toolchain directly instead of assuming `rustup`, so
+/// Nix/fenix toolchains that already bundle the Android standard libraries work
+/// without a rustup shim on PATH.
 fn ensure_rust_targets(targets: &[String]) -> Result<()> {
     let target_map = HashMap::from([
         ("arm64-v8a", "aarch64-linux-android"),
@@ -575,26 +579,34 @@ fn ensure_rust_targets(targets: &[String]) -> Result<()> {
         ("x86", "i686-linux-android"),
     ]);
 
-    // Get installed targets
-    let output = Command::new("rustup")
-        .args(["target", "list", "--installed"])
-        .output()
-        .context("Failed to run 'rustup target list'. Is rustup installed?")?;
-
-    let installed = String::from_utf8_lossy(&output.stdout);
-
-    // Check which targets are missing
-    let mut missing = Vec::new();
-    for abi in targets {
-        if let Some(triple) = target_map.get(abi.as_str())
-            && !installed.contains(triple)
-        {
-            missing.push(triple.to_string());
-        }
-    }
+    let missing: Vec<String> = targets
+        .iter()
+        .filter_map(|abi| target_map.get(abi.as_str()).copied())
+        .filter(|triple| !rust_target_installed(triple))
+        .map(ToString::to_string)
+        .collect();
 
     if missing.is_empty() {
         return Ok(());
+    }
+
+    if !rustup_available() {
+        if crate::tooling::is_nixos() {
+            anyhow::bail!(
+                "Missing Rust targets: {}\n\
+                 The active toolchain does not include them, and rustup is not available.\n\
+                 Use the Android dev shell (`nix develop .#android`), or add the targets\n\
+                 to your Rust toolchain.",
+                missing.join(", ")
+            );
+        }
+
+        anyhow::bail!(
+            "Missing Rust targets: {}\n\
+             Install them with `rustup target add {}`, or use a toolchain that includes them.",
+            missing.join(", "),
+            missing.join(" ")
+        );
     }
 
     // Ask user if they want to install missing targets
@@ -609,7 +621,7 @@ fn ensure_rust_targets(targets: &[String]) -> Result<()> {
         anyhow::bail!(
             "Cannot build without required targets.\n\
              Install them with:\n  \
-             rustup target install {}",
+             rustup target add {}",
             missing.join(" ")
         );
     }
@@ -617,9 +629,9 @@ fn ensure_rust_targets(targets: &[String]) -> Result<()> {
     for target in &missing {
         println!("Installing {}...", target);
         let status = Command::new("rustup")
-            .args(["target", "install", target])
+            .args(["target", "add", target])
             .status()
-            .context("Failed to run 'rustup target install'")?;
+            .context("Failed to run 'rustup target add'")?;
 
         if !status.success() {
             anyhow::bail!("Failed to install target: {}", target);
@@ -629,4 +641,31 @@ fn ensure_rust_targets(targets: &[String]) -> Result<()> {
     println!("All targets installed successfully!");
 
     Ok(())
+}
+
+/// Returns true if the Rust standard library for `triple` is available to the
+/// active toolchain.
+fn rust_target_installed(triple: &str) -> bool {
+    let Ok(output) = Command::new("rustc")
+        .args(["--print", "target-libdir", "--target", triple])
+        .output()
+    else {
+        return false;
+    };
+
+    if !output.status.success() {
+        return false;
+    }
+
+    let libdir = String::from_utf8_lossy(&output.stdout);
+    let libdir = libdir.trim();
+    !libdir.is_empty() && Path::new(libdir).is_dir()
+}
+
+fn rustup_available() -> bool {
+    Command::new("rustup")
+        .arg("--version")
+        .output()
+        .map(|output| output.status.success())
+        .unwrap_or(false)
 }

@@ -97,6 +97,9 @@ pub fn run(
     println!("  direnv allow            # loads the dev shell and installs the orbital CLI");
 
     if config.generate_android {
+        if crate::tooling::is_nixos() {
+            println!("  nix develop .#android  # opt-in Android SDK/JDK shell");
+        }
         println!("  orbital build android");
     } else {
         println!("  orbital build");
