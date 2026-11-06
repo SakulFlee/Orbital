@@ -98,6 +98,10 @@ pub struct IcedLayerRenderer<M: Clone + PartialEq + Send + Sync + 'static = Mess
     inner: Mutex<Option<RendererInner<M>>>,
     device: Option<wgpu::Device>,
     queue: Option<wgpu::Queue>,
+    /// Surface format the renderer's pipelines were built for. A surface
+    /// recreation can change this (notably on Android), and a pipeline built
+    /// for the wrong format is reported as an invalid resource at draw time.
+    surface_format: Option<wgpu::TextureFormat>,
     last_timings: OverlayRenderTimings,
 }
 
@@ -128,8 +132,21 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> IcedLayerRenderer<M> {
             inner: Mutex::new(None),
             device: None,
             queue: None,
+            surface_format: None,
             last_timings: OverlayRenderTimings::default(),
         }
+    }
+
+    /// Returns the current surface format and drops the iced renderer when it
+    /// changes, forcing its pipelines to be rebuilt for the new target.
+    fn refresh_surface_format(&mut self, ecs: &orbital_ecs::World) -> Option<wgpu::TextureFormat> {
+        let format = ecs.get_resource::<SurfaceFormatResource>()?.0;
+        if self.surface_format != Some(format) {
+            log::debug!("iced surface format: {format:?}; rebuilding renderer pipelines");
+            self.surface_format = Some(format);
+            *self.inner.lock().unwrap_or_else(|error| error.into_inner()) = None;
+        }
+        Some(format)
     }
 
     pub fn state(&self) -> &IcedState<M> {
@@ -167,11 +184,13 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
             return;
         }
 
-        // Ensure renderer is initialized (needed for text layout in hit-testing).
-        let format = ecs
-            .get_resource::<SurfaceFormatResource>()
-            .map(|f| f.0)
-            .unwrap_or(wgpu::TextureFormat::Bgra8UnormSrgb);
+        // A panel can become visible on the first update, before `resumed()`
+        // has inserted the surface format. Do not build iced pipelines from a
+        // guessed format: on Android that can create a pipeline the surface
+        // cannot use, which wgpu then reports as an invalid resource.
+        let Some(format) = self.refresh_surface_format(ecs) else {
+            return;
+        };
 
         // Clone device/queue from ECS resources on first call.
         if self.device.is_none() {
@@ -500,11 +519,9 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
             return;
         }
 
-        let format = ctx
-            .ecs
-            .get_resource::<SurfaceFormatResource>()
-            .map(|f| f.0)
-            .unwrap_or(wgpu::TextureFormat::Bgra8UnormSrgb);
+        let Some(format) = self.refresh_surface_format(ctx.ecs) else {
+            return;
+        };
 
         // Ensure renderer is initialized
         {
@@ -1106,5 +1123,29 @@ mod tests {
             Some(std::time::Duration::ZERO),
             std::time::Duration::ZERO
         ));
+    }
+
+    #[test]
+    fn iced_waits_for_the_surface_format_and_tracks_changes() {
+        let mut renderer = IcedLayerRenderer::<Message>::new(IcedState::new());
+        let mut world = orbital_ecs::World::new();
+
+        assert_eq!(
+            renderer.refresh_surface_format(&world),
+            None,
+            "iced must not guess a format before the surface is configured"
+        );
+
+        world.insert_resource(SurfaceFormatResource(wgpu::TextureFormat::Rgba8UnormSrgb));
+        assert_eq!(
+            renderer.refresh_surface_format(&world),
+            Some(wgpu::TextureFormat::Rgba8UnormSrgb)
+        );
+
+        world.insert_resource(SurfaceFormatResource(wgpu::TextureFormat::Bgra8UnormSrgb));
+        assert_eq!(
+            renderer.refresh_surface_format(&world),
+            Some(wgpu::TextureFormat::Bgra8UnormSrgb)
+        );
     }
 }
