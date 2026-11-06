@@ -14,6 +14,7 @@ log = { workspace = true }
 winit = { workspace = true }
 
 orbital_app = { path = "../orbital_app" }
+orbital_billboard = { path = "../orbital_billboard" }
 orbital_camera = { path = "../orbital_camera" }
 orbital_core = { path = "../orbital_core" }
 orbital_debug_render = { path = "../orbital_debug_render" }

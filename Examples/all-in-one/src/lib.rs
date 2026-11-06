@@ -5,7 +5,7 @@ use orbital::app::{
     App, AppSettings, CursorToggle, LayerRenderer, Module, RenderLayer, RenderOverlayContext,
     sys_camera_controller, sys_ortho_dolly,
 };
-use orbital::billboard::{BillboardMode, BillboardModule, text_billboard_with_background};
+use orbital::billboard::{BillboardMode, BillboardModule, Text, text_billboard_with_background};
 use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector3};
 use orbital::debug_render::DebugModule;
 use orbital::ecs::{Commands, ComponentAccess, IntoSystem, Res, ResMut, System, World};
@@ -122,11 +122,15 @@ fn is_room_shell(label: &str) -> bool {
 
 fn second_row_room_name(x: f32) -> &'static str {
     match x.round() as i32 {
-        -20 => "R6",
+        -25 | -20 => "R6",
+        -15 => "R6/R7",
         -10 => "R7",
+        -5 => "R7/R8",
         0 => "R8",
+        5 => "R8/R9",
         10 => "R9",
-        20 => "R10",
+        15 => "R9/R10",
+        20 | 25 => "R10",
         _ => "R?",
     }
 }
@@ -164,6 +168,16 @@ fn spawn_text_label(
     .with_position(position)
     .with_mode(mode);
     let entity = ecs.spawn_entity();
+    ecs.attach_component(
+        &entity,
+        Text::new(text)
+            .with_font_size(128.0)
+            .with_color([1.0, 1.0, 1.0, 1.0])
+            .with_background(Some([0.025, 0.035, 0.07, 0.55]))
+            .with_world_scale(0.00225)
+            .with_alpha_mode(AlphaMode::Blend),
+    )
+    .unwrap();
     ecs.attach_component(&entity, label).unwrap();
 }
 

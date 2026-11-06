@@ -9,7 +9,7 @@ SceneBuilder(
         Entity(label: Some("R1 Floor"), shape: Plane(size: (10.0, 10.0), subdivisions: 2), material: "wall", transform: Transform(position: (-20.0, 0.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
         Entity(label: Some("R1 Back"),  shape: Cube(size: (10.0, 10.0, 0.1)), material: "wall", transform: Transform(position: (-20.0, 5.0, -5.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
         Entity(label: Some("R1 Left"),  shape: Cube(size: (0.1, 10.0, 10.0)), material: "wall", transform: Transform(position: (-25.0, 5.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("R1 Right / R3 Left"), shape: Cube(size: (0.1, 10.0, 10.0)), material: "wall", transform: Transform(position: (-15.0, 5.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
+        Entity(label: Some("R1 Right / R2 Left"), shape: Cube(size: (0.1, 10.0, 10.0)), material: "wall", transform: Transform(position: (-15.0, 5.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
 
         // Room 1 — all shapes in a circle, metallic
         Entity(label: Some("R1 Torus"),    shape: Torus(major_radius: 0.6, minor_radius: 0.2, major_segments: 20, minor_segments: 10), material: "gold", transform: Transform(position: (-17.6, 1.5, 1.8), rotation: (0.7071, 0.7071, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
@@ -25,7 +25,7 @@ SceneBuilder(
         // ── Room 2: Matte Shape Gallery (x: -15 to -5) ──
         Entity(label: Some("R2 Floor"), shape: Plane(size: (10.0, 10.0), subdivisions: 2), material: "wall", transform: Transform(position: (-10.0, 0.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
         Entity(label: Some("R2 Back"),  shape: Cube(size: (10.0, 10.0, 0.1)), material: "wall", transform: Transform(position: (-10.0, 5.0, -5.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("R2 Right / R1 Left"), shape: Cube(size: (0.1, 10.0, 10.0)), material: "wall", transform: Transform(position: (-5.0, 5.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
+        Entity(label: Some("R2 Right / R3 Left"), shape: Cube(size: (0.1, 10.0, 10.0)), material: "wall", transform: Transform(position: (-5.0, 5.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
 
         // Room 2 — same shapes, non-metallic rough colors
         Entity(label: Some("R2 Torus"),    shape: Torus(major_radius: 0.6, minor_radius: 0.2, major_segments: 20, minor_segments: 10), material: "r3_red", transform: Transform(position: (-7.6, 1.5, 1.8), rotation: (0.7071, 0.7071, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
@@ -41,7 +41,7 @@ SceneBuilder(
         // ── Room 3: Object Showcase (x: -5 to 5) ──
         Entity(label: Some("R3 Floor"), shape: Plane(size: (10.0, 10.0), subdivisions: 2), material: "wall", transform: Transform(position: (0.0, 0.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
         Entity(label: Some("R3 Back"),  shape: Cube(size: (10.0, 10.0, 0.1)), material: "wall", transform: Transform(position: (0.0, 5.0, -5.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
-        Entity(label: Some("R3 Right / R2 Left"), shape: Cube(size: (0.1, 10.0, 10.0)), material: "wall", transform: Transform(position: (5.0, 5.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
+        Entity(label: Some("R3 Right / R4 Left"), shape: Cube(size: (0.1, 10.0, 10.0)), material: "wall", transform: Transform(position: (5.0, 5.0, 0.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),
 
         // Room 3 objects
         Entity(label: Some("Red Sphere"), shape: UvSphere(radius: 0.5, segments: 20, rings: 10), material: "red", transform: Transform(position: (-2.0, 0.5, -1.0), rotation: (1.0, 0.0, 0.0, 0.0), scale: (1.0, 1.0, 1.0))),

@@ -1,5 +1,6 @@
 //! ECS system that turns [`Billboard`] components into normal models.
 
+use std::any::TypeId;
 use std::sync::Arc;
 
 use cgmath::{InnerSpace, Matrix3, Point3, Quaternion, Rad, Rotation3, Vector2, Vector3};
@@ -14,6 +15,7 @@ use orbital_vertex::Vertex;
 use wgpu::{Device, Queue};
 
 use crate::component::{Billboard, BillboardMode};
+use crate::text::Text;
 
 /// Shared unit quad used by billboards without a custom mesh.
 #[derive(Debug)]
@@ -28,7 +30,109 @@ pub struct BillboardModule;
 impl Module for BillboardModule {
     fn setup(&self, ecs: &mut World, _device: &Device, _queue: &Queue) -> Vec<Box<dyn System>> {
         ecs.insert_resource(BillboardQuadMesh(Arc::new(unit_quad())));
-        vec![Box::new(BillboardSystem::new())]
+        vec![
+            Box::new(TextSystem::new()),
+            Box::new(BillboardSystem::new()),
+        ]
+    }
+}
+
+/// Rebuilds generated text content when a [`Text`] component is edited.
+///
+/// Position, size, rotation and mode stay on the [`Billboard`] component, so a
+/// text edit only replaces the generated mesh and material. Model descriptors
+/// are refreshed at the same time when the billboard has already realized.
+struct TextSystem {
+    access: ComponentAccess,
+}
+
+impl TextSystem {
+    fn new() -> Self {
+        Self {
+            access: ComponentAccess::new()
+                .reads::<Text>()
+                .writes::<Text>()
+                .reads::<Billboard>()
+                .writes::<Billboard>()
+                .writes::<ModelDescriptor>()
+                .writes::<ModelDirty>(),
+        }
+    }
+}
+
+impl System for TextSystem {
+    fn name(&self) -> &str {
+        "text_billboard_rebuild"
+    }
+
+    fn access(&self) -> &ComponentAccess {
+        &self.access
+    }
+
+    fn run(&mut self, world: &World, commands: &mut Commands) {
+        let work = {
+            let Some(texts) = world.get_component_store::<Text>() else {
+                return;
+            };
+            let billboards = world.get_component_store::<Billboard>();
+
+            texts
+                .dense
+                .as_slice()
+                .iter()
+                .filter_map(|&entity_index| {
+                    let index = texts.sparse.get(entity_index).copied().flatten()?;
+                    let text = &texts.components[index];
+                    if !text.is_dirty() {
+                        return None;
+                    }
+
+                    let entity = Entity::new(entity_index, world.generation(entity_index));
+                    let existing = billboards.as_ref().and_then(|store| {
+                        store
+                            .sparse
+                            .get(entity_index)
+                            .copied()
+                            .flatten()
+                            .map(|index| store.components[index].clone())
+                    });
+
+                    Some((entity, text.clone(), existing))
+                })
+                .collect::<Vec<_>>()
+        };
+
+        for (entity, text, existing) in work {
+            let mut rebuilt = text.build_billboard();
+            if let Some(mut billboard) = existing {
+                billboard.mesh = rebuilt.mesh;
+                billboard.material = rebuilt.material;
+                // `world_scale` is part of the text source; keep the quad
+                // size in sync while preserving the authored transform.
+                billboard.size = rebuilt.size;
+                rebuilt = billboard;
+            }
+
+            commands.attach_component(&entity, rebuilt.clone());
+
+            if let Some(mut handle) =
+                world.component_mut_any(TypeId::of::<ModelDescriptor>(), &entity)
+                && let Some(descriptor) = handle.as_any_mut().downcast_mut::<ModelDescriptor>()
+            {
+                descriptor.mesh = rebuilt
+                    .mesh
+                    .clone()
+                    .unwrap_or_else(|| descriptor.mesh.clone());
+                descriptor.materials = vec![rebuilt.material.clone()];
+                commands.attach_component(&entity, ModelDirty(true));
+            }
+
+            if let Some(mut handle) = world.component_mut_any(TypeId::of::<Text>(), &entity)
+                && let Some(text) = handle.as_any_mut().downcast_mut::<Text>()
+            {
+                text.clear_dirty();
+            }
+        }
     }
 }
 

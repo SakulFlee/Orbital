@@ -3195,6 +3195,7 @@ dependencies = [
  "iced_winit",
  "log",
  "orbital_app",
+ "orbital_billboard",
  "orbital_camera",
  "orbital_core",
  "orbital_debug_render",

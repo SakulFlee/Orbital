@@ -14,6 +14,7 @@ use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::sync::{OnceLock, RwLock};
 
+use orbital_billboard::{Billboard, Text};
 use orbital_ecs_bridge::{CameraDescriptor, LightDescriptor, ModelDescriptor, ModelInstances};
 
 /// Type-erased operations for one [`EditableFields`] implementation.
@@ -68,6 +69,8 @@ pub fn register_builtin_editable_fields() {
         register_editable_fields::<ModelDescriptor>();
         register_editable_fields::<LightDescriptor>();
         register_editable_fields::<ModelInstances>();
+        register_editable_fields::<Billboard>();
+        register_editable_fields::<Text>();
     });
 }
 

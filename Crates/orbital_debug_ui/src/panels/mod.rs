@@ -20,6 +20,7 @@ use std::any::TypeId;
 use iced_widget::Column;
 use iced_winit::core::{Color, Element, Length, Theme};
 
+use orbital_billboard::Text;
 use orbital_ecs::{Entity, World};
 use orbital_ecs_bridge::{
     ActiveCamera, CameraDescriptor, LightDescriptor, ModelDescriptor, ModelInstances,
@@ -110,6 +111,15 @@ pub(crate) fn entity_label(world: &World, entity: &Entity) -> Option<String> {
                 .map(LightDescriptor::kind_label)
         });
 
+    let text = world
+        .component_debug(TypeId::of::<Text>(), entity)
+        .and_then(|handle| {
+            handle
+                .as_any()
+                .downcast_ref::<Text>()
+                .map(|text| text.value.clone())
+        });
+
     let model = world
         .component_debug(TypeId::of::<ModelDescriptor>(), entity)
         .and_then(|handle| {
@@ -159,6 +169,13 @@ pub(crate) fn entity_label(world: &World, entity: &Entity) -> Option<String> {
         }
     }
 
+    if let Some(text) = text {
+        roles.push("Text");
+        // The text itself is more useful than the generated "Billboard N"
+        // model label, so it replaces the label and the model becomes a detail.
+        label = Some(format!("\"{}\"", text_preview(&text)));
+    }
+
     if let Some((model_label, instances, vertices, indices)) = model {
         roles.push("Model");
         if label.is_none() && !model_label.trim().is_empty() {
@@ -196,6 +213,17 @@ pub(crate) fn entity_label(world: &World, entity: &Entity) -> Option<String> {
     }
 
     Some(summary)
+}
+
+fn text_preview(text: &str) -> String {
+    const LIMIT: usize = 48;
+    if text.chars().count() <= LIMIT {
+        return text.to_string();
+    }
+
+    let mut preview = text.chars().take(LIMIT).collect::<String>();
+    preview.push('…');
+    preview
 }
 
 fn format_count(value: usize) -> String {
