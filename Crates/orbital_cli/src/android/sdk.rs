@@ -710,7 +710,7 @@ pub fn system_image_package() -> Result<String> {
         "x86_64"
     };
     Ok(format!(
-        "system-images;android-{};google_apis;{}",
+        "system-images;android-{};default;{}",
         target_sdk, abi
     ))
 }

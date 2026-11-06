@@ -43,7 +43,7 @@
             ndkVersions = [ "26.2.11394342" ];
             inherit includeEmulator;
             includeSystemImages = includeEmulator;
-            systemImageTypes = [ "google_apis" ];
+            systemImageTypes = [ "default" ];
             abiVersions = [ androidSystemImageAbi ];
           }).androidsdk;
 
@@ -95,6 +95,16 @@
           pkgs.cargo-criterion
           pkgs.pkg-config
           pkgs.blender
+        ];
+
+        # Android builds use pre-generated assets (SKIP_GLTF_EXPORT), so the
+        # Android shells do not need Blender or the profiling tools.
+        androidTools = with pkgs; [
+          pkgs.gcc
+          pkgs.binutils
+          pkgs.gnumake
+          pkgs.git
+          pkgs.pkg-config
         ];
 
         commonLinuxBuildInputs = with pkgs; [
@@ -164,11 +174,13 @@
             pkgsAndroid.cargo-ndk
             pkgsAndroid.jdk25
             sdk
-          ] ++ commonTools;
+          ] ++ androidTools;
 
           buildInputs = commonLinuxBuildInputs;
 
           ORBITAL_ANDROID_SHELL = shellName;
+          ORBITAL_SKIP_CLI_INSTALL = "1";
+          SKIP_GLTF_EXPORT = "1";
           ANDROID_HOME = sdkRoot;
           ANDROID_SDK_ROOT = sdkRoot;
           ANDROID_NDK_HOME = "${sdkRoot}/ndk/26.2.11394342";
