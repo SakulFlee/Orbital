@@ -4,7 +4,19 @@ Orbital can write a CSV report with one row per one-second timing window. The
 same window feeds the FPS, timing and cache-counter lines in the console, but
 the CSV path is independent and can be enabled on its own.
 
-## Enable CSV capture
+The runtime default is profile-aware:
+
+- **Debug:** CSV capture is on by default. Set `ORBITAL_PERF_CSV=0` to opt out.
+- **Release:** CSV capture is off by default. Set `ORBITAL_PERF_CSV=1` to opt
+  in without rebuilding.
+- `ORBITAL_PERF_CONSOLE=1` independently enables the console summaries in
+  either profile.
+
+`0`, `false`, `no`, `off`, and an empty value mean off; any other value means
+on. This is a runtime switch, so a released game does not write the file unless
+the player or launcher explicitly sets it.
+
+## Enable CSV capture from the debug UI
 
 1. Start the app with the debug UI available.
    - Debug builds include `DebugUiModule` by default.
@@ -55,8 +67,9 @@ impl Module for PerformanceLogging {
 }
 ```
 
-Add the module after the runtime's default setup so it overrides the default
-(`console: false`, `csv: false`).
+Add the module after the runtime's default setup so it overrides the startup
+values from `PerformanceLogConfig::for_current_build()` (CSV on in debug, off
+in release).
 
 ## Retrieve the CSV
 
