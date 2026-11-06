@@ -102,6 +102,10 @@ pub struct IcedLayerRenderer<M: Clone + PartialEq + Send + Sync + 'static = Mess
     /// recreation can change this (notably on Android), and a pipeline built
     /// for the wrong format is reported as an invalid resource at draw time.
     surface_format: Option<wgpu::TextureFormat>,
+    /// Set if iced pipeline creation failed. Keeping the panel disabled beats
+    /// submitting an invalid pipeline every frame, which can stall the app on
+    /// mobile drivers.
+    init_failed: bool,
     last_timings: OverlayRenderTimings,
 }
 
@@ -119,6 +123,39 @@ struct RendererInner<M: Clone + PartialEq + Send + Sync + 'static> {
     last_build: Option<std::time::Instant>,
 }
 
+/// Creates one iced renderer, capturing pipeline validation errors instead of
+/// letting them reach the runtime's uncaptured-error handler every frame.
+fn create_iced_renderer<M: Clone + PartialEq + Send + Sync + 'static>(
+    adapter: &wgpu::Adapter,
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    format: wgpu::TextureFormat,
+) -> Option<RendererInner<M>> {
+    let error_scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
+    let engine = iced_wgpu::Engine::new(
+        adapter,
+        device.clone(),
+        queue.clone(),
+        format,
+        None,
+        iced_graphics::Shell::headless(),
+    );
+    let renderer = iced_wgpu::Renderer::new(engine, Default::default());
+
+    if let Some(error) = pollster::block_on(error_scope.pop()) {
+        log::error!("iced initialization failed for surface format {format:?}: {error}");
+        return None;
+    }
+
+    Some(RendererInner {
+        renderer,
+        interface: None,
+        cache: Some(iced_runtime::user_interface::Cache::new()),
+        layout_size: None,
+        last_build: None,
+    })
+}
+
 // SAFETY: both phases run on the event-loop thread, within one frame, and
 // `inner` is behind a `Mutex`. `IcedLayerRenderer` is only ever reached
 // through the runtime's `Mutex<Vec<Box<dyn LayerRenderer>>>`.
@@ -133,6 +170,7 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> IcedLayerRenderer<M> {
             device: None,
             queue: None,
             surface_format: None,
+            init_failed: false,
             last_timings: OverlayRenderTimings::default(),
         }
     }
@@ -144,6 +182,7 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> IcedLayerRenderer<M> {
         if self.surface_format != Some(format) {
             log::debug!("iced surface format: {format:?}; rebuilding renderer pipelines");
             self.surface_format = Some(format);
+            self.init_failed = false;
             *self.inner.lock().unwrap_or_else(|error| error.into_inner()) = None;
         }
         Some(format)
@@ -191,6 +230,9 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
         let Some(format) = self.refresh_surface_format(ecs) else {
             return;
         };
+        if self.init_failed {
+            return;
+        }
 
         // Clone device/queue from ECS resources on first call.
         if self.device.is_none() {
@@ -223,22 +265,11 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
                         return;
                     }
                 };
-                let engine = iced_wgpu::Engine::new(
-                    &adapter,
-                    device.clone(),
-                    queue.clone(),
-                    format,
-                    None,
-                    iced_graphics::Shell::headless(),
-                );
-                let renderer = iced_wgpu::Renderer::new(engine, Default::default());
-                *guard = Some(RendererInner {
-                    renderer,
-                    interface: None,
-                    cache: Some(iced_runtime::user_interface::Cache::new()),
-                    layout_size: None,
-                    last_build: None,
-                });
+                let Some(renderer) = create_iced_renderer(&adapter, device, queue, format) else {
+                    self.init_failed = true;
+                    return;
+                };
+                *guard = Some(renderer);
             }
         }
 
@@ -522,6 +553,9 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
         let Some(format) = self.refresh_surface_format(ctx.ecs) else {
             return;
         };
+        if self.init_failed {
+            return;
+        }
 
         // Ensure renderer is initialized
         {
@@ -535,23 +569,12 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
                     }
                 };
 
-                let engine = iced_wgpu::Engine::new(
-                    &adapter,
-                    ctx.device.clone(),
-                    ctx.queue.clone(),
-                    format,
-                    None,
-                    iced_graphics::Shell::headless(),
-                );
-
-                let renderer = iced_wgpu::Renderer::new(engine, Default::default());
-                *guard = Some(RendererInner {
-                    renderer,
-                    interface: None,
-                    cache: Some(iced_runtime::user_interface::Cache::new()),
-                    layout_size: None,
-                    last_build: None,
-                });
+                let Some(renderer) = create_iced_renderer(&adapter, ctx.device, ctx.queue, format)
+                else {
+                    self.init_failed = true;
+                    return;
+                };
+                *guard = Some(renderer);
             }
         }
 
@@ -1142,10 +1165,12 @@ mod tests {
             Some(wgpu::TextureFormat::Rgba8UnormSrgb)
         );
 
+        renderer.init_failed = true;
         world.insert_resource(SurfaceFormatResource(wgpu::TextureFormat::Bgra8UnormSrgb));
         assert_eq!(
             renderer.refresh_surface_format(&world),
             Some(wgpu::TextureFormat::Bgra8UnormSrgb)
         );
+        assert!(!renderer.init_failed, "a new format retries initialization");
     }
 }

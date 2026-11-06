@@ -13,6 +13,7 @@ orbital_app = { path = "../orbital_app" }
 orbital_ecs = { path = "../ecs" }
 orbital_ecs_bridge = { path = "../orbital_ecs_bridge" }
 log = { workspace = true }
+pollster = { workspace = true }
 
 # iced sub-crates
 iced_core = { workspace = true }

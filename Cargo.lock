@@ -3278,6 +3278,7 @@ dependencies = [
  "orbital_app",
  "orbital_ecs",
  "orbital_ecs_bridge",
+ "pollster",
  "raw-window-handle",
  "wgpu",
  "winit",
