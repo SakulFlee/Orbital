@@ -287,6 +287,24 @@ fn setup_new_avd() -> Result<String> {
             println!("  - System image {} (~1.5 GB)", system_image);
         }
 
+        if let Some(sdk_path) = crate::android::sdk::current_sdk_path()
+            && crate::android::sdk::is_nix_managed_sdk(&sdk_path)
+        {
+            println!(
+                "\nThe Android SDK at {} is Nix-managed and read-only.",
+                sdk_path.display()
+            );
+            println!("Use the Android emulator dev shell instead:");
+            println!("  nix develop .#android-emulator");
+            println!(
+                "It includes the emulator and the {} system image.",
+                system_image
+            );
+            anyhow::bail!(
+                "The emulator and system image are not installed in the Nix-managed Android SDK."
+            );
+        }
+
         let confirmed = Confirm::new("Install these and create an emulator now?")
             .with_default(true)
             .prompt()?;

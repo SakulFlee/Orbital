@@ -502,7 +502,7 @@ pub fn ensure_ndk(sdk_path: &Path) -> Result<PathBuf> {
 
     println!("\nAndroid NDK not installed.");
 
-    if sdk_path.starts_with("/nix/store") {
+    if is_nix_managed_sdk(sdk_path) {
         anyhow::bail!(
             "Android NDK {ndk_version} is not present in the Nix-managed SDK at {}.\n\
              Add it to the Android dev shell with:\n  \
@@ -593,6 +593,11 @@ pub fn ensure_ndk(sdk_path: &Path) -> Result<PathBuf> {
 /// Return the currently detected SDK path, if any.
 pub fn current_sdk_path() -> Option<PathBuf> {
     detect_android_sdk()
+}
+
+/// Whether the SDK is provided by a Nix store path and is therefore read-only.
+pub fn is_nix_managed_sdk(sdk_path: &Path) -> bool {
+    sdk_path.starts_with("/nix/store")
 }
 
 /// Return all candidate SDK paths, in priority order (Orbital cache, then
@@ -737,11 +742,12 @@ pub fn package_installed(package: &str) -> bool {
 pub fn sdkmanager_install(packages: &[String]) -> Result<()> {
     let sdk_path = current_sdk_path().context("Android SDK not found")?;
 
-    if sdk_path.starts_with("/nix/store") {
+    if is_nix_managed_sdk(&sdk_path) {
         anyhow::bail!(
             "The Android SDK at {} is Nix-managed and read-only.\n\
-             Add the required packages to the Android dev shell instead of installing\n\
-             them with sdkmanager.",
+             Use the Android emulator dev shell instead:\n  \
+             nix develop .#android-emulator\n\
+             or add the required packages to your SDK composition.",
             sdk_path.display()
         );
     }
