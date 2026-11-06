@@ -57,10 +57,11 @@ jobs:
       - name: 🔨 Build
         env:
           SKIP_GLTF_EXPORT: true
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --release --target ${{ matrix.target }} -j 1
       - name: 📦 Package examples
         env:
           SKIP_GLTF_EXPORT: true
+          ORBITAL_SKIP_BUILD: "1"
         run: bash .forgejo/ci/package-examples.sh desktop "${{ matrix.target }}"
       - name: ➕ Make upload folder
         run: mkdir upload
@@ -108,8 +109,10 @@ jobs:
       - name: 🛠️ Install Blender
         run: brew install blender
       - name: 🔨 Build
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --release --target ${{ matrix.target }} -j 1
       - name: 📦 Package examples
+        env:
+          ORBITAL_SKIP_BUILD: "1"
         run: bash .forgejo/ci/package-examples.sh desktop "${{ matrix.target }}"
       - name: ➕ Package
         run: |
@@ -179,7 +182,7 @@ jobs:
             Exit 1
           }
       - name: 🔨 Build
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --release --target ${{ matrix.target }} -j 1
       - name: ➕ Package
         shell: pwsh
         run: |
@@ -209,7 +212,7 @@ jobs:
           rustup update
           rustup target add aarch64-apple-ios
       - name: 🔨 Build (static lib)
-        run: cargo build --release --target aarch64-apple-ios
+        run: cargo build --release --target aarch64-apple-ios -j 1
       - name: ➕ Package
         run: |
           mkdir upload

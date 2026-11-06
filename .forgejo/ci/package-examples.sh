@@ -53,7 +53,9 @@ for manifest in "$ROOT"/Examples/*/Cargo.toml; do
 
     case "$MODE" in
         desktop)
-            cargo build --profile "$PROFILE" --target "$TARGET" -p "$package" --bin "$package"
+            if [[ "${ORBITAL_SKIP_BUILD:-0}" != "1" ]]; then
+                cargo build --profile "$PROFILE" --target "$TARGET" -p "$package" --bin "$package"
+            fi
             executable="$OUT/$package"
             if [[ ! -f "$executable" && -f "$executable.exe" ]]; then
                 executable="$executable.exe"
@@ -69,7 +71,9 @@ The Assets/ tree next to the executable is required at runtime.
 EOF
             ;;
         android)
-            cargo ndk -t "$TARGET" -o "$stage/jniLibs" build --profile "$PROFILE" --lib -p "$package"
+            if [[ "${ORBITAL_SKIP_BUILD:-0}" != "1" ]]; then
+                cargo ndk -t "$TARGET" -o "$stage/jniLibs" build --profile "$PROFILE" --lib -p "$package"
+            fi
             if ! find "$stage/jniLibs" -type f -name "lib$package.so" | grep -q .; then
                 echo "Missing Android cdylib for $package" >&2
                 exit 1
@@ -80,7 +84,9 @@ app/src/main/jniLibs/$ABI/ directory and copy Assets/ to the project root.
 EOF
             ;;
         ios)
-            cargo build --profile "$PROFILE" --target "$TARGET" -p "$package" --lib
+            if [[ "${ORBITAL_SKIP_BUILD:-0}" != "1" ]]; then
+                cargo build --profile "$PROFILE" --target "$TARGET" -p "$package" --lib
+            fi
             library="$OUT/lib$package.a"
             if [[ ! -f "$library" ]]; then
                 # Example crates expose a cdylib; the iOS template links the

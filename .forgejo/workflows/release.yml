@@ -110,8 +110,12 @@ jobs:
       - name: Build
         run: |
           [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ] && export PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig
-          cargo build --release --target ${{ matrix.target }}
+          # LTO-linking nine example binaries in parallel exceeds the runner's
+          # memory; build the workspace serially.
+          cargo build --release --target ${{ matrix.target }} -j 1
       - name: Package examples
+        env:
+          ORBITAL_SKIP_BUILD: "1"
         run: |
           [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ] && export PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig
           bash .forgejo/ci/package-examples.sh desktop "${{ matrix.target }}"
