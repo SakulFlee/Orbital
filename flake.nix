@@ -25,20 +25,38 @@
           };
         };
 
-        androidSdk = (pkgsAndroid.androidenv.composeAndroidPackages {
-          cmdLineToolsVersion = "22.0";
-          platformVersions = [ "34" "35" "36" ];
-          # AGP 9.3 requires build-tools 36.0.0, even when compiling against an
-          # older SDK platform.
-          buildToolsVersions = [ "36.0.0" ];
-          includeNDK = true;
-          ndkVersions = [ "26.2.11394342" ];
-          includeEmulator = false;
-          includeSystemImages = false;
-          abiVersions = [ "arm64-v8a" "armeabi-v7a" "x86_64" "x86" ];
-        }).androidsdk;
+        androidSystemImageAbi =
+          if pkgs.stdenv.hostPlatform.isDarwin && pkgs.stdenv.hostPlatform.isAarch64 then
+            "arm64-v8a"
+          else
+            "x86_64";
+
+        composeAndroidSdk =
+          { includeEmulator ? false, platformVersions ? [ "34" "35" "36" ] }:
+          (pkgsAndroid.androidenv.composeAndroidPackages {
+            cmdLineToolsVersion = "22.0";
+            inherit platformVersions;
+            # AGP 9.3 requires build-tools 36.0.0, even when compiling against
+            # an older SDK platform.
+            buildToolsVersions = [ "36.0.0" ];
+            includeNDK = true;
+            ndkVersions = [ "26.2.11394342" ];
+            inherit includeEmulator;
+            includeSystemImages = includeEmulator;
+            systemImageTypes = [ "google_apis" ];
+            abiVersions = [ androidSystemImageAbi ];
+          }).androidsdk;
+
+        androidSdk = composeAndroidSdk { };
+        # Match the template's default target SDK so the emulator shell does
+        # not pull down system images for every supported compile SDK.
+        androidEmulatorSdk = composeAndroidSdk {
+          includeEmulator = true;
+          platformVersions = [ "34" ];
+        };
 
         androidSdkRoot = "${androidSdk}/libexec/android-sdk";
+        androidEmulatorSdkRoot = "${androidEmulatorSdk}/libexec/android-sdk";
 
         rustToolchainConfig = builtins.fromTOML (builtins.readFile ./rust-toolchain.toml);
 
@@ -136,6 +154,35 @@
             _orbital_install_cli
           fi
         '';
+
+        mkAndroidShell = { sdk, sdkRoot }: pkgs.mkShell {
+          nativeBuildInputs = [
+            rustToolchainAndroid
+            pkgsAndroid.cargo-ndk
+            pkgsAndroid.jdk25
+            sdk
+          ] ++ commonTools;
+
+          buildInputs = commonLinuxBuildInputs;
+
+          ANDROID_HOME = sdkRoot;
+          ANDROID_SDK_ROOT = sdkRoot;
+          ANDROID_NDK_HOME = "${sdkRoot}/ndk/26.2.11394342";
+          ANDROID_NDK_ROOT = "${sdkRoot}/ndk/26.2.11394342";
+          JAVA_HOME = "${pkgsAndroid.jdk25}";
+          GRADLE_OPTS = "-Dorg.gradle.project.android.aapt2FromMavenOverride=${sdkRoot}/build-tools/36.0.0/aapt2";
+
+          shellHook = ''
+            export RUST_SRC_PATH="${rustToolchainAndroid}/lib/rustlib/src/rust/library"
+            export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${commonLinuxLdLibraryPath}"
+            mkdir -p .cargo/bin
+            ln -sf "$(which gcc)" .cargo/bin/x86_64-linux-gnu-gcc
+            export PATH="$PWD/.cargo/bin:$PATH"
+            export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER="$(which gcc)"
+
+            ${orbitalCliHook}
+          '';
+        };
       in
       {
         devShells.default = pkgs.mkShell {
@@ -155,33 +202,17 @@
           '';
         };
 
-        devShells.android = pkgs.mkShell {
-          nativeBuildInputs = [
-            rustToolchainAndroid
-            pkgsAndroid.cargo-ndk
-            pkgsAndroid.jdk25
-            androidSdk
-          ] ++ commonTools;
+        devShells.android = mkAndroidShell {
+          sdk = androidSdk;
+          sdkRoot = androidSdkRoot;
+        };
 
-          buildInputs = commonLinuxBuildInputs;
-
-          ANDROID_HOME = androidSdkRoot;
-          ANDROID_SDK_ROOT = androidSdkRoot;
-          ANDROID_NDK_HOME = "${androidSdkRoot}/ndk/26.2.11394342";
-          ANDROID_NDK_ROOT = "${androidSdkRoot}/ndk/26.2.11394342";
-          JAVA_HOME = "${pkgsAndroid.jdk25}";
-          GRADLE_OPTS = "-Dorg.gradle.project.android.aapt2FromMavenOverride=${androidSdkRoot}/build-tools/36.0.0/aapt2";
-
-          shellHook = ''
-            export RUST_SRC_PATH="${rustToolchainAndroid}/lib/rustlib/src/rust/library"
-            export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${commonLinuxLdLibraryPath}"
-            mkdir -p .cargo/bin
-            ln -sf "$(which gcc)" .cargo/bin/x86_64-linux-gnu-gcc
-            export PATH="$PWD/.cargo/bin:$PATH"
-            export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER="$(which gcc)"
-
-            ${orbitalCliHook}
-          '';
+        # Opt-in shell for `orbital run android` when no physical device is
+        # attached. It adds the emulator and the matching system image, which
+        # is a multi-gigabyte download.
+        devShells.android-emulator = mkAndroidShell {
+          sdk = androidEmulatorSdk;
+          sdkRoot = androidEmulatorSdkRoot;
         };
 
         devShells.aarch64-cross = pkgs.mkShell {
