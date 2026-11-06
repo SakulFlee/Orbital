@@ -15,8 +15,54 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
 
+        # Android tooling is only evaluated when the opt-in `android` dev
+        # shell is selected, so the default shell stays lightweight.
+        pkgsAndroid = import nixpkgs {
+          inherit system;
+          config = {
+            allowUnfree = true;
+            android_sdk.accept_license = true;
+          };
+        };
+
+        androidSdk = (pkgsAndroid.androidenv.composeAndroidPackages {
+          cmdLineToolsVersion = "22.0";
+          platformVersions = [ "34" "35" "36" ];
+          # AGP 9.3 requires build-tools 36.0.0, even when compiling against an
+          # older SDK platform.
+          buildToolsVersions = [ "36.0.0" ];
+          includeNDK = true;
+          ndkVersions = [ "26.2.11394342" ];
+          includeEmulator = false;
+          includeSystemImages = false;
+          abiVersions = [ "arm64-v8a" "armeabi-v7a" "x86_64" "x86" ];
+        }).androidsdk;
+
+        androidSdkRoot = "${androidSdk}/libexec/android-sdk";
+
+        rustToolchainConfig = builtins.fromTOML (builtins.readFile ./rust-toolchain.toml);
+
+        androidRustTargets = [
+          "aarch64-linux-android"
+          "armv7-linux-androideabi"
+          "x86_64-linux-android"
+          "i686-linux-android"
+        ];
+
         rustToolchain = fenix.packages.${system}.fromToolchainFile {
           file = ./rust-toolchain.toml;
+          sha256 = "sha256-+xUr6Al1wZSqX8aEsq7DpuFOK4Ve/i+qTl+K5uWQ9GM=";
+        };
+
+        # Same pinned toolchain, plus the Android standard libraries.
+        rustToolchainAndroid = fenix.packages.${system}.fromToolchainFile {
+          file = pkgs.writeText "rust-toolchain-android.toml" ''
+            [toolchain]
+            channel = "${rustToolchainConfig.toolchain.channel}"
+            profile = "${rustToolchainConfig.toolchain.profile or "default"}"
+            components = [ ${pkgs.lib.concatMapStringsSep ", " (component: "\"${component}\"") (rustToolchainConfig.toolchain.components or [ ])} ]
+            targets = [ ${pkgs.lib.concatMapStringsSep ", " (target: "\"${target}\"") ((rustToolchainConfig.toolchain.targets or [ ]) ++ androidRustTargets)} ]
+          '';
           sha256 = "sha256-+xUr6Al1wZSqX8aEsq7DpuFOK4Ve/i+qTl+K5uWQ9GM=";
         };
 
@@ -53,6 +99,43 @@
           mkdir -p $out/lib
           ${pkgs.binutils}/bin/ar rcs $out/lib/libpthread.a
         '';
+
+        orbitalCliHook = ''
+          # Keep a project-local `orbital` CLI on PATH. It is installed into
+          # .cargo/bin (already prepended to PATH) so it survives direnv
+          # reloads and never requires a flake rebuild.
+          #
+          # Source of truth, in order of preference:
+          #   1. ORBITAL_CLI_PATH            (generated project, local engine)
+          #   2. Crates/orbital_cli in $PWD  (this engine checkout)
+          #   3. Forgejo git repository       (generated project, remote engine)
+          _orbital_install_cli() {
+            if [ -n "''${ORBITAL_CLI_PATH:-}" ]; then
+              cargo install --path "$ORBITAL_CLI_PATH" --root "$PWD/.cargo" --debug --locked --force
+            elif [ -f "$PWD/Crates/orbital_cli/Cargo.toml" ]; then
+              cargo install --path "$PWD/Crates/orbital_cli" --root "$PWD/.cargo" --debug --locked --force
+            else
+              cargo install --git "''${ORBITAL_CLI_REPO:-https://forgejo.sakul-flee.de/SakulFlee/Orbital.git}" \
+                --branch "''${ORBITAL_CLI_BRANCH:-main}" \
+                --root "$PWD/.cargo" --debug --force orbital-cli
+            fi
+          }
+          orbital-update() { _orbital_install_cli; }
+
+          if [ -f "$PWD/Crates/orbital_cli/Cargo.toml" ]; then
+            # Engine checkout: rebuild only when the CLI sources or the
+            # workspace lockfile are newer than the installed binary.
+            if [ ! -x "$PWD/.cargo/bin/orbital" ] || \
+               [ -n "$(find "$PWD/Crates/orbital_cli/src" "$PWD/Crates/orbital_cli/Cargo.toml" "$PWD/Cargo.lock" -newer "$PWD/.cargo/bin/orbital" -print -quit 2>/dev/null)" ]; then
+              echo "[direnv] Building orbital CLI..."
+              _orbital_install_cli
+            fi
+          elif [ ! -x "$PWD/.cargo/bin/orbital" ]; then
+            # Generated project: install once, refresh with `orbital-update`.
+            echo "[direnv] Installing orbital CLI..."
+            _orbital_install_cli
+          fi
+        '';
       in
       {
         devShells.default = pkgs.mkShell {
@@ -68,40 +151,36 @@
             export PATH="$PWD/.cargo/bin:$PATH"
             export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER="$(which gcc)"
 
-            # Keep a project-local `orbital` CLI on PATH. It is installed into
-            # .cargo/bin (already prepended to PATH above) so it survives direnv
-            # reloads and never requires a flake rebuild.
-            #
-            # Source of truth, in order of preference:
-            #   1. ORBITAL_CLI_PATH            (generated project, local engine)
-            #   2. Crates/orbital_cli in $PWD  (this engine checkout)
-            #   3. Forgejo git repository       (generated project, remote engine)
-            _orbital_install_cli() {
-              if [ -n "''${ORBITAL_CLI_PATH:-}" ]; then
-                cargo install --path "$ORBITAL_CLI_PATH" --root "$PWD/.cargo" --debug --locked --force
-              elif [ -f "$PWD/Crates/orbital_cli/Cargo.toml" ]; then
-                cargo install --path "$PWD/Crates/orbital_cli" --root "$PWD/.cargo" --debug --locked --force
-              else
-                cargo install --git "''${ORBITAL_CLI_REPO:-https://forgejo.sakul-flee.de/SakulFlee/Orbital.git}" \
-                  --branch "''${ORBITAL_CLI_BRANCH:-main}" \
-                  --root "$PWD/.cargo" --debug --force orbital-cli
-              fi
-            }
-            orbital-update() { _orbital_install_cli; }
+            ${orbitalCliHook}
+          '';
+        };
 
-            if [ -f "$PWD/Crates/orbital_cli/Cargo.toml" ]; then
-              # Engine checkout: rebuild only when the CLI sources or the
-              # workspace lockfile are newer than the installed binary.
-              if [ ! -x "$PWD/.cargo/bin/orbital" ] || \
-                 [ -n "$(find "$PWD/Crates/orbital_cli/src" "$PWD/Crates/orbital_cli/Cargo.toml" "$PWD/Cargo.lock" -newer "$PWD/.cargo/bin/orbital" -print -quit 2>/dev/null)" ]; then
-                echo "[direnv] Building orbital CLI..."
-                _orbital_install_cli
-              fi
-            elif [ ! -x "$PWD/.cargo/bin/orbital" ]; then
-              # Generated project: install once, refresh with `orbital-update`.
-              echo "[direnv] Installing orbital CLI..."
-              _orbital_install_cli
-            fi
+        devShells.android = pkgs.mkShell {
+          nativeBuildInputs = [
+            rustToolchainAndroid
+            pkgsAndroid.cargo-ndk
+            pkgsAndroid.jdk25
+            androidSdk
+          ] ++ commonTools;
+
+          buildInputs = commonLinuxBuildInputs;
+
+          ANDROID_HOME = androidSdkRoot;
+          ANDROID_SDK_ROOT = androidSdkRoot;
+          ANDROID_NDK_HOME = "${androidSdkRoot}/ndk/26.2.11394342";
+          ANDROID_NDK_ROOT = "${androidSdkRoot}/ndk/26.2.11394342";
+          JAVA_HOME = "${pkgsAndroid.jdk25}";
+          GRADLE_OPTS = "-Dorg.gradle.project.android.aapt2FromMavenOverride=${androidSdkRoot}/build-tools/36.0.0/aapt2";
+
+          shellHook = ''
+            export RUST_SRC_PATH="${rustToolchainAndroid}/lib/rustlib/src/rust/library"
+            export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${commonLinuxLdLibraryPath}"
+            mkdir -p .cargo/bin
+            ln -sf "$(which gcc)" .cargo/bin/x86_64-linux-gnu-gcc
+            export PATH="$PWD/.cargo/bin:$PATH"
+            export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER="$(which gcc)"
+
+            ${orbitalCliHook}
           '';
         };
 
