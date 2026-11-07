@@ -220,6 +220,16 @@ fn apply_jni_hints(app: &AndroidApp) -> Result<AndroidState, String> {
             )?
             .l()?;
 
+        // Android does not automatically keep the display awake for a game.
+        // FLAG_KEEP_SCREEN_ON is the standard opt-in; the system still sleeps
+        // normally when the activity is not in front.
+        let _ = env.call_method(
+            &window,
+            jni_str!("addFlags"),
+            jni_sig!("(I)V"),
+            &[JValue::Int(0x0000_0080)],
+        );
+
         let sustained_performance = env
             .call_method(
                 &window,
