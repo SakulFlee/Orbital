@@ -766,42 +766,49 @@ impl Module for ProcgeoSceneModule {
         info!("Scene loaded with {} entities", scene.entities.len());
 
         // Floating SDF labels for both room rows.
-        let mut font = DefaultFont::load();
-        let first_row_labels = [
-            (-20.0, "Metallic Materials"),
-            (-10.0, "Matte Materials"),
-            (0.0, "Moving Spot"),
-            (10.0, "Helmet Gallery"),
-            (20.0, "Colored Helmet"),
-        ];
-        for (x, text) in first_row_labels {
+        //
+        // Android currently spends tens of seconds building one SDF atlas per
+        // label on the main thread, which trips the system ANR watchdog before
+        // the first frame. Keep the labels on desktop/iOS until the label
+        // atlases are shared or built off-thread.
+        if !cfg!(target_os = "android") {
+            let mut font = DefaultFont::load();
+            let first_row_labels = [
+                (-20.0, "Metallic Materials"),
+                (-10.0, "Matte Materials"),
+                (0.0, "Moving Spot"),
+                (10.0, "Helmet Gallery"),
+                (20.0, "Colored Helmet"),
+            ];
+            for (x, text) in first_row_labels {
+                spawn_text_label(
+                    ecs,
+                    &mut font,
+                    text,
+                    Point3::new(x, 6.4, 5.25),
+                    BillboardMode::YAxis,
+                );
+            }
+
+            let second_row_labels = [(-20.0, "Transparency"), (-10.0, "Anti-Aliasing")];
+            for (x, text) in second_row_labels {
+                spawn_text_label(
+                    ecs,
+                    &mut font,
+                    text,
+                    Point3::new(x, 6.4, 14.75),
+                    BillboardMode::YAxis,
+                );
+            }
+
             spawn_text_label(
                 ecs,
                 &mut font,
-                text,
-                Point3::new(x, 6.4, 5.25),
-                BillboardMode::YAxis,
+                "All-in-One",
+                Point3::new(0.0, 7.6, HALLWAY_MIRROR_Z),
+                BillboardMode::Full,
             );
         }
-
-        let second_row_labels = [(-20.0, "Transparency"), (-10.0, "Anti-Aliasing")];
-        for (x, text) in second_row_labels {
-            spawn_text_label(
-                ecs,
-                &mut font,
-                text,
-                Point3::new(x, 6.4, 14.75),
-                BillboardMode::YAxis,
-            );
-        }
-
-        spawn_text_label(
-            ecs,
-            &mut font,
-            "All-in-One",
-            Point3::new(0.0, 7.6, HALLWAY_MIRROR_Z),
-            BillboardMode::Full,
-        );
 
         // Import the DamagedHelmet into Room 2
         if let Some(mut queue) = ecs.get_resource_mut::<ImportQueueResource>() {
