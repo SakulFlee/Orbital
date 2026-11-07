@@ -3,7 +3,7 @@
 use std::collections::VecDeque;
 
 use iced_widget::{button, canvas, checkbox, column, row, slider, text, text_input};
-use iced_winit::core::{Alignment, Color, Element, Font, Length, Theme};
+use iced_winit::core::{Alignment, Color, Element, Length, Theme};
 
 use orbital_app::PERFORMANCE_CSV_PATH;
 use orbital_ecs::World;
@@ -373,7 +373,6 @@ fn range_control<'a>(state: &DebugUiState) -> Element<'a, DebugMessage, Theme, I
 
     let value = text(format!("{}s", format_seconds(seconds)))
         .size(12)
-        .font(Font::MONOSPACE)
         .width(Length::Fixed(52.0))
         .align_x(Alignment::End);
 
@@ -488,7 +487,8 @@ fn graph(
             false,
             LAST_COLOR,
         ),
-    };
+    }
+    .with_axis(unit, window_secs);
 
     let caption = format!(
         "{label} ({unit}, last {:.2}s, {} frames)",
@@ -597,7 +597,6 @@ fn table_row(
     let content = row![
         text(label)
             .size(12)
-            .font(Font::MONOSPACE)
             .width(Length::Fixed(STAGE_COLUMN_WIDTH)),
         cell(stats.map(|stats| stats.last)),
         cell(stats.map(|stats| stats.avg)),
@@ -629,7 +628,6 @@ fn value_cell(
 ) -> Element<'static, DebugMessage, Theme, IcedRenderer> {
     let cell = text(value)
         .size(12)
-        .font(Font::MONOSPACE)
         .width(Length::Fixed(VALUE_COLUMN_WIDTH))
         .align_x(Alignment::End);
 

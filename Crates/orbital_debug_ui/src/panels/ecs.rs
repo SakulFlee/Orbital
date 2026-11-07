@@ -146,7 +146,7 @@ pub fn ecs_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, IcedRender
 
     rows.push(
         text(format!(
-            "{matched} of {total} entities · {MAX_ROWS} row budget"
+            "{matched} of {total} entities | {MAX_ROWS} row budget"
         ))
         .size(11)
         .color(Color::from_rgb(0.6, 0.6, 0.6))
@@ -195,7 +195,7 @@ fn entity_row(
     let expanded = state.is_expanded(*entity);
     let selected = state.selected == Some(*entity);
 
-    let toggle = button(text(if expanded { "▾" } else { "▸" }).size(12))
+    let toggle = button(text(if expanded { "v" } else { ">" }).size(12))
         .on_press(DebugMessage::ToggleEntity(*entity))
         .width(Length::Shrink);
 
@@ -207,10 +207,10 @@ fn entity_row(
         None => format!("#{}: Entity", entity.index),
     };
     if selected {
-        label.insert_str(0, "● ");
+        label.insert_str(0, "* ");
     }
     if component_count > 0 {
-        label.push_str(&format!("  ·  {component_count} components"));
+        label.push_str(&format!("  |  {component_count} components"));
     }
 
     // Clicking the selected row again clears the selection and collapses it.
@@ -226,7 +226,7 @@ fn entity_row(
 
 fn component_name(name: &'static str) -> Element<'static, DebugMessage, Theme, IcedRenderer> {
     row![
-        text("•").size(10).color(Color::from_rgb(0.5, 0.55, 0.65)),
+        text("-").size(10).color(Color::from_rgb(0.5, 0.55, 0.65)),
         text(short_type_name(name))
             .size(11)
             .color(Color::from_rgb(0.7, 0.85, 1.0)),
@@ -492,7 +492,7 @@ fn model_instances_editor(
     if instances.len() > MODEL_INSTANCE_EDIT_LIMIT {
         rows.push(
             text(format!(
-                "… {} more instances",
+                "... {} more instances",
                 instances.len() - MODEL_INSTANCE_EDIT_LIMIT
             ))
             .size(10)
