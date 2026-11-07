@@ -92,12 +92,18 @@ pub struct TimingSample {
 /// frame. The GPU stages are derived from timestamp query results read back
 /// from the renderer, and are only meaningful on backends that support
 /// timestamp queries; elsewhere they stay at zero.
-pub const TIMING_STAGES: [&str; 30] = [
+pub const TIMING_STAGES: [&str; 39] = [
     "surface_acq",
     "update",
     "ui_events",
+    "input",
+    "core schedule",
+    "importer poll",
     "game_schedule",
+    "engine events",
     "realize",
+    "realize cameras",
+    "realize lights",
     "realize models",
     "realize env",
     "stagger",
@@ -113,9 +119,12 @@ pub const TIMING_STAGES: [&str; 30] = [
     "iced submit",
     "present",
     "total",
+    "frame limiter",
+    "frame gap",
     "surface lock",
     "surface acquire",
     "surface view",
+    "gpu complete",
     "gpu shadow",
     "gpu skybox",
     "gpu models",
@@ -130,36 +139,46 @@ pub const TIMING_STAGES: [&str; 30] = [
 pub const STAGE_SURFACE_ACQ: usize = 0;
 pub const STAGE_UPDATE: usize = 1;
 pub const STAGE_UI_EVENTS: usize = 2;
-pub const STAGE_GAME_SCHEDULE: usize = 3;
-pub const STAGE_REALIZE: usize = 4;
-pub const STAGE_REALIZE_MODELS: usize = 5;
-pub const STAGE_REALIZE_ENV: usize = 6;
-pub const STAGE_STAGGER: usize = 7;
-pub const STAGE_CULL_EXTRACT: usize = 8;
-pub const STAGE_BIND_MODELS: usize = 9;
-pub const STAGE_VOLUMETRICS: usize = 10;
-pub const STAGE_SCENE_ENCODE: usize = 11;
-pub const STAGE_SCENE_SUBMIT: usize = 12;
-pub const STAGE_TIMESTAMP_READBACK: usize = 13;
-pub const STAGE_OVERLAY_MAIN: usize = 14;
-pub const STAGE_OVERLAY_LAYERS: usize = 15;
-pub const STAGE_ICED_DRAW: usize = 16;
-pub const STAGE_ICED_SUBMIT: usize = 17;
-pub const STAGE_PRESENT: usize = 18;
-pub const STAGE_TOTAL: usize = 19;
-pub const STAGE_SURFACE_LOCK: usize = 20;
-pub const STAGE_SURFACE_ACQUIRE: usize = 21;
-pub const STAGE_SURFACE_VIEW: usize = 22;
-pub const STAGE_GPU_SHADOW: usize = 23;
-pub const STAGE_GPU_SKYBOX: usize = 24;
-pub const STAGE_GPU_MODELS: usize = 25;
-pub const STAGE_GPU_SCENE_TOTAL: usize = 26;
-pub const STAGE_GPU_VOLUMETRICS: usize = 27;
-pub const STAGE_GPU_TONEMAP: usize = 28;
-pub const STAGE_GPU_AA: usize = 29;
+pub const STAGE_INPUT: usize = 3;
+pub const STAGE_CORE_SCHEDULE: usize = 4;
+pub const STAGE_IMPORTER_POLL: usize = 5;
+pub const STAGE_GAME_SCHEDULE: usize = 6;
+pub const STAGE_ENGINE_EVENTS: usize = 7;
+pub const STAGE_REALIZE: usize = 8;
+pub const STAGE_REALIZE_CAMERAS: usize = 9;
+pub const STAGE_REALIZE_LIGHTS: usize = 10;
+pub const STAGE_REALIZE_MODELS: usize = 11;
+pub const STAGE_REALIZE_ENV: usize = 12;
+pub const STAGE_STAGGER: usize = 13;
+pub const STAGE_CULL_EXTRACT: usize = 14;
+pub const STAGE_BIND_MODELS: usize = 15;
+pub const STAGE_VOLUMETRICS: usize = 16;
+pub const STAGE_SCENE_ENCODE: usize = 17;
+pub const STAGE_SCENE_SUBMIT: usize = 18;
+pub const STAGE_TIMESTAMP_READBACK: usize = 19;
+pub const STAGE_OVERLAY_MAIN: usize = 20;
+pub const STAGE_OVERLAY_LAYERS: usize = 21;
+pub const STAGE_ICED_DRAW: usize = 22;
+pub const STAGE_ICED_SUBMIT: usize = 23;
+pub const STAGE_PRESENT: usize = 24;
+pub const STAGE_TOTAL: usize = 25;
+pub const STAGE_FRAME_LIMITER: usize = 26;
+pub const STAGE_FRAME_GAP: usize = 27;
+pub const STAGE_SURFACE_LOCK: usize = 28;
+pub const STAGE_SURFACE_ACQUIRE: usize = 29;
+pub const STAGE_SURFACE_VIEW: usize = 30;
+pub const STAGE_GPU_COMPLETE: usize = 31;
+pub const STAGE_GPU_SHADOW: usize = 32;
+pub const STAGE_GPU_SKYBOX: usize = 33;
+pub const STAGE_GPU_MODELS: usize = 34;
+pub const STAGE_GPU_SCENE_TOTAL: usize = 35;
+pub const STAGE_GPU_VOLUMETRICS: usize = 36;
+pub const STAGE_GPU_TONEMAP: usize = 37;
+pub const STAGE_GPU_AA: usize = 38;
 
-/// The index of the `total` stage, which is the whole-frame duration and the
-/// series a frame-time graph should plot.
+/// The index of the `total` stage, which is the renderer-only duration after
+/// surface acquisition and update. Add `update`, `surface_acq`,
+/// `frame_limiter`, and `frame_gap` for the wall-clock frame period.
 pub const TOTAL_STAGE_INDEX: usize = STAGE_TOTAL;
 
 /// The first GPU stage. Stages at or after this index are invalid when the
@@ -259,7 +278,11 @@ pub struct FrameTimings {
     /// Running totals backing `avg_ms`, reset by [`Self::clear`].
     totals: Vec<f64>,
     count: u64,
-    /// Whole-frame duration per frame, oldest first.
+    /// Renderer-only total per frame, oldest first.
+    ///
+    /// This is the `total` stage, not the wall-clock frame period. Use the
+    /// per-frame history and the frame-gap/update/surface stages for the full
+    /// period.
     frame_ms: VecDeque<f32>,
     /// Per-stage durations over time, oldest first. One entry per frame, each
     /// holding one value per stage in [`TIMING_STAGES`] order.
@@ -314,7 +337,7 @@ impl FrameTimings {
         self.count
     }
 
-    /// Whole-frame duration per frame, oldest first.
+    /// Renderer-only total per frame, oldest first.
     pub fn frame_ms(&self) -> &VecDeque<f32> {
         &self.frame_ms
     }

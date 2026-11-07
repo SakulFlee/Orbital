@@ -19,7 +19,9 @@ mod frame_limiter;
 pub use frame_limiter::FrameLimiter;
 
 mod performance_csv;
-pub use performance_csv::PERFORMANCE_CSV_PATH;
+pub use performance_csv::{PERFORMANCE_CSV_PATH, PERFORMANCE_METADATA_PATH};
+
+mod performance_metadata;
 
 mod context;
 pub use context::*;

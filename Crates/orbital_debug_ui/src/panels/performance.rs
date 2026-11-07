@@ -5,11 +5,12 @@ use std::collections::VecDeque;
 use iced_widget::{button, canvas, checkbox, column, row, slider, text, text_input};
 use iced_winit::core::{Alignment, Color, Element, Length, Theme};
 
-use orbital_app::PERFORMANCE_CSV_PATH;
+use orbital_app::{PERFORMANCE_CSV_PATH, PERFORMANCE_METADATA_PATH};
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
-    FpsStats, FrameTimings, GPU_STAGE_START, PerformanceLogConfig, STAGE_GPU_SCENE_TOTAL,
-    STAGE_PRESENT, STAGE_SURFACE_ACQ, TIMING_STAGES, TOTAL_STAGE_INDEX,
+    FpsStats, FrameTimings, GPU_STAGE_START, PerformanceLogConfig, STAGE_FRAME_GAP,
+    STAGE_FRAME_LIMITER, STAGE_GPU_COMPLETE, STAGE_GPU_SCENE_TOTAL, STAGE_PRESENT,
+    STAGE_SURFACE_ACQ, TIMING_STAGES, TOTAL_STAGE_INDEX,
 };
 
 use crate::sparkline::{Line, Sparkline};
@@ -145,7 +146,10 @@ fn thresholds_for(series: GraphSeries) -> Thresholds {
         GraphSeries::Stage(index)
             if index == TOTAL_STAGE_INDEX
                 || index == STAGE_PRESENT
-                || index == STAGE_SURFACE_ACQ =>
+                || index == STAGE_SURFACE_ACQ
+                || index == STAGE_FRAME_GAP
+                || index == STAGE_FRAME_LIMITER
+                || index == STAGE_GPU_COMPLETE =>
         {
             FRAME_THRESHOLDS
         }
@@ -243,6 +247,14 @@ pub fn performance_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Ic
     sections.push(
         row![
             text(format!("path: {PERFORMANCE_CSV_PATH}"))
+                .size(10)
+                .color(Color::from_rgb(0.55, 0.55, 0.6))
+        ]
+        .into(),
+    );
+    sections.push(
+        row![
+            text(format!("meta: {PERFORMANCE_METADATA_PATH}"))
                 .size(10)
                 .color(Color::from_rgb(0.55, 0.55, 0.6))
         ]

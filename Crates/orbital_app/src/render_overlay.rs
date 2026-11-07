@@ -59,6 +59,19 @@ pub trait LayerRenderer: Send + Sync {
     /// Returns the layer this renderer should be rendered in.
     fn layer(&self) -> RenderLayer;
 
+    /// Human-readable name used by the performance detail log.
+    fn debug_name(&self) -> &str {
+        self.layer().name()
+    }
+
+    /// Whether this renderer is currently visible.
+    ///
+    /// Used for capture metadata only. A renderer that hides itself through
+    /// ECS state (for example an iced panel) should override this.
+    fn is_visible(&self, _ecs: &orbital_ecs::World) -> bool {
+        true
+    }
+
     /// Selects whether this layer records into the main encoder or owns a
     /// separate submission.
     fn submission(&self) -> OverlaySubmission {
