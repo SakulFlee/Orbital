@@ -92,7 +92,7 @@ pub struct TimingSample {
 /// frame. The GPU stages are derived from timestamp query results read back
 /// from the renderer, and are only meaningful on backends that support
 /// timestamp queries; elsewhere they stay at zero.
-pub const TIMING_STAGES: [&str; 39] = [
+pub const TIMING_STAGES: [&str; 43] = [
     "surface_acq",
     "update",
     "ui_events",
@@ -127,7 +127,11 @@ pub const TIMING_STAGES: [&str; 39] = [
     "gpu complete",
     "gpu shadow",
     "gpu skybox",
+    "gpu gbuffer",
+    "gpu light culling",
+    "gpu deferred",
     "gpu models",
+    "gpu transparent",
     "gpu scene total",
     "gpu volumetrics",
     "gpu tonemap",
@@ -170,11 +174,15 @@ pub const STAGE_SURFACE_VIEW: usize = 30;
 pub const STAGE_GPU_COMPLETE: usize = 31;
 pub const STAGE_GPU_SHADOW: usize = 32;
 pub const STAGE_GPU_SKYBOX: usize = 33;
-pub const STAGE_GPU_MODELS: usize = 34;
-pub const STAGE_GPU_SCENE_TOTAL: usize = 35;
-pub const STAGE_GPU_VOLUMETRICS: usize = 36;
-pub const STAGE_GPU_TONEMAP: usize = 37;
-pub const STAGE_GPU_AA: usize = 38;
+pub const STAGE_GPU_GBUFFER: usize = 34;
+pub const STAGE_GPU_LIGHT_CULLING: usize = 35;
+pub const STAGE_GPU_DEFERRED: usize = 36;
+pub const STAGE_GPU_MODELS: usize = 37;
+pub const STAGE_GPU_TRANSPARENT: usize = 38;
+pub const STAGE_GPU_SCENE_TOTAL: usize = 39;
+pub const STAGE_GPU_VOLUMETRICS: usize = 40;
+pub const STAGE_GPU_TONEMAP: usize = 41;
+pub const STAGE_GPU_AA: usize = 42;
 
 /// The index of the `total` stage, which is the renderer-only duration after
 /// surface acquisition and update. Add `update`, `surface_acq`,

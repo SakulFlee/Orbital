@@ -39,15 +39,17 @@ use orbital_ecs_bridge::{
     IcedCapturedTouches, IcedEventQueue, IcedTextInputFocus, InputSnapshot, PerformanceLogConfig,
     QueueResource, STAGE_BIND_MODELS, STAGE_CORE_SCHEDULE, STAGE_CULL_EXTRACT, STAGE_ENGINE_EVENTS,
     STAGE_FRAME_GAP, STAGE_FRAME_LIMITER, STAGE_GAME_SCHEDULE, STAGE_GPU_AA, STAGE_GPU_COMPLETE,
-    STAGE_GPU_MODELS, STAGE_GPU_SCENE_TOTAL, STAGE_GPU_SHADOW, STAGE_GPU_SKYBOX, STAGE_GPU_TONEMAP,
-    STAGE_GPU_VOLUMETRICS, STAGE_ICED_DRAW, STAGE_ICED_SUBMIT, STAGE_IMPORTER_POLL, STAGE_INPUT,
-    STAGE_OVERLAY_LAYERS, STAGE_OVERLAY_MAIN, STAGE_PRESENT, STAGE_REALIZE, STAGE_REALIZE_CAMERAS,
-    STAGE_REALIZE_ENV, STAGE_REALIZE_LIGHTS, STAGE_REALIZE_MODELS, STAGE_SCENE_ENCODE,
-    STAGE_SCENE_SUBMIT, STAGE_STAGGER, STAGE_SURFACE_ACQ, STAGE_SURFACE_ACQUIRE,
-    STAGE_SURFACE_LOCK, STAGE_SURFACE_VIEW, STAGE_TIMESTAMP_READBACK, STAGE_TOTAL, STAGE_UI_EVENTS,
-    STAGE_UPDATE, STAGE_VOLUMETRICS, ShadowDebugData, SurfaceFormatResource, TIMING_STAGES,
-    TimingsHistoryConfig, TotalTime, WindowSize,
+    STAGE_GPU_DEFERRED, STAGE_GPU_GBUFFER, STAGE_GPU_LIGHT_CULLING, STAGE_GPU_MODELS,
+    STAGE_GPU_SCENE_TOTAL, STAGE_GPU_SHADOW, STAGE_GPU_SKYBOX, STAGE_GPU_TONEMAP,
+    STAGE_GPU_TRANSPARENT, STAGE_GPU_VOLUMETRICS, STAGE_ICED_DRAW, STAGE_ICED_SUBMIT,
+    STAGE_IMPORTER_POLL, STAGE_INPUT, STAGE_OVERLAY_LAYERS, STAGE_OVERLAY_MAIN, STAGE_PRESENT,
+    STAGE_REALIZE, STAGE_REALIZE_CAMERAS, STAGE_REALIZE_ENV, STAGE_REALIZE_LIGHTS,
+    STAGE_REALIZE_MODELS, STAGE_SCENE_ENCODE, STAGE_SCENE_SUBMIT, STAGE_STAGGER, STAGE_SURFACE_ACQ,
+    STAGE_SURFACE_ACQUIRE, STAGE_SURFACE_LOCK, STAGE_SURFACE_VIEW, STAGE_TIMESTAMP_READBACK,
+    STAGE_TOTAL, STAGE_UI_EVENTS, STAGE_UPDATE, STAGE_VOLUMETRICS, ShadowDebugData,
+    SurfaceFormatResource, TIMING_STAGES, TimingsHistoryConfig, TotalTime, WindowSize,
 };
+use orbital_renderer::GPU_TIMESTAMP_COUNT;
 
 macro_rules! ctx_lock {
     ($ctx:ident) => {
@@ -93,18 +95,24 @@ impl FrameStageScratch {
         self.durations[stage] = milliseconds;
     }
 
-    fn set_gpu(&mut self, gpu_ns: [f64; 7]) {
-        // gpu_ns: [shadow_start, after shadow, after sky, before post,
-        // after volumetrics, after tonemap, after AA].
+    fn set_gpu(&mut self, gpu_ns: [f64; GPU_TIMESTAMP_COUNT]) {
+        // gpu_ns: [shadow_start, after shadow, after sky, after G-buffer,
+        // after light culling, after deferred lighting, after forward models,
+        // after transparent/models, after volumetrics, after tonemap,
+        // after AA].
         const NS_TO_MS: f64 = 1.0 / 1_000_000.0;
 
         self.durations[STAGE_GPU_SHADOW] = (gpu_ns[1] - gpu_ns[0]) * NS_TO_MS;
         self.durations[STAGE_GPU_SKYBOX] = (gpu_ns[2] - gpu_ns[1]) * NS_TO_MS;
-        self.durations[STAGE_GPU_MODELS] = (gpu_ns[3] - gpu_ns[2]) * NS_TO_MS;
-        self.durations[STAGE_GPU_SCENE_TOTAL] = (gpu_ns[3] - gpu_ns[0]) * NS_TO_MS;
-        self.durations[STAGE_GPU_VOLUMETRICS] = (gpu_ns[4] - gpu_ns[3]) * NS_TO_MS;
-        self.durations[STAGE_GPU_TONEMAP] = (gpu_ns[5] - gpu_ns[4]) * NS_TO_MS;
-        self.durations[STAGE_GPU_AA] = (gpu_ns[6] - gpu_ns[5]) * NS_TO_MS;
+        self.durations[STAGE_GPU_GBUFFER] = (gpu_ns[3] - gpu_ns[2]) * NS_TO_MS;
+        self.durations[STAGE_GPU_LIGHT_CULLING] = (gpu_ns[4] - gpu_ns[3]) * NS_TO_MS;
+        self.durations[STAGE_GPU_DEFERRED] = (gpu_ns[5] - gpu_ns[4]) * NS_TO_MS;
+        self.durations[STAGE_GPU_MODELS] = (gpu_ns[6] - gpu_ns[5]) * NS_TO_MS;
+        self.durations[STAGE_GPU_TRANSPARENT] = (gpu_ns[7] - gpu_ns[6]) * NS_TO_MS;
+        self.durations[STAGE_GPU_SCENE_TOTAL] = (gpu_ns[7] - gpu_ns[0]) * NS_TO_MS;
+        self.durations[STAGE_GPU_VOLUMETRICS] = (gpu_ns[8] - gpu_ns[7]) * NS_TO_MS;
+        self.durations[STAGE_GPU_TONEMAP] = (gpu_ns[9] - gpu_ns[8]) * NS_TO_MS;
+        self.durations[STAGE_GPU_AA] = (gpu_ns[10] - gpu_ns[9]) * NS_TO_MS;
     }
 }
 
@@ -795,7 +803,9 @@ impl ModuleRuntime {
         let gpu_ns = self
             .renderer
             .as_ref()
-            .map_or([0.0; 7], |renderer| renderer.prev_gpu_ns());
+            .map_or([0.0; GPU_TIMESTAMP_COUNT], |renderer| {
+                renderer.prev_gpu_ns()
+            });
 
         // Owned-submission layers (iced) always run after the main submission.
         let mut d_overlay_layers = std::time::Duration::ZERO;

@@ -239,8 +239,12 @@ elapsed_s,fps,cdt_ms,<timing stages>,<cache counters>,<surface counters>,visible
   `scene_submit`, `timestamp_readback`, `overlay_main`, `overlay_layers`,
   `iced_draw`, `iced_submit`, `present`, `total`, `frame_limiter`,
   `frame_gap`, `surface_lock`, `surface_acquire`, `surface_view`,
-  `gpu_complete`, `gpu_shadow`, `gpu_skybox`, `gpu_models`,
+  `gpu_complete`, `gpu_shadow`, `gpu_skybox`, `gpu_gbuffer`,
+  `gpu_light_culling`, `gpu_deferred`, `gpu_models`, `gpu_transparent`,
   `gpu_scene_total`, `gpu_volumetrics`, `gpu_tonemap`, `gpu_aa`.
+  `gpu_models` is the forward opaque model section; `gpu_scene_total` is the
+  aggregate of shadow, skybox, G-buffer, light culling, deferred lighting,
+  forward models and transparent models.
   `surface_lock`, `surface_acquire`, and `surface_view` break down the
   `surface_acq` stage; `surface_acquire` includes waiting for a swapchain
   image, so it can reflect GPU/present backpressure rather than pure CPU work.

@@ -708,11 +708,16 @@ impl Renderer {
     }
 }
 
-// 0=shadow_start, 1=after shadow, 2=after sky, 3=after models/transparent,
-// 4=after volumetrics, 5=after tonemap, 6=after AA.
-const TS_COUNT: u32 = 7;
+// 0=shadow_start, 1=after shadow, 2=after sky, 3=after G-buffer,
+// 4=after light culling, 5=after deferred lighting, 6=after forward models,
+// 7=after transparent/models, 8=after volumetrics, 9=after tonemap,
+// 10=after AA.
+const TS_COUNT: u32 = 11;
 const TS_BUF_SIZE: u64 = TS_COUNT as u64 * 8;
 const TS_STAGING_COUNT: usize = 4;
+
+/// Number of GPU timestamp samples returned by [`Renderer::prev_gpu_ns`].
+pub const GPU_TIMESTAMP_COUNT: usize = TS_COUNT as usize;
 
 impl Renderer {
     pub fn new(
@@ -1421,6 +1426,9 @@ impl Renderer {
                                 &depth.view,
                             );
                         }
+                        if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
+                            context.encoder.write_timestamp(qs, 3);
+                        }
                     }
                     ScenePass::LightCulling => {
                         if let Some(bind_group) = world_bind_group.as_ref() {
@@ -1430,6 +1438,9 @@ impl Renderer {
                                 bind_group,
                                 &depth.view,
                             );
+                        }
+                        if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
+                            context.encoder.write_timestamp(qs, 4);
                         }
                     }
                     ScenePass::DeferredLighting => {
@@ -1453,11 +1464,24 @@ impl Renderer {
                                 &scene_color.view,
                             );
                         }
+                        if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
+                            context.encoder.write_timestamp(qs, 5);
+                        }
                     }
                     ScenePass::ClearDepth => {
                         self.clear_depth(context.encoder, &depth.view);
                     }
                     ScenePass::Models => {
+                        if timestamps_enabled
+                            && !has_deferred
+                            && let Some(qs) = &self.timestamp_query_set
+                        {
+                            // Forward-only frames have no G-buffer/light-culling/
+                            // deferred passes; keep the timeline monotonic.
+                            context.encoder.write_timestamp(qs, 3);
+                            context.encoder.write_timestamp(qs, 4);
+                            context.encoder.write_timestamp(qs, 5);
+                        }
                         if let Some(bind_group) = world_bind_group.as_ref() {
                             let draw = if has_deferred {
                                 ModelDraw::ForwardOpaque
@@ -1474,6 +1498,9 @@ impl Renderer {
                                 draw,
                                 camera_position,
                             );
+                        }
+                        if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
+                            context.encoder.write_timestamp(qs, 6);
                         }
                     }
                     ScenePass::Transparent => {
@@ -1492,7 +1519,7 @@ impl Renderer {
                     }
                     ScenePass::VolumetricInject => {
                         if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
-                            context.encoder.write_timestamp(qs, 3);
+                            context.encoder.write_timestamp(qs, 7);
                         }
                         if let (Some(bind_group), Some(targets)) =
                             (world_bind_group.as_ref(), volumetric_targets.as_ref())
@@ -1529,7 +1556,7 @@ impl Renderer {
                             );
                         }
                         if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
-                            context.encoder.write_timestamp(qs, 4);
+                            context.encoder.write_timestamp(qs, 8);
                         }
                     }
                     ScenePass::Tonemap => {
@@ -1537,8 +1564,8 @@ impl Renderer {
                             && !has_volumetrics
                             && let Some(qs) = &self.timestamp_query_set
                         {
-                            context.encoder.write_timestamp(qs, 3);
-                            context.encoder.write_timestamp(qs, 4);
+                            context.encoder.write_timestamp(qs, 7);
+                            context.encoder.write_timestamp(qs, 8);
                         }
                         let tonemap_target = match self.anti_aliasing {
                             AntiAliasing::Off => target_view,
@@ -1560,9 +1587,9 @@ impl Renderer {
                             tonemap_target,
                         );
                         if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
-                            context.encoder.write_timestamp(qs, 5);
+                            context.encoder.write_timestamp(qs, 9);
                             if self.anti_aliasing == AntiAliasing::Off {
-                                context.encoder.write_timestamp(qs, 6);
+                                context.encoder.write_timestamp(qs, 10);
                             }
                         }
                     }
@@ -1576,7 +1603,7 @@ impl Renderer {
                             );
                         }
                         if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
-                            context.encoder.write_timestamp(qs, 6);
+                            context.encoder.write_timestamp(qs, 10);
                         }
                     }
                     ScenePass::Smaa => {
@@ -1584,7 +1611,7 @@ impl Renderer {
                             smaa.record(context.encoder, target_view);
                         }
                         if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
-                            context.encoder.write_timestamp(qs, 6);
+                            context.encoder.write_timestamp(qs, 10);
                         }
                     }
                 },
