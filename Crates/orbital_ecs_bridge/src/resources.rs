@@ -70,7 +70,7 @@ pub struct DeltaTime(pub f64);
 #[derive(Debug, Clone, Copy)]
 pub struct TotalTime(pub f64);
 
-/// One measured stage of the render frame.
+/// One stage of the render frame.
 ///
 /// The runtime measures a fixed set of stages between surface acquisition and
 /// present; each becomes one `TimingSample` in [`FrameTimings`].
@@ -86,6 +86,32 @@ pub struct TimingSample {
     pub min_ms: f64,
     /// Largest duration seen in the current window, in milliseconds.
     pub max_ms: f64,
+}
+
+/// Distribution of every stage over one timing window.
+///
+/// The CSV capture uses this to write mean, min, max and p95 columns instead
+/// of only the per-window average.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TimingWindow {
+    /// Per-stage mean over the window, in milliseconds.
+    pub averages: Vec<f64>,
+    /// Per-stage minimum over the window, in milliseconds.
+    pub min: Vec<f64>,
+    /// Per-stage maximum over the window, in milliseconds.
+    pub max: Vec<f64>,
+    /// Per-stage 95th percentile over the window, in milliseconds.
+    pub p95: Vec<f64>,
+    /// Frames recorded in the window.
+    pub frames: u64,
+    /// Mean wall-clock frame delta over the window, in milliseconds.
+    pub cdt_mean_ms: f64,
+    /// Smallest wall-clock frame delta in the window, in milliseconds.
+    pub cdt_min_ms: f64,
+    /// Largest wall-clock frame delta in the window, in milliseconds.
+    pub cdt_max_ms: f64,
+    /// 95th percentile wall-clock frame delta in the window, in milliseconds.
+    pub cdt_p95_ms: f64,
 }
 
 /// The stage identifiers the runtime measures, in the order they occur in a
@@ -309,6 +335,12 @@ pub struct FrameTimings {
     /// Totals for the current one-second log window only. Independent of
     /// `totals`, so emitting the summary never disturbs the overlay.
     window_totals: Vec<f64>,
+    /// Per-stage samples for the current window, used for percentiles.
+    window_values: Vec<Vec<f64>>,
+    window_min: Vec<f64>,
+    window_max: Vec<f64>,
+    window_cdt_total: f64,
+    window_cdt_values: Vec<f64>,
     window_count: u64,
     last_print: std::time::Instant,
 }
@@ -336,6 +368,11 @@ impl FrameTimings {
             history_times: VecDeque::with_capacity(256),
             cdt_history: VecDeque::with_capacity(256),
             window_totals: vec![0.0; stages],
+            window_values: (0..stages).map(|_| Vec::with_capacity(256)).collect(),
+            window_min: vec![0.0; stages],
+            window_max: vec![0.0; stages],
+            window_cdt_total: 0.0,
+            window_cdt_values: Vec::with_capacity(256),
             window_count: 0,
             last_print: std::time::Instant::now(),
         }
@@ -430,22 +467,34 @@ impl FrameTimings {
             return;
         }
 
+        let first_window_sample = self.window_count == 0;
         self.count += 1;
         self.window_count += 1;
+        self.window_cdt_total += cdt_ms;
+        self.window_cdt_values.push(cdt_ms);
 
-        // Seed min/max from the first sample of the window. Starting them at
-        // 0.0 would pin `min_ms` at 0 forever, since durations are never
-        // negative.
-        let first_in_window = self.count == 1;
+        // Seed cumulative min/max from the first sample, and window min/max
+        // from the first sample of each window. Starting them at 0.0 would
+        // pin `min_ms` at 0 forever, since durations are never negative.
+        let first_overall = self.count == 1;
 
         for (index, &duration) in durations.iter().enumerate() {
             self.totals[index] += duration;
             self.window_totals[index] += duration;
+            self.window_values[index].push(duration);
+
+            if first_window_sample {
+                self.window_min[index] = duration;
+                self.window_max[index] = duration;
+            } else {
+                self.window_min[index] = self.window_min[index].min(duration);
+                self.window_max[index] = self.window_max[index].max(duration);
+            }
 
             let sample = &mut self.samples[index];
             sample.last_ms = duration;
 
-            if first_in_window {
+            if first_overall {
                 sample.min_ms = duration;
                 sample.max_ms = duration;
             } else {
@@ -535,10 +584,10 @@ impl FrameTimings {
     /// Takes the current one-second window, optionally emitting the console
     /// summary.
     ///
-    /// Unlike [`Self::try_log_if`], this returns the averages even when the
-    /// console line is suppressed. CSV capture uses it to record the same
-    /// window without forcing console logging on.
-    pub fn try_log_window(&mut self, console: bool) -> Option<Vec<f64>> {
+    /// The returned value contains per-stage mean/min/max/p95 plus wall-clock
+    /// frame-delta statistics. Unlike [`Self::try_log_if`], it returns the
+    /// window even when the console line is suppressed.
+    pub fn take_window(&mut self, console: bool) -> Option<TimingWindow> {
         if self.window_count == 0
             || self.last_print.elapsed().as_secs_f64() < Self::LOG_INTERVAL_SECS
         {
@@ -551,6 +600,32 @@ impl FrameTimings {
             .iter()
             .map(|total| total / n)
             .collect::<Vec<_>>();
+        let min = self.window_min.clone();
+        let max = self.window_max.clone();
+        let p95 = self
+            .window_values
+            .iter()
+            .map(|values| percentile(values, 0.95))
+            .collect::<Vec<_>>();
+
+        let mut cdt_values = self.window_cdt_values.clone();
+        cdt_values.sort_by(|a, b| a.total_cmp(b));
+        let cdt_mean_ms = self.window_cdt_total / n;
+        let cdt_min_ms = cdt_values.first().copied().unwrap_or(0.0);
+        let cdt_max_ms = cdt_values.last().copied().unwrap_or(0.0);
+        let cdt_p95_ms = percentile_sorted(&cdt_values, 0.95);
+
+        let window = TimingWindow {
+            averages: averages.clone(),
+            min,
+            max,
+            p95,
+            frames: self.window_count,
+            cdt_mean_ms,
+            cdt_min_ms,
+            cdt_max_ms,
+            cdt_p95_ms,
+        };
 
         if console {
             let mut line = format!("TIMING avg({} frames):", self.window_count);
@@ -564,11 +639,39 @@ impl FrameTimings {
         }
 
         self.window_totals.iter_mut().for_each(|total| *total = 0.0);
+        self.window_values
+            .iter_mut()
+            .for_each(|values| values.clear());
+        self.window_cdt_total = 0.0;
+        self.window_cdt_values.clear();
         self.window_count = 0;
         self.last_print = std::time::Instant::now();
 
-        Some(averages)
+        Some(window)
     }
+
+    /// Takes the current window and returns only the per-stage means.
+    ///
+    /// Kept for callers that do not need the distribution columns.
+    pub fn try_log_window(&mut self, console: bool) -> Option<Vec<f64>> {
+        self.take_window(console).map(|window| window.averages)
+    }
+}
+
+/// 95th percentile of `values`, ignoring sort order.
+fn percentile(values: &[f64], q: f64) -> f64 {
+    let mut values = values.to_vec();
+    values.sort_by(|a, b| a.total_cmp(b));
+    percentile_sorted(&values, q)
+}
+
+fn percentile_sorted(values: &[f64], q: f64) -> f64 {
+    if values.is_empty() {
+        return 0.0;
+    }
+
+    let index = ((values.len() - 1) as f64 * q.clamp(0.0, 1.0)).round() as usize;
+    values[index]
 }
 
 impl Default for FrameTimings {
@@ -1078,6 +1181,33 @@ mod tests {
 
         // And it won't log again until another second has passed.
         assert!(timings.try_log().is_none());
+    }
+
+    #[test]
+    fn frame_timings_window_reports_distributions_and_cdt() {
+        let mut timings = FrameTimings::new();
+
+        for value in [1.0, 2.0, 3.0, 4.0, 100.0] {
+            timings.record_at(
+                &frame(value),
+                value,
+                value * 2.0,
+                TimingsHistoryConfig::default(),
+            );
+        }
+        timings.last_print = std::time::Instant::now() - std::time::Duration::from_secs(2);
+
+        let window = timings.take_window(false).expect("window is ready");
+        assert_eq!(window.frames, 5);
+        assert_eq!(window.averages[0], 22.0);
+        assert_eq!(window.min[0], 1.0);
+        assert_eq!(window.max[0], 100.0);
+        assert_eq!(window.p95[0], 100.0);
+        assert_eq!(window.cdt_mean_ms, 44.0);
+        assert_eq!(window.cdt_min_ms, 2.0);
+        assert_eq!(window.cdt_max_ms, 200.0);
+        assert_eq!(window.cdt_p95_ms, 200.0);
+        assert_eq!(timings.window_count, 0);
     }
 
     #[test]
