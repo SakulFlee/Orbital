@@ -346,11 +346,13 @@ ORBITAL_PERF_CSV=~/orbital-performance.csv \
   jupyter lab Tools/performance/performance_report.ipynb
 ```
 
-The notebook plots FPS, frame time, CPU/GPU stages and cache counters, and
-prints automated observations such as frame-time percentiles, spike counts,
-the slowest stages, and the stage share of frame time. Cache deltas, cumulative
-WGSL source count, and dynamic-sky updates are plotted on separate axes because
-they use different units and scales.
+The notebook loads `performance_meta.json` when it is next to the CSV, then plots FPS,
+frame time, internal render scale and resolution, CPU/GPU stages and cache counters. It also
+prints automated observations such as frame-time percentiles, spike counts, the slowest
+stages, and the stage share of frame time. Render-scale change rows and a per-resolution
+segment table make phone/tablet captures comparable. Cache deltas, cumulative WGSL source
+count, and dynamic-sky updates are plotted on separate axes because they use different units
+and scales.
 
 ## Troubleshooting
 
