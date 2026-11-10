@@ -1593,7 +1593,7 @@ impl VolumetricQuality {
             Self::Low => 32,
             Self::Medium => 48,
             Self::High => 64,
-            Self::Mobile => 16,
+            Self::Mobile => 8,
             Self::Custom {
                 composite_steps, ..
             } => composite_steps.max(1),
@@ -1680,7 +1680,7 @@ mod volumetric_tests {
         assert_eq!(VolumetricQuality::High.grid(1920, 1080), [480, 270, 64]);
         assert_eq!(VolumetricQuality::Mobile.grid(1920, 1080), [96, 54, 48]);
         assert_eq!(VolumetricQuality::Medium.composite_steps(), 48);
-        assert_eq!(VolumetricQuality::Mobile.composite_steps(), 16);
+        assert_eq!(VolumetricQuality::Mobile.composite_steps(), 8);
     }
 
     #[test]
