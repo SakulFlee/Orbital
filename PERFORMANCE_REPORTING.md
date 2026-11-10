@@ -241,10 +241,13 @@ elapsed_s,fps,cdt_ms,<timing stages>,<cache counters>,<surface counters>,visible
   `frame_gap`, `surface_lock`, `surface_acquire`, `surface_view`,
   `gpu_complete`, `gpu_shadow`, `gpu_skybox`, `gpu_gbuffer`,
   `gpu_light_culling`, `gpu_deferred`, `gpu_models`, `gpu_transparent`,
-  `gpu_scene_total`, `gpu_volumetrics`, `gpu_tonemap`, `gpu_aa`.
+  `gpu_volumetric_inject`, `gpu_volumetric_accumulate`,
+  `gpu_volumetric_composite`, `gpu_scene_total`, `gpu_volumetrics`,
+  `gpu_tonemap`, `gpu_aa`.
   `gpu_models` is the forward opaque model section; `gpu_scene_total` is the
   aggregate of shadow, skybox, G-buffer, light culling, deferred lighting,
-  forward models and transparent models.
+  forward models and transparent models. `gpu_volumetrics` is the aggregate of
+  the volumetric inject, accumulate, and composite stages.
   `surface_lock`, `surface_acquire`, and `surface_view` break down the
   `surface_acq` stage; `surface_acquire` includes waiting for a swapchain
   image, so it can reflect GPU/present backpressure rather than pure CPU work.
@@ -252,8 +255,9 @@ elapsed_s,fps,cdt_ms,<timing stages>,<cache counters>,<surface counters>,visible
   `update + surface_acq + total + frame_limiter`.
   `gpu_complete` is the time from the end of submission until the GPU reports
   the submitted work complete; it is a latency, not an additive stage.
-  `gpu_volumetrics`, `gpu_tonemap`, and `gpu_aa` cover the post/scene GPU work
-  that the older scene timestamps did not include.
+  `gpu_volumetric_inject`, `gpu_volumetric_accumulate`,
+  `gpu_volumetric_composite`, `gpu_tonemap`, and `gpu_aa` cover the post/scene
+  GPU work that the older scene timestamps did not include.
 - Cache counters — `shader_modules_delta`, `pipelines_delta`, `unique_wgsl`,
   `material_hits_delta`, `material_misses_delta`, `sky_updates_delta`.
   `unique_wgsl` is cumulative; the others are deltas for the window.

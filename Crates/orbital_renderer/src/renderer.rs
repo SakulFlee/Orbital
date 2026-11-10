@@ -710,9 +710,9 @@ impl Renderer {
 
 // 0=shadow_start, 1=after shadow, 2=after sky, 3=after G-buffer,
 // 4=after light culling, 5=after deferred lighting, 6=after forward models,
-// 7=after transparent/models, 8=after volumetrics, 9=after tonemap,
-// 10=after AA.
-const TS_COUNT: u32 = 11;
+// 7=after transparent/models, 8=after volumetric inject, 9=after volumetric
+// accumulate, 10=after volumetric composite, 11=after tonemap, 12=after AA.
+const TS_COUNT: u32 = 13;
 const TS_BUF_SIZE: u64 = TS_COUNT as u64 * 8;
 const TS_STAGING_COUNT: usize = 4;
 
@@ -1530,6 +1530,9 @@ impl Renderer {
                                 bind_group,
                                 &targets.0.view,
                             );
+                            if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
+                                context.encoder.write_timestamp(qs, 8);
+                            }
                             volumetric_accumulated = self.volumetric.record_accumulate(
                                 context.device,
                                 context.queue,
@@ -1537,6 +1540,12 @@ impl Renderer {
                                 bind_group,
                                 &targets.0.view,
                             );
+                            if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
+                                context.encoder.write_timestamp(qs, 9);
+                            }
+                        } else if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
+                            context.encoder.write_timestamp(qs, 8);
+                            context.encoder.write_timestamp(qs, 9);
                         }
                     }
                     ScenePass::VolumetricComposite => {
@@ -1556,7 +1565,7 @@ impl Renderer {
                             );
                         }
                         if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
-                            context.encoder.write_timestamp(qs, 8);
+                            context.encoder.write_timestamp(qs, 10);
                         }
                     }
                     ScenePass::Tonemap => {
@@ -1566,6 +1575,8 @@ impl Renderer {
                         {
                             context.encoder.write_timestamp(qs, 7);
                             context.encoder.write_timestamp(qs, 8);
+                            context.encoder.write_timestamp(qs, 9);
+                            context.encoder.write_timestamp(qs, 10);
                         }
                         let tonemap_target = match self.anti_aliasing {
                             AntiAliasing::Off => target_view,
@@ -1587,9 +1598,9 @@ impl Renderer {
                             tonemap_target,
                         );
                         if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
-                            context.encoder.write_timestamp(qs, 9);
+                            context.encoder.write_timestamp(qs, 11);
                             if self.anti_aliasing == AntiAliasing::Off {
-                                context.encoder.write_timestamp(qs, 10);
+                                context.encoder.write_timestamp(qs, 12);
                             }
                         }
                     }
@@ -1603,7 +1614,7 @@ impl Renderer {
                             );
                         }
                         if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
-                            context.encoder.write_timestamp(qs, 10);
+                            context.encoder.write_timestamp(qs, 12);
                         }
                     }
                     ScenePass::Smaa => {
@@ -1611,7 +1622,7 @@ impl Renderer {
                             smaa.record(context.encoder, target_view);
                         }
                         if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
-                            context.encoder.write_timestamp(qs, 10);
+                            context.encoder.write_timestamp(qs, 12);
                         }
                     }
                 },

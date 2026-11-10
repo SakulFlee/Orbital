@@ -41,7 +41,8 @@ use orbital_ecs_bridge::{
     STAGE_FRAME_GAP, STAGE_FRAME_LIMITER, STAGE_GAME_SCHEDULE, STAGE_GPU_AA, STAGE_GPU_COMPLETE,
     STAGE_GPU_DEFERRED, STAGE_GPU_GBUFFER, STAGE_GPU_LIGHT_CULLING, STAGE_GPU_MODELS,
     STAGE_GPU_SCENE_TOTAL, STAGE_GPU_SHADOW, STAGE_GPU_SKYBOX, STAGE_GPU_TONEMAP,
-    STAGE_GPU_TRANSPARENT, STAGE_GPU_VOLUMETRICS, STAGE_ICED_DRAW, STAGE_ICED_SUBMIT,
+    STAGE_GPU_TRANSPARENT, STAGE_GPU_VOLUMETRIC_ACCUMULATE, STAGE_GPU_VOLUMETRIC_COMPOSITE,
+    STAGE_GPU_VOLUMETRIC_INJECT, STAGE_GPU_VOLUMETRICS, STAGE_ICED_DRAW, STAGE_ICED_SUBMIT,
     STAGE_IMPORTER_POLL, STAGE_INPUT, STAGE_OVERLAY_LAYERS, STAGE_OVERLAY_MAIN, STAGE_PRESENT,
     STAGE_REALIZE, STAGE_REALIZE_CAMERAS, STAGE_REALIZE_ENV, STAGE_REALIZE_LIGHTS,
     STAGE_REALIZE_MODELS, STAGE_SCENE_ENCODE, STAGE_SCENE_SUBMIT, STAGE_STAGGER, STAGE_SURFACE_ACQ,
@@ -98,8 +99,8 @@ impl FrameStageScratch {
     fn set_gpu(&mut self, gpu_ns: [f64; GPU_TIMESTAMP_COUNT]) {
         // gpu_ns: [shadow_start, after shadow, after sky, after G-buffer,
         // after light culling, after deferred lighting, after forward models,
-        // after transparent/models, after volumetrics, after tonemap,
-        // after AA].
+        // after transparent/models, after volumetric inject, after volumetric
+        // accumulate, after volumetric composite, after tonemap, after AA].
         const NS_TO_MS: f64 = 1.0 / 1_000_000.0;
 
         self.durations[STAGE_GPU_SHADOW] = (gpu_ns[1] - gpu_ns[0]) * NS_TO_MS;
@@ -110,9 +111,12 @@ impl FrameStageScratch {
         self.durations[STAGE_GPU_MODELS] = (gpu_ns[6] - gpu_ns[5]) * NS_TO_MS;
         self.durations[STAGE_GPU_TRANSPARENT] = (gpu_ns[7] - gpu_ns[6]) * NS_TO_MS;
         self.durations[STAGE_GPU_SCENE_TOTAL] = (gpu_ns[7] - gpu_ns[0]) * NS_TO_MS;
-        self.durations[STAGE_GPU_VOLUMETRICS] = (gpu_ns[8] - gpu_ns[7]) * NS_TO_MS;
-        self.durations[STAGE_GPU_TONEMAP] = (gpu_ns[9] - gpu_ns[8]) * NS_TO_MS;
-        self.durations[STAGE_GPU_AA] = (gpu_ns[10] - gpu_ns[9]) * NS_TO_MS;
+        self.durations[STAGE_GPU_VOLUMETRIC_INJECT] = (gpu_ns[8] - gpu_ns[7]) * NS_TO_MS;
+        self.durations[STAGE_GPU_VOLUMETRIC_ACCUMULATE] = (gpu_ns[9] - gpu_ns[8]) * NS_TO_MS;
+        self.durations[STAGE_GPU_VOLUMETRIC_COMPOSITE] = (gpu_ns[10] - gpu_ns[9]) * NS_TO_MS;
+        self.durations[STAGE_GPU_VOLUMETRICS] = (gpu_ns[10] - gpu_ns[7]) * NS_TO_MS;
+        self.durations[STAGE_GPU_TONEMAP] = (gpu_ns[11] - gpu_ns[10]) * NS_TO_MS;
+        self.durations[STAGE_GPU_AA] = (gpu_ns[12] - gpu_ns[11]) * NS_TO_MS;
     }
 }
 
