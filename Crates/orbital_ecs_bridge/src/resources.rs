@@ -1559,8 +1559,8 @@ pub enum VolumetricQuality {
     Medium,
     High,
     /// Reduced grid for mobile GPUs. The X/Y grid is deliberately coarser
-    /// than Low, adaptive depth slicing is disabled at 64 slices, and the
-    /// fullscreen composite uses 16 integration steps.
+    /// than Low, adaptive depth slicing is disabled at 48 slices, and the
+    /// fullscreen composite uses 8 integration steps.
     Mobile,
     /// Explicit grid dimensions and composite step count.
     Custom {
