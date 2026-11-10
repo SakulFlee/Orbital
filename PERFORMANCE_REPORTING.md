@@ -319,7 +319,6 @@ elapsed_s,fps,cdt_ms,<timing stages>,<cache counters>,<surface counters>,visible
   size, so a capture can be split into comparable segments. The two change
   counters mark the rows where a scale or render-target change happened; a
   non-zero counter means that row covers a transition.
-
 `ORBITAL_PERF_DETAIL=1` additionally logs per-system game-schedule timings and
 per-overlay event/draw/submit timings once per second. It is intentionally
 opt-in because it adds locking and instrumentation to every system/layer.

@@ -310,6 +310,11 @@ pub struct ModuleRuntime {
     perf_detail: bool,
     system_profiler: Option<Arc<SystemProfiler>>,
     overlay_detail: Vec<OverlayTiming>,
+    /// Render-scale and render-resolution changes since the last CSV row.
+    capture_changes: CaptureChanges,
+    /// Last render scale applied to the renderer, used to detect manual or
+    /// adaptive changes between rows.
+    last_applied_render_scale: Option<f32>,
     /// Adaptive render-scale state, updated once per FPS window.
     adaptive_render_scale: AdaptiveRenderScale,
     /// Native window size in physical pixels.
@@ -410,6 +415,8 @@ impl ModuleRuntime {
             perf_detail,
             system_profiler,
             overlay_detail: Vec::new(),
+            capture_changes: CaptureChanges::default(),
+            last_applied_render_scale: None,
             adaptive_render_scale: AdaptiveRenderScale::default(),
             window_size: cgmath::Vector2::new(0, 0),
             surface_size: cgmath::Vector2::new(0, 0),
@@ -473,6 +480,21 @@ impl ModuleRuntime {
     /// Recomputes the internal render resolution from the current settings and
     /// applies it to the renderer.
     fn sync_render_resolution(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+        let settings = self
+            .ecs_world
+            .get_resource::<crate::RenderSettings>()
+            .map(|settings| *settings)
+            .unwrap_or_default();
+
+        let scale_changed = self
+            .last_applied_render_scale
+            .is_some_and(|previous| (previous - settings.render_scale).abs() > 0.0001);
+        if scale_changed {
+            self.capture_changes.render_scale_changes =
+                self.capture_changes.render_scale_changes.saturating_add(1);
+        }
+        self.last_applied_render_scale = Some(settings.render_scale);
+
         let Some(renderer) = &mut self.renderer else {
             return;
         };
@@ -480,15 +502,14 @@ impl ModuleRuntime {
             return;
         }
 
-        let settings = self
-            .ecs_world
-            .get_resource::<crate::RenderSettings>()
-            .map(|settings| *settings)
-            .unwrap_or_default();
         let desired = scaled_resolution(self.surface_size, settings.render_scale);
 
         renderer.set_surface_resolution(self.surface_size);
         if renderer.render_resolution() != desired {
+            self.capture_changes.render_resolution_changes = self
+                .capture_changes
+                .render_resolution_changes
+                .saturating_add(1);
             info!(
                 "Render resolution changed: {}x{} -> {}x{} (surface {}x{}, scale {:.2})",
                 renderer.render_resolution().x,
@@ -1176,6 +1197,7 @@ impl ModuleRuntime {
         let (visible_overlays, visible_overlay_names) = self.visible_overlay_snapshot();
         let surface_status = self.surface_status;
         let capture = self.capture_snapshot();
+        let capture_changes = std::mem::take(&mut self.capture_changes);
         if log_config.csv
             && let Some(recorder) = self.performance_csv.as_mut()
         {
@@ -1202,7 +1224,7 @@ impl ModuleRuntime {
                     visible_overlays,
                     &visible_overlay_names,
                     &capture,
-                    CaptureChanges::default(),
+                    capture_changes,
                 )
                 .err();
 

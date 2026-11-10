@@ -273,6 +273,11 @@ impl PerformanceCsvRecorder {
             changes.render_scale_changes,
             changes.render_resolution_changes,
         )?;
+        write!(
+            self.writer,
+            ",{},{}",
+            changes.render_scale_changes, changes.render_resolution_changes,
+        )?;
 
         writeln!(self.writer)?;
         self.writer.flush()
