@@ -10,7 +10,10 @@
 //! Game Dashboard / OEM game mode.
 
 use std::{
-    sync::{Mutex, OnceLock},
+    sync::{
+        Mutex, OnceLock,
+        atomic::{AtomicU32, Ordering},
+    },
     time::Duration,
 };
 
@@ -132,6 +135,31 @@ impl Drop for Adpf {
 
 static ADPF: OnceLock<Mutex<Option<Adpf>>> = OnceLock::new();
 
+/// Display refresh rate reported by the platform, in millihertz.
+///
+/// winit does not expose a refresh rate on Android, so the value is captured
+/// from the Java `Display` during [`init`]. It is zero when no value is
+/// available.
+static DISPLAY_REFRESH_MHZ: AtomicU32 = AtomicU32::new(0);
+
+fn store_display_refresh_mhz(mhz: u32) {
+    if mhz > 0 {
+        let _ = DISPLAY_REFRESH_MHZ.compare_exchange(0, mhz, Ordering::Relaxed, Ordering::Relaxed);
+    }
+}
+
+/// Platform display refresh rate in millihertz.
+///
+/// Returns `None` when the platform does not provide one. Desktop and iOS use
+/// winit's monitor API instead; this fallback exists for Android, where winit
+/// returns zero.
+pub fn display_refresh_rate_millihertz() -> Option<u32> {
+    match DISPLAY_REFRESH_MHZ.load(Ordering::Relaxed) {
+        0 => None,
+        mhz => Some(mhz),
+    }
+}
+
 fn adpf_slot() -> &'static Mutex<Option<Adpf>> {
     ADPF.get_or_init(|| Mutex::new(None))
 }
@@ -146,10 +174,17 @@ fn init_adpf() {
     }
 
     if let Some(adpf) = Adpf::new() {
+        // ADPF's preferred update rate is a useful fallback when the Java
+        // display query failed.
+        let target_duration_ns = adpf.target_duration_ns();
+        if target_duration_ns > 0 {
+            let mhz = (1_000_000_000_000.0 / target_duration_ns as f64).round() as u32;
+            store_display_refresh_mhz(mhz);
+        }
         #[cfg(target_os = "android")]
         info!(
             "android performance: ADPF session created (target {:.2} ms)",
-            adpf.target_duration_ns() as f64 / 1_000_000.0
+            target_duration_ns as f64 / 1_000_000.0
         );
         *slot = Some(adpf);
     } else {
@@ -177,6 +212,7 @@ struct AndroidState {
     sustained_performance: bool,
     power_save: bool,
     game_mode: i32,
+    refresh_rate_mhz: u32,
 }
 
 /// Initializes the Android performance prototype.
@@ -189,8 +225,11 @@ pub fn init(app: &AndroidApp) {
     ONCE.call_once(|| {
         match apply_jni_hints(app) {
             Ok(state) => info!(
-                "android performance: sustained_performance={} power_save={} game_mode={}",
-                state.sustained_performance, state.power_save, state.game_mode
+                "android performance: sustained_performance={} power_save={} game_mode={} refresh_rate_mhz={}",
+                state.sustained_performance,
+                state.power_save,
+                state.game_mode,
+                state.refresh_rate_mhz
             ),
             Err(error) => warn!("android performance: JNI state query failed: {error}"),
         }
@@ -219,6 +258,37 @@ fn apply_jni_hints(app: &AndroidApp) -> Result<AndroidState, String> {
                 &[],
             )?
             .l()?;
+
+        // winit reports no Android refresh rate. The Java Display object does,
+        // so capture it here as a fallback for the performance target.
+        let refresh_rate_mhz = (|| -> jni::errors::Result<u32> {
+            let decor_view = env
+                .call_method(
+                    &window,
+                    jni_str!("getDecorView"),
+                    jni_sig!("()Landroid/view/View;"),
+                    &[],
+                )?
+                .l()?;
+            let display = env
+                .call_method(
+                    &decor_view,
+                    jni_str!("getDisplay"),
+                    jni_sig!("()Landroid/view/Display;"),
+                    &[],
+                )?
+                .l()?;
+            if display.is_null() {
+                return Ok(0);
+            }
+            let refresh_hz = env
+                .call_method(&display, jni_str!("getRefreshRate"), jni_sig!("()F"), &[])?
+                .f()?;
+            let mhz = (refresh_hz * 1000.0).round().max(0.0) as u32;
+            Ok(mhz)
+        })()
+        .unwrap_or(0);
+        store_display_refresh_mhz(refresh_rate_mhz);
 
         // Android does not automatically keep the display awake for a game.
         // FLAG_KEEP_SCREEN_ON is the standard opt-in; the system still sleeps
@@ -274,6 +344,7 @@ fn apply_jni_hints(app: &AndroidApp) -> Result<AndroidState, String> {
             sustained_performance,
             power_save,
             game_mode,
+            refresh_rate_mhz,
         })
     })
     .map_err(|error| error.to_string())

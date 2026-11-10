@@ -17,6 +17,17 @@ pub struct AppSettings {
     /// Optional frame-rate cap when VSync is disabled. `None` is uncapped;
     /// VSync takes precedence when enabled.
     pub fps_limit: Option<u32>,
+    /// Startup internal 3D render scale. See
+    /// [`RenderSettings::render_scale`](crate::RenderSettings::render_scale).
+    pub render_scale: f32,
+    /// Automatically tune the render scale to hold [`Self::target_fps`].
+    ///
+    /// Disabled by default on desktop so rendering is unchanged. Enabled by
+    /// default on Android and iOS, where a stable frame rate matters more than
+    /// native-resolution rendering.
+    pub adaptive_render_scale: bool,
+    /// Frame-rate target used by adaptive render scaling.
+    pub target_fps: u32,
     /// 3D scene anti-aliasing. 2D/UI overlays are always rendered after the
     /// post chain and are not affected.
     ///
@@ -67,6 +78,9 @@ impl Default for AppSettings {
             fullscreen: false,
             present_mode: None,
             fps_limit: None,
+            render_scale: 1.0,
+            adaptive_render_scale: cfg!(any(target_os = "android", target_os = "ios")),
+            target_fps: 60,
             anti_aliasing: AntiAliasing::Fxaa,
             smaa_quality: SmaaQuality::default(),
             exposure: 1.0,

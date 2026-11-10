@@ -48,6 +48,118 @@ const SURFACE_STATUS_NAMES: [&str; 7] = [
     "surface_validation_total",
 ];
 
+/// Per-row display and resolution fields appended to each CSV row.
+pub const PERFORMANCE_CAPTURE_NAMES: [&str; 16] = [
+    "window_width",
+    "window_height",
+    "surface_width",
+    "surface_height",
+    "render_width",
+    "render_height",
+    "render_scale",
+    "scale_factor",
+    "dpi",
+    "orientation",
+    "refresh_rate_mhz",
+    "present_mode",
+    "frame_latency",
+    "pixels_per_frame",
+    "render_scale_changes",
+    "render_resolution_changes",
+];
+
+/// Display and resolution state for one timing window.
+///
+/// This is sampled per row so a rotation or render-scale change during the
+/// capture stays visible in the CSV instead of only in the startup metadata.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CaptureSnapshot {
+    /// Native window size in physical pixels.
+    pub window_width: u32,
+    pub window_height: u32,
+    /// Configured swapchain surface size.
+    pub surface_width: u32,
+    pub surface_height: u32,
+    /// Internal 3D render target size.
+    pub render_width: u32,
+    pub render_height: u32,
+    /// Current internal render scale.
+    pub render_scale: f32,
+    /// Window scale factor (Android density / 160).
+    pub scale_factor: f64,
+    /// Estimated pixels per inch.
+    pub dpi: u32,
+    /// Display refresh rate in millihertz, when the platform reports one.
+    pub refresh_rate_mhz: Option<u32>,
+    /// Active present mode.
+    pub present_mode: &'static str,
+    /// Configured swapchain frame latency.
+    pub frame_latency: u32,
+}
+
+impl Default for CaptureSnapshot {
+    fn default() -> Self {
+        Self {
+            window_width: 0,
+            window_height: 0,
+            surface_width: 0,
+            surface_height: 0,
+            render_width: 0,
+            render_height: 0,
+            render_scale: 1.0,
+            scale_factor: 1.0,
+            dpi: 96,
+            refresh_rate_mhz: None,
+            present_mode: "unknown",
+            frame_latency: 2,
+        }
+    }
+}
+
+impl CaptureSnapshot {
+    /// Human-readable orientation of the surface.
+    pub fn orientation(&self) -> &'static str {
+        use std::cmp::Ordering;
+
+        match self.surface_width.cmp(&self.surface_height) {
+            Ordering::Greater => "landscape",
+            Ordering::Less => "portrait",
+            Ordering::Equal => "square",
+        }
+    }
+
+    /// Number of internal pixels rendered per frame.
+    pub fn pixels_per_frame(&self) -> u64 {
+        u64::from(self.render_width) * u64::from(self.render_height)
+    }
+}
+
+/// Capture events that happened during one timing window.
+///
+/// The CSV row itself already contains the active render resolution. These
+/// counters mark rows where that state changed, so a run can be split into
+/// stable resolution segments without comparing every row manually.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct CaptureChanges {
+    /// Render-scale changes triggered by adaptive scaling or a manual control.
+    pub render_scale_changes: u32,
+    /// Internal render-target changes, including surface resizes and scale
+    /// changes.
+    pub render_resolution_changes: u32,
+}
+
+/// Human-readable present-mode name for capture metadata.
+pub fn present_mode_name(mode: wgpu::PresentMode) -> &'static str {
+    match mode {
+        wgpu::PresentMode::AutoVsync => "AutoVsync",
+        wgpu::PresentMode::AutoNoVsync => "AutoNoVsync",
+        wgpu::PresentMode::Fifo => "Fifo",
+        wgpu::PresentMode::FifoRelaxed => "FifoRelaxed",
+        wgpu::PresentMode::Immediate => "Immediate",
+        wgpu::PresentMode::Mailbox => "Mailbox",
+    }
+}
+
 /// Streams one CSV row per timing window.
 pub struct PerformanceCsvRecorder {
     writer: Box<dyn Write + Send>,
@@ -85,6 +197,9 @@ impl PerformanceCsvRecorder {
             write!(self.writer, ",{name}")?;
         }
         write!(self.writer, ",visible_overlays,visible_overlay_names")?;
+        for name in PERFORMANCE_CAPTURE_NAMES {
+            write!(self.writer, ",{name}")?;
+        }
         writeln!(self.writer)
     }
 
@@ -103,6 +218,8 @@ impl PerformanceCsvRecorder {
         surface: SurfaceStatusCounters,
         visible_overlays: u64,
         visible_overlay_names: &str,
+        capture: &CaptureSnapshot,
+        changes: CaptureChanges,
     ) -> io::Result<()> {
         write!(self.writer, "{elapsed_s:.3},{fps},{cdt_ms:.3}")?;
         for average in averages {
@@ -127,6 +244,36 @@ impl PerformanceCsvRecorder {
         // valid if a caller ever supplies a free-form overlay name.
         let names = visible_overlay_names.replace([',', '\n', '\r'], ";");
         write!(self.writer, ",{visible_overlays},{names}")?;
+
+        write!(
+            self.writer,
+            ",{},{},{},{},{},{},{:.3},{:.3},{},{}",
+            capture.window_width,
+            capture.window_height,
+            capture.surface_width,
+            capture.surface_height,
+            capture.render_width,
+            capture.render_height,
+            capture.render_scale,
+            capture.scale_factor,
+            capture.dpi,
+            capture.orientation(),
+        )?;
+        if let Some(mhz) = capture.refresh_rate_mhz {
+            write!(self.writer, ",{mhz}")?;
+        } else {
+            write!(self.writer, ",")?;
+        }
+        write!(
+            self.writer,
+            ",{},{},{},{},{}",
+            capture.present_mode,
+            capture.frame_latency,
+            capture.pixels_per_frame(),
+            changes.render_scale_changes,
+            changes.render_resolution_changes,
+        )?;
+
         writeln!(self.writer)?;
         self.writer.flush()
     }
@@ -190,6 +337,8 @@ mod tests {
                 },
                 2,
                 "Performance|Rendering",
+                &CaptureSnapshot::default(),
+                CaptureChanges::default(),
             )
             .unwrap();
 
@@ -200,10 +349,14 @@ mod tests {
 
         assert_eq!(
             header.split(',').count(),
-            3 + TIMING_STAGES.len() + PERFORMANCE_COUNTER_NAMES.len() + 9
+            3 + TIMING_STAGES.len()
+                + PERFORMANCE_COUNTER_NAMES.len()
+                + 9
+                + PERFORMANCE_CAPTURE_NAMES.len()
         );
         assert_eq!(header.split(',').count(), row.split(',').count());
         assert!(row.starts_with("1.500,60,16.700"));
-        assert!(row.ends_with("1,2,3,4,5,6,7,0,0,0,0,0,0,2,Performance|Rendering"));
+        assert!(row.contains(",1,2,3,4,5,6,7,0,0,0,0,0,0,2,Performance|Rendering,"));
+        assert!(row.ends_with(",0,0"));
     }
 }
