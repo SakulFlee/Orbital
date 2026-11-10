@@ -468,6 +468,10 @@ struct TimestampReadback {
 
 pub struct Renderer {
     surface_texture_format: TextureFormat,
+    /// Native surface size. The internal scene targets can be smaller when
+    /// render scaling is active.
+    surface_resolution: Vector2<u32>,
+    /// Internal 3D scene resolution.
     resolution: Vector2<u32>,
     render_graph: RenderGraph<ScenePass>,
     texture_pool: TexturePool,
@@ -784,6 +788,7 @@ impl Renderer {
 
         Self {
             surface_texture_format,
+            surface_resolution: resolution,
             resolution,
             render_graph: RenderGraph::default(),
             texture_pool: TexturePool::new(3),
@@ -867,6 +872,25 @@ impl Renderer {
             smaa.resize(device, resolution.x.max(1), resolution.y.max(1));
         }
         self.light_culling.ensure(device, queue, resolution);
+    }
+
+    /// Updates the native surface size without changing the internal render
+    /// resolution.
+    ///
+    /// The runtime calls this on resize and on resume, then calls
+    /// [`Self::change_resolution`] with the scaled internal size.
+    pub fn set_surface_resolution(&mut self, resolution: Vector2<u32>) {
+        self.surface_resolution = Vector2::new(resolution.x.max(1), resolution.y.max(1));
+    }
+
+    /// Internal 3D scene resolution.
+    pub fn render_resolution(&self) -> Vector2<u32> {
+        self.resolution
+    }
+
+    /// Native surface resolution.
+    pub fn surface_resolution(&self) -> Vector2<u32> {
+        self.surface_resolution
     }
 
     /// Returns the camera uniform buffer for this frame.
@@ -1139,10 +1163,16 @@ impl Renderer {
                     10_000.0,
                 )
             });
+        let tonemap_resolution = match self.anti_aliasing {
+            // With AA disabled the tonemap pass writes directly to the surface.
+            AntiAliasing::Off => self.surface_resolution,
+            AntiAliasing::Fxaa | AntiAliasing::Smaa => self.resolution,
+        };
         self.tonemap.set_glare(
             queue,
             glare_view_projection,
             glare_camera_position,
+            tonemap_resolution,
             self.resolution,
             glare_near,
             glare_far,
@@ -2429,6 +2459,52 @@ mod tests {
                 size: wgpu::Extent3d {
                     width: 320,
                     height: 180,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: TextureFormat::Bgra8UnormSrgb,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                view_formats: &[],
+            })
+            .create_view(&Default::default());
+
+        let world = orbital_ecs::World::new();
+        let scene = RenderScene::from_world(&world);
+        renderer.render(
+            &target,
+            &scene,
+            &device,
+            &queue,
+            None,
+            &std::collections::HashSet::new(),
+            None,
+        );
+    }
+
+    #[test]
+    fn renderer_upscales_a_scaled_scene_to_the_native_surface() {
+        let (device, queue) = wgpu::Device::noop(&wgpu::DeviceDescriptor::default());
+        let surface_size = Vector2::new(320, 180);
+        let mut renderer = Renderer::new(
+            TextureFormat::Bgra8UnormSrgb,
+            Vector2::new(160, 90),
+            &device,
+            &queue,
+        );
+        renderer.set_surface_resolution(surface_size);
+        renderer.set_anti_aliasing(AntiAliasing::Off);
+
+        assert_eq!(renderer.render_resolution(), Vector2::new(160, 90));
+        assert_eq!(renderer.surface_resolution(), surface_size);
+
+        let target = device
+            .create_texture(&wgpu::TextureDescriptor {
+                label: Some("Renderer scaled noop target"),
+                size: wgpu::Extent3d {
+                    width: surface_size.x,
+                    height: surface_size.y,
                     depth_or_array_layers: 1,
                 },
                 mip_level_count: 1,

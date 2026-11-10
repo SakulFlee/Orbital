@@ -28,10 +28,13 @@ struct GlareLight {
 struct GlareParams {
     view_projection: mat4x4<f32>,
     camera_position: vec4<f32>,
-    // xy = viewport size, z = active light count, w = glare radius.
+    // xy = tonemap target size, z = active light count, w = glare radius.
     viewport: vec4<f32>,
     // x = near plane, y = far plane.
     camera_params: vec4<f32>,
+    // xy = scene depth texture size. May be smaller than the target when
+    // render scaling is active.
+    depth_resolution: vec4<f32>,
     lights: array<GlareLight, 32>,
 };
 
@@ -128,7 +131,17 @@ fn sample_light_glare(uv: vec2<f32>, pixel: vec2<i32>) -> vec3<f32> {
     let radius2 = glare.viewport.w * glare.viewport.w;
     let near = glare.camera_params.x;
     let far = glare.camera_params.y;
-    let scene_depth_value = textureLoad(scene_depth, pixel, 0);
+    // The scene depth target follows the internal render scale, which can be
+    // smaller than this pass's target when anti-aliasing is disabled. Map the
+    // output pixel into depth texture space instead of loading out of bounds.
+    let depth_size = max(glare.depth_resolution.xy, vec2<f32>(1.0));
+    let output_size = max(viewport, vec2<f32>(1.0));
+    let depth_coord = clamp(
+        (vec2<f32>(pixel) + vec2<f32>(0.5)) * depth_size / output_size,
+        vec2<f32>(0.0),
+        depth_size - vec2<f32>(1.0),
+    );
+    let scene_depth_value = textureLoad(scene_depth, vec2<i32>(depth_coord), 0);
     let scene_linear_depth =
         (near * far) / max(far - scene_depth_value * (far - near), 1.0e-6);
     var light_glare = vec3<f32>(0.0);
