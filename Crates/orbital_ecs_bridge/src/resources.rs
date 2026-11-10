@@ -92,12 +92,18 @@ pub struct TimingSample {
 /// frame. The GPU stages are derived from timestamp query results read back
 /// from the renderer, and are only meaningful on backends that support
 /// timestamp queries; elsewhere they stay at zero.
-pub const TIMING_STAGES: [&str; 30] = [
+pub const TIMING_STAGES: [&str; 46] = [
     "surface_acq",
     "update",
     "ui_events",
+    "input",
+    "core schedule",
+    "importer poll",
     "game_schedule",
+    "engine events",
     "realize",
+    "realize cameras",
+    "realize lights",
     "realize models",
     "realize env",
     "stagger",
@@ -113,12 +119,22 @@ pub const TIMING_STAGES: [&str; 30] = [
     "iced submit",
     "present",
     "total",
+    "frame limiter",
+    "frame gap",
     "surface lock",
     "surface acquire",
     "surface view",
+    "gpu complete",
     "gpu shadow",
     "gpu skybox",
+    "gpu gbuffer",
+    "gpu light culling",
+    "gpu deferred",
     "gpu models",
+    "gpu transparent",
+    "gpu volumetric inject",
+    "gpu volumetric accumulate",
+    "gpu volumetric composite",
     "gpu scene total",
     "gpu volumetrics",
     "gpu tonemap",
@@ -130,36 +146,53 @@ pub const TIMING_STAGES: [&str; 30] = [
 pub const STAGE_SURFACE_ACQ: usize = 0;
 pub const STAGE_UPDATE: usize = 1;
 pub const STAGE_UI_EVENTS: usize = 2;
-pub const STAGE_GAME_SCHEDULE: usize = 3;
-pub const STAGE_REALIZE: usize = 4;
-pub const STAGE_REALIZE_MODELS: usize = 5;
-pub const STAGE_REALIZE_ENV: usize = 6;
-pub const STAGE_STAGGER: usize = 7;
-pub const STAGE_CULL_EXTRACT: usize = 8;
-pub const STAGE_BIND_MODELS: usize = 9;
-pub const STAGE_VOLUMETRICS: usize = 10;
-pub const STAGE_SCENE_ENCODE: usize = 11;
-pub const STAGE_SCENE_SUBMIT: usize = 12;
-pub const STAGE_TIMESTAMP_READBACK: usize = 13;
-pub const STAGE_OVERLAY_MAIN: usize = 14;
-pub const STAGE_OVERLAY_LAYERS: usize = 15;
-pub const STAGE_ICED_DRAW: usize = 16;
-pub const STAGE_ICED_SUBMIT: usize = 17;
-pub const STAGE_PRESENT: usize = 18;
-pub const STAGE_TOTAL: usize = 19;
-pub const STAGE_SURFACE_LOCK: usize = 20;
-pub const STAGE_SURFACE_ACQUIRE: usize = 21;
-pub const STAGE_SURFACE_VIEW: usize = 22;
-pub const STAGE_GPU_SHADOW: usize = 23;
-pub const STAGE_GPU_SKYBOX: usize = 24;
-pub const STAGE_GPU_MODELS: usize = 25;
-pub const STAGE_GPU_SCENE_TOTAL: usize = 26;
-pub const STAGE_GPU_VOLUMETRICS: usize = 27;
-pub const STAGE_GPU_TONEMAP: usize = 28;
-pub const STAGE_GPU_AA: usize = 29;
+pub const STAGE_INPUT: usize = 3;
+pub const STAGE_CORE_SCHEDULE: usize = 4;
+pub const STAGE_IMPORTER_POLL: usize = 5;
+pub const STAGE_GAME_SCHEDULE: usize = 6;
+pub const STAGE_ENGINE_EVENTS: usize = 7;
+pub const STAGE_REALIZE: usize = 8;
+pub const STAGE_REALIZE_CAMERAS: usize = 9;
+pub const STAGE_REALIZE_LIGHTS: usize = 10;
+pub const STAGE_REALIZE_MODELS: usize = 11;
+pub const STAGE_REALIZE_ENV: usize = 12;
+pub const STAGE_STAGGER: usize = 13;
+pub const STAGE_CULL_EXTRACT: usize = 14;
+pub const STAGE_BIND_MODELS: usize = 15;
+pub const STAGE_VOLUMETRICS: usize = 16;
+pub const STAGE_SCENE_ENCODE: usize = 17;
+pub const STAGE_SCENE_SUBMIT: usize = 18;
+pub const STAGE_TIMESTAMP_READBACK: usize = 19;
+pub const STAGE_OVERLAY_MAIN: usize = 20;
+pub const STAGE_OVERLAY_LAYERS: usize = 21;
+pub const STAGE_ICED_DRAW: usize = 22;
+pub const STAGE_ICED_SUBMIT: usize = 23;
+pub const STAGE_PRESENT: usize = 24;
+pub const STAGE_TOTAL: usize = 25;
+pub const STAGE_FRAME_LIMITER: usize = 26;
+pub const STAGE_FRAME_GAP: usize = 27;
+pub const STAGE_SURFACE_LOCK: usize = 28;
+pub const STAGE_SURFACE_ACQUIRE: usize = 29;
+pub const STAGE_SURFACE_VIEW: usize = 30;
+pub const STAGE_GPU_COMPLETE: usize = 31;
+pub const STAGE_GPU_SHADOW: usize = 32;
+pub const STAGE_GPU_SKYBOX: usize = 33;
+pub const STAGE_GPU_GBUFFER: usize = 34;
+pub const STAGE_GPU_LIGHT_CULLING: usize = 35;
+pub const STAGE_GPU_DEFERRED: usize = 36;
+pub const STAGE_GPU_MODELS: usize = 37;
+pub const STAGE_GPU_TRANSPARENT: usize = 38;
+pub const STAGE_GPU_VOLUMETRIC_INJECT: usize = 39;
+pub const STAGE_GPU_VOLUMETRIC_ACCUMULATE: usize = 40;
+pub const STAGE_GPU_VOLUMETRIC_COMPOSITE: usize = 41;
+pub const STAGE_GPU_SCENE_TOTAL: usize = 42;
+pub const STAGE_GPU_VOLUMETRICS: usize = 43;
+pub const STAGE_GPU_TONEMAP: usize = 44;
+pub const STAGE_GPU_AA: usize = 45;
 
-/// The index of the `total` stage, which is the whole-frame duration and the
-/// series a frame-time graph should plot.
+/// The index of the `total` stage, which is the renderer-only duration after
+/// surface acquisition and update. Add `update`, `surface_acq`,
+/// `frame_limiter`, and `frame_gap` for the wall-clock frame period.
 pub const TOTAL_STAGE_INDEX: usize = STAGE_TOTAL;
 
 /// The first GPU stage. Stages at or after this index are invalid when the
@@ -259,7 +292,11 @@ pub struct FrameTimings {
     /// Running totals backing `avg_ms`, reset by [`Self::clear`].
     totals: Vec<f64>,
     count: u64,
-    /// Whole-frame duration per frame, oldest first.
+    /// Renderer-only total per frame, oldest first.
+    ///
+    /// This is the `total` stage, not the wall-clock frame period. Use the
+    /// per-frame history and the frame-gap/update/surface stages for the full
+    /// period.
     frame_ms: VecDeque<f32>,
     /// Per-stage durations over time, oldest first. One entry per frame, each
     /// holding one value per stage in [`TIMING_STAGES`] order.
@@ -314,7 +351,7 @@ impl FrameTimings {
         self.count
     }
 
-    /// Whole-frame duration per frame, oldest first.
+    /// Renderer-only total per frame, oldest first.
     pub fn frame_ms(&self) -> &VecDeque<f32> {
         &self.frame_ms
     }
@@ -1521,6 +1558,10 @@ pub enum VolumetricQuality {
     #[default]
     Medium,
     High,
+    /// Reduced grid for mobile GPUs. The X/Y grid is deliberately coarser
+    /// than Low, adaptive depth slicing is disabled at 48 slices, and the
+    /// fullscreen composite uses 8 integration steps.
+    Mobile,
     /// Explicit grid dimensions and composite step count.
     Custom {
         grid_x: u32,
@@ -1537,6 +1578,7 @@ impl VolumetricQuality {
             Self::Low => [(width / 12).max(16), (height / 12).max(9), 64],
             Self::Medium => [(width / 8).max(24), (height / 8).max(14), 64],
             Self::High => [(width / 4).max(48), (height / 4).max(27), 64],
+            Self::Mobile => [(width / 20).max(32), (height / 20).max(20), 48],
             Self::Custom {
                 grid_x,
                 grid_y,
@@ -1551,6 +1593,7 @@ impl VolumetricQuality {
             Self::Low => 32,
             Self::Medium => 48,
             Self::High => 64,
+            Self::Mobile => 8,
             Self::Custom {
                 composite_steps, ..
             } => composite_steps.max(1),
@@ -1635,7 +1678,9 @@ mod volumetric_tests {
         assert_eq!(VolumetricQuality::Low.grid(1920, 1080), [160, 90, 64]);
         assert_eq!(VolumetricQuality::Medium.grid(1920, 1080), [240, 135, 64]);
         assert_eq!(VolumetricQuality::High.grid(1920, 1080), [480, 270, 64]);
+        assert_eq!(VolumetricQuality::Mobile.grid(1920, 1080), [96, 54, 48]);
         assert_eq!(VolumetricQuality::Medium.composite_steps(), 48);
+        assert_eq!(VolumetricQuality::Mobile.composite_steps(), 8);
     }
 
     #[test]

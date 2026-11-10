@@ -1,5 +1,10 @@
 use cgmath::{Vector3, Zero};
 
+/// Default radius for manually created point/spot lights, in world units.
+///
+/// glTF `KHR_lights_punctual` lights use their explicit `range` when present.
+pub const DEFAULT_LIGHT_RANGE: f32 = 10.0;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum LightType {
     Point {
@@ -22,6 +27,8 @@ pub struct LightDescriptor {
     pub color: Vector3<f32>,
     pub position: Vector3<f32>,
     pub direction: Vector3<f32>,
+    /// Point/spot influence radius in world units. Ignored for directional lights.
+    pub range: f32,
 }
 
 impl LightDescriptor {
@@ -37,6 +44,7 @@ impl LightDescriptor {
             color,
             position,
             direction: Vector3::zero(),
+            range: DEFAULT_LIGHT_RANGE,
         }
     }
 
@@ -52,6 +60,7 @@ impl LightDescriptor {
             color,
             position: Vector3::zero(),
             direction,
+            range: DEFAULT_LIGHT_RANGE,
         }
     }
 
@@ -74,7 +83,14 @@ impl LightDescriptor {
             color,
             position,
             direction,
+            range: DEFAULT_LIGHT_RANGE,
         }
+    }
+
+    /// Sets the point/spot influence radius in world units.
+    pub fn with_range(mut self, range: f32) -> Self {
+        self.range = range.max(0.0);
+        self
     }
 
     pub fn label(&self) -> &str {
@@ -132,17 +148,24 @@ impl LightDescriptor {
         // x/y = spot angular attenuation scale/offset (0 for non-spot lights)
         // z = range² for distance culling (0 for directional = infinite range)
         // w = padding
-        let (attn_scale, attn_offset, range_sq) = match &self.light_type {
-            LightType::Directional { .. } => (0.0f32, 0.0f32, 0.0f32),
-            LightType::Point { intensity } => (0.0f32, 0.0f32, intensity / 0.01),
+        let range_sq = match &self.light_type {
+            LightType::Directional { .. } => 0.0f32,
+            LightType::Point { .. } | LightType::Spot { .. } => {
+                let range = if self.range.is_finite() && self.range > 0.0 {
+                    self.range
+                } else {
+                    DEFAULT_LIGHT_RANGE
+                };
+                range * range
+            }
+        };
+        let (attn_scale, attn_offset) = match &self.light_type {
+            LightType::Directional { .. } | LightType::Point { .. } => (0.0f32, 0.0f32),
             LightType::Spot {
-                intensity,
                 inner_cone_angle,
                 outer_cone_angle,
-            } => {
-                let (scale, attn) = spot_angular_attenuation(*inner_cone_angle, *outer_cone_angle);
-                (scale, attn, intensity / 0.01)
-            }
+                ..
+            } => spot_angular_attenuation(*inner_cone_angle, *outer_cone_angle),
         };
         data[offset..offset + 4].copy_from_slice(&attn_scale.to_le_bytes()); // Attenuation scale
         offset += 4;
@@ -185,6 +208,7 @@ impl Default for LightDescriptor {
             color: Vector3::new(1.0, 1.0, 1.0),
             position: Vector3::zero(),
             direction: Vector3::new(0.0, -1.0, 0.0),
+            range: DEFAULT_LIGHT_RANGE,
         }
     }
 }
@@ -252,7 +276,7 @@ mod tests {
 
         // range² stored in params.z for distance culling
         let range_sq = f32::from_le_bytes(data[56..60].try_into().unwrap());
-        assert_eq!(range_sq, 10.0 / 0.01);
+        assert_eq!(range_sq, DEFAULT_LIGHT_RANGE * DEFAULT_LIGHT_RANGE);
     }
 
     #[test]
@@ -275,10 +299,38 @@ mod tests {
         assert_eq!((scale, offset), (0.0, 0.0));
 
         let range_sq = f32::from_le_bytes(data[56..60].try_into().unwrap());
-        assert_eq!(range_sq, 10.0 / 0.01);
+        assert_eq!(range_sq, DEFAULT_LIGHT_RANGE * DEFAULT_LIGHT_RANGE);
 
         // params.w padding
         assert_eq!(data[60..64], [0u8; 4]);
+    }
+
+    #[test]
+    fn point_buffer_packs_explicit_range() {
+        let light = LightDescriptor::new_point(
+            "p".to_string(),
+            Vector3::new(0.0, 1.0, 0.0),
+            Vector3::new(1.0, 1.0, 1.0),
+            10.0,
+        )
+        .with_range(25.0);
+        let data = light.to_buffer_data();
+        let range_sq = f32::from_le_bytes(data[56..60].try_into().unwrap());
+        assert_eq!(range_sq, 625.0);
+    }
+
+    #[test]
+    fn zero_range_falls_back_to_default() {
+        let light = LightDescriptor::new_point(
+            "p".to_string(),
+            Vector3::new(0.0, 1.0, 0.0),
+            Vector3::new(1.0, 1.0, 1.0),
+            10.0,
+        )
+        .with_range(0.0);
+        let data = light.to_buffer_data();
+        let range_sq = f32::from_le_bytes(data[56..60].try_into().unwrap());
+        assert_eq!(range_sq, DEFAULT_LIGHT_RANGE * DEFAULT_LIGHT_RANGE);
     }
 
     #[test]

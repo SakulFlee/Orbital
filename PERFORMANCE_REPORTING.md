@@ -28,16 +28,17 @@ the player or launcher explicitly sets it.
    console output.
 
 The file is created when the switch is enabled. Disabling and re-enabling
-truncates and starts a new file.
-
-The runtime uses the process working directory as the storage root. The path is
-always:
+truncates and starts a new file. A metadata sidecar is written next to it:
 
 ```text
 Logs/performance.csv
+Logs/performance_meta.json
 ```
 
-The debug panel shows this path under the CSV switch.
+The runtime uses the process working directory as the storage root. The debug
+panel shows both paths under the CSV switch. Copy both files together when
+sharing a capture; the metadata sidecar records the hardware, display and
+renderer settings that make the CSV comparable.
 
 ### Enable from code
 
@@ -83,12 +84,13 @@ The file is under the working directory of the process:
 | `cd Examples/all-in-one && cargo run` | `Examples/all-in-one/Logs/performance.csv` |
 | `orbital run` from a generated project | `<project>/Logs/performance.csv` |
 
-Check the current directory and copy the file:
+Check the current directory and copy both files:
 
 ```bash
 pwd
-ls -l Logs/performance.csv
+ls -l Logs/performance.csv Logs/performance_meta.json
 cp Logs/performance.csv ~/orbital-performance.csv
+cp Logs/performance_meta.json ~/orbital-performance_meta.json
 ```
 
 Open the containing directory:
@@ -120,6 +122,7 @@ For a **debuggable** build, use `run-as`:
 adb devices
 adb shell run-as <package> ls -l files/Logs
 adb exec-out run-as <package> cat files/Logs/performance.csv > performance.csv
+adb exec-out run-as <package> cat files/Logs/performance_meta.json > performance_meta.json
 ```
 
 `adb exec-out` is preferred over `adb shell ... > file` because it does not
@@ -198,12 +201,30 @@ For an existing iOS project made before this change, add these keys to
 <true/>
 ```
 
+## Metadata sidecar
+
+`Logs/performance_meta.json` is written when CSV capture starts. It records
+the capture environment once per resume:
+
+- app version, build profile, OS/arch
+- CPU model, logical/physical cores, total/available RAM
+- GPU adapter, backend, device type, vendor/device, driver, features and
+  selected limits
+- window size, scale factor, monitor name/size/refresh, fullscreen mode
+- surface format, colour space, alpha mode, supported/selected present mode,
+  vsync, fps limit, desired frame latency
+- renderer path (forward/deferred), AA/SMAA, bloom/glare, volumetrics
+- scene entity/model/light/shadow-caster counts
+- registered overlays and their visibility at startup
+
+The same metadata is emitted as a `PERF metadata:` log line.
+
 ## CSV schema
 
 The header is:
 
 ```text
-elapsed_s,fps,cdt_ms,<timing stages>,<cache counters>
+elapsed_s,fps,cdt_ms,<timing stages>,<cache counters>,<surface counters>,visible_overlays,visible_overlay_names
 ```
 
 - `elapsed_s` — seconds since the app started.
@@ -211,21 +232,44 @@ elapsed_s,fps,cdt_ms,<timing stages>,<cache counters>
 - `cdt_ms` — latest wall-clock frame delta in milliseconds.
 - Timing stages — one-second averages for every `TIMING_STAGES` entry, in
   order:
-  `surface_acq`, `update`, `ui_events`, `game_schedule`, `realize`,
-  `realize_models`, `realize_env`, `stagger`, `cull+extract`, `bind+models`,
-  `volumetrics`, `scene_encode`, `scene_submit`, `timestamp_readback`,
-  `overlay_main`, `overlay_layers`, `iced_draw`, `iced_submit`, `present`,
-  `total`, `surface_lock`, `surface_acquire`, `surface_view`, `gpu_shadow`,
-  `gpu_skybox`, `gpu_models`, `gpu_scene_total`, `gpu_volumetrics`,
+  `surface_acq`, `update`, `ui_events`, `input`, `core_schedule`,
+  `importer_poll`, `game_schedule`, `engine_events`, `realize`,
+  `realize_cameras`, `realize_lights`, `realize_models`, `realize_env`,
+  `stagger`, `cull+extract`, `bind+models`, `volumetrics`, `scene_encode`,
+  `scene_submit`, `timestamp_readback`, `overlay_main`, `overlay_layers`,
+  `iced_draw`, `iced_submit`, `present`, `total`, `frame_limiter`,
+  `frame_gap`, `surface_lock`, `surface_acquire`, `surface_view`,
+  `gpu_complete`, `gpu_shadow`, `gpu_skybox`, `gpu_gbuffer`,
+  `gpu_light_culling`, `gpu_deferred`, `gpu_models`, `gpu_transparent`,
+  `gpu_volumetric_inject`, `gpu_volumetric_accumulate`,
+  `gpu_volumetric_composite`, `gpu_scene_total`, `gpu_volumetrics`,
   `gpu_tonemap`, `gpu_aa`.
+  `gpu_models` is the forward opaque model section; `gpu_scene_total` is the
+  aggregate of shadow, skybox, G-buffer, light culling, deferred lighting,
+  forward models and transparent models. `gpu_volumetrics` is the aggregate of
+  the volumetric inject, accumulate, and composite stages.
   `surface_lock`, `surface_acquire`, and `surface_view` break down the
   `surface_acq` stage; `surface_acquire` includes waiting for a swapchain
   image, so it can reflect GPU/present backpressure rather than pure CPU work.
-  `gpu_volumetrics`, `gpu_tonemap`, and `gpu_aa` cover the post/scene GPU work
-  that the older scene timestamps did not include.
+  `frame_gap` is the part of the wall-clock frame not covered by
+  `update + surface_acq + total + frame_limiter`.
+  `gpu_complete` is the time from the end of submission until the GPU reports
+  the submitted work complete; it is a latency, not an additive stage.
+  `gpu_volumetric_inject`, `gpu_volumetric_accumulate`,
+  `gpu_volumetric_composite`, `gpu_tonemap`, and `gpu_aa` cover the post/scene
+  GPU work that the older scene timestamps did not include.
 - Cache counters — `shader_modules_delta`, `pipelines_delta`, `unique_wgsl`,
   `material_hits_delta`, `material_misses_delta`, `sky_updates_delta`.
   `unique_wgsl` is cumulative; the others are deltas for the window.
+- Surface counters — cumulative counts of success, suboptimal, timeout,
+  occluded, outdated, lost, and validation results from swapchain acquisition.
+- `visible_overlays` and `visible_overlay_names` — how many registered overlay
+  layers were visible in that window and their names, separated by `|`. This
+  matters because the debug UI itself can dominate a light scene.
+
+`ORBITAL_PERF_DETAIL=1` additionally logs per-system game-schedule timings and
+per-overlay event/draw/submit timings once per second. It is intentionally
+opt-in because it adds locking and instrumentation to every system/layer.
 
 The first row appears only after the first complete timing window (about one
 second). A header-only file means capture was enabled but no window completed

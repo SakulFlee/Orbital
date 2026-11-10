@@ -283,6 +283,8 @@ pub struct LightDescriptor {
     pub light_type: orbital_light::LightType,
     pub color: cgmath::Vector3<f32>,
     pub direction: cgmath::Vector3<f32>,
+    /// Point/spot influence radius in world units. Ignored for directional lights.
+    pub range: f32,
 }
 
 impl LightDescriptor {
@@ -300,6 +302,7 @@ impl LightDescriptor {
             light_type: orbital_light::LightType::Point { intensity },
             color,
             direction: cgmath::Vector3::new(0.0, -1.0, 0.0),
+            range: orbital_light::DEFAULT_LIGHT_RANGE,
         }
     }
 
@@ -312,6 +315,7 @@ impl LightDescriptor {
             light_type: orbital_light::LightType::Directional { intensity },
             color,
             direction,
+            range: orbital_light::DEFAULT_LIGHT_RANGE,
         }
     }
 
@@ -330,7 +334,14 @@ impl LightDescriptor {
             },
             color,
             direction,
+            range: orbital_light::DEFAULT_LIGHT_RANGE,
         }
+    }
+
+    /// Sets the point/spot influence radius in world units.
+    pub fn with_range(mut self, range: f32) -> Self {
+        self.range = range.max(0.0);
+        self
     }
 }
 

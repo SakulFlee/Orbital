@@ -1356,6 +1356,7 @@ impl GltfImporter {
         let light_type = light.kind();
         let color = light.color();
         let intensity = light.intensity();
+        let range = light.range().unwrap_or(orbital_light::DEFAULT_LIGHT_RANGE);
 
         // Convert RGB color to Vector3
         let color_vector = Vector3::new(color[0], color[1], color[2]);
@@ -1391,7 +1392,7 @@ impl GltfImporter {
             }
         };
 
-        Ok(light_descriptor)
+        Ok(light_descriptor.with_range(range))
     }
 }
 

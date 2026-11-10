@@ -677,7 +677,13 @@ impl Module for ProcgeoSceneModule {
             // Keep the indoor grid concentrated on the hallway and rooms;
             // a shorter range also reduces depth-slice flicker at Low quality.
             max_distance: 30.0,
-            quality: VolumetricQuality::Low,
+            // The mobile froxel grid keeps the all-in-one scene usable on
+            // Adreno and Mali while retaining the same volumetric look.
+            quality: if cfg!(target_os = "android") {
+                VolumetricQuality::Mobile
+            } else {
+                VolumetricQuality::Low
+            },
         });
 
         // 2D shape overlay (draws on top of 3D scene; layout is regenerated

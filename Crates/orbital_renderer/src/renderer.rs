@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
@@ -452,6 +453,19 @@ struct CachedWorldBindGroup {
     _environment: Option<Arc<WorldEnvironment>>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TimestampReadbackState {
+    Free,
+    Pending,
+}
+
+struct TimestampReadback {
+    buffer: wgpu::Buffer,
+    state: TimestampReadbackState,
+    mapped: Arc<AtomicBool>,
+    generation: u64,
+}
+
 pub struct Renderer {
     surface_texture_format: TextureFormat,
     resolution: Vector2<u32>,
@@ -483,8 +497,10 @@ pub struct Renderer {
     world_bind_group_cache: Option<CachedWorldBindGroup>,
     timestamp_query_set: Option<wgpu::QuerySet>,
     timestamp_resolve_buffer: wgpu::Buffer,
-    timestamp_staging_bufs: [wgpu::Buffer; 2],
-    timestamp_read_frame: usize,
+    timestamp_staging_bufs: [TimestampReadback; TS_STAGING_COUNT],
+    timestamp_generation: u64,
+    prev_gpu_generation: u64,
+    timestamp_period_ns: f32,
     prev_gpu_ns: [f64; TS_COUNT as usize],
     prev_cpu_timings: RendererCpuTimings,
 }
@@ -496,6 +512,81 @@ impl Renderer {
 
     pub fn prev_gpu_ns(&self) -> [f64; TS_COUNT as usize] {
         self.prev_gpu_ns
+    }
+
+    /// Polls completed timestamp readbacks without blocking.
+    fn poll_timestamp_readbacks(&mut self, device: &Device) {
+        let _ = device.poll(wgpu::PollType::Poll);
+
+        let mut latest: Option<(u64, [f64; TS_COUNT as usize])> = None;
+        for readback in &mut self.timestamp_staging_bufs {
+            if readback.state != TimestampReadbackState::Pending
+                || !readback.mapped.load(Ordering::Relaxed)
+            {
+                continue;
+            }
+
+            let slice = readback.buffer.slice(..);
+            let mut values = None;
+            if let Ok(data) = slice.get_mapped_range() {
+                let mut raw = [0.0f64; TS_COUNT as usize];
+                for (index, value) in raw.iter_mut().enumerate() {
+                    let start = index * 8;
+                    let bytes: [u8; 8] = data[start..start + 8].try_into().unwrap();
+                    *value = u64::from_ne_bytes(bytes) as f64;
+                }
+                if raw.iter().any(|value| *value != 0.0) {
+                    values = Some(raw);
+                }
+            }
+
+            readback.buffer.unmap();
+            readback.state = TimestampReadbackState::Free;
+            readback.mapped.store(false, Ordering::Relaxed);
+
+            if let Some(raw) = values
+                && readback.generation > latest.map_or(0, |(generation, _)| generation)
+            {
+                latest = Some((readback.generation, raw));
+            }
+        }
+
+        if let Some((generation, raw)) = latest
+            && generation > self.prev_gpu_generation
+        {
+            self.prev_gpu_generation = generation;
+            self.prev_gpu_ns = raw.map(|value| value * self.timestamp_period_ns as f64);
+        }
+    }
+
+    /// Reserves a free readback slot and marks it pending for this frame.
+    fn acquire_timestamp_slot(&mut self, device: &Device) -> Option<usize> {
+        self.timestamp_query_set.as_ref()?;
+
+        self.poll_timestamp_readbacks(device);
+        let slot = self
+            .timestamp_staging_bufs
+            .iter()
+            .position(|readback| readback.state == TimestampReadbackState::Free)?;
+
+        self.timestamp_generation = self.timestamp_generation.wrapping_add(1);
+        let readback = &mut self.timestamp_staging_bufs[slot];
+        readback.state = TimestampReadbackState::Pending;
+        readback.generation = self.timestamp_generation;
+        readback.mapped.store(false, Ordering::Relaxed);
+        Some(slot)
+    }
+
+    /// Registers the asynchronous map for a slot after the frame is submitted.
+    fn map_timestamp_readback(&mut self, slot: usize) {
+        let readback = &mut self.timestamp_staging_bufs[slot];
+        let mapped = Arc::clone(&readback.mapped);
+        readback
+            .buffer
+            .slice(..)
+            .map_async(wgpu::MapMode::Read, move |_| {
+                mapped.store(true, Ordering::Relaxed);
+            });
     }
 
     pub fn prev_cpu_timings(&self) -> RendererCpuTimings {
@@ -617,10 +708,16 @@ impl Renderer {
     }
 }
 
-// 0=shadow_start, 1=after shadow, 2=after sky, 3=after models/transparent,
-// 4=after volumetrics, 5=after tonemap, 6=after AA.
-const TS_COUNT: u32 = 7;
+// 0=shadow_start, 1=after shadow, 2=after sky, 3=after G-buffer,
+// 4=after light culling, 5=after deferred lighting, 6=after forward models,
+// 7=after transparent/models, 8=after volumetric inject, 9=after volumetric
+// accumulate, 10=after volumetric composite, 11=after tonemap, 12=after AA.
+const TS_COUNT: u32 = 13;
 const TS_BUF_SIZE: u64 = TS_COUNT as u64 * 8;
+const TS_STAGING_COUNT: usize = 4;
+
+/// Number of GPU timestamp samples returned by [`Renderer::prev_gpu_ns`].
+pub const GPU_TIMESTAMP_COUNT: usize = TS_COUNT as usize;
 
 impl Renderer {
     pub fn new(
@@ -651,7 +748,7 @@ impl Renderer {
             usage: wgpu::BufferUsages::QUERY_RESOLVE | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
-        let make_staging = |label| {
+        let make_staging = |label: &str| {
             device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some(label),
                 size: TS_BUF_SIZE,
@@ -659,10 +756,12 @@ impl Renderer {
                 mapped_at_creation: false,
             })
         };
-        let timestamp_staging_bufs = [
-            make_staging("Orbital::TS_Staging0"),
-            make_staging("Orbital::TS_Staging1"),
-        ];
+        let timestamp_staging_bufs = std::array::from_fn(|index| TimestampReadback {
+            buffer: make_staging(&format!("Orbital::TS_Staging{index}")),
+            state: TimestampReadbackState::Free,
+            mapped: Arc::new(AtomicBool::new(false)),
+            generation: 0,
+        });
 
         let fallbacks = RendererFallbacks::new(device, queue);
         let deferred_lighting = DeferredLighting::new(
@@ -715,7 +814,16 @@ impl Renderer {
             timestamp_query_set,
             timestamp_resolve_buffer,
             timestamp_staging_bufs,
-            timestamp_read_frame: 0,
+            timestamp_generation: 0,
+            prev_gpu_generation: 0,
+            timestamp_period_ns: {
+                let period = queue.get_timestamp_period();
+                if period.is_finite() && period > 0.0 {
+                    period
+                } else {
+                    1.0
+                }
+            },
             prev_gpu_ns: [0.0; TS_COUNT as usize],
             prev_cpu_timings: RendererCpuTimings::default(),
         }
@@ -1244,8 +1352,14 @@ impl Renderer {
             label: Some("Orbital::Render::Encoder"),
         });
 
+        // Reserve a readback buffer before recording timestamps. If every
+        // staging slot is still waiting for its map callback, skip timestamp
+        // capture for this frame instead of overwriting a pending buffer.
+        let timestamp_slot = self.acquire_timestamp_slot(device);
+        let timestamps_enabled = timestamp_slot.is_some();
+
         // Write timestamp 0: start of shadow pass
-        if let Some(qs) = &self.timestamp_query_set {
+        if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
             command_encoder.write_timestamp(qs, 0);
         }
 
@@ -1278,7 +1392,7 @@ impl Renderer {
                                 dirty_set,
                             );
                         }
-                        if let Some(qs) = &self.timestamp_query_set {
+                        if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
                             context.encoder.write_timestamp(qs, 1);
                         }
                     }
@@ -1295,7 +1409,7 @@ impl Renderer {
                             world_bind_group.as_ref(),
                             context.encoder,
                         );
-                        if let Some(qs) = &self.timestamp_query_set {
+                        if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
                             context.encoder.write_timestamp(qs, 2);
                         }
                     }
@@ -1312,6 +1426,9 @@ impl Renderer {
                                 &depth.view,
                             );
                         }
+                        if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
+                            context.encoder.write_timestamp(qs, 3);
+                        }
                     }
                     ScenePass::LightCulling => {
                         if let Some(bind_group) = world_bind_group.as_ref() {
@@ -1321,6 +1438,9 @@ impl Renderer {
                                 bind_group,
                                 &depth.view,
                             );
+                        }
+                        if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
+                            context.encoder.write_timestamp(qs, 4);
                         }
                     }
                     ScenePass::DeferredLighting => {
@@ -1344,11 +1464,24 @@ impl Renderer {
                                 &scene_color.view,
                             );
                         }
+                        if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
+                            context.encoder.write_timestamp(qs, 5);
+                        }
                     }
                     ScenePass::ClearDepth => {
                         self.clear_depth(context.encoder, &depth.view);
                     }
                     ScenePass::Models => {
+                        if timestamps_enabled
+                            && !has_deferred
+                            && let Some(qs) = &self.timestamp_query_set
+                        {
+                            // Forward-only frames have no G-buffer/light-culling/
+                            // deferred passes; keep the timeline monotonic.
+                            context.encoder.write_timestamp(qs, 3);
+                            context.encoder.write_timestamp(qs, 4);
+                            context.encoder.write_timestamp(qs, 5);
+                        }
                         if let Some(bind_group) = world_bind_group.as_ref() {
                             let draw = if has_deferred {
                                 ModelDraw::ForwardOpaque
@@ -1366,6 +1499,9 @@ impl Renderer {
                                 camera_position,
                             );
                         }
+                        if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
+                            context.encoder.write_timestamp(qs, 6);
+                        }
                     }
                     ScenePass::Transparent => {
                         if let Some(bind_group) = world_bind_group.as_ref() {
@@ -1382,8 +1518,8 @@ impl Renderer {
                         }
                     }
                     ScenePass::VolumetricInject => {
-                        if let Some(qs) = &self.timestamp_query_set {
-                            context.encoder.write_timestamp(qs, 3);
+                        if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
+                            context.encoder.write_timestamp(qs, 7);
                         }
                         if let (Some(bind_group), Some(targets)) =
                             (world_bind_group.as_ref(), volumetric_targets.as_ref())
@@ -1394,6 +1530,9 @@ impl Renderer {
                                 bind_group,
                                 &targets.0.view,
                             );
+                            if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
+                                context.encoder.write_timestamp(qs, 8);
+                            }
                             volumetric_accumulated = self.volumetric.record_accumulate(
                                 context.device,
                                 context.queue,
@@ -1401,6 +1540,12 @@ impl Renderer {
                                 bind_group,
                                 &targets.0.view,
                             );
+                            if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
+                                context.encoder.write_timestamp(qs, 9);
+                            }
+                        } else if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
+                            context.encoder.write_timestamp(qs, 8);
+                            context.encoder.write_timestamp(qs, 9);
                         }
                     }
                     ScenePass::VolumetricComposite => {
@@ -1419,14 +1564,19 @@ impl Renderer {
                                 &targets.1.view,
                             );
                         }
-                        if let Some(qs) = &self.timestamp_query_set {
-                            context.encoder.write_timestamp(qs, 4);
+                        if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
+                            context.encoder.write_timestamp(qs, 10);
                         }
                     }
                     ScenePass::Tonemap => {
-                        if !has_volumetrics && let Some(qs) = &self.timestamp_query_set {
-                            context.encoder.write_timestamp(qs, 3);
-                            context.encoder.write_timestamp(qs, 4);
+                        if timestamps_enabled
+                            && !has_volumetrics
+                            && let Some(qs) = &self.timestamp_query_set
+                        {
+                            context.encoder.write_timestamp(qs, 7);
+                            context.encoder.write_timestamp(qs, 8);
+                            context.encoder.write_timestamp(qs, 9);
+                            context.encoder.write_timestamp(qs, 10);
                         }
                         let tonemap_target = match self.anti_aliasing {
                             AntiAliasing::Off => target_view,
@@ -1447,10 +1597,10 @@ impl Renderer {
                             &depth.view,
                             tonemap_target,
                         );
-                        if let Some(qs) = &self.timestamp_query_set {
-                            context.encoder.write_timestamp(qs, 5);
+                        if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
+                            context.encoder.write_timestamp(qs, 11);
                             if self.anti_aliasing == AntiAliasing::Off {
-                                context.encoder.write_timestamp(qs, 6);
+                                context.encoder.write_timestamp(qs, 12);
                             }
                         }
                     }
@@ -1463,16 +1613,16 @@ impl Renderer {
                                 target_view,
                             );
                         }
-                        if let Some(qs) = &self.timestamp_query_set {
-                            context.encoder.write_timestamp(qs, 6);
+                        if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
+                            context.encoder.write_timestamp(qs, 12);
                         }
                     }
                     ScenePass::Smaa => {
                         if let Some(smaa) = smaa.as_ref() {
                             smaa.record(context.encoder, target_view);
                         }
-                        if let Some(qs) = &self.timestamp_query_set {
-                            context.encoder.write_timestamp(qs, 6);
+                        if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
+                            context.encoder.write_timestamp(qs, 12);
                         }
                     }
                 },
@@ -1504,10 +1654,10 @@ impl Renderer {
         }
         self.render_graph = graph;
 
-        // Resolve this frame's timestamps into the current staging buffer in the
+        // Resolve this frame's timestamps into the reserved staging buffer in the
         // same command encoder as the scene. This keeps the frame to one submit.
-        if let Some(timestamp_query_set) = &self.timestamp_query_set {
-            let current = self.timestamp_read_frame & 1;
+        if let (Some(slot), Some(timestamp_query_set)) = (timestamp_slot, &self.timestamp_query_set)
+        {
             command_encoder.resolve_query_set(
                 timestamp_query_set,
                 0..TS_COUNT,
@@ -1517,7 +1667,7 @@ impl Renderer {
             command_encoder.copy_buffer_to_buffer(
                 &self.timestamp_resolve_buffer,
                 0,
-                &self.timestamp_staging_bufs[current],
+                &self.timestamp_staging_bufs[slot].buffer,
                 0,
                 TS_BUF_SIZE,
             );
@@ -1529,38 +1679,11 @@ impl Renderer {
         let timestamp_readback_start = Instant::now();
         self.texture_pool.end_frame();
 
-        // Read the previous frame's staging buffer. It was submitted at least one
-        // frame ago, so a non-blocking poll usually has the data ready without
-        // stalling the CPU/GPU overlap.
-        if self.timestamp_query_set.is_some() {
-            let current = self.timestamp_read_frame & 1;
-            let previous = 1 - current;
-
-            if self.timestamp_read_frame > 0 {
-                let previous_buffer = &self.timestamp_staging_bufs[previous];
-                let previous_slice = previous_buffer.slice(..);
-                let done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-                let done2 = done.clone();
-                previous_slice.map_async(wgpu::MapMode::Read, move |_| {
-                    done2.store(true, std::sync::atomic::Ordering::Relaxed);
-                });
-                let _ = device.poll(wgpu::PollType::Poll);
-
-                if done.load(std::sync::atomic::Ordering::Relaxed)
-                    && let Ok(data) = previous_slice.get_mapped_range()
-                {
-                    let mut ns = [0.0f64; TS_COUNT as usize];
-                    for (index, value) in ns.iter_mut().enumerate() {
-                        let start = index * 8;
-                        let bytes: [u8; 8] = data[start..start + 8].try_into().unwrap();
-                        *value = u64::from_ne_bytes(bytes) as f64;
-                    }
-                    self.prev_gpu_ns = ns;
-                }
-                previous_buffer.unmap();
-            }
-
-            self.timestamp_read_frame += 1;
+        // Register the asynchronous readback for this frame. The next
+        // render poll()s completed slots and only reuses buffers whose map has
+        // actually finished.
+        if let Some(slot) = timestamp_slot {
+            self.map_timestamp_readback(slot);
         }
 
         self.prev_cpu_timings = RendererCpuTimings {

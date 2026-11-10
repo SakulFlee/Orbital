@@ -202,6 +202,14 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
         RenderLayer::UI
     }
 
+    fn debug_name(&self) -> &str {
+        self.state.title()
+    }
+
+    fn is_visible(&self, ecs: &orbital_ecs::World) -> bool {
+        self.state.is_visible_in(ecs)
+    }
+
     fn submission(&self) -> OverlaySubmission {
         OverlaySubmission::Owned
     }
