@@ -25,6 +25,16 @@ struct VolumetricParams {
 @group(1) @binding(0) var output_froxels: texture_storage_3d<rgba16float, write>;
 @group(1) @binding(1) var<uniform> params: VolumetricParams;
 
+fn volumetric_range_window(distance: f32, range_sq: f32) -> f32 {
+    if (range_sq <= 0.0) {
+        return 1.0;
+    }
+    let t = clamp(distance / sqrt(range_sq), 0.0, 1.0);
+    let t2 = t * t;
+    let window = 1.0 - t2 * t2;
+    return window * window;
+}
+
 fn volumetric_view_position(uv: vec2<f32>, ndc_z: f32) -> vec3<f32> {
     let position_h = camera.perspective_projection_invert
         * vec4<f32>(uv * 2.0 - 1.0, ndc_z, 1.0);
@@ -130,6 +140,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             let distance = sqrt(max(distance_sq, 0.0));
             to_light = delta / max(distance, 1.0e-4);
             attenuation = 1.0 / max(distance_sq, 0.25);
+            attenuation *= volumetric_range_window(distance, light.params.z);
 
             if (light.direction.w == LIGHT_TYPE_SPOT) {
                 let cos_theta = dot(-to_light, normalize(light.direction.xyz));

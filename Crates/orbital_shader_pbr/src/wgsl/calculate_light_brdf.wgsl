@@ -1,3 +1,13 @@
+fn light_range_window(distance: f32, range_sq: f32) -> f32 {
+    if (range_sq <= 0.0) {
+        return 1.0;
+    }
+    let t = clamp(distance / sqrt(range_sq), 0.0, 1.0);
+    let t2 = t * t;
+    let window = 1.0 - t2 * t2;
+    return window * window;
+}
+
 fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -> LightContribution {
     var L: vec3<f32>;
     var light_distance: f32 = 1.0;
@@ -9,6 +19,7 @@ fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -
         L = normalize(L);
         let atten_dist = max(light_distance, 0.5);
         attenuation = 1.0 / (atten_dist * atten_dist);
+        attenuation *= light_range_window(light_distance, light.params.z);
     } else if (light.direction.w == LIGHT_TYPE_DIRECTIONAL) {
         L = normalize(-light.direction.xyz);
         attenuation = 1.0;
@@ -22,6 +33,7 @@ fn calculate_light_brdf(light: Light, pbr: PBRData, world_position: vec3<f32>) -
         let cos_theta = dot(-L, normalize(light.direction.xyz));
         let angular = clamp(cos_theta * light.params.x + light.params.y, 0.0, 1.0);
         attenuation *= angular;
+        attenuation *= light_range_window(light_distance, light.params.z);
     } else {
         return LightContribution(vec3(0.0), 0.0);
     }

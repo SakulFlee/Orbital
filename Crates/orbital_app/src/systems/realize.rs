@@ -564,6 +564,7 @@ pub fn realize_lights(ecs: &mut World) {
             color: desc_component.color,
             position: cgmath::Vector3::new(pos.x, pos.y, pos.z),
             direction: desc_component.direction,
+            range: desc_component.range,
         };
 
         slot_infos.push(LightSlotInfo {

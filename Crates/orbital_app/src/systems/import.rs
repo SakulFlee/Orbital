@@ -189,6 +189,7 @@ pub fn sys_poll_importer(ecs: &mut World) {
                 light_type: light_desc.light_type.clone(),
                 color: light_desc.color,
                 direction: light_desc.direction,
+                range: light_desc.range,
             };
             if let Err(e) = ecs.attach_component(&entity, desc) {
                 warn!("Failed to attach LightDescriptor: {:?}", e);
