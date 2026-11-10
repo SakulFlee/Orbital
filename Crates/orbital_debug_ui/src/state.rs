@@ -72,6 +72,14 @@ pub enum DebugMessage {
     SetAntiAliasing(AntiAliasing),
     /// Select the SMAA quality preset.
     SetSmaaQuality(SmaaQuality),
+    /// Set the internal 3D render scale and switch to fixed scaling.
+    SetRenderScale(f32),
+    /// Select a fixed render-scale preset, in percent.
+    SetRenderScalePercent(u32),
+    /// Enable or disable adaptive render scaling.
+    SetAdaptiveRenderScale(bool),
+    /// Set the frame-rate target used by adaptive render scaling.
+    SetPerformanceTargetFps(u32),
     /// Set the exposure used by the tonemap.
     SetExposure(f32),
     /// Enable or disable HDR bloom/glare.
@@ -501,6 +509,10 @@ impl DebugUiState {
             }
             DebugMessage::SetAntiAliasing(_)
             | DebugMessage::SetSmaaQuality(_)
+            | DebugMessage::SetRenderScale(_)
+            | DebugMessage::SetRenderScalePercent(_)
+            | DebugMessage::SetAdaptiveRenderScale(_)
+            | DebugMessage::SetPerformanceTargetFps(_)
             | DebugMessage::SetExposure(_)
             | DebugMessage::SetBloomEnabled(_)
             | DebugMessage::SetDeferredEnabled(_)
