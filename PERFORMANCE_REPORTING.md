@@ -12,9 +12,49 @@ The runtime default is profile-aware:
 - `ORBITAL_PERF_CONSOLE=1` independently enables the console summaries in
   either profile.
 
-`0`, `false`, `no`, `off`, and an empty value mean off; any other value means
-on. This is a runtime switch, so a released game does not write the file unless
-the player or launcher explicitly sets it.
+## Render scale and performance target
+
+The 3D scene can render at an internal resolution smaller than the window surface. The
+tonemap/anti-aliasing pass stretches the result back to the surface, while 2D, UI, and text
+overlays stay at native resolution.
+
+`AppSettings` and the live `RenderSettings` resource expose:
+
+- `render_scale` — fixed internal scale (`1.0`, `0.75`, `0.5`, `0.25`, and so on).
+- `adaptive_render_scale` — automatically tune the scale once per FPS window.
+- `target_fps` — frame rate the adaptive controller tries to hold.
+- `min_render_scale` / `max_render_scale` — bounds for adaptive scaling (default
+  `0.25` / `1.0`).
+
+```rust
+let settings = AppSettings {
+    target_fps: 30,
+    adaptive_render_scale: true,
+    ..AppSettings::default()
+};
+```
+
+Adaptive scaling is off by default on desktop and on by default on Android and iOS. The
+target is capped to the display refresh rate when the platform reports one and to a frame
+cap configured with `fps_limit` when VSync is disabled. If the display refresh cannot be
+queried, the configured target is used as-is.
+
+The runtime only lowers the scale immediately. It raises it after four consecutive timing
+windows meet the target and only when the next scale is predicted to still meet it. This
+avoids visible oscillation when the current scale is just barely fast enough. Every scale
+change is logged and recorded in the next CSV row.
+
+On Android, winit does not expose a refresh rate. Orbital falls back to the Java
+`Display.getRefreshRate()` value captured at startup, then to ADPF's preferred update rate.
+Refresh-rate selection is not exposed by the platform abstraction; match refresh rates
+through the device display settings when comparing devices.
+
+The Rendering debug panel exposes adaptive scaling, the target FPS, and fixed 1x/0.75x/0.5x/0.25x
+presets. Changing the scale there takes effect without rebuilding the app.
+
+Raw FPS is only directly comparable when the native surface resolution, internal render
+resolution, and refresh rate match. Use the per-row capture fields to group samples before
+comparing phone and tablet captures.
 
 ## Enable CSV capture from the debug UI
 
@@ -210,9 +250,12 @@ the capture environment once per resume:
 - CPU model, logical/physical cores, total/available RAM
 - GPU adapter, backend, device type, vendor/device, driver, features and
   selected limits
-- window size, scale factor, monitor name/size/refresh, fullscreen mode
+- window size, scale factor, DPI estimate, orientation, monitor name/size/refresh,
+  fullscreen mode
 - surface format, colour space, alpha mode, supported/selected present mode,
   vsync, fps limit, desired frame latency
+- internal render resolution, render scale, target FPS, min/max scale,
+  pixels per frame
 - renderer path (forward/deferred), AA/SMAA, bloom/glare, volumetrics
 - scene entity/model/light/shadow-caster counts
 - registered overlays and their visibility at startup
@@ -224,7 +267,7 @@ The same metadata is emitted as a `PERF metadata:` log line.
 The header is:
 
 ```text
-elapsed_s,fps,cdt_ms,<timing stages>,<cache counters>,<surface counters>,visible_overlays,visible_overlay_names
+elapsed_s,fps,cdt_ms,<timing stages>,<cache counters>,<surface counters>,visible_overlays,visible_overlay_names,<capture fields>
 ```
 
 - `elapsed_s` — seconds since the app started.
@@ -266,6 +309,16 @@ elapsed_s,fps,cdt_ms,<timing stages>,<cache counters>,<surface counters>,visible
 - `visible_overlays` and `visible_overlay_names` — how many registered overlay
   layers were visible in that window and their names, separated by `|`. This
   matters because the debug UI itself can dominate a light scene.
+- Capture fields — one value per row: `window_width`, `window_height`,
+  `surface_width`, `surface_height`, `render_width`, `render_height`,
+  `render_scale`, `scale_factor`, `dpi`, `orientation`, `refresh_rate_mhz`,
+  `present_mode`, `frame_latency`, `pixels_per_frame`,
+  `render_scale_changes`, `render_resolution_changes`.
+  `refresh_rate_mhz` is empty when the platform does not report a value. The
+  render fields change when adaptive scaling or a rotation changes the target
+  size, so a capture can be split into comparable segments. The two change
+  counters mark the rows where a scale or render-target change happened; a
+  non-zero counter means that row covers a transition.
 
 `ORBITAL_PERF_DETAIL=1` additionally logs per-system game-schedule timings and
 per-overlay event/draw/submit timings once per second. It is intentionally
