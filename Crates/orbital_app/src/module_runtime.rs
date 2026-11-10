@@ -315,6 +315,9 @@ pub struct ModuleRuntime {
     /// Last render scale applied to the renderer, used to detect manual or
     /// adaptive changes between rows.
     last_applied_render_scale: Option<f32>,
+    /// GPU timestamp generation seen at the previous CSV row, used to mark
+    /// stalled timestamp readbacks.
+    last_window_gpu_timestamp_generation: Option<u64>,
     /// Adaptive render-scale state, updated once per FPS window.
     adaptive_render_scale: AdaptiveRenderScale,
     /// Native window size in physical pixels.
@@ -417,6 +420,7 @@ impl ModuleRuntime {
             overlay_detail: Vec::new(),
             capture_changes: CaptureChanges::default(),
             last_applied_render_scale: None,
+            last_window_gpu_timestamp_generation: None,
             adaptive_render_scale: AdaptiveRenderScale::default(),
             window_size: cgmath::Vector2::new(0, 0),
             surface_size: cgmath::Vector2::new(0, 0),
@@ -540,17 +544,30 @@ impl ModuleRuntime {
     }
 
     /// Samples the per-row display and resolution fields for a capture.
-    fn capture_snapshot(&self) -> CaptureSnapshot {
+    fn capture_snapshot(&mut self) -> CaptureSnapshot {
         let settings = self
             .ecs_world
             .get_resource::<crate::RenderSettings>()
             .map(|settings| *settings)
             .unwrap_or_default();
-        let render_size = self
+        let (render_size, gpu_timestamps_supported, gpu_timestamp_generation) = self
             .renderer
             .as_ref()
-            .map(|renderer| renderer.render_resolution())
-            .unwrap_or(self.surface_size);
+            .map(|renderer| {
+                (
+                    renderer.render_resolution(),
+                    renderer.gpu_timestamps_supported(),
+                    renderer.gpu_timestamp_generation(),
+                )
+            })
+            .unwrap_or((self.surface_size, false, 0));
+
+        let gpu_timestamps_stale = gpu_timestamps_supported
+            && self
+                .last_window_gpu_timestamp_generation
+                .is_some_and(|generation| generation == gpu_timestamp_generation);
+        self.last_window_gpu_timestamp_generation =
+            gpu_timestamps_supported.then_some(gpu_timestamp_generation);
 
         CaptureSnapshot {
             window_width: self.window_size.x,
@@ -565,6 +582,8 @@ impl ModuleRuntime {
             refresh_rate_mhz: self.refresh_rate_mhz,
             present_mode: present_mode_name(self.present_mode),
             frame_latency: self.frame_latency,
+            gpu_timestamps_supported,
+            gpu_timestamps_stale,
         }
     }
 
@@ -1173,12 +1192,12 @@ impl ModuleRuntime {
 
         let sample = if let Some(mut timings) = self.ecs_world.get_resource_mut::<FrameTimings>() {
             timings.record_at(&self.frame_timings.durations, elapsed, cdt_ms, history);
-            timings.try_log_window(log_config.console)
+            timings.take_window(log_config.console)
         } else {
             None
         };
 
-        let Some(averages) = sample else {
+        let Some(window) = sample else {
             return;
         };
 
@@ -1211,7 +1230,7 @@ impl ModuleRuntime {
                     elapsed,
                     fps,
                     cdt_ms,
-                    &averages,
+                    &window,
                     [
                         counters.shader_modules,
                         counters.pipelines,

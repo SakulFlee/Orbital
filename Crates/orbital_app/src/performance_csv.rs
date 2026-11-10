@@ -6,7 +6,7 @@
 
 use std::io::{self, Write};
 
-use orbital_ecs_bridge::TIMING_STAGES;
+use orbital_ecs_bridge::{TIMING_STAGES, TimingWindow};
 use orbital_file_manager::FileManager;
 use serde_json::Value;
 
@@ -49,7 +49,7 @@ const SURFACE_STATUS_NAMES: [&str; 7] = [
 ];
 
 /// Per-row display and resolution fields appended to each CSV row.
-pub const PERFORMANCE_CAPTURE_NAMES: [&str; 16] = [
+pub const PERFORMANCE_CAPTURE_NAMES: [&str; 18] = [
     "window_width",
     "window_height",
     "surface_width",
@@ -66,7 +66,21 @@ pub const PERFORMANCE_CAPTURE_NAMES: [&str; 16] = [
     "pixels_per_frame",
     "render_scale_changes",
     "render_resolution_changes",
+    "gpu_timestamps_supported",
+    "gpu_timestamps_stale",
 ];
+
+/// Per-row timing-window metadata.
+pub const PERFORMANCE_TIMING_NAMES: [&str; 5] = [
+    "frames",
+    "cdt_mean_ms",
+    "cdt_min_ms",
+    "cdt_max_ms",
+    "cdt_p95_ms",
+];
+
+/// Suffixes for the per-stage distribution columns.
+pub const PERFORMANCE_DISTRIBUTION_SUFFIXES: [&str; 3] = ["_min", "_max", "_p95"];
 
 /// Display and resolution state for one timing window.
 ///
@@ -95,6 +109,10 @@ pub struct CaptureSnapshot {
     pub present_mode: &'static str,
     /// Configured swapchain frame latency.
     pub frame_latency: u32,
+    /// Whether the renderer exposes GPU timestamp queries.
+    pub gpu_timestamps_supported: bool,
+    /// Whether GPU timestamp data did not advance during the window.
+    pub gpu_timestamps_stale: bool,
 }
 
 impl Default for CaptureSnapshot {
@@ -112,6 +130,8 @@ impl Default for CaptureSnapshot {
             refresh_rate_mhz: None,
             present_mode: "unknown",
             frame_latency: 2,
+            gpu_timestamps_supported: false,
+            gpu_timestamps_stale: false,
         }
     }
 }
@@ -200,6 +220,15 @@ impl PerformanceCsvRecorder {
         for name in PERFORMANCE_CAPTURE_NAMES {
             write!(self.writer, ",{name}")?;
         }
+        for name in PERFORMANCE_TIMING_NAMES {
+            write!(self.writer, ",{name}")?;
+        }
+        for name in TIMING_STAGES {
+            let name = name.replace(' ', "_");
+            for suffix in PERFORMANCE_DISTRIBUTION_SUFFIXES {
+                write!(self.writer, ",{name}{suffix}")?;
+            }
+        }
         writeln!(self.writer)
     }
 
@@ -213,7 +242,7 @@ impl PerformanceCsvRecorder {
         elapsed_s: f64,
         fps: u64,
         cdt_ms: f64,
-        averages: &[f64],
+        window: &TimingWindow,
         counters: [u64; PERFORMANCE_COUNTER_NAMES.len()],
         surface: SurfaceStatusCounters,
         visible_overlays: u64,
@@ -222,7 +251,7 @@ impl PerformanceCsvRecorder {
         changes: CaptureChanges,
     ) -> io::Result<()> {
         write!(self.writer, "{elapsed_s:.3},{fps},{cdt_ms:.3}")?;
-        for average in averages {
+        for average in &window.averages {
             write!(self.writer, ",{average:.3}")?;
         }
         for counter in counters {
@@ -266,13 +295,33 @@ impl PerformanceCsvRecorder {
         }
         write!(
             self.writer,
-            ",{},{},{},{},{}",
+            ",{},{},{},{},{},{},{}",
             capture.present_mode,
             capture.frame_latency,
             capture.pixels_per_frame(),
             changes.render_scale_changes,
             changes.render_resolution_changes,
+            capture.gpu_timestamps_supported,
+            capture.gpu_timestamps_stale,
         )?;
+        write!(
+            self.writer,
+            ",{},{:.3},{:.3},{:.3},{:.3}",
+            window.frames,
+            window.cdt_mean_ms,
+            window.cdt_min_ms,
+            window.cdt_max_ms,
+            window.cdt_p95_ms,
+        )?;
+        for index in 0..TIMING_STAGES.len() {
+            write!(
+                self.writer,
+                ",{:.3},{:.3},{:.3}",
+                window.min.get(index).copied().unwrap_or(0.0),
+                window.max.get(index).copied().unwrap_or(0.0),
+                window.p95.get(index).copied().unwrap_or(0.0),
+            )?;
+        }
 
         writeln!(self.writer)?;
         self.writer.flush()
@@ -324,12 +373,23 @@ mod tests {
         };
 
         recorder.write_header().unwrap();
+        let window = TimingWindow {
+            averages: vec![1.0; TIMING_STAGES.len()],
+            min: vec![0.5; TIMING_STAGES.len()],
+            max: vec![2.0; TIMING_STAGES.len()],
+            p95: vec![1.5; TIMING_STAGES.len()],
+            frames: 60,
+            cdt_mean_ms: 16.0,
+            cdt_min_ms: 10.0,
+            cdt_max_ms: 20.0,
+            cdt_p95_ms: 19.0,
+        };
         recorder
             .write_sample(
                 1.5,
                 60,
                 16.7,
-                &vec![0.0; TIMING_STAGES.len()],
+                &window,
                 [1, 2, 3, 4, 5, 6],
                 SurfaceStatusCounters {
                     success: 7,
@@ -353,10 +413,13 @@ mod tests {
                 + PERFORMANCE_COUNTER_NAMES.len()
                 + 9
                 + PERFORMANCE_CAPTURE_NAMES.len()
+                + PERFORMANCE_TIMING_NAMES.len()
+                + TIMING_STAGES.len() * PERFORMANCE_DISTRIBUTION_SUFFIXES.len()
         );
         assert_eq!(header.split(',').count(), row.split(',').count());
-        assert!(row.starts_with("1.500,60,16.700"));
+        assert!(row.starts_with("1.500,60,16.700,1.000,"));
         assert!(row.contains(",1,2,3,4,5,6,7,0,0,0,0,0,0,2,Performance|Rendering,"));
-        assert!(row.ends_with(",0,0"));
+        assert!(row.contains(",60,16.000,10.000,20.000,19.000,"));
+        assert!(row.ends_with(",0.500,2.000,1.500"));
     }
 }

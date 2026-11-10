@@ -518,6 +518,19 @@ impl Renderer {
         self.prev_gpu_ns
     }
 
+    /// Whether the device and renderer expose GPU timestamp queries.
+    pub fn gpu_timestamps_supported(&self) -> bool {
+        self.timestamp_query_set.is_some()
+    }
+
+    /// Generation of the most recently consumed GPU timestamp result.
+    ///
+    /// Stays unchanged while readbacks are pending or unavailable, so a
+    /// capture can mark stale GPU stages.
+    pub fn gpu_timestamp_generation(&self) -> u64 {
+        self.prev_gpu_generation
+    }
+
     /// Polls completed timestamp readbacks without blocking.
     fn poll_timestamp_readbacks(&mut self, device: &Device) {
         let _ = device.poll(wgpu::PollType::Poll);

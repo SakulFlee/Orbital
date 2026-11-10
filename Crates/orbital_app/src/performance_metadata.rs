@@ -104,6 +104,7 @@ pub fn collect(
         "app": {
             "name": settings.name,
             "version": env!("CARGO_PKG_VERSION"),
+            "git_revision": env!("ORBITAL_GIT_REVISION"),
             "debug_assertions": cfg!(debug_assertions),
             "os": std::env::consts::OS,
             "arch": std::env::consts::ARCH,
@@ -189,6 +190,14 @@ pub fn collect(
             "light_glare": render_settings.light_glare,
             "volumetrics": volumetric.enabled,
             "volumetric_quality": format!("{:?}", volumetric.quality),
+        },
+        "android": {
+            "refresh_rate_mhz": crate::android_performance::display_refresh_rate_millihertz(),
+            "adpf_target_duration_ms": crate::android_performance::adpf_target_duration_ns()
+                .map(|ns| ns as f64 / 1_000_000.0),
+            "sustained_performance": crate::android_performance::sustained_performance(),
+            "power_save": crate::android_performance::power_save(),
+            "game_mode": crate::android_performance::game_mode(),
         },
         "scene": {
             "entities": ecs.entity_count(),
