@@ -17,7 +17,7 @@ use wgpu::{
 use orbital_shader_preprocessor::{NodeRegistry, ShaderBuilder};
 
 /// Screen tile edge length in pixels.
-pub const TILE_SIZE: u32 = 16;
+pub const TILE_SIZE: u32 = 8;
 /// Upper bound of light indices stored per tile.
 ///
 /// Tiles with more overlapping lights keep the first 128; the cost of a larger
@@ -299,9 +299,9 @@ mod tests {
     fn tile_count_rounds_up_and_handles_empty_sizes() {
         assert_eq!(tile_count(0), 1);
         assert_eq!(tile_count(1), 1);
-        assert_eq!(tile_count(16), 1);
-        assert_eq!(tile_count(17), 2);
-        assert_eq!(tile_count(1920), 120);
-        assert_eq!(tile_count(1080), 68);
+        assert_eq!(tile_count(16), 2);
+        assert_eq!(tile_count(17), 3);
+        assert_eq!(tile_count(1920), 240);
+        assert_eq!(tile_count(1080), 135);
     }
 }

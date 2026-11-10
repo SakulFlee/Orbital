@@ -472,7 +472,10 @@ impl VolumetricRenderer {
         current_view_projection: Option<Matrix4<f32>>,
     ) {
         let mut grid = settings.quality.grid(resolution.x, resolution.y);
-        if !matches!(settings.quality, VolumetricQuality::Custom { .. }) {
+        if !matches!(
+            settings.quality,
+            VolumetricQuality::Custom { .. } | VolumetricQuality::Mobile
+        ) {
             // Fixed slice counts make a longer max distance coarser in world
             // space. Scale the depth resolution with the requested range so
             // short spot cones keep the same sampling density.

@@ -1558,6 +1558,9 @@ pub enum VolumetricQuality {
     #[default]
     Medium,
     High,
+    /// Reduced grid for mobile GPUs. The X/Y grid is deliberately coarser
+    /// than Low, and adaptive depth slicing is disabled at 64 slices.
+    Mobile,
     /// Explicit grid dimensions and composite step count.
     Custom {
         grid_x: u32,
@@ -1574,6 +1577,7 @@ impl VolumetricQuality {
             Self::Low => [(width / 12).max(16), (height / 12).max(9), 64],
             Self::Medium => [(width / 8).max(24), (height / 8).max(14), 64],
             Self::High => [(width / 4).max(48), (height / 4).max(27), 64],
+            Self::Mobile => [(width / 20).max(32), (height / 20).max(20), 64],
             Self::Custom {
                 grid_x,
                 grid_y,
@@ -1588,6 +1592,7 @@ impl VolumetricQuality {
             Self::Low => 32,
             Self::Medium => 48,
             Self::High => 64,
+            Self::Mobile => 32,
             Self::Custom {
                 composite_steps, ..
             } => composite_steps.max(1),
@@ -1672,7 +1677,9 @@ mod volumetric_tests {
         assert_eq!(VolumetricQuality::Low.grid(1920, 1080), [160, 90, 64]);
         assert_eq!(VolumetricQuality::Medium.grid(1920, 1080), [240, 135, 64]);
         assert_eq!(VolumetricQuality::High.grid(1920, 1080), [480, 270, 64]);
+        assert_eq!(VolumetricQuality::Mobile.grid(1920, 1080), [96, 54, 64]);
         assert_eq!(VolumetricQuality::Medium.composite_steps(), 48);
+        assert_eq!(VolumetricQuality::Mobile.composite_steps(), 32);
     }
 
     #[test]

@@ -454,6 +454,13 @@ pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
                 DebugMessage::SetVolumetricQuality,
             )
             .text_size(12),
+            radio(
+                "Mobile",
+                VolumetricQuality::Mobile,
+                Some(volumetrics.quality),
+                DebugMessage::SetVolumetricQuality,
+            )
+            .text_size(12),
         ]
         .spacing(6)
         .into(),
