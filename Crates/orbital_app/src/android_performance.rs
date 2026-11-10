@@ -215,6 +215,45 @@ struct AndroidState {
     refresh_rate_mhz: u32,
 }
 
+#[cfg(target_os = "android")]
+static ANDROID_STATE: OnceLock<AndroidState> = OnceLock::new();
+
+/// ADPF's preferred frame duration in nanoseconds, when a session exists.
+pub fn adpf_target_duration_ns() -> Option<i64> {
+    let slot = adpf_slot().lock().ok()?;
+    slot.as_ref().map(Adpf::target_duration_ns)
+}
+
+#[cfg(target_os = "android")]
+pub fn sustained_performance() -> Option<bool> {
+    ANDROID_STATE.get().map(|state| state.sustained_performance)
+}
+
+#[cfg(not(target_os = "android"))]
+pub fn sustained_performance() -> Option<bool> {
+    None
+}
+
+#[cfg(target_os = "android")]
+pub fn power_save() -> Option<bool> {
+    ANDROID_STATE.get().map(|state| state.power_save)
+}
+
+#[cfg(not(target_os = "android"))]
+pub fn power_save() -> Option<bool> {
+    None
+}
+
+#[cfg(target_os = "android")]
+pub fn game_mode() -> Option<i32> {
+    ANDROID_STATE.get().map(|state| state.game_mode)
+}
+
+#[cfg(not(target_os = "android"))]
+pub fn game_mode() -> Option<i32> {
+    None
+}
+
 /// Initializes the Android performance prototype.
 ///
 /// Call this from `android_main` before the `AndroidApp` is moved into the
@@ -224,13 +263,16 @@ pub fn init(app: &AndroidApp) {
     static ONCE: std::sync::Once = std::sync::Once::new();
     ONCE.call_once(|| {
         match apply_jni_hints(app) {
-            Ok(state) => info!(
-                "android performance: sustained_performance={} power_save={} game_mode={} refresh_rate_mhz={}",
-                state.sustained_performance,
-                state.power_save,
-                state.game_mode,
-                state.refresh_rate_mhz
-            ),
+            Ok(state) => {
+                let _ = ANDROID_STATE.set(state);
+                info!(
+                    "android performance: sustained_performance={} power_save={} game_mode={} refresh_rate_mhz={}",
+                    state.sustained_performance,
+                    state.power_save,
+                    state.game_mode,
+                    state.refresh_rate_mhz
+                );
+            }
             Err(error) => warn!("android performance: JNI state query failed: {error}"),
         }
 
