@@ -28,6 +28,10 @@ pub struct AppSettings {
     pub adaptive_render_scale: bool,
     /// Frame-rate target used by adaptive render scaling.
     pub target_fps: u32,
+    /// Lower bound for adaptive render scaling.
+    pub min_render_scale: f32,
+    /// Upper bound for adaptive render scaling.
+    pub max_render_scale: f32,
     /// 3D scene anti-aliasing. 2D/UI overlays are always rendered after the
     /// post chain and are not affected.
     ///
@@ -81,6 +85,8 @@ impl Default for AppSettings {
             render_scale: 1.0,
             adaptive_render_scale: cfg!(any(target_os = "android", target_os = "ios")),
             target_fps: 60,
+            min_render_scale: 0.25,
+            max_render_scale: 1.0,
             anti_aliasing: AntiAliasing::Fxaa,
             smaa_quality: SmaaQuality::default(),
             exposure: 1.0,

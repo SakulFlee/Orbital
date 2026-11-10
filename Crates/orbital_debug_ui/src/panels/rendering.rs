@@ -102,6 +102,13 @@ pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
                     DebugMessage::SetRenderScalePercent,
                 )
                 .text_size(12),
+                radio(
+                    "0.25x",
+                    25u32,
+                    Some((render.render_scale * 100.0).round() as u32),
+                    DebugMessage::SetRenderScalePercent,
+                )
+                .text_size(12),
             ]
             .spacing(8)
             .into(),

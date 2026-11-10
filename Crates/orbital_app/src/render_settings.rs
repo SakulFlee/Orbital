@@ -70,7 +70,7 @@ impl Default for RenderSettings {
             render_scale: 1.0,
             adaptive_render_scale: cfg!(any(target_os = "android", target_os = "ios")),
             target_fps: 60,
-            min_render_scale: 0.5,
+            min_render_scale: 0.25,
             max_render_scale: MAX_RENDER_SCALE,
             anti_aliasing: AntiAliasing::Fxaa,
             smaa_quality: SmaaQuality::default(),

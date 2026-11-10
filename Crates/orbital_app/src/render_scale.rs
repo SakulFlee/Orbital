@@ -115,7 +115,19 @@ impl AdaptiveRenderScale {
             if self.stable_windows >= ADAPTIVE_RAISE_WINDOWS {
                 self.stable_windows = 0;
                 let next = quantize(current_scale + ADAPTIVE_SCALE_STEP, min_scale, max_scale);
-                return (next > current_scale + 0.001).then_some(next);
+                if next <= current_scale + 0.001 {
+                    return None;
+                }
+
+                // Render cost is dominated by the pixel count, so estimate the
+                // frame rate at the next scale before raising. Without this
+                // check, a scale that just barely meets the target oscillates:
+                // it rises one step, misses the target, and immediately drops
+                // again.
+                let predicted_fps = fps as f32 * (current_scale / next).powi(2);
+                if predicted_fps >= target_fps as f32 {
+                    return Some(next);
+                }
             }
         } else {
             self.stable_windows = 0;
@@ -188,19 +200,32 @@ mod tests {
         let mut controller = AdaptiveRenderScale::default();
 
         for _ in 0..ADAPTIVE_RAISE_WINDOWS - 1 {
-            assert_eq!(controller.update(0.5, 60, 60, 0.5, 1.0), None);
+            assert_eq!(controller.update(0.5, 60, 30, 0.5, 1.0), None);
         }
 
         assert_eq!(
-            controller.update(0.5, 60, 60, 0.5, 1.0),
+            controller.update(0.5, 60, 30, 0.5, 1.0),
             Some(0.55),
             "the scale rises after a stable window streak"
         );
         assert_eq!(
-            controller.update(1.0, 60, 60, 0.5, 1.0),
+            controller.update(1.0, 60, 30, 0.5, 1.0),
             None,
             "the maximum scale is a hard ceiling"
         );
+    }
+
+    #[test]
+    fn adaptive_scale_does_not_raise_when_the_next_step_would_miss_the_target() {
+        let mut controller = AdaptiveRenderScale::default();
+
+        for _ in 0..ADAPTIVE_RAISE_WINDOWS {
+            assert_eq!(
+                controller.update(0.25, 34, 30, 0.25, 1.0),
+                None,
+                "the raised scale is predicted to miss the target"
+            );
+        }
     }
 
     #[test]
