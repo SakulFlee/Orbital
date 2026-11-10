@@ -67,6 +67,12 @@ pub fn collect(
         .get_resource::<RenderSettings>()
         .map(|settings| *settings)
         .unwrap_or_default();
+    let render_scale = render_settings.render_scale.clamp(
+        render_settings.min_render_scale,
+        render_settings.max_render_scale,
+    );
+    let render_width = ((config.width as f32 * render_scale).round() as u32).max(1);
+    let render_height = ((config.height as f32 * render_scale).round() as u32).max(1);
     let volumetric = ecs
         .get_resource::<VolumetricSettings>()
         .map(|settings| *settings)
@@ -135,10 +141,20 @@ pub fn collect(
             "width": inner_size.width,
             "height": inner_size.height,
             "scale_factor": window.scale_factor(),
+            "dpi": effective_dpi(window.scale_factor()),
+            "orientation": match config.width.cmp(&config.height) {
+                std::cmp::Ordering::Greater => "landscape",
+                std::cmp::Ordering::Less => "portrait",
+                std::cmp::Ordering::Equal => "square",
+            },
             "fullscreen": fullscreen,
             "monitor": {
                 "name": monitor_name,
-                "refresh_rate_mhz": monitor_refresh_mhz,
+                "refresh_rate_mhz": if monitor_refresh_mhz > 0 {
+                    monitor_refresh_mhz
+                } else {
+                    crate::android_performance::display_refresh_rate_millihertz().unwrap_or(0)
+                },
                 "width": monitor_width,
                 "height": monitor_height,
             },
@@ -154,6 +170,16 @@ pub fn collect(
             "desired_maximum_frame_latency": config.desired_maximum_frame_latency,
             "vsync": settings.vsync_enabled,
             "fps_limit": settings.fps_limit,
+        },
+        "render": {
+            "width": render_width,
+            "height": render_height,
+            "scale": render_scale,
+            "pixels_per_frame": u64::from(render_width) * u64::from(render_height),
+            "adaptive": render_settings.adaptive_render_scale,
+            "target_fps": render_settings.target_fps,
+            "min_scale": render_settings.min_render_scale,
+            "max_scale": render_settings.max_render_scale,
         },
         "renderer": {
             "path": if render_settings.deferred_enabled { "deferred" } else { "forward" },
@@ -175,6 +201,19 @@ pub fn collect(
             "visible": visible,
         })).collect::<Vec<_>>(),
     })
+}
+
+/// Approximate DPI from a window scale factor.
+///
+/// Android scale factors are density buckets relative to 160 DPI; desktop
+/// scale factors are relative to 96 DPI.
+fn effective_dpi(scale_factor: f64) -> u32 {
+    #[cfg(target_os = "android")]
+    const BASE_DPI: f64 = 160.0;
+    #[cfg(not(target_os = "android"))]
+    const BASE_DPI: f64 = 96.0;
+
+    (scale_factor * BASE_DPI).round().max(1.0) as u32
 }
 
 /// Logs the metadata as one machine-readable line.

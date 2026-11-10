@@ -30,7 +30,11 @@ use winit::{
 };
 
 use crate::camera_commands::{CameraCommand, apply_camera_commands};
-use crate::performance_csv::{PERFORMANCE_CSV_PATH, PerformanceCsvRecorder, SurfaceStatusCounters};
+use crate::performance_csv::{
+    CaptureChanges, CaptureSnapshot, PERFORMANCE_CSV_PATH, PerformanceCsvRecorder,
+    SurfaceStatusCounters, present_mode_name,
+};
+use crate::render_scale::{AdaptiveRenderScale, effective_target_fps, scaled_resolution};
 use crate::{AppContext, AppSettings, AppState, FrameLimiter, Module, Timer, make_core_schedule};
 use orbital_ecs_bridge::{
     ActiveCamera, AdapterResource, CameraDescriptor, CameraDirty, CameraStore, CursorGrabConfig,
@@ -254,6 +258,35 @@ struct DeferredWheel {
     phase: TouchPhase,
 }
 
+/// Display refresh rate in millihertz.
+///
+/// winit's monitor API is authoritative where it works. Android reports no
+/// value there, so fall back to the platform query captured during startup.
+fn query_refresh_rate_mhz(window: &winit::window::Window) -> Option<u32> {
+    if let Some(mhz) = window
+        .current_monitor()
+        .and_then(|monitor| monitor.refresh_rate_millihertz())
+        .filter(|mhz| *mhz > 0)
+    {
+        return Some(mhz);
+    }
+
+    crate::android_performance::display_refresh_rate_millihertz()
+}
+
+/// Approximate DPI from a window scale factor.
+///
+/// Android scale factors are density buckets relative to 160 DPI; desktop
+/// scale factors are relative to 96 DPI.
+fn effective_dpi(scale_factor: f64) -> u32 {
+    #[cfg(target_os = "android")]
+    const BASE_DPI: f64 = 160.0;
+    #[cfg(not(target_os = "android"))]
+    const BASE_DPI: f64 = 96.0;
+
+    (scale_factor * BASE_DPI).round().max(1.0) as u32
+}
+
 pub struct ModuleRuntime {
     module: Box<dyn Module>,
     settings: AppSettings,
@@ -277,6 +310,25 @@ pub struct ModuleRuntime {
     perf_detail: bool,
     system_profiler: Option<Arc<SystemProfiler>>,
     overlay_detail: Vec<OverlayTiming>,
+    /// Render-scale and render-resolution changes since the last CSV row.
+    capture_changes: CaptureChanges,
+    /// Last render scale applied to the renderer, used to detect manual or
+    /// adaptive changes between rows.
+    last_applied_render_scale: Option<f32>,
+    /// Adaptive render-scale state, updated once per FPS window.
+    adaptive_render_scale: AdaptiveRenderScale,
+    /// Native window size in physical pixels.
+    window_size: cgmath::Vector2<u32>,
+    /// Configured swapchain surface size.
+    surface_size: cgmath::Vector2<u32>,
+    /// Present mode actually selected for the surface.
+    present_mode: wgpu::PresentMode,
+    /// Configured swapchain frame latency.
+    frame_latency: u32,
+    /// Window scale factor (Android density / 160).
+    scale_factor: f64,
+    /// Display refresh rate in millihertz, when the platform reports one.
+    refresh_rate_mhz: Option<u32>,
     back_press_count: u8,
     last_back_press: Option<std::time::Instant>,
     /// Touch events deferred for game-input processing.
@@ -363,6 +415,15 @@ impl ModuleRuntime {
             perf_detail,
             system_profiler,
             overlay_detail: Vec::new(),
+            capture_changes: CaptureChanges::default(),
+            last_applied_render_scale: None,
+            adaptive_render_scale: AdaptiveRenderScale::default(),
+            window_size: cgmath::Vector2::new(0, 0),
+            surface_size: cgmath::Vector2::new(0, 0),
+            present_mode: wgpu::PresentMode::AutoVsync,
+            frame_latency: 2,
+            scale_factor: 1.0,
+            refresh_rate_mhz: None,
             back_press_count: 0,
             last_back_press: None,
             deferred_touches: Vec::new(),
@@ -416,16 +477,149 @@ impl ModuleRuntime {
         event_loop.run_app(&mut runtime)
     }
 
+    /// Recomputes the internal render resolution from the current settings and
+    /// applies it to the renderer.
+    fn sync_render_resolution(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+        let settings = self
+            .ecs_world
+            .get_resource::<crate::RenderSettings>()
+            .map(|settings| *settings)
+            .unwrap_or_default();
+
+        let scale_changed = self
+            .last_applied_render_scale
+            .is_some_and(|previous| (previous - settings.render_scale).abs() > 0.0001);
+        if scale_changed {
+            self.capture_changes.render_scale_changes =
+                self.capture_changes.render_scale_changes.saturating_add(1);
+        }
+        self.last_applied_render_scale = Some(settings.render_scale);
+
+        let Some(renderer) = &mut self.renderer else {
+            return;
+        };
+        if self.surface_size.x == 0 || self.surface_size.y == 0 {
+            return;
+        }
+
+        let desired = scaled_resolution(self.surface_size, settings.render_scale);
+
+        renderer.set_surface_resolution(self.surface_size);
+        if renderer.render_resolution() != desired {
+            self.capture_changes.render_resolution_changes = self
+                .capture_changes
+                .render_resolution_changes
+                .saturating_add(1);
+            info!(
+                "Render resolution changed: {}x{} -> {}x{} (surface {}x{}, scale {:.2})",
+                renderer.render_resolution().x,
+                renderer.render_resolution().y,
+                desired.x,
+                desired.y,
+                self.surface_size.x,
+                self.surface_size.y,
+                settings.render_scale,
+            );
+            renderer.change_resolution(desired, device, queue);
+        }
+    }
+
+    /// Refreshes the cached window, surface, and display properties.
+    fn update_display_info(
+        &mut self,
+        window: &winit::window::Window,
+        config: &wgpu::SurfaceConfiguration,
+    ) {
+        let inner = window.inner_size();
+        self.window_size = cgmath::Vector2::new(inner.width, inner.height);
+        self.surface_size = cgmath::Vector2::new(config.width, config.height);
+        self.present_mode = config.present_mode;
+        self.frame_latency = config.desired_maximum_frame_latency;
+        self.scale_factor = window.scale_factor();
+        self.refresh_rate_mhz = query_refresh_rate_mhz(window);
+    }
+
+    /// Samples the per-row display and resolution fields for a capture.
+    fn capture_snapshot(&self) -> CaptureSnapshot {
+        let settings = self
+            .ecs_world
+            .get_resource::<crate::RenderSettings>()
+            .map(|settings| *settings)
+            .unwrap_or_default();
+        let render_size = self
+            .renderer
+            .as_ref()
+            .map(|renderer| renderer.render_resolution())
+            .unwrap_or(self.surface_size);
+
+        CaptureSnapshot {
+            window_width: self.window_size.x,
+            window_height: self.window_size.y,
+            surface_width: self.surface_size.x,
+            surface_height: self.surface_size.y,
+            render_width: render_size.x,
+            render_height: render_size.y,
+            render_scale: settings.render_scale,
+            scale_factor: self.scale_factor,
+            dpi: effective_dpi(self.scale_factor),
+            refresh_rate_mhz: self.refresh_rate_mhz,
+            present_mode: present_mode_name(self.present_mode),
+            frame_latency: self.frame_latency,
+        }
+    }
+
+    /// Adjusts the render scale once per completed FPS window.
+    fn adapt_render_scale(&mut self, fps: u32) {
+        let Some(settings) = self
+            .ecs_world
+            .get_resource::<crate::RenderSettings>()
+            .map(|settings| *settings)
+        else {
+            return;
+        };
+        if !settings.adaptive_render_scale {
+            return;
+        }
+
+        let target = effective_target_fps(
+            settings.target_fps,
+            self.refresh_rate_mhz,
+            self.settings
+                .fps_limit
+                .filter(|_| !self.settings.vsync_enabled),
+        );
+        let Some(next) = self.adaptive_render_scale.update(
+            settings.render_scale,
+            fps,
+            target,
+            settings.min_render_scale,
+            settings.max_render_scale,
+        ) else {
+            return;
+        };
+
+        let mut updated = settings;
+        updated.render_scale = next;
+        self.ecs_world.insert_resource(updated);
+        info!(
+            "Adaptive render scale {:.2} -> {:.2} (fps={fps}, target={target}, refresh_mhz={:?})",
+            settings.render_scale, next, self.refresh_rate_mhz,
+        );
+    }
+
     fn redraw(&mut self) {
         self.poll_gpu_complete();
         let t_start = std::time::Instant::now();
 
-        let AppState::Ready(ctx) = &self.state else {
-            error!(
-                "Trying to redraw when app state is in a non-ready state! ({:?})",
-                self.state
-            );
-            return;
+        let ctx = match &self.state {
+            AppState::Ready(ctx) => ctx.clone(),
+            _ => {
+                error!(
+                    "Trying to redraw when app state is in a non-ready state! ({:?})",
+                    self.state
+                );
+                return;
+            }
         };
 
         let lock = ctx_lock!(ctx);
@@ -474,6 +668,9 @@ impl ModuleRuntime {
         let format = lock.get_first_view_format();
         let device = lock.device();
         let queue = lock.queue();
+
+        // Apply the current render scale before creating any scene targets.
+        self.sync_render_resolution(device, queue);
 
         let t_surface_view_start = std::time::Instant::now();
         let view: wgpu::TextureView = frame.texture.create_view(&TextureViewDescriptor {
@@ -999,6 +1196,8 @@ impl ModuleRuntime {
 
         let (visible_overlays, visible_overlay_names) = self.visible_overlay_snapshot();
         let surface_status = self.surface_status;
+        let capture = self.capture_snapshot();
+        let capture_changes = std::mem::take(&mut self.capture_changes);
         if log_config.csv
             && let Some(recorder) = self.performance_csv.as_mut()
         {
@@ -1024,6 +1223,8 @@ impl ModuleRuntime {
                     surface_status,
                     visible_overlays,
                     &visible_overlay_names,
+                    &capture,
+                    capture_changes,
                 )
                 .err();
 
@@ -1222,6 +1423,7 @@ impl ModuleRuntime {
                 total_delta_time: total_delta,
                 cycle_delta_time: delta_time,
             });
+            self.adapt_render_scale(fps.min(u32::MAX as u64) as u32);
         } else {
             // Update cycle_delta_time every frame so the HUD shows the
             // latest per-frame delta even between one-second boundaries.
@@ -1547,6 +1749,22 @@ impl ApplicationHandler for ModuleRuntime {
             },
         };
 
+        {
+            let ctx_guard = ctx.lock().expect("Mutex failure");
+            self.update_display_info(ctx_guard.window(), &config);
+        }
+        info!(
+            "Display: window={}x{} surface={}x{} scale_factor={:.3} refresh_mhz={:?} present={:?} latency={}",
+            self.window_size.x,
+            self.window_size.y,
+            self.surface_size.x,
+            self.surface_size.y,
+            self.scale_factor,
+            self.refresh_rate_mhz,
+            self.present_mode,
+            self.frame_latency,
+        );
+
         self.state = AppState::Ready(ctx);
 
         self.timer = Some(Timer::new());
@@ -1594,6 +1812,11 @@ impl ApplicationHandler for ModuleRuntime {
                 .is_none()
             {
                 self.ecs_world.insert_resource(crate::RenderSettings {
+                    render_scale: self.settings.render_scale,
+                    adaptive_render_scale: self.settings.adaptive_render_scale,
+                    target_fps: self.settings.target_fps,
+                    min_render_scale: self.settings.min_render_scale,
+                    max_render_scale: self.settings.max_render_scale,
                     anti_aliasing: self.settings.anti_aliasing,
                     smaa_quality: self.settings.smaa_quality,
                     exposure: self.settings.exposure,
@@ -1611,13 +1834,24 @@ impl ApplicationHandler for ModuleRuntime {
                 });
             }
 
-            // Create renderer
+            // Create renderer at the scaled internal resolution. The surface
+            // remains at its native size and the tonemap/AA pass upscales.
+            let surface_resolution = cgmath::Vector2::new(config.width, config.height);
+            let render_scale = self
+                .ecs_world
+                .get_resource::<crate::RenderSettings>()
+                .map(|settings| settings.render_scale)
+                .unwrap_or(1.0);
+            let render_resolution = scaled_resolution(surface_resolution, render_scale);
             self.renderer = Some(orbital_renderer::Renderer::new(
                 config.format,
-                cgmath::Vector2::new(config.width, config.height),
+                render_resolution,
                 ctx_guard.device(),
                 ctx_guard.queue(),
             ));
+            if let Some(renderer) = &mut self.renderer {
+                renderer.set_surface_resolution(surface_resolution);
+            }
 
             // Apply the app's scene anti-aliasing mode.
             if let Some(renderer) = &mut self.renderer {
@@ -2051,6 +2285,7 @@ impl ApplicationHandler for ModuleRuntime {
                     self.settings.present_mode,
                 );
                 ctx_lock.reconfigure_surface(&configuration);
+                self.update_display_info(ctx_lock.window(), &configuration);
 
                 self.input_state.surface_resize(new_size);
                 self.ecs_world
@@ -2059,11 +2294,9 @@ impl ApplicationHandler for ModuleRuntime {
                         new_size.height,
                     )));
 
-                // Recreate the depth texture to match the new surface dimensions.
-                let resolution = cgmath::Vector2::new(new_size.width, new_size.height);
-                if let Some(renderer) = &mut self.renderer {
-                    renderer.change_resolution(resolution, ctx_lock.device(), ctx_lock.queue());
-                }
+                // Recreate scene targets at the render scale for the new
+                // surface size. 2D and UI keep the full surface resolution.
+                self.sync_render_resolution(ctx_lock.device(), ctx_lock.queue());
 
                 // Update camera aspect ratio so the projection isn't stretched.
                 let new_aspect = new_size.width as f32 / new_size.height as f32;

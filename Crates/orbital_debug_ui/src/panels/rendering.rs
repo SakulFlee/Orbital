@@ -11,7 +11,7 @@ use orbital_debug_render::{BoundsMode, DebugToggleState};
 use orbital_ecs::World;
 use orbital_ecs_bridge::{
     ActiveCamera, CameraDescriptor, LightDescriptor, ModelDescriptor, VolumetricQuality,
-    VolumetricSettings,
+    VolumetricSettings, WindowSize,
 };
 use orbital_material_shader::RenderQueue;
 use orbital_renderer::{AntiAliasing, SmaaQuality};
@@ -50,6 +50,98 @@ pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
 
     let mut rows: Vec<Element<'static, DebugMessage, Theme, IcedRenderer>> = Vec::new();
 
+    rows.push(crate::panels::caption("Performance target", ACCENT));
+    rows.push(
+        checkbox(render.adaptive_render_scale)
+            .label("Adaptive render scale")
+            .text_size(12)
+            .on_toggle(DebugMessage::SetAdaptiveRenderScale)
+            .into(),
+    );
+    if render.adaptive_render_scale {
+        rows.push(
+            column![
+                row![
+                    text("Target FPS")
+                        .size(12)
+                        .width(Length::Fixed(LABEL_WIDTH)),
+                    text(render.target_fps.to_string())
+                        .size(11)
+                        .color(MUTED)
+                        .width(Length::Fixed(VALUE_WIDTH)),
+                ],
+                slider(30.0..=144.0, render.target_fps as f32, |value| {
+                    DebugMessage::SetPerformanceTargetFps(value.round() as u32)
+                })
+                .step(1.0),
+            ]
+            .spacing(1)
+            .into(),
+        );
+    } else {
+        rows.push(
+            row![
+                radio(
+                    "1x",
+                    100u32,
+                    Some((render.render_scale * 100.0).round() as u32),
+                    DebugMessage::SetRenderScalePercent,
+                )
+                .text_size(12),
+                radio(
+                    "0.75x",
+                    75u32,
+                    Some((render.render_scale * 100.0).round() as u32),
+                    DebugMessage::SetRenderScalePercent,
+                )
+                .text_size(12),
+                radio(
+                    "0.5x",
+                    50u32,
+                    Some((render.render_scale * 100.0).round() as u32),
+                    DebugMessage::SetRenderScalePercent,
+                )
+                .text_size(12),
+                radio(
+                    "0.25x",
+                    25u32,
+                    Some((render.render_scale * 100.0).round() as u32),
+                    DebugMessage::SetRenderScalePercent,
+                )
+                .text_size(12),
+            ]
+            .spacing(8)
+            .into(),
+        );
+        rows.push(slider_row(
+            "Render scale",
+            render.min_render_scale..=render.max_render_scale,
+            render.render_scale,
+            DebugMessage::SetRenderScale,
+        ));
+    }
+
+    if let Some(surface) = ecs.get_resource::<WindowSize>() {
+        let render_width = (surface.0.x as f32 * render.render_scale).round() as u32;
+        let render_height = (surface.0.y as f32 * render.render_scale).round() as u32;
+        rows.push(
+            text(format!(
+                "Surface {}x{} · render {}x{} · scale {:.2}x",
+                surface.0.x, surface.0.y, render_width, render_height, render.render_scale,
+            ))
+            .size(10)
+            .color(MUTED)
+            .into(),
+        );
+    }
+    rows.push(
+        text("Only the 3D scene is scaled; 2D, UI, and text stay native.")
+            .size(10)
+            .color(MUTED)
+            .into(),
+    );
+
+    rows.push(crate::panels::divider());
     rows.push(crate::panels::caption("Anti-aliasing", ACCENT));
     rows.push(
         row![

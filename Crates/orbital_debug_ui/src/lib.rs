@@ -448,6 +448,30 @@ fn handle_debug_message(
             mark_debug_dirty(world);
             return;
         }
+        DebugMessage::SetRenderScale(scale) => {
+            update_render_settings(world, |settings| {
+                settings.render_scale =
+                    scale.clamp(settings.min_render_scale, settings.max_render_scale);
+                settings.adaptive_render_scale = false;
+            });
+            return;
+        }
+        DebugMessage::SetRenderScalePercent(percent) => {
+            update_render_settings(world, |settings| {
+                settings.render_scale = (percent as f32 / 100.0)
+                    .clamp(settings.min_render_scale, settings.max_render_scale);
+                settings.adaptive_render_scale = false;
+            });
+            return;
+        }
+        DebugMessage::SetAdaptiveRenderScale(enabled) => {
+            update_render_settings(world, |settings| settings.adaptive_render_scale = enabled);
+            return;
+        }
+        DebugMessage::SetPerformanceTargetFps(fps) => {
+            update_render_settings(world, |settings| settings.target_fps = fps.clamp(1, 1000));
+            return;
+        }
         DebugMessage::SetExposure(exposure) => {
             update_render_settings(world, |settings| settings.exposure = exposure.max(0.0));
             return;

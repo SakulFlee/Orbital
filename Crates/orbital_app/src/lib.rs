@@ -18,6 +18,12 @@ pub use timer::*;
 mod frame_limiter;
 pub use frame_limiter::FrameLimiter;
 
+mod render_scale;
+pub use render_scale::{
+    AdaptiveRenderScale, MAX_RENDER_SCALE, MIN_RENDER_SCALE, effective_target_fps,
+    scaled_resolution,
+};
+
 mod performance_csv;
 pub use performance_csv::{PERFORMANCE_CSV_PATH, PERFORMANCE_METADATA_PATH};
 
