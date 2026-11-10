@@ -246,7 +246,7 @@ For an existing iOS project made before this change, add these keys to
 `Logs/performance_meta.json` is written when CSV capture starts. It records
 the capture environment once per resume:
 
-- app version, build profile, OS/arch
+- app version, git revision, build profile, OS/arch
 - CPU model, logical/physical cores, total/available RAM
 - GPU adapter, backend, device type, vendor/device, driver, features and
   selected limits
@@ -259,6 +259,8 @@ the capture environment once per resume:
 - renderer path (forward/deferred), AA/SMAA, bloom/glare, volumetrics
 - scene entity/model/light/shadow-caster counts
 - registered overlays and their visibility at startup
+- Android refresh rate, ADPF target duration, sustained-performance state,
+  power-save state, and game mode when available
 
 The same metadata is emitted as a `PERF metadata:` log line.
 
@@ -267,13 +269,13 @@ The same metadata is emitted as a `PERF metadata:` log line.
 The header is:
 
 ```text
-elapsed_s,fps,cdt_ms,<timing stages>,<cache counters>,<surface counters>,visible_overlays,visible_overlay_names,<capture fields>
+elapsed_s,fps,cdt_ms,<timing stage means>,<cache counters>,<surface counters>,visible_overlays,visible_overlay_names,<capture fields>,<timing window fields>,<per-stage distributions>
 ```
 
 - `elapsed_s` — seconds since the app started.
 - `fps` — frames in the last complete one-second window.
 - `cdt_ms` — latest wall-clock frame delta in milliseconds.
-- Timing stages — one-second averages for every `TIMING_STAGES` entry, in
+- Timing stage means — one-second averages for every `TIMING_STAGES` entry, in
   order:
   `surface_acq`, `update`, `ui_events`, `input`, `core_schedule`,
   `importer_poll`, `game_schedule`, `engine_events`, `realize`,
@@ -287,6 +289,8 @@ elapsed_s,fps,cdt_ms,<timing stages>,<cache counters>,<surface counters>,visible
   `gpu_volumetric_inject`, `gpu_volumetric_accumulate`,
   `gpu_volumetric_composite`, `gpu_scene_total`, `gpu_volumetrics`,
   `gpu_tonemap`, `gpu_aa`.
+  The same stage list is repeated at the end of the row as `<stage>_min`,
+  `<stage>_max`, and `<stage>_p95` columns.
   `gpu_models` is the forward opaque model section; `gpu_scene_total` is the
   aggregate of shadow, skybox, G-buffer, light culling, deferred lighting,
   forward models and transparent models. `gpu_volumetrics` is the aggregate of
@@ -313,12 +317,20 @@ elapsed_s,fps,cdt_ms,<timing stages>,<cache counters>,<surface counters>,visible
   `surface_width`, `surface_height`, `render_width`, `render_height`,
   `render_scale`, `scale_factor`, `dpi`, `orientation`, `refresh_rate_mhz`,
   `present_mode`, `frame_latency`, `pixels_per_frame`,
-  `render_scale_changes`, `render_resolution_changes`.
+  `render_scale_changes`, `render_resolution_changes`,
+  `gpu_timestamps_supported`, `gpu_timestamps_stale`.
   `refresh_rate_mhz` is empty when the platform does not report a value. The
   render fields change when adaptive scaling or a rotation changes the target
   size, so a capture can be split into comparable segments. The two change
   counters mark the rows where a scale or render-target change happened; a
   non-zero counter means that row covers a transition.
+  `gpu_timestamps_stale` is set when GPU timestamp results did not advance
+  between two capture rows, so the GPU stage columns should not be compared.
+- Timing window fields — `frames` (samples in the window), `cdt_mean_ms`,
+  `cdt_min_ms`, `cdt_max_ms`, and `cdt_p95_ms`. `cdt_ms` remains the latest
+  frame delta for backward compatibility; use the `cdt_*` columns for
+  distributions.
+
 `ORBITAL_PERF_DETAIL=1` additionally logs per-system game-schedule timings and
 per-overlay event/draw/submit timings once per second. It is intentionally
 opt-in because it adds locking and instrumentation to every system/layer.
@@ -349,10 +361,10 @@ ORBITAL_PERF_CSV=~/orbital-performance.csv \
 The notebook loads `performance_meta.json` when it is next to the CSV, then plots FPS,
 frame time, internal render scale and resolution, CPU/GPU stages and cache counters. It also
 prints automated observations such as frame-time percentiles, spike counts, the slowest
-stages, and the stage share of frame time. Render-scale change rows and a per-resolution
-segment table make phone/tablet captures comparable. Cache deltas, cumulative WGSL source
-count, and dynamic-sky updates are plotted on separate axes because they use different units
-and scales.
+stages, and the stage share of frame time. A stage-distribution table shows p95 and worst-case
+columns, while render-scale change rows and a per-resolution segment table make
+phone/tablet captures comparable. Cache deltas, cumulative WGSL source count, and dynamic-sky
+updates are plotted on separate axes because they use different units and scales.
 
 ## Troubleshooting
 
