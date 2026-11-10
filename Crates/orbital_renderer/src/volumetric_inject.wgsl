@@ -148,6 +148,11 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             }
         }
 
+        // No phase or shadow work for lights that cannot contribute.
+        if (attenuation <= 0.0) {
+            continue;
+        }
+
         let cos_theta = dot(view_direction, to_light);
         let phase_denom = max(1.0 + g * g - 2.0 * g * cos_theta, 1.0e-4);
         let phase = (1.0 - g * g) / (4.0 * 3.14159265 * pow(phase_denom, 1.5));

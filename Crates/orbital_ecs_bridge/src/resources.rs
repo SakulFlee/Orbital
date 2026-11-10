@@ -1578,7 +1578,7 @@ impl VolumetricQuality {
             Self::Low => [(width / 12).max(16), (height / 12).max(9), 64],
             Self::Medium => [(width / 8).max(24), (height / 8).max(14), 64],
             Self::High => [(width / 4).max(48), (height / 4).max(27), 64],
-            Self::Mobile => [(width / 20).max(32), (height / 20).max(20), 64],
+            Self::Mobile => [(width / 20).max(32), (height / 20).max(20), 48],
             Self::Custom {
                 grid_x,
                 grid_y,
@@ -1678,7 +1678,7 @@ mod volumetric_tests {
         assert_eq!(VolumetricQuality::Low.grid(1920, 1080), [160, 90, 64]);
         assert_eq!(VolumetricQuality::Medium.grid(1920, 1080), [240, 135, 64]);
         assert_eq!(VolumetricQuality::High.grid(1920, 1080), [480, 270, 64]);
-        assert_eq!(VolumetricQuality::Mobile.grid(1920, 1080), [96, 54, 64]);
+        assert_eq!(VolumetricQuality::Mobile.grid(1920, 1080), [96, 54, 48]);
         assert_eq!(VolumetricQuality::Medium.composite_steps(), 48);
         assert_eq!(VolumetricQuality::Mobile.composite_steps(), 16);
     }
