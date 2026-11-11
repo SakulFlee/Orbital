@@ -576,14 +576,18 @@ impl ModuleRuntime {
             .get_resource::<VolumetricSettings>()
             .map(|settings| *settings)
             .unwrap_or_default();
-        let (volumetric_grid, volumetric_composite_steps) = if volumetric.enabled {
+        let (volumetric_grid, volumetric_integration_steps) = if volumetric.enabled {
             (
                 volumetric.quality.resolved_grid(
                     render_size.x,
                     render_size.y,
                     volumetric.max_distance,
                 ),
-                volumetric.quality.composite_steps(),
+                volumetric.quality.integration_steps(
+                    render_size.x,
+                    render_size.y,
+                    volumetric.max_distance,
+                ),
             )
         } else {
             ([0; 3], 0)
@@ -606,7 +610,7 @@ impl ModuleRuntime {
             gpu_timestamps_supported,
             gpu_timestamps_stale,
             volumetric_grid,
-            volumetric_composite_steps,
+            volumetric_integration_steps,
         }
     }
 

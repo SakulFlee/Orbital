@@ -5,9 +5,7 @@
 // colour by the remaining transmittance, and add the in-scattering.
 
 struct CompositeParams {
-    steps: u32,
-    max_distance: f32,
-    _padding: vec2<f32>,
+    range: vec4<f32>,       // x = max integration distance
 }
 
 struct VertexOutput {
@@ -49,7 +47,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     let scene_view_position = volumetric_view_position(in.uv, depth);
     let scene_view_depth = max(-scene_view_position.z, 0.0);
-    let t_max = clamp(scene_view_depth / params.max_distance, 0.0, 1.0);
+    let t_max = clamp(scene_view_depth / params.range.x, 0.0, 1.0);
     let prefix = textureSampleLevel(
         integrated,
         integrated_sampler,

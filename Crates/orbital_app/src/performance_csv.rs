@@ -72,7 +72,7 @@ pub const PERFORMANCE_CAPTURE_NAMES: [&str; 23] = [
     "volumetric_grid_x",
     "volumetric_grid_y",
     "volumetric_grid_z",
-    "volumetric_composite_steps",
+    "volumetric_integration_steps",
 ];
 
 /// Per-row timing-window metadata.
@@ -122,8 +122,9 @@ pub struct CaptureSnapshot {
     pub gpu_timestamps_stale: bool,
     /// Resolved froxel grid dimensions, or zeros when volumetrics are off.
     pub volumetric_grid: [u32; 3],
-    /// Composite integration steps, or zero when volumetrics are off.
-    pub volumetric_composite_steps: u32,
+    /// Pre-integrated composite depth resolution, or zero when volumetrics
+    /// are off.
+    pub volumetric_integration_steps: u32,
 }
 
 impl Default for CaptureSnapshot {
@@ -145,7 +146,7 @@ impl Default for CaptureSnapshot {
             gpu_timestamps_supported: false,
             gpu_timestamps_stale: false,
             volumetric_grid: [0; 3],
-            volumetric_composite_steps: 0,
+            volumetric_integration_steps: 0,
         }
     }
 }
@@ -332,7 +333,7 @@ impl PerformanceCsvRecorder {
             capture.volumetric_grid[0],
             capture.volumetric_grid[1],
             capture.volumetric_grid[2],
-            capture.volumetric_composite_steps,
+            capture.volumetric_integration_steps,
         )?;
         write!(
             self.writer,

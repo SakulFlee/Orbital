@@ -34,11 +34,6 @@ const COMPOSITE_PARAMS_SIZE: u64 = 16;
 const ACCUM_PARAMS_SIZE: u64 = 160;
 const INTEGRATE_PARAMS_SIZE: u64 = 32;
 
-/// Upper bound for the pre-integrated depth resolution. The froxel grid is
-/// capped well below this; the extra headroom only applies to custom quality
-/// tiers that ask for finer composite integration than their grid.
-const MAX_INTEGRATION_STEPS: u32 = 512;
-
 /// Temporal blend weight for valid history. Volumetric fog is low-frequency;
 /// a high history weight removes the per-frame froxel shimmer without needing
 /// a full-screen TAA pass.
@@ -59,7 +54,6 @@ pub struct VolumetricRenderer {
     integrate_params: Buffer,
     composite_params: Buffer,
     grid: [u32; 3],
-    steps: u32,
     integration_steps: u32,
     inject_bind_group: Option<(TextureView, BindGroup)>,
     integrate_bind_group: Option<IntegrateBindGroupCache>,
@@ -541,7 +535,6 @@ impl VolumetricRenderer {
             integrate_params,
             composite_params,
             grid: [1, 1, 1],
-            steps: 1,
             integration_steps: 1,
             inject_bind_group: None,
             integrate_bind_group: None,
@@ -601,10 +594,12 @@ impl VolumetricRenderer {
             settings
                 .quality
                 .resolved_grid(resolution.x, resolution.y, settings.max_distance);
-        self.steps = settings.quality.composite_steps().max(1);
         // Integrate at least at the froxel grid's native depth resolution so
         // the composite does not undersample the volume it reads from.
-        self.integration_steps = self.grid[2].max(self.steps).min(MAX_INTEGRATION_STEPS);
+        self.integration_steps =
+            settings
+                .quality
+                .integration_steps(resolution.x, resolution.y, settings.max_distance);
         self.current_max_distance = settings.max_distance.max(0.1);
         self.frame_index = frame_index as u32;
         self.current_view = current_view;
@@ -669,8 +664,7 @@ impl VolumetricRenderer {
         queue.write_buffer(&self.inject_params, 0, &inject);
 
         let mut composite = [0u8; COMPOSITE_PARAMS_SIZE as usize];
-        composite[0..4].copy_from_slice(&self.steps.to_le_bytes());
-        composite[4..8].copy_from_slice(&settings.max_distance.to_le_bytes());
+        composite[0..4].copy_from_slice(&settings.max_distance.to_le_bytes());
         queue.write_buffer(&self.composite_params, 0, &composite);
     }
 
