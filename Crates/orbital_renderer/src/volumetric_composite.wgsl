@@ -1,8 +1,8 @@
 // Fullscreen volumetric composite.
 //
-// Integrates the froxel grid along the view ray in world/view distance,
-// multiplies the scene color by the accumulated transmittance, and adds the
-// accumulated in-scattering.
+// The froxel column has already been integrated into cumulative in-scattering
+// and transmittance. Sample that prefix at the scene depth, multiply the scene
+// colour by the remaining transmittance, and add the in-scattering.
 
 struct CompositeParams {
     steps: u32,
@@ -18,8 +18,8 @@ struct VertexOutput {
 @group(0) @binding(0) var<uniform> camera: CameraUniform;
 @group(1) @binding(0) var scene_color: texture_2d<f32>;
 @group(1) @binding(1) var scene_depth: texture_depth_2d;
-@group(1) @binding(2) var froxels: texture_3d<f32>;
-@group(1) @binding(3) var froxel_sampler: sampler;
+@group(1) @binding(2) var integrated: texture_3d<f32>;
+@group(1) @binding(3) var integrated_sampler: sampler;
 @group(1) @binding(4) var<uniform> params: CompositeParams;
 
 fn volumetric_view_position(uv: vec2<f32>, ndc_z: f32) -> vec3<f32> {
@@ -46,22 +46,16 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let pixel = vec2<i32>(in.position.xy);
     let scene = textureLoad(scene_color, pixel, 0);
     let depth = textureLoad(scene_depth, pixel, 0);
-    let steps = max(params.steps, 1u);
 
     let scene_view_position = volumetric_view_position(in.uv, depth);
     let scene_view_depth = max(-scene_view_position.z, 0.0);
     let t_max = clamp(scene_view_depth / params.max_distance, 0.0, 1.0);
-    let step_distance = t_max * params.max_distance / f32(steps);
+    let prefix = textureSampleLevel(
+        integrated,
+        integrated_sampler,
+        vec3<f32>(in.uv, t_max),
+        0.0,
+    );
 
-    var transmittance = 1.0;
-    var scattering = vec3<f32>(0.0);
-
-    for (var i = 0u; i < steps; i += 1u) {
-        let t = (f32(i) + 0.5) * (t_max / f32(steps));
-        let sample = textureSampleLevel(froxels, froxel_sampler, vec3<f32>(in.uv, t), 0.0);
-        scattering += transmittance * sample.rgb * step_distance;
-        transmittance *= exp(-sample.a * step_distance);
-    }
-
-    return vec4<f32>(scene.rgb * transmittance + scattering, 1.0);
+    return vec4<f32>(scene.rgb * prefix.a + prefix.rgb, 1.0);
 }
