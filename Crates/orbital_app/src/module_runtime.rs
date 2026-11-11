@@ -52,7 +52,8 @@ use orbital_ecs_bridge::{
     STAGE_REALIZE_MODELS, STAGE_SCENE_ENCODE, STAGE_SCENE_SUBMIT, STAGE_STAGGER, STAGE_SURFACE_ACQ,
     STAGE_SURFACE_ACQUIRE, STAGE_SURFACE_LOCK, STAGE_SURFACE_VIEW, STAGE_TIMESTAMP_READBACK,
     STAGE_TOTAL, STAGE_UI_EVENTS, STAGE_UPDATE, STAGE_VOLUMETRICS, ShadowDebugData,
-    SurfaceFormatResource, TIMING_STAGES, TimingsHistoryConfig, TotalTime, WindowSize,
+    SurfaceFormatResource, TIMING_STAGES, TimingsHistoryConfig, TotalTime, VolumetricSettings,
+    WindowSize,
 };
 use orbital_renderer::GPU_TIMESTAMP_COUNT;
 
@@ -569,6 +570,24 @@ impl ModuleRuntime {
         self.last_window_gpu_timestamp_generation =
             gpu_timestamps_supported.then_some(gpu_timestamp_generation);
 
+        let volumetric = self
+            .ecs_world
+            .get_resource::<VolumetricSettings>()
+            .map(|settings| *settings)
+            .unwrap_or_default();
+        let (volumetric_grid, volumetric_composite_steps) = if volumetric.enabled {
+            (
+                volumetric.quality.resolved_grid(
+                    render_size.x,
+                    render_size.y,
+                    volumetric.max_distance,
+                ),
+                volumetric.quality.composite_steps(),
+            )
+        } else {
+            ([0; 3], 0)
+        };
+
         CaptureSnapshot {
             window_width: self.window_size.x,
             window_height: self.window_size.y,
@@ -585,6 +604,8 @@ impl ModuleRuntime {
             fps_limit: settings.fps_limit,
             gpu_timestamps_supported,
             gpu_timestamps_stale,
+            volumetric_grid,
+            volumetric_composite_steps,
         }
     }
 

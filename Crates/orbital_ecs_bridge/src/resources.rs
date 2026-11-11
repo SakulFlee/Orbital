@@ -1681,6 +1681,14 @@ pub struct NewLightBootstrap(pub bool);
 // Volumetrics
 // ---------------------------------------------------------------------------
 
+/// Target world-space spacing between froxel depth slices for the desktop
+/// quality tiers. Short light cones should not pop between slices as the
+/// camera moves.
+const TARGET_DEPTH_SLICE_SPACING: f32 = 0.15;
+/// Upper bound for adaptive depth slices. The X/Y grid still follows the
+/// selected quality tier.
+const MAX_DEPTH_SLICES: u32 = 192;
+
 /// Froxel grid quality tier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum VolumetricQuality {
@@ -1702,7 +1710,11 @@ pub enum VolumetricQuality {
 }
 
 impl VolumetricQuality {
-    /// Grid dimensions for a render resolution.
+    /// Grid dimensions for a render resolution before adaptive depth slicing.
+    ///
+    /// Prefer [`Self::resolved_grid`] when the grid is needed for capture
+    /// metadata or diagnostics: it applies the same depth-slice rule as the
+    /// renderer.
     pub fn grid(self, width: u32, height: u32) -> [u32; 3] {
         match self {
             Self::Low => [(width / 12).max(16), (height / 12).max(9), 64],
@@ -1716,6 +1728,25 @@ impl VolumetricQuality {
                 ..
             } => [grid_x.max(1), grid_y.max(1), grid_z.max(1)],
         }
+    }
+
+    /// Grid dimensions the renderer actually uses for a render resolution
+    /// and integration distance.
+    ///
+    /// Desktop tiers scale depth slices with [`max_distance`](Self::grid) so
+    /// short light cones keep the same sampling density over a longer range.
+    /// Mobile and custom tiers keep their explicit depth resolution.
+    pub fn resolved_grid(self, width: u32, height: u32, max_distance: f32) -> [u32; 3] {
+        let mut grid = self.grid(width, height);
+        if !matches!(self, Self::Custom { .. } | Self::Mobile) {
+            let target = (max_distance.max(0.1) / TARGET_DEPTH_SLICE_SPACING).ceil() as u32;
+            grid[2] = grid[2].max(target);
+        }
+        [
+            grid[0].clamp(1, 512),
+            grid[1].clamp(1, 512),
+            grid[2].clamp(1, MAX_DEPTH_SLICES),
+        ]
     }
 
     pub fn composite_steps(self) -> u32 {
@@ -1811,6 +1842,36 @@ mod volumetric_tests {
         assert_eq!(VolumetricQuality::Mobile.grid(1920, 1080), [96, 54, 48]);
         assert_eq!(VolumetricQuality::Medium.composite_steps(), 48);
         assert_eq!(VolumetricQuality::Mobile.composite_steps(), 8);
+    }
+
+    #[test]
+    fn resolved_grid_scales_depth_with_distance() {
+        // 30 world units at the target 0.15 slice spacing needs 200 slices,
+        // which is capped at the 192-slice maximum.
+        assert_eq!(
+            VolumetricQuality::Low.resolved_grid(1920, 1080, 30.0),
+            [160, 90, 192]
+        );
+        // A short range keeps the tier's base depth resolution.
+        assert_eq!(
+            VolumetricQuality::Low.resolved_grid(1920, 1080, 8.0),
+            [160, 90, 64]
+        );
+        // Mobile and custom tiers keep their explicit depth resolution.
+        assert_eq!(
+            VolumetricQuality::Mobile.resolved_grid(1920, 1080, 30.0),
+            [96, 54, 48]
+        );
+        assert_eq!(
+            VolumetricQuality::Custom {
+                grid_x: 0,
+                grid_y: 12,
+                grid_z: 7,
+                composite_steps: 0,
+            }
+            .resolved_grid(1920, 1080, 30.0),
+            [1, 12, 7]
+        );
     }
 
     #[test]

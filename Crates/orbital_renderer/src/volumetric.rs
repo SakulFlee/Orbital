@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use cgmath::{Matrix4, Vector2};
-use orbital_ecs_bridge::{VolumetricQuality, VolumetricSettings};
+use orbital_ecs_bridge::VolumetricSettings;
 use orbital_shader_preprocessor::{NodeRegistry, ShaderBuilder};
 use wgpu::{
     BindGroup, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
@@ -37,13 +37,6 @@ const ACCUM_PARAMS_SIZE: u64 = 160;
 /// a high history weight removes the per-frame froxel shimmer without needing
 /// a full-screen TAA pass.
 const HISTORY_BLEND: f32 = 0.9;
-
-/// Keep the world-space spacing between froxel depth slices small enough
-/// that short light cones do not pop between slices as the camera moves.
-const TARGET_DEPTH_SLICE_SPACING: f32 = 0.15;
-/// Upper bound for adaptive depth slices; the X/Y grid still follows the
-/// selected `VolumetricQuality`.
-const MAX_DEPTH_SLICES: u32 = 192;
 
 pub struct VolumetricRenderer {
     inject_pipeline: ComputePipeline,
@@ -471,23 +464,13 @@ impl VolumetricRenderer {
         current_view: Option<Matrix4<f32>>,
         current_view_projection: Option<Matrix4<f32>>,
     ) {
-        let mut grid = settings.quality.grid(resolution.x, resolution.y);
-        if !matches!(
-            settings.quality,
-            VolumetricQuality::Custom { .. } | VolumetricQuality::Mobile
-        ) {
-            // Fixed slice counts make a longer max distance coarser in world
-            // space. Scale the depth resolution with the requested range so
-            // short spot cones keep the same sampling density.
-            let target =
-                (settings.max_distance.max(0.1) / TARGET_DEPTH_SLICE_SPACING).ceil() as u32;
-            grid[2] = grid[2].max(target);
-        }
-        self.grid = [
-            grid[0].clamp(1, 512),
-            grid[1].clamp(1, 512),
-            grid[2].clamp(1, MAX_DEPTH_SLICES),
-        ];
+        // Fixed slice counts make a longer max distance coarser in world
+        // space. `resolved_grid` scales the depth resolution with the
+        // requested range so short spot cones keep the same sampling density.
+        self.grid =
+            settings
+                .quality
+                .resolved_grid(resolution.x, resolution.y, settings.max_distance);
         self.steps = settings.quality.composite_steps().max(1);
         self.current_max_distance = settings.max_distance.max(0.1);
         self.frame_index = frame_index as u32;
