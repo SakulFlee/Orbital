@@ -1,12 +1,13 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{self, Receiver, TryRecvError};
 
 use orbital::app::{
     App, AppSettings, CursorToggle, LayerRenderer, Module, RenderLayer, RenderOverlayContext,
     sys_camera_controller, sys_ortho_dolly,
 };
 use orbital::billboard::{
-    BillboardMode, BillboardModule, SharedTextAtlas, Text, text_billboard_with_atlas,
+    Billboard, BillboardMode, BillboardModule, SharedTextAtlas, Text, text_billboard_with_atlas,
 };
 use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector3};
 use orbital::debug_render::DebugModule;
@@ -165,14 +166,59 @@ fn room_shell_kind(label: &str) -> &'static str {
     }
 }
 
-fn spawn_text_label(
-    ecs: &mut World,
+/// Floating room labels, as authored positions and orientations.
+fn room_labels() -> [(&'static str, Point3<f32>, BillboardMode); 8] {
+    [
+        (
+            "Metallic Materials",
+            Point3::new(-20.0, 6.4, 5.25),
+            BillboardMode::YAxis,
+        ),
+        (
+            "Matte Materials",
+            Point3::new(-10.0, 6.4, 5.25),
+            BillboardMode::YAxis,
+        ),
+        (
+            "Moving Spot",
+            Point3::new(0.0, 6.4, 5.25),
+            BillboardMode::YAxis,
+        ),
+        (
+            "Helmet Gallery",
+            Point3::new(10.0, 6.4, 5.25),
+            BillboardMode::YAxis,
+        ),
+        (
+            "Colored Helmet",
+            Point3::new(20.0, 6.4, 5.25),
+            BillboardMode::YAxis,
+        ),
+        (
+            "Transparency",
+            Point3::new(-20.0, 6.4, 14.75),
+            BillboardMode::YAxis,
+        ),
+        (
+            "Anti-Aliasing",
+            Point3::new(-10.0, 6.4, 14.75),
+            BillboardMode::YAxis,
+        ),
+        (
+            "All-in-One",
+            Point3::new(0.0, 7.6, HALLWAY_MIRROR_Z),
+            BillboardMode::Full,
+        ),
+    ]
+}
+
+fn build_text_label(
     font: &mut orbital::text::FontData,
     atlas: &SharedTextAtlas,
     text: &str,
     position: Point3<f32>,
     mode: BillboardMode,
-) {
+) -> (Text, Billboard) {
     let label = text_billboard_with_atlas(
         text,
         font,
@@ -190,20 +236,36 @@ fn spawn_text_label(
     )
     .with_position(position)
     .with_mode(mode);
-    let entity = ecs.spawn_entity();
-    ecs.attach_component(
-        &entity,
-        Text::new(text)
-            .with_font_size(LABEL_FONT_SIZE)
-            .with_color(LABEL_COLOR)
-            .with_background(Some(LABEL_BACKGROUND))
-            .with_world_scale(LABEL_WORLD_SCALE)
-            .with_atlas_size(LABEL_ATLAS_SIZE)
-            .with_alpha_mode(AlphaMode::Blend)
-            .with_shared_atlas(atlas.clone()),
-    )
-    .unwrap();
-    ecs.attach_component(&entity, label).unwrap();
+    let text = Text::new(text)
+        .with_font_size(LABEL_FONT_SIZE)
+        .with_color(LABEL_COLOR)
+        .with_background(Some(LABEL_BACKGROUND))
+        .with_world_scale(LABEL_WORLD_SCALE)
+        .with_atlas_size(LABEL_ATLAS_SIZE)
+        .with_alpha_mode(AlphaMode::Blend)
+        .with_shared_atlas(atlas.clone());
+    (text, label)
+}
+
+/// Builds the full label group, including the shared SDF atlas.
+///
+/// This is expensive enough to trip Android's ANR watchdog when run during
+/// startup, so callers must invoke it on a worker thread.
+fn build_room_labels() -> Vec<(Text, Billboard)> {
+    let labels = room_labels();
+    let mut font = DefaultFont::load();
+    let shared_atlas = SharedTextAtlas::build_with_atlas_size(
+        &mut font,
+        LABEL_FONT_SIZE,
+        LABEL_ATLAS_SIZE,
+        labels.iter().map(|(text, _, _)| *text),
+    );
+    labels
+        .into_iter()
+        .map(|(text, position, mode)| {
+            build_text_label(&mut font, &shared_atlas, text, position, mode)
+        })
+        .collect()
 }
 
 fn spawn_scene_model(
@@ -387,6 +449,68 @@ impl System for HelmetAdjuster {
             info!("Adjusted helmet instances in R4 and R5");
             break;
         }
+    }
+}
+
+/// Frames to present before attaching the room labels, so their material
+/// realization does not compete with startup and the first frame.
+const LABEL_ATTACH_DELAY_FRAMES: u8 = 3;
+
+/// Attaches room labels once their background atlas build completes.
+struct AsyncRoomLabels {
+    receiver: Option<Receiver<Vec<(Text, Billboard)>>>,
+    delay_frames: u8,
+    access: ComponentAccess,
+}
+
+impl AsyncRoomLabels {
+    fn new(receiver: Receiver<Vec<(Text, Billboard)>>) -> Self {
+        Self {
+            receiver: Some(receiver),
+            delay_frames: LABEL_ATTACH_DELAY_FRAMES,
+            access: ComponentAccess::new()
+                .writes::<Text>()
+                .writes::<Billboard>(),
+        }
+    }
+}
+
+impl System for AsyncRoomLabels {
+    fn name(&self) -> &str {
+        "async_room_labels"
+    }
+
+    fn access(&self) -> &ComponentAccess {
+        &self.access
+    }
+
+    fn run(&mut self, _world: &World, commands: &mut Commands) {
+        if self.delay_frames > 0 {
+            self.delay_frames -= 1;
+            return;
+        }
+
+        let Some(receiver) = self.receiver.as_ref() else {
+            return;
+        };
+        let labels = match receiver.try_recv() {
+            Ok(labels) => labels,
+            Err(TryRecvError::Empty) => return,
+            Err(TryRecvError::Disconnected) => {
+                error!("Room-label worker stopped before producing labels");
+                self.receiver = None;
+                return;
+            }
+        };
+        self.receiver = None;
+
+        let count = labels.len();
+        for (text, billboard) in labels {
+            let entity = commands.spawn_entity();
+            commands.attach_component(&entity, text);
+            commands.attach_component(&entity, billboard);
+        }
+        info!("Attached {count} room labels from the background atlas build");
     }
 }
 
@@ -798,65 +922,28 @@ impl Module for ProcgeoSceneModule {
 
         // Floating SDF labels for both room rows.
         //
-        // Android builds the shared atlas on the main thread; it covers every
-        // label character exactly once instead of building one atlas per
-        // label. Labels stay disabled there until the startup budget from
-        // #1066 has been verified on device.
-        if !cfg!(target_os = "android") {
-            let labels = [
-                (
-                    "Metallic Materials",
-                    Point3::new(-20.0, 6.4, 5.25),
-                    BillboardMode::YAxis,
-                ),
-                (
-                    "Matte Materials",
-                    Point3::new(-10.0, 6.4, 5.25),
-                    BillboardMode::YAxis,
-                ),
-                (
-                    "Moving Spot",
-                    Point3::new(0.0, 6.4, 5.25),
-                    BillboardMode::YAxis,
-                ),
-                (
-                    "Helmet Gallery",
-                    Point3::new(10.0, 6.4, 5.25),
-                    BillboardMode::YAxis,
-                ),
-                (
-                    "Colored Helmet",
-                    Point3::new(20.0, 6.4, 5.25),
-                    BillboardMode::YAxis,
-                ),
-                (
-                    "Transparency",
-                    Point3::new(-20.0, 6.4, 14.75),
-                    BillboardMode::YAxis,
-                ),
-                (
-                    "Anti-Aliasing",
-                    Point3::new(-10.0, 6.4, 14.75),
-                    BillboardMode::YAxis,
-                ),
-                (
-                    "All-in-One",
-                    Point3::new(0.0, 7.6, HALLWAY_MIRROR_Z),
-                    BillboardMode::Full,
-                ),
-            ];
-
-            let mut font = DefaultFont::load();
-            let shared_atlas = SharedTextAtlas::build_with_atlas_size(
-                &mut font,
-                LABEL_FONT_SIZE,
-                LABEL_ATLAS_SIZE,
-                labels.iter().map(|(text, _, _)| *text),
-            );
-            for (text, position, mode) in labels {
-                spawn_text_label(ecs, &mut font, &shared_atlas, text, position, mode);
+        // Building the shared atlas is CPU-heavy enough to trip Android's ANR
+        // watchdog on the main thread, so prepare the atlas and label meshes on
+        // a worker and attach them once the app is already presenting frames.
+        let (label_sender, label_receiver) = mpsc::channel();
+        let async_room_labels: Option<Box<dyn System>> = match std::thread::Builder::new()
+            .name("room-label-atlas".into())
+            .spawn(move || {
+                let started = std::time::Instant::now();
+                let labels = build_room_labels();
+                info!(
+                    "Built {} room labels in {:?} on the room-label worker",
+                    labels.len(),
+                    started.elapsed()
+                );
+                let _ = label_sender.send(labels);
+            }) {
+            Ok(_) => Some(Box::new(AsyncRoomLabels::new(label_receiver))),
+            Err(e) => {
+                error!("Failed to start the room-label worker: {e}");
+                None
             }
-        }
+        };
 
         // Import the DamagedHelmet into Room 2
         if let Some(mut queue) = ecs.get_resource_mut::<ImportQueueResource>() {
@@ -1039,14 +1126,18 @@ impl Module for ProcgeoSceneModule {
             .unwrap();
         ecs.attach_component(&fill, LightDirty(true)).unwrap();
 
-        vec![
+        let mut systems = vec![
             sys_camera_controller(),
             sys_ortho_dolly(),
             Box::new(CursorToggle::new(true)),
             Box::new(HelmetAdjuster::new()),
             Box::new(moving_spot),
             sys_animate_dynamic_sky(14.0).into_system(),
-        ]
+        ];
+        if let Some(async_room_labels) = async_room_labels {
+            systems.push(async_room_labels);
+        }
+        systems
     }
 
     fn register_overlays(
