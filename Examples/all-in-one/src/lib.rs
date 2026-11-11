@@ -9,7 +9,7 @@ use orbital::app::{
 use orbital::billboard::{
     Billboard, BillboardMode, BillboardModule, SharedTextAtlas, Text, text_billboard_with_atlas,
 };
-use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector3};
+use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Rotation3, Vector3};
 use orbital::debug_render::DebugModule;
 use orbital::ecs::{Commands, ComponentAccess, IntoSystem, Res, ResMut, System, World};
 use orbital::ecs_bridge::{
@@ -69,6 +69,13 @@ mod tests {
         assert_eq!(second_row_room_name(0.0), "R8");
         assert_eq!(second_row_room_name(10.0), "R9");
         assert_eq!(second_row_room_name(20.0), "R10");
+    }
+
+    #[test]
+    fn custom_shader_room_is_labelled() {
+        assert!(room_labels().iter().any(|(text, position, _)| {
+            *text == "Custom Shader" && position.x == 0.0 && position.z == 14.75
+        }));
     }
 }
 
@@ -857,7 +864,7 @@ impl Module for ProcgeoSceneModule {
         // empty mirrored shells, so it gets a dedicated exhibit in the middle
         // of the second row.
         let custom_material = Arc::new(MaterialShaderDescriptor {
-            name: Some("AiO Custom Gradient".into()),
+            name: Some("AiO Custom Shader".into()),
             nodes: &[
                 "camera_uniform",
                 "vertex_data_simple",
