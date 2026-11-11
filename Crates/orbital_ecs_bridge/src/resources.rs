@@ -198,8 +198,6 @@ pub const STAGE_PRESENT: usize = 24;
 /// end of present. This is not the wall-clock frame period; see
 /// [`RENDER_TOTAL_STAGE_INDEX`] and the `cdt_ms` timing window field.
 pub const STAGE_RENDER_TOTAL: usize = 25;
-/// Compatibility alias for [`STAGE_RENDER_TOTAL`].
-pub const STAGE_TOTAL: usize = STAGE_RENDER_TOTAL;
 pub const STAGE_FRAME_LIMITER: usize = 26;
 pub const STAGE_FRAME_GAP: usize = 27;
 pub const STAGE_SURFACE_LOCK: usize = 28;
@@ -226,8 +224,6 @@ pub const STAGE_GPU_AA: usize = 45;
 /// `frame_limiter`, and `frame_gap` for the wall-clock frame period, or read
 /// the `cdt_ms` timing-window field directly.
 pub const RENDER_TOTAL_STAGE_INDEX: usize = STAGE_RENDER_TOTAL;
-/// Compatibility alias for [`RENDER_TOTAL_STAGE_INDEX`].
-pub const TOTAL_STAGE_INDEX: usize = STAGE_RENDER_TOTAL;
 
 /// The first GPU stage. Stages at or after this index are invalid when the
 /// backend does not support timestamp queries.

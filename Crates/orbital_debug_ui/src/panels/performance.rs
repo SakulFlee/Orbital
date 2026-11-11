@@ -10,7 +10,7 @@ use orbital_ecs::World;
 use orbital_ecs_bridge::{
     FpsStats, FrameTimings, GPU_STAGE_START, PerformanceLogConfig, STAGE_FRAME_GAP,
     STAGE_FRAME_LIMITER, STAGE_GPU_COMPLETE, STAGE_GPU_SCENE_TOTAL, STAGE_PRESENT,
-    STAGE_SURFACE_ACQ, TIMING_STAGES, TOTAL_STAGE_INDEX,
+    STAGE_SURFACE_ACQ, TIMING_STAGES,
 };
 
 use crate::sparkline::{Line, Sparkline};
@@ -144,8 +144,7 @@ fn thresholds_for(series: GraphSeries) -> Thresholds {
             }
         }
         GraphSeries::Stage(index)
-            if index == TOTAL_STAGE_INDEX
-                || index == STAGE_PRESENT
+            if index == STAGE_PRESENT
                 || index == STAGE_SURFACE_ACQ
                 || index == STAGE_FRAME_GAP
                 || index == STAGE_FRAME_LIMITER
@@ -270,7 +269,7 @@ pub fn performance_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Ic
             sections.push(table_row(
                 &state,
                 GraphSeries::Fps,
-                "FPS (inst)",
+                "FPS (timer)",
                 stats(&fps_values),
                 format_fps,
                 true,
@@ -280,7 +279,7 @@ pub fn performance_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Ic
             sections.push(table_row(
                 &state,
                 GraphSeries::Cdt,
-                "CDT (ms)",
+                "frame time (CDT)",
                 stats(&cdt_values),
                 format_ms_f32,
                 true,
@@ -462,16 +461,11 @@ fn graph(
     let (values, label, unit, color) = match series {
         GraphSeries::Stage(index) => {
             let name = TIMING_STAGES.get(index).copied().unwrap_or("stage");
-            let label = if index == TOTAL_STAGE_INDEX {
-                "frame time"
-            } else {
-                name
-            };
 
-            (stage_values(timings, start, index), label, "ms", LAST_COLOR)
+            (stage_values(timings, start, index), name, "ms", LAST_COLOR)
         }
-        GraphSeries::Fps => (fps_values(timings, start), "FPS (inst)", "fps", AVG_COLOR),
-        GraphSeries::Cdt => (cdt_values(timings, start), "CDT", "ms", MAX_COLOR),
+        GraphSeries::Fps => (fps_values(timings, start), "FPS (timer)", "fps", AVG_COLOR),
+        GraphSeries::Cdt => (cdt_values(timings, start), "frame time", "ms", MAX_COLOR),
     };
 
     let times = timings
@@ -706,20 +700,18 @@ fn stage_values(timings: &FrameTimings, start: usize, index: usize) -> Vec<f32> 
         .collect()
 }
 
+/// Instantaneous FPS from the timer's wall-clock frame delta.
+///
+/// This deliberately does not use the renderer-only `render_total` stage:
+/// update, surface acquisition and event-loop time are part of the frame
+/// period, so deriving FPS from render time over-reports it. Averaging these
+/// samples over one second matches the CSV `fps` column.
 fn fps_values(timings: &FrameTimings, start: usize) -> Vec<f32> {
     timings
-        .history()
+        .cdt_history()
         .iter()
         .skip(start)
-        .map(|frame| {
-            let total = frame.get(TOTAL_STAGE_INDEX).copied().unwrap_or(0.0);
-
-            if total > 0.0 {
-                (1000.0 / total) as f32
-            } else {
-                0.0
-            }
-        })
+        .map(|&cdt_ms| if cdt_ms > 0.0 { 1000.0 / cdt_ms } else { 0.0 })
         .collect()
 }
 
@@ -925,7 +917,6 @@ fn is_frame_series(series: GraphSeries) -> bool {
         series,
         GraphSeries::Fps
             | GraphSeries::Cdt
-            | GraphSeries::Stage(TOTAL_STAGE_INDEX)
             | GraphSeries::Stage(STAGE_PRESENT)
             | GraphSeries::Stage(STAGE_SURFACE_ACQ)
             | GraphSeries::Stage(STAGE_GPU_SCENE_TOTAL)
@@ -949,6 +940,8 @@ fn threshold_label(series: GraphSeries, value: f32, unit: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use orbital_ecs_bridge::RENDER_TOTAL_STAGE_INDEX;
+
     use super::*;
 
     #[test]
@@ -968,15 +961,53 @@ mod tests {
         assert_eq!(format_graph_value(342.4, "fps"), "342");
         assert_eq!(format_graph_value(3.021, "ms"), "3.021");
         assert_eq!(threshold_label(GraphSeries::Fps, 60.0, "fps"), "60 fps");
+        assert_eq!(threshold_label(GraphSeries::Cdt, 16.666, "ms"), "60 fps");
         assert_eq!(
-            threshold_label(GraphSeries::Stage(TOTAL_STAGE_INDEX), 16.666, "ms"),
-            "60 fps"
+            threshold_label(GraphSeries::Stage(RENDER_TOTAL_STAGE_INDEX), 16.666, "ms"),
+            "16.7 ms"
         );
 
         use orbital_ecs_bridge::STAGE_UPDATE;
         assert_eq!(
             threshold_label(GraphSeries::Stage(STAGE_UPDATE), 1.0, "ms"),
             "1.0 ms"
+        );
+    }
+
+    #[test]
+    fn fps_uses_the_wall_clock_frame_delta_not_render_total() {
+        let mut timings = FrameTimings::new();
+        let mut durations = vec![0.0; TIMING_STAGES.len()];
+        durations[RENDER_TOTAL_STAGE_INDEX] = 4.0;
+
+        timings.record_at(
+            &durations,
+            0.0,
+            16.0,
+            orbital_ecs_bridge::TimingsHistoryConfig {
+                enabled: true,
+                window_secs: 10.0,
+            },
+        );
+
+        // 1000 / 16 ms = 62.5 FPS. Deriving from the 4 ms render total would
+        // incorrectly report 250 FPS.
+        assert_eq!(fps_values(&timings, 0), vec![62.5]);
+        assert!(fps_values(&timings, 1).is_empty());
+
+        timings.record_at(
+            &durations,
+            1.0,
+            0.0,
+            orbital_ecs_bridge::TimingsHistoryConfig {
+                enabled: true,
+                window_secs: 10.0,
+            },
+        );
+        assert_eq!(
+            fps_values(&timings, 1),
+            vec![0.0],
+            "zero deltas are skipped"
         );
     }
 
@@ -1093,8 +1124,9 @@ mod tests {
         assert_eq!(thresholds_for(GraphSeries::Fps), FPS_THRESHOLDS);
         assert_eq!(thresholds_for(GraphSeries::Cdt), FRAME_THRESHOLDS);
         assert_eq!(
-            thresholds_for(GraphSeries::Stage(TOTAL_STAGE_INDEX)),
-            FRAME_THRESHOLDS
+            thresholds_for(GraphSeries::Stage(RENDER_TOTAL_STAGE_INDEX)),
+            CPU_STAGE_THRESHOLDS,
+            "render total is a stage, not the whole frame"
         );
         assert_eq!(
             thresholds_for(GraphSeries::Stage(STAGE_SURFACE_ACQ)),
