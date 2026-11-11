@@ -95,8 +95,10 @@ impl SdfAtlas {
 
     /// Builds an SDF atlas from a font for the given character set.
     ///
-    /// Generates SDF data for each character and packs it into the atlas.
-    /// Returns the populated atlas with glyph UV coordinates.
+    /// Generates SDF data for each unique character and packs it into the
+    /// atlas. Repeated characters are rasterized and converted only once, so
+    /// callers can pass the union of several strings without paying for the
+    /// same glyph twice.
     pub fn build_atlas(
         font: &mut FontData,
         font_size: u32,
@@ -107,10 +109,12 @@ impl SdfAtlas {
     ) -> Self {
         let mut atlas = SdfAtlas::new(atlas_width, atlas_height);
         let mut packer = ShelfPacker::new(atlas_width, atlas_height);
+        let mut packed = std::collections::HashSet::new();
 
         for ch in characters.chars() {
-            // Get glyph info (generates SDF and caches it)
-            let _glyph_info = font.get_glyph(ch, font_size, sdf_scale);
+            if !packed.insert(ch) {
+                continue;
+            }
 
             // Get the SDF bitmap from fontdue
             let (metrics, bitmap) = font.font().rasterize(ch, font_size as f32);
@@ -245,5 +249,17 @@ mod tests {
         let glyph = atlas.pack_glyph('A', &sdf_data, 16, 16, 0, 0, &metrics);
         assert!(atlas.get_glyph('A').is_some());
         assert_eq!(glyph.size, [16.0, 16.0]);
+    }
+
+    #[test]
+    fn repeated_characters_are_packed_once() {
+        let font_data = include_bytes!("../assets/default.ttf");
+        let mut font = crate::font::FontData::from_bytes(font_data).unwrap();
+
+        let repeated = SdfAtlas::build_atlas(&mut font, 32, "AABB", 8.0, 256, 256);
+        let unique = SdfAtlas::build_atlas(&mut font, 32, "AB", 8.0, 256, 256);
+
+        assert_eq!(repeated.glyphs.len(), 2);
+        assert_eq!(repeated.data, unique.data);
     }
 }

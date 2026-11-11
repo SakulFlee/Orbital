@@ -5,7 +5,9 @@ use orbital::app::{
     App, AppSettings, CursorToggle, LayerRenderer, Module, RenderLayer, RenderOverlayContext,
     sys_camera_controller, sys_ortho_dolly,
 };
-use orbital::billboard::{BillboardMode, BillboardModule, Text, text_billboard_with_background};
+use orbital::billboard::{
+    BillboardMode, BillboardModule, SharedTextAtlas, Text, text_billboard_with_atlas,
+};
 use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector3};
 use orbital::debug_render::DebugModule;
 use orbital::ecs::{Commands, ComponentAccess, IntoSystem, Res, ResMut, System, World};
@@ -110,6 +112,13 @@ mod tests {
 /// placed at `2 * HALLWAY_MIRROR_Z - z`, leaving the corridor between them.
 const HALLWAY_MIRROR_Z: f32 = 10.0;
 
+/// Shared style for the floating room labels. Every label uses the same font
+/// size and colours, so one atlas and one material serve the whole group.
+const LABEL_FONT_SIZE: f32 = 128.0;
+const LABEL_WORLD_SCALE: f32 = 0.00225;
+const LABEL_COLOR: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
+const LABEL_BACKGROUND: [f32; 4] = [0.025, 0.035, 0.07, 0.55];
+
 /// Room shells are the floor, back wall and side walls; their contents are
 /// deliberately *not* mirrored. The first row has R1-R5, while the second row
 /// owns R6-R10 and therefore gets only fresh, empty shells.
@@ -148,21 +157,23 @@ fn room_shell_kind(label: &str) -> &'static str {
 fn spawn_text_label(
     ecs: &mut World,
     font: &mut orbital::text::FontData,
+    atlas: &SharedTextAtlas,
     text: &str,
     position: Point3<f32>,
     mode: BillboardMode,
 ) {
-    let label = text_billboard_with_background(
+    let label = text_billboard_with_atlas(
         text,
         font,
         &TextConfig {
-            font_size: 128.0,
-            color: [1.0, 1.0, 1.0, 1.0],
+            font_size: LABEL_FONT_SIZE,
+            color: LABEL_COLOR,
             ..Default::default()
         },
-        0.00225,
+        atlas,
+        LABEL_WORLD_SCALE,
         None,
-        Some([0.025, 0.035, 0.07, 0.55]),
+        Some(LABEL_BACKGROUND),
         AlphaMode::Blend,
     )
     .with_position(position)
@@ -171,11 +182,12 @@ fn spawn_text_label(
     ecs.attach_component(
         &entity,
         Text::new(text)
-            .with_font_size(128.0)
-            .with_color([1.0, 1.0, 1.0, 1.0])
-            .with_background(Some([0.025, 0.035, 0.07, 0.55]))
-            .with_world_scale(0.00225)
-            .with_alpha_mode(AlphaMode::Blend),
+            .with_font_size(LABEL_FONT_SIZE)
+            .with_color(LABEL_COLOR)
+            .with_background(Some(LABEL_BACKGROUND))
+            .with_world_scale(LABEL_WORLD_SCALE)
+            .with_alpha_mode(AlphaMode::Blend)
+            .with_shared_atlas(atlas.clone()),
     )
     .unwrap();
     ecs.attach_component(&entity, label).unwrap();
@@ -773,47 +785,63 @@ impl Module for ProcgeoSceneModule {
 
         // Floating SDF labels for both room rows.
         //
-        // Android currently spends tens of seconds building one SDF atlas per
-        // label on the main thread, which trips the system ANR watchdog before
-        // the first frame. Keep the labels on desktop/iOS until the label
-        // atlases are shared or built off-thread.
+        // Android builds the shared atlas on the main thread; it covers every
+        // label character exactly once instead of building one atlas per
+        // label. Labels stay disabled there until the startup budget from
+        // #1066 has been verified on device.
         if !cfg!(target_os = "android") {
-            let mut font = DefaultFont::load();
-            let first_row_labels = [
-                (-20.0, "Metallic Materials"),
-                (-10.0, "Matte Materials"),
-                (0.0, "Moving Spot"),
-                (10.0, "Helmet Gallery"),
-                (20.0, "Colored Helmet"),
+            let labels = [
+                (
+                    "Metallic Materials",
+                    Point3::new(-20.0, 6.4, 5.25),
+                    BillboardMode::YAxis,
+                ),
+                (
+                    "Matte Materials",
+                    Point3::new(-10.0, 6.4, 5.25),
+                    BillboardMode::YAxis,
+                ),
+                (
+                    "Moving Spot",
+                    Point3::new(0.0, 6.4, 5.25),
+                    BillboardMode::YAxis,
+                ),
+                (
+                    "Helmet Gallery",
+                    Point3::new(10.0, 6.4, 5.25),
+                    BillboardMode::YAxis,
+                ),
+                (
+                    "Colored Helmet",
+                    Point3::new(20.0, 6.4, 5.25),
+                    BillboardMode::YAxis,
+                ),
+                (
+                    "Transparency",
+                    Point3::new(-20.0, 6.4, 14.75),
+                    BillboardMode::YAxis,
+                ),
+                (
+                    "Anti-Aliasing",
+                    Point3::new(-10.0, 6.4, 14.75),
+                    BillboardMode::YAxis,
+                ),
+                (
+                    "All-in-One",
+                    Point3::new(0.0, 7.6, HALLWAY_MIRROR_Z),
+                    BillboardMode::Full,
+                ),
             ];
-            for (x, text) in first_row_labels {
-                spawn_text_label(
-                    ecs,
-                    &mut font,
-                    text,
-                    Point3::new(x, 6.4, 5.25),
-                    BillboardMode::YAxis,
-                );
-            }
 
-            let second_row_labels = [(-20.0, "Transparency"), (-10.0, "Anti-Aliasing")];
-            for (x, text) in second_row_labels {
-                spawn_text_label(
-                    ecs,
-                    &mut font,
-                    text,
-                    Point3::new(x, 6.4, 14.75),
-                    BillboardMode::YAxis,
-                );
-            }
-
-            spawn_text_label(
-                ecs,
+            let mut font = DefaultFont::load();
+            let shared_atlas = SharedTextAtlas::build(
                 &mut font,
-                "All-in-One",
-                Point3::new(0.0, 7.6, HALLWAY_MIRROR_Z),
-                BillboardMode::Full,
+                LABEL_FONT_SIZE,
+                labels.iter().map(|(text, _, _)| *text),
             );
+            for (text, position, mode) in labels {
+                spawn_text_label(ecs, &mut font, &shared_atlas, text, position, mode);
+            }
         }
 
         // Import the DamagedHelmet into Room 2

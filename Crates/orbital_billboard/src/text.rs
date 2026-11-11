@@ -1,6 +1,7 @@
 //! World-space SDF text built on the billboard component.
 
-use std::sync::Arc;
+use std::collections::{HashMap, HashSet};
+use std::sync::{Arc, Mutex};
 
 use cgmath::{Vector2, Vector3};
 use orbital_ecs_bridge::{EditableField, EditableFields, EditableValue};
@@ -22,6 +23,140 @@ use crate::Billboard;
 const TEXT_NODES: &[&str] = &["pbr_vertex"];
 const TEXT_WGSL: &str = include_str!("billboard_text.wgsl");
 
+/// A glyph atlas shared by several world-space text billboards.
+///
+/// Build the atlas from the union of every string in a label group, then pass
+/// it to [`text_billboard_with_atlas`] or [`Text::with_shared_atlas`]. Glyphs
+/// are rasterized and converted to SDF data once, and labels that share the
+/// atlas also share one realized material per text style.
+#[derive(Clone)]
+pub struct SharedTextAtlas {
+    inner: Arc<SharedTextAtlasInner>,
+}
+
+struct SharedTextAtlasInner {
+    atlas: SdfAtlas,
+    font_size: f32,
+    materials: Mutex<HashMap<TextStyleKey, Arc<MaterialShaderDescriptor>>>,
+}
+
+impl std::fmt::Debug for SharedTextAtlas {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SharedTextAtlas")
+            .field("width", &self.inner.atlas.width)
+            .field("height", &self.inner.atlas.height)
+            .field("font_size", &self.inner.font_size)
+            .field("glyphs", &self.inner.atlas.glyphs.len())
+            .finish_non_exhaustive()
+    }
+}
+
+impl SharedTextAtlas {
+    /// Builds a single atlas covering every character in `texts`.
+    ///
+    /// The atlas is sized for `font_size`; labels with a different font size or
+    /// characters outside the union fall back to a private atlas.
+    pub fn build<'a>(
+        font: &mut FontData,
+        font_size: f32,
+        texts: impl IntoIterator<Item = &'a str>,
+    ) -> Self {
+        let font_size = font_size.max(1.0);
+        let mut characters = String::new();
+        let mut seen = HashSet::new();
+        for text in texts {
+            for ch in text.chars() {
+                if seen.insert(ch) {
+                    characters.push(ch);
+                }
+            }
+        }
+
+        let atlas = SdfAtlas::build_atlas(font, font_size as u32, &characters, 8.0, 1024, 1024);
+        Self {
+            inner: Arc::new(SharedTextAtlasInner {
+                atlas,
+                font_size,
+                materials: Mutex::new(HashMap::new()),
+            }),
+        }
+    }
+
+    /// The shared glyph atlas.
+    pub fn atlas(&self) -> &SdfAtlas {
+        &self.inner.atlas
+    }
+
+    /// The font size this atlas was rasterized at.
+    pub fn font_size(&self) -> f32 {
+        self.inner.font_size
+    }
+
+    /// Returns whether the atlas was built for `font_size` and contains every
+    /// glyph in `text`.
+    pub fn covers(&self, text: &str, font_size: f32) -> bool {
+        (self.inner.font_size - font_size).abs() < 0.5
+            && text
+                .chars()
+                .all(|ch| ch.is_whitespace() || self.inner.atlas.get_glyph(ch).is_some())
+    }
+
+    /// Returns the text material for a style, reusing a previously built one.
+    ///
+    /// Sharing the material also shares its realized texture, so every label
+    /// with the same style samples the same GPU atlas.
+    pub fn material(
+        &self,
+        color: [f32; 4],
+        outline: Option<([f32; 4], f32)>,
+        background: Option<[f32; 4]>,
+        alpha_mode: AlphaMode,
+    ) -> Arc<MaterialShaderDescriptor> {
+        let key = TextStyleKey::new(color, outline, background, alpha_mode);
+        let mut materials = self
+            .inner
+            .materials
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+        if let Some(material) = materials.get(&key) {
+            return Arc::clone(material);
+        }
+
+        let material = text_material(&self.inner.atlas, color, outline, background, alpha_mode);
+        materials.insert(key, Arc::clone(&material));
+        material
+    }
+}
+
+/// Style inputs that change the material for a shared atlas.
+#[derive(PartialEq, Eq, Hash)]
+struct TextStyleKey {
+    color: [u32; 4],
+    outline_color: [u32; 4],
+    outline_width: u32,
+    background: [u32; 4],
+    alpha_mode: AlphaMode,
+}
+
+impl TextStyleKey {
+    fn new(
+        color: [f32; 4],
+        outline: Option<([f32; 4], f32)>,
+        background: Option<[f32; 4]>,
+        alpha_mode: AlphaMode,
+    ) -> Self {
+        let (outline_color, outline_width) = outline.unwrap_or(([0.0; 4], 0.0));
+        Self {
+            color: color.map(f32::to_bits),
+            outline_color: outline_color.map(f32::to_bits),
+            outline_width: outline_width.to_bits(),
+            background: background.unwrap_or([0.0; 4]).map(f32::to_bits),
+            alpha_mode,
+        }
+    }
+}
+
 /// Editable source data for a world-space text billboard.
 ///
 /// The rendered [`Billboard`] contains the generated glyph mesh and atlas
@@ -42,6 +177,8 @@ pub struct Text {
     pub world_scale: f32,
     /// Whether the text uses the opaque or blended render path.
     pub alpha_mode: AlphaMode,
+    /// Optional atlas shared with other labels of the same font size.
+    shared_atlas: Option<SharedTextAtlas>,
     /// Set when the source values changed and the glyph mesh must rebuild.
     dirty: bool,
 }
@@ -55,6 +192,7 @@ impl Text {
             background: None,
             world_scale: 0.00225,
             alpha_mode: AlphaMode::Blend,
+            shared_atlas: None,
             dirty: true,
         }
     }
@@ -89,6 +227,13 @@ impl Text {
         self
     }
 
+    /// Reuses a shared atlas when it covers the current text and font size.
+    pub fn with_shared_atlas(mut self, atlas: SharedTextAtlas) -> Self {
+        self.shared_atlas = Some(atlas);
+        self.mark_dirty();
+        self
+    }
+
     pub(crate) fn is_dirty(&self) -> bool {
         self.dirty
     }
@@ -105,19 +250,36 @@ impl Text {
     /// owned by the entity's [`Billboard`] and preserved by the rebuild system.
     pub(crate) fn build_billboard(&self) -> Billboard {
         let mut font = DefaultFont::load();
-        let mut billboard = text_billboard_with_background(
-            &self.value,
-            &mut font,
-            &TextConfig {
-                font_size: self.font_size.max(1.0),
-                color: self.color,
-                ..TextConfig::default()
-            },
-            self.world_scale.max(0.0001),
-            None,
-            self.background,
-            self.alpha_mode,
-        );
+        let config = TextConfig {
+            font_size: self.font_size.max(1.0),
+            color: self.color,
+            ..TextConfig::default()
+        };
+        let shared_atlas = self
+            .shared_atlas
+            .as_ref()
+            .filter(|atlas| atlas.covers(&self.value, config.font_size));
+        let mut billboard = match shared_atlas {
+            Some(atlas) => text_billboard_with_atlas(
+                &self.value,
+                &mut font,
+                &config,
+                atlas,
+                self.world_scale.max(0.0001),
+                None,
+                self.background,
+                self.alpha_mode,
+            ),
+            None => text_billboard_with_background(
+                &self.value,
+                &mut font,
+                &config,
+                self.world_scale.max(0.0001),
+                None,
+                self.background,
+                self.alpha_mode,
+            ),
+        };
         // The generated helper places the billboard at the origin; the
         // existing Billboard supplies the transform.
         billboard.position = cgmath::Point3::new(0.0, 0.0, 0.0);
@@ -231,7 +393,68 @@ pub fn text_billboard_with_background(
         1024,
         1024,
     );
-    let vertices_2d = generate_text_mesh(text, font, config, Some(&atlas));
+    let material = text_material(&atlas, config.color, outline, background, alpha_mode);
+    build_text_billboard(
+        text,
+        font,
+        config,
+        &atlas,
+        material,
+        world_scale,
+        background,
+    )
+}
+
+/// Builds a world-space SDF text billboard against a [`SharedTextAtlas`].
+///
+/// The atlas texture and the material are reused across labels with the same
+/// style. A label whose font size or characters are not covered by the atlas
+/// falls back to a private atlas.
+#[allow(clippy::too_many_arguments)]
+pub fn text_billboard_with_atlas(
+    text: &str,
+    font: &mut FontData,
+    config: &TextConfig,
+    atlas: &SharedTextAtlas,
+    world_scale: f32,
+    outline: Option<([f32; 4], f32)>,
+    background: Option<[f32; 4]>,
+    alpha_mode: AlphaMode,
+) -> Billboard {
+    if !atlas.covers(text, config.font_size) {
+        return text_billboard_with_background(
+            text,
+            font,
+            config,
+            world_scale,
+            outline,
+            background,
+            alpha_mode,
+        );
+    }
+
+    let material = atlas.material(config.color, outline, background, alpha_mode);
+    build_text_billboard(
+        text,
+        font,
+        config,
+        atlas.atlas(),
+        material,
+        world_scale,
+        background,
+    )
+}
+
+fn build_text_billboard(
+    text: &str,
+    font: &FontData,
+    config: &TextConfig,
+    atlas: &SdfAtlas,
+    material: Arc<MaterialShaderDescriptor>,
+    world_scale: f32,
+    background: Option<[f32; 4]>,
+) -> Billboard {
+    let vertices_2d = generate_text_mesh(text, font, config, Some(atlas));
 
     let mut min = Vector2::new(f32::MAX, f32::MAX);
     let mut max = Vector2::new(f32::MIN, f32::MIN);
@@ -310,8 +533,22 @@ pub fn text_billboard_with_background(
     }
     indices.extend(glyph_start..glyph_start + vertices_2d.len() as u32);
 
+    Billboard::from_material(
+        Vector2::new(world_scale.max(0.0001), world_scale.max(0.0001)),
+        material,
+    )
+    .with_mesh(Arc::new(MeshDescriptor::new(vertices, indices)))
+}
+
+fn text_material(
+    atlas: &SdfAtlas,
+    color: [f32; 4],
+    outline: Option<([f32; 4], f32)>,
+    background: Option<[f32; 4]>,
+    alpha_mode: AlphaMode,
+) -> Arc<MaterialShaderDescriptor> {
     let texture = TextureDescriptor::Data {
-        pixels: atlas.data,
+        pixels: atlas.data.clone(),
         size: TextureSize {
             width: atlas.width,
             height: atlas.height,
@@ -323,22 +560,6 @@ pub fn text_billboard_with_background(
         texture_view_dimension: TextureViewDimension::D2,
         filter_mode: FilterMode::linear(),
     };
-
-    let material = text_material(texture, config.color, outline, background, alpha_mode);
-    Billboard::from_material(
-        Vector2::new(world_scale.max(0.0001), world_scale.max(0.0001)),
-        material,
-    )
-    .with_mesh(Arc::new(MeshDescriptor::new(vertices, indices)))
-}
-
-fn text_material(
-    texture: TextureDescriptor,
-    color: [f32; 4],
-    outline: Option<([f32; 4], f32)>,
-    background: Option<[f32; 4]>,
-    alpha_mode: AlphaMode,
-) -> Arc<MaterialShaderDescriptor> {
     let (outline_color, outline_width) = outline.unwrap_or(([0.0, 0.0, 0.0, 0.0], 0.0));
     let background_color = background.unwrap_or([0.0, 0.0, 0.0, 0.0]);
     let cutoff = alpha_mode.cutoff().unwrap_or(0.0);
@@ -457,5 +678,58 @@ mod tests {
         let billboard = text.build_billboard();
         assert!(billboard.mesh.is_some());
         assert!(billboard.material.entrypoint_fragment_gbuffer.is_none());
+    }
+
+    #[test]
+    fn shared_atlas_serves_a_whole_label_group() {
+        let mut font = DefaultFont::load();
+        let texts = ["Metallic Materials", "Moving Spot", "All-in-One"];
+        let atlas = SharedTextAtlas::build(&mut font, 128.0, texts);
+
+        for text in texts {
+            assert!(atlas.covers(text, 128.0));
+        }
+        assert!(!atlas.covers("Metallic Materials", 64.0));
+
+        let config = TextConfig {
+            font_size: 128.0,
+            ..Default::default()
+        };
+        let billboards = texts
+            .iter()
+            .map(|text| {
+                text_billboard_with_atlas(
+                    text,
+                    &mut font,
+                    &config,
+                    &atlas,
+                    0.00225,
+                    None,
+                    Some([0.025, 0.035, 0.07, 0.55]),
+                    AlphaMode::Blend,
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert!(
+            billboards
+                .windows(2)
+                .all(|window| Arc::ptr_eq(&window[0].material, &window[1].material)),
+            "labels with the same style must share one material"
+        );
+    }
+
+    #[test]
+    fn shared_atlas_is_reused_when_text_rebuilds() {
+        let mut font = DefaultFont::load();
+        let atlas = SharedTextAtlas::build(&mut font, 128.0, ["Orbital"]);
+
+        let billboard = Text::new("Orbital")
+            .with_font_size(128.0)
+            .with_shared_atlas(atlas.clone())
+            .build_billboard();
+
+        let expected = atlas.material([1.0, 1.0, 1.0, 1.0], None, None, AlphaMode::Blend);
+        assert!(Arc::ptr_eq(&billboard.material, &expected));
     }
 }
