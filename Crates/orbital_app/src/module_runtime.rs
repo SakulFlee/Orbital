@@ -582,6 +582,7 @@ impl ModuleRuntime {
             refresh_rate_mhz: self.refresh_rate_mhz,
             present_mode: present_mode_name(self.present_mode),
             frame_latency: self.frame_latency,
+            fps_limit: settings.fps_limit,
             gpu_timestamps_supported,
             gpu_timestamps_stale,
         }
@@ -603,9 +604,7 @@ impl ModuleRuntime {
         let target = effective_target_fps(
             settings.target_fps,
             self.refresh_rate_mhz,
-            self.settings
-                .fps_limit
-                .filter(|_| !self.settings.vsync_enabled),
+            settings.fps_limit.filter(|_| !self.settings.vsync_enabled),
         );
         let Some(next) = self.adaptive_render_scale.update(
             settings.render_scale,
@@ -1168,11 +1167,13 @@ impl ModuleRuntime {
         // period. A frame that already ran long starts the next one
         // immediately.
         let t_frame_limiter_start = Instant::now();
-        self.frame_limiter.wait(
-            t_start,
-            self.settings.fps_limit,
-            self.settings.vsync_enabled,
-        );
+        let frame_limit = self
+            .ecs_world
+            .get_resource::<crate::RenderSettings>()
+            .map(|settings| settings.fps_limit)
+            .unwrap_or(self.settings.fps_limit);
+        self.frame_limiter
+            .wait(t_start, frame_limit, self.settings.vsync_enabled);
         let d_frame_limiter = t_frame_limiter_start.elapsed();
         self.frame_timings.set(STAGE_FRAME_LIMITER, d_frame_limiter);
 
@@ -1834,6 +1835,7 @@ impl ApplicationHandler for ModuleRuntime {
                     render_scale: self.settings.render_scale,
                     adaptive_render_scale: self.settings.adaptive_render_scale,
                     target_fps: self.settings.target_fps,
+                    fps_limit: self.settings.fps_limit,
                     min_render_scale: self.settings.min_render_scale,
                     max_render_scale: self.settings.max_render_scale,
                     anti_aliasing: self.settings.anti_aliasing,
