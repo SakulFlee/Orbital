@@ -56,7 +56,7 @@ fn entrypoint_vertex(
     let world_position = model_space_matrix * vec4<f32>(vertex.position, 1.0);
 
     var out: FragmentData;
-    out.position = camera.view_projection_matrix * world_position;
+    out.position = camera.perspective_view_projection_matrix * world_position;
     out.world_position = world_position.xyz;
     out.uv = vec2<f32>(0.0);
     out.tangent = vec3<f32>(1.0, 0.0, 0.0);
