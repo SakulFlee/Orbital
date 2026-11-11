@@ -7,7 +7,7 @@ use log::LevelFilter;
 use orbital_ecs::World;
 
 use crate::state::Renderer as IcedRenderer;
-use crate::state::{DebugMessage, DebugUiState, MAX_ROWS, PanelId};
+use crate::state::{DebugMessage, DebugUiState, MAX_ROWS};
 
 const LEVELS: [LevelFilter; 5] = [
     LevelFilter::Off,
@@ -26,10 +26,6 @@ pub fn console_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, IcedRe
     let Some(state) = ecs.get_resource::<DebugUiState>() else {
         return crate::panels::blank();
     };
-
-    if !state.is_panel_visible(PanelId::Console) {
-        return crate::panels::blank();
-    }
 
     let mut level_buttons = row![].spacing(4);
     for level in LEVELS {

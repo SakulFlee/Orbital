@@ -17,7 +17,7 @@ use crate::sparkline::{Line, Sparkline};
 use crate::state::Renderer as IcedRenderer;
 use crate::state::{
     DebugMessage, DebugUiState, GraphMetric, GraphSeries, MAX_GRAPH_WINDOW_SECS,
-    MIN_GRAPH_WINDOW_SECS, PanelId, format_seconds,
+    MIN_GRAPH_WINDOW_SECS, format_seconds,
 };
 
 const GRAPH_HEIGHT: f32 = 100.0;
@@ -174,10 +174,6 @@ pub fn performance_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Ic
     let Some(state) = ecs.get_resource::<DebugUiState>() else {
         return crate::panels::blank();
     };
-
-    if !state.is_panel_visible(PanelId::Performance) {
-        return crate::panels::blank();
-    }
 
     let window_secs = state
         .graph_window_secs
