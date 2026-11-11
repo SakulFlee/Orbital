@@ -109,6 +109,143 @@ pub struct IcedLayerRenderer<M: Clone + PartialEq + Send + Sync + 'static = Mess
     last_timings: OverlayRenderTimings,
 }
 
+/// Fullscreen triangle that composites the cached iced layer.
+///
+/// iced writes premultiplied-alpha pixels, so the pipeline uses the
+/// premultiplied blend state and the shader returns the sampled colour as-is.
+const COMPOSITE_SHADER: &str = r#"
+@group(0) @binding(0) var ui_texture: texture_2d<f32>;
+@group(0) @binding(1) var ui_sampler: sampler;
+
+struct VertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) uv: vec2<f32>,
+};
+
+@vertex
+fn vs_main(@builtin(vertex_index) index: u32) -> VertexOutput {
+    var positions = array<vec2<f32>, 3>(
+        vec2<f32>(-1.0, -1.0),
+        vec2<f32>(3.0, -1.0),
+        vec2<f32>(-1.0, 3.0),
+    );
+    var uvs = array<vec2<f32>, 3>(
+        vec2<f32>(0.0, 1.0),
+        vec2<f32>(2.0, 1.0),
+        vec2<f32>(0.0, -1.0),
+    );
+
+    var output: VertexOutput;
+    output.position = vec4<f32>(positions[index], 0.0, 1.0);
+    output.uv = uvs[index];
+    return output;
+}
+
+@fragment
+fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+    return textureSample(ui_texture, ui_sampler, input.uv);
+}
+"#;
+
+struct CompositePipeline {
+    pipeline: wgpu::RenderPipeline,
+    bind_group_layout: wgpu::BindGroupLayout,
+    sampler: wgpu::Sampler,
+}
+
+struct CachedUi {
+    _texture: wgpu::Texture,
+    view: wgpu::TextureView,
+    bind_group: wgpu::BindGroup,
+    size: (u32, u32),
+}
+
+impl<M: Clone + PartialEq + Send + Sync + 'static> RendererInner<M> {
+    /// Makes sure the offscreen layer has the same size as the surface.
+    ///
+    /// A resize invalidates the cached contents, so the next frame redraws the
+    /// interface before compositing it.
+    fn ensure_cached_ui(
+        &mut self,
+        device: &wgpu::Device,
+        format: wgpu::TextureFormat,
+        size: (u32, u32),
+    ) {
+        let size = (size.0.max(1), size.1.max(1));
+        if self.cached_ui.as_ref().is_some_and(|ui| ui.size == size) {
+            return;
+        }
+
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("orbital_iced cached ui"),
+            size: wgpu::Extent3d {
+                width: size.0,
+                height: size.1,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        });
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("orbital_iced cached ui bind group"),
+            layout: &self.composite.bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&self.composite.sampler),
+                },
+            ],
+        });
+
+        self.cached_ui = Some(CachedUi {
+            _texture: texture,
+            view,
+            bind_group,
+            size,
+        });
+        self.needs_draw = true;
+    }
+
+    fn record_composite(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        target_view: &wgpu::TextureView,
+    ) {
+        let Some(cached) = self.cached_ui.as_ref() else {
+            return;
+        };
+
+        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("orbital_iced composite pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: target_view,
+                depth_slice: None,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+        pass.set_pipeline(&self.composite.pipeline);
+        pass.set_bind_group(0, &cached.bind_group, &[]);
+        pass.draw(0..3, 0..1);
+    }
+}
+
 struct RendererInner<M: Clone + PartialEq + Send + Sync + 'static> {
     renderer: iced_wgpu::Renderer,
     /// The panel's widget tree, retained between `process_events` and `render`.
@@ -121,6 +258,91 @@ struct RendererInner<M: Clone + PartialEq + Send + Sync + 'static> {
     layout_size: Option<(u32, u32)>,
     /// When `interface` was last rebuilt, for `refresh_interval`.
     last_build: Option<std::time::Instant>,
+    /// Offscreen copy of the last drawn frame, composited until the panel
+    /// changes again.
+    cached_ui: Option<CachedUi>,
+    /// Set when the widget tree or input changed and the cached frame is stale.
+    needs_draw: bool,
+    composite: CompositePipeline,
+}
+
+fn create_composite_pipeline(
+    device: &wgpu::Device,
+    format: wgpu::TextureFormat,
+) -> CompositePipeline {
+    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some("orbital_iced composite shader"),
+        source: wgpu::ShaderSource::Wgsl(COMPOSITE_SHADER.into()),
+    });
+
+    let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some("orbital_iced composite bind group layout"),
+        entries: &[
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Texture {
+                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    multisampled: false,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 1,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                count: None,
+            },
+        ],
+    });
+
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some("orbital_iced composite pipeline layout"),
+        bind_group_layouts: &[Some(&bind_group_layout)],
+        immediate_size: 0,
+    });
+
+    let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: Some("orbital_iced composite pipeline"),
+        layout: Some(&pipeline_layout),
+        vertex: wgpu::VertexState {
+            module: &shader,
+            entry_point: Some("vs_main"),
+            compilation_options: Default::default(),
+            buffers: &[],
+        },
+        fragment: Some(wgpu::FragmentState {
+            module: &shader,
+            entry_point: Some("fs_main"),
+            compilation_options: Default::default(),
+            targets: &[Some(wgpu::ColorTargetState {
+                format,
+                blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+        }),
+        primitive: wgpu::PrimitiveState::default(),
+        depth_stencil: None,
+        multisample: wgpu::MultisampleState::default(),
+        multiview_mask: None,
+        cache: None,
+    });
+
+    let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+        label: Some("orbital_iced composite sampler"),
+        address_mode_u: wgpu::AddressMode::ClampToEdge,
+        address_mode_v: wgpu::AddressMode::ClampToEdge,
+        mag_filter: wgpu::FilterMode::Nearest,
+        min_filter: wgpu::FilterMode::Nearest,
+        ..Default::default()
+    });
+
+    CompositePipeline {
+        pipeline,
+        bind_group_layout,
+        sampler,
+    }
 }
 
 /// Creates one iced renderer, capturing pipeline validation errors instead of
@@ -141,6 +363,7 @@ fn create_iced_renderer<M: Clone + PartialEq + Send + Sync + 'static>(
         iced_graphics::Shell::headless(),
     );
     let renderer = iced_wgpu::Renderer::new(engine, Default::default());
+    let composite = create_composite_pipeline(device, format);
 
     if let Some(error) = pollster::block_on(error_scope.pop()) {
         log::error!("iced initialization failed for surface format {format:?}: {error}");
@@ -153,6 +376,10 @@ fn create_iced_renderer<M: Clone + PartialEq + Send + Sync + 'static>(
         cache: Some(iced_runtime::user_interface::Cache::new()),
         layout_size: None,
         last_build: None,
+        cached_ui: None,
+        // The first rendered frame always has to draw the interface.
+        needs_draw: true,
+        composite,
     })
 }
 
@@ -227,6 +454,7 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
                 if let Some(previous) = inner.interface.take() {
                     inner.cache = Some(previous.into_cache());
                 }
+                inner.needs_draw = true;
             }
             return;
         }
@@ -549,6 +777,8 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
         // until the next rebuild.
         inner.interface = interface;
         inner.layout_size = window_size;
+        inner.needs_draw |=
+            rebuild || resized || !iced_core_events.is_empty() || self.state.is_dirty();
     }
 
     fn render(&mut self, ctx: RenderOverlayContext) {
@@ -624,7 +854,6 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
         let Some(inner) = guard.as_mut() else {
             return Vec::new();
         };
-        let renderer = &mut inner.renderer;
 
         // Safety net: the retained layout is only valid for the size it was
         // built with. `process_events` and `render` both read the same
@@ -633,26 +862,18 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
         if inner.layout_size != Some((ctx.screen_size.0 as u32, ctx.screen_size.1 as u32)) {
             return Vec::new();
         }
-
-        let Some(interface) = inner.interface.as_mut() else {
+        if inner.interface.is_none() {
             // `process_events` did not run this frame (no redraw yet).
             return Vec::new();
-        };
-
-        // The default `Style` has black text, which is unreadable on the dark
-        // panel backgrounds. Derive it from the theme instead, so every widget
-        // that does not set an explicit color matches the dark palette.
-        let theme = Theme::Dark;
-        let style = iced_winit::core::renderer::Style {
-            text_color: theme.palette().background.base.text,
-        };
-
-        let draw_start = std::time::Instant::now();
-        interface.draw(renderer, &theme, &style, cursor);
-        let draw = draw_start.elapsed();
+        }
 
         let physical_size =
             iced_core::Size::new(ctx.screen_size.0 as u32, ctx.screen_size.1 as u32);
+        inner.ensure_cached_ui(
+            ctx.device,
+            format,
+            (physical_size.width, physical_size.height),
+        );
 
         let viewport = iced_graphics::Viewport::with_physical_size(
             physical_size,
@@ -662,10 +883,52 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
             },
         );
 
+        let mut draw = std::time::Duration::ZERO;
+        let mut submit = std::time::Duration::ZERO;
+        let mut encoder = if inner.needs_draw {
+            let renderer = &mut inner.renderer;
+            let Some(interface) = inner.interface.as_mut() else {
+                return Vec::new();
+            };
+
+            // The default `Style` has black text, which is unreadable on the
+            // dark panel backgrounds. Derive it from the theme instead, so
+            // every widget that does not set an explicit color matches the
+            // dark palette.
+            let theme = Theme::Dark;
+            let style = iced_winit::core::renderer::Style {
+                text_color: theme.palette().background.base.text,
+            };
+            let draw_start = std::time::Instant::now();
+            interface.draw(renderer, &theme, &style, cursor);
+            draw = draw_start.elapsed();
+
+            // Draw the interface into an offscreen texture with a transparent
+            // background. While nothing changes, idle frames only composite
+            // that texture over the scene instead of preparing and recording
+            // the whole iced layer again.
+            let submit_start = std::time::Instant::now();
+            let cached_view = &inner
+                .cached_ui
+                .as_ref()
+                .expect("cache was just ensured")
+                .view;
+            let encoder =
+                renderer.draw(Some(iced_core::Color::TRANSPARENT), cached_view, &viewport);
+            renderer.finish();
+            submit = submit_start.elapsed();
+            inner.needs_draw = false;
+            encoder
+        } else {
+            ctx.device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("orbital_iced composite encoder"),
+                })
+        };
+
         let submit_start = std::time::Instant::now();
-        let encoder = renderer.draw(None, ctx.target_view, &viewport);
-        renderer.finish();
-        let submit = submit_start.elapsed();
+        inner.record_composite(&mut encoder, ctx.target_view);
+        submit += submit_start.elapsed();
 
         self.last_timings = OverlayRenderTimings { draw, submit };
         vec![encoder.finish()]
