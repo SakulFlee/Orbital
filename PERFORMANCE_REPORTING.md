@@ -267,6 +267,8 @@ the capture environment once per resume:
 - internal render resolution, render scale, target FPS, min/max scale,
   pixels per frame
 - renderer path (forward/deferred), AA/SMAA, bloom/glare, volumetrics
+- volumetric quality, resolved froxel grid and texel count, composite
+  integration steps, composite resolution, max distance, temporal history
 - scene entity/model/light/shadow-caster counts
 - registered overlays and their visibility at startup
 - Android refresh rate, ADPF target duration, sustained-performance state,
@@ -297,14 +299,14 @@ elapsed_s,fps,cdt_ms,<timing stage means>,<cache counters>,<surface counters>,vi
   `gpu_complete`, `gpu_shadow`, `gpu_skybox`, `gpu_gbuffer`,
   `gpu_light_culling`, `gpu_deferred`, `gpu_models`, `gpu_transparent`,
   `gpu_volumetric_inject`, `gpu_volumetric_accumulate`,
-  `gpu_volumetric_composite`, `gpu_scene_total`, `gpu_volumetrics`,
-  `gpu_tonemap`, `gpu_aa`.
+  `gpu_volumetric_integrate`, `gpu_volumetric_composite`,
+  `gpu_scene_total`, `gpu_volumetrics`, `gpu_tonemap`, `gpu_aa`.
   The same stage list is repeated at the end of the row as `<stage>_min`,
   `<stage>_max`, and `<stage>_p95` columns.
   `gpu_models` is the forward opaque model section; `gpu_scene_total` is the
   aggregate of shadow, skybox, G-buffer, light culling, deferred lighting,
   forward models and transparent models. `gpu_volumetrics` is the aggregate of
-  the volumetric inject, accumulate, and composite stages.
+  the volumetric inject, accumulate, integrate, and composite stages.
   `surface_lock`, `surface_acquire`, and `surface_view` break down the
   `surface_acq` stage; `surface_acquire` includes waiting for a swapchain
   image, so it can reflect GPU/present backpressure rather than pure CPU work.
@@ -313,8 +315,10 @@ elapsed_s,fps,cdt_ms,<timing stage means>,<cache counters>,<surface counters>,vi
   `gpu_complete` is the time from the end of submission until the GPU reports
   the submitted work complete; it is a latency, not an additive stage.
   `gpu_volumetric_inject`, `gpu_volumetric_accumulate`,
-  `gpu_volumetric_composite`, `gpu_tonemap`, and `gpu_aa` cover the post/scene
-  GPU work that the older scene timestamps did not include.
+  `gpu_volumetric_integrate`, `gpu_volumetric_composite`, `gpu_tonemap`, and
+  `gpu_aa` cover the post/scene GPU work that the older scene timestamps did
+  not include. `gpu_volumetric_integrate` is the per-column depth
+  pre-integration that lets the composite use one fetch per pixel.
 - Cache counters — `shader_modules_delta`, `pipelines_delta`, `unique_wgsl`,
   `material_hits_delta`, `material_misses_delta`, `sky_updates_delta`.
   `unique_wgsl` is cumulative; the others are deltas for the window.
@@ -328,7 +332,9 @@ elapsed_s,fps,cdt_ms,<timing stage means>,<cache counters>,<surface counters>,vi
   `render_scale`, `scale_factor`, `dpi`, `orientation`, `refresh_rate_mhz`,
   `present_mode`, `frame_latency`, `fps_limit`, `pixels_per_frame`,
   `render_scale_changes`, `render_resolution_changes`,
-  `gpu_timestamps_supported`, `gpu_timestamps_stale`.
+  `gpu_timestamps_supported`, `gpu_timestamps_stale`, `volumetric_grid_x`,
+  `volumetric_grid_y`, `volumetric_grid_z`,
+  `volumetric_integration_steps`.
   `refresh_rate_mhz` is empty when the platform does not report a value.
   `fps_limit` is empty when no cap is configured; a value is recorded even
   while VSync is enabled, where the limiter ignores it. The render fields
@@ -338,6 +344,10 @@ elapsed_s,fps,cdt_ms,<timing stage means>,<cache counters>,<surface counters>,vi
   non-zero counter means that row covers a transition.
   `gpu_timestamps_stale` is set when GPU timestamp results did not advance
   between two capture rows, so the GPU stage columns should not be compared.
+  The volumetric fields are zero when volumetrics are disabled. The resolved
+  grid already includes the adaptive depth-slice rule, so it is the grid the
+  renderer actually dispatched; `volumetric_integration_steps` is the depth
+  resolution of the pre-integrated composite.
 - Timing window fields — `frames` (samples in the window), `cdt_mean_ms`,
   `cdt_min_ms`, `cdt_max_ms`, and `cdt_p95_ms`. `cdt_ms` remains the latest
   frame delta for backward compatibility; use the `cdt_*` columns for
@@ -374,6 +384,28 @@ When the frame is GPU-bound, reduce GPU work instead:
 - Switch Deferred to Forward in the Rendering debug panel for scenes with few
   lights.
 - Lower or disable volumetric quality.
+
+## Volumetric cost attribution
+
+Use the volumetric capture fields to check that a volumetric measurement is
+comparable before looking at the stage times:
+
+- `gpu_volumetric_inject` scales with `grid_x * grid_y * grid_z` and with
+  the number of lights and shadow lookups that reach each froxel.
+- `gpu_volumetric_accumulate` scales with `grid_x * grid_y * grid_z`.
+- `gpu_volumetric_integrate` scales with
+  `grid_x * grid_y * volumetric_integration_steps`.
+- `gpu_volumetric_composite` scales with the render pixel count
+  (`pixels_per_frame`), not with the froxel grid.
+- `gpu_volumetrics` is the sum of those four stages.
+
+Two captures are only directly comparable when the render resolution, grid,
+integration steps, max distance, and enabled light/shadow set match. For an
+A/B run, toggle volumetrics at the same camera, resolution, and quality, then
+compare the frame time with the volumetric aggregate rather than relying on
+the aggregate alone. The resolved grid and integration steps also explain
+why a quality tier can look unchanged across resolutions while its GPU cost
+changes substantially.
 
 ## Visualise the report
 
