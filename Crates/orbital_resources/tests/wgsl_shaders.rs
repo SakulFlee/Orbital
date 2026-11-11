@@ -351,6 +351,20 @@ fn custom_shader_example_is_valid_wgsl() {
 }
 
 #[test]
+fn all_in_one_custom_shader_is_valid_wgsl() {
+    validate_assembled_pbr_shader_with_nodes(
+        "all-in-one custom shader",
+        &[
+            "camera_uniform",
+            "vertex_data_simple",
+            "instance_data",
+            "fragment_data",
+        ],
+        include_str!("../../../Examples/all-in-one/src/custom_shader.wgsl"),
+    );
+}
+
+#[test]
 fn pbr_shadow_shader_is_valid_wgsl() {
     validate(
         "PBR shadow shader",
