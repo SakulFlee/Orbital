@@ -351,6 +351,30 @@ The first row appears only after the first complete timing window (about one
 second). A header-only file means capture was enabled but no window completed
 yet.
 
+## Diagnosing a GPU-bound frame
+
+A large `surface_acq` does not by itself mean that the compositor or the
+swapchain is stalled. `surface_acquire` waits for a free swapchain image, and a
+GPU-bound frame keeps every image busy until the GPU finishes. With vsync
+disabled that wait can still approach the frame period.
+
+Add up the individual GPU pass columns from `gpu_shadow` through `gpu_aa` and
+compare the sum with `1000 / fps`. Skip the `gpu_scene_total` and
+`gpu_volumetrics` aggregates (they overlap the pass columns), and skip
+`gpu_complete` (it is a queue-completion latency, not a pass). The scene total
+alone looks much cheaper than the real GPU frame because it excludes shadows,
+volumetrics, tonemapping, and anti-aliasing. If the full pass sum matches the
+frame period, the frame is GPU-bound and changing the present mode will not
+help.
+
+When the frame is GPU-bound, reduce GPU work instead:
+
+- Lower `render_scale`, or enable adaptive render scaling with a target FPS.
+  Scene and volumetric targets scale with the internal render resolution.
+- Switch Deferred to Forward in the Rendering debug panel for scenes with few
+  lights.
+- Lower or disable volumetric quality.
+
 ## Visualise the report
 
 The analysis notebook is in `Tools/performance/`.

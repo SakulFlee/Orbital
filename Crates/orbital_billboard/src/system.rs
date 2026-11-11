@@ -7,7 +7,7 @@ use cgmath::{InnerSpace, Matrix3, Point3, Quaternion, Rad, Rotation3, Vector2, V
 use orbital_app::Module;
 use orbital_ecs::{Commands, ComponentAccess, Entity, System, World};
 use orbital_ecs_bridge::{
-    ActiveCamera, ModelDescriptor, ModelDirty, ModelInstances, Position, Rotation,
+    ActiveCamera, ModelDescriptor, ModelDirty, ModelInstances, ModelRealization, Position, Rotation,
 };
 use orbital_math::Transform;
 use orbital_mesh::MeshDescriptor;
@@ -148,6 +148,7 @@ impl BillboardSystem {
                 .reads::<ActiveCamera>()
                 .reads::<Position>()
                 .reads::<Rotation>()
+                .reads::<ModelRealization>()
                 .writes::<ModelDescriptor>()
                 .writes::<ModelInstances>()
                 .writes::<ModelDirty>(),
@@ -189,13 +190,24 @@ impl System for BillboardSystem {
                 .and_then(|store| store.sparse.get(entity_index).copied().flatten());
 
             if let Some(index) = existing {
-                if let Some(store) = instances_store.as_mut() {
-                    let instances = &mut store.get_mut_store().components[index];
-                    if let Some((_, instance)) = instances.0.iter_mut().next() {
-                        *instance = transform;
-                    } else {
-                        instances.add_instance(transform);
+                let realized = world
+                    .get_component_store::<ModelRealization>()
+                    .and_then(|store| store.sparse.get(entity_index).copied().flatten())
+                    .is_some();
+                let changed = match instances_store.as_mut() {
+                    Some(store) => {
+                        update_instance(&mut store.get_mut_store().components[index], transform)
                     }
+                    None => false,
+                };
+
+                // Billboard transforms are recomputed every frame. Only touch
+                // the model when the pose actually changed, otherwise every
+                // billboard would force a model realization and a full shadow
+                // update each frame while the camera is still. Keep retrying
+                // until the model has been realized.
+                if !changed && realized {
+                    continue;
                 }
 
                 if let Some(store) = dirty_store.as_mut() {
@@ -288,6 +300,20 @@ fn billboard_transform(
     }
 }
 
+fn update_instance(instances: &mut ModelInstances, transform: Transform) -> bool {
+    if let Some((_, instance)) = instances.0.iter_mut().next() {
+        if *instance == transform {
+            false
+        } else {
+            *instance = transform;
+            true
+        }
+    } else {
+        instances.add_instance(transform);
+        true
+    }
+}
+
 fn spin(radians: f32) -> Quaternion<f32> {
     Quaternion::from_axis_angle(Vector3::unit_z(), Rad(radians))
 }
@@ -307,6 +333,29 @@ mod tests {
 
     fn approx(a: Vector3<f32>, b: Vector3<f32>) -> bool {
         (a - b).magnitude() < 1.0e-5
+    }
+
+    #[test]
+    fn unchanged_billboard_instance_is_not_rewritten() {
+        let mut instances = ModelInstances::new();
+        let transform = Transform::new(
+            Vector3::new(1.0, 2.0, 3.0),
+            Quaternion::from_axis_angle(Vector3::unit_z(), Rad(0.5)),
+            Vector3::new(2.0, 1.0, 1.0),
+        );
+
+        assert!(update_instance(&mut instances, transform));
+        assert!(!update_instance(&mut instances, transform));
+
+        let moved = Transform {
+            position: Vector3::new(4.0, 5.0, 6.0),
+            ..transform
+        };
+        assert!(update_instance(&mut instances, moved));
+        assert_eq!(
+            instances.0.iter().next().map(|(_, value)| *value),
+            Some(moved)
+        );
     }
 
     #[test]
