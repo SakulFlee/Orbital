@@ -211,7 +211,7 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
     }
 
     fn submission(&self) -> OverlaySubmission {
-        OverlaySubmission::Owned
+        OverlaySubmission::MainSubmit
     }
 
     /// Builds the panel's `UserInterface`, routes this frame's input to it,
@@ -552,17 +552,29 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
     }
 
     fn render(&mut self, ctx: RenderOverlayContext) {
+        // Direct callers submit the buffer themselves; the runtime instead
+        // merges it into the scene submission through `render_main_submit`.
+        let queue = ctx.queue;
+        let commands = self.render_main_submit(ctx);
+        if commands.is_empty() {
+            return;
+        }
+        queue.submit(commands);
+        self.finish_main_submit();
+    }
+
+    fn render_main_submit(&mut self, ctx: RenderOverlayContext) -> Vec<wgpu::CommandBuffer> {
         self.last_timings = OverlayRenderTimings::default();
 
         if !self.state.is_visible_in(ctx.ecs) {
-            return;
+            return Vec::new();
         }
 
         let Some(format) = self.refresh_surface_format(ctx.ecs) else {
-            return;
+            return Vec::new();
         };
         if self.init_failed {
-            return;
+            return Vec::new();
         }
 
         // Ensure renderer is initialized
@@ -573,14 +585,14 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
                     Some(a) => a.0.as_ref().clone(),
                     None => {
                         log::warn!("No AdapterResource - skipping iced render");
-                        return;
+                        return Vec::new();
                     }
                 };
 
                 let Some(renderer) = create_iced_renderer(&adapter, ctx.device, ctx.queue, format)
                 else {
                     self.init_failed = true;
-                    return;
+                    return Vec::new();
                 };
                 *guard = Some(renderer);
             }
@@ -610,7 +622,7 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
 
         let mut guard = self.inner.lock().unwrap();
         let Some(inner) = guard.as_mut() else {
-            return;
+            return Vec::new();
         };
         let renderer = &mut inner.renderer;
 
@@ -619,12 +631,12 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
         // `WindowSize` resource within a frame, so this should not trip — but
         // drawing a stale layout would be silently wrong, so skip instead.
         if inner.layout_size != Some((ctx.screen_size.0 as u32, ctx.screen_size.1 as u32)) {
-            return;
+            return Vec::new();
         }
 
         let Some(interface) = inner.interface.as_mut() else {
             // `process_events` did not run this frame (no redraw yet).
-            return;
+            return Vec::new();
         };
 
         // The default `Style` has black text, which is unreadable on the dark
@@ -651,10 +663,18 @@ impl<M: Clone + PartialEq + Send + Sync + 'static> LayerRendererTrait for IcedLa
         );
 
         let submit_start = std::time::Instant::now();
-        renderer.present(None, format, ctx.target_view, &viewport);
+        let encoder = renderer.draw(None, ctx.target_view, &viewport);
+        renderer.finish();
         let submit = submit_start.elapsed();
 
         self.last_timings = OverlayRenderTimings { draw, submit };
+        vec![encoder.finish()]
+    }
+
+    fn finish_main_submit(&mut self) {
+        if let Some(inner) = self.inner.lock().unwrap().as_mut() {
+            inner.renderer.recall();
+        }
     }
 
     fn take_render_timings(&mut self) -> OverlayRenderTimings {
