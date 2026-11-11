@@ -472,6 +472,22 @@ fn handle_debug_message(
             update_render_settings(world, |settings| settings.target_fps = fps.clamp(1, 1000));
             return;
         }
+        DebugMessage::SetFrameCapEnabled(enabled) => {
+            update_render_settings(world, |settings| {
+                settings.fps_limit = if enabled {
+                    Some(settings.fps_limit.unwrap_or(settings.target_fps.max(1)))
+                } else {
+                    None
+                };
+            });
+            return;
+        }
+        DebugMessage::SetFrameCapFps(fps) => {
+            update_render_settings(world, |settings| {
+                settings.fps_limit = Some(fps.clamp(1, 1000))
+            });
+            return;
+        }
         DebugMessage::SetExposure(exposure) => {
             update_render_settings(world, |settings| settings.exposure = exposure.max(0.0));
             return;
