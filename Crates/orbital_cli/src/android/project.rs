@@ -231,7 +231,7 @@ const BUILD_GRADLE: &str = r#"plugins {
 }
 
 task clean(type: Delete) {
-    delete rootProject.buildDir
+    delete rootProject.layout.buildDirectory
 }
 "#;
 
