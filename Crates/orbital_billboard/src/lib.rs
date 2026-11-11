@@ -13,4 +13,7 @@ mod system;
 pub use system::BillboardModule;
 
 mod text;
-pub use text::{Text, text_billboard, text_billboard_with_background};
+pub use text::{
+    SharedTextAtlas, Text, text_billboard, text_billboard_with_atlas,
+    text_billboard_with_background,
+};
