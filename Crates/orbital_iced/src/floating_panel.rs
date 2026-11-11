@@ -29,6 +29,25 @@ fn grip_bounds(bounds: Rectangle) -> Rectangle {
 const MIN_PANEL_WIDTH: f32 = 200.0;
 const MIN_CONTENT_HEIGHT: f32 = 60.0;
 
+/// Keeps a floating window's top-left corner inside the window.
+///
+/// The panel has to remain reachable: its title bar holds the drag area and the
+/// close button, so at least [`MIN_PANEL_WIDTH`] pixels of it must stay on
+/// screen horizontally and its full title bar must stay on screen vertically.
+/// Without this a window could be dragged — or initialized — outside a small
+/// viewport, where its close button is impossible to reach, especially on a
+/// touch-only device.
+fn clamp_position(position: Point, window: Size) -> Point {
+    Point::new(
+        position
+            .x
+            .clamp(0.0, (window.width - MIN_PANEL_WIDTH).max(0.0)),
+        position
+            .y
+            .clamp(0.0, (window.height - TITLE_BAR_HEIGHT).max(0.0)),
+    )
+}
+
 #[derive(Debug, Clone)]
 pub struct State {
     position: Point,
@@ -169,7 +188,11 @@ where
         // background/border/title-bar quads are degenerate, so nothing but the
         // finite title text is drawn.
         let window = limits.max();
-        let position = state.position;
+        // A viewport change (rotation, a resized window) keeps the widget state
+        // but not necessarily the on-screen position, so clamp the position to
+        // the current window on every layout.
+        let position = clamp_position(state.position, window);
+        state.position = position;
 
         let available_width = (window.width - position.x).max(0.0);
         let available_height = (window.height - position.y - TITLE_BAR_HEIGHT).max(0.0);
@@ -257,7 +280,7 @@ where
         cursor: mouse::Cursor,
         _renderer: &Renderer,
         shell: &mut Shell<'_, Message>,
-        _viewport: &Rectangle,
+        viewport: &Rectangle,
     ) {
         let state = tree.state.downcast_mut::<State>();
         let bounds = layout.bounds();
@@ -337,7 +360,7 @@ where
                 + state.drag_offset.y * state.drag_offset.y)
                 .sqrt();
             if dist > DRAG_DEADBAND || offset_dist > 0.0 {
-                state.position = position - state.drag_offset;
+                state.position = clamp_position(position - state.drag_offset, viewport.size());
                 shell.request_redraw();
                 shell.capture_event();
             }
@@ -365,7 +388,7 @@ where
             cursor,
             _renderer,
             shell,
-            _viewport,
+            viewport,
         );
 
         // Forward events to content child, unless the resize grip owns this
@@ -380,7 +403,7 @@ where
                 cursor,
                 _renderer,
                 shell,
-                _viewport,
+                viewport,
             );
         }
 
@@ -679,5 +702,54 @@ where
 {
     fn from(panel: FloatingPanel<'a, Message, Theme, Renderer>) -> Self {
         Element::new(panel)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_panel_inside_the_window_keeps_its_position() {
+        let window = Size::new(1920.0, 1080.0);
+
+        assert_eq!(
+            clamp_position(Point::new(40.0, 40.0), window),
+            Point::new(40.0, 40.0)
+        );
+    }
+
+    #[test]
+    fn an_offscreen_panel_is_pulled_back_so_its_title_bar_is_reachable() {
+        let window = Size::new(800.0, 600.0);
+
+        let position = clamp_position(Point::new(960.0, 900.0), window);
+
+        assert_eq!(position.x, window.width - MIN_PANEL_WIDTH);
+        assert_eq!(position.y, window.height - TITLE_BAR_HEIGHT);
+        assert!(
+            position.y + TITLE_BAR_HEIGHT <= window.height,
+            "the title bar, including the close button, stays on screen"
+        );
+    }
+
+    #[test]
+    fn negative_positions_are_clamped_to_the_window_origin() {
+        let window = Size::new(1920.0, 1080.0);
+
+        assert_eq!(
+            clamp_position(Point::new(-300.0, -200.0), window),
+            Point::new(0.0, 0.0)
+        );
+    }
+
+    #[test]
+    fn a_window_narrower_than_the_minimum_panel_clamps_to_the_origin() {
+        let window = Size::new(120.0, 20.0);
+
+        assert_eq!(
+            clamp_position(Point::new(80.0, 20.0), window),
+            Point::new(0.0, 0.0)
+        );
     }
 }
