@@ -264,30 +264,30 @@ const APP_BUILD_GRADLE: &str = r#"plugins {
 }
 
 android {
-    namespace '@@@PACKAGE_NAME@@@'
-    compileSdk @@@TARGET_SDK@@@
+    namespace = '@@@PACKAGE_NAME@@@'
+    compileSdk = @@@TARGET_SDK@@@
 
     defaultConfig {
-        applicationId "@@@PACKAGE_NAME@@@"
-        minSdk @@@MIN_SDK@@@
-        targetSdk @@@TARGET_SDK@@@
-        ndkVersion '@@@NDK_VERSION@@@'
+        applicationId = "@@@PACKAGE_NAME@@@"
+        minSdk = @@@MIN_SDK@@@
+        targetSdk = @@@TARGET_SDK@@@
+        ndkVersion = '@@@NDK_VERSION@@@'
     }
 
     signingConfigs {
         release {
-            storeFile file('@@@KEYSTORE_PATH@@@')
-            storePassword '@@@KEYSTORE_PASSWORD@@@'
-            keyAlias '@@@KEY_ALIAS@@@'
-            keyPassword '@@@KEY_PASSWORD@@@'
+            storeFile = file('@@@KEYSTORE_PATH@@@')
+            storePassword = '@@@KEYSTORE_PASSWORD@@@'
+            keyAlias = '@@@KEY_ALIAS@@@'
+            keyPassword = '@@@KEY_PASSWORD@@@'
         }
     }
 
     buildTypes {
         release {
-            minifyEnabled false
+            minifyEnabled = false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
+            signingConfig = signingConfigs.release
         }
     }
 
