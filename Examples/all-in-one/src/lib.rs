@@ -130,7 +130,7 @@ fn room_shell_kind(label: &str) -> &'static str {
 }
 
 /// Floating room labels, as authored positions and orientations.
-fn room_labels() -> [(&'static str, Point3<f32>, BillboardMode); 8] {
+fn room_labels() -> [(&'static str, Point3<f32>, BillboardMode); 9] {
     [
         (
             "Metallic Materials",
@@ -165,6 +165,11 @@ fn room_labels() -> [(&'static str, Point3<f32>, BillboardMode); 8] {
         (
             "Anti-Aliasing",
             Point3::new(-10.0, 6.4, 14.75),
+            BillboardMode::YAxis,
+        ),
+        (
+            "Custom Shader",
+            Point3::new(0.0, 6.4, 14.75),
             BillboardMode::YAxis,
         ),
         (
@@ -848,9 +853,9 @@ impl Module for ProcgeoSceneModule {
             }
         }
 
-        // Custom material shader from the standalone example. Place it behind
-        // R6's blended panes so the transparency room also has a clear object
-        // to look through, without taking over a room of its own.
+        // Custom material shader from the standalone example. R8 is one of the
+        // empty mirrored shells, so it gets a dedicated exhibit in the middle
+        // of the second row.
         let custom_material = Arc::new(MaterialShaderDescriptor {
             name: Some("AiO Custom Gradient".into()),
             nodes: &[
@@ -871,12 +876,12 @@ impl Module for ProcgeoSceneModule {
         });
         spawn_scene_model(
             ecs,
-            "Custom Shader (R6)",
-            box_(Vector3::new(1.0, 1.0, 1.0)),
+            "Custom Shader (R8)",
+            box_(Vector3::new(2.4, 2.4, 2.4)),
             Arc::clone(&custom_material),
             Transform::new(
-                Vector3::new(-20.0, 1.2, 22.0),
-                Quaternion::new(1.0, 0.0, 0.0, 0.0),
+                Vector3::new(0.0, 1.5, HALLWAY_MIRROR_Z + 10.0),
+                Quaternion::from_axis_angle(Vector3::unit_y(), Rad(0.55)),
                 Vector3::new(1.0, 1.0, 1.0),
             ),
         );
@@ -1043,6 +1048,17 @@ impl Module for ProcgeoSceneModule {
             },
         )
         .unwrap();
+
+        // ── R8 — soft omni light over the custom shader exhibit ─────
+        let r8_light = ecs.spawn_entity();
+        ecs.attach_component(
+            &r8_light,
+            LightDescriptor::new_point(Vector3::new(0.8, 0.9, 1.0), 40.0),
+        )
+        .unwrap();
+        ecs.attach_component(&r8_light, Position(Point3::new(0.0, 5.5, 18.0)))
+            .unwrap();
+        ecs.attach_component(&r8_light, LightDirty(true)).unwrap();
 
         // ── R7 — shadow-casting spot across the AA staircase ────────
         let r7_spot = ecs.spawn_entity();
