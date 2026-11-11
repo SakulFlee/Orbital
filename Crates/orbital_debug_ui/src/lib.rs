@@ -214,7 +214,7 @@ impl Module for DebugUiModule {
             (
                 "Performance",
                 (40.0, 40.0),
-                (440.0, 340.0),
+                (440.0, 380.0),
                 PanelId::Performance,
                 performance_panel as PanelView,
             ),

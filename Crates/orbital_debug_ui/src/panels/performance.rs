@@ -20,7 +20,7 @@ use crate::state::{
     MIN_GRAPH_WINDOW_SECS, PanelId, format_seconds,
 };
 
-const GRAPH_HEIGHT: f32 = 72.0;
+const GRAPH_HEIGHT: f32 = 100.0;
 const STAGE_COLUMN_WIDTH: f32 = 130.0;
 const VALUE_COLUMN_WIDTH: f32 = 58.0;
 /// Maximum number of points drawn per series.
@@ -218,50 +218,6 @@ pub fn performance_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Ic
     }
 
     sections.push(crate::panels::divider());
-    sections.push(crate::panels::caption(
-        "Logging",
-        Color::from_rgb(0.6, 0.6, 0.6),
-    ));
-    sections.push(
-        checkbox(log_config.console)
-            .label("Log FPS, timings & cache counters")
-            .text_size(12)
-            .on_toggle(DebugMessage::SetPerformanceLogging)
-            .into(),
-    );
-    sections.push(
-        row![
-            text("writes ~3 lines per second")
-                .size(10)
-                .color(Color::from_rgb(0.55, 0.55, 0.6))
-        ]
-        .into(),
-    );
-    sections.push(
-        checkbox(log_config.csv)
-            .label("Write performance CSV")
-            .text_size(12)
-            .on_toggle(DebugMessage::SetPerformanceCsv)
-            .into(),
-    );
-    sections.push(
-        row![
-            text(format!("path: {PERFORMANCE_CSV_PATH}"))
-                .size(10)
-                .color(Color::from_rgb(0.55, 0.55, 0.6))
-        ]
-        .into(),
-    );
-    sections.push(
-        row![
-            text(format!("meta: {PERFORMANCE_METADATA_PATH}"))
-                .size(10)
-                .color(Color::from_rgb(0.55, 0.55, 0.6))
-        ]
-        .into(),
-    );
-
-    sections.push(crate::panels::divider());
     sections.push(range_control(&state));
     sections.push(metric_selector(&state));
 
@@ -297,6 +253,8 @@ pub fn performance_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Ic
                 }
             }
 
+            sections.push(crate::panels::divider());
+            sections.extend(logging_section(log_config));
             sections.push(crate::panels::divider());
             sections.push(crate::panels::caption(
                 &format!(
@@ -361,7 +319,11 @@ pub fn performance_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Ic
                     .push(row![text("gpu timings unavailable on this backend").size(11)].into());
             }
         }
-        None => sections.push(row![text("no timings recorded yet").size(12)].into()),
+        None => {
+            sections.push(row![text("no timings recorded yet").size(12)].into());
+            sections.push(crate::panels::divider());
+            sections.extend(logging_section(log_config));
+        }
     }
 
     crate::panels::scrolling(
@@ -369,6 +331,43 @@ pub fn performance_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Ic
             .padding(10)
             .width(Length::Fill),
     )
+}
+
+/// The logging toggles, kept below the graph so measurements stay in view.
+fn logging_section<'a>(
+    log_config: PerformanceLogConfig,
+) -> Vec<Element<'a, DebugMessage, Theme, IcedRenderer>> {
+    vec![
+        crate::panels::caption("Logging", Color::from_rgb(0.6, 0.6, 0.6)),
+        checkbox(log_config.console)
+            .label("Log FPS, timings & cache counters")
+            .text_size(12)
+            .on_toggle(DebugMessage::SetPerformanceLogging)
+            .into(),
+        row![
+            text("writes ~3 lines per second")
+                .size(10)
+                .color(Color::from_rgb(0.55, 0.55, 0.6))
+        ]
+        .into(),
+        checkbox(log_config.csv)
+            .label("Write performance CSV")
+            .text_size(12)
+            .on_toggle(DebugMessage::SetPerformanceCsv)
+            .into(),
+        row![
+            text(format!("path: {PERFORMANCE_CSV_PATH}"))
+                .size(10)
+                .color(Color::from_rgb(0.55, 0.55, 0.6))
+        ]
+        .into(),
+        row![
+            text(format!("meta: {PERFORMANCE_METADATA_PATH}"))
+                .size(10)
+                .color(Color::from_rgb(0.55, 0.55, 0.6))
+        ]
+        .into(),
+    ]
 }
 
 fn range_control<'a>(state: &DebugUiState) -> Element<'a, DebugMessage, Theme, IcedRenderer> {
@@ -484,37 +483,86 @@ fn graph(
     let rolling_secs = (window_secs as f64).min(ROLLING_WINDOW_SECS);
     let (average, minimum, maximum) = rolling_stats(&times, &values, rolling_secs);
 
+    let thresholds = thresholds_for(series);
+    let last = downsample(&values, Downsample::Mean);
+    let avg = downsample(&average, Downsample::Mean);
+    let min = downsample(&minimum, Downsample::Min);
+    let max = downsample(&maximum, Downsample::Max);
+
+    let peak = match metric {
+        GraphMetric::Last => percentile_peak(&last, 0.95),
+        GraphMetric::Avg => percentile_peak(&avg, 0.95),
+        GraphMetric::Min => percentile_peak(&min, 0.95),
+        GraphMetric::Max => percentile_peak(&max, 0.95),
+        GraphMetric::All => [&last, &avg, &min, &max]
+            .into_iter()
+            .map(|values| percentile_peak(values, 0.95))
+            .fold(0.0f32, f32::max),
+    };
+
+    // Bring a threshold into view when it is close to the data, but do not let
+    // a distant target squash the curve against the floor.
+    let scale_peak = [thresholds.good, thresholds.warn]
+        .into_iter()
+        .filter(|threshold| *threshold <= peak * 2.0)
+        .fold(peak, f32::max);
+
     let sparkline = match metric {
-        GraphMetric::Last => Sparkline::auto_scaled(downsample(&values, Downsample::Mean), color),
-        GraphMetric::Avg => Sparkline::auto_scaled(downsample(&average, Downsample::Mean), color),
-        GraphMetric::Min => Sparkline::auto_scaled(downsample(&minimum, Downsample::Min), color),
-        GraphMetric::Max => Sparkline::auto_scaled(downsample(&maximum, Downsample::Max), color),
+        GraphMetric::Last => Sparkline::auto_scaled(last, color),
+        GraphMetric::Avg => Sparkline::auto_scaled(avg, color),
+        GraphMetric::Min => Sparkline::auto_scaled(min, color),
+        GraphMetric::Max => Sparkline::auto_scaled(max, color),
         GraphMetric::All => Sparkline::layered(
-            downsample(&values, Downsample::Mean),
+            last,
             vec![
-                Line::new(downsample(&average, Downsample::Mean), AVG_COLOR, 1.0),
-                Line::new(downsample(&minimum, Downsample::Min), MIN_COLOR, 0.9),
-                Line::new(downsample(&maximum, Downsample::Max), MAX_COLOR, 0.9),
+                Line::new(avg, AVG_COLOR, 1.0),
+                Line::new(min, MIN_COLOR, 0.9),
+                Line::new(max, MAX_COLOR, 0.9),
             ],
             false,
             LAST_COLOR,
         ),
     }
-    .with_axis(unit, window_secs);
+    .with_ceiling(scale_peak)
+    .with_axis(unit, window_secs)
+    .with_reference(
+        thresholds.good,
+        GOOD_COLOR,
+        threshold_label(series, thresholds.good, unit),
+    )
+    .with_reference(
+        thresholds.warn,
+        WARN_COLOR,
+        threshold_label(series, thresholds.warn, unit),
+    );
 
     let caption = format!(
-        "{label} ({unit}, last {:.2}s, {} frames)",
+        "{label} · {unit} · last {:.2}s · {} frames",
         window_secs,
         values.len()
     );
+    let summary = stats(&values)
+        .map(|stats| {
+            format!(
+                "last {} · avg {} · min {} · max {}",
+                format_graph_value(stats.last, unit),
+                format_graph_value(stats.avg, unit),
+                format_graph_value(stats.min, unit),
+                format_graph_value(stats.max, unit),
+            )
+        })
+        .unwrap_or_else(|| "no samples in window".to_string());
 
     let mut content = column![
         crate::panels::caption(&caption, color),
+        text(summary)
+            .size(10)
+            .color(Color::from_rgb(0.62, 0.66, 0.72)),
         canvas::Canvas::new(sparkline)
             .width(Length::Fill)
             .height(GRAPH_HEIGHT)
     ]
-    .spacing(1);
+    .spacing(2);
 
     if metric == GraphMetric::All {
         content = content.push(
@@ -714,6 +762,26 @@ enum Downsample {
     Max,
 }
 
+/// A high percentile of a series, so a handful of startup hitches does not
+/// dictate the graph's whole Y scale.
+fn percentile_peak(values: &[f32], fraction: f32) -> f32 {
+    let mut sorted = values
+        .iter()
+        .copied()
+        .filter(|value| value.is_finite())
+        .collect::<Vec<_>>();
+
+    if sorted.is_empty() {
+        return 0.0;
+    }
+
+    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+    let index = ((sorted.len() - 1) as f32 * fraction.clamp(0.0, 1.0)).round() as usize;
+
+    sorted[index.min(sorted.len() - 1)]
+}
+
 fn downsample(values: &[f32], mode: Downsample) -> Vec<f32> {
     if values.len() <= MAX_GRAPH_POINTS {
         return values.to_vec();
@@ -842,6 +910,43 @@ fn format_ms(value: f64) -> String {
     }
 }
 
+/// Formats a graph value without its unit, matching the graph's magnitude.
+fn format_graph_value(value: f32, unit: &str) -> String {
+    if unit == "fps" {
+        format!("{value:.0}")
+    } else {
+        format_ms_f32(value)
+    }
+}
+
+/// Whether a series' thresholds are whole-frame budgets.
+fn is_frame_series(series: GraphSeries) -> bool {
+    matches!(
+        series,
+        GraphSeries::Fps
+            | GraphSeries::Cdt
+            | GraphSeries::Stage(TOTAL_STAGE_INDEX)
+            | GraphSeries::Stage(STAGE_PRESENT)
+            | GraphSeries::Stage(STAGE_SURFACE_ACQ)
+            | GraphSeries::Stage(STAGE_GPU_SCENE_TOTAL)
+    )
+}
+
+/// Formats a threshold, using FPS for frame budgets and milliseconds for stages.
+fn threshold_label(series: GraphSeries, value: f32, unit: &str) -> String {
+    if is_frame_series(series) {
+        let fps = if unit == "fps" {
+            value
+        } else {
+            1000.0 / value.max(f32::EPSILON)
+        };
+
+        format!("{fps:.0} fps")
+    } else {
+        format!("{value:.1} ms")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -856,6 +961,40 @@ mod tests {
     fn large_durations_are_shortened() {
         assert_eq!(format_ms(10.0), "10.00");
         assert_eq!(format_ms(1234.5), "1234.50");
+    }
+
+    #[test]
+    fn graph_values_drop_noise() {
+        assert_eq!(format_graph_value(342.4, "fps"), "342");
+        assert_eq!(format_graph_value(3.021, "ms"), "3.021");
+        assert_eq!(threshold_label(GraphSeries::Fps, 60.0, "fps"), "60 fps");
+        assert_eq!(
+            threshold_label(GraphSeries::Stage(TOTAL_STAGE_INDEX), 16.666, "ms"),
+            "60 fps"
+        );
+
+        use orbital_ecs_bridge::STAGE_UPDATE;
+        assert_eq!(
+            threshold_label(GraphSeries::Stage(STAGE_UPDATE), 1.0, "ms"),
+            "1.0 ms"
+        );
+    }
+
+    #[test]
+    fn percentile_peaks_ignore_non_finite_values_and_spikes() {
+        assert_eq!(
+            percentile_peak(&[1.0, f32::NAN, 3.0, f32::INFINITY, -2.0], 0.95),
+            3.0
+        );
+        assert_eq!(percentile_peak(&[], 0.95), 0.0);
+
+        let mut values = vec![1.0; 100];
+        values[99] = 1000.0;
+        assert_eq!(
+            percentile_peak(&values, 0.95),
+            1.0,
+            "a single spike must not set the scale"
+        );
     }
 
     #[test]
