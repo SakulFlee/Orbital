@@ -49,7 +49,7 @@ const SURFACE_STATUS_NAMES: [&str; 7] = [
 ];
 
 /// Per-row display and resolution fields appended to each CSV row.
-pub const PERFORMANCE_CAPTURE_NAMES: [&str; 18] = [
+pub const PERFORMANCE_CAPTURE_NAMES: [&str; 19] = [
     "window_width",
     "window_height",
     "surface_width",
@@ -63,6 +63,7 @@ pub const PERFORMANCE_CAPTURE_NAMES: [&str; 18] = [
     "refresh_rate_mhz",
     "present_mode",
     "frame_latency",
+    "fps_limit",
     "pixels_per_frame",
     "render_scale_changes",
     "render_resolution_changes",
@@ -109,6 +110,8 @@ pub struct CaptureSnapshot {
     pub present_mode: &'static str,
     /// Configured swapchain frame latency.
     pub frame_latency: u32,
+    /// Active runtime frame cap, if one is configured.
+    pub fps_limit: Option<u32>,
     /// Whether the renderer exposes GPU timestamp queries.
     pub gpu_timestamps_supported: bool,
     /// Whether GPU timestamp data did not advance during the window.
@@ -130,6 +133,7 @@ impl Default for CaptureSnapshot {
             refresh_rate_mhz: None,
             present_mode: "unknown",
             frame_latency: 2,
+            fps_limit: None,
             gpu_timestamps_supported: false,
             gpu_timestamps_stale: false,
         }
@@ -295,9 +299,17 @@ impl PerformanceCsvRecorder {
         }
         write!(
             self.writer,
-            ",{},{},{},{},{},{},{}",
+            ",{},{},{}",
             capture.present_mode,
             capture.frame_latency,
+            capture
+                .fps_limit
+                .map(|limit| limit.to_string())
+                .unwrap_or_default(),
+        )?;
+        write!(
+            self.writer,
+            ",{},{},{},{},{}",
             capture.pixels_per_frame(),
             changes.render_scale_changes,
             changes.render_resolution_changes,
@@ -419,6 +431,8 @@ mod tests {
         assert_eq!(header.split(',').count(), row.split(',').count());
         assert!(row.starts_with("1.500,60,16.700,1.000,"));
         assert!(row.contains(",1,2,3,4,5,6,7,0,0,0,0,0,0,2,Performance|Rendering,"));
+        assert!(header.contains(",frame_latency,fps_limit,pixels_per_frame,"));
+        assert!(row.contains(",unknown,2,,0,0,0,false,false,"));
         assert!(row.contains(",60,16.000,10.000,20.000,19.000,"));
         assert!(row.ends_with(",0.500,2.000,1.500"));
     }

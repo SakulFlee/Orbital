@@ -23,6 +23,8 @@ overlays stay at native resolution.
 - `render_scale` — fixed internal scale (`1.0`, `0.75`, `0.5`, `0.25`, and so on).
 - `adaptive_render_scale` — automatically tune the scale once per FPS window.
 - `target_fps` — frame rate the adaptive controller tries to hold.
+- `fps_limit` — optional runtime frame cap. `AppSettings::fps_limit` sets the
+  startup value; `RenderSettings::fps_limit` can change it while the app runs.
 - `min_render_scale` / `max_render_scale` — bounds for adaptive scaling (default
   `0.25` / `1.0`).
 
@@ -39,6 +41,13 @@ target is capped to the display refresh rate when the platform reports one and t
 cap configured with `fps_limit` when VSync is disabled. If the display refresh cannot be
 queried, the configured target is used as-is.
 
+The frame cap is a runtime control like the render scale. Set it from the Rendering panel
+without rebuilding to hold a phone and tablet at the same rate for an A/B capture. The
+limiter ignores the cap while VSync is enabled, where presentation is already paced by the
+compositor; turn VSync off or use a non-VSync present mode first. Every CSV row records the
+active `fps_limit`, so a capture can be split into capped and uncapped segments even when
+the cap changes mid-run.
+
 The runtime only lowers the scale immediately. It raises it after four consecutive timing
 windows meet the target and only when the next scale is predicted to still meet it. This
 avoids visible oscillation when the current scale is just barely fast enough. Every scale
@@ -49,8 +58,9 @@ On Android, winit does not expose a refresh rate. Orbital falls back to the Java
 Refresh-rate selection is not exposed by the platform abstraction; match refresh rates
 through the device display settings when comparing devices.
 
-The Rendering debug panel exposes adaptive scaling, the target FPS, and fixed 1x/0.75x/0.5x/0.25x
-presets. Changing the scale there takes effect without rebuilding the app.
+The Rendering debug panel exposes adaptive scaling, the target FPS, fixed
+1x/0.75x/0.5x/0.25x presets, and the runtime frame cap. Changing the scale or cap there
+takes effect without rebuilding the app.
 
 Raw FPS is only directly comparable when the native surface resolution, internal render
 resolution, and refresh rate match. Use the per-row capture fields to group samples before
@@ -316,12 +326,14 @@ elapsed_s,fps,cdt_ms,<timing stage means>,<cache counters>,<surface counters>,vi
 - Capture fields — one value per row: `window_width`, `window_height`,
   `surface_width`, `surface_height`, `render_width`, `render_height`,
   `render_scale`, `scale_factor`, `dpi`, `orientation`, `refresh_rate_mhz`,
-  `present_mode`, `frame_latency`, `pixels_per_frame`,
+  `present_mode`, `frame_latency`, `fps_limit`, `pixels_per_frame`,
   `render_scale_changes`, `render_resolution_changes`,
   `gpu_timestamps_supported`, `gpu_timestamps_stale`.
-  `refresh_rate_mhz` is empty when the platform does not report a value. The
-  render fields change when adaptive scaling or a rotation changes the target
-  size, so a capture can be split into comparable segments. The two change
+  `refresh_rate_mhz` is empty when the platform does not report a value.
+  `fps_limit` is empty when no cap is configured; a value is recorded even
+  while VSync is enabled, where the limiter ignores it. The render fields
+  change when adaptive scaling or a rotation changes the target size, so a
+  capture can be split into comparable segments. The two change
   counters mark the rows where a scale or render-target change happened; a
   non-zero counter means that row covers a transition.
   `gpu_timestamps_stale` is set when GPU timestamp results did not advance

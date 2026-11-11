@@ -142,6 +142,41 @@ pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
     );
 
     rows.push(crate::panels::divider());
+    rows.push(crate::panels::caption("Frame pacing", ACCENT));
+    rows.push(
+        checkbox(render.fps_limit.is_some())
+            .label("Frame cap")
+            .text_size(12)
+            .on_toggle(DebugMessage::SetFrameCapEnabled)
+            .into(),
+    );
+    if let Some(limit) = render.fps_limit {
+        rows.push(
+            column![
+                row![
+                    text("Cap FPS").size(12).width(Length::Fixed(LABEL_WIDTH)),
+                    text(limit.to_string())
+                        .size(11)
+                        .color(MUTED)
+                        .width(Length::Fixed(VALUE_WIDTH)),
+                ],
+                slider(15.0..=240.0, limit as f32, |value| {
+                    DebugMessage::SetFrameCapFps(value.round() as u32)
+                })
+                .step(1.0),
+            ]
+            .spacing(1)
+            .into(),
+        );
+    }
+    rows.push(
+        text("Ignored while VSync is enabled.")
+            .size(10)
+            .color(MUTED)
+            .into(),
+    );
+
+    rows.push(crate::panels::divider());
     rows.push(crate::panels::caption("Anti-aliasing", ACCENT));
     rows.push(
         row![
