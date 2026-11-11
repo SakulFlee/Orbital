@@ -144,7 +144,7 @@ pub const TIMING_STAGES: [&str; 46] = [
     "iced draw",
     "iced submit",
     "present",
-    "total",
+    "render_total",
     "frame limiter",
     "frame gap",
     "surface lock",
@@ -194,7 +194,12 @@ pub const STAGE_OVERLAY_LAYERS: usize = 21;
 pub const STAGE_ICED_DRAW: usize = 22;
 pub const STAGE_ICED_SUBMIT: usize = 23;
 pub const STAGE_PRESENT: usize = 24;
-pub const STAGE_TOTAL: usize = 25;
+/// The renderer-only span from the end of update/surface acquisition to the
+/// end of present. This is not the wall-clock frame period; see
+/// [`RENDER_TOTAL_STAGE_INDEX`] and the `cdt_ms` timing window field.
+pub const STAGE_RENDER_TOTAL: usize = 25;
+/// Compatibility alias for [`STAGE_RENDER_TOTAL`].
+pub const STAGE_TOTAL: usize = STAGE_RENDER_TOTAL;
 pub const STAGE_FRAME_LIMITER: usize = 26;
 pub const STAGE_FRAME_GAP: usize = 27;
 pub const STAGE_SURFACE_LOCK: usize = 28;
@@ -216,10 +221,13 @@ pub const STAGE_GPU_VOLUMETRICS: usize = 43;
 pub const STAGE_GPU_TONEMAP: usize = 44;
 pub const STAGE_GPU_AA: usize = 45;
 
-/// The index of the `total` stage, which is the renderer-only duration after
-/// surface acquisition and update. Add `update`, `surface_acq`,
-/// `frame_limiter`, and `frame_gap` for the wall-clock frame period.
-pub const TOTAL_STAGE_INDEX: usize = STAGE_TOTAL;
+/// The index of the `render_total` stage, which is the renderer-only duration
+/// after surface acquisition and update. Add `update`, `surface_acq`,
+/// `frame_limiter`, and `frame_gap` for the wall-clock frame period, or read
+/// the `cdt_ms` timing-window field directly.
+pub const RENDER_TOTAL_STAGE_INDEX: usize = STAGE_RENDER_TOTAL;
+/// Compatibility alias for [`RENDER_TOTAL_STAGE_INDEX`].
+pub const TOTAL_STAGE_INDEX: usize = STAGE_RENDER_TOTAL;
 
 /// The first GPU stage. Stages at or after this index are invalid when the
 /// backend does not support timestamp queries.
@@ -320,15 +328,15 @@ pub struct FrameTimings {
     count: u64,
     /// Renderer-only total per frame, oldest first.
     ///
-    /// This is the `total` stage, not the wall-clock frame period. Use the
-    /// per-frame history and the frame-gap/update/surface stages for the full
+    /// This is the `render_total` stage, not the wall-clock frame period. Use
+    /// `cdt_history` (or the frame-gap/update/surface stages) for the full
     /// period.
-    frame_ms: VecDeque<f32>,
+    render_ms: VecDeque<f32>,
     /// Per-stage durations over time, oldest first. One entry per frame, each
     /// holding one value per stage in [`TIMING_STAGES`] order.
     history: VecDeque<Vec<f64>>,
     /// Time of each retained graph frame, oldest first. Parallel to `history`
-    /// and `frame_ms`.
+    /// and `render_ms`.
     history_times: VecDeque<f64>,
     /// Wall-clock frame delta per retained graph frame, in milliseconds.
     cdt_history: VecDeque<f32>,
@@ -363,7 +371,7 @@ impl FrameTimings {
             samples: (0..stages).map(TimingSample::empty).collect(),
             totals: vec![0.0; stages],
             count: 0,
-            frame_ms: VecDeque::with_capacity(256),
+            render_ms: VecDeque::with_capacity(256),
             history: VecDeque::with_capacity(256),
             history_times: VecDeque::with_capacity(256),
             cdt_history: VecDeque::with_capacity(256),
@@ -389,8 +397,8 @@ impl FrameTimings {
     }
 
     /// Renderer-only total per frame, oldest first.
-    pub fn frame_ms(&self) -> &VecDeque<f32> {
-        &self.frame_ms
+    pub fn render_ms(&self) -> &VecDeque<f32> {
+        &self.render_ms
     }
 
     /// Per-stage durations over time, oldest first.
@@ -511,7 +519,7 @@ impl FrameTimings {
         if !config.enabled {
             if !self.history.is_empty() {
                 self.history.clear();
-                self.frame_ms.clear();
+                self.render_ms.clear();
                 self.history_times.clear();
                 self.cdt_history.clear();
             }
@@ -520,13 +528,14 @@ impl FrameTimings {
         }
 
         self.history_times.push_back(elapsed);
-        self.frame_ms.push_back(durations[TOTAL_STAGE_INDEX] as f32);
+        self.render_ms
+            .push_back(durations[RENDER_TOTAL_STAGE_INDEX] as f32);
         self.cdt_history.push_back(cdt_ms as f32);
         self.history.push_back(durations.to_vec());
 
         while self.history.len() > Self::HISTORY_LEN {
             self.history.pop_front();
-            self.frame_ms.pop_front();
+            self.render_ms.pop_front();
             self.history_times.pop_front();
             self.cdt_history.pop_front();
         }
@@ -540,7 +549,7 @@ impl FrameTimings {
                 .is_some_and(|time| *time < cutoff)
             {
                 self.history.pop_front();
-                self.frame_ms.pop_front();
+                self.render_ms.pop_front();
                 self.history_times.pop_front();
                 self.cdt_history.pop_front();
             }
@@ -967,9 +976,9 @@ mod tests {
 
     /// A frame whose CPU stages each took `cpu_total`, with no GPU timestamps.
     fn frame(cpu_total: f64) -> Vec<f64> {
-        let mut durations = vec![cpu_total; STAGE_TOTAL];
+        let mut durations = vec![cpu_total; STAGE_RENDER_TOTAL];
         durations.resize(TIMING_STAGES.len(), 0.0);
-        durations[TOTAL_STAGE_INDEX] = cpu_total;
+        durations[RENDER_TOTAL_STAGE_INDEX] = cpu_total;
         durations
     }
 
@@ -979,7 +988,7 @@ mod tests {
 
         assert_eq!(timings.samples().len(), TIMING_STAGES.len());
         assert_eq!(timings.frame_count(), 0);
-        assert!(timings.frame_ms().is_empty());
+        assert!(timings.render_ms().is_empty());
         assert!(timings.history().is_empty());
 
         for (index, sample) in timings.samples().iter().enumerate() {
@@ -999,7 +1008,7 @@ mod tests {
 
         assert_eq!(timings.frame_count(), 3);
 
-        for index in 0..STAGE_TOTAL {
+        for index in 0..STAGE_RENDER_TOTAL {
             let sample = timings.samples()[index];
             assert_eq!(sample.last_ms, 6.0, "stage {index}");
             assert_eq!(sample.avg_ms, 4.0, "stage {index}");
@@ -1037,13 +1046,13 @@ mod tests {
         }
 
         assert_eq!(timings.frame_count(), total as u64);
-        assert_eq!(timings.frame_ms().len(), FrameTimings::HISTORY_LEN);
+        assert_eq!(timings.render_ms().len(), FrameTimings::HISTORY_LEN);
         assert_eq!(timings.history().len(), FrameTimings::HISTORY_LEN);
 
         // Oldest retained sample is 10 frames back, newest is the last one.
-        let frame_ms = timings.frame_ms();
-        assert_eq!(*frame_ms.front().expect("non-empty"), 10.0);
-        assert_eq!(*frame_ms.back().expect("non-empty"), (total - 1) as f32);
+        let render_ms = timings.render_ms();
+        assert_eq!(*render_ms.front().expect("non-empty"), 10.0);
+        assert_eq!(*render_ms.back().expect("non-empty"), (total - 1) as f32);
 
         let history = timings.history();
         assert_eq!(history[0][0], 10.0);
@@ -1064,7 +1073,7 @@ mod tests {
 
         // Times are 0.0, 0.5, ... 4.5. A 1s window keeps 3.5, 4.0 and 4.5.
         assert_eq!(timings.history().len(), 3);
-        assert_eq!(timings.frame_ms().len(), 3);
+        assert_eq!(timings.render_ms().len(), 3);
         assert_eq!(timings.cdt_history().len(), 3);
         assert_eq!(
             timings.history_times().front().copied(),
@@ -1096,7 +1105,7 @@ mod tests {
         );
 
         assert!(timings.history().is_empty());
-        assert!(timings.frame_ms().is_empty());
+        assert!(timings.render_ms().is_empty());
         assert!(timings.history_times().is_empty());
         assert!(timings.cdt_history().is_empty());
         assert_eq!(timings.frame_count(), 2, "cumulative stats still update");
@@ -1126,12 +1135,12 @@ mod tests {
 
         timings.record(&frame(2.0));
         timings.record(&frame(4.0));
-        assert_eq!(timings.frame_ms().len(), 2);
+        assert_eq!(timings.render_ms().len(), 2);
 
         timings.clear();
 
         assert_eq!(timings.frame_count(), 0);
-        assert_eq!(timings.frame_ms().len(), 2, "history should survive clear");
+        assert_eq!(timings.render_ms().len(), 2, "history should survive clear");
         assert_eq!(timings.samples()[0].avg_ms, 0.0);
         assert_eq!(timings.samples()[0].min_ms, 0.0);
         assert_eq!(timings.samples()[0].max_ms, 0.0);
@@ -1167,7 +1176,7 @@ mod tests {
 
         assert_eq!(logged.len(), TIMING_STAGES.len());
         // The CPU stages were recorded; the GPU ones had no timestamps.
-        for value in &logged[..STAGE_TOTAL] {
+        for value in &logged[..STAGE_RENDER_TOTAL] {
             assert!(*value > 0.0);
         }
         for value in &logged[GPU_STAGE_START..] {
