@@ -976,29 +976,54 @@ impl ModuleRuntime {
         layer_renderers.sort_by_key(|r| r.layer().index());
 
         let d_overlay_main = std::cell::Cell::new(std::time::Duration::ZERO);
+        let d_overlay_submit = std::cell::Cell::new(std::time::Duration::ZERO);
         if let (Some(renderer), Some(camera_buffer)) = (&mut self.renderer, camera_buffer.as_ref())
         {
             let cull = cull_res.as_ref().and_then(|r| r.0.as_ref());
             let ecs = &self.ecs_world;
-            let mut overlay_callback = |encoder: &mut wgpu::CommandEncoder| {
-                let start = Instant::now();
-                for layer in layer_renderers.iter_mut() {
-                    if layer.submission() != crate::OverlaySubmission::MainEncoder {
-                        continue;
+            let mut overlay_callback =
+                |encoder: &mut wgpu::CommandEncoder| -> Vec<wgpu::CommandBuffer> {
+                    let start = Instant::now();
+                    for layer in layer_renderers.iter_mut() {
+                        if layer.submission() != crate::OverlaySubmission::MainEncoder {
+                            continue;
+                        }
+                        let ctx = crate::RenderOverlayContext {
+                            target_view: &view,
+                            camera_buffer,
+                            device,
+                            queue,
+                            encoder: Some(encoder),
+                            ecs,
+                            screen_size,
+                        };
+                        layer.render(ctx);
                     }
-                    let ctx = crate::RenderOverlayContext {
-                        target_view: &view,
-                        camera_buffer,
-                        device,
-                        queue,
-                        encoder: Some(encoder),
-                        ecs,
-                        screen_size,
-                    };
-                    layer.render(ctx);
-                }
-                d_overlay_main.set(start.elapsed());
-            };
+                    d_overlay_main.set(start.elapsed());
+
+                    // Main-submit layers record their own command buffers, but
+                    // those buffers join the scene submission below so the
+                    // frame still costs a single `queue.submit`.
+                    let start = Instant::now();
+                    let mut commands = Vec::new();
+                    for layer in layer_renderers.iter_mut() {
+                        if layer.submission() != crate::OverlaySubmission::MainSubmit {
+                            continue;
+                        }
+                        let ctx = crate::RenderOverlayContext {
+                            target_view: &view,
+                            camera_buffer,
+                            device,
+                            queue,
+                            encoder: None,
+                            ecs,
+                            screen_size,
+                        };
+                        commands.extend(layer.render_main_submit(ctx));
+                    }
+                    d_overlay_submit.set(start.elapsed());
+                    commands
+                };
 
             renderer.render(
                 &view,
@@ -1013,6 +1038,7 @@ impl ModuleRuntime {
         }
         drop(cull_res);
         let d_overlay_main = d_overlay_main.get();
+        let d_overlay_submit = d_overlay_submit.get();
 
         let renderer_cpu = self
             .renderer
@@ -1026,8 +1052,9 @@ impl ModuleRuntime {
                 renderer.prev_gpu_ns()
             });
 
-        // Owned-submission layers (iced) always run after the main submission.
-        let mut d_overlay_layers = std::time::Duration::ZERO;
+        // Owned-submission layers always run after the main submission, while
+        // main-submit layers (iced) have already recorded into it.
+        let mut d_overlay_layers = d_overlay_submit;
         let mut d_iced_draw = std::time::Duration::ZERO;
         let mut d_iced_submit = std::time::Duration::ZERO;
         if self.perf_detail {
@@ -1037,6 +1064,21 @@ impl ModuleRuntime {
                 timing.draw_ms = 0.0;
                 timing.submit_ms = 0.0;
             }
+        }
+        for (index, layer) in layer_renderers.iter_mut().enumerate() {
+            if layer.submission() != crate::OverlaySubmission::MainSubmit {
+                continue;
+            }
+            let timings = layer.take_render_timings();
+            d_iced_draw += timings.draw;
+            d_iced_submit += timings.submit;
+            if self.perf_detail {
+                let timing = &mut self.overlay_detail[index];
+                timing.name = layer.debug_name().to_string();
+                timing.draw_ms = timings.draw.as_secs_f64() * 1000.0;
+                timing.submit_ms = timings.submit.as_secs_f64() * 1000.0;
+            }
+            layer.finish_main_submit();
         }
         if let Some(camera_buffer) = camera_buffer.as_ref() {
             let t_layers_start = Instant::now();
@@ -1064,7 +1106,7 @@ impl ModuleRuntime {
                     timing.submit_ms = timings.submit.as_secs_f64() * 1000.0;
                 }
             }
-            d_overlay_layers = t_layers_start.elapsed();
+            d_overlay_layers += t_layers_start.elapsed();
 
             // Drain iced events once after all layer renderers have processed.
             // Each IcedLayerRenderer clones (not drains) the queue so that
