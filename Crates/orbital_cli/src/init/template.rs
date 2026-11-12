@@ -118,6 +118,12 @@ fn git_says_inside_worktree(project_dir: &Path) -> bool {
 }
 
 fn write_all_in_one_assets(project_dir: &Path) -> Result<()> {
+    fs::write(
+        project_dir.join("src").join("custom_shader.wgsl"),
+        ALL_IN_ONE_CUSTOM_SHADER,
+    )
+    .context("Failed to write src/custom_shader.wgsl")?;
+
     let assets = project_dir.join("Assets");
 
     fs::create_dir_all(assets.join("Scenes")).context("Failed to create Assets/Scenes")?;
@@ -413,6 +419,11 @@ const ALL_IN_ONE_SCENE: &[u8] = include_bytes!(concat!(
 const ALL_IN_ONE_HELMET: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../Examples/all-in-one/Assets/Models/DamagedHelmet.glb"
+));
+
+const ALL_IN_ONE_CUSTOM_SHADER: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../Examples/all-in-one/src/custom_shader.wgsl"
 ));
 
 const TWO_D_TEMPLATE: &str = include_str!(concat!(
