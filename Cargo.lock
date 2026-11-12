@@ -4825,13 +4825,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "template_custom_shader"
-version = "1.6.0"
-dependencies = [
- "orbital",
-]
-
-[[package]]
 name = "template_many_lights"
 version = "1.6.0"
 dependencies = [
@@ -4847,13 +4840,6 @@ dependencies = [
 
 [[package]]
 name = "template_orthographic"
-version = "1.6.0"
-dependencies = [
- "orbital",
-]
-
-[[package]]
-name = "template_transparency"
 version = "1.6.0"
 dependencies = [
  "orbital",
