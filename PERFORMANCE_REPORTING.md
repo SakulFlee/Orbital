@@ -294,7 +294,7 @@ elapsed_s,fps,cdt_ms,<timing stage means>,<cache counters>,<surface counters>,vi
   `realize_cameras`, `realize_lights`, `realize_models`, `realize_env`,
   `stagger`, `cull+extract`, `bind+models`, `volumetrics`, `scene_encode`,
   `scene_submit`, `timestamp_readback`, `overlay_main`, `overlay_layers`,
-  `iced_draw`, `iced_submit`, `present`, `total`, `frame_limiter`,
+  `iced_draw`, `iced_submit`, `present`, `render_total`, `frame_limiter`,
   `frame_gap`, `surface_lock`, `surface_acquire`, `surface_view`,
   `gpu_complete`, `gpu_shadow`, `gpu_skybox`, `gpu_gbuffer`,
   `gpu_light_culling`, `gpu_deferred`, `gpu_models`, `gpu_transparent`,
@@ -310,8 +310,15 @@ elapsed_s,fps,cdt_ms,<timing stage means>,<cache counters>,<surface counters>,vi
   `surface_lock`, `surface_acquire`, and `surface_view` break down the
   `surface_acq` stage; `surface_acquire` includes waiting for a swapchain
   image, so it can reflect GPU/present backpressure rather than pure CPU work.
+  `render_total` starts after update and surface acquisition and ends after
+  present, so it is **not** the whole-frame duration. The wall-clock frame
+  period is `cdt_ms` (and `cdt_*` for its window distribution), approximately
+  `update + surface_acq + render_total + frame_limiter + frame_gap`.
   `frame_gap` is the part of the wall-clock frame not covered by
-  `update + surface_acq + total + frame_limiter`.
+  `update + surface_acq + render_total + frame_limiter`.
+  The debug UI's "frame time" graph plots `cdt_ms`, and its FPS graph is
+  derived from `cdt_ms` so it agrees with the CSV `fps` window instead of the
+  renderer-only total.
   `gpu_complete` is the time from the end of submission until the GPU reports
   the submitted work complete; it is a latency, not an additive stage.
   `gpu_volumetric_inject`, `gpu_volumetric_accumulate`,

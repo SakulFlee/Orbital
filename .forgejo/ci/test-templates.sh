@@ -43,7 +43,7 @@ for template in minimal all-in-one 2d; do
     done
 
     if [[ "$template" == "all-in-one" ]]; then
-        for file in Assets/Scenes/procgeo_demo.ron Assets/Models/DamagedHelmet.glb; do
+        for file in src/custom_shader.wgsl Assets/Scenes/procgeo_demo.ron Assets/Models/DamagedHelmet.glb; do
             if [[ ! -s "$project/$file" ]]; then
                 echo "Missing generated all-in-one asset: $project/$file" >&2
                 exit 1

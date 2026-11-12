@@ -49,11 +49,11 @@ use orbital_ecs_bridge::{
     STAGE_GPU_VOLUMETRIC_INJECT, STAGE_GPU_VOLUMETRIC_INTEGRATE, STAGE_GPU_VOLUMETRICS,
     STAGE_ICED_DRAW, STAGE_ICED_SUBMIT, STAGE_IMPORTER_POLL, STAGE_INPUT, STAGE_OVERLAY_LAYERS,
     STAGE_OVERLAY_MAIN, STAGE_PRESENT, STAGE_REALIZE, STAGE_REALIZE_CAMERAS, STAGE_REALIZE_ENV,
-    STAGE_REALIZE_LIGHTS, STAGE_REALIZE_MODELS, STAGE_SCENE_ENCODE, STAGE_SCENE_SUBMIT,
-    STAGE_STAGGER, STAGE_SURFACE_ACQ, STAGE_SURFACE_ACQUIRE, STAGE_SURFACE_LOCK,
-    STAGE_SURFACE_VIEW, STAGE_TIMESTAMP_READBACK, STAGE_TOTAL, STAGE_UI_EVENTS, STAGE_UPDATE,
-    STAGE_VOLUMETRICS, ShadowDebugData, SurfaceFormatResource, TIMING_STAGES, TimingsHistoryConfig,
-    TotalTime, VolumetricSettings, WindowSize,
+    STAGE_REALIZE_LIGHTS, STAGE_REALIZE_MODELS, STAGE_RENDER_TOTAL, STAGE_SCENE_ENCODE,
+    STAGE_SCENE_SUBMIT, STAGE_STAGGER, STAGE_SURFACE_ACQ, STAGE_SURFACE_ACQUIRE,
+    STAGE_SURFACE_LOCK, STAGE_SURFACE_VIEW, STAGE_TIMESTAMP_READBACK, STAGE_UI_EVENTS,
+    STAGE_UPDATE, STAGE_VOLUMETRICS, ShadowDebugData, SurfaceFormatResource, TIMING_STAGES,
+    TimingsHistoryConfig, TotalTime, VolumetricSettings, WindowSize,
 };
 use orbital_renderer::GPU_TIMESTAMP_COUNT;
 
@@ -1153,12 +1153,16 @@ impl ModuleRuntime {
         let _ = lock.device().poll(wgpu::PollType::Poll);
         drop(lock);
 
-        let d_total = Instant::now() - t_realize_start;
+        // Renderer-only span: everything after update and surface acquisition
+        // up to and including present. This intentionally excludes `update`,
+        // `surface_acq`, the frame limiter and event-loop gaps; `cdt_ms` is
+        // the wall-clock frame period.
+        let d_render_total = Instant::now() - t_realize_start;
         let d_surface_acq = t_realize_start - t_start;
 
         #[cfg(target_os = "android")]
         {
-            let cpu_work = d_total.saturating_sub(d_present);
+            let cpu_work = d_render_total.saturating_sub(d_present);
             crate::android_performance::report_frame(cpu_work);
         }
 
@@ -1207,7 +1211,7 @@ impl ModuleRuntime {
         self.frame_timings.set(STAGE_ICED_DRAW, d_iced_draw);
         self.frame_timings.set(STAGE_ICED_SUBMIT, d_iced_submit);
         self.frame_timings.set(STAGE_PRESENT, d_present);
-        self.frame_timings.set(STAGE_TOTAL, d_total);
+        self.frame_timings.set(STAGE_RENDER_TOTAL, d_render_total);
         self.frame_timings
             .set_ms(STAGE_GPU_COMPLETE, self.gpu_complete_ms);
         self.frame_timings.set_gpu(gpu_ns);
@@ -1247,7 +1251,7 @@ impl ModuleRuntime {
 
         let accounted_ms = self.update_timings.total_ms
             + d_surface_acq.as_secs_f64() * 1000.0
-            + d_total.as_secs_f64() * 1000.0
+            + d_render_total.as_secs_f64() * 1000.0
             + d_frame_limiter.as_secs_f64() * 1000.0;
         self.frame_timings
             .set_ms(STAGE_FRAME_GAP, (cdt_ms - accounted_ms).max(0.0));

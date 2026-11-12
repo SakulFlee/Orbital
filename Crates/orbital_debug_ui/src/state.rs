@@ -6,7 +6,7 @@ use orbital_app::OrthographicForwardMode;
 use orbital_camera::ProjectionMode;
 use orbital_debug_render::BoundsMode;
 use orbital_ecs::Entity;
-use orbital_ecs_bridge::{TIMING_STAGES, TOTAL_STAGE_INDEX, VolumetricQuality};
+use orbital_ecs_bridge::{TIMING_STAGES, VolumetricQuality};
 use orbital_renderer::{AntiAliasing, SmaaQuality};
 
 /// The Iced renderer type the panels draw with.
@@ -334,7 +334,7 @@ impl DebugUiState {
             selected: None,
             expanded: HashSet::new(),
             filter: String::new(),
-            graph_series: BTreeSet::from([GraphSeries::Stage(TOTAL_STAGE_INDEX)]),
+            graph_series: BTreeSet::from([GraphSeries::Cdt]),
             graph_metric: GraphMetric::Last,
             graph_window_secs: DEFAULT_GRAPH_WINDOW_SECS,
             graph_window_input: format_seconds(DEFAULT_GRAPH_WINDOW_SECS),
@@ -686,11 +686,7 @@ mod tests {
     #[test]
     fn graph_series_toggle_and_ignore_out_of_range_stages() {
         let mut state = DebugUiState::new(winit::keyboard::KeyCode::F1);
-        assert!(
-            state
-                .graph_series
-                .contains(&GraphSeries::Stage(TOTAL_STAGE_INDEX))
-        );
+        assert!(state.graph_series.contains(&GraphSeries::Cdt));
 
         state.apply(&DebugMessage::ToggleGraphSeries(GraphSeries::Stage(2)));
         assert!(state.graph_series.contains(&GraphSeries::Stage(2)));
