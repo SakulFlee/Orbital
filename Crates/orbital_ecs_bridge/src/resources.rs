@@ -118,7 +118,7 @@ pub struct TimingWindow {
 /// frame. The GPU stages are derived from timestamp query results read back
 /// from the renderer, and are only meaningful on backends that support
 /// timestamp queries; elsewhere they stay at zero.
-pub const TIMING_STAGES: [&str; 46] = [
+pub const TIMING_STAGES: [&str; 47] = [
     "surface_acq",
     "update",
     "ui_events",
@@ -160,6 +160,7 @@ pub const TIMING_STAGES: [&str; 46] = [
     "gpu transparent",
     "gpu volumetric inject",
     "gpu volumetric accumulate",
+    "gpu volumetric integrate",
     "gpu volumetric composite",
     "gpu scene total",
     "gpu volumetrics",
@@ -210,11 +211,12 @@ pub const STAGE_GPU_MODELS: usize = 37;
 pub const STAGE_GPU_TRANSPARENT: usize = 38;
 pub const STAGE_GPU_VOLUMETRIC_INJECT: usize = 39;
 pub const STAGE_GPU_VOLUMETRIC_ACCUMULATE: usize = 40;
-pub const STAGE_GPU_VOLUMETRIC_COMPOSITE: usize = 41;
-pub const STAGE_GPU_SCENE_TOTAL: usize = 42;
-pub const STAGE_GPU_VOLUMETRICS: usize = 43;
-pub const STAGE_GPU_TONEMAP: usize = 44;
-pub const STAGE_GPU_AA: usize = 45;
+pub const STAGE_GPU_VOLUMETRIC_INTEGRATE: usize = 41;
+pub const STAGE_GPU_VOLUMETRIC_COMPOSITE: usize = 42;
+pub const STAGE_GPU_SCENE_TOTAL: usize = 43;
+pub const STAGE_GPU_VOLUMETRICS: usize = 44;
+pub const STAGE_GPU_TONEMAP: usize = 45;
+pub const STAGE_GPU_AA: usize = 46;
 
 /// The index of the `total` stage, which is the renderer-only duration after
 /// surface acquisition and update. Add `update`, `surface_acq`,
@@ -1681,6 +1683,18 @@ pub struct NewLightBootstrap(pub bool);
 // Volumetrics
 // ---------------------------------------------------------------------------
 
+/// Target world-space spacing between froxel depth slices for the desktop
+/// quality tiers. Short light cones should not pop between slices as the
+/// camera moves.
+const TARGET_DEPTH_SLICE_SPACING: f32 = 0.15;
+/// Upper bound for adaptive depth slices. The X/Y grid still follows the
+/// selected quality tier.
+const MAX_DEPTH_SLICES: u32 = 192;
+/// Upper bound for the pre-integrated composite depth resolution. The froxel
+/// grid is capped well below this; the extra headroom only applies to custom
+/// quality tiers that ask for finer integration than their grid.
+const MAX_INTEGRATION_STEPS: u32 = 512;
+
 /// Froxel grid quality tier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum VolumetricQuality {
@@ -1690,9 +1704,9 @@ pub enum VolumetricQuality {
     High,
     /// Reduced grid for mobile GPUs. The X/Y grid is deliberately coarser
     /// than Low, adaptive depth slicing is disabled at 48 slices, and the
-    /// fullscreen composite uses 8 integration steps.
+    /// composite requests a minimum of 8 integration steps.
     Mobile,
-    /// Explicit grid dimensions and composite step count.
+    /// Explicit grid dimensions and minimum composite integration steps.
     Custom {
         grid_x: u32,
         grid_y: u32,
@@ -1702,7 +1716,11 @@ pub enum VolumetricQuality {
 }
 
 impl VolumetricQuality {
-    /// Grid dimensions for a render resolution.
+    /// Grid dimensions for a render resolution before adaptive depth slicing.
+    ///
+    /// Prefer [`Self::resolved_grid`] when the grid is needed for capture
+    /// metadata or diagnostics: it applies the same depth-slice rule as the
+    /// renderer.
     pub fn grid(self, width: u32, height: u32) -> [u32; 3] {
         match self {
             Self::Low => [(width / 12).max(16), (height / 12).max(9), 64],
@@ -1718,6 +1736,30 @@ impl VolumetricQuality {
         }
     }
 
+    /// Grid dimensions the renderer actually uses for a render resolution
+    /// and integration distance.
+    ///
+    /// Desktop tiers scale depth slices with [`max_distance`](Self::grid) so
+    /// short light cones keep the same sampling density over a longer range.
+    /// Mobile and custom tiers keep their explicit depth resolution.
+    pub fn resolved_grid(self, width: u32, height: u32, max_distance: f32) -> [u32; 3] {
+        let mut grid = self.grid(width, height);
+        if !matches!(self, Self::Custom { .. } | Self::Mobile) {
+            let target = (max_distance.max(0.1) / TARGET_DEPTH_SLICE_SPACING).ceil() as u32;
+            grid[2] = grid[2].max(target);
+        }
+        [
+            grid[0].clamp(1, 512),
+            grid[1].clamp(1, 512),
+            grid[2].clamp(1, MAX_DEPTH_SLICES),
+        ]
+    }
+
+    /// Minimum depth integration steps for the pre-integrated composite.
+    ///
+    /// The renderer integrates at least at the froxel grid's native depth
+    /// resolution, so this only raises the resolution for grids that are
+    /// coarser than the tier's requested step count.
     pub fn composite_steps(self) -> u32 {
         match self {
             Self::Low => 32,
@@ -1728,6 +1770,13 @@ impl VolumetricQuality {
                 composite_steps, ..
             } => composite_steps.max(1),
         }
+    }
+
+    /// Depth integration resolution used by the pre-integrated composite.
+    pub fn integration_steps(self, width: u32, height: u32, max_distance: f32) -> u32 {
+        self.resolved_grid(width, height, max_distance)[2]
+            .max(self.composite_steps())
+            .min(MAX_INTEGRATION_STEPS)
     }
 }
 
@@ -1811,6 +1860,64 @@ mod volumetric_tests {
         assert_eq!(VolumetricQuality::Mobile.grid(1920, 1080), [96, 54, 48]);
         assert_eq!(VolumetricQuality::Medium.composite_steps(), 48);
         assert_eq!(VolumetricQuality::Mobile.composite_steps(), 8);
+    }
+
+    #[test]
+    fn integration_steps_never_undersample_the_froxel_grid() {
+        // The resolved grid has 192 depth slices at this range, so the
+        // composite integrates at that resolution instead of its 32-step
+        // minimum.
+        assert_eq!(
+            VolumetricQuality::Low.integration_steps(1920, 1080, 30.0),
+            192
+        );
+        // A short range leaves the Low grid at 64 slices, which still beats
+        // the tier's minimum.
+        assert_eq!(
+            VolumetricQuality::Low.integration_steps(1920, 1080, 8.0),
+            64
+        );
+        // Custom tiers can ask for more steps than their grid provides.
+        assert_eq!(
+            VolumetricQuality::Custom {
+                grid_x: 64,
+                grid_y: 36,
+                grid_z: 8,
+                composite_steps: 24,
+            }
+            .integration_steps(1920, 1080, 30.0),
+            24
+        );
+    }
+
+    #[test]
+    fn resolved_grid_scales_depth_with_distance() {
+        // 30 world units at the target 0.15 slice spacing needs 200 slices,
+        // which is capped at the 192-slice maximum.
+        assert_eq!(
+            VolumetricQuality::Low.resolved_grid(1920, 1080, 30.0),
+            [160, 90, 192]
+        );
+        // A short range keeps the tier's base depth resolution.
+        assert_eq!(
+            VolumetricQuality::Low.resolved_grid(1920, 1080, 8.0),
+            [160, 90, 64]
+        );
+        // Mobile and custom tiers keep their explicit depth resolution.
+        assert_eq!(
+            VolumetricQuality::Mobile.resolved_grid(1920, 1080, 30.0),
+            [96, 54, 48]
+        );
+        assert_eq!(
+            VolumetricQuality::Custom {
+                grid_x: 0,
+                grid_y: 12,
+                grid_z: 7,
+                composite_steps: 0,
+            }
+            .resolved_grid(1920, 1080, 30.0),
+            [1, 12, 7]
+        );
     }
 
     #[test]
