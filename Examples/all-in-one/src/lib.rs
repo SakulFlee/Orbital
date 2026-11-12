@@ -104,6 +104,29 @@ mod tests {
             *text == "Custom Shader" && position.x == 0.0 && position.z == 14.75
         }));
     }
+
+    #[test]
+    fn bundled_scene_includes_the_transparency_panes() {
+        let scene = SceneBuilder::from_ron(include_str!("../Assets/Scenes/procgeo_demo.ron"))
+            .expect("bundled all-in-one scene must parse");
+
+        for (label, material) in [
+            ("R6 Pane Red", "pane_red"),
+            ("R6 Pane Green", "pane_green"),
+            ("R6 Pane Blue", "pane_blue"),
+        ] {
+            let pane = scene
+                .entities
+                .iter()
+                .find(|entity| entity.label.as_deref() == Some(label))
+                .unwrap_or_else(|| panic!("bundled scene is missing {label}"));
+            assert_eq!(pane.material, material);
+            assert!(
+                scene.materials.contains_key(material),
+                "bundled scene is missing the {material} material"
+            );
+        }
+    }
 }
 
 /// The two room rows face this central hallway. The second row's shells are
