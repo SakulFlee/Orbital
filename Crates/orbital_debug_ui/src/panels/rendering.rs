@@ -17,7 +17,7 @@ use orbital_material_shader::RenderQueue;
 use orbital_renderer::{AntiAliasing, SmaaQuality};
 
 use crate::state::Renderer as IcedRenderer;
-use crate::state::{DebugMessage, DebugUiState, PanelId};
+use crate::state::{DebugMessage, DebugUiState};
 
 const LABEL_WIDTH: f32 = 108.0;
 const VALUE_WIDTH: f32 = 46.0;
@@ -26,11 +26,7 @@ const MUTED: Color = Color::from_rgb(0.6, 0.6, 0.66);
 
 /// Builds the rendering controls panel.
 pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, IcedRenderer> {
-    let Some(state) = ecs.get_resource::<DebugUiState>() else {
-        return crate::panels::blank();
-    };
-
-    if !state.is_panel_visible(PanelId::Rendering) {
+    if ecs.get_resource::<DebugUiState>().is_none() {
         return crate::panels::blank();
     }
 
@@ -136,6 +132,41 @@ pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Iced
     }
     rows.push(
         text("Only the 3D scene is scaled; 2D, UI, and text stay native.")
+            .size(10)
+            .color(MUTED)
+            .into(),
+    );
+
+    rows.push(crate::panels::divider());
+    rows.push(crate::panels::caption("Frame pacing", ACCENT));
+    rows.push(
+        checkbox(render.fps_limit.is_some())
+            .label("Frame cap")
+            .text_size(12)
+            .on_toggle(DebugMessage::SetFrameCapEnabled)
+            .into(),
+    );
+    if let Some(limit) = render.fps_limit {
+        rows.push(
+            column![
+                row![
+                    text("Cap FPS").size(12).width(Length::Fixed(LABEL_WIDTH)),
+                    text(limit.to_string())
+                        .size(11)
+                        .color(MUTED)
+                        .width(Length::Fixed(VALUE_WIDTH)),
+                ],
+                slider(15.0..=240.0, limit as f32, |value| {
+                    DebugMessage::SetFrameCapFps(value.round() as u32)
+                })
+                .step(1.0),
+            ]
+            .spacing(1)
+            .into(),
+        );
+    }
+    rows.push(
+        text("Ignored while VSync is enabled.")
             .size(10)
             .color(MUTED)
             .into(),

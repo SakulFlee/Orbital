@@ -130,14 +130,14 @@ Workspace members are `Examples/*` and `Crates/*` (see `Cargo.toml`).
 - Entry point: `App::new().add_module(MyModule).liftoff(event_loop, AppSettings)`.
 - A `Module` is a plugin: it receives `&mut World`, `&Device`, `&Queue` in `setup` and returns systems. It can also register render overlays and save/restore/clear state.
 - `App` combines modules in registration order; `ModuleRuntime` owns the ECS `World`, schedules, renderer, and overlay renderers.
-- Overlays use the unified `LayerRenderer` API. `OverlaySubmission::MainEncoder` records into the scene submission; `OverlaySubmission::Owned` runs after it (currently iced, until its fork exposes an encoder).
+- Overlays use the unified `LayerRenderer` API. `OverlaySubmission::MainEncoder` records into the scene encoder; `OverlaySubmission::MainSubmit` records its own command buffer but merges it into the scene submission (currently iced); `OverlaySubmission::Owned` submits separately after the scene.
 - Examples use `#[orbital::main]` on an `entrypoint(Result<EventLoop, EventLoopError>)`; the macro generates desktop, Android, and iOS entry points.
 
 ### Frame order
 
 Per update: tick timers → process iced events → process deferred touch input → poll gamepads → snapshot input → run core schedule → poll importer → run game schedule with `TotalTime` → process engine events.
 
-Per redraw: realize cameras → lights → environment → models → shadow stagger and CPU frustum cull → build bind groups and extract scene data → shadow pass → skybox → models → main-encoder layer renderers → submit → owned-submission layer renderers (iced) → present.
+Per redraw: realize cameras → lights → environment → models → shadow stagger and CPU frustum cull → build bind groups and extract scene data → shadow pass → skybox → models → main-encoder layer renderers → main-submit layer renderers (iced) → submit → owned-submission layer renderers → present.
 
 ### ECS
 
@@ -161,7 +161,7 @@ Mesh, material, and descriptor caches are keyed by descriptor and use `orbital_c
 - The preprocessor resolves dependencies and builds the `MaterialShader` pipeline.
 - The global registry receives `math`, `engine`, `pbr`, and `world_environment` libraries before module setup.
 - Main pass order: shadow → skybox → models → transparent → volumetrics → tonemap → AA. Models use CPU-culled compacted instance buffers when available.
-- Volumetrics are opt-in through a `VolumetricSettings` ECS resource. When enabled, a compute pass injects height fog, diffuse environment/sky radiance, and shadowed light scattering into a froxel grid, and a fullscreen pass composites it after forward transparency and before tonemapping. Froxel slices are distributed linearly in view-space distance rather than NDC depth. A separate compute pass reprojects and blends previous-frame volumetric history to reduce view-aligned froxel shimmer.
+- Volumetrics are opt-in through a `VolumetricSettings` ECS resource. When enabled, a compute pass injects height fog, diffuse environment/sky radiance, and shadowed light scattering into a froxel grid, another pass pre-integrates each froxel column into cumulative in-scattering and transmittance, and a fullscreen pass composites the prefix once per pixel after forward transparency and before tonemapping. Froxel slices are distributed linearly in view-space distance rather than NDC depth. A separate compute pass reprojects and blends previous-frame volumetric history to reduce view-aligned froxel shimmer.
 - Anti-aliasing is selected with `AppSettings::anti_aliasing`: `Off`, `Fxaa`, or LUT-based `Smaa` (SMAA 1x). SMAA quality is selected with `AppSettings::smaa_quality` (`Low`/`Medium`/`High`/`Ultra`); it runs on the LDR post-chain output, and 2D, UI, and text render afterward and stay sharp. At runtime, `RenderSettings` is the live AA/quality resource; `ModuleRuntime` applies it each redraw.
 - 2D, text, and UI have separate renderer paths. Most WGSL is embedded in crates with `include_str!`; only `Assets/Shaders/shadow_depth.wgsl` is a loose shader asset.
 

@@ -10,7 +10,9 @@ use orbital_material_shader::{
 };
 use orbital_mesh::MeshDescriptor;
 use orbital_shader_core::VariableType;
-use orbital_text::{DefaultFont, FontData, SdfAtlas, TextConfig, generate_text_mesh};
+use orbital_text::{
+    DEFAULT_ATLAS_SIZE, DefaultFont, FontData, SdfAtlas, TextConfig, generate_text_mesh,
+};
 use orbital_texture::{BufferDescriptor, FilterMode, TextureDescriptor, TextureSize};
 use orbital_vertex::Vertex;
 use wgpu::{
@@ -61,7 +63,19 @@ impl SharedTextAtlas {
         font_size: f32,
         texts: impl IntoIterator<Item = &'a str>,
     ) -> Self {
+        Self::build_with_atlas_size(font, font_size, DEFAULT_ATLAS_SIZE, texts)
+    }
+
+    /// Like [`SharedTextAtlas::build`], with an explicit square atlas edge
+    /// length.
+    pub fn build_with_atlas_size<'a>(
+        font: &mut FontData,
+        font_size: f32,
+        atlas_size: u32,
+        texts: impl IntoIterator<Item = &'a str>,
+    ) -> Self {
         let font_size = font_size.max(1.0);
+        let atlas_size = clamp_atlas_size(font_size, atlas_size);
         let mut characters = String::new();
         let mut seen = HashSet::new();
         for text in texts {
@@ -72,7 +86,14 @@ impl SharedTextAtlas {
             }
         }
 
-        let atlas = SdfAtlas::build_atlas(font, font_size as u32, &characters, 8.0, 1024, 1024);
+        let atlas = SdfAtlas::build_atlas(
+            font,
+            font_size as u32,
+            &characters,
+            8.0,
+            atlas_size,
+            atlas_size,
+        );
         Self {
             inner: Arc::new(SharedTextAtlasInner {
                 atlas,
@@ -175,6 +196,8 @@ pub struct Text {
     pub background: Option<[f32; 4]>,
     /// World size of one font pixel.
     pub world_scale: f32,
+    /// Edge length in pixels of the square SDF atlas.
+    pub atlas_size: u32,
     /// Whether the text uses the opaque or blended render path.
     pub alpha_mode: AlphaMode,
     /// Optional atlas shared with other labels of the same font size.
@@ -191,6 +214,7 @@ impl Text {
             color: [1.0, 1.0, 1.0, 1.0],
             background: None,
             world_scale: 0.00225,
+            atlas_size: DEFAULT_ATLAS_SIZE,
             alpha_mode: AlphaMode::Blend,
             shared_atlas: None,
             dirty: true,
@@ -217,6 +241,12 @@ impl Text {
 
     pub fn with_world_scale(mut self, world_scale: f32) -> Self {
         self.world_scale = world_scale;
+        self.mark_dirty();
+        self
+    }
+
+    pub fn with_atlas_size(mut self, atlas_size: u32) -> Self {
+        self.atlas_size = atlas_size;
         self.mark_dirty();
         self
     }
@@ -253,6 +283,7 @@ impl Text {
         let config = TextConfig {
             font_size: self.font_size.max(1.0),
             color: self.color,
+            atlas_size: self.atlas_size,
             ..TextConfig::default()
         };
         let shared_atlas = self
@@ -310,6 +341,11 @@ impl EditableFields for Text {
                 label: "world_scale".to_string(),
                 value: self.world_scale.to_edit_string(),
             },
+            EditableField {
+                id: "atlas_size".to_string(),
+                label: "atlas_size (px)".to_string(),
+                value: self.atlas_size.to_edit_string(),
+            },
         ]
     }
 
@@ -319,6 +355,7 @@ impl EditableFields for Text {
             "font_size" => self.font_size.set_from_str(input)?,
             "color" => self.color = parse_color(input)?,
             "world_scale" => self.world_scale.set_from_str(input)?,
+            "atlas_size" => self.atlas_size.set_from_str(input)?,
             _ => return Err(format!("unknown text field `{id}`")),
         }
         self.mark_dirty();
@@ -355,6 +392,12 @@ fn parse_color(input: &str) -> Result<[f32; 4], String> {
     Ok([values[0], values[1], values[2], values[3]])
 }
 
+/// Keeps a glyph-sized atlas usable even when a caller asks for a very small
+/// texture.
+fn clamp_atlas_size(font_size: f32, atlas_size: u32) -> u32 {
+    atlas_size.max(font_size.ceil() as u32 + 2)
+}
+
 /// Builds a world-space SDF text billboard.
 ///
 /// `world_scale` is the world size of one font pixel. `outline` is
@@ -371,6 +414,8 @@ pub fn text_billboard(
 }
 
 /// Like [`text_billboard`], with an optional background color.
+///
+/// The private glyph atlas uses [`TextConfig::atlas_size`] as its edge length.
 pub fn text_billboard_with_background(
     text: &str,
     font: &mut FontData,
@@ -385,13 +430,15 @@ pub fn text_billboard_with_background(
     } else {
         text.chars().collect()
     };
+    let font_size = config.font_size.max(1.0);
+    let atlas_size = clamp_atlas_size(font_size, config.atlas_size);
     let atlas = SdfAtlas::build_atlas(
         font,
-        config.font_size.max(1.0) as u32,
+        font_size as u32,
         &characters,
         8.0,
-        1024,
-        1024,
+        atlas_size,
+        atlas_size,
     );
     let material = text_material(&atlas, config.color, outline, background, alpha_mode);
     build_text_billboard(
@@ -647,11 +694,46 @@ mod tests {
     }
 
     #[test]
+    fn text_billboard_uses_the_configured_atlas_size() {
+        let mut font = DefaultFont::load();
+        let config = TextConfig {
+            font_size: 64.0,
+            atlas_size: 512,
+            ..Default::default()
+        };
+
+        let billboard = text_billboard(
+            "Orbital",
+            &mut font,
+            &config,
+            0.0045,
+            None,
+            AlphaMode::Blend,
+        );
+
+        let texture = billboard
+            .material
+            .variables
+            .iter()
+            .find_map(|variable| match variable {
+                VariableType::Texture { descriptor, .. } => Some(descriptor),
+                VariableType::Buffer(_) => None,
+            })
+            .expect("text material texture");
+
+        let TextureDescriptor::Data { size, .. } = texture.as_ref() else {
+            panic!("text atlas must use a data texture");
+        };
+        assert_eq!((size.width, size.height), (512, 512));
+    }
+
+    #[test]
     fn text_source_fields_are_editable_and_mark_the_mesh_dirty() {
         let mut text = Text::new("Room 1")
             .with_font_size(64.0)
             .with_color([1.0, 0.5, 0.25, 1.0])
-            .with_world_scale(0.01);
+            .with_world_scale(0.01)
+            .with_atlas_size(512);
         text.clear_dirty();
 
         let ids = text
@@ -659,7 +741,10 @@ mod tests {
             .into_iter()
             .map(|field| field.id)
             .collect::<Vec<_>>();
-        assert_eq!(ids, ["text", "font_size", "color", "world_scale"]);
+        assert_eq!(
+            ids,
+            ["text", "font_size", "color", "world_scale", "atlas_size"]
+        );
 
         text.set_editable_field("text", "Metallic Materials")
             .expect("text edit failed");
@@ -670,6 +755,11 @@ mod tests {
             .expect("colour edit failed");
         assert_eq!(text.color, [0.1, 0.2, 0.3, 1.0]);
         assert!(text.set_editable_field("color", "1 2 3").is_err());
+
+        text.set_editable_field("atlas_size", "1024")
+            .expect("atlas size edit failed");
+        assert_eq!(text.atlas_size, 1024);
+        assert!(text.is_dirty());
     }
 
     #[test]
@@ -678,6 +768,13 @@ mod tests {
         let billboard = text.build_billboard();
         assert!(billboard.mesh.is_some());
         assert!(billboard.material.entrypoint_fragment_gbuffer.is_none());
+    }
+
+    #[test]
+    fn shared_atlas_uses_the_configured_size() {
+        let mut font = DefaultFont::load();
+        let atlas = SharedTextAtlas::build_with_atlas_size(&mut font, 64.0, 512, ["Orbital"]);
+        assert_eq!((atlas.atlas().width, atlas.atlas().height), (512, 512));
     }
 
     #[test]

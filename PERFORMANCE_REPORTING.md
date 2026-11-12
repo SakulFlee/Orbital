@@ -23,6 +23,8 @@ overlays stay at native resolution.
 - `render_scale` — fixed internal scale (`1.0`, `0.75`, `0.5`, `0.25`, and so on).
 - `adaptive_render_scale` — automatically tune the scale once per FPS window.
 - `target_fps` — frame rate the adaptive controller tries to hold.
+- `fps_limit` — optional runtime frame cap. `AppSettings::fps_limit` sets the
+  startup value; `RenderSettings::fps_limit` can change it while the app runs.
 - `min_render_scale` / `max_render_scale` — bounds for adaptive scaling (default
   `0.25` / `1.0`).
 
@@ -39,6 +41,13 @@ target is capped to the display refresh rate when the platform reports one and t
 cap configured with `fps_limit` when VSync is disabled. If the display refresh cannot be
 queried, the configured target is used as-is.
 
+The frame cap is a runtime control like the render scale. Set it from the Rendering panel
+without rebuilding to hold a phone and tablet at the same rate for an A/B capture. The
+limiter ignores the cap while VSync is enabled, where presentation is already paced by the
+compositor; turn VSync off or use a non-VSync present mode first. Every CSV row records the
+active `fps_limit`, so a capture can be split into capped and uncapped segments even when
+the cap changes mid-run.
+
 The runtime only lowers the scale immediately. It raises it after four consecutive timing
 windows meet the target and only when the next scale is predicted to still meet it. This
 avoids visible oscillation when the current scale is just barely fast enough. Every scale
@@ -49,8 +58,9 @@ On Android, winit does not expose a refresh rate. Orbital falls back to the Java
 Refresh-rate selection is not exposed by the platform abstraction; match refresh rates
 through the device display settings when comparing devices.
 
-The Rendering debug panel exposes adaptive scaling, the target FPS, and fixed 1x/0.75x/0.5x/0.25x
-presets. Changing the scale there takes effect without rebuilding the app.
+The Rendering debug panel exposes adaptive scaling, the target FPS, fixed
+1x/0.75x/0.5x/0.25x presets, and the runtime frame cap. Changing the scale or cap there
+takes effect without rebuilding the app.
 
 Raw FPS is only directly comparable when the native surface resolution, internal render
 resolution, and refresh rate match. Use the per-row capture fields to group samples before
@@ -257,6 +267,8 @@ the capture environment once per resume:
 - internal render resolution, render scale, target FPS, min/max scale,
   pixels per frame
 - renderer path (forward/deferred), AA/SMAA, bloom/glare, volumetrics
+- volumetric quality, resolved froxel grid and texel count, composite
+  integration steps, composite resolution, max distance, temporal history
 - scene entity/model/light/shadow-caster counts
 - registered overlays and their visibility at startup
 - Android refresh rate, ADPF target duration, sustained-performance state,
@@ -287,14 +299,14 @@ elapsed_s,fps,cdt_ms,<timing stage means>,<cache counters>,<surface counters>,vi
   `gpu_complete`, `gpu_shadow`, `gpu_skybox`, `gpu_gbuffer`,
   `gpu_light_culling`, `gpu_deferred`, `gpu_models`, `gpu_transparent`,
   `gpu_volumetric_inject`, `gpu_volumetric_accumulate`,
-  `gpu_volumetric_composite`, `gpu_scene_total`, `gpu_volumetrics`,
-  `gpu_tonemap`, `gpu_aa`.
+  `gpu_volumetric_integrate`, `gpu_volumetric_composite`,
+  `gpu_scene_total`, `gpu_volumetrics`, `gpu_tonemap`, `gpu_aa`.
   The same stage list is repeated at the end of the row as `<stage>_min`,
   `<stage>_max`, and `<stage>_p95` columns.
   `gpu_models` is the forward opaque model section; `gpu_scene_total` is the
   aggregate of shadow, skybox, G-buffer, light culling, deferred lighting,
   forward models and transparent models. `gpu_volumetrics` is the aggregate of
-  the volumetric inject, accumulate, and composite stages.
+  the volumetric inject, accumulate, integrate, and composite stages.
   `surface_lock`, `surface_acquire`, and `surface_view` break down the
   `surface_acq` stage; `surface_acquire` includes waiting for a swapchain
   image, so it can reflect GPU/present backpressure rather than pure CPU work.
@@ -310,8 +322,10 @@ elapsed_s,fps,cdt_ms,<timing stage means>,<cache counters>,<surface counters>,vi
   `gpu_complete` is the time from the end of submission until the GPU reports
   the submitted work complete; it is a latency, not an additive stage.
   `gpu_volumetric_inject`, `gpu_volumetric_accumulate`,
-  `gpu_volumetric_composite`, `gpu_tonemap`, and `gpu_aa` cover the post/scene
-  GPU work that the older scene timestamps did not include.
+  `gpu_volumetric_integrate`, `gpu_volumetric_composite`, `gpu_tonemap`, and
+  `gpu_aa` cover the post/scene GPU work that the older scene timestamps did
+  not include. `gpu_volumetric_integrate` is the per-column depth
+  pre-integration that lets the composite use one fetch per pixel.
 - Cache counters — `shader_modules_delta`, `pipelines_delta`, `unique_wgsl`,
   `material_hits_delta`, `material_misses_delta`, `sky_updates_delta`.
   `unique_wgsl` is cumulative; the others are deltas for the window.
@@ -323,16 +337,24 @@ elapsed_s,fps,cdt_ms,<timing stage means>,<cache counters>,<surface counters>,vi
 - Capture fields — one value per row: `window_width`, `window_height`,
   `surface_width`, `surface_height`, `render_width`, `render_height`,
   `render_scale`, `scale_factor`, `dpi`, `orientation`, `refresh_rate_mhz`,
-  `present_mode`, `frame_latency`, `pixels_per_frame`,
+  `present_mode`, `frame_latency`, `fps_limit`, `pixels_per_frame`,
   `render_scale_changes`, `render_resolution_changes`,
-  `gpu_timestamps_supported`, `gpu_timestamps_stale`.
-  `refresh_rate_mhz` is empty when the platform does not report a value. The
-  render fields change when adaptive scaling or a rotation changes the target
-  size, so a capture can be split into comparable segments. The two change
+  `gpu_timestamps_supported`, `gpu_timestamps_stale`, `volumetric_grid_x`,
+  `volumetric_grid_y`, `volumetric_grid_z`,
+  `volumetric_integration_steps`.
+  `refresh_rate_mhz` is empty when the platform does not report a value.
+  `fps_limit` is empty when no cap is configured; a value is recorded even
+  while VSync is enabled, where the limiter ignores it. The render fields
+  change when adaptive scaling or a rotation changes the target size, so a
+  capture can be split into comparable segments. The two change
   counters mark the rows where a scale or render-target change happened; a
   non-zero counter means that row covers a transition.
   `gpu_timestamps_stale` is set when GPU timestamp results did not advance
   between two capture rows, so the GPU stage columns should not be compared.
+  The volumetric fields are zero when volumetrics are disabled. The resolved
+  grid already includes the adaptive depth-slice rule, so it is the grid the
+  renderer actually dispatched; `volumetric_integration_steps` is the depth
+  resolution of the pre-integrated composite.
 - Timing window fields — `frames` (samples in the window), `cdt_mean_ms`,
   `cdt_min_ms`, `cdt_max_ms`, and `cdt_p95_ms`. `cdt_ms` remains the latest
   frame delta for backward compatibility; use the `cdt_*` columns for
@@ -345,6 +367,52 @@ opt-in because it adds locking and instrumentation to every system/layer.
 The first row appears only after the first complete timing window (about one
 second). A header-only file means capture was enabled but no window completed
 yet.
+
+## Diagnosing a GPU-bound frame
+
+A large `surface_acq` does not by itself mean that the compositor or the
+swapchain is stalled. `surface_acquire` waits for a free swapchain image, and a
+GPU-bound frame keeps every image busy until the GPU finishes. With vsync
+disabled that wait can still approach the frame period.
+
+Add up the individual GPU pass columns from `gpu_shadow` through `gpu_aa` and
+compare the sum with `1000 / fps`. Skip the `gpu_scene_total` and
+`gpu_volumetrics` aggregates (they overlap the pass columns), and skip
+`gpu_complete` (it is a queue-completion latency, not a pass). The scene total
+alone looks much cheaper than the real GPU frame because it excludes shadows,
+volumetrics, tonemapping, and anti-aliasing. If the full pass sum matches the
+frame period, the frame is GPU-bound and changing the present mode will not
+help.
+
+When the frame is GPU-bound, reduce GPU work instead:
+
+- Lower `render_scale`, or enable adaptive render scaling with a target FPS.
+  Scene and volumetric targets scale with the internal render resolution.
+- Switch Deferred to Forward in the Rendering debug panel for scenes with few
+  lights.
+- Lower or disable volumetric quality.
+
+## Volumetric cost attribution
+
+Use the volumetric capture fields to check that a volumetric measurement is
+comparable before looking at the stage times:
+
+- `gpu_volumetric_inject` scales with `grid_x * grid_y * grid_z` and with
+  the number of lights and shadow lookups that reach each froxel.
+- `gpu_volumetric_accumulate` scales with `grid_x * grid_y * grid_z`.
+- `gpu_volumetric_integrate` scales with
+  `grid_x * grid_y * volumetric_integration_steps`.
+- `gpu_volumetric_composite` scales with the render pixel count
+  (`pixels_per_frame`), not with the froxel grid.
+- `gpu_volumetrics` is the sum of those four stages.
+
+Two captures are only directly comparable when the render resolution, grid,
+integration steps, max distance, and enabled light/shadow set match. For an
+A/B run, toggle volumetrics at the same camera, resolution, and quality, then
+compare the frame time with the volumetric aggregate rather than relying on
+the aggregate alone. The resolved grid and integration steps also explain
+why a quality tier can look unchanged across resolutions while its GPU cost
+changes substantially.
 
 ## Visualise the report
 

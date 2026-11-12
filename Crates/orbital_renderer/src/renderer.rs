@@ -25,6 +25,9 @@ use crate::fxaa::Fxaa;
 use crate::light_culling::LightCulling;
 use crate::scene::RenderScene;
 use crate::smaa::{SmaaQuality, SmaaTarget};
+use crate::timestamp_readback::{
+    GpuTimestampHistory, STAGING_SLOTS, TS_COUNT, TimestampReadbackRing,
+};
 use crate::tonemap::{Tonemap, TonemapSettings};
 use crate::volumetric::VolumetricRenderer;
 
@@ -269,11 +272,17 @@ pub struct RendererCpuTimings {
     pub volumetrics_ms: f64,
     /// Total command recording before submission.
     pub encode_ms: f64,
-    /// `queue.submit` for the scene command buffer.
+    /// `queue.submit` for the scene command buffer and any overlay command
+    /// buffers merged into the main submission.
     pub submit_ms: f64,
     /// Timestamp resolve/copy/readback work.
     pub timestamp_readback_ms: f64,
 }
+
+/// Records main-encoder overlays and returns command buffers to append to the
+/// scene submission.
+pub type OverlayCallback<'a> =
+    dyn FnMut(&mut wgpu::CommandEncoder) -> Vec<wgpu::CommandBuffer> + 'a;
 
 /// Empty resources bound when a frame has no shadows.
 ///
@@ -453,17 +462,10 @@ struct CachedWorldBindGroup {
     _environment: Option<Arc<WorldEnvironment>>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum TimestampReadbackState {
-    Free,
-    Pending,
-}
-
+#[derive(Debug)]
 struct TimestampReadback {
     buffer: wgpu::Buffer,
-    state: TimestampReadbackState,
     mapped: Arc<AtomicBool>,
-    generation: u64,
 }
 
 pub struct Renderer {
@@ -501,11 +503,10 @@ pub struct Renderer {
     world_bind_group_cache: Option<CachedWorldBindGroup>,
     timestamp_query_set: Option<wgpu::QuerySet>,
     timestamp_resolve_buffer: wgpu::Buffer,
-    timestamp_staging_bufs: [TimestampReadback; TS_STAGING_COUNT],
-    timestamp_generation: u64,
-    prev_gpu_generation: u64,
+    timestamp_staging_bufs: [TimestampReadback; STAGING_SLOTS],
+    timestamp_ring: TimestampReadbackRing,
     timestamp_period_ns: f32,
-    prev_gpu_ns: [f64; TS_COUNT as usize],
+    gpu_timestamps: GpuTimestampHistory,
     prev_cpu_timings: RendererCpuTimings,
 }
 
@@ -515,7 +516,7 @@ impl Renderer {
     }
 
     pub fn prev_gpu_ns(&self) -> [f64; TS_COUNT as usize] {
-        self.prev_gpu_ns
+        self.gpu_timestamps.ns()
     }
 
     /// Whether the device and renderer expose GPU timestamp queries.
@@ -528,51 +529,37 @@ impl Renderer {
     /// Stays unchanged while readbacks are pending or unavailable, so a
     /// capture can mark stale GPU stages.
     pub fn gpu_timestamp_generation(&self) -> u64 {
-        self.prev_gpu_generation
+        self.gpu_timestamps.generation()
     }
 
     /// Polls completed timestamp readbacks without blocking.
     fn poll_timestamp_readbacks(&mut self, device: &Device) {
         let _ = device.poll(wgpu::PollType::Poll);
 
-        let mut latest: Option<(u64, [f64; TS_COUNT as usize])> = None;
-        for readback in &mut self.timestamp_staging_bufs {
-            if readback.state != TimestampReadbackState::Pending
-                || !readback.mapped.load(Ordering::Relaxed)
-            {
+        for index in 0..STAGING_SLOTS {
+            let Some(generation) = self.timestamp_ring.pending_generation(index) else {
+                continue;
+            };
+            let readback = &self.timestamp_staging_bufs[index];
+            if !readback.mapped.load(Ordering::Relaxed) {
                 continue;
             }
 
             let slice = readback.buffer.slice(..);
-            let mut values = None;
+            let mut raw = [0.0f64; TS_COUNT as usize];
             if let Ok(data) = slice.get_mapped_range() {
-                let mut raw = [0.0f64; TS_COUNT as usize];
                 for (index, value) in raw.iter_mut().enumerate() {
                     let start = index * 8;
                     let bytes: [u8; 8] = data[start..start + 8].try_into().unwrap();
                     *value = u64::from_ne_bytes(bytes) as f64;
                 }
-                if raw.iter().any(|value| *value != 0.0) {
-                    values = Some(raw);
-                }
             }
 
             readback.buffer.unmap();
-            readback.state = TimestampReadbackState::Free;
             readback.mapped.store(false, Ordering::Relaxed);
-
-            if let Some(raw) = values
-                && readback.generation > latest.map_or(0, |(generation, _)| generation)
-            {
-                latest = Some((readback.generation, raw));
-            }
-        }
-
-        if let Some((generation, raw)) = latest
-            && generation > self.prev_gpu_generation
-        {
-            self.prev_gpu_generation = generation;
-            self.prev_gpu_ns = raw.map(|value| value * self.timestamp_period_ns as f64);
+            self.timestamp_ring.release(index);
+            self.gpu_timestamps
+                .accept(generation, raw, self.timestamp_period_ns);
         }
     }
 
@@ -581,16 +568,10 @@ impl Renderer {
         self.timestamp_query_set.as_ref()?;
 
         self.poll_timestamp_readbacks(device);
-        let slot = self
-            .timestamp_staging_bufs
-            .iter()
-            .position(|readback| readback.state == TimestampReadbackState::Free)?;
-
-        self.timestamp_generation = self.timestamp_generation.wrapping_add(1);
-        let readback = &mut self.timestamp_staging_bufs[slot];
-        readback.state = TimestampReadbackState::Pending;
-        readback.generation = self.timestamp_generation;
-        readback.mapped.store(false, Ordering::Relaxed);
+        let (slot, _generation) = self.timestamp_ring.acquire()?;
+        self.timestamp_staging_bufs[slot]
+            .mapped
+            .store(false, Ordering::Relaxed);
         Some(slot)
     }
 
@@ -728,10 +709,9 @@ impl Renderer {
 // 0=shadow_start, 1=after shadow, 2=after sky, 3=after G-buffer,
 // 4=after light culling, 5=after deferred lighting, 6=after forward models,
 // 7=after transparent/models, 8=after volumetric inject, 9=after volumetric
-// accumulate, 10=after volumetric composite, 11=after tonemap, 12=after AA.
-const TS_COUNT: u32 = 13;
+// accumulate, 10=after volumetric integrate, 11=after volumetric composite,
+// 12=after tonemap, 13=after AA.
 const TS_BUF_SIZE: u64 = TS_COUNT as u64 * 8;
-const TS_STAGING_COUNT: usize = 4;
 
 /// Number of GPU timestamp samples returned by [`Renderer::prev_gpu_ns`].
 pub const GPU_TIMESTAMP_COUNT: usize = TS_COUNT as usize;
@@ -775,9 +755,7 @@ impl Renderer {
         };
         let timestamp_staging_bufs = std::array::from_fn(|index| TimestampReadback {
             buffer: make_staging(&format!("Orbital::TS_Staging{index}")),
-            state: TimestampReadbackState::Free,
             mapped: Arc::new(AtomicBool::new(false)),
-            generation: 0,
         });
 
         let fallbacks = RendererFallbacks::new(device, queue);
@@ -832,8 +810,7 @@ impl Renderer {
             timestamp_query_set,
             timestamp_resolve_buffer,
             timestamp_staging_bufs,
-            timestamp_generation: 0,
-            prev_gpu_generation: 0,
+            timestamp_ring: TimestampReadbackRing::new(),
             timestamp_period_ns: {
                 let period = queue.get_timestamp_period();
                 if period.is_finite() && period > 0.0 {
@@ -842,7 +819,7 @@ impl Renderer {
                     1.0
                 }
             },
-            prev_gpu_ns: [0.0; TS_COUNT as usize],
+            gpu_timestamps: GpuTimestampHistory::new(),
             prev_cpu_timings: RendererCpuTimings::default(),
         }
     }
@@ -1132,7 +1109,7 @@ impl Renderer {
         queue: &Queue,
         cull: Option<&CullResources>,
         dirty_set: &std::collections::HashSet<u32>,
-        overlay: Option<&mut dyn FnMut(&mut wgpu::CommandEncoder)>,
+        overlay: Option<&mut OverlayCallback<'_>>,
     ) {
         let ms = |duration: std::time::Duration| duration.as_secs_f64() * 1000.0;
         let render_start = Instant::now();
@@ -1379,6 +1356,7 @@ impl Renderer {
         };
 
         let mut volumetric_accumulated: Option<TextureView> = None;
+        let mut volumetric_integrated: Option<TextureView> = None;
         let mut graph = std::mem::take(&mut self.render_graph);
         graph.begin_frame();
         add_scene_passes(
@@ -1586,29 +1564,40 @@ impl Renderer {
                             if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
                                 context.encoder.write_timestamp(qs, 9);
                             }
+                            let source = volumetric_accumulated.as_ref().unwrap_or(&targets.0.view);
+                            volumetric_integrated = Some(self.volumetric.record_integrate(
+                                context.device,
+                                context.queue,
+                                context.encoder,
+                                source,
+                            ));
+                            if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
+                                context.encoder.write_timestamp(qs, 10);
+                            }
                         } else if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
                             context.encoder.write_timestamp(qs, 8);
                             context.encoder.write_timestamp(qs, 9);
+                            context.encoder.write_timestamp(qs, 10);
                         }
                     }
                     ScenePass::VolumetricComposite => {
-                        if let (Some(bind_group), Some(targets)) =
-                            (world_bind_group.as_ref(), volumetric_targets.as_ref())
-                        {
-                            let froxels =
-                                volumetric_accumulated.as_ref().unwrap_or(&targets.0.view);
+                        if let (Some(bind_group), Some(targets), Some(prefix)) = (
+                            world_bind_group.as_ref(),
+                            volumetric_targets.as_ref(),
+                            volumetric_integrated.as_ref(),
+                        ) {
                             self.volumetric.record_composite(
                                 context.device,
                                 context.encoder,
                                 bind_group,
                                 &scene_color.view,
                                 &depth.view,
-                                froxels,
+                                prefix,
                                 &targets.1.view,
                             );
                         }
                         if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
-                            context.encoder.write_timestamp(qs, 10);
+                            context.encoder.write_timestamp(qs, 11);
                         }
                     }
                     ScenePass::Tonemap => {
@@ -1620,6 +1609,7 @@ impl Renderer {
                             context.encoder.write_timestamp(qs, 8);
                             context.encoder.write_timestamp(qs, 9);
                             context.encoder.write_timestamp(qs, 10);
+                            context.encoder.write_timestamp(qs, 11);
                         }
                         let tonemap_target = match self.anti_aliasing {
                             AntiAliasing::Off => target_view,
@@ -1641,9 +1631,9 @@ impl Renderer {
                             tonemap_target,
                         );
                         if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
-                            context.encoder.write_timestamp(qs, 11);
+                            context.encoder.write_timestamp(qs, 12);
                             if self.anti_aliasing == AntiAliasing::Off {
-                                context.encoder.write_timestamp(qs, 12);
+                                context.encoder.write_timestamp(qs, 13);
                             }
                         }
                     }
@@ -1657,7 +1647,7 @@ impl Renderer {
                             );
                         }
                         if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
-                            context.encoder.write_timestamp(qs, 12);
+                            context.encoder.write_timestamp(qs, 13);
                         }
                     }
                     ScenePass::Smaa => {
@@ -1665,7 +1655,7 @@ impl Renderer {
                             smaa.record(context.encoder, target_view);
                         }
                         if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
-                            context.encoder.write_timestamp(qs, 12);
+                            context.encoder.write_timestamp(qs, 13);
                         }
                     }
                 },
@@ -1673,9 +1663,11 @@ impl Renderer {
             .expect("render graph must be compiled before execution");
         self.smaa = smaa;
 
-        if let Some(overlay) = overlay {
-            overlay(&mut command_encoder);
-        }
+        let overlay_commands = if let Some(overlay) = overlay {
+            overlay(&mut command_encoder)
+        } else {
+            Vec::new()
+        };
 
         for timing in graph.timings() {
             match timing.pass {
@@ -1717,7 +1709,9 @@ impl Renderer {
         }
 
         let submit_start = Instant::now();
-        queue.submit(vec![command_encoder.finish()]);
+        // Overlay command buffers are recorded after the scene encoder but
+        // submitted in the same call, keeping the frame to one `queue.submit`.
+        queue.submit(std::iter::once(command_encoder.finish()).chain(overlay_commands));
         let submit_ms = ms(submit_start.elapsed());
         let timestamp_readback_start = Instant::now();
         self.texture_pool.end_frame();

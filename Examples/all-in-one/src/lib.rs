@@ -1,14 +1,15 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{self, Receiver, TryRecvError};
 
 use orbital::app::{
     App, AppSettings, CursorToggle, LayerRenderer, Module, RenderLayer, RenderOverlayContext,
     sys_camera_controller, sys_ortho_dolly,
 };
 use orbital::billboard::{
-    BillboardMode, BillboardModule, SharedTextAtlas, Text, text_billboard_with_atlas,
+    Billboard, BillboardMode, BillboardModule, SharedTextAtlas, Text, text_billboard_with_atlas,
 };
-use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector3};
+use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Rotation3, Vector3};
 use orbital::debug_render::DebugModule;
 use orbital::ecs::{Commands, ComponentAccess, IntoSystem, Res, ResMut, System, World};
 use orbital::ecs_bridge::{
@@ -34,43 +35,6 @@ use orbital::twod::Vertex2D;
 use orbital::winit::keyboard::KeyCode;
 
 pub const NAME: &str = env!("CARGO_PKG_NAME");
-
-/// Custom material shader merged into the showcase from the standalone
-/// `custom_shader` example. The engine supplies the camera, vertex, instance
-/// and fragment nodes; this only adds the entrypoints and colour pattern.
-const CUSTOM_SHADER_WGSL: &str = r#"
-@group(0) @binding(0) var<uniform> camera: CameraUniform;
-
-@vertex
-fn entrypoint_vertex(
-    vertex: VertexData,
-    instance: InstanceData
-) -> FragmentData {
-    let model_space_matrix = mat4x4<f32>(
-        instance.model_space_matrix_0,
-        instance.model_space_matrix_1,
-        instance.model_space_matrix_2,
-        instance.model_space_matrix_3,
-    );
-    let world_position = model_space_matrix * vec4<f32>(vertex.position, 1.0);
-
-    var out: FragmentData;
-    out.position = camera.view_projection_matrix * world_position;
-    out.world_position = world_position.xyz;
-    out.uv = vec2<f32>(0.0);
-    out.tangent = vec3<f32>(1.0, 0.0, 0.0);
-    out.bitangent = vec3<f32>(0.0, 1.0, 0.0);
-    out.normal = vec3<f32>(0.0, 1.0, 0.0);
-    return out;
-}
-
-@fragment
-fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
-    let bands = fract(in.world_position.x * 0.35 + in.world_position.y * 0.2);
-    let pulse = 0.5 + 0.5 * sin(in.world_position.z * 2.0);
-    return vec4<f32>(bands, 1.0 - bands, pulse, 1.0);
-}
-"#;
 
 #[cfg(test)]
 mod tests {
@@ -106,6 +70,13 @@ mod tests {
         assert_eq!(second_row_room_name(10.0), "R9");
         assert_eq!(second_row_room_name(20.0), "R10");
     }
+
+    #[test]
+    fn custom_shader_room_is_labelled() {
+        assert!(room_labels().iter().any(|(text, position, _)| {
+            *text == "Custom Shader" && position.x == 0.0 && position.z == 14.75
+        }));
+    }
 }
 
 /// The two room rows face this central hallway. The second row's shells are
@@ -114,8 +85,19 @@ const HALLWAY_MIRROR_Z: f32 = 10.0;
 
 /// Shared style for the floating room labels. Every label uses the same font
 /// size and colours, so one atlas and one material serve the whole group.
-const LABEL_FONT_SIZE: f32 = 128.0;
-const LABEL_WORLD_SCALE: f32 = 0.00225;
+///
+/// Room labels are read from the hallway, roughly 6-20 m away. Halving the
+/// SDF font from 128 px to 64 px and doubling `world_scale` keeps the
+/// on-screen size while cutting per-glyph SDF work about fourfold. The shared
+/// atlas drops from 1024x1024 (4 MiB) to 512x512 (1 MiB).
+///
+/// Release-build shared-atlas construction for the label set: 1.14 s at
+/// 128 px, 0.47 s at 96 px and 0.12 s at 64 px. 96 px was only marginally
+/// crisper on the nearest sign, so 64 px is the better trade at room
+/// distance.
+const LABEL_FONT_SIZE: f32 = 64.0;
+const LABEL_ATLAS_SIZE: u32 = 512;
+const LABEL_WORLD_SCALE: f32 = 0.0045;
 const LABEL_COLOR: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
 const LABEL_BACKGROUND: [f32; 4] = [0.025, 0.035, 0.07, 0.55];
 
@@ -154,20 +136,71 @@ fn room_shell_kind(label: &str) -> &'static str {
     }
 }
 
-fn spawn_text_label(
-    ecs: &mut World,
+/// Floating room labels, as authored positions and orientations.
+fn room_labels() -> [(&'static str, Point3<f32>, BillboardMode); 9] {
+    [
+        (
+            "Metallic Materials",
+            Point3::new(-20.0, 6.4, 5.25),
+            BillboardMode::YAxis,
+        ),
+        (
+            "Matte Materials",
+            Point3::new(-10.0, 6.4, 5.25),
+            BillboardMode::YAxis,
+        ),
+        (
+            "Moving Spot",
+            Point3::new(0.0, 6.4, 5.25),
+            BillboardMode::YAxis,
+        ),
+        (
+            "Helmet Gallery",
+            Point3::new(10.0, 6.4, 5.25),
+            BillboardMode::YAxis,
+        ),
+        (
+            "Colored Helmet",
+            Point3::new(20.0, 6.4, 5.25),
+            BillboardMode::YAxis,
+        ),
+        (
+            "Transparency",
+            Point3::new(-20.0, 6.4, 14.75),
+            BillboardMode::YAxis,
+        ),
+        (
+            "Anti-Aliasing",
+            Point3::new(-10.0, 6.4, 14.75),
+            BillboardMode::YAxis,
+        ),
+        (
+            "Custom Shader",
+            Point3::new(0.0, 6.4, 14.75),
+            BillboardMode::YAxis,
+        ),
+        (
+            "All-in-One",
+            Point3::new(0.0, 7.6, HALLWAY_MIRROR_Z),
+            BillboardMode::Full,
+        ),
+    ]
+}
+
+fn build_text_label(
     font: &mut orbital::text::FontData,
     atlas: &SharedTextAtlas,
     text: &str,
     position: Point3<f32>,
     mode: BillboardMode,
-) {
+) -> (Text, Billboard) {
     let label = text_billboard_with_atlas(
         text,
         font,
         &TextConfig {
             font_size: LABEL_FONT_SIZE,
             color: LABEL_COLOR,
+            atlas_size: LABEL_ATLAS_SIZE,
             ..Default::default()
         },
         atlas,
@@ -178,19 +211,36 @@ fn spawn_text_label(
     )
     .with_position(position)
     .with_mode(mode);
-    let entity = ecs.spawn_entity();
-    ecs.attach_component(
-        &entity,
-        Text::new(text)
-            .with_font_size(LABEL_FONT_SIZE)
-            .with_color(LABEL_COLOR)
-            .with_background(Some(LABEL_BACKGROUND))
-            .with_world_scale(LABEL_WORLD_SCALE)
-            .with_alpha_mode(AlphaMode::Blend)
-            .with_shared_atlas(atlas.clone()),
-    )
-    .unwrap();
-    ecs.attach_component(&entity, label).unwrap();
+    let text = Text::new(text)
+        .with_font_size(LABEL_FONT_SIZE)
+        .with_color(LABEL_COLOR)
+        .with_background(Some(LABEL_BACKGROUND))
+        .with_world_scale(LABEL_WORLD_SCALE)
+        .with_atlas_size(LABEL_ATLAS_SIZE)
+        .with_alpha_mode(AlphaMode::Blend)
+        .with_shared_atlas(atlas.clone());
+    (text, label)
+}
+
+/// Builds the full label group, including the shared SDF atlas.
+///
+/// This is expensive enough to trip Android's ANR watchdog when run during
+/// startup, so callers must invoke it on a worker thread.
+fn build_room_labels() -> Vec<(Text, Billboard)> {
+    let labels = room_labels();
+    let mut font = DefaultFont::load();
+    let shared_atlas = SharedTextAtlas::build_with_atlas_size(
+        &mut font,
+        LABEL_FONT_SIZE,
+        LABEL_ATLAS_SIZE,
+        labels.iter().map(|(text, _, _)| *text),
+    );
+    labels
+        .into_iter()
+        .map(|(text, position, mode)| {
+            build_text_label(&mut font, &shared_atlas, text, position, mode)
+        })
+        .collect()
 }
 
 fn spawn_scene_model(
@@ -374,6 +424,68 @@ impl System for HelmetAdjuster {
             info!("Adjusted helmet instances in R4 and R5");
             break;
         }
+    }
+}
+
+/// Frames to present before attaching the room labels, so their material
+/// realization does not compete with startup and the first frame.
+const LABEL_ATTACH_DELAY_FRAMES: u8 = 3;
+
+/// Attaches room labels once their background atlas build completes.
+struct AsyncRoomLabels {
+    receiver: Option<Receiver<Vec<(Text, Billboard)>>>,
+    delay_frames: u8,
+    access: ComponentAccess,
+}
+
+impl AsyncRoomLabels {
+    fn new(receiver: Receiver<Vec<(Text, Billboard)>>) -> Self {
+        Self {
+            receiver: Some(receiver),
+            delay_frames: LABEL_ATTACH_DELAY_FRAMES,
+            access: ComponentAccess::new()
+                .writes::<Text>()
+                .writes::<Billboard>(),
+        }
+    }
+}
+
+impl System for AsyncRoomLabels {
+    fn name(&self) -> &str {
+        "async_room_labels"
+    }
+
+    fn access(&self) -> &ComponentAccess {
+        &self.access
+    }
+
+    fn run(&mut self, _world: &World, commands: &mut Commands) {
+        if self.delay_frames > 0 {
+            self.delay_frames -= 1;
+            return;
+        }
+
+        let Some(receiver) = self.receiver.as_ref() else {
+            return;
+        };
+        let labels = match receiver.try_recv() {
+            Ok(labels) => labels,
+            Err(TryRecvError::Empty) => return,
+            Err(TryRecvError::Disconnected) => {
+                error!("Room-label worker stopped before producing labels");
+                self.receiver = None;
+                return;
+            }
+        };
+        self.receiver = None;
+
+        let count = labels.len();
+        for (text, billboard) in labels {
+            let entity = commands.spawn_entity();
+            commands.attach_component(&entity, text);
+            commands.attach_component(&entity, billboard);
+        }
+        info!("Attached {count} room labels from the background atlas build");
     }
 }
 
@@ -748,20 +860,20 @@ impl Module for ProcgeoSceneModule {
             }
         }
 
-        // Custom material shader from the standalone example. Place it behind
-        // R6's blended panes so the transparency room also has a clear object
-        // to look through, without taking over a room of its own.
+        // Custom material shader from the standalone example. R8 is one of the
+        // empty mirrored shells, so it gets a dedicated exhibit in the middle
+        // of the second row.
         let custom_material = Arc::new(MaterialShaderDescriptor {
-            name: Some("AiO Custom Gradient".into()),
+            name: Some("AiO Custom RGB Cube".into()),
             nodes: &[
                 "camera_uniform",
-                "vertex_data_simple",
+                "vertex_data_complex",
                 "instance_data",
                 "fragment_data",
             ],
-            raw_source: Some(CUSTOM_SHADER_WGSL.into()),
+            raw_source: Some(include_str!("custom_shader.wgsl").into()),
             vertex_stage_layouts: Some(vec![
-                VertexStageLayout::SimpleVertexData,
+                VertexStageLayout::ComplexVertexData,
                 VertexStageLayout::InstanceData,
             ]),
             cull_mode: None,
@@ -771,12 +883,12 @@ impl Module for ProcgeoSceneModule {
         });
         spawn_scene_model(
             ecs,
-            "Custom Shader (R6)",
-            box_(Vector3::new(1.0, 1.0, 1.0)),
+            "Custom Shader (R8)",
+            box_(Vector3::new(2.4, 2.4, 2.4)),
             Arc::clone(&custom_material),
             Transform::new(
-                Vector3::new(-20.0, 1.2, 22.0),
-                Quaternion::new(1.0, 0.0, 0.0, 0.0),
+                Vector3::new(0.0, 1.5, HALLWAY_MIRROR_Z + 10.0),
+                Quaternion::from_axis_angle(Vector3::unit_y(), Rad(0.55)),
                 Vector3::new(1.0, 1.0, 1.0),
             ),
         );
@@ -785,64 +897,28 @@ impl Module for ProcgeoSceneModule {
 
         // Floating SDF labels for both room rows.
         //
-        // Android builds the shared atlas on the main thread; it covers every
-        // label character exactly once instead of building one atlas per
-        // label. Labels stay disabled there until the startup budget from
-        // #1066 has been verified on device.
-        if !cfg!(target_os = "android") {
-            let labels = [
-                (
-                    "Metallic Materials",
-                    Point3::new(-20.0, 6.4, 5.25),
-                    BillboardMode::YAxis,
-                ),
-                (
-                    "Matte Materials",
-                    Point3::new(-10.0, 6.4, 5.25),
-                    BillboardMode::YAxis,
-                ),
-                (
-                    "Moving Spot",
-                    Point3::new(0.0, 6.4, 5.25),
-                    BillboardMode::YAxis,
-                ),
-                (
-                    "Helmet Gallery",
-                    Point3::new(10.0, 6.4, 5.25),
-                    BillboardMode::YAxis,
-                ),
-                (
-                    "Colored Helmet",
-                    Point3::new(20.0, 6.4, 5.25),
-                    BillboardMode::YAxis,
-                ),
-                (
-                    "Transparency",
-                    Point3::new(-20.0, 6.4, 14.75),
-                    BillboardMode::YAxis,
-                ),
-                (
-                    "Anti-Aliasing",
-                    Point3::new(-10.0, 6.4, 14.75),
-                    BillboardMode::YAxis,
-                ),
-                (
-                    "All-in-One",
-                    Point3::new(0.0, 7.6, HALLWAY_MIRROR_Z),
-                    BillboardMode::Full,
-                ),
-            ];
-
-            let mut font = DefaultFont::load();
-            let shared_atlas = SharedTextAtlas::build(
-                &mut font,
-                LABEL_FONT_SIZE,
-                labels.iter().map(|(text, _, _)| *text),
-            );
-            for (text, position, mode) in labels {
-                spawn_text_label(ecs, &mut font, &shared_atlas, text, position, mode);
+        // Building the shared atlas is CPU-heavy enough to trip Android's ANR
+        // watchdog on the main thread, so prepare the atlas and label meshes on
+        // a worker and attach them once the app is already presenting frames.
+        let (label_sender, label_receiver) = mpsc::channel();
+        let async_room_labels: Option<Box<dyn System>> = match std::thread::Builder::new()
+            .name("room-label-atlas".into())
+            .spawn(move || {
+                let started = std::time::Instant::now();
+                let labels = build_room_labels();
+                info!(
+                    "Built {} room labels in {:?} on the room-label worker",
+                    labels.len(),
+                    started.elapsed()
+                );
+                let _ = label_sender.send(labels);
+            }) {
+            Ok(_) => Some(Box::new(AsyncRoomLabels::new(label_receiver))),
+            Err(e) => {
+                error!("Failed to start the room-label worker: {e}");
+                None
             }
-        }
+        };
 
         // Import the DamagedHelmet into Room 2
         if let Some(mut queue) = ecs.get_resource_mut::<ImportQueueResource>() {
@@ -980,6 +1056,17 @@ impl Module for ProcgeoSceneModule {
         )
         .unwrap();
 
+        // ── R8 — soft omni light over the custom shader exhibit ─────
+        let r8_light = ecs.spawn_entity();
+        ecs.attach_component(
+            &r8_light,
+            LightDescriptor::new_point(Vector3::new(0.8, 0.9, 1.0), 40.0),
+        )
+        .unwrap();
+        ecs.attach_component(&r8_light, Position(Point3::new(0.0, 5.5, 18.0)))
+            .unwrap();
+        ecs.attach_component(&r8_light, LightDirty(true)).unwrap();
+
         // ── R7 — shadow-casting spot across the AA staircase ────────
         let r7_spot = ecs.spawn_entity();
         let r7_pos = Point3::new(-10.0, 8.0, 16.0);
@@ -1025,14 +1112,18 @@ impl Module for ProcgeoSceneModule {
             .unwrap();
         ecs.attach_component(&fill, LightDirty(true)).unwrap();
 
-        vec![
+        let mut systems = vec![
             sys_camera_controller(),
             sys_ortho_dolly(),
             Box::new(CursorToggle::new(true)),
             Box::new(HelmetAdjuster::new()),
             Box::new(moving_spot),
             sys_animate_dynamic_sky(14.0).into_system(),
-        ]
+        ];
+        if let Some(async_room_labels) = async_room_labels {
+            systems.push(async_room_labels);
+        }
+        systems
     }
 
     fn register_overlays(

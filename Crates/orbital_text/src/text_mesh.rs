@@ -3,6 +3,9 @@ use orbital_2d::Vertex2D;
 use crate::atlas::SdfAtlas;
 use crate::font::FontData;
 
+/// Default edge length of a square world-space SDF atlas.
+pub const DEFAULT_ATLAS_SIZE: u32 = 1024;
+
 /// Configuration for text rendering.
 #[derive(Debug, Clone)]
 pub struct TextConfig {
@@ -14,6 +17,12 @@ pub struct TextConfig {
     pub max_width: Option<f32>,
     /// Line height multiplier.
     pub line_height_multiplier: f32,
+    /// Edge length in pixels of the square SDF atlas used for world-space
+    /// billboard text.
+    ///
+    /// 2D text mesh generation ignores this field. The billboard builder
+    /// clamps it so a single glyph always fits.
+    pub atlas_size: u32,
 }
 
 impl Default for TextConfig {
@@ -23,6 +32,7 @@ impl Default for TextConfig {
             color: [1.0, 1.0, 1.0, 1.0],
             max_width: None,
             line_height_multiplier: 1.2,
+            atlas_size: DEFAULT_ATLAS_SIZE,
         }
     }
 }

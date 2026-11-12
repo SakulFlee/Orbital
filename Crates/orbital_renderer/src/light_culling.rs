@@ -16,8 +16,15 @@ use wgpu::{
 
 use orbital_shader_preprocessor::{NodeRegistry, ShaderBuilder};
 
-/// Screen tile edge length in pixels.
+/// Screen tile edge length in pixels for small and medium resolutions.
 pub const TILE_SIZE: u32 = 8;
+/// Screen tile edge length for resolutions with more than this many pixels.
+///
+/// Culling cost is dominated by the per-tile light loop, so the tile count is
+/// kept roughly constant by growing the tiles on high-resolution targets.
+pub const LARGE_TILE_THRESHOLD_PIXELS: u64 = 4_000_000;
+/// Screen tile edge length used above [`LARGE_TILE_THRESHOLD_PIXELS`].
+pub const LARGE_TILE_SIZE: u32 = 16;
 /// Upper bound of light indices stored per tile.
 ///
 /// Tiles with more overlapping lights keep the first 128; the cost of a larger
@@ -26,6 +33,20 @@ pub const MAX_LIGHTS_PER_TILE: u32 = 128;
 
 const WORKGROUP_SIZE: u32 = 8;
 const PARAMS_BYTES: u64 = 16;
+
+/// Tile edge length for a render resolution.
+///
+/// The light loop is evaluated once per tile, so 8 px tiles keep the deferred
+/// pass responsive on phones and laptops while 16 px tiles avoid a fourfold
+/// culling dispatch on 4K and larger targets.
+pub fn tile_size(resolution: Vector2<u32>) -> u32 {
+    let pixels = u64::from(resolution.x) * u64::from(resolution.y);
+    if pixels > LARGE_TILE_THRESHOLD_PIXELS {
+        LARGE_TILE_SIZE
+    } else {
+        TILE_SIZE
+    }
+}
 
 const LIGHT_CULLING_NODES: &[&str] = &["camera_uniform", "light_struct", "light_types"];
 
@@ -37,6 +58,7 @@ pub struct LightCulling {
     params: Buffer,
     tiles_x: u32,
     tiles_y: u32,
+    tile_size: u32,
     bind_group_cache: Option<TileBindGroupCache>,
 }
 
@@ -133,9 +155,10 @@ impl LightCulling {
             cache: None,
         });
 
-        let tiles_x = tile_count(resolution.x);
-        let tiles_y = tile_count(resolution.y);
-        let (counts, indices, params) = create_buffers(device, queue, tiles_x, tiles_y);
+        let tile_size = tile_size(resolution);
+        let tiles_x = tile_count(resolution.x, tile_size);
+        let tiles_y = tile_count(resolution.y, tile_size);
+        let (counts, indices, params) = create_buffers(device, queue, tiles_x, tiles_y, tile_size);
 
         Self {
             pipeline,
@@ -145,24 +168,27 @@ impl LightCulling {
             params,
             tiles_x,
             tiles_y,
+            tile_size,
             bind_group_cache: None,
         }
     }
 
     /// Reallocate tile buffers when the render resolution changes.
     pub fn ensure(&mut self, device: &Device, queue: &wgpu::Queue, resolution: Vector2<u32>) {
-        let tiles_x = tile_count(resolution.x);
-        let tiles_y = tile_count(resolution.y);
-        if tiles_x == self.tiles_x && tiles_y == self.tiles_y {
+        let tile_size = tile_size(resolution);
+        let tiles_x = tile_count(resolution.x, tile_size);
+        let tiles_y = tile_count(resolution.y, tile_size);
+        if tiles_x == self.tiles_x && tiles_y == self.tiles_y && tile_size == self.tile_size {
             return;
         }
 
-        let (counts, indices, params) = create_buffers(device, queue, tiles_x, tiles_y);
+        let (counts, indices, params) = create_buffers(device, queue, tiles_x, tiles_y, tile_size);
         self.counts = counts;
         self.indices = indices;
         self.params = params;
         self.tiles_x = tiles_x;
         self.tiles_y = tiles_y;
+        self.tile_size = tile_size;
         self.bind_group_cache = None;
     }
 
@@ -251,8 +277,8 @@ impl LightCulling {
     }
 }
 
-fn tile_count(size: u32) -> u32 {
-    size.max(1).div_ceil(TILE_SIZE)
+fn tile_count(size: u32, tile_size: u32) -> u32 {
+    size.max(1).div_ceil(tile_size.max(1))
 }
 
 fn create_buffers(
@@ -260,6 +286,7 @@ fn create_buffers(
     queue: &wgpu::Queue,
     tiles_x: u32,
     tiles_y: u32,
+    tile_size: u32,
 ) -> (Buffer, Buffer, Buffer) {
     let tile_count = u64::from(tiles_x) * u64::from(tiles_y);
     let counts = device.create_buffer(&BufferDescriptor {
@@ -281,7 +308,7 @@ fn create_buffers(
         mapped_at_creation: false,
     });
 
-    let values = [tiles_x, tiles_y, MAX_LIGHTS_PER_TILE, TILE_SIZE];
+    let values = [tiles_x, tiles_y, MAX_LIGHTS_PER_TILE, tile_size];
     let mut bytes = [0u8; PARAMS_BYTES as usize];
     for (index, value) in values.iter().enumerate() {
         bytes[index * 4..index * 4 + 4].copy_from_slice(&value.to_le_bytes());
@@ -297,11 +324,21 @@ mod tests {
 
     #[test]
     fn tile_count_rounds_up_and_handles_empty_sizes() {
-        assert_eq!(tile_count(0), 1);
-        assert_eq!(tile_count(1), 1);
-        assert_eq!(tile_count(16), 2);
-        assert_eq!(tile_count(17), 3);
-        assert_eq!(tile_count(1920), 240);
-        assert_eq!(tile_count(1080), 135);
+        assert_eq!(tile_count(0, TILE_SIZE), 1);
+        assert_eq!(tile_count(1, TILE_SIZE), 1);
+        assert_eq!(tile_count(16, TILE_SIZE), 2);
+        assert_eq!(tile_count(17, TILE_SIZE), 3);
+        assert_eq!(tile_count(1920, TILE_SIZE), 240);
+        assert_eq!(tile_count(1080, TILE_SIZE), 135);
+    }
+
+    #[test]
+    fn tile_size_stays_small_until_high_resolutions() {
+        assert_eq!(tile_size(Vector2::new(1920, 1080)), TILE_SIZE);
+        assert_eq!(tile_size(Vector2::new(2560, 1440)), TILE_SIZE);
+        // Portrait phones have a tall but small surface.
+        assert_eq!(tile_size(Vector2::new(1220, 2582)), TILE_SIZE);
+        assert_eq!(tile_size(Vector2::new(3840, 2160)), LARGE_TILE_SIZE);
+        assert_eq!(tile_size(Vector2::new(7680, 4320)), LARGE_TILE_SIZE);
     }
 }

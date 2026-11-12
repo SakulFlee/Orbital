@@ -46,14 +46,14 @@ use orbital_ecs_bridge::{
     STAGE_GPU_DEFERRED, STAGE_GPU_GBUFFER, STAGE_GPU_LIGHT_CULLING, STAGE_GPU_MODELS,
     STAGE_GPU_SCENE_TOTAL, STAGE_GPU_SHADOW, STAGE_GPU_SKYBOX, STAGE_GPU_TONEMAP,
     STAGE_GPU_TRANSPARENT, STAGE_GPU_VOLUMETRIC_ACCUMULATE, STAGE_GPU_VOLUMETRIC_COMPOSITE,
-    STAGE_GPU_VOLUMETRIC_INJECT, STAGE_GPU_VOLUMETRICS, STAGE_ICED_DRAW, STAGE_ICED_SUBMIT,
-    STAGE_IMPORTER_POLL, STAGE_INPUT, STAGE_OVERLAY_LAYERS, STAGE_OVERLAY_MAIN, STAGE_PRESENT,
-    STAGE_REALIZE, STAGE_REALIZE_CAMERAS, STAGE_REALIZE_ENV, STAGE_REALIZE_LIGHTS,
-    STAGE_REALIZE_MODELS, STAGE_RENDER_TOTAL, STAGE_SCENE_ENCODE, STAGE_SCENE_SUBMIT,
-    STAGE_STAGGER, STAGE_SURFACE_ACQ, STAGE_SURFACE_ACQUIRE, STAGE_SURFACE_LOCK,
-    STAGE_SURFACE_VIEW, STAGE_TIMESTAMP_READBACK, STAGE_UI_EVENTS, STAGE_UPDATE, STAGE_VOLUMETRICS,
-    ShadowDebugData, SurfaceFormatResource, TIMING_STAGES, TimingsHistoryConfig, TotalTime,
-    WindowSize,
+    STAGE_GPU_VOLUMETRIC_INJECT, STAGE_GPU_VOLUMETRIC_INTEGRATE, STAGE_GPU_VOLUMETRICS,
+    STAGE_ICED_DRAW, STAGE_ICED_SUBMIT, STAGE_IMPORTER_POLL, STAGE_INPUT, STAGE_OVERLAY_LAYERS,
+    STAGE_OVERLAY_MAIN, STAGE_PRESENT, STAGE_REALIZE, STAGE_REALIZE_CAMERAS, STAGE_REALIZE_ENV,
+    STAGE_REALIZE_LIGHTS, STAGE_REALIZE_MODELS, STAGE_RENDER_TOTAL, STAGE_SCENE_ENCODE,
+    STAGE_SCENE_SUBMIT, STAGE_STAGGER, STAGE_SURFACE_ACQ, STAGE_SURFACE_ACQUIRE,
+    STAGE_SURFACE_LOCK, STAGE_SURFACE_VIEW, STAGE_TIMESTAMP_READBACK, STAGE_UI_EVENTS,
+    STAGE_UPDATE, STAGE_VOLUMETRICS, ShadowDebugData, SurfaceFormatResource, TIMING_STAGES,
+    TimingsHistoryConfig, TotalTime, VolumetricSettings, WindowSize,
 };
 use orbital_renderer::GPU_TIMESTAMP_COUNT;
 
@@ -118,10 +118,11 @@ impl FrameStageScratch {
         self.durations[STAGE_GPU_SCENE_TOTAL] = (gpu_ns[7] - gpu_ns[0]) * NS_TO_MS;
         self.durations[STAGE_GPU_VOLUMETRIC_INJECT] = (gpu_ns[8] - gpu_ns[7]) * NS_TO_MS;
         self.durations[STAGE_GPU_VOLUMETRIC_ACCUMULATE] = (gpu_ns[9] - gpu_ns[8]) * NS_TO_MS;
-        self.durations[STAGE_GPU_VOLUMETRIC_COMPOSITE] = (gpu_ns[10] - gpu_ns[9]) * NS_TO_MS;
-        self.durations[STAGE_GPU_VOLUMETRICS] = (gpu_ns[10] - gpu_ns[7]) * NS_TO_MS;
-        self.durations[STAGE_GPU_TONEMAP] = (gpu_ns[11] - gpu_ns[10]) * NS_TO_MS;
-        self.durations[STAGE_GPU_AA] = (gpu_ns[12] - gpu_ns[11]) * NS_TO_MS;
+        self.durations[STAGE_GPU_VOLUMETRIC_INTEGRATE] = (gpu_ns[10] - gpu_ns[9]) * NS_TO_MS;
+        self.durations[STAGE_GPU_VOLUMETRIC_COMPOSITE] = (gpu_ns[11] - gpu_ns[10]) * NS_TO_MS;
+        self.durations[STAGE_GPU_VOLUMETRICS] = (gpu_ns[11] - gpu_ns[7]) * NS_TO_MS;
+        self.durations[STAGE_GPU_TONEMAP] = (gpu_ns[12] - gpu_ns[11]) * NS_TO_MS;
+        self.durations[STAGE_GPU_AA] = (gpu_ns[13] - gpu_ns[12]) * NS_TO_MS;
     }
 }
 
@@ -570,6 +571,28 @@ impl ModuleRuntime {
         self.last_window_gpu_timestamp_generation =
             gpu_timestamps_supported.then_some(gpu_timestamp_generation);
 
+        let volumetric = self
+            .ecs_world
+            .get_resource::<VolumetricSettings>()
+            .map(|settings| *settings)
+            .unwrap_or_default();
+        let (volumetric_grid, volumetric_integration_steps) = if volumetric.enabled {
+            (
+                volumetric.quality.resolved_grid(
+                    render_size.x,
+                    render_size.y,
+                    volumetric.max_distance,
+                ),
+                volumetric.quality.integration_steps(
+                    render_size.x,
+                    render_size.y,
+                    volumetric.max_distance,
+                ),
+            )
+        } else {
+            ([0; 3], 0)
+        };
+
         CaptureSnapshot {
             window_width: self.window_size.x,
             window_height: self.window_size.y,
@@ -583,8 +606,11 @@ impl ModuleRuntime {
             refresh_rate_mhz: self.refresh_rate_mhz,
             present_mode: present_mode_name(self.present_mode),
             frame_latency: self.frame_latency,
+            fps_limit: settings.fps_limit,
             gpu_timestamps_supported,
             gpu_timestamps_stale,
+            volumetric_grid,
+            volumetric_integration_steps,
         }
     }
 
@@ -604,9 +630,7 @@ impl ModuleRuntime {
         let target = effective_target_fps(
             settings.target_fps,
             self.refresh_rate_mhz,
-            self.settings
-                .fps_limit
-                .filter(|_| !self.settings.vsync_enabled),
+            settings.fps_limit.filter(|_| !self.settings.vsync_enabled),
         );
         let Some(next) = self.adaptive_render_scale.update(
             settings.render_scale,
@@ -978,29 +1002,54 @@ impl ModuleRuntime {
         layer_renderers.sort_by_key(|r| r.layer().index());
 
         let d_overlay_main = std::cell::Cell::new(std::time::Duration::ZERO);
+        let d_overlay_submit = std::cell::Cell::new(std::time::Duration::ZERO);
         if let (Some(renderer), Some(camera_buffer)) = (&mut self.renderer, camera_buffer.as_ref())
         {
             let cull = cull_res.as_ref().and_then(|r| r.0.as_ref());
             let ecs = &self.ecs_world;
-            let mut overlay_callback = |encoder: &mut wgpu::CommandEncoder| {
-                let start = Instant::now();
-                for layer in layer_renderers.iter_mut() {
-                    if layer.submission() != crate::OverlaySubmission::MainEncoder {
-                        continue;
+            let mut overlay_callback =
+                |encoder: &mut wgpu::CommandEncoder| -> Vec<wgpu::CommandBuffer> {
+                    let start = Instant::now();
+                    for layer in layer_renderers.iter_mut() {
+                        if layer.submission() != crate::OverlaySubmission::MainEncoder {
+                            continue;
+                        }
+                        let ctx = crate::RenderOverlayContext {
+                            target_view: &view,
+                            camera_buffer,
+                            device,
+                            queue,
+                            encoder: Some(encoder),
+                            ecs,
+                            screen_size,
+                        };
+                        layer.render(ctx);
                     }
-                    let ctx = crate::RenderOverlayContext {
-                        target_view: &view,
-                        camera_buffer,
-                        device,
-                        queue,
-                        encoder: Some(encoder),
-                        ecs,
-                        screen_size,
-                    };
-                    layer.render(ctx);
-                }
-                d_overlay_main.set(start.elapsed());
-            };
+                    d_overlay_main.set(start.elapsed());
+
+                    // Main-submit layers record their own command buffers, but
+                    // those buffers join the scene submission below so the
+                    // frame still costs a single `queue.submit`.
+                    let start = Instant::now();
+                    let mut commands = Vec::new();
+                    for layer in layer_renderers.iter_mut() {
+                        if layer.submission() != crate::OverlaySubmission::MainSubmit {
+                            continue;
+                        }
+                        let ctx = crate::RenderOverlayContext {
+                            target_view: &view,
+                            camera_buffer,
+                            device,
+                            queue,
+                            encoder: None,
+                            ecs,
+                            screen_size,
+                        };
+                        commands.extend(layer.render_main_submit(ctx));
+                    }
+                    d_overlay_submit.set(start.elapsed());
+                    commands
+                };
 
             renderer.render(
                 &view,
@@ -1015,6 +1064,7 @@ impl ModuleRuntime {
         }
         drop(cull_res);
         let d_overlay_main = d_overlay_main.get();
+        let d_overlay_submit = d_overlay_submit.get();
 
         let renderer_cpu = self
             .renderer
@@ -1028,8 +1078,9 @@ impl ModuleRuntime {
                 renderer.prev_gpu_ns()
             });
 
-        // Owned-submission layers (iced) always run after the main submission.
-        let mut d_overlay_layers = std::time::Duration::ZERO;
+        // Owned-submission layers always run after the main submission, while
+        // main-submit layers (iced) have already recorded into it.
+        let mut d_overlay_layers = d_overlay_submit;
         let mut d_iced_draw = std::time::Duration::ZERO;
         let mut d_iced_submit = std::time::Duration::ZERO;
         if self.perf_detail {
@@ -1039,6 +1090,21 @@ impl ModuleRuntime {
                 timing.draw_ms = 0.0;
                 timing.submit_ms = 0.0;
             }
+        }
+        for (index, layer) in layer_renderers.iter_mut().enumerate() {
+            if layer.submission() != crate::OverlaySubmission::MainSubmit {
+                continue;
+            }
+            let timings = layer.take_render_timings();
+            d_iced_draw += timings.draw;
+            d_iced_submit += timings.submit;
+            if self.perf_detail {
+                let timing = &mut self.overlay_detail[index];
+                timing.name = layer.debug_name().to_string();
+                timing.draw_ms = timings.draw.as_secs_f64() * 1000.0;
+                timing.submit_ms = timings.submit.as_secs_f64() * 1000.0;
+            }
+            layer.finish_main_submit();
         }
         if let Some(camera_buffer) = camera_buffer.as_ref() {
             let t_layers_start = Instant::now();
@@ -1066,7 +1132,7 @@ impl ModuleRuntime {
                     timing.submit_ms = timings.submit.as_secs_f64() * 1000.0;
                 }
             }
-            d_overlay_layers = t_layers_start.elapsed();
+            d_overlay_layers += t_layers_start.elapsed();
 
             // Drain iced events once after all layer renderers have processed.
             // Each IcedLayerRenderer clones (not drains) the queue so that
@@ -1173,11 +1239,13 @@ impl ModuleRuntime {
         // period. A frame that already ran long starts the next one
         // immediately.
         let t_frame_limiter_start = Instant::now();
-        self.frame_limiter.wait(
-            t_start,
-            self.settings.fps_limit,
-            self.settings.vsync_enabled,
-        );
+        let frame_limit = self
+            .ecs_world
+            .get_resource::<crate::RenderSettings>()
+            .map(|settings| settings.fps_limit)
+            .unwrap_or(self.settings.fps_limit);
+        self.frame_limiter
+            .wait(t_start, frame_limit, self.settings.vsync_enabled);
         let d_frame_limiter = t_frame_limiter_start.elapsed();
         self.frame_timings.set(STAGE_FRAME_LIMITER, d_frame_limiter);
 
@@ -1839,6 +1907,7 @@ impl ApplicationHandler for ModuleRuntime {
                     render_scale: self.settings.render_scale,
                     adaptive_render_scale: self.settings.adaptive_render_scale,
                     target_fps: self.settings.target_fps,
+                    fps_limit: self.settings.fps_limit,
                     min_render_scale: self.settings.min_render_scale,
                     max_render_scale: self.settings.max_render_scale,
                     anti_aliasing: self.settings.anti_aliasing,

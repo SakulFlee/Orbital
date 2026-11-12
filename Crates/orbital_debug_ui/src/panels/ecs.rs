@@ -15,7 +15,7 @@ use orbital_ecs_bridge::{
 use crate::editable::{display_for, editable_fields_ops, editable_label, is_editable};
 use crate::panels::edit::{FieldKey, short_type_name};
 use crate::state::Renderer as IcedRenderer;
-use crate::state::{DebugMessage, DebugUiState, MAX_ROWS, PanelId};
+use crate::state::{DebugMessage, DebugUiState, MAX_ROWS};
 
 /// How much of a read-only component value the panel shows.
 const DETAIL_PREVIEW_CHARS: usize = 1500;
@@ -39,10 +39,6 @@ pub fn ecs_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, IcedRender
     let Some(state) = ecs.get_resource::<DebugUiState>() else {
         return crate::panels::blank();
     };
-
-    if !state.is_panel_visible(PanelId::Ecs) {
-        return crate::panels::blank();
-    }
 
     // Owned, so the widget tree does not borrow the resource guard and the
     // returned element can be `'static` as `IcedState::with_view` requires.
