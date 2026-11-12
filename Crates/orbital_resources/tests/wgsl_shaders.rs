@@ -342,7 +342,7 @@ fn custom_shader_example_is_valid_wgsl() {
         "custom shader example",
         &[
             "camera_uniform",
-            "vertex_data_simple",
+            "vertex_data_complex",
             "instance_data",
             "fragment_data",
         ],
@@ -356,7 +356,7 @@ fn all_in_one_custom_shader_is_valid_wgsl() {
         "all-in-one custom shader",
         &[
             "camera_uniform",
-            "vertex_data_simple",
+            "vertex_data_complex",
             "instance_data",
             "fragment_data",
         ],
