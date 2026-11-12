@@ -530,7 +530,7 @@ impl System for LightAnimator {
             .map(|d| d.0)
             .unwrap_or(0.016);
         self.t += dt as f32;
-        let y = (self.t * 1.5).sin() * 3.0 + 8.0;
+        let y = (self.t * 0.8).sin() * 2.0 + 7.0;
         let new_pos = Position(Point3::new(self.x, y, self.z));
         commands.detach_component::<Position>(&self.entity);
         commands.attach_component(&self.entity, new_pos);
@@ -931,22 +931,25 @@ impl Module for ProcgeoSceneModule {
 
         // ════════════════════════════════════════════════════════════
         // R3 — moving spot light over the small object cluster.
-        // Front of room (camera side), pointing backward so the shadows
-        // travel across the floor and back wall.
+        // Keep the light inside the room so the inverse-square falloff
+        // still reaches the floor and back wall. The old hallway position
+        // put the objects at the edge of the default 10 unit range, which
+        // made the light and its shadows effectively invisible.
         // ════════════════════════════════════════════════════════════
         let spot_light = ecs.spawn_entity();
-        let spot_pos = Point3::new(0.0, 8.0, 6.0);
+        let spot_pos = Point3::new(0.0, 7.0, 2.0);
         let target = Point3::new(0.0, 0.0, -2.0);
         let dir = (target - spot_pos).normalize();
         ecs.attach_component(
             &spot_light,
             LightDescriptor::new_spot(
                 Vector3::new(1.0, 1.0, 1.0),
-                50.0,
+                150.0,
                 Vector3::new(dir.x, dir.y, dir.z),
                 0.1,
                 0.44, // inner/outer ~6°/~25°
-            ),
+            )
+            .with_range(16.0),
         )
         .unwrap();
         ecs.attach_component(&spot_light, Position(spot_pos))
@@ -1095,7 +1098,9 @@ impl Module for ProcgeoSceneModule {
         )
         .unwrap();
 
-        let moving_spot = LightAnimator::new(spot_light, 0.0, 6.0);
+        // A slow vertical sweep keeps the spot inside the room and makes the
+        // moving object shadows easy to read.
+        let moving_spot = LightAnimator::new(spot_light, 0.0, 2.0);
 
         // Low-intensity directional fill light for scene-wide diffuse lighting
         let fill = ecs.spawn_entity();
