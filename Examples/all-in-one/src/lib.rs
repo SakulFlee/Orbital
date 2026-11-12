@@ -864,7 +864,7 @@ impl Module for ProcgeoSceneModule {
         // empty mirrored shells, so it gets a dedicated exhibit in the middle
         // of the second row.
         let custom_material = Arc::new(MaterialShaderDescriptor {
-            name: Some("AiO Custom Shader".into()),
+            name: Some("AiO Custom RGB Cube".into()),
             nodes: &[
                 "camera_uniform",
                 "vertex_data_complex",
