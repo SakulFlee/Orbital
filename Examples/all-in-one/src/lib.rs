@@ -84,6 +84,36 @@ mod tests {
     }
 
     #[test]
+    fn bundled_scene_places_the_aa_stairs_in_room_seven() {
+        let scene = SceneBuilder::from_ron(include_str!("../Assets/Scenes/procgeo_demo.ron"))
+            .expect("bundled all-in-one scene must parse");
+        let stairs: Vec<_> = scene
+            .entities
+            .iter()
+            .filter(|entity| {
+                entity
+                    .label
+                    .as_deref()
+                    .is_some_and(|label| label.starts_with("Stair "))
+            })
+            .collect();
+
+        assert_eq!(stairs.len(), 14);
+        for stair in stairs {
+            assert!(
+                (stair.transform.position[0] + 10.0).abs() < 1e-3,
+                "{:?} is not in R7",
+                stair.label
+            );
+            assert!(
+                stair.transform.position[2] >= 18.0,
+                "{:?} is outside R7",
+                stair.label
+            );
+        }
+    }
+
+    #[test]
     fn only_room_shells_are_mirrored() {
         assert!(is_room_shell("R1 Floor"));
         assert!(is_room_shell("R1 Right / R3 Left"));
