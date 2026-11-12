@@ -27,9 +27,15 @@ pub struct RenderSettings {
     /// Desired frame rate for adaptive render scaling.
     ///
     /// Capped by the display refresh rate when it is known and by
-    /// [`AppSettings::fps_limit`](crate::AppSettings::fps_limit) when a frame
-    /// cap is configured.
+    /// [`Self::fps_limit`] when a frame cap is configured and VSync is off.
     pub target_fps: u32,
+    /// Optional frame-rate cap applied by the runtime limiter.
+    ///
+    /// Changing this at runtime takes effect on the next frame, so an Android
+    /// device can be capped to a comparable rate without rebuilding. The cap
+    /// is ignored while VSync is enabled, just like
+    /// [`AppSettings::fps_limit`](crate::AppSettings::fps_limit).
+    pub fps_limit: Option<u32>,
     /// Lower bound for adaptive render scaling.
     pub min_render_scale: f32,
     /// Upper bound for adaptive render scaling.
@@ -70,6 +76,7 @@ impl Default for RenderSettings {
             render_scale: 1.0,
             adaptive_render_scale: cfg!(any(target_os = "android", target_os = "ios")),
             target_fps: 60,
+            fps_limit: None,
             min_render_scale: 0.25,
             max_render_scale: MAX_RENDER_SCALE,
             anti_aliasing: AntiAliasing::Fxaa,

@@ -80,6 +80,10 @@ pub enum DebugMessage {
     SetAdaptiveRenderScale(bool),
     /// Set the frame-rate target used by adaptive render scaling.
     SetPerformanceTargetFps(u32),
+    /// Enable or disable the runtime frame cap.
+    SetFrameCapEnabled(bool),
+    /// Set the frame rate for the runtime frame cap.
+    SetFrameCapFps(u32),
     /// Set the exposure used by the tonemap.
     SetExposure(f32),
     /// Enable or disable HDR bloom/glare.
@@ -513,6 +517,8 @@ impl DebugUiState {
             | DebugMessage::SetRenderScalePercent(_)
             | DebugMessage::SetAdaptiveRenderScale(_)
             | DebugMessage::SetPerformanceTargetFps(_)
+            | DebugMessage::SetFrameCapEnabled(_)
+            | DebugMessage::SetFrameCapFps(_)
             | DebugMessage::SetExposure(_)
             | DebugMessage::SetBloomEnabled(_)
             | DebugMessage::SetDeferredEnabled(_)

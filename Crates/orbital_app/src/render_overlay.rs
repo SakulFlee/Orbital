@@ -13,7 +13,10 @@ use crate::render_layer::RenderLayer;
 pub struct OverlayRenderTimings {
     /// Time spent preparing/drawing the overlay (before submission).
     pub draw: Duration,
-    /// Time spent submitting the overlay's command buffer.
+    /// Time spent recording or submitting the overlay's command buffer.
+    ///
+    /// Layers that share the main submission measure command recording here;
+    /// the runtime's scene submission performs the actual `queue.submit`.
     pub submit: Duration,
 }
 
@@ -25,9 +28,9 @@ pub struct RenderOverlayContext<'a> {
     pub camera_buffer: &'a wgpu::Buffer,
     pub device: &'a wgpu::Device,
     pub queue: &'a wgpu::Queue,
-    /// Shared encoder for overlays that record into the main scene submission.
-    /// Layer renderers that own their submission (for example iced) receive
-    /// `None`.
+    /// Shared encoder for overlays that record into the main scene encoder.
+    /// Layer renderers that record their own command buffer (for example iced)
+    /// receive `None`.
     pub encoder: Option<&'a mut wgpu::CommandEncoder>,
     /// Read‑only access to the ECS world so the overlay can query
     /// camera, models, instances, etc.
@@ -41,11 +44,17 @@ pub struct RenderOverlayContext<'a> {
 pub enum OverlaySubmission {
     /// Record into the main scene encoder; no extra submit.
     MainEncoder,
+    /// Record an own command buffer and merge it into the main submission.
+    ///
+    /// The command buffer is submitted after the scene's command buffer, so
+    /// the layer still draws on top of the scene, but the driver only handles
+    /// one `queue.submit` call for the whole frame. This is the preferred mode
+    /// for overlays whose renderer exposes an encoder, such as iced.
+    MainSubmit,
     /// Own a command buffer and submit it after the main scene submission.
     ///
-    /// The iced integration currently uses this until its fork exposes an
-    /// encoder. Owned-submission layers always run after all main-encoder
-    /// layers, regardless of `RenderLayer` order.
+    /// Owned-submission layers always run after all main-encoder and
+    /// main-submit layers, regardless of `RenderLayer` order.
     Owned,
 }
 
@@ -53,8 +62,8 @@ pub enum OverlaySubmission {
 ///
 /// The runtime sorts layer renderers by layer order. Renderers that use
 /// [`OverlaySubmission::MainEncoder`] receive the shared encoder in
-/// [`RenderOverlayContext::encoder`]; renderers that own their submission
-/// receive `None`.
+/// [`RenderOverlayContext::encoder`]; renderers that record their own command
+/// buffer receive `None`.
 pub trait LayerRenderer: Send + Sync {
     /// Returns the layer this renderer should be rendered in.
     fn layer(&self) -> RenderLayer;
@@ -79,7 +88,31 @@ pub trait LayerRenderer: Send + Sync {
     }
 
     /// Renders the overlay.
+    ///
+    /// Called for [`OverlaySubmission::MainEncoder`] layers with the shared
+    /// encoder, and for [`OverlaySubmission::Owned`] layers without one.
+    /// [`OverlaySubmission::MainSubmit`] layers use
+    /// [`render_main_submit`](Self::render_main_submit) instead.
     fn render(&mut self, ctx: RenderOverlayContext);
+
+    /// Records this layer into command buffers for the main scene submission.
+    ///
+    /// Called only for [`OverlaySubmission::MainSubmit`] layers, after the
+    /// main-encoder layers have been recorded. The returned buffers are
+    /// submitted after the scene command buffer, so the layer still draws on
+    /// top of the scene. The runtime calls
+    /// [`finish_main_submit`](Self::finish_main_submit) once the submission has
+    /// been issued.
+    fn render_main_submit(&mut self, _ctx: RenderOverlayContext) -> Vec<wgpu::CommandBuffer> {
+        Vec::new()
+    }
+
+    /// Releases any state tied to the command buffers returned by
+    /// [`render_main_submit`](Self::render_main_submit).
+    ///
+    /// Called after the runtime has submitted the main scene command buffer
+    /// and the layer's own buffers.
+    fn finish_main_submit(&mut self) {}
 
     /// Process input events and update capture state (no GPU rendering).
     ///
@@ -101,7 +134,8 @@ pub trait LayerRenderer: Send + Sync {
 ///
 /// `ModuleRuntime::redraw()` checks for this resource and renders registered
 /// layers in `RenderLayer` order. Main-encoder layers are recorded before the
-/// scene submission; owned-submission layers run afterwards.
+/// scene submission; main-submit layers append their command buffers to that
+/// submission; owned-submission layers run afterwards.
 pub struct RenderOverlayResource {
     /// Layer-aware renderers (sorted by layer order before rendering).
     pub layer_renderers: std::sync::Mutex<Vec<Box<dyn LayerRenderer>>>,

@@ -272,11 +272,17 @@ pub struct RendererCpuTimings {
     pub volumetrics_ms: f64,
     /// Total command recording before submission.
     pub encode_ms: f64,
-    /// `queue.submit` for the scene command buffer.
+    /// `queue.submit` for the scene command buffer and any overlay command
+    /// buffers merged into the main submission.
     pub submit_ms: f64,
     /// Timestamp resolve/copy/readback work.
     pub timestamp_readback_ms: f64,
 }
+
+/// Records main-encoder overlays and returns command buffers to append to the
+/// scene submission.
+pub type OverlayCallback<'a> =
+    dyn FnMut(&mut wgpu::CommandEncoder) -> Vec<wgpu::CommandBuffer> + 'a;
 
 /// Empty resources bound when a frame has no shadows.
 ///
@@ -1102,7 +1108,7 @@ impl Renderer {
         queue: &Queue,
         cull: Option<&CullResources>,
         dirty_set: &std::collections::HashSet<u32>,
-        overlay: Option<&mut dyn FnMut(&mut wgpu::CommandEncoder)>,
+        overlay: Option<&mut OverlayCallback<'_>>,
     ) {
         let ms = |duration: std::time::Duration| duration.as_secs_f64() * 1000.0;
         let render_start = Instant::now();
@@ -1643,9 +1649,11 @@ impl Renderer {
             .expect("render graph must be compiled before execution");
         self.smaa = smaa;
 
-        if let Some(overlay) = overlay {
-            overlay(&mut command_encoder);
-        }
+        let overlay_commands = if let Some(overlay) = overlay {
+            overlay(&mut command_encoder)
+        } else {
+            Vec::new()
+        };
 
         for timing in graph.timings() {
             match timing.pass {
@@ -1687,7 +1695,9 @@ impl Renderer {
         }
 
         let submit_start = Instant::now();
-        queue.submit(vec![command_encoder.finish()]);
+        // Overlay command buffers are recorded after the scene encoder but
+        // submitted in the same call, keeping the frame to one `queue.submit`.
+        queue.submit(std::iter::once(command_encoder.finish()).chain(overlay_commands));
         let submit_ms = ms(submit_start.elapsed());
         let timestamp_readback_start = Instant::now();
         self.texture_pool.end_frame();
