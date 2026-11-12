@@ -17,7 +17,7 @@ use orbital_material_shader::RenderQueue;
 use orbital_renderer::{AntiAliasing, SmaaQuality};
 
 use crate::state::Renderer as IcedRenderer;
-use crate::state::{DebugMessage, DebugUiState, PanelId};
+use crate::state::{DebugMessage, DebugUiState};
 
 const LABEL_WIDTH: f32 = 108.0;
 const VALUE_WIDTH: f32 = 46.0;
@@ -26,11 +26,7 @@ const MUTED: Color = Color::from_rgb(0.6, 0.6, 0.66);
 
 /// Builds the rendering controls panel.
 pub fn rendering_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, IcedRenderer> {
-    let Some(state) = ecs.get_resource::<DebugUiState>() else {
-        return crate::panels::blank();
-    };
-
-    if !state.is_panel_visible(PanelId::Rendering) {
+    if ecs.get_resource::<DebugUiState>().is_none() {
         return crate::panels::blank();
     }
 

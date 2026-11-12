@@ -20,6 +20,7 @@
 //! that cheap as well.
 
 pub mod editable;
+pub mod layout;
 pub mod panels;
 pub mod sparkline;
 pub mod state;
@@ -68,13 +69,16 @@ pub fn sys_debug_ui_toggle(input: Res<InputSnapshot>, mut ui: ResMut<DebugUiStat
 
 /// Keeps the frame-timing history config in sync with the Performance panel.
 ///
-/// Only the visible Performance window needs graph/table history; when it is
-/// hidden, `FrameTimings` clears the retained samples.
+/// The history is retained whenever the overlay is visible. On a large display
+/// only the Performance window needs it, but the same overlay can switch to the
+/// tabbed layout when the viewport shrinks, and that layout shows Performance
+/// from a tab without touching the per-panel visibility flags. Retaining a few
+/// hundred samples while the (on-demand) overlay is open is cheap.
 pub fn sys_sync_timings_history(
     state: Res<DebugUiState>,
     mut config: ResMut<TimingsHistoryConfig>,
 ) {
-    config.enabled = state.is_panel_visible(PanelId::Performance);
+    config.enabled = state.visible;
     config.window_secs = state.graph_window_secs as f64;
 }
 
@@ -257,14 +261,29 @@ impl Module for DebugUiModule {
                 // `handle_message` marks the panel dirty.
                 .with_refresh_interval(refresh_interval)
                 .with_visibility(move |world: &World| {
-                    world
-                        .get_resource::<DebugUiState>()
-                        .is_some_and(|state| state.is_panel_visible(id))
+                    // The floating windows only exist on viewports that can fit
+                    // them; smaller ones use the single tabbed overlay instead.
+                    !crate::layout::uses_tabbed_layout(world)
+                        && world
+                            .get_resource::<DebugUiState>()
+                            .is_some_and(|state| state.is_panel_visible(id))
                 })
                 .with_view(view);
 
             layer_renderers.push(Box::new(IcedLayerRenderer::new(panel)));
         }
+
+        // The tabbed layout is registered on every platform: a small desktop
+        // window needs it just as much as a phone. It stays hidden (and does no
+        // work) while the viewport can fit the floating windows.
+        let tabbed = IcedState::<DebugMessage>::titled("Debug UI")
+            .with_hud()
+            .with_message_handler(handle_debug_message)
+            .with_visibility(crate::layout::tabbed_overlay_visible)
+            .with_refresh_interval(refresh_interval)
+            .with_view(crate::layout::tabbed_overlay);
+
+        layer_renderers.push(Box::new(IcedLayerRenderer::new(tabbed)));
 
         if self.mobile_toggle && cfg!(any(target_os = "android", target_os = "ios")) {
             register_mobile_toggle(layer_renderers);
@@ -305,9 +324,16 @@ fn mobile_debug_toggle_visible(world: &World) -> bool {
         return false;
     }
 
-    world
-        .get_resource::<DebugUiState>()
-        .is_some_and(|state| !state.visible || state.panels.iter().all(|visible| !visible))
+    world.get_resource::<DebugUiState>().is_some_and(|state| {
+        if !state.visible {
+            return true;
+        }
+
+        // In the tabbed layout the toggle would sit on top of the tab strip.
+        // That layout always has its own "Hide" button, so the toggle stays
+        // out of the way until the overlay is hidden.
+        !crate::layout::uses_tabbed_layout(world) && state.panels.iter().all(|visible| !visible)
+    })
 }
 
 /// A small always-available touch target that opens the debug overlay.
