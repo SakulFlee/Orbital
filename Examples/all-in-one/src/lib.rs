@@ -9,7 +9,7 @@ use orbital::app::{
 use orbital::billboard::{
     Billboard, BillboardMode, BillboardModule, SharedTextAtlas, Text, text_billboard_with_atlas,
 };
-use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Vector3};
+use orbital::cgmath::{InnerSpace, Point3, Quaternion, Rad, Rotation3, Vector3};
 use orbital::debug_render::DebugModule;
 use orbital::ecs::{Commands, ComponentAccess, IntoSystem, Res, ResMut, System, World};
 use orbital::ecs_bridge::{
@@ -35,43 +35,6 @@ use orbital::twod::Vertex2D;
 use orbital::winit::keyboard::KeyCode;
 
 pub const NAME: &str = env!("CARGO_PKG_NAME");
-
-/// Custom material shader merged into the showcase from the standalone
-/// `custom_shader` example. The engine supplies the camera, vertex, instance
-/// and fragment nodes; this only adds the entrypoints and colour pattern.
-const CUSTOM_SHADER_WGSL: &str = r#"
-@group(0) @binding(0) var<uniform> camera: CameraUniform;
-
-@vertex
-fn entrypoint_vertex(
-    vertex: VertexData,
-    instance: InstanceData
-) -> FragmentData {
-    let model_space_matrix = mat4x4<f32>(
-        instance.model_space_matrix_0,
-        instance.model_space_matrix_1,
-        instance.model_space_matrix_2,
-        instance.model_space_matrix_3,
-    );
-    let world_position = model_space_matrix * vec4<f32>(vertex.position, 1.0);
-
-    var out: FragmentData;
-    out.position = camera.view_projection_matrix * world_position;
-    out.world_position = world_position.xyz;
-    out.uv = vec2<f32>(0.0);
-    out.tangent = vec3<f32>(1.0, 0.0, 0.0);
-    out.bitangent = vec3<f32>(0.0, 1.0, 0.0);
-    out.normal = vec3<f32>(0.0, 1.0, 0.0);
-    return out;
-}
-
-@fragment
-fn entrypoint_fragment(in: FragmentData) -> @location(0) vec4<f32> {
-    let bands = fract(in.world_position.x * 0.35 + in.world_position.y * 0.2);
-    let pulse = 0.5 + 0.5 * sin(in.world_position.z * 2.0);
-    return vec4<f32>(bands, 1.0 - bands, pulse, 1.0);
-}
-"#;
 
 #[cfg(test)]
 mod tests {
@@ -106,6 +69,13 @@ mod tests {
         assert_eq!(second_row_room_name(0.0), "R8");
         assert_eq!(second_row_room_name(10.0), "R9");
         assert_eq!(second_row_room_name(20.0), "R10");
+    }
+
+    #[test]
+    fn custom_shader_room_is_labelled() {
+        assert!(room_labels().iter().any(|(text, position, _)| {
+            *text == "Custom Shader" && position.x == 0.0 && position.z == 14.75
+        }));
     }
 }
 
@@ -167,7 +137,7 @@ fn room_shell_kind(label: &str) -> &'static str {
 }
 
 /// Floating room labels, as authored positions and orientations.
-fn room_labels() -> [(&'static str, Point3<f32>, BillboardMode); 8] {
+fn room_labels() -> [(&'static str, Point3<f32>, BillboardMode); 9] {
     [
         (
             "Metallic Materials",
@@ -202,6 +172,11 @@ fn room_labels() -> [(&'static str, Point3<f32>, BillboardMode); 8] {
         (
             "Anti-Aliasing",
             Point3::new(-10.0, 6.4, 14.75),
+            BillboardMode::YAxis,
+        ),
+        (
+            "Custom Shader",
+            Point3::new(0.0, 6.4, 14.75),
             BillboardMode::YAxis,
         ),
         (
@@ -885,20 +860,20 @@ impl Module for ProcgeoSceneModule {
             }
         }
 
-        // Custom material shader from the standalone example. Place it behind
-        // R6's blended panes so the transparency room also has a clear object
-        // to look through, without taking over a room of its own.
+        // Custom material shader from the standalone example. R8 is one of the
+        // empty mirrored shells, so it gets a dedicated exhibit in the middle
+        // of the second row.
         let custom_material = Arc::new(MaterialShaderDescriptor {
-            name: Some("AiO Custom Gradient".into()),
+            name: Some("AiO Custom RGB Cube".into()),
             nodes: &[
                 "camera_uniform",
-                "vertex_data_simple",
+                "vertex_data_complex",
                 "instance_data",
                 "fragment_data",
             ],
-            raw_source: Some(CUSTOM_SHADER_WGSL.into()),
+            raw_source: Some(include_str!("custom_shader.wgsl").into()),
             vertex_stage_layouts: Some(vec![
-                VertexStageLayout::SimpleVertexData,
+                VertexStageLayout::ComplexVertexData,
                 VertexStageLayout::InstanceData,
             ]),
             cull_mode: None,
@@ -908,12 +883,12 @@ impl Module for ProcgeoSceneModule {
         });
         spawn_scene_model(
             ecs,
-            "Custom Shader (R6)",
-            box_(Vector3::new(1.0, 1.0, 1.0)),
+            "Custom Shader (R8)",
+            box_(Vector3::new(2.4, 2.4, 2.4)),
             Arc::clone(&custom_material),
             Transform::new(
-                Vector3::new(-20.0, 1.2, 22.0),
-                Quaternion::new(1.0, 0.0, 0.0, 0.0),
+                Vector3::new(0.0, 1.5, HALLWAY_MIRROR_Z + 10.0),
+                Quaternion::from_axis_angle(Vector3::unit_y(), Rad(0.55)),
                 Vector3::new(1.0, 1.0, 1.0),
             ),
         );
@@ -1080,6 +1055,17 @@ impl Module for ProcgeoSceneModule {
             },
         )
         .unwrap();
+
+        // ── R8 — soft omni light over the custom shader exhibit ─────
+        let r8_light = ecs.spawn_entity();
+        ecs.attach_component(
+            &r8_light,
+            LightDescriptor::new_point(Vector3::new(0.8, 0.9, 1.0), 40.0),
+        )
+        .unwrap();
+        ecs.attach_component(&r8_light, Position(Point3::new(0.0, 5.5, 18.0)))
+            .unwrap();
+        ecs.attach_component(&r8_light, LightDirty(true)).unwrap();
 
         // ── R7 — shadow-casting spot across the AA staircase ────────
         let r7_spot = ecs.spawn_entity();

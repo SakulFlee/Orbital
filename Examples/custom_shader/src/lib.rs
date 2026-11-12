@@ -156,16 +156,16 @@ impl Module for GameModule {
         // engine camera/instance/vertex nodes and only supplies its own
         // entrypoints and world-space color pattern.
         let custom_material = Arc::new(MaterialShaderDescriptor {
-            name: Some("Custom Gradient".into()),
+            name: Some("Custom RGB Cube".into()),
             nodes: &[
                 "camera_uniform",
-                "vertex_data_simple",
+                "vertex_data_complex",
                 "instance_data",
                 "fragment_data",
             ],
             raw_source: Some(include_str!("custom_shader.wgsl").into()),
             vertex_stage_layouts: Some(vec![
-                VertexStageLayout::SimpleVertexData,
+                VertexStageLayout::ComplexVertexData,
                 VertexStageLayout::InstanceData,
             ]),
             cull_mode: None,
