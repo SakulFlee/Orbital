@@ -25,6 +25,9 @@ use crate::fxaa::Fxaa;
 use crate::light_culling::LightCulling;
 use crate::scene::RenderScene;
 use crate::smaa::{SmaaQuality, SmaaTarget};
+use crate::timestamp_readback::{
+    GpuTimestampHistory, STAGING_SLOTS, TS_COUNT, TimestampReadbackRing,
+};
 use crate::tonemap::{Tonemap, TonemapSettings};
 use crate::volumetric::VolumetricRenderer;
 
@@ -459,17 +462,10 @@ struct CachedWorldBindGroup {
     _environment: Option<Arc<WorldEnvironment>>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum TimestampReadbackState {
-    Free,
-    Pending,
-}
-
+#[derive(Debug)]
 struct TimestampReadback {
     buffer: wgpu::Buffer,
-    state: TimestampReadbackState,
     mapped: Arc<AtomicBool>,
-    generation: u64,
 }
 
 pub struct Renderer {
@@ -507,11 +503,10 @@ pub struct Renderer {
     world_bind_group_cache: Option<CachedWorldBindGroup>,
     timestamp_query_set: Option<wgpu::QuerySet>,
     timestamp_resolve_buffer: wgpu::Buffer,
-    timestamp_staging_bufs: [TimestampReadback; TS_STAGING_COUNT],
-    timestamp_generation: u64,
-    prev_gpu_generation: u64,
+    timestamp_staging_bufs: [TimestampReadback; STAGING_SLOTS],
+    timestamp_ring: TimestampReadbackRing,
     timestamp_period_ns: f32,
-    prev_gpu_ns: [f64; TS_COUNT as usize],
+    gpu_timestamps: GpuTimestampHistory,
     prev_cpu_timings: RendererCpuTimings,
 }
 
@@ -521,7 +516,7 @@ impl Renderer {
     }
 
     pub fn prev_gpu_ns(&self) -> [f64; TS_COUNT as usize] {
-        self.prev_gpu_ns
+        self.gpu_timestamps.ns()
     }
 
     /// Whether the device and renderer expose GPU timestamp queries.
@@ -534,51 +529,37 @@ impl Renderer {
     /// Stays unchanged while readbacks are pending or unavailable, so a
     /// capture can mark stale GPU stages.
     pub fn gpu_timestamp_generation(&self) -> u64 {
-        self.prev_gpu_generation
+        self.gpu_timestamps.generation()
     }
 
     /// Polls completed timestamp readbacks without blocking.
     fn poll_timestamp_readbacks(&mut self, device: &Device) {
         let _ = device.poll(wgpu::PollType::Poll);
 
-        let mut latest: Option<(u64, [f64; TS_COUNT as usize])> = None;
-        for readback in &mut self.timestamp_staging_bufs {
-            if readback.state != TimestampReadbackState::Pending
-                || !readback.mapped.load(Ordering::Relaxed)
-            {
+        for index in 0..STAGING_SLOTS {
+            let Some(generation) = self.timestamp_ring.pending_generation(index) else {
+                continue;
+            };
+            let readback = &self.timestamp_staging_bufs[index];
+            if !readback.mapped.load(Ordering::Relaxed) {
                 continue;
             }
 
             let slice = readback.buffer.slice(..);
-            let mut values = None;
+            let mut raw = [0.0f64; TS_COUNT as usize];
             if let Ok(data) = slice.get_mapped_range() {
-                let mut raw = [0.0f64; TS_COUNT as usize];
                 for (index, value) in raw.iter_mut().enumerate() {
                     let start = index * 8;
                     let bytes: [u8; 8] = data[start..start + 8].try_into().unwrap();
                     *value = u64::from_ne_bytes(bytes) as f64;
                 }
-                if raw.iter().any(|value| *value != 0.0) {
-                    values = Some(raw);
-                }
             }
 
             readback.buffer.unmap();
-            readback.state = TimestampReadbackState::Free;
             readback.mapped.store(false, Ordering::Relaxed);
-
-            if let Some(raw) = values
-                && readback.generation > latest.map_or(0, |(generation, _)| generation)
-            {
-                latest = Some((readback.generation, raw));
-            }
-        }
-
-        if let Some((generation, raw)) = latest
-            && generation > self.prev_gpu_generation
-        {
-            self.prev_gpu_generation = generation;
-            self.prev_gpu_ns = raw.map(|value| value * self.timestamp_period_ns as f64);
+            self.timestamp_ring.release(index);
+            self.gpu_timestamps
+                .accept(generation, raw, self.timestamp_period_ns);
         }
     }
 
@@ -587,16 +568,10 @@ impl Renderer {
         self.timestamp_query_set.as_ref()?;
 
         self.poll_timestamp_readbacks(device);
-        let slot = self
-            .timestamp_staging_bufs
-            .iter()
-            .position(|readback| readback.state == TimestampReadbackState::Free)?;
-
-        self.timestamp_generation = self.timestamp_generation.wrapping_add(1);
-        let readback = &mut self.timestamp_staging_bufs[slot];
-        readback.state = TimestampReadbackState::Pending;
-        readback.generation = self.timestamp_generation;
-        readback.mapped.store(false, Ordering::Relaxed);
+        let (slot, _generation) = self.timestamp_ring.acquire()?;
+        self.timestamp_staging_bufs[slot]
+            .mapped
+            .store(false, Ordering::Relaxed);
         Some(slot)
     }
 
@@ -736,9 +711,7 @@ impl Renderer {
 // 7=after transparent/models, 8=after volumetric inject, 9=after volumetric
 // accumulate, 10=after volumetric integrate, 11=after volumetric composite,
 // 12=after tonemap, 13=after AA.
-const TS_COUNT: u32 = 14;
 const TS_BUF_SIZE: u64 = TS_COUNT as u64 * 8;
-const TS_STAGING_COUNT: usize = 4;
 
 /// Number of GPU timestamp samples returned by [`Renderer::prev_gpu_ns`].
 pub const GPU_TIMESTAMP_COUNT: usize = TS_COUNT as usize;
@@ -782,9 +755,7 @@ impl Renderer {
         };
         let timestamp_staging_bufs = std::array::from_fn(|index| TimestampReadback {
             buffer: make_staging(&format!("Orbital::TS_Staging{index}")),
-            state: TimestampReadbackState::Free,
             mapped: Arc::new(AtomicBool::new(false)),
-            generation: 0,
         });
 
         let fallbacks = RendererFallbacks::new(device, queue);
@@ -839,8 +810,7 @@ impl Renderer {
             timestamp_query_set,
             timestamp_resolve_buffer,
             timestamp_staging_bufs,
-            timestamp_generation: 0,
-            prev_gpu_generation: 0,
+            timestamp_ring: TimestampReadbackRing::new(),
             timestamp_period_ns: {
                 let period = queue.get_timestamp_period();
                 if period.is_finite() && period > 0.0 {
@@ -849,7 +819,7 @@ impl Renderer {
                     1.0
                 }
             },
-            prev_gpu_ns: [0.0; TS_COUNT as usize],
+            gpu_timestamps: GpuTimestampHistory::new(),
             prev_cpu_timings: RendererCpuTimings::default(),
         }
     }

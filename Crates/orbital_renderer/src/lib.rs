@@ -7,6 +7,7 @@ mod renderer_text;
 mod renderer_ui;
 mod scene;
 mod smaa;
+mod timestamp_readback;
 mod tonemap;
 mod volumetric;
 
