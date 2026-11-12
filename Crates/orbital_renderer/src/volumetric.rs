@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use cgmath::{Matrix4, Vector2};
-use orbital_ecs_bridge::{VolumetricQuality, VolumetricSettings};
+use orbital_ecs_bridge::VolumetricSettings;
 use orbital_shader_preprocessor::{NodeRegistry, ShaderBuilder};
 use wgpu::{
     BindGroup, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
@@ -32,34 +32,33 @@ const INJECT_NODES: &[&str] = &[
 const INJECT_PARAMS_SIZE: u64 = 64;
 const COMPOSITE_PARAMS_SIZE: u64 = 16;
 const ACCUM_PARAMS_SIZE: u64 = 160;
+const INTEGRATE_PARAMS_SIZE: u64 = 32;
 
 /// Temporal blend weight for valid history. Volumetric fog is low-frequency;
 /// a high history weight removes the per-frame froxel shimmer without needing
 /// a full-screen TAA pass.
 const HISTORY_BLEND: f32 = 0.9;
 
-/// Keep the world-space spacing between froxel depth slices small enough
-/// that short light cones do not pop between slices as the camera moves.
-const TARGET_DEPTH_SLICE_SPACING: f32 = 0.15;
-/// Upper bound for adaptive depth slices; the X/Y grid still follows the
-/// selected `VolumetricQuality`.
-const MAX_DEPTH_SLICES: u32 = 192;
-
 pub struct VolumetricRenderer {
     inject_pipeline: ComputePipeline,
     inject_layout: BindGroupLayout,
     accumulate_pipeline: ComputePipeline,
     accumulate_layout: BindGroupLayout,
+    integrate_pipeline: ComputePipeline,
+    integrate_layout: BindGroupLayout,
     composite_pipeline: RenderPipeline,
     composite_layout: BindGroupLayout,
     froxel_sampler: Sampler,
     inject_params: Buffer,
     accum_params: Buffer,
+    integrate_params: Buffer,
     composite_params: Buffer,
     grid: [u32; 3],
-    steps: u32,
+    integration_steps: u32,
     inject_bind_group: Option<(TextureView, BindGroup)>,
+    integrate_bind_group: Option<IntegrateBindGroupCache>,
     composite_bind_group: Option<CompositeBindGroupCache>,
+    prefix: Option<PrefixTargets>,
     history: Option<HistoryTargets>,
     history_index: usize,
     history_valid: bool,
@@ -107,6 +106,50 @@ impl HistoryTargets {
             views: [view0, view1],
         }
     }
+}
+
+/// Cumulative in-scattering and transmittance along each froxel column.
+///
+/// The depth dimension stores prefixes at the integration-step resolution,
+/// which is at least the froxel grid depth. The composite then needs one
+/// texture fetch per pixel instead of integrating the volume per pixel.
+struct PrefixTargets {
+    _texture: wgpu::Texture,
+    view: TextureView,
+    grid: [u32; 3],
+    steps: u32,
+}
+
+impl PrefixTargets {
+    fn new(device: &Device, grid: [u32; 3], steps: u32) -> Self {
+        let texture = device.create_texture(&TextureDescriptor {
+            label: Some("Orbital::VolumetricPrefix"),
+            size: wgpu::Extent3d {
+                width: grid[0],
+                height: grid[1],
+                depth_or_array_layers: steps,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: TextureDimension::D3,
+            format: wgpu::TextureFormat::Rgba16Float,
+            usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        });
+        let view = texture.create_view(&Default::default());
+        Self {
+            _texture: texture,
+            view,
+            grid,
+            steps,
+        }
+    }
+}
+
+struct IntegrateBindGroupCache {
+    froxel: TextureView,
+    prefix: TextureView,
+    bind_group: BindGroup,
 }
 
 struct CompositeBindGroupCache {
@@ -183,6 +226,11 @@ impl VolumetricRenderer {
         let accumulate_module = device.create_shader_module(ShaderModuleDescriptor {
             label: Some("Orbital::VolumetricAccumulateShader"),
             source: ShaderSource::Wgsl(accumulate_source.into()),
+        });
+
+        let integrate_module = device.create_shader_module(ShaderModuleDescriptor {
+            label: Some("Orbital::VolumetricIntegrateShader"),
+            source: ShaderSource::Wgsl(include_str!("volumetric_integrate.wgsl").into()),
         });
 
         let inject_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -288,6 +336,63 @@ impl VolumetricRenderer {
             label: Some("Orbital::VolumetricAccumulatePipeline"),
             layout: Some(&accumulate_pipeline_layout),
             module: &accumulate_module,
+            entry_point: Some("main"),
+            compilation_options: Default::default(),
+            cache: None,
+        });
+
+        let integrate_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            label: Some("Orbital::VolumetricIntegrateLayout"),
+            entries: &[
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::D3,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::StorageTexture {
+                        access: StorageTextureAccess::WriteOnly,
+                        format: wgpu::TextureFormat::Rgba16Float,
+                        view_dimension: TextureViewDimension::D3,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+            ],
+        });
+
+        let integrate_pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
+            label: Some("Orbital::VolumetricIntegratePipelineLayout"),
+            bind_group_layouts: &[Some(&integrate_layout)],
+            immediate_size: 0,
+        });
+
+        let integrate_pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
+            label: Some("Orbital::VolumetricIntegratePipeline"),
+            layout: Some(&integrate_pipeline_layout),
+            module: &integrate_module,
             entry_point: Some("main"),
             compilation_options: Default::default(),
             cache: None,
@@ -402,6 +507,12 @@ impl VolumetricRenderer {
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
+        let integrate_params = device.create_buffer(&BufferDescriptor {
+            label: Some("Orbital::VolumetricIntegrateParams"),
+            size: INTEGRATE_PARAMS_SIZE,
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
         let accum_params = device.create_buffer(&BufferDescriptor {
             label: Some("Orbital::VolumetricAccumulateParams"),
             size: ACCUM_PARAMS_SIZE,
@@ -414,16 +525,21 @@ impl VolumetricRenderer {
             inject_layout,
             accumulate_pipeline,
             accumulate_layout,
+            integrate_pipeline,
+            integrate_layout,
             composite_pipeline,
             composite_layout,
             froxel_sampler,
             inject_params,
             accum_params,
+            integrate_params,
             composite_params,
             grid: [1, 1, 1],
-            steps: 1,
+            integration_steps: 1,
             inject_bind_group: None,
+            integrate_bind_group: None,
             composite_bind_group: None,
+            prefix: None,
             history: None,
             history_index: 0,
             history_valid: false,
@@ -471,24 +587,19 @@ impl VolumetricRenderer {
         current_view: Option<Matrix4<f32>>,
         current_view_projection: Option<Matrix4<f32>>,
     ) {
-        let mut grid = settings.quality.grid(resolution.x, resolution.y);
-        if !matches!(
-            settings.quality,
-            VolumetricQuality::Custom { .. } | VolumetricQuality::Mobile
-        ) {
-            // Fixed slice counts make a longer max distance coarser in world
-            // space. Scale the depth resolution with the requested range so
-            // short spot cones keep the same sampling density.
-            let target =
-                (settings.max_distance.max(0.1) / TARGET_DEPTH_SLICE_SPACING).ceil() as u32;
-            grid[2] = grid[2].max(target);
-        }
-        self.grid = [
-            grid[0].clamp(1, 512),
-            grid[1].clamp(1, 512),
-            grid[2].clamp(1, MAX_DEPTH_SLICES),
-        ];
-        self.steps = settings.quality.composite_steps().max(1);
+        // Fixed slice counts make a longer max distance coarser in world
+        // space. `resolved_grid` scales the depth resolution with the
+        // requested range so short spot cones keep the same sampling density.
+        self.grid =
+            settings
+                .quality
+                .resolved_grid(resolution.x, resolution.y, settings.max_distance);
+        // Integrate at least at the froxel grid's native depth resolution so
+        // the composite does not undersample the volume it reads from.
+        self.integration_steps =
+            settings
+                .quality
+                .integration_steps(resolution.x, resolution.y, settings.max_distance);
         self.current_max_distance = settings.max_distance.max(0.1);
         self.frame_index = frame_index as u32;
         self.current_view = current_view;
@@ -553,8 +664,7 @@ impl VolumetricRenderer {
         queue.write_buffer(&self.inject_params, 0, &inject);
 
         let mut composite = [0u8; COMPOSITE_PARAMS_SIZE as usize];
-        composite[0..4].copy_from_slice(&self.steps.to_le_bytes());
-        composite[4..8].copy_from_slice(&settings.max_distance.to_le_bytes());
+        composite[0..4].copy_from_slice(&settings.max_distance.to_le_bytes());
         queue.write_buffer(&self.composite_params, 0, &composite);
     }
 
@@ -714,6 +824,89 @@ impl VolumetricRenderer {
         self.previous_max_distance = self.current_max_distance;
 
         Some(output)
+    }
+
+    /// Pre-integrate the froxel column into cumulative in-scattering and
+    /// transmittance so the fullscreen composite only needs one fetch.
+    ///
+    /// Returns the prefix texture view for [`Self::record_composite`].
+    pub fn record_integrate(
+        &mut self,
+        device: &Device,
+        queue: &Queue,
+        encoder: &mut wgpu::CommandEncoder,
+        froxel_view: &TextureView,
+    ) -> TextureView {
+        let needs_target = self.prefix.as_ref().is_none_or(|prefix| {
+            prefix.grid != self.grid || prefix.steps != self.integration_steps
+        });
+        if needs_target {
+            self.prefix = Some(PrefixTargets::new(
+                device,
+                self.grid,
+                self.integration_steps,
+            ));
+            self.integrate_bind_group = None;
+        }
+        let prefix = self.prefix.as_ref().expect("volumetric prefix target");
+
+        let mut params = [0u8; INTEGRATE_PARAMS_SIZE as usize];
+        for (index, value) in self.grid.iter().enumerate() {
+            let offset = index * 4;
+            params[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
+        }
+        params[12..16].copy_from_slice(&self.integration_steps.to_le_bytes());
+        params[16..20].copy_from_slice(&self.current_max_distance.to_le_bytes());
+        queue.write_buffer(&self.integrate_params, 0, &params);
+
+        let cache_hit = self
+            .integrate_bind_group
+            .as_ref()
+            .is_some_and(|cache| cache.froxel == *froxel_view && cache.prefix == prefix.view);
+        if !cache_hit {
+            let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Orbital::VolumetricIntegrateBindGroup"),
+                layout: &self.integrate_layout,
+                entries: &[
+                    BindGroupEntry {
+                        binding: 0,
+                        resource: BindingResource::TextureView(froxel_view),
+                    },
+                    BindGroupEntry {
+                        binding: 1,
+                        resource: BindingResource::TextureView(&prefix.view),
+                    },
+                    BindGroupEntry {
+                        binding: 2,
+                        resource: BindingResource::Sampler(&self.froxel_sampler),
+                    },
+                    BindGroupEntry {
+                        binding: 3,
+                        resource: self.integrate_params.as_entire_binding(),
+                    },
+                ],
+            });
+            self.integrate_bind_group = Some(IntegrateBindGroupCache {
+                froxel: froxel_view.clone(),
+                prefix: prefix.view.clone(),
+                bind_group,
+            });
+        }
+        let bind_group = &self
+            .integrate_bind_group
+            .as_ref()
+            .expect("volumetric integrate bind group cache")
+            .bind_group;
+
+        let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor {
+            label: Some("Volumetric Integrate"),
+            ..Default::default()
+        });
+        pass.set_pipeline(&self.integrate_pipeline);
+        pass.set_bind_group(0, bind_group, &[]);
+        pass.dispatch_workgroups(self.grid[0].div_ceil(4), self.grid[1].div_ceil(4), 1);
+
+        prefix.view.clone()
     }
 
     #[allow(clippy::too_many_arguments)]

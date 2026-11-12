@@ -68,6 +68,9 @@ pub enum DebugMessage {
     /// Show the overlay and restore every panel. Used by the mobile touch
     /// toggle, where no keyboard is available to press the toggle key.
     ShowDebugUi,
+    /// Hide the whole overlay. Used by the tabbed layout, which has no title
+    /// bars to close.
+    HideDebugUi,
     /// Select the 3D scene anti-aliasing mode.
     SetAntiAliasing(AntiAliasing),
     /// Select the SMAA quality preset.
@@ -215,6 +218,39 @@ pub enum PanelId {
     Rendering,
 }
 
+impl PanelId {
+    /// The panel's index in [`DebugUiState::panels`].
+    pub const fn index(self) -> usize {
+        match self {
+            Self::Performance => 0,
+            Self::Ecs => 1,
+            Self::Console => 2,
+            Self::Rendering => 3,
+        }
+    }
+
+    /// The panel for a [`panels`](DebugUiState::panels) index.
+    pub const fn from_index(index: usize) -> Option<Self> {
+        match index {
+            0 => Some(Self::Performance),
+            1 => Some(Self::Ecs),
+            2 => Some(Self::Console),
+            3 => Some(Self::Rendering),
+            _ => None,
+        }
+    }
+
+    /// The panel's name, used by the tab strip and the window title bar.
+    pub const fn title(self) -> &'static str {
+        match self {
+            Self::Performance => "Performance",
+            Self::Ecs => "ECS",
+            Self::Console => "Console",
+            Self::Rendering => "Rendering",
+        }
+    }
+}
+
 /// Number of registered debug panels.
 pub const PANEL_COUNT: usize = 4;
 
@@ -338,25 +374,11 @@ impl DebugUiState {
     }
 
     fn panel_enabled(&self, panel: PanelId) -> bool {
-        let index = match panel {
-            PanelId::Performance => 0,
-            PanelId::Ecs => 1,
-            PanelId::Console => 2,
-            PanelId::Rendering => 3,
-        };
-
-        self.panels[index]
+        self.panels[panel.index()]
     }
 
     fn set_panel_enabled(&mut self, panel: PanelId, enabled: bool) {
-        let index = match panel {
-            PanelId::Performance => 0,
-            PanelId::Ecs => 1,
-            PanelId::Console => 2,
-            PanelId::Rendering => 3,
-        };
-
-        self.panels[index] = enabled;
+        self.panels[panel.index()] = enabled;
     }
 
     /// Whether `entity`'s component list is expanded.
@@ -509,6 +531,10 @@ impl DebugUiState {
             DebugMessage::ShowDebugUi => {
                 self.visible = true;
                 self.panels = [true; PANEL_COUNT];
+                self.dirty = true;
+            }
+            DebugMessage::HideDebugUi => {
+                self.visible = false;
                 self.dirty = true;
             }
             DebugMessage::SetAntiAliasing(_)
@@ -757,6 +783,30 @@ mod tests {
         assert!(state.visible);
         assert!(state.panels.iter().all(|visible| *visible));
         assert!(state.is_panel_visible(PanelId::Performance));
+    }
+
+    #[test]
+    fn hiding_the_overlay_hides_every_panel() {
+        let mut state = DebugUiState::new(winit::keyboard::KeyCode::F1);
+        state.apply(&DebugMessage::ShowDebugUi);
+        assert!(state.is_panel_visible(PanelId::Performance));
+
+        state.apply(&DebugMessage::HideDebugUi);
+
+        assert!(!state.visible);
+        assert!(!state.is_panel_visible(PanelId::Performance));
+        assert!(!state.is_panel_visible(PanelId::Rendering));
+    }
+
+    #[test]
+    fn panel_ids_round_trip_through_their_index() {
+        for index in 0..PANEL_COUNT {
+            let panel = PanelId::from_index(index).expect("index maps to a panel");
+            assert_eq!(panel.index(), index);
+            assert!(!panel.title().is_empty());
+        }
+
+        assert_eq!(PanelId::from_index(PANEL_COUNT), None);
     }
 
     #[test]

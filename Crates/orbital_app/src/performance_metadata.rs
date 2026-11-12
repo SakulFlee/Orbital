@@ -77,6 +77,20 @@ pub fn collect(
         .get_resource::<VolumetricSettings>()
         .map(|settings| *settings)
         .unwrap_or_default();
+    let volumetric_grid = if volumetric.enabled {
+        volumetric
+            .quality
+            .resolved_grid(render_width, render_height, volumetric.max_distance)
+    } else {
+        [0, 0, 0]
+    };
+    let volumetric_integration_steps = if volumetric.enabled {
+        volumetric
+            .quality
+            .integration_steps(render_width, render_height, volumetric.max_distance)
+    } else {
+        0
+    };
 
     let model_count = ecs
         .get_component_store::<ModelDescriptor>()
@@ -190,6 +204,19 @@ pub fn collect(
             "light_glare": render_settings.light_glare,
             "volumetrics": volumetric.enabled,
             "volumetric_quality": format!("{:?}", volumetric.quality),
+            "volumetric_grid": volumetric_grid,
+            "volumetric_grid_texels": u64::from(volumetric_grid[0])
+                * u64::from(volumetric_grid[1])
+                * u64::from(volumetric_grid[2]),
+            "volumetric_integration_steps": volumetric_integration_steps,
+            "volumetric_composite_width": if volumetric.enabled { render_width } else { 0 },
+            "volumetric_composite_height": if volumetric.enabled { render_height } else { 0 },
+            "volumetric_max_distance": if volumetric.enabled {
+                volumetric.max_distance
+            } else {
+                0.0
+            },
+            "volumetric_temporal_history": volumetric.enabled && volumetric.temporal_history,
         },
         "android": {
             "refresh_rate_mhz": crate::android_performance::display_refresh_rate_millihertz(),

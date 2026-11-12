@@ -342,11 +342,25 @@ fn custom_shader_example_is_valid_wgsl() {
         "custom shader example",
         &[
             "camera_uniform",
-            "vertex_data_simple",
+            "vertex_data_complex",
             "instance_data",
             "fragment_data",
         ],
         include_str!("../../../Examples/custom_shader/src/custom_shader.wgsl"),
+    );
+}
+
+#[test]
+fn all_in_one_custom_shader_is_valid_wgsl() {
+    validate_assembled_pbr_shader_with_nodes(
+        "all-in-one custom shader",
+        &[
+            "camera_uniform",
+            "vertex_data_complex",
+            "instance_data",
+            "fragment_data",
+        ],
+        include_str!("../../../Examples/all-in-one/src/custom_shader.wgsl"),
     );
 }
 

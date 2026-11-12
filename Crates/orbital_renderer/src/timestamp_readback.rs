@@ -6,7 +6,7 @@
 //! which completed generation is the newest, without touching `wgpu` objects.
 
 /// Number of timestamp queries recorded per frame.
-pub(crate) const TS_COUNT: u32 = 13;
+pub(crate) const TS_COUNT: u32 = 14;
 
 /// Number of staging buffers available for in-flight readbacks.
 pub(crate) const STAGING_SLOTS: usize = 4;

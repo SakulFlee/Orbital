@@ -46,13 +46,14 @@ use orbital_ecs_bridge::{
     STAGE_GPU_DEFERRED, STAGE_GPU_GBUFFER, STAGE_GPU_LIGHT_CULLING, STAGE_GPU_MODELS,
     STAGE_GPU_SCENE_TOTAL, STAGE_GPU_SHADOW, STAGE_GPU_SKYBOX, STAGE_GPU_TONEMAP,
     STAGE_GPU_TRANSPARENT, STAGE_GPU_VOLUMETRIC_ACCUMULATE, STAGE_GPU_VOLUMETRIC_COMPOSITE,
-    STAGE_GPU_VOLUMETRIC_INJECT, STAGE_GPU_VOLUMETRICS, STAGE_ICED_DRAW, STAGE_ICED_SUBMIT,
-    STAGE_IMPORTER_POLL, STAGE_INPUT, STAGE_OVERLAY_LAYERS, STAGE_OVERLAY_MAIN, STAGE_PRESENT,
-    STAGE_REALIZE, STAGE_REALIZE_CAMERAS, STAGE_REALIZE_ENV, STAGE_REALIZE_LIGHTS,
-    STAGE_REALIZE_MODELS, STAGE_SCENE_ENCODE, STAGE_SCENE_SUBMIT, STAGE_STAGGER, STAGE_SURFACE_ACQ,
-    STAGE_SURFACE_ACQUIRE, STAGE_SURFACE_LOCK, STAGE_SURFACE_VIEW, STAGE_TIMESTAMP_READBACK,
-    STAGE_TOTAL, STAGE_UI_EVENTS, STAGE_UPDATE, STAGE_VOLUMETRICS, ShadowDebugData,
-    SurfaceFormatResource, TIMING_STAGES, TimingsHistoryConfig, TotalTime, WindowSize,
+    STAGE_GPU_VOLUMETRIC_INJECT, STAGE_GPU_VOLUMETRIC_INTEGRATE, STAGE_GPU_VOLUMETRICS,
+    STAGE_ICED_DRAW, STAGE_ICED_SUBMIT, STAGE_IMPORTER_POLL, STAGE_INPUT, STAGE_OVERLAY_LAYERS,
+    STAGE_OVERLAY_MAIN, STAGE_PRESENT, STAGE_REALIZE, STAGE_REALIZE_CAMERAS, STAGE_REALIZE_ENV,
+    STAGE_REALIZE_LIGHTS, STAGE_REALIZE_MODELS, STAGE_SCENE_ENCODE, STAGE_SCENE_SUBMIT,
+    STAGE_STAGGER, STAGE_SURFACE_ACQ, STAGE_SURFACE_ACQUIRE, STAGE_SURFACE_LOCK,
+    STAGE_SURFACE_VIEW, STAGE_TIMESTAMP_READBACK, STAGE_TOTAL, STAGE_UI_EVENTS, STAGE_UPDATE,
+    STAGE_VOLUMETRICS, ShadowDebugData, SurfaceFormatResource, TIMING_STAGES, TimingsHistoryConfig,
+    TotalTime, VolumetricSettings, WindowSize,
 };
 use orbital_renderer::GPU_TIMESTAMP_COUNT;
 
@@ -117,10 +118,11 @@ impl FrameStageScratch {
         self.durations[STAGE_GPU_SCENE_TOTAL] = (gpu_ns[7] - gpu_ns[0]) * NS_TO_MS;
         self.durations[STAGE_GPU_VOLUMETRIC_INJECT] = (gpu_ns[8] - gpu_ns[7]) * NS_TO_MS;
         self.durations[STAGE_GPU_VOLUMETRIC_ACCUMULATE] = (gpu_ns[9] - gpu_ns[8]) * NS_TO_MS;
-        self.durations[STAGE_GPU_VOLUMETRIC_COMPOSITE] = (gpu_ns[10] - gpu_ns[9]) * NS_TO_MS;
-        self.durations[STAGE_GPU_VOLUMETRICS] = (gpu_ns[10] - gpu_ns[7]) * NS_TO_MS;
-        self.durations[STAGE_GPU_TONEMAP] = (gpu_ns[11] - gpu_ns[10]) * NS_TO_MS;
-        self.durations[STAGE_GPU_AA] = (gpu_ns[12] - gpu_ns[11]) * NS_TO_MS;
+        self.durations[STAGE_GPU_VOLUMETRIC_INTEGRATE] = (gpu_ns[10] - gpu_ns[9]) * NS_TO_MS;
+        self.durations[STAGE_GPU_VOLUMETRIC_COMPOSITE] = (gpu_ns[11] - gpu_ns[10]) * NS_TO_MS;
+        self.durations[STAGE_GPU_VOLUMETRICS] = (gpu_ns[11] - gpu_ns[7]) * NS_TO_MS;
+        self.durations[STAGE_GPU_TONEMAP] = (gpu_ns[12] - gpu_ns[11]) * NS_TO_MS;
+        self.durations[STAGE_GPU_AA] = (gpu_ns[13] - gpu_ns[12]) * NS_TO_MS;
     }
 }
 
@@ -569,6 +571,28 @@ impl ModuleRuntime {
         self.last_window_gpu_timestamp_generation =
             gpu_timestamps_supported.then_some(gpu_timestamp_generation);
 
+        let volumetric = self
+            .ecs_world
+            .get_resource::<VolumetricSettings>()
+            .map(|settings| *settings)
+            .unwrap_or_default();
+        let (volumetric_grid, volumetric_integration_steps) = if volumetric.enabled {
+            (
+                volumetric.quality.resolved_grid(
+                    render_size.x,
+                    render_size.y,
+                    volumetric.max_distance,
+                ),
+                volumetric.quality.integration_steps(
+                    render_size.x,
+                    render_size.y,
+                    volumetric.max_distance,
+                ),
+            )
+        } else {
+            ([0; 3], 0)
+        };
+
         CaptureSnapshot {
             window_width: self.window_size.x,
             window_height: self.window_size.y,
@@ -585,6 +609,8 @@ impl ModuleRuntime {
             fps_limit: settings.fps_limit,
             gpu_timestamps_supported,
             gpu_timestamps_stale,
+            volumetric_grid,
+            volumetric_integration_steps,
         }
     }
 

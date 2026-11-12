@@ -709,7 +709,8 @@ impl Renderer {
 // 0=shadow_start, 1=after shadow, 2=after sky, 3=after G-buffer,
 // 4=after light culling, 5=after deferred lighting, 6=after forward models,
 // 7=after transparent/models, 8=after volumetric inject, 9=after volumetric
-// accumulate, 10=after volumetric composite, 11=after tonemap, 12=after AA.
+// accumulate, 10=after volumetric integrate, 11=after volumetric composite,
+// 12=after tonemap, 13=after AA.
 const TS_BUF_SIZE: u64 = TS_COUNT as u64 * 8;
 
 /// Number of GPU timestamp samples returned by [`Renderer::prev_gpu_ns`].
@@ -1355,6 +1356,7 @@ impl Renderer {
         };
 
         let mut volumetric_accumulated: Option<TextureView> = None;
+        let mut volumetric_integrated: Option<TextureView> = None;
         let mut graph = std::mem::take(&mut self.render_graph);
         graph.begin_frame();
         add_scene_passes(
@@ -1562,29 +1564,40 @@ impl Renderer {
                             if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
                                 context.encoder.write_timestamp(qs, 9);
                             }
+                            let source = volumetric_accumulated.as_ref().unwrap_or(&targets.0.view);
+                            volumetric_integrated = Some(self.volumetric.record_integrate(
+                                context.device,
+                                context.queue,
+                                context.encoder,
+                                source,
+                            ));
+                            if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
+                                context.encoder.write_timestamp(qs, 10);
+                            }
                         } else if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
                             context.encoder.write_timestamp(qs, 8);
                             context.encoder.write_timestamp(qs, 9);
+                            context.encoder.write_timestamp(qs, 10);
                         }
                     }
                     ScenePass::VolumetricComposite => {
-                        if let (Some(bind_group), Some(targets)) =
-                            (world_bind_group.as_ref(), volumetric_targets.as_ref())
-                        {
-                            let froxels =
-                                volumetric_accumulated.as_ref().unwrap_or(&targets.0.view);
+                        if let (Some(bind_group), Some(targets), Some(prefix)) = (
+                            world_bind_group.as_ref(),
+                            volumetric_targets.as_ref(),
+                            volumetric_integrated.as_ref(),
+                        ) {
                             self.volumetric.record_composite(
                                 context.device,
                                 context.encoder,
                                 bind_group,
                                 &scene_color.view,
                                 &depth.view,
-                                froxels,
+                                prefix,
                                 &targets.1.view,
                             );
                         }
                         if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
-                            context.encoder.write_timestamp(qs, 10);
+                            context.encoder.write_timestamp(qs, 11);
                         }
                     }
                     ScenePass::Tonemap => {
@@ -1596,6 +1609,7 @@ impl Renderer {
                             context.encoder.write_timestamp(qs, 8);
                             context.encoder.write_timestamp(qs, 9);
                             context.encoder.write_timestamp(qs, 10);
+                            context.encoder.write_timestamp(qs, 11);
                         }
                         let tonemap_target = match self.anti_aliasing {
                             AntiAliasing::Off => target_view,
@@ -1617,9 +1631,9 @@ impl Renderer {
                             tonemap_target,
                         );
                         if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
-                            context.encoder.write_timestamp(qs, 11);
+                            context.encoder.write_timestamp(qs, 12);
                             if self.anti_aliasing == AntiAliasing::Off {
-                                context.encoder.write_timestamp(qs, 12);
+                                context.encoder.write_timestamp(qs, 13);
                             }
                         }
                     }
@@ -1633,7 +1647,7 @@ impl Renderer {
                             );
                         }
                         if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
-                            context.encoder.write_timestamp(qs, 12);
+                            context.encoder.write_timestamp(qs, 13);
                         }
                     }
                     ScenePass::Smaa => {
@@ -1641,7 +1655,7 @@ impl Renderer {
                             smaa.record(context.encoder, target_view);
                         }
                         if timestamps_enabled && let Some(qs) = &self.timestamp_query_set {
-                            context.encoder.write_timestamp(qs, 12);
+                            context.encoder.write_timestamp(qs, 13);
                         }
                     }
                 },
