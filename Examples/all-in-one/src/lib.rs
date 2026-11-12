@@ -57,6 +57,33 @@ mod tests {
     }
 
     #[test]
+    fn transparency_panes_form_a_fan() {
+        let scene = SceneBuilder::from_ron(include_str!("../../../Assets/Scenes/procgeo_demo.ron"))
+            .expect("all-in-one scene must parse");
+        let pane = |name: &str| {
+            scene
+                .entities
+                .iter()
+                .find(|entity| entity.label.as_deref() == Some(name))
+                .unwrap_or_else(|| panic!("scene is missing {name}"))
+        };
+
+        let red = pane("R6 Pane Red");
+        let green = pane("R6 Pane Green");
+        let blue = pane("R6 Pane Blue");
+
+        // The centre pane faces the room entrance; the outer panes sit
+        // closer to it and angle inward so their colours overlap.
+        assert!(red.transform.position[0] < green.transform.position[0]);
+        assert!(blue.transform.position[0] > green.transform.position[0]);
+        assert!(red.transform.position[2] < green.transform.position[2]);
+        assert!(blue.transform.position[2] < green.transform.position[2]);
+        assert!(red.transform.rotation[2].abs() > 0.1);
+        assert!(blue.transform.rotation[2].abs() > 0.1);
+        assert!(green.transform.rotation[2].abs() < 1e-3);
+    }
+
+    #[test]
     fn only_room_shells_are_mirrored() {
         assert!(is_room_shell("R1 Floor"));
         assert!(is_room_shell("R1 Right / R3 Left"));
