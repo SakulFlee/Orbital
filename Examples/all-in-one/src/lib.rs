@@ -1083,6 +1083,19 @@ impl Module for ProcgeoSceneModule {
         )
         .unwrap();
 
+        // ── R6 — hallway-side fill so the blended panes stay legible
+        // when viewed from the room entrance. The original light sits
+        // behind the panes; without a front light their faces go dark.
+        let r6_front = ecs.spawn_entity();
+        ecs.attach_component(
+            &r6_front,
+            LightDescriptor::new_point(Vector3::new(1.0, 0.95, 0.9), 30.0),
+        )
+        .unwrap();
+        ecs.attach_component(&r6_front, Position(Point3::new(-20.0, 3.5, 16.2)))
+            .unwrap();
+        ecs.attach_component(&r6_front, LightDirty(true)).unwrap();
+
         // ── R8 — soft omni light over the custom shader exhibit ─────
         let r8_light = ecs.spawn_entity();
         ecs.attach_component(
