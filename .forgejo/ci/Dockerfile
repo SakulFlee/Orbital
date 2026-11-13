@@ -9,7 +9,8 @@ RUN dpkg --add-architecture arm64 \
       libudev-dev:arm64 libwayland-dev:arm64 libxkbcommon-dev:arm64 libvulkan-dev:arm64 \
       libc6-dev:arm64 \
       gcc-aarch64-linux-gnu gcc-mingw-w64-x86-64 \
-      zip git curl ca-certificates rsync jq zstd nodejs \
+      zip unzip default-jdk-headless \
+      git curl ca-certificates rsync jq zstd nodejs \
  && rm -rf /var/lib/apt/lists/*
 
 RUN cargo install cargo-binstall --locked \
