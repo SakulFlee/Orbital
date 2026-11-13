@@ -42,7 +42,7 @@ mod tests {
 
     #[test]
     fn procgeo_scene_parses() {
-        let scene = SceneBuilder::from_ron(include_str!("../../../Assets/Scenes/procgeo_demo.ron"))
+        let scene = SceneBuilder::from_ron(include_str!("../Assets/Scenes/procgeo_demo.ron"))
             .expect("all-in-one scene must parse");
 
         for label in ["Red Sphere", "R6 Pane Red", "Stair 01", "Pedestal"] {
@@ -58,7 +58,7 @@ mod tests {
 
     #[test]
     fn transparency_panes_form_a_fan() {
-        let scene = SceneBuilder::from_ron(include_str!("../../../Assets/Scenes/procgeo_demo.ron"))
+        let scene = SceneBuilder::from_ron(include_str!("../Assets/Scenes/procgeo_demo.ron"))
             .expect("all-in-one scene must parse");
         let pane = |name: &str| {
             scene
