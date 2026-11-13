@@ -127,6 +127,7 @@ opt-level = 3
 codegen-units = 1
 incremental = false
 debug = false
+strip = "symbols"
 
 [profile.dev]
 opt-level = 1
