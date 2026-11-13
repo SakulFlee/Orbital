@@ -115,6 +115,15 @@ jobs:
           mkdir -p "$out/template_all_in_one/Assets/Models"
           cp Assets/Scenes/procgeo_demo.ron "$out/template_all_in_one/Assets/Scenes/"
           cp Assets/Models/DamagedHelmet.glb "$out/template_all_in_one/Assets/Models/"
+          {
+            printf 'Orbital examples %s (%s).\n\n' "$version" "$target"
+            printf 'Each example lives in its own directory. Run it from that directory:\n'
+            printf '  cd template_minimal\n'
+            printf '  ./template_minimal\n\n'
+            printf 'template_all_in_one needs the Assets/ directory next to its executable.\n\n'
+            printf 'On Windows, use the .exe files.\n'
+          } > "$out/README.txt"
+
 
           if [ "$target" = "x86_64-pc-windows-gnu" ]; then
             (cd dist && zip -qr "$archive.zip" "$archive")
@@ -179,6 +188,15 @@ jobs:
           mkdir -p "$out/template_all_in_one/Assets/Models"
           cp Assets/Scenes/procgeo_demo.ron "$out/template_all_in_one/Assets/Scenes/"
           cp Assets/Models/DamagedHelmet.glb "$out/template_all_in_one/Assets/Models/"
+          {
+            printf 'Orbital examples %s (%s).\n\n' "$version" "$target"
+            printf 'Each example lives in its own directory. Run it from that directory:\n'
+            printf '  cd template_minimal\n'
+            printf '  ./template_minimal\n\n'
+            printf 'template_all_in_one needs the Assets/ directory next to its executable.\n\n'
+            printf 'On Windows, use the .exe files.\n'
+          } > "$out/README.txt"
+
 
           (cd dist && tar -czf "$archive.tar.gz" "$archive")
           cp "target/$target/release/orbital" "dist/orbital-cli-$version-$target"
