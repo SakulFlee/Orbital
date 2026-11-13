@@ -22,7 +22,7 @@ use super::{
     ShadowLightInfo, ShadowSlotData,
 };
 
-const SHADOW_DEPTH_SHADER: &str = include_str!("../../../Assets/Shaders/shadow_depth.wgsl");
+const SHADOW_DEPTH_SHADER: &str = include_str!("shadow_depth.wgsl");
 
 /// Result of a single cascade computation.
 struct CascadeInfo {
