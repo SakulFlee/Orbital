@@ -285,11 +285,22 @@ When changing the channel in `rust-toolchain.toml`, update the manifest `sha256`
 
 | System | Files | Lint/test behavior |
 |--------|-------|--------------------|
-| Forgejo | `.forgejo/workflows/` | `cargo fmt --all -- --check`, `cargo clippy -- -D warnings` on PRs and pushes to `main`; PRs may auto-fix and push a `[ci]` commit. Tests run for all PRs: directly changed crates only, with the full suite for pushes to `main`, PRs targeting `release/**`, manual runs, and release tags. Forgejo write-isolates `pull_request` caches, so the full `main` run seeds the shared cache that PRs restore. |
-| GitHub | `.github/workflows/main.yml` | `cargo fmt --all -- --check`, `cargo clippy -- -D warnings`, `cargo test --no-fail-fast`. Tests are skipped for normal PRs. |
+| Forgejo | `.forgejo/workflows/` | `cargo fmt --all -- --check`, `cargo clippy -- -D warnings` on PRs and pushes to `main`; PRs may auto-fix and push a `[ci]` commit. Tests run for all PRs: directly changed crates only, with the full suite for pushes to `main`, PRs targeting `release/**`, and manual runs. Release tags use `.forgejo/workflows/release.yml`, which only builds release artifacts. Forgejo write-isolates `pull_request` caches, so the full `main` run seeds the shared cache that PRs restore. |
+| GitHub | `.github/workflows/main.yml`, `.github/workflows/release.yml` | `main.yml` runs `cargo fmt --all -- --check`, `cargo clippy -- -D warnings`, and `cargo test --no-fail-fast` for branches and PRs. Release tags use `release.yml`, which builds and publishes artifacts. |
 | TeamCity | `.teamcity/settings.kts` | `cargo fmt --all -- --check`, `cargo clippy -- -D warnings`, `cargo test --no-fail-fast`. |
 
 All CI systems and the Nix devshell use the toolchain pinned in `rust-toolchain.toml`.
+
+### Release artifacts
+
+Release tags (`v*`) run the shared `.github/workflows/release-shared.yml` from both forges. Release builds do not run lint or tests; those stay in the PR/`main` pipelines. A release publishes:
+
+- raw `orbital-cli-<version>-<target>` binaries
+- one `orbital-examples-<version>-<target>.tar.gz` (Unix) or `.zip` (Windows) per desktop target containing every example; only `template_all_in_one` carries its two runtime assets
+- universal `orbital-template-<name>-<version>-universal.apk` files for the Android templates
+- `SHA256SUMS`
+
+GitHub additionally builds macOS. iOS is not part of the release matrix yet.
 
 Dependencies are auto-updated by Renovate (`renovate.json`).
 
@@ -343,6 +354,9 @@ Treat the current WASM status as unverified: `Crates/ecs/src/system/runner.rs` u
 | `Crates/orbital_importer_gltf/src/lib.rs` | Async glTF importer. |
 | `Crates/orbital_iced/src/bridge.rs` | Iced panel/module bridge. |
 | `.forgejo/workflows/lint.yml` | Strict Forgejo fmt/clippy. |
-| `.github/workflows/main.yml` | GitHub lint/test/release. |
+| `.forgejo/workflows/release.yml` | Forgejo release entry point. |
+| `.github/workflows/release.yml` | GitHub release entry point. |
+| `.github/workflows/release-shared.yml` | Shared release build, packaging, and publish workflow. |
+| `.github/workflows/main.yml` | GitHub lint/test. |
 | `.teamcity/settings.kts` | TeamCity configuration. |
 | `Assets/Scenes/procgeo_demo.ron` | Procedural scene example. |
