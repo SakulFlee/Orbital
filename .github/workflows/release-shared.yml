@@ -260,6 +260,10 @@ jobs:
           version="${version#v}"
           mkdir -p dist
 
+          cli="$PWD/target/release/orbital"
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+
           for template in minimal all-in-one 2d; do
             case "$template" in
               all-in-one) suffix="allinone" ;;
@@ -267,9 +271,8 @@ jobs:
               *) suffix="$template" ;;
             esac
 
-            project="$PWD/target/apk/$template"
-            rm -rf "$project"
-            ./target/release/orbital init "release-$template" \
+            project="$work/$template"
+            "$cli" init "release-$template" \
               --yes \
               --template "$template" \
               --project-path "$project" \
@@ -282,7 +285,7 @@ jobs:
 
             (
               cd "$project"
-              "$PWD/target/release/orbital" build android --release
+              "$cli" build android --release
             )
 
             apk="$(find "$project/Android/app/build/outputs/apk/release" -name '*.apk' | head -n1)"
