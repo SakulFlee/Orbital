@@ -1,0 +1,355 @@
+name: Release
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Version or tag used in artifact names
+        required: true
+        type: string
+      publish:
+        description: Upload the release
+        required: false
+        default: false
+        type: boolean
+
+env:
+  SKIP_GLTF_EXPORT: "true"
+  CARGO_TERM_COLOR: always
+
+jobs:
+  desktop:
+    runs-on: ubuntu-latest
+    container:
+      image: forgejo.sakul-flee.de/sakulflee/orbital-ci-build-image:latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - aarch64-unknown-linux-gnu
+          - x86_64-pc-windows-gnu
+    env:
+      RUSTC_WRAPPER: sccache
+      CARGO_INCREMENTAL: "0"
+      SCCACHE_CACHE_SIZE: 10G
+      PKG_CONFIG_ALLOW_CROSS: "1"
+      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+      CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
+      CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER: x86_64-w64-mingw32-gcc
+      CC_x86_64_pc_windows_gnu: x86_64-w64-mingw32-gcc
+      AR_x86_64_pc_windows_gnu: x86_64-w64-mingw32-ar
+    steps:
+      - name: Checkout (GitHub)
+        if: github.server_url == 'https://github.com'
+        uses: actions/checkout@v7
+      - name: Checkout (Forgejo)
+        if: github.server_url != 'https://github.com'
+        uses: https://code.forgejo.org/actions/checkout@v7
+      - name: Cache cargo registry (GitHub)
+        if: github.server_url == 'https://github.com'
+        uses: actions/cache@v6
+        with:
+          path: |
+            /usr/local/cargo/registry/index
+            /usr/local/cargo/registry/cache
+            /usr/local/cargo/git/db
+          key: cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ matrix.target }}-
+      - name: Cache cargo registry (Forgejo)
+        if: github.server_url != 'https://github.com'
+        uses: https://code.forgejo.org/actions/cache@v6
+        with:
+          path: |
+            /usr/local/cargo/registry/index
+            /usr/local/cargo/registry/cache
+            /usr/local/cargo/git/db
+          key: cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ matrix.target }}-
+      - name: Cache sccache (GitHub)
+        if: github.server_url == 'https://github.com'
+        uses: actions/cache@v6
+        with:
+          path: /root/.cache/sccache
+          key: sccache-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            sccache-${{ matrix.target }}-
+      - name: Cache sccache (Forgejo)
+        if: github.server_url != 'https://github.com'
+        uses: https://code.forgejo.org/actions/cache@v6
+        with:
+          path: /root/.cache/sccache
+          key: sccache-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            sccache-${{ matrix.target }}-
+      - name: Build
+        run: |
+          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
+            export PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig
+          fi
+          cargo build --release --target "${{ matrix.target }}" -j 1
+      - name: Package CLI and examples
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ inputs.version }}"
+          version="${version#v}"
+          target="${{ matrix.target }}"
+          archive="orbital-examples-$version-$target"
+          out="dist/$archive"
+
+          mkdir -p "$out"
+          for manifest in Examples/*/Cargo.toml; do
+            pkg="$(sed -n 's/^name = "\(.*\)"/\1/p' "$manifest" | head -n1)"
+            mkdir -p "$out/$pkg"
+            if [ -f "target/$target/release/$pkg.exe" ]; then
+              cp "target/$target/release/$pkg.exe" "$out/$pkg/"
+            else
+              cp "target/$target/release/$pkg" "$out/$pkg/"
+            fi
+          done
+
+          mkdir -p "$out/template_all_in_one/Assets/Scenes"
+          mkdir -p "$out/template_all_in_one/Assets/Models"
+          cp Assets/Scenes/procgeo_demo.ron "$out/template_all_in_one/Assets/Scenes/"
+          cp Assets/Models/DamagedHelmet.glb "$out/template_all_in_one/Assets/Models/"
+
+          if [ "$target" = "x86_64-pc-windows-gnu" ]; then
+            (cd dist && zip -qr "$archive.zip" "$archive")
+            cp "target/$target/release/orbital.exe" "dist/orbital-cli-$version-$target.exe"
+          else
+            (cd dist && tar -czf "$archive.tar.gz" "$archive")
+            cp "target/$target/release/orbital" "dist/orbital-cli-$version-$target"
+          fi
+      - name: Upload artifacts (GitHub)
+        if: github.server_url == 'https://github.com'
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+      - name: Upload artifacts (Forgejo)
+        if: github.server_url != 'https://github.com'
+        uses: https://code.forgejo.org/forgejo/upload-artifact@v5
+        with:
+          name: release-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+      - name: sccache stats
+        if: always()
+        run: sccache --show-stats
+
+  macos:
+    if: github.server_url == 'https://github.com'
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - x86_64-apple-darwin
+          - aarch64-apple-darwin
+    env:
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Rust target
+        run: rustup target add "${{ matrix.target }}"
+      - name: Build
+        run: cargo build --release --target "${{ matrix.target }}" -j 1
+      - name: Package CLI and examples
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ inputs.version }}"
+          version="${version#v}"
+          target="${{ matrix.target }}"
+          archive="orbital-examples-$version-$target"
+          out="dist/$archive"
+
+          mkdir -p "$out"
+          for manifest in Examples/*/Cargo.toml; do
+            pkg="$(sed -n 's/^name = "\(.*\)"/\1/p' "$manifest" | head -n1)"
+            mkdir -p "$out/$pkg"
+            cp "target/$target/release/$pkg" "$out/$pkg/"
+          done
+
+          mkdir -p "$out/template_all_in_one/Assets/Scenes"
+          mkdir -p "$out/template_all_in_one/Assets/Models"
+          cp Assets/Scenes/procgeo_demo.ron "$out/template_all_in_one/Assets/Scenes/"
+          cp Assets/Models/DamagedHelmet.glb "$out/template_all_in_one/Assets/Models/"
+
+          (cd dist && tar -czf "$archive.tar.gz" "$archive")
+          cp "target/$target/release/orbital" "dist/orbital-cli-$version-$target"
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+
+  android:
+    runs-on: ubuntu-latest
+    container:
+      image: forgejo.sakul-flee.de/sakulflee/orbital-ci-build-image:latest
+    env:
+      RUSTC_WRAPPER: sccache
+      CARGO_INCREMENTAL: "0"
+      SCCACHE_CACHE_SIZE: 10G
+    steps:
+      - name: Checkout (GitHub)
+        if: github.server_url == 'https://github.com'
+        uses: actions/checkout@v7
+      - name: Checkout (Forgejo)
+        if: github.server_url != 'https://github.com'
+        uses: https://code.forgejo.org/actions/checkout@v7
+      - name: Ensure Android build prerequisites
+        run: |
+          if ! command -v java >/dev/null 2>&1 || ! command -v unzip >/dev/null 2>&1; then
+            apt-get update
+            apt-get install -y --no-install-recommends default-jdk-headless unzip
+          fi
+      - name: Cache Android SDK and Gradle (GitHub)
+        if: github.server_url == 'https://github.com'
+        uses: actions/cache@v6
+        with:
+          path: |
+            /root/.cache/Orbital/android-sdk
+            /root/.gradle
+          key: android-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            android-
+      - name: Cache Android SDK and Gradle (Forgejo)
+        if: github.server_url != 'https://github.com'
+        uses: https://code.forgejo.org/actions/cache@v6
+        with:
+          path: |
+            /root/.cache/Orbital/android-sdk
+            /root/.gradle
+          key: android-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            android-
+      - name: Build host CLI
+        run: cargo build --release -p orbital-cli
+      - name: Build template APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ inputs.version }}"
+          version="${version#v}"
+          mkdir -p dist
+
+          for template in minimal all-in-one 2d; do
+            case "$template" in
+              all-in-one) suffix="allinone" ;;
+              2d) suffix="twod" ;;
+              *) suffix="$template" ;;
+            esac
+
+            project="$PWD/target/apk/$template"
+            rm -rf "$project"
+            ./target/release/orbital init "release-$template" \
+              --yes \
+              --template "$template" \
+              --project-path "$project" \
+              --engine-path "$PWD" \
+              --package "de.sakulflee.orbital.$suffix"
+
+            # Keep the universal APK to the two ABIs that matter for phones
+            # and emulators; the CLI default also builds 32-bit x86 and ARM.
+            sed -i 's/^targets = .*/targets = ["arm64-v8a", "x86_64"]/' "$project/Orbital.toml"
+
+            (
+              cd "$project"
+              "$PWD/target/release/orbital" build android --release
+            )
+
+            apk="$(find "$project/Android/app/build/outputs/apk/release" -name '*.apk' | head -n1)"
+            if [ -z "$apk" ]; then
+              echo "No APK produced for template '$template'" >&2
+              exit 1
+            fi
+            cp "$apk" "dist/orbital-template-$template-$version-universal.apk"
+          done
+      - name: Upload artifacts (GitHub)
+        if: github.server_url == 'https://github.com'
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-android
+          path: dist/*
+          if-no-files-found: error
+      - name: Upload artifacts (Forgejo)
+        if: github.server_url != 'https://github.com'
+        uses: https://code.forgejo.org/forgejo/upload-artifact@v5
+        with:
+          name: release-android
+          path: dist/*
+          if-no-files-found: error
+
+  publish-github:
+    if: ${{ github.server_url == 'https://github.com' && inputs.publish }}
+    needs:
+      - desktop
+      - macos
+      - android
+    runs-on: ubuntu-latest
+    container:
+      image: forgejo.sakul-flee.de/sakulflee/orbital-ci-build-image:latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Download artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: dist
+      - name: Flatten artifacts
+        run: |
+          mkdir -p release
+          find dist -type f -exec mv {} release/ \;
+      - name: Generate checksums
+        run: |
+          cd release
+          rm -f SHA256SUMS
+          find . -maxdepth 1 -type f ! -name SHA256SUMS -print0 \
+            | sort -z \
+            | xargs -0 sha256sum > SHA256SUMS
+      - name: Publish release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: release/*
+          generate_release_notes: true
+          draft: false
+
+  publish-forgejo:
+    if: ${{ github.server_url != 'https://github.com' && inputs.publish }}
+    needs:
+      - desktop
+      - android
+    runs-on: ubuntu-latest
+    container:
+      image: forgejo.sakul-flee.de/sakulflee/orbital-ci-build-image:latest
+    steps:
+      - uses: https://code.forgejo.org/actions/checkout@v7
+      - name: Download artifacts
+        uses: https://code.forgejo.org/forgejo/download-artifact@v7
+        with:
+          path: dist
+      - name: Flatten artifacts
+        run: |
+          mkdir -p release
+          find dist -type f -exec mv {} release/ \;
+      - name: Generate checksums
+        run: |
+          cd release
+          rm -f SHA256SUMS
+          find . -maxdepth 1 -type f ! -name SHA256SUMS -print0 \
+            | sort -z \
+            | xargs -0 sha256sum > SHA256SUMS
+      - name: Publish release
+        uses: https://code.forgejo.org/actions/forgejo-release@v2
+        with:
+          direction: upload
+          override: true
+          release-dir: release
+          sha256sum: false
+          token: ${{ forgejo.token }}
