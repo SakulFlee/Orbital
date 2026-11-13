@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use inquire::{Confirm, Text};
-use std::io::Write;
+use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
@@ -39,9 +39,15 @@ pub fn ensure_android_sdk() -> Result<()> {
     println!("  2. Install an Orbital-managed Android SDK");
     println!("  3. Skip (you'll need to set up SDK manually)");
 
-    let choice = Text::new("Choose an option [1/2/3]:")
-        .with_default("1")
-        .prompt()?;
+    let choice = if std::io::stdin().is_terminal() {
+        Text::new("Choose an option [1/2/3]:")
+            .with_default("1")
+            .prompt()?
+    } else {
+        // CI has no interactive stdin; install the managed SDK instead of
+        // failing on the prompt.
+        "2".to_string()
+    };
 
     match choice.as_str() {
         "1" => {
@@ -274,9 +280,13 @@ fn download_sdk() -> Result<()> {
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_else(|_| "./android-sdk".to_string());
 
-    let install_path = Text::new("Enter installation path:")
-        .with_default(&default_path)
-        .prompt()?;
+    let install_path = if std::io::stdin().is_terminal() {
+        Text::new("Enter installation path:")
+            .with_default(&default_path)
+            .prompt()?
+    } else {
+        default_path
+    };
 
     let install_path = PathBuf::from(&install_path);
     std::fs::create_dir_all(&install_path)?;
@@ -523,9 +533,10 @@ pub fn ensure_ndk(sdk_path: &Path) -> Result<PathBuf> {
         }
 
         println!("sdkmanager not found in {}.", sdk_path.display());
-        if Confirm::new("Install Android command-line tools now?")
-            .with_default(true)
-            .prompt()?
+        if !std::io::stdin().is_terminal()
+            || Confirm::new("Install Android command-line tools now?")
+                .with_default(true)
+                .prompt()?
         {
             download_sdk()?;
             if let Some(downloaded_sdk) = current_sdk_path() {
@@ -544,9 +555,10 @@ pub fn ensure_ndk(sdk_path: &Path) -> Result<PathBuf> {
         );
     };
 
-    if Confirm::new("Install Android NDK now?")
-        .with_default(true)
-        .prompt()?
+    if !std::io::stdin().is_terminal()
+        || Confirm::new("Install Android NDK now?")
+            .with_default(true)
+            .prompt()?
     {
         let java_home = crate::java::ensure_java()?;
         let ndk_package = format!("ndk;{}", ndk_version);
