@@ -10,7 +10,6 @@ jobs:
     container:
       image: forgejo.sakul-flee.de/sakulflee/orbital-ci-build-image:latest
     env:
-      SKIP_GLTF_EXPORT: "true"
       RUSTC_WRAPPER: sccache
       CARGO_INCREMENTAL: 0
       SCCACHE_CACHE_SIZE: 10G

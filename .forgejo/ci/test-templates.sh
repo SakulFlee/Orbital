@@ -8,7 +8,6 @@ TEMPLATE_TARGET_DIR="$CARGO_TARGET_ROOT/template-check"
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/orbital-templates.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
 
-export SKIP_GLTF_EXPORT=1
 
 required_example_assets=(
     "Examples/all-in-one/Assets/Models/DamagedHelmet.glb"
