@@ -132,6 +132,7 @@ jobs:
             (cd dist && tar -czf "$archive.tar.gz" "$archive")
             cp "target/$target/release/orbital" "dist/orbital-cli-$version-$target"
           fi
+          rm -rf "$out"
       - name: Upload artifacts (GitHub)
         if: github.server_url == 'https://github.com'
         uses: actions/upload-artifact@v7
@@ -200,6 +201,7 @@ jobs:
 
           (cd dist && tar -czf "$archive.tar.gz" "$archive")
           cp "target/$target/release/orbital" "dist/orbital-cli-$version-$target"
+          rm -rf "$out"
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
