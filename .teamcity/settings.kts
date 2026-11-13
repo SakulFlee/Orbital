@@ -160,7 +160,7 @@ object Build_x86_64 : BuildType({
                   find target/x86_64-unknown-linux-gnu/release -mindepth 1 -maxdepth 1 -type f \
                     -not -name "*.d" -not -name "*.rlib" -not -name ".cargo-lock" -not -name "CACHEDIR.TAG" \
                     -exec mv {} upload/ \;
-                  mv Assets/ upload/
+                  cp -a Examples/all-in-one/Assets upload/
                   cd upload && zip -r ../x86_64-unknown-linux-gnu.zip .
                 '
             """.trimIndent()
@@ -219,7 +219,7 @@ object Build_aarch64 : BuildType({
                   find target/aarch64-unknown-linux-gnu/release -mindepth 1 -maxdepth 1 -type f \
                     -not -name "*.d" -not -name "*.rlib" -not -name ".cargo-lock" -not -name "CACHEDIR.TAG" \
                     -exec mv {} upload/ \;
-                  mv Assets/ upload/
+                  cp -a Examples/all-in-one/Assets upload/
                   cd upload && zip -r ../aarch64-unknown-linux-gnu.zip .
                 '
             """.trimIndent()
