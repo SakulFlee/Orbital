@@ -1540,12 +1540,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc148d4ddd3930c52f9e5ae79b89805c6f07e9ff417e7b083e0348cea60a5aba"
 
 [[package]]
-name = "glob"
-version = "0.3.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4eba85ea1d0a966a983acd07deee566e67395d2d96b6fb39e62b5a833f1eb0b"
-
-[[package]]
 name = "glow"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3039,7 +3033,6 @@ dependencies = [
  "android_logger",
  "cgmath",
  "gilrs",
- "glob",
  "gltf",
  "hashbrown 0.17.1",
  "image",

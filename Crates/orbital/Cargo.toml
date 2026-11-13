@@ -30,8 +30,6 @@ gamepad_input_poll = [
 # Will automatically request a redraw when the last frame was rendered.
 auto_request_redraw = ["orbital_app/auto_request_redraw"]
 
-[build-dependencies]
-glob = { workspace = true }
 
 [dependencies]
 orbital_core = { path = "../orbital_core" }
@@ -51,7 +49,6 @@ rand = { workspace = true }
 serde = { workspace = true }
 ulid = { workspace = true }
 winit = { workspace = true }
-glob = { workspace = true }
 rayon = { workspace = true }
 
 orbital_renderer = { path = "../orbital_renderer" }
