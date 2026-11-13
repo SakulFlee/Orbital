@@ -422,7 +422,10 @@ impl ModuleRuntime {
             overlay_detail: Vec::new(),
             capture_changes: CaptureChanges::default(),
             last_applied_render_scale: None,
-            last_window_gpu_timestamp_generation: None,
+            // Start at generation zero so a capture that never receives a
+            // sample marks its first window as stale instead of assuming the
+            // zeroed GPU columns are real measurements.
+            last_window_gpu_timestamp_generation: Some(0),
             adaptive_render_scale: AdaptiveRenderScale::default(),
             window_size: cgmath::Vector2::new(0, 0),
             surface_size: cgmath::Vector2::new(0, 0),
@@ -1264,6 +1267,17 @@ impl ModuleRuntime {
         self.sync_performance_csv();
 
         let sample = if let Some(mut timings) = self.ecs_world.get_resource_mut::<FrameTimings>() {
+            let (gpu_supported, gpu_generation) = self
+                .renderer
+                .as_ref()
+                .map(|renderer| {
+                    (
+                        renderer.gpu_timestamps_supported(),
+                        renderer.gpu_timestamp_generation(),
+                    )
+                })
+                .unwrap_or((false, 0));
+            timings.update_gpu_timestamp_health(gpu_supported, gpu_generation);
             timings.record_at(&self.frame_timings.durations, elapsed, cdt_ms, history);
             timings.take_window(log_config.console)
         } else {

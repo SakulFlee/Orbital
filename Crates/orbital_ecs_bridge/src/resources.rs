@@ -311,6 +311,54 @@ impl Default for TimingsHistoryConfig {
     }
 }
 
+/// Health of the asynchronous GPU timestamp readback.
+///
+/// The renderer only advances its timestamp generation when a new readback
+/// completes. Track how many consecutive frames have seen the same generation
+/// so the debug UI can distinguish unavailable timestamps from a sample that
+/// has gone stale because the GPU is behind.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct GpuTimestampHealth {
+    supported: bool,
+    last_generation: Option<u64>,
+    stale_frames: u32,
+}
+
+impl GpuTimestampHealth {
+    /// Records the timestamp support and generation for one frame.
+    pub fn update(&mut self, supported: bool, generation: u64) {
+        self.supported = supported;
+
+        if !supported {
+            self.last_generation = None;
+            self.stale_frames = 0;
+            return;
+        }
+
+        if self.last_generation == Some(generation) {
+            self.stale_frames = self.stale_frames.saturating_add(1);
+        } else {
+            self.stale_frames = 0;
+        }
+        self.last_generation = Some(generation);
+    }
+
+    /// Whether the backend supports timestamp queries.
+    pub fn supported(&self) -> bool {
+        self.supported
+    }
+
+    /// Number of consecutive frames without a new timestamp generation.
+    pub fn stale_frames(&self) -> u32 {
+        self.stale_frames
+    }
+
+    /// Whether timestamps are supported but the latest sample is stale.
+    pub fn is_stale(&self) -> bool {
+        self.supported && self.stale_frames > 0
+    }
+}
+
 /// Per-stage frame timings plus a rolling history, for debug overlays.
 ///
 /// The runtime writes this resource at the end of every redraw, right after
@@ -349,6 +397,7 @@ pub struct FrameTimings {
     window_cdt_values: Vec<f64>,
     window_count: u64,
     last_print: std::time::Instant,
+    gpu_timestamp_health: GpuTimestampHealth,
 }
 
 impl FrameTimings {
@@ -381,7 +430,18 @@ impl FrameTimings {
             window_cdt_values: Vec::with_capacity(256),
             window_count: 0,
             last_print: std::time::Instant::now(),
+            gpu_timestamp_health: GpuTimestampHealth::default(),
         }
+    }
+
+    /// Health of the asynchronous GPU timestamp readback.
+    pub fn gpu_timestamp_health(&self) -> GpuTimestampHealth {
+        self.gpu_timestamp_health
+    }
+
+    /// Updates the GPU timestamp health from the renderer's latest generation.
+    pub fn update_gpu_timestamp_health(&mut self, supported: bool, generation: u64) {
+        self.gpu_timestamp_health.update(supported, generation);
     }
 
     /// The per-stage samples, in frame order.
@@ -566,6 +626,7 @@ impl FrameTimings {
             sample.min_ms = 0.0;
             sample.max_ms = 0.0;
         });
+        self.gpu_timestamp_health = GpuTimestampHealth::default();
     }
 
     /// Emits the `info!` timing summary at most once per second, returning the
@@ -978,6 +1039,41 @@ mod tests {
         durations.resize(TIMING_STAGES.len(), 0.0);
         durations[RENDER_TOTAL_STAGE_INDEX] = cpu_total;
         durations
+    }
+
+    #[test]
+    fn frame_timings_starts_with_healthy_gpu_timestamps() {
+        let timings = FrameTimings::new();
+        let health = timings.gpu_timestamp_health();
+
+        assert!(!health.supported());
+        assert!(!health.is_stale());
+        assert_eq!(health.stale_frames(), 0);
+    }
+
+    #[test]
+    fn gpu_timestamp_health_counts_repeated_generations() {
+        let mut health = GpuTimestampHealth::default();
+
+        health.update(true, 0);
+        assert!(health.supported());
+        assert!(!health.is_stale(), "the first sample cannot be stale");
+
+        health.update(true, 0);
+        assert!(health.is_stale());
+        assert_eq!(health.stale_frames(), 1);
+
+        health.update(true, 0);
+        assert_eq!(health.stale_frames(), 2);
+
+        health.update(true, 7);
+        assert!(!health.is_stale(), "a new generation refreshes the sample");
+        assert_eq!(health.stale_frames(), 0);
+
+        health.update(false, 7);
+        assert!(!health.supported());
+        assert!(!health.is_stale());
+        assert_eq!(health.stale_frames(), 0);
     }
 
     #[test]

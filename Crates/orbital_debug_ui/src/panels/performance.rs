@@ -308,8 +308,38 @@ pub fn performance_panel<'a>(ecs: &World) -> Element<'a, DebugMessage, Theme, Ic
             );
 
             // GPU timings only exist where the backend supports timestamp
-            // queries; say so rather than showing a column of zeros.
-            if !gpu_available && timings.frame_count() > 0 {
+            // queries; say so rather than showing a column of zeros. The
+            // health flag also distinguishes a missing backend from a sample
+            // that has stopped advancing because the readback is behind.
+            let gpu_health = timings.gpu_timestamp_health();
+            if gpu_health.supported() {
+                if gpu_health.is_stale() {
+                    sections.push(
+                        row![
+                            text(format!(
+                                "gpu timestamps stale for {} frames",
+                                gpu_health.stale_frames()
+                            ))
+                            .size(11)
+                            .color(Color::from_rgb(0.95, 0.65, 0.25))
+                        ]
+                        .into(),
+                    );
+                } else if gpu_available {
+                    sections.push(
+                        row![
+                            text("gpu timestamps healthy")
+                                .size(11)
+                                .color(Color::from_rgb(0.45, 0.75, 0.45))
+                        ]
+                        .into(),
+                    );
+                } else if timings.frame_count() > 0 {
+                    sections.push(
+                        row![text("gpu timestamps waiting for the first sample").size(11)].into(),
+                    );
+                }
+            } else if timings.frame_count() > 0 {
                 sections
                     .push(row![text("gpu timings unavailable on this backend").size(11)].into());
             }
