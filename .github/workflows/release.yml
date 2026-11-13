@@ -1,0 +1,29 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version or tag used in artifact names
+        required: true
+        default: v1.6.0-dev
+        type: string
+      publish:
+        description: Upload the release
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    uses: ./.github/workflows/release-shared.yml
+    with:
+      version: ${{ inputs.version || github.ref_name }}
+      publish: ${{ inputs.publish || (github.event_name == 'push') }}
+    secrets: inherit

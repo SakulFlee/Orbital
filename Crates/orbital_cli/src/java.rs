@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use inquire::Confirm;
+use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -94,9 +95,10 @@ pub fn ensure_java() -> Result<PathBuf> {
         anyhow::bail!("Java runtime required but not installed.");
     }
 
-    if Confirm::new("Install an Orbital-managed Temurin JDK automatically?")
-        .with_default(true)
-        .prompt()?
+    if !std::io::stdin().is_terminal()
+        || Confirm::new("Install an Orbital-managed Temurin JDK automatically?")
+            .with_default(true)
+            .prompt()?
     {
         let home = download_java(JDK_VERSION)?;
         println!("Java installed to: {}", home.display());
