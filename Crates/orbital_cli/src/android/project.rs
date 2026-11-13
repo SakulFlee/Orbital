@@ -292,8 +292,8 @@ android {
     }
 
     // Bundle the project's Assets/ directory as the APK's asset root so
-    // engine asset paths (e.g. "Shaders/pbr.wgsl") resolve on Android the
-    // same way they do against <cwd>/Assets on desktop.
+    // runtime asset paths resolve on Android the same way they do against
+    // <cwd>/Assets on desktop.
     sourceSets {
         main {
             assets.srcDirs = []

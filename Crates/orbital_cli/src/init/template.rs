@@ -15,10 +15,9 @@ pub fn generate_project(project_dir: &Path, config: &ProjectConfig) -> Result<()
     generate_main_rs(project_dir, config)?;
     generate_gitignore(project_dir)?;
 
-    // Create the Assets/ directory. Assets referenced by engine shaders
-    // (e.g. "Shaders/pbr.wgsl") resolve against this directory on desktop
-    // (<cwd>/Assets) and are bundled into the APK on Android. Engine assets
-    // are synced into this directory by `orbital build`/`orbital run`.
+    // Create the Assets/ directory for project-owned assets. Desktop builds
+    // resolve runtime paths against <cwd>/Assets and Android bundles this
+    // directory into the APK.
     fs::create_dir_all(project_dir.join("Assets"))?;
     fs::write(project_dir.join("Assets").join(".gitkeep"), "")
         .context("Failed to write Assets/.gitkeep")?;
@@ -50,10 +49,6 @@ fn generate_gitignore(project_dir: &Path) -> Result<()> {
 *.log
 Logs/
 
-# Engine-exported models
-/Assets/Models/PBR_Grid.glb
-/Assets/Models/Cubes.glb
-/Assets/Models/TestScene.*
 "#;
 
     fs::write(project_dir.join(".gitignore"), GITIGNORE).context("Failed to write .gitignore")?;
