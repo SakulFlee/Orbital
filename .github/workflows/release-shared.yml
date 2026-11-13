@@ -226,9 +226,9 @@ jobs:
         uses: https://code.forgejo.org/actions/checkout@v7
       - name: Ensure Android build prerequisites
         run: |
-          if [ ! -d /usr/lib/jvm/java-17-openjdk-* ] || ! command -v unzip >/dev/null 2>&1; then
+          if ! command -v javac >/dev/null 2>&1 || ! command -v unzip >/dev/null 2>&1; then
             apt-get update
-            apt-get install -y --no-install-recommends openjdk-17-jdk-headless unzip
+            apt-get install -y --no-install-recommends default-jdk-headless unzip
           fi
       - name: Cache Android SDK and Gradle (GitHub)
         if: github.server_url == 'https://github.com'
@@ -260,8 +260,14 @@ jobs:
           version="${version#v}"
           mkdir -p dist
 
-          export JAVA_HOME="$(ls -d /usr/lib/jvm/java-17-openjdk-* | head -n1)"
+          export JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v java)")")")"
           export PATH="$JAVA_HOME/bin:$PATH"
+
+          java_major="$("$JAVA_HOME/bin/java" -version 2>&1 | sed -n 's/.*"\([0-9][0-9]*\).*/\1/p' | head -n1)"
+          if [ "${java_major:-0}" -lt 17 ]; then
+            echo "JDK 17 or newer is required; found ${java_major:-unknown}" >&2
+            exit 1
+          fi
 
           cli="$PWD/target/release/orbital"
           work="$(mktemp -d)"
