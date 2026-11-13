@@ -351,6 +351,8 @@ elapsed_s,fps,cdt_ms,<timing stage means>,<cache counters>,<surface counters>,vi
   non-zero counter means that row covers a transition.
   `gpu_timestamps_stale` is set when GPU timestamp results did not advance
   between two capture rows, so the GPU stage columns should not be compared.
+  The Performance panel mirrors this as a live `gpu timestamps stale for N
+  frames` warning so a stalled readback is visible without opening the CSV.
   The volumetric fields are zero when volumetrics are disabled. The resolved
   grid already includes the adaptive depth-slice rule, so it is the grid the
   renderer actually dispatched; `volumetric_integration_steps` is the depth
