@@ -33,9 +33,6 @@ const FULL_PREFIXES = [
   '.config/',
   '.forgejo/',
   '.github/',
-  'Assets/',
-  'wit/',
-  'CTestMod/',
   'target/',
 ];
 

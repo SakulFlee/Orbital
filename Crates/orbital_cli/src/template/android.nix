@@ -65,7 +65,6 @@ let
 
     ORBITAL_ANDROID_SHELL = shellName;
     ORBITAL_SKIP_CLI_INSTALL = "1";
-    SKIP_GLTF_EXPORT = "1";
     ANDROID_HOME = sdkRoot;
     ANDROID_SDK_ROOT = sdkRoot;
     ANDROID_NDK_HOME = "${sdkRoot}/ndk/26.2.11394342";

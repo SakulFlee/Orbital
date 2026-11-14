@@ -33,14 +33,12 @@ Publishing code you did not inspect, test, and take responsibility for is not.
 From the repository root:
 
 ```bash
-export SKIP_GLTF_EXPORT=1
 cargo fmt --all -- --check
 cargo clippy -- -D warnings
 cargo test --no-fail-fast
 ```
 
 - The forked iced crates are fetched automatically by Cargo from the `orbital-iced` git dependency; no submodule initialization is required.
-- `SKIP_GLTF_EXPORT` is checked by **presence**, not value. It skips Blender-based asset export. Examples that need generated models (`pbr_grid`, `multi_module`) require the export to run once, or the generated `.glb` files to already exist.
 - Forgejo CI runs `cargo fmt --all -- --check` and `cargo clippy -- -D warnings`. GitHub and TeamCity are looser. Use the strict Forgejo commands locally.
 - Run the affected example(s) from the table in section 6.
 - For changes to `Crates/orbital_cli` or its templates, test the CLI end to end: build it, scaffold a throwaway project, and exercise the affected `orbital build`/`orbital run` path.
@@ -89,7 +87,7 @@ Workspace members are `Examples/*` and `Crates/*` (see `Cargo.toml`).
 
 | Path | Purpose |
 |------|---------|
-| `Crates/orbital` | Facade crate. Re-exports engine modules (`twod`, `app`, `debug_render`, `ecs`, `ecs_bridge`, `file_manager`, `iced`, `importer`, `procgeo`, `renderer`, `resources`, `shader_preprocessor`, `text`, `touch_ui`, `ui`) plus `macros::main`, `cgmath`, `wgpu`, and `winit`. Owns the Blender `build.rs`. |
+| `Crates/orbital` | Facade crate. Re-exports engine modules (`twod`, `app`, `debug_render`, `ecs`, `ecs_bridge`, `file_manager`, `iced`, `importer`, `procgeo`, `renderer`, `resources`, `shader_preprocessor`, `text`, `touch_ui`, `ui`) plus `macros::main`, `cgmath`, `wgpu`, and `winit`. |
 | `Crates/orbital_app` | `App` builder, `Module` trait, `ModuleRuntime`, core/game schedules, realization systems, render layers and overlays. |
 | `Crates/ecs` (`orbital_ecs`) | ECS: world, entities, components, queries, systems, schedules, events. |
 | `Crates/orbital_ecs_bridge` | Engine-specific ECS components/resources: camera, model, light, time, input snapshots, GPU resources, importer, iced events. |
@@ -116,9 +114,6 @@ Workspace members are `Examples/*` and `Crates/*` (see `Cargo.toml`).
 | `Crates/orbital_cli` | `orbital-cli` package with the `orbital` binary. Project scaffolding (`init`, `init-android`), templates, desktop/Android/iOS build and run, and `Orbital.toml` handling. |
 | `orbital-iced` (external) | Forked iced sub-crates (`iced`, `iced_core`, `iced_widget`, `iced_wgpu`, `iced_winit`, …), consumed as Cargo `git` dependencies from `SakulFlee/orbital-iced`. Not the same as `orbital_iced`. |
 | `Examples/` | Official templates as runnable workspace example crates. |
-| `Assets/` | Blender sources, exported glTF, HDR environments, RON scenes, loose shaders. |
-| `CTestMod/` | C and committed WASM test, outside the Cargo workspace. |
-| `wit/` | WebAssembly interface types. |
 | `Images/` | README screenshots. |
 
 ---
@@ -163,7 +158,7 @@ Mesh, material, and descriptor caches are keyed by descriptor and use `orbital_c
 - Main pass order: shadow → skybox → models → transparent → volumetrics → tonemap → AA. Models use CPU-culled compacted instance buffers when available.
 - Volumetrics are opt-in through a `VolumetricSettings` ECS resource. When enabled, a compute pass injects height fog, diffuse environment/sky radiance, and shadowed light scattering into a froxel grid, another pass pre-integrates each froxel column into cumulative in-scattering and transmittance, and a fullscreen pass composites the prefix once per pixel after forward transparency and before tonemapping. Froxel slices are distributed linearly in view-space distance rather than NDC depth. A separate compute pass reprojects and blends previous-frame volumetric history to reduce view-aligned froxel shimmer.
 - Anti-aliasing is selected with `AppSettings::anti_aliasing`: `Off`, `Fxaa`, or LUT-based `Smaa` (SMAA 1x). SMAA quality is selected with `AppSettings::smaa_quality` (`Low`/`Medium`/`High`/`Ultra`); it runs on the LDR post-chain output, and 2D, UI, and text render afterward and stay sharp. At runtime, `RenderSettings` is the live AA/quality resource; `ModuleRuntime` applies it each redraw.
-- 2D, text, and UI have separate renderer paths. Most WGSL is embedded in crates with `include_str!`; only `Assets/Shaders/shadow_depth.wgsl` is a loose shader asset.
+- 2D, text, and UI have separate renderer paths. Most WGSL is embedded in crates with `include_str!`; the shadow depth shader lives in `Crates/orbital_shadow/src/shadow_depth.wgsl`.
 
 ### Import pipeline
 
@@ -185,42 +180,30 @@ Mesh, material, and descriptor caches are keyed by descriptor and use `orbital_c
 
 ### Assets
 
+Every example owns the assets it needs; there is no repository-wide `Assets/` tree.
+
 | Path | Contents |
 |------|----------|
-| `Assets/ModelFiles/*.blend` | Blender sources. |
-| `Assets/Models/` | Exported glTF. Only `DamagedHelmet.glb` and `InstancingTest.glb` are committed; other exports are generated and gitignored. |
-| `Assets/ModelScripts/` | `blender_gltf_export.py` and `pbr_grid.py`, used by `build.rs`. |
-| `Assets/WorldEnvironments/*.hdr` | Committed HDR environment maps. |
-| `Assets/Scenes/procgeo_demo.ron` | Procedural scene description. |
-| `Assets/Shaders/shadow_depth.wgsl` | Loose shader asset. |
-| `Examples/all-in-one/Assets/` | Minimal asset set used when running the all-in-one example from its directory. |
+| `Examples/all-in-one/Assets/` | Scene and glTF model used by the all-in-one example. |
 
-### `build.rs` and Blender
-
-`Crates/orbital/build.rs` runs Blender headlessly when `SKIP_GLTF_EXPORT` is **not set**:
-
-1. Generates `Assets/Models/PBR_Grid.glb` from `Assets/ModelScripts/pbr_grid.py`.
-2. Exports every `Assets/ModelFiles/*.blend` to `Assets/Models/` via `blender_gltf_export.py`.
-
-Failures panic. CI sets `SKIP_GLTF_EXPORT=true` so builds do not depend on Blender.
-Set the variable locally to skip export; unset it when you need to regenerate models.
+Asset export is no longer part of the build. `cargo build` does not require Blender or any generated model files.
 
 ### Examples
 
 Run from the example directory or from the repository root:
 
 ```bash
-cd Examples/minimal && SKIP_GLTF_EXPORT=1 cargo run
-cd Examples/all-in-one && SKIP_GLTF_EXPORT=1 cargo run
-cd Examples/2d && SKIP_GLTF_EXPORT=1 cargo run
+cd Examples/minimal && cargo run
+cd Examples/all-in-one && cargo run
+cd Examples/2d && cargo run
 
-SKIP_GLTF_EXPORT=1 cargo run -p template_minimal
-SKIP_GLTF_EXPORT=1 cargo run -p template_all_in_one
-SKIP_GLTF_EXPORT=1 cargo run -p template_2d
-SKIP_GLTF_EXPORT=1 cargo run -p template_volumetrics
-SKIP_GLTF_EXPORT=1 cargo run -p template_many_lights
-SKIP_GLTF_EXPORT=1 cargo run -p template_orthographic
-SKIP_GLTF_EXPORT=1 cargo run -p template_billboards
+cargo run -p template_minimal
+cargo run -p template_all_in_one
+cargo run -p template_2d
+cargo run -p template_volumetrics
+cargo run -p template_many_lights
+cargo run -p template_orthographic
+cargo run -p template_billboards
 ```
 
 | Directory | Package | Notes |
@@ -270,7 +253,7 @@ orbital run ios --device "<device>"
 
 ### Nix
 
-`flake.nix` provides the primary dev environment: the Rust toolchain pinned by `rust-toolchain.toml` (1.99.1 with `cargo`, `clippy`, `rust-src`, `rustc`, `rustfmt`), `rust-analyzer`, Linux graphics/input libraries, cross-compilation shells, `cargo-flamegraph`, `cargo-criterion`, `pkg-config`, and Blender.
+`flake.nix` provides the primary dev environment: the Rust toolchain pinned by `rust-toolchain.toml` (1.99.1 with `cargo`, `clippy`, `rust-src`, `rustc`, `rustfmt`), `rust-analyzer`, Linux graphics/input libraries, cross-compilation shells, `cargo-flamegraph`, `cargo-criterion`, and `pkg-config`.
 Enter with `nix-shell`, `nix develop`, or `direnv allow` (`.envrc` uses `use flake`).
 When changing the channel in `rust-toolchain.toml`, update the manifest `sha256` passed to `fromToolchainFile` in `flake.nix`.
 
@@ -317,8 +300,8 @@ Treat the current WASM status as unverified: `Crates/ecs/src/system/runner.rs` u
 - **`orbital_resources` is a shim.** It only re-exports types from the fine-grained resource crates.
 - **There is no `orbital_shaders` crate.** Use the `orbital_shader_*` family.
 - **`orbital_ecs` lives in `Crates/ecs`**, not `Crates/orbital_ecs`.
-- **`SKIP_GLTF_EXPORT` checks presence.** `0`, `false`, and an empty value still skip export.
-- **Generated assets are ignored.** Do not commit `PBR_Grid.glb`, `Cubes.glb`, or `TestScene.*`.
+- **Examples own their assets.** There is no repository-wide `Assets/` tree; the all-in-one example keeps its scene and model under `Examples/all-in-one/Assets/`.
+- **The shadow depth shader is embedded.** It lives in `Crates/orbital_shadow/src/shadow_depth.wgsl`.
 - **`App` state hooks.** `CombinedModule` forwards `setup` and `register_overlays`, but not per-module `save_state`/`restore_state`/`clear_state`.
 - **CI coverage is uneven.** Linux is the primary target; Windows/macOS/Android/iOS paths exist but are not equally covered.
 
@@ -333,7 +316,6 @@ Treat the current WASM status as unverified: `Crates/ecs/src/system/runner.rs` u
 | `flake.nix` / `shell.nix` | Nix devshells and toolchain. |
 | `.cargo/config.toml` | Cross-compilation linkers. |
 | `Crates/orbital/src/lib.rs` | Facade re-exports. |
-| `Crates/orbital/build.rs` | Blender → glTF export (`SKIP_GLTF_EXPORT`). |
 | `Crates/orbital_cli/src/main.rs` | CLI commands and desktop/Android/iOS dispatch. |
 | `Crates/orbital_cli/src/init/mod.rs` | Project scaffolding flow. |
 | `Crates/orbital_cli/src/init/template.rs` | Generated project files (Cargo, devshell, env). |
@@ -359,4 +341,4 @@ Treat the current WASM status as unverified: `Crates/ecs/src/system/runner.rs` u
 | `.github/workflows/release-shared.yml` | Shared release build, packaging, and publish workflow. |
 | `.github/workflows/main.yml` | GitHub lint/test. |
 | `.teamcity/settings.kts` | TeamCity configuration. |
-| `Assets/Scenes/procgeo_demo.ron` | Procedural scene example. |
+| `Examples/all-in-one/Assets/Scenes/procgeo_demo.ron` | Procedural scene used by the all-in-one example. |

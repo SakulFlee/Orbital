@@ -14,7 +14,6 @@ on:
         type: boolean
 
 env:
-  SKIP_GLTF_EXPORT: "true"
   CARGO_TERM_COLOR: always
 
 jobs:
@@ -113,8 +112,8 @@ jobs:
 
           mkdir -p "$out/template_all_in_one/Assets/Scenes"
           mkdir -p "$out/template_all_in_one/Assets/Models"
-          cp Assets/Scenes/procgeo_demo.ron "$out/template_all_in_one/Assets/Scenes/"
-          cp Assets/Models/DamagedHelmet.glb "$out/template_all_in_one/Assets/Models/"
+          cp Examples/all-in-one/Assets/Scenes/procgeo_demo.ron "$out/template_all_in_one/Assets/Scenes/"
+          cp Examples/all-in-one/Assets/Models/DamagedHelmet.glb "$out/template_all_in_one/Assets/Models/"
           {
             printf 'Orbital examples %s (%s).\n\n' "$version" "$target"
             printf 'Each example lives in its own directory. Run it from that directory:\n'
@@ -187,8 +186,8 @@ jobs:
 
           mkdir -p "$out/template_all_in_one/Assets/Scenes"
           mkdir -p "$out/template_all_in_one/Assets/Models"
-          cp Assets/Scenes/procgeo_demo.ron "$out/template_all_in_one/Assets/Scenes/"
-          cp Assets/Models/DamagedHelmet.glb "$out/template_all_in_one/Assets/Models/"
+          cp Examples/all-in-one/Assets/Scenes/procgeo_demo.ron "$out/template_all_in_one/Assets/Scenes/"
+          cp Examples/all-in-one/Assets/Models/DamagedHelmet.glb "$out/template_all_in_one/Assets/Models/"
           {
             printf 'Orbital examples %s (%s).\n\n' "$version" "$target"
             printf 'Each example lives in its own directory. Run it from that directory:\n'

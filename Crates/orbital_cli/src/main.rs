@@ -1,5 +1,4 @@
 mod android;
-mod assets;
 mod config;
 mod desktop;
 mod init;

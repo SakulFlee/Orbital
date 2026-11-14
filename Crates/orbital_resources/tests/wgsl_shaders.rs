@@ -46,7 +46,7 @@ fn validate_concatenated(shader_paths: &[&str]) {
 
 #[test]
 fn shadow_depth_shader_is_valid_wgsl() {
-    validate_single("Assets/Shaders/shadow_depth.wgsl");
+    validate_single("Crates/orbital_shadow/src/shadow_depth.wgsl");
 }
 
 #[test]

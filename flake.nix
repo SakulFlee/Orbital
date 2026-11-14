@@ -94,11 +94,9 @@
           pkgs.cargo-flamegraph
           pkgs.cargo-criterion
           pkgs.pkg-config
-          pkgs.blender
         ];
 
-        # Android builds use pre-generated assets (SKIP_GLTF_EXPORT), so the
-        # Android shells do not need Blender or the profiling tools.
+        # Android shells do not need the profiling tools.
         androidTools = with pkgs; [
           pkgs.gcc
           pkgs.binutils
@@ -180,7 +178,6 @@
 
           ORBITAL_ANDROID_SHELL = shellName;
           ORBITAL_SKIP_CLI_INSTALL = "1";
-          SKIP_GLTF_EXPORT = "1";
           ANDROID_HOME = sdkRoot;
           ANDROID_SDK_ROOT = sdkRoot;
           ANDROID_NDK_HOME = "${sdkRoot}/ndk/26.2.11394342";

@@ -16,11 +16,9 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev mesa-vulkan-drivers
       - name: 📎 Clippy
         env:
-          SKIP_GLTF_EXPORT: true
         run: cargo clippy -- -D warnings
       - name: 🧹 RustFmt
         env:
-          SKIP_GLTF_EXPORT: true
         run: cargo fmt --all -- --check
   test:
     runs-on: ubuntu-latest
@@ -32,5 +30,4 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y pkg-config libudev-dev libwayland-dev libxkbcommon-dev libvulkan-dev mesa-vulkan-drivers
       - name: 🧪 Test
         env:
-          SKIP_GLTF_EXPORT: true
         run: cargo test --no-fail-fast
